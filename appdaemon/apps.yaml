@@ -1,0 +1,130 @@
+nspanel-haui:
+  module: nspanel_haui
+  class: NSPanelHAUI
+  config:
+
+    # device config
+    device:
+      device_name: nspanel_haui
+      locale: en_US
+      button_left_entity: null
+      button_right_entity: null
+      log_commands: false
+
+    # connection controller
+    connection:
+      heartbeat_interval: null
+      overdue_factor: 2.0
+
+    # navigation controller
+    navigation:
+      page_timeout: 2.0
+
+    # update controller
+    update:
+      update_interval: 86400
+      check_on_connect: false
+      on_connect_delay: 30
+
+    # gesture controller
+    gesture:
+      - sequence:
+          - swipe_right
+          - swipe_right
+          - swipe_up
+          - swipe_down
+        timeframe: 10
+        open: panel_key
+
+    # all system panels
+    sys_panels:
+      - type: blank
+        key: sys_blank
+        nav_panel: False
+      - type: system
+        key: sys_system
+        nav_panel: False
+      - type: system_settings
+        key: sys_settings
+        nav_panel: False
+      - type: system_about
+        key: sys_about
+        nav_panel: False
+      - type: popup_unlock
+        key: popup_unlock
+        nav_panel: False
+      - type: popup_notify
+        key: popup_notify
+        nav_panel: False
+      - type: popup_select
+        key: popup_select
+        nav_panel: False
+      - type: popup_light
+        key: popup_light
+        nav_panel: False
+      - type: popup_timer
+        key: popup_timer
+        nav_panel: False
+
+    # panels
+    panels:
+      # weather panel
+      - type: weather
+        nav_panel: false  # so it will not show up in navigation
+        sleep_panel: true
+        entity: weather.home
+
+      # grid panel
+      - type: grid
+        home_panel: true
+        title: Test Panel
+        entities:
+          - entity: light.example_item
+          - entity: switch.example_item
+          - entity: null
+          - entity: button.example_item
+          - entity: cover.example_item
+
+      # grid panel with sub panels
+      - type: grid
+        title: Subpanel
+        entity: navigate:panel_key
+      - type: grid
+        title: Subpanel Open
+        nav_panel: False
+        key: panel_key
+        entities:
+          - entity: light.example_item
+          - entity: switch.example_item
+          - entity: null
+          - entity: button.example_item
+          - entity: cover.example_item
+
+      # locked grid panel
+      - type: grid
+        title: Unlock Panel
+        unlock_code: "1234"
+        entities:
+          - entity: light.example_item
+          - entity: switch.example_item
+          - entity: null
+          - entity: button.example_item
+          - entity: cover.example_item
+
+      # big qr code
+      - type: qr
+        title: Big QR Code
+        qr_code: WIFI:S:wifi_ssid;T:WPA;P:wifi_pw;;
+
+      # small qr code
+      - type: qr
+        title: Small QR Code
+        qr_code: WIFI:S:wifi_ssid;T:WPA;P:wifi_pw;;
+        entities:
+          - entity: "text:wifi_ssid"
+            name: Wifi SSID
+            icon: mdi:wifi
+          - entity: "text:wifi_pw"
+            name: Wifi Key
+            icon: mdi:key
+

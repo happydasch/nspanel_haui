@@ -344,8 +344,7 @@ bool NSPanelHAUI::recv_int_value_(int &value, int timeout, bool check_first_byte
   this->recv_active_ = true;
   bool ret = false;
   std::string temp;
-  if (timeout) delay(RECV_DELAY_MS);
-  while (this->recv_response_(temp, timeout, true)) {
+  while (this->recv_response_(temp, timeout)) {
     if (this->available() && check_first_byte && temp[0] != RES_INT_VALUE) {
       this->process_command_(temp);
     } else if (temp[0] == RES_INT_VALUE || !check_first_byte) {
@@ -368,8 +367,7 @@ bool NSPanelHAUI::recv_txt_value_(std::string &value, int timeout, bool check_fi
   this->recv_active_ = true;
   bool ret = false;
   std::string temp;
-  delay(RECV_DELAY_MS);
-  while (this->recv_response_(temp, timeout, false)) {
+  while (this->recv_response_(temp, timeout)) {
     if (this->available() && check_first_byte && temp[0] != RES_TXT_VALUE) {
       this->process_command_(temp);
     } else if (temp[0] == RES_TXT_VALUE || !check_first_byte) {
@@ -397,8 +395,9 @@ uint16_t NSPanelHAUI::recv_response_(std::string &response, int timeout, bool re
       if (!recv) recv = true;
       ESP_LOGV(TAG, "recv_response_ %02X", c);
       response += (char)c;
-      if (response.find(COMMAND_DELIMITER) != std::string::npos)
+      if (response.find(COMMAND_DELIMITER) != std::string::npos) {
         ff_flag = true;
+      }
       if (recv_flag && c == 0x05) {
         exit_flag = true;
       }

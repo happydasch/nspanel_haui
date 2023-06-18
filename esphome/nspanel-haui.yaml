@@ -577,7 +577,7 @@ script:
           ESP_LOGD("haui", "Script: publish_device_info");
           auto device_version = to_string(ESPHOME_VERSION);
           auto yaml_version = "$yaml_version";
-          auto tft_version = id(haui_disp).get_component_txt("sysSettings.tftVersion", "0.0.0");
+          auto tft_version = id(haui_disp).get_component_txt("settings.tftVersion", "0.0.0");
           auto required_tft_version = "$required_tft_version";
           const json::json_build_t payload = [
               device_version, yaml_version, tft_version,

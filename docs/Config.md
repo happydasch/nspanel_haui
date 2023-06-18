@@ -116,7 +116,7 @@ mqtt:
 update:
   interval: 86400
   check_on_connect: false
-  on_connect_delay: 30
+  on_connect_delay: 60
 ```
 
 - `interval` int

@@ -20,6 +20,8 @@ btn_left: Button left text
 icon: icon name or char
 btn_left_color: color definition
 btn_right_color: color definition
+btn_left_back_color: color definition
+btn_right_back_color: color definition
 icon_color: color definition
 button_callback_fnc: function for button notification
 close_callback_fnc: function for close notification

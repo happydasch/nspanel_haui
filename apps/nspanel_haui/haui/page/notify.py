@@ -14,9 +14,29 @@ class PopupNotifyPage(HAUIPage):
     # page
 
     def start_page(self):
-        # set light function button callbacks
+        device_name = self.app.device.get_device_name()
+        # auto components
+        self.auto_dimming = self.app.get_entity(f'switch.{device_name}_use_auto_dimming')
+        self.auto_page = self.app.get_entity(f'switch.{device_name}_use_auto_page')
+        self.auto_sleeping = self.app.get_entity(f'switch.{device_name}_use_auto_sleeping')
+        self._use_auto_dimming = self.auto_dimming.get_state()
+        self._use_auto_page = self.auto_page.get_state()
+        self._use_auto_sleeping = self.auto_sleeping.get_state()
+        self.auto_dimming.turn_off()
+        self.auto_page.turn_off()
+        self.auto_sleeping.turn_off()
+        # set button callbacks
         for btn in [self.BTN_LEFT, self.BTN_RIGHT]:
             self.add_component_callback(btn, self.callback_button)
+
+    def stop_page(self):
+        # restore previous auto values
+        if self._use_auto_dimming:
+            self.auto_dimming.turn_on()
+        if self._use_auto_page:
+            self.auto_page.turn_on()
+        if self._use_auto_sleeping:
+            self.auto_sleeping.turn_on()
 
     # panel
 
@@ -56,21 +76,19 @@ class PopupNotifyPage(HAUIPage):
             self.hide_component(self.TXT_ICON)
             self.show_component(self.TXT_TEXT_FULL)
         if self._btn_left:
-            btn_left_color = panel.get('btn_left_color')
-            if btn_left_color:
-                self.set_component_text_color(self.BTN_LEFT, btn_left_color)
-            else:
-                self.set_component_text_color(self.BTN_LEFT, 19773)
+            btn_left_color = panel.get('btn_left_color', 65535)
+            btn_left_back_color = panel.get('btn_left_back_color', 6339)
+            self.set_component_text_color(self.BTN_LEFT, btn_left_color)
+            self.set_component_back_color(self.BTN_LEFT, btn_left_back_color)
             self.set_component_text(self.BTN_LEFT, self._btn_left)
             self.show_component(self.BTN_LEFT)
         else:
             self.hide_component(self.BTN_LEFT)
         if self._btn_right:
-            btn_right_color = panel.get('btn_right_color')
-            if btn_right_color:
-                self.set_component_text_color(self.BTN_RIGHT, btn_right_color)
-            else:
-                self.set_component_text_color(self.BTN_RIGHT, 19773)
+            btn_right_color = panel.get('btn_right_color', 65535)
+            btn_right_back_color = panel.get('btn_right_back_color', 6339)
+            self.set_component_text_color(self.BTN_RIGHT, btn_right_color)
+            self.set_component_back_color(self.BTN_RIGHT, btn_right_back_color)
             self.set_component_text(self.BTN_RIGHT, self._btn_right)
             self.show_component(self.BTN_RIGHT)
         else:

@@ -1,0 +1,444 @@
+#
+# 2. Connection test config
+#
+# This is only used for testing connections and heartbeat
+#
+# !!! FOR TESTING PURPOSES !!!
+#
+# What it does:
+#
+# - establish a connection wit AP
+# - keep connected with AP
+# - reconnect/disconnect on AP request
+#
+
+
+# Configuration Variables
+substitutions:
+  # Version of this yaml config file
+  yaml_version: '0.1.0'
+  # Name of the device
+  device_name: nspanel-haui
+  # Friendly name of the device
+  friendly_name: 'NSPanel HAUI'
+  # Heartbeat interval in seconds
+  heartbeat_interval: '5'
+  # Accounts and URLs
+  ota_password: !secret ota_password
+  encryption_key: !secret encryption_key
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  # MQTT settings
+  mqtt_ip: !secret mqtt_ip
+  mqtt_username: !secret mqtt_username
+  mqtt_password: !secret mqtt_password
+  web_username: !secret web_username
+  web_password: !secret web_password
+  topic_prefix: nspanel_haui/nspanel_haui
+  topic_cmd: $topic_prefix/cmd  # used for sending events
+  topic_recv: $topic_prefix/recv  # used to recieve events
+
+
+# ESP Configuration
+esp32:
+  board: esp32dev
+
+
+# ESPHome Configuration
+esphome:
+  name: $device_name
+  friendly_name: $friendly_name
+
+
+# Logger Configuration
+logger:
+  level: DEBUG
+
+
+# OTA Configuration
+ota:
+  password: $ota_password
+  safe_mode: true
+  reboot_timeout: 3min
+  num_attempts: 3
+
+
+# WIFI Configuration
+wifi:
+  # use_address is useful when there are issues with renaming of the device name
+  #use_address: nspanel.local
+  ssid: $wifi_ssid
+  password: $wifi_password
+  power_save_mode: none
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $device_name
+    password: $wifi_password
+
+
+# Captive Portal
+captive_portal:
+
+
+# Web Server
+web_server:
+  port: 80
+  auth:
+    username: $web_username
+    password: $web_password
+
+
+# MQTT Client
+mqtt:
+  id: mqtt_client
+  broker: $mqtt_ip
+  username: $mqtt_username
+  password: $mqtt_password
+  topic_prefix: $topic_prefix
+  on_json_message:
+    - topic: $topic_cmd
+      qos: 0
+      then:
+        - lambda: |-
+            #include <cstring>
+
+            auto name = x["name"].as<std::string>();
+            auto value = x["value"].as<std::string>();
+
+            // connection
+            if (name == "ad_heartbeat") {
+              id(ad_heartbeat) = millis() / 1000;
+              ESP_LOGD("haui", "Heartbeat from AppDaemon %d", id(ad_heartbeat));
+            } else if (name == "ad_connection_response") {
+              ESP_LOGD("haui", "Connection Response Request recieved");
+              id(publish_connection_response).execute();
+            } else if (name == "ad_connection_initialized") {
+              ESP_LOGD("haui", "Device connected to AppDaemon");
+              id(set_ad_connected).execute(true);
+            } else if (name == "ad_connection_closed") {
+              ESP_LOGD("haui", "Connection closed by AppDaemon");
+              id(set_ad_connected).execute(false);
+            }
+
+            // requests
+            if (name == "req_device_info") {
+              ESP_LOGD("haui", "Device Info Request");
+              id(publish_device_info).execute();
+            } else if (name == "req_device_state") {
+              ESP_LOGD("haui", "Device State Request");
+              id(publish_device_state).execute();
+            } else if (name == "req_reconnect") {
+              ESP_LOGD("haui", "Reconnect Request");
+              id(set_ad_connected).execute(false);
+            }
+
+
+# External Components
+external_components:
+  - source: ./components
+    # for nextion use a custom component that provides
+    # the serial data in a event
+    components: [nspanel_haui]
+
+
+# UART for Display
+uart:
+  tx_pin: 16
+  rx_pin: 17
+  baud_rate: 115200
+  id: haui_uart
+
+
+# Display
+display:
+
+  - platform: nspanel_haui
+    id: haui_disp
+    uart_id: haui_uart
+    # set the display manually as initialized
+    on_setup:
+      then:
+        # set as initialized
+        - lambda: |-
+            ESP_LOGD("haui", "NSPanel HAUI Init");
+            id(haui_init) = true;
+
+
+# API Configuration
+api:
+
+  # API Password for HA
+  encryption:
+    key: $encryption_key
+
+
+# Globals Configuration
+globals:
+
+  # Display initialization state
+  - id: haui_init
+    type: bool
+    restore_value: false
+
+  # Display state
+  - id: haui_display_state
+    type: int
+    restore_value: false
+
+  # Availability of appdaemon server
+  - id: ad_availability
+    type: bool
+    restore_value: false
+
+  # Last appdaemon heartbeat timestamp
+  - id: ad_heartbeat
+    type: int
+    restore_value: false
+
+  # Connection state of the device with the appdaemon app
+  - id: ad_connection
+    type: bool
+    restore_value: false
+
+
+# Interval Configuration
+interval:
+
+  # Check connection timer
+  - interval: 100ms
+    then:
+      - lambda: |-
+          // run check scripts
+          id(check_ad_connection).execute();
+          id(check_connection).execute();
+
+  # Send heartbeat while connected
+  - interval: ${heartbeat_interval}s
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return id(ad_connection);
+          then:
+            - lambda: |-
+                ESP_LOGD("haui", "Sending heartbeat");
+                id(publish_event).execute("heartbeat", "alive");
+
+
+# Script Configuration
+script:
+
+  # Script to publish an event
+  - id: publish_event
+    parameters:
+      name: string
+      value: string
+    then:
+      - lambda: |-
+          const json::json_build_t payload = [name, value](JsonObject root) {
+            root["name"] = name;
+            root["value"] = value;
+          };
+          std::string payload_str = build_json(payload);
+          id(mqtt_client).publish("$topic_recv", payload_str, 0, false);
+
+  # Script to publish a connection response
+  - id: publish_connection_request
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_connection_request");
+          auto device_name = App.get_name();
+          auto device_friendly_name = App.get_friendly_name();
+          const json::json_build_t payload = [
+              device_name, device_friendly_name
+          ](JsonObject root) {
+            root["device_name"] = device_name;
+            root["device_friendly_name"] = device_friendly_name;
+          };
+          auto payload_str = build_json(payload);
+          id(publish_event).execute("req_connection", payload_str);
+
+  # Script to publish a connection response
+  - id: publish_connection_response
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_connection_response");
+          auto device_name = App.get_name();
+          auto device_friendly_name = App.get_friendly_name();
+          auto heartbeat_interval_str = "$heartbeat_interval";
+          auto yaml_version = "$yaml_version";
+          const json::json_build_t payload = [
+              device_name, device_friendly_name,
+              heartbeat_interval_str, yaml_version
+          ](JsonObject root) {
+            root["device_name"] = device_name;
+            root["device_friendly_name"] = device_friendly_name;
+            root["heartbeat_interval"] = heartbeat_interval_str;
+            root["yaml_version"] = yaml_version;
+          };
+          auto payload_str = build_json(payload);
+          id(publish_event).execute("res_connection", payload_str);
+
+  # Script to publish device details
+  - id: publish_device_info
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_device_info");
+          auto device_name = App.get_name();
+          auto device_friendly_name = App.get_friendly_name();
+          auto device_version = to_string(ESPHOME_VERSION);
+          auto yaml_version = "$yaml_version";
+          const json::json_build_t payload = [
+              device_name, device_friendly_name, device_version, yaml_version
+          ](JsonObject root) {
+            root["device_name"] = device_name;
+            root["device_friendly_name"] = device_friendly_name;
+            root["device_version"] = device_version;
+            root["yaml_version"] = yaml_version;
+          };
+          auto payload_str = build_json(payload);
+          id(publish_event).execute("res_device_info", payload_str);
+
+  # Script to publish device state
+  - id: publish_device_state
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_device_state");
+          std::string payload_str = "{}";
+          id(publish_event).execute("res_device_state", payload_str);
+
+  # Script to send a command
+  - id: send_command
+    parameters:
+      cmd: string
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: send_command '%s'", cmd.c_str());
+          id(haui_disp).send_command(cmd.c_str());
+
+  # Script to set the ad connection state
+  - id: set_ad_connected
+    parameters:
+      connected: int
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: set_ad_connected: %i", connected);
+          bool ad_connection_state = bool(connected);
+          auto haui_status_str = ad_connection_state ? "online" : "offline";
+          id(ad_connection) = ad_connection_state;
+          id(ad_heartbeat) = 0;
+          if (id(haui_status).state != haui_status_str) {
+            id(haui_status).publish_state(haui_status_str);
+          }
+
+  # Script to check the ad connection
+  - id: check_ad_connection
+    then:
+      - lambda: |-
+          ESP_LOGVV("haui", "Script: check_ad_connection");
+          bool ad_available = id(ad_availability);
+          bool ad_connected = id(ad_connection);
+          uint32_t time_now = millis() / 1000;
+          uint32_t time_max = id(ad_heartbeat);
+          int overdue_factor = 2;
+          time_max = time_max > 0 ? time_max : time_now;
+          time_max += $heartbeat_interval * overdue_factor;
+          // check if ad connection state changed
+          if (ad_connected) {
+            if (time_now > time_max) {
+              // check for a disconnection while connected
+              ESP_LOGD(
+                "haui", "Connection with AppDaemon timed out %i %i %i",
+                time_now, time_max, $heartbeat_interval * overdue_factor);
+              id(set_ad_connected).execute(false);
+            } else if (!ad_available) {
+              // check for appdaemon app being not available
+              ESP_LOGD("haui", "Connection with AppDaemon but AppDaemon not available");
+              id(set_ad_connected).execute(false);
+            }
+          }
+
+  # Script to check the connection
+  - id: check_connection
+    then:
+      - lambda: |-
+          ESP_LOGVV("haui", "Script: check_connection");
+          static bool connecting = false;
+          static uint32_t connecting_time = 0;
+          uint32_t time_now = millis() / 1000;
+          int timeout_seconds = 10;
+
+          static bool prev_connected = false;
+          bool api_connected = global_api_server->is_connected();
+          bool haui_initialized = id(haui_init);
+          bool ad_available = id(ad_availability);
+          bool ad_connected = id(ad_connection);
+
+          // request connection if not connected
+          if (connecting and connecting_time + timeout_seconds < time_now) {
+            connecting = false;
+            connecting_time = 0;
+          }
+          if (!ad_connected and haui_initialized and ad_available) {
+            if (!connecting) {
+              ESP_LOGD("haui", "Not connected, sending connection request");
+              id(publish_connection_request).execute();
+              connecting_time = time_now;
+              connecting = true;
+            }
+          }
+
+          // all conditions must be met for state connected
+          // add conditions must be met for state connected
+          // display initialized, conected with api, connected with appdaemon
+          // until then the state is not connected
+          bool connected = haui_initialized and api_connected and ad_available and ad_connected;
+
+          // check if connection state changed
+          if (connected != prev_connected) {
+            ESP_LOGD("haui", "Connection state changed %i", connected);
+          }
+          prev_connected = connected;
+
+
+# Switch Configuration
+switch:
+
+  # Display Always On
+  # this will make sure that the display is always on
+  - platform: gpio
+    name: Screen Power
+    id: screen_power
+    entity_category: config
+    restore_mode: ALWAYS_ON
+    internal: false
+    pin:
+      number: 4
+      inverted: true
+
+
+# Text Sensor Configuration
+text_sensor:
+
+  # Server Status (AppDaemon App)
+  - platform: mqtt_subscribe
+    name: "HAUI Server Status"
+    id: haui_server_status
+    topic: nspanel_haui/status
+    entity_category: diagnostic
+    internal: false
+    on_value:
+      - lambda: |-
+          ESP_LOGD("haui", "HAUI Server Status %s", x.c_str());
+          if (x == "online") {
+            id(ad_availability) = true;
+          } else {
+            id(ad_availability) = false;
+          }
+
+  # Client Status (ESPHome)
+  - platform: template
+    name: "HAUI Client Status"
+    id: haui_status
+    entity_category: diagnostic
+    internal: false

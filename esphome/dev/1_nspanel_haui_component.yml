@@ -1,0 +1,192 @@
+#
+# 1. Custom component test config
+#
+# This is only used for testing the custom component nspanel_haui
+#
+# !!! FOR TESTING PURPOSES !!!
+#
+# What it does:
+#
+# - create the custom component
+# - create and log device events
+# - initialize the device
+#
+
+
+# Configuration Variables
+substitutions:
+  # Version of this yaml config file
+  yaml_version: '0.1.0'
+  # Name of the device
+  device_name: nspanel-haui
+  # Friendly name of the device
+  friendly_name: 'NSPanel HAUI'
+  # Accounts and URLs
+  ota_password: !secret ota_password
+  encryption_key: !secret encryption_key
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  web_username: !secret web_username
+  web_password: !secret web_password
+  tft_update_url: http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft
+
+
+# ESP Configuration
+esp32:
+  board: esp32dev
+
+
+# ESPHome Configuration
+esphome:
+  name: $device_name
+  friendly_name: $friendly_name
+
+# Logger Configuration
+logger:
+  level: DEBUG
+
+
+# OTA Configuration
+ota:
+  password: $ota_password
+  safe_mode: true
+  reboot_timeout: 3min
+  num_attempts: 3
+
+
+# WIFI Configuration
+wifi:
+  # use_address is useful when there are issues with renaming of the device name
+  #use_address: nspanel.local
+  ssid: $wifi_ssid
+  password: $wifi_password
+  power_save_mode: none
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $device_name
+    password: $wifi_password
+
+
+# Captive Portal
+captive_portal:
+
+
+# Web Server
+web_server:
+  port: 80
+  auth:
+    username: $web_username
+    password: $web_password
+
+
+# External Components
+external_components:
+  - source: ./components
+    # for nextion use a custom component that provides
+    # the serial data in a event
+    components: [nspanel_haui]
+
+
+# Display
+display:
+
+  - platform: nspanel_haui
+    id: haui_disp
+    uart_id: haui_uart
+    tft_url: $tft_update_url
+    on_setup:
+      then:
+        - lambda: |-
+            ESP_LOGD("haui", "on_setup");
+    on_sleep:
+      then:
+        - lambda: |-
+            ESP_LOGD("haui", "on_sleep");
+    on_wakeup:
+      then:
+        - lambda: |-
+            ESP_LOGD("haui", "on_wakeup");
+    on_page:
+      then:
+        - lambda: |-
+            ESP_LOGD("haui", "on_page %d", x);
+    on_touch:
+      then:
+        - lambda: |-
+            ESP_LOGD("haui", "on_touch %d,%d - %d", x, y, state);
+    on_component:
+      then:
+        - lambda: |-
+            ESP_LOGD("haui", "on_component %d:%d - %d", p_id, c_id, state);
+
+
+# API configuration
+api:
+
+  # API Password for HA
+  encryption:
+    key: $encryption_key
+
+  # Available services
+  services:
+
+    # Service to update a TFT file
+    # This will update the nextion display with the tft file
+    # from tft_url
+    - service: upload_tft
+      then:
+        - lambda: id(haui_disp).upload_tft();
+
+    # Service to update a TFT file from URL
+    - service: upload_tft_url
+      variables:
+        url: string
+      then:
+        - lambda: id(haui_disp).set_tft_url(url.c_str());
+        - lambda: id(haui_disp).upload_tft();
+
+    # Service to send a command
+    # This will send a command to the nextion display
+    - service: send_command
+      variables:
+        cmd: string
+      then:
+        - lambda: id(haui_disp).send_command(cmd);
+
+
+# Internal buzzer
+output:
+  - platform: ledc
+    id: haui_rtttl_out
+    pin:
+      number: 21
+
+
+# Ringtone Music Support
+rtttl:
+  id: haui_rtttl
+  output: haui_rtttl_out
+
+
+# UART for Display
+uart:
+  tx_pin: 16
+  rx_pin: 17
+  baud_rate: 115200
+  id: haui_uart
+
+
+# Switch Configuration
+switch:
+
+  # Display Always On
+  # this will make sure that the display is always on
+  - platform: gpio
+    name: Screen Power
+    id: screen_power
+    entity_category: config
+    restore_mode: ALWAYS_ON
+    internal: false
+    pin:
+      number: 4
+      inverted: true

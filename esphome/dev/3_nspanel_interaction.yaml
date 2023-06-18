@@ -1,0 +1,409 @@
+#
+# 3. Interaction integration test config
+#
+# This is only used for testing interactions
+#
+# !!! FOR TESTING PURPOSES !!!
+#
+# What it does:
+#
+# - update last interaction time
+# - check buttons / touch events
+# - track touch coordinates on touch event
+#
+
+
+# Configuration Variables
+substitutions:
+  # Version of this yaml config file
+  yaml_version: '0.1.0'
+  # Name of the device
+  device_name: nspanel-haui
+  # Friendly name of the device
+  friendly_name: 'NSPanel HAUI'
+  # Accounts and URLs
+  ota_password: !secret ota_password
+  encryption_key: !secret encryption_key
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  web_username: !secret web_username
+  web_password: !secret web_password
+
+
+# ESP Configuration
+esp32:
+  board: esp32dev
+
+
+# ESPHome Configuration
+esphome:
+  name: $device_name
+  friendly_name: $friendly_name
+
+
+# Logger Configuration
+logger:
+  level: DEBUG
+
+
+# OTA Configuration
+ota:
+  password: $ota_password
+  safe_mode: true
+  reboot_timeout: 3min
+  num_attempts: 3
+
+
+# WIFI Configuration
+wifi:
+  # use_address is useful when there are issues with renaming of the device name
+  #use_address: nspanel.local
+  ssid: $wifi_ssid
+  password: $wifi_password
+  power_save_mode: none
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $device_name
+    password: $wifi_password
+
+# Captive Portal
+captive_portal:
+
+
+# Web Server
+web_server:
+  port: 80
+  auth:
+    username: $web_username
+    password: $web_password
+
+
+# UART for Display
+uart:
+  tx_pin: 16
+  rx_pin: 17
+  baud_rate: 115200
+  id: haui_uart
+
+
+# External Components
+external_components:
+  - source: ./components
+    # for nextion use a custom component that provides
+    # the serial data in a event
+    components: [nspanel_haui]
+
+
+# Display
+display:
+
+  - platform: nspanel_haui
+    id: haui_disp
+    uart_id: haui_uart
+    # set the nextion manually as initialized
+    on_setup:
+      then:
+        # set brightness to 30
+        - lambda: id(haui_disp).set_backlight_brightness(0.3);
+        # do not continue until api is not connected
+        - wait_until:
+            api.connected
+        - delay: 1s
+        # set as initialized
+        - lambda: |-
+            id(haui_disp).send_command("page 0");
+            id(update_last_interaction).execute(-1);
+            id(haui_init) = true;
+
+    on_page:
+      then:
+        - lambda: |-
+            ESP_LOGD("haui", "on_page %d", x);
+            id(page).publish_state(x);
+
+    on_touch:
+      then:
+        - lambda: |-
+            // this will only provide a touch start and end coordinates
+            // are from begin of touch event
+            if (state) {
+              // begin of touch, begin tracking coordinates
+              id(touch_x).publish_state(x);
+              id(touch_y).publish_state(y);
+            } else {
+              // end of touch, stop tracking coordinates,
+              // use real coordinates when processing
+              x = id(touch_x).state;
+              y = id(touch_y).state;
+            }
+            id(touch).publish_state(state);
+            ESP_LOGD("haui", "on_touch %d,%d - %d", x, y, state);
+
+
+# API configuration
+api:
+
+  # API Password for HA
+  encryption:
+    key: $encryption_key
+
+  # Available services
+  services:
+
+    # Service to send a command
+    # This will send a command to the nextion display
+    - service: send_command
+      variables:
+        cmd: string
+      then:
+        - lambda: id(haui_disp).send_command(cmd);
+
+    # Service to reset the last interaction value
+    - service: reset_last_interaction
+      then:
+        - lambda: id(update_last_interaction).execute(-1);
+
+    # Service to reset the last interaction value adding an offset
+    - service: reset_last_interaction_offset
+      variables:
+        offset: int
+      then:
+        - lambda: id(update_last_interaction_offset).execute(-1, offset);
+
+
+# Globals Configuration
+globals:
+
+  # Keep track on whether the display is ready or not.
+  - id: haui_init
+    type: bool
+    restore_value: false
+
+
+# Interval Configuration
+interval:
+
+  # Interaction timeout check
+  - interval: 100ms
+    then:
+      - lambda: |-
+          bool update = false;
+          // check if currently any interaction is happening
+          if (id(touch).state) {
+            // on touch screen
+            update = true;
+            // keep also track of latest touch coordinates
+            int touch_x_val = id(haui_disp).get_int_value("tch0");
+            int touch_y_val = id(haui_disp).get_int_value("tch1");
+            if (touch_x_val > 0) id(touch_x).publish_state(touch_x_val);
+            if (touch_y_val > 0) id(touch_y).publish_state(touch_y_val);
+          } else if (id(use_button_interaction).state) {
+              // on physical button press
+              if (id(button_left).state || id(button_right).state) {
+                update = true;
+              }
+          }
+          // update last interaction if requested
+          if (update)
+            id(update_last_interaction).execute(-1);
+
+  # Last Interaction ago log info
+  - interval: 1s
+    then:
+      - lambda: |-
+          if (id(touch).state) {
+            return;
+          }
+          float now = millis()/100;
+          float diff_seconds = (now - id(last_interaction).state) / 10;
+          ESP_LOGD("haui", "Time since last interaction: %f", diff_seconds);
+
+
+# Script Configuration
+script:
+
+  # Script to update the last interaction time
+  - id: update_last_interaction
+    mode: restart
+    parameters:
+      new_value: int
+    then:
+      - lambda: |-
+          id(update_last_interaction_offset).execute(new_value, 0);
+
+  # Script to update the last interaction time adding an offset
+  - id: update_last_interaction_offset
+    mode: restart
+    parameters:
+      new_value: int
+      offset: float
+    then:
+      - lambda: |-
+          int32_t interaction_val = new_value;
+          if (new_value == -1) {
+              int32_t time_now = millis() / 100; // use 0.1s as the lowest change
+              int32_t offset_ = offset * 10; // use 0.1s as the lowest change
+              if (time_now < offset_) {
+                // overflow occurred, reset interaction_val
+                interaction_val = 0;
+              } else {
+                interaction_val = time_now - offset_;
+              }
+          }
+          if (id(last_interaction).state != interaction_val) {
+            id(last_interaction).publish_state(interaction_val);
+          }
+
+
+# Sensor Configuration
+sensor:
+
+  # Current page Id
+  - platform: template
+    id: page
+    name: Page
+    accuracy_decimals: 0
+    update_interval: never
+    internal: false
+
+  # Touch X coordinates
+  - platform: template
+    id: touch_x
+    name: Touch X
+    internal: false
+    accuracy_decimals: 0
+    update_interval: never
+
+  # Touch Y coordinates
+  - platform: template
+    id: touch_y
+    name: Touch Y
+    internal: false
+    accuracy_decimals: 0
+    update_interval: never
+
+  # Last Interaction
+  - platform: template
+    id: last_interaction
+    name: Last Interaction
+    update_interval: never
+    accuracy_decimals: 0
+    internal: false
+    on_value:
+        - lambda: |-
+            id(update_last_interaction).execute(x);
+
+
+# Switch Configuration
+switch:
+
+  # Display Always On
+  # this will make sure that the display is always on
+  - platform: gpio
+    name: Screen Power
+    id: screen_power
+    entity_category: config
+    restore_mode: ALWAYS_ON
+    internal: false
+    pin:
+      number: 4
+      inverted: true
+
+  # Should buttons be used for interaction
+  - platform: template
+    name: Use Button Interaction
+    id: use_button_interaction
+    entity_category: config
+    restore_state: true
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+
+  # Physical switch left
+  - platform: gpio
+    name: Relay Left
+    id: relay_left
+    pin:
+      number: 22
+
+  # Physical switch right
+  - platform: gpio
+    name: Relay Right
+    id: relay_right
+    pin:
+      number: 19
+
+
+# Binary Sensor Configuration
+binary_sensor:
+
+  #  Physical hardware button below display to toggle relay
+  - platform: gpio
+    name: Button Left
+    id: button_left
+    pin:
+      number: 14
+      inverted: true
+    on_click:
+      then:
+        - switch.toggle: relay_left
+
+  # Physical hardware button below display to toggle relay
+  - platform: gpio
+    name: Button Right
+    id: button_right
+    pin:
+      number: 27
+      inverted: true
+    on_click:
+      then:
+        - switch.toggle: relay_right
+
+  # Touch state
+  - platform: template
+    name: Touch
+    id: touch
+    internal: false
+    lambda: |-
+      static uint32_t prev_time = 0;
+      const uint8_t timeout = 1;  // timeout after 1 sec
+      int curr_x = id(touch_x).state;
+      int curr_y = id(touch_y).state;
+      static int prev_x = 0;
+      static int prev_y = 0;
+      if (!id(touch).has_state()) {
+        // initial state
+        return false;
+      } else {
+        // if no touch event then ensure
+        // no touch coordinates are set
+        if (!id(touch).state) {
+          if (curr_x != 0)
+            id(touch_x).publish_state(0);
+          if (curr_y != 0)
+            id(touch_y).publish_state(0);
+          if (prev_time != 0) {
+            prev_time = 0;
+            ESP_LOGD("haui", "Touch Release (%d,%d)", curr_x, curr_y);
+          }
+        } else {
+          if (prev_time == 0)
+            prev_time = millis() / 1000;
+          if ((prev_x == 0 && prev_y == 0) && (curr_x != 0 || curr_y != 0)) {
+            ESP_LOGD("haui", "Touch Press (%d,%d)", curr_x, curr_y);
+          }
+          uint32_t curr_time = millis() / 1000;
+          if (prev_time + timeout < curr_time) {
+            // timeout, switch touch off
+            return false;
+          } else {
+            // check if touch coordinates changed to
+            // update prev_time for timeout check
+            if (curr_x != prev_x || curr_y != prev_y) {
+              prev_time = curr_time;
+            }
+            prev_x = curr_x;
+            prev_y = curr_y;
+          }
+        }
+      }
+      return {};

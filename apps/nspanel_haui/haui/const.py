@@ -148,7 +148,7 @@ DEFAULT_CONFIG = {
     'update': {
         'update_interval': 86400,  # Defaults to 86400 sec, set to 0 to disable
         'check_on_connect': False,  # Defaults to false, set to true to check for updates on connect
-        'on_connect_delay': 30,  # Defaults to 30 sec, delay before checking for updates on connect
+        'on_connect_delay': 60,  # Defaults to 60 sec, delay before checking for updates on connect
     },
 
     # system panels configuration

@@ -1,24 +1,22 @@
-https://github.com/Templarian/MaterialDesign-SVG/
-
-https://github.com/joBr99/Generate-HASP-Fonts
-
 # Generate-HASP-Fonts.ps1
 
 Create the Nextion ZI version 5 fonts used by the HASP project
 
 ## CheatSheet
 
-[Check out the HASP CheatSheet to browse and select icons](https://htmlpreview.github.io/?https://github.com/aderusha/Generate-HASP-Fonts/blob/master/cheatsheet.html) for use with the HASP project.  Click the "U" button next to your desired icon and the correct codepoint will be copied to your clipboard.  Paste the result in your HASP automation, MQTT command, or Nextion project to display the selected icon on your HASP device.
+[Check out the HASP CheatSheet to browse and select icons](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html) this icons.  Click the "U" button next to your desired icon and the correct codepoint will be copied to your clipboard.  Paste the result in your HASP automation, MQTT command, or Nextion project to display the selected icon on your HASP device.
 
 ## Credits
 
-All the real hard work done by GitHub user [fvanroie](https://github.com/fvanroie).  **THANK YOU FVANROIE!**
+All the real hard work done by GitHub user [fvanroie](https://github.com/fvanroie) and [joBr99](https://github.com/joBr99).
 
 **ZiLib library** included in this project: [Source](https://github.com/fvanroie/nextion-font-editor)
 
-**Noto Sans font** included in this project: [Source](https://github.com/googlefonts/noto-fonts/tree/master/hinted/NotoSans)/[License](https://github.com/googlefonts/noto-fonts/blob/master/LICENSE)
+**Roboto font** included in this project: [Source](https://github.com/googlefonts/roboto)/[License](https://github.com/googlefonts/roboto/blob/master/LICENSE)
 
-**MaterialDesign font** included in this project: [Source](https://github.com/Templarian/MaterialDesign-Font)/[License](https://github.com/Templarian/MaterialDesign/blob/master/LICENSE)
+**MaterialDesign SVG** included in this project: [Source](https://github.com/Templarian/MaterialDesign-SVG)/[License](https://github.com/Templarian/MaterialDesign-SVG/blob/master/LICENSE)
+
+**MaterialDesign Webfont** included in this project: [Source](https://github.com/Templarian/MaterialDesign-Webfont)/[License](https://github.com/Templarian/MaterialDesign-Webfont/blob/master/LICENSE)
 
 ---
 

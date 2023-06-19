@@ -51,59 +51,61 @@ Function Main {
 
   $outfile = "output" | Resolve-Path | ForEach-Object { $_.Path }
   $textFont = "./Roboto/Roboto-Regular.ttf" | Get-ChildItem | ForEach-Object { $_.FullName }
+  $textFontBold = "./Roboto/Roboto-Bold.ttf" | Get-ChildItem | ForEach-Object { $_.FullName }
   $iconFont = "./MaterialDesign-Webfont/fonts/materialdesignicons-webfont.ttf" | Get-ChildItem | ForEach-Object { $_.FullName }
   $startCP = 0xf0001
   $offsetCP = 0xe2001
   $endCP = 0xf1c81
 
-  $textFontSize = 20
-  $textVerticalOffset = 0
-  $iconFontSizeOffset = 0
-  $iconVerticalOffset = 0
-  New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile
+  $rangeText = @(
+    @(0x0, 0x7f), # Basic Latin
+    @(0x80, 0xff), # C1 Controls and Latin-1 Supplement
+    @(0x100, 0x17f), # Latin Extended-A
+    @(0x180, 0x24f) # Latin Extended-B
+  )
+  $rangeTextWeather = @(
+    @(0x0, 0x7f), # Basic Latin
+    @(0x80, 0xff) # C1 Controls and Latin-1 Supplement
+  )
+  $rangeIcon = @(@($startCP..$endCP))
+  $weatherIcons = @(
+    0xf0590, 0xf0f2f, 0xf0e6e, 0xf18f6, 0xf1b5a, 0xf0591, 0xf0592, 0xf0f30, 0xf0898, 0xf1c78, 0xf0593,
+    0xf067e, 0xf0594, 0xf0f31, 0xf0595, 0xf0f32, 0xf0f33, 0xf0f34, 0xf0f35, 0xf0596, 0xf0597, 0xf0598,
+    0xf0f36, 0xf067f, 0xf0599, 0xf0f37, 0xf14e4, 0xf059a, 0xf059b, 0xf059c, 0xf0f38, 0xf059d, 0xf059e
+  )
+  $toGenerate = @(
+    # $textFontSize,$textVerticalOffset,$iconFontSizeOffset,$iconVerticalOffset
+    @(20, 0, 0, 0),
+    @(22, 0, 0, 0),
+    @(24, 0, 0, 0),
+    @(32, 0, 4, 4),
+    @(36, 0, 4, 4),
+    @(48, 0, 4, 4)
+  )
+  $toGenerateWeather = @(
+    # $textFontSize,$textVerticalOffset,$iconFontSizeOffset,$iconVerticalOffset
+    @(72, 0, 0, 0),
+    @(96, 0, 0, 0),
+    @(128, 0, 0, 0)
+  )
 
-  $textFontSize = 36
-  $textVerticalOffset = 0
-  $iconFontSizeOffset = 4
-  $iconVerticalOffset = 4
-  New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile
+  foreach ($values in $toGenerate) {
+    $textFontSize = $values[0]
+    $textVerticalOffset = $values[1]
+    $iconFontSizeOffset = $values[2]
+    $iconVerticalOffset = $values[3]
+    New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $rangeIcon -rangeText $rangeText
+    New-ZiFontV5 -textFont $textFontBold -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $rangeIcon -rangeText $rangeText
+  }
 
-  $textFontSize = 64
-  $textVerticalOffset = 0
-  $iconFontSizeOffset = 0
-  $iconVerticalOffset = 0
-  New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile
-
-  $textFontSize = 96
-  $textVerticalOffset = 0
-  $iconFontSizeOffset = 0
-  $iconVerticalOffset = 0
-  New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile
-
-  $textFont = "./Roboto/Roboto-Bold.ttf" | Get-ChildItem | ForEach-Object { $_.FullName }
-  $textFontSize = 20
-  $textVerticalOffset = 0
-  $iconFontSizeOffset = 0
-  $iconVerticalOffset = 0
-  New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile
-
-  $textFontSize = 36
-  $textVerticalOffset = 0
-  $iconFontSizeOffset = 0
-  $iconVerticalOffset = 0
-  New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile
-
-  $textFontSize = 64
-  $textVerticalOffset = 0
-  $iconFontSizeOffset = 0
-  $iconVerticalOffset = 0
-  New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile
-
-  $textFontSize = 96
-  $textVerticalOffset = 0
-  $iconFontSizeOffset = 0
-  $iconVerticalOffset = 0
-  New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile
+  foreach ($values in $toGenerateWeather) {
+    $textFontSize = $values[0]
+    $textVerticalOffset = $values[1]
+    $iconFontSizeOffset = $values[2]
+    $iconVerticalOffset = $values[3]
+    New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $weatherIcons -rangeText $rangeTextWeather
+    New-ZiFontV5 -textFont $textFontBold -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $weatherIcons -rangeText $rangeTextWeather
+  }
 }
 
 Function New-ZiFontV5 {
@@ -131,13 +133,11 @@ Function New-ZiFontV5 {
     [Parameter(Position = 7, Mandatory = $true, HelpMessage = "Text font size")][int]$textFontSize,
     [Parameter(Position = 8, Mandatory = $false, HelpMessage = "Icon font size offset from text size")][int]$iconFontSizeOffset=0,
     [Parameter(Position = 9, Mandatory = $false, HelpMessage = "Font codepage")]$Codepage = [ZiLib.CodePageIdentifier]::utf_8,
-    [Parameter(Position = 10, Mandatory = $true, HelpMessage = "Generated font output folder")][string]$Path
+    [Parameter(Position = 10, Mandatory = $true, HelpMessage = "Generated font output folder")][string]$Path,
+    [Parameter(Position = 11, Mandatory = $true, HelpMessage = "Range of text")][array]$rangeText,
+    [Parameter(Position = 12, Mandatory = $true, HelpMessage = "Range of icons")][array]$rangeIcon
   )
 
-  $iconSet = @()
-  for ($i = $iconFontFirstCP; $i -le $iconFontLastCP; $i++) {
-    $iconSet += $i
-  }
   $locationText = [System.Drawing.PointF]::new(0, $textVerticalOffset)
   $locationIcon = [System.Drawing.PointF]::new(0, $iconVerticalOffset)
 
@@ -170,11 +170,9 @@ Function New-ZiFontV5 {
   $f.CodePage = $codepage
   $f.Version = 5
 
-  foreach ($values in $range) {
+  foreach ($values in $rangeText) {
     foreach ($ch in $values[0]..$values[1]) {
       # normal text
-      $txt = [Char]::ConvertFromUtf32([uint32]($ch + $codepoint.delta))
-      $txt = [Char]::ConvertFromUtf32([uint32]($ch + $codepoint.delta))
       $txt = [Char]::ConvertFromUtf32([uint32]($ch + $codepoint.delta))
       $character = [ZiLib.FileVersion.Common.ZiCharacter]::FromString($f, $ch, $font, $locationText, $txt)
       $f.AddCharacter($ch, $character)
@@ -201,13 +199,22 @@ Function New-ZiFontV5 {
   #  $character = [ZiLib.FileVersion.Common.ZiCharacter]::FromString($f, $ch, $font, $locationText, $txt)
   #  $f.AddCharacter($ch, $character)
   #}
-
   if ($iconFont) {
     $font = [System.Drawing.Font]::new($iconFontSet, ($newfontsize + $iconFontSizeOffset), "regular", [System.Drawing.GraphicsUnit]::pixel )
-    foreach ($ch in $iconFontFirstCP..$iconFontLastCP) {
-      $txt = [Char]::ConvertFromUtf32([uint32]($ch))
-      $character = [ZiLib.FileVersion.Common.ZiCharacter]::FromString($f, $ch - $iconCPOffset, $font, $locationIcon, $txt)
-      $f.AddCharacter($ch, $character)
+    foreach ($values in $rangeIcon) {
+      $chars = @()
+      if ($values -is [int]) {
+        $chars += $values
+      } else {
+        foreach ($ch in $values[0]..$values[1]) {
+          $chars += $ch
+        }
+      }
+      foreach ($char in $chars) {
+        $txt = [Char]::ConvertFromUtf32([uint32]($char))
+        $character = [ZiLib.FileVersion.Common.ZiCharacter]::FromString($f, $char - $iconCPOffset, $font, $locationIcon, $txt)
+        $f.AddCharacter($char, $character)
+      }
     }
   }
 

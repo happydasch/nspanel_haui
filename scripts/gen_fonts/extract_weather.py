@@ -9,4 +9,4 @@ for icon_name in icon_mapping:
     if icon_name.startswith('weather'):
         icons.append(hex(ord(icon_mapping[icon_name]) + offset))
 
-print(', '.join(icons))
+print(', '.join(sorted(icons)))

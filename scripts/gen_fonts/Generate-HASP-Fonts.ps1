@@ -69,24 +69,21 @@ Function Main {
   )
   $rangeIcon = @(@($startCP..$endCP))
   $weatherIcons = @(
-    0xf0590, 0xf0f2f, 0xf0e6e, 0xf18f6, 0xf1b5a, 0xf0591, 0xf0592, 0xf0f30, 0xf0898, 0xf1c78, 0xf0593,
-    0xf067e, 0xf0594, 0xf0f31, 0xf0595, 0xf0f32, 0xf0f33, 0xf0f34, 0xf0f35, 0xf0596, 0xf0597, 0xf0598,
-    0xf0f36, 0xf067f, 0xf0599, 0xf0f37, 0xf14e4, 0xf059a, 0xf059b, 0xf059c, 0xf0f38, 0xf059d, 0xf059e
+    0xf0590, 0xf0591, 0xf0592, 0xf0593, 0xf0594, 0xf0595, 0xf0596, 0xf0597, 0xf0598, 0xf0599, 0xf059a, 0xf059b, 0xf059c, 0xf059d, 0xf059e, 0xf067e, 0xf067f, 0xf0898, 0xf0e6e, 0xf0f2f, 0xf0f30, 0xf0f31, 0xf0f32, 0xf0f33, 0xf0f34, 0xf0f35, 0xf0f36, 0xf0f37, 0xf0f38, 0xf14e4, 0xf18f6, 0xf1b5a, 0xf1c78
   )
+  # $textFontSize,$textVerticalOffset,$iconFontSizeOffset,$iconVerticalOffset
   $toGenerate = @(
-    # $textFontSize,$textVerticalOffset,$iconFontSizeOffset,$iconVerticalOffset
-    @(20, 0, 0, 0),
-    @(22, 0, 0, 0),
-    @(24, 0, 0, 0),
-    @(32, 0, 4, 4),
-    @(36, 0, 4, 4),
-    @(48, 0, 4, 4)
+    @(20, 1, 4, 0),
+    @(24, 1, 0, 2),
+    @(32, 1, -2, 4),
+    @(48, 1, 0, 4)
   )
+  # $textFontSize,$textVerticalOffset,$iconFontSizeOffset,$iconVerticalOffset
   $toGenerateWeather = @(
-    # $textFontSize,$textVerticalOffset,$iconFontSizeOffset,$iconVerticalOffset
-    @(72, 0, 0, 0),
-    @(96, 0, 0, 0),
-    @(128, 0, 0, 0)
+    @(72, 0, 0, 6),
+    @(96, 0, 0, 6),
+    @(112, 0, 0, 8),
+    @(128, 0, 0, 8)
   )
 
   foreach ($values in $toGenerate) {

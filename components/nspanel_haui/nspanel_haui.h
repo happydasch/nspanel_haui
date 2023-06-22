@@ -25,8 +25,7 @@ class NSPanelHAUI;
 using haui_writer_t = std::function<void(NSPanelHAUI &)>;
 
 static const std::string COMMAND_DELIMITER{static_cast<char>(255), static_cast<char>(255), static_cast<char>(255)};
-static const uint32_t RECV_TIMEOUT_MS = 250;
-static const uint32_t RECV_DELAY_MS = 12;
+static const uint32_t RECV_TIMEOUT_MS = 500;
 
 class NSPanelHAUI : public PollingComponent, public uart::UARTDevice {
 

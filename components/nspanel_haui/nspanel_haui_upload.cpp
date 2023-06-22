@@ -139,6 +139,7 @@ void NSPanelHAUI::upload_tft() {
     return;
   }
 
+  this->send_command_("DRAKJHSUYDGBNCJHGJKSHBDN")
   this->is_updating_ = true;
 
   HTTPClient http;

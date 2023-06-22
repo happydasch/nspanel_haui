@@ -34,7 +34,6 @@ class HAUIConfigEntity(HAUIBase):
         self._internal_data = None  # internal entity data
         self._entity_type = None  # entity type
         self._entity_id = None  # entity id
-        self._entity = None  # entity
         # prepare the entity
         self._prepare_entity(self.get('entity'))
 
@@ -62,8 +61,6 @@ class HAUIConfigEntity(HAUIBase):
         else:
             self._entity_id = entity_id
             self._entity_type = entity_id.split('.')[0]
-            if self.app.entity_exists(entity_id):
-                self._entity = self.app.get_entity(entity_id)
 
     def _render_template(self, template):
         """ Returns a rendered home assistant template string.
@@ -158,7 +155,7 @@ class HAUIConfigEntity(HAUIBase):
         Returns:
             bool: True if entity is available
         """
-        return self._entity is not None
+        return self._entity_id is not None and self.app.entity_exists(self._entity_id)
 
     def get_entity(self):
         """ Returns the entity.
@@ -166,7 +163,10 @@ class HAUIConfigEntity(HAUIBase):
         Returns:
             Entity: Entity
         """
-        return self._entity
+        if self.has_entity():
+            return self.app.get_entity(self._entity_id)
+        return None
+
 
     def get_entity_type(self):
         """ Returns the type of the entity.
@@ -204,10 +204,11 @@ class HAUIConfigEntity(HAUIBase):
         """
         if not self.has_entity():
             return default
+        entity = self.get_entity()
         if isinstance(attr, str):
-            res = self._entity.attributes.get(attr)
+            res = entity.attributes.get(attr)
         elif isinstance(attr, list):
-            res = self._entity.attributes
+            res = entity.attributes
             for a in attr:
                 if res is None:
                     break
@@ -227,7 +228,8 @@ class HAUIConfigEntity(HAUIBase):
             return ''
         state = self.get('state', '')
         if state == '':
-            return self._entity.get_state()
+            entity = self.get_entity()
+            return entity.get_state()
         # state is overriden
         return self.get_entity_attr(state, '')
 
@@ -240,7 +242,8 @@ class HAUIConfigEntity(HAUIBase):
         """
         if not self.has_entity():
             return
-        self._entity.call_service(service, **kwargs)
+        entity = self.get_entity()
+        entity.call_service(service, **kwargs)
 
     def get_value(self):
         """ Returns the value of the entity.

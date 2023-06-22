@@ -1,10 +1,25 @@
-# Generate-HASP-Fonts.ps1
+# Generate Fonts
 
 Create the Nextion ZI version 5 fonts used by the HASP project
 
-## CheatSheet
+- [Generate Fonts](#generate-fonts)
+  - [Scripts](#scripts)
+  - [Cheatsheet](#cheatsheet)
+  - [Credits](#credits)
+  - [MIT License](#mit-license)
 
-[Check out the HASP CheatSheet to browse and select icons](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html) this icons.  Click the "U" button next to your desired icon and the correct codepoint will be copied to your clipboard.  Paste the result in your HASP automation, MQTT command, or Nextion project to display the selected icon on your HASP device.
+## Scripts
+
+- `exctract_chr_from_scss.py`
+- `exctract_svg_from_mdi.py`
+- `exctract_weather.py`
+- `gen_cheatsheet.py`
+
+## Cheatsheet
+
+[Check out the Cheatsheet to browse and select icons](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html) this icons.  Click the "U" button next to your desired icon and the correct codepoint will be copied to your clipboard.
+
+See [Pictogrammers](https://pictogrammers.com/library/mdi/) if you need the char of the source font.
 
 ## Credits
 
@@ -18,12 +33,10 @@ All the real hard work done by GitHub user [fvanroie](https://github.com/fvanroi
 
 **MaterialDesign Webfont** included in this project: [Source](https://github.com/Templarian/MaterialDesign-Webfont)/[License](https://github.com/Templarian/MaterialDesign-Webfont/blob/master/LICENSE)
 
----
-
 ## MIT License
 
-> Permission is hereby granted, free of charge, to any person obtaining a copy of this hardware, software, and associated documentation files (the "Product"), to deal in the Product without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Product, and to permit persons to whom the Product is furnished to do so, subject to the following conditions:
->
-> The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Product.
->
-> THE PRODUCT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE PRODUCT OR THE USE OR OTHER DEALINGS IN THE PRODUCT.
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this hardware, software, and associated documentation files (the "Product"), to deal in the Product without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Product, and to permit persons to whom the Product is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Product.
+
+    THE PRODUCT IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE PRODUCT OR THE USE OR OTHER DEALINGS IN THE PRODUCT.

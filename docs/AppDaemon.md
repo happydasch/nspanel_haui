@@ -1,5 +1,7 @@
 # AppDaemon Component Details
 
+NSPanelHAUI is the backend that allows to manage home automation devices using the NSPanel.
+
 - [AppDaemon Component Details](#appdaemon-component-details)
   - [Requirements](#requirements)
   - [Installation](#installation)
@@ -20,11 +22,6 @@
   - [Available Pages](#available-pages)
   - [Available Panels](#available-panels)
   - [Resources](#resources)
-
-NSPanelHAUI is the backend that allows to manage home automation devices using the NSPanel.
-This app controls the Nextion display running on the ESP32. It updates the display based on the latest data from Home Assistant entities.
-
-The communication between ESPHome and AppDaemon is mostly done via MQTT.
 
 ## Requirements
 

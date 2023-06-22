@@ -1,28 +1,18 @@
 
-# NSPanel HomeAssistant UI
+# NSPanel HAUI (HomeAssistant UI)
 
-`nspanel-haui` is a robust display system for HomeAssistant based smart homes in the Design of [HomeAssistant](https://www.home-assistant.io/)'s UI Design.
-
-The project is based on the ideas of [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) and [NSPanel Custom with HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint). Many frontend parts are based on `NSPanel Lovelace UI` as the configuration, functionality and design. The backend part is a completely different implementation.
+`nspanel-haui` is a robust display system for HomeAssistant based smart homes.
 
 For details about the configuration see [Configuration](docs/Config.md), also look at [Panels](docs/panels/README.md) to get an overview of available panels.
 
-For details about how the parts of the whole system communicate together see [docs](docs/README.md)
-
-- [NSPanel HomeAssistant UI](#nspanel-homeassistant-ui)
+- [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
   - [Features](#features)
   - [Installation](#installation)
-  - [Overview](#overview)
+  - [Development](#development)
   - [Roadmap](#roadmap)
+  - [Additional](#additional)
 
 ## Features
-
-To control the panel and update it with content from HomeAssistant, there is an [AppDaemon](https://github.com/AppDaemon/appdaemon) App.
-**Everything is dynamically configurable by a yaml config file, no need to write any code or touch the Nextion Editor**
-
-- **Optimized custom ESPHome component**
-
-  For the communication between the esp32 and the nextion display a custom component `nspanel_haui` is used. It provides basic functionality like `send_command`, `get_int_value`, `get_txt_value`, etc. and also generates events for button presses and other changes on the display.
 
 - **Touch Gestures and sequences**
 
@@ -44,19 +34,21 @@ To control the panel and update it with content from HomeAssistant, there is an 
 
   The display can switch to a page after a timeout. There are sleep and wakeup panels possible.
 
+- **Locking/Unlocking mechanism for panels**
+
+  All panels can be locked by a pin. The panel can be accessed after entering the pin code.
+
 - **Device settings in HomeAssistant**
 
-  The whole device configuration can be done in HomeAssistant
+  The whole device configuration can be done in HomeAssistant.
 
 - **Device display configuration in a single yaml file**
 
   The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
 
-- **Locking/Unlocking mechanism for panels**
+- **Optimized custom ESPHome component**
 
-  All panels can be locked by a pin. The panel can be accessed after entering the pin code.
-
-**It works with [ESPHome](https://esphome.io/).**
+  For the communication between the esp32 and the nextion display a custom component `nspanel_haui` is used. It provides basic functionality like `send_command`, `get_int_value`, `get_txt_value`, etc. and also generates events for button presses and other changes on the display.
 
 ## Installation
 
@@ -69,17 +61,19 @@ The simplified process is as follows:
 3. Install [AppDaemon App](docs/AppDaemon.md)
 4. Add [Configuration](docs/Config.md)
 
-Take also a look at the more detailed [Installation Guide](docs/Install.md).
+Take also a look at the more detailed [Installation Guide](docs/Install.md). Have also a look at the [FAQ](docs/FAQ.md).
 
-## Overview
+## Development
 
-The device handling responsibility is assigned to ESPHome. The communication with the nextion display is done using a custom ESPHome component `nspanel_haui`.
-The backend and global logic of the system is under the management of AppDaemon, which handles all the behind-the-scenes operations.
-The display operations with minimal logic are assigned to Nextion, which works in collaboration with ESPHome to show informations on the panel.
+For details about how the parts of the whole system communicate together see [docs](docs/README.md)
 
 - [Communication Description](docs/Communication.md)
 
   - Overview of the communication process
+
+- [AppDaemon Component](docs/AppDaemon.md)
+
+  - Server Application running on AppDaemon
 
 - [ESPHome Component](docs/ESPHome.md)
 
@@ -90,10 +84,6 @@ The display operations with minimal logic are assigned to Nextion, which works i
 - [Nextion Component](docs/Nextion.md)
 
   - Responsible for display, as little logic as possible
-
-- [AppDaemon Component](docs/AppDaemon.md)
-
-  - Server Application running on AppDaemon
 
 ## Roadmap
 
@@ -111,8 +101,12 @@ Basic functionality
 Improvements / Additional
 
 - [x] Create new font using Roboto font
-- [ ] Add updater
 - [ ] Improve / Change design
 - [ ] Support for timebased value overrides
+- [ ] Add updater
 - [ ] Add new panels
 - [ ] Add a light theme
+
+## Additional
+
+The project is based on the ideas of [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) and [NSPanel Custom with HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint). Many frontend parts are based on `NSPanel Lovelace UI` as the configuration, functionality and design. The backend part is a completely different implementation.

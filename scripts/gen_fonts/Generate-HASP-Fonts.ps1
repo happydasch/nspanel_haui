@@ -1,24 +1,5 @@
 ####################################################################################################
 #
-# Generate-HASP-Fonts.ps1
-#
-# Create the Nextion ZI version 5 fonts used by the HASP project
-#
-# All the real hard work done by https://github.com/fvanroie.  THANK YOU FVANROIE!
-#
-# ZiLib library included here sourced from:
-# https://github.com/fvanroie/nextion-font-editor
-#
-# Noto Sans font included here sourced from:
-# https://github.com/googlefonts/noto-fonts/tree/master/hinted/NotoSans
-# License: https://github.com/googlefonts/noto-fonts/blob/master/LICENSE
-#
-# MaterialDesign font included here sourced from:
-# https://github.com/Templarian/MaterialDesign-Font
-# License: https://github.com/Templarian/MaterialDesign/blob/master/LICENSE
-#
-####################################################################################################
-#
 # MIT License
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this hardware,

@@ -1,5 +1,3 @@
-# src: https://github.com/joBr99/nspanel-lovelace-ui/blob/main/HMI/fonts/gen-chars.py
-
 unicode_ranges="0000-007F,"	     #Basic Latin
 unicode_ranges+="0080-00FF,"	 #C1 Controls and Latin-1 Supplement
 unicode_ranges+="0100-017F,"	 #Latin Extended-A

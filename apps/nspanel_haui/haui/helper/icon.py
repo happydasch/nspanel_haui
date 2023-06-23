@@ -30,11 +30,13 @@ def parse_icon(template):
     return template
 
 
-def get_icon(icon_name):
+def get_icon(icon_name, return_default=True):
     """ Returns the icon chr value from icon name.
 
     Args:
         icon_name (str): Icon name
+        return_default (bool): If true, returns default icon if icon name is not
+            found.
 
     Returns:
         str: Icon character
@@ -43,8 +45,9 @@ def get_icon(icon_name):
         icon_name = icon_name.split(':')[1]
     if icon_name in ICONS_MAPPING:
         return ICONS_MAPPING[icon_name]
-    else:
+    elif return_default:
         return ICONS_MAPPING['alert-circle-outline']
+    return None
 
 
 def get_icon_name_by_state(entity_type, entity_state, device_class=None):

@@ -1,3 +1,4 @@
+from ..mapping.color import COLORS
 from ..helper.icon import parse_icon
 from . import HAUIPage
 
@@ -64,7 +65,7 @@ class PopupNotifyPage(HAUIPage):
             if icon_color:
                 self.set_component_text_color(self.TXT_ICON, icon_color)
             else:
-                self.set_component_text_color(self.TXT_ICON, 65535)
+                self.set_component_text_color(self.TXT_ICON, COLORS['component'])
             self.set_component_text(self.TXT_ICON, self._icon)
             self.set_component_text(self.TXT_TEXT, self._notification)
             self.hide_component(self.TXT_TEXT_FULL)
@@ -76,8 +77,8 @@ class PopupNotifyPage(HAUIPage):
             self.hide_component(self.TXT_ICON)
             self.show_component(self.TXT_TEXT_FULL)
         if self._btn_left:
-            btn_left_color = panel.get('btn_left_color', 65535)
-            btn_left_back_color = panel.get('btn_left_back_color', 6339)
+            btn_left_color = panel.get('btn_left_color', COLORS['component'])
+            btn_left_back_color = panel.get('btn_left_back_color', COLORS['background'])
             self.set_component_text_color(self.BTN_LEFT, btn_left_color)
             self.set_component_back_color(self.BTN_LEFT, btn_left_back_color)
             self.set_component_text(self.BTN_LEFT, self._btn_left)
@@ -85,8 +86,8 @@ class PopupNotifyPage(HAUIPage):
         else:
             self.hide_component(self.BTN_LEFT)
         if self._btn_right:
-            btn_right_color = panel.get('btn_right_color', 65535)
-            btn_right_back_color = panel.get('btn_right_back_color', 6339)
+            btn_right_color = panel.get('btn_right_color', COLORS['component'])
+            btn_right_back_color = panel.get('btn_right_back_color', COLORS['background'])
             self.set_component_text_color(self.BTN_RIGHT, btn_right_color)
             self.set_component_back_color(self.BTN_RIGHT, btn_right_back_color)
             self.set_component_text(self.BTN_RIGHT, self._btn_right)

@@ -1,12 +1,13 @@
 import dateutil.parser as dp
 
+from ..mapping.color import COLORS
 from ..mapping.icon import (
     SIMPLE_TYPE_MAPPING, INTERNAL_TYPE_MAPPING,
     MEDIA_CONTENT_TYPE_MAPPING, WEATHER_MAPPING
 )
 
 from .datetime import format_datetime
-from .color import rgb_to_rgb565, rgb_brightness
+from .color import rgb_to_rgb565, rgb565_to_rgb, rgb_brightness
 from .icon import get_icon, get_icon_name_by_state
 
 
@@ -65,20 +66,13 @@ def get_entity_color(haui_entity, default_color):
     entity_type = haui_entity.get_entity_type()
     entity_state = haui_entity.get_entity_state()
 
-    # default_color_on #fdd835
-    default_color_on = rgb_to_rgb565([253, 216, 53])
-    # default_color_off #44739e
-    default_color_off = rgb_to_rgb565([68, 115, 158])
-    # default_color_unavailable #737373
-    default_color_unavailable = rgb_to_rgb565([115, 115, 115])
-
     # colors based on state
     if entity_state in ['on', 'unlocked', 'above_horizon', 'home', 'active']:
-        result_color = default_color_on
+        result_color = COLORS['entity_on']
     elif entity_state in ['unavailable']:
-        result_color = default_color_unavailable
+        result_color = COLORS['entity_unavailable']
     else:
-        result_color = default_color_off
+        result_color = COLORS['entity_off']
 
     # weather entity
     if entity_type == 'weather':
@@ -89,56 +83,28 @@ def get_entity_color(haui_entity, default_color):
                 condition = entity.attributes['forecast'][forecast_index]['condition']
         else:
             condition = entity_state
-        if condition in ['partlycloudy', 'windy']:
-            result_color = 38066  # 50% grey
-        if condition == 'clear-night':
-            result_color = 38060  # yellow grey
-        if condition == 'windy-variant':
-            result_color: 64495  # red grey
-        if condition == 'cloudy':
-            result_color = 31728  # grey-blue
-        if condition == 'exceptional':
-            result_color = 63878  # red
-        if condition == 'fog':
-            result_color = 38066  # 75% grey
-        if condition in ['hail', 'snowy']:
-            result_color = 65535  # white
-        if condition == 'lightning':
-            result_color = 65120  # golden-yellow
-        if condition == 'lightning-rainy':
-            result_color = 50400  # dark-golden-yellow
-        if condition == 'pouring':
-            result_color = 12703  # blue
-        if condition == 'rainy':
-            result_color = 25375  # light-blue
-        if condition == 'snowy-rainy':
-            result_color = 38079  # light-blue-grey
-        if condition == 'sunny':
-            result_color = 65504  # bright-yellow
+        # weather color
+        color_name = condition.replace('-', '_')
+        color_name = f'weather_{color_name}'
+        if color_name in COLORS:
+            result_color = COLORS[color_name]
+        else:
+            result_color = COLORS['weather_default']
+    # climate entity
+    elif entity_type == 'climate':
+        color_name = f'climate_{entity_state}'
+        if color_name in COLORS:
+            result_color = COLORS[color_name]
     # alarm control panel entity
     elif entity_type == 'alarm_control_panel':
         if entity_state == 'disarmed':
-            result_color = rgb_to_rgb565([13, 160, 53])
+            result_color = COLORS['alarm_disarmed']
         if entity_state == 'arming':
-            result_color = rgb_to_rgb565([244, 180, 0])
+            result_color = COLORS['alarm_arming']
         if entity_state in [
                 'armed_home', 'armed_away', 'armed_night',
                 'armed_vacation', 'pending', 'triggered']:
-            result_color = rgb_to_rgb565([223, 76, 30])
-    # climate entity
-    elif entity_type == 'climate':
-        if entity_state in ['auto', 'heat_cool']:
-            result_color = 1024
-        if entity_state == 'heat':
-            result_color = 64512
-        if entity_state == 'off':
-            result_color = 35921
-        if entity_state == 'cool':
-            result_color = 11487
-        if entity_state == 'dry':
-            result_color = 60897
-        if entity_state == 'fan_only':
-            result_color = 35921
+            result_color = COLORS['alarm_armed']
 
     # additional attributes check
     attr = entity.attributes
@@ -148,8 +114,10 @@ def get_entity_color(haui_entity, default_color):
             color = rgb_brightness(color, attr.brightness)
         result_color = rgb_to_rgb565(color)
     elif 'brightness' in attr:
-        # #fdd835
-        color = rgb_brightness([253, 216, 53], attr.brightness)
+        # no color, just brightness
+        color = rgb_brightness(
+            rgb565_to_rgb(COLORS['entity_on']),
+            attr.brightness)
         result_color = rgb_to_rgb565(color)
 
     return result_color

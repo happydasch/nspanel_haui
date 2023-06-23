@@ -1,3 +1,4 @@
+from ..mapping.color import COLORS
 from ..helper.icon import get_icon, get_icon_name_by_action
 from . import HAUIPage
 
@@ -165,12 +166,12 @@ class EntitiesListPage(HAUIPage):
                 elif display_type == ['button', 'timer'] and i == 'BTN_TXT':
                     visible = True
                     readonly = False
-                    color = 19773
+                    color = COLORS['component_acitve']
                 # 'BTN_TXT' will be used as default, text as disabled btn
                 elif i == 'BTN_TXT':
                     visible = True
                     readonly = True
-                    color = 65535
+                    color = COLORS['component']
                 # set component
                 if color is not None:
                     self.set_component_text_color(item, color)

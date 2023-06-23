@@ -34,7 +34,7 @@ class SettingsPage(HAUIPage):
         self.add_component_callback(self.SLD_BRGHT_DIM, self.callback_slider_brightness)
 
     def stop_page(self):
-        # remove exisitng handles
+        # remove exisiting handles
         if self._handle_brightness_full:
             self.app.cancel_listen_state(self._handle_brightness_full)
         if self._handle_brightness_dimmed:

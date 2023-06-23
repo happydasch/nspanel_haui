@@ -1,6 +1,7 @@
 import threading
 
 from ..const import ESP_REQUEST, ESP_RESPONSE, ESP_EVENT
+from ..mapping.color import COLORS
 from ..helper.color import pos_to_color, color_to_pos
 from ..helper.icon import get_icon
 from ..utils import scale
@@ -114,10 +115,10 @@ class PopupLightPage(HAUIPage):
         self.set_component_text(btn, ico)
         if status is True:
             self.send_cmd(f'tsw {btn[1]},1')
-            self.set_component_text_color(btn, 65535)
+            self.set_component_text_color(btn, COLORS['component'])
         else:
             self.send_cmd(f'tsw {btn[1]},0')
-            self.set_component_text_color(btn, 29582)
+            self.set_component_text_color(btn, COLORS['text_inactive'])
         self.show_component(btn)
         # show info
         if info_idx is not None:
@@ -311,7 +312,7 @@ class PopupLightPage(HAUIPage):
                 rgb_color = self._entity.get_entity_attr('rgb_color')
                 self.set_component_text_color(self.BTN_POWER, rgb_color)
             else:
-                self.set_component_text_color(self.BTN_POWER, 29582)
+                self.set_component_text_color(self.BTN_POWER, COLORS['entity_unavailable'])
             self.show_component(self.BTN_POWER)
         else:
             self.log(f'Hiding power button: {self._current_function}')
@@ -337,7 +338,8 @@ class PopupLightPage(HAUIPage):
             pos_y += self.PIC_COLOR_WHEEL_Y + radius
             self.send_cmd('doevents')
             # draw circle
-            self.send_cmd(f'cirs {pos_x},{pos_y},{radius},12678')
+            color = COLORS['component_background']
+            self.send_cmd(f'cirs {pos_x},{pos_y},{radius},{color}')
 
     # callback
 

@@ -15,6 +15,7 @@ class ClockPage(HAUIPage):
     # main weather icon
     ICO_MAIN = (6, 'tMainIcon')
     TXT_MAIN = (7, 'tMainText')
+    TXT_SUB = (8, 'tSubText')
     # bottom weather forecast row
     F1_NAME, F1_ICO, F1_VAL = (9, 'f1Name'), (10, 'f1Icon'), (11, 'f1Val')
     F2_NAME, F2_ICO, F2_VAL = (12, 'f2Name'), (13, 'f2Icon'), (14, 'f2Val')
@@ -108,9 +109,14 @@ class ClockPage(HAUIPage):
         icon = haui_entity.get_icon()
         color = haui_entity.get_color()
         msg = haui_entity.get_value()
-        self.set_component_text(self.ICO_MAIN, icon)
+        msg_sub = haui_entity.get_entity_attr('pressure', '')
+        if msg_sub:
+            pressure_unit = haui_entity.get_entity_attr('pressure_unit')
+            msg_sub = f'{msg_sub}{pressure_unit}'
         self.set_component_text_color(self.ICO_MAIN, color)
+        self.set_component_text(self.ICO_MAIN, icon)
         self.set_component_text(self.TXT_MAIN, msg)
+        self.set_component_text(self.TXT_SUB, msg_sub)
 
     def update_forecast(self, haui_entity, idx):
         if idx < 1 or idx > 5:
@@ -119,8 +125,8 @@ class ClockPage(HAUIPage):
         forecast_name = getattr(self, f'F{idx}_NAME')
         forecast_icon = getattr(self, f'F{idx}_ICO')
         forecast_val = getattr(self, f'F{idx}_VAL')
-        self.set_component_text(forecast_icon, haui_entity.get_icon())
         self.set_component_text_color(forecast_icon, haui_entity.get_color())
+        self.set_component_text(forecast_icon, haui_entity.get_icon())
         self.set_component_text(forecast_name, haui_entity.get_name())
         self.set_component_text(forecast_val, haui_entity.get_value())
 

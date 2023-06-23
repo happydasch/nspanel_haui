@@ -1,4 +1,5 @@
 import re
+from .mapping.color import COLORS
 from .helper.color import rgb_to_rgb565
 from .helper.icon import parse_icon
 from .helper.entity import get_entity_icon, get_entity_color, get_entity_name, \
@@ -167,7 +168,6 @@ class HAUIConfigEntity(HAUIBase):
             return self.app.get_entity(self._entity_id)
         return None
 
-
     def get_entity_type(self):
         """ Returns the type of the entity.
 
@@ -331,7 +331,7 @@ class HAUIConfigEntity(HAUIBase):
             color = rgb_to_rgb565(color)
         # use default color
         if not color:
-            color = get_entity_color(self, 29582)
+            color = get_entity_color(self, COLORS['entity_unavailable'])
         return color
 
     def get_icon(self):

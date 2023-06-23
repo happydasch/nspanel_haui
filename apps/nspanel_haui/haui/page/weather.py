@@ -13,7 +13,7 @@ class WeatherPage(HAUIPage):
     BTN_STATE_BTN_LEFT, BTN_STATE_BTN_RIGHT = (2, 'bBtnStateLeft'), (3, 'bBtnStateRight')
     TXT_TIME, TXT_DATE = (4, 'tTime'), (5, 'tDate')
     # main weather icon
-    ICO_MAIN, TXT_MAIN, TXT_MAIN_ADD = (6, 'tMainIcon'), (7, 'tMainText'), (8, 'tMainAdd')
+    ICO_MAIN, TXT_MAIN, TXT_SUB = (6, 'tMainIcon'), (7, 'tMainText'), (8, 'tSubText')
     # icons below main icon
     D1_ICO, D1_VAL = (9, 'd1Icon'), (10, 'd1Val')
     D2_ICO, D2_VAL = (11, 'd2Icon'), (12, 'd2Val')
@@ -126,14 +126,14 @@ class WeatherPage(HAUIPage):
         icon = haui_entity.get_icon()
         color = haui_entity.get_color()
         msg = haui_entity.get_value()
-        add = haui_entity.get_entity_attr('pressure', '')
-        if add:
+        msg_sub = haui_entity.get_entity_attr('pressure', '')
+        if msg_sub:
             pressure_unit = haui_entity.get_entity_attr('pressure_unit')
-            add = f'{add}{pressure_unit}'
+            msg_sub = f'{msg_sub}{pressure_unit}'
+        self.set_component_text_color(self.ICO_MAIN, color)
         self.set_component_text(self.ICO_MAIN, icon)
         self.set_component_text(self.TXT_MAIN, msg)
-        self.set_component_text(self.TXT_MAIN_ADD, add)
-        self.set_component_text_color(self.ICO_MAIN, color)
+        self.set_component_text(self.TXT_SUB, msg_sub)
 
     def update_forecast(self, haui_entity, idx):
         if idx < 1 or idx > 5:
@@ -142,8 +142,8 @@ class WeatherPage(HAUIPage):
         forecast_name = getattr(self, f'F{idx}_NAME')
         forecast_icon = getattr(self, f'F{idx}_ICO')
         forecast_val = getattr(self, f'F{idx}_VAL')
-        self.set_component_text(forecast_icon, haui_entity.get_icon())
         self.set_component_text_color(forecast_icon, haui_entity.get_color())
+        self.set_component_text(forecast_icon, haui_entity.get_icon())
         self.set_component_text(forecast_name, haui_entity.get_name())
         self.set_component_text(forecast_val, haui_entity.get_value())
 
@@ -153,8 +153,8 @@ class WeatherPage(HAUIPage):
             return
         info_icon = getattr(self, f'D{idx}_ICO')
         info_val = getattr(self, f'D{idx}_VAL')
-        self.set_component_text(info_icon, haui_entity.get_icon())
         self.set_component_text_color(info_icon, haui_entity.get_color())
+        self.set_component_text(info_icon, haui_entity.get_icon())
         self.set_component_text(info_val, haui_entity.get_value())
 
     # callback

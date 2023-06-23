@@ -1,3 +1,4 @@
+from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 
 from . import HAUIPage
@@ -27,6 +28,9 @@ class AlarmPage(HAUIPage):
 
 
 class PopupUnlockPage(HAUIPage):
+
+    ICO_LOCKED = get_icon('lock-outline')
+    ICO_UNLOCKED = get_icon('lock-open-outline')
 
     # page
 
@@ -79,8 +83,8 @@ class PopupUnlockPage(HAUIPage):
         self.set_component_text(AlarmPage.B1_FNC, self.translate('Unlock'))
         self.show_component(AlarmPage.B1_FNC)
         # show icon
-        self.set_component_text_color(AlarmPage.TXT_ICON, (255, 0, 0))
-        self.set_component_text(AlarmPage.TXT_ICON, get_icon('lock'))
+        self.set_component_text_color(AlarmPage.TXT_ICON, COLORS['alarm_armed'])
+        self.set_component_text(AlarmPage.TXT_ICON, self.ICO_LOCKED)
         self.show_component(AlarmPage.TXT_ICON)
 
     # callback
@@ -107,11 +111,11 @@ class PopupUnlockPage(HAUIPage):
             self.set_component_text(AlarmPage.TXT_TITLE, self._title)
         # check unlock code
         if str(self._input) == str(self._unlock_code):
-            self.set_component_text_color(AlarmPage.TXT_ICON, (0, 255, 0))
-            self.set_component_text(AlarmPage.TXT_ICON, get_icon('lock-open'))
+            self.set_component_text_color(AlarmPage.TXT_ICON, COLORS['alarm_disarmed'])
+            self.set_component_text(AlarmPage.TXT_ICON, self.ICO_UNLOCKED)
         else:
-            self.set_component_text_color(AlarmPage.TXT_ICON, (255, 0, 0))
-            self.set_component_text(AlarmPage.TXT_ICON, get_icon('lock'))
+            self.set_component_text_color(AlarmPage.TXT_ICON, COLORS['alarm_armed'])
+            self.set_component_text(AlarmPage.TXT_ICON, self.ICO_LOCKED)
         self.stop_rec_cmd(send_commands=True)
 
     def callback_unlock(self, event, component, button_state):

@@ -4,8 +4,7 @@
 
 - [Nextion Overview](#nextion-overview)
   - [Style](#style)
-  - [Fonts for text](#fonts-for-text)
-  - [Fonts for time / weather](#fonts-for-time--weather)
+  - [Fonts](#fonts)
   - [Colors](#colors)
   - [How to edit the HMI file](#how-to-edit-the-hmi-file)
 
@@ -18,10 +17,6 @@ The top area is used for navigation and a header.
 
 The main area is used for content.
 
-![Font & Color](assets/style_text.png)
-
-![Components](assets/style_color.png)
-
 ![Components](assets/style_components.png)
 
 The font [Roboto](https://github.com/googlefonts/roboto) and [MaterialDesign-Webfont](https://github.com/Templarian/MaterialDesign-Webfont) is being used.
@@ -30,18 +25,24 @@ The font [Roboto](https://github.com/googlefonts/roboto) and [MaterialDesign-Web
 
 - [Pictogrammers](https://pictogrammers.com/library/mdi/) if you need the char of the source font
 
-## Fonts for text
+## Fonts
+
+![Text](assets/style_text.png)
+
+Fonts for text
 
 - **Size 24** - All icons / Text
 - **Size 32** - All icons / Text
 - **Size 48** - All icons / Text
 
-## Fonts for time / weather
+Fonts for time / weather
 
 - **Size 96** - Only Limited Icons / Limited Text
 - **Size 128** - Only Limited Icons / Limited Text
 
 ## Colors
+
+![Color](assets/style_color.png)
 
 - Background Color: **6339**
 

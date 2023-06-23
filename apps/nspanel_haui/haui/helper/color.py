@@ -109,16 +109,21 @@ def rgb_to_rgb565(rgb_color):
     return ((int(red >> 3) << 11) | (int(green >> 2) << 5) | (int(blue >> 3)))
 
 
-def rgb565_to_rgb(dec565_color):
+def rgb565_to_rgb(rgb565_color):
     """ Converts a RGB565 color to a RGB888 color.
 
     Args:
-        dec565_color (int): dec565 color
+        rgb565_color (int): rgb565 color
 
     Returns:
         list: RGB888 color
     """
-    red = (dec565_color >> 11) << 3
-    green = ((dec565_color >> 5) & 0x3f) << 2
-    blue = (dec565_color & 0x1f) << 3
+    red = (rgb565_color & 0xF800) >> 11
+    green = (rgb565_color & 0x07E0) >> 5
+    blue = (rgb565_color & 0x001F)
+    # scale the values up to 8 bits (0-255)
+    red = (red * 255) // 31
+    green = (green * 255) // 63
+    blue = (blue * 255) // 31
+    # return the rgb values
     return [red, green, blue]

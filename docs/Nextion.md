@@ -1,8 +1,8 @@
-# Nextion Overview
+# Nextion Component
 
 ![Overview](assets/style_overview.png)
 
-- [Nextion Overview](#nextion-overview)
+- [Nextion Component](#nextion-component)
   - [Style](#style)
   - [Fonts](#fonts)
   - [Colors](#colors)

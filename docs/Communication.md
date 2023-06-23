@@ -1,6 +1,6 @@
-# Communication
+# Communication Overview
 
-- [Communication](#communication)
+- [Communication Overview](#communication-overview)
   - [Overview](#overview)
     - [Client](#client)
     - [Server](#server)

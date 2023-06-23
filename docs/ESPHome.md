@@ -1,4 +1,4 @@
-# ESPHome Component Details
+# ESPHome Component
 
 The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome is being used.
 
@@ -6,7 +6,7 @@ See `esphome/nspanel-haui.yaml` for the configuration file for your device.
 
 The communication between ESPHome is done mostly via MQTT.
 
-- [ESPHome Component Details](#esphome-component-details)
+- [ESPHome Component](#esphome-component)
   - [Config](#config)
   - [Installation](#installation)
   - [Custom Component](#custom-component)

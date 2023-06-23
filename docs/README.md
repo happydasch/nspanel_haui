@@ -23,7 +23,7 @@ The device handling responsibility is assigned to ESPHome. The communication wit
 The backend and global logic of the system is under the management of AppDaemon, which handles all the behind-the-scenes operations.
 The display operations with minimal logic are assigned to Nextion, which works in collaboration with ESPHome to show informations on the panel.
 
-- [Communication Description](Communication.md)
+- [Communication Overview](Communication.md)
   A description about the communication process of the components.
 
 - [ESPHome Component](ESPHome.md)

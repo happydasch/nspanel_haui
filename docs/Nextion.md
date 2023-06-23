@@ -10,14 +10,13 @@
 
 ## Style
 
+![Components](assets/style_components.png)
 
 The display is splitted into two areas, a top area and a main area.
 
 The top area is used for navigation and a header.
 
 The main area is used for content.
-
-![Components](assets/style_components.png)
 
 The font [Roboto](https://github.com/googlefonts/roboto) and [MaterialDesign-Webfont](https://github.com/Templarian/MaterialDesign-Webfont) is being used.
 
@@ -44,44 +43,49 @@ Fonts for time / weather
 
 ![Color](assets/style_color.png)
 
-- Background Color: **6339**
+The display is using these colors.
 
-  **RGB888:** #1b1b1b / 0x1b1b1b
-  **RGB565:** #18C3 / 0x18C3
+- ![#181818](https://placehold.co/15x15/181818/181818.png) **Background Color**
 
-- Text: **57083**
+  **RGB** `#181818` / 0x1b1b1b
+  **RGB565** 6339
 
-  **RGB888:** #dcdbdb / 0xdcdbdb
-  **RGB565:** #DEDB / 0xDEDB
+- ![#dedede](https://placehold.co/15x15/dedede/dedede.png) **Text**
 
-- Text Inactive: **29582**
+  **RGB** `#dedede` / 0xdcdbdb
+  **RGB565** 57083
 
-  **RGB888:** #717171 / 0x717171
-  **RGB565:** #738E / 0x738E
+- ![#717171](https://placehold.co/15x15/717171/717171.png)**Text Inactive**
 
-- Text Disabled: **12678**
+  **RGB** `#717171` / 0x717171
+  **RGB565** 29582
 
-  **RGB888:** #313131 / 0x313131
-  **RGB565:** #3186 / 0x3186
+- ![#313131](https://placehold.co/15x15/313131/313131.png) **Text Disabled**
 
-- Component: **65535**
+  **RGB** `#313131` / 0x313131
+  **RGB565** 12678
 
-- Component Active: **19773**
+- ![#ffffff](https://placehold.co/15x15/ffffff/ffffff.png) **Component**
+
+  **RGB** `#ffffff` / 0xffffff
+  **RGB565** 65535
+
+- ![#4ba6ee](https://placehold.co/15x15/4ba6ee/4ba6ee.png) **Component Active**
 
   Button Text Action, Active Slider
 
-  **RGB888:** #4ba6ee / 0x4ba6ee
-  **RGB565:** #4D3D / 0x4D3D
+  **RGB8** `#4ba6ee` / 0x4ba6ee
+  **RGB565** 19773
 
-- Component Accent: **62694**
+- ![#f09d37](https://placehold.co/15x15/f09d37/f09d37.png) **Component Accent**
 
-  **RGB888:** #f09d37 / 0xf09d37
-  **RGB565:** #F4E6 / 0xF4E6
+  **RGB** `#f09d37` / 0xf09d37
+  **RGB565** 62694
 
-- Component Background: **38066**
+- ![#4c4c4c](https://placehold.co/15x15/4c4c4c/4c4c4c.png) **Component Background**
 
-  **RGB888:** #4c4c4c / 0x4c4c4c
-  **RGB565:** #94B2 / 0x94B2
+  **RGB** `#4c4c4c` / 0x4c4c4c
+  **RGB565** 38066
 
 ## How to edit the HMI file
 

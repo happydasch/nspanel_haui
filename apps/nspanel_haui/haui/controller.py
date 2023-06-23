@@ -300,7 +300,6 @@ class HAUIGestureController(HAUIPart):
                 continue
 
         # find all matching sequences for this gesture
-        self.log(self._config)
         for seq_index, seq_data in enumerate(self._config):
             # check timeframe, if no timeframe defined, skip this
             timeframe = int(seq_data.get('timeframe', 0))
@@ -393,16 +392,15 @@ class HAUINavigationController(HAUIPart):
         super().__init__(app, config)
         self.log(f'Creating Navigation Controller with config: {config}')
         self.page = None
-        self.panel = None
+        self.panel = None  # current panel config
+        self.panel_kwargs = {}  # current panel kwargs
+        self._current_nav = None  # current nav panel config
+        self._current_nav_kwargs = {}  # current nav panel kwargs
         self._ids = None  # ids of nav panels
         self._home_panel = None  # home panel config
         self._sleep_panel = None  # sleep panel config
         self._sleep_panel_active = False  # sleep panel state
         self._wakeup_panel = None  # wakeup panel config
-        self._current = None  # current panel config
-        self._current_kwargs = {}  # current panel kwargs
-        self._current_nav = None  # current nav panel config
-        self._current_nav_kwargs = {}  # current nav panel kwargs
         self._page_timeout = None  # Timer for switching pages
         self._close_timeout = None  # Timer for panel auto close
         self._stack = []  # stack for non-nav panels
@@ -472,7 +470,7 @@ class HAUINavigationController(HAUIPart):
         Returns:
             HAUIConfigPanel|None
         """
-        return self._current
+        return self.panel
 
     def get_current_nav_panel(self):
         """ Returns the current nav panel.
@@ -529,16 +527,16 @@ class HAUINavigationController(HAUIPart):
     def reload_panel(self):
         """ Reloads the current panel.
         """
-        self.log(f'Reloading panel: {self._current.id}')
+        self.log(f'Reloading panel: {self.panel.id}')
         self.unset_page()
-        self.open_panel(self._current.id, **self._current_kwargs)
+        self.open_panel(self.panel.id, **self.panel_kwargs)
 
     def refresh_panel(self):
         """ Refreshes the current panel.
         """
         if self.page is None:
             return
-        self.log(f'Refreshing panel: {self._current.id}')
+        self.log(f'Refreshing panel: {self.panel.id}')
         self.page.refresh_panel()
 
     def display_panel(self, panel):
@@ -562,33 +560,40 @@ class HAUINavigationController(HAUIPart):
             panel_id (str): Id of panel
         """
         self.log(f'Opening panel: {panel_id}-{kwargs}')
-        new_panel = self.app.config.get_panel(panel_id)
-        if new_panel is None:
+        panel = self.app.config.get_panel(panel_id)
+        if panel is None:
             self.log(f'Panel {panel_id} not found')
             self.open_home_panel()
             return
 
         # check page of new panel
-        page_id = get_page_id_for_panel(new_panel.get_type())
-        page_class = get_page_class_for_panel(new_panel.get_type())
+        page_id = get_page_id_for_panel(panel.get_type())
+        page_class = get_page_class_for_panel(panel.get_type())
         if page_id is None or page_class is None:
             if page_id is None:
-                self.log(f'Panel {panel_id} ({new_panel.get_type()}) has no page defined')
+                self.log(f'Panel {panel_id} ({panel.get_type()}) has no page defined')
             if page_class is None:
-                self.log(f'Panel {panel_id} ({new_panel.get_type()}) has no page class defined')
+                self.log(f'Panel {panel_id} ({panel.get_type()}) has no page class defined')
             self.open_home_panel()
             return
 
-        # lock panels before setting new
-        if self._current is not None and 'locked' in self._current._config:
-            self._current._config['locked'] = True
+        # lock current panel before setting new
+        if self.panel is not None:
+            panel_config = self.panel.get_config(return_copy=False)
+            if 'locked' in panel_config:
+                panel_config['locked'] = True
+
+        # create new config and make kwargs available in new panel
+        config = panel.get_default_config(return_copy=True)
+        merge_dicts(config, kwargs)
+        panel.set_config(config)
 
         # set new panel as current panel
-        self._current = new_panel
-        self._current_kwargs = kwargs
+        self.panel = panel
+        self.panel_kwargs = kwargs
         # new panel is a nav panel
-        if new_panel.is_nav_panel():
-            self._current_nav = new_panel
+        if panel.is_nav_panel():
+            self._current_nav = panel
             self._current_nav_kwargs = kwargs
             # new panel is a nav panel, clear stack
             if len(self._stack):
@@ -596,20 +601,19 @@ class HAUINavigationController(HAUIPart):
         # new panel is not a nav panel
         else:
             # add to the navigation stack
-            self._stack.append((new_panel, kwargs))
+            self._stack.append((panel, kwargs))
 
         # check panel for unlock code
-        if new_panel.get('unlock_code') and new_panel.get('locked', True):
-            self.log(f'Unlock code set, locking panel {new_panel.id}')
+        if panel.get('unlock_code', '') != '' and panel.get('locked', True):
+            self.log(f'Unlock code set, locking panel {panel.id}')
+            panel_config = panel.get_config(return_copy=False)
             # if new panel has an unlock code set and panel is locked,
             # open unlock panel instead
-            new_panel._config['locked'] = True
+            if 'locked' in panel_config:
+                panel_config['locked'] = True
             # open the unlock panel with the panel to unlock as a param
-            self.open_panel('popup_unlock', unlock_panel=new_panel)
+            self.open_panel('popup_unlock', unlock_panel=panel)
             return
-
-        # make kwargs available in new panel
-        merge_dicts(new_panel._config, kwargs)
 
         # check current page
         curr_page_id = None
@@ -618,7 +622,7 @@ class HAUINavigationController(HAUIPart):
             self.page.stop()
         # set new current page and panel
         self.page = page_class(self.app, {'page_id': page_id})
-        self.panel = new_panel
+        self.panel = panel
         # set new page for panel
         if curr_page_id != page_id:
             self.log(f'Switching to page {page_id} from {curr_page_id}')
@@ -649,7 +653,7 @@ class HAUINavigationController(HAUIPart):
             self._page_timeout.start()
 
         # check for close timeout in panel config (contains also kwargs)
-        timeout = new_panel._config.get('close_timeout', 0)
+        timeout = panel.get('close_timeout', 0)
         if timeout > 0:
             self._close_timeout = threading.Timer(timeout, self.close_panel)
             self._close_timeout.start()
@@ -903,28 +907,30 @@ class HAUIUpdateController(HAUIPart):
         self.log(f'Got resp {resp}')
         json_decoded = resp.json()
         self.log(f'Got resp {resp}-{json_decoded}')
-        pass
-        '''
+        new_version = 1
+
         if True:
             navigation = self.app.controller['navigation']
             msg = self.translate('A new display version is available.')
             msg += '\r\n'
             msg += self.translate('Current Version:')
-            msg += ' ' + device_info['tft_version']
+            msg += ' ' + str(device_info['tft_version'])
             msg += '\r\n'
             msg += self.translate('New Version:')
-            msg += str(json_decoded)
+            msg += ' ' + str(new_version)
+            msg += '\r\n'
+            msg += self.translate('Do you want to update?')
 
             # open notification
             navigation.open_panel(
                 'popup_notify',
                 title=self.translate('Update available'),
-                btn_left_color="#ff0000",
-                btn_right_color="#00ff00",
+                btn_left_back_color=(255, 0, 0),
+                btn_right_back_color=(0, 255, 0),
                 btn_left=self.translate('No'),
                 btn_right=self.translate('Yes'),
-                icon='reload',
-                notification=msg)'''
+                button_callback_fnc=self.callback_update_response,
+                notification=msg)
 
     # callback
 
@@ -945,10 +951,11 @@ class HAUIUpdateController(HAUIPart):
                 self._connected_timer = None
             # request device infos when device connects
             if self.get('check_on_connect', False):
-                self.log('Checking for update on connect')
-                interval = self.get('on_connect_delay', 30)
+                delay_interval = self.get('on_connect_delay', 30)
+                self.log(f'Checking for update on connect in {delay_interval} seconds')
                 self._connected_timer = threading.Timer(
-                    interval, lambda: self.send_device_info_request())
+                    delay_interval, lambda: self.send_device_info_request())
+                #self._connected_timer.start()
         if event.name == ESP_RESPONSE['res_device_info']:
             self.log('Got device_info response')
             device_info = json.loads(event.value)

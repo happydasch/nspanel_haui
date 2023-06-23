@@ -390,6 +390,10 @@ class HAUIConfigPanel(HAUIBase):
         # load config
         if config is not None:
             merge_dicts(self._config, config)
+        # store the initial config in an additional var
+        # so it is possible to restore the config to initial values
+        self._default_config = {}
+        merge_dicts(self._default_config, self._config)
         # load all entities
         self._entities = []  # list of HAUIConfigEntity
         # single entity config
@@ -457,18 +461,34 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get('nav_panel', False)
 
-    def get_entities(self, copy=True):
+    def get_entities(self, return_copy=True):
         """ Returns all entities from this panel.
 
         Args:
-            copy (bool, optional): Copy entities. Defaults to True.
+            return_copy (bool, optional): Copy entities. Defaults to True.
 
         Returns:
             list: List with entities
         """
-        if copy:
+        if return_copy:
             return self._entities.copy()
         return self._entities
+
+    def get_default_config(self, return_copy=True):
+        """ Returns the initial config of this panel.
+
+        Returns:
+            dict: Initial config
+            return_copy (bool, optional): Return copy of config. Defaults to True.
+        """
+        if return_copy:
+            return self._default_config.copy()
+        return self._default_config
+
+    def restore_default_config(self):
+        """ Restore the initial config of this panel.
+        """
+        self._config = self.get_default_config(return_copy=True)
 
 
 class HAUIConfig(HAUIBase):
@@ -488,7 +508,7 @@ class HAUIConfig(HAUIBase):
         super().__init__(app, DEFAULT_CONFIG.copy())
         # load config
         if config is not None:
-            merge_dicts(self.get_config(), config)
+            merge_dicts(self.get_config(return_copy=False), config)
         # load all panels
         self._panels = []
         panels_to_load = self.get('sys_panels', [])

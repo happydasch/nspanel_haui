@@ -75,13 +75,26 @@ class HAUIBase:
         """
         return self.app.device.get_locale()
 
-    def get_config(self):
+    def get_config(self, return_copy=True):
         """ Returns the config dict.
+
+        Args:
+            return_copy (bool, optional): If True, returns a copy of the config. If False, returns the config itself.
 
         Returns:
             dict: Config
         """
+        if return_copy:
+            return self._config.copy()
         return self._config
+
+    def set_config(self, config):
+        """ Sets a new config dict.
+
+        Args:
+            config: Config
+        """
+        self._config = config
 
     def translate(self, text):
         """ Returns the translation of the given text.

@@ -668,7 +668,10 @@ script:
           auto haui_status_str = ad_connection_state ? "online" : "offline";
           id(ad_connection) = ad_connection_state;
           id(ad_heartbeat) = 0;
-          if (!ad_connection_state) {
+          if (ad_connection_state) {
+            // notify display about connection state
+            id(haui_disp).set_component_int("settings.adAvailable", 1);
+          } else {
             // ATT: hardcoded system page
             if (id(page).state != 1) {
               id(display_wakeup).execute();

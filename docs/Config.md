@@ -1,5 +1,7 @@
 # Configuration Description
 
+[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+
 - [Configuration Description](#configuration-description)
   - [Common Configuration](#common-configuration)
   - [Device Configuration](#device-configuration)
@@ -346,7 +348,10 @@ Accepts:
 
 ### Entity Icon
 
+[Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)
+
 `haui_entity.get_icon()`
+
 
 #### Templating using HomeAssistant
 

@@ -1,5 +1,7 @@
 # Communication Overview
 
+[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+
 - [Communication Overview](#communication-overview)
   - [Overview](#overview)
     - [Client](#client)

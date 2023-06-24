@@ -7,7 +7,7 @@ cheatsheet = '''
 <head>
     <meta charset="utf-8" />
     <meta name="google" content="notranslate">
-    <title>HASwitchPlate Material Design Icons</title>
+    <title>Material Design Icons Cheatsheet</title>
     <style>
         * {
             margin: 0;
@@ -312,16 +312,14 @@ cheatsheet = '''
         <svg>
             <path d="M0,0H8V3H18V0H26V8H23V18H26V26H18V23H8V21H18V18H21V8H18V5H8V8H5V18H8V26H0V18H3V8H0V0M2,2V6H6V2H2M2,20V24H6V20H2M20,2V6H24V2H20M20,20V24H24V20H20Z"></path>
         </svg>
-        HASwitchPlate Material Design Icons
+        Material Design Icons Cheatsheet
         <span class="version">7.2.96</span>
     </h1>
 
     <h2 class="usage">Cheatsheet Usage</h2>
 
     <ul class="usage-list">
-      <li>
-        <b>HASP Users</b>: Click the <code>U</code> value to copy the character to your clipboard
-      </li>
+      <li>Click the <code>U</code> value to copy the character to your clipboard</li>
       <li>Click the icon to copy the SVG to your clipboard</li>
       <li>Click the hex value to copy the codepoint to your clipboard</li>
       <li>Click the icon name to copy to your clipboard</li>

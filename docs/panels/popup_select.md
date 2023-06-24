@@ -1,15 +1,27 @@
 # Popup Select
 
+[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
+
+![Popup Select Single Page](../assets/popup_select_single_page.png)
+
+More than 12 Items:
+
+![Popup Select Multi Page](../assets/popup_select.png)
+
+## About
+
 ```yaml
 key: popup_select
 type: popup_select
 ```
 
-The select popup allows to select a value from a list.
+The select popup allows to select a value from a list. It is possible to define a
+selected value.
 
 ## Config
 
 ```yaml
+selected: Id of selected item
 selection: List of items to display
 close_on_select: should the popup be closed after selection, Default True
 selection_callback_fnc: function for selection
@@ -18,8 +30,10 @@ close_callback_fnc: function for close
 
 ### Selection
 
-The selection needs to be a list
-The selection values can either be str, list, tuple or dict.
+The `selection` needs to be a list.
+Provide `selected` to select a value.
+
+The values can either be str, list, tuple or dict.
 
 The id will be used as a identifier [index 0].
 The name will be used for display [index 1].
@@ -28,12 +42,16 @@ Examples:
 
 ```python
 str:
+selected = 'item 1'
 selection = ['item 1', 'item 2', 'item 3']
 list:
+selected = 0
 selection = [[0, 'item 1'], [1, 'item 2'], [2, 'item 3']]
 tuple:
+selected = 0
 selection = [(0, 'item 1'), (1, 'item 2'), (2, 'item 3')]
 dict:
+selected = 0
 selection = [{'id': 0, 'name': 'item 1'}, {'id': 1, 'name': 'item 2'}, {'id': 0, 'name': 'item 3'}]
 ```
 

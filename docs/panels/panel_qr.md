@@ -1,10 +1,26 @@
-# QR-Code Panel
+# Panel QR-Code
+
+[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
+
+![Subpanel QR-Code](../assets/subpanel_qr.png)
+
+![Panel QR-Code](../assets/panel_qr.png)
+
+Panel with zoomed qr-code:
+
+![Panel QR-Code](../assets/panel_qr_zoom.png)
+
+Big qr-code without text:
+
+![Panel Big QR-Code](../assets/panel_qr_only_qr.png)
+
+## About
+
+The QR-Code panel can be used to display a qr code containing provided informations for example wifi access.
 
 ```yaml
 type: qr
 ```
-
-The QR-Code Panel can be used to display a qr code containing provided informations for example wifi access.
 
 The panel can show 2 different qr code sizes. It will display a big qr code if there are no entities configured. If there are entities then a smaller qr code will be shown on one half and entity informations on the other.
 

@@ -1,5 +1,7 @@
 # NSPanel HomeAssistant UI Docs
 
+[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+
 ## End User
 
 For details about installation and configuration see the following pages.
@@ -24,10 +26,11 @@ The backend and global logic of the system is under the management of AppDaemon,
 The display operations with minimal logic are assigned to Nextion, which works in collaboration with ESPHome to show informations on the panel.
 
 - [Communication Overview](Communication.md)
+
   A description about the communication process of the components.
 
 - [ESPHome Component](ESPHome.md)
--
+
   The ESP processes the serial communication and creates events which are being sent via MQTT.
   Only the ESP communicates directly with the display.
 
@@ -36,5 +39,5 @@ The display operations with minimal logic are assigned to Nextion, which works i
   Most logic is implemented in the AppDaemon App. The display is responsible for showing the panels, doing time critical processing like animations, preparing components on pages before they being shown.
 
 - [AppDaemon Component](AppDaemon.md)
--
+
   This app controls the Nextion display running on the ESP32. It updates the display based on the latest data from Home Assistant entities.

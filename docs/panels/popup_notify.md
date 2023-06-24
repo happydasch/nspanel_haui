@@ -1,5 +1,11 @@
 # Popup Notification
 
+[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
+
+![Popup Notification](../assets/popup_notify.png)
+
+## About
+
 ```yaml
 key: popup_notify
 type: popup_notify
@@ -35,7 +41,6 @@ To automatically close a notification after some time use the `close_timeout` pa
 
 provide param in code `close_callback_fnc`. This will get called when the popup is closed.
 ATT: the page setting the callback is already stopped at the time the callback is executed.
-
 
 ```python
 # as a method

@@ -1,5 +1,7 @@
 # FAQ
 
+[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+
 - [FAQ](#faq)
   - [How to upload a TFT file](#how-to-upload-a-tft-file)
   - [Getting errors while updating, update is not possible](#getting-errors-while-updating-update-is-not-possible)

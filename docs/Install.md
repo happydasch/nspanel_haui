@@ -1,5 +1,7 @@
 # Installation Guide
 
+[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+
 - [Installation Guide](#installation-guide)
   - [1. Step: Preparations](#1-step-preparations)
   - [2. Step: Install ESPHome](#2-step-install-esphome)

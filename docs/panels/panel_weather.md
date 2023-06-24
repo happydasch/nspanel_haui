@@ -1,4 +1,12 @@
-# Weather Panel
+# Panel Weather
+
+[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
+
+![Panel Weather](../assets/panel_weather.png)
+
+![Panel Weather Background](../assets/panel_weather_background.png)
+
+## About
 
 ```yaml
 type: weather

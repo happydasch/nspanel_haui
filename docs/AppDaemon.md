@@ -1,5 +1,7 @@
 # AppDaemon Component
 
+[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+
 NSPanelHAUI is the backend that allows to manage home automation devices using the NSPanel.
 
 - [AppDaemon Component](#appdaemon-component)

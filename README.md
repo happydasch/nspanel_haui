@@ -1,18 +1,20 @@
 
 # NSPanel HAUI (HomeAssistant UI)
 
-`nspanel-haui` is a robust display system for HomeAssistant based smart homes.
-
-For details about the configuration see [Configuration](docs/Config.md), also look at [Panels](docs/panels/README.md) to get an overview of available panels.
+`nspanel-haui` is a versatile display system for HomeAssistant based smart homes.
 
 - [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
   - [Features](#features)
   - [Installation](#installation)
   - [Development](#development)
   - [Roadmap](#roadmap)
-  - [Additional](#additional)
+  - [Additional Information](#additional-information)
+
+For details about the configuration see [Configuration](docs/Config.md), also look at [Panels](docs/panels/README.md) to get an overview of available panels.
 
 ## Features
+
+![Overview](docs/assets/overview.png)
 
 - **Touch Gestures and sequences**
 
@@ -65,25 +67,23 @@ Take also a look at the more detailed [Installation Guide](docs/Install.md). Hav
 
 ## Development
 
-For details about how the parts of the whole system communicate together see [docs](docs/README.md)
+For details about how the parts of the whole system communicate together see [NSPanel HomeAssistant UI Docs](docs/README.md).
 
 - [Communication Description](docs/Communication.md)
 
-  - Overview of the communication process
-
-- [AppDaemon Component](docs/AppDaemon.md)
-
-  - Server Application running on AppDaemon
+  Overview of the communication process
 
 - [ESPHome Component](docs/ESPHome.md)
 
-  - Device and Sensors Implementation
-  - Provides Scripts and Services for Communication with display
-  - Responsible for handling the device functionality
+  Device and Sensors Implementation
+
+- [AppDaemon Component](docs/AppDaemon.md)
+
+  Server Application running on AppDaemon
 
 - [Nextion Component](docs/Nextion.md)
 
-  - Responsible for display, as little logic as possible
+  Responsible for display, as little logic as possible
 
 ## Roadmap
 
@@ -101,12 +101,13 @@ Basic functionality
 Improvements / Additional
 
 - [x] Create new font using Roboto font
-- [ ] Improve / Change design
+- [x] Add style and design for panels
+- [ ] Implement design in hmi file
 - [ ] Support for timebased value overrides
 - [ ] Add updater
 - [ ] Add new panels
-- [ ] Add a light theme
+- [ ] Add a light theme?
 
-## Additional
+## Additional Information
 
-The project is based on the ideas of [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) and [NSPanel Custom with HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint). Many frontend parts are based on `NSPanel Lovelace UI` as the configuration, functionality and design. The backend part is a completely different implementation.
+The project is based on the ideas of [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) and [NSPanel Custom with HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint).

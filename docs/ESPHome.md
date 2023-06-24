@@ -1,6 +1,11 @@
 # ESPHome Component
 
+[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+
 The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome is being used.
+
+- Provides Scripts and Services for Communication with display
+- Responsible for handling the device functionality
 
 See `esphome/nspanel-haui.yaml` for the configuration file for your device.
 

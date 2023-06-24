@@ -7,8 +7,6 @@
 #
 #
 from PIL import Image, ImageDraw
-import math
-
 # Constants for animation timing.
 TOTAL_CYCLES = 4
 TOTAL_DURATION_IN_MS = 5400
@@ -27,7 +25,8 @@ CONSTANT_ROTATION_DEGREES = 1520
 image_size = (140, 140)
 arc_radius = 60
 arc_width = 6
-arc_color = (255, 255, 255, 255)
+#arc_color = (255, 255, 255, 255)
+arc_color = (75, 166, 238, 255)
 num_frames = 60
 rounded = True
 output_file = 'circular_animation.png'
@@ -45,20 +44,6 @@ segment_positions = [0, 0]
 
 def draw_arc(im, starting, ending):
     draw = ImageDraw.Draw(im)
-    #
-    '''draw.pieslice(
-        (
-            center_point[0] - arc_radius + 10,
-            center_point[1] - arc_radius + 10,
-            center_point[0] + arc_radius - 10,
-            center_point[1] + arc_radius - 10
-        ),
-        starting,
-        ending,
-        fill=(0,255,0),
-        width=arc_width
-    )'''
-
     draw.arc(
         (
             center_point[0] - arc_radius - arc_width / 2,
@@ -71,13 +56,6 @@ def draw_arc(im, starting, ending):
         fill=arc_color,
         width=arc_width
     )
-
-    # calculate endpoints of the arc
-    '''start_x = center_point[0] + arc_radius * math.cos(math.radians(starting))
-    start_y = center_point[1] + arc_radius * math.sin(math.radians(starting))
-    end_x = center_point[0] + arc_radius * math.cos(math.radians(ending))
-    end_y = center_point[1] + arc_radius * math.sin(math.radians(ending))'''
-
 
 def get_fraction_in_range(playtime, start, duration):
     return (playtime - start) / duration
@@ -163,11 +141,13 @@ def update_segment_positions(frame):
 
 
 for i in range(num_frames):
-    im = Image.open('bkg.png')
+    # open a background image and draw the arc on it (frame)
+    #im = Image.open('scripts/gen_spinner/bkg_img.png')
+    im = Image.open('scripts/gen_spinner/bkg_color.png')
     update_segment_positions(i)
     draw_arc(im, segment_positions[0], segment_positions[1])
     posx = int(i % multx) * image_size[0]
     posy = int(i // multx) * image_size[1]
     all_frames_img.paste(im, (posx, posy))
 # Save the all-frames image as a PNG file
-all_frames_img.save('progress_all_frames.png')
+all_frames_img.save('scripts/gen_spinner/progress_all_frames.png')

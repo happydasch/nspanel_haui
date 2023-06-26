@@ -3,10 +3,9 @@ from ..helper.icon import get_icon, get_icon_name_by_action
 from . import HAUIPage
 
 
-class EntitiesListPage(HAUIPage):
+class RowPage(HAUIPage):
 
     # common components
-    BTN_STATE_BTN_LEFT, BTN_STATE_BTN_RIGHT = (2, 'bBtnStateLeft'), (3, 'bBtnStateRight')
     BTN_NAV_LEFT, BTN_NAV_RIGHT = (4, 'bNavLeft'), (5, 'bNavRight')
     TXT_TITLE = (6, 'tTitle')
     # Entity 1
@@ -44,7 +43,6 @@ class EntitiesListPage(HAUIPage):
         # active entities
         self._active = {}
 
-        self.set_button_state_buttons(self.BTN_STATE_BTN_LEFT, self.BTN_STATE_BTN_RIGHT)
         self.set_prev_next_nav_buttons(self.BTN_NAV_LEFT, self.BTN_NAV_RIGHT)
 
         self.start_rec_cmd()

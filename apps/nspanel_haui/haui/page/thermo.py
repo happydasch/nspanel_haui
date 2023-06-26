@@ -1,10 +1,9 @@
 from . import HAUIPage
 
 
-class ThermostatPage(HAUIPage):
+class ThermoPage(HAUIPage):
 
     # common components
-    BTN_STATE_BTN_LEFT, BTN_STATE_BTN_RIGHT = (2, 'bBtnStateLeft'), (3, 'bBtnStateRight')
     BTN_NAV_LEFT, BTN_NAV_RIGHT = (4, 'bNavLeft'), (5, 'bNavRight')
     TXT_TITLE = (6, 'tTitle')
     # entities
@@ -23,8 +22,11 @@ class ThermostatPage(HAUIPage):
     # panel
 
     def start_panel(self, panel):
-        self.set_button_state_buttons(self.BTN_STATE_BTN_LEFT, self.BTN_STATE_BTN_RIGHT)
         self.set_prev_next_nav_buttons(self.BTN_NAV_LEFT, self.BTN_NAV_RIGHT)
 
     def render_panel(self, panel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
+
+
+def PopupThermoPage(ThermoPage):
+    pass

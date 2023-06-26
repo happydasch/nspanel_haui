@@ -195,6 +195,11 @@ DEFAULT_CONFIG = {
             'key': 'popup_light',
             'nav_panel': False,
         }, {
+            # popup thermo
+            'type': 'popup_thermo',
+            'key': 'popup_thermo',
+            'nav_panel': False,
+        }, {
             # popup timer
             'type': 'popup_timer',
             'key': 'popup_timer',

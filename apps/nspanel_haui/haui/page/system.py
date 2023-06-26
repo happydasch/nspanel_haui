@@ -3,12 +3,14 @@ from . import HAUIPage
 
 class SystemPage(HAUIPage):
 
+    # QR code with url
+    QR_URL = (1, 'qrUrl')
     # spinner animation
-    SPINNER = (3, 'hSpinner')
+    H_SPINNER = (2, 'hSpinner')
     # text components
-    TXT_TITLE = (5, 'tTitle')
-    TXT_MSG1 = (6, 'tMsg1')
-    TXT_MSG2 = (7, 'tMsg2')
+    TXT_TITLE = (3, 'tTitle')
+    TXT_MSG1 = (4, 'tMsg1')
+    TXT_MSG2 = (5, 'tMsg2')
 
     # panel
 

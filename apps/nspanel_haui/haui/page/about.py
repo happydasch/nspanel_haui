@@ -5,7 +5,6 @@ import haui.version
 class AboutPage(HAUIPage):
 
     # common components
-    BTN_STATE_BTN_LEFT, BTN_STATE_BTN_RIGHT = (2, 'bBtnStateLeft'), (3, 'bBtnStateRight')
     BTN_NAV_CLOSE, TXT_TITLE = (4, 'bNavClose'), (5, 'tTitle')
     # About Text
     TXT_ABOUT_1, TXT_ABOUT_2 = (6, 'tAbout1'), (7, 'tAbout2')
@@ -20,7 +19,6 @@ class AboutPage(HAUIPage):
 
     def start_panel(self, panel):
         panel._config['nav_panel'] = False
-        self.set_button_state_buttons(self.BTN_STATE_BTN_LEFT, self.BTN_STATE_BTN_RIGHT)
         self.set_close_nav_button(self.BTN_NAV_CLOSE)
 
     def render_panel(self, panel):
@@ -31,11 +29,11 @@ class AboutPage(HAUIPage):
         ad_version = haui.version.__version__
 
         # about text
-        self.set_component_text(self.TXT_ABOUT_1, self.translate('Wall-Panel for HomeAssistant based Smart'))
-        self.set_component_text(self.TXT_ABOUT_2, self.translate('Homes in Lovelace UI Design.'))
+        self.set_component_text(self.TXT_ABOUT_1, self.translate('Versatile wall panel for HomeAssistant based'))
+        self.set_component_text(self.TXT_ABOUT_2, self.translate('smart homes with a custom UI Design.'))
 
         # common vars
-        self._title = panel.get_title(self.translate('About NSPanel HAUI'))
+        self._title = panel.get_title(self.translate('About'))
         self.set_component_text(self.TXT_TITLE, self._title)
         # device_name
         self.set_component_text(self.TXT_DEVICE_NAME, device_name)

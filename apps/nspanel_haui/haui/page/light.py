@@ -11,7 +11,6 @@ from . import HAUIPage
 class PopupLightPage(HAUIPage):
 
     # common components
-    BTN_STATE_BTN_LEFT, BTN_STATE_BTN_RIGHT = (2, 'bBtnStateLeft'), (3, 'bBtnStateRight')
     BTN_NAV_CLOSE, TXT_TITLE = (4, 'bNavClose'), (5, 'tTitle')
     # function buttons
     BTN_LIGHT_FNC_1, BTN_LIGHT_FNC_2 = (6, 'btLightFnc1'), (7, 'btLightFnc2')
@@ -48,7 +47,6 @@ class PopupLightPage(HAUIPage):
     # panel
 
     def start_panel(self, panel):
-        self.set_button_state_buttons(self.BTN_STATE_BTN_LEFT, self.BTN_STATE_BTN_RIGHT)
         self.set_close_nav_button(self.BTN_NAV_CLOSE)
         # entity to control
         self._entity = panel.get('entity')

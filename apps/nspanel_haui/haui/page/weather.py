@@ -10,7 +10,6 @@ from . import HAUIPage
 class WeatherPage(HAUIPage):
 
     # time and date display
-    BTN_STATE_BTN_LEFT, BTN_STATE_BTN_RIGHT = (2, 'bBtnStateLeft'), (3, 'bBtnStateRight')
     TXT_TIME, TXT_DATE = (4, 'tTime'), (5, 'tDate')
     # main weather icon
     ICO_MAIN, TXT_MAIN, TXT_SUB = (6, 'tMainIcon'), (7, 'tMainText'), (8, 'tSubText')
@@ -48,8 +47,6 @@ class WeatherPage(HAUIPage):
     # panel
 
     def start_panel(self, panel):
-        # set up button state buttons
-        self.set_button_state_buttons(self.BTN_STATE_BTN_LEFT, self.BTN_STATE_BTN_RIGHT)
         # entities
         self._handles = []
         for entity in panel.get_entities():

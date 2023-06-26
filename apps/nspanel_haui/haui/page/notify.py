@@ -6,7 +6,6 @@ from . import HAUIPage
 class PopupNotifyPage(HAUIPage):
 
     # common components
-    BTN_STATE_BTN_LEFT, BTN_STATE_BTN_RIGHT = (2, 'bBtnStateLeft'), (3, 'bBtnStateRight')
     BTN_NAV_CLOSE, TXT_TITLE = (4, 'bNavClose'), (5, 'tTitle')
 
     TXT_TEXT_FULL, TXT_TEXT, TXT_ICON = (6, 'tTextFull'), (7, 'tText'), (8, 'tIcon')
@@ -42,7 +41,6 @@ class PopupNotifyPage(HAUIPage):
     # panel
 
     def start_panel(self, panel):
-        self.set_button_state_buttons(self.BTN_STATE_BTN_LEFT, self.BTN_STATE_BTN_RIGHT)
         self.set_close_nav_button(self.BTN_NAV_CLOSE)
 
         self._icon = parse_icon(panel.get('icon', ''))

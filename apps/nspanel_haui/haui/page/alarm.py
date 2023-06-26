@@ -7,7 +7,6 @@ from . import HAUIPage
 class AlarmPage(HAUIPage):
 
     # common components
-    BTN_STATE_BTN_LEFT, BTN_STATE_BTN_RIGHT = (2, 'bBtnStateLeft'), (3, 'bBtnStateRight')
     BTN_NAV_LEFT, BTN_NAV_RIGHT = (4, 'bNavLeft'), (5, 'bNavRight')
     TXT_TITLE = (6, 'tTitle')
     #
@@ -49,7 +48,6 @@ class PopupUnlockPage(HAUIPage):
 
     def start_panel(self, panel):
         self._input = ''
-        self.set_button_state_buttons(AlarmPage.BTN_STATE_BTN_LEFT, AlarmPage.BTN_STATE_BTN_RIGHT)
         self.set_prev_next_nav_buttons(AlarmPage.BTN_NAV_LEFT, AlarmPage.BTN_NAV_RIGHT)
         # store panel infos
         self._title = panel.get('title', self.translate('Unlock Panel'))

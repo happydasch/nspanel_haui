@@ -6,11 +6,13 @@ from ..page.about import AboutPage
 # default panels
 from ..page.weather import WeatherPage
 from ..page.clock import ClockPage
-from ..page.entities_grid import EntitiesGridPage
-from ..page.entities_list import EntitiesListPage
+from ..page.grid import GridPage
+from ..page.row import RowPage
+from ..page.column import ColumnPage
+from ..page.split import SplitPage
 from ..page.qr import QRPage
 from ..page.media import MediaPage
-from ..page.thermo import ThermostatPage
+from ..page.thermo import ThermoPage
 from ..page.alarm import AlarmPage
 from ..page.power import PowerPage
 # popup panels
@@ -18,6 +20,7 @@ from ..page.alarm import PopupUnlockPage
 from ..page.notify import PopupNotifyPage
 from ..page.select import PopupSelectPage
 from ..page.light import PopupLightPage
+from ..page.thermo import PopupThermoPage
 from ..page.timer import PopupTimerPage
 
 
@@ -33,17 +36,19 @@ PAGE_MAPPING = {
     3: 'about',
     4: 'weather',
     5: 'clock',
-    6: 'entities_grid',
-    7: 'entities_list',
-    8: 'qr',
-    9: 'media',
-    10: 'thermo',
-    11: 'alarm',
-    12: 'power',
-    13: 'notify',
-    14: 'select',
-    15: 'light',
-    16: 'timer',
+    6: 'grid',
+    7: 'row',
+    8: 'column',
+    9: 'split',
+    10: 'light',
+    11: 'thermo',
+    12: 'media',
+    13: 'qr',
+    14: 'alarm',
+    15: 'timer',
+    16: 'power',
+    17: 'notify',
+    18: 'select',
 }
 
 
@@ -60,6 +65,7 @@ SYS_PANEL_MAPPING = {
     'popup_notify': 'popup_notify',
     'popup_select': 'popup_select',
     'popup_light': 'popup_light',
+    'popup_thermo': 'popup_thermo',
     'popup_timer': 'popup_timer',
 }
 
@@ -75,11 +81,13 @@ PANEL_MAPPING = {
     # panels
     'weather': ('weather', WeatherPage),
     'clock': ('clock', ClockPage),
-    'grid': ('entities_grid', EntitiesGridPage),
-    'list': ('entities_list', EntitiesListPage),
+    'grid': ('grid', GridPage),
+    'row': ('row', RowPage),
+    'column': ('column', ColumnPage),
+    'split': ('split', SplitPage),
     'qr': ('qr', QRPage),
     'media': ('media', MediaPage),
-    'thermo': ('thermo', ThermostatPage),
+    'thermo': ('thermo', ThermoPage),
     'alarm': ('alarm', AlarmPage),
     'power': ('power', PowerPage),
     # popups
@@ -87,5 +95,6 @@ PANEL_MAPPING = {
     'popup_notify': ('notify', PopupNotifyPage),
     'popup_select': ('select', PopupSelectPage),
     'popup_light': ('light', PopupLightPage),
+    'popup_thermo': ('thermo', PopupThermoPage),
     'popup_timer': ('timer', PopupTimerPage),
 }

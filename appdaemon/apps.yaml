@@ -62,6 +62,9 @@ nspanel-haui:
       - type: popup_light
         key: popup_light
         nav_panel: False
+      - type: popup_thermo
+        key: popup_thermo
+        nav_panel: False
       - type: popup_timer
         key: popup_timer
         nav_panel: False

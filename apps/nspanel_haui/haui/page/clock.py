@@ -10,7 +10,6 @@ from . import HAUIPage
 class ClockPage(HAUIPage):
 
     # time and date display
-    BTN_STATE_BTN_LEFT, BTN_STATE_BTN_RIGHT = (2, 'bBtnStateLeft'), (3, 'bBtnStateRight')
     TXT_TIME, TXT_DATE = (4, 'tTime'), (5, 'tDate')
     # main weather icon
     ICO_MAIN = (6, 'tMainIcon')
@@ -32,8 +31,6 @@ class ClockPage(HAUIPage):
         # Setup date callback
         self._date_timer = self.app.run_hourly(
             self.callback_update_date, time)
-        # set up button state buttons
-        self.set_button_state_buttons(self.BTN_STATE_BTN_LEFT, self.BTN_STATE_BTN_RIGHT)
 
     def stop_page(self):
         # cancel time and date timer

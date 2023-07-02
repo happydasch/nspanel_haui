@@ -39,48 +39,48 @@ nspanel-haui:
     # all system panels
     sys_panels:
       - type: blank
+        mode: subpanel
         key: sys_blank
-        nav_panel: False
       - type: system
+        mode: subpanel
         key: sys_system
-        nav_panel: False
       - type: system_settings
+        mode: popup
         key: sys_settings
-        nav_panel: False
       - type: system_about
+        mode: popup
         key: sys_about
-        nav_panel: False
       - type: popup_unlock
+        mode: popup
         key: popup_unlock
-        nav_panel: False
       - type: popup_notify
+        mode: popup
         key: popup_notify
-        nav_panel: False
       - type: popup_select
+        mode: popup
         key: popup_select
-        nav_panel: False
       - type: popup_light
+        mode: popup
         key: popup_light
-        nav_panel: False
       - type: popup_thermo
+        mode: popup
         key: popup_thermo
-        nav_panel: False
       - type: popup_timer
+        mode: popup
         key: popup_timer
-        nav_panel: False
 
     # panels
     panels:
       # weather panel
       - type: weather
-        nav_panel: false  # so it will not show up in navigation
-        sleep_panel: true
+        mode: subpanel  # it will not show up in navigation
         entity: weather.home
+        sleep_panel: true
 
       # grid panel
       - type: grid
-        home_panel: true
         title: Test Panel
+        home_panel: true
         entities:
           - entity: light.example_item
           - entity: switch.example_item
@@ -94,7 +94,7 @@ nspanel-haui:
         entity: navigate:panel_key
       - type: grid
         title: Subpanel Open
-        nav_panel: False
+        mode: subpanel
         key: panel_key
         entities:
           - entity: light.example_item
@@ -130,4 +130,3 @@ nspanel-haui:
           - entity: "text:wifi_pw"
             name: Wifi Key
             icon: mdi:key
-

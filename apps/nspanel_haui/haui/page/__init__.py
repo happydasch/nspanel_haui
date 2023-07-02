@@ -1,5 +1,6 @@
 from ..helper.icon import get_icon
 from ..helper.color import rgb_to_rgb565
+from ..mapping.color import COLORS
 from ..const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
 from ..base import HAUIPart
 
@@ -17,21 +18,38 @@ class HAUIPage(HAUIPart):
     - Main logic for panels
     """
 
-    ICO_NAV_LEFT = get_icon('arrow-left-thick')
-    ICO_NAV_RIGHT = get_icon('arrow-right-thick')
-    ICO_NAV_UP = get_icon('arrow-up-thick')
-    ICO_NAV_CLOSE = get_icon('close-thick')
+    # default function button icons
+    ICO_NAV_PREV = get_icon('chevron-left')
+    ICO_NAV_NEXT = get_icon('chevron-right')
+    ICO_NAV_UP = get_icon('chevron-up')
+    ICO_NAV_CLOSE = get_icon('close')
+    ICO_NAV_HOME = get_icon('home-outline')
+    ICO_ENTITY_POWER = get_icon('power')
+    ICO_ZOOM = get_icon('loupe')
+    ICO_LOCKED = get_icon('lock-outline')
+    ICO_UNLOCKED = get_icon('lock-open-outline')
+
+    # internal function button ids
+    FNC_BTN_L_PRI = 'fnc_btn_left_pri'
+    FNC_BTN_L_SEC = 'fnc_btn_left_sec'
+    FNC_BTN_R_PRI = 'fnc_btn_right_pri'
+    FNC_BTN_R_SEC = 'fnc_btn_right_sec'
+
+    # functions for function buttons
+    FNC_BTN_TYPE_NAV_NEXT = 'nav_next'
+    FNC_BTN_TYPE_NAV_PREV = 'nav_prev'
+    FNC_BTN_TYPE_NAV_UP = 'nav_up'
+    FNC_BTN_TYPE_NAV_CLOSE = 'nav_close'
+    FNC_BTN_TYPE_NAV_HOME = 'nav_home'
 
     def __init__(self, app, config=None):
         super().__init__(app, config)
         self.page_id = int(self.get('page_id', 0))
         self.page_id_recv = None  # will be set to the page id when a page event is recieved
+        # current panel
         self.panel = None
-        # nav buttons, components
-        self._nav_prev = None
-        self._nav_next = None
-        self._nav_close = None
-        self._nav_up = None
+        # function buttons, components
+        self._btn_fnc = {}
         # physical buttons, components
         self._btn_state_left = None
         self._btn_state_right = None
@@ -83,6 +101,20 @@ class HAUIPage(HAUIPart):
 
     # panel functionality
 
+    def refresh_panel(self):
+        """ Refreshes the current panel.
+
+        This gives the possibility to update the panel.
+        """
+        if self.panel is None:
+            return
+        # start recording of commands to be sent
+        self.start_rec_cmd()
+        # 3. call render for panel
+        self.render_panel(self.panel)
+        # stop recording of commands to be sent
+        self.stop_rec_cmd(send_commands=True)
+
     def set_panel(self, panel):
         """ Sets a panel for the page.
 
@@ -132,62 +164,70 @@ class HAUIPage(HAUIPart):
             self.add_component_callback(self._btn_state_right, self.callback_button_state_buttons)
             self.set_component_value(self._btn_state_right, self.app.device.get_right_button_state())
         self.update_button_states()
-        # prev and next buttons
-        if panel.is_nav_panel():
-            if self._nav_prev is not None:
-                self.add_component_callback(self._nav_prev, self.callback_nav_buttons)
-                self.set_component_text(self._nav_prev, self.ICO_NAV_LEFT)
-                self.show_component(self._nav_prev)
-            if self._nav_next is not None:
-                self.add_component_callback(self._nav_next, self.callback_nav_buttons)
-                self.set_component_text(self._nav_next, self.ICO_NAV_RIGHT)
-                self.show_component(self._nav_next)
-        else:
-            # subpanels will just use prev as up button
-            if self._nav_prev is not None:
-                self._nav_up = self._nav_prev
-                self._nav_prev = None
-            if self._nav_next is not None:
-                # unset next button on subpanels
-                self.hide_component(self._nav_next)
-                self._nav_next = None
-        # close button
-        if self._nav_close is not None:
-            self.add_component_callback(self._nav_close, self.callback_nav_buttons)
-            self.set_component_text(self._nav_close, self.ICO_NAV_CLOSE)
-            self.show_component(self._nav_close)
-        # up button
-        if self._nav_up is not None:
-            self.add_component_callback(self._nav_up, self.callback_nav_buttons)
-            self.set_component_text(self._nav_up, self.ICO_NAV_UP)
-            self.show_component(self._nav_up)
+
+        # prepare function buttons
+        for fnc_id, fnc_item in self._btn_fnc.items():
+            mode = panel.get_mode()
+            # set default function if not set
+            if fnc_item['fnc_name'] is None:
+                # left primary button
+                if fnc_id == self.FNC_BTN_L_PRI:
+                    if mode == 'panel':
+                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_PREV
+                    elif mode == 'subpanel':
+                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_UP
+                    elif mode == 'popup' and not panel.is_home_panel():
+                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_HOME
+                    self.log(f'Set primary left function button to {fnc_item["fnc_name"]}')
+                # left secondary button
+                if fnc_id == self.FNC_BTN_L_SEC:
+                    if (mode == 'panel' or mode == 'subpanel') and not panel.is_home_panel():
+                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_HOME
+                    self.log(f'Set secondary left function button to {fnc_item["fnc_name"]}')
+                # right primary button
+                elif fnc_id == self.FNC_BTN_R_PRI:
+                    if mode == 'panel':
+                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_NEXT
+                    elif mode == 'popup':
+                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_CLOSE
+                    self.log(f'Set primary right function button to {fnc_item["fnc_name"]}')
+            # update function button
+            self.add_component_callback(fnc_item['fnc_btn'], self.callback_function_buttons)
+            self.update_function_button(fnc_id)
+
         self.stop_rec_cmd(send_commands=True)
 
-    def start_panel(self, panel):
-        """ Starts the panel.
+    def create_panel(self, panel):
+        """ Called when a new panel is created.
 
-        This is called when the panel is started. This method should be overwritten
-        in the page.
+        This method should be overwritten in the page.
+
+        Args:
+            panel (HAUIConfigPanel): Current panel
+        """
+
+    def start_panel(self, panel):
+        """ Called when a panel is started.
+
+        This method should be overwritten in the page.
 
         Args:
             panel (HAUIConfigPanel): Current panel
         """
 
     def stop_panel(self, panel):
-        """ Stops the panel.
+        """ Called when a panel is stopped.
 
-        This is called when the panel is stopped. This method should be overwritten
-        in the page.
+        This method should be overwritten in the page.
 
         Args:
             panel (HAUIConfigPanel): Current panel
         """
 
     def before_render_panel(self, panel):
-        """ Before the panel is being rendered.
+        """ Called before the panel is rendered.
 
-        This is called before the panel is rendered. This method should be overwritten
-        in the page.
+        This method should be overwritten in the page.
 
         Args:
             panel (HAUIConfigPanel): Current panel
@@ -198,17 +238,16 @@ class HAUIPage(HAUIPart):
         return True
 
     def render_panel(self, panel):
-        """ Renders the panel.
+        """ Called when the panel is rendered.
 
-        This is called when the panel is rendered. This method should be overwritten
-        in the page.
+        This method should be overwritten in the page.
 
         Args:
             panel (HAUIConfigPanel): Current panel
         """
 
     def after_render_panel(self, panel, rendered):
-        """ After the panel was rendered.
+        """ Called after the panel is rendered.
 
         This gives the possibility to execute some checks after showing panel.
 
@@ -216,20 +255,6 @@ class HAUIPage(HAUIPart):
             panel (HAUIConfigPanel): Current panel
             rendered (bool): Was the panel rendered
         """
-
-    def refresh_panel(self):
-        """ Refreshes the current panel.
-
-        This gives the possibility to update the panel.
-        """
-        if self.panel is None:
-            return
-        # start recording of commands to be sent
-        self.start_rec_cmd()
-        # 3. call render for panel
-        self.render_panel(self.panel)
-        # stop recording of commands to be sent
-        self.stop_rec_cmd(send_commands=True)
 
     # entity
 
@@ -245,7 +270,7 @@ class HAUIPage(HAUIPart):
         if entity_type == 'light':
             if entity_state != 'unavailable':
                 # open popup
-                navigation.open_panel('popup_light', entity=entity)
+                navigation.open_popup('popup_light', entity=entity)
             else:
                 # format msg string
                 light_name = self.translate('The light {} is currently not available.')
@@ -255,7 +280,7 @@ class HAUIPage(HAUIPart):
                 msg += '\r\n'
                 msg += entity.get_entity_id()
                 # open notification
-                navigation.open_panel(
+                navigation.open_popup(
                     'popup_notify',
                     title=self.translate('Entity unavailable'),
                     btn_right=self.translate('Close'),
@@ -413,55 +438,141 @@ class HAUIPage(HAUIPart):
         self.update_button_left_state(self.app.device.get_left_button_state())
         self.update_button_right_state(self.app.device.get_right_button_state())
 
-    # navigation related
+    # function button related
 
-    def unset_nav_buttons(self):
-        """ Unsets all nav buttons.
-        """
-        self._nav_prev = None
-        self._nav_next = None
-        self._nav_close = None
-        self._nav_up = None
-
-    def set_prev_next_nav_buttons(self, nav_prev, nav_next, unset=True):
-        """ Sets the prev and next nav buttons.
+    def get_function_buttons(self, return_copy=True):
+        """ Returns the function buttons.
 
         Args:
-            nav_prev (tuple): component
-            nav_next (tuple): component
+            return_copy (bool): should a copy of the buttons be returned
 
         Returns:
-            None
+            dict: Function buttons
         """
-        if unset:
-            self.unset_nav_buttons()
-        self._nav_prev = nav_prev
-        self._nav_next = nav_next
+        if return_copy:
+            return self._btn_fnc.copy()
+        return self._btn_fnc
 
-    def set_close_nav_button(self, nav_close, unset=True):
-        """ Sets the close nav button.
+    def set_function_buttons(self, btn_l_pri, btn_l_sec, btn_r_pri, btn_r_sec):
+        """ Sets all function buttons at once.
+
+        can be a dict:
+        item = {'fnc_btn': (..., ...), 'fnc_name': 'name', fnc_args={}}
+
+        can be list|tuple (component):
+        item = (..., ...)
 
         Args:
-            nav_close (tuple): component
-            unset (bool): Unset the nav buttons, Optional
-
+            btn_l_pri (tuple|list|dict): Primary left function button
+            btn_l_sec (tuple|list|dict): Secondary left function button
+            btn_r_pri (tuple|list|dict): Primary right function button
+            btn_r_sec (tuple|list|dict): Secondary right function button
         """
-        if unset:
-            self.unset_nav_buttons()
-        self._nav_close = nav_close
+        for fnc_id, item in [
+            (self.FNC_BTN_L_PRI, btn_l_pri),
+            (self.FNC_BTN_L_SEC, btn_l_sec),
+            (self.FNC_BTN_R_PRI, btn_r_pri),
+            (self.FNC_BTN_R_SEC, btn_r_sec),
+        ]:
+            if isinstance(item, (list, tuple)):
+                self.set_function_button(item, fnc_id)
+            elif isinstance(item, dict):
+                btn = item.get('fnc_btn', None)
+                fnc_name = item.get('fnc_name', None)
+                fnc_args = item.get('fnc_args', {})
+                self.set_function_button(btn, fnc_id, fnc_name, **fnc_args)
+            else:
+                self.set_function_button(None, fnc_id)
 
-    def set_up_nav_button(self, nav_up, unset=True):
-        """ Sets the up nav button.
+    def set_function_button(self, fnc_btn, fnc_id, fnc_name=None, **fnc_args):
+        """ Sets the function button.
+
+        To add a function button, do the following:
+
+        - set button as a function button
+          self.set_function_button(btn, fnc_id)
+          This will use a default function and a default icon
+
+        or
+
+        - set button as a function button
+          self.set_function_button(btn, fnc_id, fnc_name='functionname', icon='icon', color=0)
+          This will use a custom function and a custom icon
+
+        To add a custom function button, do the following:
+
+        - set button as a function button
+          self.set_function_button(btn, fnc_id, fnc_name='functionname', fnc_args={'icon': icon, 'color': 0})
+        - overwrite callback_function_button(fnc_id) and check for fnc_id
+        - do action if fnc_id matches
 
         Args:
-            nav_up (tuple): component
-            unset (bool): Unset the nav buttons, Optional
+            btn (tuple): Component
+            fnc_id (str): Function Button ID
+            fnc_name (str, optional): Function name, if not defined, default function will be used
+            fnc_args (dict): Function arguments
         """
-        if unset:
-            self.unset_nav_buttons()
-        self._nav_up = nav_up
+        if fnc_btn is not None:
+            self._btn_fnc[fnc_id] = {
+                'fnc_btn': fnc_btn,
+                'fnc_id': fnc_id,
+                'fnc_name': fnc_name,
+                'fnc_args': fnc_args
+            }
+        elif fnc_id in self._btn_fnc:
+            del self._btn_fnc[fnc_id]
+
+    def update_function_button(self, fnc_id, **kwargs):
+        """ Updates the function button.
+
+        Args:
+            fnc_id (str): Function Button ID
+            kwargs (dict): Arguments
+        """
+        if fnc_id not in self._btn_fnc:
+            return
+        fnc_btn = self._btn_fnc[fnc_id]['fnc_btn']
+        fnc_name = self._btn_fnc[fnc_id]['fnc_name']
+        fnc_args = self._btn_fnc[fnc_id]['fnc_args']
+        self._btn_fnc[fnc_id]['fnc_args'] = fnc_args = {**fnc_args, **kwargs}
+        # check if visible or not
+        if fnc_name is None:
+            self.hide_component(fnc_btn)
+        else:
+            color = fnc_args.get('color', COLORS['component'])
+            self.set_component_text_color(fnc_btn, color)
+            self.show_component(fnc_btn)
+        # set icon for button
+        icon = fnc_args.get('icon', None)
+        if fnc_name == self.FNC_BTN_TYPE_NAV_PREV:
+            icon = self.ICO_NAV_PREV
+        elif fnc_name == self.FNC_BTN_TYPE_NAV_NEXT:
+            icon = self.ICO_NAV_NEXT
+        elif fnc_name == self.FNC_BTN_TYPE_NAV_HOME:
+            icon = self.ICO_NAV_HOME
+        elif fnc_name == self.FNC_BTN_TYPE_NAV_UP:
+            icon = self.ICO_NAV_UP
+        elif fnc_name == self.FNC_BTN_TYPE_NAV_CLOSE:
+            icon = self.ICO_NAV_CLOSE
+        if icon is not None:
+            self.log(f'Setting icon for {fnc_id}: {icon}')
+            self.set_component_text(fnc_btn, icon)
+        # set color for button
+        color = fnc_args.get('color', None)
+        if color is not None:
+            self.log(f'Setting color for {fnc_id}: {color}')
+            self.set_component_text_color(fnc_btn, color)
 
     # callback
+
+    def callback_function_button(self, fnc_id):
+        """ Gets called when a function button was pressed.
+
+        This method is intended to be overwritten if a custom function button is used.
+
+        Args:
+            fnc_id (int): Function Button ID
+        """
 
     def callback_button_state_buttons(self, event, component, button_state):
         """ Callback method for button state buttons.
@@ -481,28 +592,45 @@ class HAUIPage(HAUIPart):
         elif component == self._btn_state_right:
             self.send_mqtt(ESP_REQUEST['req_component_int'], self._btn_state_right[1])
 
-    def callback_nav_buttons(self, event, component, button_state):
-        """ Callback method for nav button events.
+    def callback_function_buttons(self, event, component, button_state):
+        """ Callback method for function button events.
 
         Args:
             event (HAUIEvent): Event
             component (tuple): Component
             button_state (int): Value of the component event
         """
-        # process navigation button press callback
-        self.log(f'Got navigation button press: {component}-{button_state}')
-        navigation = self.app.controller['navigation']
-        # check what button was pressed
+        # process function button press callback
+        self.log(f'Got function button press: {component}-{button_state}')
         if button_state != 0:
             return
-        if self._nav_prev and component[0] == self._nav_prev[0]:
+        # check what button was pressed
+        function_item = None
+        for fnc_id, fnc_cnt in self._btn_fnc.items():
+            if fnc_cnt['fnc_btn'] == component:
+                function_item = fnc_cnt
+                break
+        # if unknown function do nothing
+        if function_item is None:
+            return
+        navigation = self.app.controller['navigation']
+        fnc_id = function_item['fnc_id']
+        fnc_name = function_item['fnc_name']
+        # notify about function button press
+        self.callback_function_button(fnc_id)
+        # check the function that is defined for the function button
+        if fnc_name == self.FNC_BTN_TYPE_NAV_PREV:
             navigation.open_prev_panel()
-        elif self._nav_next and component[0] == self._nav_next[0]:
+        elif fnc_name == self.FNC_BTN_TYPE_NAV_NEXT:
             navigation.open_next_panel()
-        elif self._nav_close and component[0] == self._nav_close[0]:
+        elif fnc_name == self.FNC_BTN_TYPE_NAV_CLOSE:
             navigation.close_panel()
-        elif self._nav_up and component[0] == self._nav_up[0]:
+        elif fnc_name == self.FNC_BTN_TYPE_NAV_UP:
             navigation.close_panel()
+        elif fnc_name == self.FNC_BTN_TYPE_NAV_HOME:
+            navigation.open_home_panel()
+        else:
+            self.log(f'Unknown function {fnc_name} for function button {fnc_id}')
 
     # processing
 

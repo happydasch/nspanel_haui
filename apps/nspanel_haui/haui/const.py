@@ -98,12 +98,12 @@ ENTITY_CONFIG = {
 # panel config
 PANEL_CONFIG = {
     'type': None,  # panel type
+    'mode': 'panel',  # panel mode: panel, subpanel, popup
     'key': None,  # internal identifier
     'title': '',  # panel title
     'home_panel': False,  # defines if panel is a home panel
     'sleep_panel': False,  # defines if panel is a sleep panel
     'wakeup_panel': False,  # defines if panel is a wakeup panel
-    'nav_panel': True,  # only nav panels will be used for navigation
     'entity': None,  # single entity
     'entities': []  # multiple entities
 }
@@ -157,53 +157,53 @@ DEFAULT_CONFIG = {
         {
             # blank panel
             'type': 'blank',
+            'mode': 'subpanel',
             'key': 'sys_blank',
-            'nav_panel': False,
         }, {
             # system panel
             'type': 'system',
+            'mode': 'subpanel',
             'key': 'sys_system',
-            'nav_panel': False,
         }, {
             # panel for settings page
             'type': 'system_settings',
+            'mode': 'popup',
             'key': 'sys_settings',
-            'nav_panel': False,
         }, {
             # panel for about page
             'type': 'system_about',
+            'mode': 'popup',
             'key': 'sys_about',
-            'nav_panel': False,
         }, {
             # popup unlock
             'type': 'popup_unlock',
+            'mode': 'popup',
             'key': 'popup_unlock',
-            'nav_panel': False,
         }, {
             # popup notify
             'type': 'popup_notify',
+            'mode': 'popup',
             'key': 'popup_notify',
-            'nav_panel': False,
         }, {
             # popup select
             'type': 'popup_select',
+            'mode': 'popup',
             'key': 'popup_select',
-            'nav_panel': False,
         }, {
             # popup light
             'type': 'popup_light',
+            'mode': 'popup',
             'key': 'popup_light',
-            'nav_panel': False,
         }, {
             # popup thermo
             'type': 'popup_thermo',
+            'mode': 'popup',
             'key': 'popup_thermo',
-            'nav_panel': False,
         }, {
             # popup timer
             'type': 'popup_timer',
+            'mode': 'popup',
             'key': 'popup_timer',
-            'nav_panel': False,
         }
     ],
 

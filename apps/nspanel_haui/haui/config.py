@@ -1,7 +1,5 @@
-import re
 from .mapping.color import COLORS
 from .helper.color import rgb_to_rgb565
-from .helper.icon import parse_icon
 from .helper.entity import get_entity_icon, get_entity_color, get_entity_name, \
     get_entity_value, execute_entity
 from .helper.text import get_state_translation
@@ -62,30 +60,6 @@ class HAUIConfigEntity(HAUIBase):
         else:
             self._entity_id = entity_id
             self._entity_type = entity_id.split('.')[0]
-
-    def _render_template(self, template):
-        """ Returns a rendered home assistant template string.
-
-        Args:
-            template (str): template to render
-
-        Returns:
-            str: rendered template string
-        """
-
-        if 'template:' in template:
-            template = template.replace('template:', '')
-            splitted_string = template.replace('template:', '').rpartition('}')
-            # ATT: there seems to be an encoding problem if the template is too short
-            template_string = f'<!--{splitted_string[0]}{splitted_string[1]}-->'
-            template = self.app.render_template(template_string)
-            try:
-                template = re.sub(r'<!--(.*?)-->', r'\1', template)
-                template = f'{template}{splitted_string[2]}'
-            except Exception:
-                template = ''
-
-        return parse_icon(template)
 
     def execute(self):
         """ Executes the entity.
@@ -259,7 +233,7 @@ class HAUIConfigEntity(HAUIBase):
             else:
                 value = ''
         if value != '':
-            value = self._render_template(value)
+            value = self.render_template(value)
 
         # check internal entity: value
         if self.is_internal() and value == '':
@@ -291,7 +265,7 @@ class HAUIConfigEntity(HAUIBase):
                 name = ''
         # use name from config
         if isinstance(name, str) and name != '':
-            return self._render_template(name)
+            return self.render_template(name)
 
         # check internal entity: name
         if self.is_internal() and name == '':
@@ -326,7 +300,7 @@ class HAUIConfigEntity(HAUIBase):
                 color = None
         # use color from config
         if isinstance(color, str) and color != '':
-            color = self._render_template(color)
+            color = self.render_template(color)
         elif isinstance(color, list) and len(color) == 3:
             color = rgb_to_rgb565(color)
         # use default color
@@ -352,7 +326,7 @@ class HAUIConfigEntity(HAUIBase):
                 icon = ''
         # use icon from config
         if isinstance(icon, str) and icon != '':
-            icon = self._render_template(icon)
+            icon = self.render_template(icon)
         # use default icon
         if not icon:
             icon = get_entity_icon(self, 'alert-circle-outline')
@@ -453,13 +427,18 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get('wakeup_panel', False)
 
-    def is_nav_panel(self):
-        """ Returns True if this is the nav panel.
+    def get_mode(self):
+        """Returns the panel mode.
+
+        Possible panel modes:
+        - panel (Default)
+        - subpanel
+        - popup
 
         Returns:
-            bool: True if nav panel
+            str: Panel mode
         """
-        return self.get('nav_panel', False)
+        return self.get('mode', 'panel')
 
     def get_entities(self, return_copy=True):
         """ Returns all entities from this panel.
@@ -532,7 +511,7 @@ class HAUIConfig(HAUIBase):
             # provide a filtered list if nav_panel provided
             # True means only nav_panels will be returned, False non nav_panels
             nav_panels = list(filter(
-                lambda panel: panel.is_nav_panel() == filter_nav_panel,
+                lambda panel: (filter_nav_panel and panel.get_mode() == 'panel') or (not filter_nav_panel and panel.get_mode() != 'panel'),
                 self._panels))
             return nav_panels
         return self._panels

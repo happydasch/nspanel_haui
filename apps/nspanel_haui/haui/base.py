@@ -1,5 +1,7 @@
+import re
 import uuid
 import json
+from .helper.icon import parse_icon
 from .helper.text import get_translation
 
 
@@ -215,6 +217,30 @@ class HAUIBase:
         if not component:
             return
         self.send_cmd(f'{component[1]}.val={int(value)}')
+
+    def render_template(self, template):
+        """ Returns a rendered home assistant template string.
+
+        Args:
+            template (str): template to render
+
+        Returns:
+            str: rendered template string
+        """
+
+        if 'template:' in template:
+            template = template.replace('template:', '')
+            splitted_string = template.replace('template:', '').rpartition('}')
+            # ATT: there seems to be an encoding problem if the template is too short
+            template_string = f'<!--{splitted_string[0]}{splitted_string[1]}-->'
+            template = self.app.render_template(template_string)
+            try:
+                template = re.sub(r'<!--(.*?)-->', r'\1', template)
+                template = f'{template}{splitted_string[2]}'
+            except Exception:
+                template = ''
+
+        return parse_icon(template)
 
 
 # a part adding start/stop

@@ -19,18 +19,15 @@
     - [Panel Alarm `alarm`](#panel-alarm-alarm)
     - [Panel Timer `timer`](#panel-timer-timer)
     - [Panel Power `power`](#panel-power-power)
-  - [Popups](#popups)
-    - [Popup Light `popup_light`](#popup-light-popup_light)
-    - [Popup Thermo `popup_thermo`](#popup-thermo-popup_thermo)
-    - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
-    - [Popup Timer `popup_timer`](#popup-timer-popup_timer)
-    - [Popup Notification `popup_notify`](#popup-notification-popup_notify)
-    - [Popup Select  `popup_select`](#popup-select--popup_select)
   - [System](#system)
     - [Panel Blank `sys_blank`](#panel-blank-sys_blank)
     - [Panel System `sys_system`](#panel-system-sys_system)
     - [Panel Settings `sys_settings`](#panel-settings-sys_settings)
     - [Panel About `sys_about`](#panel-about-sys_about)
+  - [Other](#other)
+    - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
+    - [Popup Notification `popup_notify`](#popup-notification-popup_notify)
+    - [Popup Select  `popup_select`](#popup-select--popup_select)
 
 ## Special Panels
 
@@ -122,46 +119,6 @@ Panels with navigation. Main Display Elements.
 
   ![Panel Power](../assets/panel_power.png)
 
-## Popups
-
-Popup panels. The popup panels are always available and there is no need to configure them.
-
-### [Popup Light](popup_light.md) `popup_light`
-
-  Popup to control a light entity.
-
-  ![Popup Light](../assets/popup_light.png)
-
-### [Popup Thermo](popup_thermo.md) `popup_thermo`
-
-  Popup to control a thermostat entity.
-
-  ![Popup Thermo](../assets/popup_thermo.png)
-
-### [Popup Unlock](popup_unlock.md)  `popup_unlock`
-
-  Popup for locking and unlocking panels.
-
-  ![Popup Unlock](../assets/popup_unlock.png)
-
-### [Popup Timer](popup_timer.md) `popup_timer`
-
-  Popup with a timer.
-
-  ![Popup Timer](../assets/popup_timer.png)
-
-### [Popup Notification](popup_notify.md) `popup_notify`
-
-  Popup for notifications.
-
-  ![Popup Notification](../assets/popup_notify.png)
-
-### [Popup Select](popup_select.md)  `popup_select`
-
-  Popup for selecting values.
-
-  ![Popup Select](../assets/popup_select.png)
-
 ## System
 
 System panels. The system panels are always available and there is no need to configure them.
@@ -189,3 +146,25 @@ System panels. The system panels are always available and there is no need to co
   System panel for about details.
 
   ![Panel About](../assets/panel_about.png)
+
+## Other
+
+Different panels.
+
+### [Popup Unlock](popup_unlock.md)  `popup_unlock`
+
+  Popup for locking and unlocking panels.
+
+  ![Popup Unlock](../assets/popup_unlock.png)
+
+### [Popup Notification](popup_notify.md) `popup_notify`
+
+  Popup for notifications.
+
+  ![Popup Notification](../assets/popup_notify.png)
+
+### [Popup Select](popup_select.md)  `popup_select`
+
+  Popup for selecting values.
+
+  ![Popup Select](../assets/popup_select.png)

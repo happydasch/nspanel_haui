@@ -13,7 +13,8 @@
 
 - Prepare Panel
 
-  It is neccessary to flash the panel with ESPHome. To be able to flash the panel the first time the device needs to be opened and connected via a USB-UART-Adapter.
+  It is neccessary to flash the panel once with ESPHome.
+  To be able to flash the panel the first time the device needs to be opened and connected via a USB-UART-Adapter.
 
   Unscrew the backside of the panel
   ![Unscrew Panel](assets/serial_conn_unscrew.jpg)

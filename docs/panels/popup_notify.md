@@ -2,14 +2,20 @@
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
+- [Popup Notification](#popup-notification)
+  - [Visualization](#visualization)
+  - [About](#about)
+  - [Config](#config)
+
+## Visualization
+
 ![Popup Notification](../assets/popup_notify.png)
 
 ## About
 
-```yaml
-key: popup_notify
-type: popup_notify
-```
+`type: popup_notify`
+
+`key: popup_notify`
 
 The notification popup can be used in different ways. It is used internally to notify about errors or issues.
 

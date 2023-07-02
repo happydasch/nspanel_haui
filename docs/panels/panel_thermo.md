@@ -1,16 +1,28 @@
-# Panel Thermostat
+# Panel Thermo
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
-![Subpanel Thermostat](../assets/subpanel_thermo.png)
+- [Panel Thermo](#panel-thermo)
+  - [Visualization](#visualization)
+  - [About](#about)
+  - [Popup](#popup)
+  - [Config](#config)
 
-![Panel Thermostat](../assets/panel_thermo.png)
+## Visualization
+
+![Subpanel Thermo](../assets/subpanel_thermo.png)
+
+![Panel Thermo](../assets/panel_thermo.png)
+
+![Popup Thermostat](../assets/popup_thermo.png)
 
 ## About
 
-```yaml
-type: thermo
-```
+`type: thermo`
+
+## Popup
+
+`type: popup_thermo`
 
 ## Config
 

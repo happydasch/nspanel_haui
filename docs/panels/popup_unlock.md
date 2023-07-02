@@ -2,6 +2,13 @@
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
+- [Popup Unlock](#popup-unlock)
+  - [Visualization](#visualization)
+  - [About](#about)
+  - [Config](#config)
+
+## Visualization
+
 ![Popup Unlock](../assets/popup_unlock.png)
 
 While inputting keycode:
@@ -14,12 +21,11 @@ Unlocked state:
 
 ## About
 
-The unlock popup panel is being used internally to provide a unlocking mechanism for panels.
+`type: popup_unlock`
 
-```yaml
-key: popup_unlock
-type: popup_unlock
-```
+`key: popup_unlock`
+
+The unlock popup panel is being used internally to provide a unlocking mechanism for panels.
 
 To use this panel, just set a unlock code to any other panel.
 

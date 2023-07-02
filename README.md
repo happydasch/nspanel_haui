@@ -4,19 +4,24 @@
 `nspanel-haui` is a versatile display system for HomeAssistant based smart homes.
 
 - [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
+  - [About](#about)
   - [Features](#features)
   - [Installation](#installation)
   - [Development](#development)
   - [Roadmap](#roadmap)
   - [Additional Information](#additional-information)
 
-For details about the configuration see [Configuration](docs/Config.md), also look at [Panels](docs/panels/README.md) to get an overview of available panels.
+## About
+
+For details about the configuration see [Configuration](docs/Config.md). Also look at [Panels](docs/panels/README.md) to get an overview of available panels.
 
 ## Features
 
-![Overview](docs/assets/overview.png)
+- **A variety of different panels**
 
-- **Touch Gestures and sequences**
+  Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
+
+- **Touch gestures and sequences**
 
   Different touch gestures as swipe left or right are supported. There is also support for gesture sequences.
 
@@ -38,7 +43,7 @@ For details about the configuration see [Configuration](docs/Config.md), also lo
 
 - **Locking/Unlocking mechanism for panels**
 
-  All panels can be locked by a pin. The panel can be accessed after entering the pin code.
+  All panels can be locked by a pin code. The panel can be accessed after entering the pin code.
 
 - **Device settings in HomeAssistant**
 
@@ -56,7 +61,7 @@ For details about the configuration see [Configuration](docs/Config.md), also lo
 
 In order to install NSPanel HAUI it is neccessary to flash the Panel with ESPHome.
 
-The simplified process is as follows:
+The simplified process is as followed:
 
 1. Flash Panel with [ESPHome](docs/ESPHome.md)
 2. Update [Display TFT](docs/Nextion.md)
@@ -69,21 +74,11 @@ Take also a look at the more detailed [Installation Guide](docs/Install.md). Hav
 
 For details about how the parts of the whole system communicate together see [NSPanel HomeAssistant UI Docs](docs/README.md).
 
+- [Design Guidelines](Design.md)
 - [Communication Description](docs/Communication.md)
-
-  Overview of the communication process
-
 - [ESPHome Component](docs/ESPHome.md)
-
-  Device and Sensors Implementation
-
 - [AppDaemon Component](docs/AppDaemon.md)
-
-  Server Application running on AppDaemon
-
 - [Nextion Component](docs/Nextion.md)
-
-  Responsible for display, as little logic as possible
 
 ## Roadmap
 
@@ -103,8 +98,15 @@ Improvements / Additional
 - [x] Create new font using Roboto font
 - [x] Add style and design for panels
 - [ ] Implement design in hmi file
+- [ ] Add light panel
+- [ ] Add cover panel
+- [ ] Add media panel
+- [ ] Add thermo panel
 - [ ] Support for timebased value overrides
 - [ ] Add updater
+
+First release
+
 - [ ] Add new panels
 - [ ] Add a light theme?
 

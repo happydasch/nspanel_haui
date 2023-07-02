@@ -2,17 +2,17 @@
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
+## Visualization
+
 ![Subpanel Row](../assets/subpanel_row.png)
 
 ![Panel Row](../assets/panel_row.png)
 
 ## About
 
-Shows entities in rows.
+`type: row`
 
-```yaml
-type: row
-```
+Shows entities in rows.
 
 This panel can be also used to organize panels and subpanels.
 

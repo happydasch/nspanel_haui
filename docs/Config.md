@@ -10,7 +10,7 @@
   - [Update Controller](#update-controller)
   - [Connection Controller](#connection-controller)
   - [Panels](#panels)
-    - [Navigation](#navigation)
+    - [Panel Modes](#panel-modes)
     - [Accessing a panel](#accessing-a-panel)
     - [Closing a panel automatically](#closing-a-panel-automatically)
     - [Using a Panel as a Home Panel](#using-a-panel-as-a-home-panel)
@@ -77,6 +77,10 @@ date_format_babel: "full"
 
   The entity to use for button right. Default None.
 
+- `show_home_button` bool
+
+  Should the panels show a home button. Default False.
+
 - `log_commands` bool
 
   Should commands be logged. Default False.
@@ -87,6 +91,7 @@ device:
   locale: "en_US"
   button_left_entity: null
   button_right_entity: null
+  show_home_button: false
   log_commands: false
 ```
 
@@ -154,24 +159,26 @@ panels:
 Config values:
 
 ```yaml
-
 # panel type (required)
 type: panel_type  # for ex. weather, grid, etc.
+# panel mode (Default: panel)
+mode: panel  # string, panel, subpanel or popup
 # internal identifier for panel
 key: identifier  # string, can be used for navigation with navigate:
 # title of panel
 title: Panel Title
-# show panel in navigation
-nav_panel: true
 # is panel the home panel
 home_panel: false
 # is panel the sleep panel
 sleep_panel: false
 # is panel the wakeup panel
 wakeup_panel: false
-entity: None  # single entity
-entities: []  # multiple entities
-
+# show home button (Default: device config value `show_home_button`)
+show_home_button: null
+# single entity
+entity: None
+# multiple entities
+entities: []
 # unlock code for panel
 unlock_code: null
 # close panel after amount of time
@@ -180,16 +187,22 @@ close_timeout: null
 
 See [Panels Overview](panels/README.md) for more details about the different panels and configuration.
 
-### Navigation
+### Panel Modes
+
+A panel supports different modes:
+
+- `panel` Panel, that shows up in navigation (Default)
+- `subpanel` Subpanel, will not show up in navigation
+- `popup` Popup, will not show up in navigation
 
 By default a panel will be used as a navigation panel.
 
-Each panel configured will by default be included in the navigateable panels list. To not include a panel in the navigation, set `nav_panel` to `False`. When navigating to an panel that is not navigateable then this panel will be added to a stack, so that it is always possible to return to the last item navigated.
+Each panel configured will by default be included in the navigateable panels list. To not include a panel in the navigation, set `mode` to `subpanel`. When navigating to an panel that is not navigateable then this panel will be added to a stack, so that it is always possible to return to the last item navigated.
 
 Entry Details, Popups, Settings, About and other special pages will not appear in navigation.
 
 ```yaml
-nav_panel: false
+mode: panel
 ```
 
 ### Accessing a panel

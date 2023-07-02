@@ -102,6 +102,10 @@ The panel represents a configured page. The panel contains the configuration and
 
 The lifetime of a panel is:
 
+- **create_panel**(panel)
+
+page start ..
+
 - **start_panel**(panel)
 - **config_panel**(panel)
 - **before_render_panel**(panel)
@@ -110,6 +114,8 @@ The lifetime of a panel is:
   - **render_panel**(panel)
 - **after_render_panel**(panel, rendered)
 - **stop_panel**(panel)
+
+page stop ..
 
 While a panel is active, it can be refreshed using:
 

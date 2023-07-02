@@ -2,6 +2,12 @@
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
+- [Panel Alarm](#panel-alarm)
+  - [Visualization](#visualization)
+  - [About](#about)
+
+## Visualization
+
 ![Panel Alarm](../assets/panel_alarm.png)
 
 Panel with armed alarm:
@@ -14,6 +20,4 @@ Unarming armed alarm:
 
 ## About
 
-```yaml
-type: alarm
-````
+`type: alarm`

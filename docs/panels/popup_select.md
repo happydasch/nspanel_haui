@@ -2,6 +2,14 @@
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
+- [Popup Select](#popup-select)
+  - [Visualization](#visualization)
+  - [About](#about)
+  - [Config](#config)
+    - [Selection](#selection)
+
+## Visualization
+
 ![Popup Select Single Page](../assets/popup_select_single_page.png)
 
 More than 12 Items:
@@ -10,10 +18,9 @@ More than 12 Items:
 
 ## About
 
-```yaml
-key: popup_select
-type: popup_select
-```
+`type: popup_select`
+
+`key: popup_select`
 
 The select popup allows to select a value from a list. It is possible to define a
 selected value.

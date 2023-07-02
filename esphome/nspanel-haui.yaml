@@ -603,9 +603,12 @@ script:
           int relay_left_val = id(relay_left).state;
           int relay_right_val = id(relay_right).state;
           auto display_state_val = id(haui_display_state);
+          auto tft_version = id(haui_disp).get_component_txt("settings.tftVersion", "0.0.0");
+          auto required_tft_version = "$required_tft_version";
           const json::json_build_t payload = [
               page_val, brightness_val, button_left_val, button_right_val,
-              relay_left_val, relay_right_val, display_state_val
+              relay_left_val, relay_right_val, display_state_val, tft_version,
+              required_tft_version
           ](JsonObject root) {
             root["page"] = page_val;
             root["brightness"] = brightness_val;
@@ -614,6 +617,8 @@ script:
             root["relay_left"] = relay_left_val;
             root["relay_right"] = relay_right_val;
             root["display_state"] = display_state_val;
+            root["tft_version"] = tft_version;
+            root["required_tft_version"] = required_tft_version;
           };
           std::string payload_str = build_json(payload);
           id(publish_event).execute("res_device_state", payload_str);

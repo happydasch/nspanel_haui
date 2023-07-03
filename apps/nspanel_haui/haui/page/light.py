@@ -11,20 +11,27 @@ from . import HAUIPage
 class PopupLightPage(HAUIPage):
 
     # common components
-    BTN_NAV_CLOSE, TXT_TITLE = (4, 'bNavClose'), (5, 'tTitle')
+    TXT_TITLE = (2, 'tTitle')
+    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
+    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
+
     # function buttons
     BTN_LIGHT_FNC_1, BTN_LIGHT_FNC_2 = (6, 'btLightFnc1'), (7, 'btLightFnc2')
     BTN_LIGHT_FNC_3, BTN_LIGHT_FNC_4 = (8, 'btLightFnc3'), (9, 'btLightFnc4')
+
     # text info
     TXT_LIGHT_INFO_1, TXT_LIGHT_INFO_2 = (10, 'tLightInfo1'), (11, 'tLightInfo2')
     TXT_LIGHT_INFO_3, TXT_LIGHT_INFO_4 = (12, 'tLightInfo3'), (13, 'tLightInfo4')
+
     # selectors
     PIC_COLOR_WHEEL, H_BRIGHTNESS = (14, 'pColorWheel'), (15, 'hBrightness')
     H_COLOR_TEMP, BTN_POWER = (16, 'hColorTemp'), (17, 'bPower')
+
     # hardcoded to not request too often, needed for color to pos
     PIC_COLOR_WHEEL_WH = 200
     PIC_COLOR_WHEEL_X = 125
     PIC_COLOR_WHEEL_Y = 75
+
     # icons for light functions
     ICO_BRIGHTNESS = get_icon('brightness-6')
     ICO_COLOR = get_icon('palette')
@@ -32,26 +39,29 @@ class PopupLightPage(HAUIPage):
     ICO_EFFECT = get_icon('firework')
     ICO_POWER = get_icon('power')
 
-    # page
+    # panel
 
-    def start_page(self):
+    def start_panel(self, panel):
         # set light function button callbacks
         for btn in [self.BTN_LIGHT_FNC_1, self.BTN_LIGHT_FNC_2, self.BTN_LIGHT_FNC_3, self.BTN_LIGHT_FNC_4]:
             self.add_component_callback(btn, self.callback_light_function_button)
+
         # set component callbacks
         self.add_component_callback(self.PIC_COLOR_WHEEL, self.callback_color_wheel)
         self.add_component_callback(self.H_BRIGHTNESS, self.callback_brightness)
         self.add_component_callback(self.H_COLOR_TEMP, self.callback_color_temp)
         self.add_component_callback(self.BTN_POWER, self.callback_power)
 
-    # panel
+        # set function buttons
+        self.set_function_buttons(
+            self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
+            self.BTN_FNC_RIGHT_PRI, self.BTN_FNC_RIGHT_SEC)
 
-    def start_panel(self, panel):
-        self.set_close_nav_button(self.BTN_NAV_CLOSE)
         # entity to control
         self._entity = panel.get('entity')
         self._functions = {}
         self._current_function = None
+
         # touch track
         self._touch_track = False
         self._touch_timer = None
@@ -398,7 +408,7 @@ class PopupLightPage(HAUIPage):
                         value = no_effect
                     effects.append({'name': name, 'value': value})
                 if len(effects):
-                    navigation.open_panel(
+                    navigation.open_popup(
                         'popup_select',
                         title=self.translate('Select effect'),
                         selection=effects,

@@ -1,23 +1,27 @@
 from . import HAUIPage
+from ..mapping.color import COLORS
 
 
 class QRPage(HAUIPage):
 
     # common components
-    BTN_NAV_LEFT, BTN_NAV_RIGHT = (4, 'bNavLeft'), (5, 'bNavRight')
-    TXT_TITLE = (6, 'tTitle')
+    TXT_TITLE = (2, 'tTitle')
+    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
+    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
+
     # qr components
     QR_CODE_BIG = (7, 'qrCodeBig')
     QR_CODE = (8, 'qrCode')
+
     # q components
     Q1_ICON, Q1_TITLE, Q1_TEXT = (9, 'q1Icon'), (10, 'q1Title'), (11, 'q1Text')
     Q1_TEXT_ADD = (12, 'q1TextAdd')
     Q2_ICON, Q2_TITLE, Q2_TEXT = (13, 'q2Icon'), (14, 'q2Title'), (15, 'q2Text')
     Q2_TEXT_ADD = (16, 'q2TextAdd')
 
-    # page
+    # panel
 
-    def start_page(self):
+    def start_panel(self, panel):
         self.add_component_callback(self.QR_CODE, self.callback_qr_code)
         self.add_component_callback(self.QR_CODE_BIG, self.callback_qr_code_big)
 
@@ -26,29 +30,45 @@ class QRPage(HAUIPage):
         self._use_auto_dimming = self.auto_dimming.get_state()
         self.auto_page = self.app.get_entity(f'switch.{device_name}_use_auto_page')
         self._use_auto_page = self.auto_page.get_state()
+        # zoom toogle in header
+        self._header_toggle_show = True
+        self._header_toggle_state = False
 
-    def stop_page(self):
+        self.start_rec_cmd()
+        # entities
+        qr_code = panel.get('qr_code', '')
+        entities = panel.get_entities()
+        if len(entities) == 0:
+            self.update_qr(big=True)
+            self._header_toggle_show = False
+        else:
+            self.update_qr(big=False)
+        # zoom function button
+        btn_right_sec = None
+        if self._header_toggle_show:
+            btn_right_sec = {
+                'fnc_component': self.BTN_FNC_RIGHT_SEC,
+                'fnc_name': 'zoom',
+                'fnc_args': {
+                    'icon': self.ICO_ZOOM
+                }
+            }
+        self.set_function_buttons(
+            self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
+            self.BTN_FNC_RIGHT_PRI, btn_right_sec)
+        # components
+        self.set_component_text(self.QR_CODE, qr_code)
+        self.set_component_text(self.QR_CODE_BIG, qr_code)
+        self.set_component_text(self.TXT_TITLE, panel.get_title())
+
+        self.stop_rec_cmd(send_commands=True)
+
+    def stop_panel(self, panel):
+        # restore old dimming values
         if self._use_auto_dimming:
             self.auto_dimming.turn_on()
         if self._use_auto_page:
             self.auto_page.turn_on()
-
-    # panel
-
-    def start_panel(self, panel):
-        self.set_prev_next_nav_buttons(self.BTN_NAV_LEFT, self.BTN_NAV_RIGHT)
-
-        self.start_rec_cmd()
-        qr_code = panel.get('qr_code', '')
-        entities = panel.get_entities()
-        if len(entities) == 0:
-            self.show_qr(big=True)
-        else:
-            self.show_qr(big=False)
-        self.set_component_text(self.QR_CODE, qr_code)
-        self.set_component_text(self.QR_CODE_BIG, qr_code)
-        self.set_component_text(self.TXT_TITLE, panel.get_title())
-        self.stop_rec_cmd(send_commands=True)
 
     def render_panel(self, panel):
         entities = panel.get_entities()
@@ -74,12 +94,15 @@ class QRPage(HAUIPage):
 
     # misc
 
-    def show_qr(self, big=False):
+    def update_qr(self, big=False):
         if big:
             self.hide_component(self.QR_CODE)
+            self.show_component(self.QR_CODE_BIG)
+            self.update_function_component(self.FNC_BTN_R_SEC, color=COLORS['component_accent'])
         else:
             self.hide_component(self.QR_CODE_BIG)
-
+            self.show_component(self.QR_CODE)
+            self.update_function_component(self.FNC_BTN_R_SEC, color=COLORS['component'])
         for component in [
             self.Q1_ICON, self.Q1_TITLE, self.Q1_TEXT, self.Q1_TEXT_ADD,
             self.Q2_ICON, self.Q2_TITLE, self.Q2_TEXT, self.Q2_TEXT_ADD,
@@ -88,20 +111,24 @@ class QRPage(HAUIPage):
                 self.hide_component(component)
             else:
                 self.show_component(component)
-
-        if big:
-            self.show_component(self.QR_CODE_BIG)
-        else:
-            self.show_component(self.QR_CODE)
+        # remember current state
+        self._header_toggle_state = big
 
     # callback
+
+    def callback_function_component(self, fnc_id):
+        self.log(f'Got function component press: {fnc_id}')
+        if fnc_id == self.FNC_BTN_R_SEC:
+            # toggle zoom
+            if self._header_toggle_show:
+                self.update_qr(big=not self._header_toggle_state)
 
     def callback_qr_code(self, event, component, button_state):
         if not self.panel or button_state:
             return
         self.log(f'Got qr code press: {component}-{button_state}')
         self.start_rec_cmd()
-        self.show_qr(big=True)
+        self.update_qr(big=True)
         self.auto_dimming.turn_off()
         self.auto_page.turn_off()
         self.stop_rec_cmd(send_commands=True)
@@ -115,7 +142,7 @@ class QRPage(HAUIPage):
         self.log(f'Got big qr code press: {component}-{button_state}')
         # switch to small qr code
         self.start_rec_cmd()
-        self.show_qr(big=False)
+        self.update_qr(big=False)
         if self._use_auto_dimming:
             self.auto_dimming.turn_on()
         if self._use_auto_page:

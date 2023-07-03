@@ -1,5 +1,6 @@
 import datetime
 
+from ..mapping.background import BACKGROUNDS
 from ..helper.datetime import get_time_localized, \
     get_date_localized
 from ..config import HAUIConfigEntity
@@ -9,45 +10,44 @@ from . import HAUIPage
 
 class ClockPage(HAUIPage):
 
-    # time and date display
-    TXT_TIME, TXT_DATE = (4, 'tTime'), (5, 'tDate')
-    # main weather icon
-    ICO_MAIN = (6, 'tMainIcon')
-    TXT_MAIN = (7, 'tMainText')
-    TXT_SUB = (8, 'tSubText')
+    # main components
+    TXT_TIME, TXT_DATE = (2, 'tTime'), (3, 'tDate')
+    ICO_MAIN, TXT_MAIN = (4, 'tMainIcon'), (5, 'tMainText')
+
     # bottom weather forecast row
-    F1_NAME, F1_ICO, F1_VAL = (9, 'f1Name'), (10, 'f1Icon'), (11, 'f1Val')
-    F2_NAME, F2_ICO, F2_VAL = (12, 'f2Name'), (13, 'f2Icon'), (14, 'f2Val')
-    F3_NAME, F3_ICO, F3_VAL = (15, 'f3Name'), (16, 'f3Icon'), (17, 'f3Val')
-    F4_NAME, F4_ICO, F4_VAL = (18, 'f4Name'), (19, 'f4Icon'), (20, 'f4Val')
+    F1_NAME, F2_NAME, F3_NAME, F4_NAME = (6, 'f1Name'), (7, 'f2Name'), (8, 'f3Name'), (9, 'f4Name')
+    F1_ICO, F2_ICO, F3_ICO, F4_ICO = (10, 'f1Icon'), (11, 'f2Icon'), (12, 'f3Icon'), (13, 'f4Icon')
+    F1_VAL, F2_VAL, F3_VAL, F4_VAL = (14, 'f1Val'), (15, 'f2Val'), (16, 'f3Val'), (17, 'f4Val')
+    F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL = (18, 'f1SubVal'), (19, 'f2SubVal'), (20, 'f3SubVal'), (21, 'f4SubVal')
 
-    # page
+    # panel
 
-    def start_page(self):
+    def create_panel(self, panel):
+        # setting: background
+        background = panel.get('background', 'default')
+        background = self.render_template(background, False)
+        if background in BACKGROUNDS:
+            self.send_cmd(f'clock.background.val={BACKGROUNDS[background]}')
+
+    def start_panel(self, panel):
         # time update callback
         time = datetime.time(0, 0, 0)
         self._time_timer = self.app.run_minutely(
             self.callback_update_time, time)
-        # Setup date callback
+        # date update callback
         self._date_timer = self.app.run_hourly(
             self.callback_update_date, time)
-
-    def stop_page(self):
-        # cancel time and date timer
-        if self._time_timer:
-            self.app.cancel_timer(self._time_timer)
-            self._time_timer = None
-        if self._date_timer:
-            self.app.cancel_timer(self._date_timer)
-            self._date_timer = None
-
-    # panel
-
-    def start_panel(self, panel):
+        # entity listeners
         for entity in panel.get_entities():
             if entity.get_entity_type() == 'weather':
                 self.add_entity_listener(
                     entity.get_entity_id(), self.callback_weather)
+        # setting: show_weather
+        if not panel.get('show_weather', True):
+            self.hide_component(self.ICO_MAIN)
+        # setting: show_temp
+        if not panel.get('show_temp', True):
+            self.hide_component(self.TXT_MAIN)
 
     def render_panel(self, panel):
         # time display
@@ -56,6 +56,15 @@ class ClockPage(HAUIPage):
         self.update_date()
         # entities
         self.update_entities(panel.get_entities())
+
+    def stop_panel(self, panel):
+        # cancel time and date timer
+        if self._time_timer:
+            self.app.cancel_timer(self._time_timer)
+            self._time_timer = None
+        if self._date_timer:
+            self.app.cancel_timer(self._date_timer)
+            self._date_timer = None
 
     # misc
 
@@ -106,14 +115,9 @@ class ClockPage(HAUIPage):
         icon = haui_entity.get_icon()
         color = haui_entity.get_color()
         msg = haui_entity.get_value()
-        msg_sub = haui_entity.get_entity_attr('pressure', '')
-        if msg_sub:
-            pressure_unit = haui_entity.get_entity_attr('pressure_unit')
-            msg_sub = f'{msg_sub}{pressure_unit}'
         self.set_component_text_color(self.ICO_MAIN, color)
         self.set_component_text(self.ICO_MAIN, icon)
         self.set_component_text(self.TXT_MAIN, msg)
-        self.set_component_text(self.TXT_SUB, msg_sub)
 
     def update_forecast(self, haui_entity, idx):
         if idx < 1 or idx > 5:

@@ -5,7 +5,9 @@ from . import HAUIPage
 class PopupSelectPage(HAUIPage):
 
     # common components
-    BTN_NAV_CLOSE, TXT_TITLE = (4, 'bNavClose'), (5, 'tTitle')
+    TXT_TITLE = (2, 'tTitle')
+    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
+    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
 
     BTN_SELECT_1, BTN_SELECT_2, BTN_SELECT_3 = (6, 'bSel1'), (7, 'bSel2'), (8, 'bSel3')
     BTN_SELECT_4, BTN_SELECT_5, BTN_SELECT_6 = (9, 'bSel4'), (10, 'bSel5'), (11, 'bSel6')
@@ -15,17 +17,19 @@ class PopupSelectPage(HAUIPage):
 
     ICO_NEXT = get_icon('chevron-double-right')
 
-    def start_page(self):
+    # panel
+
+    def start_panel(self, panel):
         for i in range(12):
             idx = i + 1
             btn = getattr(self, 'BTN_SELECT_' + str(idx))
             self.add_component_callback(btn, self.callback_select)
         self.add_component_callback(self.BTN_NEXT, self.callback_next)
 
-    # panel
-
-    def start_panel(self, panel):
-        self.set_close_nav_button(self.BTN_NAV_CLOSE)
+        # set function buttons
+        self.set_function_buttons(
+            self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
+            self.BTN_FNC_RIGHT_PRI, self.BTN_FNC_RIGHT_SEC)
         # get params
         self._selection = panel.get('selection', [])
         self._close_on_select = panel.get('close_on_select', True)

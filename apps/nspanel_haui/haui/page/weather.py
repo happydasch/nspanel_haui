@@ -1,5 +1,6 @@
 import datetime
 
+from ..mapping.background import BACKGROUNDS
 from ..helper.datetime import get_time_localized, \
     get_date_localized
 from ..config import HAUIConfigEntity
@@ -10,43 +11,40 @@ from . import HAUIPage
 class WeatherPage(HAUIPage):
 
     # time and date display
-    TXT_TIME, TXT_DATE = (4, 'tTime'), (5, 'tDate')
+    TXT_TIME, TXT_DATE = (2, 'tTime'), (3, 'tDate')
+
     # main weather icon
-    ICO_MAIN, TXT_MAIN, TXT_SUB = (6, 'tMainIcon'), (7, 'tMainText'), (8, 'tSubText')
+    ICO_MAIN, TXT_MAIN, TXT_SUB = (4, 'tMainIcon'), (5, 'tMainText'), (6, 'tSubText')
+
     # icons below main icon
-    D1_ICO, D1_VAL = (9, 'd1Icon'), (10, 'd1Val')
-    D2_ICO, D2_VAL = (11, 'd2Icon'), (12, 'd2Val')
-    D3_ICO, D3_VAL = (13, 'd3Icon'), (14, 'd3Val')
+    D1_ICO, D2_ICO, D3_ICO = (7, 'd1Icon'), (8, 'd2Icon'), (9, 'd2Icon')
+    D1_VAL, D2_VAL, D3_VAL = (10, 'd1Val'), (11, 'd2Val'), (12, 'd3Val')
+
     # bottom weather forecast row
-    F1_NAME, F1_ICO, F1_VAL = (15, 'f1Name'), (16, 'f1Icon'), (17, 'f1Val')
-    F2_NAME, F2_ICO, F2_VAL = (18, 'f2Name'), (19, 'f2Icon'), (20, 'f2Val')
-    F3_NAME, F3_ICO, F3_VAL = (21, 'f3Name'), (22, 'f3Icon'), (23, 'f3Val')
-    F4_NAME, F4_ICO, F4_VAL = (24, 'f4Name'), (25, 'f4Icon'), (26, 'f4Val')
-    F5_NAME, F5_ICO, F5_VAL = (27, 'f5Name'), (28, 'f5Icon'), (29, 'f5Val')
+    F1_NAME, F2_NAME, F3_NAME, F4_NAME, F5_NAME = (13, 'f1Name'), (14, 'f2Name'), (15, 'f3Name'), (16, 'f4Name'), (17, 'f5Name')
+    F1_ICO, F2_ICO, F3_ICO, F4_ICO, F5_ICO = (18, 'f1Icon'), (19, 'f2Icon'), (20, 'f3Icon'), (21, 'f4Icon'), (22, 'f5Icon')
+    F1_VAL, F2_VAL, F3_VAL, F4_VAL, F5_VAL = (23, 'f1Val'), (24, 'f2Val'), (25, 'f3Val'), (26, 'f4Val'), (27, 'f5Val')
+    F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL, F5_SUBVAL = (28, 'f1SubVal'), (29, 'f2SubVal'), (30, 'f3SubVal'), (31, 'f4SubVal'), (32, 'f5SubVal')
 
-    # page
+    # panel
 
-    def start_page(self):
+    def create_panel(self, panel):
+        # setting: background
+        background = panel.get('background', 'default')
+        background = self.render_template(background, False)
+        if background in BACKGROUNDS:
+            self.send_cmd(f'weather.background.val={BACKGROUNDS[background]}')
+
+    def start_panel(self, panel):
         # time update callback
         time = datetime.time(0, 0, 0)
         self._time_timer = self.app.run_minutely(
             self.callback_update_time, time)
+
         # setup date callback
         self._date_timer = self.app.run_hourly(
             self.callback_update_date, time)
 
-    def stop_page(self):
-        # cancel time and date timer
-        if self._time_timer:
-            self.app.cancel_timer(self._time_timer)
-            self._time_timer = None
-        if self._date_timer:
-            self.app.cancel_timer(self._date_timer)
-            self._date_timer = None
-
-    # panel
-
-    def start_panel(self, panel):
         # entities
         self._handles = []
         for entity in panel.get_entities():
@@ -54,6 +52,15 @@ class WeatherPage(HAUIPage):
                 self.add_entity_listener(
                     entity.get_entity_id(),
                     self.callback_weather)
+
+    def stop_panel(self, panel):
+        # cancel time and date timer
+        if self._time_timer:
+            self.app.cancel_timer(self._time_timer)
+            self._time_timer = None
+        if self._date_timer:
+            self.app.cancel_timer(self._date_timer)
+            self._date_timer = None
 
     def render_panel(self, panel):
         # time display

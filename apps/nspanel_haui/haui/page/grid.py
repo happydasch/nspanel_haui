@@ -4,8 +4,10 @@ from . import HAUIPage
 class GridPage(HAUIPage):
 
     # common components
-    BTN_NAV_LEFT, BTN_NAV_RIGHT = (4, 'bNavLeft'), (5, 'bNavRight')
-    TXT_TITLE = (6, 'tTitle')
+    TXT_TITLE = (2, 'tTitle')
+    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
+    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
+
     # grid buttons 1-6
     G1_BTN, G2_BTN, G3_BTN = (7, 'g1Btn'), (8, 'g2Btn'), (9, 'g3Btn')
     G4_BTN, G5_BTN, G6_BTN = (10, 'g4Btn'), (11, 'g5Btn'), (12, 'g6Btn')
@@ -16,21 +18,20 @@ class GridPage(HAUIPage):
     G1_OVL, G2_OVL, G3_OVL = (25, 'g1Overlay'), (26, 'g2Overlay'), (27, 'g3Overlay')
     G4_OVL, G5_OVL, G6_OVL = (28, 'g4Overlay'), (29, 'g5Overlay'), (30, 'g6Overlay')
 
-    # page
+    # panel
 
-    def start_page(self):
+    def start_panel(self, panel):
         # set grid button callbacks
         for i in range(6):
             btn = getattr(self, f'G{i+1}_OVL')
             self.add_component_callback(btn, self.callback_grid_buttons)
+        # set function buttons
+        self.set_function_buttons(
+            self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
+            self.BTN_FNC_RIGHT_PRI, self.BTN_FNC_RIGHT_SEC)
 
-    # panel
-
-    def start_panel(self, panel):
         # active entities
         self._active = {}
-
-        self.set_prev_next_nav_buttons(self.BTN_NAV_LEFT, self.BTN_NAV_RIGHT)
 
         self.start_rec_cmd()
         self.set_component_text(self.TXT_TITLE, panel.get_title())
@@ -73,7 +74,6 @@ class GridPage(HAUIPage):
                     entity_id, self.callback_entity_state, attribute='all')
 
         self.stop_rec_cmd(send_commands=True)
-
 
     def render_panel(self, panel):
         self.update_grid_buttons(panel.get_entities())

@@ -6,21 +6,25 @@ from . import HAUIPage
 class SettingsPage(HAUIPage):
 
     # common components
-    BTN_NAV_CLOSE, TXT_TITLE = (4, 'bNavClose'), (5, 'tTitle')
+    TXT_TITLE = (2, 'tTitle')
+    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
+    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
 
     TXT_BRGHT_ICO, TXT_BRGHT = (6, 'tBrghtIco'), (7, 'tBrght')
     TXT_BRGHT_PCT, SLD_BRGHT = (8, 'tBrghtPct'), (9, 'hBrght')
     TXT_BRGHT_DIM_ICO, TXT_BRGHT_DIM = (10, 'tBrghtDimIco'), (11, 'tBrghtDim')
     TXT_BRGHT_DIM_PCT, SLD_BRGHT_DIM = (12, 'tBrghtDimPct'), (13, 'hBrghtDim')
 
-    # page
+    # panel
 
-    def start_page(self):
+    def start_panel(self, panel):
         device_name = self.app.device.get_device_name()
+
         # auto dimming component
         self.auto_dimming = self.app.get_entity(f'switch.{device_name}_use_auto_dimming')
         self._use_auto_dimming = self.auto_dimming.get_state()
         self.auto_dimming.turn_off()
+
         # brightness components
         self.brightness_full_entity = self.app.get_entity(f'number.{device_name}_brightness_full')
         self.brightness_dimmed_entity = self.app.get_entity(f'number.{device_name}_brightness_dimmed')
@@ -28,11 +32,17 @@ class SettingsPage(HAUIPage):
         self._handle_brightness_dimmed = self.brightness_dimmed_entity.listen_state(self.callback_brightness)
         self._full_brightness = self.brightness_full_entity.get_state()
         self._dimmed_brightness = self.brightness_dimmed_entity.get_state()
+
         # display components
         self.add_component_callback(self.SLD_BRGHT, self.callback_slider_brightness)
         self.add_component_callback(self.SLD_BRGHT_DIM, self.callback_slider_brightness)
 
-    def stop_page(self):
+        # set function buttons
+        self.set_function_buttons(
+            self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
+            self.BTN_FNC_RIGHT_PRI, self.BTN_FNC_RIGHT_SEC)
+
+    def stop_panel(self, panel):
         # remove exisiting handles
         if self._handle_brightness_full:
             self.app.cancel_listen_state(self._handle_brightness_full)
@@ -40,11 +50,6 @@ class SettingsPage(HAUIPage):
             self.app.cancel_listen_state(self._handle_brightness_dimmed)
         if self._use_auto_dimming:
             self.auto_dimming.turn_on()
-
-    # panel
-
-    def start_panel(self, panel):
-        self.set_close_nav_button(self.BTN_NAV_CLOSE)
 
     def render_panel(self, panel):
         title = panel.get_title(self.translate('Settings'))

@@ -4,8 +4,10 @@ from . import HAUIPage
 class PowerPage(HAUIPage):
 
     # common components
-    BTN_NAV_LEFT, BTN_NAV_RIGHT = (4, 'bNavLeft'), (5, 'bNavRight')
-    TXT_TITLE = (6, 'tTitle')
+    TXT_TITLE = (2, 'tTitle')
+    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
+    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
+
     # home
     TXT_HOME, TXT_HOME_TOP, TXT_HOME_TOP_VAL = (7, 'tHome'), (8, 'tHomeTop'), (9, 'tHomeTopVal')
     TXT_HOME_BOT, TXT_HOME_BOT_VAL = (10, 'tHomeBot'), (11, 'tHomeBotVal')
@@ -25,7 +27,10 @@ class PowerPage(HAUIPage):
     # panel
 
     def start_panel(self, panel):
-        self.set_prev_next_nav_buttons(self.BTN_NAV_LEFT, self.BTN_NAV_RIGHT)
+        # set function buttons
+        self.set_function_buttons(
+            self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
+            self.BTN_FNC_RIGHT_PRI, self.BTN_FNC_RIGHT_SEC)
 
     def render_panel(self, panel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())

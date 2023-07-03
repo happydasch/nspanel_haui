@@ -5,9 +5,9 @@ class BlankPage(HAUIPage):
 
     H_BLANK = (1, 'hBlank')
 
-    # page
+    # panel
 
-    def start_page(self):
+    def start_panel(self, panel):
         self.add_component_callback(self.H_BLANK, self.callback_blank)
 
     # callback

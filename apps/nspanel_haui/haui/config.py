@@ -387,6 +387,19 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get('type', '')
 
+    def get_mode(self):
+        """Returns the panel mode.
+
+        Possible panel modes:
+        - panel (Default)
+        - subpanel
+        - popup
+
+        Returns:
+            str: Panel mode
+        """
+        return self.get('mode', 'panel')
+
     def get_title(self, default_title=None):
         """ Returns the title of this panel.
 
@@ -427,18 +440,15 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get('wakeup_panel', False)
 
-    def get_mode(self):
-        """Returns the panel mode.
-
-        Possible panel modes:
-        - panel (Default)
-        - subpanel
-        - popup
+    def show_home_button(self):
+        """ Returns True if home button should be shown.
 
         Returns:
-            str: Panel mode
+            bool: True if home button should be shown
         """
-        return self.get('mode', 'panel')
+        return self.get(
+            'show_home_button',
+            self.app.device.get('show_home_button', False))
 
     def get_entities(self, return_copy=True):
         """ Returns all entities from this panel.

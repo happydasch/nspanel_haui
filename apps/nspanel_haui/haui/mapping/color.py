@@ -5,6 +5,7 @@ COLORS = {
     'text_inactive': 29582,  # [115, 115, 115] #737373
     'text_disabled': 12678,  # [49, 49, 49]
     'component': 65535,  # [255, 255, 255]
+    'component_pressed': 12678,  # [49, 49, 49]
     'component_active': 19773,  # [74, 165, 238]
     'component_accent': 62694,  # [246, 157, 49]
     'component_background': 38066,  # [148, 148, 148]

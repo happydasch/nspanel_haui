@@ -18,7 +18,13 @@ class HAUIPage(HAUIPart):
     - Main logic for panels
     """
 
-    # default function button icons
+    # internal function button ids
+    FNC_BTN_L_PRI = 'fnc_btn_left_pri'
+    FNC_BTN_L_SEC = 'fnc_btn_left_sec'
+    FNC_BTN_R_PRI = 'fnc_btn_right_pri'
+    FNC_BTN_R_SEC = 'fnc_btn_right_sec'
+
+    # default function component icons
     ICO_NAV_PREV = get_icon('chevron-left')
     ICO_NAV_NEXT = get_icon('chevron-right')
     ICO_NAV_UP = get_icon('chevron-up')
@@ -28,19 +34,15 @@ class HAUIPage(HAUIPart):
     ICO_ZOOM = get_icon('loupe')
     ICO_LOCKED = get_icon('lock-outline')
     ICO_UNLOCKED = get_icon('lock-open-outline')
+    ICO_PASSWORD = get_icon("circle-medium")
 
-    # internal function button ids
-    FNC_BTN_L_PRI = 'fnc_btn_left_pri'
-    FNC_BTN_L_SEC = 'fnc_btn_left_sec'
-    FNC_BTN_R_PRI = 'fnc_btn_right_pri'
-    FNC_BTN_R_SEC = 'fnc_btn_right_sec'
-
-    # functions for function buttons
-    FNC_BTN_TYPE_NAV_NEXT = 'nav_next'
-    FNC_BTN_TYPE_NAV_PREV = 'nav_prev'
-    FNC_BTN_TYPE_NAV_UP = 'nav_up'
-    FNC_BTN_TYPE_NAV_CLOSE = 'nav_close'
-    FNC_BTN_TYPE_NAV_HOME = 'nav_home'
+    # functions for function components
+    FNC_TYPE_NAV_NEXT = 'nav_next'
+    FNC_TYPE_NAV_PREV = 'nav_prev'
+    FNC_TYPE_NAV_UP = 'nav_up'
+    FNC_TYPE_NAV_CLOSE = 'nav_close'
+    FNC_TYPE_NAV_HOME = 'nav_home'
+    FNC_TYPE_UNLOCK = 'unlock'
 
     def __init__(self, app, config=None):
         super().__init__(app, config)
@@ -48,8 +50,8 @@ class HAUIPage(HAUIPart):
         self.page_id_recv = None  # will be set to the page id when a page event is recieved
         # current panel
         self.panel = None
-        # function buttons, components
-        self._btn_fnc = {}
+        # function items, components
+        self._fnc_items = {}
         # physical buttons, components
         self._btn_state_left = None
         self._btn_state_right = None
@@ -165,35 +167,41 @@ class HAUIPage(HAUIPart):
             self.set_component_value(self._btn_state_right, self.app.device.get_right_button_state())
         self.update_button_states()
 
-        # prepare function buttons
-        for fnc_id, fnc_item in self._btn_fnc.items():
+        # prepare function items
+        for fnc_id, fnc_item in self._fnc_items.items():
             mode = panel.get_mode()
-            # set default function if not set
+            # set default function if not set for header buttons
             if fnc_item['fnc_name'] is None:
                 # left primary button
                 if fnc_id == self.FNC_BTN_L_PRI:
                     if mode == 'panel':
-                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_PREV
+                        fnc_item['fnc_name'] = self.FNC_TYPE_NAV_PREV
                     elif mode == 'subpanel':
-                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_UP
+                        fnc_item['fnc_name'] = self.FNC_TYPE_NAV_UP
                     elif mode == 'popup' and not panel.is_home_panel():
-                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_HOME
-                    self.log(f'Set primary left function button to {fnc_item["fnc_name"]}')
+                        if panel.show_home_button():
+                            fnc_item['fnc_name'] = self.FNC_TYPE_NAV_HOME
                 # left secondary button
                 if fnc_id == self.FNC_BTN_L_SEC:
                     if (mode == 'panel' or mode == 'subpanel') and not panel.is_home_panel():
-                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_HOME
-                    self.log(f'Set secondary left function button to {fnc_item["fnc_name"]}')
+                        if panel.show_home_button():
+                            fnc_item['fnc_name'] = self.FNC_TYPE_NAV_HOME
                 # right primary button
                 elif fnc_id == self.FNC_BTN_R_PRI:
                     if mode == 'panel':
-                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_NEXT
+                        fnc_item['fnc_name'] = self.FNC_TYPE_NAV_NEXT
                     elif mode == 'popup':
-                        fnc_item['fnc_name'] = self.FNC_BTN_TYPE_NAV_CLOSE
-                    self.log(f'Set primary right function button to {fnc_item["fnc_name"]}')
-            # update function button
-            self.add_component_callback(fnc_item['fnc_btn'], self.callback_function_buttons)
-            self.update_function_button(fnc_id)
+                        fnc_item['fnc_name'] = self.FNC_TYPE_NAV_CLOSE
+                # right secondary button
+                if fnc_id == self.FNC_BTN_R_SEC:
+                    locked = getattr(panel, 'locked', None)
+                    if locked is not None:
+                        fnc_item['fnc_name'] = self.FNC_TYPE_UNLOCK
+                        fnc_item['fnc_args']['locked'] = locked
+            self.log(f'Set function button: {fnc_id} -> {fnc_item["fnc_name"]}')
+            # update function item
+            self.add_component_callback(fnc_item['fnc_component'], self.callback_function_components)
+            self.update_function_component(fnc_id)
 
         self.stop_rec_cmd(send_commands=True)
 
@@ -351,6 +359,17 @@ class HAUIPage(HAUIPart):
         # self.log(f'Setting {component[1]} text color {component_color}')
         self.send_cmd(f'{component[1]}.pco={component_color}')
 
+    def set_component_text_color_pressed(self, component, color):
+        """ Sets the text color pressed of the given component.
+
+        Args:
+            component (tuple): Component
+            color (int|str|list|tuple): Color
+        """
+        component_color = self.parse_color(color)
+        # self.log(f'Setting {component[1]} text color pressed {component_color}')
+        self.send_cmd(f'{component[1]}.pco2={component_color}')
+
     def set_component_back_color(self, component, color):
         """ Sets the back color of the component.
 
@@ -361,6 +380,17 @@ class HAUIPage(HAUIPart):
         component_color = self.parse_color(color)
         # self.log(f'Setting {component[1]} back color {component_color}')
         self.send_cmd(f'{component[1]}.bco={component_color}')
+
+    def set_component_back_color_pressed(self, component, color):
+        """ Sets the back color pressed of the component.
+
+        Args:
+            component (tuple): Component
+            color (int|str|list|tuple): Color
+        """
+        component_color = self.parse_color(color)
+        # self.log(f'Setting {component[1]} back color pressed {component_color}')
+        self.send_cmd(f'{component[1]}.bco2={component_color}')
 
     def set_component_password(self, component, input_password):
         """ Sets a text component to as a password input.
@@ -374,6 +404,16 @@ class HAUIPage(HAUIPart):
             self.send_cmd(f'{component[1]}.pw=1')
         else:
             self.send_cmd(f'{component[1]}.pw=0')
+
+    def set_component_touch(self, component, state):
+        """ Sets a components touch events.
+
+        Args:
+            component (tuple): Component
+            state (bool): Should the component recieve touch events
+        """
+        # self.log(f'Setting component touch {component[1]}: {state}')
+        self.send_cmd(f'tsw {component[1]},{int(state)}')
 
     def add_component_callback(self, component, callback):
         """ Adds a callback for the given component.
@@ -401,6 +441,37 @@ class HAUIPage(HAUIPart):
         """
         # self.log(f'Hiding {component[1]}')
         self.send_cmd(f'vis {component[1]},0')
+
+    def set_function_buttons(self, btn_l_pri, btn_l_sec, btn_r_pri, btn_r_sec):
+        """ Sets all function buttons at once.
+
+        can be a dict:
+        item = {'fnc_component': (..., ...), 'fnc_name': 'name', fnc_args={}}
+
+        can be list|tuple (component):
+        item = (..., ...)
+
+        Args:
+            btn_l_pri (tuple|list|dict): Primary left function button
+            btn_l_sec (tuple|list|dict): Secondary left function button
+            btn_r_pri (tuple|list|dict): Primary right function button
+            btn_r_sec (tuple|list|dict): Secondary right function button
+        """
+        for fnc_id, item in [
+            (self.FNC_BTN_L_PRI, btn_l_pri),
+            (self.FNC_BTN_L_SEC, btn_l_sec),
+            (self.FNC_BTN_R_PRI, btn_r_pri),
+            (self.FNC_BTN_R_SEC, btn_r_sec),
+        ]:
+            if isinstance(item, (list, tuple)):
+                self.set_function_component(item, fnc_id)
+            elif isinstance(item, dict):
+                btn = item.get('fnc_component', None)
+                fnc_name = item.get('fnc_name', None)
+                fnc_args = item.get('fnc_args', {})
+                self.set_function_component(btn, fnc_id, fnc_name, **fnc_args)
+            else:
+                self.set_function_component(None, fnc_id)
 
     # button state related
 
@@ -438,9 +509,9 @@ class HAUIPage(HAUIPart):
         self.update_button_left_state(self.app.device.get_left_button_state())
         self.update_button_right_state(self.app.device.get_right_button_state())
 
-    # function button related
+    # function component related
 
-    def get_function_buttons(self, return_copy=True):
+    def get_function_components(self, return_copy=True):
         """ Returns the function buttons.
 
         Args:
@@ -450,129 +521,130 @@ class HAUIPage(HAUIPart):
             dict: Function buttons
         """
         if return_copy:
-            return self._btn_fnc.copy()
-        return self._btn_fnc
+            return self._fnc_items.copy()
+        return self._fnc_items
 
-    def set_function_buttons(self, btn_l_pri, btn_l_sec, btn_r_pri, btn_r_sec):
-        """ Sets all function buttons at once.
+    def set_function_component(self, component, fnc_id, fnc_name=None, **fnc_args):
+        """ Sets the function component.
 
-        can be a dict:
-        item = {'fnc_btn': (..., ...), 'fnc_name': 'name', fnc_args={}}
+        To add a function component, do the following:
 
-        can be list|tuple (component):
-        item = (..., ...)
-
-        Args:
-            btn_l_pri (tuple|list|dict): Primary left function button
-            btn_l_sec (tuple|list|dict): Secondary left function button
-            btn_r_pri (tuple|list|dict): Primary right function button
-            btn_r_sec (tuple|list|dict): Secondary right function button
-        """
-        for fnc_id, item in [
-            (self.FNC_BTN_L_PRI, btn_l_pri),
-            (self.FNC_BTN_L_SEC, btn_l_sec),
-            (self.FNC_BTN_R_PRI, btn_r_pri),
-            (self.FNC_BTN_R_SEC, btn_r_sec),
-        ]:
-            if isinstance(item, (list, tuple)):
-                self.set_function_button(item, fnc_id)
-            elif isinstance(item, dict):
-                btn = item.get('fnc_btn', None)
-                fnc_name = item.get('fnc_name', None)
-                fnc_args = item.get('fnc_args', {})
-                self.set_function_button(btn, fnc_id, fnc_name, **fnc_args)
-            else:
-                self.set_function_button(None, fnc_id)
-
-    def set_function_button(self, fnc_btn, fnc_id, fnc_name=None, **fnc_args):
-        """ Sets the function button.
-
-        To add a function button, do the following:
-
-        - set button as a function button
-          self.set_function_button(btn, fnc_id)
+        - set button as a function component
+          self.set_function_component(btn, fnc_id)
           This will use a default function and a default icon
 
         or
 
-        - set button as a function button
-          self.set_function_button(btn, fnc_id, fnc_name='functionname', icon='icon', color=0)
+        - set button as a function component
+          self.set_function_component(btn, fnc_id, fnc_name='functionname', icon='icon', color=0)
           This will use a custom function and a custom icon
 
-        To add a custom function button, do the following:
+        To add a custom function component, do the following:
 
-        - set button as a function button
-          self.set_function_button(btn, fnc_id, fnc_name='functionname', fnc_args={'icon': icon, 'color': 0})
-        - overwrite callback_function_button(fnc_id) and check for fnc_id
+        - set component as a function component
+          self.set_function_component(component, fnc_id, fnc_name='functionname', fnc_args={'icon': icon, 'color': 0})
+        - overwrite callback_function_component(fnc_id) and check for fnc_id
         - do action if fnc_id matches
 
         Args:
-            btn (tuple): Component
-            fnc_id (str): Function Button ID
+            component (tuple): Component
+            fnc_id (str): Function Component ID
             fnc_name (str, optional): Function name, if not defined, default function will be used
             fnc_args (dict): Function arguments
         """
-        if fnc_btn is not None:
-            self._btn_fnc[fnc_id] = {
-                'fnc_btn': fnc_btn,
+        if component is not None:
+            self._fnc_items[fnc_id] = {
+                'fnc_component': component,
                 'fnc_id': fnc_id,
                 'fnc_name': fnc_name,
                 'fnc_args': fnc_args
             }
-        elif fnc_id in self._btn_fnc:
-            del self._btn_fnc[fnc_id]
+        elif fnc_id in self._fnc_items:
+            del self._fnc_items[fnc_id]
 
-    def update_function_button(self, fnc_id, **kwargs):
-        """ Updates the function button.
+    def update_function_component(self, fnc_id, **kwargs):
+        """ Updates the function component.
 
         Args:
-            fnc_id (str): Function Button ID
+            fnc_id (str): Function Component ID
             kwargs (dict): Arguments
         """
-        if fnc_id not in self._btn_fnc:
+        if fnc_id not in self._fnc_items:
             return
-        fnc_btn = self._btn_fnc[fnc_id]['fnc_btn']
-        fnc_name = self._btn_fnc[fnc_id]['fnc_name']
-        fnc_args = self._btn_fnc[fnc_id]['fnc_args']
-        self._btn_fnc[fnc_id]['fnc_args'] = fnc_args = {**fnc_args, **kwargs}
-        # check if visible or not
-        if fnc_name is None:
-            self.hide_component(fnc_btn)
-        else:
-            color = fnc_args.get('color', COLORS['component'])
-            self.set_component_text_color(fnc_btn, color)
-            self.show_component(fnc_btn)
-        # set icon for button
+        fnc_item = self._fnc_items[fnc_id]
+        fnc_component = fnc_item['fnc_component']
+        fnc_name = fnc_item['fnc_name']
+        fnc_args = fnc_item['fnc_args']
+        fnc_item['fnc_args'] = fnc_args = {**fnc_args, **kwargs}
+        # set text or icon for component
+        text = fnc_args.get('text', None)
         icon = fnc_args.get('icon', None)
-        if fnc_name == self.FNC_BTN_TYPE_NAV_PREV:
-            icon = self.ICO_NAV_PREV
-        elif fnc_name == self.FNC_BTN_TYPE_NAV_NEXT:
-            icon = self.ICO_NAV_NEXT
-        elif fnc_name == self.FNC_BTN_TYPE_NAV_HOME:
-            icon = self.ICO_NAV_HOME
-        elif fnc_name == self.FNC_BTN_TYPE_NAV_UP:
-            icon = self.ICO_NAV_UP
-        elif fnc_name == self.FNC_BTN_TYPE_NAV_CLOSE:
-            icon = self.ICO_NAV_CLOSE
-        if icon is not None:
-            self.log(f'Setting icon for {fnc_id}: {icon}')
-            self.set_component_text(fnc_btn, icon)
-        # set color for button
-        color = fnc_args.get('color', None)
-        if color is not None:
-            self.log(f'Setting color for {fnc_id}: {color}')
-            self.set_component_text_color(fnc_btn, color)
+        if text is not None and fnc_item.get('current_text') != text:
+            self.set_component_text(fnc_component, text)
+            fnc_item['current_text'] = text
+        # set icon for component
+        else:
+            if icon is None:
+                if fnc_name == self.FNC_TYPE_NAV_PREV:
+                    icon = self.ICO_NAV_PREV
+                elif fnc_name == self.FNC_TYPE_NAV_NEXT:
+                    icon = self.ICO_NAV_NEXT
+                elif fnc_name == self.FNC_TYPE_NAV_HOME:
+                    icon = self.ICO_NAV_HOME
+                elif fnc_name == self.FNC_TYPE_NAV_UP:
+                    icon = self.ICO_NAV_UP
+                elif fnc_name == self.FNC_TYPE_NAV_CLOSE:
+                    icon = self.ICO_NAV_CLOSE
+                elif fnc_name == self.FNC_TYPE_UNLOCK:
+                    if fnc_args.get('locked', False):
+                        icon = self.ICO_LOCKED
+                    else:
+                        icon = self.ICO_UNLOCKED
+            if icon is not None and fnc_item.get('current_icon') != icon:
+                self.set_component_text(fnc_component, icon)
+                fnc_item['current_icon'] = icon
+
+        # set touch events
+        touch = fnc_args.get('touch_events', None)
+        if touch is not None and fnc_item.get('current_touch_events') != touch:
+            self.set_component_touch(fnc_component, touch)
+            fnc_item['current_touch_events'] = touch
+        # check if visible or not
+        visible = fnc_item.get('visible')
+        if fnc_name is None:
+            # visibility
+            if visible is None or visible:
+                self.hide_component(fnc_component)
+                fnc_item['visible'] = False
+        else:
+            # set colors for component
+            color = fnc_args.get('color', None)
+            if color is None and fnc_args.get('locked', None) is not None:
+                if fnc_name == self.FNC_TYPE_UNLOCK and not fnc_args.get('locked', False):
+                    color = COLORS['component_accent']
+            if color is None:
+                color = COLORS['component']
+            color_pressed = fnc_args.get('color_pressed')
+            back_color = fnc_args.get('back_color')
+            back_color_pressed = fnc_args.get('back_color_pressed')
+            if color is not None and fnc_item.get('current_color') != color:
+                self.set_component_text_color(fnc_component, color)
+                fnc_item['current_color'] = color
+            if color_pressed is not None and fnc_item.get('current_color_pressed') != color_pressed:
+                self.set_component_text_color_pressed(fnc_component, color_pressed)
+                fnc_item['current_color_pressed'] = color_pressed
+            if back_color is not None and fnc_item.get('current_back_color') != back_color:
+                self.set_component_back_color(fnc_component, back_color)
+                fnc_item['current_back_color'] = back_color
+            if back_color_pressed is not None and fnc_item.get('current_back_color_pressed') != back_color_pressed:
+                self.set_component_back_color_pressed(fnc_component, back_color_pressed)
+                fnc_item['current_back_color_pressed'] = back_color_pressed
+            # visibility
+            if visible is None or not visible:
+                self.show_component(fnc_component)
+                fnc_item['visible'] = True
 
     # callback
-
-    def callback_function_button(self, fnc_id):
-        """ Gets called when a function button was pressed.
-
-        This method is intended to be overwritten if a custom function button is used.
-
-        Args:
-            fnc_id (int): Function Button ID
-        """
 
     def callback_button_state_buttons(self, event, component, button_state):
         """ Callback method for button state buttons.
@@ -592,8 +664,17 @@ class HAUIPage(HAUIPart):
         elif component == self._btn_state_right:
             self.send_mqtt(ESP_REQUEST['req_component_int'], self._btn_state_right[1])
 
-    def callback_function_buttons(self, event, component, button_state):
-        """ Callback method for function button events.
+    def callback_function_component(self, fnc_id):
+        """ Gets called when a function component was pressed.
+
+        This method is intended to be overwritten if a custom function component is used.
+
+        Args:
+            fnc_id (int): Function Component ID
+        """
+
+    def callback_function_components(self, event, component, button_state):
+        """ Callback method for function component events.
 
         Args:
             event (HAUIEvent): Event
@@ -601,13 +682,12 @@ class HAUIPage(HAUIPart):
             button_state (int): Value of the component event
         """
         # process function button press callback
-        self.log(f'Got function button press: {component}-{button_state}')
         if button_state != 0:
             return
         # check what button was pressed
         function_item = None
-        for fnc_id, fnc_cnt in self._btn_fnc.items():
-            if fnc_cnt['fnc_btn'] == component:
+        for fnc_id, fnc_cnt in self._fnc_items.items():
+            if fnc_cnt['fnc_component'] == component:
                 function_item = fnc_cnt
                 break
         # if unknown function do nothing
@@ -616,21 +696,29 @@ class HAUIPage(HAUIPart):
         navigation = self.app.controller['navigation']
         fnc_id = function_item['fnc_id']
         fnc_name = function_item['fnc_name']
-        # notify about function button press
-        self.callback_function_button(fnc_id)
+        fnc_args = function_item['fnc_args']
         # check the function that is defined for the function button
-        if fnc_name == self.FNC_BTN_TYPE_NAV_PREV:
+        if fnc_name == self.FNC_TYPE_NAV_PREV:
             navigation.open_prev_panel()
-        elif fnc_name == self.FNC_BTN_TYPE_NAV_NEXT:
+        elif fnc_name == self.FNC_TYPE_NAV_NEXT:
             navigation.open_next_panel()
-        elif fnc_name == self.FNC_BTN_TYPE_NAV_CLOSE:
-            navigation.close_panel()
-        elif fnc_name == self.FNC_BTN_TYPE_NAV_UP:
-            navigation.close_panel()
-        elif fnc_name == self.FNC_BTN_TYPE_NAV_HOME:
+        elif fnc_name == self.FNC_TYPE_NAV_HOME:
             navigation.open_home_panel()
+        elif fnc_name == self.FNC_TYPE_NAV_UP:
+            navigation.close_panel()
+        elif fnc_name == self.FNC_TYPE_NAV_CLOSE:
+            navigation.close_panel()
+        elif fnc_name == self.FNC_TYPE_UNLOCK:
+            locked = fnc_args.get('locked', False)
+            navigation = self.app.controller['navigation']
+            # lock panel if not locked
+            if not locked:
+                self.panel.locked = True
+                navigation.reload_panel()
         else:
-            self.log(f'Unknown function {fnc_name} for function button {fnc_id}')
+            self.log(f'Custom function {fnc_name} for function button {fnc_id}')
+            # notify about function button press
+            self.callback_function_component(fnc_id)
 
     # processing
 

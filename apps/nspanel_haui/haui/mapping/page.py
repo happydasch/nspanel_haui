@@ -32,8 +32,8 @@ from ..page.timer import PopupTimerPage
 PAGE_MAPPING = {
     0: 'blank',
     1: 'system',
-    2: 'settings',
-    3: 'about',
+    2: 'about',
+    3: 'settings',
     4: 'weather',
     5: 'clock',
     6: 'grid',
@@ -50,7 +50,6 @@ PAGE_MAPPING = {
     17: 'notify',
     18: 'select',
 }
-
 
 # system panel mapping
 # sys_panel_key -> panel_type

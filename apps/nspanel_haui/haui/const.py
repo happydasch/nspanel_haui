@@ -104,6 +104,7 @@ PANEL_CONFIG = {
     'home_panel': False,  # defines if panel is a home panel
     'sleep_panel': False,  # defines if panel is a sleep panel
     'wakeup_panel': False,  # defines if panel is a wakeup panel
+    'show_home_button': None,  # defines if home button is shown
     'entity': None,  # single entity
     'entities': []  # multiple entities
 }
@@ -122,6 +123,9 @@ DEFAULT_CONFIG = {
         # hardware buttons
         'button_left_entity': None,
         'button_right_entity': None,
+        # navigation
+        'show_home_button': False,
+        # logging
         'log_commands': False,
     },
 

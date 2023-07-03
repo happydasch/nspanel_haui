@@ -218,16 +218,16 @@ class HAUIBase:
             return
         self.send_cmd(f'{component[1]}.val={int(value)}')
 
-    def render_template(self, template):
+    def render_template(self, template, parse_icons=True):
         """ Returns a rendered home assistant template string.
 
         Args:
             template (str): template to render
+            parse_icons (bool, optional): If True, the result will be processed by parse_icon. Defaults to True.
 
         Returns:
             str: rendered template string
         """
-
         if 'template:' in template:
             template = template.replace('template:', '')
             splitted_string = template.replace('template:', '').rpartition('}')
@@ -239,8 +239,9 @@ class HAUIBase:
                 template = f'{template}{splitted_string[2]}'
             except Exception:
                 template = ''
-
-        return parse_icon(template)
+        if parse_icons:
+            template = parse_icon(template)
+        return template
 
 
 # a part adding start/stop

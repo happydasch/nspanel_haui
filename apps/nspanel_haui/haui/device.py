@@ -237,12 +237,12 @@ class HAUIDevice(HAUIPart):
             navigation.open_prev_panel()
         elif event.as_str() == 'swipe_up':
             if not navigation.has_up_panel() or unlock_panel:
-                navigation.open_panel('sys_about')
+                navigation.open_popup('sys_about')
             else:
                 navigation.close_panel()
         elif event.as_str() == 'swipe_down':
             if not navigation.has_up_panel() or unlock_panel:
-                navigation.open_panel('sys_settings')
+                navigation.open_popup('sys_settings')
             else:
                 navigation.close_panel()
 

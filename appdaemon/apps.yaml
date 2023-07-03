@@ -9,6 +9,7 @@ nspanel-haui:
       locale: en_US
       button_left_entity: null
       button_right_entity: null
+      show_home_button: false
       log_commands: false
 
     # connection controller
@@ -116,6 +117,7 @@ nspanel-haui:
 
       # big qr code
       - type: qr
+        show_home_button: true
         title: Big QR Code
         qr_code: WIFI:S:wifi_ssid;T:WPA;P:wifi_pw;;
 

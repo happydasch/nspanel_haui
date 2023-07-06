@@ -3,7 +3,7 @@ from . import HAUIPage
 
 class SystemPage(HAUIPage):
 
-    # QR code with url
+    # qr code with url
     QR_URL = (1, 'qrUrl')
     # spinner animation
     H_SPINNER = (2, 'hSpinner')

@@ -8,11 +8,9 @@ class QRPage(HAUIPage):
     TXT_TITLE = (2, 'tTitle')
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
-
     # qr components
     QR_CODE_BIG = (7, 'qrCodeBig')
     QR_CODE = (8, 'qrCode')
-
     # q components
     Q1_ICON, Q1_TITLE, Q1_TEXT = (9, 'q1Icon'), (10, 'q1Title'), (11, 'q1Text')
     Q1_TEXT_ADD = (12, 'q1TextAdd')
@@ -97,11 +95,9 @@ class QRPage(HAUIPage):
     def update_qr(self, big=False):
         if big:
             self.hide_component(self.QR_CODE)
-            self.show_component(self.QR_CODE_BIG)
             self.update_function_component(self.FNC_BTN_R_SEC, color=COLORS['component_accent'])
         else:
             self.hide_component(self.QR_CODE_BIG)
-            self.show_component(self.QR_CODE)
             self.update_function_component(self.FNC_BTN_R_SEC, color=COLORS['component'])
         for component in [
             self.Q1_ICON, self.Q1_TITLE, self.Q1_TEXT, self.Q1_TEXT_ADD,
@@ -111,6 +107,10 @@ class QRPage(HAUIPage):
                 self.hide_component(component)
             else:
                 self.show_component(component)
+        if big:
+            self.show_component(self.QR_CODE_BIG)
+        else:
+            self.show_component(self.QR_CODE)
         # remember current state
         self._header_toggle_state = big
 

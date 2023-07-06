@@ -25,16 +25,18 @@ class HAUIPage(HAUIPart):
     FNC_BTN_R_SEC = 'fnc_btn_right_sec'
 
     # default function component icons
+    ICO_DEFAULT = get_icon('alert-circle-outline')
     ICO_NAV_PREV = get_icon('chevron-left')
     ICO_NAV_NEXT = get_icon('chevron-right')
     ICO_NAV_UP = get_icon('chevron-up')
     ICO_NAV_CLOSE = get_icon('close')
     ICO_NAV_HOME = get_icon('home-outline')
-    ICO_ENTITY_POWER = get_icon('power')
     ICO_ZOOM = get_icon('loupe')
     ICO_LOCKED = get_icon('lock-outline')
     ICO_UNLOCKED = get_icon('lock-open-outline')
-    ICO_PASSWORD = get_icon("circle-medium")
+    ICO_PASSWORD = get_icon('circle-medium')
+    ICO_ENTITY_POWER = get_icon('power')
+    ICO_ENTITY_UNAVAILABLE = get_icon('cancel')
 
     # functions for function components
     FNC_TYPE_NAV_NEXT = 'nav_next'
@@ -198,8 +200,14 @@ class HAUIPage(HAUIPart):
                     if locked is not None:
                         fnc_item['fnc_name'] = self.FNC_TYPE_UNLOCK
                         fnc_item['fnc_args']['locked'] = locked
-            self.log(f'Set function button: {fnc_id} -> {fnc_item["fnc_name"]}')
+            # visibility
+            if fnc_item['fnc_args'].get('visible', None) is None:
+                if fnc_item['fnc_name'] is None:
+                    fnc_item['fnc_args']['visible'] = False
+                else:
+                    fnc_item['fnc_args']['visible'] = True
             # update function item
+            self.log(f'Set function button: {fnc_id} -> {fnc_item["fnc_name"]}')
             self.add_component_callback(fnc_item['fnc_component'], self.callback_function_components)
             self.update_function_component(fnc_id)
 
@@ -278,7 +286,7 @@ class HAUIPage(HAUIPart):
         if entity_type == 'light':
             if entity_state != 'unavailable':
                 # open popup
-                navigation.open_popup('popup_light', entity=entity)
+                navigation.open_popup('popup_light', entity_id=entity.get_entity_id())
             else:
                 # format msg string
                 light_name = self.translate('The light {} is currently not available.')
@@ -292,7 +300,7 @@ class HAUIPage(HAUIPart):
                     'popup_notify',
                     title=self.translate('Entity unavailable'),
                     btn_right=self.translate('Close'),
-                    icon='alert-circle-outline',
+                    icon=self.ICO_ENTITY_UNAVAILABLE,
                     notification=msg)
         else:
             entity.execute()
@@ -527,6 +535,10 @@ class HAUIPage(HAUIPart):
     def set_function_component(self, component, fnc_id, fnc_name=None, **fnc_args):
         """ Sets the function component.
 
+        To remove a function component:
+
+        self.set_function_component(None, fnc_id)
+
         To add a function component, do the following:
 
         - set button as a function component
@@ -576,6 +588,7 @@ class HAUIPage(HAUIPart):
         fnc_name = fnc_item['fnc_name']
         fnc_args = fnc_item['fnc_args']
         fnc_item['fnc_args'] = fnc_args = {**fnc_args, **kwargs}
+
         # set text or icon for component
         text = fnc_args.get('text', None)
         icon = fnc_args.get('icon', None)
@@ -609,40 +622,38 @@ class HAUIPage(HAUIPart):
         if touch is not None and fnc_item.get('current_touch_events') != touch:
             self.set_component_touch(fnc_component, touch)
             fnc_item['current_touch_events'] = touch
-        # check if visible or not
-        visible = fnc_item.get('visible')
-        if fnc_name is None:
-            # visibility
-            if visible is None or visible:
-                self.hide_component(fnc_component)
-                fnc_item['visible'] = False
-        else:
-            # set colors for component
-            color = fnc_args.get('color', None)
-            if color is None and fnc_args.get('locked', None) is not None:
-                if fnc_name == self.FNC_TYPE_UNLOCK and not fnc_args.get('locked', False):
-                    color = COLORS['component_accent']
-            if color is None:
-                color = COLORS['component']
-            color_pressed = fnc_args.get('color_pressed')
-            back_color = fnc_args.get('back_color')
-            back_color_pressed = fnc_args.get('back_color_pressed')
-            if color is not None and fnc_item.get('current_color') != color:
-                self.set_component_text_color(fnc_component, color)
-                fnc_item['current_color'] = color
-            if color_pressed is not None and fnc_item.get('current_color_pressed') != color_pressed:
-                self.set_component_text_color_pressed(fnc_component, color_pressed)
-                fnc_item['current_color_pressed'] = color_pressed
-            if back_color is not None and fnc_item.get('current_back_color') != back_color:
-                self.set_component_back_color(fnc_component, back_color)
-                fnc_item['current_back_color'] = back_color
-            if back_color_pressed is not None and fnc_item.get('current_back_color_pressed') != back_color_pressed:
-                self.set_component_back_color_pressed(fnc_component, back_color_pressed)
-                fnc_item['current_back_color_pressed'] = back_color_pressed
-            # visibility
-            if visible is None or not visible:
+
+        # set colors
+        color = fnc_args.get('color', None)
+        if color is None and fnc_args.get('locked', None) is not None:
+            if fnc_name == self.FNC_TYPE_UNLOCK and not fnc_args.get('locked', False):
+                color = COLORS['component_accent']
+        if color is None:
+            color = COLORS['component']
+        color_pressed = fnc_args.get('color_pressed')
+        back_color = fnc_args.get('back_color')
+        back_color_pressed = fnc_args.get('back_color_pressed')
+        if color is not None and fnc_item.get('current_color') != color:
+            self.set_component_text_color(fnc_component, color)
+            fnc_item['current_color'] = color
+        if color_pressed is not None and fnc_item.get('current_color_pressed') != color_pressed:
+            self.set_component_text_color_pressed(fnc_component, color_pressed)
+            fnc_item['current_color_pressed'] = color_pressed
+        if back_color is not None and fnc_item.get('current_back_color') != back_color:
+            self.set_component_back_color(fnc_component, back_color)
+            fnc_item['current_back_color'] = back_color
+        if back_color_pressed is not None and fnc_item.get('current_back_color_pressed') != back_color_pressed:
+            self.set_component_back_color_pressed(fnc_component, back_color_pressed)
+            fnc_item['current_back_color_pressed'] = back_color_pressed
+
+        # set visibility
+        visible = fnc_args.get('visible', True)
+        if visible is not None and fnc_item.get('current_visible', None) is not visible:
+            if visible:
                 self.show_component(fnc_component)
-                fnc_item['visible'] = True
+            else:
+                self.hide_component(fnc_component)
+            fnc_item['current_visible'] = visible
 
     # callback
 
@@ -732,9 +743,9 @@ class HAUIPage(HAUIPart):
         if event.name == ESP_RESPONSE['res_component_int']:
             # parse json response, set brightness
             data = event.as_json()
-            if data.get('name', '') == self._btn_state_left[1]:
+            if self._btn_state_left and self._btn_state_left[1] == data.get('name', ''):
                 self.app.device.set_left_button_state(bool(data['value']))
-            elif data.get('name', '') == self._btn_state_right[1]:
+            elif self._btn_state_right and self._btn_state_right[1] == data.get('name', ''):
                 self.app.device.set_right_button_state(bool(data['value']))
         # component event
         if event.name == ESP_EVENT['component']:

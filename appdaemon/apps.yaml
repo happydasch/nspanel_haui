@@ -48,9 +48,11 @@ nspanel-haui:
       - type: system_settings
         mode: popup
         key: sys_settings
+        show_home_button: false
       - type: system_about
         mode: popup
         key: sys_about
+        show_home_button: false
       - type: popup_unlock
         mode: popup
         key: popup_unlock

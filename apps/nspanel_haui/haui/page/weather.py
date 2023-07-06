@@ -12,14 +12,11 @@ class WeatherPage(HAUIPage):
 
     # time and date display
     TXT_TIME, TXT_DATE = (2, 'tTime'), (3, 'tDate')
-
     # main weather icon
     ICO_MAIN, TXT_MAIN, TXT_SUB = (4, 'tMainIcon'), (5, 'tMainText'), (6, 'tSubText')
-
     # icons below main icon
     D1_ICO, D2_ICO, D3_ICO = (7, 'd1Icon'), (8, 'd2Icon'), (9, 'd2Icon')
     D1_VAL, D2_VAL, D3_VAL = (10, 'd1Val'), (11, 'd2Val'), (12, 'd3Val')
-
     # bottom weather forecast row
     F1_NAME, F2_NAME, F3_NAME, F4_NAME, F5_NAME = (13, 'f1Name'), (14, 'f2Name'), (15, 'f3Name'), (16, 'f4Name'), (17, 'f5Name')
     F1_ICO, F2_ICO, F3_ICO, F4_ICO, F5_ICO = (18, 'f1Icon'), (19, 'f2Icon'), (20, 'f3Icon'), (21, 'f4Icon'), (22, 'f5Icon')
@@ -143,13 +140,25 @@ class WeatherPage(HAUIPage):
         if idx < 1 or idx > 5:
             self.log("Weather Forecast uses index 1-5")
             return
+        entity = haui_entity.get_entity()
+        forecast_temp = 20
+        forecast_mintemp = 0
+        temp_unit = entity.attributes.get('temperature_unit', '°C')
+        if 'forecast' in entity.attributes:
+            if idx < len(entity.attributes.forecast):
+                forecast_temp = entity.attributes.forecast[idx].get(
+                    'temperature', forecast_temp)
+                forecast_mintemp = entity.attributes.forecast[idx].get(
+                    'templow', forecast_mintemp)
         forecast_name = getattr(self, f'F{idx}_NAME')
         forecast_icon = getattr(self, f'F{idx}_ICO')
         forecast_val = getattr(self, f'F{idx}_VAL')
+        forecast_subval = getattr(self, f'F{idx}_SUBVAL')
         self.set_component_text_color(forecast_icon, haui_entity.get_color())
         self.set_component_text(forecast_icon, haui_entity.get_icon())
         self.set_component_text(forecast_name, haui_entity.get_name())
-        self.set_component_text(forecast_val, haui_entity.get_value())
+        self.set_component_text(forecast_val, f'{forecast_temp}{temp_unit}')
+        self.set_component_text(forecast_subval, f'{forecast_mintemp}{temp_unit}')
 
     def update_info(self, haui_entity, idx):
         if idx < 1 or idx > 5:

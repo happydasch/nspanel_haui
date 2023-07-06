@@ -13,7 +13,6 @@ class ClockPage(HAUIPage):
     # main components
     TXT_TIME, TXT_DATE = (2, 'tTime'), (3, 'tDate')
     ICO_MAIN, TXT_MAIN = (4, 'tMainIcon'), (5, 'tMainText')
-
     # bottom weather forecast row
     F1_NAME, F2_NAME, F3_NAME, F4_NAME = (6, 'f1Name'), (7, 'f2Name'), (8, 'f3Name'), (9, 'f4Name')
     F1_ICO, F2_ICO, F3_ICO, F4_ICO = (10, 'f1Icon'), (11, 'f2Icon'), (12, 'f3Icon'), (13, 'f4Icon')
@@ -123,13 +122,26 @@ class ClockPage(HAUIPage):
         if idx < 1 or idx > 5:
             self.log("Weather Forecast uses index 1-5")
             return
+        entity = haui_entity.get_entity()
+        forecast_temp = 20
+        forecast_mintemp = 0
+        temp_unit = entity.attributes.get('temperature_unit', '°C')
+        if 'forecast' in entity.attributes:
+            if idx < len(entity.attributes.forecast):
+                forecast_temp = entity.attributes.forecast[idx].get(
+                    'temperature', forecast_temp)
+                forecast_mintemp = entity.attributes.forecast[idx].get(
+                    'templow', forecast_mintemp)
+
         forecast_name = getattr(self, f'F{idx}_NAME')
         forecast_icon = getattr(self, f'F{idx}_ICO')
         forecast_val = getattr(self, f'F{idx}_VAL')
+        forecast_subval = getattr(self, f'F{idx}_SUBVAL')
         self.set_component_text_color(forecast_icon, haui_entity.get_color())
         self.set_component_text(forecast_icon, haui_entity.get_icon())
         self.set_component_text(forecast_name, haui_entity.get_name())
-        self.set_component_text(forecast_val, haui_entity.get_value())
+        self.set_component_text(forecast_val, f'{forecast_temp}{temp_unit}')
+        self.set_component_text(forecast_subval, f'{forecast_mintemp}{temp_unit}')
 
     # callback
 

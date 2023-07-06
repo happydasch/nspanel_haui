@@ -9,9 +9,10 @@ class PopupNotifyPage(HAUIPage):
     TXT_TITLE = (2, 'tTitle')
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
-
-    TXT_TEXT_FULL, TXT_TEXT, TXT_ICON = (6, 'tTextFull'), (7, 'tText'), (8, 'tIcon')
-    BTN_LEFT, BTN_RIGHT = (9, 'bBtnLeft'), (10, 'bBtnRight')
+    # notification components
+    TXT_TEXT_FULL, TXT_TEXT, TXT_ICON = (7, 'tTextFull'), (8, 'tText'), (9, 'tIcon')
+    # buttons
+    BTN_LEFT, BTN_RIGHT = (10, 'bBtnLeft'), (11, 'bBtnRight')
 
     # panel
 

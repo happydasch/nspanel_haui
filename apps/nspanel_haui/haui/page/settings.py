@@ -9,11 +9,11 @@ class SettingsPage(HAUIPage):
     TXT_TITLE = (2, 'tTitle')
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
-
-    TXT_BRGHT_ICO, TXT_BRGHT = (6, 'tBrghtIco'), (7, 'tBrght')
-    TXT_BRGHT_PCT, SLD_BRGHT = (8, 'tBrghtPct'), (9, 'hBrght')
-    TXT_BRGHT_DIM_ICO, TXT_BRGHT_DIM = (10, 'tBrghtDimIco'), (11, 'tBrghtDim')
-    TXT_BRGHT_DIM_PCT, SLD_BRGHT_DIM = (12, 'tBrghtDimPct'), (13, 'hBrghtDim')
+    # subtitle brightness
+    TXT_BRGHT_TITLE = (7, 'tBrghtTitle')
+    # brightness components
+    TXT_BRGHT_ICO, SLD_BRGHT, TXT_BRGHT_PCT = (8, 'tBrghtIco'), (9, 'hBrght'), (10, 'tBrghtPct')
+    TXT_BRGHT_DIM_ICO, SLD_BRGHT_DIM, TXT_BRGHT_DIM_PCT = (11, 'tBrghtDimIco'), (12, 'hBrghtDim'), (13, 'tBrghtDimPct')
 
     # panel
 
@@ -54,8 +54,7 @@ class SettingsPage(HAUIPage):
     def render_panel(self, panel):
         title = panel.get_title(self.translate('Settings'))
         self.set_component_text(self.TXT_TITLE, title)
-        self.set_component_text(self.TXT_BRGHT, self.translate('Full Brightness:'))
-        self.set_component_text(self.TXT_BRGHT_DIM, self.translate('Dimmed Brightness:'))
+        self.set_component_text(self.TXT_BRGHT_TITLE, self.translate('Full and Dimmed Brightness:'))
         # update settings
         brightness_full_state = self.brightness_full_entity.get_state()
         if brightness_full_state != 'unavailable':
@@ -82,7 +81,7 @@ class SettingsPage(HAUIPage):
         self.log(f'Got slider brightness press: {component}-{button_state}')
         if button_state:
             return
-        self.send_mqtt(ESP_REQUEST['req_component_int'], component[1])
+        self.send_mqtt(ESP_REQUEST['req_component_int'], component[1], force=True)
 
     def callback_brightness(self, entity, attribute, old, new, cb_args):
         self.log(f'Got brightness callback: {entity}.{attribute}:{new}')
@@ -91,12 +90,12 @@ class SettingsPage(HAUIPage):
             if new.isnumeric():
                 if self._full_brightness != new:
                     self._full_brightness = new
-                    self.set_brightness_full_slider(new)
+                self.set_brightness_full_slider(new)
         elif self.brightness_dimmed_entity and entity == self.brightness_dimmed_entity.entity_id:
             if new.isnumeric():
                 if self._dimmed_brightness != new:
                     self._dimmed_brightness = new
-                    self.set_brightness_dim_slider(new)
+                self.set_brightness_dim_slider(new)
 
     # event
 

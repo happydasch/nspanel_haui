@@ -9,25 +9,21 @@ class RowPage(HAUIPage):
     TXT_TITLE = (2, 'tTitle')
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
-
     # Entity 1
     E1_ICO, E1_NAME, E1_OVL = (7, 'e1Icon'), (8, 'e1Name'), (12, 'e1Ovl')
     E1_BTN_UP, E1_BTN_STOP, E1_BTN_DOWN = (9, 'e1BtnUp'), (10, 'e1BtnStop'), (11, 'e1BtnDown')
     E1_TOGGLE, E1_SLIDER, E1_SLIDER_VAL = (13, 'e1Toggle'), (14, 'e1Slider'), (15, 'e1SliderVal')
     E1_BTN_TXT = (16, 'e1BtnText')
-
     # Entity 2
     E2_ICO, E2_NAME, E2_OVL = (17, 'e2Icon'), (18, 'e2Name'), (22, 'e2Ovl')
     E2_BTN_UP, E2_BTN_STOP, E2_BTN_DOWN = (19, 'e2BtnUp'), (20, 'e2BtnStop'), (21, 'e2BtnDown')
     E2_TOGGLE, E2_SLIDER, E2_SLIDER_VAL = (23, 'e2Toggle'), (24, 'e2Slider'), (25, 'e2SliderVal')
     E2_BTN_TXT = (26, 'e2BtnText')
-
     # Entity 3
     E3_ICO, E3_NAME, E3_OVL = (27, 'e3Icon'), (28, 'e3Name'), (32, 'e3Ovl')
     E3_BTN_UP, E3_BTN_STOP, E3_BTN_DOWN = (29, 'e3BtnUp'), (30, 'e3BtnStop'), (31, 'e3BtnDown')
     E3_TOGGLE, E3_SLIDER, E3_SLIDER_VAL = (33, 'e3Toggle'), (34, 'e3Slider'), (35, 'e3SliderVal')
     E3_BTN_TXT = (36, 'e3BtnText')
-
     # Entity 4
     E4_ICO, E4_NAME, E4_OVL = (37, 'e4Icon'), (38, 'e4Name'), (42, 'e4Ovl')
     E4_BTN_UP, E4_BTN_STOP, E4_BTN_DOWN = (39, 'e4BtnUp'), (40, 'e4BtnStop'), (41, 'e4BtnDown')
@@ -294,7 +290,6 @@ class RowPage(HAUIPage):
             self.process_entity_detail_push(component)
 
     def callback_entity_state(self, entity, attribute, old, new, kwargs):
-        self.log(f'Got entity state callback: {entity}.{attribute}:{new}')
         self.refresh_panel()
 
     # event

@@ -698,10 +698,11 @@ class HAUINavigationController(HAUIPart):
         if prev_panel is None:
             prev_panel, prev_kwargs = self._home_panel, {}
         # check for locked panel before opening
-        unlock_panel = curr_panel.get('unlock_panel')
-        if prev_panel is not None and unlock_panel is not None:
-            if prev_panel.id == unlock_panel.id and getattr(prev_panel, 'locked', False):
-                prev_panel, prev_kwargs = None, None
+        if prev_panel is not None:
+            unlock_panel = prev_panel.get('unlock_panel')
+            if unlock_panel is not None:
+                if prev_panel.id == unlock_panel.id and getattr(prev_panel, 'locked', False):
+                    prev_panel, prev_kwargs = None, None
         # open new panel
         if prev_panel is not None:
             self.open_panel(prev_panel.id, **prev_kwargs)

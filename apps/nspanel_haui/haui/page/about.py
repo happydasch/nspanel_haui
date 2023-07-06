@@ -8,10 +8,8 @@ class AboutPage(HAUIPage):
     TXT_TITLE = (2, 'tTitle')
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
-
     # about text
     TXT_ABOUT_1, TXT_ABOUT_2 = (7, 'tAbout1'), (8, 'tAbout2')
-
     # about vars
     TXT_DEVICE_NAME, TXT_IP = (9, 'tDeviceName'), (10, 'tIP')
     TXT_TFT_VERS, TXT_TFT_VERS_VAL = (11, 'tTftVers'), (12, 'tTftVersVal')

@@ -10,6 +10,7 @@ from ..page.grid import GridPage
 from ..page.row import RowPage
 from ..page.column import ColumnPage
 from ..page.split import SplitPage
+from ..page.light import LightPage
 from ..page.qr import QRPage
 from ..page.media import MediaPage
 from ..page.thermo import ThermoPage
@@ -84,6 +85,7 @@ PANEL_MAPPING = {
     'row': ('row', RowPage),
     'column': ('column', ColumnPage),
     'split': ('split', SplitPage),
+    'light': ('light', LightPage),
     'qr': ('qr', QRPage),
     'media': ('media', MediaPage),
     'thermo': ('thermo', ThermoPage),

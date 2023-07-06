@@ -7,7 +7,6 @@ class MediaPage(HAUIPage):
     TXT_TITLE = (2, 'tTitle')
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
-
     # entities
     B1_ENTITY, B2_ENTITY, B3_ENTITY = (7, 'bEntity1'), (8, 'bEntity2'), (9, 'bEntity3')
     B4_ENTITY, B5_ENTITY, B6_ENTITY = (10, 'bEntity4'), (10, 'bEntity5'), (12, 'bEntity6')

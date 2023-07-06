@@ -173,11 +173,13 @@ DEFAULT_CONFIG = {
             'type': 'system_settings',
             'mode': 'popup',
             'key': 'sys_settings',
+            'show_home_button': False,
         }, {
             # panel for about page
             'type': 'system_about',
             'mode': 'popup',
             'key': 'sys_about',
+            'show_home_button': False,
         }, {
             # popup unlock
             'type': 'popup_unlock',

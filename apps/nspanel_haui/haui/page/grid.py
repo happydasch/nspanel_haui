@@ -7,7 +7,6 @@ class GridPage(HAUIPage):
     TXT_TITLE = (2, 'tTitle')
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
-
     # grid buttons 1-6
     G1_BTN, G2_BTN, G3_BTN = (7, 'g1Btn'), (8, 'g2Btn'), (9, 'g3Btn')
     G4_BTN, G5_BTN, G6_BTN = (10, 'g4Btn'), (11, 'g5Btn'), (12, 'g6Btn')
@@ -117,7 +116,6 @@ class GridPage(HAUIPage):
             self.process_grid_button_push(component)
 
     def callback_entity_state(self, entity, attribute, old, new, kwargs):
-        self.log(f'Got entity state callback: {entity}.{attribute}:{new}')
         self.refresh_panel()
 
     def callback_notify_close(self, btn_left, btn_right):

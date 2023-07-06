@@ -6,9 +6,10 @@
 - [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
   - [About](#about)
   - [Features](#features)
+  - [Resources](#resources)
   - [Installation](#installation)
   - [Development](#development)
-  - [Roadmap](#roadmap)
+    - [Roadmap](#roadmap)
   - [Additional Information](#additional-information)
 
 ## About
@@ -57,6 +58,12 @@ For details about the configuration see [Configuration](docs/Config.md). Also lo
 
   For the communication between the esp32 and the nextion display a custom component `nspanel_haui` is used. It provides basic functionality like `send_command`, `get_int_value`, `get_txt_value`, etc. and also generates events for button presses and other changes on the display.
 
+## Resources
+
+- [Documentation](docs/README.md)
+- [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)
+- [Thread in HomeAssistant Community](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
+
 ## Installation
 
 In order to install NSPanel HAUI it is neccessary to flash the Panel with ESPHome.
@@ -80,7 +87,7 @@ For details about how the parts of the whole system communicate together see [NS
 - [AppDaemon Component](docs/AppDaemon.md)
 - [Nextion Component](docs/Nextion.md)
 
-## Roadmap
+### Roadmap
 
 Basic functionality
 
@@ -98,7 +105,7 @@ Improvements / Additional
 - [x] Create new font using Roboto font
 - [x] Add style and design for panels
 - [ ] Implement design in hmi file
-- [ ] Add light panel
+- [x] Add light panel
 - [ ] Add cover panel
 - [ ] Add media panel
 - [ ] Add thermo panel

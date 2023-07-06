@@ -6,15 +6,19 @@
   - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
+    - [Select mode](#select-mode)
     - [Selection](#selection)
+  - [Automatically closing a selection popup](#automatically-closing-a-selection-popup)
+  - [Getting notified when the selection popup is closed](#getting-notified-when-the-selection-popup-is-closed)
+  - [Getting the selection](#getting-the-selection)
 
 ## Visualization
 
-![Popup Select Single Page](../assets/popup_select_single_page.png)
+![Popup Select](../assets/popup_select.png)
 
-More than 12 Items:
+Full width selection items:
 
-![Popup Select Multi Page](../assets/popup_select.png)
+![Popup Select Full Width](../assets/popup_select_full_width.png)
 
 ## About
 
@@ -25,15 +29,27 @@ More than 12 Items:
 The select popup allows to select a value from a list. It is possible to define a
 selected value.
 
+If selection is bigger than available items, a function button in the header to open the next page will be displayed.
+
 ## Config
 
 ```yaml
+select_mode: What kind of display of selection, Default None (default, full)
 selected: Id of selected item
 selection: List of items to display
 close_on_select: should the popup be closed after selection, Default True
 selection_callback_fnc: function for selection
 close_callback_fnc: function for close
 ```
+
+### Select mode
+
+The `select_mode` can be used to display full width items.
+
+Possible value for select_mode:
+
+- `default` or `None` default mode: 3x4 Buttons
+- `full` full width mode: 4 buttons
 
 ### Selection
 
@@ -62,11 +78,11 @@ selected = 0
 selection = [{'id': 0, 'name': 'item 1'}, {'id': 1, 'name': 'item 2'}, {'id': 0, 'name': 'item 3'}]
 ```
 
-**Automatically closing a selection popup:**
+## Automatically closing a selection popup
 
 To automatically close a selection poup after some time use the `close_timeout` param.
 
-**Getting notified when the selection popup is closed:**
+## Getting notified when the selection popup is closed
 
 provide param in code `close_callback_fnc`. This will get called the popup is closed.
 
@@ -82,7 +98,7 @@ def callback(self):
 close_callback_fnc=lambda: # do something
 ```
 
-**Getting the selection:**
+## Getting the selection
 
 provide param in code `selection_callback_fnc`. This will get called when a selection is made.
 

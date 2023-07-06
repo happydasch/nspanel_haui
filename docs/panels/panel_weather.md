@@ -27,7 +27,7 @@ panels:
   # weather panel
   - type: weather
     entity: weather.home
-    background
+    background: default
 ```
 
 ### Background

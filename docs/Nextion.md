@@ -2,7 +2,6 @@
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
-
 - [Nextion Component](#nextion-component)
   - [How to edit the HMI file](#how-to-edit-the-hmi-file)
   - [Scripts for display](#scripts-for-display)

@@ -12,11 +12,13 @@
 
 ![Subpanel Light](../assets/subpanel_light.png)
 
-![Panel Light](../assets/panel_light.png)
-
 Light entity is off:
 
 ![Panel Light Off](../assets/panel_light_off.png)
+
+Light entity is on:
+
+![Panel Light](../assets/panel_light.png)
 
 Light entity is on / color temperature:
 

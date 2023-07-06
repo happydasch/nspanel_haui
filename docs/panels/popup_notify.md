@@ -1,8 +1,8 @@
-# Popup Notification
+# Popup Notify
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
-- [Popup Notification](#popup-notification)
+- [Popup Notify](#popup-notify)
   - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
@@ -10,6 +10,10 @@
 ## Visualization
 
 ![Popup Notification](../assets/popup_notify.png)
+
+Full width:
+
+![Popup Notification](../assets/popup_notify_full.png)
 
 ## About
 

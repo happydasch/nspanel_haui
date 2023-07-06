@@ -26,7 +26,7 @@
     - [Panel About `sys_about`](#panel-about-sys_about)
   - [Other](#other)
     - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
-    - [Popup Notification `popup_notify`](#popup-notification-popup_notify)
+    - [Popup Notify `popup_notify`](#popup-notify-popup_notify)
     - [Popup Select  `popup_select`](#popup-select--popup_select)
 
 ## Special Panels
@@ -157,11 +157,11 @@ Different panels.
 
   ![Popup Unlock](../assets/popup_unlock.png)
 
-### [Popup Notification](popup_notify.md) `popup_notify`
+### [Popup Notify](popup_notify.md) `popup_notify`
 
   Popup for notifications.
 
-  ![Popup Notification](../assets/popup_notify.png)
+  ![Popup Notify](../assets/popup_notify.png)
 
 ### [Popup Select](popup_select.md)  `popup_select`
 

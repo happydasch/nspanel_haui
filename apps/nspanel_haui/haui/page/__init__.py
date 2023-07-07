@@ -302,6 +302,25 @@ class HAUIPage(HAUIPart):
                     btn_right=self.translate('Close'),
                     icon=self.ICO_ENTITY_UNAVAILABLE,
                     notification=msg)
+        elif entity_type == 'media':
+            if entity_state != 'unavailable':
+                # open popup
+                navigation.open_popup('popup_media', entity_id=entity.get_entity_id())
+            else:
+                # format msg string
+                media_name = self.translate('The media player {} is currently not available.')
+                msg = media_name.format(entity.get_name())
+                msg += '\r\n\r\n'
+                msg += self.translate('Entity:')
+                msg += '\r\n'
+                msg += entity.get_entity_id()
+                # open notification
+                navigation.open_popup(
+                    'popup_notify',
+                    title=self.translate('Entity unavailable'),
+                    btn_right=self.translate('Close'),
+                    icon=self.ICO_ENTITY_UNAVAILABLE,
+                    notification=msg)
         else:
             entity.execute()
 
@@ -312,10 +331,14 @@ class HAUIPage(HAUIPart):
             entity_id (str): Entity ID
             callback (function): Callback
             attribute (str): Attribute
+
+        Returns:
+            handle (str): Handle
         """
         handle = self.app.listen_state(callback, entity_id, attribute=attribute)
         self.log(f'Adding entity listener for {entity_id}, attribute {attribute} - handle: {handle}')
         self._handles.append(handle)
+        return handle
 
     def remove_entity_listener(self, handle):
         """ Removes a entity state listener.

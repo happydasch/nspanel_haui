@@ -65,6 +65,9 @@ nspanel-haui:
       - type: popup_light
         mode: popup
         key: popup_light
+      - type: popup_media
+        mode: popup
+        key: popup_media
       - type: popup_thermo
         mode: popup
         key: popup_thermo

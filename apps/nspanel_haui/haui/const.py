@@ -201,6 +201,11 @@ DEFAULT_CONFIG = {
             'mode': 'popup',
             'key': 'popup_light',
         }, {
+            # popup media
+            'type': 'popup_media',
+            'mode': 'popup',
+            'key': 'popup_media',
+        }, {
             # popup thermo
             'type': 'popup_thermo',
             'mode': 'popup',

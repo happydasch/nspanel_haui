@@ -15,12 +15,12 @@ from ..page.qr import QRPage
 from ..page.media import MediaPage
 from ..page.thermo import ThermoPage
 from ..page.alarm import AlarmPage
-from ..page.power import PowerPage
 # popup panels
 from ..page.alarm import PopupUnlockPage
 from ..page.notify import PopupNotifyPage
 from ..page.select import PopupSelectPage
 from ..page.light import PopupLightPage
+from ..page.media import PopupMediaPage
 from ..page.thermo import PopupThermoPage
 from ..page.timer import PopupTimerPage
 
@@ -47,9 +47,8 @@ PAGE_MAPPING = {
     13: 'qr',
     14: 'alarm',
     15: 'timer',
-    16: 'power',
-    17: 'notify',
-    18: 'select',
+    16: 'notify',
+    17: 'select',
 }
 
 # system panel mapping
@@ -65,6 +64,7 @@ SYS_PANEL_MAPPING = {
     'popup_notify': 'popup_notify',
     'popup_select': 'popup_select',
     'popup_light': 'popup_light',
+    'popup_media': 'popup_media',
     'popup_thermo': 'popup_thermo',
     'popup_timer': 'popup_timer',
 }
@@ -90,12 +90,12 @@ PANEL_MAPPING = {
     'media': ('media', MediaPage),
     'thermo': ('thermo', ThermoPage),
     'alarm': ('alarm', AlarmPage),
-    'power': ('power', PowerPage),
     # popups
     'popup_unlock': ('alarm', PopupUnlockPage),
     'popup_notify': ('notify', PopupNotifyPage),
     'popup_select': ('select', PopupSelectPage),
     'popup_light': ('light', PopupLightPage),
+    'popup_media': ('media', PopupMediaPage),
     'popup_thermo': ('thermo', PopupThermoPage),
     'popup_timer': ('timer', PopupTimerPage),
 }

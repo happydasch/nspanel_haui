@@ -3,15 +3,9 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Panel Column](#panel-column)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
-
-## Visualization
-
-![Subpanel Column](../assets/subpanel_column.png)
-
-![Panel Column](../assets/panel_column.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -27,3 +21,9 @@ This panel can be also used to organize panels and subpanels.
 panels:
 
 ```
+
+## Screens
+
+![Subpanel Column](../assets/subpanel_column.png)
+
+![Panel Column](../assets/panel_column.png)

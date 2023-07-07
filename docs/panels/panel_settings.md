@@ -3,13 +3,9 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Panel Settings](#panel-settings)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
-
-## Visualization
-
-![Panel Settings](../assets/panel_settings.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -31,3 +27,7 @@ Available settings:
 ```yaml
 # No config available
 ```
+
+## Screens
+
+![Panel Settings](../assets/panel_settings.png)

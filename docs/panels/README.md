@@ -18,16 +18,15 @@
     - [Panel QR-Code `qr`](#panel-qr-code-qr)
     - [Panel Alarm `alarm`](#panel-alarm-alarm)
     - [Panel Timer `timer`](#panel-timer-timer)
-    - [Panel Power `power`](#panel-power-power)
+  - [Other Panels](#other-panels)
+    - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
+    - [Popup Notify `popup_notify`](#popup-notify-popup_notify)
+    - [Popup Select  `popup_select`](#popup-select--popup_select)
   - [System](#system)
     - [Panel Blank `sys_blank`](#panel-blank-sys_blank)
     - [Panel System `sys_system`](#panel-system-sys_system)
     - [Panel Settings `sys_settings`](#panel-settings-sys_settings)
     - [Panel About `sys_about`](#panel-about-sys_about)
-  - [Other](#other)
-    - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
-    - [Popup Notify `popup_notify`](#popup-notify-popup_notify)
-    - [Popup Select  `popup_select`](#popup-select--popup_select)
 
 ## Special Panels
 
@@ -113,41 +112,7 @@ Panels with navigation. Main Display Elements.
 
   ![Panel Timer](../assets/panel_timer.png)
 
-### [Panel Power](panel_power.md) `power`
-
-  Power usage info panel.
-
-  ![Panel Power](../assets/panel_power.png)
-
-## System
-
-System panels. The system panels are always available and there is no need to configure them.
-
-### [Panel Blank](panel_blank.md) `sys_blank`
-
-  Blank panel is used for sleeping.
-
-  ![Panel Blank](../assets/panel_blank.png)
-
-### [Panel System](panel_system.md) `sys_system`
-
-  System panel is used for loading, when loosing connection, this panel will be automatically set if the device looses connection.
-
-  ![Panel System Not Connected](../assets/panel_system_not_connected.png)
-
-### [Panel Settings](panel_settings.md) `sys_settings`
-
-  System panel for device settings.
-
-  ![Panel Settings](../assets/panel_settings.png)
-
-### [Panel About](panel_about.md) `sys_about`
-
-  System panel for about details.
-
-  ![Panel About](../assets/panel_about.png)
-
-## Other
+## Other Panels
 
 Different panels.
 
@@ -168,3 +133,31 @@ Different panels.
   Popup for selecting values.
 
   ![Popup Select](../assets/popup_select.png)
+
+## System
+
+System panels. The system panels are always available and there is no need to configure them.
+
+### [Panel Blank](panel_blank.md) `sys_blank`
+
+  Blank panel is used for sleeping.
+
+  ![Panel Blank](../assets/panel_blank.png)
+
+### [Panel System](panel_system.md) `sys_system`
+
+  System panel is used for loading, when loosing connection, this panel will be automatically set if the device looses connection.
+
+  ![Panel System Connected](../assets/panel_system_connected.png)
+
+### [Panel Settings](panel_settings.md) `sys_settings`
+
+  System panel for device settings.
+
+  ![Panel Settings](../assets/panel_settings.png)
+
+### [Panel About](panel_about.md) `sys_about`
+
+  System panel for about details.
+
+  ![Panel About](../assets/panel_about.png)

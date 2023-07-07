@@ -2,12 +2,6 @@
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
-## Visualization
-
-![Subpanel Row](../assets/subpanel_row.png)
-
-![Panel Row](../assets/panel_row.png)
-
 ## About
 
 `type: row`
@@ -22,3 +16,9 @@ This panel can be also used to organize panels and subpanels.
 panels:
 
 ```
+
+## Screens
+
+![Subpanel Row](../assets/subpanel_row.png)
+
+![Panel Row](../assets/panel_row.png)

@@ -3,15 +3,9 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Panel Grid](#panel-grid)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
-
-## Visualization
-
-![Subpanel Grid](../assets/subpanel_grid.png)
-
-![Panel Grid](../assets/panel_grid.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -27,3 +21,9 @@ This panel can be also used to organize panels and subpanels.
 panels:
 
 ```
+
+## Screens
+
+![Subpanel Grid](../assets/subpanel_grid.png)
+
+![Panel Grid](../assets/panel_grid.png)

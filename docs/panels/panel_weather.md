@@ -3,16 +3,10 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Panel Weather](#panel-weather)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
     - [Background](#background)
-
-## Visualization
-
-![Panel Weather](../assets/panel_weather.png)
-
-![Panel Weather Background](../assets/panel_weather_background.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -50,3 +44,9 @@ Dynamic background values are possible using HomeAssistant templates.
 `background: template:{...}`
 
 The return value should match a background name.
+
+## Screens
+
+![Panel Weather](../assets/panel_weather.png)
+
+![Panel Weather Background](../assets/panel_weather_background.png)

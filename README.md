@@ -81,7 +81,7 @@ Take also a look at the more detailed [Installation Guide](docs/Install.md). Hav
 
 For details about how the parts of the whole system communicate together see [NSPanel HomeAssistant UI Docs](docs/README.md).
 
-- [Design Guidelines](Design.md)
+- [Design Guidelines](docs/Design.md)
 - [Communication Description](docs/Communication.md)
 - [ESPHome Component](docs/ESPHome.md)
 - [AppDaemon Component](docs/AppDaemon.md)

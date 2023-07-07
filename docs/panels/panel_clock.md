@@ -3,18 +3,12 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Panel Clock](#panel-clock)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
     - [Background](#background)
     - [Show weather](#show-weather)
     - [Show temperature](#show-temperature)
-
-## Visualization
-
-![Panel Clock](../assets/panel_clock.png)
-
-![Panel Clock Background](../assets/panel_clock_background.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -61,3 +55,9 @@ The main weather icon can be hidden by setting `show_weather` to `False`
 ### Show temperature
 
 The main temperature text can be hidden by setting `show_temp` to `False`
+
+## Screens
+
+![Panel Clock](../assets/panel_clock.png)
+
+![Panel Clock Background](../assets/panel_clock_background.png)

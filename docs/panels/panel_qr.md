@@ -3,24 +3,10 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Panel QR-Code](#panel-qr-code)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
-  - [QR-Code Format](#qr-code-format)
-
-## Visualization
-
-![Subpanel QR-Code](../assets/subpanel_qr.png)
-
-![Panel QR-Code](../assets/panel_qr.png)
-
-Panel with zoomed qr-code:
-
-![Panel QR-Code](../assets/panel_qr_zoom.png)
-
-Big qr-code without text:
-
-![Panel Big QR-Code](../assets/panel_qr_only_qr.png)
+    - [QR-Code Format](#qr-code-format)
+  - [Screens](#screens)
 
 ## About
 
@@ -57,7 +43,7 @@ panels:
         icon: mdi:wifi
 ```
 
-## QR-Code Format
+### QR-Code Format
 
 Source: [https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network](https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network)
 
@@ -67,3 +53,17 @@ The qr code can be created by using the format below.
     Common format: WIFI:S:<SSID>;T:<WEP|WPA|blank>;P:<PASSWORD>;H:<true|false|blank>;;
     Sample: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
 ```
+
+## Screens
+
+![Subpanel QR-Code](../assets/subpanel_qr.png)
+
+![Panel QR-Code](../assets/panel_qr.png)
+
+Panel with zoomed qr-code:
+
+![Panel QR-Code](../assets/panel_qr_zoom.png)
+
+Big qr-code without text:
+
+![Panel Big QR-Code](../assets/panel_qr_only_qr.png)

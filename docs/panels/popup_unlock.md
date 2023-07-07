@@ -3,21 +3,9 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Popup Unlock](#popup-unlock)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
-
-## Visualization
-
-![Popup Unlock](../assets/popup_unlock.png)
-
-While inputting keycode:
-
-![Popup Input](../assets/popup_unlock_input.png)
-
-Unlocked state:
-
-![Popup Unlock Open](../assets/popup_unlock_open.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -42,3 +30,15 @@ panels:
     title: Unlock Panel
     unlock_code: "1234"
 ```
+
+## Screens
+
+![Popup Unlock](../assets/popup_unlock.png)
+
+While inputting keycode:
+
+![Popup Input](../assets/popup_unlock_input.png)
+
+Unlocked state:
+
+![Popup Unlock Open](../assets/popup_unlock_open.png)

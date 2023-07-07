@@ -3,13 +3,9 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Panel Blank](#panel-blank)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
-
-## Visualization
-
-![Panel Blank](../assets/panel_blank.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -26,3 +22,7 @@ The blank panel is used by the panel when sleeping to prevent accidental touch e
 ```yaml
 # No config available
 ```
+
+## Screens
+
+![Panel Blank](../assets/panel_blank.png)

@@ -3,13 +3,9 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Panel About](#panel-about)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
-
-## Visualization
-
-![Panel About](../assets/panel_about.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -18,7 +14,6 @@
 `key: sys_about`
 
 The about panel displays informations about the panel and app. It shows the version of the TFT-File, YAML-File and the AppDaemon App Version. Also the IP is being displayed.
-
 
 Displays:
 
@@ -34,3 +29,7 @@ Displays:
 ```yaml
 # No config available
 ```
+
+## Screens
+
+![Panel About](../assets/panel_about.png)

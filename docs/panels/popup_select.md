@@ -3,7 +3,6 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Popup Select](#popup-select)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
     - [Select mode](#select-mode)
@@ -11,14 +10,7 @@
   - [Automatically closing a selection popup](#automatically-closing-a-selection-popup)
   - [Getting notified when the selection popup is closed](#getting-notified-when-the-selection-popup-is-closed)
   - [Getting the selection](#getting-the-selection)
-
-## Visualization
-
-![Popup Select](../assets/popup_select.png)
-
-Full width selection items:
-
-![Popup Select Full Width](../assets/popup_select_full_width.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -115,3 +107,11 @@ def callback(self, selected):
 
 selection_callback_fnc=lambda selected: # do something
 ```
+
+## Screens
+
+![Popup Select](../assets/popup_select.png)
+
+Full width selection items:
+
+![Popup Select Full Width](../assets/popup_select_full_width.png)

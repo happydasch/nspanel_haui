@@ -3,17 +3,9 @@
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
 - [Popup Notify](#popup-notify)
-  - [Visualization](#visualization)
   - [About](#about)
   - [Config](#config)
-
-## Visualization
-
-![Popup Notification](../assets/popup_notify.png)
-
-Full width:
-
-![Popup Notification](../assets/popup_notify_full.png)
+  - [Screens](#screens)
 
 ## About
 
@@ -80,3 +72,11 @@ def callback(self, btn_left: bool, btn_right: bool):
 
 button_callback_fnc=lambda btn_left, btn_right: # do something
 ```
+
+## Screens
+
+![Popup Notification](../assets/popup_notify.png)
+
+Full width:
+
+![Popup Notification](../assets/popup_notify_full.png)

@@ -14,8 +14,6 @@
 
 The media entity panel allows to control a single media entity.
 
-The functions available depend on the light entity being used. Only buttons for supported functions will appear.
-
 ## Popup
 
 `type: popup_media`

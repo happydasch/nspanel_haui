@@ -33,7 +33,7 @@ class HAUIPage(HAUIPart):
     ICO_NAV_HOME = get_icon('home-outline')
     ICO_ZOOM = get_icon('loupe')
     ICO_LOCKED = get_icon('lock-outline')
-    ICO_UNLOCKED = get_icon('lock-open-outline')
+    ICO_UNLOCKED = get_icon('lock-open-variant-outline')
     ICO_PASSWORD = get_icon('circle-medium')
     ICO_ENTITY_POWER = get_icon('power')
     ICO_ENTITY_UNAVAILABLE = get_icon('cancel')
@@ -300,9 +300,9 @@ class HAUIPage(HAUIPart):
                     'popup_notify',
                     title=self.translate('Entity unavailable'),
                     btn_right=self.translate('Close'),
-                    icon=self.ICO_ENTITY_UNAVAILABLE,
+                    icon=entity.get_icon(),
                     notification=msg)
-        elif entity_type == 'media':
+        elif entity_type == 'media_player':
             if entity_state != 'unavailable':
                 # open popup
                 navigation.open_popup('popup_media', entity_id=entity.get_entity_id())
@@ -578,7 +578,7 @@ class HAUIPage(HAUIPart):
 
         - set component as a function component
           self.set_function_component(component, fnc_id, fnc_name='functionname', fnc_args={'icon': icon, 'color': 0})
-        - overwrite callback_function_component(fnc_id) and check for fnc_id
+        - overwrite callback_function_component(fnc_id, fnc_name) and check for fnc_id
         - do action if fnc_id matches
 
         Args:
@@ -605,20 +605,31 @@ class HAUIPage(HAUIPart):
             kwargs (dict): Arguments
         """
         if fnc_id not in self._fnc_items:
+            self.log(f'function component {fnc_id} not found')
             return
         fnc_item = self._fnc_items[fnc_id]
         fnc_component = fnc_item['fnc_component']
         fnc_name = fnc_item['fnc_name']
         fnc_args = fnc_item['fnc_args']
-        fnc_item['fnc_args'] = fnc_args = {**fnc_args, **kwargs}
+        fnc_args = fnc_item['fnc_args'] = {**fnc_args, **kwargs}
 
-        # set text or icon for component
+        # get infos for component
+        value = fnc_args.get('value', None)
         text = fnc_args.get('text', None)
         icon = fnc_args.get('icon', None)
-        if text is not None and fnc_item.get('current_text') != text:
+        touch = fnc_args.get('touch_events', None)
+        color = fnc_args.get('color', None)
+        visible = fnc_args.get('visible', True)
+
+        # set value
+        if value is not None and fnc_item.get('current_value') != value:
+            self.set_component_value(fnc_component, value)
+            fnc_item['current_value'] = value
+        # set text (can also contain icons)
+        elif text is not None and fnc_item.get('current_text') != text:
             self.set_component_text(fnc_component, text)
             fnc_item['current_text'] = text
-        # set icon for component
+        # set icon
         else:
             if icon is None:
                 if fnc_name == self.FNC_TYPE_NAV_PREV:
@@ -641,13 +652,11 @@ class HAUIPage(HAUIPart):
                 fnc_item['current_icon'] = icon
 
         # set touch events
-        touch = fnc_args.get('touch_events', None)
         if touch is not None and fnc_item.get('current_touch_events') != touch:
             self.set_component_touch(fnc_component, touch)
             fnc_item['current_touch_events'] = touch
 
         # set colors
-        color = fnc_args.get('color', None)
         if color is None and fnc_args.get('locked', None) is not None:
             if fnc_name == self.FNC_TYPE_UNLOCK and not fnc_args.get('locked', False):
                 color = COLORS['component_accent']
@@ -670,7 +679,6 @@ class HAUIPage(HAUIPart):
             fnc_item['current_back_color_pressed'] = back_color_pressed
 
         # set visibility
-        visible = fnc_args.get('visible', True)
         if visible is not None and fnc_item.get('current_visible', None) is not visible:
             if visible:
                 self.show_component(fnc_component)
@@ -698,13 +706,14 @@ class HAUIPage(HAUIPart):
         elif component == self._btn_state_right:
             self.send_mqtt(ESP_REQUEST['req_component_int'], self._btn_state_right[1])
 
-    def callback_function_component(self, fnc_id):
+    def callback_function_component(self, fnc_id, fnc_name):
         """ Gets called when a function component was pressed.
 
         This method is intended to be overwritten if a custom function component is used.
 
         Args:
-            fnc_id (int): Function Component ID
+            fnc_id (str): Function Component ID
+            fnc_name (str): Function Name
         """
 
     def callback_function_components(self, event, component, button_state):
@@ -749,10 +758,8 @@ class HAUIPage(HAUIPart):
             if not locked:
                 self.panel.locked = True
                 navigation.reload_panel()
-        else:
-            self.log(f'Custom function {fnc_name} for function button {fnc_id}')
-            # notify about function button press
-            self.callback_function_component(fnc_id)
+        # notify about function button press
+        self.callback_function_component(fnc_id, fnc_name)
 
     # processing
 

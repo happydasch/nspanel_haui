@@ -18,7 +18,7 @@ class PopupSelectPage(HAUIPage):
     BTN_SEL_7, BTN_SEL_8, BTN_SEL_9 = (17, 'bSel7'), (18, 'bSel8'), (19, 'bSel9')
     BTN_SEL_10, BTN_SEL_11, BTN_SEL_12 = (20, 'bSel10'), (21, 'bSel11'), (22, 'bSel12')
     # icons
-    ICO_NEXT_PAGE = get_icon('chevron-double-right')
+    ICO_NEXT_PAGE = get_icon('chevron-double-down')
 
     # panel
 
@@ -130,7 +130,7 @@ class PopupSelectPage(HAUIPage):
 
     # callback
 
-    def callback_function_component(self, fnc_id):
+    def callback_function_component(self, fnc_id, fnc_name):
         if fnc_id != self.FNC_BTN_R_SEC:
             return
 

@@ -44,7 +44,6 @@ class LightPage(HAUIPage):
         self.add_component_callback(self.H_BRIGHTNESS, self.callback_brightness)
         self.add_component_callback(self.H_COLOR_TEMP, self.callback_color_temp)
         self.add_component_callback(self.BTN_POWER, self.callback_power)
-
         # set function buttons
         power_off_btn = {
             'fnc_component': self.BTN_FNC_RIGHT_SEC,
@@ -59,32 +58,33 @@ class LightPage(HAUIPage):
         self.set_function_buttons(
             self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
             self.BTN_FNC_RIGHT_PRI, power_off_btn)
-
         # set light function button callbacks
         for btn in [self.BTN_LIGHT_FNC_1, self.BTN_LIGHT_FNC_2, self.BTN_LIGHT_FNC_3, self.BTN_LIGHT_FNC_4]:
             self.add_component_callback(btn, self.callback_light_function_button)
-
-        # entity to control
+        # light functions like brightness, color, etc
         self._light_functions = {}
         self._current_light_function = None
-
         # touch track
         self._touch_track = False
         self._touch_timer = None
         self._touch_color = None
-        self._light_entity = None
+        # title and entity to control
+        title = panel.get_title(self.translate('Light'))
+        entity = None
+        entity_id = panel.get('entity_id')
+        if entity_id:
+            entity = HAUIConfigEntity(self.app, {'entity': entity_id})
         entities = panel.get_entities()
         if len(entities):
-            self.set_light_entity(entities[0])
+            entity = entities[0]
+        if entity is not None:
+            title = entity.get_name()
+            self.set_light_entity(entity)
+        self._title = title
 
     def render_panel(self, panel):
         # set basic panel info
-        if self._light_entity is not None:
-            entity = self._light_entity
-            self.set_component_text(self.TXT_TITLE, entity.get_name())
-        else:
-            self.set_component_text(
-                self.TXT_TITLE, panel.get_title(self.translate('Light')))
+        self.set_component_text(self.TXT_TITLE, self._title)
         if not self.update_functions() and self.panel.get_mode() == 'popup':
             navigation = self.app.controller['navigation']
             navigation.close_panel()
@@ -365,7 +365,7 @@ class LightPage(HAUIPage):
             self.set_color_temp_info(new)
         self.stop_rec_cmd(send_commands=True)
 
-    def callback_function_component(self, fnc_id):
+    def callback_function_component(self, fnc_id, fnc_name):
         if fnc_id != self.FNC_BTN_R_SEC:
             return
         # turn of power on right secondary function button
@@ -518,10 +518,7 @@ class LightPage(HAUIPage):
 class PopupLightPage(LightPage):
 
     def before_render_panel(self, panel):
-        entity = None
-        entity_id = panel.get('entity_id')
-        if entity_id:
-            entity = HAUIConfigEntity(self.app, {'entity': entity_id})
+        entity = self._light_entity
         # check if the provided entity is valid
         # if a invalid entity is provided, return false
         # to prevent panel from rendering
@@ -538,5 +535,4 @@ class PopupLightPage(LightPage):
             self.log(f'Entity {entity.get_entity_id()} is not available')
             navigation.close_panel()
             return False
-        self.set_light_entity(entity)
         return True

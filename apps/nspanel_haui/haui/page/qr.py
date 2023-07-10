@@ -116,7 +116,7 @@ class QRPage(HAUIPage):
 
     # callback
 
-    def callback_function_component(self, fnc_id):
+    def callback_function_component(self, fnc_id, fnc_name):
         self.log(f'Got function component press: {fnc_id}')
         if fnc_id == self.FNC_BTN_R_SEC:
             # toggle zoom

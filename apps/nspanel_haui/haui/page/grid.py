@@ -94,11 +94,12 @@ class GridPage(HAUIPage):
         self.set_component_text(ico, haui_entity.get_icon())
         self.set_component_text(name, haui_entity.get_name())
 
-    def set_grid_button(self, idx, vis=1):
+    def set_grid_button(self, idx, visible=True):
         btn = getattr(self, f'G{idx}_BTN')
         ico = getattr(self, f'G{idx}_ICO')
         name = getattr(self, f'G{idx}_NAME')
         ovl = getattr(self, f'G{idx}_OVL')
+        vis = int(visible)
         for x in [btn, ico, name, ovl]:
             self.send_cmd(f'vis {x[0]},{vis}')
         self.set_component_text(ico, '')

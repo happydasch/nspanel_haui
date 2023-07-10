@@ -74,9 +74,9 @@ def get_icon_name_by_state(entity_type, entity_state, device_class=None):
     # light entity
     elif entity_type == 'light':
         if entity_state == 'on':
-            result_icon = 'lightbulb-on'
-        else:
             result_icon = 'lightbulb'
+        else:
+            result_icon = 'lightbulb-outline'
     # boolean input entity
     elif entity_type == 'input_boolean':
         if entity_state == 'on':

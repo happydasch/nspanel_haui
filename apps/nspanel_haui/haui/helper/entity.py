@@ -167,6 +167,10 @@ def get_entity_icon(haui_entity, default_icon):
                     in MEDIA_CONTENT_TYPE_MAPPING):
                 overwrite_icon = MEDIA_CONTENT_TYPE_MAPPING[
                     entity.attributes['media_content_type']]
+        if 'media_channel' in entity.attributes:
+            overwrite_icon = 'radio'
+        if 'icon' in entity.attributes:
+            overwrite_icon = entity.attributes['icon']
     # weather entity
     elif entity_type == 'weather':
         forecast_index = haui_entity.get('forecast_index')

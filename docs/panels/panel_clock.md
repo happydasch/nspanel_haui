@@ -20,11 +20,20 @@ The clock panel shows a big clock and uses 4 entities for the weather conditions
 
 ```yaml
 panels:
+  # clock panel
   - type: clock
     entity: weather.home
-    background: default
-    show_weather: True
-    show_temp: True
+
+  # clock panel with a different background
+  - type: clock
+    entity: weather.home
+    background: dog_1
+
+  # clock panel without current weather and temperature
+  - type: clock
+    entity: weather.home
+    show_weather: False
+    show_temp: False
 ```
 
 ### Background

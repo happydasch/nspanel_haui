@@ -105,16 +105,15 @@ Improvements / Additional
 - [x] Create new font using Roboto font
 - [x] Add style and design for panels
 - [ ] Implement design in hmi file
-- [x] Add light panel
-- [ ] Add cover panel
-- [ ] Add media panel
-- [ ] Add thermo panel
-- [ ] Support for timebased value overrides
+- [ ] Add initial panels
 - [ ] Add updater
 
 First release
 
-- [ ] Add new panels
+- [ ] Support for timebased value overrides
+- [ ] Add panel design in common format like PSD
+- [ ] Add templates for panels in common format like PSD
+- [ ] Add new panels (thermo, cover, etc.)
 - [ ] Add a light theme?
 
 ## Additional Information

@@ -12,7 +12,7 @@
 
 `type: media`
 
-The media entity panel allows to control a single media entity.
+The media entity panel allows to control a media entity. It displays the currently playing song and allows to control the media player.
 
 ## Popup
 
@@ -25,7 +25,7 @@ The media entity panel allows to control a single media entity.
 ```yaml
 panels:
   - type: media
-    entity: media.example_media_player
+    entity: media_player.example_media_player
 ```
 
 ## Screens

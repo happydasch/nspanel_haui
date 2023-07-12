@@ -21,7 +21,11 @@ panels:
   # weather panel
   - type: weather
     entity: weather.home
-    background: default
+
+  # weather panel with a background
+  - type: weather
+    entity: weather.home
+    background: dog_1
 ```
 
 ### Background

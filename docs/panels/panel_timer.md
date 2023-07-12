@@ -10,6 +10,8 @@
 
 ## About
 
+The timer panel allows to run a (for now local) timer.
+
 `type: timer`
 
 ## Popup
@@ -21,6 +23,8 @@
 ## Config
 
 ```yaml
+panels:
+  - type: timer
 ```
 
 ## Screens

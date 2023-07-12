@@ -594,9 +594,11 @@ class HAUINavigationController(HAUIPart):
         panel.set_config(config)
         # lock current panel before setting new
         if self.panel is not None:
+            persistent_config = self.panel.get_persistent_config(return_copy=False)
             # only if has a locked attr
-            if hasattr(self.panel, 'locked'):
-                self.panel.locked = True
+            if 'locked' in persistent_config:
+                # ensure the panel is locked before setting new panel
+                persistent_config['locked'] = True
         # set new panel as current panel
         self.panel = panel
         self.panel_kwargs = kwargs
@@ -615,9 +617,11 @@ class HAUINavigationController(HAUIPart):
 
         # if new panel has an unlock code set and panel is locked,
         # open unlock panel instead
-        if panel.get('unlock_code', '') != '' and getattr(panel, 'locked', True):
+        persistent_config = panel.get_persistent_config(return_copy=False)
+        if panel.get('unlock_code', '') != '' and persistent_config.get('locked', True):
             self.log(f'Unlock code set, locking panel {panel.id}')
-            panel.locked = True
+            # lock new panel
+            persistent_config['locked'] = True
             # open the unlock panel with the panel to unlock as a param
             self.open_popup('popup_unlock', unlock_panel=panel)
             return
@@ -685,8 +689,9 @@ class HAUINavigationController(HAUIPart):
             while len(self._stack):
                 panel, kwargs = self._stack.pop()
                 # if a unlock panel is set, check if it should be skipped (if not unlocked)
+                persistent_config = panel.get_persistent_config()
                 if unlock_panel and panel.id == unlock_panel.id:
-                    if getattr(panel, 'locked', False):
+                    if persistent_config.get('locked', False):
                         continue
                 prev_panel, prev_kwargs = panel, kwargs
                 break
@@ -700,8 +705,9 @@ class HAUINavigationController(HAUIPart):
         # check for locked panel before opening
         if prev_panel is not None:
             unlock_panel = prev_panel.get('unlock_panel')
+            persistent_config = prev_panel.get_persistent_config()
             if unlock_panel is not None:
-                if prev_panel.id == unlock_panel.id and getattr(prev_panel, 'locked', False):
+                if prev_panel.id == unlock_panel.id and persistent_config.get('locked', False):
                     prev_panel, prev_kwargs = None, None
         # open new panel
         if prev_panel is not None:

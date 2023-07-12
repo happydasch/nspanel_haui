@@ -368,6 +368,8 @@ class HAUIConfigPanel(HAUIBase):
         # so it is possible to restore the config to initial values
         self._default_config = {}
         merge_dicts(self._default_config, self._config)
+        # store persistent config
+        self._persistent_config = {}
         # load all entities
         self._entities = []  # list of HAUIConfigEntity
         # single entity config
@@ -473,6 +475,17 @@ class HAUIConfigPanel(HAUIBase):
         if return_copy:
             return self._default_config.copy()
         return self._default_config
+
+    def get_persistent_config(self, return_copy=True):
+        """ Returns the persistent config of this panel.
+
+        Returns:
+            dict: Persistent config
+            return_copy (bool, optional): Return copy of config. Defaults to True.
+        """
+        if return_copy:
+            return self._persistent_config.copy()
+        return self._persistent_config
 
     def restore_default_config(self):
         """ Restore the initial config of this panel.

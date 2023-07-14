@@ -1,6 +1,8 @@
 nspanel-haui:
-  module: nspanel_haui
+  module: haui
   class: NSPanelHAUI
+
+  # panel config
   config:
 
     # device config
@@ -82,7 +84,12 @@ nspanel-haui:
         mode: subpanel  # it will not show up in navigation
         entity: weather.home
         sleep_panel: true
-
+        key: weather
+      # clock panel
+      - type: clock
+        mode: subpanel # so it will not show up in navigation
+        entity: weather.home
+        key: clock
       # grid panel
       - type: grid
         title: Test Panel
@@ -91,8 +98,13 @@ nspanel-haui:
           - entity: light.example_item
           - entity: switch.example_item
           - entity: null
-          - entity: button.example_item
-          - entity: cover.example_item
+          - entity: null
+          - entity: navigate:clock
+            name: Clock
+            color: [255, 0, 0]
+          - entity: navigate:weather
+            name: Weather
+            color: [255, 0, 0]
 
       # grid panel with sub panels
       - type: grid
@@ -119,6 +131,13 @@ nspanel-haui:
           - entity: null
           - entity: button.example_item
           - entity: cover.example_item
+
+      # media panel
+      - type: media
+        entity: media_player.example_player
+
+      # timer panel
+      - type: timer
 
       # big qr code
       - type: qr

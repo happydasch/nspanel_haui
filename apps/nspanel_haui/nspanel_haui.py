@@ -1,4 +1,4 @@
-import hassapi as hass
+import appdaemon.plugins.hass.hassapi as hass
 
 from haui.config import HAUIConfig
 from haui.device import HAUIDevice

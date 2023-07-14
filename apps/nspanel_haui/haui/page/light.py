@@ -86,6 +86,7 @@ class LightPage(HAUIPage):
         # set basic panel info
         self.set_component_text(self.TXT_TITLE, self._title)
         if not self.update_functions() and self.panel.get_mode() == 'popup':
+            self.stop_rec_cmd(send_commands=False)
             navigation = self.app.controller['navigation']
             navigation.close_panel()
 
@@ -156,7 +157,7 @@ class LightPage(HAUIPage):
 
     def update_functions(self):
         if self._light_entity is None or not self._light_entity.has_entity():
-            return
+            return False
         entity = self._light_entity.get_entity()
 
         # entity power
@@ -247,6 +248,8 @@ class LightPage(HAUIPage):
             self.update_light_function_info()
             self.update_power_button()
             return True
+        else:
+            self.update_not_available()
         return False
 
     def update_light_functions(self, fnc):
@@ -299,26 +302,6 @@ class LightPage(HAUIPage):
             elif name == 'effect':
                 self.set_effect_info(val)
 
-    def update_power_button(self):
-        # update function button
-        if self._light_entity.get_entity_state() == 'on' and self._current_light_function is not None:
-            color = COLORS['component_accent']
-            self.update_function_component(self.FNC_BTN_R_SEC, visible=True, color=color)
-        else:
-            self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
-
-        # show on / off button only if there is nothing active
-        if self._light_entity.get_entity_state() == 'on':
-            rgb_color = self._light_entity.get_entity_attr('rgb_color')
-            color = self.parse_color(rgb_color)
-        else:
-            color = COLORS['entity_unavailable']
-        if self._current_light_function is None:
-            self.set_component_text_color(self.BTN_POWER, color)
-            self.show_component(self.BTN_POWER)
-        else:
-            self.hide_component(self.BTN_POWER)
-
     def update_color_wheel(self):
         if self._current_light_function != 'color':
             return
@@ -342,6 +325,32 @@ class LightPage(HAUIPage):
             color = COLORS['component_pressed']
             self.send_cmd(f'cirs {pos_x},{pos_y},{radius},{color}')
 
+    def update_power_button(self):
+        # update function button
+        if self._light_entity.get_entity_state() == 'on' and self._current_light_function is not None:
+            color = COLORS['component_accent']
+            self.update_function_component(self.FNC_BTN_R_SEC, visible=True, color=color)
+        else:
+            self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
+
+        # show on / off button only if there is nothing active
+        if self._light_entity.get_entity_state() == 'on':
+            rgb_color = self._light_entity.get_entity_attr('rgb_color')
+            color = self.parse_color(rgb_color)
+        else:
+            color = COLORS['entity_unavailable']
+        if self._current_light_function is None:
+            self.set_component_text_color(self.BTN_POWER, color)
+            self.show_component(self.BTN_POWER)
+        else:
+            self.hide_component(self.BTN_POWER)
+
+    def update_not_available(self):
+        self.log('update_not_available')
+        color = COLORS['entity_unavailable']
+        self.set_component_text_color(self.BTN_POWER, color)
+        self.show_component(self.BTN_POWER)
+
     # callback
 
     def callback_light_entity(self, entity, attribute, old, new, kwargs):
@@ -349,6 +358,7 @@ class LightPage(HAUIPage):
         self.start_rec_cmd()
         if attribute == 'state':
             if not self.update_functions() and self.panel.get_mode() == 'popup':
+                self.stop_rec_cmd(send_commands=False)
                 navigation = self.app.controller['navigation']
                 navigation.close_panel()
         elif attribute == 'effect':

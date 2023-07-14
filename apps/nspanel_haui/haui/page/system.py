@@ -19,7 +19,7 @@ class SystemPage(HAUIPage):
         self.set_title(self.translate('Waiting for Connection'))
         self.set_message(
             self.translate('This is taking longer than usual,'),
-            self.translate('Please check your configuration'))
+            self.translate('please check your configuration'))
 
     def after_render_panel(self, panel, rendered):
         # open home panel

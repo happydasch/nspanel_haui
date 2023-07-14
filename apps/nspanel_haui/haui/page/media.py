@@ -5,6 +5,7 @@ from ..const import ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..config import HAUIConfigEntity
+
 from . import HAUIPage
 
 
@@ -307,9 +308,7 @@ class MediaPage(HAUIPage):
         if supported_features & 0x8000:
             icon = None
             touch_enabled = queue_size > 0
-            color = COLORS['text_disabled'] if queue_size < 2 else COLORS['component_active']
-            color_pressed = COLORS['text_disabled'] if queue_size < 2 else COLORS['component']
-            back_color_pressed = COLORS['background'] if queue_size < 2 else COLORS['component_pressed']
+            color, color_pressed, back_color, back_color_pressed = self.get_button_colors(queue_size > 1)
             shuffle = entity.get_entity_attr('shuffle')
             if shuffle is False:
                 icon = self.ICO_SHUFFLE_DISABLED
@@ -324,9 +323,7 @@ class MediaPage(HAUIPage):
         if supported_features & 0x00040000:
             icon = None
             touch_enabled = queue_size > 0
-            color = COLORS['text_disabled'] if queue_size < 1 else COLORS['component_active']
-            color_pressed = COLORS['text_disabled'] if queue_size < 1 else COLORS['component']
-            back_color_pressed = COLORS['background'] if queue_size < 1 else COLORS['component_pressed']
+            color, color_pressed, back_color, back_color_pressed = self.get_button_colors(queue_size > 0)
             repeat = entity.get_entity_attr('repeat')
             if repeat == 'all':
                 icon = self.ICO_REPEAT
@@ -350,9 +347,7 @@ class MediaPage(HAUIPage):
             prev_enabled = False
             if queue_position > 1:
                 prev_enabled = True
-            color = COLORS['component_active'] if prev_enabled else COLORS['text_disabled']
-            color_pressed = COLORS['component'] if prev_enabled else COLORS['text_disabled']
-            back_color_pressed = COLORS['component_pressed'] if prev_enabled else COLORS['background']
+            color, color_pressed, back_color, back_color_pressed = self.get_button_colors(prev_enabled)
             self.update_function_component(
                 self.BTN_PREV[1], visible=True, touch=prev_enabled,
                 color=color, color_pressed=color_pressed, back_color_pressed=back_color_pressed)
@@ -363,9 +358,7 @@ class MediaPage(HAUIPage):
             next_enabled = False
             if queue_position < queue_size:
                 next_enabled = True
-            color = COLORS['component_active'] if next_enabled else COLORS['text_disabled']
-            color_pressed = COLORS['component'] if next_enabled else COLORS['text_disabled']
-            back_color_pressed = COLORS['component_pressed'] if next_enabled else COLORS['background']
+            color, color_pressed, back_color, back_color_pressed = self.get_button_colors(next_enabled)
             self.update_function_component(
                 self.BTN_NEXT[1], visible=True, touch=next_enabled,
                 color=color, color_pressed=color_pressed, back_color_pressed=back_color_pressed)

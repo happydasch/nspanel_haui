@@ -168,5 +168,6 @@ class PopupUnlockPage(HAUIPage):
             return
         # unlock panel and close this unlock popup
         self.log(f'Panel {self._unlock_panel.id} unlocked, closing unlock popup.')
-        self._unlock_panel.locked = False
+        config = self._unlock_panel.get_persistent_config(return_copy=False)
+        config['locked'] = False
         self.app.controller['navigation'].close_panel()

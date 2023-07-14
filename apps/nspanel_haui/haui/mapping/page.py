@@ -11,8 +11,9 @@ from ..page.row import RowPage
 from ..page.column import ColumnPage
 from ..page.split import SplitPage
 from ..page.light import LightPage
-from ..page.qr import QRPage
 from ..page.media import MediaPage
+from ..page.timer import TimerPage
+from ..page.qr import QRPage
 from ..page.thermo import ThermoPage
 from ..page.alarm import AlarmPage
 # popup panels
@@ -86,8 +87,9 @@ PANEL_MAPPING = {
     'column': ('column', ColumnPage),
     'split': ('split', SplitPage),
     'light': ('light', LightPage),
-    'qr': ('qr', QRPage),
     'media': ('media', MediaPage),
+    'timer': ('timer', TimerPage),
+    'qr': ('qr', QRPage),
     'thermo': ('thermo', ThermoPage),
     'alarm': ('alarm', AlarmPage),
     # popups

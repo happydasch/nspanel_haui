@@ -10,7 +10,7 @@
 
 ## About
 
-The timer panel allows to run a (for now local) timer.
+The timer panel allows to run a (for now local) timer. If a time bigger than 0 is set, the timer will run backwards, if a time of 0 is set, the timer will run forward.
 
 `type: timer`
 

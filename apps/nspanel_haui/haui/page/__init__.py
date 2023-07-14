@@ -196,7 +196,8 @@ class HAUIPage(HAUIPart):
                         fnc_item['fnc_name'] = self.FNC_TYPE_NAV_CLOSE
                 # right secondary button
                 if fnc_id == self.FNC_BTN_R_SEC:
-                    locked = getattr(panel, 'locked', None)
+                    config = panel.get_persistent_config()
+                    locked = config.get('locked', None)
                     if locked is not None:
                         fnc_item['fnc_name'] = self.FNC_TYPE_UNLOCK
                         fnc_item['fnc_args']['locked'] = locked
@@ -504,6 +505,13 @@ class HAUIPage(HAUIPart):
             else:
                 self.set_function_component(None, fnc_id)
 
+    def get_button_colors(self, active):
+        color = COLORS['component_active'] if active else COLORS['text_disabled']
+        color_pressed = COLORS['component'] if active else COLORS['text_disabled']
+        back_color = COLORS['background']
+        back_color_pressed = COLORS['component_pressed'] if active else COLORS['background']
+        return color, color_pressed, back_color, back_color_pressed
+
     # button state related
 
     def set_button_state_buttons(self, btn_left, btn_right):
@@ -597,21 +605,25 @@ class HAUIPage(HAUIPart):
         elif fnc_id in self._fnc_items:
             del self._fnc_items[fnc_id]
 
-    def update_function_component(self, fnc_id, **kwargs):
+    def update_function_component(self, fnc_id, update_fnc_name=None, **kwargs):
         """ Updates the function component.
 
         Args:
             fnc_id (str): Function Component ID
+            update_fnc_name (str): Optional, new function name
             kwargs (dict): Arguments
         """
+
         if fnc_id not in self._fnc_items:
             self.log(f'function component {fnc_id} not found')
             return
         fnc_item = self._fnc_items[fnc_id]
         fnc_component = fnc_item['fnc_component']
-        fnc_name = fnc_item['fnc_name']
         fnc_args = fnc_item['fnc_args']
         fnc_args = fnc_item['fnc_args'] = {**fnc_args, **kwargs}
+        if update_fnc_name is not None:
+            fnc_item['fnc_name'] = update_fnc_name
+        fnc_name = fnc_item['fnc_name']
 
         # get infos for component
         value = fnc_args.get('value', None)
@@ -756,7 +768,8 @@ class HAUIPage(HAUIPart):
             navigation = self.app.controller['navigation']
             # lock panel if not locked
             if not locked:
-                self.panel.locked = True
+                config = self.panel.get_persistent_config(return_copy=False)
+                config['locked'] = False
                 navigation.reload_panel()
         # notify about function button press
         self.callback_function_component(fnc_id, fnc_name)

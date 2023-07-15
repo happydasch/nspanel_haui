@@ -1,21 +1,24 @@
 import colorsys
 import math
 import random
+
 from ..utils import scale
 
 
-def generate_color_palette(rgb_color, palette_type, seed, num_colors=6):
+def generate_color_palette(rgb_color, palette_type, seed=None, num_colors=6):
     """ Generates random color matching the provided color.
 
     Args:
         rgb_color (list): RGB color
         palette_type (str): Palette type: vibrant, pastel, light
-        seed (int): Seed to use for random color generation
+        seed (int, optional): Seed to use for random color generation. Defaults to random.
         num_colors (int, optional): Number of colors to generate. Defaults to 6.
 
     Returns:
         tuple: A list with rgb values
     """
+    if seed is None:
+        seed = random.randint(0, 1000)
     random.seed(seed)
     hsv_background = colorsys.rgb_to_hsv(rgb_color[0] / 255, rgb_color[1] / 255, rgb_color[2] / 255)
     colors = []
@@ -23,18 +26,33 @@ def generate_color_palette(rgb_color, palette_type, seed, num_colors=6):
         if palette_type == 'vibrant':
             # Generate vibrant colors by randomizing hue, saturation, and value
             hue = random.random()
-            saturation = random.uniform(0.5, 1.0)
+            saturation = random.uniform(0.7, 1.0)
             value = random.uniform(0.7, 1.0)
         elif palette_type == 'pastel':
             # Generate pastel colors by reducing saturation and increasing value
-            hue = hsv_background[0]
+            hue = random.random()
             saturation = random.uniform(0.2, 0.5)
             value = random.uniform(0.7, 1.0)
         elif palette_type == 'light':
-            # Generate light colors by increasing value
+            # Generate light colors by increasing random value
             hue = hsv_background[0]
             saturation = hsv_background[1]
-            value = random.uniform(0.7, 1.0)
+            value = random.uniform(0.7, 0.8)
+        elif palette_type == 'lighten':
+            # Generate light colors by decreasing value
+            hue = hsv_background[0]
+            saturation = hsv_background[1]
+            value = 0.8
+        elif palette_type == 'dark':
+            # Generate light colors by decreasing random value
+            hue = hsv_background[0]
+            saturation = hsv_background[1]
+            value = random.uniform(0.2, 0.3)
+        elif palette_type == 'darken':
+            # Generate light colors by decreasing value
+            hue = hsv_background[0]
+            saturation = hsv_background[1]
+            value = 0.2
         rgb = colorsys.hsv_to_rgb(hue, saturation, value)
         rgb = int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
         colors.append(rgb)

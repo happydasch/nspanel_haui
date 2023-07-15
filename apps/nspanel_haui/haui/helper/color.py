@@ -1,6 +1,44 @@
 import colorsys
 import math
+import random
 from ..utils import scale
+
+
+def generate_color_palette(rgb_color, palette_type, seed, num_colors=6):
+    """ Generates random color matching the provided color.
+
+    Args:
+        rgb_color (list): RGB color
+        palette_type (str): Palette type: vibrant, pastel, light
+        seed (int): Seed to use for random color generation
+        num_colors (int, optional): Number of colors to generate. Defaults to 6.
+
+    Returns:
+        tuple: A list with rgb values
+    """
+    random.seed(seed)
+    hsv_background = colorsys.rgb_to_hsv(rgb_color[0] / 255, rgb_color[1] / 255, rgb_color[2] / 255)
+    colors = []
+    for _ in range(num_colors):
+        if palette_type == 'vibrant':
+            # Generate vibrant colors by randomizing hue, saturation, and value
+            hue = random.random()
+            saturation = random.uniform(0.5, 1.0)
+            value = random.uniform(0.7, 1.0)
+        elif palette_type == 'pastel':
+            # Generate pastel colors by reducing saturation and increasing value
+            hue = hsv_background[0]
+            saturation = random.uniform(0.2, 0.5)
+            value = random.uniform(0.7, 1.0)
+        elif palette_type == 'light':
+            # Generate light colors by increasing value
+            hue = hsv_background[0]
+            saturation = hsv_background[1]
+            value = random.uniform(0.7, 1.0)
+        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
+        rgb = int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
+        colors.append(rgb)
+    return colors
 
 
 def rgb_brightness(rgb_color, brightness):
@@ -15,8 +53,8 @@ def rgb_brightness(rgb_color, brightness):
     """
     # brightness values are in range 0-255
     # to make sure that the color is not completly lost we need to rescale
-    # this to 128-255
-    brightness = int(scale(brightness, (0, 255), (128, 255)))
+    # this to 96-255
+    brightness = int(scale(brightness, (0, 255), (96, 255)))
     red = rgb_color[0] / 255 * brightness
     green = rgb_color[1] / 255 * brightness
     blue = rgb_color[2] / 255 * brightness

@@ -37,6 +37,8 @@ class HAUIPage(HAUIPart):
     ICO_PASSWORD = get_icon('circle-medium')
     ICO_ENTITY_POWER = get_icon('power')
     ICO_ENTITY_UNAVAILABLE = get_icon('cancel')
+    ICO_PREV_PAGE = get_icon('chevron-double-up')
+    ICO_NEXT_PAGE = get_icon('chevron-double-down')
 
     # functions for function components
     FNC_TYPE_NAV_NEXT = 'nav_next'
@@ -337,7 +339,7 @@ class HAUIPage(HAUIPart):
             handle (str): Handle
         """
         handle = self.app.listen_state(callback, entity_id, attribute=attribute)
-        self.log(f'Adding entity listener for {entity_id}, attribute {attribute} - handle: {handle}')
+        self.log(f'Adding listener for {entity_id}, attribute {attribute} - handle: {handle}')
         self._handles.append(handle)
         return handle
 
@@ -349,7 +351,7 @@ class HAUIPage(HAUIPart):
         """
         if handle in self._handles:
             self.app.cancel_listen_state(handle)
-            self.log(f'Removing entity listener - handle: {handle}')
+            self.log(f'Removing listener - handle: {handle}')
             del self._handles[self._handles.index(handle)]
 
     # basic page functionality (see HAUIBase for generic methods)
@@ -596,12 +598,16 @@ class HAUIPage(HAUIPart):
             fnc_args (dict): Function arguments
         """
         if component is not None:
-            self._fnc_items[fnc_id] = {
+            item = {}
+            if fnc_id in self._fnc_items:
+                item = self._fnc_items
+            item = {**item, **{
                 'fnc_component': component,
                 'fnc_id': fnc_id,
                 'fnc_name': fnc_name,
                 'fnc_args': fnc_args
-            }
+            }}
+            self._fnc_items[fnc_id] = item
         elif fnc_id in self._fnc_items:
             del self._fnc_items[fnc_id]
 
@@ -672,8 +678,6 @@ class HAUIPage(HAUIPart):
         if color is None and fnc_args.get('locked', None) is not None:
             if fnc_name == self.FNC_TYPE_UNLOCK and not fnc_args.get('locked', False):
                 color = COLORS['component_accent']
-        if color is None:
-            color = COLORS['component']
         color_pressed = fnc_args.get('color_pressed')
         back_color = fnc_args.get('back_color')
         back_color_pressed = fnc_args.get('back_color_pressed')

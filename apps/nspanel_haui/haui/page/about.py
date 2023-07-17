@@ -27,7 +27,7 @@ class AboutPage(HAUIPage):
             self.BTN_FNC_RIGHT_PRI, self.BTN_FNC_RIGHT_SEC)
 
         # title
-        self._title = panel.get_title(self.translate('About'))
+        self._title = panel.get_title(self.translate('NSPanel HAUI'))
         self.set_component_text(self.TXT_TITLE, self._title)
 
         self.stop_rec_cmd(send_commands=True)

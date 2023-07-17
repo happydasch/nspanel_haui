@@ -633,13 +633,12 @@ class HAUINavigationController(HAUIPart):
             self.page.stop()
         # set new current page and panel
         self.page = page_class(self.app, {'page_id': page_id})
+        # set new page for panel
+        self.log(f'Switching to page {page_id} from {curr_page_id}')
         # notify about panel creation early in process
         self.page.create_panel(panel)
-
         # set new page for panel
-        if curr_page_id != page_id:
-            self.log(f'Switching to page {page_id} from {curr_page_id}')
-            self.goto_page(page_id)
+        self.goto_page(page_id)
 
         # page autostart
         #

@@ -5,54 +5,88 @@
 - [Panel Grid](#panel-grid)
   - [About](#about)
   - [Config](#config)
-    - [Background Color Mode `back_color_mode`](#background-color-mode-back_color_mode)
-    - [Background Color Seed `back_color_seed`](#background-color-seed-back_color_seed)
-    - [Entity Background Color `back_color`](#entity-background-color-back_color)
-    - [Entity Off Button `show_off_button`](#entity-off-button-show_off_button)
+    - [Text Color `text_color`](#text-color-text_color)
+    - [Power Color `power_color`](#power-color-power_color)
+    - [Background Color `back_color`](#background-color-back_color)
+    - [Color Mode `color_mode`](#color-mode-color_mode)
+    - [Color Seed `color_seed`](#color-seed-color_seed)
+    - [Show a Power Button `show_power_button`](#show-a-power-button-show_power_button)
   - [Screens](#screens)
 
 ## About
 
 `type: grid`
 
-The entities grid panel provides a panel with 6 big buttons.
+The entities grid panel provides a panel with 6 big buttons. If more than 6 entities are provided, the entities can be scrolled.
 
-This panel can be also used to organize panels and subpanels.
-
-Background colors can be set for the individual tiles. Also a random background generation is possible.
+This panel can be also used to organize panels and subpanels. Colors can be set for the individual tiles. Also a random color mode is available.
 
 ## Config
 
 ```yaml
-# Default config with custom entity settings
+# Default config with default entity settings
 panels:
   - type: grid
-    back_color_mode: null
-    back_color_seed: null
+    text_color: null
+    power_color: null
+    back_color: null
+    color_mode: null
+    color_seed: null
+    show_power_button: false
     entities:
       - entity: light.example_light
+        text_color: null
+        power_color: null
         back_color: null
-        show_power_off: false
+        color_mode: null
+        color_seed: null
+        show_power_button: null
 ```
 
 Example config with color backgrounds:
 
 ```yaml
-# grid panel with 4 entities and a vibrant back color
+# grid panel with 7 entities and a vibrant color mode
 panels:
   - type: grid
-    back_color_mode: 'vibrant'
-    back_color_seed: 938
+    color_mode: vibrant
+    color_seed: 938
     entities:
       - entity: light.example_light
-      - entity: light.example_light
-      - entity: light.example_light
-      - entity: light.example_light
+      - entity: light.example_light1
+      - entity: light.example_light2
+      - entity: light.example_light3
+      - entity: light.example_light4
+      - entity: light.example_light5
+      - entity: light.example_light6
 ```
 
-### Background Color Mode `back_color_mode`
+### Text Color `text_color`
 
-Possible `back_color_mode` values:
+Set the text color of the grid button using `text_color`.
+
+### Power Color `power_color`
+
+Set the power button color of the grid button using `power_color`.
+
+### Background Color `back_color`
+
+Set the background color of a grid button using `back_color`.
+
+```yaml
+panels:
+
+  - type: grid
+    back_color: 6339
+    # back_color: [49, 49, 49]
+    entities:
+      - entity: light.example_light
+        back_color: 6339
+```
+
+### Color Mode `color_mode`
+
+Possible `color_mode` values:
 
 - `null` No background (default)
 - `vibrant` Random background color with vibrant colors
@@ -62,35 +96,61 @@ Possible `back_color_mode` values:
 - `lighten` Background color with a light color
 - `darken` Background color with a dark color
 
-### Background Color Seed `back_color_seed`
+```yaml
+panels:
+
+  - type: grid
+    # Setting a color mode
+    color_mode: vibrant
+    color_seed: 18
+
+  # Overwriting a color mode for a single entity
+  - type: grid
+    color_mode: vibrant
+    color_seed: 18
+    entities:
+      - entity: light.example_light
+      - entity: light.example_light1
+        # disable color mode for this entity
+        color_mode: null
+      - entity: light.light_example2
+```
+
+### Color Seed `color_seed`
 
 Value: int value between 0-1000.
 
 The generated palettes can be reproduced using a seed value. The same seed will generate the same colors.
 
-### Entity Background Color `back_color`
-
-The entities used in this panel can define a back_color using `back_color`
-
 ```yaml
 panels:
+
   - type: grid
-    entities:
-      - entity: light.example_light
-        back_color: 12678
-        # back_color: [49, 49, 49]
+    color_mode: vibrant
+    # Setting a color seed
+    color_seed: 18
 ```
 
-### Entity Off Button `show_off_button`
+### Show a Power Button `show_power_button`
 
-The entities can show a off button by setting `show_off_button` to true.
+The entities can show a power button by setting `show_power_button` to true.
 
 ```yaml
 panels:
+
+  # for a single entity
   - type: grid
     entities:
       - entity: light.example_light
-        show_off_button: true
+        show_power_button: true
+      - entity: light.example_light1
+
+  # for all entities
+  - type: grid
+    show_power_button: true
+    entities:
+      - entity: light.example_light
+      - entity: light.example_light1
 ```
 
 ## Screens

@@ -20,6 +20,7 @@ The clock panel shows a big clock and uses 4 entities for the weather conditions
 
 ```yaml
 panels:
+
   # clock panel
   - type: clock
     entity: weather.home

@@ -25,9 +25,11 @@ The unlock code needs to be a string.
 
 ```yaml
 panels:
+
   # this panel will be locked and can be unlocked using the unlock code
   - type: grid
     title: Unlock Panel
+    # set a unlock code
     unlock_code: "1234"
 ```
 

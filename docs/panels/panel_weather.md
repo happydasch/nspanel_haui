@@ -18,6 +18,7 @@ The weather panel can be used as a "screensaver". It will show weather details a
 
 ```yaml
 panels:
+
   # weather panel
   - type: weather
     entity: weather.home

@@ -1,4 +1,8 @@
+from ..mapping.color import COLORS
+from ..helper.color import generate_color_palette, rgb565_to_rgb
+
 from . import HAUIPage
+import random
 
 
 class GridPage(HAUIPage):
@@ -7,125 +11,221 @@ class GridPage(HAUIPage):
     TXT_TITLE = (2, 'tTitle')
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
-    # grid buttons 1-6
-    G1_BTN, G2_BTN, G3_BTN = (7, 'g1Btn'), (8, 'g2Btn'), (9, 'g3Btn')
-    G4_BTN, G5_BTN, G6_BTN = (10, 'g4Btn'), (11, 'g5Btn'), (12, 'g6Btn')
-    G1_ICO, G2_ICO, G3_ICO = (13, 'g1Icon'), (14, 'g2Icon'), (15, 'g3Icon')
-    G4_ICO, G5_ICO, G6_ICO = (16, 'g4Icon'), (17, 'g5Icon'), (18, 'g6Icon')
-    G1_NAME, G2_NAME, G3_NAME = (19, 'g1Name'), (20, 'g2Name'), (21, 'g3Name')
-    G4_NAME, G5_NAME, G6_NAME = (22, 'g4Name'), (23, 'g5Name'), (24, 'g6Name')
-    G1_OVL, G2_OVL, G3_OVL = (25, 'g1Overlay'), (26, 'g2Overlay'), (27, 'g3Overlay')
-    G4_OVL, G5_OVL, G6_OVL = (28, 'g4Overlay'), (29, 'g5Overlay'), (30, 'g6Overlay')
+    # grid entities
+    G1_BTN, G1_ICO, G1_NAME, G1_OVL, G1_POWER = (7, 'g1Btn'), (8, 'g1Icon'), (9, 'g1Name'), (10, 'g1Overlay'), (11, 'g1Power')
+    G2_BTN, G2_ICO, G2_NAME, G2_OVL, G2_POWER = (12, 'g2Btn'), (13, 'g2Icon'), (14, 'g2Name'), (15, 'g2Overlay'), (16, 'g2Power')
+    G3_BTN, G3_ICO, G3_NAME, G3_OVL, G3_POWER = (17, 'g3Btn'), (18, 'g3Icon'), (19, 'g3Name'), (20, 'g3Overlay'), (21, 'g3Power')
+    G4_BTN, G4_ICO, G4_NAME, G4_OVL, G4_POWER = (22, 'g4Btn'), (23, 'g4Icon'), (24, 'g4Name'), (25, 'g4Overlay'), (26, 'g4Power')
+    G5_BTN, G5_ICO, G5_NAME, G5_OVL, G5_POWER = (27, 'g5Btn'), (28, 'g5Icon'), (29, 'g5Name'), (30, 'g5Overlay'), (31, 'g5Power')
+    G6_BTN, G6_ICO, G6_NAME, G6_OVL, G6_POWER = (32, 'g6Btn'), (33, 'g6Icon'), (34, 'g6Name'), (35, 'g6Overlay'), (36, 'g6Power')
 
     # panel
 
     def start_panel(self, panel):
-        # set grid button callbacks
-        for i in range(6):
-            btn = getattr(self, f'G{i+1}_OVL')
-            self.add_component_callback(btn, self.callback_grid_buttons)
+        # set vars
+        self._entities = panel.get_entities()
+        self._active_entities = {}  # active haui entities, id = component (overlay, ex: self.G1_OVL)
+        self._active_handles = []
+        self._entity_mapping = {}
+        self._current_page = 0
+        self._color_seed = panel.get('color_seed', random.randint(0, 1000))
         # set function buttons
+        page_btn = {
+            'fnc_component': self.BTN_FNC_RIGHT_SEC,
+            'fnc_id': self.FNC_BTN_R_SEC,
+            'fnc_name': 'next_page',
+            'fnc_args': {
+                'icon': self.ICO_NEXT_PAGE,
+                'color': COLORS['component_accent'],
+                'visible': True if len(self._entities) > 6 else False
+            }
+        }
         self.set_function_buttons(
             self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI, self.BTN_FNC_RIGHT_SEC)
+            self.BTN_FNC_RIGHT_PRI, page_btn)
+        # set power and grid button callbacks
+        for i in range(6):
+            power = getattr(self, f'G{i+1}_POWER')
+            ovl = getattr(self, f'G{i+1}_OVL')
+            self.add_component_callback(power, self.callback_power_buttons)
+            self.add_component_callback(ovl, self.callback_grid_buttons)
 
-        # active entities
-        self._active = {}
-
-        self.start_rec_cmd()
+    def render_panel(self, panel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
+        self.set_grid_buttons()
 
-        # check grid buttons
-        entities = panel.get_entities()
-        entity_ids = []
+    # misc
+
+    def set_grid_buttons(self):
+        # check if there are any listener active and cancel them
+        while self._active_handles:
+            handle = self._active_handles.pop()
+            self.remove_entity_listener(handle)
+        # get current entities to display
+        start = 0 + (self._current_page * 6)
+        end = min(len(self._entities), start + 6)
+        if len(self._entities) > start:
+            entities = self._entities[start:end]
+        else:
+            entities = []
+        # set buttons
+        entity_ids = set()
         for i in range(6):
             entity = None
             idx = i + 1
-            if i < len(entities):
+            if len(entities) > i:
                 entity = entities[i]
             # click events are captured by overlay, assign
             # entities to button overlay
             ovl = getattr(self, f'G{idx}_OVL')
-            self._active[ovl] = entity
-            if not entity:
-                self.set_grid_button(idx, 0)
-                continue
-            # standard entity
-            if not entity.is_internal():
-                self.set_grid_button(idx, 1)
-                # add entity state callbacks for standard entities
-                entity_ids.append(entity.get_entity_id())
+            power = getattr(self, f'G{idx}_POWER')
+            self._active_entities[ovl] = entity
+            # visibility of grid button
+            visible = False
+            if entity is not None:
+                self._entity_mapping[entity] = {'ovl': ovl, 'power': power}
+                # internal entity
+                if entity.is_internal():
+                    internal_type = entity.get_internal_type()
+                    if internal_type in ['navigate', 'service']:
+                        visible = True
+                # standard entity
+                else:
+                    visible = True
+                    entity_ids.add(entity.get_entity_id())
+            self.set_grid_button(idx, visible=visible)
+        # create listener for active entities
+        for entity_id in entity_ids:
+            handle = self.add_entity_listener(entity_id, self.callback_entity_state, attribute='all')
+            self._active_handles.append(handle)
 
-                continue
-            # internal entity
-            else:
-                internal_type = entity.get_internal_type()
-                if internal_type in ['navigate', 'service']:
-                    self.set_grid_button(idx, 1)
-                    continue
-            # hide button by default
-            self.set_grid_button(idx, 0)
-
-        # make entity_ids unique and add listener
-        for entity_id in set(entity_ids):
-            if entity_id is not None:
-                self.add_entity_listener(
-                    entity_id, self.callback_entity_state, attribute='all')
-
-        self.stop_rec_cmd(send_commands=True)
-
-    def render_panel(self, panel):
-        self.update_grid_buttons(panel.get_entities())
-
-    # misc
-
-    def update_grid_buttons(self, entities):
-        # 6 grid buttons
-        for i in range(6):
-            if i >= len(entities):
-                break
-            self.update_grid_button(entities[i], i + 1)
-
-    def update_grid_button(self, haui_entity, idx):
-        # update a single button
-        ico = getattr(self, f'G{idx}_ICO')
-        name = getattr(self, f'G{idx}_NAME')
-        self.set_component_text_color(ico, haui_entity.get_color())
-        self.set_component_text(ico, haui_entity.get_icon())
-        self.set_component_text(name, haui_entity.get_name())
-
-    def set_grid_button(self, idx, visible=True):
+    def set_grid_button(self, idx, visible):
+        # visibility of grid button components
         btn = getattr(self, f'G{idx}_BTN')
         ico = getattr(self, f'G{idx}_ICO')
         name = getattr(self, f'G{idx}_NAME')
         ovl = getattr(self, f'G{idx}_OVL')
-        vis = int(visible)
-        for x in [btn, ico, name, ovl]:
-            self.send_cmd(f'vis {x[0]},{vis}')
-        self.set_component_text(ico, '')
-        self.set_component_text(name, '')
+        power = getattr(self, f'G{idx}_POWER')
+        entity = self._active_entities[ovl]
+        panel = self.panel
+        # power button, only show if requested and a entity is set
+        power_visible = False
+        if entity is not None:
+            power_visible = panel.get('show_power_button', False)
+            if not entity.is_internal():
+                power_visible = entity.get('show_power_button', power_visible)
+        # colors for grid button
+        color_pressed = COLORS['text']
+        back_color_pressed = COLORS['component_pressed']
+        power_color = panel.get('power_color', COLORS['component_active'])
+        text_color = panel.get('text_color')
+        back_color = panel.get('back_color')
+        color_mode = panel.get('color_mode')
+        color_seed = panel.get('color_seed', self._color_seed)
+        if entity is not None:
+            back_color = entity.get('back_color', back_color)
+            color_mode = entity.get('color_mode', color_mode)
+            color_seed = entity.get('color_seed', color_seed)
+        # no background color check if color mode or set default
+        if back_color is None:
+            if color_mode is not None:
+                self.log(f'Using random seed for grid: {color_seed}')
+                colors = generate_color_palette(
+                    rgb565_to_rgb(COLORS['background']),
+                    color_mode, color_seed, 6)
+                back_color = colors[idx - 1]
+                back_color_pressed = [int(x * 0.5) for x in back_color]
+                # for light back colors use dark text color
+                if color_mode in ['pastel', 'light', 'lighten']:
+                    if text_color is None:
+                        text_color = COLORS['background']
+                    color_pressed = COLORS['component_pressed']
+                    power_color = COLORS['background']
+                elif color_mode in ['vibrant']:
+                    if text_color is None:
+                        text_color = COLORS['component']
+                    color_pressed = COLORS['component']
+                    power_color = COLORS['component']
+            else:
+                back_color = COLORS['background']
+                text_color = COLORS['text']
+        # update grid button
+        if visible:
+            if text_color is not None:
+                for x in [btn, name]:
+                    self.set_component_text_color(x, text_color)
+                if power_color is not None and color_mode is not None:
+                    self.set_component_text_color(power, power_color)
+            if color_pressed is not None:
+                for x in [btn, power]:
+                    self.set_component_text_color_pressed(x, color_pressed)
+            if back_color is not None:
+                for x in [ico, name, btn, power]:
+                    self.set_component_back_color(x, back_color)
+            if back_color_pressed is not None:
+                for x in [btn, power]:
+                    self.set_component_back_color_pressed(x, back_color_pressed)
+            for x in [btn, ico, name, ovl]:
+                self.show_component(x)
+            if power_visible:
+                self.show_component(power)
+            else:
+                self.hide_component(power)
+            self.update_grid_button(idx)
+        else:
+            for x in [btn, ico, name, ovl, power]:
+                self.hide_component(x)
+
+    def update_grid_buttons(self):
+        entities = self._active_entities
+        # 6 grid buttons
+        for idx in range(1, 7):
+            if idx > len(entities):
+                break
+            self.update_grid_button(idx)
+
+    def update_grid_button(self, idx):
+        # update a single button
+        ovl = getattr(self, f'G{idx}_OVL')
+        ico = getattr(self, f'G{idx}_ICO')
+        name = getattr(self, f'G{idx}_NAME')
+        entity = self._active_entities[ovl]
+        # set text
+        self.set_component_text_color(ico, entity.get_color())
+        self.set_component_text(ico, entity.get_icon())
+        self.set_component_text(name, entity.get_name())
 
     # callback
 
-    def callback_grid_buttons(self, event, component, button_state):
-        if button_state:
-            # wait for release
-            return
-        self.log(f'Got grid button press: {component}-{button_state}')
-        # process grid button press
-        if component in self._active:
-            self.process_grid_button_push(component)
-
     def callback_entity_state(self, entity, attribute, old, new, kwargs):
+        # refreshes the panel if any state / attribute changes of currently
+        # displayed entities
         self.refresh_panel()
 
-    def callback_notify_close(self, btn_left, btn_right):
-        self.log(f'Got notification of close {btn_left},{btn_right}')
+    def callback_function_component(self, fnc_id, fnc_name):
+        if fnc_name == 'next_page':
+            count_pages = (len(self._entities) % 6) + 1
+            self._current_page += 1
+            if self._current_page >= count_pages:
+                self._current_page = 0
+            self.set_grid_buttons()
 
-    # event
-
-    def process_grid_button_push(self, component):
-        if component not in self._active:
+    def callback_power_buttons(self, event, component, button_state):
+        if button_state:
             return
-        haui_entity = self._active[component]
+        for haui_entity, mapping in self._entity_mapping.items():
+            self.log(mapping)
+            if mapping['power'] != component:
+                continue
+            entity = haui_entity.get_entity()
+            if entity is None:
+                break
+            entity.execute()
+
+    def callback_grid_buttons(self, event, component, button_state):
+        if button_state:
+            return
+        if component not in self._active_entities:
+            return
+        haui_entity = self._active_entities[component]
         self.execute_entity(haui_entity)

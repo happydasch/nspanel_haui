@@ -180,7 +180,7 @@ class HAUIBase:
             cmds: The commands to send.
         """
         total_len = 0
-        max_len = 500
+        max_len = 1000
         cmds_to_send = []
         for cmd in cmds:
             if total_len + len(cmd) > max_len:

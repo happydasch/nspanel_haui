@@ -11,6 +11,7 @@
     - [Color Mode `color_mode`](#color-mode-color_mode)
     - [Color Seed `color_seed`](#color-seed-color_seed)
     - [Show a Power Button `show_power_button`](#show-a-power-button-show_power_button)
+    - [Initial Page `initial_page`](#initial-page-initial_page)
   - [Screens](#screens)
 
 ## About
@@ -33,6 +34,7 @@ panels:
     color_mode: null
     color_seed: null
     show_power_button: false
+    initial_page: 0
     entities:
       - entity: light.example_light
         text_color: null
@@ -65,9 +67,31 @@ panels:
 
 Set the text color of the grid button using `text_color`.
 
+```yaml
+panels:
+
+  - type: grid
+    text_color: 6339
+    # text_color: [49, 49, 49]
+    entities:
+      - entity: light.example_light
+        text_color: 6339
+```
+
 ### Power Color `power_color`
 
 Set the power button color of the grid button using `power_color`.
+
+```yaml
+panels:
+
+  - type: grid
+    power_color: 6339
+    # power_color: [49, 49, 49]
+    entities:
+      - entity: light.example_light
+        power_color: 6339
+```
 
 ### Background Color `back_color`
 
@@ -153,17 +177,38 @@ panels:
       - entity: light.example_light1
 ```
 
+### Initial Page `initial_page`
+
+The page to start the üanel with can be set with  `initial_page`.
+
+```yaml
+# grid panel with 7 entities and a inital page
+panels:
+  - type: grid
+    color_mode: vibrant
+    color_seed: 938
+    initial_page: 1
+    entities:
+      - entity: light.example_light
+      - entity: light.example_light1
+      - entity: light.example_light2
+      - entity: light.example_light3
+      - entity: light.example_light4
+      - entity: light.example_light5
+      - entity: light.example_light6
+```
+
 ## Screens
 
 ![Subpanel Grid](../assets/subpanel_grid.png)
 
 ![Panel Grid](../assets/panel_grid.png)
 
-Using background colors:
+Simple grid (no background, no power button):
 
-![Panel Grid Background](../assets/panel_grid_background.png)
+![Panel Grid Simple](../assets/panel_grid_simple.png)
 
-Color Mode virant:
+Color Mode vibrant:
 
 ![Panel Grid Vibrant](../assets/panel_grid_vibrant.png)
 

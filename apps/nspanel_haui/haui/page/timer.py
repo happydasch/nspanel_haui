@@ -9,11 +9,11 @@ from . import HAUIPage
 
 class TimerPage(HAUIPage):
 
-    ICO_PLAY = get_icon('play')
-    ICO_PAUSE = get_icon('pause')
-    ICO_STOP = get_icon('stop')
-    ICO_RESET = get_icon('close')
-    ICO_TIMER_OFF = get_icon('timer-off-outline')
+    ICO_START = get_icon('mdi:play')
+    ICO_PAUSE = get_icon('mdi:pause')
+    ICO_STOP = get_icon('mdi:stop')
+    ICO_RESET = get_icon('mdi:close')
+    ICO_TIMER_OFF = get_icon('mdi:timer-off-outline')
 
     # common components
     TXT_TITLE = (2, 'tTitle')
@@ -194,6 +194,11 @@ class TimerPage(HAUIPage):
                     'timer_time': now,
                     'timer_switch': True
                 })
+                if duration > 0:
+                    if timer['timer_handle'] is not None:
+                        timer['timer_handle'].cancel()
+                    timer['timer_handle'] = threading.Timer(duration + 1, self.callback_timer_ended)
+                    timer['timer_handle'].start()
         # update display
         self.start_rec_cmd()
         self.update_timer_components()
@@ -227,10 +232,10 @@ class TimerPage(HAUIPage):
             enabled = True
             if x == self.BTN_START:
                 if not timer['timer_active']:
-                    icon = self.ICO_PLAY
+                    icon = self.ICO_START
                     fnc_name = 'start_timer'
                 elif timer['timer_paused']:
-                    icon = self.ICO_PLAY
+                    icon = self.ICO_START
                     fnc_name = 'resume_timer'
                 else:
                     icon = self.ICO_PAUSE

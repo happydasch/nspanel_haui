@@ -22,10 +22,19 @@ class PopupSelectPage(HAUIPage):
 
     def start_panel(self, panel):
         # set function buttons
+        page_btn = {
+            'fnc_component': self.BTN_FNC_RIGHT_SEC,
+            'fnc_id': self.FNC_BTN_R_SEC,
+            'fnc_name': 'next_page',
+            'fnc_args': {
+                'icon': self.ICO_NEXT_PAGE,
+                'color': COLORS['component_accent'],
+                'visible': False
+            }
+        }
         self.set_function_buttons(
             self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI, self.BTN_FNC_RIGHT_SEC)
-
+            self.BTN_FNC_RIGHT_PRI, page_btn)
         # get params
         self._select_mode = panel.get('select_mode', [])
         self._selection = panel.get('selection', [])
@@ -48,8 +57,7 @@ class PopupSelectPage(HAUIPage):
             btn = getattr(self, 'BTN_SEL_' + str(idx))
             self.add_component_callback(btn, self.callback_select)
 
-    def close_panel(self, panel):
-        #
+    def stop_panel(self, panel):
         if self._close_callback_fnc:
             self._close_callback_fnc()
 
@@ -72,16 +80,11 @@ class PopupSelectPage(HAUIPage):
     def set_selection(self):
         selection = self._selection
         if len(selection) > self._items_per_page:
-            # add header function button
-            self.set_function_component(
-                self.BTN_FNC_RIGHT_SEC,
-                self.FNC_BTN_R_SEC,
-                fnc_name='next_page',
-                icon=self.ICO_NEXT_PAGE,
-                color=COLORS['component_accent'])
+            # show header function button
+            self.update_function_component(self.FNC_BTN_R_SEC, visible=True)
         else:
-            # remove header function button
-            self.set_function_component(None, self.FNC_BTN_R_SEC)
+            # hide header function button
+            self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
         self._active = {}
         for i in range(self._items_per_page):
             idx = i + 1
@@ -150,4 +153,5 @@ class PopupSelectPage(HAUIPage):
                     self._selection_callback_fnc(self.get_name(x))
                     break
         if self._close_on_select:
-            self.app.controller['navigation'].close_panel()
+            navigation = self.app.controller['navigation']
+            navigation.close_panel()

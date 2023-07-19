@@ -57,7 +57,6 @@ class QRPage(HAUIPage):
         # components
         self.set_component_text(self.QR_CODE, qr_code)
         self.set_component_text(self.QR_CODE_BIG, qr_code)
-        self.set_component_text(self.TXT_TITLE, panel.get_title())
 
         self.stop_rec_cmd(send_commands=True)
 
@@ -69,6 +68,7 @@ class QRPage(HAUIPage):
             self.auto_page.turn_on()
 
     def render_panel(self, panel):
+        self.set_component_text(self.TXT_TITLE, panel.get_title())
         entities = panel.get_entities()
         max_len = 16
         for i in range(2):

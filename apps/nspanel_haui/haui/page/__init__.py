@@ -25,20 +25,20 @@ class HAUIPage(HAUIPart):
     FNC_BTN_R_SEC = 'fnc_btn_right_sec'
 
     # default function component icons
-    ICO_DEFAULT = get_icon('alert-circle-outline')
-    ICO_NAV_PREV = get_icon('chevron-left')
-    ICO_NAV_NEXT = get_icon('chevron-right')
-    ICO_NAV_UP = get_icon('chevron-up')
-    ICO_NAV_CLOSE = get_icon('close')
-    ICO_NAV_HOME = get_icon('home-outline')
-    ICO_ZOOM = get_icon('loupe')
-    ICO_LOCKED = get_icon('lock-outline')
-    ICO_UNLOCKED = get_icon('lock-open-variant-outline')
-    ICO_PASSWORD = get_icon('circle-medium')
-    ICO_ENTITY_POWER = get_icon('power')
-    ICO_ENTITY_UNAVAILABLE = get_icon('cancel')
-    ICO_PREV_PAGE = get_icon('chevron-double-up')
-    ICO_NEXT_PAGE = get_icon('chevron-double-down')
+    ICO_DEFAULT = get_icon('mdi:alert-circle-outline')
+    ICO_NAV_PREV = get_icon('mdi:chevron-left')
+    ICO_NAV_NEXT = get_icon('mdi:chevron-right')
+    ICO_NAV_UP = get_icon('mdi:chevron-up')
+    ICO_NAV_CLOSE = get_icon('mdi:close')
+    ICO_NAV_HOME = get_icon('mdi:home-outline')
+    ICO_ZOOM = get_icon('mdi:loupe')
+    ICO_LOCKED = get_icon('mdi:lock-outline')
+    ICO_UNLOCKED = get_icon('mdi:lock-open-variant-outline')
+    ICO_PASSWORD = get_icon('mdi:circle-medium')
+    ICO_ENTITY_POWER = get_icon('mdi:power')
+    ICO_ENTITY_UNAVAILABLE = get_icon('mdi:cancel')
+    ICO_PREV_PAGE = get_icon('mdi:chevron-double-up')
+    ICO_NEXT_PAGE = get_icon('mdi:chevron-double-down')
 
     # functions for function components
     FNC_TYPE_NAV_NEXT = 'nav_next'
@@ -355,6 +355,12 @@ class HAUIPage(HAUIPart):
             del self._handles[self._handles.index(handle)]
 
     # basic page functionality (see HAUIBase for generic methods)
+
+    def trim_text(self, text, num_chr, suffix='..'):
+        if len(text) > num_chr:
+            return text[:num_chr - len(suffix)] + suffix
+        else:
+            return text
 
     def parse_color(self, color):
         """ Parses the given color.

@@ -30,11 +30,11 @@ class LightPage(HAUIPage):
     PIC_COLOR_WHEEL_Y = 75
 
     # icons for light functions
-    ICO_BRIGHTNESS = get_icon('brightness-6')
-    ICO_COLOR = get_icon('palette')
-    ICO_COLOR_TEMP = get_icon('thermometer')
-    ICO_EFFECT = get_icon('fire')
-    ICO_POWER = get_icon('power')
+    ICO_BRIGHTNESS = get_icon('mdi:brightness-6')
+    ICO_COLOR = get_icon('mdi:palette')
+    ICO_COLOR_TEMP = get_icon('mdi:thermometer')
+    ICO_EFFECT = get_icon('mdi:fire')
+    ICO_POWER = get_icon('mdi:power')
 
     # panel
 

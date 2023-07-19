@@ -36,25 +36,25 @@ class MediaPage(HAUIPage):
     MEDIA_ENQUEUE = 2097152     (0x00200000)
     '''
 
-    ICO_PLAY = get_icon('play')
-    ICO_PAUSE = get_icon('pause')
-    ICO_STOP = get_icon('stop')
-    ICO_PREV = get_icon('skip-previous')
-    ICO_NEXT = get_icon('skip-next')
+    ICO_PLAY = get_icon('mdi:play')
+    ICO_PAUSE = get_icon('mdi:pause')
+    ICO_STOP = get_icon('mdi:stop')
+    ICO_PREV = get_icon('mdi:skip-previous')
+    ICO_NEXT = get_icon('mdi:skip-next')
     # repeat icons
-    ICO_REPEAT = get_icon('repeat')
-    ICO_REPEAT_ONE = get_icon('repeat-once')
-    ICO_REPEAT_OFF = get_icon('repeat-off')
+    ICO_REPEAT = get_icon('mdi:repeat')
+    ICO_REPEAT_ONE = get_icon('mdi:repeat-once')
+    ICO_REPEAT_OFF = get_icon('mdi:repeat-off')
     # shuffle icons
-    ICO_SHUFFLE = get_icon('shuffle')
-    ICO_SHUFFLE_DISABLED = get_icon('shuffle-disabled')
+    ICO_SHUFFLE = get_icon('mdi:shuffle')
+    ICO_SHUFFLE_DISABLED = get_icon('mdi:shuffle-disabled')
     # volume icons
-    ICO_VOLUME_DOWN = get_icon('volume-minus')
-    ICO_VOLUME_UP = get_icon('volume-plus')
+    ICO_VOLUME_DOWN = get_icon('mdi:volume-minus')
+    ICO_VOLUME_UP = get_icon('mdi:volume-plus')
     # misc
-    ICO_SELECT_SOURCE = get_icon('speaker')
-    ICO_SELECT_PLAYLIST = get_icon('playlist-music')
-    ICO_SELECT_TRACK = get_icon('playlist-play')
+    ICO_SELECT_SOURCE = get_icon('mdi:speaker')
+    ICO_SELECT_PLAYLIST = get_icon('mdi:playlist-music')
+    ICO_SELECT_TRACK = get_icon('mdi:playlist-play')
 
     # common components
     TXT_TITLE = (2, 'tTitle')

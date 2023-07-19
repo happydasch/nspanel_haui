@@ -314,7 +314,6 @@ switch:
     name: Use Button Interaction
     id: use_button_interaction
     entity_category: config
-    restore_state: true
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 

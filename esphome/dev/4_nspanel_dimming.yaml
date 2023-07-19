@@ -635,7 +635,6 @@ switch:
     name: Use Button Interaction
     id: use_button_interaction
     entity_category: config
-    restore_state: true
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
@@ -644,7 +643,6 @@ switch:
     name: Use Auto-Dimming
     id: use_auto_dimming
     entity_category: config
-    restore_state: true
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 

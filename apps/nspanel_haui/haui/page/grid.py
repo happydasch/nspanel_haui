@@ -18,6 +18,9 @@ class GridPage(HAUIPage):
     G4_BTN, G4_ICO, G4_NAME, G4_OVL, G4_POWER = (22, 'g4Btn'), (23, 'g4Icon'), (24, 'g4Name'), (25, 'g4Overlay'), (26, 'g4Power')
     G5_BTN, G5_ICO, G5_NAME, G5_OVL, G5_POWER = (27, 'g5Btn'), (28, 'g5Icon'), (29, 'g5Name'), (30, 'g5Overlay'), (31, 'g5Power')
     G6_BTN, G6_ICO, G6_NAME, G6_OVL, G6_POWER = (32, 'g6Btn'), (33, 'g6Icon'), (34, 'g6Name'), (35, 'g6Overlay'), (36, 'g6Power')
+    # definitions
+    NUM_GRIDS = 6
+    LEN_NAME = 15
 
     # panel
 
@@ -27,7 +30,7 @@ class GridPage(HAUIPage):
         self._active_entities = {}  # active haui entities, id = component (overlay, ex: self.G1_OVL)
         self._active_handles = []
         self._entity_mapping = {}
-        self._current_page = 0
+        self._current_page = panel.get('initial_page', 0)
         self._color_seed = panel.get('color_seed', random.randint(0, 1000))
         # set function buttons
         page_btn = {
@@ -37,40 +40,45 @@ class GridPage(HAUIPage):
             'fnc_args': {
                 'icon': self.ICO_NEXT_PAGE,
                 'color': COLORS['component_accent'],
-                'visible': True if len(self._entities) > 6 else False
+                'visible': True if len(self._entities) > self.NUM_GRIDS else False
             }
         }
         self.set_function_buttons(
             self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
             self.BTN_FNC_RIGHT_PRI, page_btn)
         # set power and grid button callbacks
-        for i in range(6):
+        for i in range(self.NUM_GRIDS):
             power = getattr(self, f'G{i+1}_POWER')
             ovl = getattr(self, f'G{i+1}_OVL')
             self.add_component_callback(power, self.callback_power_buttons)
-            self.add_component_callback(ovl, self.callback_grid_buttons)
+            self.add_component_callback(ovl, self.callback_grid_entries)
+
+    def stop_panel(self, panel):
+        while self._active_handles:
+            handle = self._active_handles.pop()
+            self.remove_entity_listener(handle)
 
     def render_panel(self, panel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
-        self.set_grid_buttons()
+        self.set_grid_entries()
 
     # misc
 
-    def set_grid_buttons(self):
+    def set_grid_entries(self):
         # check if there are any listener active and cancel them
         while self._active_handles:
             handle = self._active_handles.pop()
             self.remove_entity_listener(handle)
         # get current entities to display
-        start = 0 + (self._current_page * 6)
-        end = min(len(self._entities), start + 6)
+        start = 0 + (self._current_page * self.NUM_GRIDS)
+        end = min(len(self._entities), start + self.NUM_GRIDS)
         if len(self._entities) > start:
             entities = self._entities[start:end]
         else:
             entities = []
         # set buttons
         entity_ids = set()
-        for i in range(6):
+        for i in range(self.NUM_GRIDS):
             entity = None
             idx = i + 1
             if len(entities) > i:
@@ -93,13 +101,13 @@ class GridPage(HAUIPage):
                 else:
                     visible = True
                     entity_ids.add(entity.get_entity_id())
-            self.set_grid_button(idx, visible=visible)
+            self.set_grid_entry(idx, visible=visible)
         # create listener for active entities
         for entity_id in entity_ids:
             handle = self.add_entity_listener(entity_id, self.callback_entity_state, attribute='all')
             self._active_handles.append(handle)
 
-    def set_grid_button(self, idx, visible):
+    def set_grid_entry(self, idx, visible):
         # visibility of grid button components
         btn = getattr(self, f'G{idx}_BTN')
         ico = getattr(self, f'G{idx}_ICO')
@@ -171,44 +179,53 @@ class GridPage(HAUIPage):
                 self.show_component(power)
             else:
                 self.hide_component(power)
-            self.update_grid_button(idx)
+            self.update_grid_entry(idx)
         else:
             for x in [btn, ico, name, ovl, power]:
                 self.hide_component(x)
 
-    def update_grid_buttons(self):
+    def update_grid_entries(self):
         entities = self._active_entities
-        # 6 grid buttons
-        for idx in range(1, 7):
+        # grid buttons
+        for idx in range(1, self.NUM_GRIDS + 1):
             if idx > len(entities):
                 break
-            self.update_grid_button(idx)
+            self.update_grid_entry(idx)
 
-    def update_grid_button(self, idx):
+    def update_grid_entry(self, idx):
         # update a single button
         ovl = getattr(self, f'G{idx}_OVL')
         ico = getattr(self, f'G{idx}_ICO')
         name = getattr(self, f'G{idx}_NAME')
         entity = self._active_entities[ovl]
         # set text
+        self.set_component_text(name, self.trim_text(entity.get_name(), self.LEN_NAME))
         self.set_component_text_color(ico, entity.get_color())
         self.set_component_text(ico, entity.get_icon())
-        self.set_component_text(name, entity.get_name())
 
     # callback
 
     def callback_entity_state(self, entity, attribute, old, new, kwargs):
-        # refreshes the panel if any state / attribute changes of currently
-        # displayed entities
-        self.refresh_panel()
+        if entity not in self._active_entities.values():
+            return
+        idx = 1
+        for ovl, value in self._active_entities.items():
+            if entity == value:
+                self.start_rec_cmd()
+                self.update_grid_entry(idx)
+                self.stop_rec_cmd(send_commands=True)
+                break
+            idx += 1
 
     def callback_function_component(self, fnc_id, fnc_name):
         if fnc_name == 'next_page':
-            count_pages = (len(self._entities) % 6) + 1
+            count_pages = (len(self._entities) % self.NUM_GRIDS) + 1
             self._current_page += 1
             if self._current_page >= count_pages:
                 self._current_page = 0
-            self.set_grid_buttons()
+            self.start_rec_cmd()
+            self.set_grid_entries()
+            self.stop_rec_cmd(send_commands=True)
 
     def callback_power_buttons(self, event, component, button_state):
         if button_state:
@@ -222,7 +239,7 @@ class GridPage(HAUIPage):
                 break
             entity.execute()
 
-    def callback_grid_buttons(self, event, component, button_state):
+    def callback_grid_entries(self, event, component, button_state):
         if button_state:
             return
         if component not in self._active_entities:

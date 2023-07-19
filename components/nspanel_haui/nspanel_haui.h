@@ -47,6 +47,7 @@ class NSPanelHAUI : public PollingComponent, public uart::UARTDevice {
     void set_brightness(float brightness) { this->brightness_ = brightness; }
     bool set_backlight_brightness(float brightness);
     std::string get_command(const char *format, ...);
+    void process_commands() { this->process_commands_(); }
     bool send_command(const std::string &command, bool check_response);
     bool send_command(const std::string &command) { return send_command(command, false); };
     bool set_component_int(const std::string &component, int value);

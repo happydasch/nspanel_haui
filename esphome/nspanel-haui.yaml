@@ -6,9 +6,9 @@
 # 1. Configuration Variables
 substitutions:
   # Version of this yaml config file
-  yaml_version: '0.0.5'
+  yaml_version: '0.0.6'
   # Required version of the display tft file
-  required_tft_version: '0.0.5'
+  required_tft_version: '0.0.6'
   # Friendly name of the device
   friendly_name: 'NSPanel HAUI'
   # Name of the device (ha device name should match device name,
@@ -184,8 +184,9 @@ mqtt:
               for(JsonVariant v : array) {
                   Serial.println(v.as<int>());
                   auto command = v.as<std::string>();
-                  id(send_command).execute(command);
+                  id(haui_disp).send_command(command, false);
               }
+              id(haui_disp).process_commands();
             } else if (name == "set_component_text") {
               ESP_LOGD("haui", "Command: set_component_text %s", value.c_str());
               StaticJsonDocument<200> doc;
@@ -678,9 +679,9 @@ script:
             id(haui_disp).set_component_int("settings.adAvailable", 1);
           } else {
             // ATT: hardcoded system page
-            if (id(page).state != 1) {
+            if (int(id(page).state) != 1) {
               id(display_wakeup).execute();
-              id(goto_page).execute("1");
+              id(goto_page).execute("system");
             }
           }
           if (id(client_status).state != haui_status_str) {
@@ -746,7 +747,6 @@ script:
           }
 
           // all conditions must be met for state connected
-          // add conditions must be met for state connected
           // display initialized, conected with api, connected with appdaemon
           // until then the state is not connected
           bool connected = haui_initialized and api_connected and ad_available and ad_connected;
@@ -883,7 +883,7 @@ script:
           int current_state = int(id(haui_display_state));
           int new_state = current_state;
           // wakeup page (default system)
-          static std::string wakeup_page = "1";
+          static std::string wakeup_page = "system";
 
           // duration of dimming
           float duration_dimming_val = id(duration_dimming).state;
@@ -923,8 +923,10 @@ script:
           // check sleep/wakeup
           if (current_state == 0 && !id(haui_disp).is_sleeping()) {
             // before sleep, remember current page and open blank page (0)
-            wakeup_page = id(page).state;
-            id(goto_page).execute("0");
+            if (int(id(page).state) != 0) {
+              wakeup_page = id(page).state;
+            }
+            id(goto_page).execute("blank");
             id(display_sleep).execute();
           } else if (new_state != 0 && id(haui_disp).is_sleeping()) {
             id(display_wakeup).execute();
@@ -1269,7 +1271,6 @@ switch:
     name: Use Button Interaction
     id: use_button_interaction
     entity_category: config
-    restore_state: true
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
@@ -1278,7 +1279,6 @@ switch:
     name: Use Auto-Dimming
     id: use_auto_dimming
     entity_category: config
-    restore_state: true
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
@@ -1287,7 +1287,6 @@ switch:
     name: Use Auto-Page
     id: use_auto_page
     entity_category: config
-    restore_state: true
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
@@ -1296,7 +1295,6 @@ switch:
     name: Use Auto-Sleeping
     id: use_auto_sleeping
     entity_category: config
-    restore_state: true
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
@@ -1335,7 +1333,6 @@ switch:
     name: Use Relay Left
     id: use_relay_left
     entity_category: config
-    restore_state: true
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
@@ -1344,7 +1341,6 @@ switch:
     name: Use Relay Right
     id: use_relay_right
     entity_category: config
-    restore_state: true
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 

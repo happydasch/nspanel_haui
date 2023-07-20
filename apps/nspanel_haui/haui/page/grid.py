@@ -206,16 +206,18 @@ class GridPage(HAUIPage):
     # callback
 
     def callback_entity_state(self, entity, attribute, old, new, kwargs):
-        if entity not in self._active_entities.values():
+        entity_ids = set([haui_entity.get_entity_id() for haui_entity in self._active_entities.values() if haui_entity is not None])
+        if entity not in entity_ids:
             return
-        idx = 1
-        for ovl, value in self._active_entities.items():
-            if entity == value:
-                self.start_rec_cmd()
-                self.update_grid_entry(idx)
-                self.stop_rec_cmd(send_commands=True)
-                break
+        self.start_rec_cmd()
+        idx = 0
+        for ovl, haui_entity in self._active_entities.items():
             idx += 1
+            if haui_entity is None:
+                continue
+            if entity == haui_entity.get_entity_id():
+                self.update_grid_entry(idx)
+        self.stop_rec_cmd(send_commands=True)
 
     def callback_function_component(self, fnc_id, fnc_name):
         if fnc_name == 'next_page':

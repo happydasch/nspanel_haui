@@ -287,7 +287,7 @@ class HAUIPage(HAUIPart):
         entity_state = entity.get_entity_state()
         navigation = self.app.controller['navigation']
         if entity_type == 'light':
-            if entity_state != 'unavailable':
+            if entity.has_entity() and entity_state != 'unavailable':
                 # open popup
                 navigation.open_popup('popup_light', entity_id=entity.get_entity_id())
             else:

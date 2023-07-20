@@ -8,8 +8,6 @@ from ..page.weather import WeatherPage
 from ..page.clock import ClockPage
 from ..page.grid import GridPage
 from ..page.row import RowPage
-from ..page.column import ColumnPage
-from ..page.split import SplitPage
 from ..page.light import LightPage
 from ..page.media import MediaPage
 from ..page.timer import TimerPage
@@ -40,16 +38,14 @@ PAGE_MAPPING = {
     5: 'clock',
     6: 'grid',
     7: 'row',
-    8: 'column',
-    9: 'split',
-    10: 'light',
-    11: 'thermo',
-    12: 'media',
-    13: 'qr',
-    14: 'alarm',
-    15: 'timer',
-    16: 'notify',
-    17: 'select',
+    8: 'light',
+    9: 'thermo',
+    10: 'media',
+    11: 'qr',
+    12: 'alarm',
+    13: 'timer',
+    14: 'notify',
+    15: 'select',
 }
 
 # system panel mapping
@@ -84,8 +80,6 @@ PANEL_MAPPING = {
     'clock': ('clock', ClockPage),
     'grid': ('grid', GridPage),
     'row': ('row', RowPage),
-    'column': ('column', ColumnPage),
-    'split': ('split', SplitPage),
     'light': ('light', LightPage),
     'media': ('media', MediaPage),
     'timer': ('timer', TimerPage),

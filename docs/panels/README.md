@@ -9,14 +9,10 @@
   - [Entities Panels](#entities-panels)
     - [Panel Grid `grid`](#panel-grid-grid)
     - [Panel Row `row`](#panel-row-row)
-    - [Panel Column `column`](#panel-column-column)
-    - [Panel Split `split`](#panel-split-split)
   - [Main Panels](#main-panels)
     - [Panel Light `light`](#panel-light-light)
-    - [Panel Thermo  `thermo`](#panel-thermo--thermo)
     - [Panel Media `media`](#panel-media-media)
     - [Panel QR-Code `qr`](#panel-qr-code-qr)
-    - [Panel Alarm `alarm`](#panel-alarm-alarm)
     - [Panel Timer `timer`](#panel-timer-timer)
   - [Other Panels](#other-panels)
     - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
@@ -60,18 +56,6 @@ Panels with navigation. For showing entities.
 
   ![Panel Row](../assets/panel_row.png)
 
-### [Panel Column](panel_column.md) `column`
-
-  Panel with 5 entities in columns.
-
-  ![Panel Column](../assets/panel_column.png)
-
-### [Panel Split](panel_split.md) `split`
-
-  Split panel with 3+5 entities.
-
-  ![Panel Split](../assets/panel_split.png)
-
 ## Main Panels
 
 Panels with navigation. Main Display Elements.
@@ -81,12 +65,6 @@ Panels with navigation. Main Display Elements.
   Panel to control a light entity.
 
   ![Panel Light](../assets/panel_light.png)
-
-### [Panel Thermo](panel_thermo.md)  `thermo`
-
-  Thermostat control panel.
-
-  ![Panel Thermostat](../assets/panel_thermo.png)
 
 ### [Panel Media](panel_media.md) `media`
 
@@ -99,12 +77,6 @@ Panels with navigation. Main Display Elements.
   QR-Code panel for Wifi Details or other informations / urls.
 
   ![Panel QR-Code](../assets/panel_qr.png)
-
-### [Panel Alarm](panel_alarm.md) `alarm`
-
-  Alarm panel with a keypad.
-
-  ![Panel Alarm](../assets/panel_alarm.png)
 
 ### [Panel Timer](panel_timer.md) `timer`
 

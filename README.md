@@ -3,13 +3,15 @@
 
 `nspanel-haui` is a versatile display system for HomeAssistant based smart homes.
 
+![Panel](docs/assets/home_panel.png)
+
 - [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
   - [About](#about)
   - [Features](#features)
-  - [Resources](#resources)
   - [Installation](#installation)
+  - [Resources](#resources)
   - [Development](#development)
-    - [Roadmap](#roadmap)
+  - [What's next?](#whats-next)
   - [Additional Information](#additional-information)
 
 ## About
@@ -20,49 +22,65 @@ For details about the configuration see [Configuration](docs/Config.md). Also lo
 
 - **A variety of different panels**
 
+  ![Panels 1](docs/assets/feature_panels_1.png)
+
+  ![Panels 2](docs/assets/feature_panels_2.png)
+
   Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
 
 - **Touch gestures and sequences**
+
+  ![Touch](docs/assets/feature_touch.png)
 
   Different touch gestures as swipe left or right are supported. There is also support for gesture sequences.
 
 - **Live state updates**
 
+  ![Touch](docs/assets/feature_live_update.png)
+
   The display will update when a entity state changes. All entities being displayed will notify about changes and the display will update.
 
 - **Button and relay states, coupled and uncoupled relays**
+
+  ![Buttons](docs/assets/feature_buttons.png)
 
   The buttons can be used in a couped state, so that by button presses, the relay will get activated. It is also possible to disable the relay and use the physical buttons as software buttonms.
 
 - **Dimming of the display after a timeout**
 
+  ![Dimming](docs/assets/feature_dimming.png)
+
   The display will automatically dim its brightness after a timeout.
 
 - **Sleep display change after a timeout**
+
+  ![Sleep](docs/assets/feature_sleep.png)
 
   The display can switch to a page after a timeout. There are sleep and wakeup panels possible.
 
 - **Locking/Unlocking mechanism for panels**
 
+  ![Unlock](docs/assets/feature_unlock.png)
+
   All panels can be locked by a pin code. The panel can be accessed after entering the pin code.
 
 - **Device settings in HomeAssistant**
+
+  ![Config](docs/assets/feature_settings.png)
 
   The whole device configuration can be done in HomeAssistant.
 
 - **Device display configuration in a single yaml file**
 
+  ![Config](docs/assets/feature_config.png)
+
   The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
 
 - **Optimized custom ESPHome component**
 
+  ![Custom component](docs/assets/feature_custom_component.png)
+
   For the communication between the esp32 and the nextion display a custom component `nspanel_haui` is used. It provides basic functionality like `send_command`, `get_int_value`, `get_txt_value`, etc. and also generates events for button presses and other changes on the display.
-
-## Resources
-
-- [Documentation](docs/README.md)
-- [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)
-- [Thread in HomeAssistant Community](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
 
 ## Installation
 
@@ -75,7 +93,15 @@ The simplified process is as followed:
 3. Install [AppDaemon App](docs/AppDaemon.md)
 4. Add [Configuration](docs/Config.md)
 
-Take also a look at the more detailed [Installation Guide](docs/Install.md). Have also a look at the [FAQ](docs/FAQ.md).
+Take a look at the more detailed [Installation Guide](docs/Install.md). Have also a look at the [FAQ](docs/FAQ.md).
+
+## Resources
+
+- [Documentation](docs/README.md)
+- [Panels Overview](docs/panels/README.md)
+- [Example Configurations](docs/Example_Config.md)
+- [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)
+- [Thread in HomeAssistant Community](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
 
 ## Development
 
@@ -87,34 +113,13 @@ For details about how the parts of the whole system communicate together see [NS
 - [AppDaemon Component](docs/AppDaemon.md)
 - [Nextion Component](docs/Nextion.md)
 
-### Roadmap
+## What's next?
 
-Basic functionality
+Some planned functionality coming in the future:
 
-- [x] Basic app structure to be able to interact with display
-- [x] Load panels and entities from config
-- [x] Trigger entities (internal/external)
-- [x] Add translation functionality
-- [x] Add default panels (list,grid, ...)
-- [x] Add detail panels and popups
-- [x] Add basic interaction functionality between panels
-- [x] Add missing panel functionality (all panels should work)
-
-Improvements / Additional
-
-- [x] Create new font using Roboto font
-- [x] Add style and design for panels
-- [ ] Implement design in hmi file
-- [ ] Add initial panels
-- [ ] Add updater
-
-First release
-
-- [ ] Support for timebased value overrides
-- [ ] Add panel design in common format like PSD
-- [ ] Add templates for panels in common format like PSD
-- [ ] Add new panels (thermo, cover, etc.)
-- [ ] Add a light theme?
+- Config values based on conditions like time, day, etc.
+- More entity pages like themo, alarm, shutter/cover control
+- More functionality ...
 
 ## Additional Information
 

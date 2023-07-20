@@ -16,6 +16,8 @@
 
 ![Overview](assets/style_overview.png)
 
+You can download a [template file](assets/panel.psd) in PSD Format.
+
 ## Style
 
 ![Components](assets/style_components.png)

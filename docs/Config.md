@@ -3,6 +3,7 @@
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
 - [Configuration Description](#configuration-description)
+  - [Example Configuration](#example-configuration)
   - [Common Configuration](#common-configuration)
   - [Device Configuration](#device-configuration)
   - [Navigation Configuration](#navigation-configuration)
@@ -30,6 +31,10 @@
       - [Entity: text](#entity-text)
       - [Entity: navigate](#entity-navigate)
       - [Entity: script](#entity-script)
+
+## Example Configuration
+
+To get an idea of the configuration, take also a look into [example configurations](Example_Config.md).
 
 ## Common Configuration
 

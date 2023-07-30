@@ -109,5 +109,7 @@ class PopupNotifyPage(HAUIPage):
         if self._button_callback_fnc:
             btn_left = True if component == self.BTN_LEFT else False
             btn_right = True if component == self.BTN_RIGHT else False
+            navigation.close_panel(False)
             self._button_callback_fnc(btn_left, btn_right)
-        navigation.close_panel()
+        else:
+            navigation.close_panel()

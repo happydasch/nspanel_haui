@@ -35,3 +35,25 @@ def get_translations(locale):
     with open(path_file, 'r') as translation_file:
         translations = json.load(translation_file)
     return translations
+
+
+def trim_text(text, num_chr, suffix='..'):
+    """
+    Trim text to a certain number of characters
+
+    Args:
+        text (str): Text to trim
+        num_chr (int): Number of characters to trim to
+        suffix (str): Suffix to add to the end of the trimmed text
+
+    Returns:
+        str: The trimmed text
+    """
+    if not suffix:
+        suffix = ''
+    if not text:
+        return text
+    if len(text) > num_chr:
+        return text[:num_chr - len(suffix)] + suffix
+    else:
+        return text

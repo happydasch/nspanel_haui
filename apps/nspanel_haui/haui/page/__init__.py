@@ -356,12 +356,6 @@ class HAUIPage(HAUIPart):
 
     # basic page functionality (see HAUIBase for generic methods)
 
-    def trim_text(self, text, num_chr, suffix='..'):
-        if len(text) > num_chr:
-            return text[:num_chr - len(suffix)] + suffix
-        else:
-            return text
-
     def parse_color(self, color):
         """ Parses the given color.
 

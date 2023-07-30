@@ -1,5 +1,6 @@
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon, get_icon_name_by_action
+from ..helper.text import trim_text
 from . import HAUIPage
 
 
@@ -208,7 +209,7 @@ class RowPage(HAUIPage):
             return
         ico = getattr(self, f'R{idx}_ICO')
         name = getattr(self, f'R{idx}_NAME')
-        self.set_component_text(name, self.trim_text(entity.get_name(), self.LEN_NAME))
+        self.set_component_text(name, trim_text(entity.get_name(), self.LEN_NAME))
         self.set_component_text(ico, entity.get_icon())
         self.set_component_text_color(ico, entity.get_color())
         display_type = self.get_entity_display_type(entity)

@@ -1,5 +1,6 @@
 from ..mapping.color import COLORS
 from ..helper.color import generate_color_palette, rgb565_to_rgb
+from ..helper.text import trim_text
 
 from . import HAUIPage
 import random
@@ -199,7 +200,7 @@ class GridPage(HAUIPage):
         name = getattr(self, f'G{idx}_NAME')
         entity = self._active_entities[ovl]
         # set text
-        self.set_component_text(name, self.trim_text(entity.get_name(), self.LEN_NAME))
+        self.set_component_text(name, trim_text(entity.get_name(), self.LEN_NAME))
         self.set_component_text_color(ico, entity.get_color())
         self.set_component_text(ico, entity.get_icon())
 
@@ -233,13 +234,11 @@ class GridPage(HAUIPage):
         if button_state:
             return
         for haui_entity, mapping in self._entity_mapping.items():
-            self.log(mapping)
             if mapping['power'] != component:
                 continue
-            entity = haui_entity.get_entity()
-            if entity is None:
+            if not haui_entity.has_entity():
                 break
-            entity.execute()
+            haui_entity.execute()
 
     def callback_grid_entries(self, event, component, button_state):
         if button_state:

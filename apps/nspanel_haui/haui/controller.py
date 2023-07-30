@@ -1,3 +1,4 @@
+from distutils.version import LooseVersion
 import requests
 
 from .version import __version__ as haui_version
@@ -6,6 +7,8 @@ import time
 import json
 
 from .helper.page import get_page_id_for_panel, get_page_class_for_panel
+from .helper.text import trim_text
+from .mapping.color import COLORS
 from .const import (
     SERVER_REQUEST, SERVER_RESPONSE, ESP_EVENT, ESP_REQUEST,
     ESP_RESPONSE, ALL_RECV, ALL_CMD)
@@ -168,6 +171,7 @@ class HAUIConnectionController(HAUIPart):
         """
         if self._timer:
             self._timer.cancel()
+            self._timer = None
 
     def _restart_timer(self):
         """ Restarts the check timer.
@@ -197,7 +201,7 @@ class HAUIConnectionController(HAUIPart):
     # part
 
     def start_part(self):
-        """ Starts the part.
+        """ Called when part is started.
         """
         # set interval
         device_interval = self.app.device.device_vars.get(
@@ -205,6 +209,11 @@ class HAUIConnectionController(HAUIPart):
         self._interval = int(self.get('heartbeat_interval', device_interval))
         self.log(f'Using heartbeat interval: {self._interval}')
         self._start_timer()
+
+    def stop_part(self):
+        """ Called when part is stopped.
+        """
+        self._stop_timer()
 
     # events
 
@@ -592,6 +601,7 @@ class HAUINavigationController(HAUIPart):
         config = panel.get_default_config(return_copy=True)
         merge_dicts(config, kwargs)
         panel.set_config(config)
+
         # lock current panel before setting new
         if self.panel is not None:
             persistent_config = self.panel.get_persistent_config(return_copy=False)
@@ -599,9 +609,6 @@ class HAUINavigationController(HAUIPart):
             if 'locked' in persistent_config:
                 # ensure the panel is locked before setting new panel
                 persistent_config['locked'] = True
-        # set new panel as current panel
-        self.panel = panel
-        self.panel_kwargs = kwargs
 
         # new panel is a navigatable panel
         if panel.get_mode() == 'panel':
@@ -615,6 +622,10 @@ class HAUINavigationController(HAUIPart):
             # add to the navigation stack
             self._stack.append((panel, kwargs))
 
+        # set new panel as current panel
+        self.panel = panel
+        self.panel_kwargs = kwargs
+
         # if new panel has an unlock code set and panel is locked,
         # open unlock panel instead
         persistent_config = panel.get_persistent_config(return_copy=False)
@@ -626,15 +637,15 @@ class HAUINavigationController(HAUIPart):
             self.open_popup('popup_unlock', unlock_panel=panel)
             return
 
-        # check current page
+        # check current page before setting new panel
         curr_page_id = None
         if self.page is not None:
             curr_page_id = self.page.page_id
             self.page.stop()
+            self.page = None
         # set new current page and panel
-        self.page = page_class(self.app, {'page_id': page_id})
-        # set new page for panel
         self.log(f'Switching to page {page_id} from {curr_page_id}')
+        self.page = page_class(self.app, {'page_id': page_id})
         # notify about panel creation early in process
         self.page.create_panel(panel)
         # set new page for panel
@@ -670,7 +681,7 @@ class HAUINavigationController(HAUIPart):
             self._close_timeout = threading.Timer(timeout, self.close_panel)
             self._close_timeout.start()
 
-    def close_panel(self):
+    def close_panel(self, open_prev=True):
         """ Closes the current panel.
         """
         # check for active timer
@@ -709,7 +720,7 @@ class HAUINavigationController(HAUIPart):
                 if prev_panel.id == unlock_panel.id and persistent_config.get('locked', False):
                     prev_panel, prev_kwargs = None, None
         # open new panel
-        if prev_panel is not None:
+        if open_prev and prev_panel is not None:
             self.open_panel(prev_panel.id, **prev_kwargs)
 
     # helper
@@ -717,7 +728,7 @@ class HAUINavigationController(HAUIPart):
     def open_next_panel(self):
         """ Opens the next panel.
         """
-        # self.log('Open next panel')
+        self.log('Open next panel')
         if self._current_nav is None:
             return
         if self._current_nav.id not in self._ids:
@@ -732,7 +743,7 @@ class HAUINavigationController(HAUIPart):
     def open_prev_panel(self):
         """ Opens the previous panel.
         """
-        # self.log('Open prev panel')
+        self.log('Open prev panel')
         if self._current_nav is None:
             return
         if self._current_nav.id not in self._ids:
@@ -805,12 +816,6 @@ class HAUINavigationController(HAUIPart):
                         f'Wrong page {event.as_int()} for current panel page activated,'
                         f' reloading panel to reset page to {self.page.page_id}')
                     self.reload_panel()
-                # check received page id
-                elif self.page.page_id_recv is not None:
-                    self.log(
-                        f'Page already got a page_id {event.as_int()} for current panel,'
-                        f' refreshing panel to reset page to {self.page.page_id}')
-                    self.refresh_panel()
                 # page is correct
                 else:
                     # update page id
@@ -867,11 +872,7 @@ class HAUIUpdateController(HAUIPart):
 
     """
     Update Controller
-
-    TODO
-    - check for esphome version
     - check for display tft version
-    - check for haui version
     """
 
     RELEASES_URL = 'https://api.github.com/repos/happydasch/nspanel_haui/releases'
@@ -885,8 +886,38 @@ class HAUIUpdateController(HAUIPart):
         """
         super().__init__(app, config)
         self.log(f'Creating Update Controller with config: {config}')
-        self._timer = None
-        self._connected_timer = None
+        self._timer = None  # timer for update check by interval
+        self._connected_timer = None  # timer for update check on connected
+        self._req_await = False
+        self._update_url = None
+
+    # internal
+
+    def _start_timer(self, interval):
+        self._timer = threading.Timer(
+            interval,
+            lambda: self.callback_timer())
+        self._timer.daemon = True
+        self._timer.start()
+
+    def _stop_timer(self):
+        if self._timer is not None:
+            self._timer.cancel()
+            self._timer = None
+
+    def restart_timer(self):
+        self._stop_timer()
+        self._start_timer()
+
+    def _start_connected_timer(self, interval):
+        self._connected_timer = threading.Timer(
+            interval, lambda: self.request_device_info(True))
+        self._connected_timer.start()
+
+    def _stop_connected_timer(self):
+        if self._connected_timer is not None:
+            self._connected_timer.cancel()
+            self._connected_timer = None
 
     # part
 
@@ -895,42 +926,112 @@ class HAUIUpdateController(HAUIPart):
         """
         interval = self.get('update_interval', 0)
         if interval > 0:
-            self._timer = threading.Timer(
-                interval,
-                lambda: self.send_device_info_request())
-            self._timer.daemon = True
-            self._timer.start()
+            self._start_timer(interval)
 
     def stop_part(self):
         """ Stops the part.
         """
-        if self._timer is not None:
-            self._timer.cancel()
+        self._stop_timer()
+        self._stop_connected_timer()
 
     # public
 
-    def send_device_info_request(self):
+    def request_device_info(self, check_for_update=True):
         """ Sends a device info request to the panel.
+
+        Args:
+            check_for_update (bool, optional): Should the controller check for updates. Defaults to True.
         """
         self.log('Sending device_info request')
         self.send_mqtt(ESP_REQUEST['req_device_info'])
+        self._req_await = check_for_update
 
-    def check_for_update(self, device_info):
-        # TODO
-        self.log('Checking for update')
-        resp = requests.get(self.RELEASES_URL)
-        self.log(f'Got resp {resp}')
+    def check_required_tft_version(self):
+        """ Checks if the required tft version is installed.
+        """
+        if self._device_info is None:
+            self.log('No device info available')
+            return
+        device_info = self._device_info
+        required_version = device_info.get('required_tft_version')
+        installed_version = device_info.get('tft_version')
+        if required_version is None or installed_version is None:
+            # notify about unknown versions
+            msg = self.translate('Got unknown TFT-Version information.')
+        elif LooseVersion(required_version) > LooseVersion(installed_version):
+            # notify about outdated tft version
+            msg = self.translate('Your TFT-version is outdated.')
+        else:
+            # everything is fine (installed version is newer or equal to required version)
+            return
+        # append check for update text
+        msg += '\r\n'
+        msg += self.translate('Do you want to check for a update?')
+        # open notification
+        navigation = self.app.controller['navigation']
+        navigation.open_popup(
+            'popup_notify',
+            icon='mdi:message-question',
+            title=self.translate('Outdated TFT-Version'),
+            btn_left_color=COLORS['component_active'],
+            btn_right_color=COLORS['component_active'],
+            btn_right_back_color=COLORS['component_pressed'],
+            btn_left=self.translate('Cancel'),
+            btn_right=self.translate('Check'),
+            button_callback_fnc=self.callback_check_response,
+            notification=msg)
+
+    def check_for_update(self):
+        """ Checks for updates.
+        """
+        if self._device_info is None:
+            self.log('No device info available')
+            return False
+        device_info = self._device_info
         try:
+            resp = requests.get(self.RELEASES_URL)
             json_decoded = resp.json()
-            tag = json_decoded[0]['tag_name']
-            assets = json_decoded[0]['assets']
-            self.log(f'Got resp {tag}-{assets}')
         except Exception:
-            pass
-
-        '''if True:
-            navigation = self.app.controller['navigation']
-            msg = self.translate('A new display version is available.')
+            self.log('Could not get release info')
+            return False
+        self.log('Checking for update')
+        # get the latest release
+        latest_release = None
+        for release in json_decoded:
+            temp_version = None if latest_release is None else LooseVersion(latest_release['tag_name'])
+            new_version = LooseVersion(release['tag_name'])
+            if temp_version is None or new_version > temp_version:
+                latest_release = release
+        # check latest release against currently installed version
+        if latest_release is None:
+            self.log('No release available')
+            return False
+        current_version = LooseVersion(device_info['tft_version'])
+        latest_version = LooseVersion(latest_release['tag_name'])
+        if current_version >= latest_version:
+            self.log('No update available')
+            return False
+        # check for availability of tft file
+        tft_filename = self.get('tft_filename')
+        assets = latest_release['assets']
+        tft_file_asset = None
+        for asset in assets:
+            if asset['name'] == tft_filename:
+                tft_file_asset = asset
+        if tft_file_asset is None:
+            self.log('No tft file available')
+            return False
+        # notify about the new release
+        self._update_url = latest_release['browser_download_url']
+        name = latest_release['name']
+        description = latest_release['body']
+        # notify about new release (or update if autoupdate)
+        if self.get('auto_update', False):
+            self.run_update_display()
+        else:
+            msg = name
+            msg += '\r\n'
+            msg += trim_text(description, 200)
             msg += '\r\n'
             msg += self.translate('Current Version:')
             msg += ' ' + str(device_info['tft_version'])
@@ -939,22 +1040,57 @@ class HAUIUpdateController(HAUIPart):
             msg += ' ' + str(new_version)
             msg += '\r\n'
             msg += self.translate('Do you want to update?')
-
             # open notification
-            navigation.open_panel(
+            navigation = self.app.controller['navigation']
+            navigation.open_popup(
                 'popup_notify',
+                icon='mdi:message-question',
                 title=self.translate('Update available'),
-                btn_left_back_color=(255, 0, 0),
-                btn_right_back_color=(0, 255, 0),
-                btn_left=self.translate('No'),
-                btn_right=self.translate('Yes'),
+                btn_left_color=COLORS['component_active'],
+                btn_right_color=COLORS['component_active'],
+                btn_right_back_color=COLORS['component_pressed'],
+                btn_left=self.translate('Cancel'),
+                btn_right=self.translate('Update'),
                 button_callback_fnc=self.callback_update_response,
-                notification=msg)'''
+                notification=msg)
+        return True
+
+    def run_update_display(self):
+        if self._update_url is None:
+            self.log('No update url available')
+            return
+        # run update
+        device_name = self.app.device.get('device_name', 'nspanel_haui')
+        self.app.call_service(
+            f'esphome/{device_name}_upload_tft_url',
+            url=self._update_url)
 
     # callback
 
+    def callback_check_response(self, btn_left, btn_right):
+        if btn_right:
+            self._stop_connected_timer()
+            update = self.check_for_update()
+            if update:
+                return
+            msg = self.translate('There is no update available')
+            # open notification
+            navigation = self.app.controller['navigation']
+            navigation.open_popup(
+                'popup_notify',
+                icon='mdi:message-alert',
+                title=self.translate('No update found'),
+                btn_right_color=COLORS['component_active'],
+                btn_right=self.translate('Close'),
+                notification=msg)
+
     def callback_update_response(self, btn_left, btn_right):
-        self.log('Would start update')
+        if btn_right:
+            self.run_update_display()
+
+    def callback_timer(self):
+        self._restart_timer()
+        self.request_device_info(True)
 
     # event
 
@@ -965,19 +1101,23 @@ class HAUIUpdateController(HAUIPart):
             event (HAUIEvent): Event
         """
         if event.name == ESP_EVENT['connected']:
-            if self._connected_timer is not None:
-                self._connected_timer.cancel()
-                self._connected_timer = None
+            self._stop_connected_timer()
             # request device infos when device connects
-            # FIXME remove the need of req_device_info as a trigger
             if self.get('check_on_connect', False):
                 delay_interval = self.get('on_connect_delay', 30)
                 self.log(f'Checking for update on connect in {delay_interval} seconds')
-                self._connected_timer = threading.Timer(
-                    delay_interval, lambda: self.send_device_info_request())
-                self._connected_timer.start()
+                self._start_connected_timer(delay_interval)
+            # always request device infos when device is connected
+            # so a check for outdated tft version can be done quicker
+            # than first update check
+            self.request_device_info(False)
+
+        # device info is received, check for update with device info
         if event.name == ESP_RESPONSE['res_device_info']:
-            self.log('Got device_info response')
             device_info = json.loads(event.value)
+            self._device_info = device_info
             self.app.device.set_device_vars(device_info, append=True)
-            self.check_for_update(device_info)
+            self.check_required_tft_version()
+            # only if update controller requested the value
+            if self._req_await:
+                self.check_for_update()

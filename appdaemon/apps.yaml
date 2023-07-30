@@ -25,9 +25,11 @@ nspanel-haui:
 
     # update controller
     update:
-      update_interval: 86400
+      auto_update: false
+      tft_filename: nspanel_haui.tft
       check_on_connect: false
       on_connect_delay: 60
+      update_interval: 0
 
     # gesture controller
     gesture:

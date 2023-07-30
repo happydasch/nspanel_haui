@@ -45,3 +45,13 @@ The display operations with minimal logic are assigned to Nextion, which works i
 - [Nextion Component](Nextion.md)
 
   Most logic is implemented in the AppDaemon App. The display is responsible for showing the panels, doing time critical processing like animations, preparing components on pages before they being shown.
+
+## Versioning
+
+There are version informations for:
+
+- AppDaemon App
+- YAML-File for ESPHome
+- TFT-Display File (Matches Release Version)
+
+Every release should contain the tft files as assets. The version for the tft files should match the release version.

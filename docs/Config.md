@@ -122,19 +122,25 @@ mqtt:
 
 ## Update Controller
 
+The update controller is responsible for checking version informations and notify about any issues.
+
+To enable update checks set an interval > 0 and/or set check_on_connect to true.
+
 `update` dict
 
 ```yaml:
 update:
-  interval: 86400
-  check_on_connect: false
-  on_connect_delay: 60
+  auto_update: false  # Update automatically on new releases
+  tft_filename: nspanel_haui.tft  # The asset filename to load
+  check_on_connect: false  # Should be checked for updates when connected
+  on_connect_delay: 60  # Delay between connect and check
+  interval: 0  # Set to 86400 for daily checks
 ```
 
+- `auto_update` bool
+- `tft_filename` string
 - `interval` int
-
 - `check_on_connect` bool
-
 - `on_connect_delay` int
 
 ## Connection Controller
@@ -148,7 +154,6 @@ connection:
 ```
 
 - `interval` int
-
 - `overdue_factor` float
 
 ## Panels
@@ -369,7 +374,6 @@ Accepts:
 [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)
 
 `haui_entity.get_icon()`
-
 
 #### Templating using HomeAssistant
 

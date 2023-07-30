@@ -150,9 +150,11 @@ DEFAULT_CONFIG = {
 
     # update related settings
     'update': {
-        'update_interval': 86400,  # Defaults to 86400 sec, set to 0 to disable
+        'auto_update': False,  # Defaults to false, set to true to automatically update display when a new release is available
+        'tft_filename': 'nspanel_haui.tft',  # tft filename to use
         'check_on_connect': False,  # Defaults to false, set to true to check for updates on connect
         'on_connect_delay': 60,  # Defaults to 60 sec, delay before checking for updates on connect
+        'update_interval': 0,  # Defaults to 0 sec, set to 0 to disable, set to 86400 for daily checks
     },
 
     # system panels configuration

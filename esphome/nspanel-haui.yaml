@@ -6,9 +6,9 @@
 # 1. Configuration Variables
 substitutions:
   # Version of this yaml config file
-  yaml_version: '0.0.6'
+  yaml_version: '0.1.0'
   # Required version of the display tft file
-  required_tft_version: '0.0.6'
+  required_tft_version: '0.1.0'
   # Friendly name of the device
   friendly_name: 'NSPanel HAUI'
   # Name of the device (ha device name should match device name,

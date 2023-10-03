@@ -1,34 +1,30 @@
 #pragma once
 
+#include "nspanel_haui_types.h"
+
 #include "esphome/core/defines.h"
 #include "esphome/core/component.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/display/display_color_utils.h"
 
-#ifdef USE_NSPANEL_HAUI_TFT_UPLOAD
-#ifdef USE_ESP32
-#include <HTTPClient.h>
-#endif
-#ifdef USE_ESP8266
-#include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
-#endif
-#endif
-
-#include "nspanel_haui_types.h"
+#include <HTTPClient.h>
 
 namespace esphome {
 namespace nspanel_haui {
 
-class NSPanelHAUI;
+  class NSPanelHAUI;
 
-using haui_writer_t = std::function<void(NSPanelHAUI &)>;
+  using haui_writer_t = std::function<void(NSPanelHAUI &)>;
 
-static const std::string COMMAND_DELIMITER{static_cast<char>(255), static_cast<char>(255), static_cast<char>(255)};
-static const uint32_t RECV_TIMEOUT_MS = 500;
+  static const std::string COMMAND_DELIMITER{static_cast<char>(255), static_cast<char>(255), static_cast<char>(255)};
+  static const uint32_t RECV_TIMEOUT_MS = 500;
+
 
 class NSPanelHAUI : public PollingComponent, public uart::UARTDevice {
 
+
+  // main functionality
   public:
 
     void setup() override;
@@ -38,6 +34,7 @@ class NSPanelHAUI : public PollingComponent, public uart::UARTDevice {
     float get_setup_priority() const override;
     void set_writer(const haui_writer_t &writer);
     void soft_reset();
+    void hard_reset();
     bool sleep();
     bool wakeup();
     bool is_sleeping() { return this->is_sleeping_; }
@@ -305,54 +302,43 @@ class NSPanelHAUI : public PollingComponent, public uart::UARTDevice {
     bool is_ready_ = false;
 
 
-#ifdef USE_NSPANEL_HAUI_TFT_UPLOAD
+  // upload
   public:
+
     /**
-     * Set the tft file URL. https seems problamtic with arduino..
+     * Set the tft file URL.
      */
     void set_tft_url(const std::string &tft_url) { this->tft_url_ = tft_url; }
 
     /**
-     * Upload the tft file and softreset the display
+     * Upload the tft file
      */
     void upload_tft();
 
   protected:
 
-#ifdef USE_ESP8266
-    WiFiClient *wifi_client_{nullptr};
-    BearSSL::WiFiClientSecure *wifi_client_secure_{nullptr};
-    WiFiClient *get_wifi_client_();
-#endif
+    /**
+     * will request chunk_size chunks from the web server
+     * and send each to the display
+     *
+     * @param int content_length Total size of the file
+     * @param uint32_t chunk_size
+     * @return true if success, false for failure.
+     */
+    int upload_by_chunks_(String location, int range_start);
+
+    void upload_end_();
 
     std::string tft_url_;
     uint8_t *transfer_buffer_{nullptr};
     size_t transfer_buffer_size_;
     bool upload_first_chunk_sent_ = false;
-    /**
-     * will request chunk_size chunks from the web server
-     * and send each to the display
-     * @param int content_length Total size of the file
-     * @param uint32_t chunk_size
-     * @return true if success, false for failure.
-     */
+
     int content_length_ = 0;
     int tft_size_ = 0;
-    int upload_by_chunks_(HTTPClient *http, int range_start);
-    bool upload_with_range_(uint32_t range_start, uint32_t range_end);
-    /**
-     * start update tft file to display.
-     *
-     * @param const uint8_t *file_buf
-     * @param size_t buf_size
-     * @return true if success, false for failure.
-     */
-    bool upload_from_buffer_(const uint8_t *file_buf, size_t buf_size);
-    void upload_end_();
-#endif  // USE_NSPANEL_HAUI_TFT_UPLOAD
-
 
 };
+
 
 }  // namespace nspanel_haui
 }  // namespace esphome

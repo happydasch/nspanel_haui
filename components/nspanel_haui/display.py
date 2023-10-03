@@ -92,11 +92,8 @@ async def to_code(config):
     if CONF_TFT_URL in config:
         cg.add_define("USE_NSPANEL_HAUI_TFT_UPLOAD")
         cg.add(var.set_tft_url(config[CONF_TFT_URL]))
-        if CORE.is_esp32:
-            cg.add_library("WiFiClientSecure", None)
-            cg.add_library("HTTPClient", None)
-        if CORE.is_esp8266:
-            cg.add_library("ESP8266HTTPClient", None)
+        cg.add_library("WiFiClientSecure", None)
+        cg.add_library("HTTPClient", None)
 
     await display.register_display(var, config)
 

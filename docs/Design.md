@@ -2,7 +2,7 @@
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
-![Grid](../nextion/images/grid.png)
+![Grid](../device/nextion/images/grid.png)
 
 - [Design Guidelines](#design-guidelines)
   - [Overview](#overview)

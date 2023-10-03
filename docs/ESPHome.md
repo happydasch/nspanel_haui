@@ -7,7 +7,7 @@ The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAs
 - Provides Scripts and Services for Communication with display
 - Responsible for handling the device functionality
 
-See `esphome/nspanel-haui.yaml` for the configuration file for your device.
+See `device/nspanel-haui.yaml` for the configuration file for your device.
 
 The communication between ESPHome is done mostly via MQTT.
 
@@ -34,7 +34,7 @@ The communication between ESPHome is done mostly via MQTT.
 
 ## Config
 
-An overview of all config variables defined in the ESPHome yaml file.
+An overview of all configuration variables defined in the ESPHome yaml file.
 
 - `yaml_version` (0.0.0)
 - `required_tft_version` (0.0.0)
@@ -64,7 +64,7 @@ An overview of all config variables defined in the ESPHome yaml file.
 
 A custom esphome component `nspanel_haui` is being used. The component is based on the nextion component but supports a different kind of accessing data.
 
-The name of the configuration for this functionality is `esphome/dev/1_nspanel_haui_component.yaml`
+The name of the configuration for this functionality is `device/dev/1_nspanel_haui_component.yaml`
 
 Following functionality is provided by the component:
 
@@ -95,13 +95,15 @@ Following functionality is provided by the component:
 
 - all processing needs to be manually, all value requests needs to be done manually
 
+- updated uploader working with http/https
+
 ## Getting Data
 
 There are different methods to get data from the display. The requests are published with MQTT. The response will be returned after. See [Requests](#requests) for different methods.
 
 ## Communication
 
-The name of the configuration for this functionality is `esphome/dev/2_nspanel_connection.yaml`
+The name of the configuration for this functionality is `device/dev/2_nspanel_connection.yaml`
 
 A description of events being used for communication between ESP and AppDaemon.
 
@@ -317,7 +319,7 @@ These events will be sent out when the device have some page related events.
 
 ## Interaction
 
-The name of the configuration for this functionality is `esphome/dev/2_nspanel_interaction.yaml`
+The name of the configuration for this functionality is `device/dev/3_nspanel_interaction.yaml`
 
 When tracking the last interaction with the device, two input methods are possible: Touchscreen and Buttons. It's possible to disable button as an interaction source by switching off `use_button_interaction`.
 
@@ -379,7 +381,7 @@ The ESP provides some interaction related events. See below for a overview of al
 
 ## Brightness and Dimming
 
-The name of the configuration for this functionality is `esphome/dev/4_nspanel_dimming.yaml`
+The name of the configuration for this functionality is `device/dev/4_nspanel_dimming.yaml`
 
 The whole brightness and dimming functionality is implemented on the ESPHome device.
 

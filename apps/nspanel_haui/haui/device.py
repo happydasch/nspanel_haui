@@ -21,7 +21,7 @@ class HAUIDevice(HAUIPart):
             config (dict, optional): Config of device. Defaults to None.
         """
         super().__init__(app, config)
-        self.device_vars = {}
+        self.device_info = {}
         self.connected = False
         self.sleeping = False
         self._btn_left_info = {'state': False, 'entity_id': None, 'handle': None}
@@ -91,17 +91,17 @@ class HAUIDevice(HAUIPart):
 
     # public
 
-    def set_device_vars(self, device_vars, append=True):
+    def set_device_info(self, device_info, append=True):
         """ Sets devices related vars from a dict.
 
         Args:
-            device_vars (dict): dict with vars
+            device_info (dict): dict with device info vars
             append (bool, optional): Append or replace values. Defaults to True (append).
         """
         if append:
-            self.device_vars = {**self.device_vars, **device_vars}
+            self.device_info = {**self.device_info, **device_info}
         else:
-            self.device_vars = device_vars
+            self.device_info = device_info
 
     def set_connected(self, connected):
         """ Sets the device as connected.
@@ -253,7 +253,7 @@ class HAUIDevice(HAUIPart):
             event (HAUIEvent): Event
         """
         # update device vars values
-        self.device_vars[event.name] = event.value
+        self.device_info[event.name] = event.value
         # process gesture event
         if event.name == ESP_EVENT['gesture']:
             self.process_gesture(event)

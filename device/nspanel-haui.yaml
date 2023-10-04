@@ -6,9 +6,9 @@
 # 1. Configuration Variables
 substitutions:
   # Version of this yaml config file
-  yaml_version: '0.1.0'
+  yaml_version: '0.1.1'
   # Required version of the display tft file
-  required_tft_version: '0.1.0'
+  required_tft_version: '0.1.1'
   # Friendly name of the device
   friendly_name: 'NSPanel HAUI'
   # Name of the device (ha device name should match device name,
@@ -1222,6 +1222,10 @@ button:
     name: Restart Device
     id: restart_device
     disabled_by_default: true
+    on_press:
+      then:
+        - lambda: |-
+            id(haui_disp).hard_reset();
 
   # Restart Display Button
   - platform: template
@@ -1249,7 +1253,6 @@ button:
     entity_category: config
     on_press:
       - lambda: id(haui_disp).upload_tft();
-
 
 # 21. Switch Configuration
 switch:
@@ -1438,18 +1441,24 @@ sensor:
 
   # Internal temperature sensor, ADC value
   - platform: adc
+    name: ADC
     id: ntc_source
     pin: 38
     update_interval: 60s
     attenuation: 11db
+    entity_category: diagnostic
+    disabled_by_default: true
 
   # Internal temperature sensor
   # ADC reading converted to resistance (calculation)
   - platform: resistance
+    name: Resistance
     id: resistance_sensor
     sensor: ntc_source
+    entity_category: diagnostic
     configuration: DOWNSTREAM
     resistor: 11.2kOhm
+    disabled_by_default: true
 
   # Internal temperature sensor
   # resistance to temperature (calculation)

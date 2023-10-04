@@ -33,10 +33,10 @@ class AboutPage(HAUIPage):
         self.stop_rec_cmd(send_commands=True)
 
     def render_panel(self, panel):
-        device_name = self.app.device.device_vars.get('device_friendly_name', '')
-        ip_address = self.app.device.device_vars.get('device_ip', '127.0.0.1')
-        tft_version = self.app.device.device_vars.get('tft_version', '0.0.0')
-        yaml_version = self.app.device.device_vars.get('yaml_version', '0.0.0')
+        device_name = self.app.device.device_info.get('device_friendly_name', '')
+        ip_address = self.app.device.device_info.get('device_ip', '127.0.0.1')
+        tft_version = self.app.device.device_info.get('tft_version', '0.0.0')
+        yaml_version = self.app.device.device_info.get('yaml_version', '0.0.0')
         ad_version = haui.version.__version__
         # about text
         self.set_component_text(self.TXT_ABOUT_1, self.translate('Versatile wall panel for HomeAssistant based'))

@@ -305,7 +305,7 @@ class HAUINavigationController(HAUIPart):
             self._close_timeout = threading.Timer(timeout, self.close_panel)
             self._close_timeout.start()
 
-    def close_panel(self, open_prev=True):
+    def close_panel(self):
         """ Closes the current panel.
         """
         # check for active timer
@@ -344,7 +344,8 @@ class HAUINavigationController(HAUIPart):
                 if prev_panel.id == unlock_panel.id and persistent_config.get('locked', False):
                     prev_panel, prev_kwargs = None, None
         # open new panel
-        if open_prev and prev_panel is not None:
+        if prev_panel is not None:
+            self.log(f'Open previous panel: {prev_panel.id}')
             self.open_panel(prev_panel.id, **prev_kwargs)
 
     # helper
@@ -457,7 +458,7 @@ class HAUINavigationController(HAUIPart):
 
         # check for display state event (dimmed/off/on)
         if event.name == ESP_EVENT['display_state']:
-            prev_state = device.device_vars.get('display_state')
+            prev_state = device.device_info.get('display_state')
             # previous state was off
             if prev_state is not None and prev_state == 'off':
                 self.log(f'Display state changed from sleep to {event.as_str()}')

@@ -106,8 +106,7 @@ class HAUIConnectionController(HAUIPart):
         """ Called when part is started.
         """
         # set interval
-        device_interval = self.app.device.device_vars.get(
-            'heartbeat_interval', 5.0)
+        device_interval = self.app.device.device_info.get('heartbeat_interval', 5.0)
         self._interval = int(self.get('heartbeat_interval', device_interval))
         self.log(f'Using heartbeat interval: {self._interval}')
         self._start_timer()
@@ -146,7 +145,7 @@ class HAUIConnectionController(HAUIPart):
             self._update_last_time()
         if event.name == SERVER_REQUEST['req_connection']:
             connection_request = json.loads(event.value)
-            device.set_device_vars(connection_request, append=False)
+            device.set_device_info(connection_request, append=False)
             self.log(f'Connection request from device: {connection_request}')
             # notify device about next step
             self.send_mqtt(
@@ -155,14 +154,14 @@ class HAUIConnectionController(HAUIPart):
                 True)
         elif event.name == SERVER_REQUEST['res_connection']:
             connection_response = json.loads(event.value)
-            device.set_device_vars(connection_response, append=True)
+            device.set_device_info(connection_response, append=True)
             self.log(f'Connection response from device: {connection_response}')
             # request latest device state infos
             self.send_mqtt(ESP_REQUEST['req_device_state'])
         elif event.name == ESP_RESPONSE['res_device_state']:
             # self.log(f'Device state received {event.value}')
             device_state = json.loads(event.value)
-            device.set_device_vars(device_state, append=True)
+            device.set_device_info(device_state, append=True)
             # after getting device state the device is connected
             if not self.connected:
                 self._set_connected(True)

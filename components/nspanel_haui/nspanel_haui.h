@@ -317,15 +317,7 @@ class NSPanelHAUI : public PollingComponent, public uart::UARTDevice {
 
   protected:
 
-    /**
-     * will request chunk_size chunks from the web server
-     * and send each to the display
-     *
-     * @param int content_length Total size of the file
-     * @param uint32_t chunk_size
-     * @return true if success, false for failure.
-     */
-    int upload_by_chunks_(String location, int range_start);
+    int upload_by_chunks_(HTTPClient *http, String location, int range_start);
 
     void upload_end_();
 

@@ -169,12 +169,12 @@ namespace nspanel_haui {
     ESP_LOGD(TAG, "Updating tft from \"%s\" with a file size of %d using %zu chunksize, Heap Size %d",
             location.c_str(), this->content_length_, this->transfer_buffer_size_, ESP.getFreeHeap());
     int result = 0;
-    HTTPClient http;
-    http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-    http.setReuse(true);
-    http.collectHeaders(header_names, 2);
+    HTTPClient upload;
+    upload.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+    upload.setReuse(true);
+    upload.collectHeaders(header_names, 2);
     while (this->content_length_ > 0) {
-      result = this->upload_by_chunks_(location, result);
+      result = this->upload_by_chunks_(&upload, location, result);
       if (result < 0) {
         ESP_LOGD(TAG, "Error updating NSPanel HAUI!");
         return this->upload_end_();
@@ -187,12 +187,8 @@ namespace nspanel_haui {
     this->upload_end_();
   }
 
-  int NSPanelHAUI::upload_by_chunks_(String location, int range_start) {
+  int NSPanelHAUI::upload_by_chunks_(HTTPClient *http, String location, int range_start) {
     int range_end = 0;
-    const char *header_names[] = {"Content-Range", "Content-Length"};
-    HTTPClient http;
-    http.collectHeaders(header_names, 2);
-    http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
     if (range_start == 0 && this->transfer_buffer_size_ > 16384) {  // Start small at the first run in case of a big skip
       range_end = 16384 - 1;
     } else {
@@ -212,21 +208,20 @@ namespace nspanel_haui {
     bool begin_status = false;
     while (tries <= 5) {
       ESP_LOGD(TAG, "upload_by_chunks_: trying to connect %s", location.c_str());
-      begin_status = http.begin(location.c_str());
+      begin_status = http->begin(location.c_str());
       ++tries;
       if (!begin_status) {
         ESP_LOGD(TAG, "upload_by_chunks_: connection failed");
         continue;
       }
-
-      http.addHeader("Range", range_header);
-      code = http.GET();
+      http->addHeader("Range", range_header);
+      code = http->GET();
       if (code == 200 || code == 206) {
         break;
       }
       ESP_LOGW(TAG, "HTTP Request failed; URL: %s; Status Code: %d, retries(%d/5)",
         code, location.c_str(), code, tries);
-      http.end();
+      http->end();
       App.feed_wdt();
       delay(500);  // NOLINT
     }
@@ -241,17 +236,16 @@ namespace nspanel_haui {
     int range = range_end - range_start;
 
     while (sent < range) {
-      size = http.getStreamPtr()->available();
+      size = http->getStreamPtr()->available();
       if (!size) {
         App.feed_wdt();
         delay(0);
         continue;
       }
-      int c = http.getStreamPtr()->readBytes(
+      int c = http->getStreamPtr()->readBytes(
           &this->transfer_buffer_[sent], ((size > this->transfer_buffer_size_) ? this->transfer_buffer_size_ : size));
       sent += c;
     }
-    http.end();
     ESP_LOGD(TAG, "this->content_length_ %d sent %d", this->content_length_, sent);
     for (int i = 0; i < range; i += 4096) {
       this->write_array(&this->transfer_buffer_[i], 4096);

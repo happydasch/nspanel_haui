@@ -1,11 +1,11 @@
-import appdaemon.plugins.hass.hassapi as hass
-
 from haui.config import HAUIConfig
 from haui.device import HAUIDevice
 from haui.controller import (
     HAUIMQTTController, HAUIConnectionController,
     HAUIGestureController, HAUIUpdateController,
     HAUINavigationController)
+
+import appdaemon.plugins.hass.hassapi as hass
 
 
 class NSPanelHAUI(hass.Hass):
@@ -17,12 +17,17 @@ class NSPanelHAUI(hass.Hass):
     The main logic is in the haui module.
     """
 
-    def initialize(self):
-        """ Called from AppDaemon when starting.
+    def __init__(self, *args, **kwargs):
+        """ Initialize NSPanel HAUI
         """
+        super().__init__(*args, **kwargs)
         self.controller = {}
         self.config = None
         self.device = None
+
+    def initialize(self):
+        """ Called from AppDaemon when starting.
+        """
         # create config
         self.config = HAUIConfig(self, self.args['config'])
         # create the nspanel device representation

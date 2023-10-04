@@ -578,6 +578,6 @@ class HAUIConfig(HAUIBase):
             if panel.id == panel_id:
                 return panel
             # get by key
-            elif panel.get('key', '') == panel_id:
+            if panel.get('key', '') == panel_id:
                 return panel
         return None

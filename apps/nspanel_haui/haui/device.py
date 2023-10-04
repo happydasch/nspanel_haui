@@ -91,17 +91,17 @@ class HAUIDevice(HAUIPart):
 
     # public
 
-    def set_device_vars(self, vars, append=True):
+    def set_device_vars(self, device_vars, append=True):
         """ Sets devices related vars from a dict.
 
         Args:
-            vars (dict): dict with vars
+            device_vars (dict): dict with vars
             append (bool, optional): Append or replace values. Defaults to True (append).
         """
         if append:
-            self.device_vars = {**self.device_vars, **vars}
+            self.device_vars = {**self.device_vars, **device_vars}
         else:
-            self.device_vars = vars
+            self.device_vars = device_vars
 
     def set_connected(self, connected):
         """ Sets the device as connected.

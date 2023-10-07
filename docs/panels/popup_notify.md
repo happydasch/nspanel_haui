@@ -17,7 +17,7 @@ The notification popup can be used in different ways. It is used internally to n
 
 The notification popup can also execute a callback on close to notify other parts about the notification result. In the callback the button states are available (which button was pressed).
 
-When a button is visible and pressed then the panel will get closed.
+When a button is visible and pressed then the panel will get closed. If close_on_button is False then notification stays open on press.
 
 ## Config
 
@@ -33,6 +33,7 @@ btn_right_back_color: color definition
 icon_color: color definition
 button_callback_fnc: function for button notification
 close_callback_fnc: function for close notification
+close_on_button: true
 ```
 
 **Automatically closing a notification:**

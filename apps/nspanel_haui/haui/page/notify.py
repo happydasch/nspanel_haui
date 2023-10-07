@@ -105,11 +105,12 @@ class PopupNotifyPage(HAUIPage):
         if button_state:
             return
         self.log(f'Got button press: {component}-{button_state}')
-        navigation = self.app.controller['navigation']
         if self._button_callback_fnc:
             btn_left = True if component == self.BTN_LEFT else False
             btn_right = True if component == self.BTN_RIGHT else False
-            navigation.close_panel(False)
             self._button_callback_fnc(btn_left, btn_right)
-        else:
+        close_on_button = self.get('close_on_button', True)
+        if close_on_button:
+            self.log('Closing panel on button press')
+            navigation = self.app.controller['navigation']
             navigation.close_panel()

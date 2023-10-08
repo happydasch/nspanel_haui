@@ -1,12 +1,5 @@
 {
   "text": {
-    "A new display version is available.": "",
-    "Current Version:": "",
-    "New Version:": "",
-    "Do you want to update?": "",
-    "Update available": "",
-    "No": "",
-    "Yes": "",
     "Unknown": "",
     "Unnamed": "",
     "Waiting for Connection": "",
@@ -37,6 +30,18 @@
     "YAML-Version:": "",
     "AD-Version:": "",
     "Settings": "",
-    "Full and Dimmed Brightness:": ""
+    "Full and Dimmed Brightness:": "",
+    "Got unknown TFT-Version information.": "",
+    "Your TFT-version is outdated.": "",
+    "Do you want to check for a update?": "",
+    "Outdated TFT-Version": "",
+    "Cancel": "",
+    "Check": "",
+    "Version:": "",
+    "Do you want to update?": "",
+    "Update available": "",
+    "Update": "",
+    "Please wait while the update is starting": "",
+    "Starting Update": ""
   }
 }

@@ -347,13 +347,6 @@
     }
   },
   "text": {
-    "A new display version is available.": "Dost\u0119pna jest nowa wersja wy\u015bwietlacza.",
-    "Current Version:": "Aktualna wersja:",
-    "New Version:": "Nowa wersja:",
-    "Do you want to update?": "Czy chcesz zaktualizowa\u0107?",
-    "Update available": "Aktualizacja dost\u0119pna",
-    "No": "Nie",
-    "Yes": "Tak",
     "Unknown": "Nieznany",
     "Unnamed": "Nienazwany",
     "Waiting for Connection": "Czekanie na po\u0142\u0105czenie",
@@ -384,6 +377,18 @@
     "YAML-Version:": "YAML-Version:",
     "AD-Version:": "AD-Version:",
     "Settings": "Ustawienia",
-    "Full and Dimmed Brightness:": "Pe\u0142na i przyciemniona jasno\u015b\u0107:"
+    "Full and Dimmed Brightness:": "Pe\u0142na i przyciemniona jasno\u015b\u0107:",
+    "Got unknown TFT-Version information.": "Otrzymano nieznane informacje o wersji TFT.",
+    "Your TFT-version is outdated.": "Twoja wersja TFT jest nieaktualna.",
+    "Do you want to check for a update?": "Czy chcesz sprawdzi\u0107 aktualizacj\u0119?",
+    "Outdated TFT-Version": "Nieaktualna wersja TFT",
+    "Cancel": "Anuluj",
+    "Check": "Sprawd\u017a",
+    "Version:": "Wersja",
+    "Do you want to update?": "Czy chcesz zaktualizowa\u0107?",
+    "Update available": "Aktualizacja dost\u0119pna",
+    "Update": "Aktualizuj",
+    "Please wait while the update is starting": "Poczekaj na rozpocz\u0119cie aktualizacji",
+    "Starting Update": "Rozpocz\u0119cie aktualizacji"
   }
 }

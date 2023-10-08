@@ -347,13 +347,6 @@
     }
   },
   "text": {
-    "A new display version is available.": "Eine neue Bildschirmversion ist verf\u00fcgbar.",
-    "Current Version:": "Aktuelle Version:",
-    "New Version:": "Neue Version:",
-    "Do you want to update?": "M\u00f6chten Sie aktualisieren?",
-    "Update available": "Update verf\u00fcgbar",
-    "No": "Nein",
-    "Yes": "Ja",
     "Unknown": "Unbekannt",
     "Unnamed": "Unbenannt",
     "Waiting for Connection": "Warten auf Verbindung",
@@ -384,6 +377,18 @@
     "YAML-Version:": "YAML-Version:",
     "AD-Version:": "AD-Version:",
     "Settings": "Einstellungen",
-    "Full and Dimmed Brightness:": "Volle und gedimmte Helligkeit:"
+    "Full and Dimmed Brightness:": "Volle und gedimmte Helligkeit:",
+    "Got unknown TFT-Version information.": "Unbekannte TFT-Versionsinformationen erhalten.",
+    "Your TFT-version is outdated.": "Ihre TFT-Version ist veraltet.",
+    "Do you want to check for a update?": "M\u00f6chten Sie nach einer Aktualisierung suchen?",
+    "Outdated TFT-Version": "Veraltete TFT-Version",
+    "Cancel": "Abbrechen",
+    "Check": "\u00dcberpr\u00fcfen",
+    "Version:": "Version",
+    "Do you want to update?": "M\u00f6chten Sie aktualisieren?",
+    "Update available": "Aktualisierung verf\u00fcgbar",
+    "Update": "Aktualisieren",
+    "Please wait while the update is starting": "Bitte warten Sie, w\u00e4hrend die Aktualisierung gestartet wird",
+    "Starting Update": "Aktualisierung wird gestartet"
   }
 }

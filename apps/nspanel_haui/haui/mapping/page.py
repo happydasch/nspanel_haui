@@ -10,6 +10,7 @@ from ..page.grid import GridPage
 from ..page.row import RowPage
 from ..page.light import LightPage
 from ..page.media import MediaPage
+from ..page.vacuum import VacuumPage
 from ..page.timer import TimerPage
 from ..page.qr import QRPage
 from ..page.thermo import ThermoPage
@@ -20,6 +21,7 @@ from ..page.notify import PopupNotifyPage
 from ..page.select import PopupSelectPage
 from ..page.light import PopupLightPage
 from ..page.media import PopupMediaPage
+from ..page.vacuum import PopupVacuumPage
 from ..page.thermo import PopupThermoPage
 from ..page.timer import PopupTimerPage
 
@@ -41,11 +43,12 @@ PAGE_MAPPING = {
     8: 'light',
     9: 'thermo',
     10: 'media',
-    11: 'qr',
-    12: 'alarm',
-    13: 'timer',
-    14: 'notify',
-    15: 'select',
+    11: 'vacuum',
+    12: 'qr',
+    13: 'alarm',
+    14: 'timer',
+    15: 'notify',
+    16: 'select',
 }
 
 # system panel mapping
@@ -62,6 +65,7 @@ SYS_PANEL_MAPPING = {
     'popup_select': 'popup_select',
     'popup_light': 'popup_light',
     'popup_media': 'popup_media',
+    'popup_vacuum': 'popup_vacuum',
     'popup_thermo': 'popup_thermo',
     'popup_timer': 'popup_timer',
 }
@@ -82,6 +86,7 @@ PANEL_MAPPING = {
     'row': ('row', RowPage),
     'light': ('light', LightPage),
     'media': ('media', MediaPage),
+    'vacuum': ('vacuum', VacuumPage),
     'timer': ('timer', TimerPage),
     'qr': ('qr', QRPage),
     'thermo': ('thermo', ThermoPage),
@@ -92,6 +97,7 @@ PANEL_MAPPING = {
     'popup_select': ('select', PopupSelectPage),
     'popup_light': ('light', PopupLightPage),
     'popup_media': ('media', PopupMediaPage),
+    'popup_vacuum': ('vacuum', PopupVacuumPage),
     'popup_thermo': ('thermo', PopupThermoPage),
     'popup_timer': ('timer', PopupTimerPage),
 }

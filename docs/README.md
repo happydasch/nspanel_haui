@@ -40,11 +40,11 @@ The display operations with minimal logic are assigned to Nextion, which works i
 
 - [AppDaemon Component](AppDaemon.md)
 
-  This app controls the Nextion display running on the ESP32. It updates the display based on the latest data from Home Assistant entities.
+  Most logic is implemented in the AppDaemon App. This app controls the Nextion display running on the ESP32. It updates the display based on the latest data from Home Assistant entities.
 
 - [Nextion Component](Nextion.md)
 
-  Most logic is implemented in the AppDaemon App. The display is responsible for showing the panels, doing time critical processing like animations, preparing components on pages before they being shown.
+  The display is responsible for showing the panels, doing time critical processing like animations, preparing components on pages before they being shown.
 
 ## Versioning
 

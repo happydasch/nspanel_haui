@@ -162,6 +162,7 @@ class HAUIPage(HAUIPart):
             panel (HAUIConfigPanel): Current panel
         """
         self.start_rec_cmd()
+
         # physical button state
         if self._btn_state_left is not None:
             self.add_component_callback(self._btn_state_left, self.callback_button_state_buttons)
@@ -172,6 +173,7 @@ class HAUIPage(HAUIPart):
         self.update_button_states()
 
         # prepare function items
+        nav_panels = self.app.config.get_panels(True)
         for fnc_id, fnc_item in self._fnc_items.items():
             mode = panel.get_mode()
             # set default function if not set for header buttons
@@ -209,7 +211,42 @@ class HAUIPage(HAUIPart):
                     fnc_item['fnc_args']['visible'] = False
                 else:
                     fnc_item['fnc_args']['visible'] = True
-            # update function item
+
+        # special case, single nav panel
+        # switch secondary buttons with primary buttons, since nav is not used
+        # with a single nav panel
+        if len(nav_panels) <= 1:
+            # check primary left button
+            if self.FNC_BTN_L_PRI in self._fnc_items:
+                left_pri = self._fnc_items[self.FNC_BTN_L_PRI]
+                if left_pri['fnc_name'] == self.FNC_TYPE_NAV_PREV:
+                    left_pri['fnc_args']['visible'] = False
+                    # swap pri with secondary
+                    if self.FNC_BTN_L_SEC in self._fnc_items:
+                        left_sec = self._fnc_items[self.FNC_BTN_L_SEC]
+                        pri_comp = left_pri['fnc_component']
+                        sec_comp = left_sec['fnc_component']
+                        left_pri['fnc_component'] = sec_comp
+                        left_sec['fnc_component'] = pri_comp
+                        self._fnc_items[self.FNC_BTN_L_PRI] = left_sec
+                        self._fnc_items[self.FNC_BTN_L_SEC] = left_pri
+            # check primary right button
+            if self.FNC_BTN_R_PRI in self._fnc_items:
+                right_pri = self._fnc_items[self.FNC_BTN_R_PRI]
+                if right_pri['fnc_name'] == self.FNC_TYPE_NAV_NEXT:
+                    right_pri['fnc_args']['visible'] = False
+                    # swap pri with secondary
+                    if self.FNC_BTN_R_SEC in self._fnc_items:
+                        right_sec = self._fnc_items[self.FNC_BTN_R_SEC]
+                        pri_comp = right_pri['fnc_component']
+                        sec_comp = right_sec['fnc_component']
+                        right_pri['fnc_component'] = sec_comp
+                        right_sec['fnc_component'] = pri_comp
+                        self._fnc_items[self.FNC_BTN_R_PRI] = right_sec
+                        self._fnc_items[self.FNC_BTN_R_SEC] = right_pri
+
+        # register function items
+        for fnc_id, fnc_item in self._fnc_items.items():
             self.log(f'Set function button: {fnc_id} -> {fnc_item["fnc_name"]}')
             self.add_component_callback(fnc_item['fnc_component'], self.callback_function_components)
             self.update_function_component(fnc_id)
@@ -286,44 +323,36 @@ class HAUIPage(HAUIPart):
         entity_type = entity.get_entity_type()
         entity_state = entity.get_entity_state()
         navigation = self.app.controller['navigation']
+        available = entity_state != 'unavailable'
+
+        if not available:
+            msg = self.translate('The entity {} is currently unavailable.')
+            msg += msg.format(entity.get_name())
+            msg += '\r\n\r\n'
+            msg += self.translate('Entity:')
+            msg += '\r\n'
+            msg += entity.get_entity_id()
+            # open notification
+            navigation.open_popup(
+                'popup_notify',
+                title=self.translate('Entity unavailable'),
+                btn_right=self.translate('Close'),
+                icon=entity.get_icon(),
+                notification=msg)
+
+        # light
         if entity_type == 'light':
-            if entity.has_entity() and entity_state != 'unavailable':
-                # open popup
-                navigation.open_popup('popup_light', entity_id=entity.get_entity_id())
-            else:
-                # format msg string
-                light_name = self.translate('The light {} is currently not available.')
-                msg = light_name.format(entity.get_name())
-                msg += '\r\n\r\n'
-                msg += self.translate('Entity:')
-                msg += '\r\n'
-                msg += entity.get_entity_id()
-                # open notification
-                navigation.open_popup(
-                    'popup_notify',
-                    title=self.translate('Entity unavailable'),
-                    btn_right=self.translate('Close'),
-                    icon=entity.get_icon(),
-                    notification=msg)
+            # open popup
+            navigation.open_popup('popup_light', entity_id=entity.get_entity_id())
+        # media player
         elif entity_type == 'media_player':
-            if entity_state != 'unavailable':
-                # open popup
-                navigation.open_popup('popup_media', entity_id=entity.get_entity_id())
-            else:
-                # format msg string
-                media_name = self.translate('The media player {} is currently not available.')
-                msg = media_name.format(entity.get_name())
-                msg += '\r\n\r\n'
-                msg += self.translate('Entity:')
-                msg += '\r\n'
-                msg += entity.get_entity_id()
-                # open notification
-                navigation.open_popup(
-                    'popup_notify',
-                    title=self.translate('Entity unavailable'),
-                    btn_right=self.translate('Close'),
-                    icon=self.ICO_ENTITY_UNAVAILABLE,
-                    notification=msg)
+            # open popup
+            navigation.open_popup('popup_media', entity_id=entity.get_entity_id())
+        # vacuum
+        elif entity_type == 'vacuum':
+            # open popup
+            navigation.open_popup('popup_vacuum', entity_id=entity.get_entity_id())
+        # default
         else:
             entity.execute()
 
@@ -603,12 +632,13 @@ class HAUIPage(HAUIPart):
                 item = self._fnc_items
             item = {**item, **{
                 'fnc_component': component,
-                'fnc_id': fnc_id,
                 'fnc_name': fnc_name,
                 'fnc_args': fnc_args
             }}
+            self.log(f'Adding function component {fnc_id}-{fnc_name}')
             self._fnc_items[fnc_id] = item
         elif fnc_id in self._fnc_items:
+            self.log(f'Removing function component {fnc_id}')
             del self._fnc_items[fnc_id]
 
     def update_function_component(self, fnc_id, update_fnc_name=None, **kwargs):
@@ -643,10 +673,12 @@ class HAUIPage(HAUIPart):
         if value is not None and fnc_item.get('current_value') != value:
             self.set_component_value(fnc_component, value)
             fnc_item['current_value'] = value
+
         # set text (can also contain icons)
         elif text is not None and fnc_item.get('current_text') != text:
             self.set_component_text(fnc_component, text)
             fnc_item['current_text'] = text
+
         # set icon
         else:
             if icon is None:
@@ -744,19 +776,20 @@ class HAUIPage(HAUIPart):
         if button_state != 0:
             return
         # check what button was pressed
-        function_item = None
-        for fnc_id, fnc_cnt in self._fnc_items.items():
-            if fnc_cnt['fnc_component'] == component:
-                function_item = fnc_cnt
+        fnc_id = None
+        fnc_item = None
+        for _fnc_id, _fnc_cnt in self._fnc_items.items():
+            if _fnc_cnt['fnc_component'] == component:
+                fnc_id = _fnc_id
+                fnc_item = _fnc_cnt
                 break
         # if unknown function do nothing
-        if function_item is None:
+        if fnc_item is None:
             return
         navigation = self.app.controller['navigation']
-        fnc_id = function_item['fnc_id']
-        fnc_name = function_item['fnc_name']
-        fnc_args = function_item['fnc_args']
-        # check the function that is defined for the function button
+        fnc_name = fnc_item['fnc_name']
+        fnc_args = fnc_item['fnc_args']
+        # check the function that is defined for the button
         if fnc_name == self.FNC_TYPE_NAV_PREV:
             navigation.open_prev_panel()
         elif fnc_name == self.FNC_TYPE_NAV_NEXT:

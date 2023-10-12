@@ -12,6 +12,7 @@
   - [Main Panels](#main-panels)
     - [Panel Light `light`](#panel-light-light)
     - [Panel Media `media`](#panel-media-media)
+    - [Panel Vacuum `vacuum`](#panel-vacuum-vacuum)
     - [Panel QR-Code `qr`](#panel-qr-code-qr)
     - [Panel Timer `timer`](#panel-timer-timer)
   - [Other Panels](#other-panels)
@@ -71,6 +72,12 @@ Panels with navigation. Main Display Elements.
   Media control panel.
 
   ![Panel Media](../assets/panel_media.png)
+
+### [Panel Vacuum](panel_vacuum.md) `vacuum`
+
+  Vacuum control panel.
+
+  ![Panel Vacuum](../assets/panel_vacuum.png)
 
 ### [Panel QR-Code](panel_qr.md) `qr`
 

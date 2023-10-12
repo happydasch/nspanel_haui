@@ -11,6 +11,8 @@ from . import HAUIPage
 
 class LightPage(HAUIPage):
 
+    # https://developers.home-assistant.io/docs/core/entity/light
+
     # common components
     TXT_TITLE = (2, 'tTitle')
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')

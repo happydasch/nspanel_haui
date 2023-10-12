@@ -12,6 +12,8 @@ from . import HAUIPage
 class MediaPage(HAUIPage):
 
     '''
+    https://developers.home-assistant.io/docs/core/entity/media-player
+
     Supported features for media player:
     https://github.com/home-assistant/core/blob/dev/homeassistant/components/media_player/const.py
     PAUSE = 1                   (0x0001)

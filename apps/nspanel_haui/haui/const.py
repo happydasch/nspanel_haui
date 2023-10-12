@@ -208,6 +208,11 @@ DEFAULT_CONFIG = {
             'mode': 'popup',
             'key': 'popup_media',
         }, {
+            # popup vacuum
+            'type': 'popup_vacuum',
+            'mode': 'popup',
+            'key': 'popup_vacuum',
+        }, {
             # popup thermo
             'type': 'popup_thermo',
             'mode': 'popup',

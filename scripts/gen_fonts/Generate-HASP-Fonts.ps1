@@ -36,7 +36,7 @@ Function Main {
   $iconFont = "./MaterialDesign-Webfont/fonts/materialdesignicons-webfont.ttf" | Get-ChildItem | ForEach-Object { $_.FullName }
   $startCP = 0xf0001
   $offsetCP = 0xe2001
-  $endCP = 0xf1c81
+  $endCP = 0xf1cc8
 
   $rangeText = @(
     @(0x0, 0x7f), # Basic Latin

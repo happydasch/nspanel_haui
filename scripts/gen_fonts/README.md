@@ -4,6 +4,7 @@ Create the Nextion ZI version 5 fonts used by the HASP project
 
 - [Generate Fonts](#generate-fonts)
   - [Scripts](#scripts)
+  - [PowerShell Script](#powershell-script)
   - [Cheatsheet](#cheatsheet)
   - [Credits](#credits)
   - [MIT License](#mit-license)
@@ -11,9 +12,34 @@ Create the Nextion ZI version 5 fonts used by the HASP project
 ## Scripts
 
 - `exctract_chr_from_scss.py`
-- `exctract_svg_from_mdi.py`
+
+  Extracts mdi characters from scss file. This script will output also hex values for
+  Total, Offset, Start, End. These values are needed for the PS script.
+
 - `exctract_weather.py`
+
+  Extracts weather icons (icon name starts with weather), needed for the PS script.
+
 - `gen_cheatsheet.py`
+
+  Generates the icon cheatsheet based on current font.
+
+- `exctract_svg_from_mdi.py`
+
+## PowerShell Script
+
+The powershell script generates the fonts in the needed format for the nextion display.
+
+Make sure to check and update these values:
+
+```powershell
+  $startCP = 0x..
+  $offsetCP = 0x..
+  $endCP = 0x..
+  $weatherIcons = @(
+    0x.., 0x..
+  )
+```
 
 ## Cheatsheet
 

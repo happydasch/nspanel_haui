@@ -288,7 +288,7 @@ Basic values:
 - `color` color override, a default entity color will be used if not set
 - `state` state override, by default state will be used
 
-the name, value, icon and color can also contain homeassistant template code. These values can contain `mdi:` or `hass:` icons which will be replaced by its unicode representations.
+the name, value, icon and color can also contain homeassistant template code. These values can contain `mdi:` icons which will be replaced by its unicode representations.
 
 ### Entity State
 

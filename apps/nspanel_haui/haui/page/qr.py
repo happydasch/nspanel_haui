@@ -35,16 +35,9 @@ class QRPage(HAUIPage):
         self._use_auto_dimming = self.auto_dimming.get_state()
         self._use_auto_page = self.auto_page.get_state()
 
-        # record commands
         self.start_rec_cmd()
-        # entities
+
         qr_code = panel.get('qr_code', '')
-        entities = panel.get_entities()
-        if len(entities) == 0:
-            self.update_qr(big=True)
-            self._header_toggle_show = False
-        else:
-            self.update_qr(big=False)
         # zoom function button
         btn_right_sec = None
         if self._header_toggle_show:
@@ -59,6 +52,12 @@ class QRPage(HAUIPage):
             self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
             self.BTN_FNC_RIGHT_PRI, btn_right_sec)
         # components
+        entities = panel.get_entities()
+        if len(entities) == 0:
+            self.update_qr(big=True)
+            self._header_toggle_show = False
+        else:
+            self.update_qr(big=False)
         self.set_component_text(self.QR_CODE, qr_code)
         self.set_component_text(self.QR_CODE_BIG, qr_code)
 

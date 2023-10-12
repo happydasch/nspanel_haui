@@ -12,7 +12,7 @@
 
 ```yaml
 nspanel-haui:
-  module: haui
+  module: nspanel_haui
   class: NSPanelHAUI
 
   # panel config
@@ -37,7 +37,7 @@ nspanel-haui:
 
 ```yaml
 nspanel-haui:
-  module: haui
+  module: nspanel_haui
   class: NSPanelHAUI
 
   # panel config
@@ -62,7 +62,7 @@ nspanel-haui:
 
 ```yaml
 nspanel-haui:
-  module: haui
+  module: nspanel_haui
   class: NSPanelHAUI
 
   # panel config
@@ -109,7 +109,7 @@ nspanel-haui:
 
 ```yaml
 nspanel-haui:
-  module: haui
+  module: nspanel_haui
   class: NSPanelHAUI
 
   # panel config

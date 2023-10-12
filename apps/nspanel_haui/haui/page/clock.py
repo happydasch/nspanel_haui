@@ -19,6 +19,9 @@ class ClockPage(HAUIPage):
     F1_VAL, F2_VAL, F3_VAL, F4_VAL = (14, 'f1Val'), (15, 'f2Val'), (16, 'f3Val'), (17, 'f4Val')
     F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL = (18, 'f1SubVal'), (19, 'f2SubVal'), (20, 'f3SubVal'), (21, 'f4SubVal')
 
+    _time_timer = None
+    _date_timer = None
+
     # panel
 
     def create_panel(self, panel):

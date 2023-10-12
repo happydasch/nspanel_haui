@@ -1,11 +1,13 @@
 from .mapping.color import COLORS
+from .mapping.const import DEFAULT_CONFIG, PANEL_CONFIG, \
+    ENTITY_CONFIG, INTERNAL_ENTITY_TYPE
+
 from .helper.color import rgb_to_rgb565
 from .helper.entity import get_entity_icon, get_entity_color, get_entity_name, \
     get_entity_value, execute_entity
 from .helper.text import get_state_translation
-from .const import DEFAULT_CONFIG, PANEL_CONFIG, \
-    ENTITY_CONFIG, INTERNAL_ENTITY_TYPE
-from .utils import merge_dicts
+from .helper.value import merge_dicts
+
 from .base import HAUIBase
 
 

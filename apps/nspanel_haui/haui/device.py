@@ -1,5 +1,5 @@
 from .mapping.page import PANEL_MAPPING, SYS_PANEL_MAPPING
-from .const import ESP_EVENT
+from .mapping.const import ESP_EVENT
 from .base import HAUIPart
 
 

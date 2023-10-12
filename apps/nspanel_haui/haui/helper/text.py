@@ -11,9 +11,9 @@ def get_translation(text, locale):
     return translation
 
 
-def get_state_translation(entity_type, state, locale):
+def get_state_translation(entity_type, state, locale, attr='state'):
     translations = get_translations(locale)
-    lookup = f'component.{entity_type}.state._.{state}'
+    lookup = f'component.{entity_type}.{attr}._.{state}'
     res = translations
     for k in lookup.split('.'):
         if k in res:

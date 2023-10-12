@@ -1,5 +1,4 @@
 from ..mapping.color import COLORS
-from ..helper.icon import get_icon
 from . import HAUIPage
 
 
@@ -18,13 +17,22 @@ class PopupSelectPage(HAUIPage):
     BTN_SEL_7, BTN_SEL_8, BTN_SEL_9 = (17, 'bSel7'), (18, 'bSel8'), (19, 'bSel9')
     BTN_SEL_10, BTN_SEL_11, BTN_SEL_12 = (20, 'bSel10'), (21, 'bSel11'), (22, 'bSel12')
 
+    _select_mode = []
+    _selection = []
+    _selected = ''
+    _close_on_select = True
+    _current_page = 0
+    _active = {}
+    _items_per_page = 0
+    _selection_callback_fnc = None
+    _close_callback_fnc = None
+
     # panel
 
     def start_panel(self, panel):
         # set function buttons
         page_btn = {
             'fnc_component': self.BTN_FNC_RIGHT_SEC,
-            'fnc_id': self.FNC_BTN_R_SEC,
             'fnc_name': 'next_page',
             'fnc_args': {
                 'icon': self.ICO_NEXT_PAGE,

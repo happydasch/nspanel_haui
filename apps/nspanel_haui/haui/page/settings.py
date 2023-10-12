@@ -1,4 +1,4 @@
-from ..const import ESP_REQUEST, ESP_RESPONSE
+from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 
 from . import HAUIPage
 

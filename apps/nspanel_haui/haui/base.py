@@ -2,7 +2,7 @@ import re
 import uuid
 import json
 from .helper.icon import parse_icon
-from .helper.text import get_translation
+from .helper.text import get_translation, get_state_translation
 
 
 # Base class for all HAUI classes
@@ -81,7 +81,8 @@ class HAUIBase:
         """ Returns the config dict.
 
         Args:
-            return_copy (bool, optional): If True, returns a copy of the config. If False, returns the config itself.
+            return_copy (bool, optional): If True, returns a copy of the config.
+                If False, returns the config itself.
 
         Returns:
             dict: Config
@@ -109,6 +110,18 @@ class HAUIBase:
         """
         return get_translation(text, self.get_locale())
 
+    def translate_state(self, entity_type, state, attr='state'):
+        """ Returns the translation of the given state.
+
+        Args:
+            entity_type (str): Entity type
+            state (str): State
+
+        Returns:
+            str: Translated state
+        """
+        return get_state_translation(entity_type, state, self.get_locale(), attr)
+
     def process_event(self, event):
         """ Callback for events.
 
@@ -117,7 +130,6 @@ class HAUIBase:
         Args:
             event: The event.
         """
-        return
 
     def start_rec_cmd(self):
         """ Starts recording commands. """
@@ -125,10 +137,19 @@ class HAUIBase:
         self._recording = True
 
     def stop_rec_cmd(self, send_commands=True):
+        """ Stops the recording of commands.
+
+        Args:
+            send_commands (bool, optional): Should commands be sent after
+                stopping recording. Defaults to True.
+
+        Returns:
+            list: Recorded commands
+        """
         self._recording = False
         commands = self._rec_cmd
         self._rec_cmd = []
-        if send_commands and len(commands):
+        if send_commands and len(commands) > 0:
             if self.app.device.get('log_commands'):
                 commands_str = '\n'.join(commands)
                 self.log(f'Commands:\n{commands_str}')
@@ -147,7 +168,7 @@ class HAUIBase:
             return
         self.app.controller['mqtt'].send_cmd(name, value, force)
 
-    def send_mqtt_json(self, name, value={}, force=False):
+    def send_mqtt_json(self, name, value=None, force=False):
         """ Publishes a message to the mqtt cmd topic with a json encoded message.
 
         Args:
@@ -155,6 +176,8 @@ class HAUIBase:
             value: The value of the message.
             force: If True, force sending of message.
         """
+        if value is None:
+            value = {}
         self.send_mqtt(name, json.dumps(value), force)
 
     def send_cmd(self, cmd):
@@ -191,7 +214,7 @@ class HAUIBase:
                 total_len = 0
             cmds_to_send.append(cmd)
             total_len += len(cmd)
-        if len(cmds_to_send):
+        if len(cmds_to_send) > 0:
             self.send_mqtt(
                 'send_commands',
                 json.dumps({'commands': cmds_to_send}))
@@ -223,7 +246,8 @@ class HAUIBase:
 
         Args:
             template (str): template to render
-            parse_icons (bool, optional): If True, the result will be processed by parse_icon. Defaults to True.
+            parse_icons (bool, optional): If True, the result will be processed
+                by parse_icon. Defaults to True.
 
         Returns:
             str: rendered template string

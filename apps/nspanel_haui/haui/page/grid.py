@@ -23,20 +23,23 @@ class GridPage(HAUIPage):
     NUM_GRIDS = 6
     LEN_NAME = 15
 
+    _entities = []
+    _active_entities = {}
+    _active_handles = []
+    _entity_mapping = {}
+    _current_page = 0
+    _color_seed = random.randint(0, 1000)
+
     # panel
 
     def start_panel(self, panel):
         # set vars
         self._entities = panel.get_entities()
-        self._active_entities = {}  # active haui entities, id = component (overlay, ex: self.G1_OVL)
-        self._active_handles = []
-        self._entity_mapping = {}
         self._current_page = panel.get('initial_page', 0)
         self._color_seed = panel.get('color_seed', random.randint(0, 1000))
         # set function buttons
         page_btn = {
             'fnc_component': self.BTN_FNC_RIGHT_SEC,
-            'fnc_id': self.FNC_BTN_R_SEC,
             'fnc_name': 'next_page',
             'fnc_args': {
                 'icon': self.ICO_NEXT_PAGE,

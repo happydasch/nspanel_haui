@@ -4,8 +4,7 @@ import time
 import json
 
 from ..version import __version__ as haui_version
-
-from ..const import (
+from ..mapping.const import (
     SERVER_REQUEST, SERVER_RESPONSE, ESP_REQUEST, ESP_RESPONSE)
 from ..base import HAUIPart
 

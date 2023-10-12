@@ -4,9 +4,9 @@ import requests
 
 from pkg_resources import parse_version  # https://peps.python.org/pep-0386/
 
-from ..helper.text import trim_text
+from ..mapping.const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
-from ..const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
+from ..helper.text import trim_text
 from ..base import HAUIPart
 
 

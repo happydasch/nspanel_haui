@@ -1,7 +1,7 @@
+from ..mapping.const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
+from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..helper.color import rgb_to_rgb565
-from ..mapping.color import COLORS
-from ..const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
 from ..base import HAUIPart
 
 

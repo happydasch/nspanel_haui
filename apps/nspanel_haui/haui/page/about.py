@@ -16,6 +16,8 @@ class AboutPage(HAUIPage):
     TXT_YAML_VERS, TXT_YAML_VERS_VAL = (13, 'tYamlVers'), (14, 'tYamlVersVal')
     TXT_AD_VERS, TXT_AD_VERS_VAL = (15, 'tADVers'), (16, 'tADVersVal')
 
+    _title = ''
+
     # panel
 
     def start_panel(self, panel):

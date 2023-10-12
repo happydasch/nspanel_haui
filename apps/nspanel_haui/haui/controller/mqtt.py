@@ -1,7 +1,6 @@
 import json
 
-from ..const import ALL_RECV, ALL_CMD
-
+from ..mapping.const import ALL_RECV, ALL_CMD
 from ..base import HAUIPart, HAUIEvent
 
 

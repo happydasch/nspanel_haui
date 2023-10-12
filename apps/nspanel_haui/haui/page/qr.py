@@ -17,21 +17,25 @@ class QRPage(HAUIPage):
     Q2_ICON, Q2_TITLE, Q2_TEXT = (13, 'q2Icon'), (14, 'q2Title'), (15, 'q2Text')
     Q2_TEXT_ADD = (16, 'q2TextAdd')
 
+    auto_dimming = None
+    auto_page = None
+    _use_auto_dimming = False
+    _use_auto_page = False
+    _header_toggle_show = True
+    _header_toggle_state = False
+
     # panel
 
     def start_panel(self, panel):
+        device_name = self.app.device.get_device_name()
         self.add_component_callback(self.QR_CODE, self.callback_qr_code)
         self.add_component_callback(self.QR_CODE_BIG, self.callback_qr_code_big)
-
-        device_name = self.app.device.get_device_name()
         self.auto_dimming = self.app.get_entity(f'switch.{device_name}_use_auto_dimming')
-        self._use_auto_dimming = self.auto_dimming.get_state()
         self.auto_page = self.app.get_entity(f'switch.{device_name}_use_auto_page')
+        self._use_auto_dimming = self.auto_dimming.get_state()
         self._use_auto_page = self.auto_page.get_state()
-        # zoom toogle in header
-        self._header_toggle_show = True
-        self._header_toggle_state = False
 
+        # record commands
         self.start_rec_cmd()
         # entities
         qr_code = panel.get('qr_code', '')

@@ -1,10 +1,11 @@
 import datetime
 import threading
 
-from ..const import ESP_REQUEST, ESP_RESPONSE
+from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..config import HAUIConfigEntity
+from ..features import MediaPlayerFeatures
 
 from . import HAUIPage
 
@@ -16,26 +17,6 @@ class MediaPage(HAUIPage):
 
     Supported features for media player:
     https://github.com/home-assistant/core/blob/dev/homeassistant/components/media_player/const.py
-    PAUSE = 1                   (0x0001)
-    SEEK = 2                    (0x0002)
-    VOLUME_SET = 4              (0x0004)
-    VOLUME_MUTE = 8             (0x0008)
-    PREVIOUS_TRACK = 16         (0x0010)
-    NEXT_TRACK = 32             (0x0020)
-    TURN_ON = 128               (0x0080)
-    TURN_OFF = 256              (0x0100)
-    PLAY_MEDIA = 512            (0x0200)
-    VOLUME_STEP = 1024          (0x0400)
-    SELECT_SOURCE = 2048        (0x0800)
-    STOP = 4096                 (0x1000)
-    CLEAR_PLAYLIST = 8192       (0x2000)
-    PLAY = 16384                (0x4000)
-    SHUFFLE_SET = 32768         (0x8000)
-    SELECT_SOUND_MODE = 65536   (0x00010000)
-    BROWSE_MEDIA = 131072       (0x00020000)
-    REPEAT_SET = 262144         (0x00040000)
-    GROUPING = 524288           (0x00080000)
-    MEDIA_ENQUEUE = 2097152     (0x00200000)
     '''
 
     ICO_PLAY = get_icon('mdi:play')
@@ -78,13 +59,20 @@ class MediaPage(HAUIPage):
     SCROLLING_INTERVAL = 0.5
     PROGRESS_INTERVAL = 0.5
 
+    _title = ''
+    _media_entity = None
+    _media_title = ''
+    _media_interpret = ''
+    _media_channel = ''
+    _timer_progress = None
+    _timer_scrolling = None
+
     # panel
 
     def start_panel(self, panel):
         # set function buttons
         media_state_btn = {
             'fnc_component': self.BTN_FNC_RIGHT_SEC,
-            'fnc_id': self.FNC_BTN_R_SEC,
             'fnc_name': 'media_state',
             'fnc_args': {
                 'icon': self.ICO_STOP,
@@ -106,14 +94,8 @@ class MediaPage(HAUIPage):
             entity = entities[0]
         if entity is not None:
             title = entity.get_entity_attr('friendly_name', title)
-            self.set_media_entity(entity)
-        self._media_entity = entity
         self._title = title
-        self._media_title = ''
-        self._media_interpret = ''
-        self._media_channel = ''
-        self._timer_progress = None
-        self._timer_scrolling = None
+        self.set_media_entity(entity)
 
     def render_panel(self, panel):
         self.update_media_entity()
@@ -144,7 +126,7 @@ class MediaPage(HAUIPage):
         self.add_entity_listener(entity.get_entity_id(), self.callback_media_entity, attribute='shuffle')
         # play button
         play = False
-        if supported_features & 0x0001 or supported_features & 0x4000:
+        if supported_features & MediaPlayerFeatures.PAUSE or supported_features & MediaPlayerFeatures.PLAY:
             play = True
         self.set_function_component(
             self.BTN_PLAY, self.BTN_PLAY[1], 'media_play',
@@ -153,7 +135,7 @@ class MediaPage(HAUIPage):
             visible=play)
         # volume buttons
         volume_visible = False
-        if supported_features & 0x0004:
+        if supported_features & MediaPlayerFeatures.VOLUME_SET:
             volume_visible = True
         self.set_function_component(
             self.BTN_VOL_DOWN, self.BTN_VOL_DOWN[1], 'volume_down',
@@ -170,7 +152,7 @@ class MediaPage(HAUIPage):
             visible=volume_visible)
         # prev button
         prev_track = False
-        if supported_features & 0x0010:
+        if supported_features & MediaPlayerFeatures.PREVIOUS_TRACK:
             prev_track = True
         self.set_function_component(
             self.BTN_PREV, self.BTN_PREV[1], 'media_prev',
@@ -179,7 +161,7 @@ class MediaPage(HAUIPage):
             visible=prev_track)
         # next button
         next_track = False
-        if supported_features & 0x0020:
+        if supported_features & MediaPlayerFeatures.NEXT_TRACK:
             next_track = True
         self.set_function_component(
             self.BTN_NEXT, self.BTN_NEXT[1], 'media_next',
@@ -188,7 +170,7 @@ class MediaPage(HAUIPage):
             visible=next_track)
         # shuffle button
         shuffle = False
-        if supported_features & 0x8000:
+        if supported_features & MediaPlayerFeatures.SHUFFLE_SET:
             shuffle = True
         self.set_function_component(
             self.BTN_SHUFFLE, self.BTN_SHUFFLE[1], 'media_shuffle',
@@ -197,7 +179,7 @@ class MediaPage(HAUIPage):
             visible=shuffle)
         # repeat button
         repeat = False
-        if supported_features & 0x00040000:
+        if supported_features & MediaPlayerFeatures.REPEAT_SET:
             repeat = True
         self.set_function_component(
             self.BTN_REPEAT, self.BTN_REPEAT[1], 'media_repeat',
@@ -307,7 +289,7 @@ class MediaPage(HAUIPage):
         queue_position = entity.get_entity_attr('queue_position', 0)
         queue_size = entity.get_entity_attr('queue_size', 0)
         # shuffle
-        if supported_features & 0x8000:
+        if supported_features & MediaPlayerFeatures.SHUFFLE_SET:
             icon = None
             touch_enabled = queue_size > 0
             color, color_pressed, back_color, back_color_pressed = self.get_button_colors(queue_size > 1)
@@ -322,7 +304,7 @@ class MediaPage(HAUIPage):
         else:
             self.update_function_component(self.BTN_SHUFFLE[1], visible=False)
         # repeat
-        if supported_features & 0x00040000:
+        if supported_features & MediaPlayerFeatures.REPEAT_SET:
             icon = None
             touch_enabled = queue_size > 0
             color, color_pressed, back_color, back_color_pressed = self.get_button_colors(queue_size > 0)
@@ -339,13 +321,13 @@ class MediaPage(HAUIPage):
         else:
             self.update_function_component(self.BTN_REPEAT[1], visible=False)
         # play, pause
-        if supported_features & 0x4000 or supported_features & 0x0001:
+        if supported_features & MediaPlayerFeatures.PLAY or supported_features &  MediaPlayerFeatures.PAUSE:
             play_icon = self.ICO_PAUSE if state == 'playing' else self.ICO_PLAY
             self.update_function_component(self.BTN_PLAY[1], visible=True, icon=play_icon)
         else:
             self.update_function_component(self.BTN_PLAY[1], visible=False)
         # prev
-        if supported_features & 0x0010:
+        if supported_features & MediaPlayerFeatures.PREVIOUS_TRACK:
             prev_enabled = False
             if queue_position > 1:
                 prev_enabled = True
@@ -356,7 +338,7 @@ class MediaPage(HAUIPage):
         else:
             self.update_function_component(self.BTN_PREV[1], visible=False)
         # next
-        if supported_features & 0x0020:
+        if supported_features & MediaPlayerFeatures.NEXT_TRACK:
             next_enabled = False
             if queue_position < queue_size:
                 next_enabled = True
@@ -407,7 +389,7 @@ class MediaPage(HAUIPage):
         state = entity.get_entity_state()
         supported_features = entity.get_entity_attr('supported_features', 0)
         # power switch supported
-        if supported_features & 0x0100:
+        if supported_features & MediaPlayerFeatures.TURN_ON:
             icon = self.ICO_ENTITY_POWER
             self.update_function_component(self.FNC_BTN_R_SEC, visible=True, icon=icon)
         elif state == 'playing':
@@ -512,11 +494,11 @@ class PopupMediaPage(MediaPage):
             self.log('No entity for popup media provided')
             navigation.close_panel()
             return False
-        elif entity is not None and entity.get_entity_type() != 'media_player':
+        if entity is not None and entity.get_entity_type() != 'media_player':
             self.log(f'Entity {entity.get_entity_id()} is not a media entity')
             navigation.close_panel()
             return False
-        elif entity is not None and entity.get_entity_state() == 'unavailable':
+        if entity is not None and entity.get_entity_state() == 'unavailable':
             self.log(f'Entity {entity.get_entity_id()} is not available')
             navigation.close_panel()
             return False

@@ -1,8 +1,8 @@
 import threading
 
+from ..mapping.const import ESP_EVENT
 from ..helper.page import get_page_id_for_panel, get_page_class_for_panel
-from ..const import ESP_EVENT
-from ..utils import merge_dicts
+from ..helper.value import merge_dicts
 from ..base import HAUIPart
 
 

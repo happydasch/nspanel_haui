@@ -2,7 +2,7 @@ import colorsys
 import math
 import random
 
-from ..utils import scale
+from .value import scale
 
 
 def generate_color_palette(rgb_color, palette_type, seed=None, num_colors=6):

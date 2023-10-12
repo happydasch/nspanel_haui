@@ -29,18 +29,20 @@ class RowPage(HAUIPage):
     NUM_ROWS = 5
     LEN_NAME = 20
 
+    _entities = []
+    _active_entities = {}
+    _active_handles = []
+    _current_page = 0
+
     # panel
 
     def start_panel(self, panel):
         # set vars
         self._entities = panel.get_entities()
-        self._active_entities = {}  # active haui entities, id = component (overlay, ex: self.G1_OVL)
-        self._active_handles = []
         self._current_page = panel.get('initial_page', 0)
         # set function buttons
         page_btn = {
             'fnc_component': self.BTN_FNC_RIGHT_SEC,
-            'fnc_id': self.FNC_BTN_R_SEC,
             'fnc_name': 'next_page',
             'fnc_args': {
                 'icon': self.ICO_NEXT_PAGE,

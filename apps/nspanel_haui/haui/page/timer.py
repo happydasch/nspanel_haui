@@ -29,6 +29,10 @@ class TimerPage(HAUIPage):
 
     DISPLAY_UPDATE_INTERVAL = 0.5
 
+    _persistent_config = None
+    _timer = None
+    _timer_update_display = None
+
     # panel
 
     def start_panel(self, panel):
@@ -38,7 +42,6 @@ class TimerPage(HAUIPage):
         # set function buttons
         stop_btn = {
             'fnc_component': self.BTN_FNC_RIGHT_SEC,
-            'fnc_id': self.FNC_BTN_R_SEC,
             'fnc_name': 'stop_timer',
             'fnc_args': {
                 'icon': self.ICO_TIMER_OFF,
@@ -65,8 +68,6 @@ class TimerPage(HAUIPage):
         self.set_function_component(self.TXT_MINUTES, self.TXT_MINUTES[1], fnc_name=self.TXT_MINUTES[1], visible=True, color=COLORS['component'])
         self.set_function_component(self.TXT_SPACE, self.TXT_SPACE[1], fnc_name=self.TXT_SPACE[1], visible=True, color=COLORS['component'])
         self.set_function_component(self.TXT_SECONDS, self.TXT_SECONDS[1], fnc_name=self.TXT_SECONDS[1], visible=True, color=COLORS['component'])
-        # prepare display update timer
-        self._timer_update_display = None
 
     def stop_panel(self, panel):
         if self._timer_update_display is not None:

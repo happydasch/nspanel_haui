@@ -14,6 +14,20 @@ class PopupNotifyPage(HAUIPage):
     # buttons
     BTN_LEFT, BTN_RIGHT = (10, 'bBtnLeft'), (11, 'bBtnRight')
 
+    auto_dimming = None
+    auto_page = None
+    auto_sleeping = None
+    _use_auto_dimming = False
+    _use_auto_page = False
+    _use_auto_sleeping = False
+
+    _icon = ''
+    _notification = ''
+    _btn_left = ''
+    _btn_right = ''
+    _button_callback_fnc = None
+    _close_callback_fnc = None
+
     # panel
 
     def start_panel(self, panel):

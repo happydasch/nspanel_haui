@@ -23,6 +23,9 @@ class WeatherPage(HAUIPage):
     F1_VAL, F2_VAL, F3_VAL, F4_VAL, F5_VAL = (23, 'f1Val'), (24, 'f2Val'), (25, 'f3Val'), (26, 'f4Val'), (27, 'f5Val')
     F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL, F5_SUBVAL = (28, 'f1SubVal'), (29, 'f2SubVal'), (30, 'f3SubVal'), (31, 'f4SubVal'), (32, 'f5SubVal')
 
+    _time_timer = None
+    _date_timer = None
+
     # panel
 
     def create_panel(self, panel):
@@ -114,7 +117,7 @@ class WeatherPage(HAUIPage):
         # next 3 are entities below main weather
         info = []
         for i in range(3):
-            if not len(entities):
+            if len(entities) == 0:
                 break
             info.append(entities.pop(0))
             if len(info) == 3:

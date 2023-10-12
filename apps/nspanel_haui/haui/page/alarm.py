@@ -29,17 +29,19 @@ class AlarmPage(HAUIPage):
 
 class PopupUnlockPage(HAUIPage):
 
+    _input = ''
+    _title = ''
+    _unlock_panel = None
+
     # panel
 
     def start_panel(self, panel):
         # store panel infos
-        self._input = ''
         self._unlock_panel = unlock_panel = panel.get('unlock_panel')
         self._title = panel.get('title', self.translate('Unlock Panel'))
         # lock right secondary function button
         lock_btn = {
             'fnc_component': AlarmPage.BTN_FNC_RIGHT_SEC,
-            'fnc_id': AlarmPage.FNC_BTN_R_SEC,
             'fnc_name': 'unlock_indicator',
             'fnc_args': {
                 'locked': True,

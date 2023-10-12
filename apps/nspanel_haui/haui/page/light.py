@@ -1,11 +1,11 @@
 import threading
 
-from ..const import ESP_REQUEST, ESP_RESPONSE, ESP_EVENT
+from ..mapping.const import ESP_REQUEST, ESP_RESPONSE, ESP_EVENT
+from ..mapping.color import COLORS
 from ..helper.color import pos_to_color, color_to_pos
 from ..helper.icon import get_icon
-from ..mapping.color import COLORS
+from ..helper.value import scale
 from ..config import HAUIConfigEntity
-from ..utils import scale
 from . import HAUIPage
 
 
@@ -38,6 +38,14 @@ class LightPage(HAUIPage):
     ICO_EFFECT = get_icon('mdi:fire')
     ICO_POWER = get_icon('mdi:power')
 
+    _title = ''
+    _light_entity = None
+    _light_functions = {}
+    _current_light_function = None
+    _touch_track = False
+    _touch_timer = None
+    _touch_color = None
+
     # panel
 
     def start_panel(self, panel):
@@ -49,7 +57,6 @@ class LightPage(HAUIPage):
         # set function buttons
         power_off_btn = {
             'fnc_component': self.BTN_FNC_RIGHT_SEC,
-            'fnc_id': self.FNC_BTN_R_SEC,
             'fnc_name': 'power_off',
             'fnc_args': {
                 'icon': self.ICO_POWER,
@@ -63,13 +70,6 @@ class LightPage(HAUIPage):
         # set light function button callbacks
         for btn in [self.BTN_LIGHT_FNC_1, self.BTN_LIGHT_FNC_2, self.BTN_LIGHT_FNC_3, self.BTN_LIGHT_FNC_4]:
             self.add_component_callback(btn, self.callback_light_function_button)
-        # light functions like brightness, color, etc
-        self._light_functions = {}
-        self._current_light_function = None
-        # touch track
-        self._touch_track = False
-        self._touch_timer = None
-        self._touch_color = None
         # title and entity to control
         title = panel.get_title(self.translate('Light'))
         entity = None
@@ -81,8 +81,8 @@ class LightPage(HAUIPage):
             entity = entities[0]
         if entity is not None:
             title = entity.get_name()
-            self.set_light_entity(entity)
         self._title = title
+        self.set_light_entity(entity)
 
     def render_panel(self, panel):
         # set basic panel info
@@ -539,11 +539,11 @@ class PopupLightPage(LightPage):
             self.log('No entity for popup light provided')
             navigation.close_panel()
             return False
-        elif entity is not None and entity.get_entity_type() != 'light':
+        if entity is not None and entity.get_entity_type() != 'light':
             self.log(f'Entity {entity.get_entity_id()} is not a light entity')
             navigation.close_panel()
             return False
-        elif entity is not None and entity.get_entity_state() == 'unavailable':
+        if entity is not None and entity.get_entity_state() == 'unavailable':
             self.log(f'Entity {entity.get_entity_id()} is not available')
             navigation.close_panel()
             return False

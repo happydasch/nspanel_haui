@@ -195,6 +195,15 @@
           "paused": "Paused",
           "returning": "Returning to dock"
         }
+      },
+      "fan_speed": {
+        "_": {
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "max": "Maximum",
+          "off": "Off"
+        }
       }
     },
     "fan": {
@@ -365,11 +374,12 @@
     "Timer": "",
     "Unlock Panel": "",
     "Unlock": "",
-    "The light {} is currently not available.": "",
+    "The entity {} is currently unavailable.": "",
     "Entity:": "",
     "Entity unavailable": "",
     "Close": "",
-    "The media player {} is currently not available.": "",
+    "Vacuum": "",
+    "Select Fan Speed": "",
     "NSPanel HAUI": "",
     "Versatile wall panel for HomeAssistant based": "",
     "smart homes with a custom UI Design.": "",

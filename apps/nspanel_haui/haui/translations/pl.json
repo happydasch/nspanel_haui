@@ -195,6 +195,15 @@
           "paused": "wstrzymany",
           "returning": "powr\u00f3t do stacji dokuj\u0105cej"
         }
+      },
+      "fan_speed": {
+        "_": {
+          "low": "Niskie",
+          "medium": "\u015arednie",
+          "high": "Wysokie",
+          "max": "Maksymalne",
+          "off": "Wy\u0142\u0105czone"
+        }
       }
     },
     "fan": {
@@ -365,11 +374,12 @@
     "Timer": "Timer",
     "Unlock Panel": "Odblokuj Panel",
     "Unlock": "Odblokuj",
-    "The light {} is currently not available.": "\u015awiat\u0142o {} jest obecnie niedost\u0119pne.",
+    "The entity {} is currently unavailable.": "Encja {} jest obecnie niedost\u0119pna.",
     "Entity:": "Encja:",
     "Entity unavailable": "Encja niedost\u0119pna",
     "Close": "Zamknij",
-    "The media player {} is currently not available.": "Odtwarzacz multimedialny {} jest obecnie niedost\u0119pny.",
+    "Vacuum": "Odkurzacz",
+    "Select Fan Speed": "Pr\u0119dko\u015b\u0107 wentylatora",
     "NSPanel HAUI": "NSPanel HAUI",
     "Versatile wall panel for HomeAssistant based": "Wszechstronny panel \u015bcienny dla inteligentnych dom\u00f3w",
     "smart homes with a custom UI Design.": "opartych na HomeAssistant z indywidualnym wygl\u0105dem.",

@@ -195,6 +195,15 @@
           "paused": "Pausiert",
           "returning": "R\u00fcckkehr zur Dockingstation"
         }
+      },
+      "fan_speed": {
+        "_": {
+          "low": "Niedrig",
+          "medium": "Mittel",
+          "high": "Hoch",
+          "max": "Maximal",
+          "off": "Aus"
+        }
       }
     },
     "fan": {
@@ -365,11 +374,12 @@
     "Timer": "Timer",
     "Unlock Panel": "Panel entsperren",
     "Unlock": "Entsperren",
-    "The light {} is currently not available.": "Das Licht {} ist aktuell nicht verf\u00fcgbar.",
+    "The entity {} is currently unavailable.": "Die Entit\u00e4t {} ist aktuell nicht verf\u00fcgbar.",
     "Entity:": "Entit\u00e4t:",
     "Entity unavailable": "Entit\u00e4t nicht verf\u00fcgbar",
     "Close": "Schliessen",
-    "The media player {} is currently not available.": "Der Media Player {} ist derzeit nicht verf\u00fcgbar.",
+    "Vacuum": "Staubsauger",
+    "Select Fan Speed": "L\u00fcftergeschwindigkeit w\u00e4hlen",
     "NSPanel HAUI": "NSPanel HAUI",
     "Versatile wall panel for HomeAssistant based": "Vielseitiges Wandpanel f\u00fcr HomeAssistant-basierte",
     "smart homes with a custom UI Design.": "Smart Homes mit individuellem UI-Design.",

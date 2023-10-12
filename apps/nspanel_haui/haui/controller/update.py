@@ -120,6 +120,7 @@ class HAUIUpdateController(HAUIPart):
             json_decoded = resp.json()
         except requests.exceptions.RequestException:
             self.log('Could not fetch release informations')
+            json_decoded = []
         self._release_infos = json_decoded
         self._req_fetch = False
 

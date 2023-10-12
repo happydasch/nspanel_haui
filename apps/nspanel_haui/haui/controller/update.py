@@ -169,9 +169,9 @@ class HAUIUpdateController(HAUIPart):
             bool: True if an update is available, False if not
         """
         device_info = self.app.device.device_info
-        if device_info is None:
-            return False
         latest_release = self._get_latest_release()
+        if device_info is None or latest_release is None:
+            return False
         current_version = parse_version(device_info['tft_version'])
         latest_version = parse_version(latest_release['tag_name'])
         if current_version < latest_version:

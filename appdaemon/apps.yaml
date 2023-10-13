@@ -1,5 +1,5 @@
 nspanel-haui:
-  module: haui
+  module: nspanel_haui
   class: NSPanelHAUI
 
   # panel config
@@ -25,6 +25,7 @@ nspanel-haui:
 
     # update controller
     update:
+      auto_install: true
       auto_update: false
       tft_filename: nspanel_haui.tft
       check_on_connect: false

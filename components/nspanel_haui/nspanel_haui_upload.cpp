@@ -30,7 +30,6 @@ namespace nspanel_haui {
        when done, send command to reset device
 
   TODO this needs to be refactored to make the code more pleasant
-  TODO get the HTTPClient to work with reuse connection (this will most likely be fixed in HTTPClient at some point, see github esp32 HTTPClient issues for more info)
   */
 
   void NSPanelHAUI::upload_tft() {

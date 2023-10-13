@@ -1,7 +1,7 @@
 
 # NSPanel HAUI (HomeAssistant UI)
 
-`nspanel-haui` is a versatile display system for HomeAssistant based smart homes.
+`nspanel_haui` is a versatile display system for HomeAssistant based smart homes.
 
 ![Panel](docs/assets/home_panel.png)
 
@@ -9,16 +9,31 @@
   - [About](#about)
   - [Features](#features)
   - [Installation](#installation)
-  - [Resources](#resources)
+  - [Next Steps](#next-steps)
   - [Development](#development)
-  - [What's next?](#whats-next)
-  - [Additional Information](#additional-information)
+  - [Resources](#resources)
 
 ## About
 
 For details about the configuration see [Configuration](docs/Config.md). Also look at [Panels](docs/panels/README.md) to get an overview of available panels.
 
 ## Features
+
+- **Easy Installation**
+
+  The nspanel_haui will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the AppDaemon app.
+
+- **Device display configuration in a single yaml file**
+
+  ![Config](docs/assets/feature_config.png)
+
+  The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
+
+- **Optimized custom ESPHome component**
+
+  ![Custom component](docs/assets/feature_custom_component.png)
+
+  For the communication between the esp32 and the nextion display a custom component `nspanel_haui` is used. It provides basic functionality like `send_command`, `get_int_value`, `get_txt_value`, etc. and also generates events for button presses and other changes on the display.
 
 - **A variety of different panels**
 
@@ -70,18 +85,6 @@ For details about the configuration see [Configuration](docs/Config.md). Also lo
 
   The whole device configuration can be done in HomeAssistant.
 
-- **Device display configuration in a single yaml file**
-
-  ![Config](docs/assets/feature_config.png)
-
-  The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
-
-- **Optimized custom ESPHome component**
-
-  ![Custom component](docs/assets/feature_custom_component.png)
-
-  For the communication between the esp32 and the nextion display a custom component `nspanel_haui` is used. It provides basic functionality like `send_command`, `get_int_value`, `get_txt_value`, etc. and also generates events for button presses and other changes on the display.
-
 ## Installation
 
 In order to install NSPanel HAUI it is neccessary to flash the Panel with ESPHome.
@@ -95,7 +98,7 @@ The simplified process is as followed:
 
 Take a look at the more detailed [Installation Guide](docs/Install.md). Have also a look at the [FAQ](docs/FAQ.md).
 
-## Resources
+## Next Steps
 
 - [Documentation](docs/README.md)
 - [Panels Overview](docs/panels/README.md)
@@ -113,14 +116,16 @@ For details about how the parts of the whole system communicate together see [NS
 - [AppDaemon Component](docs/AppDaemon.md)
 - [Nextion Component](docs/Nextion.md)
 
-## What's next?
-
-Some planned functionality coming in the future:
-
-- Config values based on conditions like time, day, etc.
-- More entity pages like themo, alarm, shutter/cover control
-- More functionality ...
-
-## Additional Information
+## Resources
 
 The project is based on the ideas of [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) and [NSPanel Custom with HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint).
+
+- https://esphome.io
+- https://nextion.tech/instruction-set/
+- https://docs.nspanel.pky.eu/
+- https://github.com/joBr99/nspanel-lovelace-ui
+- https://github.com/joBr99/Generate-HASP-Fonts
+- https://github.com/Blackymas/NSPanel_HA_Blueprint
+- https://github.com/masto/NSPanel-Demo-Files
+- https://github.com/marcfager/nspanel-mf
+- https://github.com/krizkontrolz/Home-Assistant-nextion_handler

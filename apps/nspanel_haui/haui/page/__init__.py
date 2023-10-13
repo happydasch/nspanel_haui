@@ -231,7 +231,7 @@ class HAUIPage(HAUIPart):
             # check primary left button
             if self.FNC_BTN_L_PRI in self._fnc_items:
                 left_pri = self._fnc_items[self.FNC_BTN_L_PRI]
-                if left_pri["fnc_name"] == self.FNC_TYPE_NAV_PREV:
+                if left_pri["fnc_name"] is None or left_pri["fnc_name"] == self.FNC_TYPE_NAV_PREV:
                     left_pri["fnc_args"]["visible"] = False
                     # swap pri with secondary
                     if self.FNC_BTN_L_SEC in self._fnc_items:
@@ -245,7 +245,7 @@ class HAUIPage(HAUIPart):
             # check primary right button
             if self.FNC_BTN_R_PRI in self._fnc_items:
                 right_pri = self._fnc_items[self.FNC_BTN_R_PRI]
-                if right_pri["fnc_name"] == self.FNC_TYPE_NAV_NEXT:
+                if right_pri["fnc_name"] is None or right_pri["fnc_name"] == self.FNC_TYPE_NAV_NEXT:
                     right_pri["fnc_args"]["visible"] = False
                     # swap pri with secondary
                     if self.FNC_BTN_R_SEC in self._fnc_items:
@@ -554,6 +554,14 @@ class HAUIPage(HAUIPart):
                 self.set_function_component(None, fnc_id)
 
     def get_button_colors(self, active):
+        """Returns default colors for buttons.
+
+        Args:
+            active (bool): is the button active
+
+        Returns:
+            tuple: (color, color_pressed, back_color, back_color_pressed)
+        """
         color = COLORS["component_active"] if active else COLORS["text_disabled"]
         color_pressed = COLORS["component"] if active else COLORS["text_disabled"]
         back_color = COLORS["background"]
@@ -802,6 +810,7 @@ class HAUIPage(HAUIPart):
         # process function button press callback
         if button_state != 0:
             return
+
         # check what button was pressed
         fnc_id = None
         fnc_item = None
@@ -810,12 +819,14 @@ class HAUIPage(HAUIPart):
                 fnc_id = _fnc_id
                 fnc_item = _fnc_cnt
                 break
+
         # if unknown function do nothing
         if fnc_item is None:
             return
         navigation = self.app.controller["navigation"]
         fnc_name = fnc_item["fnc_name"]
         fnc_args = fnc_item["fnc_args"]
+
         # check the function that is defined for the button
         if fnc_name == self.FNC_TYPE_NAV_PREV:
             navigation.open_prev_panel()
@@ -835,6 +846,7 @@ class HAUIPage(HAUIPart):
                 config = self.panel.get_persistent_config(return_copy=False)
                 config["locked"] = False
                 navigation.reload_panel()
+
         # notify about function button press
         self.callback_function_component(fnc_id, fnc_name)
 
@@ -856,6 +868,7 @@ class HAUIPage(HAUIPart):
                 "name", ""
             ):
                 self.app.device.set_right_button_state(bool(data["value"]))
+
         # component event
         if event.name == ESP_EVENT["component"]:
             self.process_component_event(event)

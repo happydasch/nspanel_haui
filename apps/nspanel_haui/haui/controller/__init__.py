@@ -5,5 +5,9 @@ from .navigation import HAUINavigationController
 from .update import HAUIUpdateController
 
 __all__ = [
-    "HAUIConnectionController", "HAUIGestureController", "HAUIMQTTController",
-    "HAUINavigationController", "HAUIUpdateController"]
+    "HAUIConnectionController",
+    "HAUIGestureController",
+    "HAUIMQTTController",
+    "HAUINavigationController",
+    "HAUIUpdateController",
+]

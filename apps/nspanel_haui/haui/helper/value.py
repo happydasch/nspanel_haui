@@ -28,7 +28,7 @@ def merge_dicts(dict1, dict2):
         dict2 (dict): source dict
     """
     for k in dict2.keys():
-        if (k in dict1 and isinstance(dict1[k], dict) and isinstance(dict2[k], dict)):
+        if k in dict1 and isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
             merge_dicts(dict1[k], dict2[k])
         else:
             dict1[k] = dict2[k]

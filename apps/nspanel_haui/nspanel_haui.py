@@ -1,9 +1,12 @@
 from haui.config import HAUIConfig
 from haui.device import HAUIDevice
 from haui.controller import (
-    HAUIMQTTController, HAUIConnectionController,
-    HAUIGestureController, HAUIUpdateController,
-    HAUINavigationController)
+    HAUIMQTTController,
+    HAUIConnectionController,
+    HAUIGestureController,
+    HAUIUpdateController,
+    HAUINavigationController,
+)
 
 import appdaemon.plugins.hass.hassapi as hass
 
@@ -18,64 +21,60 @@ class NSPanelHAUI(hass.Hass):
     """
 
     def __init__(self, *args, **kwargs):
-        """ Initialize NSPanel HAUI
-        """
+        """Initialize NSPanel HAUI"""
         super().__init__(*args, **kwargs)
         self.controller = {}
         self.config = None
         self.device = None
 
     def initialize(self):
-        """ Called from AppDaemon when starting.
-        """
+        """Called from AppDaemon when starting."""
         # create config
-        self.config = HAUIConfig(self, self.args['config'])
+        self.config = HAUIConfig(self, self.args["config"])
         # create the nspanel device representation
-        self.device = HAUIDevice(self, self.config.get('device'))
+        self.device = HAUIDevice(self, self.config.get("device"))
         # create mqtt controller
         mqtt_controller = HAUIMQTTController(
-            self, self.config.get('mqtt'),
-            self.get_plugin_api('MQTT'),
-            self.callback_event)
-        self.controller['mqtt'] = mqtt_controller
+            self,
+            self.config.get("mqtt"),
+            self.get_plugin_api("MQTT"),
+            self.callback_event,
+        )
+        self.controller["mqtt"] = mqtt_controller
         # create connection controller
         connection_controller = HAUIConnectionController(
-            self, self.config.get('connection'),
-            self.callback_connection)
-        self.controller['connection'] = connection_controller
+            self, self.config.get("connection"), self.callback_connection
+        )
+        self.controller["connection"] = connection_controller
         # create navigation controller
         navigation_controller = HAUINavigationController(
-            self, self.config.get('navigation'))
-        self.controller['navigation'] = navigation_controller
+            self, self.config.get("navigation")
+        )
+        self.controller["navigation"] = navigation_controller
         # create update controller
-        update_controller = HAUIUpdateController(
-            self, self.config.get('update'))
-        self.controller['update'] = update_controller
+        update_controller = HAUIUpdateController(self, self.config.get("update"))
+        self.controller["update"] = update_controller
         # create gesture controller
-        gesture_controller = HAUIGestureController(
-            self, self.config.get('gesture'))
-        self.controller['gesture'] = gesture_controller
+        gesture_controller = HAUIGestureController(self, self.config.get("gesture"))
+        self.controller["gesture"] = gesture_controller
         # start all parts everything
         self.start()
 
     def terminate(self):
-        """ Called from AppDaemon when stopping.
-        """
+        """Called from AppDaemon when stopping."""
         self.stop()
 
     # part
 
     def start(self):
-        """ Called when starting.
-        """
+        """Called when starting."""
         for controller in self.controller.values():
             if not isinstance(controller, NSPanelHAUI):
                 controller.start()
         self.device.start()
 
     def stop(self):
-        """ Called when stopping.
-        """
+        """Called when stopping."""
         if self.device is not None:
             self.device.stop()
         for controller in self.controller.values():
@@ -85,7 +84,7 @@ class NSPanelHAUI(hass.Hass):
     # callback
 
     def callback_event(self, event):
-        """ Callback for events.
+        """Callback for events.
 
         Args:
             event (HAUIEvent): Event
@@ -96,10 +95,10 @@ class NSPanelHAUI(hass.Hass):
         self.device.process_event(event)
 
     def callback_connection(self, connected):
-        """ Callback for connection events from controller.
+        """Callback for connection events from controller.
 
         Args:
             connected (bool): Connection status
         """
-        self.log(f'Device connection status: {connected}')
+        self.log(f"Device connection status: {connected}")
         self.device.set_connected(connected)

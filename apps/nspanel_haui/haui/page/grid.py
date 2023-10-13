@@ -7,18 +7,53 @@ import random
 
 
 class GridPage(HAUIPage):
-
     # common components
-    TXT_TITLE = (2, 'tTitle')
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, 'bFncLPri'), (4, 'bFncLSec')
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, 'bFncRPri'), (6, 'bFncRSec')
+    TXT_TITLE = (2, "tTitle")
+    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
+    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
     # grid entities
-    G1_BTN, G1_ICO, G1_NAME, G1_OVL, G1_POWER = (7, 'g1Btn'), (8, 'g1Icon'), (9, 'g1Name'), (10, 'g1Overlay'), (11, 'g1Power')
-    G2_BTN, G2_ICO, G2_NAME, G2_OVL, G2_POWER = (12, 'g2Btn'), (13, 'g2Icon'), (14, 'g2Name'), (15, 'g2Overlay'), (16, 'g2Power')
-    G3_BTN, G3_ICO, G3_NAME, G3_OVL, G3_POWER = (17, 'g3Btn'), (18, 'g3Icon'), (19, 'g3Name'), (20, 'g3Overlay'), (21, 'g3Power')
-    G4_BTN, G4_ICO, G4_NAME, G4_OVL, G4_POWER = (22, 'g4Btn'), (23, 'g4Icon'), (24, 'g4Name'), (25, 'g4Overlay'), (26, 'g4Power')
-    G5_BTN, G5_ICO, G5_NAME, G5_OVL, G5_POWER = (27, 'g5Btn'), (28, 'g5Icon'), (29, 'g5Name'), (30, 'g5Overlay'), (31, 'g5Power')
-    G6_BTN, G6_ICO, G6_NAME, G6_OVL, G6_POWER = (32, 'g6Btn'), (33, 'g6Icon'), (34, 'g6Name'), (35, 'g6Overlay'), (36, 'g6Power')
+    G1_BTN, G1_ICO, G1_NAME, G1_OVL, G1_POWER = (
+        (7, "g1Btn"),
+        (8, "g1Icon"),
+        (9, "g1Name"),
+        (10, "g1Overlay"),
+        (11, "g1Power"),
+    )
+    G2_BTN, G2_ICO, G2_NAME, G2_OVL, G2_POWER = (
+        (12, "g2Btn"),
+        (13, "g2Icon"),
+        (14, "g2Name"),
+        (15, "g2Overlay"),
+        (16, "g2Power"),
+    )
+    G3_BTN, G3_ICO, G3_NAME, G3_OVL, G3_POWER = (
+        (17, "g3Btn"),
+        (18, "g3Icon"),
+        (19, "g3Name"),
+        (20, "g3Overlay"),
+        (21, "g3Power"),
+    )
+    G4_BTN, G4_ICO, G4_NAME, G4_OVL, G4_POWER = (
+        (22, "g4Btn"),
+        (23, "g4Icon"),
+        (24, "g4Name"),
+        (25, "g4Overlay"),
+        (26, "g4Power"),
+    )
+    G5_BTN, G5_ICO, G5_NAME, G5_OVL, G5_POWER = (
+        (27, "g5Btn"),
+        (28, "g5Icon"),
+        (29, "g5Name"),
+        (30, "g5Overlay"),
+        (31, "g5Power"),
+    )
+    G6_BTN, G6_ICO, G6_NAME, G6_OVL, G6_POWER = (
+        (32, "g6Btn"),
+        (33, "g6Icon"),
+        (34, "g6Name"),
+        (35, "g6Overlay"),
+        (36, "g6Power"),
+    )
     # definitions
     NUM_GRIDS = 6
     LEN_NAME = 15
@@ -35,25 +70,28 @@ class GridPage(HAUIPage):
     def start_panel(self, panel):
         # set vars
         self._entities = panel.get_entities()
-        self._current_page = panel.get('initial_page', 0)
-        self._color_seed = panel.get('color_seed', random.randint(0, 1000))
+        self._current_page = panel.get("initial_page", 0)
+        self._color_seed = panel.get("color_seed", random.randint(0, 1000))
         # set function buttons
         page_btn = {
-            'fnc_component': self.BTN_FNC_RIGHT_SEC,
-            'fnc_name': 'next_page',
-            'fnc_args': {
-                'icon': self.ICO_NEXT_PAGE,
-                'color': COLORS['component_accent'],
-                'visible': True if len(self._entities) > self.NUM_GRIDS else False
-            }
+            "fnc_component": self.BTN_FNC_RIGHT_SEC,
+            "fnc_name": "next_page",
+            "fnc_args": {
+                "icon": self.ICO_NEXT_PAGE,
+                "color": COLORS["component_accent"],
+                "visible": True if len(self._entities) > self.NUM_GRIDS else False,
+            },
         }
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI, self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI, page_btn)
+            self.BTN_FNC_LEFT_PRI,
+            self.BTN_FNC_LEFT_SEC,
+            self.BTN_FNC_RIGHT_PRI,
+            page_btn,
+        )
         # set power and grid button callbacks
         for i in range(self.NUM_GRIDS):
-            power = getattr(self, f'G{i+1}_POWER')
-            ovl = getattr(self, f'G{i+1}_OVL')
+            power = getattr(self, f"G{i+1}_POWER")
+            ovl = getattr(self, f"G{i+1}_OVL")
             self.add_component_callback(power, self.callback_power_buttons)
             self.add_component_callback(ovl, self.callback_grid_entries)
 
@@ -89,17 +127,17 @@ class GridPage(HAUIPage):
                 entity = entities[i]
             # click events are captured by overlay, assign
             # entities to button overlay
-            ovl = getattr(self, f'G{idx}_OVL')
-            power = getattr(self, f'G{idx}_POWER')
+            ovl = getattr(self, f"G{idx}_OVL")
+            power = getattr(self, f"G{idx}_POWER")
             self._active_entities[ovl] = entity
             # visibility of grid button
             visible = False
             if entity is not None:
-                self._entity_mapping[entity] = {'ovl': ovl, 'power': power}
+                self._entity_mapping[entity] = {"ovl": ovl, "power": power}
                 # internal entity
                 if entity.is_internal():
                     internal_type = entity.get_internal_type()
-                    if internal_type in ['navigate', 'service']:
+                    if internal_type in ["navigate", "service"]:
                         visible = True
                 # standard entity
                 else:
@@ -108,59 +146,61 @@ class GridPage(HAUIPage):
             self.set_grid_entry(idx, visible=visible)
         # create listener for active entities
         for entity_id in entity_ids:
-            handle = self.add_entity_listener(entity_id, self.callback_entity_state, attribute='all')
+            handle = self.add_entity_listener(
+                entity_id, self.callback_entity_state, attribute="all"
+            )
             self._active_handles.append(handle)
 
     def set_grid_entry(self, idx, visible):
         # visibility of grid button components
-        btn = getattr(self, f'G{idx}_BTN')
-        ico = getattr(self, f'G{idx}_ICO')
-        name = getattr(self, f'G{idx}_NAME')
-        ovl = getattr(self, f'G{idx}_OVL')
-        power = getattr(self, f'G{idx}_POWER')
+        btn = getattr(self, f"G{idx}_BTN")
+        ico = getattr(self, f"G{idx}_ICO")
+        name = getattr(self, f"G{idx}_NAME")
+        ovl = getattr(self, f"G{idx}_OVL")
+        power = getattr(self, f"G{idx}_POWER")
         entity = self._active_entities[ovl]
         panel = self.panel
         # power button, only show if requested and a entity is set
         power_visible = False
         if entity is not None:
-            power_visible = panel.get('show_power_button', False)
+            power_visible = panel.get("show_power_button", False)
             if not entity.is_internal():
-                power_visible = entity.get('show_power_button', power_visible)
+                power_visible = entity.get("show_power_button", power_visible)
         # colors for grid button
-        color_pressed = COLORS['text']
-        back_color_pressed = COLORS['component_pressed']
-        power_color = panel.get('power_color', COLORS['component_active'])
-        text_color = panel.get('text_color')
-        back_color = panel.get('back_color')
-        color_mode = panel.get('color_mode')
-        color_seed = panel.get('color_seed', self._color_seed)
+        color_pressed = COLORS["text"]
+        back_color_pressed = COLORS["component_pressed"]
+        power_color = panel.get("power_color", COLORS["component_active"])
+        text_color = panel.get("text_color")
+        back_color = panel.get("back_color")
+        color_mode = panel.get("color_mode")
+        color_seed = panel.get("color_seed", self._color_seed)
         if entity is not None:
-            back_color = entity.get('back_color', back_color)
-            color_mode = entity.get('color_mode', color_mode)
-            color_seed = entity.get('color_seed', color_seed)
+            back_color = entity.get("back_color", back_color)
+            color_mode = entity.get("color_mode", color_mode)
+            color_seed = entity.get("color_seed", color_seed)
         # no background color check if color mode or set default
         if back_color is None:
             if color_mode is not None:
-                self.log(f'Using random seed for grid: {color_seed}')
+                self.log(f"Using random seed for grid: {color_seed}")
                 colors = generate_color_palette(
-                    rgb565_to_rgb(COLORS['background']),
-                    color_mode, color_seed, 6)
+                    rgb565_to_rgb(COLORS["background"]), color_mode, color_seed, 6
+                )
                 back_color = colors[idx - 1]
                 back_color_pressed = [int(x * 0.5) for x in back_color]
                 # for light back colors use dark text color
-                if color_mode in ['pastel', 'light', 'lighten']:
+                if color_mode in ["pastel", "light", "lighten"]:
                     if text_color is None:
-                        text_color = COLORS['background']
-                    color_pressed = COLORS['component_pressed']
-                    power_color = COLORS['background']
-                elif color_mode in ['vibrant']:
+                        text_color = COLORS["background"]
+                    color_pressed = COLORS["component_pressed"]
+                    power_color = COLORS["background"]
+                elif color_mode in ["vibrant"]:
                     if text_color is None:
-                        text_color = COLORS['component']
-                    color_pressed = COLORS['component']
-                    power_color = COLORS['component']
+                        text_color = COLORS["component"]
+                    color_pressed = COLORS["component"]
+                    power_color = COLORS["component"]
             else:
-                back_color = COLORS['background']
-                text_color = COLORS['text']
+                back_color = COLORS["background"]
+                text_color = COLORS["text"]
         # update grid button
         if visible:
             if text_color is not None:
@@ -198,9 +238,9 @@ class GridPage(HAUIPage):
 
     def update_grid_entry(self, idx):
         # update a single button
-        ovl = getattr(self, f'G{idx}_OVL')
-        ico = getattr(self, f'G{idx}_ICO')
-        name = getattr(self, f'G{idx}_NAME')
+        ovl = getattr(self, f"G{idx}_OVL")
+        ico = getattr(self, f"G{idx}_ICO")
+        name = getattr(self, f"G{idx}_NAME")
         entity = self._active_entities[ovl]
         # set text
         self.set_component_text(name, trim_text(entity.get_name(), self.LEN_NAME))
@@ -210,7 +250,13 @@ class GridPage(HAUIPage):
     # callback
 
     def callback_entity_state(self, entity, attribute, old, new, kwargs):
-        entity_ids = set([haui_entity.get_entity_id() for haui_entity in self._active_entities.values() if haui_entity is not None])
+        entity_ids = set(
+            [
+                haui_entity.get_entity_id()
+                for haui_entity in self._active_entities.values()
+                if haui_entity is not None
+            ]
+        )
         if entity not in entity_ids:
             return
         self.start_rec_cmd()
@@ -224,7 +270,7 @@ class GridPage(HAUIPage):
         self.stop_rec_cmd(send_commands=True)
 
     def callback_function_component(self, fnc_id, fnc_name):
-        if fnc_name == 'next_page':
+        if fnc_name == "next_page":
             count_pages = (len(self._entities) % self.NUM_GRIDS) + 1
             self._current_page += 1
             if self._current_page >= count_pages:
@@ -237,7 +283,7 @@ class GridPage(HAUIPage):
         if button_state:
             return
         for haui_entity, mapping in self._entity_mapping.items():
-            if mapping['power'] != component:
+            if mapping["power"] != component:
                 continue
             if not haui_entity.has_entity():
                 break

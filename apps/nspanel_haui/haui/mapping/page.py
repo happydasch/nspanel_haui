@@ -3,6 +3,7 @@ from ..page.blank import BlankPage
 from ..page.system import SystemPage
 from ..page.settings import SettingsPage
 from ..page.about import AboutPage
+
 # default panels
 from ..page.weather import WeatherPage
 from ..page.clock import ClockPage
@@ -15,6 +16,7 @@ from ..page.timer import TimerPage
 from ..page.qr import QRPage
 from ..page.thermo import ThermoPage
 from ..page.alarm import AlarmPage
+
 # popup panels
 from ..page.alarm import PopupUnlockPage
 from ..page.notify import PopupNotifyPage
@@ -32,42 +34,42 @@ from ..page.timer import PopupTimerPage
 # using the same page
 # page_id -> page_name
 PAGE_MAPPING = {
-    0: 'blank',
-    1: 'system',
-    2: 'about',
-    3: 'settings',
-    4: 'weather',
-    5: 'clock',
-    6: 'grid',
-    7: 'row',
-    8: 'light',
-    9: 'thermo',
-    10: 'media',
-    11: 'vacuum',
-    12: 'qr',
-    13: 'alarm',
-    14: 'timer',
-    15: 'notify',
-    16: 'select',
+    0: "blank",
+    1: "system",
+    2: "about",
+    3: "settings",
+    4: "weather",
+    5: "clock",
+    6: "grid",
+    7: "row",
+    8: "light",
+    9: "thermo",
+    10: "media",
+    11: "vacuum",
+    12: "qr",
+    13: "alarm",
+    14: "timer",
+    15: "notify",
+    16: "select",
 }
 
 # system panel mapping
 # sys_panel_key -> panel_type
 SYS_PANEL_MAPPING = {
     # sys pages
-    'sys_blank': 'blank',
-    'sys_system': 'system',
-    'sys_settings': 'system_settings',
-    'sys_about': 'system_about',
+    "sys_blank": "blank",
+    "sys_system": "system",
+    "sys_settings": "system_settings",
+    "sys_about": "system_about",
     # popups
-    'popup_unlock': 'popup_unlock',
-    'popup_notify': 'popup_notify',
-    'popup_select': 'popup_select',
-    'popup_light': 'popup_light',
-    'popup_media': 'popup_media',
-    'popup_vacuum': 'popup_vacuum',
-    'popup_thermo': 'popup_thermo',
-    'popup_timer': 'popup_timer',
+    "popup_unlock": "popup_unlock",
+    "popup_notify": "popup_notify",
+    "popup_select": "popup_select",
+    "popup_light": "popup_light",
+    "popup_media": "popup_media",
+    "popup_vacuum": "popup_vacuum",
+    "popup_thermo": "popup_thermo",
+    "popup_timer": "popup_timer",
 }
 
 
@@ -75,29 +77,29 @@ SYS_PANEL_MAPPING = {
 # panel_type -> (page_name, page_class)
 PANEL_MAPPING = {
     # sys panels
-    'blank': ('blank', BlankPage),
-    'system': ('system', SystemPage),
-    'system_settings': ('settings', SettingsPage),
-    'system_about': ('about', AboutPage),
+    "blank": ("blank", BlankPage),
+    "system": ("system", SystemPage),
+    "system_settings": ("settings", SettingsPage),
+    "system_about": ("about", AboutPage),
     # panels
-    'weather': ('weather', WeatherPage),
-    'clock': ('clock', ClockPage),
-    'grid': ('grid', GridPage),
-    'row': ('row', RowPage),
-    'light': ('light', LightPage),
-    'media': ('media', MediaPage),
-    'vacuum': ('vacuum', VacuumPage),
-    'timer': ('timer', TimerPage),
-    'qr': ('qr', QRPage),
-    'thermo': ('thermo', ThermoPage),
-    'alarm': ('alarm', AlarmPage),
+    "weather": ("weather", WeatherPage),
+    "clock": ("clock", ClockPage),
+    "grid": ("grid", GridPage),
+    "row": ("row", RowPage),
+    "light": ("light", LightPage),
+    "media": ("media", MediaPage),
+    "vacuum": ("vacuum", VacuumPage),
+    "timer": ("timer", TimerPage),
+    "qr": ("qr", QRPage),
+    "thermo": ("thermo", ThermoPage),
+    "alarm": ("alarm", AlarmPage),
     # popups
-    'popup_unlock': ('alarm', PopupUnlockPage),
-    'popup_notify': ('notify', PopupNotifyPage),
-    'popup_select': ('select', PopupSelectPage),
-    'popup_light': ('light', PopupLightPage),
-    'popup_media': ('media', PopupMediaPage),
-    'popup_vacuum': ('vacuum', PopupVacuumPage),
-    'popup_thermo': ('thermo', PopupThermoPage),
-    'popup_timer': ('timer', PopupTimerPage),
+    "popup_unlock": ("alarm", PopupUnlockPage),
+    "popup_notify": ("notify", PopupNotifyPage),
+    "popup_select": ("select", PopupSelectPage),
+    "popup_light": ("light", PopupLightPage),
+    "popup_media": ("media", PopupMediaPage),
+    "popup_vacuum": ("vacuum", PopupVacuumPage),
+    "popup_thermo": ("thermo", PopupThermoPage),
+    "popup_timer": ("timer", PopupTimerPage),
 }

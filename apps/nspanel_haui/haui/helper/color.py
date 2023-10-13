@@ -6,7 +6,7 @@ from .value import scale
 
 
 def generate_color_palette(rgb_color, palette_type, seed=None, num_colors=6):
-    """ Generates random color matching the provided color.
+    """Generates random color matching the provided color.
 
     Args:
         rgb_color (list): RGB color
@@ -20,35 +20,37 @@ def generate_color_palette(rgb_color, palette_type, seed=None, num_colors=6):
     if seed is None:
         seed = random.randint(0, 1000)
     random.seed(seed)
-    hsv_background = colorsys.rgb_to_hsv(rgb_color[0] / 255, rgb_color[1] / 255, rgb_color[2] / 255)
+    hsv_background = colorsys.rgb_to_hsv(
+        rgb_color[0] / 255, rgb_color[1] / 255, rgb_color[2] / 255
+    )
     colors = []
     for _ in range(num_colors):
-        if palette_type == 'vibrant':
+        if palette_type == "vibrant":
             # Generate vibrant colors by randomizing hue, saturation, and value
             hue = random.random()
             saturation = random.uniform(0.7, 1.0)
             value = random.uniform(0.7, 1.0)
-        elif palette_type == 'pastel':
+        elif palette_type == "pastel":
             # Generate pastel colors by reducing saturation and increasing value
             hue = random.random()
             saturation = random.uniform(0.2, 0.5)
             value = random.uniform(0.7, 1.0)
-        elif palette_type == 'light':
+        elif palette_type == "light":
             # Generate light colors by increasing random value
             hue = hsv_background[0]
             saturation = hsv_background[1]
             value = random.uniform(0.7, 0.8)
-        elif palette_type == 'lighten':
+        elif palette_type == "lighten":
             # Generate light colors by decreasing value
             hue = hsv_background[0]
             saturation = hsv_background[1]
             value = 0.8
-        elif palette_type == 'dark':
+        elif palette_type == "dark":
             # Generate light colors by decreasing random value
             hue = hsv_background[0]
             saturation = hsv_background[1]
             value = random.uniform(0.2, 0.3)
-        elif palette_type == 'darken':
+        elif palette_type == "darken":
             # Generate light colors by decreasing value
             hue = hsv_background[0]
             saturation = hsv_background[1]
@@ -60,7 +62,7 @@ def generate_color_palette(rgb_color, palette_type, seed=None, num_colors=6):
 
 
 def rgb_brightness(rgb_color, brightness):
-    """ Returns a dimmed RGB value.
+    """Returns a dimmed RGB value.
 
     Args:
         rgb_color (list): RGB color to dim
@@ -80,7 +82,7 @@ def rgb_brightness(rgb_color, brightness):
 
 
 def rgb_to_hsv(r, g, b):
-    """ Converts RGB values to HSV.
+    """Converts RGB values to HSV.
 
     Args:
         r (float): Red value
@@ -95,7 +97,7 @@ def rgb_to_hsv(r, g, b):
 
 
 def hsv_to_rgb(h, s, v):
-    """ Converts HSV values to RGB.
+    """Converts HSV values to RGB.
 
     Args:
         h (float): H value
@@ -110,7 +112,7 @@ def hsv_to_rgb(h, s, v):
 
 
 def color_to_pos(rgb, wh):
-    """ Converts a RGB color to 2d position data.
+    """Converts a RGB color to 2d position data.
 
     Args:
         rgb (tuple): RGB value
@@ -129,7 +131,7 @@ def color_to_pos(rgb, wh):
 
 
 def pos_to_color(x, y, wh):
-    """ Converts 2d position data to a RGB color.
+    """Converts 2d position data to a RGB color.
 
     Args:
         x (int): X Pos
@@ -151,7 +153,7 @@ def pos_to_color(x, y, wh):
 
 
 def rgb_to_rgb565(rgb_color):
-    """ Converts a RGB888 color to a RGB565 color.
+    """Converts a RGB888 color to a RGB565 color.
 
     Args:
         rgb_color (list|tuple): rgb colors
@@ -162,11 +164,11 @@ def rgb_to_rgb565(rgb_color):
     red = rgb_color[0]
     green = rgb_color[1]
     blue = rgb_color[2]
-    return ((int(red >> 3) << 11) | (int(green >> 2) << 5) | (int(blue >> 3)))
+    return (int(red >> 3) << 11) | (int(green >> 2) << 5) | (int(blue >> 3))
 
 
 def rgb565_to_rgb(rgb565_color):
-    """ Converts a RGB565 color to a RGB888 color.
+    """Converts a RGB565 color to a RGB888 color.
 
     Args:
         rgb565_color (int): rgb565 color
@@ -176,7 +178,7 @@ def rgb565_to_rgb(rgb565_color):
     """
     red = (rgb565_color & 0xF800) >> 11
     green = (rgb565_color & 0x07E0) >> 5
-    blue = (rgb565_color & 0x001F)
+    blue = rgb565_color & 0x001F
     # scale the values up to 8 bits (0-255)
     red = (red * 255) // 31
     green = (green * 255) // 63

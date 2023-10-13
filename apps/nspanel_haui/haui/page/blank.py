@@ -2,8 +2,7 @@ from . import HAUIPage
 
 
 class BlankPage(HAUIPage):
-
-    H_BLANK = (1, 'hBlank')
+    H_BLANK = (1, "hBlank")
 
     # panel
 
@@ -13,4 +12,4 @@ class BlankPage(HAUIPage):
     # callback
 
     def callback_blank(self, event, component, button_state):
-        self.log('Blank callback')
+        self.log("Blank callback")

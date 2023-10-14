@@ -912,6 +912,7 @@ script:
             id(goto_page).execute("blank");
             id(display_sleep).execute();
           } else if (new_state != 0 && id(haui_disp).is_sleeping()) {
+            // TODO check for connection state, if not connected another page should be opened instead?
             id(display_wakeup).execute();
             id(goto_page).execute(wakeup_page);
           }

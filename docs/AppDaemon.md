@@ -23,7 +23,6 @@ NSPanelHAUI is the backend that allows to manage home automation devices using t
   - [Communication](#communication)
   - [Available Pages](#available-pages)
   - [Available Panels](#available-panels)
-  - [Resources](#resources)
 
 ## Requirements
 
@@ -186,9 +185,3 @@ The pages represent pages on the nextion displays. The pages interact with the E
 ## Available Panels
 
 Panels are configured representations of a page. A page can have multiple panels, like the alarm page, which is used for alarm activation and the unlock popup. There can be multiple panels using the same page. All panels can have a custom key defined, which is used for navigation. See [Panels Overview](panels/README.md) for more details about the different panels.
-
-## Resources
-
-- https://github.com/joBr99/nspanel-lovelace-ui
-- https://github.com/joBr99/Generate-HASP-Fonts
-- https://docs.nspanel.pky.eu/

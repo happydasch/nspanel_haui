@@ -3,8 +3,28 @@
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
 - [Nextion Component](#nextion-component)
+  - [Installation](#installation)
   - [How to edit the HMI file](#how-to-edit-the-hmi-file)
   - [Scripts for display](#scripts-for-display)
+
+## Installation
+
+To install the TFT file on the display, the device needs to be already flashed with ESPHome.
+
+The device will provide a button `Update Display` in the device settings. There are also services
+available.
+
+- Using a button:
+
+  - Button: `Update Display`
+    This will load the TFT file from the URL configured on the ESP.
+
+- Using a service:
+  - Service: `nspanel_haui_upload_tft`
+    This will load the TFT from the configured URL
+
+  - Service: `nspanel_haui_upload_tft_url`
+    This will load the TFT from the URL provided to the service.
 
 ## How to edit the HMI file
 

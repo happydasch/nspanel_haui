@@ -130,6 +130,7 @@ To enable update checks set an interval > 0 and/or set check_on_connect to true.
 
 ```yaml:
 update:
+  auto_install: True  # Install tft file automatically if no or a unknown tft file is installed
   auto_update: false  # Update automatically on new releases
   tft_filename: nspanel_haui.tft  # The asset filename to load
   check_on_connect: false  # Should be checked for updates when connected
@@ -137,6 +138,7 @@ update:
   interval: 0  # Set to 86400 for daily checks
 ```
 
+- `auto_install` bool
 - `auto_update` bool
 - `tft_filename` string
 - `interval` int

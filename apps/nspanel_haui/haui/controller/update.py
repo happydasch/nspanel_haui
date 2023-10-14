@@ -27,6 +27,9 @@ class HAUIUpdateController(HAUIPart):
     - check for updates on a regular basis and either ask user for update if there
         is a update available or install update automatically
         (this is only active if the update check interval is bigger 0)
+
+    - check for initial display upload if the panel is connected
+        (this can be deactivated by configuration)
     """
 
     # hard-coded url for haui relases on github
@@ -198,6 +201,11 @@ class HAUIUpdateController(HAUIPart):
             # notify about unknown versions
             msg = self.translate("Got unknown TFT-Version information.")
         elif parse_version(required_version) > parse_version(installed_version):
+            if parse_version(installed_version) < parse_version("0.0.1"):
+                # invalid or unknown version installed
+                if self.get("auto_install", True):
+                    self.run_update_display()
+                    return
             # notify about outdated tft version
             msg = self.translate("Your TFT-version is outdated.")
         else:
@@ -234,6 +242,7 @@ class HAUIUpdateController(HAUIPart):
         # notify about new release (or update if autoupdate)
         if self.get("auto_update", False):
             self.run_update_display()
+            return
         # open notification
         else:
             device_info = self.app.device.device_info

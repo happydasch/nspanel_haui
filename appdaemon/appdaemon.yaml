@@ -7,7 +7,6 @@ appdaemon:
   plugins:
     HASS:
       type: hass
-      ha_url: !secret ha_ip
     MQTT:
       type: mqtt
       namespace: mqtt

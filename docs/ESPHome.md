@@ -7,13 +7,15 @@ The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAs
 - Provides Scripts and Services for Communication with display
 - Responsible for handling the device functionality
 
-See `device/nspanel-haui.yaml` for the configuration file for your device.
+See `device/install.yaml` for the installation configuration. This file is going to be installed on the device.
+
+See `device/nspanel_haui.yaml` for the esphome configuration file. This file contains all ESPHome functionality.
 
 The communication between ESPHome is done mostly via MQTT.
 
 - [ESPHome Component](#esphome-component)
-  - [Config](#config)
   - [Installation](#installation)
+  - [Config](#config)
   - [Custom Component](#custom-component)
   - [Getting Data](#getting-data)
   - [Communication](#communication)
@@ -30,35 +32,38 @@ The communication between ESPHome is done mostly via MQTT.
   - [Temperature](#temperature)
   - [Buttons](#buttons)
   - [Diagnostics](#diagnostics)
-  - [Resources](#resources)
+
+## Installation
+
+Copy the secrets from `device/secrets.yaml` and add them in ESPHome by pressing the `Secrets` Link in the right corner. This step is not neccessary if you add the secrets directly in the config file.
+
+To install ESPHome on the device use the config from `device/install.yaml`. Edit the substitution values and install the device.
+
+If the device shows up in Home Assistant you can manually install the TFT file by pressing the `Upload Display` button. The TFT file will automatically be installed when the device connects to the AppDaemon app.
+
+See [Nextion](Nextion.md) for more details about the display.
 
 ## Config
 
 An overview of all configuration variables defined in the ESPHome yaml file.
 
-- `yaml_version` (0.0.0)
-- `required_tft_version` (0.0.0)
+- `heartbeat_interval` (5)
 - `device_name` (nspanel-haui)
 - `friendly_name` (NSPanel HAUI)
-- `heartbeat_interval` (5)
+- `mqtt_device_name` (nspanel_haui)
+- `mqtt_ip` (!secret mqtt_ip)
+- `mqtt_username` (!secret mqtt_username)
+- `mqtt_password` (!secret mqtt_password)
 - `topic_prefix` (nspanel_haui/nspanel_haui)
-- `topic_cmd` ($topic_prefix/cmd)  # used for sending events
-- `topic_recv` ($topic_prefix/recv)  # used to recieve events
+- `topic_cmd` ($topic_prefix/cmd)
+- `topic_recv` ($topic_prefix/recv)
 - `ota_password` (!secret ota_password)
 - `encryption_key` (!secret encryption_key)
 - `web_username` (!secret web_username)
 - `web_password` (!secret web_password)
 - `wifi_ssid` (!secret wifi_ssid)
 - `wifi_password` (!secret wifi_password)
-- `mqtt_ip` (!secret mqtt_ip)
-- `mqtt_username` (!secret mqtt_username)
-- `mqtt_password` (!secret mqtt_password)
-- `tft_update_url` ([http://homeassistant.local:8123/local/nspanel/nspanel.tft](http://homeassistant.local:8123/local/nspanel/nspanel.tft))
-
-## Installation
-
-1. Copy custom component to server
-2. esp code update using yaml file
+- `tft_update_url` ([https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft](https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft))
 
 ## Custom Component
 
@@ -462,14 +467,3 @@ Diagnostics related sensors.
 
 - WIFI Info: Different values from wifi
 - Uptime: Device uptime
-
-## Resources
-
-- https://esphome.io
-- https://nextion.tech/instruction-set/
-- https://github.com/masto/NSPanel-Demo-Files
-- https://github.com/Blackymas/NSPanel_HA_Blueprint
-- https://github.com/marcfager/nspanel-mf
-- https://github.com/joBr99/nspanel-lovelace-ui
-- https://github.com/Blackymas/NSPanel_HA_Blueprint
-- https://github.com/krizkontrolz/Home-Assistant-nextion_handler

@@ -872,6 +872,7 @@ script:
           float duration_dimming_val = id(duration_dimming).state;
           // last interaction with device
           int last_interaction_val = int(id(last_interaction).state);
+
           // time passed since last interaction
           float diff_seconds = 0;
           if (last_interaction_val > 0) {
@@ -913,7 +914,12 @@ script:
             id(display_sleep).execute();
           } else if (new_state != 0 && id(haui_disp).is_sleeping()) {
             id(display_wakeup).execute();
-            id(goto_page).execute(wakeup_page);
+            bool ad_connected = id(ad_connection);
+            if (ad_connected == true) {
+              id(goto_page).execute(wakeup_page);
+            } else {
+              id(goto_page).execute("system");
+            }
           }
 
           // the state changed

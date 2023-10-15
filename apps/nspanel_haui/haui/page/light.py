@@ -39,6 +39,9 @@ class LightPage(HAUIPage):
 
     _title = ""
     _light_entity = None
+    _show_kelvin = True
+    _color_temp_min = 0
+    _color_temp_max = 0
     _light_functions = {}
     _current_light_function = None
     _touch_track = False
@@ -89,6 +92,7 @@ class LightPage(HAUIPage):
         if entity is not None:
             title = entity.get_name()
         self._title = title
+        self._show_kelvin = panel.get("show_kelvin", True)
         self.set_light_entity(entity)
 
     def render_panel(self, panel):
@@ -105,7 +109,16 @@ class LightPage(HAUIPage):
         self._light_entity = entity
         if not entity or not entity.has_entity_id():
             return
-        for attr_name in ["state", "effect", "brightness", "color_temp", "rgb_color"]:
+        attr_names = ["state", "effect", "brightness", "rgb_color"]
+        if self._show_kelvin:
+            attr_names.append("color_temp_kelvin")
+            self._color_temp_min = entity.get_entity_attr("min_color_temp_kelvin", 0)
+            self._color_temp_max = entity.get_entity_attr("max_color_temp_kelvin", 0)
+        else:
+            attr_names.append("color_temp")
+            self._color_temp_min = entity.get_entity_attr("min_mireds", 0)
+            self._color_temp_max = entity.get_entity_attr("max_mireds", 0)
+        for attr_name in attr_names:
             self.add_entity_listener(
                 entity.get_entity_id(), self.callback_light_entity, attribute=attr_name
             )
@@ -132,7 +145,8 @@ class LightPage(HAUIPage):
         fnc = self.get_light_function("brightness")
         if fnc is None:
             return
-        if value > 0:
+        self.log(f"Set brightness value {value}")
+        if value is not None:
             txt_value = f"{value}%"
         else:
             txt_value = self.translate("Off")
@@ -150,15 +164,25 @@ class LightPage(HAUIPage):
         fnc = self.get_light_function("color_temp")
         if fnc is None:
             return
+        self.log(f"Set color temp value {value}")
+        if value is not None and value > 0:
+            if self._show_kelvin:
+                unit = "K"
+            else:
+                unit = "Mired"
+            txt_value = f"{value}{unit}"
+        else:
+            value = 0
+            txt_value = ""
         self.set_component_value(self.H_COLOR_TEMP, value)
-        self.set_component_text(self.TXT_INFO, f"{value}K")
+        self.set_component_text(self.TXT_INFO, txt_value)
 
     def set_effect_info(self, value):
         fnc = self.get_light_function("effect")
         if fnc is None:
             return
         btn = fnc["btn"]
-        if value != "None":
+        if value is not None and value != "None":
             self.set_component_text_color(btn, COLORS["component_accent"])
         else:
             self.set_component_text_color(btn, COLORS["component"])
@@ -178,7 +202,10 @@ class LightPage(HAUIPage):
         effect = None
         color_val = 0
         brightness_val = self._light_entity.get_entity_attr("brightness", 0)
-        color_temp_val = self._light_entity.get_entity_attr("color_temp", 0)
+        if self._show_kelvin:
+            color_temp_val = self._light_entity.get_entity_attr("color_temp_kelvin")
+        else:
+            color_temp_val = self._light_entity.get_entity_attr("color_temp")
         effect_val = self._light_entity.get_entity_attr("effect", None)
         # check what is supported
         attr = entity.attributes
@@ -193,26 +220,17 @@ class LightPage(HAUIPage):
             power = False
         # brightness
         if "brightness" in attr:
-            brightness = True
+            brightness = bool(power)
         # color
         list_color_modes = ["hs", "rgb", "rgbw", "rgbww", "xy"]
         if any(item in list_color_modes for item in color_modes):
-            if power_val == "on":
-                color = True
-            else:
-                color = False
+            color = bool(power)
         # color temp
         if "color_temp" in color_modes:
-            if "color_temp" in attr:
-                color_temp = True
-            else:
-                color_temp = False
+            color_temp = bool(power)
         # effects
         if "effect_list" in attr:
-            if "effect" in attr:
-                effect = True
-            else:
-                effect = False
+            effect = bool(power)
 
         # update light functions
         idx = 1
@@ -223,14 +241,14 @@ class LightPage(HAUIPage):
             (self.ICO_EFFECT, "effect", effect_val, effect, False),
         ]:
             if status:
-                function = dict(
-                    idx=idx,
-                    ico=ico,
-                    name=name,
-                    val=val,
-                    status=status,
-                    show_info=show_info,
-                )
+                function = {
+                    "idx": idx,
+                    "ico": ico,
+                    "name": name,
+                    "val": val,
+                    "status": status,
+                    "show_info": show_info,
+                }
                 functions.append(function)
                 idx += 1
 
@@ -242,7 +260,7 @@ class LightPage(HAUIPage):
         if color_temp is not None:
             # scale ha color temp range to 0-100
             color_temp_val = round(
-                scale(color_temp_val, (attr.min_mireds, attr.max_mireds), (0, 100))
+                scale(color_temp_val, (self._color_temp_min, self._color_temp_max), (0, 100))
             )
             self.set_component_value(self.H_COLOR_TEMP, color_temp_val)
         if color is not None:
@@ -264,9 +282,8 @@ class LightPage(HAUIPage):
                 light_function = fnc
                 break
         if power is not None:
-            self.update_light_functions(light_function)
-            self.update_light_function_info()
             self.update_power_button()
+            self.update_light_functions(light_function)
             return True
         else:
             self.update_not_available()
@@ -287,6 +304,7 @@ class LightPage(HAUIPage):
                 self.show_component(self.TXT_INFO)
             else:
                 self.hide_component(self.TXT_INFO)
+            self.update_light_function_info(fnc)
         else:
             self.hide_component(self.TXT_INFO)
         # function buttons
@@ -305,22 +323,24 @@ class LightPage(HAUIPage):
                 self.hide_component(btn)
         # function components
         for x in [self.H_BRIGHTNESS, self.PIC_COLOR_WHEEL, self.H_COLOR_TEMP]:
-            self.show_component(x) if x == to_show else self.hide_component(x)
+            if x == to_show:
+                self.show_component(x)
+            else:
+                self.hide_component(x)
 
-    def update_light_function_info(self):
-        for fnc in self._light_functions:
-            name = fnc["name"]
-            val = fnc["val"]
-            # set value
-            if name == "brightness":
-                val = round(scale(val, (0, 255), (0, 100)))
-                self.set_brightness_info(val)
-            elif name == "color":
-                self.set_color_info(val)
-            elif name == "color_temp":
-                self.set_color_temp_info(val)
-            elif name == "effect":
-                self.set_effect_info(val)
+    def update_light_function_info(self, fnc):
+        name = fnc["name"]
+        val = fnc["val"]
+        # set value
+        if name == "brightness":
+            val = round(scale(val, (0, 255), (0, 100)))
+            self.set_brightness_info(val)
+        elif name == "color":
+            self.set_color_info(val)
+        elif name == "color_temp":
+            self.set_color_temp_info(val)
+        elif name == "effect":
+            self.set_effect_info(val)
 
     def update_color_wheel(self):
         if self._current_light_function != "color":
@@ -396,7 +416,9 @@ class LightPage(HAUIPage):
             else:
                 value = 0
             self.set_brightness_info(value)
-        elif attribute == "color_temp":
+        elif attribute == "color_temp_kelvin" and self._show_kelvin:
+            self.set_color_temp_info(new)
+        elif attribute == "color_temp" and not self._show_kelvin:
             self.set_color_temp_info(new)
         self.stop_rec_cmd(send_commands=True)
 
@@ -433,7 +455,7 @@ class LightPage(HAUIPage):
                     if value == "None":
                         value = no_effect
                     effects.append({"name": name, "value": value})
-                if len(effects):
+                if len(effects) > 0:
                     navigation.open_popup(
                         "popup_select",
                         title=self.translate("Select effect"),
@@ -552,14 +574,16 @@ class LightPage(HAUIPage):
 
     def process_color_temp(self, color_temp):
         self.log(f"Processing color temp {color_temp}")
-        entity = self._light_entity.get_entity()
         # scale 0-100 from slider to color range of lamp
         color_temp = scale(
             color_temp,
             (0, 100),
-            (entity.attributes.min_mireds, entity.attributes.max_mireds),
+            (self._color_temp_min, self._color_temp_max),
         )
-        self._light_entity.call_entity_service("turn_on", color_temp=color_temp)
+        if self._show_kelvin:
+            self._light_entity.call_entity_service("turn_on", color_temp_kelvin=color_temp)
+        else:
+            self._light_entity.call_entity_service("turn_on", color_temp=color_temp)
 
     def process_power(self, power):
         self.log(f"Processing power value {power}")
@@ -575,6 +599,7 @@ class PopupLightPage(LightPage):
         # check if the provided entity is valid
         # if a invalid entity is provided, return false
         # to prevent panel from rendering
+        # TODO fix doubled popups on error
         navigation = self.app.controller["navigation"]
         if entity is None or not entity.has_entity_id() or not entity.has_entity():
             self.log("No entity for popup light provided")

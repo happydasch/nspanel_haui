@@ -192,9 +192,9 @@ namespace nspanel_haui {
       return default_value;
     }
     std::string value = "";
-    std::string command = this->get_command("prints %s.txt,%d", component.c_str(), 0);
+    std::string command = this->get_command("get %s.txt", component.c_str());
     if (this->send_command(command, false)) {
-      if (!this->recv_txt_value_(value, RECV_TIMEOUT_MS, false)) {
+      if (!this->recv_txt_value_(value, RECV_TIMEOUT_MS, true)) {
         value = default_value;
       }
     }
@@ -209,8 +209,8 @@ namespace nspanel_haui {
       return default_value;
     }
     int value = 0;
-    if (this->send_command(this->get_command("prints %s.val,%d", component.c_str(), 0), false)) {
-      if (!this->recv_int_value_(value, RECV_TIMEOUT_MS, false)) {
+    if (this->send_command(this->get_command("get %s.val", component.c_str()), false)) {
+      if (!this->recv_int_value_(value, RECV_TIMEOUT_MS, true)) {
         value = default_value;
       }
     }

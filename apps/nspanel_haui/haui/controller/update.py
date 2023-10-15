@@ -225,8 +225,11 @@ class HAUIUpdateController(HAUIPart):
                 return
             # invalid or unknown version installed
             if self.get("auto_install", True) and v_inst == Version("0.0.0"):
-                self.run_update_display()
-                return
+                if self.app.device.is_connected():
+                    self.log(f"Invalid version installed: {installed_version}"
+                             ", auto install display")
+                    self.run_update_display()
+                    return
             # notify about outdated tft version
             msg = self.translate("Your TFT-version is outdated.")
         self._stop_timer_delay()  # ensure there is no delay on connect timer

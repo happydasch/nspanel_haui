@@ -86,7 +86,7 @@ external_components:
       url: https://github.com/happydasch/nspanel_haui
     components: [nspanel_haui]
   # Locally hosted component, uncomment for local dev
-  #- source: local
+  #- source: .
   #  # for nextion use a custom component that provides
   #  # the serial data in a event
   #  components: [nspanel_haui]
@@ -561,7 +561,8 @@ script:
           ESP_LOGD("haui", "Script: publish_device_info");
           auto device_version = to_string(ESPHOME_VERSION);
           auto yaml_version = "$yaml_version";
-          auto tft_version = id(haui_disp).get_component_txt("settings.tftVersion", "0.0.0");
+          auto tft_version = id(haui_disp).get_component_txt("settings.tftVersion");
+          //ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
           auto required_tft_version = "$required_tft_version";
           const json::json_build_t payload = [
               device_version, yaml_version, tft_version,
@@ -588,6 +589,7 @@ script:
           int relay_right_val = id(relay_right).state;
           auto display_state_val = id(haui_display_state);
           auto tft_version = id(haui_disp).get_component_txt("settings.tftVersion", "0.0.0");
+          //ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
           auto required_tft_version = "$required_tft_version";
           const json::json_build_t payload = [
               page_val, brightness_val, button_left_val, button_right_val,

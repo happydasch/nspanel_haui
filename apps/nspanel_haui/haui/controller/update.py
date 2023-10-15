@@ -2,7 +2,7 @@ import threading
 import json
 import requests
 
-from pkg_resources import parse_version  # https://peps.python.org/pep-0386/
+from packaging.version import parse, Version, InvalidVersion
 
 from ..mapping.const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
@@ -110,6 +110,21 @@ class HAUIUpdateController(HAUIPart):
 
     # update
 
+    def _parse_version(self, version):
+        """Parses the given version string and returns a Version object.
+
+        Args:
+            version (str): Version string
+
+        Returns:
+            Version: parsed Version
+        """
+        try:
+            vers = parse(version)
+        except InvalidVersion:
+            vers = Version("0.0.0")
+        return vers
+
     def _update_release_infos(self):
         """Updates the release informations."""
         if self._req_fetch:
@@ -135,8 +150,8 @@ class HAUIUpdateController(HAUIPart):
             if latest_release is None:
                 temp_version = None
             else:
-                temp_version = parse_version(latest_release["tag_name"])
-            new_version = parse_version(release["tag_name"])
+                temp_version = self._parse_version(latest_release["tag_name"])
+            new_version = self._parse_version(release["tag_name"])
             if temp_version is None or new_version > temp_version:
                 latest_release = release
         return latest_release
@@ -172,8 +187,8 @@ class HAUIUpdateController(HAUIPart):
         latest_release = self._get_latest_release()
         if device_info is None or latest_release is None:
             return False
-        current_version = parse_version(device_info["tft_version"])
-        latest_version = parse_version(latest_release["tag_name"])
+        current_version = self._parse_version(device_info["tft_version"])
+        latest_version = self._parse_version(latest_release["tag_name"])
         if current_version < latest_version:
             return True
         return False
@@ -200,17 +215,20 @@ class HAUIUpdateController(HAUIPart):
         if required_version is None or installed_version is None:
             # notify about unknown versions
             msg = self.translate("Got unknown TFT-Version information.")
-        elif parse_version(required_version) > parse_version(installed_version):
-            if parse_version(installed_version) < parse_version("0.0.1"):
-                # invalid or unknown version installed
-                if self.get("auto_install", True):
-                    self.run_update_display()
-                    return
+        else:
+            # check for outdated versions
+
+            v_req = self._parse_version(required_version)
+            v_inst = self._parse_version(installed_version)
+            if v_req <= v_inst:
+                # everything is fine (installed version is newer or equal to required version)
+                return
+            # invalid or unknown version installed
+            if self.get("auto_install", True) and v_inst == Version("0.0.0"):
+                self.run_update_display()
+                return
             # notify about outdated tft version
             msg = self.translate("Your TFT-version is outdated.")
-        else:
-            # everything is fine (installed version is newer or equal to required version)
-            return
         self._stop_timer_delay()  # ensure there is no delay on connect timer
         msg += "\r\n"
         msg += self.translate("Do you want to check for a update?")

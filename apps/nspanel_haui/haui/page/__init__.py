@@ -231,7 +231,10 @@ class HAUIPage(HAUIPart):
             # check primary left button
             if self.FNC_BTN_L_PRI in self._fnc_items:
                 left_pri = self._fnc_items[self.FNC_BTN_L_PRI]
-                if left_pri["fnc_name"] is None or left_pri["fnc_name"] == self.FNC_TYPE_NAV_PREV:
+                if (
+                    left_pri["fnc_name"] is None
+                    or left_pri["fnc_name"] == self.FNC_TYPE_NAV_PREV
+                ):
                     left_pri["fnc_args"]["visible"] = False
                     # swap pri with secondary
                     if self.FNC_BTN_L_SEC in self._fnc_items:
@@ -245,7 +248,10 @@ class HAUIPage(HAUIPart):
             # check primary right button
             if self.FNC_BTN_R_PRI in self._fnc_items:
                 right_pri = self._fnc_items[self.FNC_BTN_R_PRI]
-                if right_pri["fnc_name"] is None or right_pri["fnc_name"] == self.FNC_TYPE_NAV_NEXT:
+                if (
+                    right_pri["fnc_name"] is None
+                    or right_pri["fnc_name"] == self.FNC_TYPE_NAV_NEXT
+                ):
                     right_pri["fnc_args"]["visible"] = False
                     # swap pri with secondary
                     if self.FNC_BTN_R_SEC in self._fnc_items:
@@ -355,19 +361,16 @@ class HAUIPage(HAUIPart):
                 notification=msg,
             )
 
-        # light
-        if entity_type == "light":
+        # execute popup
+        if entity_type in ["light", "media_player", "vacuum"]:
+            popup_name = f"popup_{entity_type}"
             # open popup
-            navigation.open_popup("popup_light", entity_id=entity.get_entity_id())
-        # media player
-        elif entity_type == "media_player":
-            # open popup
-            navigation.open_popup("popup_media", entity_id=entity.get_entity_id())
-        # vacuum
-        elif entity_type == "vacuum":
-            # open popup
-            navigation.open_popup("popup_vacuum", entity_id=entity.get_entity_id())
-        # default
+            navigation.open_popup(
+                popup_name,
+                entity_id=entity.get_entity_id(),
+                kwargs=self.panel.get_config(return_copy=False)
+            )
+        # execute default
         else:
             entity.execute()
 

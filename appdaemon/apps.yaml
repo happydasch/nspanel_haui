@@ -70,9 +70,9 @@ nspanel-haui:
       - type: popup_light
         mode: popup
         key: popup_light
-      - type: popup_media
+      - type: popup_media_player
         mode: popup
-        key: popup_media
+        key: popup_media_player
       - type: popup_vacuum
         mode: popup
         key: popup_vacuum

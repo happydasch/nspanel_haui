@@ -217,9 +217,9 @@ DEFAULT_CONFIG = {
         },
         {
             # popup media
-            "type": "popup_media",
+            "type": "popup_media_player",
             "mode": "popup",
-            "key": "popup_media",
+            "key": "popup_media_player",
         },
         {
             # popup vacuum

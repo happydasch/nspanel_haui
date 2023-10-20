@@ -345,9 +345,10 @@ class HAUIPage(HAUIPart):
         navigation = self.app.controller["navigation"]
         available = entity_state != "unavailable"
 
+        # entity is not available
         if not available:
             msg = self.translate("The entity {} is currently unavailable.")
-            msg += msg.format(entity.get_name())
+            msg = msg.format(entity.get_name())
             msg += "\r\n\r\n"
             msg += self.translate("Entity:")
             msg += "\r\n"
@@ -362,17 +363,42 @@ class HAUIPage(HAUIPart):
             )
 
         # execute popup
-        if entity_type in ["light", "media_player", "vacuum"]:
+        elif entity_type in ["light", "media_player", "vacuum"]:
             popup_name = f"popup_{entity_type}"
+            kwargs = entity.get_config()
+            kwargs["entity_id"] = entity.get_entity_id()
             # open popup
-            navigation.open_popup(
-                popup_name,
-                entity_id=entity.get_entity_id(),
-                kwargs=self.panel.get_config(return_copy=False)
-            )
+            navigation.open_popup(popup_name, **kwargs)
         # execute default
         else:
+            self.log(f"Executing entity {entity.get_name()} - {entity_type}")
             entity.execute()
+
+    def turn_on_entity(self, entity):
+        """Turns on the given entity.
+
+        Args:
+            entity (HAUIConfigEntity): entity
+        """
+        self.log(f"Switching entity on: {entity.get_name()} ({entity.get_entity_id()})")
+        entity_type = entity.get_entity_type()
+        if entity_type == 'media_player':
+            entity.call_entity_service('media_play')
+        else:
+            entity.call_entity_service('turn_on')
+
+    def turn_off_entity(self, entity):
+        """Turns off the given entity.
+
+        Args:
+            entity (HAUIConfigEntity): entity
+        """
+        self.log(f"Switching entity off: {entity.get_name()} ({entity.get_entity_id()})")
+        entity_type = entity.get_entity_type()
+        if entity_type == 'media_player':
+            entity.call_entity_service('media_stop')
+        else:
+            entity.call_entity_service('turn_off')
 
     def add_entity_listener(self, entity_id, callback, attribute=None):
         """Adds a entity state listener.

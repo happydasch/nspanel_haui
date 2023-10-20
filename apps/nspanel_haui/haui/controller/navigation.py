@@ -2,7 +2,6 @@ import threading
 
 from ..mapping.const import ESP_EVENT
 from ..helper.page import get_page_id_for_panel, get_page_class_for_panel
-from ..helper.value import merge_dicts
 from ..base import HAUIPart
 
 
@@ -200,6 +199,14 @@ class HAUINavigationController(HAUIPart):
         """
         self.log(f"Opening panel: {panel_id}-{kwargs}")
 
+        # lock current panel before setting new
+        if self.panel is not None:
+            persistent_config = self.panel.get_persistent_config(return_copy=False)
+            # only if has a locked attr
+            if "locked" in persistent_config:
+                # ensure the panel is locked before setting new panel
+                persistent_config["locked"] = True
+
         # create and check page of new panel
         panel = self.app.config.get_panel(panel_id)
         if panel is None:
@@ -220,16 +227,8 @@ class HAUINavigationController(HAUIPart):
 
         # create new config and make kwargs available in new panel
         config = panel.get_default_config(return_copy=True)
-        merge_dicts(config, kwargs)
+        config = {**config, **kwargs}
         panel.set_config(config)
-
-        # lock current panel before setting new
-        if self.panel is not None:
-            persistent_config = self.panel.get_persistent_config(return_copy=False)
-            # only if has a locked attr
-            if "locked" in persistent_config:
-                # ensure the panel is locked before setting new panel
-                persistent_config["locked"] = True
 
         # new panel is a navigatable panel
         if panel.get_mode() == "panel":
@@ -264,11 +263,14 @@ class HAUINavigationController(HAUIPart):
             curr_page_id = self.page.page_id
             self.page.stop()
             self.page = None
+
         # set new current page and panel
         self.log(f"Switching to page {page_id} from {curr_page_id}")
         self.page = page_class(self.app, {"page_id": page_id})
+
         # notify about panel creation early in process
         self.page.create_panel(panel)
+
         # set new page for panel
         self.goto_page(page_id)
 

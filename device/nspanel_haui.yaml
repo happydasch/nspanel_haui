@@ -3,14 +3,17 @@
 #
 
 
-# 1. Configuration Variables
+# config values can be found in install.yaml
+
+
+# 1. Required Variables
 substitutions:
   # Version of this yaml config file
   yaml_version: '0.1.1'
   # Required version of the display tft file
   required_tft_version: '0.1.1'
 
-  # config values can be found in install.yaml
+
 
 # 2. ESP Configuration
 esp32:
@@ -21,7 +24,9 @@ esp32:
 esphome:
   name: $device_name
   friendly_name: $friendly_name
-
+  project:
+    name: happydasch.nspanel_haui
+    version: $yaml_version
 
 # 4. Logger Configuration
 logger:

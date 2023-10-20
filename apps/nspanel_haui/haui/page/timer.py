@@ -13,6 +13,7 @@ class TimerPage(HAUIPage):
     ICO_STOP = get_icon("mdi:stop")
     ICO_RESET = get_icon("mdi:close")
     ICO_TIMER_OFF = get_icon("mdi:timer-off-outline")
+    ICO_TIMER_FINISHED = get_icon("mdi:timer-check")
 
     # common components
     TXT_TITLE = (2, "tTitle")
@@ -38,6 +39,7 @@ class TimerPage(HAUIPage):
 
     DISPLAY_UPDATE_INTERVAL = 0.5
 
+    _show_notification = False
     _persistent_config = None
     _timer = None
     _timer_update_display = None
@@ -48,6 +50,10 @@ class TimerPage(HAUIPage):
         # set persistent timer dict for later access
         self._persistent_config = panel.get_persistent_config(return_copy=False)
         self._timer = self.initialize_timer()
+
+        # notification on timer finish
+        self._show_notification = panel.get("show_notification", self._show_notification)
+
         # set function buttons
         stop_btn = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,
@@ -64,8 +70,8 @@ class TimerPage(HAUIPage):
             self.BTN_FNC_RIGHT_PRI,
             stop_btn,
         )
-        # adjust buttons for timer
 
+        # adjust buttons for timer
         for x in [
             self.BTN_UP_1,
             self.BTN_UP_2,
@@ -80,9 +86,11 @@ class TimerPage(HAUIPage):
             self.set_function_component(
                 x, x[1], fnc_name=x[1], color=COLORS["component"], visible=visible
             )
+
         # control buttons for timer
         for x in [(self.BTN_START, "start_timer"), (self.BTN_STOP, "stop_timer")]:
             self.set_function_component(x[0], x[0][1], fnc_name=x[1], visible=False)
+
         # display
         self.set_function_component(
             self.TXT_MINUTES,
@@ -377,7 +385,14 @@ class TimerPage(HAUIPage):
         self.stop_timer()
         device_name = self.app.device.get("device_name", "nspanel_haui")
         self.app.call_service(f"esphome/{device_name}_play_sound", name="alert")
-
-
-class PopupTimerPage(TimerPage):
-    pass
+        if self._show_notification:
+            navigation = self.app.controller["navigation"]
+            msg = self.translate("Timer has finished.")
+            # open notification
+            navigation.open_popup(
+                "popup_notify",
+                title=self.translate("Timer finished"),
+                btn_right=self.translate("Close"),
+                icon=self.ICO_TIMER_FINISHED,
+                notification=msg,
+            )

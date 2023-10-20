@@ -80,20 +80,23 @@ class LightPage(HAUIPage):
             self.BTN_LIGHT_FNC_4,
         ]:
             self.add_component_callback(btn, self.callback_light_function_button)
-        # title and entity to control
-        title = panel.get_title(self.translate("Light"))
+        # if kelvin should be used instead of mired
+        self._show_kelvin = panel.get("show_kelvin", self._show_kelvin)
+        # set entity
         entity = None
         entity_id = panel.get("entity_id")
         if entity_id:
             entity = HAUIConfigEntity(self.app, {"entity": entity_id})
-        entities = panel.get_entities()
-        if len(entities):
-            entity = entities[0]
+        if entity is None:
+            entities = panel.get_entities()
+            if len(entities) > 0:
+                entity = entities[0]
+        self.set_light_entity(entity)
+        # set title
+        title = panel.get_title(self.translate("Light"))
         if entity is not None:
             title = entity.get_name()
         self._title = title
-        self._show_kelvin = panel.get("show_kelvin", True)
-        self.set_light_entity(entity)
 
     def render_panel(self, panel):
         # set basic panel info
@@ -465,14 +468,14 @@ class LightPage(HAUIPage):
                 effects = []
                 for name in selection:
                     value = name
-                    if value == "None":
-                        value = no_effect
-                    effects.append({"name": name, "value": value})
+                    if name == "None":
+                        name = no_effect
+                    effects.append({"value": value, "name": name})
                 if len(effects) > 0:
                     navigation.open_popup(
                         "popup_select",
                         title=self.translate("Select effect"),
-                        selection=effects,
+                        items=effects,
                         selection_callback_fnc=self.callback_effect,
                         close_on_select=True,
                     )
@@ -608,26 +611,3 @@ class LightPage(HAUIPage):
             self._light_entity.call_entity_service("turn_off")
         else:
             self._light_entity.call_entity_service("turn_on")
-
-
-class PopupLightPage(LightPage):
-    def before_render_panel(self, panel):
-        entity = self._light_entity
-        # check if the provided entity is valid
-        # if a invalid entity is provided, return false
-        # to prevent panel from rendering
-        # TODO fix doubled popups on error
-        navigation = self.app.controller["navigation"]
-        if entity is None or not entity.has_entity_id() or not entity.has_entity():
-            self.log("No entity for popup light provided")
-            navigation.close_panel()
-            return False
-        if entity is not None and entity.get_entity_type() != "light":
-            self.log(f"Entity {entity.get_entity_id()} is not a light entity")
-            navigation.close_panel()
-            return False
-        if entity is not None and entity.get_entity_state() == "unavailable":
-            self.log(f"Entity {entity.get_entity_id()} is not available")
-            navigation.close_panel()
-            return False
-        return True

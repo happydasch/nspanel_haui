@@ -11,9 +11,12 @@
   - [Installation](#installation)
   - [Next Steps](#next-steps)
   - [Development](#development)
+  - [Roadmap](#roadmap)
   - [Resources](#resources)
 
 ## About
+
+NSPanel HAUI was started as a replacement for the original Sonoff Firmware. It provides a flexible way to configure the display and to control devices connected to home assistant.
 
 For details about the configuration see [Configuration](docs/Config.md). Also look at [Panels](docs/panels/README.md) to get an overview of available panels.
 
@@ -115,6 +118,23 @@ For details about how the parts of the whole system communicate together see [NS
 - [ESPHome Component](docs/ESPHome.md)
 - [AppDaemon Component](docs/AppDaemon.md)
 - [Nextion Component](docs/Nextion.md)
+
+## Roadmap
+
+- **Version 0.1.x**: Into the wild - basic functionality, auto updates, cleanups
+
+  First versions, get basic functionality running
+
+- **Version 0.2.x**: Sort it out - configuration and entity handling
+
+  Configuration and entity handling, more definitions, better code, sort out issues
+
+- **Additional upcoming functionality:**
+
+  - Panels:
+    - Thermo
+    - Cover
+    - Alarm?
 
 ## Resources
 

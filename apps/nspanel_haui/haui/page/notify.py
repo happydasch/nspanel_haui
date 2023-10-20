@@ -3,7 +3,7 @@ from ..helper.icon import parse_icon
 from . import HAUIPage
 
 
-class PopupNotifyPage(HAUIPage):
+class NotifyPage(HAUIPage):
     # common components
     TXT_TITLE = (2, "tTitle")
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")

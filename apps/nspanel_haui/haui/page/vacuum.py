@@ -47,9 +47,9 @@ class VacuumPage(HAUIPage):
 
     NUM_ENTITIES = 6
 
-    _vacuum_entity = None
-    _entities = []
     _title = ""
+    _entities = []
+    _vacuum_entity = None
 
     # panel
 
@@ -70,20 +70,23 @@ class VacuumPage(HAUIPage):
             self.BTN_FNC_RIGHT_PRI,
             vacuum_locate_btn,
         )
-        # set title and entity
+        # set entity
         entity = None
         entity_id = panel.get("entity_id")
         if entity_id:
             entity = HAUIConfigEntity(self.app, {"entity": entity_id})
         entities = panel.get_entities()
         if len(entities) > 0:
-            entity = entities.pop(0)
+            first_entity = entities.pop(0)
+            if entity is None:
+                entity = first_entity
+        self._entities = entities
+        self.set_vacuum_entity(entity)
+        # set title
         title = panel.get_title(self.translate("Vacuum"))
         if entity is not None:
             title = entity.get_entity_attr("friendly_name", title)
         self._title = title
-        self._entities = entities
-        self.set_vacuum_entity(entity)
 
     def render_panel(self, panel):
         self.update_vacuum_entity()
@@ -237,22 +240,25 @@ class VacuumPage(HAUIPage):
             current = entity.get_entity_attr("fan_speed", "")
             selection = entity.get_entity_attr("fan_speed_list", [])
             speeds = []
-            for name in selection:
-                value = self.translate_state("vacuum", name, attr="fan_speed")
+            for value in selection:
+                name = self.translate_state("vacuum", value, attr="fan_speed")
                 speeds.append({"name": name, "value": value})
             if len(speeds) > 0:
                 navigation.open_popup(
                     "popup_select",
                     title=self.translate("Select Fan Speed"),
-                    selection=speeds,
+                    items=speeds,
                     selected=current,
                     selection_callback_fnc=self.callback_fan_speed,
                     close_on_select=True,
                 )
         # start
         elif fnc_name == "action":
-            if state == "cleaning":
-                entity.call_entity_service("stop")
+            if state in ["cleaning", "returning"]:
+                if fnc_id == self.BTN_ACTION[1]:
+                    entity.call_entity_service("pause")
+                else:
+                    entity.call_entity_service("stop")
             else:
                 entity.call_entity_service("start")
         # locate
@@ -280,24 +286,3 @@ class VacuumPage(HAUIPage):
     def callback_fan_speed(self, selection):
         self.log(f"Got fan speed selection: {selection}")
         self._vacuum_entity.call_entity_service("set_fan_speed", fan_speed=selection)
-
-
-class PopupVacuumPage(VacuumPage):
-    def before_render_panel(self, panel):
-        entity = self._vacuum_entity
-        # if a invalid entity is provided, return false
-        # to prevent panel from rendering
-        navigation = self.app.controller["navigation"]
-        if entity is None or not entity.has_entity_id() or not entity.has_entity():
-            self.log("No entity for popup vacuum provided")
-            navigation.close_panel()
-            return False
-        if entity is not None and entity.get_entity_type() != "vacuum":
-            self.log(f"Entity {entity.get_entity_id()} is not a media entity")
-            navigation.close_panel()
-            return False
-        if entity is not None and entity.get_entity_state() == "unavailable":
-            self.log(f"Entity {entity.get_entity_id()} is not available")
-            navigation.close_panel()
-            return False
-        return True

@@ -61,7 +61,7 @@ class GridPage(HAUIPage):
     _entities = []
     _active_entities = {}
     _active_handles = []
-    _entity_mapping = {}
+    _entity_mapping = []
     _current_page = 0
     _color_seed = random.randint(0, 1000)
 
@@ -120,6 +120,7 @@ class GridPage(HAUIPage):
             entities = []
         # set buttons
         entity_ids = set()
+        mapping = []
         for i in range(self.NUM_GRIDS):
             entity = None
             idx = i + 1
@@ -133,7 +134,6 @@ class GridPage(HAUIPage):
             # visibility of grid button
             visible = False
             if entity is not None:
-                self._entity_mapping[entity] = {"ovl": ovl, "power": power}
                 # internal entity
                 if entity.is_internal():
                     internal_type = entity.get_internal_type()
@@ -143,7 +143,10 @@ class GridPage(HAUIPage):
                 else:
                     visible = True
                     entity_ids.add(entity.get_entity_id())
+                # add mapping to
+                mapping.append({"entity": entity, "ovl": ovl, "power": power})
             self.set_grid_entry(idx, visible=visible)
+        self._entity_mapping = mapping
         # create listener for active entities
         for entity_id in entity_ids:
             handle = self.add_entity_listener(
@@ -282,12 +285,18 @@ class GridPage(HAUIPage):
     def callback_power_buttons(self, event, component, button_state):
         if button_state:
             return
-        for haui_entity, mapping in self._entity_mapping.items():
+        self.log(f"{self._entity_mapping}")
+        for mapping in self._entity_mapping:
+            haui_entity = mapping["entity"]
+            state = haui_entity.get_entity_state()
             if mapping["power"] != component:
                 continue
-            if not haui_entity.has_entity():
-                break
-            haui_entity.execute()
+            if state not in ["off", "unavailable"]:
+                self.turn_off_entity(haui_entity)
+            elif state == "off":
+                self.turn_on_entity(haui_entity)
+            else:
+                self.log(f"entity {haui_entity.get_entity_id()} is not available")
 
     def callback_grid_entries(self, event, component, button_state):
         if button_state:

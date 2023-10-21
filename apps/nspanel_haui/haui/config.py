@@ -524,8 +524,9 @@ class HAUIConfig(HAUIBase):
             merge_dicts(self.get_config(return_copy=False), config)
         # load all panels
         self._panels = []
-        panels_to_load = self.get("sys_panels", [])
-        panels_to_load += self.get("panels", [])
+        panels_to_load = self.get("panels", [])
+        # append sys_panels so they can be overwritten by panels
+        panels_to_load += self.get("sys_panels", [])
         for panel_config in panels_to_load:
             panel = HAUIConfigPanel(self.app, panel_config)
             self._panels.append(panel)

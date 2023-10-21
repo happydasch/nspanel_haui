@@ -122,9 +122,11 @@ class MediaPage(HAUIPage):
             sonos_favorites = HAUIConfigEntity(self.app, {"entity": sonos_favorites_id})
         self._sonos_favorites = sonos_favorites
         # sonos favorites in source popup
-        self._sonos_favorites_in_source = panel.get("sonos_favorites_in_source")
+        self._sonos_favorites_in_source = panel.get(
+            "sonos_favorites_in_source", self._sonos_favorites_in_source
+        )
         # media favorites
-        media_favorites = panel.get("media_favorites")
+        media_favorites = panel.get("media_favorites", [])
         self._media_favorites = media_favorites
         # set group entities
         group_entities = []
@@ -318,7 +320,10 @@ class MediaPage(HAUIPage):
         )
         # source button
         source = False
-        if supported_features & MediaPlayerFeatures.SELECT_SOURCE or (self._sonos_favorites is not None and self._sonos_favorites_in_source is True):
+        if supported_features & MediaPlayerFeatures.SELECT_SOURCE or (
+            self._sonos_favorites is not None
+            and self._sonos_favorites_in_source is True
+        ):
             source = True
         self.set_media_button(
             1, self.ICO_SELECT_SOURCE, self.translate("Source"), source
@@ -332,7 +337,10 @@ class MediaPage(HAUIPage):
         self.add_component_callback(self.M2_OVL, self.callback_select_group)
         # media button
         media = False
-        if len(self._media_favorites) > 0 or (self._sonos_favorites is not None and self._sonos_favorites_in_source is False):
+        if len(self._media_favorites) > 0 or (
+            self._sonos_favorites is not None
+            and self._sonos_favorites_in_source is False
+        ):
             media = True
         self.set_media_button(3, self.ICO_SELECT_MEDIA, self.translate("Media"), media)
         self.add_component_callback(self.M3_OVL, self.callback_select_media)
@@ -649,7 +657,10 @@ class MediaPage(HAUIPage):
         for name in source_list:
             selection.append({"value": name, "name": name})
         # add sonos favorites
-        if self._sonos_favorites is not None and self._sonos_favorites_in_source is True:
+        if (
+            self._sonos_favorites is not None
+            and self._sonos_favorites_in_source is True
+        ):
             items = self._sonos_favorites.get_entity_attr("items", {})
             for name in items.values():
                 selection.append({"value": name, "name": name})
@@ -671,7 +682,10 @@ class MediaPage(HAUIPage):
         navigation = self.app.controller["navigation"]
         selection = []
         # add sonos favorites
-        if self._sonos_favorites is not None and self._sonos_favorites_in_source is False:
+        if (
+            self._sonos_favorites is not None
+            and self._sonos_favorites_in_source is False
+        ):
             items = self._sonos_favorites.get_entity_attr("items", {})
             for name in items.values():
                 value = f"sonos_favorites:{name}"

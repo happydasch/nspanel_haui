@@ -50,7 +50,3 @@ class ThermoPage(HAUIPage):
 
     def render_panel(self, panel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
-
-
-def PopupThermoPage(ThermoPage):
-    pass

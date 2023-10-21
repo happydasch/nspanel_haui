@@ -17,15 +17,10 @@ from ..page.qr import QRPage
 from ..page.thermo import ThermoPage
 from ..page.alarm import AlarmPage
 
-# popup panels
-from ..page.alarm import PopupUnlockPage
-from ..page.notify import PopupNotifyPage
-from ..page.select import PopupSelectPage
-from ..page.light import PopupLightPage
-from ..page.media import PopupMediaPage
-from ..page.vacuum import PopupVacuumPage
-from ..page.thermo import PopupThermoPage
-from ..page.timer import PopupTimerPage
+# misc panels
+from ..page.unlock import UnlockPage
+from ..page.notify import NotifyPage
+from ..page.select import SelectPage
 
 
 # page id mapping
@@ -94,12 +89,12 @@ PANEL_MAPPING = {
     "thermo": ("thermo", ThermoPage),
     "alarm": ("alarm", AlarmPage),
     # popups
-    "popup_unlock": ("alarm", PopupUnlockPage),
-    "popup_notify": ("notify", PopupNotifyPage),
-    "popup_select": ("select", PopupSelectPage),
-    "popup_light": ("light", PopupLightPage),
-    "popup_media_player": ("media", PopupMediaPage),
-    "popup_vacuum": ("vacuum", PopupVacuumPage),
-    "popup_thermo": ("thermo", PopupThermoPage),
-    "popup_timer": ("timer", PopupTimerPage),
+    "popup_unlock": ("alarm", UnlockPage),
+    "popup_notify": ("notify", NotifyPage),
+    "popup_select": ("select", SelectPage),
+    "popup_light": ("light", LightPage),
+    "popup_media_player": ("media", MediaPage),
+    "popup_vacuum": ("vacuum", VacuumPage),
+    "popup_thermo": ("thermo", ThermoPage),
+    "popup_timer": ("timer", TimerPage),
 }

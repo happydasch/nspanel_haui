@@ -82,6 +82,9 @@ nspanel-haui:
       - type: popup_timer
         mode: popup
         key: popup_timer
+      - type: popup_cover
+        mode: popup
+        key: popup_cover
 
     # panels
     panels:
@@ -144,6 +147,9 @@ nspanel-haui:
 
       # timer panel
       - type: timer
+
+      # cover panel
+      - type: cover
 
       # big qr code
       - type: qr

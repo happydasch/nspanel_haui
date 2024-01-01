@@ -15,6 +15,7 @@
     - [Panel Vacuum `vacuum`](#panel-vacuum-vacuum)
     - [Panel QR-Code `qr`](#panel-qr-code-qr)
     - [Panel Timer `timer`](#panel-timer-timer)
+    - [Panel Cover `cover`](#panel-cover-cover)
   - [Other Panels](#other-panels)
     - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
     - [Popup Notify `popup_notify`](#popup-notify-popup_notify)
@@ -90,6 +91,12 @@ Panels with navigation. Main Display Elements.
   Timer panel.
 
   ![Panel Timer](../assets/panel_timer.png)
+
+### [Panel Cover](panel_cover.md) `cover`
+
+  Cover panel.
+
+  ![Panel Cover](../assets/panel_cover.png)
 
 ## Other Panels
 

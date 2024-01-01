@@ -16,6 +16,7 @@ from ..page.timer import TimerPage
 from ..page.qr import QRPage
 from ..page.thermo import ThermoPage
 from ..page.alarm import AlarmPage
+from ..page.cover import CoverPage
 
 # misc panels
 from ..page.unlock import UnlockPage
@@ -46,6 +47,7 @@ PAGE_MAPPING = {
     14: "vacuum",
     15: "thermo",
     16: "alarm",
+    17: "cover",
 }
 
 # system panel mapping
@@ -65,6 +67,7 @@ SYS_PANEL_MAPPING = {
     "popup_vacuum": "popup_vacuum",
     "popup_thermo": "popup_thermo",
     "popup_timer": "popup_timer",
+    "popup_cover": "popup_cover",
 }
 
 
@@ -88,6 +91,7 @@ PANEL_MAPPING = {
     "qr": ("qr", QRPage),
     "thermo": ("thermo", ThermoPage),
     "alarm": ("alarm", AlarmPage),
+    "cover": ("cover", CoverPage),
     # popups
     "popup_unlock": ("alarm", UnlockPage),
     "popup_notify": ("notify", NotifyPage),
@@ -97,4 +101,5 @@ PANEL_MAPPING = {
     "popup_vacuum": ("vacuum", VacuumPage),
     "popup_thermo": ("thermo", ThermoPage),
     "popup_timer": ("timer", TimerPage),
+    "popup_cover": ("cover", CoverPage),
 }

@@ -239,6 +239,12 @@ DEFAULT_CONFIG = {
             "mode": "popup",
             "key": "popup_timer",
         },
+        {
+            # popup cover
+            "type": "popup_cover",
+            "mode": "popup",
+            "key": "popup_cover",
+        },
     ],
     # panels configuration
     "panels": [

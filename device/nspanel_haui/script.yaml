@@ -1,0 +1,639 @@
+---
+# Script Configuration
+script:
+
+  # Script to update the last interaction time
+  - id: update_last_interaction
+    mode: restart
+    parameters:
+      new_value: int
+    then:
+      - lambda: |-
+          id(update_last_interaction_offset).execute(new_value, 0);
+
+  # Script to update the last interaction time adding an offset
+  - id: update_last_interaction_offset
+    mode: restart
+    parameters:
+      new_value: int
+      offset: float
+    then:
+      - lambda: |-
+          int32_t interaction_val = new_value;
+          if (new_value == -1) {
+              int32_t time_now = millis() / 100; // use 0.1s as the lowest change
+              int32_t offset_ = offset * 10; // use 0.1s as the lowest change
+              if (time_now < offset_) {
+                // overflow occurred, reset interaction_val
+                interaction_val = 0;
+              } else {
+                interaction_val = time_now - offset_;
+              }
+          }
+          if (id(last_interaction).state != interaction_val) {
+            id(last_interaction).publish_state(interaction_val);
+          }
+
+  # Script to publish an event
+  - id: publish_event
+    parameters:
+      name: string
+      value: string
+    then:
+      - lambda: |-
+          const json::json_build_t payload = [name, value](JsonObject root) {
+            root["name"] = name;
+            root["value"] = value;
+          };
+          std::string payload_str = build_json(payload);
+          id(mqtt_client).publish("$topic_recv", payload_str, 0, false);
+
+  # Script to publish a connection response
+  - id: publish_connection_request
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_connection_request");
+          auto device_name = App.get_name();
+          auto device_friendly_name = App.get_friendly_name();
+          auto device_ip =  id(ip_address).state;
+          auto yaml_version = "$yaml_version";
+          const json::json_build_t payload = [
+              yaml_version, device_name, device_friendly_name, device_ip
+          ](JsonObject root) {
+            root["yaml_version"] = yaml_version;
+            root["device_name"] = device_name;
+            root["device_friendly_name"] = device_friendly_name;
+            root["device_ip"] = device_ip;
+          };
+          auto payload_str = build_json(payload);
+          id(publish_event).execute("req_connection", payload_str);
+
+  # Script to publish a connection response
+  - id: publish_connection_response
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_connection_response");
+          auto heartbeat_interval_str = "$heartbeat_interval";
+          const json::json_build_t payload = [heartbeat_interval_str](JsonObject root) {
+            root["heartbeat_interval"] = heartbeat_interval_str;
+          };
+          auto payload_str = build_json(payload);
+          id(publish_event).execute("res_connection", payload_str);
+
+  # Script to publish device details
+  - id: publish_device_info
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_device_info");
+          auto device_version = to_string(ESPHOME_VERSION);
+          auto yaml_version = "$yaml_version";
+          auto tft_version = id(haui_disp).get_component_txt("settings.tftVersion");
+          //ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
+          auto required_tft_version = "$required_tft_version";
+          const json::json_build_t payload = [
+              device_version, yaml_version, tft_version,
+              required_tft_version
+          ](JsonObject root) {
+            root["device_version"] = device_version;
+            root["yaml_version"] = yaml_version;
+            root["tft_version"] = tft_version;
+            root["required_tft_version"] = required_tft_version;
+          };
+          auto payload_str = build_json(payload);
+          id(publish_event).execute("res_device_info", payload_str);
+
+  # Script to publish device state
+  - id: publish_device_state
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_device_state");
+          int page_val = int(id(page).state);
+          int brightness_val = id(brightness).state;
+          int button_left_val = id(button_left).state;
+          int button_right_val = id(button_right).state;
+          int relay_left_val = id(relay_left).state;
+          int relay_right_val = id(relay_right).state;
+          auto display_state_val = id(haui_display_state);
+          auto tft_version = id(haui_disp).get_component_txt("settings.tftVersion", "0.0.0");
+          //ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
+          auto required_tft_version = "$required_tft_version";
+          const json::json_build_t payload = [
+              page_val, brightness_val, button_left_val, button_right_val,
+              relay_left_val, relay_right_val, display_state_val, tft_version,
+              required_tft_version
+          ](JsonObject root) {
+            root["page"] = page_val;
+            root["brightness"] = brightness_val;
+            root["button_left"] = button_left_val;
+            root["button_right"] = button_right_val;
+            root["relay_left"] = relay_left_val;
+            root["relay_right"] = relay_right_val;
+            root["display_state"] = display_state_val;
+            root["tft_version"] = tft_version;
+            root["required_tft_version"] = required_tft_version;
+          };
+          std::string payload_str = build_json(payload);
+          id(publish_event).execute("res_device_state", payload_str);
+
+  # Script to send a command
+  - id: send_command
+    parameters:
+      cmd: string
+    then:
+      - lambda: |-
+          id(haui_disp).send_command(cmd);
+
+  # Script to set the text of a component
+  - id: set_component_text
+    parameters:
+      component: string
+      message: string
+    then:
+      - lambda: |-
+          id(haui_disp).set_component_txt(component, message);
+
+  # Service to set the value of a component
+  - id: set_component_value
+    parameters:
+      component: string
+      message: int
+    then:
+      - lambda: |-
+          id(haui_disp).set_component_int(component, message);
+
+  # Script to set the brightness
+  - id: set_brightness
+    parameters:
+      intensity: int
+    then:
+      - lambda: |-
+          float percent_on = float(intensity)/100;
+          percent_on = percent_on > 1 ? 1 : percent_on;
+          percent_on = percent_on < 0 ? 0 : percent_on;
+          ESP_LOGV("haui", "Script set_brightness: %i - %f", intensity, percent_on);
+          id(haui_disp).set_backlight_brightness(percent_on);
+          id(brightness).publish_state(intensity);
+
+  # Script to set the ad connection state
+  - id: set_ad_connected
+    parameters:
+      connected: int
+    then:
+      - lambda: |-
+          ESP_LOGV("haui", "Script: set_ad_connected: %i", connected);
+          bool ad_connection_state = bool(connected);
+          auto haui_status_str = ad_connection_state ? "online" : "offline";
+          id(ad_connection) = ad_connection_state;
+          id(ad_heartbeat) = 0;
+          if (ad_connection_state) {
+            // notify display about connection state
+            id(haui_disp).set_component_int("settings.adAvailable", 1);
+          } else {
+            // ATT: hardcoded system page
+            if (int(id(page).state) != 1) {
+              id(display_wakeup).execute();
+              id(goto_page).execute("system");
+            }
+          }
+          if (id(client_status).state != haui_status_str) {
+            id(client_status).publish_state(haui_status_str);
+            id(update_last_interaction).execute(-1);
+          }
+
+  # Script to check the ad connection
+  - id: check_ad_connection
+    then:
+      - lambda: |-
+          ESP_LOGVV("haui", "Script: check_ad_connection");
+          bool ad_available = id(ad_availability);
+          bool ad_connected = id(ad_connection);
+          uint32_t time_now = millis() / 1000;
+          uint32_t time_max = id(ad_heartbeat);
+          int overdue_factor = 2;
+          time_max = time_max > 0 ? time_max : time_now;
+          time_max += $heartbeat_interval * overdue_factor;
+          // check if ad connection state changed
+          if (ad_connected) {
+            if (time_now > time_max) {
+              // check for a disconnection while connected
+              ESP_LOGD(
+                "haui", "Connection with AppDaemon timed out %i %i %i",
+                time_now, time_max, $heartbeat_interval * overdue_factor);
+              id(set_ad_connected).execute(false);
+            } else if (!ad_available) {
+              // check for appdaemon app being not available
+              ESP_LOGD("haui", "Connection with AppDaemon but AppDaemon not available");
+              id(set_ad_connected).execute(false);
+            }
+          }
+
+  # Script to check the connection
+  - id: check_connection
+    then:
+      - lambda: |-
+          ESP_LOGVV("haui", "Script: check_connection");
+          static bool connecting = false;
+          static uint32_t connecting_time = 0;
+          uint32_t time_now = millis() / 1000;
+          int timeout_seconds = 10;
+
+          static bool prev_connected = false;
+          bool api_connected = global_api_server->is_connected();
+          bool haui_initialized = id(haui_init);
+          bool ad_available = id(ad_availability);
+          bool ad_connected = id(ad_connection);
+
+          // request connection if not connected
+          if (connecting and connecting_time + timeout_seconds < time_now) {
+            connecting = false;
+            connecting_time = 0;
+          }
+          if (!ad_connected and haui_initialized and ad_available) {
+            if (!connecting) {
+              ESP_LOGD("haui", "Not connected, sending connection request");
+              id(publish_connection_request).execute();
+              connecting_time = time_now;
+              connecting = true;
+            }
+          }
+
+          // all conditions must be met for state connected
+          // display initialized, conected with api, connected with appdaemon
+          // until then the state is not connected
+          bool connected = haui_initialized and api_connected and ad_available and ad_connected;
+
+          // check if connection state changed
+          if (connected != prev_connected) {
+            ESP_LOGI("haui", "Connection state changed %i", connected);
+            id(publish_event).execute("connected", "");
+          }
+          prev_connected = connected;
+
+  # Script to check display related changes
+  - id: check_display
+    then:
+      - lambda: |-
+          if (!id(ad_connection)) {
+            if (id(brightness).state != id(brightness_full).state) {
+              id(set_brightness).execute(id(brightness_full).state);
+            }
+            return;
+          }
+
+          // timeout values
+          int timeout_dimming_val = int(id(timeout_dimming).state);
+          int timeout_sleep_val = int(id(timeout_sleep).state);
+          // brightness
+          int brightness_val = int(id(brightness).state);
+          // duration of dimming
+          float duration_dimming_val = id(duration_dimming).state;
+          // last interaction with device
+          int last_interaction_val = int(id(last_interaction).state);
+          // time diff in seconds
+          float diff_seconds = 0;
+          static float last_diff_seconds = 0;
+          if (last_interaction_val > 0) {
+            // get timings for last interaction
+            unsigned long duration_now = millis() / 10; // use 0.01s as the lowest change
+            if (duration_now < last_interaction_val) {
+              // overflow occurred, reset variables
+              last_interaction_val = 0;
+              duration_now = 0;
+            }
+            diff_seconds = ((float)(duration_now/10) - last_interaction_val) / 10;
+          }
+
+          // check if the dim timeout was reached
+          if (id(use_auto_dimming).state && timeout_dimming_val > 0) {
+            if (diff_seconds > timeout_dimming_val && last_diff_seconds <= timeout_dimming_val) {
+              id(publish_event).execute("timeout", "dim");
+            }
+          }
+
+          // check if the sleep timeout was reached
+          if (id(use_auto_sleeping).state && timeout_sleep_val > 0) {
+            if (diff_seconds > timeout_sleep_val && last_diff_seconds <= timeout_sleep_val) {
+              id(publish_event).execute("timeout", "sleep");
+            }
+          }
+
+          // the target and current brightness
+          int target_brightness = 0;
+          int new_brightness = brightness_val;
+
+          // screen timeout means brightness goes off -> target 0
+          if (timeout_sleep_val > 0 && diff_seconds > timeout_sleep_val) {
+            if (id(use_auto_sleeping).state) {
+              if (brightness_val != 0) {
+                // calculate new brightness: current is brightness_val, target is target_brightness
+                new_brightness = target_brightness;
+                ESP_LOGV("haui", "Target brightness for Off: %i -> %i", brightness_val, target_brightness);
+              }
+
+              if (duration_dimming_val > 0 && target_brightness < brightness_val) {
+                float step_size = (float)brightness_val / ((duration_dimming_val - (diff_seconds - timeout_sleep_val)) * 10);
+                new_brightness = max(target_brightness, int(brightness_val - step_size));
+                ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+              } else if (duration_dimming_val == 0 && target_brightness < brightness_val) {
+                new_brightness = target_brightness;
+              }
+              if (new_brightness != brightness_val) {
+                ESP_LOGV("haui", "New brightness for off: %i -> %i", brightness_val, new_brightness);
+              }
+            }
+
+          // dim timeout means brightness goes to brightness_dimmed
+          } else if (timeout_dimming_val > 0 && diff_seconds > timeout_dimming_val) {
+
+            if (id(use_auto_dimming).state) {
+              target_brightness = int(id(brightness_dimmed).state);
+              int curr_duration = diff_seconds - timeout_dimming_val;
+              if (duration_dimming_val > 0 and curr_duration <= duration_dimming_val) {
+                if (target_brightness < brightness_val) {
+                    float step_size = (brightness_val - target_brightness) / ((duration_dimming_val - (diff_seconds - timeout_dimming_val)) * 10) + 1;
+                    new_brightness = max(target_brightness, int(brightness_val - step_size));
+                    ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+                } else if (target_brightness > brightness_val) {
+                    float step_size = (target_brightness - brightness_val) / ((duration_dimming_val - (diff_seconds - timeout_dimming_val)) * 10) + 1;
+                    new_brightness = min(target_brightness, int(brightness_val + step_size));
+                    ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+                }
+              } else {
+                new_brightness = target_brightness;
+              }
+            }
+
+            if (new_brightness != brightness_val) {
+              ESP_LOGV("haui", "New brightness for dimming: %i -> %i", brightness_val, new_brightness);
+            }
+
+          // no active timeout, just use full brightness
+          } else {
+            target_brightness = int(id(brightness_full).state);
+            if (target_brightness != brightness_val) {
+              new_brightness = target_brightness;
+              ESP_LOGV("haui", "Target brightness for Full: %i -> %i", brightness_val, target_brightness);
+            }
+          }
+
+          if (new_brightness != brightness_val) {
+            ESP_LOGV("haui", "Setting brightness for screen: %i", new_brightness);
+            id(set_brightness).execute(new_brightness);
+          }
+
+          // remember current diff in seconds
+          last_diff_seconds = diff_seconds;
+
+  # Script to check display state related changes
+  - id: check_display_state
+    then:
+      - lambda: |-
+          // timeout values
+          int timeout_dimming_val = int(id(timeout_dimming).state);
+          int timeout_sleep_val = int(id(timeout_sleep).state);
+          int current_state = int(id(haui_display_state));
+          int new_state = current_state;
+          // wakeup page (default system)
+          static std::string wakeup_page = "system";
+
+          // duration of dimming
+          float duration_dimming_val = id(duration_dimming).state;
+          // last interaction with device
+          int last_interaction_val = int(id(last_interaction).state);
+
+          // time passed since last interaction
+          float diff_seconds = 0;
+          if (last_interaction_val > 0) {
+            // get timings for last interaction
+            unsigned long duration_now = millis() / 10; // use 0.01s as the lowest change
+            if (duration_now < last_interaction_val) {
+              // overflow occurred, reset variables
+              last_interaction_val = 0;
+              duration_now = 0;
+            }
+            diff_seconds = ((float)(duration_now/10) - last_interaction_val) / 10;
+          }
+
+          // update display state
+          if (timeout_sleep_val > 0 && diff_seconds > (timeout_sleep_val + duration_dimming_val)) {
+            if (!id(use_auto_sleeping).state && current_state == 0) {
+              id(update_last_interaction).execute(-1);
+              new_state = 2;
+            } else if (id(use_auto_sleeping).state && current_state != 0) {
+              new_state = 0;
+            }
+          } else if (timeout_dimming_val > 0 && diff_seconds > (timeout_dimming_val + duration_dimming_val)) {
+            if (!id(use_auto_dimming).state && current_state == 1) {
+              new_state = 2;
+            } else if (id(use_auto_dimming).state && current_state != 1) {
+              new_state = 1;
+            }
+          } else if (current_state != 2) {
+            new_state = 2;
+          }
+
+          // check sleep/wakeup
+          if (current_state == 0 && !id(haui_disp).is_sleeping()) {
+            // before sleep, remember current page and open blank page (0)
+            if (int(id(page).state) != 0) {
+              wakeup_page = id(page).state;
+            }
+            id(goto_page).execute("blank");
+            id(display_sleep).execute();
+          } else if (new_state != 0 && id(haui_disp).is_sleeping()) {
+            id(display_wakeup).execute();
+            bool ad_connected = id(ad_connection);
+            if (ad_connected == true) {
+              id(goto_page).execute(wakeup_page);
+            } else {
+              id(goto_page).execute("system");
+            }
+          }
+
+          // the state changed
+          if (new_state != current_state) {
+            id(haui_display_state) = new_state;
+            std::string display_state_val;
+            if (new_state == 2) {
+              display_state_val = "on";
+            } else if (new_state == 1) {
+              display_state_val = "dim";
+            } else {
+              display_state_val = "off";
+            }
+            id(publish_event).execute("display_state", display_state_val);
+          }
+
+  - id: display_sleep
+    then:
+      - lambda: |-
+          if (!id(haui_disp).is_sleeping()) {
+            ESP_LOGI("haui", "Display is going to sleep");
+            id(haui_disp).sleep();
+            id(publish_event).execute("sleep", "");
+          }
+
+  - id: display_wakeup
+    then:
+      - lambda: |-
+          if (id(haui_disp).is_sleeping()) {
+            ESP_LOGI("haui", "Display is waking up");
+            id(haui_disp).wakeup();
+            id(publish_event).execute("wakeup", "");
+          }
+
+  # Script to check page related changes
+  - id: check_page
+    then:
+      - lambda: |-
+          if (!id(ad_connection) || !id(use_auto_page).state) {
+            return;
+          }
+
+          // timeout value
+          int timeout_page_val = int(id(timeout_page).state);
+          // last interaction with device
+          int last_interaction_val = int(id(last_interaction).state);
+
+          float diff_seconds = 0;
+          static float last_diff_seconds = 0;
+          if (last_interaction_val > 0) {
+            // get timings for last interaction
+            unsigned long duration_now = millis() / 10; // use 0.01s as the lowest change
+            if (duration_now < last_interaction_val) {
+              // overflow occurred, reset variables
+              last_interaction_val = 0;
+              duration_now = 0;
+            }
+            diff_seconds = ((float)(duration_now/10) - last_interaction_val) / 10;
+          }
+
+          // the timeout was reached
+          if (diff_seconds > timeout_page_val and last_diff_seconds <= timeout_page_val) {
+            id(publish_event).execute("timeout", "page");
+          }
+          last_diff_seconds = diff_seconds;
+
+  # Script to process touch gestures
+  - id: process_touch_gesture
+    parameters:
+      x1: int
+      y1: int
+      x2: int
+      y2: int
+    then:
+      - lambda: |-
+          if (!x1 || !y1 || !x2 || !y2) {
+            ESP_LOGD("haui", "Cannot process gesture with provided values: (%i,%i) - (%i,%i)", x1, y1, x2, y2);
+            return;
+          }
+          ESP_LOGD("haui", "Checking gesture with provided values: (%i,%i) - (%i,%i)", x1, y1, x2, y2);
+
+          // Set thresholds for swipe recognition
+          int min_distance_x = 200;
+          int min_distance_y = 150;
+          int max_angle = 20;
+          int border_margin = 20;
+
+          // Determine the direction of the swipe
+          bool is_horizontal = abs(x2 - x1) > abs(y2 - y1);
+          bool is_swipe_right = (x2 - x1) > 0;
+          bool is_swipe_down = (y2 - y1) > 0;
+          // Check if swipe starts near borders
+          bool is_near_border = false;
+          if (x1 < border_margin || y1 < border_margin || x1 > (440 - border_margin) || y1 > (320 - border_margin)) {
+              is_near_border = true;
+          }
+
+          // Calculate distance and angle of swipe gesture
+          int delta_x = abs(x2 - x1);
+          int delta_y = abs(y2 - y1);
+          int distance = sqrt(delta_x*delta_x + delta_y*delta_y);
+          int angle = atan2(delta_y, delta_x) * 180 / M_PI;
+
+          // Check if swipe meets minimum distance and maximum angle thresholds
+          bool meets_distance_threshold = is_horizontal ? distance >= min_distance_x :  distance >= min_distance_y;
+          bool meets_angle_threshold = (is_horizontal && abs(angle) <= max_angle) || (!is_horizontal && abs(angle) >= 90 - max_angle);
+
+          // Generate swipe event
+          std::string swipe_event = "";
+          if (is_near_border && meets_distance_threshold && meets_angle_threshold) {
+            if (is_horizontal && is_swipe_right) {
+              swipe_event = "swipe_right";
+            } else if (is_horizontal && !is_swipe_right) {
+              swipe_event = "swipe_left";
+            } else if (!is_horizontal && is_swipe_down) {
+              swipe_event = "swipe_down";
+            } else if (!is_horizontal && !is_swipe_down) {
+              swipe_event = "swipe_up";
+            }
+          }
+          if (swipe_event != "") {
+            ESP_LOGD("haui", "gesture %s", swipe_event.c_str());
+            id(publish_event).execute("gesture", swipe_event);
+          }
+
+  # Script to change the page based on the page name
+  - id: goto_page
+    parameters:
+      page: string
+    then:
+      - lambda: |-
+          ESP_LOGI("haui", "goto_page %s", page.c_str());
+          id(haui_disp).goto_page(page);
+
+  # Script to play a rtttl string
+  - id: play_rtttl
+    parameters:
+      song_str: std::string
+    then:
+      - lambda: |-
+          ESP_LOGI("haui", "play_rtttl %s", song_str.c_str());
+          id(haui_rtttl).play(song_str);
+
+  # Script to play a named sound
+  - id: play_sound
+    parameters:
+      name: std::string
+      # available sounds:
+      # - startup: a startup sequence
+      # - tone: a single tone
+      # - tone_up: a single higher tone
+      # - tone_down: a single lower tone
+      # - seq_up: a raising tone sequence
+      # - seq_down: a falling tone sequence
+      # - notification: a notification sequence
+      # - alert: a alert sequence
+      # - alert_fast: a fast alert sequence
+      # - elise: beethovens: für elise
+    then:
+      - lambda: |-
+          ESP_LOGI("haui", "Script play_sound %s", name.c_str());
+          std::string sound_string = "";
+
+          if (name == "startup") {
+            sound_string = "startup:4:d=4,o=5,b=200:8c7,8g7,8d7,8g7";
+          } else if (name == "tone") {
+            sound_string = "tone:4:d=8,o=6,b=200:16e6";
+          } else if (name == "tone_up") {
+            sound_string = "tone:4:d=8,o=6,b=200:16d6";
+          } else if (name == "tone_down") {
+            sound_string = "tone:4:d=8,o=6,b=200:16g6";
+          } else if (name == "seq_up") {
+            sound_string = "seq_up:4:d=16,o=5,b=160:16e6,16g6";
+          } else if (name == "seq_down") {
+            sound_string = "seq_down:4:d=16,o=5,b=160:16g6,16d6";
+          } else if (name == "notification") {
+            sound_string = "notification:4:d=8,o=6,b=200:16e,16c6,16g6,8c6,8g6";
+          } else if (name == "alert_fast") {
+            sound_string = "alert_fast:4:d=8,o=6,b=200:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7";
+          } else if (name == "alert") {
+            sound_string = "alert:4:d=16,o=6,b=400:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7";
+          } else if (name == "elise") {
+            sound_string = "elise:d=8,o=5,b=125:32p,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,e,g#,b,4c.6,32p,e,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,d,c6,b,2a";
+          }
+
+          if (sound_string != "") {
+            id(haui_rtttl).play(sound_string);
+          }
+

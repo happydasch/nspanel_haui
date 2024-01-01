@@ -1,0 +1,32 @@
+---
+# Globals Configuration
+globals:
+
+  # Display initialization state
+  - id: haui_init
+    type: bool
+    restore_value: false
+
+  # Display state
+  # Values:
+  # - 0 Off
+  # - 1 Dim
+  # - 2 On
+  - id: haui_display_state
+    type: int
+    restore_value: false
+
+  # Availability of appdaemon server
+  - id: ad_availability
+    type: bool
+    restore_value: false
+
+  # Last appdaemon heartbeat timestamp
+  - id: ad_heartbeat
+    type: int
+    restore_value: false
+
+  # Connection state of the device with the appdaemon app
+  - id: ad_connection
+    type: bool
+    restore_value: false

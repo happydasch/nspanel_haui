@@ -1,0 +1,127 @@
+---
+# MQTT Client
+mqtt:
+  id: mqtt_client
+  broker: $mqtt_ip
+  username: $mqtt_username
+  password: $mqtt_password
+  topic_prefix: $topic_prefix
+  on_json_message:
+    - topic: $topic_cmd
+      qos: 0
+      then:
+        - lambda: |-
+            #include <cstring>
+
+            auto name = x["name"].as<std::string>();
+            auto value = x["value"].as<std::string>();
+
+            // connection
+            if (name == "ad_heartbeat") {
+              id(ad_heartbeat) = millis() / 1000;
+              ESP_LOGD("haui", "Heartbeat from AppDaemon %d", id(ad_heartbeat));
+            } else if (name == "ad_connection_response") {
+              ESP_LOGD("haui", "Connection Response Request recieved");
+              id(publish_connection_response).execute();
+            } else if (name == "ad_connection_initialized") {
+              ESP_LOGD("haui", "Device connected to AppDaemon");
+              id(set_ad_connected).execute(true);
+            } else if (name == "ad_connection_closed") {
+              ESP_LOGD("haui", "Connection closed by AppDaemon");
+              id(set_ad_connected).execute(false);
+            }
+
+            // requests
+            if (name == "req_device_info") {
+              ESP_LOGD("haui", "Device Info Request");
+              id(publish_device_info).execute();
+            } else if (name == "req_device_state") {
+              ESP_LOGD("haui", "Device State Request");
+              id(publish_device_state).execute();
+            } else if (name == "req_reconnect") {
+              ESP_LOGD("haui", "Reconnect Request");
+              id(set_ad_connected).execute(false);
+            } else if (name == "req_int_value") {
+              ESP_LOGD("haui", "Command: req_int_value %s", value.c_str());
+              int ret_val = id(haui_disp).get_int_value(value);
+              const json::json_build_t payload = [value, ret_val](JsonObject root) {
+                root["name"] = value;
+                root["value"] = ret_val;
+              };
+              auto payload_str = build_json(payload);
+              id(publish_event).execute("res_int_value", payload_str);
+            } else if (name == "req_txt_value") {
+              ESP_LOGD("haui", "Command: req_txt_value %s", value.c_str());
+              std::string ret_val = id(haui_disp).get_txt_value(value);
+              const json::json_build_t payload = [value, ret_val](JsonObject root) {
+                root["name"] = value;
+                root["value"] = ret_val;
+              };
+              auto payload_str = build_json(payload);
+              id(publish_event).execute("res_txt_value", payload_str);
+            } else if (name == "req_component_int") {
+              ESP_LOGD("haui", "Command: req_component_int %s", value.c_str());
+              int ret_val = id(haui_disp).get_component_int(value);
+              const json::json_build_t payload = [value, ret_val](JsonObject root) {
+                root["name"] = value;
+                root["value"] = ret_val;
+              };
+              auto payload_str = build_json(payload);
+              id(publish_event).execute("res_component_int", payload_str);
+            } else if (name == "req_component_txt") {
+              ESP_LOGD("haui", "Command: req_component_txt %s", value.c_str());
+              std::string ret_val = id(haui_disp).get_component_txt(value);
+              const json::json_build_t payload = [value, ret_val](JsonObject root) {
+                root["name"] = value;
+                root["value"] = ret_val;
+              };
+              auto payload_str = build_json(payload);
+              id(publish_event).execute("res_component_txt", payload_str);
+            }
+
+            // commands
+            if (name == "send_command") {
+              ESP_LOGD("haui", "Command: send_command %s", value.c_str());
+              id(send_command).execute(value);
+            } else if (name == "send_commands") {
+              ESP_LOGD("haui", "Command: send_commands %s", value.c_str());
+              StaticJsonDocument<4000> doc;
+              DeserializationError error = deserializeJson(doc, value);
+              if (error) {
+                ESP_LOGE("haui", "Failed to parse JSON: %s", error.c_str());
+                return;
+              }
+              // extract the values
+              JsonArray array = doc["commands"].as<JsonArray>();
+              for(JsonVariant v : array) {
+                  Serial.println(v.as<int>());
+                  auto command = v.as<std::string>();
+                  id(haui_disp).send_command(command, false);
+              }
+              id(haui_disp).process_commands();
+            } else if (name == "set_component_text") {
+              ESP_LOGD("haui", "Command: set_component_text %s", value.c_str());
+              StaticJsonDocument<200> doc;
+              DeserializationError error = deserializeJson(doc, value);
+              if (error) {
+                ESP_LOGE("haui", "Failed to parse JSON: %s", error.c_str());
+                return;
+              }
+              auto name = doc["name"].as<std::string>();
+              auto value = doc["value"].as<std::string>();
+              id(set_component_text).execute(name, value);
+            } else if (name == "set_component_value") {
+              ESP_LOGD("haui", "Command: set_component_value %s", value.c_str());
+              StaticJsonDocument<200> doc;
+              DeserializationError error = deserializeJson(doc, value);
+              if (error) {
+                ESP_LOGE("haui", "Failed to parse JSON: %s", error.c_str());
+                return;
+              }
+              auto name = doc["name"].as<std::string>();
+              int value = doc["value"].as<int>();
+              id(set_component_value).execute(name, value);
+            } else if (name == "goto_page") {
+              ESP_LOGD("haui", "Command: goto_page %s", value.c_str());
+              id(goto_page).execute(value);
+            }

@@ -1,0 +1,35 @@
+---
+# Internal Buzzer
+output:
+  - platform: ledc
+    id: haui_rtttl_out
+    pin:
+      number: 21
+
+
+# Ringtone Music Support
+rtttl:
+  id: haui_rtttl
+  output: haui_rtttl_out
+
+
+# Component for Display
+external_components:
+  # Github hosted component
+  - source:
+      type: git
+      url: https://github.com/happydasch/nspanel_haui
+    components: [nspanel_haui]
+  # Locally hosted component, uncomment for local dev
+  #- source: .
+  #  # for nextion use a custom component that provides
+  #  # the serial data in a event
+  #  components: [nspanel_haui]
+
+
+# UART for Display
+uart:
+  tx_pin: 16
+  rx_pin: 17
+  baud_rate: 115200
+  id: haui_uart

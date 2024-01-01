@@ -1,0 +1,90 @@
+---
+# API Configuration
+api:
+
+  # API Password for HA
+  encryption:
+    key: $api_encryption_key
+
+  # Available services
+  services:
+
+    # Service to update a TFT file
+    # This will update the nextion display with the tft file
+    # from tft_url
+    - service: upload_tft
+      then:
+        - lambda: id(haui_disp).upload_tft();
+
+    # Service to update a TFT file from URL
+    - service: upload_tft_url
+      variables:
+        url: string
+      then:
+        - lambda: id(haui_disp).set_tft_url(url);
+        - lambda: id(haui_disp).upload_tft();
+
+    # Service to send a command
+    # This will send a command to the nextion display
+    - service: send_command
+      variables:
+        cmd: string
+      then:
+        - lambda: id(send_command).execute(cmd);
+
+    # Service to set the text of a component
+    - service: set_component_text
+      variables:
+        component: string
+        message: string
+      then:
+        - lambda: id(set_component_text).execute(component, message);
+
+    # Service to set the value of a component
+    - service: set_component_value
+      variables:
+        component: string
+        message: int
+      then:
+        - lambda: id(set_component_value).execute(component, message);
+
+    # Service to change the brightness of the display
+    - service: set_brightness
+      variables:
+        intensity: int
+      then:
+        - lambda: id(set_brightness).execute(intensity);
+
+    # Service to change the page of the display
+    - service: goto_page
+      variables:
+        page: string
+      then:
+        - lambda: id(goto_page).execute(page);
+
+    # Service to play a song for RTTTL strings
+    - service: play_rtttl
+      variables:
+        # see https://picaxe.com/rtttl-ringtones-for-tune-command/
+        song_str: string
+      then:
+        - lambda: id(play_rtttl).execute(song_str);
+
+    # Service to play a named sound
+    - service: play_sound
+      variables:
+        name: string
+      then:
+        - lambda: id(play_sound).execute(name);
+
+    # Service to reset the last interaction value
+    - service: reset_last_interaction
+      then:
+        - lambda: id(update_last_interaction).execute(-1);
+
+    # Service to reset the last interaction value adding an offset
+    - service: reset_last_interaction_offset
+      variables:
+        offset: int
+      then:
+        - lambda: id(update_last_interaction_offset).execute(-1, offset);

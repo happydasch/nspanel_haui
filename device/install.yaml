@@ -1,29 +1,22 @@
 substitutions:
-  # Heartbeat interval in seconds
   heartbeat_interval: '5'
-  # Friendly name of the device
   friendly_name: 'NSPanel HAUI'
-  # Name of the device (mqtt device name should match device name,
-  # use only underscore in mqtt device name)
-  device_name: nspanel-haui  # this name is also used for hostname
+  name: nspanel-haui
   mqtt_device_name: nspanel_haui
-  # MQTT config
   mqtt_ip: !secret mqtt_ip
   mqtt_username: !secret mqtt_username
   mqtt_password: !secret mqtt_password
   topic_prefix: nspanel_haui/$mqtt_device_name
-  topic_cmd: $topic_prefix/cmd  # used for sending events
-  topic_recv: $topic_prefix/recv  # used to recieve events
-  # Accounts and Passwords
-  ota_password: !secret ota_password  # for more than one device, this needs to be unique
-  encryption_key: !secret encryption_key  # for more than one device, this needs to be unique
+  topic_cmd: $topic_prefix/cmd
+  topic_recv: $topic_prefix/recv
+  ota_password: !secret ota_password
+  api_encryption_key: !secret api_encryption_key
   web_username: !secret web_username
   web_password: !secret web_password
   wifi_ssid: !secret wifi_ssid
   wifi_password: !secret wifi_password
-  # Custom Update Url
+  ap_password: !secret ap_password
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft
-  #tft_update_url: http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft
 
 packages:
   remote_package:

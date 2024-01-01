@@ -1,0 +1,94 @@
+---
+# Number Configuration
+number:
+
+  # Screen Full brightness
+  - platform: template
+    name: Brightness Full
+    id: brightness_full
+    entity_category: config
+    unit_of_measurement: '%'
+    min_value: 0
+    max_value: 100
+    initial_value: 50
+    step: 1
+    restore_value: true
+    optimistic: true
+
+  # Screen brightness when dimmed down
+  - platform: template
+    name: Brightness Dimmed
+    id: brightness_dimmed
+    entity_category: config
+    unit_of_measurement: '%'
+    initial_value: 20
+    min_value: 0
+    max_value: 100
+    step: 1
+    restore_value: true
+    optimistic: true
+
+  # Screen brightness when dimmed down
+  - platform: template
+    name: Duration Dimming
+    id: duration_dimming
+    entity_category: config
+    unit_of_measurement: 's'
+    min_value: 0.0
+    max_value: 5.0
+    step: 0.1
+    initial_value: 2.0
+    restore_value: true
+    optimistic: true
+
+  # Dim timeout
+  - platform: template
+    name: Timeout Dimming
+    id: timeout_dimming
+    entity_category: config
+    unit_of_measurement: 's'
+    min_value: 0
+    max_value: 3600
+    initial_value: 10
+    step: 1
+    restore_value: true
+    optimistic: true
+
+  # Page timeout
+  - platform: template
+    name: Timeout Page
+    id: timeout_page
+    entity_category: config
+    unit_of_measurement: 's'
+    min_value: 0
+    max_value: 3600
+    initial_value: 30
+    step: 1
+    restore_value: true
+    optimistic: true
+
+  # Sleep timeout
+  - platform: template
+    name: Timeout Sleep
+    id: timeout_sleep
+    entity_category: config
+    unit_of_measurement: 's'
+    min_value: 0
+    max_value: 3600
+    initial_value: 120
+    step: 1
+    restore_value: true
+    optimistic: true
+
+  # Temperature Correction
+  - platform: template
+    name: Temperature Correction
+    id: temperature_correction
+    entity_category: config
+    unit_of_measurement: '°C'
+    min_value: -10
+    max_value: 10
+    initial_value: 0
+    step: 0.5
+    restore_value: true
+    optimistic: true

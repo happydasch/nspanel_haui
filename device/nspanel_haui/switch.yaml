@@ -1,0 +1,93 @@
+---
+# Switch Configuration
+switch:
+
+  # Display Always On
+  # this will make sure that the display is always on
+  - platform: gpio
+    name: Screen Power
+    id: screen_power
+    entity_category: config
+    restore_mode: ALWAYS_ON
+    internal: true  # used only for the screen to stay on
+    pin:
+      number: 4
+      inverted: true
+
+  # Should buttons be used for interaction
+  - platform: template
+    name: Use Button Interaction
+    id: use_button_interaction
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+
+  # Should auto-dimming be used
+  - platform: template
+    name: Use Auto-Dimming
+    id: use_auto_dimming
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+
+  # Should auto-page be used
+  - platform: template
+    name: Use Auto-Page
+    id: use_auto_page
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+
+  # Should auto-sleeping be used
+  - platform: template
+    name: Use Auto-Sleeping
+    id: use_auto_sleeping
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+
+  # Physical switch left
+  - platform: gpio
+    name: Relay Left
+    id: relay_left
+    pin:
+      number: 22
+    on_turn_on:
+      then:
+        - lambda: |-
+            id(publish_event).execute("relay_left", "1");
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(publish_event).execute("relay_left", "0");
+
+  # Physical switch right
+  - platform: gpio
+    name: Relay Right
+    id: relay_right
+    pin:
+      number: 19
+    on_turn_on:
+      then:
+        - lambda: |-
+            id(publish_event).execute("relay_right", "1");
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(publish_event).execute("relay_right", "0");
+
+  # Use physical relay left
+  - platform: template
+    name: Use Relay Left
+    id: use_relay_left
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+
+  # Use physical relay right
+  - platform: template
+    name: Use Relay Right
+    id: use_relay_right
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true

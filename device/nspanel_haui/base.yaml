@@ -1,0 +1,53 @@
+---
+# ESP Configuration
+esp32:
+  board: esp32dev
+
+
+# ESPHome Configuration
+esphome:
+  name: $name
+  friendly_name: $friendly_name
+  project:
+    name: happydasch.nspanel_haui
+    version: $yaml_version
+
+# Logger Configuration
+logger:
+  # to get debug messages, set to DEBUG or VERBOSE,
+  # use INFO or NONE if you do not need any messages (default INFO)
+  # see esphome documentation for logging details
+  level: INFO
+
+
+# OTA Configuration
+ota:
+  password: $ota_password
+  safe_mode: true
+  reboot_timeout: 3min
+  num_attempts: 3
+
+
+# WIFI Configuration
+wifi:
+  # use_address is useful when there are issues with renaming of the device name
+  #use_address: nspanel.local
+  ssid: $wifi_ssid
+  password: $wifi_password
+  power_save_mode: none
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $name
+    password: $ap_password
+
+
+# Captive Portal
+captive_portal:
+
+
+# Web Server
+web_server:
+  port: 80
+  auth:
+    username: $web_username
+    password: $web_password

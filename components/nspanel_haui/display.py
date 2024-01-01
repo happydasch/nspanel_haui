@@ -95,8 +95,6 @@ async def to_code(config):
         cg.add_library("WiFiClientSecure", None)
         cg.add_library("HTTPClient", None)
 
-    await display.register_display(var, config)
-
     for conf in config.get(CONF_ON_SETUP, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var)
         await automation.build_automation(trigger, [], conf)

@@ -66,9 +66,9 @@ date_format_babel: "full"
 
 `device` dict
 
-- `device_name` string
+- `name` string
 
-  The name of the panel device, defaults to received mqtt_device_name value
+  The name of the panel device, defaults to received mqtt_name value
 
 - `locale` string
 
@@ -92,7 +92,7 @@ date_format_babel: "full"
 
 ```yaml
 device:
-  device_name: null
+  name: null
   locale: "en_US"
   button_left_entity: null
   button_right_entity: null

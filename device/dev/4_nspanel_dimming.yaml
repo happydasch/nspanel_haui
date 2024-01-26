@@ -18,7 +18,7 @@ substitutions:
   # Version of this yaml config file
   yaml_version: '0.1.0'
   # Name of the device
-  device_name: nspanel-haui
+  name: nspanel-haui
   # Friendly name of the device
   friendly_name: 'NSPanel HAUI'
   # Accounts and URLs
@@ -37,7 +37,7 @@ esp32:
 
 # ESPHome Configuration
 esphome:
-  name: $device_name
+  name: $name
   friendly_name: $friendly_name
 
 
@@ -63,7 +63,7 @@ wifi:
   power_save_mode: none
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: $device_name
+    ssid: $name
     password: $wifi_password
 
 

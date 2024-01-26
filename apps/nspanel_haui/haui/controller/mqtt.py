@@ -37,8 +37,8 @@ class HAUIMQTTController(HAUIPart):
     def start_part(self):
         """Starts the part."""
         # topics for communication with panel
-        device_name = self.app.device.get_device_name()
-        self._topic_prefix = f"nspanel_haui/{device_name}"
+        name = self.app.device.get_name()
+        self._topic_prefix = f"nspanel_haui/{name}"
         if self._topic_prefix.endswith("/"):
             self._topic_prefix = self._topic_prefix[:-1]
         self._topic_cmd = f"{self._topic_prefix}/cmd"

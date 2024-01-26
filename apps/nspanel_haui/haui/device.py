@@ -56,7 +56,7 @@ class HAUIDevice(HAUIPart):
             button = getattr(self, f"_btn_{i}_info")
             if not button_id:
                 # default entity - relay
-                button_id = f"switch.{self.get_device_name()}_relay_{i}"
+                button_id = f"switch.{self.get_name()}_relay_{i}"
             if self.app.entity_exists(button_id):
                 entity = self.app.get_entity(button_id)
                 state = True if entity.get_state() == "on" else False
@@ -132,13 +132,13 @@ class HAUIDevice(HAUIPart):
         """
         return self.get("locale", "en_US")
 
-    def get_device_name(self):
+    def get_name(self):
         """Returns the device name.
 
         Returns:
             str: Device name
         """
-        return self.get("device_name", "nspanel_haui")
+        return self.get("name", "nspanel_haui")
 
     def get_left_button_state(self):
         """Returns the left button state.

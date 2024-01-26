@@ -67,7 +67,7 @@ class HAUINavigationController(HAUIPart):
                 else:
                     self.log("Multiple wakeup panels defined in config, using first")
         # set home panel
-        if self._home_panel is None and len(self._ids) == 0:
+        if self._home_panel is None and len(self._ids) > 0:
             self.log(f"Using first panel {self._ids[0]} as home panel")
             self._home_panel = self._ids[0]
         # log start

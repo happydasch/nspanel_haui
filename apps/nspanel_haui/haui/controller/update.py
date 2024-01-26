@@ -204,8 +204,8 @@ class HAUIUpdateController(HAUIPart):
             self.log("No update url available")
             return
         # run update
-        device_name = self.app.device.get("device_name", "nspanel_haui")
-        self.app.call_service(f"esphome/{device_name}_upload_tft_url", url=update_url)
+        name = self.app.device.get("name", "nspanel_haui")
+        self.app.call_service(f"esphome/{name}_upload_tft_url", url=update_url)
 
     def check_installed_version(self):
         """Checks on connect if a update is available."""

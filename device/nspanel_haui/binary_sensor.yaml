@@ -18,10 +18,12 @@ binary_sensor:
         - lambda: |-
             id(publish_event).execute("button_left", "0");
     on_click:
-      condition:
-      - switch.is_on: use_relay_left
-      then:
-      - switch.toggle: relay_left
+      if:
+        condition:
+        - switch.is_on: use_relay_left
+        then:
+        - switch.toggle: relay_left
+
     on_multi_click:
       #1: Short-press toggle relay IF coupling is turned on
       - timing:
@@ -73,10 +75,11 @@ binary_sensor:
         - lambda: |-
             id(publish_event).execute("button_right", "0");
     on_click:
-      condition:
-      - switch.is_on: use_relay_right
-      then:
-      - switch.toggle: relay_right
+      if:
+        condition:
+        - switch.is_on: use_relay_right
+        then:
+        - switch.toggle: relay_right
     on_multi_click:
       #1: Short-press toggle relay IF coupling is turned on
       - timing:

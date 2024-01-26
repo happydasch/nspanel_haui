@@ -10,7 +10,7 @@ class AboutPage(HAUIPage):
     # about text
     TXT_ABOUT_1, TXT_ABOUT_2 = (7, "tAbout1"), (8, "tAbout2")
     # about vars
-    TXT_DEVICE_NAME, TXT_IP = (9, "tDeviceName"), (10, "tIP")
+    TXT_NAME, TXT_IP = (9, "tDeviceName"), (10, "tIP")
     TXT_TFT_VERS, TXT_TFT_VERS_VAL = (11, "tTftVers"), (12, "tTftVersVal")
     TXT_YAML_VERS, TXT_YAML_VERS_VAL = (13, "tYamlVers"), (14, "tYamlVersVal")
     TXT_AD_VERS, TXT_AD_VERS_VAL = (15, "tADVers"), (16, "tADVersVal")
@@ -37,8 +37,8 @@ class AboutPage(HAUIPage):
         self.stop_rec_cmd(send_commands=True)
 
     def render_panel(self, panel):
-        device_name = self.app.device.device_info.get("device_friendly_name", "")
-        ip_address = self.app.device.device_info.get("device_ip", "127.0.0.1")
+        name = self.app.device.device_info.get("friendly_name", self.app.device.get_name())
+        ip_address = self.app.device.device_info.get("ip", "127.0.0.1")
         tft_version = self.app.device.device_info.get("tft_version", "0.0.0")
         yaml_version = self.app.device.device_info.get("yaml_version", "0.0.0")
         ad_version = haui.version.__version__
@@ -50,8 +50,8 @@ class AboutPage(HAUIPage):
         self.set_component_text(
             self.TXT_ABOUT_2, self.translate("smart homes with a custom UI Design.")
         )
-        # device_name
-        self.set_component_text(self.TXT_DEVICE_NAME, device_name)
+        # name
+        self.set_component_text(self.TXT_NAME, name)
         # ip address
         self.set_component_text(self.TXT_IP, f"{ip_address}")
         # tft version

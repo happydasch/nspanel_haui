@@ -18,7 +18,7 @@ substitutions:
   # Version of this yaml config file
   yaml_version: '0.1.0'
   # Name of the device
-  device_name: nspanel-haui
+  name: nspanel-haui
   # Friendly name of the device
   friendly_name: 'NSPanel HAUI'
   # Heartbeat interval in seconds
@@ -46,7 +46,7 @@ esp32:
 
 # ESPHome Configuration
 esphome:
-  name: $device_name
+  name: $name
   friendly_name: $friendly_name
 
 
@@ -72,7 +72,7 @@ wifi:
   power_save_mode: none
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: $device_name
+    ssid: $name
     password: $wifi_password
 
 
@@ -247,13 +247,13 @@ script:
     then:
       - lambda: |-
           ESP_LOGD("haui", "Script: publish_connection_request");
-          auto device_name = App.get_name();
-          auto device_friendly_name = App.get_friendly_name();
+          auto name = App.get_name();
+          auto friendly_name = App.get_friendly_name();
           const json::json_build_t payload = [
-              device_name, device_friendly_name
+              name, friendly_name
           ](JsonObject root) {
-            root["device_name"] = device_name;
-            root["device_friendly_name"] = device_friendly_name;
+            root["name"] = name;
+            root["friendly_name"] = friendly_name;
           };
           auto payload_str = build_json(payload);
           id(publish_event).execute("req_connection", payload_str);
@@ -263,16 +263,16 @@ script:
     then:
       - lambda: |-
           ESP_LOGD("haui", "Script: publish_connection_response");
-          auto device_name = App.get_name();
-          auto device_friendly_name = App.get_friendly_name();
+          auto name = App.get_name();
+          auto friendly_name = App.get_friendly_name();
           auto heartbeat_interval_str = "$heartbeat_interval";
           auto yaml_version = "$yaml_version";
           const json::json_build_t payload = [
-              device_name, device_friendly_name,
+              name, friendly_name,
               heartbeat_interval_str, yaml_version
           ](JsonObject root) {
-            root["device_name"] = device_name;
-            root["device_friendly_name"] = device_friendly_name;
+            root["name"] = name;
+            root["friendly_name"] = friendly_name;
             root["heartbeat_interval"] = heartbeat_interval_str;
             root["yaml_version"] = yaml_version;
           };
@@ -284,15 +284,15 @@ script:
     then:
       - lambda: |-
           ESP_LOGD("haui", "Script: publish_device_info");
-          auto device_name = App.get_name();
-          auto device_friendly_name = App.get_friendly_name();
+          auto name = App.get_name();
+          auto friendly_name = App.get_friendly_name();
           auto device_version = to_string(ESPHOME_VERSION);
           auto yaml_version = "$yaml_version";
           const json::json_build_t payload = [
-              device_name, device_friendly_name, device_version, yaml_version
+              name, friendly_name, device_version, yaml_version
           ](JsonObject root) {
-            root["device_name"] = device_name;
-            root["device_friendly_name"] = device_friendly_name;
+            root["name"] = name;
+            root["friendly_name"] = friendly_name;
             root["device_version"] = device_version;
             root["yaml_version"] = yaml_version;
           };

@@ -48,9 +48,9 @@ See [Nextion](Nextion.md) for more details about the display.
 An overview of all configuration variables defined in the ESPHome yaml file.
 
 - `heartbeat_interval` (5)
-- `device_name` (nspanel-haui)
+- `name` (nspanel-haui)
 - `friendly_name` (NSPanel HAUI)
-- `mqtt_device_name` (nspanel_haui)
+- `mqtt_name` (nspanel_haui)
 - `mqtt_ip` (!secret mqtt_ip)
 - `mqtt_username` (!secret mqtt_username)
 - `mqtt_password` (!secret mqtt_password)

@@ -2,11 +2,11 @@ substitutions:
   heartbeat_interval: '5'
   friendly_name: 'NSPanel HAUI'
   name: nspanel-haui
-  mqtt_device_name: nspanel_haui
+  mqtt_name: nspanel_haui
   mqtt_ip: !secret mqtt_ip
   mqtt_username: !secret mqtt_username
   mqtt_password: !secret mqtt_password
-  topic_prefix: nspanel_haui/$mqtt_device_name
+  topic_prefix: nspanel_haui/$mqtt_name
   topic_cmd: $topic_prefix/cmd
   topic_recv: $topic_prefix/recv
   ota_password: !secret ota_password

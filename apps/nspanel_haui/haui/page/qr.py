@@ -26,13 +26,13 @@ class QRPage(HAUIPage):
     # panel
 
     def start_panel(self, panel):
-        device_name = self.app.device.get_device_name()
+        name = self.app.device.get_name()
         self.add_component_callback(self.QR_CODE, self.callback_qr_code)
         self.add_component_callback(self.QR_CODE_BIG, self.callback_qr_code_big)
         self.auto_dimming = self.app.get_entity(
-            f"switch.{device_name}_use_auto_dimming"
+            f"switch.{name}_use_auto_dimming"
         )
-        self.auto_page = self.app.get_entity(f"switch.{device_name}_use_auto_page")
+        self.auto_page = self.app.get_entity(f"switch.{name}_use_auto_page")
         self._use_auto_dimming = self.auto_dimming.get_state()
         self._use_auto_page = self.auto_page.get_state()
 

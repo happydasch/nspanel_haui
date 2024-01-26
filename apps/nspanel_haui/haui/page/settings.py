@@ -25,21 +25,21 @@ class SettingsPage(HAUIPage):
     # panel
 
     def start_panel(self, panel):
-        device_name = self.app.device.get_device_name()
+        name = self.app.device.get_name()
 
         # auto dimming component
         self.auto_dimming = self.app.get_entity(
-            f"switch.{device_name}_use_auto_dimming"
+            f"switch.{name}_use_auto_dimming"
         )
         self._use_auto_dimming = self.auto_dimming.get_state()
         self.auto_dimming.turn_off()
 
         # brightness components
         self.brightness_full_entity = self.app.get_entity(
-            f"number.{device_name}_brightness_full"
+            f"number.{name}_brightness_full"
         )
         self.brightness_dimmed_entity = self.app.get_entity(
-            f"number.{device_name}_brightness_dimmed"
+            f"number.{name}_brightness_dimmed"
         )
         self._handle_brightness_full = self.brightness_full_entity.listen_state(
             self.callback_brightness

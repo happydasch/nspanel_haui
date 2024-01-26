@@ -65,10 +65,10 @@ With the prepared and connected device it is now possible to install ESPHome on 
   Only substitutions needs to be edited.
   Either use a secrets.yaml file or set the configuration values directly in this file.
 
-  The name of the device can be set with `device_name`, `mqtt_device_name` and `friendly_name`
+  The name of the device can be set with `name`, `mqtt_name` and `friendly_name`
 
-  - device_name: host- and device_name
-  - mqtt_device_name: device_name in mqtt
+  - name: host- and device name
+  - mqtt_name: device name for mqtt
   - friendly_name: friendly name of device
 
   Some credentials needs to be provided:

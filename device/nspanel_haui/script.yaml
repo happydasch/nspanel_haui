@@ -53,17 +53,17 @@ script:
     then:
       - lambda: |-
           ESP_LOGD("haui", "Script: publish_connection_request");
-          auto device_name = App.get_name();
-          auto device_friendly_name = App.get_friendly_name();
-          auto device_ip =  id(ip_address).state;
+          auto name = App.get_name();
+          auto friendly_name = App.get_friendly_name();
+          auto ip =  id(ip_address).state;
           auto yaml_version = "$yaml_version";
           const json::json_build_t payload = [
-              yaml_version, device_name, device_friendly_name, device_ip
+              yaml_version, name, friendly_name, ip
           ](JsonObject root) {
             root["yaml_version"] = yaml_version;
-            root["device_name"] = device_name;
-            root["device_friendly_name"] = device_friendly_name;
-            root["device_ip"] = device_ip;
+            root["name"] = name;
+            root["friendly_name"] = friendly_name;
+            root["ip"] = ip;
           };
           auto payload_str = build_json(payload);
           id(publish_event).execute("req_connection", payload_str);

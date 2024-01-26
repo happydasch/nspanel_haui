@@ -89,6 +89,6 @@ number:
     min_value: -10
     max_value: 10
     initial_value: 0
-    step: 0.5
+    step: 0.1
     restore_value: true
     optimistic: true

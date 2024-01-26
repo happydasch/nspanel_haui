@@ -30,15 +30,15 @@ class NotifyPage(HAUIPage):
     # panel
 
     def start_panel(self, panel):
-        device_name = self.app.device.get_device_name()
+        name = self.app.device.get_name()
 
         # auto components
         self.auto_dimming = self.app.get_entity(
-            f"switch.{device_name}_use_auto_dimming"
+            f"switch.{name}_use_auto_dimming"
         )
-        self.auto_page = self.app.get_entity(f"switch.{device_name}_use_auto_page")
+        self.auto_page = self.app.get_entity(f"switch.{name}_use_auto_page")
         self.auto_sleeping = self.app.get_entity(
-            f"switch.{device_name}_use_auto_sleeping"
+            f"switch.{name}_use_auto_sleeping"
         )
 
         self._use_auto_dimming = self.auto_dimming.get_state()

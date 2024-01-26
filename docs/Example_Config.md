@@ -20,7 +20,7 @@ nspanel-haui:
 
     # device config
     device:
-      device_name: nspanel_haui
+      name: nspanel_haui
       locale: en_US
       log_commands: false
 
@@ -45,7 +45,7 @@ nspanel-haui:
 
     # device config
     device:
-      device_name: nspanel_haui
+      name: nspanel_haui
       locale: en_US
       log_commands: false
 
@@ -70,7 +70,7 @@ nspanel-haui:
 
     # device config
     device:
-      device_name: nspanel_haui
+      name: nspanel_haui
       locale: en_US
       log_commands: false
 
@@ -117,7 +117,7 @@ nspanel-haui:
 
     # device config
     device:
-      device_name: nspanel_haui
+      name: nspanel_haui
       locale: en_US
       log_commands: false
 

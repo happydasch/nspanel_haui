@@ -12,13 +12,13 @@ substitutions:
   # Name of the device (mqtt device name should match device name,
   # use only underscore in mqtt device name)
   name: nspanel-haui  # this name is also used for hostname
-  mqtt_device_name: nspanel_haui
+  mqtt_name: nspanel_haui
 
   # MQTT config
   mqtt_ip: !secret mqtt_ip
   mqtt_username: !secret mqtt_username
   mqtt_password: !secret mqtt_password
-  topic_prefix: nspanel_haui/$mqtt_device_name
+  topic_prefix: nspanel_haui/$mqtt_name
   topic_cmd: $topic_prefix/cmd  # used for sending events
   topic_recv: $topic_prefix/recv  # used to recieve events
 
@@ -38,6 +38,7 @@ substitutions:
 packages:
   version: !include nspanel_haui/version.yaml
   globals: !include nspanel_haui/globals.yaml
+  component: !include nspanel_haui/component.yaml
   base: !include nspanel_haui/base.yaml
   device: !include nspanel_haui/device.yaml
   display: !include nspanel_haui/display.yaml

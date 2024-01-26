@@ -383,8 +383,8 @@ class TimerPage(HAUIPage):
 
     def callback_timer_ended(self):
         self.stop_timer()
-        device_name = self.app.device.get("device_name", "nspanel_haui")
-        self.app.call_service(f"esphome/{device_name}_play_sound", name="alert")
+        name = self.app.device.get_name()
+        self.app.call_service(f"esphome/{name}_play_sound", name="alert")
         if self._show_notification:
             navigation = self.app.controller["navigation"]
             msg = self.translate("Timer has finished.")

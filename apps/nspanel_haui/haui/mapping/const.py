@@ -128,7 +128,7 @@ DEFAULT_CONFIG = {
     "date_format_babel": "full",
     # device related settings
     "device": {
-        "device_name": "nspanel_haui",
+        "name": "nspanel_haui",
         "locale": "en_US",
         # hardware buttons
         "button_left_entity": None,

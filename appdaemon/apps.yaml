@@ -7,7 +7,7 @@ nspanel-haui:
 
     # device config
     device:
-      device_name: nspanel_haui
+      name: nspanel_haui
       locale: en_US
       button_left_entity: null
       button_right_entity: null

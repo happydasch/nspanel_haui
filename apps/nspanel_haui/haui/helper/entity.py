@@ -26,7 +26,9 @@ def execute_entity(haui_entity):
     entity_type = haui_entity.get_entity_type()
     entity_state = haui_entity.get_entity_state()
 
-    if entity_type in ["light", "switch", "input_boolean", "automation", "fan"]:
+    if entity_type in [
+            "light", "switch", "cover", "input_boolean",
+            "automation", "fan"]:
         entity.call_service("toggle")
     elif entity_type in ["button", "input_button"]:
         entity.call_service("press")

@@ -245,10 +245,14 @@ class GridPage(HAUIPage):
         ico = getattr(self, f"G{idx}_ICO")
         name = getattr(self, f"G{idx}_NAME")
         entity = self._active_entities[ovl]
-        # set text
-        self.set_component_text(name, trim_text(entity.get_name(), self.LEN_NAME))
-        self.set_component_text_color(ico, entity.get_color())
-        self.set_component_text(ico, entity.get_icon())
+        if entity:
+            self.set_component_text(name, trim_text(entity.get_name(), self.LEN_NAME))
+            self.set_component_text_color(ico, entity.get_color())
+            self.set_component_text(ico, entity.get_icon())
+        else:
+            self.set_component_text(name, "")
+            self.set_component_text_color(ico, COLORS["text"])
+            self.set_component_text(ico, "")
 
     # callback
 

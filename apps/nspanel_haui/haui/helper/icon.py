@@ -60,6 +60,7 @@ def get_icon_name_by_state(entity_type, entity_state, device_class=None):
     Args:
         entity_type (str): Entity type
         entity_state (str): Entity state
+        device_class (str): Device class, optional, Defaults to None
 
     Returns:
         str: Icon name

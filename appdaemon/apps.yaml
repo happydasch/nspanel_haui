@@ -67,6 +67,9 @@ nspanel-haui:
       - type: popup_select
         mode: popup
         key: popup_select
+      - type: popup_timer
+        mode: popup
+        key: popup_timer
       - type: popup_light
         mode: popup
         key: popup_light
@@ -76,12 +79,9 @@ nspanel-haui:
       - type: popup_vacuum
         mode: popup
         key: popup_vacuum
-      - type: popup_thermo
+      - type: popup_climate
         mode: popup
-        key: popup_thermo
-      - type: popup_timer
-        mode: popup
-        key: popup_timer
+        key: popup_climate
       - type: popup_cover
         mode: popup
         key: popup_cover

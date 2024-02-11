@@ -14,7 +14,7 @@ from ..page.media import MediaPage
 from ..page.vacuum import VacuumPage
 from ..page.timer import TimerPage
 from ..page.qr import QRPage
-from ..page.thermo import ThermoPage
+from ..page.climate import ClimatePage
 from ..page.alarm import AlarmPage
 from ..page.cover import CoverPage
 
@@ -45,7 +45,7 @@ PAGE_MAPPING = {
     12: "light",
     13: "media",
     14: "vacuum",
-    15: "thermo",
+    15: "climate",
     16: "alarm",
     17: "cover",
 }
@@ -65,7 +65,7 @@ SYS_PANEL_MAPPING = {
     "popup_light": "popup_light",
     "popup_media_player": "popup_media_player",
     "popup_vacuum": "popup_vacuum",
-    "popup_thermo": "popup_thermo",
+    "popup_climate": "popup_climate",
     "popup_timer": "popup_timer",
     "popup_cover": "popup_cover",
 }
@@ -89,7 +89,7 @@ PANEL_MAPPING = {
     "vacuum": ("vacuum", VacuumPage),
     "timer": ("timer", TimerPage),
     "qr": ("qr", QRPage),
-    "thermo": ("thermo", ThermoPage),
+    "climate": ("climate", ClimatePage),
     "alarm": ("alarm", AlarmPage),
     "cover": ("cover", CoverPage),
     # popups
@@ -99,7 +99,7 @@ PANEL_MAPPING = {
     "popup_light": ("light", LightPage),
     "popup_media_player": ("media", MediaPage),
     "popup_vacuum": ("vacuum", VacuumPage),
-    "popup_thermo": ("thermo", ThermoPage),
+    "popup_climate": ("climate", ClimatePage),
     "popup_timer": ("timer", TimerPage),
     "popup_cover": ("cover", CoverPage),
 }

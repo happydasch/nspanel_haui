@@ -132,7 +132,7 @@ For details about how the parts of the whole system communicate together see [NS
 - **Additional upcoming functionality:**
 
   - Panels:
-    - Thermo
+    - Climate
     - Cover
     - Alarm?
 

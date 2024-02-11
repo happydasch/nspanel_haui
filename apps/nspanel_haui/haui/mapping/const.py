@@ -228,10 +228,10 @@ DEFAULT_CONFIG = {
             "key": "popup_vacuum",
         },
         {
-            # popup thermo
-            "type": "popup_thermo",
+            # popup climate
+            "type": "popup_climate",
             "mode": "popup",
-            "key": "popup_thermo",
+            "key": "popup_climate",
         },
         {
             # popup timer

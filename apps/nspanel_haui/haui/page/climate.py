@@ -1,7 +1,10 @@
 from . import HAUIPage
 
 
-class ThermoPage(HAUIPage):
+class ClimatePage(HAUIPage):
+
+    # https://developers.home-assistant.io/docs/core/entity/climate
+
     # common components
     TXT_TITLE = (2, "tTitle")
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")

@@ -38,3 +38,11 @@ text_sensor:
     entity_category: diagnostic
     update_interval: never
     internal: true
+
+  # TFT-Version
+  - platform: template
+    name: TFT-Version
+    id: tft_version
+    entity_category: diagnostic
+    update_interval: never
+    internal: false

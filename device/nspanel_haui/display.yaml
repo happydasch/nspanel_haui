@@ -20,12 +20,16 @@ display:
         # notify about initialization
         - lambda: |-
               id(play_sound).execute("startup");
-        - delay: 3s
         # set as initialized
         - lambda: |-
               ESP_LOGD("haui", "NSPanel HAUI Init");
               id(update_last_interaction).execute(-1);
               id(haui_init) = true;
+        # set tft version
+        - delay: 1s
+        - lambda: |-
+              auto version = id(haui_disp).get_component_txt("settings.tftVersion", "0.0.0");
+              id(tft_version).publish_state(version);
     on_page:
       then:
         - lambda: |-

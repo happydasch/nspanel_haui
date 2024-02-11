@@ -1,4 +1,7 @@
 ---
+substitutions:
+  log_level: INFO
+
 # ESP Configuration
 esp32:
   board: esp32dev
@@ -17,7 +20,7 @@ logger:
   # to get debug messages, set to DEBUG or VERBOSE,
   # use INFO or NONE if you do not need any messages (default INFO)
   # see esphome documentation for logging details
-  level: INFO
+  level: $log_level
 
 
 # OTA Configuration

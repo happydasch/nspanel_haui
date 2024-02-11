@@ -8,7 +8,6 @@ from esphome.const import (
     CONF_BRIGHTNESS,
     CONF_TRIGGER_ID,
 )
-from esphome.core import CORE
 from . import NSPanelHAUI, haui_ns, haui_ref
 
 CONF_TFT_URL = "tft_url"

@@ -317,9 +317,8 @@ class NSPanelHAUI : public PollingComponent, public uart::UARTDevice {
 
   protected:
 
-    int upload_by_chunks_(HTTPClient *http, String location, int range_start);
-
-    void upload_end_();
+    int upload_by_chunks_(HTTPClient *http, int range_start);
+    void upload_end_(bool successful);
 
     std::string tft_url_;
     uint8_t *transfer_buffer_{nullptr};

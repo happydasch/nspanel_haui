@@ -225,7 +225,7 @@ class HAUIUpdateController(HAUIPart):
                 return
             # invalid or unknown version installed
             if self.get("auto_install", True) and v_inst == Version("0.0.0"):
-                if self.app.device.is_connected():
+                if self.app.device.connected:
                     self.log(f"Invalid version installed: {installed_version}"
                              ", auto install display")
                     self.run_update_display()

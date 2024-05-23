@@ -87,8 +87,8 @@ script:
           ESP_LOGD("haui", "Script: publish_device_info");
           auto device_version = to_string(ESPHOME_VERSION);
           auto yaml_version = "$yaml_version";
-          auto tft_version = id(haui_disp).get_component_txt("settings.tftVersion");
-          //ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
+          auto tft_version = id(display_tft_version).get_state();
+          ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
           auto required_tft_version = "$required_tft_version";
           const json::json_build_t payload = [
               device_version, yaml_version, tft_version,
@@ -114,8 +114,8 @@ script:
           int relay_left_val = id(relay_left).state;
           int relay_right_val = id(relay_right).state;
           auto display_state_val = id(haui_display_state);
-          auto tft_version = id(haui_disp).get_component_txt("settings.tftVersion", "0.0.0");
-          //ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
+          auto tft_version = id(display_tft_version).get_state();
+          ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
           auto required_tft_version = "$required_tft_version";
           const json::json_build_t payload = [
               page_val, brightness_val, button_left_val, button_right_val,
@@ -141,7 +141,7 @@ script:
       cmd: string
     then:
       - lambda: |-
-          id(haui_disp).send_command(cmd);
+          id(haui_disp).send_command(cmd.c_str());
 
   # Script to set the text of a component
   - id: set_component_text
@@ -150,7 +150,7 @@ script:
       message: string
     then:
       - lambda: |-
-          id(haui_disp).set_component_txt(component, message);
+          id(haui_disp).set_component_text(component.c_str(), message.c_str());
 
   # Service to set the value of a component
   - id: set_component_value
@@ -159,7 +159,7 @@ script:
       message: int
     then:
       - lambda: |-
-          id(haui_disp).set_component_int(component, message);
+          id(haui_disp).set_component_value(component.c_str(), message);
 
   # Script to set the brightness
   - id: set_brightness
@@ -187,9 +187,10 @@ script:
           id(ad_heartbeat) = 0;
           if (ad_connection_state) {
             // notify display about connection state
-            id(haui_disp).set_component_int("settings.adAvailable", 1);
+            id(display_ad_availability).set_state("1", true);
+
           } else {
-            // ATT: hardcoded system page
+            // FIXME: hardcoded system page
             if (int(id(page).state) != 1) {
               id(display_wakeup).execute();
               id(goto_page).execute("system");
@@ -469,7 +470,7 @@ script:
       - lambda: |-
           if (!id(haui_disp).is_sleeping()) {
             ESP_LOGI("haui", "Display is going to sleep");
-            id(haui_disp).sleep();
+            id(haui_disp).sleep(true);
             id(publish_event).execute("sleep", "");
           }
 
@@ -478,7 +479,7 @@ script:
       - lambda: |-
           if (id(haui_disp).is_sleeping()) {
             ESP_LOGI("haui", "Display is waking up");
-            id(haui_disp).wakeup();
+            id(haui_disp).sleep(false);
             id(publish_event).execute("wakeup", "");
           }
 
@@ -580,7 +581,7 @@ script:
     then:
       - lambda: |-
           ESP_LOGI("haui", "goto_page %s", page.c_str());
-          id(haui_disp).goto_page(page);
+          id(haui_disp).goto_page(page.c_str());
 
   # Script to play a rtttl string
   - id: play_rtttl

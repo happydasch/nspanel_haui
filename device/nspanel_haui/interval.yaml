@@ -43,8 +43,10 @@ interval:
           if (!id(touch).state || id(haui_disp).is_sleeping()) return;
 
           // keep track of latest touch coordinates
-          int touch_x_val = id(haui_disp).get_int_value("tch0", id(touch_x).state);
-          int touch_y_val = id(haui_disp).get_int_value("tch1", id(touch_y).state);
+          int touch_x_val = 0;
+          int touch_y_val = 0;
+          // FIXME int touch_x_val = id(haui_disp).get_int_value("tch0", id(touch_x).state);
+          // FIXME int touch_y_val = id(haui_disp).get_int_value("tch1", id(touch_y).state);
           if (touch_x_val > 0) id(touch_x).publish_state(touch_x_val);
           if (touch_y_val > 0) id(touch_y).publish_state(touch_y_val);
           std::string touch_event = to_string(touch_x_val) + "," + to_string(touch_y_val);

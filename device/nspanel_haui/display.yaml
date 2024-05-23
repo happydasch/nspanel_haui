@@ -1,7 +1,7 @@
 # Display
 display:
 
-  - platform: nspanel_haui
+  - platform: nextion
     uart_id: haui_uart
     id: haui_disp
     # default url
@@ -20,16 +20,15 @@ display:
         # notify about initialization
         - lambda: |-
               id(play_sound).execute("startup");
+        # set tft version
+        - lambda: |-
+              id(display_tft_version).update();
+        - delay: 1s
         # set as initialized
         - lambda: |-
               ESP_LOGD("haui", "NSPanel HAUI Init");
               id(update_last_interaction).execute(-1);
               id(haui_init) = true;
-        # set tft version
-        - delay: 1s
-        - lambda: |-
-              auto version = id(haui_disp).get_component_txt("settings.tftVersion", "0.0.0");
-              id(tft_version).publish_state(version);
     on_page:
       then:
         - lambda: |-
@@ -38,18 +37,22 @@ display:
     on_touch:
       then:
         - lambda: |-
-            // on start touch set initial coordinates
-            if (state) {
-              id(touch_x).publish_state(x);
-              id(touch_y).publish_state(y);
-            }
-            id(touch).publish_state(state);
-            // update last interaction time
-            id(update_last_interaction).execute(-1);
-    on_component:
-      then:
-        - lambda: |-
-            std::string touch_event = to_string(p_id) + "," + to_string(c_id);
-            touch_event += "," + to_string((uint8_t)state);
-            id(publish_event).execute("component", touch_event);
+            ESP_LOGD("haui", "on_touch %d %d %d", page_id, component_id, touch_event ? 1 : 0);
+    # FIXME on_touch: -> should be done by text sensor
+    #  then:
+    #    - lambda: |-
+    #        // on start touch set initial coordinates
+    #        if (state) {
+    #          id(touch_x).publish_state(x);
+    #          id(touch_y).publish_state(y);
+    #        }
+    #        id(touch).publish_state(state);
+    #        // update last interaction time
+    #        id(update_last_interaction).execute(-1);
+    # FIXME on_component: -> this is on touch now
+    #  then:
+    #    - lambda: |-
+    #        std::string touch_event = to_string(p_id) + "," + to_string(c_id);
+    #        touch_event += "," + to_string((uint8_t)state);
+    #        id(publish_event).execute("component", touch_event);
 

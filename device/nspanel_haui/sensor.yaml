@@ -8,7 +8,7 @@ sensor:
   - platform: template
     name: Page
     id: page
-    internal: true # don't expose too much updates
+    internal: false # don't expose too much updates
     accuracy_decimals: 0
     update_interval: never
     on_value:
@@ -16,34 +16,14 @@ sensor:
         - lambda: |-
             id(publish_event).execute("page", to_string((uint8_t)x));
 
-  # Current brightness
-  - platform: template
-    name: Brightness
-    id: brightness
-    internal: true # don't expose too much updates
-    accuracy_decimals: 0
-    update_interval: 500ms
-    lambda: |-
-      // check the current brightness against device brightness
-      if (id(haui_disp).is_sleeping()) {
-        if (id(brightness).state != 0) {
-          return 0;
-        }
-      } else {
-        int brightness_val = id(haui_disp).get_int_value("dim", id(brightness).state);
-        if (id(brightness).state != brightness_val) {
-          return brightness_val;
-        }
-      }
-      return {};
-
   # Touch X coordinates
-  - platform: template
-    name: Touch X
+  - platform: nextion
+    nextion_id: haui_disp
+    name: "Touch X"
     id: touch_x
-    internal: true  # don't expose too much updates
+    variable_name: tch0
+    update_interval: 200ms
     accuracy_decimals: 0
-    update_interval: never
     filters:
       # Allow to pass the value only if the value changed
       - lambda: |-
@@ -54,12 +34,13 @@ sensor:
           }
 
   # Touch Y coordinates
-  - platform: template
-    name: Touch Y
+  - platform: nextion
+    nextion_id: haui_disp
+    name: "Touch Y"
     id: touch_y
-    internal: true  # don't expose too much updates
+    variable_name: tch1
+    update_interval: 200ms
     accuracy_decimals: 0
-    update_interval: never
     filters:
       # Allow to pass the value only if the value changed
       - lambda: |-
@@ -68,6 +49,28 @@ sensor:
           } else {
             return {};
           }
+
+  # Current brightness
+  - platform: template
+    name: Brightness
+    id: brightness
+    internal: false # don't expose too much updates
+    accuracy_decimals: 0
+    update_interval: 500ms
+    lambda: |-
+      // check the current brightness against device brightness
+      if (id(haui_disp).is_sleeping()) {
+        if (id(brightness).state != 0) {
+          return 0;
+        }
+      } else {
+        // FIXME int brightness_val = id(haui_disp).get_int_value("dim", id(brightness).state);
+        int brightness_val = 0;
+        if (id(brightness).state != brightness_val) {
+          return brightness_val;
+        }
+      }
+      return {};
 
   # Last Interaction
   - platform: template
@@ -96,7 +99,7 @@ sensor:
     id: ntc_source
     pin: 38
     update_interval: 60s
-    attenuation: 11db
+    attenuation: 12db
     entity_category: diagnostic
     disabled_by_default: true
 

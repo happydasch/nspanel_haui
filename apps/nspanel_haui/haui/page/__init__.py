@@ -180,7 +180,6 @@ class HAUIPage(HAUIPart):
             self.set_component_value(
                 self._btn_state_right, self.app.device.get_right_button_state()
             )
-        self.update_button_states()
 
         # prepare function items
         nav_panels = self.app.config.get_panels(True)
@@ -363,7 +362,7 @@ class HAUIPage(HAUIPart):
             )
 
         # execute popup
-        elif entity_type in ["light", "media_player", "vacuum"]:
+        elif entity_type in ["light", "media_player", "vacuum", "cover", "climate"]:
             popup_name = f"popup_{entity_type}"
             kwargs = entity.get_config()
             kwargs["entity_id"] = entity.get_entity_id()
@@ -611,8 +610,8 @@ class HAUIPage(HAUIPart):
         self._btn_state_left = btn_left
         self._btn_state_right = btn_right
 
-    def update_button_left_state(self, state):
-        """Updates the state of button left.
+    def set_button_left_state(self, state):
+        """Sets the state of button left.
 
         Args:
             state (bool): state
@@ -620,19 +619,14 @@ class HAUIPage(HAUIPart):
         if self._btn_state_left:
             self.set_component_value(self._btn_state_left, state)
 
-    def update_button_right_state(self, state):
-        """Updates the state of button right.
+    def set_button_right_state(self, state):
+        """Sets the state of button right.
 
         Args:
             state (bool): state
         """
         if self._btn_state_right:
             self.set_component_value(self._btn_state_right, state)
-
-    def update_button_states(self):
-        """Updates the button state of both buttons."""
-        self.update_button_left_state(self.app.device.get_left_button_state())
-        self.update_button_right_state(self.app.device.get_right_button_state())
 
     # function component related
 
@@ -887,17 +881,6 @@ class HAUIPage(HAUIPart):
         Args:
             event (HAUIEvent): Event
         """
-        # compoment value
-        if event.name == ESP_RESPONSE["res_component_int"]:
-            # parse json response, set brightness
-            data = event.as_json()
-            if self._btn_state_left and self._btn_state_left[1] == data.get("name", ""):
-                self.app.device.set_left_button_state(bool(data["value"]))
-            elif self._btn_state_right and self._btn_state_right[1] == data.get(
-                "name", ""
-            ):
-                self.app.device.set_right_button_state(bool(data["value"]))
-
         # component event
         if event.name == ESP_EVENT["component"]:
             self.process_component_event(event)

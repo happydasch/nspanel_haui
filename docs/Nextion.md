@@ -14,12 +14,13 @@ To install the TFT file on the display, the device needs to be already flashed w
 The device will provide a button `Update Display` in the device settings. There are also services
 available.
 
-- Using a button:
+- **Using a button**:
 
   - Button: `Update Display`
     This will load the TFT file from the URL configured on the ESP.
 
-- Using a service:
+- **Using a service**:
+
   - Service: `nspanel_haui_upload_tft`
     This will load the TFT from the configured URL
 

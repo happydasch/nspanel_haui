@@ -1,5 +1,5 @@
 #
-# 2. Connection test config
+# Connection test config
 #
 # This is only used for testing connections and heartbeat
 #
@@ -16,7 +16,7 @@
 # Configuration Variables
 substitutions:
   # Version of this yaml config file
-  yaml_version: '0.1.0'
+  yaml_version: '0.2.0'
   # Name of the device
   name: nspanel-haui
   # Friendly name of the device
@@ -95,6 +95,7 @@ mqtt:
   username: $mqtt_username
   password: $mqtt_password
   topic_prefix: $topic_prefix
+  discovery: false
   on_json_message:
     - topic: $topic_cmd
       qos: 0
@@ -133,14 +134,6 @@ mqtt:
             }
 
 
-# External Components
-external_components:
-  - source: ./components
-    # for nextion use a custom component that provides
-    # the serial data in a event
-    components: [nspanel_haui]
-
-
 # UART for Display
 uart:
   tx_pin: 16
@@ -152,7 +145,7 @@ uart:
 # Display
 display:
 
-  - platform: nspanel_haui
+  - platform: nextion
     id: haui_disp
     uart_id: haui_uart
     # set the display manually as initialized
@@ -242,7 +235,7 @@ script:
           std::string payload_str = build_json(payload);
           id(mqtt_client).publish("$topic_recv", payload_str, 0, false);
 
-  # Script to publish a connection response
+  # Script to publish a connection request
   - id: publish_connection_request
     then:
       - lambda: |-

@@ -162,7 +162,6 @@ class ClockPage(HAUIPage):
     # callback
 
     def callback_update_time(self, cb_args):
-        self.log(f"Got update time callback: {cb_args}")
         if self.app.device.sleeping:
             return
         self.update_time()

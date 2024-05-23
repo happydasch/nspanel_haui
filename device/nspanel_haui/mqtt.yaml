@@ -6,6 +6,7 @@ mqtt:
   username: $mqtt_username
   password: $mqtt_password
   topic_prefix: $topic_prefix
+  discovery: false
   on_json_message:
     - topic: $topic_cmd
       qos: 0
@@ -43,40 +44,40 @@ mqtt:
               id(set_ad_connected).execute(false);
             } else if (name == "req_int_value") {
               ESP_LOGD("haui", "Command: req_int_value %s", value.c_str());
-              int ret_val = id(haui_disp).get_int_value(value);
-              const json::json_build_t payload = [value, ret_val](JsonObject root) {
-                root["name"] = value;
-                root["value"] = ret_val;
-              };
-              auto payload_str = build_json(payload);
-              id(publish_event).execute("res_int_value", payload_str);
+              // FIXME int ret_val = id(haui_disp).get_int_value(value);
+              // const json::json_build_t payload = [value, ret_val](JsonObject root) {
+              //   root["name"] = value;
+              //   root["value"] = ret_val;
+              // };
+              // auto payload_str = build_json(payload);
+              // id(publish_event).execute("res_int_value", payload_str);
             } else if (name == "req_txt_value") {
               ESP_LOGD("haui", "Command: req_txt_value %s", value.c_str());
-              std::string ret_val = id(haui_disp).get_txt_value(value);
-              const json::json_build_t payload = [value, ret_val](JsonObject root) {
-                root["name"] = value;
-                root["value"] = ret_val;
-              };
-              auto payload_str = build_json(payload);
-              id(publish_event).execute("res_txt_value", payload_str);
+              // FIXME std::string ret_val = id(haui_disp).get_txt_value(value);
+              // const json::json_build_t payload = [value, ret_val](JsonObject root) {
+              //   root["name"] = value;
+              //   root["value"] = ret_val;
+              // };
+              // auto payload_str = build_json(payload);
+              // id(publish_event).execute("res_txt_value", payload_str);
             } else if (name == "req_component_int") {
               ESP_LOGD("haui", "Command: req_component_int %s", value.c_str());
-              int ret_val = id(haui_disp).get_component_int(value);
-              const json::json_build_t payload = [value, ret_val](JsonObject root) {
-                root["name"] = value;
-                root["value"] = ret_val;
-              };
-              auto payload_str = build_json(payload);
-              id(publish_event).execute("res_component_int", payload_str);
+              // FIXME int ret_val = id(haui_disp).get_component_int(value);
+              // const json::json_build_t payload = [value, ret_val](JsonObject root) {
+              //   root["name"] = value;
+              //   root["value"] = ret_val;
+              // };
+              // auto payload_str = build_json(payload);
+              // id(publish_event).execute("res_component_int", payload_str);
             } else if (name == "req_component_txt") {
               ESP_LOGD("haui", "Command: req_component_txt %s", value.c_str());
-              std::string ret_val = id(haui_disp).get_component_txt(value);
-              const json::json_build_t payload = [value, ret_val](JsonObject root) {
-                root["name"] = value;
-                root["value"] = ret_val;
-              };
-              auto payload_str = build_json(payload);
-              id(publish_event).execute("res_component_txt", payload_str);
+              // FIXME std::string ret_val = id(haui_disp).get_component_txt(value);
+              // const json::json_build_t payload = [value, ret_val](JsonObject root) {
+              //   root["name"] = value;
+              //   root["value"] = ret_val;
+              // };
+              // auto payload_str = build_json(payload);
+              // id(publish_event).execute("res_component_txt", payload_str);
             }
 
             // commands
@@ -96,9 +97,9 @@ mqtt:
               for(JsonVariant v : array) {
                   Serial.println(v.as<int>());
                   auto command = v.as<std::string>();
-                  id(haui_disp).send_command(command, false);
+                  id(haui_disp).send_command(command.c_str());
               }
-              id(haui_disp).process_commands();
+              id(haui_disp).update();
             } else if (name == "set_component_text") {
               ESP_LOGD("haui", "Command: set_component_text %s", value.c_str());
               StaticJsonDocument<200> doc;

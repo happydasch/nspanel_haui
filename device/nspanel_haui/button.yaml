@@ -2,16 +2,6 @@
 # Button Configuration
 button:
 
-  # Restart Button
-  - platform: restart
-    name: Restart Device
-    id: restart_device
-    disabled_by_default: true
-    on_press:
-      then:
-        - lambda: |-
-            id(haui_disp).hard_reset();
-
   # Restart Display Button
   - platform: template
     name: Restart Display
@@ -22,13 +12,6 @@ button:
       then:
         - lambda: |-
             id(haui_disp).soft_reset();
-
-  # Factory Reset Button
-  - platform: factory_reset
-    name: Factory Reset
-    id: factory_reset_device
-    entity_category: config
-    disabled_by_default: true
 
   # Update Display TFT
   - platform: template

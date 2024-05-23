@@ -2,6 +2,26 @@
 # Text Sensor Configuration
 text_sensor:
 
+  # TFT-Version
+  - platform: nextion
+    nextion_id: haui_disp
+    name: TFT-Version
+    id: display_tft_version
+    update_interval: never
+    component_name: settings.tftVersion
+    entity_category: diagnostic
+    internal: false
+
+  # Appdaemon-Availability
+  - platform: nextion
+    nextion_id: haui_disp
+    name: TFT-Version
+    id: display_ad_availability
+    update_interval: 1s
+    component_name: settings.adAvailable
+    entity_category: diagnostic
+    internal: false
+
   # Wifi informations
   - platform: wifi_info
     ip_address:
@@ -21,7 +41,7 @@ text_sensor:
     id: server_status
     topic: nspanel_haui/status
     entity_category: diagnostic
-    internal: true
+    internal: false
     on_value:
       - lambda: |-
           ESP_LOGD("haui", "HAUI Server Status %s", x.c_str());
@@ -35,14 +55,6 @@ text_sensor:
   - platform: template
     name: Client Status
     id: client_status
-    entity_category: diagnostic
-    update_interval: never
-    internal: true
-
-  # TFT-Version
-  - platform: template
-    name: TFT-Version
-    id: tft_version
     entity_category: diagnostic
     update_interval: never
     internal: false

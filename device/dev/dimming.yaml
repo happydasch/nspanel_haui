@@ -1,5 +1,5 @@
 #
-# 4. Dimming test config
+# Dimming test config
 #
 # This is only used for testing dimming
 #
@@ -16,14 +16,14 @@
 # Configuration Variables
 substitutions:
   # Version of this yaml config file
-  yaml_version: '0.1.0'
+  yaml_version: '0.2.0'
   # Name of the device
-  name: nspanel-haui
+  name: nspanel-test
   # Friendly name of the device
-  friendly_name: 'NSPanel HAUI'
+  friendly_name: 'NSPanel HAUI Test'
   # Accounts and URLs
   ota_password: !secret ota_password
-  encryption_key: !secret encryption_key
+  encryption_key: !secret api_encryption_key
   wifi_ssid: !secret wifi_ssid
   wifi_password: !secret wifi_password
   web_username: !secret web_username
@@ -101,18 +101,10 @@ uart:
   id: haui_uart
 
 
-# External Components
-external_components:
-  - source: ./components
-    # for nextion use a custom component that provides
-    # the serial data in a event
-    components: [nspanel_haui]
-
-
 # Display
 display:
 
-  - platform: nspanel_haui
+  - platform: nextion
     id: haui_disp
     uart_id: haui_uart
     # set the display manually as initialized
@@ -132,8 +124,6 @@ display:
         - delay: 1s
         # set as initialized
         - lambda: |-
-            id(haui_disp).send_command("page 0");
-            id(update_last_interaction).execute(-1);
             id(haui_init) = true;
 
     on_page:
@@ -141,24 +131,6 @@ display:
         - lambda: |-
             ESP_LOGD("haui", "on_page %d", x);
             id(page).publish_state(x);
-
-    on_touch:
-      then:
-        - lambda: |-
-            // this will only provide a touch start and end coordinates
-            // are from begin of touch event
-            if (state) {
-              // begin of touch, begin tracking coordinates
-              id(touch_x).publish_state(x);
-              id(touch_y).publish_state(y);
-            } else {
-              // end of touch, stop tracking coordinates,
-              // use real coordinates when processing
-              x = id(touch_x).state;
-              y = id(touch_y).state;
-            }
-            id(touch).publish_state(state);
-            ESP_LOGD("haui", "on_touch %d,%d - %d", x, y, state);
 
 
 # API configuration
@@ -177,19 +149,12 @@ api:
       variables:
         cmd: string
       then:
-        - lambda: id(haui_disp).send_command(cmd);
+        - lambda: id(haui_disp).send_command(cmd.c_str());
 
     # Service to reset the last interaction value
     - service: reset_last_interaction
       then:
-        - lambda: id(update_last_interaction).execute(-1);
-
-    # Service to reset the last interaction value adding an offset
-    - service: reset_last_interaction_offset
-      variables:
-        offset: int
-      then:
-        - lambda: id(update_last_interaction_offset).execute(-1, offset);
+        - lambda: id(update_last_interaction).execute(-1, 0);
 
 
 # Globals Configuration
@@ -203,8 +168,8 @@ globals:
   # Display state
   # Values:
   # - 0 Off
-  # - 1 Dim
-  # - 2 On
+  # - 1 On
+  # - 2 Dim
   - id: haui_display_state
     type: int
     restore_value: false
@@ -213,67 +178,26 @@ globals:
 # Interval Configuration
 interval:
 
-  # Timeouts check
+  # Display related checks
   - interval: 100ms
     then:
       - lambda: |-
-          bool update = false;
-          // check if currently any interaction is happening
-          if (id(touch).state) {
-            // on touch screen
-            update = true;
-          } else if (id(use_button_interaction).state) {
-              if (id(button_left).state || id(button_right).state) {
-                // on button press
-                update = true;
-              }
-          }
-          // update last interaction if requested
-          if (update) {
-            id(update_last_interaction).execute(-1);
-          }
-          id(check_display).execute();
-          id(check_display_state).execute();
+          id(update_display_state).execute();
+          id(update_display).execute();
 
   # Interaction timeout check
-  - interval: 100ms
+  - interval: 50ms
     then:
       - lambda: |-
-          bool update = false;
-          // check if currently any interaction is happening
-          if (id(touch).state) {
-            // on touch screen
-            update = true;
-            // keep also track of latest touch coordinates
-            int touch_x_val = id(haui_disp).get_int_value("tch0");
-            int touch_y_val = id(haui_disp).get_int_value("tch1");
-            if (touch_x_val > 0) id(touch_x).publish_state(touch_x_val);
-            if (touch_y_val > 0) id(touch_y).publish_state(touch_y_val);
-          } else if (id(use_button_interaction).state) {
-              // on physical button press
-              if (id(button_left).state || id(button_right).state) {
-                update = true;
-              }
-          }
-          // update last interaction if requested
-          if (update)
-            id(update_last_interaction).execute(-1);
+          id(update_interaction).execute();
 
 
 # Script Configuration
 script:
 
   # Script to update the last interaction time
+  # Its possible to add an offset to the time by setting offset to a value > 0 or < 0
   - id: update_last_interaction
-    mode: restart
-    parameters:
-      new_value: int
-    then:
-      - lambda: |-
-          id(update_last_interaction_offset).execute(new_value, 0);
-
-  # Script to update the last interaction time adding an offset
-  - id: update_last_interaction_offset
     mode: restart
     parameters:
       new_value: int
@@ -301,7 +225,8 @@ script:
       page: string
     then:
       - lambda: |-
-          id(haui_disp).goto_page(page);
+          ESP_LOGI("haui", "goto_page %s", page.c_str());
+          id(haui_disp).goto_page(page.c_str());
 
   # Script to set the brightness
   - id: set_brightness
@@ -312,22 +237,26 @@ script:
           float percent_on = float(intensity)/100;
           percent_on = percent_on > 1 ? 1 : percent_on;
           percent_on = percent_on < 0 ? 0 : percent_on;
-          ESP_LOGV("haui", "Script set_brightness: %i - %f", intensity, percent_on);
+          ESP_LOGD("haui", "Script set_brightness: %i - %f", intensity, percent_on);
           id(haui_disp).set_backlight_brightness(percent_on);
 
-  # Script to check display related changes
-  - id: check_display
+  # Script to update display related changes
+  - id: update_display
     then:
       - lambda: |-
+          // brightness
+          int brightness_val = int(id(current_brightness).state);
           if (!id(use_auto_dimming).state) {
+            int full_brightness = int(id(brightness_full).state);
+            if (brightness_val != full_brightness) {
+              ESP_LOGD("haui", "Update brightness to full: %i -> %i", brightness_val, full_brightness);
+              id(set_brightness).execute(full_brightness);
+            }
             return;
           }
-
           // timeout values
           int timeout_dim_val = int(id(timeout_dim).state);
           int timeout_sleep_val = int(id(timeout_sleep).state);
-          // brightness
-          int brightness_val = int(id(brightness).state);
           // duration of dimming
           float duration_dim_val = id(duration_dim).state;
           // last interaction with device
@@ -335,6 +264,7 @@ script:
           // time diff in seconds
           float diff_seconds = 0;
           static float last_diff_seconds = 0;
+
           if (last_interaction_val > 0) {
             // get timings for last interaction
             unsigned long duration_now = millis() / 10; // use 0.01s as the lowest change
@@ -356,7 +286,7 @@ script:
             if (brightness_val != 0) {
               // calculate new brightness: current is brightness_val, target is target_brightness
               new_brightness = target_brightness;
-              ESP_LOGV("haui", "Target brightness for Off: %i -> %i", brightness_val, target_brightness);
+              ESP_LOGD("haui", "Target brightness for Off: %i -> %i", brightness_val, target_brightness);
             }
 
             if (duration_dim_val > 0 && target_brightness < brightness_val) {
@@ -367,7 +297,7 @@ script:
               new_brightness = target_brightness;
             }
             if (new_brightness != brightness_val) {
-              ESP_LOGV("haui", "New brightness for off: %i -> %i", brightness_val, new_brightness);
+              ESP_LOGD("haui", "New brightness for off: %i -> %i", brightness_val, new_brightness);
             }
 
           // dim timeout means brightness goes to brightness_dim
@@ -379,18 +309,18 @@ script:
               if (target_brightness < brightness_val) {
                   float step_size = (brightness_val - target_brightness) / ((duration_dim_val - (diff_seconds - timeout_dim_val)) * 10) + 1;
                   new_brightness = max(target_brightness, int(brightness_val - step_size));
-                  ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+                  ESP_LOGD("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
               } else if (target_brightness > brightness_val) {
                   float step_size = (target_brightness - brightness_val) / ((duration_dim_val - (diff_seconds - timeout_dim_val)) * 10) + 1;
                   new_brightness = min(target_brightness, int(brightness_val + step_size));
-                  ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+                  ESP_LOGD("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
               }
             } else {
               new_brightness = target_brightness;
             }
 
             if (new_brightness != brightness_val) {
-              ESP_LOGV("haui", "New brightness for dimming: %i -> %i", brightness_val, new_brightness);
+              ESP_LOGD("haui", "New brightness for dimming: %i -> %i", brightness_val, new_brightness);
             }
 
           // no active timeout, just use full brightness
@@ -398,19 +328,21 @@ script:
             target_brightness = int(id(brightness_full).state);
             if (target_brightness != brightness_val) {
               new_brightness = target_brightness;
-              ESP_LOGV("haui", "Target brightness for Full: %i -> %i", brightness_val, target_brightness);
+              ESP_LOGD("haui", "Target brightness for Full: %i -> %i", brightness_val, target_brightness);
             }
           }
           if (new_brightness != brightness_val) {
-            ESP_LOGV("haui", "Setting brightness for screen: %i", new_brightness);
-            id(set_brightness).execute(new_brightness);
+            ESP_LOGD("haui", "Setting brightness for screen: %i", new_brightness);
+            if (id(haui_display_state)) {
+              id(set_brightness).execute(new_brightness);
+            }
           }
 
           // remember current diff in seconds
           last_diff_seconds = diff_seconds;
 
-  # Script to check display state related changes
-  - id: check_display_state
+  # Script to update display state related changes
+  - id: update_display_state
     then:
       - lambda: |-
           // timeout values
@@ -454,12 +386,53 @@ script:
             id(haui_display_state) = new_state;
             if (new_state == 0) {
               ESP_LOGI("haui", "Display is going to sleep");
-              id(haui_disp).sleep();
+              id(haui_disp).sleep(true);
             } else if (current_state == 0) {
               ESP_LOGI("haui", "Display is waking up");
-              id(haui_disp).wakeup();
+              id(haui_disp).sleep(false);
             }
           }
+
+  # Script to update interaction related changes
+  - id: update_interaction
+    then:
+      - lambda: |-
+          const uint8_t timeout = 1;  // timeout after 1 sec
+          uint32_t prev_time = id(last_interaction).state;
+          uint32_t curr_time = millis() / 1000;
+          int curr_x = id(touch_x).state;
+          int curr_y = id(touch_y).state;
+          static int prev_x = 0;
+          static int prev_y = 0;
+          bool is_touch = false;
+          bool is_button = false;
+
+          if (curr_x != 0 && curr_y != 0) {
+            // ensure prev time is set
+            if (prev_time == 0)
+                prev_time = curr_time;
+            if (prev_time + timeout >= curr_time) {
+              // no timeout, set is_touch
+              is_touch = true;
+            }
+          }
+
+          if (is_touch) {
+            // touch active
+            if (!id(touch).state) {
+              ESP_LOGD("haui", "Touch Press (%d,%d)", curr_x, curr_y);
+              id(touch).publish_state(true);
+            }
+          } else {
+            if (id(touch).state) {
+              prev_time = 0;
+              ESP_LOGD("haui", "Touch Release (%d,%d)", prev_x, prev_y);
+              id(touch).publish_state(false);
+            }
+          }
+
+          prev_x = curr_x;
+          prev_y = curr_y;
 
 
 # Number Configuration
@@ -474,13 +447,15 @@ number:
     min_value: 0
     max_value: 100
     step: 1
+    initial_value: 50.0
     restore_value: true
     optimistic: true
     on_value:
       then:
         - lambda: |-
-            // reset last interaction
-            id(update_last_interaction_offset).execute(-1, 0);
+            // reset last interaction, this way the currently set brightness
+            // is updated
+            id(update_last_interaction).execute(-1, 0);
 
   # Screen brightness when dimmed down
   - platform: template
@@ -491,13 +466,14 @@ number:
     min_value: 0
     max_value: 100
     step: 1
+    initial_value: 20.0
     restore_value: true
     optimistic: true
     on_value:
       then:
         - lambda: |-
             //  reset last interaction, set offset to end of dimming
-            id(update_last_interaction_offset).execute(-1, id(timeout_dim).state + id(duration_dim).state);
+            id(update_last_interaction).execute(-1, id(timeout_dim).state + id(duration_dim).state);
 
   # Screen brightness when dimmed down
   - platform: template
@@ -515,7 +491,7 @@ number:
       then:
         - lambda: |-
             //  reset last interaction, set offset to begin of dimming
-            id(update_last_interaction_offset).execute(-1, id(timeout_dim).state - 0.1);
+            id(update_last_interaction).execute(-1, id(timeout_dim).state - 0.1);
 
   # Dim timeout
   - platform: template
@@ -525,15 +501,15 @@ number:
     unit_of_measurement: 's'
     min_value: 0
     max_value: 3600
-    initial_value: 10
     step: 1
+    initial_value: 10.0
     restore_value: true
     optimistic: true
     on_value:
       then:
         - lambda: |-
             //  reset last interaction
-            id(update_last_interaction_offset).execute(-1, 0);
+            id(update_last_interaction).execute(-1, 0);
 
   # Sleep timeout
   - platform: template
@@ -543,76 +519,103 @@ number:
     unit_of_measurement: 's'
     min_value: 0
     max_value: 3600
-    initial_value: 120
     step: 1
+    initial_value: 120.0
     restore_value: true
     optimistic: true
     on_value:
       then:
         - lambda: |-
             //  reset last interaction
-            id(update_last_interaction_offset).execute(-1, id(timeout_dim).state + id(duration_dim).state - 0.1);
+            id(update_last_interaction).execute(-1, id(timeout_dim).state + id(duration_dim).state - 0.1);
 
 
 # Sensor Configuration
 sensor:
 
   # Current page
-  # using the command generated by sendme
+  # this sensor will get updated when a page change event occured
   - platform: template
-    id: page
     name: Page
-    internal: false
+    id: page
+    internal: false # don't expose too much updates
     accuracy_decimals: 0
     update_interval: never
 
   # Touch X coordinates
-  - platform: template
+  - platform: nextion
+    nextion_id: haui_disp
+    name: "Touch X"
     id: touch_x
-    name: Touch X
-    internal: false
+    variable_name: tch0
+    update_interval: 100ms
     accuracy_decimals: 0
-    update_interval: never
+    internal: false # don't expose too much updates
+    filters:
+      # Allow to pass the value only if the value changed
+      - lambda: |-
+          if (int(id(touch_x).state) != int(x)) {
+            id(update_last_interaction).execute(-1, 0);
+            return int(x);
+          } else {
+            return {};
+          }
 
   # Touch Y coordinates
-  - platform: template
+  - platform: nextion
+    nextion_id: haui_disp
+    name: "Touch Y"
     id: touch_y
-    name: Touch Y
-    internal: false
+    variable_name: tch1
+    update_interval: 100ms
     accuracy_decimals: 0
-    update_interval: never
+    internal: false # don't expose too much updates
+    filters:
+      # Allow to pass the value only if the value changed
+      - lambda: |-
+          if (int(id(touch_y).state) != int(x)) {
+            id(update_last_interaction).execute(-1, 0);
+            return int(x);
+          } else {
+            return {};
+          }
 
-  # Current brightness
+  # Last Interaction
+  # timestamp with last time an interaction happened
+  - platform: template
+    id: last_interaction
+    name: Last Interaction
+    update_interval: never
+    accuracy_decimals: 0
+    internal: false # don't expose too much updates
+    on_value:
+        - lambda: |-
+            id(update_last_interaction).execute(x, 0);
+
+  # Internal brightness set
   - platform: template
     id: brightness
     name: Brightness
     internal: false
     accuracy_decimals: 0
-    update_interval: 100ms
-    lambda: |-
-      int brightness_val = id(haui_disp).get_int_value("dim", int(id(brightness).state));
-      if (id(brightness).state != brightness_val) {
-        return brightness_val;
-      } else {
-        return {};
-      }
+    update_interval: never
 
-  # Last Interaction
-  - platform: template
-    id: last_interaction
-    name: Last Interaction
+  # Current brightness from display
+  - platform: nextion
+    nextion_id: haui_disp
+    id: current_brightness
+    name: Current Brightness
     internal: false
     accuracy_decimals: 0
-    update_interval: never
+    update_interval: 100ms
+    variable_name: dim
     filters:
-      # Reset last interaction
       - lambda: |-
-          if (x == -1) {
-            unsigned long time_now = millis()/100;
-            x = time_now;
-            ESP_LOGD("haui", "Last interaction: %f on -1", x);
+          if (id(current_brightness).state != x) {
+            return x;
+          } else {
+            return {};
           }
-          return x;
 
 
 # Switch Configuration
@@ -664,6 +667,13 @@ switch:
 # Binary Sensor Configuration
 binary_sensor:
 
+  # Touch state
+  # on when touch is active, off if not active
+  - platform: template
+    name: Touch
+    id: touch
+    internal: false
+
   #  Physical hardware button below display to toggle relay
   - platform: gpio
     name: Button Left
@@ -673,7 +683,11 @@ binary_sensor:
       inverted: true
     on_click:
       then:
-        - switch.toggle: relay_lefz
+        - lambda: |-
+            if (id(use_button_interaction).state) {
+              id(update_last_interaction).execute(-1, 0);
+            }
+        - switch.toggle: relay_left
 
   # Physical hardware button below display to toggle relay
   - platform: gpio
@@ -684,54 +698,8 @@ binary_sensor:
       inverted: true
     on_click:
       then:
-        - switch.toggle: relay_right
-
-  # Touch state
-  - platform: template
-    name: Touch
-    id: touch
-    internal: false
-    lambda: |-
-      static uint32_t prev_time = 0;
-      const uint8_t timeout = 1;  // timeout after 1 sec
-      int curr_x = id(touch_x).state;
-      int curr_y = id(touch_y).state;
-      static int prev_x = 0;
-      static int prev_y = 0;
-      if (!id(touch).has_state()) {
-        // initial state
-        return false;
-      } else {
-        // if no touch event then ensure
-        // no touch coordinates are set
-        if (!id(touch).state) {
-          if (curr_x != 0)
-            id(touch_x).publish_state(0);
-          if (curr_y != 0)
-            id(touch_y).publish_state(0);
-          if (prev_time != 0) {
-            prev_time = 0;
-            ESP_LOGD("haui", "Touch Release (%d,%d)", curr_x, curr_y);
-          }
-        } else {
-          if (prev_time == 0)
-            prev_time = millis() / 1000;
-          if ((prev_x == 0 && prev_y == 0) && (curr_x != 0 || curr_y != 0)) {
-            ESP_LOGD("haui", "Touch Press (%d,%d)", curr_x, curr_y);
-          }
-          uint32_t curr_time = millis() / 1000;
-          if (prev_time + timeout < curr_time) {
-            // timeout, switch touch off
-            return false;
-          } else {
-            // check if touch coordinates changed to
-            // update prev_time for timeout check
-            if (curr_x != prev_x || curr_y != prev_y) {
-              prev_time = curr_time;
+        - lambda: |-
+            if (id(use_button_interaction).state) {
+              id(update_last_interaction).execute(-1, 0);
             }
-            prev_x = curr_x;
-            prev_y = curr_y;
-          }
-        }
-      }
-      return {};
+        - switch.toggle: relay_right

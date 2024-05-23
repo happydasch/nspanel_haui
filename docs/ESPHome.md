@@ -4,20 +4,15 @@
 
 The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome is being used.
 
-- Provides Scripts and Services for Communication with display
+- Uses the ESPHome and the nextion display component
+- Provides scripts and services for communication with the display
 - Responsible for handling the device functionality
 
-See `device/install.yaml` for the installation configuration. This file is going to be installed on the device.
-
-See `device/nspanel_haui.yaml` for the esphome configuration file. This file contains all ESPHome functionality.
-
-The communication between ESPHome is done mostly via MQTT.
+For the communication between the device and the server MQTT is being used.
 
 - [ESPHome Component](#esphome-component)
   - [Installation](#installation)
   - [Config](#config)
-  - [Custom Component](#custom-component)
-  - [Getting Data](#getting-data)
   - [Communication](#communication)
   - [Requests](#requests)
   - [Responses](#responses)
@@ -34,6 +29,9 @@ The communication between ESPHome is done mostly via MQTT.
   - [Diagnostics](#diagnostics)
 
 ## Installation
+
+See `device/install.yaml` for the installation configuration. This file is going to be installed on the device.
+See `device/nspanel_haui.yaml` for the esphome configuration file. This file contains all ESPHome functionality.
 
 Copy the secrets from `device/secrets.yaml` and add them in ESPHome by pressing the `Secrets` Link in the right corner. This step is not neccessary if you add the secrets directly in the config file.
 
@@ -65,50 +63,9 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 - `wifi_password` (!secret wifi_password)
 - `tft_update_url` ([https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft](https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft))
 
-## Custom Component
-
-A custom esphome component `nspanel_haui` is being used. The component is based on the nextion component but supports a different kind of accessing data.
-
-The name of the configuration for this functionality is `device/dev/1_nspanel_haui_component.yaml`
-
-Following functionality is provided by the component:
-
-- some of the serial processing functionality from nextion, parsing data:
-
-  - 0x00 - 0x24: status
-  - 0x66: page
-  - 0x65, 0x67, 0x68: touch
-  - 0x70, 0x71: vars
-  - 0x86,0x87: wakeup, sleep
-  - 0x88: startup
-
-- component callback methods:
-
-  - on_component (press and release events)
-  - on_touch (through using sendxy)
-  - on_page (through using sendme)
-
-- communication methods:
-
-  - send_command
-  - set_component_int
-  - set_component_txt
-  - get_int_value
-  - get_txt_value
-  - get_component_txt
-  - get_component_int
-
-- all processing needs to be manually, all value requests needs to be done manually
-
-- updated uploader working with http/https
-
-## Getting Data
-
-There are different methods to get data from the display. The requests are published with MQTT. The response will be returned after. See [Requests](#requests) for different methods.
-
 ## Communication
 
-The name of the configuration for this functionality is `device/dev/2_nspanel_connection.yaml`
+The name of the configuration for this functionality is `device/dev/communication.yaml`
 
 A description of events being used for communication between ESP and AppDaemon.
 
@@ -121,9 +78,9 @@ A description of events being used for communication between ESP and AppDaemon.
 
 - `req_connection` Connection Request
 - `res_connection` Connection Response
-- `ad_heartbeat` Server Heartbeat Response
-- `ad_connection_initialized` Server Response
-- `ad_connection_closed` Server Response
+- `ad_heartbeat` Appdaemon server Heartbeat Response
+- `ad_connection_initialized` Appdaemon server Response
+- `ad_connection_closed` Appdaemon server Response
 
 ## Requests
 
@@ -132,10 +89,10 @@ These events will get a response.
 - `req_device_info` Device Info Request
 - `req_device_state` Device State Request
 - `req_reconnect` Reconnect Request
-- `req_int_value` Number Value Request
-- `req_txt_value` Text Value Request
-- `req_component_int` Component Number Value Request
-- `req_component_txt` Component Text Value Request
+- TODO remove `req_int_value` Number Value Request
+- TODO remove `req_txt_value` Text Value Request
+- TODO remove `req_component_int` Component Number Value Request
+- TODO remove `req_component_txt` Component Text Value Request
 
 ## Responses
 
@@ -151,10 +108,10 @@ These responses will be sent after a request.
   Will be published after sending request `req_device_info`
   Value: json encoded string
 
-- `res_int_value` Number Value Response
-- `res_txt_value` Text Value Response
-- `res_component_int` Component Number Value Response
-- `res_component_txt` Component Text Value Response
+- TODO remove `res_int_value` Number Value Response
+- TODO remove `res_txt_value` Text Value Response
+- TODO remove `res_component_int` Component Number Value Response
+- TODO remove `res_component_txt` Component Text Value Response
 
 ## Commands
 
@@ -324,7 +281,7 @@ These events will be sent out when the device have some page related events.
 
 ## Interaction
 
-The name of the configuration for this functionality is `device/dev/3_nspanel_interaction.yaml`
+The name of the configuration for this functionality is `device/dev/interaction.yaml`
 
 When tracking the last interaction with the device, two input methods are possible: Touchscreen and Buttons. It's possible to disable button as an interaction source by switching off `use_button_interaction`.
 
@@ -386,18 +343,20 @@ The ESP provides some interaction related events. See below for a overview of al
 
 ## Brightness and Dimming
 
-The name of the configuration for this functionality is `device/dev/4_nspanel_dimming.yaml`
+The name of the configuration for this functionality is `device/dev/dimming.yaml`
+
+The display has 3 states: on, off and dimmed
 
 The whole brightness and dimming functionality is implemented on the ESPHome device.
 
 The brightness change process is processed this way:
 
-- **Within Dimming Timeout:** full brightness is being used
+- **Within Dimming Timeout:** full brightness is being used (State on)
 
-- **After Dimming Timeout:** dimmed brightness is being used, duration is defined by dimming duration
+- **After Dimming Timeout:** dimmed brightness is being used, duration is defined by dimming duration (State dimmed)
 
-- **After Sleep Timeout:** brightness goes to 0, sleep mode is activated,
-  duration is defined by dimming duration
+- **After Sleep Timeout:** brightness goes to 0 if sleep mode is activated,
+  duration is defined by dimming duration (State off)
 
 ### Brightness Sensors
 

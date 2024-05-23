@@ -235,7 +235,7 @@ close_timeout: 2.0
 
 ### Using a Panel as a Home Panel
 
-`home_panel` string
+`home_panel` bool
 
 If not defined the first configured panel will be used. If defined, then the defined home panel will be used.
 
@@ -245,7 +245,7 @@ home_panel: true
 
 ### Using a Panel as a Sleep Panel
 
-`sleep_panel` string
+`sleep_panel` bool
 
 After page_timeout the sleep panel will be activated.
 
@@ -255,7 +255,7 @@ sleep_panel: true
 
 ### Using Panel as a Wakeup Panel
 
-`wakeup_panel` string
+`wakeup_panel` bool
 
 ```yaml
 wakeup_panel: true

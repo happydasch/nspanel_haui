@@ -1,0 +1,408 @@
+{
+  "component": {
+    "sensor": {
+      "state": {
+        "_": {
+          "off": "uit",
+          "on": "aan"
+        }
+      }
+    },
+    "zwave": {
+      "state": {
+        "_": {
+          "initializing": "initialiseren",
+          "dead": "niet bereikbaar",
+          "sleeping": "in slaap",
+          "ready": "klaar"
+        },
+        "query_stage": {
+          "initializing": "initialiseren",
+          "dead": "onbereikbaar"
+        }
+      }
+    },
+    "ebusd": {
+      "state": {
+        "day": "dag",
+        "night": "nacht"
+      }
+    },
+    "light": {
+      "state": {
+        "_": {
+          "off": "uit",
+          "on": "aan"
+        }
+      }
+    },
+    "switch": {
+      "state": {
+        "_": {
+          "off": "uit",
+          "on": "aan"
+        }
+      }
+    },
+    "binary_sensor": {
+      "state": {
+        "_": {
+          "off": "uit",
+          "on": "aan"
+        },
+        "battery": {
+          "off": "normaal",
+          "on": "zwak"
+        },
+        "cold": {
+          "off": "normaal",
+          "on": "koud"
+        },
+        "connectivity": {
+          "off": "niet verbonden",
+          "on": "verbonden"
+        },
+        "door": {
+          "off": "gesloten",
+          "on": "open"
+        },
+        "garage_door": {
+          "off": "gesloten",
+          "on": "open"
+        },
+        "gas": {
+          "off": "normaal",
+          "on": "gedetecteerd"
+        },
+        "heat": {
+          "off": "normaal",
+          "on": "warm"
+        },
+        "lock": {
+          "off": "vergrendeld",
+          "on": "ontgrendeld"
+        },
+        "moisture": {
+          "off": "droog",
+          "on": "nat"
+        },
+        "motion": {
+          "off": "rustig",
+          "on": "gedetecteerd"
+        },
+        "occupancy": {
+          "off": "vrij",
+          "on": "gedetecteerd"
+        },
+        "opening": {
+          "off": "gesloten",
+          "on": "open"
+        },
+        "presence": {
+          "off": "afwezig",
+          "on": "thuis"
+        },
+        "problem": {
+          "off": "OK",
+          "on": "probleem"
+        },
+        "safety": {
+          "off": "veilig",
+          "on": "onveilig"
+        },
+        "smoke": {
+          "off": "OK",
+          "on": "gedetecteerd"
+        },
+        "sound": {
+          "off": "stilte",
+          "on": "gedetecteerd"
+        },
+        "vibration": {
+          "off": "normaal",
+          "on": "gedetecteerd"
+        },
+        "window": {
+          "off": "gesloten",
+          "on": "open"
+        }
+      }
+    },
+    "lock": {
+      "state": {
+        "_": {
+          "locked": "vergrendeld",
+          "unlocked": "ontgrendeld"
+        }
+      }
+    },
+    "cover": {
+      "state": {
+        "_": {
+          "open": "open",
+          "opening": "opent",
+          "closed": "gesloten",
+          "closing": "sluit",
+          "stopped": "gestopt"
+        }
+      }
+    },
+    "alarm_control_panel": {
+      "state": {
+        "_": {
+          "armed": "actief",
+          "disarmed": "inactief",
+          "armed_home": "actief (thuis)",
+          "armed_away": "actief (afwezig)",
+          "armed_night": "actief (nacht)",
+          "armed_custom_bypass": "actief (gedeeltelijk)",
+          "pending": "in behandeling",
+          "arming": "activeren",
+          "disarming": "deactiveren",
+          "triggered": "veroorzaakt"
+        }
+      }
+    },
+    "media_player": {
+      "state": {
+        "_": {
+          "off": "uit",
+          "on": "aan",
+          "playing": "afspelen",
+          "paused": "gepauzeerd",
+          "idle": "inactief",
+          "standby": "stand-by"
+        }
+      }
+    },
+    "device_tracker": {
+      "state": {
+        "_": {
+          "home": "thuis",
+          "not_home": "afwezig"
+        }
+      }
+    },
+    "vacuum": {
+      "state": {
+        "_": {
+          "cleaning": "schoonmaken",
+          "docked": "in het dockingstation",
+          "error": "fout",
+          "idle": "stand-by",
+          "off": "uit",
+          "on": "aan",
+          "paused": "gepauzeerd",
+          "returning": "Keer terug naar het dockingstation"
+        }
+      },
+      "fan_speed": {
+        "_": {
+          "low": "laag",
+          "medium": "medium",
+          "high": "hoog",
+          "max": "maximaal",
+          "off": "uit"
+        }
+      }
+    },
+    "fan": {
+      "state": {
+        "_": {
+          "off": "uit",
+          "on": "aan"
+        }
+      }
+    },
+    "climate": {
+      "state": {
+        "_": {
+          "off": "uit",
+          "heat": "verwarmen",
+          "cool": "koelen",
+          "heat_cool": "verwarmen/koelen",
+          "auto": "automatisch",
+          "dry": "ontvochtigen",
+          "fan_only": "alleen ventilator"
+        }
+      }
+    },
+    "automation": {
+      "state": {
+        "_": {
+          "off": "uitgeschakeld",
+          "on": "ingeschakeld"
+        }
+      }
+    },
+    "calendar": {
+      "state": {
+        "_": {
+          "off": "uitgeschakeld",
+          "on": "ingeschakeld"
+        }
+      }
+    },
+    "camera": {
+      "state": {
+        "_": {
+          "recording": "opnemen",
+          "streaming": "streamen",
+          "idle": "inactief"
+        }
+      }
+    },
+    "configurator": {
+      "state": {
+        "_": {
+          "configure": "configureer",
+          "configured": "geconfigureerd"
+        }
+      }
+    },
+    "group": {
+      "state": {
+        "_": {
+          "off": "uitgeschakeld",
+          "on": "ingeschakeld",
+          "home": "thuis",
+          "not_home": "afwezig",
+          "open": "open",
+          "closed": "gesloten",
+          "locked": "op slot",
+          "unlocked": "ontgrendeld",
+          "ok": "OK",
+          "problem": "probleem"
+        }
+      }
+    },
+    "input_boolean": {
+      "state": {
+        "_": {
+          "off": "uitgeschakeld",
+          "on": "ingeschakeld"
+        }
+      }
+    },
+    "person": {
+      "state": {
+        "_": {
+          "home": "thuis",
+          "not_home": "afwezig"
+        }
+      }
+    },
+    "plant": {
+      "state": {
+        "_": {
+          "ok": "OK",
+          "problem": "probleem"
+        }
+      }
+    },
+    "remote": {
+      "state": {
+        "_": {
+          "off": "uitgeschakeld",
+          "on": "ingeschakeld"
+        }
+      }
+    },
+    "script": {
+      "state": {
+        "_": {
+          "off": "uitgeschakeld",
+          "on": "ingeschakeld"
+        }
+      }
+    },
+    "sun": {
+      "state": {
+        "_": {
+          "above_horizon": "op",
+          "below_horizon": "onder"
+        }
+      }
+    },
+    "timer": {
+      "state": {
+        "_": {
+          "active": "actief",
+          "idle": "inactief",
+          "paused": "gepauzeerd"
+        }
+      }
+    },
+    "weather": {
+      "state": {
+        "_": {
+          "clear-night": "heldere nacht",
+          "cloudy": "bewolkt",
+          "exceptional": "ongebruikelijk",
+          "fog": "mist",
+          "hail": "hagel",
+          "lightning": "onweersbui",
+          "lightning-rainy": "onweer, regenachtig",
+          "partlycloudy": "gedeeltelijk bewolkt",
+          "pouring": "vloeiend",
+          "rainy": "regenachtig",
+          "snowy": "sneeuw",
+          "snowy-rainy": "sneeuw, regenachtig",
+          "sunny": "zonnig",
+          "windy": "winderig",
+          "windy-variant": "winderig"
+        }
+      }
+    }
+  },
+  "text": {
+    "Unknown": "Onbekend",
+    "Unnamed": "Naamloos",
+    "Waiting for Connection": "Wachten op verbinding",
+    "This is taking longer than usual,": "Het proces duurt langer dan normaal,",
+    "please check your configuration": "controleer uw configuratie",
+    "Unlock Panel": "Ontgrendel paneel",
+    "Unlock": "Ontgrendelen",
+    "Media": "Media",
+    "Source": "Bron",
+    "Group": "Groep",
+    "Unknown Title": "Onbekende titel",
+    "Unknown Interpret": "Onbekende artiest",
+    "Select source": "Selecteer bron",
+    "Select media": "Selecteer media",
+    "Select group members": "Groepsleden selecteren",
+    "Light": "Licht",
+    "Off": "Uit",
+    "No effect": "Geen effect",
+    "Select effect": "Effect selecteren",
+    "Timer": "Timer",
+    "Timer has finished.": "De timer is afgelopen.",
+    "Timer finished": "Timer afgelopen",
+    "Close": "Dichtbij",
+    "The entity {} is currently unavailable.": "De entiteit {} is momenteel niet beschikbaar.",
+    "Entity:": "Entiteit:",
+    "Entity unavailable": "Entiteit niet beschikbaar",
+    "Vacuum": "Stofzuiger",
+    "Select Fan Speed": "Selecteer ventilatorsnelheid",
+    "NSPanel HAUI": "NSPanel HAUI",
+    "Versatile wall panel for homeassistant based": "Veelzijdig wandpaneel voor homeassistant",
+    "smart homes with a custom UI Design.": "Gebaseerd op HomeAssistant met een eigen ontwerp.",
+    "TFT-Version:": "TFT-versie:",
+    "YAML-Version:": "YAML-versie:",
+    "AD-Version:": "AD-versie:",
+    "Settings": "Instellingen",
+    "Full and Dimmed Brightness:": "Volledige en gedimde helderheid:",
+    "got unknown TFT-Version information.": "onbekende TFT-versie informatie ontvangen.",
+    "Your TFT-version is outdated.": "uw TFT-versie is verouderd.",
+    "Do you want to check for a update?": "Wilt u controleren op een update?",
+    "Outdated TFT-Version": "Verouderde TFT-versie",
+    "Cancel": "Annuleren",
+    "Check": "Controleer",
+    "Version:": "Versie",
+    "Do you want to update?": "Wil je updaten?",
+    "Update available": "Update beschikbaar",
+    "Update": "Updaten",
+    "Please wait while the update is starting": "Een ogenblik geduld terwijl de update start",
+    "Starting Update": "Update begint"
+  }
+}

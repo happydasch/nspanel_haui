@@ -2,6 +2,12 @@
 # Binary Sensor Configuration
 binary_sensor:
 
+  # Touch state
+  - platform: template
+    name: Touch
+    id: touch
+    internal: false
+
   #  Physical hardware button below display to toggle relay
   - platform: gpio
     name: Button Left
@@ -46,74 +52,3 @@ binary_sensor:
         - switch.is_on: use_relay_right
         then:
         - switch.toggle: relay_right
-
-  # Touch state
-  - platform: template
-    name: Touch
-    id: touch
-    internal: false
-    lambda: |-
-      const uint32_t timeout = 5;
-      static uint32_t prev_time = 0;
-      int curr_x = id(touch_x).state;
-      int curr_y = id(touch_y).state;
-      static int prev_x = 0;
-      static int prev_y = 0;
-      static int start_x = 0;
-      static int start_y = 0;
-
-      if (!id(touch).has_state()) {
-        // initial state
-        return false;
-      }
-
-      // if no touch event then ensure, no touch coordinates are set
-      if (!id(touch).state) {
-        if (curr_x != 0)
-          // id(touch_x).publish_state(0);
-          ESP_LOGD("haui", "reset x touch");
-        if (curr_y != 0)
-          id(touch_y).publish_state(0);
-        if (prev_time != 0) {
-          prev_time = 0;
-          ESP_LOGD("haui", "Touch End (%d,%d)", curr_x, curr_y);
-          if (start_x == 0 && start_y == 0) {
-            // the touch start event did not trigger
-            id(publish_event).execute("touch_start", "");
-            // use current coordinates instead
-            start_x = curr_x;
-            start_y = curr_y;
-          }
-          std::string touch_event = to_string(start_x) + "," + to_string(start_y);
-          touch_event += "," + to_string(curr_x) + "," + to_string(curr_y);
-          id(publish_event).execute("touch_end", touch_event);
-          id(process_touch_gesture).execute(start_x, start_y, curr_x, curr_y);
-          start_x = 0;
-          start_y = 0;
-        }
-
-      // touch event, keep track of time for timeout
-      } else {
-        if (!id(haui_disp).is_sleeping() && !start_x && !start_y) {
-          start_x = id(touch_x).state;
-          start_y = id(touch_y).state;
-        }
-        if (prev_time == 0 && start_x && start_y) {
-          prev_time = millis() / 1000;
-          id(publish_event).execute("touch_start", "");
-          ESP_LOGD("haui", "Touch Start (%d,%d)", start_x, start_y);
-        }
-        uint32_t curr_time = millis() / 1000;
-        if (prev_time + timeout < curr_time) {
-          // timeout, switch touch off
-          return false;
-        }
-        // check if touch coordinates changed to
-        // update prev_time for timeout check
-        if (curr_x != prev_x || curr_y != prev_y) {
-          prev_time = curr_time;
-        }
-        prev_x = curr_x;
-        prev_y = curr_y;
-      }
-      return {};

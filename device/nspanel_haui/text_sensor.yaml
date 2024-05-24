@@ -2,6 +2,16 @@
 # Text Sensor Configuration
 text_sensor:
 
+  # YAML-Version
+  - platform: template
+    name: YAML-Version
+    id: display_yaml_version
+    update_interval: never
+    entity_category: diagnostic
+    internal: false
+    lambda: |-
+      return {"$yaml_version"};
+
   # TFT-Version
   - platform: nextion
     nextion_id: haui_disp
@@ -15,7 +25,7 @@ text_sensor:
   # Appdaemon-Availability
   - platform: nextion
     nextion_id: haui_disp
-    name: TFT-Version
+    name: AD-Availability
     id: display_ad_availability
     update_interval: 1s
     component_name: settings.adAvailable

@@ -21,7 +21,7 @@ api:
       variables:
         url: string
       then:
-        - lambda: id(haui_disp).set_tft_url(url);
+        - lambda: id(haui_disp).set_tft_url(url.c_str());
         - lambda: id(haui_disp).upload_tft();
 
     # Service to send a command
@@ -79,12 +79,7 @@ api:
 
     # Service to reset the last interaction value
     - service: reset_last_interaction
-      then:
-        - lambda: id(update_last_interaction).execute(-1);
-
-    # Service to reset the last interaction value adding an offset
-    - service: reset_last_interaction_offset
       variables:
         offset: int
       then:
-        - lambda: id(update_last_interaction_offset).execute(-1, offset);
+        - lambda: id(update_last_interaction).execute(-1, offset);

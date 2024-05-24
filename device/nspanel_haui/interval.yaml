@@ -2,31 +2,10 @@
 # Interval Configuration
 interval:
 
-  # Check interaction timer
+  # Check state timer
   - interval: 100ms
     then:
       - lambda: |-
-          float offset = 0.0;
-          bool update = false;
-          // check if currently any interaction is happening
-          if (id(touch).state && id(haui_disp).is_sleeping() == false) {
-            // on touch screen
-            update = true;
-          } else if (id(use_button_interaction).state) {
-              // on physical button press
-              if (id(button_left).state || id(button_right).state) {
-                update = true;
-              }
-          }
-          // when the screen is off just dim display
-          if (update and id(haui_display_state) == 0) {
-            // add an offset if interaction happened when the screen was off
-            offset = id(timeout_page).state + id(duration_dimming).state;
-          }
-          // update last interaction if requested
-          if (update) {
-            id(update_last_interaction_offset).execute(-1, offset);
-          }
           // run check connection
           id(check_ad_connection).execute();
           id(check_connection).execute();
@@ -35,22 +14,11 @@ interval:
           id(check_display).execute();
           id(check_page).execute();
 
-  # Check touch coordinates
-  - interval: 100ms
+  # Interaction timeout check
+  - interval: 50ms
     then:
       - lambda: |-
-          // track only on touch and if not sleeping
-          if (!id(touch).state || id(haui_disp).is_sleeping()) return;
-
-          // keep track of latest touch coordinates
-          int touch_x_val = 0;
-          int touch_y_val = 0;
-          // FIXME int touch_x_val = id(haui_disp).get_int_value("tch0", id(touch_x).state);
-          // FIXME int touch_y_val = id(haui_disp).get_int_value("tch1", id(touch_y).state);
-          if (touch_x_val > 0) id(touch_x).publish_state(touch_x_val);
-          if (touch_y_val > 0) id(touch_y).publish_state(touch_y_val);
-          std::string touch_event = to_string(touch_x_val) + "," + to_string(touch_y_val);
-          id(publish_event).execute("touch", touch_event);
+          id(check_interaction).execute();
 
   # Send heartbeat while connected
   - interval: ${heartbeat_interval}s

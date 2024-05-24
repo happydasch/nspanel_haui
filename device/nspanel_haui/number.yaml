@@ -10,28 +10,39 @@ number:
     unit_of_measurement: '%'
     min_value: 0
     max_value: 100
-    initial_value: 50
     step: 1
+    initial_value: 50.0
     restore_value: true
     optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            // reset last interaction, this way the currently set brightness
+            // is updated
+            id(update_last_interaction).execute(-1, 0);
 
   # Screen brightness when dimmed down
   - platform: template
     name: Brightness Dimmed
-    id: brightness_dimmed
+    id: brightness_dim
     entity_category: config
     unit_of_measurement: '%'
-    initial_value: 20
     min_value: 0
     max_value: 100
     step: 1
+    initial_value: 20.0
     restore_value: true
     optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            //  reset last interaction, set offset to end of dimming
+            id(update_last_interaction).execute(-1, id(timeout_dim).state + id(duration_dim).state);
 
   # Screen brightness when dimmed down
   - platform: template
     name: Duration Dimming
-    id: duration_dimming
+    id: duration_dim
     entity_category: config
     unit_of_measurement: 's'
     min_value: 0.0
@@ -40,19 +51,47 @@ number:
     initial_value: 2.0
     restore_value: true
     optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            //  reset last interaction, set offset to begin of dimming
+            id(update_last_interaction).execute(-1, id(timeout_dim).state - 0.1);
 
   # Dim timeout
   - platform: template
     name: Timeout Dimming
-    id: timeout_dimming
+    id: timeout_dim
     entity_category: config
     unit_of_measurement: 's'
     min_value: 0
     max_value: 3600
-    initial_value: 10
     step: 1
+    initial_value: 10.0
     restore_value: true
     optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            //  reset last interaction
+            id(update_last_interaction).execute(-1, 0);
+
+  # Sleep timeout
+  - platform: template
+    name: Timeout Sleep
+    id: timeout_sleep
+    entity_category: config
+    unit_of_measurement: 's'
+    min_value: 0
+    max_value: 3600
+    step: 1
+    initial_value: 120.0
+    restore_value: true
+    optimistic: true
+    on_value:
+      then:
+        - lambda: |-
+            //  reset last interaction
+            id(update_last_interaction).execute(-1, id(timeout_dim).state + id(duration_dim).state - 0.1);
 
   # Page timeout
   - platform: template
@@ -63,19 +102,6 @@ number:
     min_value: 0
     max_value: 3600
     initial_value: 30
-    step: 1
-    restore_value: true
-    optimistic: true
-
-  # Sleep timeout
-  - platform: template
-    name: Timeout Sleep
-    id: timeout_sleep
-    entity_category: config
-    unit_of_measurement: 's'
-    min_value: 0
-    max_value: 3600
-    initial_value: 120
     step: 1
     restore_value: true
     optimistic: true

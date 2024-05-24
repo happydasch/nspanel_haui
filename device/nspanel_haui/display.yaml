@@ -6,7 +6,7 @@ display:
     id: haui_disp
     # default url
     tft_url: $tft_update_url
-    # set the nextion manually as initialized
+
     on_setup:
       then:
         # Restore brightness on display
@@ -15,8 +15,8 @@ display:
             value: !lambda return int(id(brightness_full).state);
         # Restore dimmed brightness on display
         - number.set:
-            id: brightness_dimmed
-            value: !lambda return int(id(brightness_dimmed).state);
+            id: brightness_dim
+            value: !lambda return int(id(brightness_dim).state);
         # notify about initialization
         - lambda: |-
               id(play_sound).execute("startup");
@@ -26,33 +26,18 @@ display:
         - delay: 1s
         # set as initialized
         - lambda: |-
-              ESP_LOGD("haui", "NSPanel HAUI Init");
-              id(update_last_interaction).execute(-1);
+              ESP_LOGI("haui", "NSPanel HAUI Init");
               id(haui_init) = true;
+
     on_page:
       then:
         - lambda: |-
-            ESP_LOGD("haui", "on_page %d", x);
             id(page).publish_state(x);
+
     on_touch:
       then:
         - lambda: |-
-            ESP_LOGD("haui", "on_touch %d %d %d", page_id, component_id, touch_event ? 1 : 0);
-    # FIXME on_touch: -> should be done by text sensor
-    #  then:
-    #    - lambda: |-
-    #        // on start touch set initial coordinates
-    #        if (state) {
-    #          id(touch_x).publish_state(x);
-    #          id(touch_y).publish_state(y);
-    #        }
-    #        id(touch).publish_state(state);
-    #        // update last interaction time
-    #        id(update_last_interaction).execute(-1);
-    # FIXME on_component: -> this is on touch now
-    #  then:
-    #    - lambda: |-
-    #        std::string touch_event = to_string(p_id) + "," + to_string(c_id);
-    #        touch_event += "," + to_string((uint8_t)state);
-    #        id(publish_event).execute("component", touch_event);
+            std::string event = to_string(page_id) + "," + to_string(component_id);
+            event += "," + to_string(touch_event);
+            id(publish_event).execute("component", event);
 

@@ -3,12 +3,11 @@
 sensor:
 
   # Current page
-  # using the dp variable from nextion so no need to synchronize
-  # this value, it contains the page id
+  # this sensor will get updated when a page change event occured
   - platform: template
     name: Page
     id: page
-    internal: false # don't expose too much updates
+    internal: true # don't expose too much updates
     accuracy_decimals: 0
     update_interval: never
     on_value:
@@ -22,13 +21,14 @@ sensor:
     name: "Touch X"
     id: touch_x
     variable_name: tch0
-    update_interval: 200ms
+    update_interval: 100ms
     accuracy_decimals: 0
+    internal: true # don't expose too much updates
     filters:
       # Allow to pass the value only if the value changed
       - lambda: |-
-          if (int(id(touch_x).state) != int(x)) {
-            return int(x);
+          if (id(touch_x).state != x) {
+            return x;
           } else {
             return {};
           }
@@ -39,38 +39,34 @@ sensor:
     name: "Touch Y"
     id: touch_y
     variable_name: tch1
-    update_interval: 200ms
+    update_interval: 100ms
     accuracy_decimals: 0
+    internal: true # don't expose too much updates
     filters:
       # Allow to pass the value only if the value changed
       - lambda: |-
-          if (int(id(touch_y).state) != int(x)) {
-            return int(x);
+          if (id(touch_y).state != x) {
+            return x;
           } else {
             return {};
           }
 
-  # Current brightness
-  - platform: template
-    name: Brightness
+  # Brightness of display
+  - platform: nextion
+    nextion_id: haui_disp
     id: brightness
-    internal: false # don't expose too much updates
+    name: Brightness
+    internal: true  # don't expose too much updates
     accuracy_decimals: 0
-    update_interval: 500ms
-    lambda: |-
-      // check the current brightness against device brightness
-      if (id(haui_disp).is_sleeping()) {
-        if (id(brightness).state != 0) {
-          return 0;
-        }
-      } else {
-        // FIXME int brightness_val = id(haui_disp).get_int_value("dim", id(brightness).state);
-        int brightness_val = 0;
-        if (id(brightness).state != brightness_val) {
-          return brightness_val;
-        }
-      }
-      return {};
+    update_interval: 100ms
+    variable_name: dim
+    filters:
+      - lambda: |-
+          if (id(brightness).state != x) {
+            return x;
+          } else {
+            return {};
+          }
 
   # Last Interaction
   - platform: template
@@ -81,7 +77,7 @@ sensor:
     internal: true  # don't expose too much updates
     on_value:
         - lambda: |-
-            id(update_last_interaction).execute(x);
+            id(update_last_interaction).execute(x, 0);
 
   # Uptime
   - platform: uptime

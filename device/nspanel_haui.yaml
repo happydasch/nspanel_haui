@@ -38,7 +38,6 @@ substitutions:
 packages:
   version: !include nspanel_haui/version.yaml
   globals: !include nspanel_haui/globals.yaml
-  component: !include nspanel_haui/component.yaml
   base: !include nspanel_haui/base.yaml
   device: !include nspanel_haui/device.yaml
   display: !include nspanel_haui/display.yaml

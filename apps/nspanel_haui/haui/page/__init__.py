@@ -198,9 +198,7 @@ class HAUIPage(HAUIPart):
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
                 # left secondary button
                 if fnc_id == self.FNC_BTN_L_SEC:
-                    if (
-                        mode == "panel" or mode == "subpanel"
-                    ) and not panel.is_home_panel():
+                    if (mode in ["panel", "subpanel"]) and not panel.is_home_panel():
                         if panel.show_home_button():
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
                 # right primary button
@@ -806,11 +804,7 @@ class HAUIPage(HAUIPart):
         self.log(f"Got button state button press: {component}-{button_state}")
         if button_state != 0:
             return
-        # process button state press
-        if component == self._btn_state_left:
-            self.send_mqtt(ESP_REQUEST["req_component_int"], self._btn_state_left[1])
-        elif component == self._btn_state_right:
-            self.send_mqtt(ESP_REQUEST["req_component_int"], self._btn_state_right[1])
+        # TODO
 
     def callback_function_component(self, fnc_id, fnc_name):
         """Gets called when a function component was pressed.

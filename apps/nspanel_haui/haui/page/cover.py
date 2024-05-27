@@ -15,7 +15,7 @@ class CoverPage(HAUIPage):
 
     # cover buttons
     BTN_UP, BTN_STOP, BTN_DOWN = (7, "bUp"), (8, "bStop"), (9, "bDown")
-    H_POS = (10, "hPos")
+    H_VERT_POS = (10, "hVertPos")
     # info
     TXT_INFO = (11, "tInfo")
 
@@ -26,7 +26,7 @@ class CoverPage(HAUIPage):
 
     def start_panel(self, panel):
         # set component callbacks
-        self.add_component_callback(self.H_POS, self.callback_cover_pos)
+        self.add_component_callback(self.H_VERT_POS, self.callback_cover_pos)
         # set function buttons
         self.set_function_buttons(
             self.BTN_FNC_LEFT_PRI,
@@ -88,7 +88,7 @@ class CoverPage(HAUIPage):
         visible = False
         if supported_features & CoverFeatures.SET_POSITION:
             visible = True
-        self.set_function_component(self.H_POS, self.H_POS[1], value=current_position, visible=visible)
+        self.set_function_component(self.H_VERT_POS, self.H_VERT_POS[1], value=current_position, visible=visible)
 
     def update_cover_entity(self):
         self.set_component_text(self.TXT_TITLE, self._title)
@@ -169,9 +169,9 @@ class CoverPage(HAUIPage):
             self.update_function_component(self.BTN_DOWN[1], visible=False)
         # slider
         if supported_features & CoverFeatures.SET_POSITION:
-            self.update_function_component(self.H_POS[1], value=current_position, visible=True)
+            self.update_function_component(self.H_VERT_POS[1], value=current_position, visible=True)
         else:
-            self.update_function_component(self.H_POS[1], visible=False)
+            self.update_function_component(self.H_VERT_POS[1], visible=False)
 
     # callback
 
@@ -187,9 +187,7 @@ class CoverPage(HAUIPage):
         if button_state:
             return
         self.log(f"Got cover pos press: {component}-{button_state}")
-        self.send_mqtt(
-            ESP_REQUEST["req_component_int"], self.H_POS[1], force=True
-        )
+        self.send_mqtt(ESP_REQUEST["req_val"], self.H_VERT_POS[1], force=True)
 
     def callback_cover_buttons(self, event, component, button_state):
         if component == self.BTN_UP:
@@ -204,11 +202,11 @@ class CoverPage(HAUIPage):
     def process_event(self, event):
         super().process_event(event)
         # requested values
-        if event.name == ESP_RESPONSE["res_component_int"]:
+        if event.name == ESP_RESPONSE["res_val"]:
             data = event.as_json()
             name = data.get("name", "")
             value = int(data.get("value", 0))
-            if name == self.H_POS[1]:
+            if name == self.H_VERT_POS[1]:
                 self.process_cover_pos(value)
 
     def process_cover_pos(self, pos):

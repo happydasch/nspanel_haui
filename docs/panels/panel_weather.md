@@ -5,6 +5,7 @@
 - [Panel Weather](#panel-weather)
   - [About](#about)
   - [Config](#config)
+    - [Forecast](#forecast)
     - [Background](#background)
   - [Screens](#screens)
 
@@ -23,11 +24,25 @@ panels:
   - type: weather
     entity: weather.home
 
-  # weather panel with a background
+  # weather panel with forecast
   - type: weather
     entity: weather.home
+    forecast: sensor.weather_forecast_hourly
+
+  # weather panel with a background and forecast
+  - type: weather
+    entity: weather.home
+    forecast: sensor.weather_forecast_hourly
     background: dog_1
 ```
+
+### Forecast
+
+To get weather forecasts on the panel, the sensor containing the forecast data needs to be set. Use the `forecast` param.
+
+`forecast: sensor.weather_forecast_hourly` or `forecast: sensor.weather_forecast_daily`.
+
+See [FAQ](../FAQ.md) for details about the forecast sensor.
 
 ### Background
 
@@ -53,5 +68,6 @@ The return value should match a background name.
 ## Screens
 
 ![Panel Weather](../assets/panel_weather.png)
+![Panel Weather Simple](../assets/panel_weather_simple.png)
 
 ![Panel Weather Background](../assets/panel_weather_background.png)

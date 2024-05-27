@@ -103,7 +103,7 @@ class SettingsPage(HAUIPage):
         self.log(f"Got slider brightness press: {component}-{button_state}")
         if button_state:
             return
-        self.send_mqtt(ESP_REQUEST["req_component_int"], component[1], force=True)
+        self.send_mqtt(ESP_REQUEST["req_val"], component[1], force=True)
 
     def callback_brightness(self, entity, attribute, old, new, cb_args):
         self.log(f"Got brightness callback: {entity}.{attribute}:{new}")
@@ -130,7 +130,7 @@ class SettingsPage(HAUIPage):
     def process_event(self, event):
         super().process_event(event)
         # check for values for full and dimmed brightness
-        if event.name == ESP_RESPONSE["res_component_int"]:
+        if event.name == ESP_RESPONSE["res_val"]:
             # parse json response, set brightness
             data = event.as_json()
             if data.get("name", "") == self.SLD_BRGHT[1]:

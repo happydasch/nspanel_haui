@@ -32,22 +32,6 @@ api:
       then:
         - lambda: id(send_command).execute(cmd);
 
-    # Service to set the text of a component
-    - service: set_component_text
-      variables:
-        component: string
-        message: string
-      then:
-        - lambda: id(set_component_text).execute(component, message);
-
-    # Service to set the value of a component
-    - service: set_component_value
-      variables:
-        component: string
-        message: int
-      then:
-        - lambda: id(set_component_value).execute(component, message);
-
     # Service to change the brightness of the display
     - service: set_brightness
       variables:

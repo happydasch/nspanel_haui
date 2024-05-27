@@ -74,6 +74,7 @@ def rgb_brightness(rgb_color, brightness):
     # brightness values are in range 0-255
     # to make sure that the color is not completly lost we need to rescale
     # this to 96-255
+    brightness = 0 if brightness is None else int(brightness)
     brightness = int(scale(brightness, (0, 255), (96, 255)))
     red = rgb_color[0] / 255 * brightness
     green = rgb_color[1] / 255 * brightness

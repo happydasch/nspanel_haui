@@ -198,11 +198,17 @@
       },
       "fan_speed": {
         "_": {
-          "low": "Niskie",
-          "medium": "\u015arednie",
-          "high": "Wysokie",
-          "max": "Maksymalne",
-          "off": "Wy\u0142\u0105czone"
+          "low": "Niski",
+          "medium": "\u015bredni",
+          "high": "Wysoki",
+          "max": "Maksymalny",
+          "off": "Wy\u0142\u0105czony",
+          "gentle": "\u0141agodny",
+          "balanced": "Zr\u00f3wnowa\u017cony",
+          "turbo": "Turbo",
+          "quiet": "Cichy",
+          "custom": "Niestandardowy",
+          "max_plus": "Max Plus"
         }
       }
     },
@@ -371,6 +377,7 @@
     "Select source": "Wybierz \u017ar\u00f3d\u0142o",
     "Select media": "Wybierz media",
     "Select group members": "Wybierz cz\u0142onk\u00f3w grupy",
+    "Cover": "",
     "Light": "\u015awiat\u0142o",
     "Off": "Wy\u0142.",
     "No effect": "Bez efektu",
@@ -392,6 +399,7 @@
     "AD-Version:": "AD-Version:",
     "Settings": "Ustawienia",
     "Full and Dimmed Brightness:": "Pe\u0142na i przyciemniona jasno\u015b\u0107:",
+    "Climate": "",
     "Got unknown TFT-Version information.": "Otrzymano nieznane informacje o wersji TFT.",
     "Your TFT-version is outdated.": "Twoja wersja TFT jest nieaktualna.",
     "Do you want to check for a update?": "Czy chcesz sprawdzi\u0107 aktualizacj\u0119?",

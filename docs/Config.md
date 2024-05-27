@@ -239,6 +239,8 @@ close_timeout: 2.0
 
 If not defined the first configured panel will be used. If defined, then the defined home panel will be used.
 
+**Only one panel can be a home panel**
+
 ```yaml
 home_panel: true
 ```
@@ -248,6 +250,8 @@ home_panel: true
 `sleep_panel` bool
 
 After page_timeout the sleep panel will be activated.
+
+**Only one panel can be a sleep panel**
 
 ```yaml
 sleep_panel: true
@@ -261,11 +265,15 @@ sleep_panel: true
 wakeup_panel: true
 ```
 
-When the display changes into dimmed state and a sleep panel is set or changes into sleep state and wakes up, then if no wakeup panel is defined, it will return to the home panel.
-
-If defined, it will return to the defined panel.
+When the display changes into dimmed state and a sleep panel is set or changes into sleep state and wakes up, then if no wakeup panel is defined, it will return to the home panel. If defined, it will return to the defined panel.
 
 If no sleep occured but page was changed, it will return to the last active panel.
+
+**Only one panel can be a wakeup panel**
+
+```yaml
+wakeup_panel: true
+```
 
 ### Locking a Panel with a Code
 

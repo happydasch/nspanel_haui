@@ -2,7 +2,7 @@
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
-The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome is being used.
+The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome and MQTT is being used.
 
 - Uses the ESPHome and the nextion display component
 - Provides scripts and services for communication with the display
@@ -18,7 +18,7 @@ For the communication between the device and the server MQTT is being used.
   - [Responses](#responses)
   - [Commands](#commands)
   - [Events](#events)
-  - [Scripts](#scripts)
+  - [Services](#services)
   - [Page](#page)
   - [Interaction](#interaction)
     - [Interaction Sensors](#interaction-sensors)
@@ -27,6 +27,7 @@ For the communication between the device and the server MQTT is being used.
   - [Temperature](#temperature)
   - [Buttons](#buttons)
   - [Diagnostics](#diagnostics)
+  - [Other](#other)
 
 ## Installation
 
@@ -56,7 +57,7 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 - `topic_cmd` ($topic_prefix/cmd)
 - `topic_recv` ($topic_prefix/recv)
 - `ota_password` (!secret ota_password)
-- `encryption_key` (!secret encryption_key)
+- `api_encryption_key` (!secret api_encryption_key)
 - `web_username` (!secret web_username)
 - `web_password` (!secret web_password)
 - `wifi_ssid` (!secret wifi_ssid)
@@ -89,10 +90,8 @@ These events will get a response.
 - `req_device_info` Device Info Request
 - `req_device_state` Device State Request
 - `req_reconnect` Reconnect Request
-- TODO remove `req_int_value` Number Value Request
-- TODO remove `req_txt_value` Text Value Request
-- TODO remove `req_component_int` Component Number Value Request
-- TODO remove `req_component_txt` Component Text Value Request
+- `req_val` Number Request
+- `req_txt` Text Request
 
 ## Responses
 
@@ -108,10 +107,8 @@ These responses will be sent after a request.
   Will be published after sending request `req_device_info`
   Value: json encoded string
 
-- TODO remove `res_int_value` Number Value Response
-- TODO remove `res_txt_value` Text Value Response
-- TODO remove `res_component_int` Component Number Value Response
-- TODO remove `res_component_txt` Component Text Value Response
+- `res_val` Number Response
+- `res_txt` Text Response
 
 ## Commands
 
@@ -119,8 +116,6 @@ These are commands that are being executed on the ESP.
 
 - `send_command` Sends a command to the nextion display
 - `send_commands`Sends multiple commands to the nextion display
-- `set_component_text` Sets a component text on the nextion display
-- `set_component_value` Sets a component value on the nextion display
 - `goto_page` Sets the active page on display
 
 ## Events
@@ -203,9 +198,9 @@ Different ESP device events.
   Current display state (on, off, dim)
   Value: state type (string)
 
-## Scripts
+## Services
 
-This scripts below are defined on the ESP. Most of the device functionality is defined here.
+This services below are defined on the ESP. The communication between the AppDaemon server and the ESP is using these.
 
 - `send_command` Service to send a command
 
@@ -216,10 +211,6 @@ This scripts below are defined on the ESP. Most of the device functionality is d
   This will update the nextion display with the tft file
 
 - `upload_tft_url` Service to update a TFT file from URL
-
-- `set_component_text` Service to set the text of a component
-
-- `set_component_value` Service to set the value of a component
 
 - `set_brightness` Service to change the brightness of the display
 
@@ -268,8 +259,6 @@ These events will be sent out when the device have some page related events.
 
 - `page` (0 - 255)
   The page that is being displayed
-
-  The nextion variable dp is being used to set the page_id
 
 - `timeout_page` (0 - 3600)
 
@@ -424,5 +413,18 @@ Buttons provided by the ESP.
 
 Diagnostics related sensors.
 
+- YAML-Version: `display_yaml_version` Version of YAML files
+- TFT-Version: `display_tft_version` Version of TFT File
 - WIFI Info: Different values from wifi
 - Uptime: Device uptime
+
+## Other
+
+For number and text retrieval following sensors are being used internally:
+
+- `req_txt_component`
+- `req_val_component`
+- `res_txt`
+- `res_val`
+
+these sensors make it possible to get values from the display without adding sensors for every single value to retrieve.

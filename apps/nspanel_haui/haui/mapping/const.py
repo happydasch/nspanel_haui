@@ -29,10 +29,8 @@ ESP_RESPONSE = {
     for response in [
         "res_device_info",
         "res_device_state",
-        "res_int_value",
-        "res_txt_value",
-        "res_component_int",
-        "res_component_txt",
+        "res_val",
+        "res_txt",
     ]
 }
 
@@ -44,10 +42,8 @@ ESP_REQUEST = {
         "req_device_info",
         "req_device_state",
         "req_reconnect",
-        "req_int_value",
-        "req_txt_value",
-        "req_component_int",
-        "req_component_txt",
+        "req_val",
+        "req_txt",
     ]
 }
 
@@ -58,8 +54,6 @@ ESP_COMMAND = {
     for command in [
         "send_command",
         "send_commands",
-        "set_component_text",
-        "set_component_value",
         "goto_page",
     ]
 }
@@ -134,7 +128,7 @@ DEFAULT_CONFIG = {
         "button_left_entity": None,
         "button_right_entity": None,
         # navigation
-        "show_home_button": False,
+        "show_home_button": True,
         # logging
         "log_commands": False,
     },

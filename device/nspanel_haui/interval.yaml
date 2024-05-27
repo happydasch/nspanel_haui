@@ -6,16 +6,14 @@ interval:
   - interval: 100ms
     then:
       - lambda: |-
-          // run check connection
           id(check_ad_connection).execute();
           id(check_connection).execute();
-          // run check misc
           id(check_display_state).execute();
           id(check_display).execute();
           id(check_page).execute();
 
   # Interaction timeout check
-  - interval: 50ms
+  - interval: 200ms
     then:
       - lambda: |-
           id(check_interaction).execute();

@@ -4,6 +4,7 @@ display:
   - platform: nextion
     uart_id: haui_uart
     id: haui_disp
+    wake_up_page: 0
     # default url
     tft_url: $tft_update_url
 
@@ -20,10 +21,11 @@ display:
         # notify about initialization
         - lambda: |-
               id(play_sound).execute("startup");
-        # set tft version
-        - lambda: |-
-              id(display_tft_version).update();
+        # set tft and yaml version
         - delay: 1s
+        - lambda: |-
+              id(display_yaml_version).update();
+              id(display_tft_version).update();
         # set as initialized
         - lambda: |-
               ESP_LOGI("haui", "NSPanel HAUI Init");
@@ -32,6 +34,7 @@ display:
     on_page:
       then:
         - lambda: |-
+            ESP_LOGD("haui", "Display page: %d", x);
             id(page).publish_state(x);
 
     on_touch:
@@ -40,4 +43,14 @@ display:
             std::string event = to_string(page_id) + "," + to_string(component_id);
             event += "," + to_string(touch_event);
             id(publish_event).execute("component", event);
+            id(update_last_interaction).execute(-1, 0);
 
+    on_sleep:
+      then:
+        - lambda: |-
+            ESP_LOGW("haui", "Display sleep on_sleep");
+
+    on_wake:
+      then:
+        - lambda: |-
+            ESP_LOGW("haui", "Display wakeup on_wake");

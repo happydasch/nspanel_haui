@@ -24,6 +24,7 @@ class HAUIDevice(HAUIPart):
         self.device_info = {}
         self.connected = False
         self.sleeping = False
+        self.wake_up = False
         self._btn_left_info = {"state": False, "entity_id": None, "handle": None}
         self._btn_right_info = {"state": False, "entity_id": None, "handle": None}
 
@@ -113,7 +114,7 @@ class HAUIDevice(HAUIPart):
         navigation = self.app.controller["navigation"]
         if connected:
             # entry point after connected
-            navigation.open_panel("sys_system", autostart=False)
+            navigation.open_panel("sys_system")
 
     def set_sleeping(self, sleeping):
         """Sets the device as sleeping.
@@ -157,11 +158,11 @@ class HAUIDevice(HAUIPart):
         if not self.app.entity_exists(entity_id):
             return
         entity = self.app.get_entity(entity_id)
+        entity.call_service("toggle")
+        self._btn_left_info["state"] = not self._btn_left_info["state"]
         navigation = self.app.controller["navigation"]
         if not navigation.page:
             return
-        entity.call_service("toggle")
-        self._btn_left_info["state"] = not self._btn_left_info["state"]
         navigation.page.set_button_left_state(self._btn_left_info["state"])
 
     def get_right_button_state(self):
@@ -254,16 +255,31 @@ class HAUIDevice(HAUIPart):
         # process gesture event
         if event.name == ESP_EVENT["gesture"]:
             self.process_gesture(event)
+        elif event.name == ESP_EVENT["touch_end"]:
+            self.check_wake_up()
         # update device sleeping state
-        if event.name == ESP_EVENT["sleep"]:
+        elif event.name == ESP_EVENT["sleep"]:
             self.set_sleeping(True)
         elif event.name == ESP_EVENT["wakeup"]:
             self.set_sleeping(False)
+            self.wake_up = True
         elif event.name == ESP_EVENT["button_left"]:
             if event.value == "0":
-                #self.toggle_left_button_state()
-                pass
+                self.check_wake_up()
+                self.toggle_left_button_state()
+
         elif event.name == ESP_EVENT["button_right"]:
             if event.value == "0":
-                #self.toggle_right_button_state()
-                pass
+                self.check_wake_up()
+                self.toggle_right_button_state()
+
+    def check_wake_up(self):
+        """Checks if the display just woke up to switch from wakeup page."""
+        navigation = self.app.controller["navigation"]
+        if not navigation.panel:
+            return
+        if navigation.panel.is_wakeup_panel() and not navigation.panel.is_home_panel():
+            if self.wake_up:
+                self.wake_up = False
+            else:
+                navigation.open_home_panel()

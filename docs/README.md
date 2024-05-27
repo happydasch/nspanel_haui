@@ -20,9 +20,10 @@ For details about installation and configuration see the following pages.
 
 ## Development
 
-The device handling responsibility is assigned to ESPHome. The communication with the nextion display is done using a custom ESPHome component `nspanel_haui`.
+The device handling responsibility is assigned to ESPHome. The communication with the nextion display is done using the ESPHome component `nextion`.
 
 The backend and global logic of the system is under the management of AppDaemon, which handles all the behind-the-scenes operations.
+
 The display operations with minimal logic are assigned to Nextion, which works in collaboration with ESPHome to show informations on the panel.
 
 - [Design Guidelines](Design.md)
@@ -44,7 +45,7 @@ The display operations with minimal logic are assigned to Nextion, which works i
 
 - [Nextion Component](Nextion.md)
 
-  The display is responsible for showing the panels, doing time critical processing like animations, preparing components on pages before they being shown.
+  The display is responsible for showing the panels, preparing components on pages before they being shown (setting an initial state).
 
 ## Versioning
 

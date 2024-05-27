@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from .mapping.color import COLORS
 from .mapping.const import (
     DEFAULT_CONFIG,
@@ -34,7 +36,7 @@ class HAUIConfigEntity(HAUIBase):
             config (dict, optional): Config for entity. Defaults to None.
         """
         # initialize with default entity values
-        super().__init__(app, ENTITY_CONFIG.copy())
+        super().__init__(app, deepcopy(ENTITY_CONFIG))
         # load config
         if config is not None:
             merge_dicts(self._config, config)
@@ -372,7 +374,7 @@ class HAUIConfigPanel(HAUIBase):
             config (dict, optional): Config for panel. Defaults to None.
         """
         # initialize with default panel values
-        super().__init__(app, PANEL_CONFIG.copy())
+        super().__init__(app, deepcopy(PANEL_CONFIG))
         # load config
         if config is not None:
             merge_dicts(self._config, config)
@@ -460,9 +462,10 @@ class HAUIConfigPanel(HAUIBase):
         Returns:
             bool: True if home button should be shown
         """
-        return self.get(
+        show_home_button = self.get(
             "show_home_button", self.app.device.get("show_home_button", False)
         )
+        return show_home_button
 
     def get_entities(self, return_copy=True):
         """Returns all entities from this panel.
@@ -518,7 +521,7 @@ class HAUIConfig(HAUIBase):
             config (dict, optional): Config. Defaults to None.
         """
         # initialize with default config
-        super().__init__(app, DEFAULT_CONFIG.copy())
+        super().__init__(app, deepcopy(DEFAULT_CONFIG))
         # load config
         if config is not None:
             merge_dicts(self.get_config(return_copy=False), config)

@@ -2,7 +2,6 @@
 # Script Configuration
 script:
 
-
   # Script to update the last interaction time
   # Its possible to add an offset to the time by setting offset to a value > 0 or < 0
   - id: update_last_interaction
@@ -81,7 +80,6 @@ script:
           auto device_version = to_string(ESPHOME_VERSION);
           auto yaml_version = "$yaml_version";
           auto tft_version = id(display_tft_version).get_state();
-          ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
           auto required_tft_version = "$required_tft_version";
           const json::json_build_t payload = [
               device_version, yaml_version, tft_version,
@@ -108,7 +106,6 @@ script:
           int relay_right_val = id(relay_right).state;
           auto display_state_val = id(haui_display_state);
           auto tft_version = id(display_tft_version).get_state();
-          ESP_LOGI("haui", "tft_version %s", tft_version.c_str());
           auto required_tft_version = "$required_tft_version";
           const json::json_build_t payload = [
               page_val, brightness_val, button_left_val, button_right_val,
@@ -136,24 +133,6 @@ script:
       - lambda: |-
           id(haui_disp).send_command(cmd.c_str());
 
-  # Script to set the text of a component
-  - id: set_component_text
-    parameters:
-      component: string
-      message: string
-    then:
-      - lambda: |-
-          id(haui_disp).set_component_text(component.c_str(), message.c_str());
-
-  # Service to set the value of a component
-  - id: set_component_value
-    parameters:
-      component: string
-      message: int
-    then:
-      - lambda: |-
-          id(haui_disp).set_component_value(component.c_str(), message);
-
   # Script to set the brightness
   - id: set_brightness
     parameters:
@@ -165,7 +144,7 @@ script:
           percent_on = percent_on < 0 ? 0 : percent_on;
           ESP_LOGV("haui", "Script set_brightness: %i - %f", intensity, percent_on);
           id(haui_disp).set_backlight_brightness(percent_on);
-          // FIXME id(brightness).publish_state(intensity);
+          id(brightness).update_component();
 
   # Script to set the ad connection state
   - id: set_ad_connected
@@ -180,13 +159,11 @@ script:
           id(ad_heartbeat) = 0;
           if (ad_connection_state) {
             // notify display about connection state
-            // FIXME id(display_ad_availability).set_state("1", true);
-
+            id(haui_disp).send_command("system.firstRun.txt=\"0\"");
           } else {
-            // FIXME: hardcoded system page
             if (int(id(page).state) != 1) {
               id(display_wakeup).execute();
-              id(goto_page).execute("system");
+              id(goto_page).execute("1");  // system
             }
           }
           if (id(client_status).state != haui_status_str) {
@@ -267,15 +244,8 @@ script:
   - id: check_display
     then:
       - lambda: |-
-          // no auto dimming, full brightness
-          if (!id(use_auto_dimming).state) {
-            if (id(brightness).state != id(brightness_full).state) {
-              id(set_brightness).execute(id(brightness_full).state);
-            }
-            return;
-          }
-          // appdaemon not available, full brightness
-          if (!id(ad_connection)) {
+          // no auto dimming, appdaemon not available, full brightness
+          if (!id(use_auto_dimming).state || !id(ad_connection)) {
             if (id(brightness).state != id(brightness_full).state) {
               id(set_brightness).execute(id(brightness_full).state);
             }
@@ -442,15 +412,16 @@ script:
               wakeup_page = id(page).state;
             }
             // use blank page to prevent clicks on wakeup
-            id(goto_page).execute("blank");
+            id(goto_page).execute("0");  // blank
             id(display_sleep).execute();
           } else if (new_state != 0 && id(haui_disp).is_sleeping()) {
             id(display_wakeup).execute();
             bool ad_connected = id(ad_connection);
-            if (ad_connected == true) {
+            if (ad_connected == true && wakeup_page != "") {
+              ESP_LOGD("haui", "Wakeup page: %s", wakeup_page.c_str());
               id(goto_page).execute(wakeup_page);
             } else {
-              id(goto_page).execute("system");
+              id(goto_page).execute("1");  // system
             }
           }
 
@@ -472,6 +443,8 @@ script:
   - id: check_interaction
     then:
       - lambda: |-
+          id(touch_x).update();
+          id(touch_y).update();
           int curr_x = id(touch_x).state;
           int curr_y = id(touch_y).state;
           static int prev_x = 0;
@@ -482,9 +455,8 @@ script:
           bool is_button = false;
 
           // x and y coordinates are not zero then touch is active
-          if (curr_x != 0 && curr_y != 0) {
+          if (curr_x > 0 && curr_y > 0) {
             is_touch = true;
-            id(update_last_interaction).execute(-1, 0);
           }
 
           // check if touch state needs to be updated
@@ -499,10 +471,10 @@ script:
           } else {  // touch inactive
             if (id(touch).state) {
               ESP_LOGD("haui", "Touch End (%d,%d)", prev_x, prev_y);
-              id(touch).publish_state(false);
               std::string touch_event = to_string(start_x) + "," + to_string(start_y);
               touch_event += "," + to_string(prev_x) + "," + to_string(prev_y);
               id(publish_event).execute("touch_end", touch_event);
+              id(touch).publish_state(false);
               id(process_touch_gesture).execute(start_x, start_y, prev_x, prev_y);
               start_x = 0;
               start_y = 0;
@@ -512,31 +484,14 @@ script:
           prev_x = curr_x;
           prev_y = curr_y;
 
-  # Script to send the display into sleep mode
-  - id: display_sleep
-    then:
-      - lambda: |-
-          if (!id(haui_disp).is_sleeping()) {
-            ESP_LOGI("haui", "Display is going to sleep");
-            id(haui_disp).sleep(true);
-            id(publish_event).execute("sleep", "");
-          }
-
-  # Script to send the display out of sleep mode
-  - id: display_wakeup
-    then:
-      - lambda: |-
-          if (id(haui_disp).is_sleeping()) {
-            ESP_LOGI("haui", "Display is waking up");
-            id(haui_disp).sleep(false);
-            id(publish_event).execute("wakeup", "");
-          }
-
   # Script to check page related changes
   - id: check_page
     then:
       - lambda: |-
           if (!id(ad_connection) || !id(use_auto_page).state) {
+            if (id(use_auto_page).state && id(page).state != 1) {
+              id(goto_page).execute("1");  // system
+            }
             return;
           }
 
@@ -630,8 +585,50 @@ script:
       page: string
     then:
       - lambda: |-
-          ESP_LOGI("haui", "goto_page %s", page.c_str());
-          id(haui_disp).goto_page(page.c_str());
+          if (page != "") {
+            ESP_LOGI("haui", "goto_page '%s'", page.c_str());
+            id(haui_disp).goto_page(page.c_str());
+          }
+
+  # Script to send the display into sleep mode
+  - id: display_sleep
+    then:
+      - lambda: |-
+          if (!id(haui_disp).is_sleeping()) {
+            ESP_LOGI("haui", "Display is going to sleep");
+            id(haui_disp).sleep(true);
+            id(publish_event).execute("sleep", "");
+          }
+
+  # Script to send the display out of sleep mode
+  - id: display_wakeup
+    then:
+      - lambda: |-
+          if (id(haui_disp).is_sleeping()) {
+            ESP_LOGI("haui", "Display is waking up");
+            id(haui_disp).sleep(false);
+            id(publish_event).execute("wakeup", "");
+          }
+
+  # Script to request a number value from a component
+  - id: request_number
+    parameters:
+      component: string
+    then:
+      - lambda: |-
+          id(req_val_component).publish_state(component);
+          id(haui_disp).send_command_printf("system.resVal.val=%s.val", component.c_str());
+          id(res_val).update();
+
+  # Script to request a text value from a component
+  - id: request_text
+    parameters:
+      component: string
+    then:
+      - lambda: |-
+          id(req_txt_component).publish_state(component);
+          id(haui_disp).send_command_printf("system.resTxt.txt=%s.txt", component.c_str());
+          id(res_txt).update();
 
   # Script to play a rtttl string
   - id: play_rtttl
@@ -687,4 +684,3 @@ script:
           if (sound_string != "") {
             id(haui_rtttl).play(sound_string);
           }
-

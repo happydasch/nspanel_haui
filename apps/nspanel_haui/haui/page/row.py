@@ -3,6 +3,7 @@ from ..helper.icon import get_icon, get_icon_name_by_action
 from ..helper.text import trim_text
 from . import HAUIPage
 
+import math
 
 class RowPage(HAUIPage):
     # common components
@@ -100,20 +101,26 @@ class RowPage(HAUIPage):
         self._entities = panel.get_entities()
         self._current_page = panel.get("initial_page", 0)
         # set function buttons
-        page_btn = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC,
+        mode = self.panel.get_mode()
+        btn_right_2 = {
+            "fnc_component": self.BTN_FNC_RIGHT_SEC if mode != "subpanel" else self.BTN_FNC_RIGHT_PRI,
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": self.ICO_NEXT_PAGE,
                 "color": COLORS["component_accent"],
-                "visible": True if len(self._entities) > self.NUM_ROWS else False,
+                "visible": True if len(self._entities) > self.NUM_GRIDS else False,
             },
         }
+        if mode != "subpanel":
+            btn_right_1 = self.BTN_FNC_RIGHT_PRI
+        else:
+            btn_right_1 = btn_right_2
+            btn_right_2 = self.BTN_FNC_RIGHT_SEC
         self.set_function_buttons(
             self.BTN_FNC_LEFT_PRI,
             self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
-            page_btn,
+            btn_right_1,
+            btn_right_2,
         )
         # set entity overlay callbacks
         for i in range(self.NUM_ROWS):
@@ -436,7 +443,7 @@ class RowPage(HAUIPage):
 
     def callback_function_component(self, fnc_id, fnc_name):
         if fnc_name == "next_page":
-            count_pages = (len(self._entities) % self.NUM_ROWS) + 1
+            count_pages = math.ceil(len(self._entities) / self.NUM_GRIDS)
             self._current_page += 1
             if self._current_page >= count_pages:
                 self._current_page = 0

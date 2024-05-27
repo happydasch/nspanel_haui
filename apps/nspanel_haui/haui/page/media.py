@@ -76,8 +76,10 @@ class MediaPage(HAUIPage):
         (28, "m3Name"),
         (29, "m3Overlay"),
     )
+    # power button
+    BTN_POWER = (30, "bPower")
     # progress bar
-    J_PROGRESS = (30, "jProgress")
+    J_PROGRESS = (31, "jProgress")
 
     SCROLLING_INTERVAL = 0.5
     PROGRESS_INTERVAL = 0.5
@@ -644,9 +646,7 @@ class MediaPage(HAUIPage):
         elif fnc_name == "volume_up":
             entity.call_entity_service("volume_up")
         elif fnc_name == "set_volume":
-            self.send_mqtt(
-                ESP_REQUEST["req_component_int"], self.SLD_VOL[1], force=True
-            )
+            self.send_mqtt(ESP_REQUEST["req_val"], self.SLD_VOL[1], force=True)
 
     def callback_select_source(self, event, component, button_state):
         navigation = self.app.controller["navigation"]
@@ -801,7 +801,7 @@ class MediaPage(HAUIPage):
     def process_event(self, event):
         super().process_event(event)
         # requested values
-        if event.name == ESP_RESPONSE["res_component_int"]:
+        if event.name == ESP_RESPONSE["res_val"]:
             data = event.as_json()
             name = data.get("name", "")
             value = int(data.get("value", 0))

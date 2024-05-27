@@ -25,24 +25,21 @@ class VacuumPage(HAUIPage):
     TXT_TITLE = (2, "tTitle")
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # basic info
-    TXT_STATUS, TXT_BATTERY, TXT_BATTERY_ICON = (
-        (7, "tStatus"),
-        (8, "tBattery"),
-        (9, "tBatteryIcon"),
-    )
     # control
-    BTN_FAN, BTN_ACTION, BTN_HOME = (10, "bFan"), (11, "bAction"), (12, "bHome")
+    BTN_FAN, BTN_ACTION  = (7, "bFan"), (8, "bAction")
+    BTN_HOME, BTN_LOCATE = (9, "bHome"), (10, "bLocate")
+    # info
+    TXT_STATUS = (11, "tStatus")
     # entities
     BTN_ENTITY_1, BTN_ENTITY_2, BTN_ENTITY_3 = (
-        (13, "bEntity1"),
-        (14, "bEntity2"),
-        (15, "bEntity3"),
+        (12, "bEntity1"),
+        (13, "bEntity2"),
+        (14, "bEntity3"),
     )
     BTN_ENTITY_4, BTN_ENTITY_5, BTN_ENTITY_6 = (
-        (16, "bEntity4"),
-        (17, "bEntity5"),
-        (18, "bEntity6"),
+        (15, "bEntity4"),
+        (16, "bEntity5"),
+        (17, "bEntity6"),
     )
 
     NUM_ENTITIES = 6
@@ -55,12 +52,10 @@ class VacuumPage(HAUIPage):
 
     def start_panel(self, panel):
         # set function buttons
-        vacuum_locate_btn = {
+        vacuum_battery = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,
-            "fnc_name": "locate",
             "fnc_args": {
-                "icon": self.ICO_LOCATE,
-                "color": COLORS["component_accent"],
+                "icon": self.ICO_BATTERY,
                 "visible": False,
             },
         }
@@ -68,7 +63,7 @@ class VacuumPage(HAUIPage):
             self.BTN_FNC_LEFT_PRI,
             self.BTN_FNC_LEFT_SEC,
             self.BTN_FNC_RIGHT_PRI,
-            vacuum_locate_btn,
+            vacuum_battery,
         )
         # set entity
         entity = None
@@ -100,11 +95,6 @@ class VacuumPage(HAUIPage):
         features = entity.get_entity_attr("supported_features", 0)
         # add listener
         self.add_entity_listener(entity.get_entity_id(), self.callback_vacuum_entity)
-        # header locate
-        locate = False
-        if features & VacuumFeatures.LOCATE:
-            locate = True
-        self.update_function_component(self.FNC_BTN_R_SEC, visible=locate)
         # fan button
         fan = False
         if features & VacuumFeatures.FAN_SPEED:
@@ -139,6 +129,17 @@ class VacuumPage(HAUIPage):
             icon=self.ICO_HOME,
             visible=return_home,
         )
+        # locate button
+        locate = False
+        if features & VacuumFeatures.LOCATE:
+            locate = True
+        self.set_function_component(
+            self.BTN_LOCATE,
+            self.BTN_LOCATE[1],
+            "locate",
+            icon=self.ICO_LOCATE,
+            visible=locate,
+        )
         # entity buttons
         total_entities = len(self._entities)
         for i in range(self.NUM_ENTITIES):
@@ -170,13 +171,16 @@ class VacuumPage(HAUIPage):
         entity = self._vacuum_entity
         state = entity.get_entity_state()
         features = entity.get_entity_attr("supported_features", 0)
+        # battery
+        if features & VacuumFeatures.BATTERY:
+            battery_icon = entity.get_entity_attr("battery_icon", self.ICO_BATTERY)
+            self.update_function_component(
+                self.FNC_BTN_R_SEC,
+                icon=get_icon(battery_icon),
+                visible=True)
         # status text
         status_text = self.translate_state(entity.get_entity_type(), state)
-        battery_level = entity.get_entity_attr("battery_level", 0)
-        battery_icon = entity.get_entity_attr("battery_icon", self.ICO_BATTERY)
         self.set_component_text(self.TXT_STATUS, status_text)
-        self.set_component_text(self.TXT_BATTERY, f"{battery_level}%")
-        self.set_component_text(self.TXT_BATTERY_ICON, get_icon(battery_icon))
         # pause/start/stop button
         active = False
         pause, start, stop = False, False, False
@@ -222,6 +226,20 @@ class VacuumPage(HAUIPage):
             self.BTN_HOME[1],
             touch=active,
             color=color,
+            color_pressed=color_pressed,
+            back_color_pressed=back_color_pressed,
+        )
+        # locate button
+        active = False
+        if features & VacuumFeatures.LOCATE:
+            active = True
+        color, color_pressed, back_color, back_color_pressed = self.get_button_colors(
+            active
+        )
+        self.update_function_component(
+            self.BTN_LOCATE[1],
+            touch=active,
+            color=COLORS["component_accent"],
             color_pressed=color_pressed,
             back_color_pressed=back_color_pressed,
         )

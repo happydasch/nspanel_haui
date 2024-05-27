@@ -32,8 +32,8 @@ substitutions:
   ap_password: !secret ap_password
 
   # Custom Update Url
-  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft
-  #tft_update_url: http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft
+  #tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft
+  tft_update_url: http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft
 
 packages:
   version: !include nspanel_haui/version.yaml
@@ -49,5 +49,3 @@ packages:
   number: !include nspanel_haui/number.yaml
   switch: !include nspanel_haui/switch.yaml
   sensor: !include nspanel_haui/sensor.yaml
-  binary_sensor: !include nspanel_haui/binary_sensor.yaml
-  text_sensor: !include nspanel_haui/text_sensor.yaml

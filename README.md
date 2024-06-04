@@ -131,6 +131,10 @@ For details about how the parts of the whole system communicate together see [NS
 
   Configuration and entity handling, more definitions, better code, sort out issues
 
+- **Future**:
+
+  - Replace AppDaemon with Home Assistant Integration
+
 - **Additional upcoming functionality:**
 
   - Panels:

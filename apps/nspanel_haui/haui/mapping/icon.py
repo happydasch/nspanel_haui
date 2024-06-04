@@ -141,7 +141,7 @@ SENSOR_MAPPING = {
 # 'device_class': ('icon-open', 'icon-closed', 'icon-cover-open', 'icon-cover-stop', 'icon-cover-close')
 COVER_MAPPING = {
     "awning": ("window-open", "window-closed", "arrow-up", "stop", "arrow-down"),
-    "blind": ("roller-shade-open", "roller-shade", "arrow-up", "stop", "arrow-down"),
+    "blind": ("blinds-horizontal", "blinds-horizontal-closed", "arrow-up", "stop", "arrow-down"),
     "curtain": (
         "curtains",
         "curtains-closed",
@@ -171,7 +171,7 @@ COVER_MAPPING = {
         "stop",
         "arrow-collapse-horizontal",
     ),
-    "shade": ("roller-shade-open", "roller-shade", "arrow-up", "stop", "arrow-down"),
+    "shade": ("roller-shade", "roller-shade-closed", "arrow-up", "stop", "arrow-down"),
     "shutter": (
         "window-shutter-open",
         "window-shutter",

@@ -83,6 +83,14 @@ switch:
     entity_category: config
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            id(publish_event).execute("use_relay_left", "1");
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(publish_event).execute("use_relay_left", "0");
 
   # Use physical relay right
   - platform: template
@@ -91,3 +99,11 @@ switch:
     entity_category: config
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
+    on_turn_on:
+      then:
+        - lambda: |-
+            id(publish_event).execute("use_relay_right", "1");
+    on_turn_off:
+      then:
+        - lambda: |-
+            id(publish_event).execute("use_relay_right", "0");

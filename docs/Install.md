@@ -76,7 +76,7 @@ With the prepared and connected device it is now possible to install ESPHome on 
   - MQTT IP, Username and Password `mqtt_ip`, `mqtt_username`, `mqtt_password`
   - Wifi SSID and Password for autoconnect `wifi_ssid`, `wifi_password`
   - Web Access Login Details `web_username`, `web_password`
-  - OTA Password and Encryption Key `ota_password`, `encryption_key`
+  - OTA Password and API Encryption Key `ota_password`, api_encryption_key`
 
   ![Device Name](assets/esphome_replaced_config.png)
 

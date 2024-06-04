@@ -202,7 +202,13 @@
           "medium": "Mittel",
           "high": "Hoch",
           "max": "Maximal",
-          "off": "Aus"
+          "off": "Aus",
+          "gentle": "Sanft",
+          "balanced": "Ausgewogen",
+          "turbo": "Turbo",
+          "quiet": "Leise",
+          "custom": "Benutzerdefiniert",
+          "max_plus": "Max Plus"
         }
       }
     },
@@ -371,6 +377,7 @@
     "Select source": "Quelle ausw\u00e4hlen",
     "Select media": "Medium ausw\u00e4hlen",
     "Select group members": "Gruppenmitglieder ausw\u00e4hlen",
+    "Cover": "",
     "Light": "Licht",
     "Off": "Aus",
     "No effect": "Kein Effekt",
@@ -392,6 +399,7 @@
     "AD-Version:": "AD-Version:",
     "Settings": "Einstellungen",
     "Full and Dimmed Brightness:": "Volle und gedimmte Helligkeit:",
+    "Climate": "",
     "Got unknown TFT-Version information.": "Unbekannte TFT-Versionsinformationen erhalten.",
     "Your TFT-version is outdated.": "Ihre TFT-Version ist veraltet.",
     "Do you want to check for a update?": "M\u00f6chten Sie nach einer Aktualisierung suchen?",

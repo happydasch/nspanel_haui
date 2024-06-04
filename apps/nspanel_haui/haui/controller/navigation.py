@@ -284,7 +284,7 @@ class HAUINavigationController(HAUIPart):
         # If autostart then it is assumed that the new page is available when called
         # goto_page. If autostart is false, the page will get started when it is
         # active (when a page event is received)
-        if kwargs.get("autostart", True):
+        if kwargs.get("autostart", False) or curr_page_id == page_id:
             self.display_panel(self.panel)
         else:
             self.log("No autostart, waiting for page event")
@@ -383,11 +383,11 @@ class HAUINavigationController(HAUIPart):
             panel_id = self._ids[len(self._ids) - 1]
         self.open_panel(panel_id)
 
-    def open_home_panel(self, autostart=True):
+    def open_home_panel(self, autostart=False):
         """Opens the home panel.
 
         Args:
-            autostart (bool, optional): Should the page be autostarted. Defaults to True.
+            autostart (bool, optional): Should the page be autostarted. Defaults to False.
         """
         if self._home_panel is None:
             self.close_panel()
@@ -395,11 +395,11 @@ class HAUINavigationController(HAUIPart):
             return
         self.open_panel(self._home_panel.id, autostart=autostart)
 
-    def open_sleep_panel(self, autostart=True):
+    def open_sleep_panel(self, autostart=False):
         """Opens the sleep panel.
 
         Args:
-            autostart (bool, optional): Should the page be autostarted. Defaults to True.
+            autostart (bool, optional): Should the page be autostarted. Defaults to False.
         """
         if self._sleep_panel is None:
             self.close_panel()
@@ -407,11 +407,11 @@ class HAUINavigationController(HAUIPart):
             return
         self.open_panel(self._sleep_panel.id, autostart=autostart)
 
-    def open_wakeup_panel(self, autostart=True):
+    def open_wakeup_panel(self, autostart=False):
         """Opens the wakeup panel.
 
         Args:
-            autostart (bool, optional): Should the page be autostarted. Defaults to True.
+            autostart (bool, optional): Should the page be autostarted. Defaults to False.
         """
         if self._wakeup_panel is None:
             self.close_panel()
@@ -457,7 +457,8 @@ class HAUINavigationController(HAUIPart):
         if event.name == ESP_EVENT["timeout"]:
             if event.value == "page":
                 self._sleep_panel_active = True
-                self.open_sleep_panel()
+                if self._sleep_panel and self._sleep_panel.id != self.panel.id:
+                    self.open_sleep_panel()
 
         # check for display state event (dimmed/off/on)
         if event.name == ESP_EVENT["display_state"]:

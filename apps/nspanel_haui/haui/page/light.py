@@ -507,23 +507,19 @@ class LightPage(HAUIPage):
         if button_state:
             return
         self.log(f"Got brightness press: {component}-{button_state}")
-        self.send_mqtt(
-            ESP_REQUEST["req_component_int"], self.H_BRIGHTNESS[1], force=True
-        )
+        self.send_mqtt(ESP_REQUEST["req_val"], self.H_BRIGHTNESS[1], force=True)
 
     def callback_color_temp(self, event, component, button_state):
         if button_state:
             return
         self.log(f"Got color temp press: {component}-{button_state}")
-        self.send_mqtt(
-            ESP_REQUEST["req_component_int"], self.H_COLOR_TEMP[1], force=True
-        )
+        self.send_mqtt(ESP_REQUEST["req_val"], self.H_COLOR_TEMP[1], force=True)
 
     def callback_power(self, event, component, button_state):
         if button_state:
             return
         self.log(f"Got power press: {component}-{button_state}")
-        self.send_mqtt(ESP_REQUEST["req_component_int"], self.BTN_POWER[1], force=True)
+        self.send_mqtt(ESP_REQUEST["req_val"], self.BTN_POWER[1], force=True)
 
     def callback_effect(self, selection):
         self.log(f"Got effect selection: {selection}")
@@ -556,7 +552,7 @@ class LightPage(HAUIPage):
                     color = pos_to_color(pos_x, pos_y, self.PIC_COLOR_WHEEL_WH)
                     self.process_color(color)
         # requested values
-        if event.name == ESP_RESPONSE["res_component_int"]:
+        if event.name == ESP_RESPONSE["res_val"]:
             data = event.as_json()
             name = data.get("name", "")
             value = int(data.get("value", 0))

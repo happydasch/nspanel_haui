@@ -196,15 +196,15 @@ class HAUIBase:
     def send_cmds(self, cmds):
         """Sends a list of commands to the MQTT controller with the name "send_commands".
 
-        This method will split the commands into chunks of 500 characters and send them in
-        one go.
+        This method will split the commands into chunks and send them in one go.
 
         Args:
             cmds: The commands to send.
         """
         total_len = 0
-        max_len = 1000
+        max_len = 200
         cmds_to_send = []
+        # split commands into max length of chars and send them directly
         for cmd in cmds:
             if total_len + len(cmd) > max_len:
                 self.send_mqtt("send_commands", json.dumps({"commands": cmds_to_send}))
@@ -212,6 +212,7 @@ class HAUIBase:
                 total_len = 0
             cmds_to_send.append(cmd)
             total_len += len(cmd)
+        # send remaining commands
         if len(cmds_to_send) > 0:
             self.send_mqtt("send_commands", json.dumps({"commands": cmds_to_send}))
 

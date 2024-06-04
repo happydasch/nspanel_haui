@@ -18,7 +18,9 @@
 
 NSPanel HAUI was started as a replacement for the original Sonoff Firmware. It provides a flexible way to configure the display and to control devices connected to home assistant.
 
-For details about the configuration see [Configuration](docs/Config.md). Also look at [Panels](docs/panels/README.md) to get an overview of available panels.
+It focuses on HomeAssistant and ESPHome. It does not use any custom protocol to communicate with the nextion display. Instead the display is completely controlled through the AppDaemon app written in python.
+
+For details about the configuration see [Configuration](docs/Config.md). Also take a look at [Panels](docs/panels/README.md) to get an overview of available panels.
 
 ## Features
 
@@ -32,11 +34,11 @@ For details about the configuration see [Configuration](docs/Config.md). Also lo
 
   The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
 
-- **Optimized custom ESPHome component**
+- **ESPHome component**
 
-  ![Custom component](docs/assets/feature_custom_component.png)
+  ![ESPHome component](docs/assets/feature_custom_component.png)
 
-  For the communication between the esp32 and the nextion display a custom component `nspanel_haui` is used. It provides basic functionality like `send_command`, `get_int_value`, `get_txt_value`, etc. and also generates events for button presses and other changes on the display.
+  For the communication between the esp32 and the nextion display the component `nextion` in ESPHome is being used.
 
 - **A variety of different panels**
 
@@ -133,7 +135,6 @@ For details about how the parts of the whole system communicate together see [NS
 
   - Panels:
     - Climate
-    - Cover
     - Alarm?
 
 ## Resources

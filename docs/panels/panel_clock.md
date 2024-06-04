@@ -6,6 +6,7 @@
   - [About](#about)
   - [Config](#config)
     - [Background](#background)
+    - [Forecast](#forecast)
     - [Show weather](#show-weather)
     - [Show temperature](#show-temperature)
   - [Screens](#screens)
@@ -25,14 +26,20 @@ panels:
   - type: clock
     entity: weather.home
 
+  # clock panel with forecast
+  - type: clock
+    entity: weather.home
+    forecast: sensor.weather_forecast_hourly
+
   # clock panel with a different background
   - type: clock
     entity: weather.home
     background: dog_1
 
-  # clock panel without current weather and temperature
+  # clock panel without current weather, forecast and temperature
   - type: clock
     entity: weather.home
+    forecast: sensor.weather_forecast_hourly
     show_weather: False
     show_temp: False
 ```
@@ -58,6 +65,14 @@ Dynamic background values are possible using HomeAssistant templates.
 
 The return value should match a background name.
 
+### Forecast
+
+To get weather forecasts on the panel, the sensor containing the forecast data needs to be set. Use the `forecast` param.
+
+`forecast: sensor.weather_forecast_hourly` or `forecast: sensor.weather_forecast_daily`.
+
+See [FAQ](/docs/FAQ.md) for details about the forecast sensor.
+
 ### Show weather
 
 The main weather icon can be hidden by setting `show_weather` to `False`
@@ -69,5 +84,7 @@ The main temperature text can be hidden by setting `show_temp` to `False`
 ## Screens
 
 ![Panel Clock](../assets/panel_clock.png)
+
+![Panel Clock Simple](../assets/panel_clock_simple.png)
 
 ![Panel Clock Background](../assets/panel_clock_background.png)

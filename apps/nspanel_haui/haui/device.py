@@ -24,6 +24,7 @@ class HAUIDevice(HAUIPart):
         self.device_info = {}
         self.connected = False
         self.sleeping = False
+        self.wake_up = False
         self._btn_left_info = {"state": False, "entity_id": None, "handle": None}
         self._btn_right_info = {"state": False, "entity_id": None, "handle": None}
 
@@ -52,20 +53,19 @@ class HAUIDevice(HAUIPart):
         """Registers all device callbacks."""
         # set button state callbacks
         for i in ["left", "right"]:
-            button_id = self.get(f"button_{i}_entity")
-            button = getattr(self, f"_btn_{i}_info")
-            if not button_id:
-                # default entity - relay
-                button_id = f"switch.{self.get_name()}_relay_{i}"
-            if self.app.entity_exists(button_id):
-                entity = self.app.get_entity(button_id)
-                state = True if entity.get_state() == "on" else False
+            button = getattr(self, f"_btn_{i}_info")  # button info dict
+            entity_id = self.get(f"button_{i}_entity")  # the entity to control
+            # no entity id set, use relay
+            if not entity_id:
+                # default button entity - hardware relay
+                entity_id = f"switch.{self.get_name()}_relay_{i}"
+            # entity exists, add callbacks and set up hardware button entity
+            if self.app.entity_exists(entity_id):
                 handle = self.app.listen_state(
-                    self.callback_button_state_buttons, button_id
+                    self.callback_button_state_entities, entity_id
                 )
-                button["entity_id"] = button_id
+                button["entity_id"] = entity_id
                 button["handle"] = handle
-                button["state"] = state
 
     def _cancel_callbacks(self):
         """Cancels all device callbacks."""
@@ -114,7 +114,7 @@ class HAUIDevice(HAUIPart):
         navigation = self.app.controller["navigation"]
         if connected:
             # entry point after connected
-            navigation.open_panel("sys_system", autostart=False)
+            navigation.open_panel("sys_system")
 
     def set_sleeping(self, sleeping):
         """Sets the device as sleeping.
@@ -148,23 +148,22 @@ class HAUIDevice(HAUIPart):
         """
         return self._btn_left_info["state"]
 
-    def set_left_button_state(self, state):
+    def toggle_left_button_state(self):
         """Sets the state of the left button.
 
         This will change the state of the set entity. By default its the relay.
-
-        Args:
-            state (bool): State of button
         """
         entity_id = self._btn_left_info["entity_id"]
-        self.log(f"Setting left button state {entity_id}-{state}")
+        self.log(f"Setting left button state {entity_id}")
         if not self.app.entity_exists(entity_id):
             return
         entity = self.app.get_entity(entity_id)
-        if state:
-            entity.call_service("turn_on")
-        else:
-            entity.call_service("turn_off")
+        entity.call_service("toggle")
+        self._btn_left_info["state"] = not self._btn_left_info["state"]
+        navigation = self.app.controller["navigation"]
+        if not navigation.page:
+            return
+        navigation.page.set_button_left_state(self._btn_left_info["state"])
 
     def get_right_button_state(self):
         """Returns the right button state.
@@ -174,27 +173,26 @@ class HAUIDevice(HAUIPart):
         """
         return self._btn_right_info["state"]
 
-    def set_right_button_state(self, state):
-        """Sets the state of the right button.
+    def toggle_right_button_state(self):
+        """Toggles the state of the right button.
 
         This will change the state of the set entity. By default its the relay.
-
-        Args:
-            state (bool): State of button
         """
         entity_id = self._btn_right_info["entity_id"]
-        self.log(f"Setting right button state {entity_id}-{state}")
+        self.log(f"Setting right button state {entity_id}")
         if not self.app.entity_exists(entity_id):
             return
         entity = self.app.get_entity(entity_id)
-        if state:
-            entity.call_service("turn_on")
-        else:
-            entity.call_service("turn_off")
+        navigation = self.app.controller["navigation"]
+        if not navigation.page:
+            return
+        entity.call_service("toggle")
+        self._btn_right_info["state"] = not self._btn_right_info["state"]
+        navigation.page.set_button_right_state(self._btn_right_info["state"])
 
     # callback
 
-    def callback_button_state_buttons(self, entity, attribute, old, new, kwargs):
+    def callback_button_state_entities(self, entity, attribute, old, new, kwargs):
         """Callback method for button state entity state changes.
 
         Args:
@@ -204,17 +202,17 @@ class HAUIDevice(HAUIPart):
             new (str): New state
             kwargs (dict): Args
         """
-        self.log(f"Got button state button callback: {entity}.{attribute}:{new}")
+        self.log(f"Got button state entity callback: {entity}.{attribute}:{new}")
         navigation = self.app.controller["navigation"]
         if not navigation.page:
             return
         state = True if new == "on" else False
         if entity == self._btn_left_info["entity_id"]:
             self._btn_left_info["state"] = state
-            navigation.page.update_button_left_state(state)
+            navigation.page.set_button_left_state(state)
         elif entity == self._btn_right_info["entity_id"]:
             self._btn_right_info["state"] = state
-            navigation.page.update_button_right_state(state)
+            navigation.page.set_button_right_state(state)
 
     # event
 
@@ -257,8 +255,31 @@ class HAUIDevice(HAUIPart):
         # process gesture event
         if event.name == ESP_EVENT["gesture"]:
             self.process_gesture(event)
+        elif event.name == ESP_EVENT["touch_end"]:
+            self.check_wake_up()
         # update device sleeping state
-        if event.name == ESP_EVENT["sleep"]:
+        elif event.name == ESP_EVENT["sleep"]:
             self.set_sleeping(True)
         elif event.name == ESP_EVENT["wakeup"]:
             self.set_sleeping(False)
+            self.wake_up = True
+        elif event.name == ESP_EVENT["button_left"]:
+            if event.value == "0":
+                self.check_wake_up()
+                self.toggle_left_button_state()
+
+        elif event.name == ESP_EVENT["button_right"]:
+            if event.value == "0":
+                self.check_wake_up()
+                self.toggle_right_button_state()
+
+    def check_wake_up(self):
+        """Checks if the display just woke up to switch from wakeup page."""
+        navigation = self.app.controller["navigation"]
+        if not navigation.panel:
+            return
+        if navigation.panel.is_wakeup_panel() and not navigation.panel.is_home_panel():
+            if self.wake_up:
+                self.wake_up = False
+            else:
+                navigation.open_home_panel()

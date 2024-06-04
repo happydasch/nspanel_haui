@@ -21,7 +21,7 @@ api:
       variables:
         url: string
       then:
-        - lambda: id(haui_disp).set_tft_url(url);
+        - lambda: id(haui_disp).set_tft_url(url.c_str());
         - lambda: id(haui_disp).upload_tft();
 
     # Service to send a command
@@ -31,22 +31,6 @@ api:
         cmd: string
       then:
         - lambda: id(send_command).execute(cmd);
-
-    # Service to set the text of a component
-    - service: set_component_text
-      variables:
-        component: string
-        message: string
-      then:
-        - lambda: id(set_component_text).execute(component, message);
-
-    # Service to set the value of a component
-    - service: set_component_value
-      variables:
-        component: string
-        message: int
-      then:
-        - lambda: id(set_component_value).execute(component, message);
 
     # Service to change the brightness of the display
     - service: set_brightness
@@ -79,12 +63,7 @@ api:
 
     # Service to reset the last interaction value
     - service: reset_last_interaction
-      then:
-        - lambda: id(update_last_interaction).execute(-1);
-
-    # Service to reset the last interaction value adding an offset
-    - service: reset_last_interaction_offset
       variables:
         offset: int
       then:
-        - lambda: id(update_last_interaction_offset).execute(-1, offset);
+        - lambda: id(update_last_interaction).execute(-1, offset);

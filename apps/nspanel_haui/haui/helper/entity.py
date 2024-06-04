@@ -1,5 +1,3 @@
-import dateutil.parser as dp
-
 from ..mapping.color import COLORS
 from ..mapping.icon import (
     SIMPLE_TYPE_MAPPING,
@@ -8,7 +6,6 @@ from ..mapping.icon import (
     WEATHER_MAPPING,
 )
 
-from .datetime import format_datetime
 from .color import rgb_to_rgb565, rgb565_to_rgb, rgb_brightness
 from .icon import get_icon, get_icon_name_by_state
 
@@ -77,13 +74,7 @@ def get_entity_color(haui_entity, default_color):
 
     # weather entity
     if entity_type == "weather":
-        forecast_index = haui_entity.get("forecast_index")
-        condition = None
-        if "forecast" in entity.attributes and forecast_index is not None:
-            if forecast_index < len(entity.attributes["forecast"]):
-                condition = entity.attributes["forecast"][forecast_index]["condition"]
-        else:
-            condition = entity_state
+        condition = entity_state
         # weather color
         color_name = condition.replace("-", "_")
         color_name = f"weather_{color_name}"
@@ -114,7 +105,7 @@ def get_entity_color(haui_entity, default_color):
 
     # additional attributes check
     attr = entity.attributes
-    if "rgb_color" in attr:
+    if "rgb_color" in attr and attr.rgb_color:
         color = attr.rgb_color
         if "brightness" in attr:
             color = rgb_brightness(color, attr.brightness)
@@ -177,13 +168,7 @@ def get_entity_icon(haui_entity, default_icon):
             overwrite_icon = entity.attributes["icon"]
     # weather entity
     elif entity_type == "weather":
-        forecast_index = haui_entity.get("forecast_index")
-        condition = None
-        if "forecast" in entity.attributes and forecast_index is not None:
-            if forecast_index < len(entity.attributes["forecast"]):
-                condition = entity.attributes["forecast"][forecast_index]["condition"]
-        else:
-            condition = entity_state
+        condition = entity_state
         if condition in WEATHER_MAPPING:
             overwrite_icon = WEATHER_MAPPING[condition]
 
@@ -215,13 +200,8 @@ def get_entity_value(haui_entity, default_value):
 
     # weather entity
     if entity_type == "weather":
-        forecast_index = haui_entity.get("forecast_index")
         temp_unit = haui_entity.get_entity_attr("temperature_unit", "°C")
-        if "forecast" in entity.attributes and forecast_index is not None:
-            if forecast_index < len(entity.attributes.forecast):
-                result_value = entity.attributes.forecast[forecast_index]["temperature"]
-        else:
-            result_value = haui_entity.get_entity_attr("temperature", "")
+        result_value = haui_entity.get_entity_attr("temperature", "")
         if result_value:
             result_value = f"{result_value}{temp_unit}"
     # button entity
@@ -291,15 +271,6 @@ def get_entity_name(haui_entity, default_name):
         return name
 
     entity = haui_entity.get_entity()
-    entity_type = haui_entity.get_entity_type()
     name = entity.attributes.get("friendly_name", name)
-
-    # weather entity
-    if entity_type == "weather":
-        forecast_index = haui_entity.get("forecast_index")
-        if "forecast" in entity.attributes and forecast_index is not None:
-            if forecast_index < len(entity.attributes.forecast):
-                fdate = dp.parse(entity.attributes.forecast[forecast_index]["datetime"])
-                name = format_datetime(fdate, "%a", "E", haui_entity.get_locale())
 
     return name

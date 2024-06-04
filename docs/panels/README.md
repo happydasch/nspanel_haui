@@ -34,13 +34,13 @@ Special Panels without navigation. Can be used as a screensaver.
 
 Provides a display with weather details and time / date.
 
-![Panel Weather](../assets/panel_weather.png)
+![Panel Weather](../assets/panel_weather_background.png)
 
 ### [Panel Clock](panel_clock.md) `clock`
 
 Provides a display with time / date and weather details.
 
-![Panel Clock](../assets/panel_clock.png)
+![Panel Clock](../assets/panel_clock_background.png)
 
 ## Entities Panels
 

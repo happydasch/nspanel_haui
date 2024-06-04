@@ -1,0 +1,380 @@
+#
+# Interaction test config
+#
+# This is only used for testing interactions
+#
+# !!! FOR TESTING PURPOSES !!!
+#
+# What it does:
+#
+# - update last interaction time
+# - check buttons / touch events
+# - track touch coordinates on touch event
+#
+
+
+# Configuration Variables
+substitutions:
+  # Version of this yaml config file
+  yaml_version: '0.2.0'
+  # Name of the device
+  name: nspanel-test
+  # Friendly name of the device
+  friendly_name: 'NSPanel HAUI Test'
+  # Accounts and URLs
+  ota_password: !secret ota_password
+  encryption_key: !secret api_encryption_key
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  web_username: !secret web_username
+  web_password: !secret web_password
+
+
+# ESP Configuration
+esp32:
+  board: esp32dev
+
+
+# ESPHome Configuration
+esphome:
+  name: $name
+  friendly_name: $friendly_name
+
+
+# Logger Configuration
+logger:
+  level: DEBUG
+
+
+# OTA Configuration
+ota:
+  password: $ota_password
+  safe_mode: true
+  reboot_timeout: 3min
+  num_attempts: 3
+
+
+# WIFI Configuration
+wifi:
+  # use_address is useful when there are issues with renaming of the device name
+  #use_address: nspanel.local
+  ssid: $wifi_ssid
+  password: $wifi_password
+  power_save_mode: none
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: $name
+    password: $wifi_password
+
+# Captive Portal
+captive_portal:
+
+
+# Web Server
+web_server:
+  port: 80
+  auth:
+    username: $web_username
+    password: $web_password
+
+
+# UART for Display
+uart:
+  tx_pin: 16
+  rx_pin: 17
+  baud_rate: 115200
+  id: haui_uart
+
+
+# Display
+display:
+
+  - platform: nextion
+    id: haui_disp
+    uart_id: haui_uart
+    # set the nextion manually as initialized
+    on_setup:
+      then:
+        # set brightness to 30
+        - lambda: id(haui_disp).set_brightness(0.3);
+        # do not continue until api is not connected
+        - wait_until:
+            api.connected
+        # set as initialized
+        - lambda: |-
+            id(haui_disp).goto_page("system");
+            id(update_last_interaction_offset).execute(-1, 0);
+            id(haui_init) = true;
+    on_page:
+      then:
+        - lambda: |-
+            ESP_LOGD("haui", "on_page %d", x);
+            id(page).publish_state(x);
+
+
+# API configuration
+api:
+
+  # API Password for HA
+  encryption:
+    key: $encryption_key
+
+  # Available services
+  services:
+
+    # Service to send a command
+    # This will send a command to the nextion display
+    - service: send_command
+      variables:
+        cmd: string
+      then:
+        - lambda: id(haui_disp).send_command(cmd.c_str());
+
+    # Service to reset the last interaction value
+    - service: reset_last_interaction
+      then:
+        - lambda: id(update_last_interaction_offset).execute(-1, 0);
+
+
+# Globals Configuration
+globals:
+
+  # Keep track on whether the display is ready or not.
+  - id: haui_init
+    type: bool
+    restore_value: false
+
+
+# Interval Configuration
+interval:
+
+  # Interaction timeout check
+  - interval: 50ms
+    then:
+      - lambda: |-
+          const uint8_t timeout = 1;  // timeout after 1 sec
+          uint32_t prev_time = id(last_interaction).state;
+          uint32_t curr_time = millis() / 1000;
+          int curr_x = id(touch_x).state;
+          int curr_y = id(touch_y).state;
+          static int prev_x = 0;
+          static int prev_y = 0;
+          bool is_touch = false;
+          bool is_button = false;
+
+          if (curr_x != 0 && curr_y != 0) {
+            // ensure prev time is set
+            if (prev_time == 0)
+                prev_time = curr_time;
+            if (prev_time + timeout >= curr_time) {
+              // no timeout, set is_touch
+              is_touch = true;
+            }
+          }
+
+          if (is_touch) {
+            // touch active
+            if (!id(touch).state) {
+              ESP_LOGD("haui", "Touch Press (%d,%d)", curr_x, curr_y);
+              id(touch).publish_state(true);
+            }
+          } else {
+            if (id(touch).state) {
+              prev_time = 0;
+              ESP_LOGD("haui", "Touch Release (%d,%d)", prev_x, prev_y);
+              id(touch).publish_state(false);
+            }
+          }
+
+          prev_x = curr_x;
+          prev_y = curr_y;
+
+
+  # Last Interaction ago log info
+  - interval: 1s
+    then:
+      - lambda: |-
+          if (id(touch).state) {
+            return;
+          }
+          float now = millis()/100;
+          float diff_seconds = (now - id(last_interaction).state) / 10;
+          ESP_LOGD("haui", "Time since last interaction: %f", diff_seconds);
+
+
+# Script Configuration
+script:
+
+  # Script to update the last interaction time
+  - id: update_last_interaction
+    mode: restart
+    parameters:
+      new_value: int
+    then:
+      - lambda: |-
+          id(update_last_interaction_offset).execute(new_value, 0);
+
+  # Script to update the last interaction time adding an offset
+  - id: update_last_interaction_offset
+    mode: restart
+    parameters:
+      new_value: int
+      offset: float
+    then:
+      - lambda: |-
+          int32_t interaction_val = new_value;
+          if (new_value == -1) {
+              int32_t time_now = millis() / 100; // use 0.1s as the lowest change
+              int32_t offset_ = offset * 10; // use 0.1s as the lowest change
+              if (time_now < offset_) {
+                // overflow occurred, reset interaction_val
+                interaction_val = 0;
+              } else {
+                interaction_val = time_now - offset_;
+              }
+          }
+          if (id(last_interaction).state != interaction_val) {
+            id(last_interaction).publish_state(interaction_val);
+          }
+
+
+# Sensor Configuration
+sensor:
+
+  # Current page
+  # this sensor will get updated when a page change event occured
+  - platform: template
+    name: Page
+    id: page
+    internal: false # don't expose too much updates
+    accuracy_decimals: 0
+    update_interval: never
+
+  # Touch X coordinates
+  - platform: nextion
+    nextion_id: haui_disp
+    name: "Touch X"
+    id: touch_x
+    variable_name: tch0
+    update_interval: 100ms
+    accuracy_decimals: 0
+    internal: false # don't expose too much updates
+    filters:
+      # Allow to pass the value only if the value changed
+      - lambda: |-
+          if (int(id(touch_x).state) != int(x)) {
+            id(update_last_interaction_offset).execute(-1, 0);
+            return int(x);
+          } else {
+            return {};
+          }
+
+  # Touch Y coordinates
+  - platform: nextion
+    nextion_id: haui_disp
+    name: "Touch Y"
+    id: touch_y
+    variable_name: tch1
+    update_interval: 100ms
+    accuracy_decimals: 0
+    internal: false # don't expose too much updates
+    filters:
+      # Allow to pass the value only if the value changed
+      - lambda: |-
+          if (int(id(touch_y).state) != int(x)) {
+            id(update_last_interaction_offset).execute(-1, 0);
+            return int(x);
+          } else {
+            return {};
+          }
+
+  # Last Interaction
+  # timestamp with last time an interaction happened
+  - platform: template
+    id: last_interaction
+    name: Last Interaction
+    update_interval: never
+    accuracy_decimals: 0
+    internal: false # don't expose too much updates
+    on_value:
+        - lambda: |-
+            id(update_last_interaction_offset).execute(x, 0);
+
+
+# Switch Configuration
+switch:
+
+  # Display Always On
+  # this will make sure that the display is always on
+  - platform: gpio
+    name: Screen Power
+    id: screen_power
+    entity_category: config
+    restore_mode: ALWAYS_ON
+    internal: false
+    pin:
+      number: 4
+      inverted: true
+
+  # Should buttons be used for interaction
+  - platform: template
+    name: Use Button Interaction
+    id: use_button_interaction
+    entity_category: config
+    restore_mode: RESTORE_DEFAULT_ON
+    optimistic: true
+
+  # Physical switch left
+  - platform: gpio
+    name: Relay Left
+    id: relay_left
+    pin:
+      number: 22
+
+  # Physical switch right
+  - platform: gpio
+    name: Relay Right
+    id: relay_right
+    pin:
+      number: 19
+
+
+# Binary Sensor Configuration
+binary_sensor:
+
+  # Touch state
+  # on when touch is active, off if not active
+  - platform: template
+    name: Touch
+    id: touch
+    internal: false
+
+  #  Physical hardware button below display to toggle relay
+  - platform: gpio
+    name: Button Left
+    id: button_left
+    pin:
+      number: 14
+      inverted: true
+    on_click:
+      then:
+        - lambda: |-
+            if (id(use_button_interaction).state) {
+              id(update_last_interaction_offset).execute(-1, 0);
+            }
+        - switch.toggle: relay_left
+
+  # Physical hardware button below display to toggle relay
+  - platform: gpio
+    name: Button Right
+    id: button_right
+    pin:
+      number: 27
+      inverted: true
+    on_click:
+      then:
+        - lambda: |-
+            if (id(use_button_interaction).state) {
+              id(update_last_interaction_offset).execute(-1, 0);
+            }
+        - switch.toggle: relay_right

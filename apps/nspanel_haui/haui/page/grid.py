@@ -4,6 +4,7 @@ from ..helper.text import trim_text
 
 from . import HAUIPage
 import random
+import math
 
 
 class GridPage(HAUIPage):
@@ -73,8 +74,9 @@ class GridPage(HAUIPage):
         self._current_page = panel.get("initial_page", 0)
         self._color_seed = panel.get("color_seed", random.randint(0, 1000))
         # set function buttons
-        page_btn = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC,
+        mode = self.panel.get_mode()
+        btn_right_2 = {
+            "fnc_component": self.BTN_FNC_RIGHT_SEC if mode != "subpanel" else self.BTN_FNC_RIGHT_PRI,
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": self.ICO_NEXT_PAGE,
@@ -82,11 +84,16 @@ class GridPage(HAUIPage):
                 "visible": True if len(self._entities) > self.NUM_GRIDS else False,
             },
         }
+        if mode != "subpanel":
+            btn_right_1 = self.BTN_FNC_RIGHT_PRI
+        else:
+            btn_right_1 = btn_right_2
+            btn_right_2 = self.BTN_FNC_RIGHT_SEC
         self.set_function_buttons(
             self.BTN_FNC_LEFT_PRI,
             self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
-            page_btn,
+            btn_right_1,
+            btn_right_2,
         )
         # set power and grid button callbacks
         for i in range(self.NUM_GRIDS):
@@ -123,11 +130,11 @@ class GridPage(HAUIPage):
         mapping = []
         for i in range(self.NUM_GRIDS):
             entity = None
-            idx = i + 1
             if len(entities) > i:
                 entity = entities[i]
             # click events are captured by overlay, assign
             # entities to button overlay
+            idx = i + 1
             ovl = getattr(self, f"G{idx}_OVL")
             power = getattr(self, f"G{idx}_POWER")
             self._active_entities[ovl] = entity
@@ -278,7 +285,7 @@ class GridPage(HAUIPage):
 
     def callback_function_component(self, fnc_id, fnc_name):
         if fnc_name == "next_page":
-            count_pages = (len(self._entities) % self.NUM_GRIDS) + 1
+            count_pages = math.ceil(len(self._entities) / self.NUM_GRIDS)
             self._current_page += 1
             if self._current_page >= count_pages:
                 self._current_page = 0

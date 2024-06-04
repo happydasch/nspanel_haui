@@ -202,7 +202,13 @@
           "medium": "Medium",
           "high": "High",
           "max": "Maximum",
-          "off": "Off"
+          "off": "Off",
+          "gentle": "Gentle",
+          "balanced": "Balanced",
+          "turbo": "Turbo",
+          "quiet": "Quiet",
+          "custom": "Custom",
+          "max_plus": "Max Plus"
         }
       }
     },
@@ -371,6 +377,7 @@
     "Select source": "",
     "Select media": "",
     "Select group members": "",
+    "Cover": "",
     "Light": "",
     "Off": "",
     "No effect": "",
@@ -392,6 +399,7 @@
     "AD-Version:": "",
     "Settings": "",
     "Full and Dimmed Brightness:": "",
+    "Climate": "",
     "Got unknown TFT-Version information.": "",
     "Your TFT-version is outdated.": "",
     "Do you want to check for a update?": "",

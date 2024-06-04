@@ -36,3 +36,26 @@ class VacuumFeatures:
     MAP = 2048
     STATE = 4096  # Must be set by vacuum platforms derived from StateVacuumEntity
     START = 8192
+
+
+class ClimateFeatures:
+    TARGET_TEMPERATURE = 1
+    TARGET_TEMPERATURE_RANGE = 2
+    TARGET_HUMIDITY = 4
+    FAN_MODE = 8
+    PRESET_MODE = 16
+    SWING_MODE = 32
+    AUX_HEAT = 64
+    TURN_OFF = 128
+    TURN_ON = 256
+
+
+class CoverFeatures:
+    OPEN = 1
+    CLOSE = 2
+    SET_POSITION = 4
+    STOP = 8
+    OPEN_TILT = 16
+    CLOSE_TILT = 32
+    STOP_TILT = 64
+    SET_TILT_POSITION = 128

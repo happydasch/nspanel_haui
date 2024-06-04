@@ -75,7 +75,7 @@ class QRPage(HAUIPage):
     def render_panel(self, panel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
         entities = panel.get_entities()
-        max_len = 16
+        max_len = 20
         for i in range(2):
             if len(entities) <= i:
                 break

@@ -1,14 +1,191 @@
 ---
+
+# Binary Sensor Configuration
+binary_sensor:
+
+  # Touch state
+  - platform: template
+    name: Touch
+    id: touch
+    internal: false
+
+  #  Physical hardware button below display to toggle relay
+  - platform: gpio
+    name: Button Left
+    id: button_left
+    pin:
+      number: 14
+      inverted: true
+    on_press:
+      then:
+        - lambda: |-
+            id(publish_event).execute("button_left", "1");
+            if (id(use_button_interaction).state) {
+              id(update_last_interaction).execute(-1, 0);
+            }
+
+    on_release:
+      then:
+        - lambda: |-
+            id(publish_event).execute("button_left", "0");
+    on_click:
+      if:
+        condition:
+        - switch.is_on: use_relay_left
+        then:
+        - switch.toggle: relay_left
+
+
+  # Physical hardware button below display to toggle relay
+  - platform: gpio
+    name: Button Right
+    id: button_right
+    pin:
+      number: 27
+      inverted: true
+    on_press:
+      then:
+        - lambda: |-
+            id(publish_event).execute("button_right", "1");
+            if (id(use_button_interaction).state) {
+              id(update_last_interaction).execute(-1, 0);
+            }
+    on_release:
+      then:
+        - lambda: |-
+            id(publish_event).execute("button_right", "0");
+    on_click:
+      if:
+        condition:
+        - switch.is_on: use_relay_right
+        then:
+        - switch.toggle: relay_right
+
+
+# Text Sensor Configuration
+text_sensor:
+
+  # Number request component
+  - platform: template
+    name: Request number component
+    id: req_val_component
+    update_interval: never
+    internal: true
+
+  # Text request component
+  - platform: template
+    name: Request text component
+    id: req_txt_component
+    update_interval: never
+    internal: true
+
+  # Response text
+  - platform: nextion
+    nextion_id: haui_disp
+    name: Response Text
+    id: res_txt
+    update_interval: never
+    component_name: system.resTxt
+    internal: false
+    on_value:
+      - lambda: |-
+          if (id(req_txt_component).state != "") {
+            auto name = id(req_txt_component).state;
+            const json::json_build_t payload = [name, x](JsonObject root) {
+              root["name"] = name;
+              root["value"] = x;
+            };
+            auto payload_str = build_json(payload);
+            id(publish_event).execute("res_txt", payload_str);
+          }
+
+  # YAML-Version
+  - platform: template
+    name: YAML-Version
+    id: display_yaml_version
+    update_interval: never
+    entity_category: diagnostic
+    internal: false
+    lambda: |-
+      return {"$yaml_version"};
+
+  # TFT-Version
+  - platform: nextion
+    nextion_id: haui_disp
+    name: TFT-Version
+    id: display_tft_version
+    update_interval: never
+    component_name: system.tftVersion
+    entity_category: diagnostic
+    internal: false
+
+  # Wifi informations
+  - platform: wifi_info
+    ip_address:
+      name: IP
+      disabled_by_default: true
+      id: ip_address
+    ssid:
+      name: SSID
+      disabled_by_default: true
+    bssid:
+      name: BSSID
+      disabled_by_default: true
+
+  # Server Status (AppDaemon App)
+  - platform: mqtt_subscribe
+    name: Server Status
+    id: server_status
+    topic: nspanel_haui/status
+    entity_category: diagnostic
+    internal: false
+    on_value:
+      - lambda: |-
+          ESP_LOGD("haui", "HAUI Server Status %s", x.c_str());
+          if (x == "online") {
+            id(ad_availability) = true;
+          } else {
+            id(ad_availability) = false;
+          }
+
+  # Client Status (ESPHome)
+  - platform: template
+    name: Client Status
+    id: client_status
+    entity_category: diagnostic
+    update_interval: never
+    internal: false
+
+
 # Sensor Configuration
 sensor:
 
+  # Response number
+  - platform: nextion
+    nextion_id: haui_disp
+    name: Response Number
+    id: res_val
+    component_name: system.resVal
+    update_interval: never
+    accuracy_decimals: 0
+    internal: true
+    on_value:
+      - lambda: |-
+          if (id(req_val_component).state != "") {
+            auto name = id(req_val_component).state;
+            const json::json_build_t payload = [name, x](JsonObject root) {
+              root["name"] = name;
+              root["value"] = x;
+            };
+            auto payload_str = build_json(payload);
+            id(publish_event).execute("res_val", payload_str);
+          }
   # Current page
-  # using the dp variable from nextion so no need to synchronize
-  # this value, it contains the page id
+  # this sensor will get updated when a page change event occured
   - platform: template
     name: Page
     id: page
-    internal: true # don't expose too much updates
+    internal: true
     accuracy_decimals: 0
     update_interval: never
     on_value:
@@ -16,55 +193,59 @@ sensor:
         - lambda: |-
             id(publish_event).execute("page", to_string((uint8_t)x));
 
-  # Current brightness
-  - platform: template
-    name: Brightness
-    id: brightness
-    internal: true # don't expose too much updates
-    accuracy_decimals: 0
-    update_interval: 500ms
-    lambda: |-
-      // check the current brightness against device brightness
-      if (id(haui_disp).is_sleeping()) {
-        if (id(brightness).state != 0) {
-          return 0;
-        }
-      } else {
-        int brightness_val = id(haui_disp).get_int_value("dim", id(brightness).state);
-        if (id(brightness).state != brightness_val) {
-          return brightness_val;
-        }
-      }
-      return {};
-
   # Touch X coordinates
-  - platform: template
-    name: Touch X
+  - platform: nextion
+    nextion_id: haui_disp
+    name: "Touch X"
     id: touch_x
-    internal: true  # don't expose too much updates
-    accuracy_decimals: 0
+    variable_name: tch0
     update_interval: never
+    accuracy_decimals: 0
+    internal: true
     filters:
       # Allow to pass the value only if the value changed
       - lambda: |-
-          if (int(id(touch_x).state) != int(x)) {
-            return int(x);
+          // make sure to compare numbers
+          if (id(touch_x).state != x) {
+            id(update_last_interaction).execute(-1, 0);
+            return x;
           } else {
             return {};
           }
 
   # Touch Y coordinates
-  - platform: template
-    name: Touch Y
+  - platform: nextion
+    nextion_id: haui_disp
+    name: "Touch Y"
     id: touch_y
-    internal: true  # don't expose too much updates
-    accuracy_decimals: 0
+    variable_name: tch1
     update_interval: never
+    accuracy_decimals: 0
+    internal: true
     filters:
       # Allow to pass the value only if the value changed
       - lambda: |-
+          // make sure to compare numbers
           if (int(id(touch_y).state) != int(x)) {
-            return int(x);
+            id(update_last_interaction).execute(-1, 0);
+            return x;
+          } else {
+            return {};
+          }
+
+  # Brightness of display
+  - platform: nextion
+    nextion_id: haui_disp
+    id: brightness
+    name: Brightness
+    internal: false
+    accuracy_decimals: 0
+    update_interval: never
+    variable_name: dim
+    filters:
+      - lambda: |-
+          if (int(id(brightness).state) != int(x)) {
+            return x;
           } else {
             return {};
           }
@@ -78,7 +259,7 @@ sensor:
     internal: true  # don't expose too much updates
     on_value:
         - lambda: |-
-            id(update_last_interaction).execute(x);
+            id(update_last_interaction).execute(x, 0);
 
   # Uptime
   - platform: uptime
@@ -96,7 +277,7 @@ sensor:
     id: ntc_source
     pin: 38
     update_interval: 60s
-    attenuation: 11db
+    attenuation: 12db
     entity_category: diagnostic
     disabled_by_default: true
 

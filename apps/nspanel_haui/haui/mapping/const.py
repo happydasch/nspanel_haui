@@ -17,6 +17,8 @@ ESP_EVENT = {
         "button_right",
         "relay_left",
         "relay_right",
+        "use_relay_left",
+        "use_relay_right",
         "timeout",
         "display_state",
     ]

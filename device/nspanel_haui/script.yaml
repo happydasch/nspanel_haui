@@ -104,13 +104,15 @@ script:
           int button_right_val = id(button_right).state;
           int relay_left_val = id(relay_left).state;
           int relay_right_val = id(relay_right).state;
+          int use_relay_left_val = id(use_relay_left).state ? 1: 0;
+          int use_relay_right_val = id(use_relay_right).state ? 1: 0;
           auto display_state_val = id(haui_display_state);
           auto tft_version = id(display_tft_version).get_state();
           auto required_tft_version = "$required_tft_version";
           const json::json_build_t payload = [
               page_val, brightness_val, button_left_val, button_right_val,
-              relay_left_val, relay_right_val, display_state_val, tft_version,
-              required_tft_version
+              relay_left_val, relay_right_val, use_relay_left_val, use_relay_right_val,
+              display_state_val, tft_version, required_tft_version
           ](JsonObject root) {
             root["page"] = page_val;
             root["brightness"] = brightness_val;
@@ -118,6 +120,8 @@ script:
             root["button_right"] = button_right_val;
             root["relay_left"] = relay_left_val;
             root["relay_right"] = relay_right_val;
+            root["use_relay_left"] = use_relay_left_val;
+            root["use_relay_right"] = use_relay_right_val;
             root["display_state"] = display_state_val;
             root["tft_version"] = tft_version;
             root["required_tft_version"] = required_tft_version;
@@ -489,9 +493,6 @@ script:
     then:
       - lambda: |-
           if (!id(ad_connection) || !id(use_auto_page).state) {
-            if (id(use_auto_page).state && id(page).state != 1) {
-              id(goto_page).execute("1");  // system
-            }
             return;
           }
 

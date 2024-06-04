@@ -150,7 +150,7 @@ class HAUIConnectionController(HAUIPart):
             # request latest device state infos
             self.send_mqtt(ESP_REQUEST["req_device_state"])
         elif event.name == ESP_RESPONSE["res_device_state"]:
-            # self.log(f'Device state received {event.value}')
+            self.log(f'Device state received {event.value}')
             device_state = json.loads(event.value)
             device.set_device_info(device_state, append=True)
             # after getting device state the device is connected

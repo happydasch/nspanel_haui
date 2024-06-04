@@ -154,16 +154,12 @@ class HAUIDevice(HAUIPart):
         This will change the state of the set entity. By default its the relay.
         """
         entity_id = self._btn_left_info["entity_id"]
-        self.log(f"Setting left button state {entity_id}")
         if not self.app.entity_exists(entity_id):
             return
-        entity = self.app.get_entity(entity_id)
-        entity.call_service("toggle")
-        self._btn_left_info["state"] = not self._btn_left_info["state"]
-        navigation = self.app.controller["navigation"]
-        if not navigation.page:
-            return
-        navigation.page.set_button_left_state(self._btn_left_info["state"])
+        # toggle entity
+        if not self.device_info.get("use_relay_left", True):
+            entity = self.app.get_entity(entity_id)
+            entity.call_service("toggle")
 
     def get_right_button_state(self):
         """Returns the right button state.
@@ -179,16 +175,13 @@ class HAUIDevice(HAUIPart):
         This will change the state of the set entity. By default its the relay.
         """
         entity_id = self._btn_right_info["entity_id"]
-        self.log(f"Setting right button state {entity_id}")
         if not self.app.entity_exists(entity_id):
             return
-        entity = self.app.get_entity(entity_id)
-        navigation = self.app.controller["navigation"]
-        if not navigation.page:
-            return
-        entity.call_service("toggle")
-        self._btn_right_info["state"] = not self._btn_right_info["state"]
-        navigation.page.set_button_right_state(self._btn_right_info["state"])
+        # toggle entity
+        self.log(f"device button right {self.device_info.get('use_relay_right', True)}")
+        if not self.device_info.get("use_relay_right", True):
+            entity = self.app.get_entity(entity_id)
+            entity.call_service("toggle")
 
     # callback
 
@@ -267,7 +260,6 @@ class HAUIDevice(HAUIPart):
             if event.value == "0":
                 self.check_wake_up()
                 self.toggle_left_button_state()
-
         elif event.name == ESP_EVENT["button_right"]:
             if event.value == "0":
                 self.check_wake_up()

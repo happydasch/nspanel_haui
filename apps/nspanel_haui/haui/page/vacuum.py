@@ -95,6 +95,7 @@ class VacuumPage(HAUIPage):
         features = entity.get_entity_attr("supported_features", 0)
         # add listener
         self.add_entity_listener(entity.get_entity_id(), self.callback_vacuum_entity)
+        self.add_entity_listener(entity.get_entity_id(), self.callback_vacuum_entity, attribute="status")
         # fan button
         fan = False
         if features & VacuumFeatures.FAN_SPEED:
@@ -294,7 +295,7 @@ class VacuumPage(HAUIPage):
             self.log(f"{fnc_id}, {fnc_name}")
 
     def callback_vacuum_entity(self, entity, attribute, old, new, kwargs):
-        if attribute == "state":
+        if attribute in ["state", "status"]:
             self.start_rec_cmd()
             self.update_vacuum_entity()
             self.stop_rec_cmd(send_commands=True)

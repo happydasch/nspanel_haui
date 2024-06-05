@@ -67,8 +67,9 @@ class CoverPage(HAUIPage):
         supported_features = entity.get_entity_attr("supported_features", 0)
         current_position = entity.get_entity_attr("current_position", 0)
         # add listener
-        self.add_entity_listener(
-            entity.get_entity_id(), self.callback_cover_entity)
+        self.add_entity_listener(entity.get_entity_id(), self.callback_cover_entity)
+
+        self.add_entity_listener(entity.get_entity_id(), self.callback_cover_entity, attribute="current_position")
         # up button
         visible = False
         if supported_features & CoverFeatures.OPEN:

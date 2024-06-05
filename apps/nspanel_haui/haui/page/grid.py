@@ -189,28 +189,30 @@ class GridPage(HAUIPage):
             color_mode = entity.get("color_mode", color_mode)
             color_seed = entity.get("color_seed", color_seed)
         # no background color check if color mode or set default
+        if back_color is None and color_mode is not None:
+            self.log(f"Using random seed for grid: {color_seed}")
+            colors = generate_color_palette(
+                rgb565_to_rgb(COLORS["background"]), color_mode, color_seed, 6
+            )
+            back_color = colors[idx - 1]
+            back_color_pressed = [int(x * 0.5) for x in back_color]
+            # for light back colors use dark text color
+            if color_mode in ["pastel", "light", "lighten"]:
+                if text_color is None:
+                    text_color = COLORS["background"]
+                color_pressed = COLORS["component_pressed"]
+                power_color = COLORS["background"]
+            elif color_mode in ["vibrant"]:
+                if text_color is None:
+                    text_color = COLORS["component"]
+                color_pressed = COLORS["component"]
+                power_color = COLORS["component"]
+        # text color
+        if text_color is None:
+            text_color = COLORS["text"]
+        # back color
         if back_color is None:
-            if color_mode is not None:
-                self.log(f"Using random seed for grid: {color_seed}")
-                colors = generate_color_palette(
-                    rgb565_to_rgb(COLORS["background"]), color_mode, color_seed, 6
-                )
-                back_color = colors[idx - 1]
-                back_color_pressed = [int(x * 0.5) for x in back_color]
-                # for light back colors use dark text color
-                if color_mode in ["pastel", "light", "lighten"]:
-                    if text_color is None:
-                        text_color = COLORS["background"]
-                    color_pressed = COLORS["component_pressed"]
-                    power_color = COLORS["background"]
-                elif color_mode in ["vibrant"]:
-                    if text_color is None:
-                        text_color = COLORS["component"]
-                    color_pressed = COLORS["component"]
-                    power_color = COLORS["component"]
-            else:
-                back_color = COLORS["background"]
-                text_color = COLORS["text"]
+            back_color = COLORS["background"]
         # update grid button
         if visible:
             if text_color is not None:

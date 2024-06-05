@@ -166,11 +166,6 @@ def get_entity_icon(haui_entity, default_icon):
             overwrite_icon = "radio"
         if "icon" in entity.attributes:
             overwrite_icon = entity.attributes["icon"]
-    # weather entity
-    elif entity_type == "weather":
-        condition = entity_state
-        if condition in WEATHER_MAPPING:
-            overwrite_icon = WEATHER_MAPPING[condition]
 
     if overwrite_icon:
         result_icon = overwrite_icon

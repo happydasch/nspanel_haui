@@ -249,9 +249,12 @@ script:
     then:
       - lambda: |-
           // no auto dimming, appdaemon not available, full brightness
-          if (!id(use_auto_dimming).state || !id(ad_connection)) {
+          if (!id(ad_connection) || !id(use_auto_dimming).state) {
             if (id(brightness).state != id(brightness_full).state) {
               id(set_brightness).execute(id(brightness_full).state);
+            }
+            if (!id(ad_connection) && int(id(page).state) != 1) {
+              id(goto_page).execute("1");  // system
             }
             return;
           }
@@ -371,7 +374,7 @@ script:
           int current_state = int(id(haui_display_state));
           int new_state = current_state;
           // wakeup page (default system)
-          static std::string wakeup_page = "system";
+          static std::string wakeup_page = "1"; // system
           // duration of dimming
           float duration_dim_val = id(duration_dim).state;
           // last interaction with device
@@ -393,14 +396,14 @@ script:
 
           // update display state
           if (timeout_sleep_val > 0 && diff_seconds > (timeout_sleep_val + duration_dim_val)) {
-            if (!id(use_auto_sleeping).state && current_state == 0) {
+            if (!id(use_auto_sleeping).state && current_state == 0 || !id(ad_connection)) {
               id(update_last_interaction).execute(-1, 0);
               new_state = 2;
             } else if (id(use_auto_sleeping).state && current_state != 0) {
               new_state = 0;
             }
           } else if (timeout_dim_val > 0 && diff_seconds > (timeout_dim_val + duration_dim_val)) {
-            if (!id(use_auto_dimming).state && current_state == 1) {
+            if (!id(use_auto_dimming).state && current_state == 1 || !id(ad_connection)) {
               new_state = 2;
             } else if (id(use_auto_dimming).state && current_state != 1) {
               new_state = 1;

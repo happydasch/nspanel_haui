@@ -447,7 +447,7 @@ class RowPage(HAUIPage):
 
     def callback_function_component(self, fnc_id, fnc_name):
         if fnc_name == "next_page":
-            count_pages = math.ceil(len(self._entities) / self.NUM_GRIDS)
+            count_pages = math.ceil(len(self._entities) / self.NUM_ROWS)
             self._current_page += 1
             if self._current_page >= count_pages:
                 self._current_page = 0

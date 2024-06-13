@@ -14,8 +14,9 @@
     - [Panel Media `media`](#panel-media-media)
     - [Panel Vacuum `vacuum`](#panel-vacuum-vacuum)
     - [Panel QR-Code `qr`](#panel-qr-code-qr)
-    - [Panel Timer `timer`](#panel-timer-timer)
     - [Panel Cover `cover`](#panel-cover-cover)
+    - [Panel Climage `climate`](#panel-climage-climate)
+    - [Panel Timer `timer`](#panel-timer-timer)
   - [Other Panels](#other-panels)
     - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
     - [Popup Notify `popup_notify`](#popup-notify-popup_notify)
@@ -86,17 +87,23 @@ Panels with navigation. Main Display Elements.
 
   ![Panel QR-Code](../assets/panel_qr.png)
 
-### [Panel Timer](panel_timer.md) `timer`
-
-  Timer panel.
-
-  ![Panel Timer](../assets/panel_timer.png)
-
 ### [Panel Cover](panel_cover.md) `cover`
 
   Cover panel.
 
   ![Panel Cover](../assets/panel_cover.png)
+
+### [Panel Climage](panel_climate.md) `climate`
+
+  Climate panel.
+
+  ![Panel Climate](../assets/panel_climate.png)
+
+### [Panel Timer](panel_timer.md) `timer`
+
+  Timer panel.
+
+  ![Panel Timer](../assets/panel_timer.png)
 
 ## Other Panels
 

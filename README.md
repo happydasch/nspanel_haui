@@ -135,12 +135,6 @@ For details about how the parts of the whole system communicate together see [NS
 
   - Replace AppDaemon with Home Assistant Integration
 
-- **Additional upcoming functionality:**
-
-  - Panels:
-    - Climate
-    - Alarm?
-
 ## Resources
 
 The project is based on the ideas of [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) and [NSPanel Custom with HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint).

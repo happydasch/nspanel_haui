@@ -137,8 +137,12 @@ class LightPage(HAUIPage):
         btn = getattr(self, f"BTN_LIGHT_FNC_{idx}")
         self.set_component_text(btn, ico)
         if status is True:
+            if self._current_light_function is not None:
+                color = COLORS["component"]
+            else:
+                color = COLORS["component_active"]
             self.send_cmd(f"tsw {btn[1]},1")
-            self.set_component_text_color(btn, COLORS["component"])
+            self.set_component_text_color(btn, color)
         else:
             self.send_cmd(f"tsw {btn[1]},0")
             self.set_component_text_color(btn, COLORS["text_inactive"])

@@ -2,7 +2,8 @@ from ..mapping.const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..helper.color import rgb_to_rgb565
-from ..base import HAUIPart
+from ..base import HAUIEvent, HAUIPart
+from ..config import HAUIConfigPanel, HAUIConfigEntity
 
 
 # class for pages / panels
@@ -55,7 +56,7 @@ class HAUIPage(HAUIPart):
             None  # will be set to the page id when a page event is recieved
         )
         # current panel
-        self.panel = None
+        self.panel: HAUIConfigPanel = None
         # function items, components
         self._fnc_items = {}
         # physical buttons, components
@@ -123,7 +124,7 @@ class HAUIPage(HAUIPart):
         # stop recording of commands to be sent
         self.stop_rec_cmd(send_commands=True)
 
-    def set_panel(self, panel):
+    def set_panel(self, panel: HAUIConfigPanel):
         """Sets a panel for the page.
 
         This is used to set a panel for current page.
@@ -157,7 +158,7 @@ class HAUIPage(HAUIPart):
         # 4. call after render for panel
         self.after_render_panel(panel, rendered)
 
-    def config_panel(self, panel):
+    def config_panel(self, panel: HAUIConfigPanel):
         """Configures the currently set panel.
 
         Args:
@@ -270,7 +271,7 @@ class HAUIPage(HAUIPart):
 
         self.stop_rec_cmd(send_commands=True)
 
-    def create_panel(self, panel):
+    def create_panel(self, panel: HAUIConfigPanel):
         """Called when a new panel is created.
 
         This method should be overwritten in the page.
@@ -279,7 +280,7 @@ class HAUIPage(HAUIPart):
             panel (HAUIConfigPanel): Current panel
         """
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         """Called when a panel is started.
 
         This method should be overwritten in the page.
@@ -288,7 +289,7 @@ class HAUIPage(HAUIPart):
             panel (HAUIConfigPanel): Current panel
         """
 
-    def stop_panel(self, panel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         """Called when a panel is stopped.
 
         This method should be overwritten in the page.
@@ -297,7 +298,7 @@ class HAUIPage(HAUIPart):
             panel (HAUIConfigPanel): Current panel
         """
 
-    def before_render_panel(self, panel):
+    def before_render_panel(self, panel: HAUIConfigPanel):
         """Called before the panel is rendered.
 
         This method should be overwritten in the page.
@@ -310,7 +311,7 @@ class HAUIPage(HAUIPart):
         """
         return True
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         """Called when the panel is rendered.
 
         This method should be overwritten in the page.
@@ -319,7 +320,7 @@ class HAUIPage(HAUIPart):
             panel (HAUIConfigPanel): Current panel
         """
 
-    def after_render_panel(self, panel, rendered):
+    def after_render_panel(self, panel: HAUIConfigPanel, rendered):
         """Called after the panel is rendered.
 
         This gives the possibility to execute some checks after showing panel.
@@ -331,7 +332,7 @@ class HAUIPage(HAUIPart):
 
     # entity
 
-    def execute_entity(self, entity):
+    def execute_entity(self, entity: HAUIConfigEntity):
         """Executes the given entity.
 
         Args:
@@ -371,7 +372,7 @@ class HAUIPage(HAUIPart):
             self.log(f"Executing entity {entity.get_name()} - {entity_type}")
             entity.execute()
 
-    def turn_on_entity(self, entity):
+    def turn_on_entity(self, entity: HAUIConfigEntity):
         """Turns on the given entity.
 
         Args:
@@ -384,7 +385,7 @@ class HAUIPage(HAUIPart):
         else:
             entity.call_entity_service('turn_on')
 
-    def turn_off_entity(self, entity):
+    def turn_off_entity(self, entity: HAUIConfigEntity):
         """Turns off the given entity.
 
         Args:
@@ -792,7 +793,7 @@ class HAUIPage(HAUIPart):
 
     # callback
 
-    def callback_button_state_buttons(self, event, component, button_state):
+    def callback_button_state_buttons(self, event: HAUIEvent, component, button_state):
         """Callback method for button state buttons.
 
         Args:
@@ -816,7 +817,7 @@ class HAUIPage(HAUIPart):
             fnc_name (str): Function Name
         """
 
-    def callback_function_components(self, event, component, button_state):
+    def callback_function_components(self, event: HAUIEvent, component, button_state):
         """Callback method for function component events.
 
         Args:
@@ -869,7 +870,7 @@ class HAUIPage(HAUIPart):
 
     # processing
 
-    def process_event(self, event):
+    def process_event(self, event: HAUIEvent):
         """Processes app events.
 
         Args:
@@ -879,7 +880,7 @@ class HAUIPage(HAUIPart):
         if event.name == ESP_EVENT["component"]:
             self.process_component_event(event)
 
-    def process_component_event(self, event):
+    def process_component_event(self, event: HAUIEvent):
         """Processes component events from component callback.
 
         Args:

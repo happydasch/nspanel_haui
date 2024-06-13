@@ -1,6 +1,7 @@
+from typing import List
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
-from ..config import HAUIConfigEntity
+from ..config import HAUIConfigEntity, HAUIConfigPanel
 from ..features import VacuumFeatures
 
 from . import HAUIPage
@@ -26,7 +27,7 @@ class VacuumPage(HAUIPage):
     BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
     # control
-    BTN_FAN, BTN_ACTION  = (7, "bFan"), (8, "bAction")
+    BTN_FAN, BTN_ACTION = (7, "bFan"), (8, "bAction")
     BTN_HOME, BTN_LOCATE = (9, "bHome"), (10, "bLocate")
     # info
     TXT_STATUS = (11, "tStatus")
@@ -45,12 +46,12 @@ class VacuumPage(HAUIPage):
     NUM_ENTITIES = 6
 
     _title = ""
-    _entities = []
-    _vacuum_entity = None
+    _entities: List[HAUIConfigEntity] = []
+    _vacuum_entity: HAUIConfigEntity = None
 
     # panel
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # set function buttons
         vacuum_battery = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,
@@ -83,19 +84,20 @@ class VacuumPage(HAUIPage):
             title = entity.get_entity_attr("friendly_name", title)
         self._title = title
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         self.update_vacuum_entity()
 
     # misc
 
-    def set_vacuum_entity(self, entity):
+    def set_vacuum_entity(self, entity: HAUIConfigEntity):
         self._vacuum_entity = entity
         if not entity or not entity.has_entity_id():
             return
-        features = entity.get_entity_attr("supported_features", 0)
         # add listener
         self.add_entity_listener(entity.get_entity_id(), self.callback_vacuum_entity)
         self.add_entity_listener(entity.get_entity_id(), self.callback_vacuum_entity, attribute="status")
+        # use features of vacuum
+        features = entity.get_entity_attr("supported_features", 0)
         # fan button
         fan = False
         if features & VacuumFeatures.FAN_SPEED:

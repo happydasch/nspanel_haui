@@ -1,7 +1,8 @@
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE, ESP_EVENT
 from ..mapping.color import COLORS
 from ..features import CoverFeatures
-from ..config import HAUIConfigEntity
+from ..config import HAUIConfigEntity, HAUIConfigPanel
+from ..base import HAUIEvent
 from . import HAUIPage
 
 
@@ -24,7 +25,7 @@ class CoverPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # set component callbacks
         self.add_component_callback(self.H_VERT_POS, self.callback_cover_pos)
         # set function buttons
@@ -34,7 +35,7 @@ class CoverPage(HAUIPage):
             self.BTN_FNC_RIGHT_PRI,
             self.BTN_FNC_RIGHT_SEC,
         )
-        # set light function button callbacks
+        # set cover function button callbacks
         for btn in [
             self.BTN_UP,
             self.BTN_STOP,
@@ -42,7 +43,7 @@ class CoverPage(HAUIPage):
         ]:
             self.add_component_callback(btn, self.callback_cover_buttons)
         # set entity
-        entity = None
+        entity: HAUIConfigEntity = None
         entity_id = panel.get("entity_id")
         if entity_id:
             entity = HAUIConfigEntity(self.app, {"entity": entity_id})
@@ -54,13 +55,13 @@ class CoverPage(HAUIPage):
             title = entity.get_entity_attr("friendly_name", title)
         self._title = title
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         self.set_component_text(self.TXT_TITLE, self._title)
         self.update_cover_entity()
 
     # misc
 
-    def set_cover_entity(self, entity):
+    def set_cover_entity(self, entity: HAUIConfigEntity):
         self._cover_entity = entity
         if not entity or not entity.has_entity_id():
             return
@@ -200,7 +201,7 @@ class CoverPage(HAUIPage):
 
     # event
 
-    def process_event(self, event):
+    def process_event(self, event: HAUIEvent):
         super().process_event(event)
         # requested values
         if event.name == ESP_RESPONSE["res_val"]:

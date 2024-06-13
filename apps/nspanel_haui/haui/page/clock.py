@@ -1,3 +1,4 @@
+from typing import List
 import dateutil.parser as dp
 import datetime
 
@@ -7,7 +8,7 @@ from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..helper.datetime import (
     get_time_localized, get_date_localized, format_datetime)
-from ..config import HAUIConfigEntity
+from ..config import HAUIConfigEntity, HAUIConfigPanel
 
 from . import HAUIPage
 
@@ -54,7 +55,7 @@ class ClockPage(HAUIPage):
 
     # panel
 
-    def create_panel(self, panel):
+    def create_panel(self, panel: HAUIConfigPanel):
         # setting: background
         # set before showing panel
         background = panel.get("background", "default")
@@ -62,7 +63,7 @@ class ClockPage(HAUIPage):
         if background in BACKGROUNDS:
             self.send_cmd(f"clock.background.val={BACKGROUNDS[background]}")
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # time update callback
         time = datetime.time(0, 0, 0)
         self._time_timer = self.app.run_minutely(self.callback_update_time, time)
@@ -92,7 +93,7 @@ class ClockPage(HAUIPage):
         self.show_component(self._time_component)
         self.show_component(self._date_component)
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         # time display
         self.update_time()
         # date display
@@ -100,7 +101,7 @@ class ClockPage(HAUIPage):
         # entities
         self.update_entities(panel.get_entities())
 
-    def stop_panel(self, panel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         # cancel time and date timer
         if self._time_timer:
             self.app.cancel_timer(self._time_timer)
@@ -149,7 +150,7 @@ class ClockPage(HAUIPage):
         date = get_date_localized(strftime_format, babel_format, locale)
         self.set_component_text(self._date_component, date)
 
-    def update_entities(self, entities):
+    def update_entities(self, entities: List[HAUIConfigEntity]):
         # first entity is main weather entity
         main = None
         if len(entities):
@@ -166,7 +167,7 @@ class ClockPage(HAUIPage):
                 forecast_data = forecast[i] if i < len(forecast) else None
                 self.update_forecast(i, forecast_data)
 
-    def update_main_weather(self, haui_entity):
+    def update_main_weather(self, haui_entity: HAUIConfigEntity):
         # set up main weather details
         icon = haui_entity.get_icon()
         color = haui_entity.get_color()

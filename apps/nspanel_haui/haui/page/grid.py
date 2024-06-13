@@ -1,6 +1,8 @@
+from typing import List
 from ..mapping.color import COLORS
 from ..helper.color import generate_color_palette, rgb565_to_rgb
 from ..helper.text import trim_text
+from ..config import HAUIConfigEntity, HAUIConfigPanel
 
 from . import HAUIPage
 import random
@@ -59,8 +61,8 @@ class GridPage(HAUIPage):
     NUM_GRIDS = 6
     LEN_NAME = 15
 
-    _entities = []
-    _active_entities = {}
+    _entities: List[HAUIConfigEntity] = []
+    _active_entities: List[HAUIConfigEntity] = {}
     _active_handles = []
     _entity_mapping = []
     _current_page = 0
@@ -68,7 +70,7 @@ class GridPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # set vars
         self._entities = panel.get_entities()
         self._current_page = panel.get("initial_page", 0)
@@ -102,12 +104,12 @@ class GridPage(HAUIPage):
             self.add_component_callback(power, self.callback_power_buttons)
             self.add_component_callback(ovl, self.callback_grid_entries)
 
-    def stop_panel(self, panel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         while self._active_handles:
             handle = self._active_handles.pop()
             self.remove_entity_listener(handle)
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
         self.set_grid_entries()
 

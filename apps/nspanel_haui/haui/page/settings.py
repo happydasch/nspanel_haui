@@ -1,4 +1,6 @@
+from ..config import HAUIConfigPanel
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
+from ..base import HAUIEvent
 
 from . import HAUIPage
 
@@ -24,7 +26,7 @@ class SettingsPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         name = self.app.device.get_name()
 
         # auto dimming component
@@ -62,7 +64,7 @@ class SettingsPage(HAUIPage):
             self.BTN_FNC_RIGHT_SEC,
         )
 
-    def stop_panel(self, panel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         # remove exisiting handles
         if self._handle_brightness_full:
             self.app.cancel_listen_state(self._handle_brightness_full)
@@ -71,7 +73,7 @@ class SettingsPage(HAUIPage):
         if self._use_auto_dimming:
             self.auto_dimming.turn_on()
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         title = panel.get_title(self.translate("Settings"))
         self.set_component_text(self.TXT_TITLE, title)
         self.set_component_text(
@@ -127,7 +129,7 @@ class SettingsPage(HAUIPage):
 
     # event
 
-    def process_event(self, event):
+    def process_event(self, event: HAUIEvent):
         super().process_event(event)
         # check for values for full and dimmed brightness
         if event.name == ESP_RESPONSE["res_val"]:

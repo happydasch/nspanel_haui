@@ -1,9 +1,13 @@
+import math
+from typing import List
+
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon, get_icon_name_by_action
 from ..helper.text import trim_text
+from ..config import HAUIConfigEntity, HAUIConfigPanel
+
 from . import HAUIPage
 
-import math
 
 class RowPage(HAUIPage):
     # common components
@@ -89,14 +93,14 @@ class RowPage(HAUIPage):
     NUM_ROWS = 5
     LEN_NAME = 20
 
-    _entities = []
-    _active_entities = {}
+    _entities: List[HAUIConfigEntity] = []
+    _active_entities: List[HAUIConfigEntity] = {}
     _active_handles = []
     _current_page = 0
 
     # panel
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # set vars
         self._entities = panel.get_entities()
         self._current_page = panel.get("initial_page", 0)
@@ -108,7 +112,7 @@ class RowPage(HAUIPage):
             "fnc_args": {
                 "icon": self.ICO_NEXT_PAGE,
                 "color": COLORS["component_accent"],
-                "visible": True if len(self._entities) > self.NUM_GRIDS else False,
+                "visible": True if len(self._entities) > self.NUM_ROWS else False,
             },
         }
         if mode != "subpanel":
@@ -128,12 +132,12 @@ class RowPage(HAUIPage):
             btn = getattr(self, f"R{idx}_OVL")
             self.add_component_callback(btn, self.callback_row_entries)
 
-    def stop_panel(self, panel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         while self._active_handles:
             handle = self._active_handles.pop()
             self.remove_entity_listener(handle)
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
         self.set_row_entries()
 
@@ -318,7 +322,7 @@ class RowPage(HAUIPage):
 
     # entity detail
 
-    def get_entity_display_type(self, haui_entity):
+    def get_entity_display_type(self, haui_entity: HAUIConfigEntity):
         """Returns how the entity should be displayed.
 
         Entities support different display types:
@@ -349,35 +353,35 @@ class RowPage(HAUIPage):
 
         return display_type
 
-    def update_entity_text(self, haui_entity, idx):
+    def update_entity_text(self, haui_entity: HAUIConfigEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
         self.set_component_text(item, haui_entity.get_value())
 
-    def update_entity_button(self, haui_entity, idx):
+    def update_entity_button(self, haui_entity: HAUIConfigEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
         self.set_component_text(item, haui_entity.get_value())
 
-    def update_entity_timer(self, haui_entity, idx):
+    def update_entity_timer(self, haui_entity: HAUIConfigEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
         self.set_component_text(item, haui_entity.get_value())
 
-    def update_entity_toggle(self, haui_entity, idx):
+    def update_entity_toggle(self, haui_entity: HAUIConfigEntity, idx):
         toggle = getattr(self, f"R{idx}_TOGGLE")
         value = int(toggle.get_value())
         self.set_component_value(toggle, value)
 
-    def update_entity_number(self, haui_entity, idx):
+    def update_entity_number(self, haui_entity: HAUIConfigEntity, idx):
         slider = getattr(self, f"R{idx}_SLIDER")
         slider_val = getattr(self, f"R{idx}_SLIDER_VAL")
-        minval = haui_entity.get_attr("min", 0)
-        maxval = haui_entity.get_attr("max", 100)
-        value = haui_entity.get_state()
+        minval = haui_entity.get_entity_attr("min", 0)
+        maxval = haui_entity.get_entity_attr("max", 100)
+        value = haui_entity.get_entity_state()
         self.set_component_value(slider_val, value)
         self.send_cmd(f"{slider[1]}.minval={minval}")
         self.send_cmd(f"{slider[1]}.maxval={maxval}")
         self.set_component_value(slider, value)
 
-    def update_entity_cover(self, haui_entity, idx):
+    def update_entity_cover(self, haui_entity: HAUIConfigEntity, idx):
         btn_up = getattr(self, f"R{idx}_BTN_UP")
         btn_stop = getattr(self, f"R{idx}_BTN_STOP")
         btn_down = getattr(self, f"R{idx}_BTN_DOWN")
@@ -389,9 +393,9 @@ class RowPage(HAUIPage):
         icon_down_status = False
         entity_type = haui_entity.get_entity_type()
         entity_state = haui_entity.get_entity_state()
-        bits = haui_entity.get_attr("supported_features")
-        pos = haui_entity.get_attr("current_position")
-        device_class = haui_entity.get_attr("device_class", "window")
+        bits = haui_entity.get_entity_attr("supported_features")
+        pos = haui_entity.get_entity_attr("current_position")
+        device_class = haui_entity.get_entity_attr("device_class", "window")
         if bits & 0x01:  # SUPPORT_OPEN
             if pos != 100 and not (entity_state == "open" and pos == "disable"):
                 icon_up_status = True

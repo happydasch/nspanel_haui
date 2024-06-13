@@ -231,6 +231,33 @@
           "dry": "osuszanie",
           "fan_only": "tylko wentylator"
         }
+      },
+      "fan_mode": {
+        "_": {
+          "auto": "Auto",
+          "low": "Niski",
+          "medium": "\u015aredni",
+          "high": "Wysoki",
+          "mute": "Wyciszony",
+          "turbo": "Turbo"
+        }
+      },
+      "preset_mode": {
+        "_": {
+          "none": "Brak",
+          "sleep": "Sen",
+          "Antifungus": "Przeciwgrzybiczny",
+          "Clean": "Czyszczenie",
+          "Health": "Zdrowie"
+        }
+      },
+      "swing_mode": {
+        "_": {
+          "off": "Wy\u0142.",
+          "both": "Obie",
+          "vertical": "Pionowo",
+          "horizontal": "Poziomowo"
+        }
       }
     },
     "automation": {
@@ -399,7 +426,10 @@
     "AD-Version:": "AD-Version:",
     "Settings": "Ustawienia",
     "Full and Dimmed Brightness:": "Pe\u0142na i przyciemniona jasno\u015b\u0107:",
-    "Climate": "",
+    "Climate": "Klima",
+    "Select fan mode": "Wybierz tryb wentylatora",
+    "Select preset mode": "Wybierz tryb zaprogramowany",
+    "Select swing mode": "Wybierz tryb wahad\u0142owy",
     "Got unknown TFT-Version information.": "Otrzymano nieznane informacje o wersji TFT.",
     "Your TFT-version is outdated.": "Twoja wersja TFT jest nieaktualna.",
     "Do you want to check for a update?": "Czy chcesz sprawdzi\u0107 aktualizacj\u0119?",

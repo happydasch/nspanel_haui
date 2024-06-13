@@ -231,6 +231,33 @@
           "dry": "Entfeuchten",
           "fan_only": "Nur Ventilator"
         }
+      },
+      "fan_mode": {
+        "_": {
+          "auto": "Auto",
+          "low": "Niedrig",
+          "medium": "Medium",
+          "high": "Hoch",
+          "mute": "Stumm",
+          "turbo": "Turbo"
+        }
+      },
+      "preset_mode": {
+        "_": {
+          "none": "Nichts",
+          "sleep": "Schlaf",
+          "Antifungus": "Antischimmel",
+          "Clean": "Sauber",
+          "Health": "Gesundheit"
+        }
+      },
+      "swing_mode": {
+        "_": {
+          "off": "Aus",
+          "both": "Beide",
+          "vertical": "Vertikal",
+          "horizontal": "Horizontal"
+        }
       }
     },
     "automation": {
@@ -399,7 +426,10 @@
     "AD-Version:": "AD-Version:",
     "Settings": "Einstellungen",
     "Full and Dimmed Brightness:": "Volle und gedimmte Helligkeit:",
-    "Climate": "",
+    "Climate": "Klima",
+    "Select fan mode": "L\u00fcfter-Modus ausw\u00e4hlen",
+    "Select preset mode": "Preset-Modus ausw\u00e4hlen",
+    "Select swing mode": "Swing-Modus ausw\u00e4hlen",
     "Got unknown TFT-Version information.": "Unbekannte TFT-Versionsinformationen erhalten.",
     "Your TFT-version is outdated.": "Ihre TFT-Version ist veraltet.",
     "Do you want to check for a update?": "M\u00f6chten Sie nach einer Aktualisierung suchen?",

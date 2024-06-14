@@ -228,21 +228,12 @@ def get_entity_value(haui_entity, default_value):
             result_value = haui_entity.translate("Pending")
         elif entity.state == "triggered":
             result_value = haui_entity.translate("Triggered")
-    # climate entity
-    elif entity_type == "climate":
-        state_value = haui_entity.translate_state()
-        temperature = haui_entity.get_entity_attr("temperature", "")
-        temp_unit = haui_entity.get_entity_attr("temperature_unit", "°C")
-        value = f"{state_value} {temperature}{temp_unit}"
-        currently_tanslation = haui_entity.translate("Currently")
-        current_temp = haui_entity.get_entity_attr("current_temperature", "")
-        value += f"{currently_tanslation}: {current_temp}{temp_unit}"
     # vacuum entity
     elif entity_type == "vacuum":
         if entity.state == "docked":
-            result_value = haui_entity.translate("Start cleaning")
+            result_value = haui_entity.translate("Clean")
         else:
-            result_value = haui_entity.translate("Return to dock")
+            result_value = haui_entity.translate("Stop")
     # default value is using the state
     else:
         # use the translated entity state

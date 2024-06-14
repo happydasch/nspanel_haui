@@ -2,9 +2,12 @@ import math
 from typing import List
 
 from ..mapping.color import COLORS
+from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from ..helper.icon import get_icon, get_icon_name_by_action
 from ..helper.text import trim_text
 from ..config import HAUIConfigEntity, HAUIConfigPanel
+from ..base import HAUIEvent
+from ..features import CoverFeatures
 
 from . import HAUIPage
 
@@ -22,10 +25,10 @@ class RowPage(HAUIPage):
         (10, "r1BtnStop"),
         (11, "r1BtnDown"),
     )
-    R1_TOGGLE, R1_SLIDER, R1_SLIDER_VAL, R1_BTN_TXT, R1_OVL = (
+    R1_TOGGLE, R1_SLIDER, R1_SLIDER_TXT, R1_BTN_TXT, R1_OVL = (
         (12, "r1Toggle"),
         (13, "r1Slider"),
-        (14, "r1SliderVal"),
+        (14, "r1SliderTxt"),
         (15, "r1BtnText"),
         (16, "r1Overlay"),
     )
@@ -36,10 +39,10 @@ class RowPage(HAUIPage):
         (20, "r2BtnStop"),
         (21, "r2BtnDown"),
     )
-    R2_TOGGLE, R2_SLIDER, R2_SLIDER_VAL, R2_BTN_TXT, R2_OVL = (
+    R2_TOGGLE, R2_SLIDER, R2_SLIDER_TXT, R2_BTN_TXT, R2_OVL = (
         (22, "r2Toggle"),
         (23, "r2Slider"),
-        (24, "r2SliderVal"),
+        (24, "r2SliderTxt"),
         (25, "r2BtnText"),
         (26, "r2Overlay"),
     )
@@ -50,10 +53,10 @@ class RowPage(HAUIPage):
         (30, "r3BtnStop"),
         (31, "r3BtnDown"),
     )
-    R3_TOGGLE, R3_SLIDER, R3_SLIDER_VAL, R3_BTN_TXT, R3_OVL = (
+    R3_TOGGLE, R3_SLIDER, R3_SLIDER_TXT, R3_BTN_TXT, R3_OVL = (
         (32, "r3Toggle"),
         (33, "r3Slider"),
-        (34, "r3SliderVal"),
+        (34, "r3SliderTxt"),
         (35, "r3BtnText"),
         (36, "r3Overlay"),
     )
@@ -64,10 +67,10 @@ class RowPage(HAUIPage):
         (40, "r4BtnStop"),
         (41, "r4BtnDown"),
     )
-    R4_TOGGLE, R4_SLIDER, R4_SLIDER_VAL, R4_BTN_TXT, R4_OVL = (
+    R4_TOGGLE, R4_SLIDER, R4_SLIDER_TXT, R4_BTN_TXT, R4_OVL = (
         (42, "r4Toggle"),
         (43, "r4Slider"),
-        (44, "r4SliderVal"),
+        (44, "r4SliderTxt"),
         (45, "r4BtnText"),
         (46, "r4Overlay"),
     )
@@ -78,10 +81,10 @@ class RowPage(HAUIPage):
         (50, "r5BtnStop"),
         (51, "r5BtnDown"),
     )
-    R5_TOGGLE, R5_SLIDER, R5_SLIDER_VAL, R5_BTN_TXT, R5_OVL = (
+    R5_TOGGLE, R5_SLIDER, R5_SLIDER_TXT, R5_BTN_TXT, R5_OVL = (
         (52, "r5Toggle"),
         (53, "r5Slider"),
-        (54, "r5SliderVal"),
+        (54, "r5SliderTxt"),
         (55, "r5BtnText"),
         (56, "r5Overlay"),
     )
@@ -107,7 +110,9 @@ class RowPage(HAUIPage):
         # set function buttons
         mode = self.panel.get_mode()
         btn_right_2 = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC if mode != "subpanel" else self.BTN_FNC_RIGHT_PRI,
+            "fnc_component": (
+                self.BTN_FNC_RIGHT_SEC if mode != "subpanel" else self.BTN_FNC_RIGHT_PRI
+            ),
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": self.ICO_NEXT_PAGE,
@@ -129,8 +134,26 @@ class RowPage(HAUIPage):
         # set entity overlay callbacks
         for i in range(self.NUM_ROWS):
             idx = i + 1
-            btn = getattr(self, f"R{idx}_OVL")
-            self.add_component_callback(btn, self.callback_row_entries)
+            ico = getattr(self, f"R{idx}_ICO")
+            name = getattr(self, f"R{idx}_NAME")
+            ovl = getattr(self, f"R{idx}_OVL")
+            btn_text = getattr(self, f"R{idx}_BTN_TXT")
+            btn_up = getattr(self, f"R{idx}_BTN_UP")
+            btn_down = getattr(self, f"R{idx}_BTN_DOWN")
+            btn_stop = getattr(self, f"R{idx}_BTN_STOP")
+            toggle = getattr(self, f"R{idx}_TOGGLE")
+            slider = getattr(self, f"R{idx}_SLIDER")
+            slider_txt = getattr(self, f"R{idx}_SLIDER_TXT")
+            self.set_function_component(ico, ico[1], "icon", row_index=i)
+            self.set_function_component(name, name[1], "name", row_index=i)
+            self.set_function_component(ovl, ovl[1], "overlay", row_index=i)
+            self.set_function_component(btn_text, btn_text[1], "btn_text", visible=False, text="", row_index=i)
+            self.set_function_component(btn_up, btn_up[1], "btn_up", visible=False, text="", row_index=i)
+            self.set_function_component(btn_down, btn_down[1], "btn_down", visible=False, text="", row_index=i)
+            self.set_function_component(btn_stop, btn_stop[1], "btn_stop", visible=False, text="", row_index=i)
+            self.set_function_component(toggle, toggle[1], "toggle", visible=False, value=0, row_index=i)
+            self.set_function_component(slider, slider[1], "slider", visible=False, value=0, row_index=i)
+            self.set_function_component(slider_txt, slider_txt[1], "slider_txt", visible=False, text="", row_index=i)
 
     def stop_panel(self, panel: HAUIConfigPanel):
         while self._active_handles:
@@ -160,7 +183,7 @@ class RowPage(HAUIPage):
         for i in range(self.NUM_ROWS):
             entity = None
             idx = i + 1
-            if len(entities) > i:
+            if i < len(entities):
                 entity = entities[i]
             # click events are captured by overlay, assign
             # entities to overlay
@@ -199,94 +222,66 @@ class RowPage(HAUIPage):
             # left part of item
             for n in ["ICO", "NAME", "OVL"]:
                 item = getattr(self, f"R{idx}_{n}")
-                self.show_component(item)
+                self.update_function_component(item[1], visible=True)
             # detail part of item
             for n in [
-                "BTN_TXT",
-                "BTN_UP",
-                "BTN_STOP",
-                "BTN_DOWN",
-                "TOGGLE",
-                "SLIDER",
-                "SLIDER_VAL",
+                "BTN_TXT", "BTN_UP", "BTN_STOP", "BTN_DOWN",
+                "TOGGLE", "SLIDER", "SLIDER_TXT",
             ]:
                 item = getattr(self, f"R{idx}_{n}")
                 show = False
                 readonly = None
                 color = None
+                back_color = None
                 back_color_pressed = None
                 # check detail
                 if detail_visible:
                     # 'BTN_UP', 'BTN_STOP', 'BTN_DOWN' cover control
-                    if detail_visible == "cover" and n in [
-                        "BTN_UP",
-                        "BTN_DOWN",
-                        "BTN_STOP",
-                    ]:
-                        show = True
+                    if detail_visible == "cover":
+                        if n in ["BTN_UP", "BTN_DOWN", "BTN_STOP"]:
+                            show = True
                     # 'TOGGLE' on / off control
-                    elif detail_visible == "toggle" and n == "TOGGLE":
-                        show = True
-                    # 'SLIDER', 'SLIDER_VAL' value slider
-                    elif detail_visible == "number" and n in ["SLIDER", "SLIDER_VAL"]:
-                        show = True
+                    elif detail_visible == "toggle":
+                        if n == "TOGGLE":
+                            show = True
+                    # 'SLIDER', 'SLIDER_TXT' value slider
+                    elif detail_visible == "slider":
+                        if n in ["SLIDER", "SLIDER_TXT"]:
+                            show = True
                     # BTN_TXT
-                    elif detail_visible == ["button", "timer"] and n == "BTN_TXT":
-                        show = True
-                        readonly = False
-                        color = COLORS["component_active"]
-                        back_color_pressed = COLORS["component_pressed"]
+                    elif detail_visible == "button":
+                        if n == "BTN_TXT":
+                            show = True
+                            readonly = False
+                            color = COLORS["component_active"]
+                            back_color = COLORS["component_background"]
+                            back_color_pressed = COLORS["component_pressed"]
                     # 'BTN_TXT' will be used as default, text as disabled btn
                     elif n == "BTN_TXT":
                         show = True
                         readonly = True
                         color = COLORS["component"]
+                        back_color = COLORS["background"]
                         back_color_pressed = COLORS["background"]
-                # set component
-                if not show:
-                    self.hide_component(item)
-                    continue
-                if color is not None:
-                    self.set_component_text_color(item, color)
-                if back_color_pressed is not None:
-                    self.set_component_back_color_pressed(item, back_color_pressed)
-                if readonly is not None:
-                    self.set_component_touch(item, not readonly)
-                self.show_component(item)
+                # update component
+                self.update_function_component(
+                    item[1],
+                    visible=show,
+                    touch=not readonly,
+                    color=color,
+                    back_color=back_color,
+                    back_color_pressed=back_color_pressed
+                )
                 self.update_row_entry(idx)
         else:
             for n in [
-                "ICO",
-                "NAME",
-                "OVL",
-                "BTN_UP",
-                "BTN_STOP",
-                "BTN_DOWN",
-                "TOGGLE",
-                "SLIDER",
-                "SLIDER_VAL",
+                "ICO", "NAME", "OVL",
+                "BTN_UP", "BTN_STOP", "BTN_DOWN",
+                "TOGGLE", "SLIDER", "SLIDER_TXT",
                 "BTN_TXT",
             ]:
                 item = getattr(self, f"R{idx}_{n}")
-                self.hide_component(item)
-        """
-        for n in ['BTN_TXT']:
-            item = getattr(self, f'R{idx}_{n}')
-            self.set_component_text(item, '')
-        for n in ['SLIDER', 'SLIDER_VAL']:
-            item = getattr(self, f'R{idx}_{n}')
-            self.set_component_value(item, 0)
-        haui_entity = self._active_entities[ovl]
-        # remaining items are depending of type
-        if haui_entity is None or not visible:
-            for n in [
-                'BTN_TXT', 'BTN_UP', 'BTN_STOP', 'BTN_DOWN',
-                'TOGGLE', 'SLIDER', 'SLIDER_VAL'
-            ]:
-                item = getattr(self, f'R{idx}_{n}')
-        elif haui_entity is not None and visible:
-            display_type = self.get_entity_display_type(haui_entity)
-            """
+                self.update_function_component(item[1], visible=False)
 
     def update_row_entries(self):
         entities = self._active_entities
@@ -303,9 +298,8 @@ class RowPage(HAUIPage):
             return
         ico = getattr(self, f"R{idx}_ICO")
         name = getattr(self, f"R{idx}_NAME")
-        self.set_component_text(name, trim_text(entity.get_name(), self.LEN_NAME))
-        self.set_component_text(ico, entity.get_icon())
-        self.set_component_text_color(ico, entity.get_color())
+        self.update_function_component(name[1], text=trim_text(entity.get_name(), self.LEN_NAME))
+        self.update_function_component(ico[1], text=entity.get_icon(), color=entity.get_color())
         display_type = self.get_entity_display_type(entity)
         if display_type == "text":
             self.update_entity_text(entity, idx)
@@ -315,8 +309,8 @@ class RowPage(HAUIPage):
             self.update_entity_toggle(entity, idx)
         elif display_type == "timer":
             self.update_entity_timer(entity, idx)
-        elif display_type == "number":
-            self.update_entity_number(entity, idx)
+        elif display_type == "slider":
+            self.update_entity_slider(entity, idx)
         elif display_type == "cover":
             self.update_entity_cover(entity, idx)
 
@@ -344,42 +338,54 @@ class RowPage(HAUIPage):
         # check for special cases
         if entity_type == "cover":
             display_type = "cover"
-        elif entity_type in ["button", "input_button", "scene", "script", "lock"]:
+        elif entity_type in ["button", "input_button", "scene", "script", "lock", "vacuum"]:
             display_type = "button"
         elif entity_type in ["number", "input_number"]:
-            display_type = "number"
+            display_type = "slider"
         elif entity_type == "timer":
             display_type = "timer"
+        elif entity_type in ["switch", "input_boolean", "automation", "light"]:
+            display_type = "toggle"
 
         return display_type
 
     def update_entity_text(self, haui_entity: HAUIConfigEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
-        self.set_component_text(item, haui_entity.get_value())
+        self.update_function_component(item[1], text=haui_entity.get_value())
 
     def update_entity_button(self, haui_entity: HAUIConfigEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
-        self.set_component_text(item, haui_entity.get_value())
+        self.update_function_component(item[1], text=haui_entity.get_value())
 
     def update_entity_timer(self, haui_entity: HAUIConfigEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
-        self.set_component_text(item, haui_entity.get_value())
+        self.update_function_component(item[1], text=haui_entity.get_value())
 
     def update_entity_toggle(self, haui_entity: HAUIConfigEntity, idx):
         toggle = getattr(self, f"R{idx}_TOGGLE")
-        value = int(toggle.get_value())
-        self.set_component_value(toggle, value)
+        value = 0 if haui_entity.get_entity_state() == "off" else 1
+        self.update_function_component(toggle[1], value=value)
 
-    def update_entity_number(self, haui_entity: HAUIConfigEntity, idx):
+    def update_entity_slider(self, haui_entity: HAUIConfigEntity, idx):
         slider = getattr(self, f"R{idx}_SLIDER")
-        slider_val = getattr(self, f"R{idx}_SLIDER_VAL")
-        minval = haui_entity.get_entity_attr("min", 0)
-        maxval = haui_entity.get_entity_attr("max", 100)
-        value = haui_entity.get_entity_state()
-        self.set_component_value(slider_val, value)
-        self.send_cmd(f"{slider[1]}.minval={minval}")
-        self.send_cmd(f"{slider[1]}.maxval={maxval}")
-        self.set_component_value(slider, value)
+        slider_txt = getattr(self, f"R{idx}_SLIDER_TXT")
+        # get values needed for slider
+        value = str(haui_entity.get_entity_state())
+        minval = float(haui_entity.get_entity_attr("min", 0))
+        maxval = float(haui_entity.get_entity_attr("max", 100))
+        step = str(haui_entity.get_entity_attr("step", 1))
+        dot_pos = 0 if float(step) >= 1 else step[::-1].find('.')
+        scale_factor = int(10 ** dot_pos)
+        # get internal values for slider
+        i_value = int(value.replace('.', ''))
+        i_minval = int((minval * scale_factor))
+        i_maxval = int((maxval * scale_factor)) - i_minval
+        i_value = int(i_value - i_minval)
+        # update display
+        self.send_cmd(f"{slider[1]}.minval={0}")
+        self.send_cmd(f"{slider[1]}.maxval={i_maxval}")
+        self.update_function_component(slider[1], value=i_value)
+        self.update_function_component(slider_txt[1], text=value)
 
     def update_entity_cover(self, haui_entity: HAUIConfigEntity, idx):
         btn_up = getattr(self, f"R{idx}_BTN_UP")
@@ -393,35 +399,60 @@ class RowPage(HAUIPage):
         icon_down_status = False
         entity_type = haui_entity.get_entity_type()
         entity_state = haui_entity.get_entity_state()
-        bits = haui_entity.get_entity_attr("supported_features")
+        features = haui_entity.get_entity_attr("supported_features")
         pos = haui_entity.get_entity_attr("current_position")
         device_class = haui_entity.get_entity_attr("device_class", "window")
-        if bits & 0x01:  # SUPPORT_OPEN
+
+        if features & CoverFeatures.OPEN:  # SUPPORT_OPEN
             if pos != 100 and not (entity_state == "open" and pos == "disable"):
                 icon_up_status = True
             icon_up = get_icon_name_by_action(
-                entity_type=entity_type, action="open", device_class=device_class
-            )
+                entity_type=entity_type, action="open", device_class=device_class)
             icon_up = get_icon(icon_up)
-        if bits & 0x02:  # SUPPORT_CLOSE
+        (
+            color,
+            color_pressed,
+            back_color,
+            back_color_pressed,
+        ) = self.get_button_colors(icon_up_status)
+        self.update_function_component(
+            btn_up[1], visible=True, text=icon_up,
+            color=color, color_pressed=color_pressed,
+            back_color=back_color, back_color_pressed=back_color_pressed)
+
+        if features & CoverFeatures.STOP:  # SUPPORT_STOP
+            icon_stop = get_icon_name_by_action(
+                entity_type=entity_type, action="stop", device_class=device_class)
+            icon_stop = get_icon(icon_stop)
+            if entity_state not in ["open", "close"]:
+                icon_stop_status = True
+        (
+            color,
+            color_pressed,
+            back_color,
+            back_color_pressed,
+        ) = self.get_button_colors(icon_stop_status)
+        self.update_function_component(
+            btn_stop[1], visible=True, text=icon_stop,
+            color=color, color_pressed=color_pressed,
+            back_color=back_color, back_color_pressed=back_color_pressed)
+
+        if features & CoverFeatures.CLOSE:  # SUPPORT_CLOSE
             if pos != 0 and not (entity_state == "closed" and pos == "disable"):
                 icon_down_status = True
             icon_down = get_icon_name_by_action(
-                entity_type=entity_type, action="close", device_class=device_class
-            )
+                entity_type=entity_type, action="close", device_class=device_class)
             icon_down = get_icon(icon_down)
-        if bits & 0x08:  # SUPPORT_STOP
-            icon_stop = get_icon_name_by_action(
-                entity_type=entity_type, action="stop", device_class=device_class
-            )
-            icon_stop = get_icon(icon_stop)
-            icon_stop_status = True
-        self.set_component_touch(btn_up, icon_up_status)
-        self.set_component_touch(btn_stop, icon_stop_status)
-        self.set_component_touch(btn_down, icon_down_status)
-        self.set_component_text(btn_up, icon_up)
-        self.set_component_text(btn_stop, icon_stop)
-        self.set_component_text(btn_down, icon_down)
+        (
+            color,
+            color_pressed,
+            back_color,
+            back_color_pressed,
+        ) = self.get_button_colors(icon_down_status)
+        self.update_function_component(
+            btn_down[1], visible=True, text=icon_down,
+            color=color, color_pressed=color_pressed,
+            back_color=back_color, back_color_pressed=back_color_pressed)
 
     # callback
 
@@ -455,10 +486,48 @@ class RowPage(HAUIPage):
             self.set_row_entries()
             self.stop_rec_cmd(send_commands=True)
 
-    def callback_row_entries(self, event, component, button_state):
-        if button_state:
+        items = self.get_function_components()
+        item = items[fnc_id]
+        i = item['fnc_args'].get("row_index", -1)
+        if i < 0:
             return
-        if component not in self._active_entities:
-            return
-        haui_entity = self._active_entities[component]
-        self.execute_entity(haui_entity)
+        ovl = getattr(self, f"R{i + 1}_OVL")
+        entity = self._active_entities[ovl]
+        # row actions
+        if fnc_name == "overlay":
+            self.execute_entity(entity)
+        elif fnc_name == "btn_text":
+            entity.execute()
+        elif fnc_name == "toggle":
+            entity.call_entity_service("toggle")
+        elif fnc_name == "slider":
+            self.send_mqtt(ESP_REQUEST["req_val"], item['fnc_component'][1], force=True)
+        elif fnc_name == "btn_up":
+            entity.call_entity_service("open_cover")
+        elif fnc_name == "btn_stop":
+            entity.call_entity_service("stop_cover")
+        elif fnc_name == "btn_down":
+            entity.call_entity_service("close_cover")
+
+    # event
+
+    def process_event(self, event: HAUIEvent):
+        super().process_event(event)
+        # check for values for full and dimmed brightness
+        if event.name == ESP_RESPONSE["res_val"]:
+            # parse json response, set brightness
+            data = event.as_json()
+            items = self.get_function_components()
+            item = items[data["name"]]
+            i = item['fnc_args'].get("row_index", -1)
+            if i < 0:
+                return
+            ovl = getattr(self, f"R{i + 1}_OVL")
+            entity = self._active_entities[ovl]
+            step = str(entity.get_entity_attr("step", "1"))
+            dot_pos = 0 if float(step) >= 1 else step[::-1].find('.')
+            scale_factor = int(10 ** dot_pos)
+            minval = float(entity.get_entity_attr("min", 0))
+            i_minval = int((minval * scale_factor))
+            n_value = (int(data["value"]) + i_minval) / scale_factor
+            entity.get_entity().set_state(state=n_value)

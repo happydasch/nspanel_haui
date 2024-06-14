@@ -38,6 +38,9 @@
     "Settings": "",
     "Full and Dimmed Brightness:": "",
     "Climate": "",
+    "Select fan mode": "",
+    "Select preset mode": "",
+    "Select swing mode": "",
     "Got unknown TFT-Version information.": "",
     "Your TFT-version is outdated.": "",
     "Do you want to check for a update?": "",
@@ -49,6 +52,18 @@
     "Update available": "",
     "Update": "",
     "Please wait while the update is starting": "",
-    "Starting Update": ""
+    "Starting Update": "",
+    "Press": "",
+    "Activate": "",
+    "Run": "",
+    "Lock": "",
+    "Armed": "",
+    "Arming": "",
+    "Disarmed": "",
+    "Disarming": "",
+    "Pending": "",
+    "Triggered": "",
+    "Clean": "",
+    "Stop": ""
   }
 }

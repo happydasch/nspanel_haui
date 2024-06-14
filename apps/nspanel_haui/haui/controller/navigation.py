@@ -467,12 +467,12 @@ class HAUINavigationController(HAUIPart):
             if prev_state is not None and prev_state == "off":
                 self.log(f"Display state changed from sleep to {event.as_str()}")
                 self._sleep_panel_active = False
+                self.open_wakeup_panel()
             # previous state was dimmed
             elif event.as_str() == "on":
                 if self._sleep_panel_active:
                     self.log(f"Display state changed to {event.as_str()}")
                     self._sleep_panel_active = False
-                    self.open_wakeup_panel()
 
         # wakeup handling, ensure the correct page is set
         # when waking up from sleep

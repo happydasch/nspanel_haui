@@ -1,11 +1,13 @@
 import datetime
 import threading
+from typing import List
 
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
-from ..config import HAUIConfigEntity
+from ..config import HAUIConfigEntity, HAUIConfigPanel
 from ..features import MediaPlayerFeatures
+from ..base import HAUIEvent
 
 from . import HAUIPage
 
@@ -18,26 +20,6 @@ class MediaPage(HAUIPage):
     Supported features for media player:
     https://github.com/home-assistant/core/blob/dev/homeassistant/components/media_player/const.py
     """
-
-    ICO_PLAY = get_icon("mdi:play")
-    ICO_PAUSE = get_icon("mdi:pause")
-    ICO_STOP = get_icon("mdi:stop")
-    ICO_PREV = get_icon("mdi:skip-previous")
-    ICO_NEXT = get_icon("mdi:skip-next")
-    # repeat icons
-    ICO_REPEAT = get_icon("mdi:repeat")
-    ICO_REPEAT_ONE = get_icon("mdi:repeat-once")
-    ICO_REPEAT_OFF = get_icon("mdi:repeat-off")
-    # shuffle icons
-    ICO_SHUFFLE = get_icon("mdi:shuffle")
-    ICO_SHUFFLE_DISABLED = get_icon("mdi:shuffle-disabled")
-    # volume icons
-    ICO_VOLUME_DOWN = get_icon("mdi:volume-minus")
-    ICO_VOLUME_UP = get_icon("mdi:volume-plus")
-    # misc
-    ICO_SELECT_SOURCE = get_icon("mdi:speaker")
-    ICO_SELECT_MEDIA = get_icon("mdi:playlist-music")
-    ICO_SELECT_GROUP = get_icon("mdi:group")
 
     # common components
     TXT_TITLE = (2, "tTitle")
@@ -81,12 +63,32 @@ class MediaPage(HAUIPage):
     # progress bar
     J_PROGRESS = (31, "jProgress")
 
+    ICO_PLAY = get_icon("mdi:play")
+    ICO_PAUSE = get_icon("mdi:pause")
+    ICO_STOP = get_icon("mdi:stop")
+    ICO_PREV = get_icon("mdi:skip-previous")
+    ICO_NEXT = get_icon("mdi:skip-next")
+    # repeat icons
+    ICO_REPEAT = get_icon("mdi:repeat")
+    ICO_REPEAT_ONE = get_icon("mdi:repeat-once")
+    ICO_REPEAT_OFF = get_icon("mdi:repeat-off")
+    # shuffle icons
+    ICO_SHUFFLE = get_icon("mdi:shuffle")
+    ICO_SHUFFLE_DISABLED = get_icon("mdi:shuffle-disabled")
+    # volume icons
+    ICO_VOLUME_DOWN = get_icon("mdi:volume-minus")
+    ICO_VOLUME_UP = get_icon("mdi:volume-plus")
+    # misc
+    ICO_SELECT_SOURCE = get_icon("mdi:speaker")
+    ICO_SELECT_MEDIA = get_icon("mdi:playlist-music")
+    ICO_SELECT_GROUP = get_icon("mdi:group")
+
     SCROLLING_INTERVAL = 0.5
     PROGRESS_INTERVAL = 0.5
 
     _title = ""
-    _entities = []
-    _media_entity = None
+    _entities: List[HAUIConfigEntity] = []
+    _media_entity: HAUIConfigEntity = None
     _group_entities = []
     _sonos_favorites = None
     _sonos_favorites_in_source = False
@@ -99,7 +101,7 @@ class MediaPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # set function buttons
         media_state_btn = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,
@@ -156,10 +158,10 @@ class MediaPage(HAUIPage):
             title = entity.get_entity_attr("friendly_name", title)
         self._title = title
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         self.update_media_entity()
 
-    def stop_panel(self, panel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         if self._timer_progress is not None:
             self._timer_progress.cancel()
             self._timer_progress = None
@@ -184,7 +186,7 @@ class MediaPage(HAUIPage):
             )
             self._timer_scrolling.start()
 
-    def set_media_entity(self, entity):
+    def set_media_entity(self, entity: HAUIConfigEntity):
         self._media_entity = entity
         if not entity or not entity.has_entity_id():
             return
@@ -798,7 +800,7 @@ class MediaPage(HAUIPage):
 
     # event
 
-    def process_event(self, event):
+    def process_event(self, event: HAUIEvent):
         super().process_event(event)
         # requested values
         if event.name == ESP_RESPONSE["res_val"]:

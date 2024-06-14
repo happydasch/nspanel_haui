@@ -196,8 +196,8 @@ ALARM_CONTROL_PANEL_MAPPING = {
 
 #
 CLIMATE_MAPPING = {
-    "auto": "calendar-sync",
-    "heat_cool": "calendar-sync",
+    "auto": "sun-snowflake-variant",
+    "heat_cool": "sun-snowflake-variant",
     "heat": "fire",
     "off": "power",
     "cool": "snowflake",

@@ -1,5 +1,7 @@
 from ..mapping.color import COLORS
 from ..helper.icon import parse_icon
+from ..config import HAUIConfigPanel
+
 from . import HAUIPage
 
 
@@ -29,7 +31,7 @@ class NotifyPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         name = self.app.device.get_name()
 
         # auto components
@@ -68,7 +70,7 @@ class NotifyPage(HAUIPage):
             self.BTN_FNC_RIGHT_SEC,
         )
 
-    def stop_panel(self, panel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         # restore previous auto values
         if self._use_auto_dimming:
             self.auto_dimming.turn_on()
@@ -80,7 +82,7 @@ class NotifyPage(HAUIPage):
         if self._close_callback_fnc:
             self._close_callback_fnc()
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         title = self.get("title", panel.get_title())
         self.set_component_text(self.TXT_TITLE, title)
 

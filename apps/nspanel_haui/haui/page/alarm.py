@@ -1,3 +1,4 @@
+from ..config import HAUIConfigPanel
 from . import HAUIPage
 
 
@@ -25,7 +26,7 @@ class AlarmPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # set function buttons
         self.set_function_buttons(
             self.BTN_FNC_LEFT_PRI,

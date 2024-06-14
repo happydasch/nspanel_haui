@@ -7,7 +7,7 @@ from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..helper.datetime import (
     get_time_localized, get_date_localized, format_datetime)
-from ..config import HAUIConfigEntity
+from ..config import HAUIConfigEntity, HAUIConfigPanel
 
 from . import HAUIPage
 
@@ -59,14 +59,14 @@ class WeatherPage(HAUIPage):
 
     # panel
 
-    def create_panel(self, panel):
+    def create_panel(self, panel: HAUIConfigPanel):
         # setting: background
         background = panel.get("background", "default")
         background = self.render_template(background, False)
         if background in BACKGROUNDS:
             self.send_cmd(f"weather.background.val={BACKGROUNDS[background]}")
 
-    def start_panel(self, panel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # time update callback
         time = datetime.time(0, 0, 0)
         self._time_timer = self.app.run_minutely(self.callback_update_time, time)
@@ -89,7 +89,7 @@ class WeatherPage(HAUIPage):
         else:
             self.show_forecast()
 
-    def stop_panel(self, panel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         # cancel time and date timer
         if self._time_timer:
             self.app.cancel_timer(self._time_timer)
@@ -98,7 +98,7 @@ class WeatherPage(HAUIPage):
             self.app.cancel_timer(self._date_timer)
             self._date_timer = None
 
-    def render_panel(self, panel):
+    def render_panel(self, panel: HAUIConfigPanel):
         # time display
         self.update_time()
         # date display
@@ -181,7 +181,7 @@ class WeatherPage(HAUIPage):
                 forecast_data = forecast[i] if i < len(forecast) else None
                 self.update_forecast(i, forecast_data)
 
-    def update_main_weather(self, haui_entity):
+    def update_main_weather(self, haui_entity: HAUIConfigEntity):
         # set up main weather details
         icon = haui_entity.get_icon()
         color = haui_entity.get_color()
@@ -223,7 +223,7 @@ class WeatherPage(HAUIPage):
         self.set_component_text(forecast_val, f"{forecast_temp}{self._temp_unit}")
         self.set_component_text(forecast_subval, f"{forecast_mintemp}{self._temp_unit}")
 
-    def update_info(self, idx, haui_entity):
+    def update_info(self, idx, haui_entity: HAUIConfigEntity):
         if idx < 1 or idx > 3:
             self.log("Weather Info uses index 1-3")
             return

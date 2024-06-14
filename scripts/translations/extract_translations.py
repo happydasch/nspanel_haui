@@ -2,7 +2,7 @@ import json
 import os
 import re
 # Define a regular expression to match a `self.translate()` call with an argument
-translate_pattern = re.compile(r'self\.translate\((\'|")(.*)(\'|")\)')
+translate_pattern = re.compile(r'\.translate\((\'|")(.*)(\'|")\)')
 # Define the directory to search for Python files in
 directory = 'apps/nspanel_haui'
 # Create a list to store the translated strings

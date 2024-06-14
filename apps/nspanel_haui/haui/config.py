@@ -1,4 +1,5 @@
 from copy import deepcopy
+from typing import Dict, List
 
 from .mapping.color import COLORS
 from .mapping.const import (
@@ -96,7 +97,7 @@ class HAUIConfigEntity(HAUIBase):
             # execute external entity
             execute_entity(self)
 
-    def is_internal(self):
+    def is_internal(self) -> bool:
         """Returns if the entity is internal.
 
         Returns:
@@ -104,7 +105,7 @@ class HAUIConfigEntity(HAUIBase):
         """
         return self._internal
 
-    def get_internal_type(self):
+    def get_internal_type(self) -> str:
         """Returns the internal entity type.
 
         Returns:
@@ -112,7 +113,7 @@ class HAUIConfigEntity(HAUIBase):
         """
         return self._internal_type
 
-    def get_internal_data(self):
+    def get_internal_data(self) -> str:
         """Returns the internal entity data.
 
         Returns:
@@ -120,7 +121,7 @@ class HAUIConfigEntity(HAUIBase):
         """
         return self._internal_data
 
-    def has_entity_id(self):
+    def has_entity_id(self) -> bool:
         """Returns if a entity id is available.
 
         Returns:
@@ -128,7 +129,7 @@ class HAUIConfigEntity(HAUIBase):
         """
         return self._entity_id is not None
 
-    def get_entity_id(self):
+    def get_entity_id(self) -> str:
         """Returns the entity id.
 
         Returns:
@@ -136,7 +137,7 @@ class HAUIConfigEntity(HAUIBase):
         """
         return self._entity_id
 
-    def has_entity(self):
+    def has_entity(self) -> bool:
         """Returns if a entity is available.
 
         Returns:
@@ -154,7 +155,7 @@ class HAUIConfigEntity(HAUIBase):
             return self.app.get_entity(self._entity_id)
         return None
 
-    def get_entity_type(self):
+    def get_entity_type(self) -> str:
         """Returns the type of the entity.
 
         The entity type is the first part of the entity id.
@@ -204,7 +205,7 @@ class HAUIConfigEntity(HAUIBase):
             return default
         return res
 
-    def get_entity_state(self):
+    def get_entity_state(self) -> str:
         """Returns the state of the entity.
 
         Returns:
@@ -231,7 +232,7 @@ class HAUIConfigEntity(HAUIBase):
         entity = self.get_entity()
         entity.call_service(service, **kwargs)
 
-    def get_value(self):
+    def get_value(self) -> str:
         """Returns the value of the entity.
 
         Returns:
@@ -296,7 +297,7 @@ class HAUIConfigEntity(HAUIBase):
 
         return name
 
-    def get_color(self):
+    def get_color(self) -> int:
         """Returns the color of the entity.
 
         Returns:
@@ -320,7 +321,7 @@ class HAUIConfigEntity(HAUIBase):
             color = get_entity_color(self, COLORS["entity_unavailable"])
         return color
 
-    def get_icon(self):
+    def get_icon(self) -> str:
         """Returns the icon of the entry.
 
         Returns:
@@ -344,7 +345,7 @@ class HAUIConfigEntity(HAUIBase):
             icon = get_entity_icon(self, "alert-circle-outline")
         return icon
 
-    def translate_state(self):
+    def translate_state(self) -> str:
         """Returns the translation of entity state.
 
         Returns:
@@ -385,7 +386,7 @@ class HAUIConfigPanel(HAUIBase):
         # store persistent config
         self._persistent_config = {}
         # load all entities
-        self._entities = []  # list of HAUIConfigEntity
+        self._entities: List[HAUIConfigEntity] = []  # list of HAUIConfigEntity
         # single entity config
         if self.get("entity") is not None:
             self._entities.append(HAUIConfigEntity(self.app, config))
@@ -395,7 +396,7 @@ class HAUIConfigPanel(HAUIBase):
 
     # public
 
-    def get_type(self):
+    def get_type(self) -> str:
         """Returns the type of this panel.
 
         Returns:
@@ -403,7 +404,7 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get("type", "")
 
-    def get_mode(self):
+    def get_mode(self) -> str:
         """Returns the panel mode.
 
         Possible panel modes:
@@ -416,7 +417,7 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get("mode", "panel")
 
-    def get_title(self, default_title=None):
+    def get_title(self, default_title=None) -> str:
         """Returns the title of this panel.
 
         Args:
@@ -432,7 +433,7 @@ class HAUIConfigPanel(HAUIBase):
             title = default_title
         return title
 
-    def is_home_panel(self):
+    def is_home_panel(self) -> bool:
         """Returns True if this is the home panel.
 
         Returns:
@@ -440,7 +441,7 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get("home_panel", False)
 
-    def is_sleep_panel(self):
+    def is_sleep_panel(self) -> bool:
         """Returns True if this is the sleep panel.
 
         Returns:
@@ -448,7 +449,7 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get("sleep_panel", False)
 
-    def is_wakeup_panel(self):
+    def is_wakeup_panel(self) -> bool:
         """Returns True if this is the wakeup panel.
 
         Returns:
@@ -456,7 +457,7 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get("wakeup_panel", False)
 
-    def show_home_button(self):
+    def show_home_button(self) -> bool:
         """Returns True if home button should be shown.
 
         Returns:
@@ -467,7 +468,7 @@ class HAUIConfigPanel(HAUIBase):
         )
         return show_home_button
 
-    def get_entities(self, return_copy=True):
+    def get_entities(self, return_copy=True) -> List[HAUIConfigEntity]:
         """Returns all entities from this panel.
 
         Args:
@@ -480,7 +481,7 @@ class HAUIConfigPanel(HAUIBase):
             return self._entities.copy()
         return self._entities
 
-    def get_default_config(self, return_copy=True):
+    def get_default_config(self, return_copy=True) -> Dict:
         """Returns the initial config of this panel.
 
         Returns:
@@ -491,7 +492,7 @@ class HAUIConfigPanel(HAUIBase):
             return self._default_config.copy()
         return self._default_config
 
-    def get_persistent_config(self, return_copy=True):
+    def get_persistent_config(self, return_copy=True) -> Dict:
         """Returns the persistent config of this panel.
 
         Returns:
@@ -502,7 +503,7 @@ class HAUIConfigPanel(HAUIBase):
             return self._persistent_config.copy()
         return self._persistent_config
 
-    def restore_default_config(self):
+    def restore_default_config(self) -> Dict:
         """Restore the initial config of this panel."""
         self._config = self.get_default_config(return_copy=True)
 
@@ -526,7 +527,7 @@ class HAUIConfig(HAUIBase):
         if config is not None:
             merge_dicts(self.get_config(return_copy=False), config)
         # load all panels
-        self._panels = []
+        self._panels: List[HAUIConfigPanel] = []
         panels_to_load = self.get("panels", [])
         # append sys_panels so they can be overwritten by panels
         panels_to_load += self.get("sys_panels", [])
@@ -536,7 +537,7 @@ class HAUIConfig(HAUIBase):
 
     # public
 
-    def get_panels(self, filter_nav_panel=None):
+    def get_panels(self, filter_nav_panel=None) -> List[HAUIConfigPanel]:
         """Returns all panels as HAUIConfigPanel objects.
 
         Args:
@@ -558,7 +559,7 @@ class HAUIConfig(HAUIBase):
             return nav_panels
         return self._panels
 
-    def get_entities(self):
+    def get_entities(self) -> List[HAUIConfigEntity]:
         """Returns all entities as HAUIConfigEntity objects.
 
         Returns:
@@ -569,7 +570,7 @@ class HAUIConfig(HAUIBase):
             entities.extend(panel.get_entities())
         return entities
 
-    def get_entity(self, entity_id):
+    def get_entity(self, entity_id) -> HAUIConfigEntity:
         """Returns a single entity.
 
         Args:
@@ -583,7 +584,7 @@ class HAUIConfig(HAUIBase):
                 return entity
         return None
 
-    def get_panel(self, panel_id):
+    def get_panel(self, panel_id) -> HAUIConfigPanel:
         """Returns a single panel.
 
         Args:

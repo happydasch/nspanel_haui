@@ -231,6 +231,33 @@
           "dry": "ontvochtigen",
           "fan_only": "alleen ventilator"
         }
+      },
+      "fan_mode": {
+        "_": {
+          "auto": "auto",
+          "low": "laag",
+          "medium": "medium",
+          "high": "hoog",
+          "mute": "dempen",
+          "turbo": "turbo"
+        }
+      },
+      "preset_mode": {
+        "_": {
+          "none": "geen",
+          "sleep": "slaap",
+          "Antifungus": "antischimmel",
+          "Clean": "schoon",
+          "Health": "gezondheid"
+        }
+      },
+      "swing_mode": {
+        "_": {
+          "off": "uit",
+          "both": "beide",
+          "vertical": "verticaal",
+          "horizontal": "horizontaal"
+        }
       }
     },
     "automation": {
@@ -400,6 +427,9 @@
     "Settings": "Instellingen",
     "Full and Dimmed Brightness:": "Volledige en gedimde helderheid:",
     "Climate": "Onbekende TFT-versie informatie ontvangen.",
+    "Select fan mode": "",
+    "Select preset mode": "",
+    "Select swing mode": "",
     "Got unknown TFT-Version information.": "",
     "Your TFT-version is outdated.": "uw TFT-versie is verouderd.",
     "Do you want to check for a update?": "Wilt u controleren op een update?",
@@ -411,6 +441,18 @@
     "Update available": "Update beschikbaar",
     "Update": "Updaten",
     "Please wait while the update is starting": "Een ogenblik geduld terwijl de update start",
-    "Starting Update": "Update begint"
+    "Starting Update": "Update begint",
+    "Press": "",
+    "Activate": "",
+    "Run": "",
+    "Lock": "",
+    "Armed": "",
+    "Arming": "",
+    "Disarmed": "",
+    "Disarming": "",
+    "Pending": "",
+    "Triggered": "",
+    "Clean": "",
+    "Stop": ""
   }
 }

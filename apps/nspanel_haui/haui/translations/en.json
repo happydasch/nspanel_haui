@@ -231,6 +231,33 @@
           "dry": "Dry",
           "fan_only": "Fan only"
         }
+      },
+      "fan_mode": {
+        "_": {
+          "auto": "Auto",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "mute": "Mute",
+          "turbo": "Turbo"
+        }
+      },
+      "preset_mode": {
+        "_": {
+          "none": "None",
+          "sleep": "Sleep",
+          "Antifungus": "Antifungus",
+          "Clean": "Clean",
+          "Health": "Health"
+        }
+      },
+      "swing_mode": {
+        "_": {
+          "off": "Off",
+          "both": "Both",
+          "vertical": "Vertical",
+          "horizontal": "Horizontal"
+        }
       }
     },
     "automation": {
@@ -400,6 +427,9 @@
     "Settings": "",
     "Full and Dimmed Brightness:": "",
     "Climate": "",
+    "Select fan mode": "",
+    "Select preset mode": "",
+    "Select swing mode": "",
     "Got unknown TFT-Version information.": "",
     "Your TFT-version is outdated.": "",
     "Do you want to check for a update?": "",
@@ -411,6 +441,18 @@
     "Update available": "",
     "Update": "",
     "Please wait while the update is starting": "",
-    "Starting Update": ""
+    "Starting Update": "",
+    "Press": "",
+    "Activate": "",
+    "Run": "",
+    "Lock": "",
+    "Armed": "",
+    "Arming": "",
+    "Disarmed": "",
+    "Disarming": "",
+    "Pending": "",
+    "Triggered": "",
+    "Clean": "",
+    "Stop": ""
   }
 }

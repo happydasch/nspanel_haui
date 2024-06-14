@@ -8,7 +8,7 @@ COLORS = {
     "component_pressed": 12678,  # [49, 49, 49]
     "component_active": 19773,  # [74, 165, 238]
     "component_accent": 62694,  # [246, 157, 49]
-    "component_background": 38066,  # [148, 148, 148]
+    "component_background": 8452,  # [34, 34, 34]
     # weather
     "weather_default": 65535,  # [255, 255, 255] white: default
     "weather_clear_night": 38060,  # [148, 148, 98] yellow grey: clear-night

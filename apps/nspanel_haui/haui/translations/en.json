@@ -441,6 +441,18 @@
     "Update available": "",
     "Update": "",
     "Please wait while the update is starting": "",
-    "Starting Update": ""
+    "Starting Update": "",
+    "Press": "",
+    "Activate": "",
+    "Run": "",
+    "Lock": "",
+    "Armed": "",
+    "Arming": "",
+    "Disarmed": "",
+    "Disarming": "",
+    "Pending": "",
+    "Triggered": "",
+    "Clean": "",
+    "Stop": ""
   }
 }

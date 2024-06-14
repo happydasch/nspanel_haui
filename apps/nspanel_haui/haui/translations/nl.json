@@ -441,6 +441,18 @@
     "Update available": "Update beschikbaar",
     "Update": "Updaten",
     "Please wait while the update is starting": "Een ogenblik geduld terwijl de update start",
-    "Starting Update": "Update begint"
+    "Starting Update": "Update begint",
+    "Press": "",
+    "Activate": "",
+    "Run": "",
+    "Lock": "",
+    "Armed": "",
+    "Arming": "",
+    "Disarmed": "",
+    "Disarming": "",
+    "Pending": "",
+    "Triggered": "",
+    "Clean": "",
+    "Stop": ""
   }
 }

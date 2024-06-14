@@ -441,6 +441,18 @@
     "Update available": "Aktualizacja dost\u0119pna",
     "Update": "Aktualizuj",
     "Please wait while the update is starting": "Poczekaj na rozpocz\u0119cie aktualizacji",
-    "Starting Update": "Rozpocz\u0119cie aktualizacji"
+    "Starting Update": "Rozpocz\u0119cie aktualizacji",
+    "Press": "Naci\u015bnij",
+    "Activate": "Aktywuj",
+    "Run": "Uruchom",
+    "Lock": "Zablokuj",
+    "Armed": "Uzbrojony",
+    "Arming": "Uzbrojenie",
+    "Disarmed": "Rozbrojony",
+    "Disarming": "Rozbrojenie",
+    "Pending": "W trakcie",
+    "Triggered": "Wyzwolony",
+    "Clean": "Sprz\u0105taj",
+    "Stop": "Zatrzymaj"
   }
 }

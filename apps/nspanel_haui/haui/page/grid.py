@@ -101,8 +101,16 @@ class GridPage(HAUIPage):
         for i in range(self.NUM_GRIDS):
             power = getattr(self, f"G{i+1}_POWER")
             ovl = getattr(self, f"G{i+1}_OVL")
+            btn = getattr(self, f"G{i+1}_BTN")
+            ico = getattr(self, f"G{i+1}_ICO")
+            name = getattr(self, f"G{i+1}_NAME")
             self.add_component_callback(power, self.callback_power_buttons)
             self.add_component_callback(ovl, self.callback_grid_entries)
+            self.set_function_component(power, power[1], row_index=i, visible=False)
+            self.set_function_component(ovl, ovl[1], row_index=i, visible=False)
+            self.set_function_component(btn, btn[1], row_index=i, visible=False)
+            self.set_function_component(ico, ico[1], row_index=i, visible=False)
+            self.set_function_component(name, name[1], row_index=i, visible=False)
 
     def stop_panel(self, panel: HAUIConfigPanel):
         while self._active_handles:
@@ -146,7 +154,7 @@ class GridPage(HAUIPage):
                 # internal entity
                 if entity.is_internal():
                     internal_type = entity.get_internal_type()
-                    if internal_type in ["navigate", "service"]:
+                    if internal_type in ["navigate", "service", "text"]:
                         visible = True
                 # standard entity
                 else:
@@ -187,6 +195,7 @@ class GridPage(HAUIPage):
         color_mode = panel.get("color_mode")
         color_seed = panel.get("color_seed", self._color_seed)
         if entity is not None:
+            text_color = entity.get("text_color", text_color)
             back_color = entity.get("back_color", back_color)
             color_mode = entity.get("color_mode", color_mode)
             color_seed = entity.get("color_seed", color_seed)
@@ -217,30 +226,40 @@ class GridPage(HAUIPage):
             back_color = COLORS["background"]
         # update grid button
         if visible:
+            power_args = {"visible": power_visible}
+            ovl_args = {"visible": True}
+            btn_args = {"visible": True}
+            name_args = {"visible": True}
+            ico_args = {"visible": True}
             if text_color is not None:
-                for x in [btn, name]:
-                    self.set_component_text_color(x, text_color)
-                if power_color is not None and color_mode is not None:
-                    self.set_component_text_color(power, power_color)
+                btn_args["color"] = text_color
+                name_args["color"] = text_color
+            if power_visible and power_color is not None and color_mode is not None:
+                power_args["color"] = power_color
             if color_pressed is not None:
-                for x in [btn, power]:
-                    self.set_component_text_color_pressed(x, color_pressed)
+                btn_args["color_pressed"] = color_pressed
+                if power_visible:
+                    power_args["color_pressed"] = color_pressed
             if back_color is not None:
-                for x in [ico, name, btn, power]:
-                    self.set_component_back_color(x, back_color)
+                btn_args["back_color"] = back_color
+                name_args["back_color"] = back_color
+                ico_args["back_color"] = back_color
+                if power_visible:
+                    power_args["back_color"] = back_color
             if back_color_pressed is not None:
-                for x in [btn, power]:
-                    self.set_component_back_color_pressed(x, back_color_pressed)
-            for x in [btn, ico, name, ovl]:
-                self.show_component(x)
-            if power_visible:
-                self.show_component(power)
-            else:
-                self.hide_component(power)
+                btn_args["back_color_pressed"] = back_color_pressed
+                if power_visible:
+                    power_args["back_color_pressed"] = back_color_pressed
+            self.update_function_component(ico[1], **ico_args)
+            self.update_function_component(name[1], **name_args)
+            self.update_function_component(btn[1], **btn_args)
+            self.update_function_component(ovl[1], **ovl_args)
+            self.update_function_component(power[1], **power_args)
+
             self.update_grid_entry(idx)
         else:
             for x in [btn, ico, name, ovl, power]:
-                self.hide_component(x)
+                self.update_function_component(x[1], visible=False)
 
     def update_grid_entries(self):
         entities = self._active_entities
@@ -319,4 +338,6 @@ class GridPage(HAUIPage):
         if component not in self._active_entities:
             return
         haui_entity = self._active_entities[component]
+        if haui_entity is None:
+            return
         self.execute_entity(haui_entity)

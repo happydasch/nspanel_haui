@@ -44,7 +44,7 @@ class HAUIConfigEntity(HAUIBase):
         # type of entity
         self._internal = False  # is it an internal entity
         self._internal_type = None  # internal entity type
-        self._internal_data = None  # internal entity data
+        self._internal_data = ""  # internal entity data
         self._entity_type = None  # entity type
         self._entity_id = None  # entity id
         # prepare the entity
@@ -293,7 +293,7 @@ class HAUIConfigEntity(HAUIBase):
 
         # default name
         if name == "":
-            name = get_entity_name(self, self.translate("Unknown"))
+            name = get_entity_name(self, "")
 
         return name
 

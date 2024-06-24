@@ -7,6 +7,7 @@
   - [How to upload a TFT file](#how-to-upload-a-tft-file)
   - [Update is not possible](#update-is-not-possible)
   - [Weather forecast does not work](#weather-forecast-does-not-work)
+  - [Error on sleep](#error-on-sleep)
 
 ## I don't know how to start
 
@@ -78,4 +79,13 @@ template:
         state: "{{ now().isoformat() }}"
         attributes:
           forecast: "{{ daily['weather.home'].forecast }}"
+```
+
+## Error on sleep
+
+You may see log entries as below. This cannot be changed and does not any harm.
+
+```
+[I] [haui:602] Display is going to sleep
+[E] [nextion:536] ERROR: Received numeric return but the queue is empty
 ```

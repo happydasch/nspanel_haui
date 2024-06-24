@@ -419,10 +419,12 @@ name, value, icon and color can also be templated. The value needs to start with
 
   state: color assignment based on current entity state
 
+  **Note:** Use quotes for on and off to not prevent yaml to be interpreted as boolean.
+
   ```yaml
   color:
-    on: [255, 255, 255]
-    off: "6339"
+    "on": [255, 255, 255]
+    "off": "6339"
   ```
 
 - `list`, `tuple`:

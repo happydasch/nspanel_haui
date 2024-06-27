@@ -47,6 +47,8 @@ With the prepared and connected device it is now possible to install ESPHome on 
 
   The configuration can be found in `device/install.yaml`
 
+  copy the content of this file into esphome and adjust the values accordingly. See below for an more detailed explaination of the configuration values.
+
 - Create new device
 
   Create a new device in ESPHome. Set the device name to the hostname of the device. If you want to access. By default the config is using nspanel-haui which can be accessed at <http://nspanel-haui.local>
@@ -56,7 +58,7 @@ With the prepared and connected device it is now possible to install ESPHome on 
 
 - Replace configuration
 
-  Store the ota password and encryption key and replace the exisiting config with the config from `nspanel_haui.yaml`
+  Store the ota password and encryption key and replace the exisiting config with the config from [device/install.yaml](https://github.com/happydasch/nspanel_haui/blob/master/device/install.yaml)
 
   ![Device Name](assets/esphome_created_config.png)
 

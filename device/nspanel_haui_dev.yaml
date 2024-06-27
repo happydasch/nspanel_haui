@@ -1,4 +1,9 @@
-# Config Variables
+#
+# Configuration for NSPanel HomeAssistant UI
+#
+# useable for local development
+#
+
 substitutions:
 
   # Heartbeat interval in seconds
@@ -28,11 +33,20 @@ substitutions:
   ap_password: !secret ap_password
 
   # Custom Update Url
-  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft
+  #tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft
+  tft_update_url: http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft
 
 packages:
-  remote_package:
-    url: https://github.com/happydasch/nspanel_haui
-    ref: master
-    files:
-      - device/nspanel_haui.yaml
+  version: !include nspanel_haui/version.yaml
+  globals: !include nspanel_haui/globals.yaml
+  base: !include nspanel_haui/base.yaml
+  device: !include nspanel_haui/device.yaml
+  display: !include nspanel_haui/display.yaml
+  interval: !include nspanel_haui/interval.yaml
+  script: !include nspanel_haui/script.yaml
+  mqtt: !include nspanel_haui/mqtt.yaml
+  api: !include nspanel_haui/api.yaml
+  button: !include nspanel_haui/button.yaml
+  number: !include nspanel_haui/number.yaml
+  switch: !include nspanel_haui/switch.yaml
+  sensor: !include nspanel_haui/sensor.yaml

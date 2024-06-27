@@ -110,11 +110,11 @@ This needs to be done only once.
 
 ## 4. Step: Configuration for AppDaemon
 
-Edit `appdaemon/apps/apps.yaml` and create the config for AppDaemon.
+Edit `addon_configs/a0d7b954_appdaemon/apps/apps.yaml` and create the config for AppDaemon.
 
 - Add configuration for panel
 
-  Open and edit the file `appdaemon/apps/apps.yaml` for more details about the configuration file and available options see [Configuration Details](Config.md).
+  Open and edit the file `addon_configs/a0d7b954_appdaemon/apps/apps.yaml` for more details about the configuration file and available options see [Configuration Details](Config.md).
 
   See [Config Examples](Example_Config.md) for some sample configurations.
 

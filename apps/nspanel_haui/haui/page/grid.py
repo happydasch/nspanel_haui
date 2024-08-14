@@ -5,8 +5,8 @@ from typing import List
 from ..mapping.color import COLORS
 from ..helper.color import generate_color_palette, rgb565_to_rgb
 from ..helper.text import trim_text
-from ..abstract.panel import HAUIPanel
-from ..abstract.entity import HAUIEntity
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
 
 from . import HAUIPage
 
@@ -63,8 +63,8 @@ class GridPage(HAUIPage):
     NUM_GRIDS = 6
     LEN_NAME = 15
 
-    _entities: List[HAUIEntity] = []
-    _active_entities: List[HAUIEntity] = {}
+    _entities: List[HAUIConfigEntity] = []
+    _active_entities: List[HAUIConfigEntity] = {}
     _active_handles = []
     _entity_mapping = []
     _current_page = 0
@@ -72,7 +72,7 @@ class GridPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # set vars
         self._entities = panel.get_entities()
         self._current_page = panel.get("initial_page", 0)
@@ -114,24 +114,16 @@ class GridPage(HAUIPage):
             self.set_function_component(ico, ico[1], row_index=i, visible=False)
             self.set_function_component(name, name[1], row_index=i, visible=False)
 
-    def stop_panel(self, panel: HAUIPanel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         while self._active_handles:
             handle = self._active_handles.pop()
             self.remove_entity_listener(handle)
 
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIConfigPanel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
         self.set_grid_entries()
 
     # misc
-
-    def is_power_visible(self, panel: HAUIPanel, entity: HAUIEntity):
-        power_visible = False
-        if entity is not None:
-            power_visible = panel.get("show_power_button", False)
-            if not entity.is_internal():
-                power_visible = entity.get("show_power_button", power_visible)
-        return power_visible
 
     def set_grid_entries(self):
         # check if there are any listener active and cancel them
@@ -191,7 +183,11 @@ class GridPage(HAUIPage):
         entity = self._active_entities[ovl]
         panel = self.panel
         # power button, only show if requested and a entity is set
-        power_visible = self.is_power_visible(panel, entity)
+        power_visible = False
+        if entity is not None:
+            power_visible = panel.get("show_power_button", False)
+            if not entity.is_internal():
+                power_visible = entity.get("show_power_button", power_visible)
         # colors for grid button
         color_pressed = COLORS["text"]
         back_color_pressed = COLORS["component_pressed"]
@@ -285,9 +281,6 @@ class GridPage(HAUIPage):
             self.set_component_text(name, trim_text(entity.get_name(), self.LEN_NAME))
             self.set_component_text_color(ico, entity.get_color())
             self.set_component_text(ico, entity.get_icon())
-            # make sure to redraw power if visible
-            if self.is_power_visible(self.panel, entity):
-                self.show_component(getattr(self, f"G{idx}_POWER"))
         else:
             self.set_component_text(name, "")
             self.set_component_text_color(ico, COLORS["text"])

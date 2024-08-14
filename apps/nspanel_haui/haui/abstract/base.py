@@ -1,35 +1,32 @@
 import json
 import re
 import uuid
-from typing import List, Any
-
-import appdaemon.plugins.hass.hassapi as hass
-
 
 from ..helper.icon import parse_icon
 from ..helper.text import get_translation, get_state_translation
 
-from .event import HAUIEvent
 
-
+# Base class for all HAUI classes
 class HAUIBase:
 
-    """ Base class for all Home Assistant UI (HAUI) classes. """
+    """
+    Base class for all Home Assistant UI (HAUI) classes.
+    """
 
-    def __init__(self, app: hass.Hass, config=None):
+    def __init__(self, app, config=None):
         """Initializes a new instance of the HAUIBase class.
 
         Args:
             app: The app instance that this HAUI class is associated with.
             config: Optional configuration settings for the HAUI class.
         """
-        self.id: uuid.UUID = uuid.uuid4()
-        self.app: hass.Hass = app
-        self.config: dict = {} if config is None else config
-        self._recording: bool = False
-        self._rec_cmd: List[str] = []
+        self.id = uuid.uuid4()
+        self.app = app
+        self._config = {} if config is None else config
+        self._recording = False
+        self._rec_cmd = []
 
-    def get_id(self) -> uuid.UUID:
+    def get_id(self):
         """Returns the id of the config.
 
         Returns:
@@ -37,7 +34,7 @@ class HAUIBase:
         """
         return self.id
 
-    def get(self, key: str, default: Any = None) -> Any | None:
+    def get(self, key, default=None):
         """Gets a value from the configuration.
 
         Allows to access nested dicts using a dot notation:
@@ -53,14 +50,14 @@ class HAUIBase:
         Returns:
             The value.
         """
-        value = self.config
+        value = self._config
         path = key.split(".")
         for p in path:
             if value is not None:
                 value = value.get(p, None)
         return value if value is not None else default
 
-    def log(self, msg: str, *args, **kwargs) -> None:
+    def log(self, msg, *args, **kwargs):
         """Logs a message.
 
         Args:
@@ -73,7 +70,7 @@ class HAUIBase:
             del kwargs["ascii_encode"]
         self.app.log(msg, ascii_encode=ascii_encode, *args, **kwargs)
 
-    def get_locale(self) -> str:
+    def get_locale(self):
         """Returns the locale of the config.
 
         Returns:
@@ -81,7 +78,7 @@ class HAUIBase:
         """
         return self.app.device.get_locale()
 
-    def get_config(self, return_copy: bool = True) -> dict:
+    def get_config(self, return_copy=True):
         """Returns the config dict.
 
         Args:
@@ -92,18 +89,18 @@ class HAUIBase:
             dict: Config
         """
         if return_copy:
-            return self.config.copy()
-        return self.config
+            return self._config.copy()
+        return self._config
 
-    def set_config(self, config: dict) -> None:
+    def set_config(self, config):
         """Sets a new config dict.
 
         Args:
             config: Config
         """
-        self.config = config
+        self._config = config
 
-    def translate(self, text: str) -> str:
+    def translate(self, text):
         """Returns the translation of the given text.
 
         Args:
@@ -114,7 +111,7 @@ class HAUIBase:
         """
         return get_translation(text, self.get_locale())
 
-    def translate_state(self, entity_type: str, state: str, attr: str = "state") -> str:
+    def translate_state(self, entity_type, state, attr="state"):
         """Returns the translation of the given state.
 
         Args:
@@ -126,7 +123,7 @@ class HAUIBase:
         """
         return get_state_translation(entity_type, state, self.get_locale(), attr)
 
-    def process_event(self, event: HAUIEvent) -> None:
+    def process_event(self, event):
         """Callback for events.
 
         This class should be overwritten.
@@ -135,12 +132,12 @@ class HAUIBase:
             event: The event.
         """
 
-    def start_rec_cmd(self) -> None:
+    def start_rec_cmd(self):
         """Starts recording commands."""
 
         self._recording = True
 
-    def stop_rec_cmd(self, send_commands: bool = True) -> List[str]:
+    def stop_rec_cmd(self, send_commands=True):
         """Stops the recording of commands.
 
         Args:
@@ -160,7 +157,7 @@ class HAUIBase:
             self.send_cmds(commands)
         return commands
 
-    def send_mqtt(self, name: str, value: str = "", force: bool = False) -> None:
+    def send_mqtt(self, name, value="", force=False):
         """Publishes a message to the mqtt cmd topic.
 
         Args:
@@ -172,7 +169,7 @@ class HAUIBase:
             return
         self.app.controller["mqtt"].send_cmd(name, value, force)
 
-    def send_mqtt_json(self, name: str, value: str = None, force: bool = False) -> None:
+    def send_mqtt_json(self, name, value=None, force=False):
         """Publishes a message to the mqtt cmd topic with a json encoded message.
 
         Args:
@@ -184,7 +181,7 @@ class HAUIBase:
             value = {}
         self.send_mqtt(name, json.dumps(value), force)
 
-    def send_cmd(self, cmd: str) -> None:
+    def send_cmd(self, cmd):
         """Sends a command to the MQTT controller with the name "send_command".
 
         Args:
@@ -197,7 +194,7 @@ class HAUIBase:
             self.log(f"Command: {cmd}")
         self.send_mqtt("send_command", cmd)
 
-    def send_cmds(self, cmds: List[str]) -> None:
+    def send_cmds(self, cmds):
         """Sends a list of commands to the MQTT controller with the name "send_commands".
 
         This method will split the commands into chunks and send them in one go.
@@ -220,7 +217,7 @@ class HAUIBase:
         if len(cmds_to_send) > 0:
             self.send_mqtt("send_commands", json.dumps({"commands": cmds_to_send}))
 
-    def set_component_text(self, component: str, text: str) -> None:
+    def set_component_text(self, component, text):
         """Sends a command to set the text of a component.
 
         Args:
@@ -231,7 +228,7 @@ class HAUIBase:
             return
         self.send_cmd(f'{component[1]}.txt="{str(text)}"')
 
-    def set_component_value(self, component: str, value: int) -> None:
+    def set_component_value(self, component, value):
         """Sends a command to set the value of a component.
 
         Args:
@@ -242,7 +239,7 @@ class HAUIBase:
             return
         self.send_cmd(f"{component[1]}.val={int(value)}")
 
-    def render_template(self, template: str, parse_icons: bool = True) -> str:
+    def render_template(self, template, parse_icons=True):
         """Returns a rendered home assistant template string.
 
         Args:

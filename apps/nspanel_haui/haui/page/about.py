@@ -1,6 +1,6 @@
 import haui.version
 
-from ..abstract.panel import HAUIPanel
+from ..abstract.panel import HAUIConfigPanel
 
 from . import HAUIPage
 
@@ -22,7 +22,7 @@ class AboutPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIConfigPanel):
         self.start_rec_cmd()
 
         # set function buttons
@@ -39,7 +39,7 @@ class AboutPage(HAUIPage):
 
         self.stop_rec_cmd(send_commands=True)
 
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIConfigPanel):
         name = self.app.device.device_info.get("friendly_name", self.app.device.get_name())
         ip_address = self.app.device.device_info.get("ip", "127.0.0.1")
         tft_version = self.app.device.device_info.get("tft_version", "0.0.0")

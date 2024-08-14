@@ -5,8 +5,8 @@ from ..mapping.color import COLORS
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from ..helper.icon import get_icon, get_icon_name_by_action
 from ..helper.text import trim_text
-from ..abstract.panel import HAUIPanel
-from ..abstract.entity import HAUIEntity
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
 from ..abstract.event import HAUIEvent
 from ..features import CoverFeatures
 
@@ -20,34 +20,74 @@ class RowPage(HAUIPage):
     BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
     # row entities
     R1_ICO, R1_NAME, R1_BTN_UP, R1_BTN_STOP, R1_BTN_DOWN = (
-        (7, "r1Icon"), (8, "r1Name"), (9, "r1BtnUp"), (10, "r1BtnStop"), (11, "r1BtnDown"),
+        (7, "r1Icon"),
+        (8, "r1Name"),
+        (9, "r1BtnUp"),
+        (10, "r1BtnStop"),
+        (11, "r1BtnDown"),
     )
     R1_TOGGLE, R1_SLIDER, R1_SLIDER_TXT, R1_BTN_TXT, R1_OVL = (
-        (12, "r1Toggle"), (13, "r1Slider"), (14, "r1SliderTxt"), (15, "r1BtnText"), (16, "r1Overlay"),
+        (12, "r1Toggle"),
+        (13, "r1Slider"),
+        (14, "r1SliderTxt"),
+        (15, "r1BtnText"),
+        (16, "r1Overlay"),
     )
     R2_ICO, R2_NAME, R2_BTN_UP, R2_BTN_STOP, R2_BTN_DOWN = (
-        (17, "r2Icon"), (18, "r2Name"), (19, "r2BtnUp"), (20, "r2BtnStop"), (21, "r2BtnDown"),
+        (17, "r2Icon"),
+        (18, "r2Name"),
+        (19, "r2BtnUp"),
+        (20, "r2BtnStop"),
+        (21, "r2BtnDown"),
     )
     R2_TOGGLE, R2_SLIDER, R2_SLIDER_TXT, R2_BTN_TXT, R2_OVL = (
-        (22, "r2Toggle"), (23, "r2Slider"), (24, "r2SliderTxt"), (25, "r2BtnText"), (26, "r2Overlay"),
+        (22, "r2Toggle"),
+        (23, "r2Slider"),
+        (24, "r2SliderTxt"),
+        (25, "r2BtnText"),
+        (26, "r2Overlay"),
     )
     R3_ICO, R3_NAME, R3_BTN_UP, R3_BTN_STOP, R3_BTN_DOWN = (
-        (27, "r3Icon"), (28, "r3Name"), (29, "r3BtnUp"), (30, "r3BtnStop"), (31, "r3BtnDown"),
+        (27, "r3Icon"),
+        (28, "r3Name"),
+        (29, "r3BtnUp"),
+        (30, "r3BtnStop"),
+        (31, "r3BtnDown"),
     )
     R3_TOGGLE, R3_SLIDER, R3_SLIDER_TXT, R3_BTN_TXT, R3_OVL = (
-        (32, "r3Toggle"), (33, "r3Slider"), (34, "r3SliderTxt"), (35, "r3BtnText"), (36, "r3Overlay"),
+        (32, "r3Toggle"),
+        (33, "r3Slider"),
+        (34, "r3SliderTxt"),
+        (35, "r3BtnText"),
+        (36, "r3Overlay"),
     )
     R4_ICO, R4_NAME, R4_BTN_UP, R4_BTN_STOP, R4_BTN_DOWN = (
-        (37, "r4Icon"), (38, "r4Name"), (39, "r4BtnUp"), (40, "r4BtnStop"), (41, "r4BtnDown"),
+        (37, "r4Icon"),
+        (38, "r4Name"),
+        (39, "r4BtnUp"),
+        (40, "r4BtnStop"),
+        (41, "r4BtnDown"),
     )
     R4_TOGGLE, R4_SLIDER, R4_SLIDER_TXT, R4_BTN_TXT, R4_OVL = (
-        (42, "r4Toggle"), (43, "r4Slider"), (44, "r4SliderTxt"), (45, "r4BtnText"), (46, "r4Overlay"),
+        (42, "r4Toggle"),
+        (43, "r4Slider"),
+        (44, "r4SliderTxt"),
+        (45, "r4BtnText"),
+        (46, "r4Overlay"),
     )
     R5_ICO, R5_NAME, R5_BTN_UP, R5_BTN_STOP, R5_BTN_DOWN = (
-        (47, "r5Icon"), (48, "r5Name"), (49, "r5BtnUp"), (50, "r5BtnStop"), (51, "r5BtnDown"),
+        (47, "r5Icon"),
+        (48, "r5Name"),
+        (49, "r5BtnUp"),
+        (50, "r5BtnStop"),
+        (51, "r5BtnDown"),
     )
     R5_TOGGLE, R5_SLIDER, R5_SLIDER_TXT, R5_BTN_TXT, R5_OVL = (
-        (52, "r5Toggle"), (53, "r5Slider"), (54, "r5SliderTxt"), (55, "r5BtnText"), (56, "r5Overlay"),
+        (52, "r5Toggle"),
+        (53, "r5Slider"),
+        (54, "r5SliderTxt"),
+        (55, "r5BtnText"),
+        (56, "r5Overlay"),
     )
     # additional icons
     ICO_COVER_UP = get_icon("mdi:chevron-up")
@@ -57,14 +97,14 @@ class RowPage(HAUIPage):
     NUM_ROWS = 5
     LEN_NAME = 20
 
-    _entities: List[HAUIEntity] = []
-    _active_entities: List[HAUIEntity] = {}
+    _entities: List[HAUIConfigEntity] = []
+    _active_entities: List[HAUIConfigEntity] = {}
     _active_handles = []
     _current_page = 0
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # set vars
         self._entities = panel.get_entities()
         self._current_page = panel.get("initial_page", 0)
@@ -116,12 +156,12 @@ class RowPage(HAUIPage):
             self.set_function_component(slider, slider[1], "slider", visible=False, value=0, row_index=i)
             self.set_function_component(slider_txt, slider_txt[1], "slider_txt", visible=False, text="", row_index=i)
 
-    def stop_panel(self, panel: HAUIPanel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         while self._active_handles:
             handle = self._active_handles.pop()
             self.remove_entity_listener(handle)
 
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIConfigPanel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
         self.set_row_entries()
 
@@ -277,7 +317,7 @@ class RowPage(HAUIPage):
 
     # entity detail
 
-    def get_entity_display_type(self, haui_entity: HAUIEntity):
+    def get_entity_display_type(self, haui_entity: HAUIConfigEntity):
         """Returns how the entity should be displayed.
 
         Entities support different display types:
@@ -310,24 +350,24 @@ class RowPage(HAUIPage):
 
         return display_type
 
-    def update_entity_text(self, haui_entity: HAUIEntity, idx):
+    def update_entity_text(self, haui_entity: HAUIConfigEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
         self.update_function_component(item[1], text=haui_entity.get_value())
 
-    def update_entity_button(self, haui_entity: HAUIEntity, idx):
+    def update_entity_button(self, haui_entity: HAUIConfigEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
         self.update_function_component(item[1], text=haui_entity.get_value())
 
-    def update_entity_timer(self, haui_entity: HAUIEntity, idx):
+    def update_entity_timer(self, haui_entity: HAUIConfigEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
         self.update_function_component(item[1], text=haui_entity.get_value())
 
-    def update_entity_toggle(self, haui_entity: HAUIEntity, idx):
+    def update_entity_toggle(self, haui_entity: HAUIConfigEntity, idx):
         toggle = getattr(self, f"R{idx}_TOGGLE")
         value = 0 if haui_entity.get_entity_state() == "off" else 1
         self.update_function_component(toggle[1], value=value)
 
-    def update_entity_slider(self, haui_entity: HAUIEntity, idx):
+    def update_entity_slider(self, haui_entity: HAUIConfigEntity, idx):
         slider = getattr(self, f"R{idx}_SLIDER")
         slider_txt = getattr(self, f"R{idx}_SLIDER_TXT")
         # get values needed for slider
@@ -348,7 +388,7 @@ class RowPage(HAUIPage):
         self.update_function_component(slider[1], value=i_value)
         self.update_function_component(slider_txt[1], text=value)
 
-    def update_entity_cover(self, haui_entity: HAUIEntity, idx):
+    def update_entity_cover(self, haui_entity: HAUIConfigEntity, idx):
         btn_up = getattr(self, f"R{idx}_BTN_UP")
         btn_stop = getattr(self, f"R{idx}_BTN_STOP")
         btn_down = getattr(self, f"R{idx}_BTN_DOWN")

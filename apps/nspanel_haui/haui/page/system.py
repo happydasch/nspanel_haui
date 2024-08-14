@@ -1,4 +1,4 @@
-from ..abstract.panel import HAUIPanel
+from ..abstract.panel import HAUIConfigPanel
 
 from . import HAUIPage
 
@@ -15,7 +15,7 @@ class SystemPage(HAUIPage):
 
     # panel
 
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIConfigPanel):
         # update default text
         self.set_title(self.translate("Waiting for Connection"))
         self.set_message(
@@ -23,7 +23,7 @@ class SystemPage(HAUIPage):
             self.translate("please check your configuration"),
         )
 
-    def after_render_panel(self, panel: HAUIPanel, rendered):
+    def after_render_panel(self, panel: HAUIConfigPanel, rendered):
         # open home panel
         navigation = self.app.controller["navigation"]
         navigation.open_home_panel()

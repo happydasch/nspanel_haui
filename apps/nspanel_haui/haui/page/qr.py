@@ -1,5 +1,5 @@
 from ..mapping.color import COLORS
-from ..abstract.panel import HAUIPanel
+from ..abstract.panel import HAUIConfigPanel
 
 from . import HAUIPage
 
@@ -27,7 +27,7 @@ class QRPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIConfigPanel):
         name = self.app.device.get_name()
         self.add_component_callback(self.QR_CODE, self.callback_qr_code)
         self.add_component_callback(self.QR_CODE_BIG, self.callback_qr_code_big)
@@ -61,23 +61,20 @@ class QRPage(HAUIPage):
             self.update_qr(big=True)
             self._header_toggle_show = False
         else:
-            if panel.get("big_qr", False) is not True:
-                self.update_qr(big=False)
-            else:
-                self.update_qr(big=True)
+            self.update_qr(big=False)
         self.set_component_text(self.QR_CODE, qr_code)
         self.set_component_text(self.QR_CODE_BIG, qr_code)
 
         self.stop_rec_cmd(send_commands=True)
 
-    def stop_panel(self, panel: HAUIPanel):
+    def stop_panel(self, panel: HAUIConfigPanel):
         # restore old dimming values
         if self._use_auto_dimming:
             self.auto_dimming.turn_on()
         if self._use_auto_page:
             self.auto_page.turn_on()
 
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIConfigPanel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
         entities = panel.get_entities()
         max_len = 20
@@ -95,7 +92,7 @@ class QRPage(HAUIPage):
             value = entity.get_value()
             value_add = ""
             if len(value) > max_len:
-                value_add = value[max_len - 1:]
+                value_add = value[max_len - 1 :]
                 value = value[: max_len - 1]
             self.set_component_text(q_text, value)
             self.set_component_text(q_text_add, value_add)

@@ -1,7 +1,7 @@
 from threading import Timer
 
 from ..mapping.color import COLORS
-from ..abstract.panel import HAUIPanel
+from ..abstract.panel import HAUIConfigPanel
 
 from . import HAUIPage
 
@@ -38,7 +38,7 @@ class SelectPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIConfigPanel):
         # set function buttons
         page_btn = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,

@@ -1,13 +1,12 @@
 import threading
-from typing import List, Optional
 
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE, ESP_EVENT
 from ..mapping.color import COLORS
 from ..helper.color import pos_to_color, color_to_pos
 from ..helper.icon import get_icon
 from ..helper.value import scale
-from ..abstract.panel import HAUIPanel
-from ..abstract.entity import HAUIEntity
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
 from ..abstract.event import HAUIEvent
 
 from . import HAUIPage
@@ -41,8 +40,6 @@ class LightPage(HAUIPage):
     ICO_EFFECT = get_icon("mdi:fire")
     ICO_POWER = get_icon("mdi:power")
 
-    DEFAULT_FUNCTION = "brightness"
-
     _title = ""
     _light_entity = None
     _show_kelvin = True
@@ -56,7 +53,7 @@ class LightPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel) -> None:
+    def start_panel(self, panel: HAUIConfigPanel):
         # set component callbacks
         self.add_component_callback(self.PIC_COLOR_WHEEL, self.callback_color_wheel)
         self.add_component_callback(self.H_BRIGHTNESS, self.callback_brightness)
@@ -92,7 +89,7 @@ class LightPage(HAUIPage):
         entity = None
         entity_id = panel.get("entity_id")
         if entity_id:
-            entity = HAUIEntity(self.app, {"entity": entity_id})
+            entity = HAUIConfigEntity(self.app, {"entity": entity_id})
         if entity is None:
             entities = panel.get_entities()
             if len(entities) > 0:
@@ -104,17 +101,17 @@ class LightPage(HAUIPage):
             title = entity.get_name()
         self._title = title
 
-    def render_panel(self, panel: HAUIPanel) -> None:
+    def render_panel(self, panel: HAUIConfigPanel):
         # set basic panel info
         self.set_component_text(self.TXT_TITLE, self._title)
-        if not self.update_functions(self.DEFAULT_FUNCTION) and self.panel.get_mode() == "popup":
+        if not self.update_functions() and self.panel.get_mode() == "popup":
             self.stop_rec_cmd(send_commands=False)
             navigation = self.app.controller["navigation"]
             navigation.close_panel()
 
     # misc
 
-    def set_light_entity(self, entity: HAUIEntity) -> None:
+    def set_light_entity(self, entity: HAUIConfigEntity):
         self._light_entity = entity
         if not entity or not entity.has_entity_id():
             return
@@ -132,86 +129,13 @@ class LightPage(HAUIPage):
                 entity.get_entity_id(), self.callback_light_entity, attribute=attr_name
             )
 
-    def get_light_function(self, fnc_name: str) -> dict:
+    def get_light_function(self, fnc_name):
         for fnc in self._light_functions:
             if fnc["name"] == fnc_name:
                 return fnc
         return None
 
-    def get_entity_power(self) -> Optional[bool]:
-        state = self._light_entity.get_entity_state()
-        if state == "on":
-            return True
-        elif state == "off":
-            return False
-        return None
-
-    def get_available_light_functions(self) -> List[dict]:
-        if self._light_entity is None or not self._light_entity.has_entity():
-            return []
-        entity = self._light_entity.get_entity()
-
-        # check what is supported
-        power = self.get_entity_power()
-        attr = entity.attributes
-        color_modes = attr.get("supported_color_modes", [])
-
-        # get currently available functions
-        functions = []
-
-        # brightness
-        brightness = None
-        if "brightness" in attr:
-            brightness = bool(power)
-        brightness_val = self._light_entity.get_entity_attr("brightness", 0)
-
-        # color
-        color = None
-        color_val = 0
-        list_color_modes = ["hs", "rgb", "rgbw", "rgbww", "xy"]
-        if any(item in list_color_modes for item in color_modes):
-            color = bool(power)
-
-        # color temp
-        color_temp = None
-        if self._show_kelvin:
-            color_temp_val = self._light_entity.get_entity_attr("color_temp_kelvin")
-        else:
-            color_temp_val = self._light_entity.get_entity_attr("color_temp")
-        if "color_temp" in color_modes:
-            color_temp = bool(power)
-
-        # effects
-        effect = None
-        if "effect_list" in attr:
-            effect = bool(power)
-        effect_val = self._light_entity.get_entity_attr("effect", None)
-
-        # update light functions
-        idx = 1
-        for ico, name, val, status, show_info in [
-            (self.ICO_BRIGHTNESS, "brightness", brightness_val, brightness, True),
-            (self.ICO_COLOR, "color", color_val, color, False),
-            (self.ICO_COLOR_TEMP, "color_temp", color_temp_val, color_temp, True),
-            (self.ICO_EFFECT, "effect", effect_val, effect, False),
-        ]:
-            if status:
-                function = {
-                    "idx": idx,
-                    "ico": ico,
-                    "name": name,
-                    "val": val,
-                    "status": status,
-                    "show_info": show_info,
-                }
-                functions.append(function)
-                idx += 1
-        return functions
-
-    def set_light_function_details(
-        self, idx: int, ico: str, name: str, val: str,
-        status: bool, show_info: bool, **kwargs
-    ) -> None:
+    def set_light_function(self, idx, ico, name, val, status, show_info, **kwargs):
         btn = getattr(self, f"BTN_LIGHT_FNC_{idx}")
         self.set_component_text(btn, ico)
         if status is True:
@@ -227,7 +151,7 @@ class LightPage(HAUIPage):
         self.show_component(btn)
         return btn
 
-    def set_brightness_info(self, value: int) -> None:
+    def set_brightness_info(self, value):
         fnc = self.get_light_function("brightness")
         if fnc is None:
             return
@@ -241,17 +165,16 @@ class LightPage(HAUIPage):
         else:
             txt_value = self.translate("Off")
         self.set_component_value(self.H_BRIGHTNESS, conv_value)
-        if self._current_light_function == "brightness":
-            self.set_component_text(self.TXT_INFO, txt_value)
+        self.set_component_text(self.TXT_INFO, txt_value)
 
-    def set_color_info(self, value: int) -> None:
+    def set_color_info(self, value):
         fnc = self.get_light_function("color")
         if fnc is None:
             return
         self.set_component_text_color(self.BTN_POWER, value)
         self.update_color_wheel()
 
-    def set_color_temp_info(self, value: int) -> None:
+    def set_color_temp_info(self, value):
         fnc = self.get_light_function("color_temp")
         if fnc is None:
             return
@@ -273,10 +196,9 @@ class LightPage(HAUIPage):
         else:
             txt_value = ""
         self.set_component_value(self.H_COLOR_TEMP, conv_value)
-        if self._current_light_function == "color_temp":
-            self.set_component_text(self.TXT_INFO, txt_value)
+        self.set_component_text(self.TXT_INFO, txt_value)
 
-    def set_effect_info(self, value: str) -> None:
+    def set_effect_info(self, value):
         fnc = self.get_light_function("effect")
         if fnc is None:
             return
@@ -286,17 +208,259 @@ class LightPage(HAUIPage):
         else:
             self.set_component_text_color(btn, COLORS["component"])
 
-    def set_current_light_function(self, fnc: dict) -> None:
-        functions = self.get_available_light_functions()
-        for f in functions:
-            if fnc is None:
-                break
-            if f["name"] == fnc["name"]:
-                self._current_light_function = fnc["name"]
-                return
-        self._current_light_function = None
+    def update_functions(self):
+        if self._light_entity is None or not self._light_entity.has_entity():
+            return False
+        entity = self._light_entity.get_entity()
 
-        if fnc is None:
+        # entity power
+        power = None
+        power_val = entity.get_state()
+        # functions
+        color = None
+        brightness = None
+        color_temp = None
+        effect = None
+        color_val = 0
+        brightness_val = self._light_entity.get_entity_attr("brightness", 0)
+        if self._show_kelvin:
+            color_temp_val = self._light_entity.get_entity_attr("color_temp_kelvin")
+        else:
+            color_temp_val = self._light_entity.get_entity_attr("color_temp")
+        effect_val = self._light_entity.get_entity_attr("effect", None)
+        # check what is supported
+        attr = entity.attributes
+        color_modes = attr.get("supported_color_modes", [])
+
+        # get currently available functions
+        functions = []
+        # power on / off
+        if power_val == "on":
+            power = True
+        elif power_val == "off":
+            power = False
+        # brightness
+        if "brightness" in attr:
+            brightness = bool(power)
+        # color
+        list_color_modes = ["hs", "rgb", "rgbw", "rgbww", "xy"]
+        if any(item in list_color_modes for item in color_modes):
+            color = bool(power)
+        # color temp
+        if "color_temp" in color_modes:
+            color_temp = bool(power)
+        # effects
+        if "effect_list" in attr:
+            effect = bool(power)
+
+        # update light functions
+        idx = 1
+        for ico, name, val, status, show_info in [
+            (self.ICO_BRIGHTNESS, "brightness", brightness_val, brightness, True),
+            (self.ICO_COLOR, "color", color_val, color, False),
+            (self.ICO_COLOR_TEMP, "color_temp", color_temp_val, color_temp, True),
+            (self.ICO_EFFECT, "effect", effect_val, effect, False),
+        ]:
+            if status:
+                function = {
+                    "idx": idx,
+                    "ico": ico,
+                    "name": name,
+                    "val": val,
+                    "status": status,
+                    "show_info": show_info,
+                }
+                functions.append(function)
+                idx += 1
+
+        # set initial values
+        if brightness is not None:
+            # scale to 0-100 from 0-255
+            brightness_val = round(scale(brightness_val, (0, 255), (0, 100)))
+            self.set_component_value(self.H_BRIGHTNESS, brightness_val)
+        if color_temp is not None:
+            # scale ha color temp range to 0-100
+            if color_temp_val is not None:
+                color_temp_val = round(
+                    scale(
+                        color_temp_val,
+                        (self._color_temp_max, self._color_temp_min),
+                        (0, 100),
+                    )
+                )
+            else:
+                color_temp_val = 0
+            self.set_component_value(self.H_COLOR_TEMP, color_temp_val)
+        if color is not None:
+            self.update_color_wheel()
+
+        # check current function if it is still available
+        names = [fnc["name"] for fnc in functions]
+        if (
+            self._current_light_function is not None
+            and self._current_light_function not in names
+        ):
+            self._current_light_function = None
+
+        # set light functions
+        self._light_functions = functions
+        light_function = None
+        for fnc in self._light_functions:
+            if fnc["name"] == self._current_light_function:
+                light_function = fnc
+                break
+        if power is not None:
+            self.update_power_button()
+            self.update_light_functions(light_function)
+            return True
+        else:
+            self.update_not_available()
+        return False
+
+    def update_light_functions(self, fnc):
+        # show function components
+        to_show = None
+        if fnc is not None:
+            if fnc["name"] == "brightness":
+                to_show = self.H_BRIGHTNESS
+            elif fnc["name"] == "color":
+                to_show = self.PIC_COLOR_WHEEL
+            elif fnc["name"] == "color_temp":
+                to_show = self.H_COLOR_TEMP
+            # function info
+            if not fnc["show_info"]:
+                self.hide_component(self.TXT_INFO)
+        else:
+            self.hide_component(self.TXT_INFO)
+        # function buttons
+        for i in range(4):
+            if i < len(self._light_functions):
+                function = self._light_functions[i]
+                btn = self.set_light_function(**function)
+                function["btn"] = btn
+                if function["name"] == self._current_light_function:
+                    self.set_component_value(btn, 1)
+                else:
+                    self.set_component_value(btn, 0)
+            else:
+                idx = i + 1
+                btn = getattr(self, f"BTN_LIGHT_FNC_{idx}")
+                self.hide_component(btn)
+        # function components
+        for x in [self.H_BRIGHTNESS, self.PIC_COLOR_WHEEL, self.H_COLOR_TEMP]:
+            if x == to_show:
+                self.show_component(x)
+            else:
+                self.hide_component(x)
+        if fnc is not None:
+            if fnc["show_info"]:
+                self.show_component(self.TXT_INFO)
+            self.update_light_function_info(fnc)
+
+    def update_light_function_info(self, fnc):
+        name = fnc["name"]
+        val = fnc["val"]
+        # set value
+        if name == "brightness":
+            self.set_brightness_info(val)
+        elif name == "color":
+            self.set_color_info(val)
+        elif name == "color_temp":
+            self.set_color_temp_info(val)
+        elif name == "effect":
+            self.set_effect_info(val)
+
+    def update_color_wheel(self):
+        if self._current_light_function != "color":
+            return
+        rgb_color = self._light_entity.get_entity_attr("rgb_color")
+        if rgb_color is None:
+            return
+        # reduce wh to match max circle pos at border
+        radius = 6
+        wh = self.PIC_COLOR_WHEEL_WH - (2 * radius)
+        # get pos xy based on smaller circle
+        pos_x, pos_y = color_to_pos(rgb_color, wh)
+        # refresh color wheel to remove circle
+        self.send_cmd(f"ref {self.PIC_COLOR_WHEEL[0]}")
+        if pos_x is not None and pos_y is not None and pos_x > 0 and pos_y > 0:
+            self.log(f"Set color wheel: {pos_x},{pos_y}")
+            # adjust pos based on radius of circle
+            pos_x += self.PIC_COLOR_WHEEL_X + radius
+            pos_y += self.PIC_COLOR_WHEEL_Y + radius
+            self.send_cmd("doevents")
+            # draw circle
+            color = COLORS["component_pressed"]
+            self.send_cmd(f"cirs {pos_x},{pos_y},{radius},{color}")
+
+    def update_power_button(self):
+        # update function button
+        if (
+            self._light_entity.get_entity_state() == "on"
+            and self._current_light_function is not None
+        ):
+            color = COLORS["component_accent"]
+            self.update_function_component(
+                self.FNC_BTN_R_SEC, visible=True, color=color
+            )
+        else:
+            self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
+
+        # show on / off button only if there is nothing active
+        if self._light_entity.get_entity_state() == "on":
+            rgb_color = self._light_entity.get_entity_attr("rgb_color")
+            color = self.parse_color(rgb_color)
+        else:
+            color = COLORS["entity_unavailable"]
+        if self._current_light_function is None:
+            self.set_component_text_color(self.BTN_POWER, color)
+            self.show_component(self.BTN_POWER)
+        else:
+            self.hide_component(self.BTN_POWER)
+
+    def update_not_available(self):
+        self.log("update_not_available")
+        color = COLORS["entity_unavailable"]
+        self.set_component_text_color(self.BTN_POWER, color)
+        self.show_component(self.BTN_POWER)
+
+    # callback
+
+    def callback_light_entity(self, entity, attribute, old, new, kwargs):
+        self.log(f"Got light entity callback: {entity}.{attribute}:{new}")
+        self.start_rec_cmd()
+        if attribute == "state":
+            if not self.update_functions() and self.panel.get_mode() == "popup":
+                self.stop_rec_cmd(send_commands=False)
+                navigation = self.app.controller["navigation"]
+                navigation.close_panel()
+        elif attribute == "effect":
+            self.set_effect_info(new)
+        elif attribute == "rgb_color":
+            self.set_color_info(new)
+        elif attribute == "brightness":
+            self.set_brightness_info(new)
+        elif ((attribute == "color_temp_kelvin" and self._show_kelvin)
+                or (attribute == "color_temp" and not self._show_kelvin)):
+            self.set_color_temp_info(new)
+        self.stop_rec_cmd(send_commands=True)
+
+    def callback_function_component(self, fnc_id, fnc_name):
+        if fnc_id != self.FNC_BTN_R_SEC:
+            return
+        # turn of power on right secondary function button
+        self.process_power(False)
+
+    def callback_light_function_button(self, event, component, button_state):
+        if button_state:
+            # wait for release
+            return
+        self.log(f"Got light function press: {component}-{button_state}")
+        # check for current function
+        fnc = [f for f in self._light_functions if f["btn"] == component]
+        fnc = fnc[0] if len(fnc) else None
+        # check if current function still available or if toggled
+        if fnc is None or self._current_light_function == fnc["name"]:
             self.log(
                 f"Unsetting function {fnc}, current: {self._current_light_function}"
             )
@@ -322,210 +486,6 @@ class LightPage(HAUIPage):
                         selection_callback_fnc=self.callback_effect,
                         close_on_select=True,
                     )
-
-    def update_functions(self, default_function: Optional[str] = None) -> bool:
-        functions = self.get_available_light_functions()
-        if self._current_light_function is None and default_function is not None:
-            self._current_light_function = default_function
-        # check current function if it is still available
-        names = [fnc["name"] for fnc in functions]
-        if (
-            self._current_light_function is not None
-            and self._current_light_function not in names
-        ):
-            self._current_light_function = None
-
-        for fnc in functions:
-            if fnc["status"] is False or fnc["val"] is None:
-                continue
-            if fnc["name"] == "brightness":
-                self.set_component_value(self.H_BRIGHTNESS, fnc["val"])
-            elif fnc["name"] == "color_temp":
-                self.set_component_value(self.H_COLOR_TEMP, fnc["val"])
-            elif fnc["name"] == "color":
-                self.update_color_wheel()
-
-        # set light functions
-        self._light_functions = functions
-        light_function = None
-        for fnc in self._light_functions:
-            if fnc["name"] == self._current_light_function:
-                light_function = fnc
-                break
-        if self.get_entity_power() is not None:
-            self.update_power_button()
-            self.update_light_functions(light_function)
-            return True
-        else:
-            self.update_not_available()
-        return False
-
-    def update_light_functions(self, fnc: dict) -> None:
-        # show function components
-        to_show = None
-        if fnc is not None:
-            if fnc["name"] == "brightness":
-                to_show = self.H_BRIGHTNESS
-            elif fnc["name"] == "color":
-                to_show = self.PIC_COLOR_WHEEL
-            elif fnc["name"] == "color_temp":
-                to_show = self.H_COLOR_TEMP
-            # function info
-            if not fnc["show_info"]:
-                self.hide_component(self.TXT_INFO)
-        else:
-            self.hide_component(self.TXT_INFO)
-        # function buttons
-        for i in range(4):
-            if i < len(self._light_functions):
-                function = self._light_functions[i]
-                btn = self.set_light_function_details(**function)
-                function["btn"] = btn
-                if function["name"] == self._current_light_function:
-                    self.set_component_value(btn, 1)
-                else:
-                    self.set_component_value(btn, 0)
-            else:
-                idx = i + 1
-                btn = getattr(self, f"BTN_LIGHT_FNC_{idx}")
-                self.hide_component(btn)
-        # function components
-        for x in [self.H_BRIGHTNESS, self.PIC_COLOR_WHEEL, self.H_COLOR_TEMP]:
-            if x == to_show:
-                self.show_component(x)
-            else:
-                self.hide_component(x)
-        if fnc is not None:
-            if fnc["show_info"]:
-                self.show_component(self.TXT_INFO)
-            self.update_light_function_info(fnc)
-
-    def update_light_function_info(self, fnc: dict) -> None:
-        name = fnc["name"]
-        val = fnc["val"]
-        # set value
-        if name == "brightness":
-            self.set_brightness_info(val)
-        elif name == "color":
-            self.set_color_info(val)
-        elif name == "color_temp":
-            self.set_color_temp_info(val)
-        elif name == "effect":
-            self.set_effect_info(val)
-
-    def update_color_wheel(self) -> None:
-        if self._current_light_function != "color":
-            return
-        rgb_color = self._light_entity.get_entity_attr("rgb_color")
-        if rgb_color is None:
-            return
-        # reduce wh to match max circle pos at border
-        radius = 6
-        wh = self.PIC_COLOR_WHEEL_WH - (2 * radius)
-        # get pos xy based on smaller circle
-        pos_x, pos_y = color_to_pos(rgb_color, wh)
-        # refresh color wheel to remove circle
-        self.send_cmd(f"ref {self.PIC_COLOR_WHEEL[0]}")
-        if pos_x is not None and pos_y is not None and pos_x > 0 and pos_y > 0:
-            self.log(f"Set color wheel: {pos_x},{pos_y}")
-            # adjust pos based on radius of circle
-            pos_x += self.PIC_COLOR_WHEEL_X + radius
-            pos_y += self.PIC_COLOR_WHEEL_Y + radius
-            self.send_cmd("doevents")
-            # draw circle
-            color = COLORS["component_pressed"]
-            self.send_cmd(f"cirs {pos_x},{pos_y},{radius},{color}")
-
-    def update_power_button(self) -> None:
-        # update function button
-        if (
-            self._light_entity.get_entity_state() == "on"
-            and self._current_light_function is not None
-        ):
-            color = COLORS["component_accent"]
-            self.update_function_component(
-                self.FNC_BTN_R_SEC, visible=True, color=color
-            )
-        else:
-            self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
-
-        # show on / off button only if there is nothing active
-        if self._light_entity.get_entity_state() == "on":
-            rgb_color = self._light_entity.get_entity_attr("rgb_color")
-            color = self.parse_color(rgb_color)
-        else:
-            color = COLORS["entity_unavailable"]
-        if self._current_light_function is None:
-            self.set_component_text_color(self.BTN_POWER, color)
-            self.show_component(self.BTN_POWER)
-        else:
-            self.hide_component(self.BTN_POWER)
-
-    def update_not_available(self) -> None:
-        self.log("update_not_available")
-        color = COLORS["entity_unavailable"]
-        self.set_component_text_color(self.BTN_POWER, color)
-        self.show_component(self.BTN_POWER)
-
-    # callback
-
-    def callback_light_entity(self, entity, attribute, old, new, kwargs):
-        self.log(f"Got light entity callback: {entity}.{attribute}:{new}")
-        self.start_rec_cmd()
-        if attribute == "state":
-            if (
-                not self.update_functions(self.DEFAULT_FUNCTION)
-                and self.panel.get_mode() == "popup"
-            ):
-                self.stop_rec_cmd(send_commands=False)
-                navigation = self.app.controller["navigation"]
-                navigation.close_panel()
-        elif attribute == "effect":
-            fnc = self.get_light_function("effect")
-            if fnc is None or fnc["val"] == new:
-                return
-            fnc["val"] = new
-            if self._current_light_function == "effect":
-                self.set_effect_info(new)
-        elif attribute == "rgb_color":
-            fnc = self.get_light_function("color")
-            if fnc is None or fnc["val"] == new:
-                return
-            fnc["val"] = new
-            self.set_color_info(new)
-        elif attribute == "brightness":
-            fnc = self.get_light_function("brightness")
-            if fnc is None or fnc["val"] == new:
-                return
-            fnc["val"] = new
-            self.set_brightness_info(new)
-        elif ((attribute == "color_temp_kelvin" and self._show_kelvin)
-                or (attribute == "color_temp" and not self._show_kelvin)):
-            fnc = self.get_light_function("color_temp")
-            if fnc is None or fnc["val"] == new:
-                return
-            fnc["val"] = new
-            self.set_color_temp_info(new)
-        self.stop_rec_cmd(send_commands=True)
-
-    def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        if fnc_id != self.FNC_BTN_R_SEC:
-            return
-        # turn of power on right secondary function button
-        self.process_power(False)
-
-    def callback_light_function_button(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if button_state:
-            # wait for release
-            return
-        self.log(f"Got light function press: {component}-{button_state}")
-        # check for current function
-        fnc = [f for f in self._light_functions if f["btn"] == component]
-        fnc = fnc[0] if len(fnc) else None
-        # toggle current function
-        if fnc["name"] == self._current_light_function:
-            fnc = None
-        self.set_current_light_function(fnc)
         # update components
         self.start_rec_cmd()
         for btn in [
@@ -544,31 +504,31 @@ class LightPage(HAUIPage):
             self.update_color_wheel()
         self.stop_rec_cmd(send_commands=True)
 
-    def callback_color_wheel(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+    def callback_color_wheel(self, event, component, button_state):
         self.log(f"Got color wheel press: {component}-{button_state}")
         if button_state:
             self._touch_track = True
             # will get set to false by touch end
 
-    def callback_brightness(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+    def callback_brightness(self, event, component, button_state):
         if button_state:
             return
         self.log(f"Got brightness press: {component}-{button_state}")
         self.send_mqtt(ESP_REQUEST["req_val"], self.H_BRIGHTNESS[1], force=True)
 
-    def callback_color_temp(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+    def callback_color_temp(self, event, component, button_state):
         if button_state:
             return
         self.log(f"Got color temp press: {component}-{button_state}")
         self.send_mqtt(ESP_REQUEST["req_val"], self.H_COLOR_TEMP[1], force=True)
 
-    def callback_power(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+    def callback_power(self, event, component, button_state):
         if button_state:
             return
         self.log(f"Got power press: {component}-{button_state}")
         self.send_mqtt(ESP_REQUEST["req_val"], self.BTN_POWER[1], force=True)
 
-    def callback_effect(self, selection: list) -> None:
+    def callback_effect(self, selection):
         self.log(f"Got effect selection: {selection}")
         self._light_entity.call_entity_service("turn_on", effect=selection)
 
@@ -629,9 +589,7 @@ class LightPage(HAUIPage):
         self.log(f"Processing brightness value {brightness}")
         # scale 0-100 to ha brightness range
         brightness_ha = round(scale(brightness, (0, 100), (0, 255)))
-        current_brightness = self._light_entity.get_entity_attr("brightness")
-        if current_brightness != brightness_ha:
-            self._light_entity.call_entity_service("turn_on", brightness=brightness_ha)
+        self._light_entity.call_entity_service("turn_on", brightness=brightness_ha)
 
     def process_color_temp(self, color_temp):
         self.log(f"Processing color temp {color_temp}")
@@ -641,15 +599,14 @@ class LightPage(HAUIPage):
             (0, 100),
             (self._color_temp_max, self._color_temp_min),
         )
-        args = {}
         if self._show_kelvin:
-            current_color_temp = self._light_entity.get_entity_attr("color_temp_kelvin")
-            args["color_temp_kelvin"] = color_temp
+            self._light_entity.call_entity_service(
+                "turn_on", color_temp_kelvin=color_temp
+            )
         else:
-            current_color_temp = self._light_entity.get_entity_attr("color_temp")
-            args["color_temp"] = color_temp
-        if current_color_temp != color_temp:
-            self._light_entity.call_entity_service("turn_on", **args)
+            self._light_entity.call_entity_service(
+                "turn_on", color_temp=color_temp
+            )
 
     def process_power(self, power):
         self.log(f"Processing power value {power}")

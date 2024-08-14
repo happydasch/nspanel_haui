@@ -1,4 +1,4 @@
-from ..abstract.panel import HAUIPanel
+from ..abstract.panel import HAUIConfigPanel
 
 from . import HAUIPage
 
@@ -8,7 +8,7 @@ class BlankPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIConfigPanel):
         self.add_component_callback(self.H_BLANK, self.callback_blank)
 
     # callback

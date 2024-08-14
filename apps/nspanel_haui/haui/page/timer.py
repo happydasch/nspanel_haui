@@ -3,7 +3,7 @@ import threading
 
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
-from ..config import HAUIConfigPanel
+from ..abstract.panel import HAUIConfigPanel
 
 from . import HAUIPage
 

@@ -1,4 +1,4 @@
-from haui.config import HAUIConfig
+from haui.abstract.config import HAUIConfig
 from haui.device import HAUIDevice
 from haui.controller import (
     HAUIMQTTController,

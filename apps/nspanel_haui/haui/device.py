@@ -1,6 +1,6 @@
 from .mapping.page import PANEL_MAPPING, SYS_PANEL_MAPPING
 from .mapping.const import ESP_EVENT
-from .base import HAUIPart
+from .abstract.part import HAUIPart
 
 
 class HAUIDevice(HAUIPart):
@@ -248,7 +248,7 @@ class HAUIDevice(HAUIPart):
         # process gesture event
         if event.name == ESP_EVENT["gesture"]:
             self.process_gesture(event)
-        elif event.name == ESP_EVENT["touch_end"]:
+        elif event.name == ESP_EVENT["touch_start"]:
             self.check_wake_up()
         # update device sleeping state
         elif event.name == ESP_EVENT["sleep"]:
@@ -271,6 +271,10 @@ class HAUIDevice(HAUIPart):
         if not navigation.panel:
             return
         if navigation.panel.is_wakeup_panel() and not navigation.panel.is_home_panel():
+            display_state = self.device_info.get("display_state")
+            if display_state != "on":
+                self.log(f"display state {display_state}")
+                return
             if self.wake_up:
                 self.wake_up = False
             else:

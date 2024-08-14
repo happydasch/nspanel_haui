@@ -5,9 +5,10 @@ from typing import List
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
-from ..config import HAUIConfigEntity, HAUIConfigPanel
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
+from ..abstract.event import HAUIEvent
 from ..features import MediaPlayerFeatures
-from ..base import HAUIEvent
 
 from . import HAUIPage
 

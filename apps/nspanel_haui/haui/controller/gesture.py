@@ -1,7 +1,7 @@
 import time
 
 from ..mapping.const import ESP_EVENT
-from ..base import HAUIPart
+from ..abstract.part import HAUIPart
 
 
 class HAUIGestureController(HAUIPart):

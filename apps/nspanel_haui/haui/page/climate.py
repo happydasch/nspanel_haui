@@ -3,7 +3,8 @@ from typing import List
 from ..mapping.color import COLORS
 from ..mapping.icon import CLIMATE_MAPPING
 from ..helper.icon import get_icon
-from ..config import HAUIConfigEntity, HAUIConfigPanel
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
 from ..features import ClimateFeatures
 
 from . import HAUIPage

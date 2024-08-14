@@ -7,7 +7,7 @@ from packaging.version import parse, Version, InvalidVersion
 from ..mapping.const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..helper.text import trim_text
-from ..base import HAUIPart
+from ..abstract.part import HAUIPart
 
 
 class HAUIUpdateController(HAUIPart):

@@ -8,7 +8,8 @@ from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..helper.datetime import (
     get_time_localized, get_date_localized, format_datetime)
-from ..config import HAUIConfigEntity, HAUIConfigPanel
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
 
 from . import HAUIPage
 

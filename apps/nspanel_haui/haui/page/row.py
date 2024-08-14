@@ -5,8 +5,9 @@ from ..mapping.color import COLORS
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from ..helper.icon import get_icon, get_icon_name_by_action
 from ..helper.text import trim_text
-from ..config import HAUIConfigEntity, HAUIConfigPanel
-from ..base import HAUIEvent
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
+from ..abstract.event import HAUIEvent
 from ..features import CoverFeatures
 
 from . import HAUIPage

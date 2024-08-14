@@ -1,6 +1,6 @@
-from ..config import HAUIConfigPanel
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
-from ..base import HAUIEvent
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.event import HAUIEvent
 
 from . import HAUIPage
 

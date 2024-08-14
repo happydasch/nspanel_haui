@@ -2,7 +2,7 @@ import threading
 
 from ..mapping.const import ESP_EVENT
 from ..helper.page import get_page_id_for_panel, get_page_class_for_panel
-from ..base import HAUIPart
+from ..abstract.part import HAUIPart
 
 
 class HAUINavigationController(HAUIPart):

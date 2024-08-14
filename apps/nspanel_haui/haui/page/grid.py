@@ -1,12 +1,14 @@
+import random
+import math
 from typing import List
+
 from ..mapping.color import COLORS
 from ..helper.color import generate_color_palette, rgb565_to_rgb
 from ..helper.text import trim_text
-from ..config import HAUIConfigEntity, HAUIConfigPanel
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
 
 from . import HAUIPage
-import random
-import math
 
 
 class GridPage(HAUIPage):

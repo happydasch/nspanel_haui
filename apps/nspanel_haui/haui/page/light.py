@@ -5,8 +5,10 @@ from ..mapping.color import COLORS
 from ..helper.color import pos_to_color, color_to_pos
 from ..helper.icon import get_icon
 from ..helper.value import scale
-from ..config import HAUIConfigEntity, HAUIConfigPanel
-from ..base import HAUIEvent
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
+from ..abstract.event import HAUIEvent
+
 from . import HAUIPage
 
 

@@ -2,8 +2,10 @@ from ..mapping.const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..helper.color import rgb_to_rgb565
-from ..base import HAUIEvent, HAUIPart
-from ..config import HAUIConfigPanel, HAUIConfigEntity
+from ..abstract.event import HAUIEvent
+from ..abstract.part import HAUIPart
+from ..abstract.entity import HAUIConfigEntity
+from ..abstract.panel import HAUIConfigPanel
 
 
 # class for pages / panels

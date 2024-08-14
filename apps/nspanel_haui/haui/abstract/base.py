@@ -1,8 +1,9 @@
+import json
 import re
 import uuid
-import json
-from .helper.icon import parse_icon
-from .helper.text import get_translation, get_state_translation
+
+from ..helper.icon import parse_icon
+from ..helper.text import get_translation, get_state_translation
 
 
 # Base class for all HAUI classes
@@ -263,110 +264,3 @@ class HAUIBase:
         if parse_icons:
             template = parse_icon(template)
         return template
-
-
-# a part adding start/stop
-class HAUIPart(HAUIBase):
-
-    """
-    A base class for a part of a Home Automation User Interface (HAUI).
-
-    This class provides a starting point for implementing a HAUI part.
-    Subclasses should override the start and stop methods to provide specific functionality.
-    """
-
-    def __init__(self, app, config=None):
-        """Initialize for HAUIPart.
-
-        Args:
-            app (NSPanelHAI): App
-            config (dict, optional): Config for part. Defaults to None.
-        """
-        super().__init__(app, config)
-        self._started = False
-
-    def is_started(self):
-        """Returns if the part is started.
-
-        Returns:
-            bool: Is the part started
-        """
-        return self._started
-
-    def start(self):
-        """Starts the object."""
-        if self._started:
-            return
-        self._started = True
-        self.start_part()
-
-    def stop(self):
-        """Stops the object."""
-        if not self._started:
-            return
-        self.stop_part()
-        self._started = False
-
-    def start_part(self):
-        """Starts the part.
-
-        This method should be overridden by subclasses to provide specific functionality.
-        """
-
-    def stop_part(self):
-        """Stops the part.
-
-        This method should be overridden by subclasses to provide specific functionality.
-        """
-
-
-# class for events
-class HAUIEvent:
-
-    """
-    Event class for HAUI. All events use this class.
-    """
-
-    def __init__(self, name, value):
-        """Initializes the event.
-
-        This class should be used for all events.
-
-        The name and value of the event can be accessed using the as_* methods.
-
-        The processed flag can be set to True to indicate that the event has been processed.
-        This is used to prevent processing the same event multiple times.
-
-        Args:
-            name (str): The name of the event.
-            value (): The value of the event.
-        """
-        self.name = name
-        self.value = value
-        self.processed = False
-
-    def as_int(self):
-        """Returns the value as an int.
-
-        Returns:
-            int: Value as int
-        """
-        return int(self.value)
-
-    def as_str(self):
-        """Returns the value as str.
-
-        Returns:
-            str: Value as str
-        """
-        return str(self.value)
-
-    def as_json(self):
-        """Returns the value as a json.
-
-        Returns:
-            dict: Value as json
-        """
-        if not self.value:
-            return {}
-        return json.loads(self.value)

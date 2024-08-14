@@ -3,7 +3,6 @@ from ..mapping.icon import (
     SIMPLE_TYPE_MAPPING,
     INTERNAL_TYPE_MAPPING,
     MEDIA_CONTENT_TYPE_MAPPING,
-    WEATHER_MAPPING,
 )
 
 from .color import rgb_to_rgb565, rgb565_to_rgb, rgb_brightness

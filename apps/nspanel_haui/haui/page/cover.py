@@ -1,8 +1,10 @@
-from ..mapping.const import ESP_REQUEST, ESP_RESPONSE, ESP_EVENT
+from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..features import CoverFeatures
-from ..config import HAUIConfigEntity, HAUIConfigPanel
-from ..base import HAUIEvent
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
+from ..abstract.event import HAUIEvent
+
 from . import HAUIPage
 
 

@@ -1,7 +1,7 @@
 from threading import Timer
 
 from ..mapping.color import COLORS
-from ..config import HAUIConfigPanel
+from ..abstract.panel import HAUIConfigPanel
 
 from . import HAUIPage
 

@@ -4,7 +4,7 @@ import json
 
 from ..version import __version__ as haui_version
 from ..mapping.const import SERVER_REQUEST, SERVER_RESPONSE, ESP_REQUEST, ESP_RESPONSE
-from ..base import HAUIPart
+from ..abstract.part import HAUIPart
 
 
 class HAUIConnectionController(HAUIPart):

@@ -1,4 +1,4 @@
-from ..config import HAUIConfigPanel
+from ..abstract.panel import HAUIConfigPanel
 
 from . import HAUIPage
 

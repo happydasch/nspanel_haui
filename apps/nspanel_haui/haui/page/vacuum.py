@@ -1,7 +1,8 @@
 from typing import List
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
-from ..config import HAUIConfigEntity, HAUIConfigPanel
+from ..abstract.panel import HAUIConfigPanel
+from ..abstract.entity import HAUIConfigEntity
 from ..features import VacuumFeatures
 
 from . import HAUIPage

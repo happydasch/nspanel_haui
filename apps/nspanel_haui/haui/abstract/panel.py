@@ -5,16 +5,15 @@ from ..mapping.const import PANEL_CONFIG
 from ..helper.value import merge_dicts
 
 from .base import HAUIBase
-from .entity import HAUIConfigEntity
+from .entity import HAUIEntity
 
 
-class HAUIConfigPanel(HAUIBase):
+class HAUIPanel(HAUIBase):
 
-    """
-    Represents a panel on the display.
+    """ Represents a panel on the display.
 
     Its a description of what the page should look like and what
-    entities to show
+    entities to show. The page implements the logic.
     """
 
     def __init__(self, app, config=None):
@@ -28,21 +27,21 @@ class HAUIConfigPanel(HAUIBase):
         super().__init__(app, deepcopy(PANEL_CONFIG))
         # load config
         if config is not None:
-            merge_dicts(self._config, config)
+            merge_dicts(self.config, config)
         # store the initial config in an additional var
         # so it is possible to restore the config to initial values
-        self._default_config = {}
-        merge_dicts(self._default_config, self._config)
+        self._default_config: dict = {}
+        merge_dicts(self._default_config, self.config)
         # store persistent config
-        self._persistent_config = {}
+        self._persistent_config: dict = {}
         # load all entities
-        self._entities: List[HAUIConfigEntity] = []  # list of HAUIConfigEntity
+        self._entities: List[HAUIEntity] = []  # list of HAUIConfigEntity
         # single entity config
         if self.get("entity") is not None:
-            self._entities.append(HAUIConfigEntity(self.app, config))
+            self._entities.append(HAUIEntity(self.app, config))
         # multiple entities config
         for e in self.get("entities", []):
-            self._entities.append(HAUIConfigEntity(self.app, e))
+            self._entities.append(HAUIEntity(self.app, e))
 
     # public
 
@@ -67,7 +66,7 @@ class HAUIConfigPanel(HAUIBase):
         """
         return self.get("mode", "panel")
 
-    def get_title(self, default_title=None) -> str:
+    def get_title(self, default_title: str = None) -> str:
         """Returns the title of this panel.
 
         Args:
@@ -118,7 +117,7 @@ class HAUIConfigPanel(HAUIBase):
         )
         return show_home_button
 
-    def get_entities(self, return_copy=True) -> List[HAUIConfigEntity]:
+    def get_entities(self, return_copy=True) -> List[HAUIEntity]:
         """Returns all entities from this panel.
 
         Args:
@@ -155,4 +154,4 @@ class HAUIConfigPanel(HAUIBase):
 
     def restore_default_config(self) -> Dict:
         """Restore the initial config of this panel."""
-        self._config = self.get_default_config(return_copy=True)
+        self.config = self.get_default_config(return_copy=True)

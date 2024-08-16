@@ -5,40 +5,41 @@ from ..helper.value import merge_dicts
 from ..mapping.const import DEFAULT_CONFIG
 
 from .base import HAUIBase
-from .entity import HAUIConfigEntity
-from .panel import HAUIConfigPanel
+from .entity import HAUIEntity
+from .panel import HAUIPanel
 
 
 class HAUIConfig(HAUIBase):
 
-    """
-    Configuration helper
-    """
+    """ HAUI Configuration. """
 
     def __init__(self, app, config=None):
         """Initialize for config.
 
-        Args:
+            Args:
             app (NSPanelHAUI): App
             config (dict, optional): Config. Defaults to None.
         """
         # initialize with default config
         super().__init__(app, deepcopy(DEFAULT_CONFIG))
-        # load config
+
+        # load config and merge with default config
         if config is not None:
             merge_dicts(self.get_config(return_copy=False), config)
         # load all panels
-        self._panels: List[HAUIConfigPanel] = []
+        self._panels: List[HAUIPanel] = []
         panels_to_load = self.get("panels", [])
         # append sys_panels so they can be overwritten by panels
         panels_to_load += self.get("sys_panels", [])
         for panel_config in panels_to_load:
-            panel = HAUIConfigPanel(self.app, panel_config)
+            panel = HAUIPanel(self.app, panel_config)
             self._panels.append(panel)
 
     # public
 
-    def get_panels(self, filter_nav_panel=None) -> List[HAUIConfigPanel]:
+    # TODO update config based on time
+
+    def get_panels(self, filter_nav_panel=None) -> List[HAUIPanel]:
         """Returns all panels as HAUIConfigPanel objects.
 
         Args:
@@ -60,7 +61,7 @@ class HAUIConfig(HAUIBase):
             return nav_panels
         return self._panels
 
-    def get_entities(self) -> List[HAUIConfigEntity]:
+    def get_entities(self) -> List[HAUIEntity]:
         """Returns all entities as HAUIConfigEntity objects.
 
         Returns:
@@ -71,7 +72,7 @@ class HAUIConfig(HAUIBase):
             entities.extend(panel.get_entities())
         return entities
 
-    def get_entity(self, entity_id) -> HAUIConfigEntity:
+    def get_entity(self, entity_id: str) -> HAUIEntity:
         """Returns a single entity.
 
         Args:
@@ -85,7 +86,7 @@ class HAUIConfig(HAUIBase):
                 return entity
         return None
 
-    def get_panel(self, panel_id) -> HAUIConfigPanel:
+    def get_panel(self, panel_id: str) -> HAUIPanel:
         """Returns a single panel.
 
         Args:

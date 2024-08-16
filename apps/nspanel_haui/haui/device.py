@@ -148,6 +148,22 @@ class HAUIDevice(HAUIPart):
         """
         return self._btn_left_info["state"]
 
+    def set_left_button_state(self, state):
+        """Sets the left button state.
+
+        Args:
+            state (bool): State
+        """
+        entity_id = self._btn_left_info["entity_id"]
+        if not self.app.entity_exists(entity_id):
+            return
+        # toggle entity
+        entity = self.app.get_entity(entity_id)
+        if state:
+            entity.call_service("turn_on")
+        else:
+            entity.call_service("turn_off")
+
     def toggle_left_button_state(self):
         """Sets the state of the left button.
 
@@ -168,6 +184,22 @@ class HAUIDevice(HAUIPart):
             str: state
         """
         return self._btn_right_info["state"]
+
+    def set_right_button_state(self, state):
+        """Sets the right button state.
+
+        Args:
+            state (bool): State
+        """
+        entity_id = self._btn_right_info["entity_id"]
+        if not self.app.entity_exists(entity_id):
+            return
+        # toggle entity
+        entity = self.app.get_entity(entity_id)
+        if state:
+            entity.call_service("turn_on")
+        else:
+            entity.call_service("turn_off")
 
     def toggle_right_button_state(self):
         """Toggles the state of the right button.

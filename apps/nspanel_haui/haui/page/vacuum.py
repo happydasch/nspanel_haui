@@ -1,8 +1,8 @@
 from typing import List
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
-from ..abstract.panel import HAUIConfigPanel
-from ..abstract.entity import HAUIConfigEntity
+from ..abstract.panel import HAUIPanel
+from ..abstract.entity import HAUIEntity
 from ..features import VacuumFeatures
 
 from . import HAUIPage
@@ -47,12 +47,12 @@ class VacuumPage(HAUIPage):
     NUM_ENTITIES = 6
 
     _title = ""
-    _entities: List[HAUIConfigEntity] = []
-    _vacuum_entity: HAUIConfigEntity = None
+    _entities: List[HAUIEntity] = []
+    _vacuum_entity: HAUIEntity = None
 
     # panel
 
-    def start_panel(self, panel: HAUIConfigPanel):
+    def start_panel(self, panel: HAUIPanel):
         # set function buttons
         vacuum_battery = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,
@@ -71,7 +71,7 @@ class VacuumPage(HAUIPage):
         entity = None
         entity_id = panel.get("entity_id")
         if entity_id:
-            entity = HAUIConfigEntity(self.app, {"entity": entity_id})
+            entity = HAUIEntity(self.app, {"entity": entity_id})
         entities = panel.get_entities()
         if len(entities) > 0:
             first_entity = entities.pop(0)
@@ -85,12 +85,12 @@ class VacuumPage(HAUIPage):
             title = entity.get_entity_attr("friendly_name", title)
         self._title = title
 
-    def render_panel(self, panel: HAUIConfigPanel):
+    def render_panel(self, panel: HAUIPanel):
         self.update_vacuum_entity()
 
     # misc
 
-    def set_vacuum_entity(self, entity: HAUIConfigEntity):
+    def set_vacuum_entity(self, entity: HAUIEntity):
         self._vacuum_entity = entity
         if not entity or not entity.has_entity_id():
             return

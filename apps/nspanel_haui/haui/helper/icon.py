@@ -13,7 +13,7 @@ from ..mapping.icon import (
 
 
 def parse_icon(template):
-    """Returns the parsed string with icons replaced.
+    """ Returns the parsed string with icons replaced.
 
     Args:
         icon_name (str): Icon name
@@ -35,7 +35,7 @@ def parse_icon(template):
 
 
 def get_icon(icon_name, return_default=True):
-    """Returns the icon chr value from icon name.
+    """ Returns the icon chr value from icon name.
 
     Args:
         icon_name (str): Icon name
@@ -55,7 +55,7 @@ def get_icon(icon_name, return_default=True):
 
 
 def get_icon_name_by_state(entity_type, entity_state, device_class=None):
-    """Returns the icon for the the given entity state.
+    """ Returns the icon for the the given entity state.
 
     Args:
         entity_type (str): Entity type
@@ -135,7 +135,7 @@ def get_icon_name_by_state(entity_type, entity_state, device_class=None):
 
 
 def get_icon_name_by_action(entity_type, action, device_class=None):
-    """Returns the icon for the given action.
+    """ Returns the icon for the given action.
 
     Args:
         entity_type (str): Entity type

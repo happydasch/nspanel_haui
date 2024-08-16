@@ -6,15 +6,14 @@ from ..abstract.part import HAUIPart
 
 class HAUIGestureController(HAUIPart):
 
-    """
-    Gesture Controller
+    """ Gesture Controller
 
     Provides access to advanced gesture control.
     Supports gesture sequences.
     """
 
     def __init__(self, app, config):
-        """Initialize for gesture controller.
+        """ Initialize for gesture controller.
 
         Args:
             app (NSPanelHAUI): App
@@ -27,7 +26,7 @@ class HAUIGestureController(HAUIPart):
     # public
 
     def process_gesture(self, gesture_name):
-        """Processes the gesture with the given name.
+        """ Processes the gesture with the given name.
 
         Args:
             gesture_name (str): Name of the gesture
@@ -44,7 +43,7 @@ class HAUIGestureController(HAUIPart):
                 continue
 
         # find all matching sequences for this gesture
-        for seq_index, seq_data in enumerate(self._config):
+        for seq_index, seq_data in enumerate(self.config):
             # check timeframe, if no timeframe defined, skip this
             timeframe = int(seq_data.get("timeframe", 0))
             if not timeframe:
@@ -93,7 +92,7 @@ class HAUIGestureController(HAUIPart):
                         self.process_gesture_sequence(seq_data)
 
     def process_gesture_sequence(self, seq_data):
-        """Processes a complete gesture sequence."""
+        """ Processes a complete gesture sequence. """
         panel_key = seq_data.get("open", "")
         if panel_key == "":
             return
@@ -104,7 +103,7 @@ class HAUIGestureController(HAUIPart):
     # event
 
     def process_event(self, event):
-        """Processes an event.
+        """ Processes an event.
 
         Args:
             event (Event): Event

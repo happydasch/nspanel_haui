@@ -9,7 +9,7 @@ if babel_spec is not None:
 
 
 def get_time_localized(timeformat):
-    """Returns a localized time string of current time.
+    """ Returns a localized time string of current time.
 
     Returns:
         str: Localized time string
@@ -19,7 +19,7 @@ def get_time_localized(timeformat):
 
 
 def get_date_localized(strftime_format, babel_format, locale):
-    """Returns a localized date string of current date.
+    """ Returns a localized date string of current date.
 
     Args:
         strftime_format (str): strftime format
@@ -34,7 +34,7 @@ def get_date_localized(strftime_format, babel_format, locale):
 
 
 def format_datetime(dt, strftime_format, babel_format, locale):
-    """Returns a localized date string.
+    """ Returns a localized date string.
 
     Args:
         strftime_format (str): strftime format

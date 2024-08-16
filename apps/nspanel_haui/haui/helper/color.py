@@ -6,7 +6,7 @@ from .value import scale
 
 
 def generate_color_palette(rgb_color, palette_type, seed=None, num_colors=6):
-    """Generates random color matching the provided color.
+    """ Generates random color matching the provided color.
 
     Args:
         rgb_color (list): RGB color

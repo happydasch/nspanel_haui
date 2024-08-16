@@ -1,6 +1,5 @@
 def scale(val, src, dst):
-    """
-    Scale the value
+    """ Scale the value
 
     Scale the given value from the scale of src
     to the scale of dst.
@@ -17,8 +16,7 @@ def scale(val, src, dst):
 
 
 def merge_dicts(dict1, dict2):
-    """
-    Merge two dicts together
+    """ Merge two dicts together
 
     This function will merge the source dict into
     the destination dict.

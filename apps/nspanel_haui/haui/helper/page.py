@@ -2,7 +2,7 @@ from ..mapping.page import PANEL_MAPPING, PAGE_MAPPING
 
 
 def get_page_id_for_panel(panel_type):
-    """Returns the page id for the given panel type.
+    """ Returns the page id for the given panel type.
 
     Args:
         panel_type (str): Panel type
@@ -17,7 +17,7 @@ def get_page_id_for_panel(panel_type):
 
 
 def get_page_class_for_panel(panel_type):
-    """Returns the page class for the given panel type.
+    """ Returns the page class for the given panel type.
 
     Args:
         panel_type (str): Panel type
@@ -31,7 +31,7 @@ def get_page_class_for_panel(panel_type):
 
 
 def get_page_id(page_name):
-    """Returns the page id for the given page name.
+    """ Returns the page id for the given page name.
 
     Args:
         page_name (str): Page name
@@ -45,7 +45,7 @@ def get_page_id(page_name):
 
 
 def get_page_name(page_id):
-    """Returns the page name for the given page id.
+    """ Returns the page name for the given page id.
 
     Args:
         page_id (int): Page id

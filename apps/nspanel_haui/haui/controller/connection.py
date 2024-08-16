@@ -9,8 +9,7 @@ from ..abstract.part import HAUIPart
 
 class HAUIConnectionController(HAUIPart):
 
-    """
-    Connection Controller
+    """ Connection Controller
 
     Provides connection related handling. All needed functionality
     to keep a connection alive is here.
@@ -24,7 +23,7 @@ class HAUIConnectionController(HAUIPart):
     """
 
     def __init__(self, app, config, connection_callback):
-        """Initialize for Connection Controller.
+        """ Initialize for Connection Controller.
 
         Args:
             app (NSPanelHAUI): App
@@ -46,7 +45,7 @@ class HAUIConnectionController(HAUIPart):
     # internal
 
     def _check_timeout(self):
-        """Checks if a timeout occured."""
+        """ Checks if a timeout occured. """
         overdue_factor = self.get("overdue_factor", 2.0)
         time_max = self._last_time + (self._interval * overdue_factor)
         if time.monotonic() > time_max:
@@ -57,28 +56,28 @@ class HAUIConnectionController(HAUIPart):
             self._restart_timer()
 
     def _start_timer(self):
-        """Starts the check timer."""
+        """ Starts the check timer. """
         self._timer = threading.Timer(self._interval, self._check_timeout)
         self._timer.daemon = True
         self._timer.start()
 
     def _stop_timer(self):
-        """Stops the check timer."""
+        """ Stops the check timer. """
         if self._timer:
             self._timer.cancel()
             self._timer = None
 
     def _restart_timer(self):
-        """Restarts the check timer."""
+        """ Restarts the check timer. """
         self._stop_timer()
         self._start_timer()
 
     def _update_last_time(self):
-        """Updates the last time a heartbeat was received."""
+        """ Updates the last time a heartbeat was received. """
         self._last_time = time.monotonic()
 
     def _set_connected(self, connected):
-        """Sets the connection state.
+        """ Sets the connection state.
 
         Args:
             connected (bool): Connected state
@@ -94,7 +93,7 @@ class HAUIConnectionController(HAUIPart):
     # part
 
     def start_part(self):
-        """Called when part is started."""
+        """ Called when part is started. """
         # set interval
         device_interval = self.app.device.device_info.get("heartbeat_interval", 5.0)
         self._interval = int(self.get("heartbeat_interval", device_interval))
@@ -108,7 +107,7 @@ class HAUIConnectionController(HAUIPart):
     # events
 
     def process_event(self, event):
-        """Process events.
+        """ Process events.
 
         Args:
             event (HAUIEvent): Event to process

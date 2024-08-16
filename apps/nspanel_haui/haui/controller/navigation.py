@@ -7,15 +7,14 @@ from ..abstract.part import HAUIPart
 
 class HAUINavigationController(HAUIPart):
 
-    """
-    Navigation Controller
+    """ Navigation Controller
 
     Provides the whole navigation functionality. Implemented as a controller
     so full app access is possible when navigating.
     """
 
     def __init__(self, app, config):
-        """Initialize for navigation controlller.
+        """ Initialize for navigation controlller.
 
         Args:
             app (NSPanelHAUI): App
@@ -40,7 +39,7 @@ class HAUINavigationController(HAUIPart):
     # part
 
     def start_part(self):
-        """Starts the part."""
+        """ Starts the part. """
         # get panels
         all_panels = self.app.config.get_panels()
         nav_panels = self.app.config.get_panels(filter_nav_panel=True)
@@ -78,7 +77,7 @@ class HAUINavigationController(HAUIPart):
     # public
 
     def goto_page(self, page_id):
-        """Goto page method.
+        """ Goto page method.
 
         Args:
             page_id (str): Page name or id
@@ -94,7 +93,7 @@ class HAUINavigationController(HAUIPart):
             self.page = None
 
     def get_current_panel(self):
-        """Returns the current panel.
+        """ Returns the current panel.
 
         Returns:
             HAUIConfigPanel|None
@@ -102,7 +101,7 @@ class HAUINavigationController(HAUIPart):
         return self.panel
 
     def get_current_nav_panel(self):
-        """Returns the current nav panel.
+        """ Returns the current nav panel.
 
         Returns:
             HAUIConfigPanel|None
@@ -110,7 +109,7 @@ class HAUINavigationController(HAUIPart):
         return self._current_nav
 
     def has_prev_panel(self):
-        """Returns if a previous panel is available.
+        """ Returns if a previous panel is available.
 
         Returns:
             bool: True if current panel has a previous panel
@@ -126,7 +125,7 @@ class HAUINavigationController(HAUIPart):
         return False
 
     def has_next_panel(self):
-        """Returns if a next panel is available.
+        """ Returns if a next panel is available.
 
         Returns:
             bool: True if current panel has a next panel
@@ -142,7 +141,7 @@ class HAUINavigationController(HAUIPart):
         return False
 
     def has_up_panel(self):
-        """Returns if a up panel is available.
+        """ Returns if a up panel is available.
 
         Returns:
             bool: True if current panel has a up panel
@@ -154,7 +153,7 @@ class HAUINavigationController(HAUIPart):
     # main
 
     def reload_panel(self):
-        """Reloads the current panel."""
+        """ Reloads the current panel. """
         self.log(f"Reloading panel: {self.panel.id}")
         self.unset_page()
         self.open_panel(self.panel.id, **self.panel_kwargs)
@@ -167,7 +166,7 @@ class HAUINavigationController(HAUIPart):
         self.page.refresh_panel()
 
     def display_panel(self, panel):
-        """Displays the given panel.
+        """ Displays the given panel.
 
         Args:
             panel (HAUIConfigPanel): Panel to display.
@@ -181,7 +180,7 @@ class HAUINavigationController(HAUIPart):
             self.page.set_panel(panel)
 
     def open_popup(self, panel_id, **kwargs):
-        """Opens a panel as a popup.
+        """ Opens a panel as a popup.
 
         Args:
             panel_id (str): Id of panel
@@ -191,7 +190,7 @@ class HAUINavigationController(HAUIPart):
         self.open_panel(panel_id, **kwargs)
 
     def open_panel(self, panel_id, **kwargs):
-        """Opens the panel with the given id.
+        """ Opens the panel with the given id.
 
         Args:
             panel_id (str): Id of panel
@@ -307,7 +306,7 @@ class HAUINavigationController(HAUIPart):
             self._close_timeout.start()
 
     def close_panel(self):
-        """Closes the current panel."""
+        """ Closes the current panel. """
         # check for active timer
         if self._close_timeout is not None:
             self._close_timeout.cancel()
@@ -355,7 +354,7 @@ class HAUINavigationController(HAUIPart):
     # helper
 
     def open_next_panel(self):
-        """Opens the next panel."""
+        """ Opens the next panel. """
         self.log("Open next panel")
         if self._current_nav is None:
             return
@@ -384,7 +383,7 @@ class HAUINavigationController(HAUIPart):
         self.open_panel(panel_id)
 
     def open_home_panel(self, autostart=False):
-        """Opens the home panel.
+        """ Opens the home panel.
 
         Args:
             autostart (bool, optional): Should the page be autostarted. Defaults to False.
@@ -396,7 +395,7 @@ class HAUINavigationController(HAUIPart):
         self.open_panel(self._home_panel.id, autostart=autostart)
 
     def open_sleep_panel(self, autostart=False):
-        """Opens the sleep panel.
+        """ Opens the sleep panel.
 
         Args:
             autostart (bool, optional): Should the page be autostarted. Defaults to False.
@@ -408,7 +407,7 @@ class HAUINavigationController(HAUIPart):
         self.open_panel(self._sleep_panel.id, autostart=autostart)
 
     def open_wakeup_panel(self, autostart=False):
-        """Opens the wakeup panel.
+        """ Opens the wakeup panel.
 
         Args:
             autostart (bool, optional): Should the page be autostarted. Defaults to False.
@@ -422,7 +421,7 @@ class HAUINavigationController(HAUIPart):
     # event
 
     def process_event(self, event):
-        """Process events.
+        """ Process events.
 
         Args:
             event (HAUIEvent): Event

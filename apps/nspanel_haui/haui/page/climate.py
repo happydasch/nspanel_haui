@@ -3,8 +3,8 @@ from typing import List
 from ..mapping.color import COLORS
 from ..mapping.icon import CLIMATE_MAPPING
 from ..helper.icon import get_icon
-from ..abstract.panel import HAUIConfigPanel
-from ..abstract.entity import HAUIConfigEntity
+from ..abstract.panel import HAUIPanel
+from ..abstract.entity import HAUIEntity
 from ..features import ClimateFeatures
 
 from . import HAUIPage
@@ -67,12 +67,12 @@ class ClimatePage(HAUIPage):
     NUM_MODES = 6
 
     _title = ""
-    _climate_entity: HAUIConfigEntity = None
+    _climate_entity: HAUIEntity = None
     _hvac_modes: List[str] = None
 
     # panel
 
-    def start_panel(self, panel: HAUIConfigPanel):
+    def start_panel(self, panel: HAUIPanel):
         # set function buttons
         power_off_btn = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,
@@ -93,7 +93,7 @@ class ClimatePage(HAUIPage):
         entity = None
         entity_id = panel.get("entity_id")
         if entity_id:
-            entity = HAUIConfigEntity(self.app, {"entity": entity_id})
+            entity = HAUIEntity(self.app, {"entity": entity_id})
         self.set_climate_entity(entity)
         # set title
         title = panel.get_title(self.translate("Climate"))
@@ -101,13 +101,13 @@ class ClimatePage(HAUIPage):
             title = entity.get_entity_attr("friendly_name", title)
         self._title = title
 
-    def render_panel(self, panel: HAUIConfigPanel):
+    def render_panel(self, panel: HAUIPanel):
         self.set_component_text(self.TXT_TITLE, self._title)
         self.update_climate_entity()
 
     # misc
 
-    def set_climate_entity(self, entity: HAUIConfigEntity):
+    def set_climate_entity(self, entity: HAUIEntity):
         self._climate_entity = entity
         if not entity or not entity.has_entity_id():
             return
@@ -280,7 +280,7 @@ class ClimatePage(HAUIPage):
         self.update_climate_info(entity)
         self.update_hvac_modes(entity)
 
-    def update_climate_control(self, entity: HAUIConfigEntity):
+    def update_climate_control(self, entity: HAUIEntity):
         features = entity.get_entity_attr("supported_features", 0)
         if features & ClimateFeatures.TARGET_TEMPERATURE_RANGE:
             # TODO
@@ -346,13 +346,13 @@ class ClimatePage(HAUIPage):
         else:
             self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
 
-    def update_climate_info(self, entity: HAUIConfigEntity):
+    def update_climate_info(self, entity: HAUIEntity):
         current_temp = entity.get_entity_attr("current_temperature", 0)
         unit = entity.get_entity_attr("temperature_unit", "°C")
         self.set_component_text(self.TXT_UNIT, unit)
         self.set_component_text(self.TXT_TEMP, f"{current_temp}{unit}")
 
-    def update_hvac_modes(self, entity: HAUIConfigEntity):
+    def update_hvac_modes(self, entity: HAUIEntity):
         hvac_mode = entity.get_entity_state()
         color_active = COLORS["component_active"]
         color_inactive = COLORS["component"]

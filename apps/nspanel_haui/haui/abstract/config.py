@@ -14,7 +14,7 @@ class HAUIConfig(HAUIBase):
     """ HAUI Configuration. """
 
     def __init__(self, app, config=None):
-        """Initialize for config.
+        """ Initialize for config.
 
             Args:
             app (NSPanelHAUI): App

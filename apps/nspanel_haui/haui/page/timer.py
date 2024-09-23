@@ -3,7 +3,7 @@ import threading
 
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
-from ..config import HAUIConfigPanel
+from ..abstract.panel import HAUIPanel
 
 from . import HAUIPage
 
@@ -47,7 +47,7 @@ class TimerPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIConfigPanel):
+    def start_panel(self, panel: HAUIPanel):
         # set persistent timer dict for later access
         self._persistent_config = panel.get_persistent_config(return_copy=False)
         self._timer = self.initialize_timer()
@@ -115,12 +115,12 @@ class TimerPage(HAUIPage):
             color=COLORS["component"],
         )
 
-    def stop_panel(self, panel: HAUIConfigPanel):
+    def stop_panel(self, panel: HAUIPanel):
         if self._timer_update_display is not None:
             self._timer_update_display.cancel()
             self._timer_update_display = None
 
-    def render_panel(self, panel: HAUIConfigPanel):
+    def render_panel(self, panel: HAUIPanel):
         self.set_component_text(
             self.TXT_TITLE, panel.get_title(self.translate("Timer"))
         )

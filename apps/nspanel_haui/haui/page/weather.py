@@ -7,7 +7,8 @@ from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..helper.datetime import (
     get_time_localized, get_date_localized, format_datetime)
-from ..config import HAUIConfigEntity, HAUIConfigPanel
+from ..abstract.panel import HAUIPanel
+from ..abstract.entity import HAUIEntity
 
 from . import HAUIPage
 
@@ -59,14 +60,14 @@ class WeatherPage(HAUIPage):
 
     # panel
 
-    def create_panel(self, panel: HAUIConfigPanel):
+    def create_panel(self, panel: HAUIPanel):
         # setting: background
         background = panel.get("background", "default")
         background = self.render_template(background, False)
         if background in BACKGROUNDS:
             self.send_cmd(f"weather.background.val={BACKGROUNDS[background]}")
 
-    def start_panel(self, panel: HAUIConfigPanel):
+    def start_panel(self, panel: HAUIPanel):
         # time update callback
         time = datetime.time(0, 0, 0)
         self._time_timer = self.app.run_minutely(self.callback_update_time, time)
@@ -89,7 +90,7 @@ class WeatherPage(HAUIPage):
         else:
             self.show_forecast()
 
-    def stop_panel(self, panel: HAUIConfigPanel):
+    def stop_panel(self, panel: HAUIPanel):
         # cancel time and date timer
         if self._time_timer:
             self.app.cancel_timer(self._time_timer)
@@ -98,7 +99,7 @@ class WeatherPage(HAUIPage):
             self.app.cancel_timer(self._date_timer)
             self._date_timer = None
 
-    def render_panel(self, panel: HAUIConfigPanel):
+    def render_panel(self, panel: HAUIPanel):
         # time display
         self.update_time()
         # date display
@@ -152,7 +153,7 @@ class WeatherPage(HAUIPage):
         if len(entities) == 1:
             for i in range(self.NUM_FORECAST):
                 config = {"entity": entities[0].get("entity"), "forecast_index": i}
-                entities.append(HAUIConfigEntity(self.app, config))
+                entities.append(HAUIEntity(self.app, config))
 
         # first entity is main weather entity
         main = None
@@ -174,14 +175,14 @@ class WeatherPage(HAUIPage):
 
         # forecast
         if self._show_forecast:
-            forecast_entity = HAUIConfigEntity(
+            forecast_entity = HAUIEntity(
                 self.app, {"entity": self.panel.get('forecast')})
             forecast = forecast_entity.get_entity_attr("forecast", [])
             for i in range(1, self.NUM_FORECAST + 1):
                 forecast_data = forecast[i] if i < len(forecast) else None
                 self.update_forecast(i, forecast_data)
 
-    def update_main_weather(self, haui_entity: HAUIConfigEntity):
+    def update_main_weather(self, haui_entity: HAUIEntity):
         # set up main weather details
         icon = haui_entity.get_icon()
         color = haui_entity.get_color()
@@ -223,7 +224,7 @@ class WeatherPage(HAUIPage):
         self.set_component_text(forecast_val, f"{forecast_temp}{self._temp_unit}")
         self.set_component_text(forecast_subval, f"{forecast_mintemp}{self._temp_unit}")
 
-    def update_info(self, idx, haui_entity: HAUIConfigEntity):
+    def update_info(self, idx, haui_entity: HAUIEntity):
         if idx < 1 or idx > 3:
             self.log("Weather Info uses index 1-3")
             return

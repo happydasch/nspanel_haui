@@ -38,8 +38,7 @@ def get_translations(locale):
 
 
 def trim_text(text, num_chr, suffix=".."):
-    """
-    Trim text to a certain number of characters
+    """ Trim text to a certain number of characters
 
     Args:
         text (str): Text to trim

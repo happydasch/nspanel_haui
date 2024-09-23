@@ -1,19 +1,19 @@
 import json
 
 from ..mapping.const import ALL_RECV, ALL_CMD
-from ..base import HAUIPart, HAUIEvent
+from ..abstract.part import HAUIPart
+from ..abstract.event import HAUIEvent
 
 
 class HAUIMQTTController(HAUIPart):
 
-    """
-    MQTT controller
+    """ MQTT controller
 
     Provides access to MQTT functionality.
     """
 
     def __init__(self, app, config, mqtt, event_callback):
-        """Initialize for MQTT controller.
+        """ Initialize for MQTT controller.
 
         Args:
             app (NSPanelHAUI): App
@@ -35,7 +35,7 @@ class HAUIMQTTController(HAUIPart):
     # part
 
     def start_part(self):
-        """Starts the part."""
+        """ Starts the part. """
         # topics for communication with panel
         name = self.app.device.get_name()
         self._topic_prefix = f"nspanel_haui/{name}"
@@ -52,7 +52,7 @@ class HAUIMQTTController(HAUIPart):
     # public
 
     def send_cmd(self, cmd, value="", force=False):
-        """Sends a command to the panel.
+        """ Sends a command to the panel.
 
         Args:
             cmd (str): Command
@@ -70,7 +70,7 @@ class HAUIMQTTController(HAUIPart):
         self.prev_cmd = cmd
 
     def callback_event(self, event_name, data, kwargs):
-        """Callback for events.
+        """ Callback for events.
 
         Args:
             event_name (str): Event name

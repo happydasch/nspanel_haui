@@ -7,13 +7,12 @@ from packaging.version import parse, Version, InvalidVersion
 from ..mapping.const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..helper.text import trim_text
-from ..base import HAUIPart
+from ..abstract.part import HAUIPart
 
 
 class HAUIUpdateController(HAUIPart):
 
-    """
-    Update Controller
+    """ Update Controller
 
     The update controller is used to check for updates and to install them. The controller
     checks for the currently installed tft version and compares it to the versions available
@@ -36,7 +35,7 @@ class HAUIUpdateController(HAUIPart):
     RELEASES_URL = "https://api.github.com/repos/happydasch/nspanel_haui/releases"
 
     def __init__(self, app, config):
-        """Initialize for update controller.
+        """ Initialize for update controller.
 
         Args:
             app (NSPanelHAUI): App
@@ -84,20 +83,20 @@ class HAUIUpdateController(HAUIPart):
     # part
 
     def start_part(self):
-        """Starts the part."""
+        """ Starts the part. """
         self._interval = self.get("update_interval", 0)
         self._interval_delay = self.get("on_connect_delay", 30)
         self._start_timer()
 
     def stop_part(self):
-        """Stops the part."""
+        """ Stops the part. """
         self._stop_timer()
         self._stop_timer_delay()
 
     # device
 
     def request_device_info(self, check_for_update=True):
-        """Sends a device info request to the panel.
+        """ Sends a device info request to the panel.
 
         This will generate a mqtt response which will later be processed.
 
@@ -111,7 +110,7 @@ class HAUIUpdateController(HAUIPart):
     # update
 
     def _parse_version(self, version):
-        """Parses the given version string and returns a Version object.
+        """ Parses the given version string and returns a Version object.
 
         Args:
             version (str): Version string
@@ -126,7 +125,7 @@ class HAUIUpdateController(HAUIPart):
         return vers
 
     def _update_release_infos(self):
-        """Updates the release informations."""
+        """ Updates the release informations. """
         if self._req_fetch:
             return
         self._req_fetch = True
@@ -140,7 +139,7 @@ class HAUIUpdateController(HAUIPart):
         self._req_fetch = False
 
     def _get_latest_release(self):
-        """Returns the latest available release dict.
+        """ Returns the latest available release dict.
 
         Returns:
             None|dict: Release info
@@ -157,7 +156,7 @@ class HAUIUpdateController(HAUIPart):
         return latest_release
 
     def _get_update_url(self, release_info):
-        """Returns the update url to the tft file from given release.
+        """ Returns the update url to the tft file from given release.
 
         Args:
             release_info (dict): Release info
@@ -178,7 +177,7 @@ class HAUIUpdateController(HAUIPart):
         return tft_file_asset["browser_download_url"]
 
     def _is_update_available(self):
-        """Returns if a update is available.
+        """ Returns if a update is available.
 
         Returns:
             bool: True if an update is available, False if not
@@ -194,7 +193,7 @@ class HAUIUpdateController(HAUIPart):
         return False
 
     def run_update_display(self):
-        """Runs the update process for the display."""
+        """ Runs the update process for the display. """
         latest_release = self._get_latest_release()
         if latest_release is None:
             self.log("No release info available")
@@ -208,7 +207,7 @@ class HAUIUpdateController(HAUIPart):
         self.app.call_service(f"esphome/{name}_upload_tft_url", url=update_url)
 
     def check_installed_version(self):
-        """Checks on connect if a update is available."""
+        """ Checks on connect if a update is available. """
         device_info = self.app.device.device_info
         required_version = device_info.get("required_tft_version")
         installed_version = device_info.get("tft_version")
@@ -252,7 +251,7 @@ class HAUIUpdateController(HAUIPart):
         )
 
     def check_for_update(self):
-        """Checks if a update is available."""
+        """ Checks if a update is available. """
         self._stop_timer_delay()
         self._update_release_infos()
         latest_release = self._get_latest_release()
@@ -293,7 +292,7 @@ class HAUIUpdateController(HAUIPart):
     # callback
 
     def callback_version_response(self, btn_left, btn_right):
-        """Callback method for check update response.
+        """ Callback method for check update response.
 
         Args:
             btn_left (bool): Left button state
@@ -306,7 +305,7 @@ class HAUIUpdateController(HAUIPart):
         navigation.close_panel()
 
     def callback_update_response(self, btn_left, btn_right):
-        """Callback method for update to new version response.
+        """ Callback method for update to new version response.
 
         Args:
             btn_left (bool): Left button state
@@ -327,14 +326,14 @@ class HAUIUpdateController(HAUIPart):
             self.run_update_display()
 
     def callback_timer(self):
-        """Callback method for timer."""
+        """ Callback method for timer. """
         self.request_device_info(True)
         self._restart_timer()
 
     # event
 
     def process_event(self, event):
-        """Process events.
+        """ Process events.
 
         Args:
             event (HAUIEvent): Event

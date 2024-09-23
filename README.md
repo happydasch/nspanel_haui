@@ -127,9 +127,32 @@ For details about how the parts of the whole system communicate together see [NS
 
   First versions, get basic functionality running
 
+  - stable core, basic functionality and panels are available
+  - available panels:
+    - screensaver: weather, clock
+    - overview: grid, row
+    - panels: light, media, vacuum, qr code, cover, climate, timer
+  - functionality:
+    - locking panels
+    - popups
+
 - **Version 0.2.x**: Sort it out - configuration and entity handling
 
   Configuration and entity handling, more definitions, better code, sort out issues
+
+  For this cycle following work is planned:
+
+  - simplify config, internal handling
+  - clock - date too small, temp not good to read, todays temp and weather is confusing
+  - music player - show playlists
+  - panels eye-candy:
+    - cover, light, etc. wider slider
+    - common eye-candy improvements
+    - time in title?
+    - grid, row: preview state on background for percent (fill background to this value)
+  - new functionality:
+    - notifications
+    - simplify config, prepare for backend
 
 - **Future**:
 

@@ -1,31 +1,35 @@
+import json
 import re
 import uuid
-import json
-from .helper.icon import parse_icon
-from .helper.text import get_translation, get_state_translation
+from typing import List, Any
+
+import appdaemon.plugins.hass.hassapi as hass
 
 
-# Base class for all HAUI classes
+from ..helper.icon import parse_icon
+from ..helper.text import get_translation, get_state_translation
+
+from .event import HAUIEvent
+
+
 class HAUIBase:
 
-    """
-    Base class for all Home Assistant UI (HAUI) classes.
-    """
+    """ Base class for all Home Assistant UI (HAUI) classes. """
 
-    def __init__(self, app, config=None):
+    def __init__(self, app: hass.Hass, config=None):
         """Initializes a new instance of the HAUIBase class.
 
         Args:
             app: The app instance that this HAUI class is associated with.
             config: Optional configuration settings for the HAUI class.
         """
-        self.id = uuid.uuid4()
-        self.app = app
-        self._config = {} if config is None else config
-        self._recording = False
-        self._rec_cmd = []
+        self.id: uuid.UUID = uuid.uuid4()
+        self.app: hass.Hass = app
+        self.config: dict = {} if config is None else config
+        self._recording: bool = False
+        self._rec_cmd: List[str] = []
 
-    def get_id(self):
+    def get_id(self) -> uuid.UUID:
         """Returns the id of the config.
 
         Returns:
@@ -33,7 +37,7 @@ class HAUIBase:
         """
         return self.id
 
-    def get(self, key, default=None):
+    def get(self, key: str, default: Any = None) -> Any | None:
         """Gets a value from the configuration.
 
         Allows to access nested dicts using a dot notation:
@@ -49,14 +53,14 @@ class HAUIBase:
         Returns:
             The value.
         """
-        value = self._config
+        value = self.config
         path = key.split(".")
         for p in path:
             if value is not None:
                 value = value.get(p, None)
         return value if value is not None else default
 
-    def log(self, msg, *args, **kwargs):
+    def log(self, msg: str, *args, **kwargs) -> None:
         """Logs a message.
 
         Args:
@@ -69,7 +73,7 @@ class HAUIBase:
             del kwargs["ascii_encode"]
         self.app.log(msg, ascii_encode=ascii_encode, *args, **kwargs)
 
-    def get_locale(self):
+    def get_locale(self) -> str:
         """Returns the locale of the config.
 
         Returns:
@@ -77,7 +81,7 @@ class HAUIBase:
         """
         return self.app.device.get_locale()
 
-    def get_config(self, return_copy=True):
+    def get_config(self, return_copy: bool = True) -> dict:
         """Returns the config dict.
 
         Args:
@@ -88,18 +92,18 @@ class HAUIBase:
             dict: Config
         """
         if return_copy:
-            return self._config.copy()
-        return self._config
+            return self.config.copy()
+        return self.config
 
-    def set_config(self, config):
+    def set_config(self, config: dict) -> None:
         """Sets a new config dict.
 
         Args:
             config: Config
         """
-        self._config = config
+        self.config = config
 
-    def translate(self, text):
+    def translate(self, text: str) -> str:
         """Returns the translation of the given text.
 
         Args:
@@ -110,7 +114,7 @@ class HAUIBase:
         """
         return get_translation(text, self.get_locale())
 
-    def translate_state(self, entity_type, state, attr="state"):
+    def translate_state(self, entity_type: str, state: str, attr: str = "state") -> str:
         """Returns the translation of the given state.
 
         Args:
@@ -122,7 +126,7 @@ class HAUIBase:
         """
         return get_state_translation(entity_type, state, self.get_locale(), attr)
 
-    def process_event(self, event):
+    def process_event(self, event: HAUIEvent) -> None:
         """Callback for events.
 
         This class should be overwritten.
@@ -131,12 +135,12 @@ class HAUIBase:
             event: The event.
         """
 
-    def start_rec_cmd(self):
+    def start_rec_cmd(self) -> None:
         """Starts recording commands."""
 
         self._recording = True
 
-    def stop_rec_cmd(self, send_commands=True):
+    def stop_rec_cmd(self, send_commands: bool = True) -> List[str]:
         """Stops the recording of commands.
 
         Args:
@@ -156,7 +160,7 @@ class HAUIBase:
             self.send_cmds(commands)
         return commands
 
-    def send_mqtt(self, name, value="", force=False):
+    def send_mqtt(self, name: str, value: str = "", force: bool = False) -> None:
         """Publishes a message to the mqtt cmd topic.
 
         Args:
@@ -168,7 +172,7 @@ class HAUIBase:
             return
         self.app.controller["mqtt"].send_cmd(name, value, force)
 
-    def send_mqtt_json(self, name, value=None, force=False):
+    def send_mqtt_json(self, name: str, value: str = None, force: bool = False) -> None:
         """Publishes a message to the mqtt cmd topic with a json encoded message.
 
         Args:
@@ -180,7 +184,7 @@ class HAUIBase:
             value = {}
         self.send_mqtt(name, json.dumps(value), force)
 
-    def send_cmd(self, cmd):
+    def send_cmd(self, cmd: str) -> None:
         """Sends a command to the MQTT controller with the name "send_command".
 
         Args:
@@ -193,7 +197,7 @@ class HAUIBase:
             self.log(f"Command: {cmd}")
         self.send_mqtt("send_command", cmd)
 
-    def send_cmds(self, cmds):
+    def send_cmds(self, cmds: List[str]) -> None:
         """Sends a list of commands to the MQTT controller with the name "send_commands".
 
         This method will split the commands into chunks and send them in one go.
@@ -216,7 +220,7 @@ class HAUIBase:
         if len(cmds_to_send) > 0:
             self.send_mqtt("send_commands", json.dumps({"commands": cmds_to_send}))
 
-    def set_component_text(self, component, text):
+    def set_component_text(self, component: str, text: str) -> None:
         """Sends a command to set the text of a component.
 
         Args:
@@ -227,7 +231,7 @@ class HAUIBase:
             return
         self.send_cmd(f'{component[1]}.txt="{str(text)}"')
 
-    def set_component_value(self, component, value):
+    def set_component_value(self, component: str, value: int) -> None:
         """Sends a command to set the value of a component.
 
         Args:
@@ -238,7 +242,7 @@ class HAUIBase:
             return
         self.send_cmd(f"{component[1]}.val={int(value)}")
 
-    def render_template(self, template, parse_icons=True):
+    def render_template(self, template: str, parse_icons: bool = True) -> str:
         """Returns a rendered home assistant template string.
 
         Args:
@@ -263,110 +267,3 @@ class HAUIBase:
         if parse_icons:
             template = parse_icon(template)
         return template
-
-
-# a part adding start/stop
-class HAUIPart(HAUIBase):
-
-    """
-    A base class for a part of a Home Automation User Interface (HAUI).
-
-    This class provides a starting point for implementing a HAUI part.
-    Subclasses should override the start and stop methods to provide specific functionality.
-    """
-
-    def __init__(self, app, config=None):
-        """Initialize for HAUIPart.
-
-        Args:
-            app (NSPanelHAI): App
-            config (dict, optional): Config for part. Defaults to None.
-        """
-        super().__init__(app, config)
-        self._started = False
-
-    def is_started(self):
-        """Returns if the part is started.
-
-        Returns:
-            bool: Is the part started
-        """
-        return self._started
-
-    def start(self):
-        """Starts the object."""
-        if self._started:
-            return
-        self._started = True
-        self.start_part()
-
-    def stop(self):
-        """Stops the object."""
-        if not self._started:
-            return
-        self.stop_part()
-        self._started = False
-
-    def start_part(self):
-        """Starts the part.
-
-        This method should be overridden by subclasses to provide specific functionality.
-        """
-
-    def stop_part(self):
-        """Stops the part.
-
-        This method should be overridden by subclasses to provide specific functionality.
-        """
-
-
-# class for events
-class HAUIEvent:
-
-    """
-    Event class for HAUI. All events use this class.
-    """
-
-    def __init__(self, name, value):
-        """Initializes the event.
-
-        This class should be used for all events.
-
-        The name and value of the event can be accessed using the as_* methods.
-
-        The processed flag can be set to True to indicate that the event has been processed.
-        This is used to prevent processing the same event multiple times.
-
-        Args:
-            name (str): The name of the event.
-            value (): The value of the event.
-        """
-        self.name = name
-        self.value = value
-        self.processed = False
-
-    def as_int(self):
-        """Returns the value as an int.
-
-        Returns:
-            int: Value as int
-        """
-        return int(self.value)
-
-    def as_str(self):
-        """Returns the value as str.
-
-        Returns:
-            str: Value as str
-        """
-        return str(self.value)
-
-    def as_json(self):
-        """Returns the value as a json.
-
-        Returns:
-            dict: Value as json
-        """
-        if not self.value:
-            return {}
-        return json.loads(self.value)

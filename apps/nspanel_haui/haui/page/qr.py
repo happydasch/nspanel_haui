@@ -1,5 +1,5 @@
 from ..mapping.color import COLORS
-from ..config import HAUIConfigPanel
+from ..abstract.panel import HAUIPanel
 
 from . import HAUIPage
 
@@ -27,7 +27,7 @@ class QRPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIConfigPanel):
+    def start_panel(self, panel: HAUIPanel):
         name = self.app.device.get_name()
         self.add_component_callback(self.QR_CODE, self.callback_qr_code)
         self.add_component_callback(self.QR_CODE_BIG, self.callback_qr_code_big)
@@ -67,14 +67,14 @@ class QRPage(HAUIPage):
 
         self.stop_rec_cmd(send_commands=True)
 
-    def stop_panel(self, panel: HAUIConfigPanel):
+    def stop_panel(self, panel: HAUIPanel):
         # restore old dimming values
         if self._use_auto_dimming:
             self.auto_dimming.turn_on()
         if self._use_auto_page:
             self.auto_page.turn_on()
 
-    def render_panel(self, panel: HAUIConfigPanel):
+    def render_panel(self, panel: HAUIPanel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
         entities = panel.get_entities()
         max_len = 20

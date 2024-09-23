@@ -8,6 +8,7 @@
   - [Update is not possible](#update-is-not-possible)
   - [Weather forecast does not work](#weather-forecast-does-not-work)
   - [Error on sleep](#error-on-sleep)
+  - [The display should change its brightness and sleep state over the day](#the-display-should-change-its-brightness-and-sleep-state-over-the-day)
 
 ## I don't know how to start
 
@@ -85,7 +86,88 @@ template:
 
 You may see log entries as below. This cannot be changed and does not any harm.
 
-```
+```log
 [I] [haui:602] Display is going to sleep
 [E] [nextion:536] ERROR: Received numeric return but the queue is empty
+```
+
+## The display should change its brightness and sleep state over the day
+
+Add a automation in home assistant. NSPanel HAUI does not support to change this but home assistant is way more flexible so it's very simple to change anything dynamically using home assistant automations.
+
+Here is an example automation:
+
+Day (from sunrise)
+Dimmed to 55%, no sleep
+
+```yaml
+alias: NSPanel HAUI Day
+description: ""
+trigger:
+  - platform: sun
+    event: sunrise
+condition: []
+action:
+  - action: switch.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id:
+        - switch.nspanel_haui_use_auto_sleeping
+  - action: number.set_value
+    metadata: {}
+    data:
+      value: "55"
+    target:
+      entity_id:
+        - number.nspanel_haui_brightness_dimmed
+mode: single
+```
+
+Evening (from sunset)
+Dimmed to 20%, no sleep
+
+```yaml
+alias: NSPanel HAUI Evening
+description: ""
+trigger:
+  - platform: sun
+    event: sunset
+condition: []
+action:
+  - action: switch.turn_off
+    metadata: {}
+    data: {}
+    target:
+      entity_id:
+        - switch.nspanel_haui_use_auto_sleeping
+  - action: number.set_value
+    metadata: {}
+    data:
+      value: "20"
+    target:
+      entity_id:
+        - number.nspanel_haui__brightness_dimmed
+mode: single
+```
+
+Night (4,5h after sunset)
+Display can go to sleep (the dimmed brightness will remain 20%)
+
+```yaml
+alias: NSPanel HAUI Night
+description: ""
+trigger:
+  - platform: sun
+    event: sunset
+    offset: "04:30:00"
+condition: []
+action:
+  - action: switch.turn_on
+    metadata: {}
+    data: {}
+    target:
+      entity_id:
+        - switch.nspanel_haui_use_auto_sleeping
+mode: single
 ```

@@ -5,9 +5,10 @@ from typing import List
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
-from ..config import HAUIConfigEntity, HAUIConfigPanel
+from ..abstract.panel import HAUIPanel
+from ..abstract.entity import HAUIEntity
+from ..abstract.event import HAUIEvent
 from ..features import MediaPlayerFeatures
-from ..base import HAUIEvent
 
 from . import HAUIPage
 
@@ -87,8 +88,8 @@ class MediaPage(HAUIPage):
     PROGRESS_INTERVAL = 0.5
 
     _title = ""
-    _entities: List[HAUIConfigEntity] = []
-    _media_entity: HAUIConfigEntity = None
+    _entities: List[HAUIEntity] = []
+    _media_entity: HAUIEntity = None
     _group_entities = []
     _sonos_favorites = None
     _sonos_favorites_in_source = False
@@ -101,7 +102,7 @@ class MediaPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIConfigPanel):
+    def start_panel(self, panel: HAUIPanel):
         # set function buttons
         media_state_btn = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,
@@ -123,7 +124,7 @@ class MediaPage(HAUIPage):
         sonos_favorites_id = panel.get("sonos_favorites")
         if sonos_favorites_id:
             self.log(f"setting sonos_favorites {sonos_favorites_id}")
-            sonos_favorites = HAUIConfigEntity(self.app, {"entity": sonos_favorites_id})
+            sonos_favorites = HAUIEntity(self.app, {"entity": sonos_favorites_id})
         self._sonos_favorites = sonos_favorites
         # sonos favorites in source popup
         self._sonos_favorites_in_source = panel.get(
@@ -137,14 +138,14 @@ class MediaPage(HAUIPage):
         temp_group_entities = panel.get("group_entities", [])
         if len(temp_group_entities) > 0:
             for group_entity in temp_group_entities:
-                haui_entity = HAUIConfigEntity(self.app, {"entity": group_entity})
+                haui_entity = HAUIEntity(self.app, {"entity": group_entity})
                 group_entities.append(haui_entity)
         self._group_entities = group_entities
         # set entity
         entity = None
         entity_id = panel.get("entity_id")
         if entity_id:
-            entity = HAUIConfigEntity(self.app, {"entity": entity_id})
+            entity = HAUIEntity(self.app, {"entity": entity_id})
         entities = panel.get_entities()
         if len(entities) > 0:
             first_entity = entities.pop(0)
@@ -158,10 +159,10 @@ class MediaPage(HAUIPage):
             title = entity.get_entity_attr("friendly_name", title)
         self._title = title
 
-    def render_panel(self, panel: HAUIConfigPanel):
+    def render_panel(self, panel: HAUIPanel):
         self.update_media_entity()
 
-    def stop_panel(self, panel: HAUIConfigPanel):
+    def stop_panel(self, panel: HAUIPanel):
         if self._timer_progress is not None:
             self._timer_progress.cancel()
             self._timer_progress = None
@@ -186,7 +187,7 @@ class MediaPage(HAUIPage):
             )
             self._timer_scrolling.start()
 
-    def set_media_entity(self, entity: HAUIConfigEntity):
+    def set_media_entity(self, entity: HAUIEntity):
         self._media_entity = entity
         if not entity or not entity.has_entity_id():
             return
@@ -712,7 +713,7 @@ class MediaPage(HAUIPage):
             )
         else:
             self.log("Skipping popup, no media items found")
-            self.log(f"No media items found {self._config}, {self.panel.get_config()}")
+            self.log(f"No media items found {self.config}, {self.panel.get_config()}")
 
     def callback_select_group(self, event, component, button_state):
         self.log(f"Got group callback: {component}-{button_state}")
@@ -722,7 +723,7 @@ class MediaPage(HAUIPage):
         items = []
         # collect all entities for group
         for value in group_members:
-            entities[value] = HAUIConfigEntity(self.app, {"entity": value})
+            entities[value] = HAUIEntity(self.app, {"entity": value})
         # collect all entities defined by entities
         for entity in self._entities:
             if entity.get_entity_id() not in entities:
@@ -749,7 +750,7 @@ class MediaPage(HAUIPage):
             )
         else:
             self.log("Skipping popup, no media items found")
-            self.log(f"No media items found {self._config}, {self.panel.get_config()}")
+            self.log(f"No media items found {self.config}, {self.panel.get_config()}")
 
     def callback_source(self, selection):
         self.log(f"Got source selection: {selection}")
@@ -795,7 +796,7 @@ class MediaPage(HAUIPage):
             )
         if len(removed_group_members) > 0:
             for entity_id in removed_group_members:
-                entity = HAUIConfigEntity(self.app, {"entity": entity_id})
+                entity = HAUIEntity(self.app, {"entity": entity_id})
                 entity.call_entity_service("unjoin")
 
     # event

@@ -5,8 +5,9 @@ from ..mapping.color import COLORS
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from ..helper.icon import get_icon, get_icon_name_by_action
 from ..helper.text import trim_text
-from ..config import HAUIConfigEntity, HAUIConfigPanel
-from ..base import HAUIEvent
+from ..abstract.panel import HAUIPanel
+from ..abstract.entity import HAUIEntity
+from ..abstract.event import HAUIEvent
 from ..features import CoverFeatures
 
 from . import HAUIPage
@@ -96,14 +97,14 @@ class RowPage(HAUIPage):
     NUM_ROWS = 5
     LEN_NAME = 20
 
-    _entities: List[HAUIConfigEntity] = []
-    _active_entities: List[HAUIConfigEntity] = {}
+    _entities: List[HAUIEntity] = []
+    _active_entities: List[HAUIEntity] = {}
     _active_handles = []
     _current_page = 0
 
     # panel
 
-    def start_panel(self, panel: HAUIConfigPanel):
+    def start_panel(self, panel: HAUIPanel):
         # set vars
         self._entities = panel.get_entities()
         self._current_page = panel.get("initial_page", 0)
@@ -155,12 +156,12 @@ class RowPage(HAUIPage):
             self.set_function_component(slider, slider[1], "slider", visible=False, value=0, row_index=i)
             self.set_function_component(slider_txt, slider_txt[1], "slider_txt", visible=False, text="", row_index=i)
 
-    def stop_panel(self, panel: HAUIConfigPanel):
+    def stop_panel(self, panel: HAUIPanel):
         while self._active_handles:
             handle = self._active_handles.pop()
             self.remove_entity_listener(handle)
 
-    def render_panel(self, panel: HAUIConfigPanel):
+    def render_panel(self, panel: HAUIPanel):
         self.set_component_text(self.TXT_TITLE, panel.get_title())
         self.set_row_entries()
 
@@ -316,7 +317,7 @@ class RowPage(HAUIPage):
 
     # entity detail
 
-    def get_entity_display_type(self, haui_entity: HAUIConfigEntity):
+    def get_entity_display_type(self, haui_entity: HAUIEntity):
         """Returns how the entity should be displayed.
 
         Entities support different display types:
@@ -349,24 +350,24 @@ class RowPage(HAUIPage):
 
         return display_type
 
-    def update_entity_text(self, haui_entity: HAUIConfigEntity, idx):
+    def update_entity_text(self, haui_entity: HAUIEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
         self.update_function_component(item[1], text=haui_entity.get_value())
 
-    def update_entity_button(self, haui_entity: HAUIConfigEntity, idx):
+    def update_entity_button(self, haui_entity: HAUIEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
         self.update_function_component(item[1], text=haui_entity.get_value())
 
-    def update_entity_timer(self, haui_entity: HAUIConfigEntity, idx):
+    def update_entity_timer(self, haui_entity: HAUIEntity, idx):
         item = getattr(self, f"R{idx}_BTN_TXT")
         self.update_function_component(item[1], text=haui_entity.get_value())
 
-    def update_entity_toggle(self, haui_entity: HAUIConfigEntity, idx):
+    def update_entity_toggle(self, haui_entity: HAUIEntity, idx):
         toggle = getattr(self, f"R{idx}_TOGGLE")
         value = 0 if haui_entity.get_entity_state() == "off" else 1
         self.update_function_component(toggle[1], value=value)
 
-    def update_entity_slider(self, haui_entity: HAUIConfigEntity, idx):
+    def update_entity_slider(self, haui_entity: HAUIEntity, idx):
         slider = getattr(self, f"R{idx}_SLIDER")
         slider_txt = getattr(self, f"R{idx}_SLIDER_TXT")
         # get values needed for slider
@@ -387,7 +388,7 @@ class RowPage(HAUIPage):
         self.update_function_component(slider[1], value=i_value)
         self.update_function_component(slider_txt[1], text=value)
 
-    def update_entity_cover(self, haui_entity: HAUIConfigEntity, idx):
+    def update_entity_cover(self, haui_entity: HAUIEntity, idx):
         btn_up = getattr(self, f"R{idx}_BTN_UP")
         btn_stop = getattr(self, f"R{idx}_BTN_STOP")
         btn_down = getattr(self, f"R{idx}_BTN_DOWN")

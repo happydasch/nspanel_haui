@@ -5,8 +5,10 @@ from ..mapping.color import COLORS
 from ..helper.color import pos_to_color, color_to_pos
 from ..helper.icon import get_icon
 from ..helper.value import scale
-from ..config import HAUIConfigEntity, HAUIConfigPanel
-from ..base import HAUIEvent
+from ..abstract.panel import HAUIPanel
+from ..abstract.entity import HAUIEntity
+from ..abstract.event import HAUIEvent
+
 from . import HAUIPage
 
 
@@ -51,7 +53,7 @@ class LightPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIConfigPanel):
+    def start_panel(self, panel: HAUIPanel):
         # set component callbacks
         self.add_component_callback(self.PIC_COLOR_WHEEL, self.callback_color_wheel)
         self.add_component_callback(self.H_BRIGHTNESS, self.callback_brightness)
@@ -87,7 +89,7 @@ class LightPage(HAUIPage):
         entity = None
         entity_id = panel.get("entity_id")
         if entity_id:
-            entity = HAUIConfigEntity(self.app, {"entity": entity_id})
+            entity = HAUIEntity(self.app, {"entity": entity_id})
         if entity is None:
             entities = panel.get_entities()
             if len(entities) > 0:
@@ -99,7 +101,7 @@ class LightPage(HAUIPage):
             title = entity.get_name()
         self._title = title
 
-    def render_panel(self, panel: HAUIConfigPanel):
+    def render_panel(self, panel: HAUIPanel):
         # set basic panel info
         self.set_component_text(self.TXT_TITLE, self._title)
         if not self.update_functions() and self.panel.get_mode() == "popup":
@@ -109,7 +111,7 @@ class LightPage(HAUIPage):
 
     # misc
 
-    def set_light_entity(self, entity: HAUIConfigEntity):
+    def set_light_entity(self, entity: HAUIEntity):
         self._light_entity = entity
         if not entity or not entity.has_entity_id():
             return

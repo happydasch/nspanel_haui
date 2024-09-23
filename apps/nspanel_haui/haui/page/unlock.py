@@ -1,5 +1,5 @@
 from ..mapping.color import COLORS
-from ..config import HAUIConfigPanel
+from ..abstract.panel import HAUIPanel
 
 from .alarm import AlarmPage
 
@@ -7,11 +7,11 @@ from .alarm import AlarmPage
 class UnlockPage(AlarmPage):
     _input = ""
     _title = ""
-    _unlock_panel: HAUIConfigPanel = None
+    _unlock_panel: HAUIPanel = None
 
     # panel
 
-    def start_panel(self, panel: HAUIConfigPanel):
+    def start_panel(self, panel: HAUIPanel):
         # store panel infos
         self._unlock_panel = unlock_panel = panel.get("unlock_panel")
         self._title = panel.get("title", self.translate("Unlock Panel"))
@@ -72,7 +72,7 @@ class UnlockPage(AlarmPage):
 
         self.stop_rec_cmd(send_commands=True)
 
-    def before_render_panel(self, panel: HAUIConfigPanel):
+    def before_render_panel(self, panel: HAUIPanel):
         # check if unlock panel is available
         navigation = self.app.controller["navigation"]
         if not self._unlock_panel:
@@ -85,7 +85,7 @@ class UnlockPage(AlarmPage):
             return False
         return True
 
-    def render_panel(self, panel: HAUIConfigPanel):
+    def render_panel(self, panel: HAUIPanel):
         self.update_components()
 
     # misc

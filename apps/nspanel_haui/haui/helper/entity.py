@@ -3,7 +3,6 @@ from ..mapping.icon import (
     SIMPLE_TYPE_MAPPING,
     INTERNAL_TYPE_MAPPING,
     MEDIA_CONTENT_TYPE_MAPPING,
-    WEATHER_MAPPING,
 )
 
 from .color import rgb_to_rgb565, rgb565_to_rgb, rgb_brightness
@@ -11,7 +10,7 @@ from .icon import get_icon, get_icon_name_by_state
 
 
 def execute_entity(haui_entity):
-    """Executes the given entity.
+    """ Executes the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): the entity to execute
@@ -48,7 +47,7 @@ def execute_entity(haui_entity):
 
 
 def get_entity_color(haui_entity, default_color):
-    """Returns a RGB565 color for the given entity.
+    """ Returns a RGB565 color for the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): the entity to get the color for
@@ -119,7 +118,7 @@ def get_entity_color(haui_entity, default_color):
 
 
 def get_entity_icon(haui_entity, default_icon):
-    """Returns a icon for the given entity.
+    """ Returns a icon for the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): The entity to get the icon for
@@ -176,7 +175,7 @@ def get_entity_icon(haui_entity, default_icon):
 
 
 def get_entity_value(haui_entity, default_value):
-    """Returns a value for the given entity.
+    """ Returns a value for the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): The entity to get the value for
@@ -243,7 +242,7 @@ def get_entity_value(haui_entity, default_value):
 
 
 def get_entity_name(haui_entity, default_name):
-    """Returns the name for the given entity.
+    """ Returns the name for the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): The entity to get the name for

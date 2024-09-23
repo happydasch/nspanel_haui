@@ -143,6 +143,8 @@ For details about how the parts of the whole system communicate together see [NS
   For this cycle following work is planned:
 
   - simplify config, internal handling
+  - clock - date too small, temp not good to read, todays temp and weather is confusing
+  - music player - show playlists
   - panels eye-candy:
     - cover, light, etc. wider slider
     - common eye-candy improvements
@@ -150,6 +152,7 @@ For details about how the parts of the whole system communicate together see [NS
     - grid, row: preview state on background for percent (fill background to this value)
   - new functionality:
     - notifications
+    - simplify config, prepare for backend
 
 - **Future**:
 

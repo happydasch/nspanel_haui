@@ -24,7 +24,7 @@ class HAUIDevice(HAUIPart):
         self.device_info = {}
         self.connected = False
         self.sleeping = False
-        self.wake_up = False
+        self.woke_up = False
         self._btn_left_info = {"state": False, "entity_id": None, "handle": None}
         self._btn_right_info = {"state": False, "entity_id": None, "handle": None}
 
@@ -287,14 +287,16 @@ class HAUIDevice(HAUIPart):
             self.set_sleeping(True)
         elif event.name == ESP_EVENT["wakeup"]:
             self.set_sleeping(False)
-            self.wake_up = True
+            self.woke_up = True
         elif event.name == ESP_EVENT["button_left"]:
             if event.value == "0":
-                self.check_wake_up()
+                if self.get("exit_sleep_on_button_toggle"):
+                    self.check_wake_up()
                 self.toggle_left_button_state()
         elif event.name == ESP_EVENT["button_right"]:
             if event.value == "0":
-                self.check_wake_up()
+                if self.get("exit_sleep_on_button_toggle"):
+                    self.check_wake_up()
                 self.toggle_right_button_state()
 
     def check_wake_up(self):
@@ -303,11 +305,12 @@ class HAUIDevice(HAUIPart):
         if not navigation.panel:
             return
         if navigation.panel.is_wakeup_panel() and not navigation.panel.is_home_panel():
-            display_state = self.device_info.get("display_state")
-            if display_state != "on":
-                self.log(f"display state {display_state}")
-                return
-            if self.wake_up:
-                self.wake_up = False
-            else:
-                navigation.open_home_panel()
+            if not self.get("exit_sleep_on_first_touch"):
+                if self.woke_up:
+                    self.woke_up = False
+                    return
+                display_state = self.device_info.get("display_state")
+                if self.get("exit_sleep_only_when_on") and display_state != "on":
+                    self.log(f"not exiting sleep screen, display state {display_state}")
+                    return
+            navigation.open_home_panel()

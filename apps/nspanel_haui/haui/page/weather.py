@@ -23,32 +23,16 @@ class WeatherPage(HAUIPage):
     D1_VAL, D2_VAL, D3_VAL = (10, "d1Val"), (11, "d2Val"), (12, "d3Val")
     # bottom weather forecast row
     F1_NAME, F2_NAME, F3_NAME, F4_NAME, F5_NAME = (
-        (13, "f1Name"),
-        (14, "f2Name"),
-        (15, "f3Name"),
-        (16, "f4Name"),
-        (17, "f5Name"),
+        (13, "f1Name"), (14, "f2Name"), (15, "f3Name"), (16, "f4Name"), (17, "f5Name"),
     )
     F1_ICO, F2_ICO, F3_ICO, F4_ICO, F5_ICO = (
-        (18, "f1Icon"),
-        (19, "f2Icon"),
-        (20, "f3Icon"),
-        (21, "f4Icon"),
-        (22, "f5Icon"),
+        (18, "f1Icon"), (19, "f2Icon"), (20, "f3Icon"), (21, "f4Icon"), (22, "f5Icon"),
     )
     F1_VAL, F2_VAL, F3_VAL, F4_VAL, F5_VAL = (
-        (23, "f1Val"),
-        (24, "f2Val"),
-        (25, "f3Val"),
-        (26, "f4Val"),
-        (27, "f5Val"),
+        (23, "f1Val"), (24, "f2Val"), (25, "f3Val"), (26, "f4Val"), (27, "f5Val"),
     )
     F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL, F5_SUBVAL = (
-        (28, "f1SubVal"),
-        (29, "f2SubVal"),
-        (30, "f3SubVal"),
-        (31, "f4SubVal"),
-        (32, "f5SubVal"),
+        (28, "f1SubVal"), (29, "f2SubVal"), (30, "f3SubVal"), (31, "f4SubVal"), (32, "f5SubVal"),
     )
 
     NUM_FORECAST = 5

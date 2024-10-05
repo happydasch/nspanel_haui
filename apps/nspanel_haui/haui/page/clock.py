@@ -16,41 +16,26 @@ from . import HAUIPage
 
 class ClockPage(HAUIPage):
     # main components
-    TXT_TIME_MID, TXT_DATE_MID = (2, "tTimeMid"), (3, "tDateMid")
-    TXT_TIME, TXT_DATE = (4, "tTime"), (5, "tDate")
-    ICO_MAIN, TXT_MAIN = (6, "tMainIcon"), (7, "tMainText")
+    TXT_TIME, TXT_DATE = (3, "tTime"), (4, "tDate")
+    ICO_MAIN, TXT_MAIN, TXT_SUB = (5, "tMainIcon"), (6, "tMainText"), (7, "tSubText")
     # bottom weather forecast row
-    F1_NAME, F2_NAME, F3_NAME, F4_NAME = (
-        (8, "f1Name"),
-        (9, "f2Name"),
-        (10, "f3Name"),
-        (11, "f4Name"),
+    F1_NAME, F2_NAME, F3_NAME = (
+        (8, "f1Name"), (9, "f2Name"), (10, "f3Name"),
     )
-    F1_ICO, F2_ICO, F3_ICO, F4_ICO = (
-        (12, "f1Icon"),
-        (13, "f2Icon"),
-        (14, "f3Icon"),
-        (15, "f4Icon"),
+    F1_ICO, F2_ICO, F3_ICO = (
+        (11, "f1Icon"), (12, "f2Icon"), (13, "f3Icon"),
     )
-    F1_VAL, F2_VAL, F3_VAL, F4_VAL = (
-        (16, "f1Val"),
-        (17, "f2Val"),
-        (18, "f3Val"),
-        (19, "f4Val"),
+    F1_VAL, F2_VAL, F3_VAL = (
+        (14, "f1Val"), (15, "f2Val"), (16, "f3Val"),
     )
-    F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL = (
-        (20, "f1SubVal"),
-        (21, "f2SubVal"),
-        (22, "f3SubVal"),
-        (23, "f4SubVal"),
+    F1_SUBVAL, F2_SUBVAL, F3_SUBVAL = (
+        (17, "f1SubVal"), (18, "f2SubVal"), (19, "f3SubVal"),
     )
 
-    NUM_FORECAST = 4
+    NUM_FORECAST = 3
 
     _date_timer = None
-    _date_component = None
     _time_timer = None
-    _time_component = None
     _show_forecast = False
     _temp_unit = "°C"
 
@@ -84,15 +69,11 @@ class ClockPage(HAUIPage):
             self.hide_component(self.TXT_MAIN)
         # setting: forecast
         if not panel.get("forecast", False):
-            self._time_component = self.TXT_TIME_MID
-            self._date_component = self.TXT_DATE_MID
             self.hide_forecast()
         else:
-            self._time_component = self.TXT_TIME
-            self._date_component = self.TXT_DATE
             self.show_forecast()
-        self.show_component(self._time_component)
-        self.show_component(self._date_component)
+        self.show_component(self.TXT_TIME)
+        self.show_component(self.TXT_DATE)
 
     def render_panel(self, panel: HAUIPanel):
         # time display
@@ -142,14 +123,14 @@ class ClockPage(HAUIPage):
     def update_time(self):
         timeformat = self.app.config.get("time_format")
         time = get_time_localized(timeformat)
-        self.set_component_text(self._time_component, time)
+        self.set_component_text(self.TXT_TIME, time)
 
     def update_date(self):
         strftime_format = self.app.config.get("date_format")
         babel_format = self.app.config.get("date_format_babel")
         locale = self.app.device.get_locale()
         date = get_date_localized(strftime_format, babel_format, locale)
-        self.set_component_text(self._date_component, date)
+        self.set_component_text(self.TXT_DATE, date)
 
     def update_entities(self, entities: List[HAUIEntity]):
         # first entity is main weather entity
@@ -173,9 +154,14 @@ class ClockPage(HAUIPage):
         icon = haui_entity.get_icon()
         color = haui_entity.get_color()
         msg = haui_entity.get_value()
+        msg_sub = haui_entity.get_entity_attr("pressure", "")
+        if msg_sub:
+            pressure_unit = haui_entity.get_entity_attr("pressure_unit")
+            msg_sub = f"{msg_sub}{pressure_unit}"
         self.set_component_text_color(self.ICO_MAIN, color)
         self.set_component_text(self.ICO_MAIN, icon)
         self.set_component_text(self.TXT_MAIN, msg)
+        self.set_component_text(self.TXT_SUB, msg_sub)
 
     def update_forecast(self, idx, data):
         if idx < 1 or idx > self.NUM_FORECAST:

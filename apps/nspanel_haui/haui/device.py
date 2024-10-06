@@ -28,6 +28,7 @@ class HAUIDevice(HAUIPart):
         self.connected = False
         self.sleeping = False
         self.woke_up = False
+        self.first_touch_skip = False
         self.first_touch = False
         self.is_on_check = False
         self._btn_left_info = {"state": False, "entity_id": None, "handle": None}
@@ -315,22 +316,27 @@ class HAUIDevice(HAUIPart):
         navigation = self.app.controller["navigation"]
         if not navigation.panel:
             return
-        exit_sleep = True
         if navigation.panel.is_wakeup_panel() and not navigation.panel.is_home_panel():
+            exit_sleep = True
             display_state = self.device_info.get("display_state")
+
+            if self.woke_up:
+                self.log("not exiting sleep screen, just woke up")
+                self.first_touch_skip = False
+                self.woke_up = False
+                exit_sleep = False
+
             if not self.get("exit_sleep_on_first_touch"):
-                if self.first_touch and not self.woke_up:
+                if self.first_touch and not self.first_touch_skip:
                     self.log("not exiting sleep screen, first touch")
-                    self.first_touch = False
                     exit_sleep = False
+
             if self.get("exit_sleep_only_when_on"):
                 if display_state != "on" or self.is_on_check:
                     self.log(f"not exiting sleep screen, display state {display_state}")
                     self.is_on_check = False
                     exit_sleep = False
-            if self.woke_up:
-                self.log("not exiting sleep screen, just woke up")
-                self.woke_up = False
-                exit_sleep = False
+
             if exit_sleep:
+                self.first_touch_skip = False
                 navigation.open_home_panel()

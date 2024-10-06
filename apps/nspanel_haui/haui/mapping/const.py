@@ -134,8 +134,8 @@ DEFAULT_CONFIG = {
         # logging
         "log_commands": False,
         # exit sleep
-        "exit_sleep_on_first_touch": True,
-        "exit_sleep_only_when_on": True,
+        "exit_sleep_on_first_touch": False,
+        "exit_sleep_only_when_on": False,
         "exit_sleep_on_button_toggle": False
     },
     # mqtt related settings

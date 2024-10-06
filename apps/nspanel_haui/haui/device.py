@@ -1,6 +1,9 @@
+from typing import Optional
+
 from .mapping.page import PANEL_MAPPING, SYS_PANEL_MAPPING
 from .mapping.const import ESP_EVENT
 from .abstract.part import HAUIPart
+from .abstract.event import HAUIEvent
 
 
 class HAUIDevice(HAUIPart):
@@ -13,7 +16,7 @@ class HAUIDevice(HAUIPart):
     - Physical buttons state
     """
 
-    def __init__(self, app, config=None):
+    def __init__(self, app, config: Optional[dict] = None) -> None:
         """Initializes the device.
 
         Args:
@@ -25,12 +28,14 @@ class HAUIDevice(HAUIPart):
         self.connected = False
         self.sleeping = False
         self.woke_up = False
+        self.first_touch = False
+        self.is_on_check = False
         self._btn_left_info = {"state": False, "entity_id": None, "handle": None}
         self._btn_right_info = {"state": False, "entity_id": None, "handle": None}
 
     # prepare and update
 
-    def _check_config(self):
+    def _check_config(self) -> None:
         """Checks if the configuration is valid.
 
         Raises:
@@ -49,7 +54,7 @@ class HAUIDevice(HAUIPart):
             f"Loaded {len(config.get_panels())} panels and {len(config.get_entities())} entities"
         )
 
-    def _register_callbacks(self):
+    def _register_callbacks(self) -> None:
         """Registers all device callbacks."""
         # set button state callbacks
         for i in ["left", "right"]:
@@ -67,7 +72,7 @@ class HAUIDevice(HAUIPart):
                 button["entity_id"] = entity_id
                 button["handle"] = handle
 
-    def _cancel_callbacks(self):
+    def _cancel_callbacks(self) -> None:
         """Cancels all device callbacks."""
         # cancel button state callbacks
         for i in ["left", "right"]:
@@ -78,20 +83,20 @@ class HAUIDevice(HAUIPart):
 
     # part
 
-    def start_part(self):
+    def start_part(self) -> None:
         """Starts the part."""
         self.log("Device is starting")
         self._check_config()
         self._register_callbacks()
 
-    def stop_part(self):
+    def stop_part(self) -> None:
         """Stops the part."""
         self.log("Device is stopping")
         self._cancel_callbacks()
 
     # public
 
-    def set_device_info(self, device_info, append=True):
+    def set_device_info(self, device_info: dict, append: bool = True) -> None:
         """Sets devices related vars from a dict.
 
         Args:
@@ -103,7 +108,7 @@ class HAUIDevice(HAUIPart):
         else:
             self.device_info = device_info
 
-    def set_connected(self, connected):
+    def set_connected(self, connected: bool) -> None:
         """Sets the device as connected.
 
         Args:
@@ -116,7 +121,7 @@ class HAUIDevice(HAUIPart):
             # entry point after connected
             navigation.open_panel("sys_system")
 
-    def set_sleeping(self, sleeping):
+    def set_sleeping(self, sleeping: bool) -> None:
         """Sets the device as sleeping.
 
         Args:
@@ -124,7 +129,7 @@ class HAUIDevice(HAUIPart):
         """
         self.sleeping = sleeping
 
-    def get_locale(self):
+    def get_locale(self) -> str:
         """Returns the device locale.
 
         Returns:
@@ -132,7 +137,7 @@ class HAUIDevice(HAUIPart):
         """
         return self.get("locale", "en_US")
 
-    def get_name(self):
+    def get_name(self) -> str:
         """Returns the device name.
 
         Returns:
@@ -140,7 +145,7 @@ class HAUIDevice(HAUIPart):
         """
         return self.get("name", "nspanel_haui")
 
-    def get_left_button_state(self):
+    def get_left_button_state(self) -> str:
         """Returns the left button state.
 
         Returns:
@@ -148,7 +153,7 @@ class HAUIDevice(HAUIPart):
         """
         return self._btn_left_info["state"]
 
-    def set_left_button_state(self, state):
+    def set_left_button_state(self, state: bool) -> None:
         """Sets the left button state.
 
         Args:
@@ -164,7 +169,7 @@ class HAUIDevice(HAUIPart):
         else:
             entity.call_service("turn_off")
 
-    def toggle_left_button_state(self):
+    def toggle_left_button_state(self) -> None:
         """Sets the state of the left button.
 
         This will change the state of the set entity. By default its the relay.
@@ -177,7 +182,7 @@ class HAUIDevice(HAUIPart):
             entity = self.app.get_entity(entity_id)
             entity.call_service("toggle")
 
-    def get_right_button_state(self):
+    def get_right_button_state(self) -> str:
         """Returns the right button state.
 
         Returns:
@@ -185,7 +190,7 @@ class HAUIDevice(HAUIPart):
         """
         return self._btn_right_info["state"]
 
-    def set_right_button_state(self, state):
+    def set_right_button_state(self, state: bool) -> None:
         """Sets the right button state.
 
         Args:
@@ -201,7 +206,7 @@ class HAUIDevice(HAUIPart):
         else:
             entity.call_service("turn_off")
 
-    def toggle_right_button_state(self):
+    def toggle_right_button_state(self) -> None:
         """Toggles the state of the right button.
 
         This will change the state of the set entity. By default its the relay.
@@ -241,7 +246,7 @@ class HAUIDevice(HAUIPart):
 
     # event
 
-    def process_gesture(self, event):
+    def process_gesture(self, event: HAUIEvent) -> None:
         """Progress gesture event.
 
         Args:
@@ -269,7 +274,7 @@ class HAUIDevice(HAUIPart):
             else:
                 navigation.close_panel()
 
-    def process_event(self, event):
+    def process_event(self, event: HAUIEvent) -> None:
         """Process event.
 
         Args:
@@ -288,6 +293,12 @@ class HAUIDevice(HAUIPart):
         elif event.name == ESP_EVENT["wakeup"]:
             self.set_sleeping(False)
             self.woke_up = True
+        elif event.name == ESP_EVENT["page"]:
+            if event.value not in [0, 1]:
+                self.first_touch = True
+        elif event.name == ESP_EVENT["display_state"]:
+            if event.value == "on":
+                self.is_on_check = True
         elif event.name == ESP_EVENT["button_left"]:
             if event.value == "0":
                 if self.get("exit_sleep_on_button_toggle"):
@@ -299,18 +310,27 @@ class HAUIDevice(HAUIPart):
                     self.check_wake_up()
                 self.toggle_right_button_state()
 
-    def check_wake_up(self):
+    def check_wake_up(self) -> None:
         """Checks if the display just woke up to switch from wakeup page."""
         navigation = self.app.controller["navigation"]
         if not navigation.panel:
             return
+        exit_sleep = True
         if navigation.panel.is_wakeup_panel() and not navigation.panel.is_home_panel():
+            display_state = self.device_info.get("display_state")
             if not self.get("exit_sleep_on_first_touch"):
-                if self.woke_up:
-                    self.woke_up = False
-                    return
-                display_state = self.device_info.get("display_state")
-                if self.get("exit_sleep_only_when_on") and display_state != "on":
+                if self.first_touch and not self.woke_up:
+                    self.log("not exiting sleep screen, first touch")
+                    self.first_touch = False
+                    exit_sleep = False
+            if self.get("exit_sleep_only_when_on"):
+                if display_state != "on" or self.is_on_check:
                     self.log(f"not exiting sleep screen, display state {display_state}")
-                    return
-            navigation.open_home_panel()
+                    self.is_on_check = False
+                    exit_sleep = False
+            if self.woke_up:
+                self.log("not exiting sleep screen, just woke up")
+                self.woke_up = False
+                exit_sleep = False
+            if exit_sleep:
+                navigation.open_home_panel()

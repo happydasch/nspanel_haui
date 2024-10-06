@@ -93,11 +93,11 @@ date_format_babel: "full"
 - `exit_sleep_on_first_touch` bool
 
   Should the display exit the sleep screen on first iteraction event or wait
-  until touched again. Default True.
+  until touched again. Default False.
 
 - `exit_sleep_only_when_on` bool
 
-  Should the display exit the sleep screen only when the display state is on. Default True.
+  Should the display exit the sleep screen only when the display state is on. Default False.
 
 - `exit_sleep_on_button_toggle` bool
 
@@ -111,8 +111,8 @@ device:
   button_right_entity: null
   show_home_button: false
   log_commands: false
-  exit_sleep_on_first_touch: true
-  exit_sleep_only_when_on: true
+  exit_sleep_on_first_touch: false
+  exit_sleep_only_when_on: false
   exit_sleep_on_button_toggle: false
 ```
 

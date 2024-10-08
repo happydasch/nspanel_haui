@@ -57,6 +57,7 @@ ESP_COMMAND = {
         "send_command",
         "send_commands",
         "goto_page",
+        "send_notification",
     ]
 }
 

@@ -5,7 +5,7 @@
 The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome and MQTT is being used.
 
 - Uses the ESPHome and the nextion display component
-- Provides scripts and services for communication with the display
+- Provides scripts and actions for communication with the display
 - Responsible for handling the device functionality
 
 For the communication between the device and the server MQTT is being used.
@@ -18,7 +18,7 @@ For the communication between the device and the server MQTT is being used.
   - [Responses](#responses)
   - [Commands](#commands)
   - [Events](#events)
-  - [Services](#services)
+  - [Actions](#actions)
   - [Page](#page)
   - [Interaction](#interaction)
     - [Interaction Sensors](#interaction-sensors)
@@ -117,6 +117,7 @@ These are commands that are being executed on the ESP.
 - `send_command` Sends a command to the nextion display
 - `send_commands`Sends multiple commands to the nextion display
 - `goto_page` Sets the active page on display
+- `send_notification` Sends a notification to the display
 
 ## Events
 
@@ -198,25 +199,25 @@ Different ESP device events.
   Current display state (on, off, dim)
   Value: state type (string)
 
-## Services
+## Actions
 
-This services below are defined on the ESP. The communication between the AppDaemon server and the ESP is using these.
+This actions below are defined on the ESP. The communication between the AppDaemon server and the ESP is using these.
 
-- `send_command` Service to send a command
+- `send_command` Action to send a command
 
   This will send a command to the nextion display
 
-- `upload_tft` Service to update a TFT file
+- `upload_tft` Action to update a TFT file
 
   This will update the nextion display with the tft file
 
-- `upload_tft_url` Service to update a TFT file from URL
+- `upload_tft_url` Action to update a TFT file from URL
 
-- `set_brightness` Service to change the brightness of the display
+- `set_brightness` Action to change the brightness of the display
 
-- `goto_page` Service to change the page of the display
+- `goto_page` Action to change the page of the display
 
-- `play_rtttl` Service to play a song for RTTTL strings
+- `play_rtttl` Action to play a song for RTTTL strings
 
   RTTTL Strings
 
@@ -243,15 +244,17 @@ This services below are defined on the ESP. The communication between the AppDae
   doodle-duh:d=8,o=5,b=250:d#6,a5#,d#5
   ```
 
-- `play_sound` Service to play a named sound
+- `play_sound` Action to play a named sound
 
-- `publish_event` Service to publish an event
+- `publish_event` Action to publish an event
 
-- `reset_last_interaction` Service to reset the last interaction value
+- `reset_last_interaction` Action to reset the last interaction value
 
   This will update the last interaction value to now
 
-- `reset_last_interaction_offset` Service to reset the last interaction value adding an offset
+- `reset_last_interaction_offset` Action to reset the last interaction value adding an offset
+
+- `send_notification` Action to send a notification to a display
 
 ## Page
 

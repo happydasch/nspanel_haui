@@ -28,7 +28,6 @@ class HAUIDevice(HAUIPart):
         self.connected = False
         self.sleeping = False
         self.woke_up = False
-        self.first_touch_skip = False
         self.first_touch = False
         self.is_on_check = False
         self._btn_left_info = {"state": False, "entity_id": None, "handle": None}
@@ -286,33 +285,59 @@ class HAUIDevice(HAUIPart):
         # process gesture event
         if event.name == ESP_EVENT["gesture"]:
             self.process_gesture(event)
+        # process sleeping state
         elif event.name == ESP_EVENT["touch_start"]:
             self.check_wake_up()
-        # update device sleeping state
+        elif event.name == ESP_EVENT["touch_end"]:
+            self.check_wake_up()
         elif event.name == ESP_EVENT["sleep"]:
             self.set_sleeping(True)
         elif event.name == ESP_EVENT["wakeup"]:
             self.set_sleeping(False)
             self.woke_up = True
         elif event.name == ESP_EVENT["page"]:
-            if event.value not in [0, 1]:
+            if self.device_info.get("page", 0) != event.value:
                 self.first_touch = True
         elif event.name == ESP_EVENT["display_state"]:
             if event.value == "on":
                 self.is_on_check = True
         elif event.name == ESP_EVENT["button_left"]:
             if event.value == "0":
-                if self.get("exit_sleep_on_button_toggle"):
+                if self.get("home_on_button_toggle"):
                     self.check_wake_up()
                 self.toggle_left_button_state()
         elif event.name == ESP_EVENT["button_right"]:
             if event.value == "0":
-                if self.get("exit_sleep_on_button_toggle"):
+                if self.get("home_on_button_toggle"):
                     self.check_wake_up()
                 self.toggle_right_button_state()
 
     def check_wake_up(self) -> None:
-        """Checks if the display just woke up to switch from wakeup page."""
+        """Checks if the display just woke up to switch from wakeup page.
+
+        How to wake up from sleep:
+        - touch the display once, the sleep or wakeup panel will be opened
+        - touch again, the home panel will be opened
+
+        How exit sleep works by default:
+        - when display off:
+            - first touch wakes up the display
+            - second touch closes the panel
+        - when display dimmed/on:
+            - first touch closes the panel
+
+        How to modify this behaviour:
+        - use hardware buttons to exit panel:
+            - home_on_button_toggle: true
+        - when display is off:
+            - wake up on first touch:
+              - home_on_wakeup: true
+        - when display is dimmed/on:
+            - display will only exit panel if display is not dimmed:
+              - home_only_when_on: true
+            - exit display on second touch:
+              - home_on_first_touch: false
+        """
         navigation = self.app.controller["navigation"]
         if not navigation.panel:
             return
@@ -321,22 +346,28 @@ class HAUIDevice(HAUIPart):
             display_state = self.device_info.get("display_state")
 
             if self.woke_up:
-                self.log("not exiting sleep screen, just woke up")
-                self.first_touch_skip = False
-                self.woke_up = False
-                exit_sleep = False
+                self.first_touch = True
 
-            if not self.get("exit_sleep_on_first_touch"):
-                if self.first_touch and not self.first_touch_skip:
-                    self.log("not exiting sleep screen, first touch")
+            if not self.get("home_on_wakeup"):
+                if self.woke_up:
+                    self.log("not exiting sleep/wakeup screen, just woke up")
+                    self.woke_up = False
                     exit_sleep = False
 
-            if self.get("exit_sleep_only_when_on"):
+            if not self.get("home_on_first_touch"):
+                if self.first_touch:
+                    self.log("not exiting sleep/wakeup screen, first touch")
+                    self.first_touch = False
+                    exit_sleep = False
+
+            if self.get("home_only_when_on"):
                 if display_state != "on" or self.is_on_check:
-                    self.log(f"not exiting sleep screen, display state {display_state}")
+                    self.log(f"not exiting sleep/wakeup screen, display state {display_state}")
                     self.is_on_check = False
                     exit_sleep = False
 
+            if self.woke_up:
+                self.woke_up = False
+
             if exit_sleep:
-                self.first_touch_skip = False
                 navigation.open_home_panel()

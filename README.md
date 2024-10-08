@@ -10,7 +10,6 @@
   - [Features](#features)
     - [Easy Installation](#easy-installation)
     - [Device display configuration in a single yaml file](#device-display-configuration-in-a-single-yaml-file)
-    - [ESPHome component](#esphome-component)
     - [A variety of different panels](#a-variety-of-different-panels)
     - [Touch gestures and sequences](#touch-gestures-and-sequences)
     - [Live state updates](#live-state-updates)
@@ -44,12 +43,6 @@ The nspanel_haui will load most parts of the required files automatically. Only 
 ![Config](docs/assets/feature_config.png)
 
 The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
-
-### ESPHome component
-
-  ![ESPHome component](docs/assets/feature_custom_component.png)
-
-  For the communication between the esp32 and the nextion display the component `nextion` in ESPHome is being used.
 
 ### A variety of different panels
 
@@ -113,6 +106,7 @@ The simplified process is as followed:
 4. Add [Configuration](docs/Config.md)
 
 Take a look at the more detailed [Installation Guide](docs/Install.md). Have also a look at the [FAQ](docs/FAQ.md).
+For a more detailed overview of available functionality see the [Device Description](docs/Device.md).
 
 ## Next Steps
 
@@ -152,19 +146,22 @@ Panel HomeAssistant UI Docs](docs/README.md).
 
   Configuration and entity handling, more definitions, better code, sort out issues
 
-  For this cycle following work is planned:
+  0.2.1:
+  - clock: restyle clock, only 3 days forecast
+  - wakeup: make the wakeup process more configureable. add default wakeup behaviour.
+  - eye-candy:
+    - wider sliders in different screens
 
-  - simplify config, internal handling
-  - clock - date too small, temp not good to read, todays temp and weather is confusing
+  Things for this cycle to finish:
+
+  - new functionality:
+    - simplify config, internal handling
+    - notifications
+    - prepare for backend
   - music player - show playlists
   - panels eye-candy:
-    - cover, light, etc. wider slider
     - common eye-candy improvements
     - time in title?
-    - grid, row: preview state on background for percent (fill background to this value)
-  - new functionality:
-    - notifications
-    - simplify config, prepare for backend
 
 - **Future**:
 

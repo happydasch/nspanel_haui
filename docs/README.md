@@ -12,7 +12,10 @@ For details about installation and configuration see the following pages.
 - [Configuration](Config.md)
   Details about the App Configuration
 
-- [Panels](panels/README.md)
+- [Device Description](Device.md)
+  A description of the device itself, how it is inteded to work and what is supported.
+
+- [Available Panels](panels/README.md)
   Overview of available panels
 
 - [FAQ](FAQ.md)

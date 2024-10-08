@@ -1,8 +1,8 @@
-# Configuration Description
+# Configuration
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
-- [Configuration Description](#configuration-description)
+- [Configuration](#configuration)
   - [Example Configuration](#example-configuration)
   - [Common Configuration](#common-configuration)
   - [Device Configuration](#device-configuration)
@@ -90,18 +90,22 @@ date_format_babel: "full"
 
   Should commands be logged. Default False.
 
-- `exit_sleep_on_first_touch` bool
+- `home_on_wakeup` bool
 
-  Should the display exit the sleep screen on first iteraction event or wait
-  until touched again. Default False.
+  Should the display exit the sleep/wakeup panel and return home directly after wakeup. Default False.
 
-- `exit_sleep_only_when_on` bool
+- `home_on_first_touch` bool
 
-  Should the display exit the sleep screen only when the display state is on. Default False.
+  Should the display exit the sleep/wakeup panel and return home on first iteraction event or wait
+  until touched again. Default True.
 
-- `exit_sleep_on_button_toggle` bool
+- `home_only_when_on` bool
 
-  Should the display exit the sleep screen when a button is toggled. Default False.
+  Should the display exit the sleep/wakeup panel and return home only when the display state is on. Default False.
+
+- `home_on_button_toggle` bool
+
+  Should the display exit the sleep/wakeup panel and return home when a button is toggled. Default False.
 
 ```yaml
 device:
@@ -111,9 +115,10 @@ device:
   button_right_entity: null
   show_home_button: false
   log_commands: false
-  exit_sleep_on_first_touch: false
-  exit_sleep_only_when_on: false
-  exit_sleep_on_button_toggle: false
+  home_on_wakeup: false
+  home_on_first_touch: true
+  home_only_when_on: false
+  home_on_button_toggle: false
 ```
 
 ## Navigation Configuration

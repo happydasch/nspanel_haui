@@ -1,5 +1,5 @@
 from typing import List, Union
-from ..mapping.const import ESP_EVENT
+from ..mapping.const import ESP_EVENT, NOTIF_EVENT
 from ..mapping.color import COLORS
 from ..helper.icon import get_icon
 from ..helper.color import rgb_to_rgb565
@@ -34,6 +34,7 @@ class HAUIPage(HAUIPart):
     ICO_NAV_UP = get_icon("mdi:chevron-up")
     ICO_NAV_CLOSE = get_icon("mdi:close")
     ICO_NAV_HOME = get_icon("mdi:home-outline")
+    ICO_NAV_MESSAGE = get_icon("mdi:email-outline")
     ICO_ZOOM = get_icon("mdi:loupe")
     ICO_LOCKED = get_icon("mdi:lock-outline")
     ICO_UNLOCKED = get_icon("mdi:lock-open-variant-outline")
@@ -42,6 +43,7 @@ class HAUIPage(HAUIPart):
     ICO_ENTITY_UNAVAILABLE = get_icon("mdi:cancel")
     ICO_PREV_PAGE = get_icon("mdi:chevron-double-up")
     ICO_NEXT_PAGE = get_icon("mdi:chevron-double-down")
+    ICO_MESSAGE = get_icon("mdi:email")
 
     # functions for function components
     FNC_TYPE_NAV_NEXT = "nav_next"
@@ -49,6 +51,7 @@ class HAUIPage(HAUIPart):
     FNC_TYPE_NAV_UP = "nav_up"
     FNC_TYPE_NAV_CLOSE = "nav_close"
     FNC_TYPE_NAV_HOME = "nav_home"
+    FNC_TYPE_NAV_NOTIF = "nav_notif"
     FNC_TYPE_UNLOCK = "unlock"
 
     def __init__(self, app, config=None):
@@ -201,6 +204,11 @@ class HAUIPage(HAUIPart):
                     if (mode in ["panel", "subpanel"]) and not panel.is_home_panel():
                         if panel.show_home_button():
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
+                    elif (mode in ["panel", "subpanel"]) and panel.is_home_panel():
+                        if panel.show_notifications_button():
+                            notification = self.app.controller["notification"]
+                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_NOTIF
+                            fnc_item["fnc_args"]["visible"] = notification.has_notifications()
                 # right primary button
                 elif fnc_id == self.FNC_BTN_R_PRI:
                     if mode == "panel":
@@ -751,6 +759,8 @@ class HAUIPage(HAUIPart):
                     icon = self.ICO_NAV_NEXT
                 elif fnc_name == self.FNC_TYPE_NAV_HOME:
                     icon = self.ICO_NAV_HOME
+                elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
+                    icon = self.ICO_NAV_MESSAGE
                 elif fnc_name == self.FNC_TYPE_NAV_UP:
                     icon = self.ICO_NAV_UP
                 elif fnc_name == self.FNC_TYPE_NAV_CLOSE:
@@ -859,6 +869,7 @@ class HAUIPage(HAUIPart):
 
         # if unknown function do nothing
         if fnc_item is None:
+            self.log(f"Unknown function component {component}")
             return
         navigation = self.app.controller["navigation"]
         fnc_name = fnc_item["fnc_name"]
@@ -871,6 +882,9 @@ class HAUIPage(HAUIPart):
             navigation.open_next_panel()
         elif fnc_name == self.FNC_TYPE_NAV_HOME:
             navigation.open_home_panel()
+        elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
+            # TODO add open notifications panel
+            pass
         elif fnc_name == self.FNC_TYPE_NAV_UP:
             navigation.close_panel()
         elif fnc_name == self.FNC_TYPE_NAV_CLOSE:
@@ -898,6 +912,23 @@ class HAUIPage(HAUIPart):
         # component event
         if event.name == ESP_EVENT["component"]:
             self.process_component_event(event)
+        # notifications
+        if self.FNC_BTN_L_SEC in self._fnc_items:
+            left_sec = self._fnc_items[self.FNC_BTN_L_SEC]
+            if left_sec["fnc_name"] == self.FNC_TYPE_NAV_NOTIF and event.name in [
+                NOTIF_EVENT["notif_add"],
+                NOTIF_EVENT["notif_remove"],
+                NOTIF_EVENT["notif_clear"]
+            ]:
+                if event.name == NOTIF_EVENT["notif_add"]:
+                    color = COLORS["component_accent"]
+                else:
+                    color = COLORS["component"]
+                notification = self.app.controller["notification"]
+                visible = False
+                if notification.has_notifications():
+                    visible = True
+                self.update_function_component(self.FNC_BTN_L_SEC, color=color, visible=visible)
 
     def process_component_event(self, event: HAUIEvent) -> None:
         """Processes component events from component callback.

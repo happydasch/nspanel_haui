@@ -58,7 +58,15 @@ ESP_COMMAND = {
         "send_command",
         "send_commands",
         "goto_page",
-        "send_notification",
+    ]
+}
+
+NOTIF_EVENT = {
+    event: event
+    for event in [
+        "notif_add",
+        "notif_remove",
+        "notif_clear"
     ]
 }
 

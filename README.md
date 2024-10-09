@@ -147,8 +147,13 @@ Panel HomeAssistant UI Docs](docs/README.md).
   Configuration and entity handling, more definitions, better code, sort out issues
 
   0.2.1:
-  - clock: restyle clock, only 3 days forecast
+  - clock: restyle clock, only 3 days forecast, show notifications icon.
   - wakeup: make the wakeup process more configureable. add default wakeup behaviour.
+  - wakeup: open previous panel if display was not off, open home panel if display was off after wakeup.
+  - notifications: receive notifications and show them on the display. Show an icon on the home panel and on sleep panels. Notifications are available and can be opened and closed until discarded.
+  - new panels:
+    - notification: show current notifications.
+  - sounds: play sounds on startup and on notifications.
   - eye-candy:
     - wider sliders in different screens
 
@@ -156,7 +161,6 @@ Panel HomeAssistant UI Docs](docs/README.md).
 
   - new functionality:
     - simplify config, internal handling
-    - notifications
     - prepare for backend
   - music player - show playlists
   - panels eye-candy:

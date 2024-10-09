@@ -1,14 +1,17 @@
 import dateutil.parser as dp
 import datetime
+import threading
 
 from ..mapping.background import BACKGROUNDS
 from ..mapping.icon import WEATHER_MAPPING
 from ..mapping.color import COLORS
+from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
 from ..helper.icon import get_icon
 from ..helper.datetime import (
     get_time_localized, get_date_localized, format_datetime)
 from ..abstract.panel import HAUIPanel
 from ..abstract.entity import HAUIEntity
+from ..abstract.event import HAUIEvent
 
 from . import HAUIPage
 
@@ -34,11 +37,16 @@ class WeatherPage(HAUIPage):
     F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL, F5_SUBVAL = (
         (28, "f1SubVal"), (29, "f2SubVal"), (30, "f3SubVal"), (31, "f4SubVal"), (32, "f5SubVal"),
     )
+    TXT_NOTIF = (34, "tNotif")
 
     NUM_FORECAST = 5
+    DISPLAY_UPDATE_INTERVAL = 1.0
 
-    _time_timer = None
-    _date_timer = None
+    _timer_time = None
+    _timer_date = None
+    _timer_notifications = None
+    _show_notifications = True
+    _new_notifications = False
     _show_forecast = False
     _temp_unit = "°C"
 
@@ -54,9 +62,9 @@ class WeatherPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel):
         # time update callback
         time = datetime.time(0, 0, 0)
-        self._time_timer = self.app.run_minutely(self.callback_update_time, time)
+        self._timer_time = self.app.run_minutely(self.callback_update_time, time)
         # setup date callback
-        self._date_timer = self.app.run_hourly(self.callback_update_date, time)
+        self._timer_date = self.app.run_hourly(self.callback_update_date, time)
         # entity listener
         self._handles = []
         found = False
@@ -73,15 +81,9 @@ class WeatherPage(HAUIPage):
             self.hide_forecast()
         else:
             self.show_forecast()
-
-    def stop_panel(self, panel: HAUIPanel):
-        # cancel time and date timer
-        if self._time_timer:
-            self.app.cancel_timer(self._time_timer)
-            self._time_timer = None
-        if self._date_timer:
-            self.app.cancel_timer(self._date_timer)
-            self._date_timer = None
+        # notification
+        self._show_notifications = panel.get("show_notifications", True)
+        self.set_function_component(self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications)
 
     def render_panel(self, panel: HAUIPanel):
         # time display
@@ -90,6 +92,21 @@ class WeatherPage(HAUIPage):
         self.update_date()
         # entities
         self.update_entities(panel.get_entities())
+        # notifications
+        self.update_notifications()
+
+    def stop_panel(self, panel: HAUIPanel):
+        # cancel time and date timer
+        if self._timer_time is not None:
+            self.app.cancel_timer(self._timer_time)
+            self._timer_time = None
+        if self._timer_date is not None:
+            self.app.cancel_timer(self._timer_date)
+            self._timer_date = None
+        # update display timer
+        if self._timer_notifications is not None:
+            self._timer_notifications.cancel()
+            self._timer_notifications = None
 
     # misc
 
@@ -218,6 +235,49 @@ class WeatherPage(HAUIPage):
         self.set_component_text(info_icon, haui_entity.get_icon())
         self.set_component_text(info_val, haui_entity.get_value())
 
+    def update_notifications(self):
+        if not self._show_notifications:
+            return
+        notification = self.app.controller["notification"]
+        if self._new_notifications:
+            color = COLORS["component_accent"]
+        else:
+            color = COLORS["component"]
+        if self._new_notifications:
+            if datetime.datetime.now().second % 2:
+                visible = False
+            else:
+                visible = True
+        else:
+            visible = notification.has_notifications()
+        notif_kwargs = {
+            "icon": self.ICO_MESSAGE,
+            "visible": visible,
+            "color": color,
+        }
+        self.update_function_component(self.TXT_NOTIF[1], **notif_kwargs)
+        if self._new_notifications:
+            self._timer_notifications = threading.Timer(
+                self.DISPLAY_UPDATE_INTERVAL, self.update_notifications
+            )
+            self._timer_notifications.start()
+
+    # event
+
+    def process_event(self, event: HAUIEvent) -> None:
+        super().process_event(event)
+        if event.name in [
+            ESP_RESPONSE["send_notification"],
+            NOTIF_EVENT["notif_add"],
+            NOTIF_EVENT["notif_remove"],
+            NOTIF_EVENT["notif_clear"],
+        ]:
+            if event.name == NOTIF_EVENT["notif_add"]:
+                self._new_notifications = True
+            elif event.name == NOTIF_EVENT["notif_clear"]:
+                self._new_notifications = False
+            self.update_notifications()
+
     # callback
 
     def callback_update_time(self, cb_args):
@@ -234,3 +294,9 @@ class WeatherPage(HAUIPage):
         if self.app.device.sleeping:
             return
         self.refresh_panel()
+
+    def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
+        self.log(f"callback-function-component: {fnc_id}-{fnc_name}")
+        if fnc_id == self.TXT_NOTIF[1]:
+            # TODO add open notifications panel
+            self.log("callback-notifications")

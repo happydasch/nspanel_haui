@@ -4,8 +4,9 @@ from haui.controller import (
     HAUIMQTTController,
     HAUIConnectionController,
     HAUIGestureController,
-    HAUIUpdateController,
     HAUINavigationController,
+    HAUIUpdateController,
+    HAUINotificationController,
 )
 
 import appdaemon.plugins.hass.hassapi as hass
@@ -51,6 +52,11 @@ class NSPanelHAUI(hass.Hass):
             self, self.config.get("navigation")
         )
         self.controller["navigation"] = navigation_controller
+        # create notification controller
+        notification_controller = HAUINotificationController(
+            self, self.config.get("notification")
+        )
+        self.controller["notification"] = notification_controller
         # create update controller
         update_controller = HAUIUpdateController(self, self.config.get("update"))
         self.controller["update"] = update_controller

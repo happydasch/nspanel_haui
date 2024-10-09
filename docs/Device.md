@@ -6,8 +6,11 @@
     - [Display State Sleep, Dimmed and On](#display-state-sleep-dimmed-and-on)
     - [Sleep Panel](#sleep-panel)
     - [Waking up](#waking-up)
+    - [Return Panel after Wakeup](#return-panel-after-wakeup)
     - [Hardware Buttons](#hardware-buttons)
+    - [Sounds](#sounds)
   - [Panels](#panels)
+    - [Notifications](#notifications)
 
 ## Device
 
@@ -47,6 +50,18 @@ Sleep:
 
 The exact behaviour is configurable.
 
+### Return Panel after Wakeup
+
+The display will return to:
+
+Dimmed:
+    - previously open panel
+
+Sleep:
+    - home panel
+
+The opening of the previous panel can be disabled. See the config value `always_return_to_home` to configure this.
+
 ### Hardware Buttons
 
 The device can either control the internal relays or toggle a entity.
@@ -57,6 +72,17 @@ See `switch.nspanel_haui_use_button_interaction` in HA to switch on / off the bu
 
 See the config value `home_on_button_toggle` to go to the home panel after button was pressed.
 
+### Sounds
+
+The device will play sounds on different occasions. The sounds can be disabled.
+
+- `sound_on_startup`
+- `sound_on_notification`
+
 ## Panels
 
 The device supports multiple different panels which are displayed on the display. Each panel can be configured and a complex navigation hierachy is possible. To get an overview of all available panels, see [Panels overview](panels/README.md).
+
+### Notifications
+
+The device can receive notifications and display them. The notifications are available until they are discarded on the display.

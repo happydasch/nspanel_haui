@@ -9,6 +9,7 @@
     - [Forecast](#forecast)
     - [Show weather](#show-weather)
     - [Show temperature](#show-temperature)
+    - [Show Notifications](#show-notifications)
   - [Screens](#screens)
 
 ## About
@@ -36,12 +37,13 @@ panels:
     entity: weather.home
     background: dog_1
 
-  # clock panel without current weather, forecast and temperature
+  # clock panel without current weather, forecast and temperature, no notifications icon
   - type: clock
     entity: weather.home
     forecast: sensor.weather_forecast_hourly
     show_weather: False
     show_temp: False
+    show_notifications: False
 ```
 
 ### Background
@@ -80,6 +82,10 @@ The main weather icon can be hidden by setting `show_weather` to `False`
 ### Show temperature
 
 The main temperature text can be hidden by setting `show_temp` to `False`
+
+### Show Notifications
+
+The notifications icon can be hidden by setting `show_notifications` to `False`
 
 ## Screens
 

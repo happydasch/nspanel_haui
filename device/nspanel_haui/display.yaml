@@ -18,9 +18,6 @@ display:
         - number.set:
             id: brightness_dim
             value: !lambda return int(id(brightness_dim).state);
-        # notify about initialization
-        - lambda: |-
-              id(play_sound).execute("startup");
         # set tft and yaml version
         - delay: 1s
         - lambda: |-

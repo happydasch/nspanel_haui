@@ -7,9 +7,11 @@
   - [Common Configuration](#common-configuration)
   - [Device Configuration](#device-configuration)
   - [Navigation Configuration](#navigation-configuration)
+  - [Notification Configuration](#notification-configuration)
   - [MQTT Controller](#mqtt-controller)
   - [Update Controller](#update-controller)
   - [Connection Controller](#connection-controller)
+  - [Gesture Controller](#gesture-controller)
   - [Panels](#panels)
     - [Panel Modes](#panel-modes)
     - [Accessing a panel](#accessing-a-panel)
@@ -107,6 +109,18 @@ date_format_babel: "full"
 
   Should the display exit the sleep/wakeup panel and return home when a button is toggled. Default False.
 
+- `always_return_to_home` bool
+
+  Should the display always return to the home panel or should it restore the previous panel. Default False.
+
+- `sound_on_startup` bool
+
+  Should a sound be played when the display is connected after startup. Default True.
+
+  - `sound_on_notification` bool
+
+  Should a sound be played when the display recieves a notification. Default True.
+
 ```yaml
 device:
   name: null
@@ -119,6 +133,9 @@ device:
   home_on_first_touch: true
   home_only_when_on: false
   home_on_button_toggle: false
+  always_return_to_home: false
+  sound_on_startup: true
+  sound_on_notification: true
 ```
 
 ## Navigation Configuration
@@ -128,6 +145,14 @@ device:
 ```yaml
 navigation:
   page_timeout: 2.0
+```
+
+## Notification Configuration
+
+`notification` dict
+
+```yaml
+notification: {}
 ```
 
 ## MQTT Controller
@@ -178,6 +203,14 @@ connection:
 
 - `interval` int
 - `overdue_factor` float
+
+## Gesture Controller
+
+`gesture` dict
+
+```yaml
+gesture: {}
+```
 
 ## Panels
 

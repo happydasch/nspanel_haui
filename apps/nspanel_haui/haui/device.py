@@ -1,7 +1,7 @@
 from typing import Optional
 
 from .mapping.page import PANEL_MAPPING, SYS_PANEL_MAPPING
-from .mapping.const import ESP_EVENT
+from .mapping.const import ESP_EVENT, NOTIF_EVENT
 from .abstract.part import HAUIPart
 from .abstract.event import HAUIEvent
 
@@ -118,6 +118,8 @@ class HAUIDevice(HAUIPart):
         self.connected = connected
         navigation = self.app.controller["navigation"]
         if connected:
+            if self.get("sound_on_startup", True):
+                self.play_sound("startup")
             # entry point after connected
             navigation.open_panel("sys_system")
 
@@ -220,6 +222,15 @@ class HAUIDevice(HAUIPart):
             entity = self.app.get_entity(entity_id)
             entity.call_service("toggle")
 
+    def play_sound(self, name: str) -> None:
+        """Plays a sound.
+
+        Args:
+            name (str): Name of the sound
+        """
+        device_name = self.get_name()
+        self.app.call_service(f"esphome/{device_name}_play_sound", name=name)
+
     # callback
 
     def callback_button_state_entities(self, entity, attribute, old, new, kwargs):
@@ -287,13 +298,15 @@ class HAUIDevice(HAUIPart):
             self.process_gesture(event)
         # process sleeping state
         elif event.name == ESP_EVENT["touch_start"]:
-            self.check_wake_up()
-        elif event.name == ESP_EVENT["touch_end"]:
-            self.check_wake_up()
+            self.check_wakeup()
         elif event.name == ESP_EVENT["sleep"]:
             self.set_sleeping(True)
+            # clear navigation snapshot when sleeping
+            navigation = self.app.controller["navigation"]
+            navigation.unset_snapshot()
         elif event.name == ESP_EVENT["wakeup"]:
             self.set_sleeping(False)
+            # set a flag as just woke up
             self.woke_up = True
         elif event.name == ESP_EVENT["page"]:
             if self.device_info.get("page", 0) != event.value:
@@ -304,15 +317,19 @@ class HAUIDevice(HAUIPart):
         elif event.name == ESP_EVENT["button_left"]:
             if event.value == "0":
                 if self.get("home_on_button_toggle"):
-                    self.check_wake_up()
+                    self.check_wakeup()
                 self.toggle_left_button_state()
         elif event.name == ESP_EVENT["button_right"]:
             if event.value == "0":
                 if self.get("home_on_button_toggle"):
-                    self.check_wake_up()
+                    self.check_wakeup()
                 self.toggle_right_button_state()
+        # process notification events
+        elif event.name == NOTIF_EVENT["notif_add"]:
+            if self.get("sound_on_notification", True):
+                self.play_sound("notification")
 
-    def check_wake_up(self) -> None:
+    def check_wakeup(self) -> None:
         """Checks if the display just woke up to switch from wakeup page.
 
         How to wake up from sleep:
@@ -370,4 +387,5 @@ class HAUIDevice(HAUIPart):
                 self.woke_up = False
 
             if exit_sleep:
-                navigation.open_home_panel()
+                if self.get("always_return_to_home", False) or not navigation.restore_snapshot():
+                    navigation.open_home_panel()

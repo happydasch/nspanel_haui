@@ -222,6 +222,12 @@ DEFAULT_CONFIG = {
             "key": "popup_notify",
         },
         {
+            # popup notify
+            "type": "popup_notification",
+            "mode": "popup",
+            "key": "popup_notification",
+        },
+        {
             # popup select
             "type": "popup_select",
             "mode": "popup",

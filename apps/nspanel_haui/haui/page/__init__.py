@@ -883,8 +883,7 @@ class HAUIPage(HAUIPart):
         elif fnc_name == self.FNC_TYPE_NAV_HOME:
             navigation.open_home_panel()
         elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
-            # TODO add open notifications panel
-            pass
+            navigation.open_popup("popup_notification")
         elif fnc_name == self.FNC_TYPE_NAV_UP:
             navigation.close_panel()
         elif fnc_name == self.FNC_TYPE_NAV_CLOSE:

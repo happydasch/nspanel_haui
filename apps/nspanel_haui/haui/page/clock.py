@@ -274,7 +274,6 @@ class ClockPage(HAUIPage):
         self.refresh_panel()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        self.log(f"callback-function-component: {fnc_id}-{fnc_name}")
         if fnc_id == self.TXT_NOTIF[1]:
-            # TODO add open notifications panel
-            self.log("callback-notifications")
+            navigation = self.app.controller["navigation"]
+            navigation.open_popup("popup_notification")

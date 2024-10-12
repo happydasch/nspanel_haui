@@ -33,6 +33,7 @@
       - [Entity: text](#entity-text)
       - [Entity: navigate](#entity-navigate)
       - [Entity: script](#entity-script)
+    - [Override a default popup](#override-a-default-popup)
 
 ## Example Configuration
 
@@ -556,3 +557,14 @@ Internal entities begin with a keyword followed by `:` or just the keyword.
     script_data:
       val: x
   ```
+
+### Override a default popup
+
+`popup_key` string
+
+```yaml
+popup_key: popup_media_player
+```
+
+A different than the default popup can be opened when executing by
+setting `popup_key` to the panel key to open.

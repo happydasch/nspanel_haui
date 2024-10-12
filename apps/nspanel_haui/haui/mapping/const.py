@@ -102,6 +102,7 @@ INTERNAL_ENTITY_TYPE = ["skip", "text", "navigate", "service"]
 # entity config
 ENTITY_CONFIG = {
     "entity": None,  # entity id
+    "popup_key": None,  # allows to override the default popup
     # by default the values below are returned
     # based on the entity. if defined, the values
     # will be overwritten, see documentation for details

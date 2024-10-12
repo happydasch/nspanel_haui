@@ -676,7 +676,7 @@ class MediaPage(HAUIPage):
                 title=self.translate("Select source"),
                 selected=source,
                 items=selection,
-                select_mode="default",
+                select_mode="full",
                 selection_callback_fnc=self.callback_source,
                 close_on_select=True,
             )
@@ -709,7 +709,7 @@ class MediaPage(HAUIPage):
                 "popup_select",
                 title=self.translate("Select media"),
                 items=selection,
-                select_mode="default",
+                select_mode="full",
                 selection_callback_fnc=self.callback_media,
                 close_on_select=True,
             )

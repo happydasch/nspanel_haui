@@ -61,7 +61,10 @@ class QRPage(HAUIPage):
             self.update_qr(big=True)
             self._header_toggle_show = False
         else:
-            self.update_qr(big=False)
+            if panel.get("big_qr", False) is not True:
+                self.update_qr(big=False)
+            else:
+                self.update_qr(big=True)
         self.set_component_text(self.QR_CODE, qr_code)
         self.set_component_text(self.QR_CODE_BIG, qr_code)
 
@@ -92,7 +95,7 @@ class QRPage(HAUIPage):
             value = entity.get_value()
             value_add = ""
             if len(value) > max_len:
-                value_add = value[max_len - 1 :]
+                value_add = value[max_len - 1:]
                 value = value[: max_len - 1]
             self.set_component_text(q_text, value)
             self.set_component_text(q_text_add, value_add)

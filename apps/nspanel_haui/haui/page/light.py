@@ -336,7 +336,7 @@ class LightPage(HAUIPage):
             self._current_light_function = None
 
         for fnc in functions:
-            if fnc["status"] is False:
+            if fnc["status"] is False or fnc["val"] is None:
                 continue
             if fnc["name"] == "brightness":
                 self.set_component_value(self.H_BRIGHTNESS, fnc["val"])

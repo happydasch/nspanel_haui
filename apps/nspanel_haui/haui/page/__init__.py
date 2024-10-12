@@ -368,7 +368,9 @@ class HAUIPage(HAUIPart):
 
         # execute popup
         elif entity_type in ["light", "media_player", "vacuum", "cover", "climate"]:
-            popup_name = f"popup_{entity_type}"
+            popup_name = entity.get("popup_key", None)
+            if popup_name is None:
+                popup_name = f"popup_{entity_type}"
             kwargs = entity.get_config()
             kwargs["entity_id"] = entity.get_entity_id()
             # open popup

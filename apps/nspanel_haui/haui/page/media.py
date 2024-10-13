@@ -325,7 +325,8 @@ class MediaPage(HAUIPage):
         )
         # source button
         source = False
-        if supported_features & MediaPlayerFeatures.SELECT_SOURCE or (
+        source_list = entity.get_entity_attr("source_list", [])
+        if supported_features & MediaPlayerFeatures.SELECT_SOURCE and len(source_list) > 0 or (
             self._sonos_favorites is not None
             and self._sonos_favorites_in_source is True
         ):
@@ -336,7 +337,8 @@ class MediaPage(HAUIPage):
         self.add_component_callback(self.M1_OVL, self.callback_select_source)
         # group button
         group = False
-        if supported_features & MediaPlayerFeatures.GROUPING:
+        group_list = entity.get_entity_attr("group_list", [])
+        if supported_features & MediaPlayerFeatures.GROUPING and len(group_list) > 0:
             group = True
         self.set_media_button(2, self.ICO_SELECT_GROUP, self.translate("Group"), group)
         self.add_component_callback(self.M2_OVL, self.callback_select_group)
@@ -674,7 +676,7 @@ class MediaPage(HAUIPage):
                 title=self.translate("Select source"),
                 selected=source,
                 items=selection,
-                select_mode="default",
+                select_mode="full",
                 selection_callback_fnc=self.callback_source,
                 close_on_select=True,
             )
@@ -766,7 +768,7 @@ class MediaPage(HAUIPage):
             content_type = media_info[1]
             content_id = media_info[2]
             self._media_entity.call_entity_service(
-                "media_play",
+                "play_media",
                 media_content_type=content_type,
                 media_content_id=content_id,
             )

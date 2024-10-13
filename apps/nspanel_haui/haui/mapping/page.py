@@ -20,7 +20,7 @@ from ..page.cover import CoverPage
 
 # misc panels
 from ..page.unlock import UnlockPage
-from ..page.notify import NotifyPage
+from ..page.notify import NotifyPage, NotificationPage
 from ..page.select import SelectPage
 
 
@@ -61,6 +61,7 @@ SYS_PANEL_MAPPING = {
     # popups
     "popup_unlock": "popup_unlock",
     "popup_notify": "popup_notify",
+    "popup_notification": "popup_notification",
     "popup_select": "popup_select",
     "popup_light": "popup_light",
     "popup_media_player": "popup_media_player",
@@ -95,6 +96,7 @@ PANEL_MAPPING = {
     # popups
     "popup_unlock": ("alarm", UnlockPage),
     "popup_notify": ("notify", NotifyPage),
+    "popup_notification": ("notify", NotificationPage),
     "popup_select": ("select", SelectPage),
     "popup_light": ("light", LightPage),
     "popup_media_player": ("media", MediaPage),

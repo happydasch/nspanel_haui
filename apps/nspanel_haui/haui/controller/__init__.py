@@ -3,11 +3,13 @@ from .gesture import HAUIGestureController
 from .mqtt import HAUIMQTTController
 from .navigation import HAUINavigationController
 from .update import HAUIUpdateController
+from .notification import HAUINotificationController
 
 __all__ = [
     "HAUIConnectionController",
-    "HAUIGestureController",
     "HAUIMQTTController",
     "HAUINavigationController",
+    "HAUINotificationController",
     "HAUIUpdateController",
+    "HAUIGestureController",
 ]

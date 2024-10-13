@@ -33,6 +33,7 @@ ESP_RESPONSE = {
         "res_device_state",
         "res_val",
         "res_txt",
+        "send_notification",
     ]
 }
 
@@ -57,6 +58,15 @@ ESP_COMMAND = {
         "send_command",
         "send_commands",
         "goto_page",
+    ]
+}
+
+NOTIF_EVENT = {
+    event: event
+    for event in [
+        "notif_add",
+        "notif_remove",
+        "notif_clear"
     ]
 }
 
@@ -92,6 +102,7 @@ INTERNAL_ENTITY_TYPE = ["skip", "text", "navigate", "service"]
 # entity config
 ENTITY_CONFIG = {
     "entity": None,  # entity id
+    "popup_key": None,  # allows to override the default popup
     # by default the values below are returned
     # based on the entity. if defined, the values
     # will be overwritten, see documentation for details
@@ -112,6 +123,7 @@ PANEL_CONFIG = {
     "sleep_panel": False,  # defines if panel is a sleep panel
     "wakeup_panel": False,  # defines if panel is a wakeup panel
     "show_home_button": None,  # defines if home button is shown
+    "show_notifications_button": None,  # defines if notifications button is shown
     "entity": None,  # single entity
     "entities": [],  # multiple entities
 }
@@ -131,8 +143,17 @@ DEFAULT_CONFIG = {
         "button_right_entity": None,
         # navigation
         "show_home_button": True,
+        "show_notifications_button": True,
         # logging
         "log_commands": False,
+        # exit sleep/wakeup
+        "home_on_wakeup": False,
+        "home_on_first_touch": True,
+        "home_only_when_on": False,
+        "home_on_button_toggle": False,
+        "always_return_to_home": False,
+        "sound_on_startup": True,
+        "sound_on_notification": True
     },
     # mqtt related settings
     "mqtt": {
@@ -147,8 +168,8 @@ DEFAULT_CONFIG = {
     "navigation": {
         "page_timeout": 10.0,  # Default 10 sec, wait for a page to open (sendme result)
     },
-    # gesture related settings
-    "gesture": {},
+    # notification related settings
+    "notification": {},
     # update related settings
     "update": {
         "auto_install": True,  # Defaults to true, set to false to disable automatic initial installation of tft files
@@ -158,6 +179,8 @@ DEFAULT_CONFIG = {
         "on_connect_delay": 60,  # Defaults to 60 sec, delay before checking for updates on connect
         "update_interval": 0,  # Defaults to 0 sec, set to 0 to disable, set to 86400 for daily checks
     },
+    # gesture related settings
+    "gesture": {},
     # system panels configuration
     # this panels can be also overriden
     "sys_panels": [
@@ -198,6 +221,12 @@ DEFAULT_CONFIG = {
             "type": "popup_notify",
             "mode": "popup",
             "key": "popup_notify",
+        },
+        {
+            # popup notify
+            "type": "popup_notification",
+            "mode": "popup",
+            "key": "popup_notification",
         },
         {
             # popup select

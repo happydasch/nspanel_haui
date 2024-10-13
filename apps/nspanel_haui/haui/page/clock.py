@@ -1,57 +1,52 @@
 from typing import List
 import dateutil.parser as dp
 import datetime
+import threading
 
 from ..mapping.background import BACKGROUNDS
 from ..mapping.icon import WEATHER_MAPPING
 from ..mapping.color import COLORS
+from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
 from ..helper.icon import get_icon
 from ..helper.datetime import (
     get_time_localized, get_date_localized, format_datetime)
 from ..abstract.panel import HAUIPanel
 from ..abstract.entity import HAUIEntity
+from ..abstract.event import HAUIEvent
 
 from . import HAUIPage
 
 
 class ClockPage(HAUIPage):
     # main components
-    TXT_TIME_MID, TXT_DATE_MID = (2, "tTimeMid"), (3, "tDateMid")
-    TXT_TIME, TXT_DATE = (4, "tTime"), (5, "tDate")
-    ICO_MAIN, TXT_MAIN = (6, "tMainIcon"), (7, "tMainText")
+    TXT_TIME, TXT_DATE = (3, "tTime"), (4, "tDate")
+    ICO_MAIN, TXT_MAIN, TXT_SUB = (5, "tMainIcon"), (6, "tMainText"), (7, "tSubText")
     # bottom weather forecast row
-    F1_NAME, F2_NAME, F3_NAME, F4_NAME = (
-        (8, "f1Name"),
-        (9, "f2Name"),
-        (10, "f3Name"),
-        (11, "f4Name"),
+    F1_NAME, F2_NAME, F3_NAME = (
+        (8, "f1Name"), (9, "f2Name"), (10, "f3Name"),
     )
-    F1_ICO, F2_ICO, F3_ICO, F4_ICO = (
-        (12, "f1Icon"),
-        (13, "f2Icon"),
-        (14, "f3Icon"),
-        (15, "f4Icon"),
+    F1_ICO, F2_ICO, F3_ICO = (
+        (11, "f1Icon"), (12, "f2Icon"), (13, "f3Icon"),
     )
-    F1_VAL, F2_VAL, F3_VAL, F4_VAL = (
-        (16, "f1Val"),
-        (17, "f2Val"),
-        (18, "f3Val"),
-        (19, "f4Val"),
+    F1_VAL, F2_VAL, F3_VAL = (
+        (14, "f1Val"), (15, "f2Val"), (16, "f3Val"),
     )
-    F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL = (
-        (20, "f1SubVal"),
-        (21, "f2SubVal"),
-        (22, "f3SubVal"),
-        (23, "f4SubVal"),
+    F1_SUBVAL, F2_SUBVAL, F3_SUBVAL = (
+        (17, "f1SubVal"), (18, "f2SubVal"), (19, "f3SubVal"),
     )
+    TXT_NOTIF = (20, "tNotif")
 
-    NUM_FORECAST = 4
+    NUM_FORECAST = 3
+    DISPLAY_UPDATE_INTERVAL = 1.0
 
-    _date_timer = None
-    _date_component = None
-    _time_timer = None
-    _time_component = None
+    _timer_date = None
+    _timer_time = None
+    _timer_notifications = None
+    _show_notifications = True
+    _new_notifications = False
     _show_forecast = False
+    _show_weather = True
+    _show_temp = True
     _temp_unit = "°C"
 
     # panel
@@ -67,9 +62,9 @@ class ClockPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel):
         # time update callback
         time = datetime.time(0, 0, 0)
-        self._time_timer = self.app.run_minutely(self.callback_update_time, time)
+        self._timer_time = self.app.run_minutely(self.callback_update_time, time)
         # date update callback
-        self._date_timer = self.app.run_hourly(self.callback_update_date, time)
+        self._timer_date = self.app.run_hourly(self.callback_update_date, time)
         # entity listeners
         for entity in panel.get_entities():
             if entity.get_entity_type() == "weather":
@@ -78,21 +73,24 @@ class ClockPage(HAUIPage):
                 self._temp_unit = entity.get_entity_attr("temperature_unit", "°C")
         # setting: show_weather
         if not panel.get("show_weather", True):
-            self.hide_component(self.ICO_MAIN)
+            self._show_weather = False
+        self.set_function_component(self.ICO_MAIN, self.ICO_MAIN[1], visible=self._show_weather)
         # setting: show_temp
         if not panel.get("show_temp", True):
-            self.hide_component(self.TXT_MAIN)
+            self._show_temp = False
+        self.set_function_component(self.TXT_MAIN, self.TXT_MAIN[1], visible=self._show_temp)
+        self.set_function_component(self.TXT_SUB, self.TXT_SUB[1], visible=self._show_temp)
         # setting: forecast
         if not panel.get("forecast", False):
-            self._time_component = self.TXT_TIME_MID
-            self._date_component = self.TXT_DATE_MID
             self.hide_forecast()
         else:
-            self._time_component = self.TXT_TIME
-            self._date_component = self.TXT_DATE
             self.show_forecast()
-        self.show_component(self._time_component)
-        self.show_component(self._date_component)
+        # main components
+        self.set_function_component(self.TXT_TIME, self.TXT_TIME[1], visible=True)
+        self.set_function_component(self.TXT_DATE, self.TXT_DATE[1], visible=True)
+        # notification
+        self._show_notifications = panel.get("show_notifications", True)
+        self.set_function_component(self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications)
 
     def render_panel(self, panel: HAUIPanel):
         # time display
@@ -101,15 +99,21 @@ class ClockPage(HAUIPage):
         self.update_date()
         # entities
         self.update_entities(panel.get_entities())
+        # notifications
+        self.update_notifications()
 
     def stop_panel(self, panel: HAUIPanel):
         # cancel time and date timer
-        if self._time_timer:
-            self.app.cancel_timer(self._time_timer)
-            self._time_timer = None
-        if self._date_timer:
-            self.app.cancel_timer(self._date_timer)
-            self._date_timer = None
+        if self._timer_time is not None:
+            self.app.cancel_timer(self._timer_time)
+            self._timer_time = None
+        if self._timer_date is not None:
+            self.app.cancel_timer(self._timer_date)
+            self._timer_date = None
+        # update display timer
+        if self._timer_notifications is not None:
+            self._timer_notifications.cancel()
+            self._timer_notifications = None
 
     # misc
 
@@ -142,16 +146,16 @@ class ClockPage(HAUIPage):
     def update_time(self):
         timeformat = self.app.config.get("time_format")
         time = get_time_localized(timeformat)
-        self.set_component_text(self._time_component, time)
+        self.update_function_component(self.TXT_TIME[1], text=time)
 
     def update_date(self):
         strftime_format = self.app.config.get("date_format")
         babel_format = self.app.config.get("date_format_babel")
         locale = self.app.device.get_locale()
         date = get_date_localized(strftime_format, babel_format, locale)
-        self.set_component_text(self._date_component, date)
+        self.update_function_component(self.TXT_DATE[1], text=date)
 
-    def update_entities(self, entities: List[HAUIEntity]):
+    def update_entities(self, entities: List[HAUIEntity]) -> None:
         # first entity is main weather entity
         main = None
         if len(entities):
@@ -168,16 +172,20 @@ class ClockPage(HAUIPage):
                 forecast_data = forecast[i] if i < len(forecast) else None
                 self.update_forecast(i, forecast_data)
 
-    def update_main_weather(self, haui_entity: HAUIEntity):
+    def update_main_weather(self, haui_entity: HAUIEntity) -> None:
         # set up main weather details
         icon = haui_entity.get_icon()
         color = haui_entity.get_color()
         msg = haui_entity.get_value()
-        self.set_component_text_color(self.ICO_MAIN, color)
-        self.set_component_text(self.ICO_MAIN, icon)
-        self.set_component_text(self.TXT_MAIN, msg)
+        msg_sub = haui_entity.get_entity_attr("pressure", "")
+        if msg_sub:
+            pressure_unit = haui_entity.get_entity_attr("pressure_unit")
+            msg_sub = f"{msg_sub}{pressure_unit}"
+        self.update_function_component(self.ICO_MAIN[1], icon=icon, color=color, visible=self._show_weather)
+        self.update_function_component(self.TXT_MAIN[1], text=msg, visible=self._show_temp)
+        self.update_function_component(self.TXT_SUB[1], text=msg_sub, visible=self._show_temp)
 
-    def update_forecast(self, idx, data):
+    def update_forecast(self, idx: int, data: dict) -> None:
         if idx < 1 or idx > self.NUM_FORECAST:
             self.log("Weather Forecast index outside bounds")
             return
@@ -205,6 +213,49 @@ class ClockPage(HAUIPage):
         self.set_component_text(forecast_val, f"{forecast_temp}{self._temp_unit}")
         self.set_component_text(forecast_subval, f"{forecast_mintemp}{self._temp_unit}")
 
+    def update_notifications(self):
+        if not self._show_notifications:
+            return
+        notification = self.app.controller["notification"]
+        if self._new_notifications:
+            color = COLORS["component_accent"]
+        else:
+            color = COLORS["component"]
+        if self._new_notifications:
+            if datetime.datetime.now().second % 2:
+                visible = False
+            else:
+                visible = True
+        else:
+            visible = notification.has_notifications()
+        notif_kwargs = {
+            "icon": self.ICO_MESSAGE,
+            "visible": visible,
+            "color": color,
+        }
+        self.update_function_component(self.TXT_NOTIF[1], **notif_kwargs)
+        if self._new_notifications:
+            self._timer_notifications = threading.Timer(
+                self.DISPLAY_UPDATE_INTERVAL, self.update_notifications
+            )
+            self._timer_notifications.start()
+
+    # event
+
+    def process_event(self, event: HAUIEvent) -> None:
+        super().process_event(event)
+        if event.name in [
+            ESP_RESPONSE["send_notification"],
+            NOTIF_EVENT["notif_add"],
+            NOTIF_EVENT["notif_remove"],
+            NOTIF_EVENT["notif_clear"],
+        ]:
+            if event.name == NOTIF_EVENT["notif_add"]:
+                self._new_notifications = True
+            elif event.name == NOTIF_EVENT["notif_clear"]:
+                self._new_notifications = False
+            self.update_notifications()
+
     # callback
 
     def callback_update_time(self, cb_args):
@@ -221,3 +272,8 @@ class ClockPage(HAUIPage):
         if self.app.device.sleeping:
             return
         self.refresh_panel()
+
+    def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
+        if fnc_id == self.TXT_NOTIF[1]:
+            navigation = self.app.controller["navigation"]
+            navigation.open_popup("popup_notification")

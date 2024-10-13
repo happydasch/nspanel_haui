@@ -7,6 +7,7 @@
   - [Config](#config)
     - [Forecast](#forecast)
     - [Background](#background)
+    - [Show Notifications](#show-notifications)
   - [Screens](#screens)
 
 ## About
@@ -34,6 +35,7 @@ panels:
     entity: weather.home
     forecast: sensor.weather_forecast_hourly
     background: dog_1
+    show_notifications: false
 ```
 
 ### Forecast
@@ -64,6 +66,10 @@ Dynamic background values are possible using HomeAssistant templates.
 `background: template:{...}`
 
 The return value should match a background name.
+
+### Show Notifications
+
+The notifications icon can be hidden by setting `show_notifications` to `False`
 
 ## Screens
 

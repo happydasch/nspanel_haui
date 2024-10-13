@@ -117,6 +117,17 @@ class HAUIPanel(HAUIBase):
         )
         return show_home_button
 
+    def show_notifications_button(self) -> bool:
+        """Returns True if notifications button should be shown.
+
+        Returns:
+            bool: True if notifications button should be shown
+        """
+        show_notifications_button = self.get(
+            "show_notifications_button", self.app.device.get("show_notifications_button", False)
+        )
+        return show_notifications_button
+
     def get_entities(self, return_copy=True) -> List[HAUIEntity]:
         """Returns all entities from this panel.
 

@@ -8,6 +8,16 @@
 - [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
   - [About](#about)
   - [Features](#features)
+    - [Easy Installation](#easy-installation)
+    - [Device display configuration in a single yaml file](#device-display-configuration-in-a-single-yaml-file)
+    - [A variety of different panels](#a-variety-of-different-panels)
+    - [Touch gestures and sequences](#touch-gestures-and-sequences)
+    - [Live state updates](#live-state-updates)
+    - [Button and relay states, coupled and uncoupled relays](#button-and-relay-states-coupled-and-uncoupled-relays)
+    - [Dimming of the display after a timeout](#dimming-of-the-display-after-a-timeout)
+    - [Sleep display change after a timeout](#sleep-display-change-after-a-timeout)
+    - [Locking/Unlocking mechanism for panels](#lockingunlocking-mechanism-for-panels)
+    - [Device settings in HomeAssistant](#device-settings-in-homeassistant)
   - [Installation](#installation)
   - [Next Steps](#next-steps)
   - [Development](#development)
@@ -24,23 +34,17 @@ For details about the configuration see [Configuration](docs/Config.md). Also ta
 
 ## Features
 
-- **Easy Installation**
+### Easy Installation
 
-  The nspanel_haui will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the AppDaemon app.
+The nspanel_haui will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the AppDaemon app.
 
-- **Device display configuration in a single yaml file**
+### Device display configuration in a single yaml file
 
-  ![Config](docs/assets/feature_config.png)
+![Config](docs/assets/feature_config.png)
 
-  The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
+The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
 
-- **ESPHome component**
-
-  ![ESPHome component](docs/assets/feature_custom_component.png)
-
-  For the communication between the esp32 and the nextion display the component `nextion` in ESPHome is being used.
-
-- **A variety of different panels**
+### A variety of different panels
 
   ![Panels 1](docs/assets/feature_panels_1.png)
 
@@ -48,43 +52,43 @@ For details about the configuration see [Configuration](docs/Config.md). Also ta
 
   Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
 
-- **Touch gestures and sequences**
+### Touch gestures and sequences
 
   ![Touch](docs/assets/feature_touch.png)
 
   Different touch gestures as swipe left or right are supported. There is also support for gesture sequences.
 
-- **Live state updates**
+### Live state updates
 
   ![Touch](docs/assets/feature_live_update.png)
 
   The display will update when a entity state changes. All entities being displayed will notify about changes and the display will update.
 
-- **Button and relay states, coupled and uncoupled relays**
+### Button and relay states, coupled and uncoupled relays
 
   ![Buttons](docs/assets/feature_buttons.png)
 
   The buttons can be used in a couped state, so that by button presses, the relay will get activated. It is also possible to disable the relay and use the physical buttons as software buttonms.
 
-- **Dimming of the display after a timeout**
+### Dimming of the display after a timeout
 
   ![Dimming](docs/assets/feature_dimming.png)
 
   The display will automatically dim its brightness after a timeout.
 
-- **Sleep display change after a timeout**
+### Sleep display change after a timeout
 
   ![Sleep](docs/assets/feature_sleep.png)
 
   The display can switch to a page after a timeout. There are sleep and wakeup panels possible.
 
-- **Locking/Unlocking mechanism for panels**
+### Locking/Unlocking mechanism for panels
 
   ![Unlock](docs/assets/feature_unlock.png)
 
   All panels can be locked by a pin code. The panel can be accessed after entering the pin code.
 
-- **Device settings in HomeAssistant**
+### Device settings in HomeAssistant
 
   ![Config](docs/assets/feature_settings.png)
 
@@ -102,6 +106,7 @@ The simplified process is as followed:
 4. Add [Configuration](docs/Config.md)
 
 Take a look at the more detailed [Installation Guide](docs/Install.md). Have also a look at the [FAQ](docs/FAQ.md).
+For a more detailed overview of available functionality see the [Device Description](docs/Device.md).
 
 ## Next Steps
 
@@ -113,7 +118,8 @@ Take a look at the more detailed [Installation Guide](docs/Install.md). Have als
 
 ## Development
 
-For details about how the parts of the whole system communicate together see [NSPanel HomeAssistant UI Docs](docs/README.md).
+For details about how the parts of the whole system communicate together see [NS
+Panel HomeAssistant UI Docs](docs/README.md).
 
 - [Design Guidelines](docs/Design.md)
 - [Communication Description](docs/Communication.md)
@@ -123,7 +129,7 @@ For details about how the parts of the whole system communicate together see [NS
 
 ## Roadmap
 
-- **Version 0.1.x**: Into the wild - basic functionality, auto updates, cleanups
+- **Versions 0.1.x**: Into the wild - basic functionality, auto updates, cleanups
 
   First versions, get basic functionality running
 
@@ -136,23 +142,35 @@ For details about how the parts of the whole system communicate together see [NS
     - locking panels
     - popups
 
-- **Version 0.2.x**: Sort it out - configuration and entity handling
+- **Versions 0.2.x**: Sort it out - configuration and entity handling
 
   Configuration and entity handling, more definitions, better code, sort out issues
 
-  For this cycle following work is planned:
+  Things done for this cycle:
 
-  - simplify config, internal handling
-  - clock - date too small, temp not good to read, todays temp and weather is confusing
+  - clock: restyle clock, only 3 days forecast, show notifications icon.
+  - weather: show notifications icon.
+  - light: various updates
+  - music: fix media lists
+  - wakeup: make the wakeup process more configureable. add default wakeup behaviour.
+  - wakeup: open previous panel if display was not off, open home panel if display was off after wakeup.
+  - eye-candy:
+    - wider sliders in different screens
+  - sounds: play sounds on startup and on notifications.
+
+  Things for this cycle to finish:
+
+  - notifications: receive notifications and show them on the display. Show an icon on the home panel and on sleep panels. Notifications are available and can be opened and closed until discarded.
+  - new panels:
+    - notification: show current notifications.
+  - sounds: play sounds on notifications.
+  - new functionality:
+    - simplify config, internal handling
+    - prepare for backend
   - music player - show playlists
   - panels eye-candy:
-    - cover, light, etc. wider slider
     - common eye-candy improvements
     - time in title?
-    - grid, row: preview state on background for percent (fill background to this value)
-  - new functionality:
-    - notifications
-    - simplify config, prepare for backend
 
 - **Future**:
 

@@ -1,15 +1,17 @@
-# Configuration Description
+# Configuration
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
-- [Configuration Description](#configuration-description)
+- [Configuration](#configuration)
   - [Example Configuration](#example-configuration)
   - [Common Configuration](#common-configuration)
   - [Device Configuration](#device-configuration)
   - [Navigation Configuration](#navigation-configuration)
+  - [Notification Configuration](#notification-configuration)
   - [MQTT Controller](#mqtt-controller)
   - [Update Controller](#update-controller)
   - [Connection Controller](#connection-controller)
+  - [Gesture Controller](#gesture-controller)
   - [Panels](#panels)
     - [Panel Modes](#panel-modes)
     - [Accessing a panel](#accessing-a-panel)
@@ -31,6 +33,7 @@
       - [Entity: text](#entity-text)
       - [Entity: navigate](#entity-navigate)
       - [Entity: script](#entity-script)
+    - [Override a default popup](#override-a-default-popup)
 
 ## Example Configuration
 
@@ -90,6 +93,35 @@ date_format_babel: "full"
 
   Should commands be logged. Default False.
 
+- `home_on_wakeup` bool
+
+  Should the display exit the sleep/wakeup panel and return home directly after wakeup. Default False.
+
+- `home_on_first_touch` bool
+
+  Should the display exit the sleep/wakeup panel and return home on first iteraction event or wait
+  until touched again. Default True.
+
+- `home_only_when_on` bool
+
+  Should the display exit the sleep/wakeup panel and return home only when the display state is on. Default False.
+
+- `home_on_button_toggle` bool
+
+  Should the display exit the sleep/wakeup panel and return home when a button is toggled. Default False.
+
+- `always_return_to_home` bool
+
+  Should the display always return to the home panel or should it restore the previous panel. Default False.
+
+- `sound_on_startup` bool
+
+  Should a sound be played when the display is connected after startup. Default True.
+
+  - `sound_on_notification` bool
+
+  Should a sound be played when the display recieves a notification. Default True.
+
 ```yaml
 device:
   name: null
@@ -98,6 +130,13 @@ device:
   button_right_entity: null
   show_home_button: false
   log_commands: false
+  home_on_wakeup: false
+  home_on_first_touch: true
+  home_only_when_on: false
+  home_on_button_toggle: false
+  always_return_to_home: false
+  sound_on_startup: true
+  sound_on_notification: true
 ```
 
 ## Navigation Configuration
@@ -107,6 +146,14 @@ device:
 ```yaml
 navigation:
   page_timeout: 2.0
+```
+
+## Notification Configuration
+
+`notification` dict
+
+```yaml
+notification: {}
 ```
 
 ## MQTT Controller
@@ -157,6 +204,14 @@ connection:
 
 - `interval` int
 - `overdue_factor` float
+
+## Gesture Controller
+
+`gesture` dict
+
+```yaml
+gesture: {}
+```
 
 ## Panels
 
@@ -502,3 +557,14 @@ Internal entities begin with a keyword followed by `:` or just the keyword.
     script_data:
       val: x
   ```
+
+### Override a default popup
+
+`popup_key` string
+
+```yaml
+popup_key: popup_media_player
+```
+
+A different than the default popup can be opened when executing by
+setting `popup_key` to the panel key to open.

@@ -6,6 +6,7 @@
   - [About](#about)
   - [Config](#config)
     - [QR-Code Format](#qr-code-format)
+    - [Start with big QR](#start-with-big-qr)
   - [Screens](#screens)
 
 ## About
@@ -22,6 +23,8 @@ If the big qr code is activated, then the display will not turn off.
 
 The entity values will be split on two lines if value is longer than 15 characters.
 
+The panel can be started with a big QR by setting `big_qr` to True.
+
 ## Config
 
 ```yaml
@@ -30,10 +33,12 @@ panels:
   # big qr code
   - type: qr
     qr_code: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
+    big_qr: true
 
   # small qr code
   - type: qr
     qr_code: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
+    big_qr: false
     entities:
       - entity: "text:Test 1"
         name: Title 1
@@ -52,6 +57,14 @@ The qr code can be created by using the format below.
 ```yaml
     Common format: WIFI:S:<SSID>;T:<WEP|WPA|blank>;P:<PASSWORD>;H:<true|false|blank>;;
     Sample: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
+```
+
+### Start with big QR
+
+```yaml
+- type: qr
+  ...
+  big_qr: true
 ```
 
 ## Screens

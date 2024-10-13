@@ -57,7 +57,7 @@ script:
             root["friendly_name"] = friendly_name;
             root["ip"] = ip;
           };
-          auto payload_str = build_json(payload);
+          std::string payload_str = build_json(payload);
           id(publish_event).execute("req_connection", payload_str);
 
   # Script to publish a connection response
@@ -69,7 +69,7 @@ script:
           const json::json_build_t payload = [heartbeat_interval_str](JsonObject root) {
             root["heartbeat_interval"] = heartbeat_interval_str;
           };
-          auto payload_str = build_json(payload);
+          std::string payload_str = build_json(payload);
           id(publish_event).execute("res_connection", payload_str);
 
   # Script to publish device details
@@ -90,7 +90,7 @@ script:
             root["tft_version"] = tft_version;
             root["required_tft_version"] = required_tft_version;
           };
-          auto payload_str = build_json(payload);
+          std::string payload_str = build_json(payload);
           id(publish_event).execute("res_device_info", payload_str);
 
   # Script to publish device state
@@ -136,6 +136,27 @@ script:
     then:
       - lambda: |-
           id(haui_disp).send_command(cmd.c_str());
+
+  # Script to send a notification
+  - id: send_notification
+    parameters:
+      title: string
+      message: string
+      icon: string
+      timeout: int
+    then:
+      - lambda: |-
+          ESP_LOGV("haui", "Script: send_notification: %s - %s - %s - %i", title.c_str(), message.c_str(), icon.c_str(), timeout);
+          const json::json_build_t payload = [
+              title, message, icon, timeout
+          ](JsonObject root) {
+            root["title"] = title;
+            root["message"] = message;
+            root["icon"] = icon;
+            root["timeout"] = timeout;
+          };
+          std::string payload_str = build_json(payload);
+          id(publish_event).execute("send_notification", payload_str);
 
   # Script to set the brightness
   - id: set_brightness

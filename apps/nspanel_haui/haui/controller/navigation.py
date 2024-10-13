@@ -15,7 +15,7 @@ class HAUINavigationController(HAUIPart):
     """
 
     def __init__(self, app, config):
-        """Initialize for navigation controlller.
+        """ Initialize for navigation controlller.
 
         Args:
             app (NSPanelHAUI): App
@@ -80,7 +80,7 @@ class HAUINavigationController(HAUIPart):
     # public methods
 
     def goto_page(self, page_id):
-        """Goto page method.
+        """ Goto page method.
 
         Args:
             page_id (str): Page name or id
@@ -97,7 +97,7 @@ class HAUINavigationController(HAUIPart):
             self.page = None
 
     def get_current_panel(self):
-        """Returns the current panel.
+        """ Returns the current panel.
 
         Returns:
             HAUIConfigPanel|None
@@ -105,7 +105,7 @@ class HAUINavigationController(HAUIPart):
         return self.panel
 
     def get_current_nav_panel(self):
-        """Returns the current nav panel.
+        """ Returns the current nav panel.
 
         Returns:
             HAUIConfigPanel|None
@@ -113,7 +113,7 @@ class HAUINavigationController(HAUIPart):
         return self._current_nav
 
     def has_prev_panel(self):
-        """Returns if a previous panel is available.
+        """ Returns if a previous panel is available.
 
         Returns:
             bool: True if current panel has a previous panel
@@ -129,7 +129,7 @@ class HAUINavigationController(HAUIPart):
         return False
 
     def has_next_panel(self):
-        """Returns if a next panel is available.
+        """ Returns if a next panel is available.
 
         Returns:
             bool: True if current panel has a next panel
@@ -145,7 +145,7 @@ class HAUINavigationController(HAUIPart):
         return False
 
     def has_up_panel(self):
-        """Returns if a up panel is available.
+        """ Returns if a up panel is available.
 
         Returns:
             bool: True if current panel has a up panel
@@ -174,7 +174,7 @@ class HAUINavigationController(HAUIPart):
         self.page.refresh_panel()
 
     def display_panel(self, panel):
-        """Displays the given panel.
+        """ Displays the given panel.
 
         Args:
             panel (HAUIConfigPanel): Panel to display.
@@ -188,7 +188,7 @@ class HAUINavigationController(HAUIPart):
             self.page.set_panel(panel)
 
     def open_popup(self, panel_id, **kwargs):
-        """Opens a panel as a popup.
+        """ Opens a panel as a popup.
 
         Args:
             panel_id (str): Id of panel
@@ -198,7 +198,7 @@ class HAUINavigationController(HAUIPart):
         self.open_panel(panel_id, **kwargs)
 
     def open_panel(self, panel_id, **kwargs):
-        """Opens the panel with the given id.
+        """ Opens the panel with the given id.
 
         Args:
             panel_id (str): Id of panel
@@ -394,7 +394,7 @@ class HAUINavigationController(HAUIPart):
         self.open_panel(panel_id)
 
     def open_home_panel(self, autostart=False):
-        """Opens the home panel.
+        """ Opens the home panel.
 
         Args:
             autostart (bool, optional): Should the page be autostarted. Defaults to False.
@@ -421,7 +421,7 @@ class HAUINavigationController(HAUIPart):
         self.open_panel(self._sleep_panel.id, autostart=autostart)
 
     def open_wakeup_panel(self, autostart=False):
-        """Opens the wakeup panel.
+        """ Opens the wakeup panel.
 
         Args:
             autostart (bool, optional): Should the page be autostarted. Defaults to False.

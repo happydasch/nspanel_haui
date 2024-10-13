@@ -129,7 +129,7 @@ Panel HomeAssistant UI Docs](docs/README.md).
 
 ## Roadmap
 
-- **Version 0.1.x**: Into the wild - basic functionality, auto updates, cleanups
+- **Versions 0.1.x**: Into the wild - basic functionality, auto updates, cleanups
 
   First versions, get basic functionality running
 
@@ -142,23 +142,28 @@ Panel HomeAssistant UI Docs](docs/README.md).
     - locking panels
     - popups
 
-- **Version 0.2.x**: Sort it out - configuration and entity handling
+- **Versions 0.2.x**: Sort it out - configuration and entity handling
 
   Configuration and entity handling, more definitions, better code, sort out issues
 
-  0.2.1:
+  Things done for this cycle:
+
   - clock: restyle clock, only 3 days forecast, show notifications icon.
+  - weather: show notifications icon.
+  - light: various updates
+  - music: fix media lists
   - wakeup: make the wakeup process more configureable. add default wakeup behaviour.
   - wakeup: open previous panel if display was not off, open home panel if display was off after wakeup.
-  - notifications: receive notifications and show them on the display. Show an icon on the home panel and on sleep panels. Notifications are available and can be opened and closed until discarded.
-  - new panels:
-    - notification: show current notifications.
-  - sounds: play sounds on startup and on notifications.
   - eye-candy:
     - wider sliders in different screens
+  - sounds: play sounds on startup and on notifications.
 
   Things for this cycle to finish:
 
+  - notifications: receive notifications and show them on the display. Show an icon on the home panel and on sleep panels. Notifications are available and can be opened and closed until discarded.
+  - new panels:
+    - notification: show current notifications.
+  - sounds: play sounds on notifications.
   - new functionality:
     - simplify config, internal handling
     - prepare for backend

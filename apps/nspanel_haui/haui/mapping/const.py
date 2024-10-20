@@ -97,7 +97,7 @@ ALL_CMD.update({msg: msg for msg in ESP_COMMAND})
 ALL_CMD.update({msg: msg for msg in SERVER_RESPONSE})
 
 # internal entity types
-INTERNAL_ENTITY_TYPE = ["skip", "text", "navigate", "service"]
+INTERNAL_ENTITY_TYPE = ["skip", "text", "navigate", "action"]
 
 # entity config
 ENTITY_CONFIG = {

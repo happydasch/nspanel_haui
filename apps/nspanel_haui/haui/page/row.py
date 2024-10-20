@@ -156,7 +156,7 @@ class RowPage(HAUIPage):
                 # internal entity
                 if entity.is_internal():
                     internal_type = entity.get_internal_type()
-                    if internal_type in ["navigate", "service"]:
+                    if internal_type in ["navigate", "action"]:
                         visible = True
                 # standard entity
                 else:

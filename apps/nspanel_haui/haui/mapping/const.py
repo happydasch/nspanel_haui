@@ -70,15 +70,6 @@ NOTIF_EVENT = {
     ]
 }
 
-NOTIF_EVENT = {
-    event: event
-    for event in [
-        "notif_add",
-        "notif_remove",
-        "notif_clear"
-    ]
-}
-
 # Server Request, Server will answer this requests
 # published to recv
 SERVER_REQUEST = {req: req for req in ["heartbeat", "req_connection", "res_connection"]}

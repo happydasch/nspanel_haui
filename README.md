@@ -150,6 +150,7 @@ Panel HomeAssistant UI Docs](docs/README.md).
 
   - clock: restyle clock, only 3 days forecast, show notifications icon.
   - weather: show notifications icon.
+  - clocktwo: new sleep screen with time as written text.
   - light: various updates
   - music: fix media lists
   - wakeup: make the wakeup process more configureable. add default wakeup behaviour.

@@ -9,7 +9,7 @@ switch:
     id: screen_power
     entity_category: config
     restore_mode: ALWAYS_ON
-    internal: true  # used only for the screen to stay on
+    internal: false  # used only for the screen to stay on
     pin:
       number: 4
       inverted: true

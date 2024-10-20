@@ -14,56 +14,58 @@ from . import HAUIPage
 
 
 MATRIX = {
-  "en": (
-    "ITLISBFAMPM"  # 0
-    "ACQUARTERDC"  # 11
-    "TWENTYFIVEX"  # 22
-    "HALFBTENFTO"  # 33
-    "PASTERUNINE"  # 44
-    "ONESIXTHREE"  # 55
-    "FOURFIVETWO"  # 66
-    "EIGHTELEVEN"  # 77
-    "SEVENTWELVE"  # 88
-    "TENSE[O']CLOCK"  # 99
-  ),
-  "de": (
-    "ESKISTAFÜNF"  # 0
-    "ZEHNZWANZIG"  # 11
-    "DREIVIERTEL"  # 22
-    "VORFUNKNACH"  # 33
-    "HALBAELFÜNF"  # 44
-    "EINSXAMZWEI"  # 55
-    "DREIPMJVIER"  # 66
-    "SECHSNLACHT"  # 77
-    "SIEBENZWÖLF"  # 88
-    "ZEHNEUNKUHR"  # 99
-  ),
-  "pl": (
-    "ZAEKWADRANS"  # 0
-    "DWADZIEŚCIA"  # 11
-    "DZIESIĘĆ[PI]ĘĆ"  # 22
-    "WPÓŁPODOESR"  # 33
-    "[PI]ERWSZA[PI]ĄTA"  # 44
-    "DRUGATRZE[CI]A"  # 55
-    "ÓSMACZWARTA"  # 66
-    "SZÓSTA[SI]ÓDMA"  # 77
-    "DWUD[ZI]EWS[IĄ]TA"  # 88
-    "[JE]DENASTAIEJ"  # 99
-  )
+    "en": (
+        "ITLISBFAMPM"  # 0
+        "ACQUARTERDC"  # 11
+        "TWENTYFIVEX"  # 22
+        "HALFBTENFTO"  # 33
+        "PASTERUNINE"  # 44
+        "ONESIXTHREE"  # 55
+        "FOURFIVETWO"  # 66
+        "EIGHTELEVEN"  # 77
+        "SEVENTWELVE"  # 88
+        "TENSE[O']CLOCK"  # 99
+    ),
+    "de": (
+        "ESKISTAFÜNF"  # 0
+        "ZEHNZWANZIG"  # 11
+        "DREIVIERTEL"  # 22
+        "VORFUNKNACH"  # 33
+        "HALBAELFÜNF"  # 44
+        "EINSXAMZWEI"  # 55
+        "DREIPMJVIER"  # 66
+        "SECHSNLACHT"  # 77
+        "SIEBENZWÖLF"  # 88
+        "ZEHNEUNKUHR"  # 99
+    ),
+    "pl": (
+        "ZAEKWADRANS"  # 0
+        "DWADZIEŚCIA"  # 11
+        "DZIESIĘĆ[PI]ĘĆ"  # 22
+        "WPÓŁPODOESR"  # 33
+        "[PI]ERWSZA[PI]ĄTA"  # 44
+        "DRUGATRZE[CI]A"  # 55
+        "ÓSMACZWARTA"  # 66
+        "SZÓSTA[SI]ÓDMA"  # 77
+        "DWUD[ZI]EWS[IĄ]TA"  # 88
+        "[JE]DENASTAIEJ"  # 99
+    )
 }
 
 MATRIX_WORDS = {
     "en": {
         "it-is": [0, 1, 3, 4],  # it is
-        "am": [7, 8], # am
-        "pm": [9, 10], # pm
+        "am": [7, 8],  # am
+        "pm": [9, 10],  # pm
         "to": [42, 43],  # to
         "past": [44, 45, 46, 47],  # past
+        #
         "five-u": [28, 29, 30, 31],  # five
         "ten-u": [38, 39, 40],  # ten
-        "quarter-u": [13, 14, 15, 16, 17, 18, 19], # quarter
+        "quarter-u": [13, 14, 15, 16, 17, 18, 19],  # quarter
         "twenty-u": [22, 23, 24, 25, 26, 27],  # twenty
-        "half-u": [33, 34, 35, 36],  # half
+        "half-u": [33, 34, 35, 36, 44, 45, 46, 47],  # half past
+        #
         "one": [55, 56, 57],  # one
         "two": [74, 75, 76],  # two
         "three": [61, 62, 63, 64, 65],  # three
@@ -80,18 +82,31 @@ MATRIX_WORDS = {
     },
     "de": {
         "it-is": [0, 1, 3, 4, 5],  # es is
-        "am": [], # am
-        "pm": [], # pm
-        "to": [33, 34, 35],  # vor
-        "past": [40, 41, 42, 43],  # nach
+        "am": [],  # -
+        "pm": [],  # -
+        "to": {
+            "*": [33, 34, 35],  # vor
+            ("twenty-u", "five-u"): [],  # -
+            ("quarter-u"): [],  # -
+        },
+        "past": {
+            "*": [40, 41, 42, 43],  # nach
+            ("twenty-u", "five-u"): [],  # -
+        },
+        #
         "five-u": [7, 8, 9, 10],  # fünf
         "ten-u": [11, 12, 13, 14],  # zehn
         "quarter-u": {
             "past": [26, 27, 28, 29, 30, 31, 31, 32],  # viertel
             "to": [22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 31, 32],  # dreiviertel
         },
-        "twenty-u": [15, 16, 17, 18, 19, 20, 21],  # zwanzig
+        "twenty-u": {
+            "*": [15, 16, 17, 18, 19, 20, 21],  # zwanzig
+            ("five-u", "past"): [33, 34, 35, 44, 45, 46, 47],  # vor halb
+            ("five-u", "to"): [40, 41, 42, 43, 44, 45, 46, 47],  # nach halb
+        },
         "half-u": [44, 45, 46, 47],  # halb
+        #
         "one": [55, 56, 57, 58],  # eins
         "two": [62, 63, 64, 65],  # zwei
         "three": [66, 67, 68, 69],  # drei
@@ -108,8 +123,8 @@ MATRIX_WORDS = {
     },
     "pl": {
         "it-is": [],  # -
-        "am": [], # am
-        "pm": [], # pm
+        "am": [],  # -
+        "pm": [],  # -
         "to": [0, 1],  # za
         "past": [37, 38],  # po
         "five-u": [30, 31, 32],  # piec
@@ -120,54 +135,71 @@ MATRIX_WORDS = {
         "one": {
             "*": [44, 45, 46, 47, 48, 49, 108, 109],  # pierwszej
             "to": [44, 45, 46, 47, 48, 49, 50],  # pierwsza
+            "oclock": [44, 45, 46, 47, 48, 49, 50],  # pierwsza
         },
         "two": {
             "*": [55, 56, 57, 58, 107, 108, 109],  # drugiej
             "to": [55, 56, 57, 58, 59],  # druga
+            "oclock": [55, 56, 57, 58, 59],  # druga
         },
-
         "three": {
             "*": [60, 61, 62, 63, 64, 108, 109],  # trzeciej
             "to": [60, 61, 62, 63, 64, 65],  # trzecia
+            "oclock": [60, 61, 62, 63, 64, 65],  # trzecia
         },
         "four": {
             "*": [70, 71, 72, 73, 74, 75, 108, 109],  # czwartej
             "to": [70, 71, 72, 73, 74, 75, 76],  # czwarta
+            "oclock": [70, 71, 72, 73, 74, 75, 76],  # czwarta
         },
         "five": {
-            "*": [50, 51, 52, 53, 108, 109],  # piatej
-            "to": [50, 51, 52, 53, 54],  # piata
+            "*": [51, 52, 53, 108, 109],  # piatej
+            "to": [51, 52, 53, 54],  # piata
+            "oclock": [51, 52, 53, 54],  # piata
         },
         "six": {
             "*": [77, 78, 79, 80, 81, 108, 109],  # szostej
             "to": [77, 78, 79, 80, 81, 82],  # szosta
+            "oclock": [77, 78, 79, 80, 81, 82],  # szosta
         },
         "seven": {
             "*": [83, 84, 85, 86, 108, 109],  # siodmej
             "to": [83, 84, 85, 86, 87],  # siodma
+            "oclock": [83, 84, 85, 86, 87],  # siodma
         },
         "eight": {
             "*": [66, 67, 68, 108, 109],  # osmej
             "to": [66, 67, 68, 69],  # osma
+            "oclock": [66, 67, 68, 69],  # osma
         },
         "nine": {
             "*": [91, 92, 93, 94, 96, 97, 108, 109],  # dziewiątej
             "to": [91, 92, 93, 94, 96, 97, 98],  # dziewiąta
+            "oclock": [91, 92, 93, 94, 96, 97, 98],  # dziewiąta
         },
         "ten": {
             "*": [91, 92, 93, 95, 96, 97, 108, 109],  # dziesiątej
             "to": [91, 92, 93, 95, 96, 97, 98],  # dziesiąta
+            "oclock": [91, 92, 93, 95, 96, 97, 98],  # dziesiąta
         },
         "eleven": {
             "*": [99, 100, 101, 102, 103, 104, 105, 108, 109],  # jedenstej
             "to": [99, 100, 101, 102, 103, 104, 105, 106],  # jedensta
+            "oclock": [99, 100, 101, 102, 103, 104, 105, 106],  # jedensta
         },
         "twelve": {
             "*": [88, 89, 90, 102, 103, 104, 105, 108, 109],  # dwunastej
             "to": [88, 89, 90, 102, 103, 104, 105, 106],  # dwunasta
+            "oclock": [88, 89, 90, 102, 103, 104, 105, 106],  # dwunasta
         },
         "oclock": [],  # -
     },
+}
+
+NEXT_HOUR_START = {
+    "en": 35,
+    "de": 25,
+    "pl": 30,
 }
 
 HOUR_WORDS = [
@@ -213,6 +245,9 @@ class ClockTwoPage(HAUIPage):
     _off_color = COLORS["component_background"]
     _letter_color = COLORS["component"]
     _special_color = COLORS["component_accent"]
+    _show_ampm = False
+    _show_intro_text = True
+    _show_intro_text_full_hour = False
     _clock_language = "en"
     _clock_letters = []
 
@@ -227,6 +262,9 @@ class ClockTwoPage(HAUIPage):
         self._letter_color = panel.get("letter_color", self._letter_color)
         self._special_color = panel.get("special_color", self._special_color)
         self._clock_language = panel.get("clock_language", self._clock_language)
+        self._show_ampm = panel.get("show_ampm", self._show_ampm)
+        self._show_intro_text = panel.get("show_intro_text", self._show_intro_text)
+        self._show_intro_text_full_hour = panel.get("show_intro_text_full_hour", self._show_intro_text_full_hour)
         if background in BACKGROUNDS:
             self.send_cmd(f"clocktwo.background.val={BACKGROUNDS[background]}")
 
@@ -326,18 +364,27 @@ class ClockTwoPage(HAUIPage):
             if word in words_index:
                 lit = words_index[word]
                 if isinstance(lit, list):
+                    # list with letters
                     for i in lit:
                         letters_active[i] = True
                 elif isinstance(lit, dict):
+                    # dict with rules when to lit
+                    # if key is a tuple then all words need to match
+                    # if key is a string then this word needs to match
+                    # if no key matched and * in key then this will be used
                     lit_key = None
                     for key in lit.keys():
-                        if isinstance(key, list):
+                        if isinstance(key, tuple):
+                            lit_key = key
                             for k in key:
                                 if k not in time_words:
+                                    lit_key = None
                                     break
-                            lit_key = key
                         elif key in time_words:
                             lit_key = key
+                            break
+                        if lit_key is not None:
+                            break
                     if lit_key is None and "*" in lit:
                         lit_key = "*"
                     if lit_key is not None:
@@ -353,8 +400,8 @@ class ClockTwoPage(HAUIPage):
         minutes = time.minute
         hours = time.hour % 12
         words = []
-        # it is, only on full hours
-        if minutes < 5:
+        # intro text it is. can be shown only on full hour, allways or never.
+        if self._show_intro_text or (minutes < 5 and self._show_intro_text_full_hour):
             words += ["it-is"]
         # set minutes
         for start, end, range_words in MINUTE_RANGES:
@@ -363,17 +410,18 @@ class ClockTwoPage(HAUIPage):
                 break
         # adjust the hour based on minutes
         temp_hours = hours
-        if minutes >= 25:
+        if minutes >= NEXT_HOUR_START[self._clock_language]:
             temp_hours = (hours + 1) % 12
         words.append(HOUR_WORDS[temp_hours])
         # on full hours
         if minutes < 5:
             words += ["oclock"]
         # am/pm
-        if time.hour >= 12:
-            words.append("pm")
-        else:
-            words.append("am")
+        if self._show_ampm:
+            if time.hour >= 12:
+                words.append("pm")
+            else:
+                words.append("am")
 
         # specials
         specials = [i < minutes % 5 for i in range(INDEX_SPECIAL_LENGTH)]

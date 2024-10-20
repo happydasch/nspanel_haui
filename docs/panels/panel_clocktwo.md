@@ -8,6 +8,8 @@
     - [Background](#background)
     - [Change language](#change-language)
     - [Custom colors](#custom-colors)
+    - [Show AM/PM](#show-ampm)
+    - [Show Intro Text](#show-intro-text)
     - [Show Notifications](#show-notifications)
   - [Screens](#screens)
 
@@ -63,6 +65,12 @@ The return value should match a background name.
 
 The clocktwo panel supports multiple languages. Set the language by using `clock_language`.
 
+Supported languages:
+
+- `en` English
+- `de` German
+- `pl` Polish
+
 ### Custom colors
 
 The colors of the clocktwo can be changed:
@@ -72,6 +80,19 @@ Supported colors:
 - `off_color`
 - `letter_color`
 - `special_color`
+
+### Show AM/PM
+
+AM/PM can be enabled by setting `show_ampm` to `True`
+
+### Show Intro Text
+
+The intro text can be omitted by setting `show_intro_text` and `show_intro_text_full_hour` to `False`
+
+- `show_intro_text` Show intro text always (Default: True)
+- `show_intro_text_full_hour` Show intro text on full hours (Default: False)
+
+setting `show_ampm` to `True`
 
 ### Show Notifications
 

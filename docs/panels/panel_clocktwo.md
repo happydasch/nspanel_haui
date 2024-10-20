@@ -81,6 +81,4 @@ The notifications icon can be hidden by setting `show_notifications` to `False`
 
 ![Panel ClockTwo](../assets/panel_clocktwo.png)
 
-![Panel ClockTwo Simple](../assets/panel_clocktwo_simple.png)
-
 ![Panel ClockTwo Background](../assets/panel_clocktwo_background.png)

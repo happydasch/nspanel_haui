@@ -32,7 +32,7 @@
       - [Entity: skip](#entity-skip)
       - [Entity: text](#entity-text)
       - [Entity: navigate](#entity-navigate)
-      - [Entity: script](#entity-script)
+      - [Entity: action](#entity-action)
     - [Override a default popup](#override-a-default-popup)
 
 ## Example Configuration
@@ -544,17 +544,17 @@ Internal entities begin with a keyword followed by `:` or just the keyword.
   - entity: "navigate:key"
   ```
 
-#### Entity: script
+#### Entity: action
 
-- `script`
+- `action`
 
-  Script to execute
+  Action to execute
 
-  Pass parameters using `script_data`
+  Pass parameters using `action_data`
 
   ```yaml
-  - entity: "script:script_to_call"
-    script_data:
+  - entity: "action:action_to_call"
+    action_data:
       val: x
   ```
 

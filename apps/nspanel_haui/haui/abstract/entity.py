@@ -83,11 +83,11 @@ class HAUIEntity(HAUIBase):
                 # internal navigate to using key
                 navigation = self.app.controller["navigation"]
                 navigation.open_panel(internal_data)
-            elif internal_type == "service":
-                # internal service to run
-                service_data = self.get("service_data", {})
-                service_call = internal_data.replace(".", "/", 1)
-                self.app.call_service(service_call, **service_data)
+            elif internal_type == "action":
+                # internal action to run
+                action_data = self.get("action_data", {})
+                action_call = internal_data.replace(".", "/", 1)
+                self.app.call_service(action_call, **action_data)
 
         # external entity
         else:

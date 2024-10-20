@@ -6,6 +6,7 @@
   - [Special Panels](#special-panels)
     - [Panel Weather `weather`](#panel-weather-weather)
     - [Panel Clock `clock`](#panel-clock-clock)
+    - [Panel ClockTwo `clocktwo`](#panel-clocktwo-clocktwo)
   - [Entities Panels](#entities-panels)
     - [Panel Grid `grid`](#panel-grid-grid)
     - [Panel Row `row`](#panel-row-row)
@@ -42,6 +43,12 @@ Provides a display with weather details and time / date.
 Provides a display with time / date and weather details.
 
 ![Panel Clock](../assets/panel_clock_background.png)
+
+### [Panel ClockTwo](panel_clocktwo.md) `clocktwo`
+
+Provides a display with time as written text.
+
+![Panel ClockTwo](../assets/panel_clocktwo_background.png)
 
 ## Entities Panels
 

@@ -7,6 +7,7 @@ from ..page.about import AboutPage
 # default panels
 from ..page.weather import WeatherPage
 from ..page.clock import ClockPage
+from ..page.clocktwo import ClockTwoPage
 from ..page.grid import GridPage
 from ..page.row import RowPage
 from ..page.light import LightPage
@@ -38,16 +39,17 @@ PAGE_MAPPING = {
     5: "select",
     6: "weather",
     7: "clock",
-    8: "grid",
-    9: "row",
-    10: "qr",
-    11: "timer",
-    12: "light",
-    13: "media",
-    14: "vacuum",
-    15: "climate",
-    16: "alarm",
-    17: "cover",
+    8: "clocktwo",
+    9: "grid",
+    10: "row",
+    11: "qr",
+    12: "timer",
+    13: "light",
+    14: "media",
+    15: "vacuum",
+    16: "climate",
+    17: "alarm",
+    18: "cover",
 }
 
 # system panel mapping
@@ -83,6 +85,7 @@ PANEL_MAPPING = {
     # panels
     "weather": ("weather", WeatherPage),
     "clock": ("clock", ClockPage),
+    "clocktwo": ("clocktwo", ClockTwoPage),
     "grid": ("grid", GridPage),
     "row": ("row", RowPage),
     "light": ("light", LightPage),

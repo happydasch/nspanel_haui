@@ -151,6 +151,7 @@ DEFAULT_CONFIG = {
         "home_on_first_touch": True,
         "home_only_when_on": False,
         "home_on_button_toggle": False,
+        "return_to_home_after_seconds": 0,
         "always_return_to_home": False,
         "sound_on_startup": True,
         "sound_on_notification": True

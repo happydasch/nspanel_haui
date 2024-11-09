@@ -56,6 +56,9 @@ The display will return to:
 
 Dimmed:
     - previously open panel
+    - if `return_to_home_after_seconds` is bigger than 0 then
+      the display will return to home panel if more than the given
+      seconds passed
 
 Sleep:
     - home panel

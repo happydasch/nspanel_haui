@@ -1,3 +1,4 @@
+from typing import List, Optional
 import dateutil.parser as dp
 import datetime
 import threading
@@ -49,6 +50,7 @@ class WeatherPage(HAUIPage):
     _new_notifications = False
     _show_forecast = False
     _temp_unit = "°C"
+    _weather_entity: Optional[HAUIEntity] = None
 
     # panel
 
@@ -70,10 +72,16 @@ class WeatherPage(HAUIPage):
         found = False
         for entity in panel.get_entities():
             if entity.get_entity_type() == "weather":
-                self.add_entity_listener(entity.get_entity_id(), self.callback_weather)
-                # if a weather entity is found, update the temperature unit
-                self._temp_unit = entity.get_entity_attr("temperature_unit", "°C")
+                self.add_entity_listener(
+                    entity.get_entity_id(),
+                    self.callback_weather,
+                    "temperature")
+                self.add_entity_listener(
+                    entity.get_entity_id(),
+                    self.callback_weather,
+                    "pressure")
                 found = True
+                break
         if not found:
             self.app.log.warning("No weather entity found in config")
         # setting: forecast
@@ -148,7 +156,7 @@ class WeatherPage(HAUIPage):
         date = get_date_localized(strftime_format, babel_format, locale)
         self.set_component_text(self.TXT_DATE, date)
 
-    def update_entities(self, entities):
+    def update_entities(self, entities: List[HAUIEntity]):
         # if only one entry, create new entities which will be used for
         # forecast
         if len(entities) == 1:
@@ -161,7 +169,9 @@ class WeatherPage(HAUIPage):
         if len(entities):
             main = entities.pop(0)
         if main is not None:
-            self.update_main_weather(main)
+            self._weather_entity = main
+            self._temp_unit = main.get_entity_attr("temperature_unit", "°C")
+            self.update_main_weather()
 
         # next 3 are entities below main weather
         info = []
@@ -183,19 +193,22 @@ class WeatherPage(HAUIPage):
                 forecast_data = forecast[i] if i < len(forecast) else None
                 self.update_forecast(i, forecast_data)
 
-    def update_main_weather(self, haui_entity: HAUIEntity):
+    def update_main_weather(self) -> None:
+        if self._weather_entity is None:
+            return
         # set up main weather details
-        icon = haui_entity.get_icon()
-        color = haui_entity.get_color()
-        msg = haui_entity.get_value()
-        msg_sub = haui_entity.get_entity_attr("pressure", "")
+        icon = self._weather_entity.get_icon()
+        color = self._weather_entity.get_color()
+        msg = self._weather_entity.get_entity_attr("temperature", "")
+        msg_sub = self._weather_entity.get_entity_attr("pressure", "")
+        if msg:
+            msg = f"{msg}{self._temp_unit}"
         if msg_sub:
-            pressure_unit = haui_entity.get_entity_attr("pressure_unit")
+            pressure_unit = self._weather_entity.get_entity_attr("pressure_unit")
             msg_sub = f"{msg_sub}{pressure_unit}"
-        self.set_component_text_color(self.ICO_MAIN, color)
-        self.set_component_text(self.ICO_MAIN, icon)
-        self.set_component_text(self.TXT_MAIN, msg)
-        self.set_component_text(self.TXT_SUB, msg_sub)
+        self.update_function_component(self.ICO_MAIN[1], icon=icon, color=color, visible=self._show_weather)
+        self.update_function_component(self.TXT_MAIN[1], text=msg, visible=self._show_temp)
+        self.update_function_component(self.TXT_SUB[1], text=msg_sub, visible=self._show_temp)
 
     def update_forecast(self, idx, data):
         if idx < 1 or idx > self.NUM_FORECAST:
@@ -293,7 +306,7 @@ class WeatherPage(HAUIPage):
     def callback_weather(self, entity, attribute, old, new, kwargs):
         if self.app.device.sleeping:
             return
-        self.refresh_panel()
+        self.update_main_weather()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_id == self.TXT_NOTIF[1]:

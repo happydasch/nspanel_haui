@@ -387,5 +387,9 @@ class HAUIDevice(HAUIPart):
                 self.woke_up = False
 
             if exit_sleep:
-                if self.get("always_return_to_home", False) or not navigation.restore_snapshot():
+                return_to_home_after_seconds = self.get("return_to_home_after_seconds", 0)
+                if (
+                    self.get("always_return_to_home", False)
+                    or not navigation.restore_snapshot(return_to_home_after_seconds)
+                ):
                     navigation.open_home_panel()

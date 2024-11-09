@@ -1,4 +1,5 @@
 import threading
+from datetime import datetime
 
 from ..mapping.const import ESP_EVENT
 from ..helper.page import get_page_id_for_panel, get_page_class_for_panel
@@ -37,6 +38,7 @@ class HAUINavigationController(HAUIPart):
         self._close_timeout = None  # Timer for panel auto close
         self._stack = []  # stack for non-nav panels
         self._snapshot = None  # snapshot for navigation
+
 
     # part
 
@@ -446,7 +448,10 @@ class HAUINavigationController(HAUIPart):
             panel, panel_kwargs,
             current_nav, current_nav_kwargs,
             stack)
-        self._snapshot = snapshot
+        self._snapshot = {
+            "snapshot": snapshot,
+            "timestamp": datetime.now()
+        }
         self.log("Navigation snapshot created")
 
     def unset_snapshot(self) -> None:
@@ -454,7 +459,7 @@ class HAUINavigationController(HAUIPart):
         """
         self._snapshot = None
 
-    def restore_snapshot(self) -> bool:
+    def restore_snapshot(self, max_seconds_ago: int = 0) -> bool:
         """Restores a previously created navigation snapshot.
 
         Returns:
@@ -462,7 +467,12 @@ class HAUINavigationController(HAUIPart):
         """
         if self._snapshot is None:
             return False
-        self.panel, self.panel_kwargs, self._current_nav, self._current_nav_kwargs, self._stack = self._snapshot
+        if max_seconds_ago > 0:
+            delta = datetime.now() - self._snapshot["timestamp"]
+            if delta.total_seconds() > max_seconds_ago:
+                self.log("Navigation snapshot too old")
+                return False
+        self.panel, self.panel_kwargs, self._current_nav, self._current_nav_kwargs, self._stack = self._snapshot["snapshot"]
         self.reload_panel()
         self.log("Navigation snapshot restored")
         return True

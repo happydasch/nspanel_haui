@@ -56,8 +56,9 @@ def get_entity_color(haui_entity, default_color):
     Returns:
         int: RGB565 color
     """
+    result_color = default_color
     if not haui_entity.has_entity():
-        return default_color
+        return result_color
 
     entity = haui_entity.get_entity()
     entity_type = haui_entity.get_entity_type()
@@ -101,6 +102,14 @@ def get_entity_color(haui_entity, default_color):
             "triggered",
         ]:
             result_color = COLORS["alarm_armed"]
+    # media player entity
+    elif entity_type == "media_player":
+        if entity_state == "playing":
+            result_color = COLORS["entity_on"]
+        elif entity_state == "unavailable":
+            result_color = COLORS["entity_unavailble"]
+        else:
+            result_color = COLORS["entity_off"]
 
     # additional attributes check
     attr = entity.attributes

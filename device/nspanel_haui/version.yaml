@@ -1,6 +1,6 @@
 ---
 substitutions:
   # Version of this yaml config file
-  yaml_version: '0.2.2'
+  yaml_version: '0.2.3'
   # Required version of the display tft file
-  required_tft_version: '0.2.2'
+  required_tft_version: '0.2.3'

@@ -193,8 +193,8 @@ class GridPage(HAUIPage):
         # power button, only show if requested and a entity is set
         power_visible = self.is_power_visible(panel, entity)
         # colors for grid button
-        color_pressed = COLORS["text"]
-        back_color_pressed = COLORS["component_pressed"]
+        color_pressed = panel.get("color_pressed", COLORS["text"])
+        back_color_pressed = panel.get("back_color_pressed", COLORS["component_pressed"])
         power_color = panel.get("power_color", COLORS["component_active"])
         text_color = panel.get("text_color")
         back_color = panel.get("back_color")
@@ -203,6 +203,8 @@ class GridPage(HAUIPage):
         if entity is not None:
             text_color = entity.get("text_color", text_color)
             back_color = entity.get("back_color", back_color)
+            color_pressed = entity.get("color_pressed", color_pressed)
+            back_color_pressed = entity.get("back_color_pressed", back_color_pressed)
             color_mode = entity.get("color_mode", color_mode)
             color_seed = entity.get("color_seed", color_seed)
         # no background color check if color mode or set default

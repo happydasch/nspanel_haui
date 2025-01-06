@@ -164,13 +164,10 @@ Panel HomeAssistant UI Docs](docs/README.md).
   - notifications: receive notifications and show them on the display. Show an icon on the home panel and on sleep panels. Notifications are available and can be opened and closed until discarded.
   - new panels:
     - notification: show current notifications.
-  - sounds: play sounds on notifications.
   - new functionality:
     - simplify config, internal handling
     - prepare for backend
-  - music player - show playlists
   - panels eye-candy:
-    - common eye-candy improvements
     - time in title?
 
 - **Future**:

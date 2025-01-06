@@ -162,9 +162,9 @@ def rgb_to_rgb565(rgb_color):
     Returns:
         int: RGB565 color
     """
-    red = rgb_color[0]
-    green = rgb_color[1]
-    blue = rgb_color[2]
+    red = int(rgb_color[0])
+    green = int(rgb_color[1])
+    blue = int(rgb_color[2])
     return (int(red >> 3) << 11) | (int(green >> 2) << 5) | (int(blue >> 3))
 
 

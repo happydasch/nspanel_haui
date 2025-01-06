@@ -43,6 +43,8 @@ class HAUIPage(HAUIPart):
     ICO_ENTITY_UNAVAILABLE = get_icon("mdi:cancel")
     ICO_PREV_PAGE = get_icon("mdi:chevron-double-up")
     ICO_NEXT_PAGE = get_icon("mdi:chevron-double-down")
+    ICO_PREV_MESSAGE = get_icon("mdi:chevron-double-left")
+    ICO_NEXT_MESSAGE = get_icon("mdi:chevron-double-right")
     ICO_MESSAGE = get_icon("mdi:email")
 
     # functions for function components

@@ -49,7 +49,7 @@ MATRIX = {
         "SZÓSTA[SI]ÓDMA"  # 77
         "DWUD[ZI]EWS[IĄ]TA"  # 88
         "[JE]DENASTAIEJ"  # 99
-    )
+    ),
 }
 
 MATRIX_WORDS = {
@@ -203,8 +203,18 @@ NEXT_HOUR_START = {
 }
 
 HOUR_WORDS = [
-    "twelve", "one", "two", "three", "four", "five",
-    "six", "seven", "eight", "nine", "ten", "eleven"
+    "twelve",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+    "eleven",
 ]
 
 MINUTE_RANGES = [
@@ -218,7 +228,7 @@ MINUTE_RANGES = [
     (40, 45, ["twenty-u", "to"]),
     (45, 50, ["quarter-u", "to"]),
     (50, 55, ["ten-u", "to"]),
-    (55, 60, ["five-u", "to"])
+    (55, 60, ["five-u", "to"]),
 ]
 
 INDEX_LETTER_START = 2
@@ -264,7 +274,9 @@ class ClockTwoPage(HAUIPage):
         self._clock_language = panel.get("clock_language", self._clock_language)
         self._show_ampm = panel.get("show_ampm", self._show_ampm)
         self._show_intro_text = panel.get("show_intro_text", self._show_intro_text)
-        self._show_intro_text_full_hour = panel.get("show_intro_text_full_hour", self._show_intro_text_full_hour)
+        self._show_intro_text_full_hour = panel.get(
+            "show_intro_text_full_hour", self._show_intro_text_full_hour
+        )
         if background in BACKGROUNDS:
             self.send_cmd(f"clocktwo.background.val={BACKGROUNDS[background]}")
 
@@ -275,7 +287,8 @@ class ClockTwoPage(HAUIPage):
         # notification
         self._show_notifications = panel.get("show_notifications", True)
         self.set_function_component(
-            self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications)
+            self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications
+        )
         self.init_interface(panel)
 
     def render_panel(self, panel: HAUIPanel):
@@ -293,8 +306,7 @@ class ClockTwoPage(HAUIPage):
     def init_interface(self, panel):
         pattern = re.compile(r"\[([^\]]+)\]|.")
         self._clock_letters = [
-            match.group(1) if match.group(1)
-            else match.group(0)
+            match.group(1) if match.group(1) else match.group(0)
             for match in pattern.finditer(MATRIX[self._clock_language])
         ]
         letter_components = []
@@ -319,8 +331,7 @@ class ClockTwoPage(HAUIPage):
 
     def update_interface(self):
         current_time = datetime.datetime.now()
-        letters_active, specials_active, time_words = self.get_matrix_from_time(
-            current_time)
+        letters_active, specials_active, time_words = self.get_matrix_from_time(current_time)
 
         matrix_text = ""
         for letter_index in range(INDEX_LETTER_LENGTH):
@@ -330,9 +341,7 @@ class ClockTwoPage(HAUIPage):
                 matrix_text += self._clock_letters[letter_index]
         self.log(f"text: {matrix_text} for words: {' '.join(time_words)}")
         for i, old, new in zip(
-            range(INDEX_LETTER_LENGTH),
-            self._letter_current_state,
-            letters_active
+            range(INDEX_LETTER_LENGTH), self._letter_current_state, letters_active
         ):
             component = self.get_letter_component(i)
             if old != new:
@@ -342,9 +351,7 @@ class ClockTwoPage(HAUIPage):
                     self.set_component_text_color(component, self._off_color)
                 self._letter_current_state[i] = new
         for i, old, new in zip(
-            range(INDEX_SPECIAL_LENGTH),
-            self._special_current_state,
-            specials_active
+            range(INDEX_SPECIAL_LENGTH), self._special_current_state, specials_active
         ):
             component = self.get_special_component(i)
             if old != new:

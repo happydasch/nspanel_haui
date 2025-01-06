@@ -107,7 +107,7 @@ def get_entity_color(haui_entity, default_color):
         if entity_state == "playing":
             result_color = COLORS["entity_on"]
         elif entity_state == "unavailable":
-            result_color = COLORS["entity_unavailble"]
+            result_color = COLORS["entity_unavailable"]
         else:
             result_color = COLORS["entity_off"]
 

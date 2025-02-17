@@ -43,6 +43,7 @@ panels:
     forecast: sensor.weather_forecast_hourly
     show_weather: False
     show_temp: False
+    show_home_temp: False
     show_notifications: False
 ```
 
@@ -82,7 +83,7 @@ The main weather icon can be hidden by setting `show_weather` to `False`
 ### Show temperature
 
 The main temperature text can be hidden by setting `show_temp` to `False`
-
+To add the home temperature `show_temp` and `show_home_temp` needs to be `True`
 ### Show Notifications
 
 The notifications icon can be hidden by setting `show_notifications` to `False`

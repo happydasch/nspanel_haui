@@ -80,7 +80,9 @@ class GridPage(HAUIPage):
         # set function buttons
         mode = self.panel.get_mode()
         btn_right_2 = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC if mode != "subpanel" else self.BTN_FNC_RIGHT_PRI,
+            "fnc_component": (
+                self.BTN_FNC_RIGHT_SEC if mode != "subpanel" else self.BTN_FNC_RIGHT_PRI
+            ),
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": self.ICO_NEXT_PAGE,

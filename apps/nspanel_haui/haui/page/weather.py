@@ -8,8 +8,7 @@ from ..mapping.icon import WEATHER_MAPPING
 from ..mapping.color import COLORS
 from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
 from ..helper.icon import get_icon
-from ..helper.datetime import (
-    get_time_localized, get_date_localized, format_datetime)
+from ..helper.datetime import get_time_localized, get_date_localized, format_datetime
 from ..abstract.panel import HAUIPanel
 from ..abstract.entity import HAUIEntity
 from ..abstract.event import HAUIEvent
@@ -27,16 +26,32 @@ class WeatherPage(HAUIPage):
     D1_VAL, D2_VAL, D3_VAL = (10, "d1Val"), (11, "d2Val"), (12, "d3Val")
     # bottom weather forecast row
     F1_NAME, F2_NAME, F3_NAME, F4_NAME, F5_NAME = (
-        (13, "f1Name"), (14, "f2Name"), (15, "f3Name"), (16, "f4Name"), (17, "f5Name"),
+        (13, "f1Name"),
+        (14, "f2Name"),
+        (15, "f3Name"),
+        (16, "f4Name"),
+        (17, "f5Name"),
     )
     F1_ICO, F2_ICO, F3_ICO, F4_ICO, F5_ICO = (
-        (18, "f1Icon"), (19, "f2Icon"), (20, "f3Icon"), (21, "f4Icon"), (22, "f5Icon"),
+        (18, "f1Icon"),
+        (19, "f2Icon"),
+        (20, "f3Icon"),
+        (21, "f4Icon"),
+        (22, "f5Icon"),
     )
     F1_VAL, F2_VAL, F3_VAL, F4_VAL, F5_VAL = (
-        (23, "f1Val"), (24, "f2Val"), (25, "f3Val"), (26, "f4Val"), (27, "f5Val"),
+        (23, "f1Val"),
+        (24, "f2Val"),
+        (25, "f3Val"),
+        (26, "f4Val"),
+        (27, "f5Val"),
     )
     F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL, F5_SUBVAL = (
-        (28, "f1SubVal"), (29, "f2SubVal"), (30, "f3SubVal"), (31, "f4SubVal"), (32, "f5SubVal"),
+        (28, "f1SubVal"),
+        (29, "f2SubVal"),
+        (30, "f3SubVal"),
+        (31, "f4SubVal"),
+        (32, "f5SubVal"),
     )
     TXT_NOTIF = (34, "tNotif")
 
@@ -73,13 +88,11 @@ class WeatherPage(HAUIPage):
         for entity in panel.get_entities():
             if entity.get_entity_type() == "weather":
                 self.add_entity_listener(
-                    entity.get_entity_id(),
-                    self.callback_weather,
-                    "temperature")
+                    entity.get_entity_id(), self.callback_weather, "temperature"
+                )
                 self.add_entity_listener(
-                    entity.get_entity_id(),
-                    self.callback_weather,
-                    "pressure")
+                    entity.get_entity_id(), self.callback_weather, "pressure"
+                )
                 found = True
                 break
         if not found:
@@ -91,7 +104,9 @@ class WeatherPage(HAUIPage):
             self.show_forecast()
         # notification
         self._show_notifications = panel.get("show_notifications", True)
-        self.set_function_component(self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications)
+        self.set_function_component(
+            self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications
+        )
 
     def render_panel(self, panel: HAUIPanel):
         # time display
@@ -187,7 +202,8 @@ class WeatherPage(HAUIPage):
         # forecast
         if self._show_forecast:
             forecast_entity = HAUIEntity(
-                self.app, {"entity": self.panel.get('forecast')})
+                self.app, {"entity": self.panel.get("forecast")}
+            )
             forecast = forecast_entity.get_entity_attr("forecast", [])
             for i in range(1, self.NUM_FORECAST + 1):
                 forecast_data = forecast[i] if i < len(forecast) else None
@@ -206,9 +222,15 @@ class WeatherPage(HAUIPage):
         if msg_sub:
             pressure_unit = self._weather_entity.get_entity_attr("pressure_unit")
             msg_sub = f"{msg_sub}{pressure_unit}"
-        self.update_function_component(self.ICO_MAIN[1], icon=icon, color=color, visible=self._show_weather)
-        self.update_function_component(self.TXT_MAIN[1], text=msg, visible=self._show_temp)
-        self.update_function_component(self.TXT_SUB[1], text=msg_sub, visible=self._show_temp)
+        self.update_function_component(
+            self.ICO_MAIN[1], icon=icon, color=color, visible=self._show_weather
+        )
+        self.update_function_component(
+            self.TXT_MAIN[1], text=msg, visible=self._show_temp
+        )
+        self.update_function_component(
+            self.TXT_SUB[1], text=msg_sub, visible=self._show_temp
+        )
 
     def update_forecast(self, idx, data):
         if idx < 1 or idx > self.NUM_FORECAST:

@@ -61,14 +61,7 @@ ESP_COMMAND = {
     ]
 }
 
-NOTIF_EVENT = {
-    event: event
-    for event in [
-        "notif_add",
-        "notif_remove",
-        "notif_clear"
-    ]
-}
+NOTIF_EVENT = {event: event for event in ["notif_add", "notif_remove", "notif_clear"]}
 
 # Server Request, Server will answer this requests
 # published to recv
@@ -154,7 +147,7 @@ DEFAULT_CONFIG = {
         "return_to_home_after_seconds": 0,
         "always_return_to_home": False,
         "sound_on_startup": True,
-        "sound_on_notification": True
+        "sound_on_notification": True,
     },
     # mqtt related settings
     "mqtt": {

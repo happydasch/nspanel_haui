@@ -8,7 +8,6 @@ from ..abstract.event import HAUIEvent
 
 
 class HAUINavigationController(HAUIPart):
-
     """Navigation Controller
 
     Provides the whole navigation functionality. Implemented as a controller
@@ -39,12 +38,10 @@ class HAUINavigationController(HAUIPart):
         self._stack = []  # stack for non-nav panels
         self._snapshot = None  # snapshot for navigation
 
-
     # part
 
     def start_part(self):
-        """Starts the part.
-        """
+        """Starts the part."""
         # get panels
         all_panels = self.app.config.get_panels()
         nav_panels = self.app.config.get_panels(filter_nav_panel=True)
@@ -91,8 +88,7 @@ class HAUINavigationController(HAUIPart):
         self.send_mqtt("goto_page", str(page_id))
 
     def unset_page(self):
-        """Unsets the currently set page.
-        """
+        """Unsets the currently set page."""
         if self.page is not None:
             if self.page.is_started():
                 self.page.stop()
@@ -159,8 +155,7 @@ class HAUINavigationController(HAUIPart):
     # main methods
 
     def reload_panel(self):
-        """Reloads the current panel.
-        """
+        """Reloads the current panel."""
         self.log(f"Reloading panel: {self.panel.id}")
         self.unset_page()
         if len(self._stack) > 0:
@@ -168,8 +163,7 @@ class HAUINavigationController(HAUIPart):
         self.open_panel(self.panel.id, **self.panel_kwargs)
 
     def refresh_panel(self):
-        """Refreshes the current panel.
-        """
+        """Refreshes the current panel."""
         if self.page is None:
             return
         self.log(f"Refreshing panel: {self.panel.id}")
@@ -316,8 +310,7 @@ class HAUINavigationController(HAUIPart):
             self._close_timeout.start()
 
     def close_panel(self):
-        """Closes the current panel.
-        """
+        """Closes the current panel."""
         # check for active timer
         if self._close_timeout is not None:
             self._close_timeout.cancel()
@@ -365,8 +358,7 @@ class HAUINavigationController(HAUIPart):
     # additional methods
 
     def open_next_panel(self):
-        """Opens the next panel.
-        """
+        """Opens the next panel."""
         self.log("Open next panel")
         if self._current_nav is None:
             return
@@ -380,8 +372,7 @@ class HAUINavigationController(HAUIPart):
         self.open_panel(panel_id)
 
     def open_prev_panel(self):
-        """Opens the previous panel.
-        """
+        """Opens the previous panel."""
         self.log("Open prev panel")
         if self._current_nav is None:
             return
@@ -437,26 +428,18 @@ class HAUINavigationController(HAUIPart):
     # snapshot methods
 
     def create_snapshot(self) -> None:
-        """Creates a snapshot of the current navigation state.
-        """
+        """Creates a snapshot of the current navigation state."""
         panel = self.panel
         panel_kwargs = self.panel_kwargs.copy()
         current_nav = self._current_nav
         current_nav_kwargs = self._current_nav_kwargs.copy()
         stack = self._stack.copy()
-        snapshot = (
-            panel, panel_kwargs,
-            current_nav, current_nav_kwargs,
-            stack)
-        self._snapshot = {
-            "snapshot": snapshot,
-            "timestamp": datetime.now()
-        }
+        snapshot = (panel, panel_kwargs, current_nav, current_nav_kwargs, stack)
+        self._snapshot = snapshot
         self.log("Navigation snapshot created")
 
     def unset_snapshot(self) -> None:
-        """Unsets the current navigation snapshot.
-        """
+        """Unsets the current navigation snapshot."""
         self._snapshot = None
 
     def restore_snapshot(self, max_seconds_ago: int = 0) -> bool:
@@ -467,12 +450,13 @@ class HAUINavigationController(HAUIPart):
         """
         if self._snapshot is None:
             return False
-        if max_seconds_ago > 0:
-            delta = datetime.now() - self._snapshot["timestamp"]
-            if delta.total_seconds() > max_seconds_ago:
-                self.log("Navigation snapshot too old")
-                return False
-        self.panel, self.panel_kwargs, self._current_nav, self._current_nav_kwargs, self._stack = self._snapshot["snapshot"]
+        (
+            self.panel,
+            self.panel_kwargs,
+            self._current_nav,
+            self._current_nav_kwargs,
+            self._stack,
+        ) = self._snapshot
         self.reload_panel()
         self.log("Navigation snapshot restored")
         return True

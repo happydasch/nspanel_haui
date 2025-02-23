@@ -89,6 +89,10 @@ date_format_babel: "full"
 
   Should the panels show a home button. Default False.
 
+- `show_sleep_button` bool
+
+  Should the panels show a sleep button when on home panel. Default False.
+
 - `log_commands` bool
 
   Should commands be logged. Default False.

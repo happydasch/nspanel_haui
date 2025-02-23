@@ -193,11 +193,11 @@ class ClockPage(HAUIPage):
         if self._show_home_temp:
             internal_temp = self.app.get_entity(f"sensor.{name}_temperature")
             if msg != "":
-                msg = "  " + msg
+                msg = f"  {msg}"
             msg = (
-                f"{internal_temp.get_state()}{self._temp_unit}mdi:home-thermometer"
-                + msg
+                f"{internal_temp.get_state()}{self._temp_unit}mdi:home-thermometer{msg}"
             )
+
         msg = parse_icon(msg)
         msg_sub = self._weather_entity.get_entity_attr("pressure", "")
         if msg_sub:
@@ -230,7 +230,7 @@ class ClockPage(HAUIPage):
             )
             forecast = forecast_entity.get_entity_attr("forecast", [])
             for i in range(1, self.NUM_FORECAST + 1):
-                forecast_data = forecast[i] if i < len(forecast) else None
+                forecast_data = forecast[i - 1] if i - 1 < len(forecast) else None
                 self.update_forecast(i, forecast_data)
 
     def update_forecast(self, idx: int, data: dict) -> None:

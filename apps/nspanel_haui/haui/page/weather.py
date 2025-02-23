@@ -206,7 +206,7 @@ class WeatherPage(HAUIPage):
             )
             forecast = forecast_entity.get_entity_attr("forecast", [])
             for i in range(1, self.NUM_FORECAST + 1):
-                forecast_data = forecast[i] if i < len(forecast) else None
+                forecast_data = forecast[i - 1] if i - 1 < len(forecast) else None
                 self.update_forecast(i, forecast_data)
 
     def update_main_weather(self) -> None:

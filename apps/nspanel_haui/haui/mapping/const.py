@@ -116,6 +116,7 @@ PANEL_CONFIG = {
     "sleep_panel": False,  # defines if panel is a sleep panel
     "wakeup_panel": False,  # defines if panel is a wakeup panel
     "show_home_button": None,  # defines if home button is shown
+    "show_sleep_button": None,  # defines if sleep button is shown
     "show_notifications_button": None,  # defines if notifications button is shown
     "entity": None,  # single entity
     "entities": [],  # multiple entities
@@ -135,7 +136,8 @@ DEFAULT_CONFIG = {
         "button_left_entity": None,
         "button_right_entity": None,
         # navigation
-        "show_home_button": True,
+        "show_home_button": False,
+        "show_sleep_button": False,
         "show_notifications_button": True,
         # logging
         "log_commands": False,

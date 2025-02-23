@@ -24,11 +24,10 @@ from .base import HAUIBase
 
 
 class HAUIEntity(HAUIBase):
-
-    """ Represents a entity from a panel """
+    """Represents a entity from a panel"""
 
     def __init__(self, app, config=None):
-        """ Initialize for config entity.
+        """Initialize for config entity.
 
         Args:
             app (NSPanelHAUI): App
@@ -49,7 +48,7 @@ class HAUIEntity(HAUIBase):
         self._prepare_entity(self.get("entity"))
 
     def _prepare_entity(self, entity_id: str) -> None:
-        """ Prepares internal values from entity.
+        """Prepares internal values from entity.
 
         Args:
             entity_id (str): The entity id
@@ -73,7 +72,7 @@ class HAUIEntity(HAUIBase):
             self._entity_type = entity_id.split(".")[0]
 
     def execute(self):
-        """ Executes the entity. """
+        """Executes the entity."""
         # internal entity
         if self.is_internal():
             internal_type = self.get_internal_type()
@@ -95,7 +94,7 @@ class HAUIEntity(HAUIBase):
             execute_entity(self)
 
     def is_internal(self) -> bool:
-        """ Returns if the entity is internal.
+        """Returns if the entity is internal.
 
         Returns:
             bool: True if internal
@@ -103,7 +102,7 @@ class HAUIEntity(HAUIBase):
         return self._internal
 
     def get_internal_type(self) -> str:
-        """ Returns the internal entity type.
+        """Returns the internal entity type.
 
         Returns:
             str: Internal Entity Type
@@ -111,7 +110,7 @@ class HAUIEntity(HAUIBase):
         return self._internal_type
 
     def get_internal_data(self) -> str:
-        """ Returns the internal entity data.
+        """Returns the internal entity data.
 
         Returns:
             str: Internal Entity Data
@@ -119,7 +118,7 @@ class HAUIEntity(HAUIBase):
         return self._internal_data
 
     def has_entity_id(self) -> bool:
-        """ Returns if a entity id is available.
+        """Returns if a entity id is available.
 
         Returns:
             bool: True if entity id is available
@@ -127,7 +126,7 @@ class HAUIEntity(HAUIBase):
         return self._entity_id is not None
 
     def get_entity_id(self) -> str:
-        """ Returns the entity id.
+        """Returns the entity id.
 
         Returns:
             str: entity id
@@ -135,7 +134,7 @@ class HAUIEntity(HAUIBase):
         return self._entity_id
 
     def has_entity(self) -> bool:
-        """ Returns if a entity is available.
+        """Returns if a entity is available.
 
         Returns:
             bool: True if entity is available
@@ -143,7 +142,7 @@ class HAUIEntity(HAUIBase):
         return self._entity_id is not None and self.app.entity_exists(self._entity_id)
 
     def get_entity(self) -> Entity:
-        """ Returns the entity.
+        """Returns the entity.
 
         Returns:
             Entity: Entity
@@ -153,7 +152,7 @@ class HAUIEntity(HAUIBase):
         return None
 
     def get_entity_type(self) -> str:
-        """ Returns the type of the entity.
+        """Returns the type of the entity.
 
         The entity type is the first part of the entity id.
 
@@ -163,7 +162,7 @@ class HAUIEntity(HAUIBase):
         return self._entity_type
 
     def get_entity_attr(self, attr, default: Any = None) -> str:
-        """ Returns a value from the attributes dict.
+        """Returns a value from the attributes dict.
 
         The attribute value can be either a string or a list of strings. Using
         a single str, the attribute with that name will be returned. Using a list
@@ -203,7 +202,7 @@ class HAUIEntity(HAUIBase):
         return res
 
     def get_entity_state(self) -> str:
-        """ Returns the state of the entity.
+        """Returns the state of the entity.
 
         Returns:
             str: Entity State
@@ -218,7 +217,7 @@ class HAUIEntity(HAUIBase):
         return self.get_entity_attr(state, "")
 
     def call_entity_service(self, service: str, **kwargs) -> None:
-        """ Calls a service on the entity.
+        """Calls a service on the entity.
 
         Args:
             service (str): Service to call
@@ -230,7 +229,7 @@ class HAUIEntity(HAUIBase):
         entity.call_service(service, **kwargs)
 
     def get_value(self) -> str:
-        """ Returns the value of the entity.
+        """Returns the value of the entity.
 
         Returns:
             str: The value
@@ -260,7 +259,7 @@ class HAUIEntity(HAUIBase):
         return value
 
     def get_name(self):
-        """ Returns the name of the entity.
+        """Returns the name of the entity.
 
         Returns:
             str: Name of the entity
@@ -295,7 +294,7 @@ class HAUIEntity(HAUIBase):
         return name
 
     def get_color(self) -> int:
-        """ Returns the color of the entity.
+        """Returns the color of the entity.
 
         Returns:
             int: the color of the entry in rgb565
@@ -319,7 +318,7 @@ class HAUIEntity(HAUIBase):
         return color
 
     def get_icon(self) -> str:
-        """ Returns the icon of the entry.
+        """Returns the icon of the entry.
 
         Returns:
             str: Icon chr of entry
@@ -343,7 +342,7 @@ class HAUIEntity(HAUIBase):
         return icon
 
     def translate_state(self) -> str:
-        """ Returns the translation of entity state.
+        """Returns the translation of entity state.
 
         Returns:
             str: Translated state

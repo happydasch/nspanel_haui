@@ -9,8 +9,7 @@ from .entity import HAUIEntity
 
 
 class HAUIPanel(HAUIBase):
-
-    """ Represents a panel on the display.
+    """Represents a panel on the display.
 
     Its a description of what the page should look like and what
     entities to show. The page implements the logic.
@@ -117,6 +116,17 @@ class HAUIPanel(HAUIBase):
         )
         return show_home_button
 
+    def show_sleep_button(self) -> bool:
+        """Returns True if sleep button should be shown.
+
+        Returns:
+            bool: True if sleep button should be shown
+        """
+        show_sleep_button = self.get(
+            "show_sleep_button", self.app.device.get("show_sleep_button", False)
+        )
+        return show_sleep_button
+
     def show_notifications_button(self) -> bool:
         """Returns True if notifications button should be shown.
 
@@ -124,7 +134,8 @@ class HAUIPanel(HAUIBase):
             bool: True if notifications button should be shown
         """
         show_notifications_button = self.get(
-            "show_notifications_button", self.app.device.get("show_notifications_button", False)
+            "show_notifications_button",
+            self.app.device.get("show_notifications_button", False),
         )
         return show_notifications_button
 

@@ -133,6 +133,8 @@ class GridPage(HAUIPage):
             power_visible = panel.get("show_power_button", False)
             if not entity.is_internal():
                 power_visible = entity.get("show_power_button", power_visible)
+            if entity.get_entity_state() not in ["on", "playing"]:
+                power_visible = False
         return power_visible
 
     def set_grid_entries(self):
@@ -196,19 +198,22 @@ class GridPage(HAUIPage):
         power_visible = self.is_power_visible(panel, entity)
         # colors for grid button
         color_pressed = panel.get("color_pressed", COLORS["text"])
-        back_color_pressed = panel.get("back_color_pressed", COLORS["component_pressed"])
-        power_color = panel.get("power_color", COLORS["component_active"])
+        back_color_pressed = panel.get(
+            "back_color_pressed", COLORS["component_pressed"]
+        )
+        power_color = COLORS["component_active"]
         text_color = panel.get("text_color")
         back_color = panel.get("back_color")
         color_mode = panel.get("color_mode")
         color_seed = panel.get("color_seed", self._color_seed)
         if entity is not None:
+            color_mode = entity.get("color_mode", color_mode)
             text_color = entity.get("text_color", text_color)
             back_color = entity.get("back_color", back_color)
             color_pressed = entity.get("color_pressed", color_pressed)
             back_color_pressed = entity.get("back_color_pressed", back_color_pressed)
-            color_mode = entity.get("color_mode", color_mode)
             color_seed = entity.get("color_seed", color_seed)
+            power_color = entity.get("power_color", power_color)
         # no background color check if color mode or set default
         if back_color is None and color_mode is not None:
             self.log(f"Using random seed for grid: {color_seed}")
@@ -228,6 +233,16 @@ class GridPage(HAUIPage):
                     text_color = COLORS["component"]
                 color_pressed = COLORS["component"]
                 power_color = COLORS["component"]
+        # power color
+        power_color = panel.get("power_color", power_color)
+        if entity is not None:
+            color_mode = entity.get("color_mode", color_mode)
+            text_color = entity.get("text_color", text_color)
+            back_color = entity.get("back_color", back_color)
+            color_pressed = entity.get("color_pressed", color_pressed)
+            back_color_pressed = entity.get("back_color_pressed", back_color_pressed)
+            color_seed = entity.get("color_seed", color_seed)
+            power_color = entity.get("power_color", power_color)
         # text color
         if text_color is None:
             text_color = COLORS["text"]
@@ -244,7 +259,7 @@ class GridPage(HAUIPage):
             if text_color is not None:
                 btn_args["color"] = text_color
                 name_args["color"] = text_color
-            if power_visible and power_color is not None and color_mode is not None:
+            if power_visible and power_color is not None:
                 power_args["color"] = power_color
             if color_pressed is not None:
                 btn_args["color_pressed"] = color_pressed
@@ -291,7 +306,13 @@ class GridPage(HAUIPage):
             self.set_component_text(ico, entity.get_icon())
             # make sure to redraw power if visible
             if self.is_power_visible(self.panel, entity):
-                self.show_component(getattr(self, f"G{idx}_POWER"))
+                self.update_function_component(
+                    getattr(self, f"G{idx}_POWER")[1], visible=True
+                )
+            else:
+                self.update_function_component(
+                    getattr(self, f"G{idx}_POWER")[1], visible=False
+                )
         else:
             self.set_component_text(name, "")
             self.set_component_text_color(ico, COLORS["text"])

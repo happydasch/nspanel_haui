@@ -45,6 +45,7 @@ class HAUIPage(HAUIPart):
     ICO_PREV_MESSAGE = get_icon("mdi:chevron-double-left")
     ICO_NEXT_MESSAGE = get_icon("mdi:chevron-double-right")
     ICO_MESSAGE = get_icon("mdi:email")
+    ICO_SLEEP = get_icon("mdi:sleep")
 
     # functions for function components
     FNC_TYPE_NAV_NEXT = "nav_next"
@@ -52,6 +53,7 @@ class HAUIPage(HAUIPart):
     FNC_TYPE_NAV_UP = "nav_up"
     FNC_TYPE_NAV_CLOSE = "nav_close"
     FNC_TYPE_NAV_HOME = "nav_home"
+    FNC_TYPE_NAV_SLEEP = "nav_sleep"
     FNC_TYPE_NAV_NOTIF = "nav_notif"
     FNC_TYPE_UNLOCK = "unlock"
 
@@ -201,8 +203,8 @@ class HAUIPage(HAUIPart):
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_PREV
                     elif mode == "subpanel":
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_UP
-                    elif mode == "popup" and not panel.is_home_panel():
-                        if panel.show_home_button():
+                    elif mode == "popup":
+                        if not panel.is_home_panel() and panel.show_home_button():
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
                 # left secondary button
                 if fnc_id == self.FNC_BTN_L_SEC:
@@ -216,6 +218,10 @@ class HAUIPage(HAUIPart):
                             fnc_item["fnc_args"][
                                 "visible"
                             ] = notification.has_notifications()
+                        if fnc_item["fnc_args"]["visible"] is False:
+                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_SLEEP
+                            fnc_item["fnc_args"]["visible"] = True
+
                 # right primary button
                 elif fnc_id == self.FNC_BTN_R_PRI:
                     if mode == "panel":
@@ -782,6 +788,8 @@ class HAUIPage(HAUIPart):
                     icon = self.ICO_NAV_NEXT
                 elif fnc_name == self.FNC_TYPE_NAV_HOME:
                     icon = self.ICO_NAV_HOME
+                elif fnc_name == self.FNC_TYPE_NAV_SLEEP:
+                    icon = self.ICO_SLEEP
                 elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
                     icon = self.ICO_NAV_MESSAGE
                 elif fnc_name == self.FNC_TYPE_NAV_UP:
@@ -908,6 +916,8 @@ class HAUIPage(HAUIPart):
             navigation.open_next_panel()
         elif fnc_name == self.FNC_TYPE_NAV_HOME:
             navigation.open_home_panel()
+        elif fnc_name == self.FNC_TYPE_NAV_SLEEP:
+            navigation.open_sleep_panel()
         elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
             navigation.open_popup("popup_notification")
         elif fnc_name == self.FNC_TYPE_NAV_UP:

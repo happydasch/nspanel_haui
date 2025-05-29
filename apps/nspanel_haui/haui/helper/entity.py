@@ -125,15 +125,15 @@ def get_entity_color(haui_entity, default_color):
     elif entity_type == "light":
         attr = entity.attributes
         if entity_state == "on":
-            if "rgb_color" in attr and attr.rgb_color:
-                color = attr.rgb_color
+            if "rgb_color" in attr and attr["rgb_color"]:
+                color = attr["rgb_color"]
                 if "brightness" in attr:
-                    color = rgb_brightness(color, attr.brightness)
+                    color = rgb_brightness(color, attr["brightness"])
                 result_color = rgb_to_rgb565(color)
             elif "brightness" in attr:
                 # no color, just brightness
                 color = rgb_brightness(
-                    rgb565_to_rgb(COLORS["entity_on"]), attr.brightness
+                    rgb565_to_rgb(COLORS["entity_on"]), attr["brightness"]
                 )
                 result_color = rgb_to_rgb565(color)
 

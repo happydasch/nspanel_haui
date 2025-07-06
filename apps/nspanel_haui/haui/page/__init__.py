@@ -60,9 +60,7 @@ class HAUIPage(HAUIPart):
     def __init__(self, app, config=None):
         super().__init__(app, config)
         self.page_id = int(self.get("page_id", 0))
-        self.page_id_recv = (
-            None  # will be set to the page id when a page event is recieved
-        )
+        self.page_id_recv = None  # will be set to the page id when a page event is recieved
         # current panel
         self.panel: HAUIPanel = None
         # function items, components
@@ -177,16 +175,10 @@ class HAUIPage(HAUIPart):
 
         # physical button state
         if self._btn_state_left is not None:
-            self.add_component_callback(
-                self._btn_state_left, self.callback_button_state_buttons
-            )
-            self.set_component_value(
-                self._btn_state_left, self.app.device.get_left_button_state()
-            )
+            self.add_component_callback(self._btn_state_left, self.callback_button_state_buttons)
+            self.set_component_value(self._btn_state_left, self.app.device.get_left_button_state())
         if self._btn_state_right is not None:
-            self.add_component_callback(
-                self._btn_state_right, self.callback_button_state_buttons
-            )
+            self.add_component_callback(self._btn_state_right, self.callback_button_state_buttons)
             self.set_component_value(
                 self._btn_state_right, self.app.device.get_right_button_state()
             )
@@ -215,9 +207,7 @@ class HAUIPage(HAUIPart):
                         if panel.show_notifications_button():
                             notification = self.app.controller["notification"]
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_NOTIF
-                            fnc_item["fnc_args"][
-                                "visible"
-                            ] = notification.has_notifications()
+                            fnc_item["fnc_args"]["visible"] = notification.has_notifications()
                         if fnc_item["fnc_args"]["visible"] is False:
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_SLEEP
                             fnc_item["fnc_args"]["visible"] = True
@@ -249,10 +239,7 @@ class HAUIPage(HAUIPart):
             # check primary left button
             if self.FNC_BTN_L_PRI in self._fnc_items:
                 left_pri = self._fnc_items[self.FNC_BTN_L_PRI]
-                if (
-                    left_pri["fnc_name"] is None
-                    or left_pri["fnc_name"] == self.FNC_TYPE_NAV_PREV
-                ):
+                if left_pri["fnc_name"] is None or left_pri["fnc_name"] == self.FNC_TYPE_NAV_PREV:
                     left_pri["fnc_args"]["visible"] = False
                     # swap pri with secondary
                     if self.FNC_BTN_L_SEC in self._fnc_items:
@@ -266,10 +253,7 @@ class HAUIPage(HAUIPart):
             # check primary right button
             if self.FNC_BTN_R_PRI in self._fnc_items:
                 right_pri = self._fnc_items[self.FNC_BTN_R_PRI]
-                if (
-                    right_pri["fnc_name"] is None
-                    or right_pri["fnc_name"] == self.FNC_TYPE_NAV_NEXT
-                ):
+                if right_pri["fnc_name"] is None or right_pri["fnc_name"] == self.FNC_TYPE_NAV_NEXT:
                     right_pri["fnc_args"]["visible"] = False
                     # swap pri with secondary
                     if self.FNC_BTN_R_SEC in self._fnc_items:
@@ -283,7 +267,7 @@ class HAUIPage(HAUIPart):
 
         # register function items
         for fnc_id, fnc_item in self._fnc_items.items():
-            self.log(f'Set function button: {fnc_id} -> {fnc_item["fnc_name"]}')
+            # FIXME log type self.log(f'Set function button: {fnc_id} -> {fnc_item["fnc_name"]}')
             self.add_component_callback(
                 fnc_item["fnc_component"], self.callback_function_components
             )
@@ -400,9 +384,7 @@ class HAUIPage(HAUIPart):
         Args:
             entity (HAUIConfigEntity): entity
         """
-        self.log(
-            f"Switching entity on: {entity.get_name()}" f" ({entity.get_entity_id()})"
-        )
+        self.log(f"Switching entity on: {entity.get_name()} ({entity.get_entity_id()})")
         entity_type = entity.get_entity_type()
         if entity_type == "media_player":
             entity.call_entity_service("media_play")
@@ -415,18 +397,14 @@ class HAUIPage(HAUIPart):
         Args:
             entity (HAUIConfigEntity): entity
         """
-        self.log(
-            f"Switching entity off: {entity.get_name()}" f" ({entity.get_entity_id()})"
-        )
+        self.log(f"Switching entity off: {entity.get_name()} ({entity.get_entity_id()})")
         entity_type = entity.get_entity_type()
         if entity_type == "media_player":
             entity.call_entity_service("media_stop")
         else:
             entity.call_entity_service("turn_off")
 
-    def add_entity_listener(
-        self, entity_id: str, callback: callable, attribute: str = None
-    ) -> str:
+    def add_entity_listener(self, entity_id: str, callback: callable, attribute: str = None) -> str:
         """Adds a entity state listener.
 
         Args:
@@ -438,10 +416,10 @@ class HAUIPage(HAUIPart):
             handle (str): Handle
         """
         handle = self.app.listen_state(callback, entity_id, attribute=attribute)
-        self.log(
-            f"Adding listener for {entity_id},"
-            f" attribute {attribute} - handle: {handle}"
-        )
+        # FIXME log type self.log(
+        #     f"Adding listener for {entity_id},"
+        #     f" attribute {attribute} - handle: {handle}"
+        # )
         self._handles.append(handle)
         return handle
 
@@ -453,7 +431,7 @@ class HAUIPage(HAUIPart):
         """
         if handle in self._handles:
             self.app.cancel_listen_state(handle)
-            self.log(f"Removing listener - handle: {handle}")
+            # FIXME log type self.log(f"Removing listener - handle: {handle}")
             del self._handles[self._handles.index(handle)]
 
     # basic page functionality (see HAUIBase for generic methods)
@@ -733,15 +711,13 @@ class HAUIPage(HAUIPart):
                     "fnc_args": fnc_args,
                 },
             }
-            self.log(f"Adding function component {fnc_id}-{fnc_name}")
+            # FIXME log type self.log(f"Adding function component {fnc_id}-{fnc_name}")
             self._fnc_items[fnc_id] = item
         elif fnc_id in self._fnc_items:
             self.log(f"Removing function component {fnc_id}")
             del self._fnc_items[fnc_id]
 
-    def update_function_component(
-        self, fnc_id: str, update_fnc_name: str = None, **kwargs
-    ) -> None:
+    def update_function_component(self, fnc_id: str, update_fnc_name: str = None, **kwargs) -> None:
         """Updates the function component.
 
         Args:
@@ -820,10 +796,7 @@ class HAUIPage(HAUIPart):
         if color is not None and fnc_item.get("current_color") != color:
             self.set_component_text_color(fnc_component, color)
             fnc_item["current_color"] = color
-        if (
-            color_pressed is not None
-            and fnc_item.get("current_color_pressed") != color_pressed
-        ):
+        if color_pressed is not None and fnc_item.get("current_color_pressed") != color_pressed:
             self.set_component_text_color_pressed(fnc_component, color_pressed)
             fnc_item["current_color_pressed"] = color_pressed
         if back_color is not None and fnc_item.get("current_back_color") != back_color:
@@ -963,9 +936,7 @@ class HAUIPage(HAUIPart):
                 visible = False
                 if notification.has_notifications():
                     visible = True
-                self.update_function_component(
-                    self.FNC_BTN_L_SEC, color=color, visible=visible
-                )
+                self.update_function_component(self.FNC_BTN_L_SEC, color=color, visible=visible)
 
     def process_component_event(self, event: HAUIEvent) -> None:
         """Processes component events from component callback.

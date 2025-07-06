@@ -7,6 +7,7 @@ mqtt:
   password: $mqtt_password
   topic_prefix: $topic_prefix
   discovery: false
+  discovery_object_id_generator: device_name
   on_json_message:
     - topic: $topic_cmd
       qos: 0

@@ -82,18 +82,10 @@ MATRIX_WORDS = {
     },
     "de": {
         "it-is": [0, 1, 3, 4, 5],  # es is
-        "am": [],  # -
-        "pm": [],  # -
-        "to": {
-            "*": [33, 34, 35],  # vor
-            ("twenty-u", "five-u"): [],  # -
-            ("quarter-u"): [],  # -
-        },
-        "past": {
-            "*": [40, 41, 42, 43],  # nach
-            ("twenty-u", "five-u"): [],  # -
-        },
-        #
+        "am": [],  # am
+        "pm": [],  # pm
+        "to": [33, 34, 35],  # vor
+        "past": [40, 41, 42, 43],  # nach
         "five-u": [7, 8, 9, 10],  # fünf
         "ten-u": [11, 12, 13, 14],  # zehn
         "quarter-u": {
@@ -123,8 +115,8 @@ MATRIX_WORDS = {
     },
     "pl": {
         "it-is": [],  # -
-        "am": [],  # -
-        "pm": [],  # -
+        "am": [],  # am
+        "pm": [],  # pm
         "to": [0, 1],  # za
         "past": [37, 38],  # po
         "five-u": [30, 31, 32],  # piec
@@ -331,7 +323,9 @@ class ClockTwoPage(HAUIPage):
 
     def update_interface(self):
         current_time = datetime.datetime.now()
-        letters_active, specials_active, time_words = self.get_matrix_from_time(current_time)
+        letters_active, specials_active, time_words = self.get_matrix_from_time(
+            current_time
+        )
 
         matrix_text = ""
         for letter_index in range(INDEX_LETTER_LENGTH):
@@ -361,7 +355,9 @@ class ClockTwoPage(HAUIPage):
                     self.set_component_text_color(component, self._off_color)
                 self._special_current_state[i] = new
 
-    def get_matrix_from_time(self, time: datetime) -> Tuple[List[int], List[bool], List[str]]:
+    def get_matrix_from_time(
+        self, time: datetime
+    ) -> Tuple[List[int], List[bool], List[str]]:
         words_index = MATRIX_WORDS[self._clock_language]
         time_words, specials = self.get_words_from_time(time)
         letters_active = [False] * INDEX_LETTER_LENGTH

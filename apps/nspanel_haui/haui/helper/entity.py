@@ -10,7 +10,7 @@ from .icon import get_icon, get_icon_name_by_state
 
 
 def execute_entity(haui_entity):
-    """ Executes the given entity.
+    """Executes the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): the entity to execute
@@ -23,8 +23,13 @@ def execute_entity(haui_entity):
     entity_state = haui_entity.get_entity_state()
 
     if entity_type in [
-            "light", "switch", "cover", "input_boolean",
-            "automation", "fan"]:
+        "light",
+        "switch",
+        "cover",
+        "input_boolean",
+        "automation",
+        "fan",
+    ]:
         entity.call_service("toggle")
     elif entity_type in ["button", "input_button"]:
         entity.call_service("press")
@@ -47,7 +52,7 @@ def execute_entity(haui_entity):
 
 
 def get_entity_color(haui_entity, default_color):
-    """ Returns a RGB565 color for the given entity.
+    """Returns a RGB565 color for the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): the entity to get the color for
@@ -111,23 +116,32 @@ def get_entity_color(haui_entity, default_color):
         else:
             result_color = COLORS["entity_off"]
 
-    # additional attributes check
-    attr = entity.attributes
-    if "rgb_color" in attr and attr.rgb_color:
-        color = attr.rgb_color
-        if "brightness" in attr:
-            color = rgb_brightness(color, attr.brightness)
-        result_color = rgb_to_rgb565(color)
-    elif "brightness" in attr:
-        # no color, just brightness
-        color = rgb_brightness(rgb565_to_rgb(COLORS["entity_on"]), attr.brightness)
-        result_color = rgb_to_rgb565(color)
+    # light entity
+    if entity_type == "group":
+        if entity_state == "on":
+            result_color = COLORS["entity_on"]
+        else:
+            result_color = COLORS["entity_off"]
+    elif entity_type == "light":
+        attr = entity.attributes
+        if entity_state == "on":
+            if "rgb_color" in attr and attr["rgb_color"]:
+                color = attr["rgb_color"]
+                if "brightness" in attr:
+                    color = rgb_brightness(color, attr["brightness"])
+                result_color = rgb_to_rgb565(color)
+            elif "brightness" in attr:
+                # no color, just brightness
+                color = rgb_brightness(
+                    rgb565_to_rgb(COLORS["entity_on"]), attr["brightness"]
+                )
+                result_color = rgb_to_rgb565(color)
 
     return result_color
 
 
 def get_entity_icon(haui_entity, default_icon):
-    """ Returns a icon for the given entity.
+    """Returns a icon for the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): The entity to get the icon for
@@ -184,7 +198,7 @@ def get_entity_icon(haui_entity, default_icon):
 
 
 def get_entity_value(haui_entity, default_value):
-    """ Returns a value for the given entity.
+    """Returns a value for the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): The entity to get the value for
@@ -251,7 +265,7 @@ def get_entity_value(haui_entity, default_value):
 
 
 def get_entity_name(haui_entity, default_name):
-    """ Returns the name for the given entity.
+    """Returns the name for the given entity.
 
     Args:
         haui_entity (HAUIConfigEntity): The entity to get the name for

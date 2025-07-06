@@ -61,14 +61,7 @@ ESP_COMMAND = {
     ]
 }
 
-NOTIF_EVENT = {
-    event: event
-    for event in [
-        "notif_add",
-        "notif_remove",
-        "notif_clear"
-    ]
-}
+NOTIF_EVENT = {event: event for event in ["notif_add", "notif_remove", "notif_clear"]}
 
 # Server Request, Server will answer this requests
 # published to recv
@@ -123,6 +116,7 @@ PANEL_CONFIG = {
     "sleep_panel": False,  # defines if panel is a sleep panel
     "wakeup_panel": False,  # defines if panel is a wakeup panel
     "show_home_button": None,  # defines if home button is shown
+    "show_sleep_button": None,  # defines if sleep button is shown
     "show_notifications_button": None,  # defines if notifications button is shown
     "entity": None,  # single entity
     "entities": [],  # multiple entities
@@ -142,7 +136,8 @@ DEFAULT_CONFIG = {
         "button_left_entity": None,
         "button_right_entity": None,
         # navigation
-        "show_home_button": True,
+        "show_home_button": False,
+        "show_sleep_button": False,
         "show_notifications_button": True,
         # logging
         "log_commands": False,
@@ -154,7 +149,7 @@ DEFAULT_CONFIG = {
         "return_to_home_after_seconds": 0,
         "always_return_to_home": False,
         "sound_on_startup": True,
-        "sound_on_notification": True
+        "sound_on_notification": True,
     },
     # mqtt related settings
     "mqtt": {

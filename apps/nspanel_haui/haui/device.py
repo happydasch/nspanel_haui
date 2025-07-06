@@ -7,7 +7,6 @@ from .abstract.event import HAUIEvent
 
 
 class HAUIDevice(HAUIPart):
-
     """
     Represents a NSPanel device.
 
@@ -379,7 +378,9 @@ class HAUIDevice(HAUIPart):
 
             if self.get("home_only_when_on"):
                 if display_state != "on" or self.is_on_check:
-                    self.log(f"not exiting sleep/wakeup screen, display state {display_state}")
+                    self.log(
+                        f"not exiting sleep/wakeup screen, display state {display_state}"
+                    )
                     self.is_on_check = False
                     exit_sleep = False
 
@@ -387,9 +388,10 @@ class HAUIDevice(HAUIPart):
                 self.woke_up = False
 
             if exit_sleep:
-                return_to_home_after_seconds = self.get("return_to_home_after_seconds", 0)
-                if (
-                    self.get("always_return_to_home", False)
-                    or not navigation.restore_snapshot(return_to_home_after_seconds)
-                ):
+                return_to_home_after_seconds = self.get(
+                    "return_to_home_after_seconds", 0
+                )
+                if self.get(
+                    "always_return_to_home", False
+                ) or not navigation.restore_snapshot(return_to_home_after_seconds):
                     navigation.open_home_panel()

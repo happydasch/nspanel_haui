@@ -25,7 +25,7 @@ substitutions:
   heartbeat_interval: '5'
   # Accounts and URLs
   ota_password: !secret ota_password
-  encryption_key: !secret encryption_key
+  api_encryption_key: !secret api_encryption_key
   wifi_ssid: !secret wifi_ssid
   wifi_password: !secret wifi_password
   # MQTT settings
@@ -162,7 +162,7 @@ api:
 
   # API Password for HA
   encryption:
-    key: $encryption_key
+    key: $api_encryption_key
 
 
 # Globals Configuration

@@ -10,7 +10,6 @@ from ..abstract.panel import HAUIPanel
 
 
 class HAUIPage(HAUIPart):
-
     """Represents a page on the nextion display.
 
     Every page on the display needs a page defined here to
@@ -46,6 +45,7 @@ class HAUIPage(HAUIPart):
     ICO_PREV_MESSAGE = get_icon("mdi:chevron-double-left")
     ICO_NEXT_MESSAGE = get_icon("mdi:chevron-double-right")
     ICO_MESSAGE = get_icon("mdi:email")
+    ICO_SLEEP = get_icon("mdi:sleep")
 
     # functions for function components
     FNC_TYPE_NAV_NEXT = "nav_next"
@@ -53,15 +53,14 @@ class HAUIPage(HAUIPart):
     FNC_TYPE_NAV_UP = "nav_up"
     FNC_TYPE_NAV_CLOSE = "nav_close"
     FNC_TYPE_NAV_HOME = "nav_home"
+    FNC_TYPE_NAV_SLEEP = "nav_sleep"
     FNC_TYPE_NAV_NOTIF = "nav_notif"
     FNC_TYPE_UNLOCK = "unlock"
 
     def __init__(self, app, config=None):
         super().__init__(app, config)
         self.page_id = int(self.get("page_id", 0))
-        self.page_id_recv = (
-            None  # will be set to the page id when a page event is recieved
-        )
+        self.page_id_recv = None  # will be set to the page id when a page event is recieved
         # current panel
         self.panel: HAUIPanel = None
         # function items, components
@@ -176,15 +175,13 @@ class HAUIPage(HAUIPart):
 
         # physical button state
         if self._btn_state_left is not None:
-            self.add_component_callback(
-                self._btn_state_left, self.callback_button_state_buttons)
-            self.set_component_value(
-                self._btn_state_left, self.app.device.get_left_button_state())
+            self.add_component_callback(self._btn_state_left, self.callback_button_state_buttons)
+            self.set_component_value(self._btn_state_left, self.app.device.get_left_button_state())
         if self._btn_state_right is not None:
-            self.add_component_callback(
-                self._btn_state_right, self.callback_button_state_buttons)
+            self.add_component_callback(self._btn_state_right, self.callback_button_state_buttons)
             self.set_component_value(
-                self._btn_state_right, self.app.device.get_right_button_state())
+                self._btn_state_right, self.app.device.get_right_button_state()
+            )
 
         # prepare function items
         nav_panels = self.app.config.get_panels(True)
@@ -198,8 +195,8 @@ class HAUIPage(HAUIPart):
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_PREV
                     elif mode == "subpanel":
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_UP
-                    elif mode == "popup" and not panel.is_home_panel():
-                        if panel.show_home_button():
+                    elif mode == "popup":
+                        if not panel.is_home_panel() and panel.show_home_button():
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
                 # left secondary button
                 if fnc_id == self.FNC_BTN_L_SEC:
@@ -211,6 +208,10 @@ class HAUIPage(HAUIPart):
                             notification = self.app.controller["notification"]
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_NOTIF
                             fnc_item["fnc_args"]["visible"] = notification.has_notifications()
+                        if fnc_item["fnc_args"]["visible"] is False:
+                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_SLEEP
+                            fnc_item["fnc_args"]["visible"] = True
+
                 # right primary button
                 elif fnc_id == self.FNC_BTN_R_PRI:
                     if mode == "panel":
@@ -238,10 +239,7 @@ class HAUIPage(HAUIPart):
             # check primary left button
             if self.FNC_BTN_L_PRI in self._fnc_items:
                 left_pri = self._fnc_items[self.FNC_BTN_L_PRI]
-                if (
-                    left_pri["fnc_name"] is None
-                    or left_pri["fnc_name"] == self.FNC_TYPE_NAV_PREV
-                ):
+                if left_pri["fnc_name"] is None or left_pri["fnc_name"] == self.FNC_TYPE_NAV_PREV:
                     left_pri["fnc_args"]["visible"] = False
                     # swap pri with secondary
                     if self.FNC_BTN_L_SEC in self._fnc_items:
@@ -255,10 +253,7 @@ class HAUIPage(HAUIPart):
             # check primary right button
             if self.FNC_BTN_R_PRI in self._fnc_items:
                 right_pri = self._fnc_items[self.FNC_BTN_R_PRI]
-                if (
-                    right_pri["fnc_name"] is None
-                    or right_pri["fnc_name"] == self.FNC_TYPE_NAV_NEXT
-                ):
+                if right_pri["fnc_name"] is None or right_pri["fnc_name"] == self.FNC_TYPE_NAV_NEXT:
                     right_pri["fnc_args"]["visible"] = False
                     # swap pri with secondary
                     if self.FNC_BTN_R_SEC in self._fnc_items:
@@ -272,9 +267,10 @@ class HAUIPage(HAUIPart):
 
         # register function items
         for fnc_id, fnc_item in self._fnc_items.items():
-            self.log(f'Set function button: {fnc_id} -> {fnc_item["fnc_name"]}')
+            # FIXME log type self.log(f'Set function button: {fnc_id} -> {fnc_item["fnc_name"]}')
             self.add_component_callback(
-                fnc_item["fnc_component"], self.callback_function_components)
+                fnc_item["fnc_component"], self.callback_function_components
+            )
             self.update_function_component(fnc_id)
 
         self.stop_rec_cmd(send_commands=True)
@@ -388,13 +384,12 @@ class HAUIPage(HAUIPart):
         Args:
             entity (HAUIConfigEntity): entity
         """
-        self.log(f"Switching entity on: {entity.get_name()}"
-                 f" ({entity.get_entity_id()})")
+        self.log(f"Switching entity on: {entity.get_name()} ({entity.get_entity_id()})")
         entity_type = entity.get_entity_type()
-        if entity_type == 'media_player':
-            entity.call_entity_service('media_play')
+        if entity_type == "media_player":
+            entity.call_entity_service("media_play")
         else:
-            entity.call_entity_service('turn_on')
+            entity.call_entity_service("turn_on")
 
     def turn_off_entity(self, entity: HAUIEntity) -> None:
         """Turns off the given entity.
@@ -402,13 +397,12 @@ class HAUIPage(HAUIPart):
         Args:
             entity (HAUIConfigEntity): entity
         """
-        self.log(f"Switching entity off: {entity.get_name()}"
-                 f" ({entity.get_entity_id()})")
+        self.log(f"Switching entity off: {entity.get_name()} ({entity.get_entity_id()})")
         entity_type = entity.get_entity_type()
-        if entity_type == 'media_player':
-            entity.call_entity_service('media_stop')
+        if entity_type == "media_player":
+            entity.call_entity_service("media_stop")
         else:
-            entity.call_entity_service('turn_off')
+            entity.call_entity_service("turn_off")
 
     def add_entity_listener(self, entity_id: str, callback: callable, attribute: str = None) -> str:
         """Adds a entity state listener.
@@ -421,12 +415,11 @@ class HAUIPage(HAUIPart):
         Returns:
             handle (str): Handle
         """
-        handle = self.app.listen_state(
-            callback, entity_id, attribute=attribute)
-        self.log(
-            f"Adding listener for {entity_id},"
-            f" attribute {attribute} - handle: {handle}"
-        )
+        handle = self.app.listen_state(callback, entity_id, attribute=attribute)
+        # FIXME log type self.log(
+        #     f"Adding listener for {entity_id},"
+        #     f" attribute {attribute} - handle: {handle}"
+        # )
         self._handles.append(handle)
         return handle
 
@@ -438,7 +431,7 @@ class HAUIPage(HAUIPart):
         """
         if handle in self._handles:
             self.app.cancel_listen_state(handle)
-            self.log(f"Removing listener - handle: {handle}")
+            # FIXME log type self.log(f"Removing listener - handle: {handle}")
             del self._handles[self._handles.index(handle)]
 
     # basic page functionality (see HAUIBase for generic methods)
@@ -469,7 +462,9 @@ class HAUIPage(HAUIPart):
                     self.log(f"Invalid color {color}")
         return int(component_color)
 
-    def set_component_text_color(self, component: tuple, color: Union[int, str, list, tuple]) -> None:
+    def set_component_text_color(
+        self, component: tuple, color: Union[int, str, list, tuple]
+    ) -> None:
         """Sets the text color of the given component.
 
         Args:
@@ -480,7 +475,9 @@ class HAUIPage(HAUIPart):
         # self.log(f'Setting {component[1]} text color {component_color}')
         self.send_cmd(f"{component[1]}.pco={component_color}")
 
-    def set_component_text_color_pressed(self, component: tuple, color: Union[int, str, list, tuple]) -> None:
+    def set_component_text_color_pressed(
+        self, component: tuple, color: Union[int, str, list, tuple]
+    ) -> None:
         """Sets the text color pressed of the given component.
 
         Args:
@@ -491,7 +488,9 @@ class HAUIPage(HAUIPart):
         # self.log(f'Setting {component[1]} text color pressed {component_color}')
         self.send_cmd(f"{component[1]}.pco2={component_color}")
 
-    def set_component_back_color(self, component: tuple, color: Union[int, str, list, tuple]) -> None:
+    def set_component_back_color(
+        self, component: tuple, color: Union[int, str, list, tuple]
+    ) -> None:
         """Sets the back color of the component.
 
         Args:
@@ -502,7 +501,9 @@ class HAUIPage(HAUIPart):
         # self.log(f'Setting {component[1]} back color {component_color}')
         self.send_cmd(f"{component[1]}.bco={component_color}")
 
-    def set_component_back_color_pressed(self, component: tuple, color: Union[int, str, list, tuple]) -> None:
+    def set_component_back_color_pressed(
+        self, component: tuple, color: Union[int, str, list, tuple]
+    ) -> None:
         """Sets the back color pressed of the component.
 
         Args:
@@ -660,7 +661,8 @@ class HAUIPage(HAUIPart):
         return self._fnc_items
 
     def set_function_component(
-            self, component: tuple, fnc_id: str, fnc_name: str = None, **fnc_args):
+        self, component: tuple, fnc_id: str, fnc_name: str = None, **fnc_args
+    ):
         """Sets the function component.
 
         To remove a function component:
@@ -709,14 +711,13 @@ class HAUIPage(HAUIPart):
                     "fnc_args": fnc_args,
                 },
             }
-            self.log(f"Adding function component {fnc_id}-{fnc_name}")
+            # FIXME log type self.log(f"Adding function component {fnc_id}-{fnc_name}")
             self._fnc_items[fnc_id] = item
         elif fnc_id in self._fnc_items:
             self.log(f"Removing function component {fnc_id}")
             del self._fnc_items[fnc_id]
 
-    def update_function_component(
-            self, fnc_id: str, update_fnc_name: str = None, **kwargs) -> None:
+    def update_function_component(self, fnc_id: str, update_fnc_name: str = None, **kwargs) -> None:
         """Updates the function component.
 
         Args:
@@ -763,6 +764,8 @@ class HAUIPage(HAUIPart):
                     icon = self.ICO_NAV_NEXT
                 elif fnc_name == self.FNC_TYPE_NAV_HOME:
                     icon = self.ICO_NAV_HOME
+                elif fnc_name == self.FNC_TYPE_NAV_SLEEP:
+                    icon = self.ICO_SLEEP
                 elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
                     icon = self.ICO_NAV_MESSAGE
                 elif fnc_name == self.FNC_TYPE_NAV_UP:
@@ -793,10 +796,7 @@ class HAUIPage(HAUIPart):
         if color is not None and fnc_item.get("current_color") != color:
             self.set_component_text_color(fnc_component, color)
             fnc_item["current_color"] = color
-        if (
-            color_pressed is not None
-            and fnc_item.get("current_color_pressed") != color_pressed
-        ):
+        if color_pressed is not None and fnc_item.get("current_color_pressed") != color_pressed:
             self.set_component_text_color_pressed(fnc_component, color_pressed)
             fnc_item["current_color_pressed"] = color_pressed
         if back_color is not None and fnc_item.get("current_back_color") != back_color:
@@ -820,7 +820,8 @@ class HAUIPage(HAUIPart):
     # callback
 
     def callback_button_state_buttons(
-            self, event: HAUIEvent, component: tuple, button_state: bool) -> None:
+        self, event: HAUIEvent, component: tuple, button_state: bool
+    ) -> None:
         """Callback method for button state buttons.
 
         Args:
@@ -850,7 +851,9 @@ class HAUIPage(HAUIPart):
             fnc_name (str): Function Name
         """
 
-    def callback_function_components(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+    def callback_function_components(
+        self, event: HAUIEvent, component: tuple, button_state: int
+    ) -> None:
         """Callback method for function component events.
 
         Args:
@@ -886,6 +889,8 @@ class HAUIPage(HAUIPart):
             navigation.open_next_panel()
         elif fnc_name == self.FNC_TYPE_NAV_HOME:
             navigation.open_home_panel()
+        elif fnc_name == self.FNC_TYPE_NAV_SLEEP:
+            navigation.open_sleep_panel()
         elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
             navigation.open_popup("popup_notification")
         elif fnc_name == self.FNC_TYPE_NAV_UP:
@@ -921,7 +926,7 @@ class HAUIPage(HAUIPart):
             if left_sec["fnc_name"] == self.FNC_TYPE_NAV_NOTIF and event.name in [
                 NOTIF_EVENT["notif_add"],
                 NOTIF_EVENT["notif_remove"],
-                NOTIF_EVENT["notif_clear"]
+                NOTIF_EVENT["notif_clear"],
             ]:
                 if event.name == NOTIF_EVENT["notif_add"]:
                     color = COLORS["component_accent"]

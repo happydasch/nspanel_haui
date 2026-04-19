@@ -85,7 +85,7 @@ def _color_light(entity, entity_state, haui_entity):
     if entity_state != "on":
         return None
     attr = entity.attributes
-    if "rgb_color" in attr and attr["rgb_color"]:
+    if "rgb_color" in attr:
         color = attr["rgb_color"]
         if "brightness" in attr:
             color = rgb_brightness(color, attr["brightness"])
@@ -181,8 +181,10 @@ def get_entity_icon(haui_entity, default_icon):
     overwrite_icon = ""
     if entity_type == "media_player":
         overwrite_icon = "speaker-off"
-        if "media_content_type" in entity.attributes:
-            if entity.attributes["media_content_type"] in MEDIA_CONTENT_TYPE_MAPPING:
+        if (
+            "media_content_type" in entity.attributes
+            and entity.attributes["media_content_type"] in MEDIA_CONTENT_TYPE_MAPPING
+        ):
                 overwrite_icon = MEDIA_CONTENT_TYPE_MAPPING[
                     entity.attributes["media_content_type"]
                 ]

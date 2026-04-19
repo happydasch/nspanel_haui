@@ -62,7 +62,7 @@ SYS_PANEL_MAPPING = {
     # popups
     "popup_unlock": "popup_unlock",
     "popup_notify": "popup_notify",
-    "popup_notification": "popup_notification",
+    "popup_notifs": "popup_notifs",
     "popup_select": "popup_select",
     "popup_light": "popup_light",
     "popup_media_player": "popup_media_player",

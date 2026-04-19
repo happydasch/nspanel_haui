@@ -221,10 +221,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "key": "popup_notify",
         },
         {
-            # popup notify
-            "type": "popup_notification",
+            # popup notifs
+            "type": "popup_notifs",
             "mode": "popup",
-            "key": "popup_notification",
+            "key": "popup_notifs",
         },
         {
             # popup select

@@ -900,7 +900,7 @@ class HAUIPage(HAUIBase):
         elif fnc_name == self.FNC_TYPE_NAV_SLEEP:
             navigation.open_sleep_panel()
         elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
-            navigation.open_popup("popup_notification")
+            navigation.open_popup("popup_notifs")
         elif fnc_name == self.FNC_TYPE_NAV_UP or fnc_name == self.FNC_TYPE_NAV_CLOSE:
             navigation.close_panel()
         elif fnc_name == self.FNC_TYPE_UNLOCK:

@@ -130,7 +130,7 @@ class NotifyPage(CommonNotifyPage):
             navigation.close_panel()
 
 
-class NotificationPage(CommonNotifyPage):
+class NotifsPage(CommonNotifyPage):
     # panel
 
     def start_page(self):

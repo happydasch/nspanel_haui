@@ -21,7 +21,7 @@
   - [Other Panels](#other-panels)
     - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
     - [Popup Notify `popup_notify`](#popup-notify-popup_notify)
-    - [Popup Notification `popup_notification`](#popup-notification-popup_notification)
+    - [Popup Notifs `popup_notifs`](#popup-notifs-popup_notifs)
     - [Popup Select  `popup_select`](#popup-select--popup_select)
   - [System](#system)
     - [Panel Blank `sys_blank`](#panel-blank-sys_blank)
@@ -129,7 +129,7 @@ Different panels.
 
   ![Popup Notify](../assets/popup_notify.png)
 
-### [Popup Notification](popup_notification.md) `popup_notification`
+### [Popup Notifs](popup_notifs.md) `popup_notifs`
 
   Notification queue panel. Displays notifications sent via `send_notification`, with support for optional icons and persistent (looping-sound) alerts.
 

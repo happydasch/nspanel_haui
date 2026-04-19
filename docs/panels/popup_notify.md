@@ -7,7 +7,7 @@
   - [Config](#config)
   - [Screens](#screens)
 
-> For the notification queue shown when the notification bell is tapped, see [Popup Notification](popup_notification.md).
+> For the notification queue shown when the notification bell is tapped, see [Popup Notifs](popup_notifs.md).
 
 ## About
 

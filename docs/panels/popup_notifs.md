@@ -1,8 +1,8 @@
-# Popup Notification
+# Popup Notifs
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
 
-- [Popup Notification](#popup-notification)
+- [Popup Notifs](#popup-notifs)
   - [About](#about)
   - [Sending notifications](#sending-notifications)
   - [Persistent notifications](#persistent-notifications)
@@ -12,9 +12,9 @@
 
 ## About
 
-`type: popup_notification`
+`type: popup_notifs`
 
-`key: popup_notification`
+`key: popup_notifs`
 
 The notification panel shows all queued notifications. It opens automatically when the notification bell icon is tapped on a panel that has `show_notifications: true` (e.g. clock, weather).
 

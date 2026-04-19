@@ -63,7 +63,6 @@ class CoverPage(HAUIPage):
         if not entity or not entity.has_entity_id():
             return
         supported_features = entity.get_entity_attr("supported_features", 0)
-        current_position = entity.get_entity_attr("current_position", 0)
         # add listener
         self.add_entity_listener(entity.get_entity_id(), self.callback_cover_entity)
 
@@ -107,7 +106,7 @@ class CoverPage(HAUIPage):
         if supported_features & CoverFeatures.SET_POSITION:
             visible = True
         self.set_function_component(
-            self.H_VERT_POS, self.H_VERT_POS[1], value=current_position, visible=visible
+            self.H_VERT_POS, self.H_VERT_POS[1], visible=visible
         )
 
     def update_cover_entity(self) -> None:
@@ -189,7 +188,8 @@ class CoverPage(HAUIPage):
             self.update_function_component(self.BTN_DOWN[1], visible=False)
         # slider
         if supported_features & CoverFeatures.SET_POSITION:
-            self.update_function_component(self.H_VERT_POS[1], value=current_position, visible=True)
+            self.set_component_value(self.H_VERT_POS, current_position)
+            self.update_function_component(self.H_VERT_POS[1], visible=True)
         else:
             self.update_function_component(self.H_VERT_POS[1], visible=False)
 

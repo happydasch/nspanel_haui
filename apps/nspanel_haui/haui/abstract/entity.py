@@ -1,3 +1,4 @@
+import threading
 from copy import deepcopy
 from typing import Any
 
@@ -234,6 +235,11 @@ class HAUIEntity(HAUIBase):
     def call_entity_service(self, service: str, **kwargs) -> None:
         """Calls a service on the entity.
 
+        The call is dispatched on a daemon thread so the MQTT dispatch thread
+        isn't blocked while Home Assistant completes the service — some
+        integrations (e.g. Sonos `select_source`) can take many seconds,
+        which would stall heartbeats and trip a false disconnect.
+
         Args:
             service (str): Service to call
             **kwargs (any): Service arguments
@@ -243,7 +249,12 @@ class HAUIEntity(HAUIBase):
         entity = self.get_entity()
         if entity is None:
             return
-        entity.call_service(service, **kwargs)
+        threading.Thread(
+            target=entity.call_service,
+            args=(service,),
+            kwargs=kwargs,
+            daemon=True,
+        ).start()
 
     def _resolve_state_field(self, key: str, default: str = "") -> str:
         """Resolve a config field that may be state-based (dict) or a template string.

@@ -2,6 +2,7 @@ from ..abstract.base import HAUIBase
 from ..abstract.event import HAUIEvent
 from ..helper.page import get_page_class_for_panel, get_page_id_for_panel
 from ..mapping.const import ESP_EVENT
+from ..mapping.page import PAGE_MAPPING
 
 
 class HAUINavigationController(HAUIBase):
@@ -83,7 +84,7 @@ class HAUINavigationController(HAUIBase):
         Args:
             page_id (str): Page name or id
         """
-        self.log(f"Goto page: {page_id}")
+        self.log(f"Goto page: {PAGE_MAPPING.get(page_id)}")
         self.send_mqtt("goto_page", str(page_id))
 
     def unset_page(self):
@@ -252,7 +253,9 @@ class HAUINavigationController(HAUIBase):
             self.page = None
 
         # set new current page and panel
-        self.log(f"Switching to page {page_id} from {curr_page_id}")
+        self.log(
+            f"Switching to page {PAGE_MAPPING.get(page_id)} from {PAGE_MAPPING.get(curr_page_id) if curr_page_id is not None else None}"
+        )
         self.page = page_class(self.app, {"page_id": page_id})
 
         # notify about panel creation early in process
@@ -470,8 +473,8 @@ class HAUINavigationController(HAUIBase):
                 # wrong page id
                 if self.page.page_id != event.as_int():
                     self.log(
-                        f"Wrong page {event.as_int()} for current panel page activated,"
-                        f" reloading panel to reset page to {self.page.page_id}"
+                        f"Wrong page {PAGE_MAPPING.get(event.as_int())} for current panel has {PAGE_MAPPING.get(self.page.page_id)} active,"
+                        f" reloading panel to reset page to {PAGE_MAPPING.get(event.as_int())}"
                     )
                     self.reload_panel()
                 # page is correct

@@ -43,10 +43,10 @@ The classes are structured as described below.
 
 ### Base Component
 
-All parts of haui are based on the `haui.base.HAUIBase` class. This class provides some basic functionality. There are more specialized classes, which extend from `HAUIBase`:
+All parts of haui are based on the `haui.abstract.HAUIBase` class. This class provides some basic functionality. There are more specialized classes, which extend from `HAUIBase`:
 
-- `haui.base.HAUIBaseVars`
-  Base class with vars support
+- `haui.abstract.HAUIBase`
+  Base class with common functionality
 
 - `haui.page.HAUIPage`
   Page representation, this class is used when interacting with the page on the device
@@ -55,7 +55,7 @@ All parts of haui are based on the `haui.base.HAUIBase` class. This class provid
 
 `NSPanelHAUI`
 
-The lifetime of a page is:
+The lifetime of the application is:
 
 - initialize
 - start
@@ -74,7 +74,7 @@ The configuration is taken from the appdaemon app config. This class allows to p
 
 This class represents the whole device.
 
-The lifetime of a page is:
+The lifetime of a device is:
 
 - start
 - stop
@@ -92,7 +92,7 @@ The lifetime of a page is:
 
 ### Panel
 
-`haui.config.HAUIConfigPanel`
+`haui.abstract.HAUIPanel`
 
 The panel represents a configured page. The panel contains the configuration and entities to use. The configuration values are taken from the config.
 
@@ -115,13 +115,13 @@ page stop ..
 
 While a panel is active, it can be refreshed using:
 
-- **refresh_panel**()
+- **refresh_panel()**
 
   re-renders the currently set panel by calling render_panel. This will not be triggered automatically.
 
 ### Entity
 
-haui.config.HAUIConfigEntity
+`haui.abstract.HAUIEntity`
 
 The entity represents a configured entity. The configuration values are taken from the config.
 
@@ -151,11 +151,11 @@ All update functionality can be found in `haui.controller.HAUIUpdateController`
 
 ## Events
 
-All events are wrapped in the `haui.base.HAUIEvent` class. This class provides basic access to events received via MQTT.
+All events are wrapped in the `haui.abstract.HAUIEvent` class. This class provides basic access to events received via MQTT.
 
 ## Communication
 
-Most of the communication happens by publishing to MQTT. There are two commands to change the display `send_command` and `send_commands`. It is possible to record all calls to send_cmd of `haui.page.HAUIPage` and to use them together with send_commands:
+Most of the communication happens by publishing to MQTT. There are two commands to change the display `send_cmd` and `send_cmds`. It is possible to record all calls to send_cmd of `haui.page.HAUIPage` and to use them together with send_cmds:
 
 ```python
 # start recording of commands to be sent

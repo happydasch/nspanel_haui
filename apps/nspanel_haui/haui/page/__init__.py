@@ -8,6 +8,7 @@ from ..helper.color import rgb_to_rgb565
 from ..helper.icon import get_icon
 from ..mapping.color import COLORS
 from ..mapping.const import ESP_EVENT, NOTIF_EVENT
+from ..mapping.page import PAGE_MAPPING
 
 
 class HAUIPage(HAUIBase):
@@ -83,7 +84,7 @@ class HAUIPage(HAUIBase):
 
         This is called when the part is started.
         """
-        self.log(f"Starting page: {self.page_id}")
+        self.log(f"Starting page: {PAGE_MAPPING.get(self.page_id)}")
         # notify about page start
         self.start_page()
 
@@ -92,7 +93,7 @@ class HAUIPage(HAUIBase):
 
         This is called when the part is stopped.
         """
-        self.log(f"Stopping page: {self.page_id}")
+        self.log(f"Stopping page: {PAGE_MAPPING.get(self.page_id)}")
         self.set_panel(None)
         # notify about page stop
         self.stop_page()
@@ -141,12 +142,12 @@ class HAUIPage(HAUIBase):
         """
         # prepare panel
         if self.panel is not None:
-            self.log(f"Stopping panel: {self.panel.id}")
+            self.log(f"Stopping panel: {self.panel.id} for {PAGE_MAPPING.get(self.page_id)}")
             self.stop_panel(self.panel)
         self.panel = panel
         if panel is None:
             return
-        self.log(f"Starting panel: {panel.id}")
+        self.log(f"Starting panel: {panel.id} for {PAGE_MAPPING.get(self.page_id)}")
         self.start_panel(panel)
 
         # 1. call config for panel

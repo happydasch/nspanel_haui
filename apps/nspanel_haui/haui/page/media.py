@@ -6,6 +6,7 @@ from ..abstract.event import HAUIEvent
 from ..abstract.panel import HAUIPanel
 from ..features import MediaPlayerFeatures
 from ..helper.icon import get_icon
+from ..helper.text import trim_text
 from ..mapping.color import COLORS
 from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from . import HAUIPage
@@ -190,32 +191,12 @@ class MediaPage(HAUIPage):
         if not entity or not entity.has_entity_id():
             return
         supported_features = entity.get_entity_attr("supported_features", 0)
-        # add listener
-        self.add_entity_listener(entity.get_entity_id(), self.callback_media_entity)
+        # Single listener on all attributes: HA batches media metadata updates
+        # (title, artist, position, ...) into one state_changed event where the
+        # primary state often stays "playing", which caused per-attribute
+        # listeners to miss song changes on streaming sources like Sonos.
         self.add_entity_listener(
-            entity.get_entity_id(), self.callback_media_entity, attribute="media_title"
-        )
-        self.add_entity_listener(
-            entity.get_entity_id(), self.callback_media_entity, attribute="media_artist"
-        )
-        self.add_entity_listener(
-            entity.get_entity_id(),
-            self.callback_media_entity,
-            attribute="media_channel",
-        )
-        self.add_entity_listener(
-            entity.get_entity_id(), self.callback_media_entity, attribute="volume_level"
-        )
-        self.add_entity_listener(
-            entity.get_entity_id(),
-            self.callback_media_entity,
-            attribute="is_volume_muted",
-        )
-        self.add_entity_listener(
-            entity.get_entity_id(), self.callback_media_entity, attribute="repeat"
-        )
-        self.add_entity_listener(
-            entity.get_entity_id(), self.callback_media_entity, attribute="shuffle"
+            entity.get_entity_id(), self.callback_media_entity, attribute="all"
         )
         # media icon
         source = False
@@ -604,18 +585,8 @@ class MediaPage(HAUIPage):
     # callback
 
     def callback_media_entity(self, entity, attribute, old, new, kwargs) -> None:
-        if attribute == "state":
+        with self.rec_cmd:
             self.update_media_entity()
-        elif attribute in ["media_title", "media_artist", "media_channel"]:
-            self.update_media_title()
-            self.update_media_info()
-            self.update_media_controls()
-        elif attribute in ["shuffle", "repeat"]:
-            self.update_media_controls()
-        elif attribute in ["volume_level", "is_volume_muted"]:
-            self.update_volume()
-        else:
-            self.log(f"Unknown media entity attribute: {attribute}")
 
     def callback_function_component(self, fnc_id, fnc_name) -> None:
         if self._media_entity is None:
@@ -675,7 +646,7 @@ class MediaPage(HAUIPage):
                 title=self.translate("Select source"),
                 selected=source,
                 items=selection,
-                select_mode="full",
+                select_mode="default",
                 selection_callback_fnc=self.callback_source,
                 close_on_select=True,
             )
@@ -693,7 +664,7 @@ class MediaPage(HAUIPage):
             items = self._sonos_favorites.get_entity_attr("items", {})
             for name in items.values():
                 value = f"sonos_favorites:{name}"
-                selection.append({"value": value, "name": name})
+                selection.append({"value": value, "name": trim_text(name, 14)})
         # add media favorites
         for item in self._media_favorites:
             content_type = item.get("content_type", "music")
@@ -701,14 +672,14 @@ class MediaPage(HAUIPage):
             name = item.get("name", content_id)
             if content_id is not None:
                 value = f"media_favorites:{content_type}:{content_id}"
-                selection.append({"value": value, "name": name})
+                selection.append({"value": value, "name": trim_text(name, 14)})
         # show popup
         if len(selection) > 0:
             navigation.open_popup(
                 "popup_select",
                 title=self.translate("Select media"),
                 items=selection,
-                select_mode="full",
+                select_mode="default",
                 selection_callback_fnc=self.callback_media,
                 close_on_select=True,
             )
@@ -747,7 +718,7 @@ class MediaPage(HAUIPage):
                 items=items,
                 selected=group_members,
                 multiple=True,
-                select_mode="full",
+                select_mode="default",
                 selection_callback_fnc=self.callback_group,
                 close_on_select=True,
             )

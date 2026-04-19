@@ -216,7 +216,7 @@ class GridPage(HAUIPage):
             power_color = entity.get("power_color", power_color)
         # no background color check if color mode or set default
         if back_color is None and color_mode is not None:
-            self.log(f"Using random seed for grid: {color_seed}")
+            self.log(f"Using seed for grid: {color_seed}")
             colors = generate_color_palette(
                 rgb565_to_rgb(COLORS["background"]), color_mode, color_seed, 6
             )

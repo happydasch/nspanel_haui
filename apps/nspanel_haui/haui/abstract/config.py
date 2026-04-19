@@ -29,14 +29,17 @@ class HAUIConfig(HAUIBase):
         self._panels: list[HAUIPanel] = []
         self._panels_by_id: dict = {}
         self._panels_by_key: dict[str, HAUIPanel] = {}
+        # user panels first: when a sys_panel shares a key with a user panel
+        # the user panel wins and the duplicated sys_panel is skipped
         panels_to_load = self.get("panels", [])
-        # append sys_panels so they can be overwritten by panels
         panels_to_load += self.get("sys_panels", [])
         for panel_config in panels_to_load:
             panel = HAUIPanel(self.app, panel_config)
+            key = panel.get("key", "")
+            if key and key in self._panels_by_key:
+                continue
             self._panels.append(panel)
             self._panels_by_id[panel.id] = panel
-            key = panel.get("key", "")
             if key:
                 self._panels_by_key[key] = panel
 

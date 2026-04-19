@@ -1,4 +1,5 @@
-from ..mapping.page import PAGE_MAPPING, PANEL_MAPPING
+from ..mapping.page import PAGE_MAPPING
+from ..mapping.panel import PANEL_MAPPING
 
 
 def get_page_id_for_panel(panel_type):
@@ -53,5 +54,4 @@ def get_page_name(page_id):
     Returns:
         str: Page name
     """
-    if page_id in PAGE_MAPPING:
-        return PAGE_MAPPING[page_id]
+    return PAGE_MAPPING.get(page_id)

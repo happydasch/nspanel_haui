@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Any
 from .abstract.base import HAUIBase
 from .abstract.event import HAUIEvent
 from .mapping.const import ESP_EVENT, NOTIF_EVENT
-from .mapping.page import PANEL_MAPPING, SYS_PANEL_MAPPING
+from .mapping.panel import PANEL_MAPPING, SYS_PANEL_MAPPING
 
 if TYPE_CHECKING:
     from ..nspanel_haui import NSPanelHAUI

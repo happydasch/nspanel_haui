@@ -48,7 +48,7 @@ All parts of haui are based on the `haui.base.HAUIBase` class. This class provid
 - `haui.base.HAUIBaseVars`
   Base class with vars support
 
-- `haui.base.HAUIPage`
+- `haui.page.HAUIPage`
   Page representation, this class is used when interacting with the page on the device
 
 ### App

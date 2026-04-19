@@ -418,4 +418,4 @@ class WeatherPage(HAUIPage):
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_id == self.TXT_NOTIF[1]:
             navigation = self.app.controller["navigation"]
-            navigation.open_popup("popup_notification")
+            navigation.open_popup("popup_notify")

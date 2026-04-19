@@ -155,7 +155,7 @@ def pos_to_color(x, y, wh):
     return rgb
 
 
-def rgb_to_rgb565(rgb_color):
+def rgb_to_rgb565(rgb_color: list | tuple) -> int:
     """Converts a RGB888 color to a RGB565 color.
 
     Args:
@@ -164,20 +164,21 @@ def rgb_to_rgb565(rgb_color):
     Returns:
         int: RGB565 color
     """
+
     red = int(rgb_color[0])
     green = int(rgb_color[1])
     blue = int(rgb_color[2])
     return (int(red >> 3) << 11) | (int(green >> 2) << 5) | (int(blue >> 3))
 
 
-def rgb565_to_rgb(rgb565_color):
+def rgb565_to_rgb(rgb565_color: int) -> tuple[int, int, int]:
     """Converts a RGB565 color to a RGB888 color.
 
     Args:
         rgb565_color (int): rgb565 color
 
     Returns:
-        list: RGB888 color
+        tuple[int, int, int]: RGB888 color
     """
     red = (rgb565_color & 0xF800) >> 11
     green = (rgb565_color & 0x07E0) >> 5
@@ -187,4 +188,4 @@ def rgb565_to_rgb(rgb565_color):
     green = (green * 255) // 63
     blue = (blue * 255) // 31
     # return the rgb values
-    return [red, green, blue]
+    return (red, green, blue)

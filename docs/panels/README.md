@@ -16,11 +16,12 @@
     - [Panel Vacuum `vacuum`](#panel-vacuum-vacuum)
     - [Panel QR-Code `qr`](#panel-qr-code-qr)
     - [Panel Cover `cover`](#panel-cover-cover)
-    - [Panel Climage `climate`](#panel-climage-climate)
+    - [Panel Climate `climate`](#panel-climate-climate)
     - [Panel Timer `timer`](#panel-timer-timer)
   - [Other Panels](#other-panels)
     - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
     - [Popup Notify `popup_notify`](#popup-notify-popup_notify)
+    - [Popup Notification `popup_notification`](#popup-notification-popup_notification)
     - [Popup Select  `popup_select`](#popup-select--popup_select)
   - [System](#system)
     - [Panel Blank `sys_blank`](#panel-blank-sys_blank)
@@ -100,7 +101,7 @@ Panels with navigation. Main Display Elements.
 
   ![Panel Cover](../assets/panel_cover.png)
 
-### [Panel Climage](panel_climate.md) `climate`
+### [Panel Climate](panel_climate.md) `climate`
 
   Climate panel.
 
@@ -124,9 +125,13 @@ Different panels.
 
 ### [Popup Notify](popup_notify.md) `popup_notify`
 
-  Popup for notifications.
+  Ad-hoc popup for one-shot notifications with optional buttons.
 
   ![Popup Notify](../assets/popup_notify.png)
+
+### [Popup Notification](popup_notification.md) `popup_notification`
+
+  Notification queue panel. Displays notifications sent via `send_notification`, with support for optional icons and persistent (looping-sound) alerts.
 
 ### [Popup Select](popup_select.md)  `popup_select`
 

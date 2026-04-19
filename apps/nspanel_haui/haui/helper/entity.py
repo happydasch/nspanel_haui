@@ -1,12 +1,19 @@
 from ..mapping.color import COLORS
 from ..mapping.icon import (
-    SIMPLE_TYPE_MAPPING,
     INTERNAL_TYPE_MAPPING,
     MEDIA_CONTENT_TYPE_MAPPING,
+    SIMPLE_TYPE_MAPPING,
 )
-
-from .color import rgb_to_rgb565, rgb565_to_rgb, rgb_brightness
+from .color import rgb565_to_rgb, rgb_brightness, rgb_to_rgb565
 from .icon import get_icon, get_icon_name_by_state
+
+# --- execute_entity dispatch ---
+
+_TOGGLE_TYPES = frozenset([
+    "light", "switch", "cover", "input_boolean", "automation", "fan",
+])
+_PRESS_TYPES = frozenset(["button", "input_button"])
+_TURN_ON_TYPES = frozenset(["scene", "script"])
 
 
 def execute_entity(haui_entity):
@@ -22,33 +29,82 @@ def execute_entity(haui_entity):
     entity_type = haui_entity.get_entity_type()
     entity_state = haui_entity.get_entity_state()
 
-    if entity_type in [
-        "light",
-        "switch",
-        "cover",
-        "input_boolean",
-        "automation",
-        "fan",
-    ]:
+    if entity_type in _TOGGLE_TYPES:
         entity.call_service("toggle")
-    elif entity_type in ["button", "input_button"]:
+    elif entity_type in _PRESS_TYPES:
         entity.call_service("press")
+    elif entity_type in _TURN_ON_TYPES:
+        entity.call_service("turn_on")
     elif entity_type == "lock":
-        if entity_state == "locked":
-            entity.call_service("unlock")
-        else:
-            entity.call_service("lock")
+        entity.call_service("unlock" if entity_state == "locked" else "lock")
     elif entity_type == "vacuum":
-        if entity_state == "docked":
-            entity.call_service("start")
-        else:
-            entity.call_service("return_to_base")
-    elif entity_type == "scene":
-        entity.call_service("turn_on")
-    elif entity_type == "script":
-        entity.call_service("turn_on")
+        entity.call_service("start" if entity_state == "docked" else "return_to_base")
     elif entity_type == "input_select":
         entity.call_service("select_next")
+
+
+# --- get_entity_color dispatch ---
+
+_ALARM_ARMED_STATES = frozenset([
+    "armed_home", "armed_away", "armed_night", "armed_vacation", "pending", "triggered",
+])
+
+
+def _color_weather(entity, entity_state, haui_entity):
+    color_name = f"weather_{(entity_state or '').replace('-', '_')}"
+    return COLORS.get(color_name, COLORS["weather_default"])
+
+
+def _color_climate(entity, entity_state, haui_entity):
+    return COLORS.get(f"climate_{entity_state}")
+
+
+def _color_alarm(entity, entity_state, haui_entity):
+    if entity_state == "disarmed":
+        return COLORS["alarm_disarmed"]
+    if entity_state == "arming":
+        return COLORS["alarm_arming"]
+    if entity_state in _ALARM_ARMED_STATES:
+        return COLORS["alarm_armed"]
+    return None
+
+
+def _color_media_player(entity, entity_state, haui_entity):
+    if entity_state == "playing":
+        return COLORS["entity_on"]
+    if entity_state == "unavailable":
+        return COLORS["entity_unavailable"]
+    return COLORS["entity_off"]
+
+
+def _color_group(entity, entity_state, haui_entity):
+    return COLORS["entity_on"] if entity_state == "on" else COLORS["entity_off"]
+
+
+def _color_light(entity, entity_state, haui_entity):
+    if entity_state != "on":
+        return None
+    attr = entity.attributes
+    if "rgb_color" in attr and attr["rgb_color"]:
+        color = attr["rgb_color"]
+        if "brightness" in attr:
+            color = rgb_brightness(color, attr["brightness"])
+        return rgb_to_rgb565(color)
+    if "brightness" in attr:
+        return rgb_to_rgb565(rgb_brightness(rgb565_to_rgb(COLORS["entity_on"]), attr["brightness"]))
+    return None
+
+
+_COLOR_DISPATCH = {
+    "weather": _color_weather,
+    "climate": _color_climate,
+    "alarm_control_panel": _color_alarm,
+    "media_player": _color_media_player,
+    "group": _color_group,
+    "light": _color_light,
+}
+
+_ON_STATES = frozenset(["on", "unlocked", "above_horizon", "home", "active"])
 
 
 def get_entity_color(haui_entity, default_color):
@@ -61,81 +117,27 @@ def get_entity_color(haui_entity, default_color):
     Returns:
         int: RGB565 color
     """
-    result_color = default_color
     if not haui_entity.has_entity():
-        return result_color
+        return default_color
 
     entity = haui_entity.get_entity()
     entity_type = haui_entity.get_entity_type()
     entity_state = haui_entity.get_entity_state()
 
-    # colors based on state
-    if entity_state in ["on", "unlocked", "above_horizon", "home", "active"]:
+    # general state-based default
+    if entity_state in _ON_STATES:
         result_color = COLORS["entity_on"]
-    elif entity_state in ["unavailable"]:
+    elif entity_state == "unavailable":
         result_color = COLORS["entity_unavailable"]
     else:
         result_color = COLORS["entity_off"]
 
-    # weather entity
-    if entity_type == "weather":
-        condition = entity_state
-        # weather color
-        color_name = condition.replace("-", "_")
-        color_name = f"weather_{color_name}"
-        if color_name in COLORS:
-            result_color = COLORS[color_name]
-        else:
-            result_color = COLORS["weather_default"]
-    # climate entity
-    elif entity_type == "climate":
-        color_name = f"climate_{entity_state}"
-        if color_name in COLORS:
-            result_color = COLORS[color_name]
-    # alarm control panel entity
-    elif entity_type == "alarm_control_panel":
-        if entity_state == "disarmed":
-            result_color = COLORS["alarm_disarmed"]
-        if entity_state == "arming":
-            result_color = COLORS["alarm_arming"]
-        if entity_state in [
-            "armed_home",
-            "armed_away",
-            "armed_night",
-            "armed_vacation",
-            "pending",
-            "triggered",
-        ]:
-            result_color = COLORS["alarm_armed"]
-    # media player entity
-    elif entity_type == "media_player":
-        if entity_state == "playing":
-            result_color = COLORS["entity_on"]
-        elif entity_state == "unavailable":
-            result_color = COLORS["entity_unavailable"]
-        else:
-            result_color = COLORS["entity_off"]
-
-    # light entity
-    if entity_type == "group":
-        if entity_state == "on":
-            result_color = COLORS["entity_on"]
-        else:
-            result_color = COLORS["entity_off"]
-    elif entity_type == "light":
-        attr = entity.attributes
-        if entity_state == "on":
-            if "rgb_color" in attr and attr["rgb_color"]:
-                color = attr["rgb_color"]
-                if "brightness" in attr:
-                    color = rgb_brightness(color, attr["brightness"])
-                result_color = rgb_to_rgb565(color)
-            elif "brightness" in attr:
-                # no color, just brightness
-                color = rgb_brightness(
-                    rgb565_to_rgb(COLORS["entity_on"]), attr["brightness"]
-                )
-                result_color = rgb_to_rgb565(color)
+    # per-type override
+    handler = _COLOR_DISPATCH.get(entity_type)
+    if handler:
+        color = handler(entity, entity_state, haui_entity)
+        if color is not None:
+            result_color = color
 
     return result_color
 
@@ -197,6 +199,62 @@ def get_entity_icon(haui_entity, default_icon):
     return get_icon(result_icon)
 
 
+# --- get_entity_value dispatch ---
+
+def _value_weather(entity, entity_state, haui_entity):
+    temp_unit = haui_entity.get_entity_attr("temperature_unit", "°C")
+    temp = haui_entity.get_entity_attr("temperature", "")
+    return f"{temp}{temp_unit}" if temp else ""
+
+
+def _value_button(entity, entity_state, haui_entity):
+    return haui_entity.translate("Press")
+
+
+def _value_scene(entity, entity_state, haui_entity):
+    return haui_entity.translate("Activate")
+
+
+def _value_script(entity, entity_state, haui_entity):
+    return haui_entity.translate("Run")
+
+
+def _value_lock(entity, entity_state, haui_entity):
+    return haui_entity.translate("Lock") if entity.state == "unlocked" else haui_entity.translate("Unlock")
+
+
+_ALARM_VALUE_MAP = {
+    "arming": "Arming",
+    "disarmed": "Disarmed",
+    "disarming": "Disarming",
+    "pending": "Pending",
+    "triggered": "Triggered",
+}
+
+
+def _value_alarm(entity, entity_state, haui_entity):
+    if entity.state.startswith("armed"):
+        return haui_entity.translate("Armed")
+    label = _ALARM_VALUE_MAP.get(entity.state, entity.state)
+    return haui_entity.translate(label)
+
+
+def _value_vacuum(entity, entity_state, haui_entity):
+    return haui_entity.translate("Clean") if entity.state == "docked" else haui_entity.translate("Stop")
+
+
+_VALUE_DISPATCH = {
+    "weather": _value_weather,
+    "button": _value_button,
+    "input_button": _value_button,
+    "scene": _value_scene,
+    "script": _value_script,
+    "lock": _value_lock,
+    "alarm_control_panel": _value_alarm,
+    "vacuum": _value_vacuum,
+}
+
+
 def get_entity_value(haui_entity, default_value):
     """Returns a value for the given entity.
 
@@ -207,61 +265,17 @@ def get_entity_value(haui_entity, default_value):
     Returns:
         str: Value
     """
-    result_value = default_value
     if not haui_entity.has_entity():
-        return result_value
+        return default_value
 
     entity = haui_entity.get_entity()
     entity_type = haui_entity.get_entity_type()
-    result_value = haui_entity.get_entity_state()
+    entity_state = haui_entity.get_entity_state()
 
-    # weather entity
-    if entity_type == "weather":
-        temp_unit = haui_entity.get_entity_attr("temperature_unit", "°C")
-        result_value = haui_entity.get_entity_attr("temperature", "")
-        if result_value:
-            result_value = f"{result_value}{temp_unit}"
-    # button entity
-    elif entity_type == "button":
-        result_value = haui_entity.translate("Press")
-    # scene entity
-    elif entity_type == "scene":
-        result_value = haui_entity.translate("Activate")
-    # script entity
-    elif entity_type == "script":
-        result_value = haui_entity.translate("Run")
-    # lock entity
-    elif entity_type == "lock":
-        if entity.state == "unlocked":
-            result_value = haui_entity.translate("Lock")
-        else:
-            result_value = haui_entity.translate("Unlock")
-    # alarm control panel entity
-    elif entity_type == "alarm_control_panel":
-        if entity.state.startswith("armed"):
-            result_value = haui_entity.translate("Armed")
-        elif entity.state == "arming":
-            result_value = haui_entity.translate("Arming")
-        elif entity.state == "disarmed":
-            result_value = haui_entity.translate("Disarmed")
-        elif entity.state == "disarming":
-            result_value = haui_entity.translate("Disarming")
-        elif entity.state == "pending":
-            result_value = haui_entity.translate("Pending")
-        elif entity.state == "triggered":
-            result_value = haui_entity.translate("Triggered")
-    # vacuum entity
-    elif entity_type == "vacuum":
-        if entity.state == "docked":
-            result_value = haui_entity.translate("Clean")
-        else:
-            result_value = haui_entity.translate("Stop")
-    # default value is using the state
-    else:
-        # use the translated entity state
-        result_value = haui_entity.translate_state()
-
-    return result_value
+    handler = _VALUE_DISPATCH.get(entity_type)
+    if handler:
+        return handler(entity, entity_state, haui_entity)
+    return haui_entity.translate_entity_state()
 
 
 def get_entity_name(haui_entity, default_name):

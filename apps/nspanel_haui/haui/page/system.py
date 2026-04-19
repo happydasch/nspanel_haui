@@ -1,5 +1,4 @@
 from ..abstract.panel import HAUIPanel
-
 from . import HAUIPage
 
 

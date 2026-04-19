@@ -77,7 +77,7 @@ api:
       then:
         - lambda: |-
             id(send_notification).execute(
-              title, message, icon, 0
+              title, message, icon, 0, false
             );
     - action: send_notification_with_timeout
       variables:
@@ -88,5 +88,27 @@ api:
       then:
         - lambda: |-
             id(send_notification).execute(
-              title, message, icon, timeout
+              title, message, icon, timeout, false
+            );
+    # Action to send a persistent notification (must be dismissed to stop sound)
+    - action: send_notification_persistent
+      variables:
+        title: string
+        message: string
+        icon: string
+      then:
+        - lambda: |-
+            id(send_notification).execute(
+              title, message, icon, 0, true
+            );
+    - action: send_notification_persistent_with_timeout
+      variables:
+        title: string
+        message: string
+        icon: string
+        timeout: int
+      then:
+        - lambda: |-
+            id(send_notification).execute(
+              title, message, icon, timeout, true
             );

@@ -1,13 +1,10 @@
-import threading
-from datetime import datetime
-
-from ..mapping.const import ESP_EVENT
-from ..helper.page import get_page_id_for_panel, get_page_class_for_panel
-from ..abstract.part import HAUIPart
+from ..abstract.base import HAUIBase
 from ..abstract.event import HAUIEvent
+from ..helper.page import get_page_class_for_panel, get_page_id_for_panel
+from ..mapping.const import ESP_EVENT
 
 
-class HAUINavigationController(HAUIPart):
+class HAUINavigationController(HAUIBase):
     """Navigation Controller
 
     Provides the whole navigation functionality. Implemented as a controller
@@ -29,6 +26,7 @@ class HAUINavigationController(HAUIPart):
         self._current_nav = None  # current nav panel config
         self._current_nav_kwargs = {}  # current nav panel kwargs
         self._ids = None  # ids of nav panels
+        self._id_to_idx: dict = {}  # O(1) index lookup for nav panels
         self._home_panel = None  # home panel config
         self._sleep_panel = None  # sleep panel config
         self._sleep_panel_active = False  # sleep panel state
@@ -43,10 +41,11 @@ class HAUINavigationController(HAUIPart):
     def start_part(self):
         """Starts the part."""
         # get panels
-        all_panels = self.app.config.get_panels()
-        nav_panels = self.app.config.get_panels(filter_nav_panel=True)
+        all_panels = self.app.device_config.get_panels()
+        nav_panels = self.app.device_config.get_panels(filter_nav_panel=True)
         # store all navigateable panel ids
         self._ids = [panel.id for panel in nav_panels]
+        self._id_to_idx = {panel_id: idx for idx, panel_id in enumerate(self._ids)}
         # set special panels
         for panel in all_panels:
             if panel.is_home_panel():
@@ -73,7 +72,7 @@ class HAUINavigationController(HAUIPart):
             self._home_panel = self._ids[0]
         # log start
         self.log(
-            f'Panels used for navigation: {", ".join([str(x) for x in self._ids])}'
+            f"Panels used for navigation: {', '.join([str(x) for x in self._ids])}"
         )
 
     # public methods
@@ -118,13 +117,8 @@ class HAUINavigationController(HAUIPart):
         """
         if self._current_nav is None:
             return False
-        try:
-            idx = self._ids.index(self._current_nav.id)
-            if idx != 0:
-                return True
-        except ValueError:
-            pass
-        return False
+        idx = self._id_to_idx.get(self._current_nav.id)
+        return idx is not None and idx != 0
 
     def has_next_panel(self):
         """Returns if a next panel is available.
@@ -134,13 +128,8 @@ class HAUINavigationController(HAUIPart):
         """
         if self._current_nav is None:
             return False
-        try:
-            idx = self._ids.index(self._current_nav.id)
-            if len(self._ids) > 1 and idx != len(self._ids) - 1:
-                return True
-        except ValueError:
-            pass
-        return False
+        idx = self._id_to_idx.get(self._current_nav.id)
+        return idx is not None and len(self._ids) > 1 and idx != len(self._ids) - 1
 
     def has_up_panel(self):
         """Returns if a up panel is available.
@@ -204,14 +193,12 @@ class HAUINavigationController(HAUIPart):
 
         # lock current panel before setting new
         if self.panel is not None:
-            persistent_config = self.panel.get_persistent_config(return_copy=False)
-            # only if has a locked attr
-            if "locked" in persistent_config:
-                # ensure the panel is locked before setting new panel
-                persistent_config["locked"] = True
+            # only if the panel had a locked state
+            if self.panel.get_state("locked") is not None:
+                self.panel.set_state("locked", True)
 
         # create and check page of new panel
-        panel = self.app.config.get_panel(panel_id)
+        panel = self.app.device_config.get_panel(panel_id)
         if panel is None:
             self.log(f"Panel {panel_id} not found")
             self.open_home_panel()
@@ -228,10 +215,8 @@ class HAUINavigationController(HAUIPart):
             self.open_home_panel()
             return
 
-        # create new config and make kwargs available in new panel
-        config = panel.get_default_config(return_copy=True)
-        config = {**config, **kwargs}
-        panel.set_config(config)
+        # reset panel config to defaults and overlay navigation kwargs
+        panel.apply_kwargs(kwargs)
 
         # new panel is a navigatable panel
         if panel.get_mode() == "panel":
@@ -251,11 +236,10 @@ class HAUINavigationController(HAUIPart):
 
         # if new panel has an unlock code set and panel is locked,
         # open unlock panel instead
-        persistent_config = panel.get_persistent_config(return_copy=False)
-        if panel.get("unlock_code", "") != "" and persistent_config.get("locked", True):
+        if panel.get("unlock_code", "") != "" and panel.get_state("locked", True):
             self.log(f"Unlock code set, locking panel {panel.id}")
             # lock new panel
-            persistent_config["locked"] = True
+            panel.set_state("locked", True)
             # open the unlock panel with the panel to unlock as a param
             self.open_popup("popup_unlock", unlock_panel=panel)
             return
@@ -291,29 +275,41 @@ class HAUINavigationController(HAUIPart):
             self.display_panel(self.panel)
         else:
             self.log("No autostart, waiting for page event")
-            # add timer for timeout
             timeout = self.get("page_timeout", 10.0)
             if self._page_timeout is not None:
-                self._page_timeout.cancel()
-            self._page_timeout = threading.Timer(
+                self.app.cancel_timer(self._page_timeout)
+                self._page_timeout = None
+            self._page_timeout = self.app.run_in(
+                self._page_timeout_callback,
                 timeout,
-                self.open_panel,
-                # provide current params and make sure that autostart is on for timeout call
-                kwargs={**kwargs, **{"panel_id": panel_id, "autostart": True}},
+                call_kwargs={**kwargs, "panel_id": panel_id, "autostart": True},
             )
-            self._page_timeout.start()
 
         # check for close timeout in panel config (contains also kwargs)
         timeout = panel.get("close_timeout", 0)
         if timeout > 0:
-            self._close_timeout = threading.Timer(timeout, self.close_panel)
-            self._close_timeout.start()
+            if self._close_timeout is not None:
+                self.app.cancel_timer(self._close_timeout)
+            self._close_timeout = self.app.run_in(self._close_timeout_callback, timeout)
+
+    def _page_timeout_callback(self, kwargs) -> None:
+        """AppDaemon scheduler callback for page timeout."""
+        self._page_timeout = None
+        call_kwargs = kwargs.get("call_kwargs", {})
+        panel_id = call_kwargs.pop("panel_id", None)
+        if panel_id:
+            self.open_panel(panel_id, **call_kwargs)
+
+    def _close_timeout_callback(self, kwargs) -> None:
+        """AppDaemon scheduler callback for panel auto-close."""
+        self._close_timeout = None
+        self.close_panel()
 
     def close_panel(self):
         """Closes the current panel."""
         # check for active timer
         if self._close_timeout is not None:
-            self._close_timeout.cancel()
+            self.app.cancel_timer(self._close_timeout)
             self._close_timeout = None
         prev_panel, prev_kwargs = None, None
         # check stack
@@ -328,9 +324,8 @@ class HAUINavigationController(HAUIPart):
             while len(self._stack) > 0:
                 panel, kwargs = self._stack.pop()
                 # if a unlock panel is set, check if it should be skipped (if not unlocked)
-                persistent_config = panel.get_persistent_config()
                 if unlock_panel and panel.id == unlock_panel.id:
-                    if persistent_config.get("locked", False):
+                    if panel.get_state("locked", False):
                         continue
                 prev_panel, prev_kwargs = panel, kwargs
                 break
@@ -344,9 +339,8 @@ class HAUINavigationController(HAUIPart):
         # check for locked panel before opening
         if prev_panel is not None:
             unlock_panel = prev_panel.get("unlock_panel")
-            persistent_config = prev_panel.get_persistent_config()
             if unlock_panel is not None:
-                if prev_panel.id == unlock_panel.id and persistent_config.get(
+                if prev_panel.id == unlock_panel.id and prev_panel.get_state(
                     "locked", False
                 ):
                     prev_panel, prev_kwargs = None, None
@@ -362,13 +356,10 @@ class HAUINavigationController(HAUIPart):
         self.log("Open next panel")
         if self._current_nav is None:
             return
-        if self._current_nav.id not in self._ids:
+        idx = self._id_to_idx.get(self._current_nav.id)
+        if idx is None:
             return
-        idx = self._ids.index(self._current_nav.id)
-        if idx < len(self._ids) - 1:
-            panel_id = self._ids[idx + 1]
-        else:
-            panel_id = self._ids[0]
+        panel_id = self._ids[idx + 1] if idx < len(self._ids) - 1 else self._ids[0]
         self.open_panel(panel_id)
 
     def open_prev_panel(self):
@@ -376,14 +367,11 @@ class HAUINavigationController(HAUIPart):
         self.log("Open prev panel")
         if self._current_nav is None:
             return
-        if self._current_nav.id not in self._ids:
+        idx = self._id_to_idx.get(self._current_nav.id)
+        if idx is None:
             self.log(f"current nav not in ids {self._current_nav} - {self._ids}")
             return
-        idx = self._ids.index(self._current_nav.id)
-        if idx > 0:
-            panel_id = self._ids[idx - 1]
-        else:
-            panel_id = self._ids[len(self._ids) - 1]
+        panel_id = self._ids[idx - 1] if idx > 0 else self._ids[-1]
         self.open_panel(panel_id)
 
     def open_home_panel(self, autostart=False):
@@ -475,7 +463,7 @@ class HAUINavigationController(HAUIPart):
         if event.name == ESP_EVENT["page"]:
             # cancel page timeout if any
             if self._page_timeout is not None:
-                self._page_timeout.cancel()
+                self.app.cancel_timer(self._page_timeout)
                 self._page_timeout = None
             # check current page is not blank page
             if self.page is not None and event.as_int() != 0:

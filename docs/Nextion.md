@@ -27,6 +27,31 @@ available.
   - Service: `nspanel_haui_upload_tft_url`
     This will load the TFT from the URL provided to the service.
 
+## Nextion display configuration used in this project
+
+This project uses the ESPHome `nextion` display component with a hardware UART and the following key options:
+
+- `uart_id`: references the UART bus used for the Nextion display.
+- `wake_up_page`: the page shown when the display wakes up.
+- `tft_url`: URL used by `upload_tft` to update the TFT file.
+- `on_setup`: triggered after ESPHome connects to the Nextion.
+- `on_page`: triggered when the display changes pages.
+- `on_touch`: triggered when a touch event happens.
+- `on_sleep` / `on_wake`: triggered when the display sleeps or wakes.
+
+The repo also exposes these actions via API:
+
+- `upload_tft`
+- `upload_tft_url`
+- `send_command`
+- `set_brightness`
+- `goto_page`
+
+This project also handles Nextion runtime issues such as buffer overflow using the `on_buffer_overflow` automation.
+When a buffer overflow is detected, the display logs the warning and publishes a `buffer_overflow` event so the app can react or retry safely.
+
+These match the official ESPHome Nextion component behavior used by the project.
+
 ## How to edit the HMI file
 
 To edit the HMI file, no special care is needed. Following are some helpful infos. The HMI is used mostly to design the interface but does not need any special code. Only on a page based lifetime of events should be done on the display. If possible, the logic should be placed in the AppDaemon App.

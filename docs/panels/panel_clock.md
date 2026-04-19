@@ -26,10 +26,6 @@ panels:
   - type: clock
     entity: weather.home
 
-  # clock panel
-  - type: clock
-    entity: weather.home
-
   # clock panel with a different background
   - type: clock
     entity: weather.home

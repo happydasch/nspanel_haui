@@ -1,17 +1,16 @@
-import os
 import json
+import os
 
 
-def get_translation(text, locale):
+def get_translation(text: str, locale: str) -> str:
     translations = get_translations(locale)
     translation = text
-    if "text" in translations:
-        if text in translations["text"]:
-            translation = translations["text"][text]
+    if "text" in translations and text in translations["text"]:
+        translation = translations["text"][text]
     return translation
 
 
-def get_state_translation(entity_type, state, locale, attr="state"):
+def get_state_translation(entity_type: str, state: str, locale: str, attr: str = "state") -> str:
     translations = get_translations(locale)
     lookup = f"component.{entity_type}.{attr}._.{state}"
     res = translations
@@ -22,11 +21,11 @@ def get_state_translation(entity_type, state, locale, attr="state"):
             res = None
             break
     if res is not None:
-        return res
+        return str(res)
     return state
 
 
-def get_translations(locale):
+def get_translations(locale: str) -> dict:
     lang = locale.split("_")[0]
     dir_path = os.path.dirname(os.path.realpath(__file__))
     path_file = os.path.join(dir_path, "..", "translations", f"{lang}.json")
@@ -37,8 +36,8 @@ def get_translations(locale):
     return translations
 
 
-def trim_text(text, num_chr, suffix=".."):
-    """ Trim text to a certain number of characters
+def trim_text(text, num_chr, suffix="..") -> str:
+    """Trim text to a certain number of characters
 
     Args:
         text (str): Text to trim

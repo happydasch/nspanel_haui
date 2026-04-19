@@ -7,17 +7,19 @@
   - [Config](#config)
   - [Screens](#screens)
 
+> For the notification queue shown when the notification bell is tapped, see [Popup Notification](popup_notification.md).
+
 ## About
 
 `type: popup_notify`
 
 `key: popup_notify`
 
-The notification popup can be used in different ways. It is used internally to notify about errors or issues.
+The notification popup is used for one-shot, ad-hoc popups — for example to notify the user about errors or to prompt a yes/no decision. It is opened programmatically and supports optional buttons and an optional icon.
 
-The notification popup can also execute a callback on close to notify other parts about the notification result. In the callback the button states are available (which button was pressed).
+The panel can also execute a callback on close to notify other parts about the notification result. In the callback the button states are available (which button was pressed).
 
-When a button is visible and pressed then the panel will get closed. If close_on_button is False then notification stays open on press.
+When a button is visible and pressed the panel closes. Set `close_on_button: false` to keep it open after a button press.
 
 ## Config
 
@@ -25,7 +27,7 @@ When a button is visible and pressed then the panel will get closed. If close_on
 notification: Notification text
 btn_right: Button right text
 btn_left: Button left text
-icon: icon name or char
+icon: icon name or char   # optional — omit or leave empty to show full-width text
 btn_left_color: color definition
 btn_right_color: color definition
 btn_left_back_color: color definition
@@ -36,14 +38,18 @@ close_callback_fnc: function for close notification
 close_on_button: true
 ```
 
+**Icon:**
+
+`icon` is optional. When provided the text is shown in a narrower column beside the icon. When omitted (or set to an empty string) the text fills the full width.
+
 **Automatically closing a notification:**
 
 To automatically close a notification after some time use the `close_timeout` param.
 
-**Getting notified when the selection popup is closed:**
+**Getting notified when the popup is closed:**
 
-provide param in code `close_callback_fnc`. This will get called when the popup is closed.
-ATT: the page setting the callback is already stopped at the time the callback is executed.
+Provide `close_callback_fnc`. This will be called when the popup closes.
+Note: the page that set the callback is already stopped by the time the callback executes.
 
 ```python
 # as a method
@@ -53,14 +59,13 @@ def callback(self):
     # do something
 
 # as a lambda
-
 close_callback_fnc=lambda: # do something
 ```
 
 **Getting the pushed button from notification:**
 
-provide param in code `button_callback_fnc`. This will get called when a button is pressed.
-ATT: the page setting the callback is already stopped at the time the callback is executed.
+Provide `button_callback_fnc`. This will be called when a button is pressed.
+Note: the page that set the callback is already stopped by the time the callback executes.
 
 ```python
 # as a method
@@ -70,7 +75,6 @@ def callback(self, btn_left: bool, btn_right: bool):
     # do something
 
 # as a lambda
-
 button_callback_fnc=lambda btn_left, btn_right: # do something
 ```
 
@@ -78,6 +82,6 @@ button_callback_fnc=lambda btn_left, btn_right: # do something
 
 ![Popup Notification](../assets/popup_notify.png)
 
-Full width:
+Full width (no icon):
 
 ![Popup Notification](../assets/popup_notify_full.png)

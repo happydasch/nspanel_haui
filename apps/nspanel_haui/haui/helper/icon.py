@@ -1,19 +1,19 @@
 import re
 
 from ..mapping.icon import (
-    ICONS_MAPPING,
-    COVER_MAPPING,
     ALARM_CONTROL_PANEL_MAPPING,
-    WEATHER_MAPPING,
     CLIMATE_MAPPING,
+    COVER_MAPPING,
+    ICONS_MAPPING,
     SENSOR_MAPPING,
-    SENSOR_MAPPING_ON,
     SENSOR_MAPPING_OFF,
+    SENSOR_MAPPING_ON,
+    WEATHER_MAPPING,
 )
 
 
-def parse_icon(template):
-    """ Returns the parsed string with icons replaced.
+def parse_icon(template: str) -> str:
+    """Returns the parsed string with icons replaced.
 
     Args:
         icon_name (str): Icon name
@@ -27,15 +27,15 @@ def parse_icon(template):
         icon = get_icon(icon_name)
         return f"{icon}{match.group(3)}"
 
-    if isinstance(template, str) and template != "":
+    if template != "":
         template = re.sub(r"(mdi|hass):(\S+)($|\s)", replace_icon, template)
     if template and template in ICONS_MAPPING:
         template = ICONS_MAPPING[template]
     return template
 
 
-def get_icon(icon_name, return_default=True):
-    """ Returns the icon chr value from icon name.
+def get_icon(icon_name: str, return_default: bool = True) -> str | None:
+    """Returns the icon chr value from icon name.
 
     Args:
         icon_name (str): Icon name
@@ -54,8 +54,10 @@ def get_icon(icon_name, return_default=True):
     return None
 
 
-def get_icon_name_by_state(entity_type, entity_state, device_class=None):
-    """ Returns the icon for the the given entity state.
+def get_icon_name_by_state(
+    entity_type: str, entity_state: str, device_class: str | None = None
+) -> str | None:
+    """Returns the icon for the the given entity state.
 
     Args:
         entity_type (str): Entity type
@@ -65,7 +67,7 @@ def get_icon_name_by_state(entity_type, entity_state, device_class=None):
     Returns:
         str: Icon name
     """
-    result_icon = ""
+    result_icon = None
     # script entity
     if entity_type == "script":
         result_icon = "script-text"
@@ -134,8 +136,10 @@ def get_icon_name_by_state(entity_type, entity_state, device_class=None):
     return result_icon
 
 
-def get_icon_name_by_action(entity_type, action, device_class=None):
-    """ Returns the icon for the given action.
+def get_icon_name_by_action(
+    entity_type: str, action: str, device_class: str | None = None
+) -> str | None:
+    """Returns the icon for the given action.
 
     Args:
         entity_type (str): Entity type
@@ -145,7 +149,7 @@ def get_icon_name_by_action(entity_type, action, device_class=None):
     Returns:
         str: Icon name
     """
-    action_icon = ""
+    action_icon = None
     if entity_type == "cover":
         if action == "open" and device_class in COVER_MAPPING:
             action_icon = COVER_MAPPING[device_class][2]

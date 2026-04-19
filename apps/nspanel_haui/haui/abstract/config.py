@@ -1,45 +1,50 @@
 from copy import deepcopy
-from typing import List
 
+from ..config_models import validate_config
 from ..helper.value import merge_dicts
 from ..mapping.const import DEFAULT_CONFIG
-
 from .base import HAUIBase
 from .entity import HAUIEntity
 from .panel import HAUIPanel
 
 
 class HAUIConfig(HAUIBase):
+    """HAUI Configuration."""
 
-    """ HAUI Configuration. """
+    def __init__(self, app, config=None) -> None:
+        """Initialize for config.
 
-    def __init__(self, app, config=None):
-        """ Initialize for config.
-
-            Args:
-            app (NSPanelHAUI): App
-            config (dict, optional): Config. Defaults to None.
+        Args:
+        app (NSPanelHAUI): App
+        config (dict, optional): Config. Defaults to None.
         """
-        # initialize with default config
-        super().__init__(app, deepcopy(DEFAULT_CONFIG))
-
-        # load config and merge with default config
+        # build merged config before passing to base — keeps config immutable after init
+        cfg = deepcopy(DEFAULT_CONFIG)
         if config is not None:
-            merge_dicts(self.get_config(return_copy=False), config)
+            merge_dicts(cfg, deepcopy(config))
+        super().__init__(app, cfg)
+        # validate after base init so self.app etc. are available
+        validate_config(cfg)
         # load all panels
-        self._panels: List[HAUIPanel] = []
+        self._panels: list[HAUIPanel] = []
+        self._panels_by_id: dict = {}
+        self._panels_by_key: dict[str, HAUIPanel] = {}
         panels_to_load = self.get("panels", [])
         # append sys_panels so they can be overwritten by panels
         panels_to_load += self.get("sys_panels", [])
         for panel_config in panels_to_load:
             panel = HAUIPanel(self.app, panel_config)
             self._panels.append(panel)
+            self._panels_by_id[panel.id] = panel
+            key = panel.get("key", "")
+            if key:
+                self._panels_by_key[key] = panel
 
     # public
 
     # TODO update config based on time
 
-    def get_panels(self, filter_nav_panel=None) -> List[HAUIPanel]:
+    def get_panels(self, filter_nav_panel=None) -> list[HAUIPanel]:
         """Returns all panels as HAUIConfigPanel objects.
 
         Args:
@@ -53,15 +58,17 @@ class HAUIConfig(HAUIBase):
             # True means only nav_panels will be returned, False non nav_panels
             nav_panels = list(
                 filter(
-                    lambda panel: (filter_nav_panel and panel.get_mode() == "panel")
-                    or (not filter_nav_panel and panel.get_mode() != "panel"),
+                    lambda panel: (
+                        (filter_nav_panel and panel.get_mode() == "panel")
+                        or (not filter_nav_panel and panel.get_mode() != "panel")
+                    ),
                     self._panels,
                 )
             )
             return nav_panels
         return self._panels
 
-    def get_entities(self) -> List[HAUIEntity]:
+    def get_entities(self) -> list[HAUIEntity]:
         """Returns all entities as HAUIConfigEntity objects.
 
         Returns:
@@ -72,34 +79,27 @@ class HAUIConfig(HAUIBase):
             entities.extend(panel.get_entities())
         return entities
 
-    def get_entity(self, entity_id: str) -> HAUIEntity:
+    def get_entity(self, entity_id: str) -> HAUIEntity | None:
         """Returns a single entity.
 
         Args:
             entity_id (str): Entity id
 
         Returns:
-            HAUIConfigEntity: Entity
+            HAUIEntity | None: Entity or None
         """
         for entity in self.get_entities():
             if entity.id == entity_id:
                 return entity
         return None
 
-    def get_panel(self, panel_id: str) -> HAUIPanel:
-        """Returns a single panel.
+    def get_panel(self, panel_id) -> HAUIPanel | None:
+        """Returns a single panel by id (UUID) or key (str).
 
         Args:
-            panel_id (str): Panel id or key
+            panel_id: Panel id (UUID) or key (str)
 
         Returns:
-            HAUIConfigPanel: Panel
+            HAUIPanel | None: Panel or None
         """
-        for panel in self._panels:
-            # get by id
-            if panel.id == panel_id:
-                return panel
-            # get by key
-            if panel.get("key", "") == panel_id:
-                return panel
-        return None
+        return self._panels_by_id.get(panel_id) or self._panels_by_key.get(panel_id)

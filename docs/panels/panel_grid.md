@@ -31,6 +31,8 @@ panels:
     text_color: null
     power_color: null
     back_color: null
+    back_color_pressed: null
+    color_pressed: null
     color_mode: null
     color_seed: null
     show_power_button: false
@@ -40,6 +42,8 @@ panels:
         text_color: null
         power_color: null
         back_color: null
+        back_color_pressed: null
+        color_pressed: null
         color_mode: null
         color_seed: null
         show_power_button: null

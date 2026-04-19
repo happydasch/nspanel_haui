@@ -86,38 +86,34 @@ text_sensor:
     id: res_txt
     update_interval: never
     component_name: system.resTxt
-    internal: false
+    internal: true
     on_value:
       - lambda: |-
           if (id(req_txt_component).state != "") {
             auto name = id(req_txt_component).state;
-            const json::json_build_t payload = [name, x](JsonObject root) {
-              root["name"] = name;
-              root["value"] = x;
-            };
-            auto payload_str = build_json(payload);
-            id(publish_event).execute("res_txt", payload_str);
+            if (name == "system.tftVersion") {
+              // publish complete version info when tft version is received
+              auto yaml_version = "$yaml_version";
+              auto required_tft_version = "$required_tft_version";
+              std::string tft_version = x;
+              ESP_LOGD("haui", "Version info: yaml=%s required_tft=%s tft=%s",
+                       yaml_version, required_tft_version, tft_version.c_str());
+              const json::json_build_t payload = [yaml_version, required_tft_version, tft_version](JsonObject root) {
+                root["yaml_version"] = yaml_version;
+                root["required_tft_version"] = required_tft_version;
+                root["tft_version"] = tft_version;
+              };
+              auto payload_str = build_json(payload);
+              id(publish_event).execute("res_version_info", payload_str);
+            } else {
+              const json::json_build_t payload = [name, x](JsonObject root) {
+                root["name"] = name;
+                root["value"] = x;
+              };
+              auto payload_str = build_json(payload);
+              id(publish_event).execute("res_txt", payload_str);
+            }
           }
-
-  # YAML-Version
-  - platform: template
-    name: YAML-Version
-    id: display_yaml_version
-    update_interval: never
-    entity_category: diagnostic
-    internal: false
-    lambda: |-
-      return {"$yaml_version"};
-
-  # TFT-Version
-  - platform: nextion
-    nextion_id: haui_disp
-    name: TFT-Version
-    id: display_tft_version
-    update_interval: never
-    component_name: system.tftVersion
-    entity_category: diagnostic
-    internal: false
 
   # Wifi informations
   - platform: wifi_info
@@ -191,7 +187,7 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            id(publish_event).execute("page", to_string((uint8_t)x));
+            id(publish_event).execute("page", std::to_string((uint8_t)x));
 
   # Touch X coordinates
   - platform: nextion
@@ -260,11 +256,6 @@ sensor:
     on_value:
         - lambda: |-
             id(update_last_interaction).execute(x, 0);
-
-  # Uptime
-  - platform: uptime
-    name: Uptime
-    disabled_by_default: true
 
   # WIFI Signal stregth
   - platform: wifi_signal

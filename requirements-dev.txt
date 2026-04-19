@@ -1,0 +1,5 @@
+pytest>=8.0
+mypy>=1.9
+pydantic>=2.7
+types-requests
+types-python-dateutil

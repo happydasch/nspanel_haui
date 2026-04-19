@@ -51,9 +51,6 @@ All parts of haui are based on the `haui.base.HAUIBase` class. This class provid
 - `haui.base.HAUIPage`
   Page representation, this class is used when interacting with the page on the device
 
-- `haui.base.HAUIPart`
-  Part with start/stop methods
-
 ### App
 
 `NSPanelHAUI`

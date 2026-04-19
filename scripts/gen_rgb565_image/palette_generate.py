@@ -20,13 +20,13 @@ width = 256
 height = 256
 
 # create a new image with RGB mode
-img = Image.new('RGB', (width, height))
+img = Image.new("RGB", (width, height))
 
 # create all colors
-for i in range(256*256):
+for i in range(256 * 256):
     x = int(i % 256)
     y = int((i - (i % 256)) / 256)
     img.putpixel((x, y), rgb565_to_rgb(i))
 
 # save the image
-img.save('rgb565.png')
+img.save("rgb565.png")

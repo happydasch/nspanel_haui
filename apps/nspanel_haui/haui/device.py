@@ -1,12 +1,15 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Any
 
-from .mapping.page import PANEL_MAPPING, SYS_PANEL_MAPPING
-from .mapping.const import ESP_EVENT, NOTIF_EVENT
-from .abstract.part import HAUIPart
+from .abstract.base import HAUIBase
 from .abstract.event import HAUIEvent
+from .mapping.const import ESP_EVENT, NOTIF_EVENT
+from .mapping.page import PANEL_MAPPING, SYS_PANEL_MAPPING
+
+if TYPE_CHECKING:
+    from ..nspanel_haui import NSPanelHAUI
 
 
-class HAUIDevice(HAUIPart):
+class HAUIDevice(HAUIBase):
     """
     Represents a NSPanel device.
 
@@ -15,7 +18,7 @@ class HAUIDevice(HAUIPart):
     - Physical buttons state
     """
 
-    def __init__(self, app, config: Optional[dict] = None) -> None:
+    def __init__(self, app: "NSPanelHAUI", config: dict | None = None) -> None:
         """Initializes the device.
 
         Args:
@@ -23,14 +26,23 @@ class HAUIDevice(HAUIPart):
             config (dict, optional): Config of device. Defaults to None.
         """
         super().__init__(app, config)
-        self.device_info = {}
+        self.device_info: dict = {}
         self.connected = False
         self.sleeping = False
         self.woke_up = False
         self.first_touch = False
         self.is_on_check = False
-        self._btn_left_info = {"state": False, "entity_id": None, "handle": None}
-        self._btn_right_info = {"state": False, "entity_id": None, "handle": None}
+        self._btn_left_info: dict[str, Any] = {
+            "state": False,
+            "entity_id": None,
+            "handle": None,
+        }
+        self._btn_right_info: dict[str, Any] = {
+            "state": False,
+            "entity_id": None,
+            "handle": None,
+        }
+        self._persistent_sound_handle = None
 
     # prepare and update
 
@@ -40,7 +52,7 @@ class HAUIDevice(HAUIPart):
         Raises:
             ValueError: Missing values in config
         """
-        config = self.app.config
+        config = self.app.device_config
         # check if all sys_panels are valid
         chk_sys_panels = [x.get("key") for x in config.get("sys_panels", [])]
         for panel_key in SYS_PANEL_MAPPING.keys():
@@ -92,6 +104,7 @@ class HAUIDevice(HAUIPart):
         """Stops the part."""
         self.log("Device is stopping")
         self._cancel_callbacks()
+        self._stop_persistent_sound()
 
     # public
 
@@ -130,6 +143,19 @@ class HAUIDevice(HAUIPart):
         """
         self.sleeping = sleeping
 
+    def notify(
+        self,
+        title: str,
+        message: str = "",
+        icon: str = "",
+        timeout: int = 0,
+        persistent: bool = False,
+    ) -> None:
+        """Send a notification via the notification controller."""
+        self.app.controller["notification"].send_notification(
+            title, message, icon, timeout, persistent
+        )
+
     def get_locale(self) -> str:
         """Returns the device locale.
 
@@ -146,80 +172,45 @@ class HAUIDevice(HAUIPart):
         """
         return self.get("name", "nspanel_haui")
 
-    def get_left_button_state(self) -> str:
-        """Returns the left button state.
+    def _get_button_state(self, side: str) -> bool:
+        return getattr(self, f"_btn_{side}_info")["state"]
 
-        Returns:
-            str: state
-        """
-        return self._btn_left_info["state"]
+    def _set_button_state(self, side: str, state: bool) -> None:
+        entity_id = getattr(self, f"_btn_{side}_info")["entity_id"]
+        if not self.app.entity_exists(entity_id):
+            return
+        self.app.get_entity(entity_id).call_service("turn_on" if state else "turn_off")
+
+    def _toggle_button_state(self, side: str) -> None:
+        entity_id = getattr(self, f"_btn_{side}_info")["entity_id"]
+        if not self.app.entity_exists(entity_id):
+            return
+        if not self.device_info.get(f"use_relay_{side}", True):
+            self.app.get_entity(entity_id).call_service("toggle")
+
+    def get_left_button_state(self) -> bool:
+        """Returns the left button state."""
+        return self._get_button_state("left")
 
     def set_left_button_state(self, state: bool) -> None:
-        """Sets the left button state.
-
-        Args:
-            state (bool): State
-        """
-        entity_id = self._btn_left_info["entity_id"]
-        if not self.app.entity_exists(entity_id):
-            return
-        # toggle entity
-        entity = self.app.get_entity(entity_id)
-        if state:
-            entity.call_service("turn_on")
-        else:
-            entity.call_service("turn_off")
+        """Sets the left button state."""
+        self._set_button_state("left", state)
 
     def toggle_left_button_state(self) -> None:
-        """Sets the state of the left button.
+        """Toggles the left button relay entity."""
+        self._toggle_button_state("left")
 
-        This will change the state of the set entity. By default its the relay.
-        """
-        entity_id = self._btn_left_info["entity_id"]
-        if not self.app.entity_exists(entity_id):
-            return
-        # toggle entity
-        if not self.device_info.get("use_relay_left", True):
-            entity = self.app.get_entity(entity_id)
-            entity.call_service("toggle")
-
-    def get_right_button_state(self) -> str:
-        """Returns the right button state.
-
-        Returns:
-            str: state
-        """
-        return self._btn_right_info["state"]
+    def get_right_button_state(self) -> bool:
+        """Returns the right button state."""
+        return self._get_button_state("right")
 
     def set_right_button_state(self, state: bool) -> None:
-        """Sets the right button state.
-
-        Args:
-            state (bool): State
-        """
-        entity_id = self._btn_right_info["entity_id"]
-        if not self.app.entity_exists(entity_id):
-            return
-        # toggle entity
-        entity = self.app.get_entity(entity_id)
-        if state:
-            entity.call_service("turn_on")
-        else:
-            entity.call_service("turn_off")
+        """Sets the right button state."""
+        self._set_button_state("right", state)
 
     def toggle_right_button_state(self) -> None:
-        """Toggles the state of the right button.
-
-        This will change the state of the set entity. By default its the relay.
-        """
-        entity_id = self._btn_right_info["entity_id"]
-        if not self.app.entity_exists(entity_id):
-            return
-        # toggle entity
-        self.log(f"device button right {self.device_info.get('use_relay_right', True)}")
-        if not self.device_info.get("use_relay_right", True):
-            entity = self.app.get_entity(entity_id)
-            entity.call_service("toggle")
+        """Toggles the right button relay entity."""
+        self._toggle_button_state("right")
 
     def play_sound(self, name: str) -> None:
         """Plays a sound.
@@ -230,9 +221,29 @@ class HAUIDevice(HAUIPart):
         device_name = self.get_name()
         self.app.call_service(f"esphome/{device_name}_play_sound", name=name)
 
+    def _persistent_sound_callback(self, kwargs) -> None:  # noqa: ARG002
+        if self.app.controller["notification"].has_persistent_notifications():
+            self.play_sound("notification")
+        else:
+            self._stop_persistent_sound()
+
+    def _start_persistent_sound(self) -> None:
+        if self._persistent_sound_handle is not None:
+            return
+        interval = self.get("persistent_sound_interval", 5)
+        self.play_sound("notification")
+        self._persistent_sound_handle = self.app.run_every(
+            self._persistent_sound_callback, f"now+{interval}", interval
+        )
+
+    def _stop_persistent_sound(self) -> None:
+        if self._persistent_sound_handle is not None:
+            self.app.cancel_timer(self._persistent_sound_handle)
+            self._persistent_sound_handle = None
+
     # callback
 
-    def callback_button_state_entities(self, entity, attribute, old, new, kwargs):
+    def callback_button_state_entities(self, entity, attribute, old, new, **kwargs):
         """Callback method for button state entity state changes.
 
         Args:
@@ -246,7 +257,7 @@ class HAUIDevice(HAUIPart):
         navigation = self.app.controller["navigation"]
         if not navigation.page:
             return
-        state = True if new == "on" else False
+        state = new == "on"
         if entity == self._btn_left_info["entity_id"]:
             self._btn_left_info["state"] = state
             navigation.page.set_button_left_state(state)
@@ -325,8 +336,15 @@ class HAUIDevice(HAUIPart):
                 self.toggle_right_button_state()
         # process notification events
         elif event.name == NOTIF_EVENT["notif_add"]:
-            if self.get("sound_on_notification", True):
+            notification = event.value  # (title, message, icon, timeout, persistent)
+            persistent = notification[4] if len(notification) > 4 else False
+            if persistent:
+                self._start_persistent_sound()
+            elif self.get("sound_on_notification", True):
                 self.play_sound("notification")
+        elif event.name in (NOTIF_EVENT["notif_remove"], NOTIF_EVENT["notif_clear"]):
+            if not self.app.controller["notification"].has_persistent_notifications():
+                self._stop_persistent_sound()
 
     def check_wakeup(self) -> None:
         """Checks if the display just woke up to switch from wakeup page.

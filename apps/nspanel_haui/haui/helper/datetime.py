@@ -1,15 +1,15 @@
 import datetime
 
 # check Babel
-import importlib
+import importlib.util
 
 babel_spec = importlib.util.find_spec("babel")
 if babel_spec is not None:
     import babel.dates
 
 
-def get_time_localized(timeformat):
-    """ Returns a localized time string of current time.
+def get_time_localized(timeformat: str) -> str:
+    """Returns a localized time string of current time.
 
     Returns:
         str: Localized time string
@@ -19,7 +19,7 @@ def get_time_localized(timeformat):
 
 
 def get_date_localized(strftime_format, babel_format, locale):
-    """ Returns a localized date string of current date.
+    """Returns a localized date string of current date.
 
     Args:
         strftime_format (str): strftime format
@@ -33,8 +33,10 @@ def get_date_localized(strftime_format, babel_format, locale):
     return format_datetime(dt, strftime_format, babel_format, locale)
 
 
-def format_datetime(dt, strftime_format, babel_format, locale):
-    """ Returns a localized date string.
+def format_datetime(
+    dt: datetime.datetime, strftime_format: str, babel_format: str, locale: str
+) -> str:
+    """Returns a localized date string.
 
     Args:
         strftime_format (str): strftime format

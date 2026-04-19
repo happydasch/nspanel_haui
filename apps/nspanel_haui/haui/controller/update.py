@@ -1,18 +1,17 @@
-import threading
 import json
+import threading
+
 import requests
+from packaging.version import InvalidVersion, Version, parse
 
-from packaging.version import parse, Version, InvalidVersion
-
-from ..mapping.const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
-from ..mapping.color import COLORS
+from ..abstract.base import HAUIBase
 from ..helper.text import trim_text
-from ..abstract.part import HAUIPart
+from ..mapping.color import COLORS
+from ..mapping.const import ESP_EVENT, ESP_REQUEST, ESP_RESPONSE
 
 
-class HAUIUpdateController(HAUIPart):
-
-    """ Update Controller
+class HAUIUpdateController(HAUIBase):
+    """Update Controller
 
     The update controller is used to check for updates and to install them. The controller
     checks for the currently installed tft version and compares it to the versions available
@@ -35,7 +34,7 @@ class HAUIUpdateController(HAUIPart):
     RELEASES_URL = "https://api.github.com/repos/happydasch/nspanel_haui/releases"
 
     def __init__(self, app, config):
-        """ Initialize for update controller.
+        """Initialize for update controller.
 
         Args:
             app (NSPanelHAUI): App
@@ -56,47 +55,50 @@ class HAUIUpdateController(HAUIPart):
     def _start_timer(self):
         if self._timer is not None or self._interval == 0:
             return
-        self._timer = threading.Timer(self._interval, self.callback_timer)
-        self._timer.daemon = True
-        self._timer.start()
+        self._timer = self.app.run_every(
+            self._timer_callback, f"now+{self._interval}", self._interval
+        )
 
     def _stop_timer(self):
         if self._timer is not None:
-            self._timer.cancel()
+            self.app.cancel_timer(self._timer)
             self._timer = None
 
     def _restart_timer(self):
         self._stop_timer()
         self._start_timer()
 
+    def _timer_callback(self, kwargs):
+        self.callback_timer()
+
     def _start_timer_delay(self):
-        self._timer_delay = threading.Timer(
-            self._interval_delay, lambda: self.request_device_info(True)
-        )
-        self._timer_delay.start()
+        self._timer_delay = self.app.run_in(self._timer_delay_callback, self._interval_delay)
 
     def _stop_timer_delay(self):
         if self._timer_delay is not None:
-            self._timer_delay.cancel()
+            self.app.cancel_timer(self._timer_delay)
             self._timer_delay = None
+
+    def _timer_delay_callback(self, kwargs):
+        self.request_version_info(True)
 
     # part
 
     def start_part(self):
-        """ Starts the part. """
+        """Starts the part."""
         self._interval = self.get("update_interval", 0)
         self._interval_delay = self.get("on_connect_delay", 30)
         self._start_timer()
 
     def stop_part(self):
-        """ Stops the part. """
+        """Stops the part."""
         self._stop_timer()
         self._stop_timer_delay()
 
     # device
 
     def request_device_info(self, check_for_update=True):
-        """ Sends a device info request to the panel.
+        """Sends a device info request to the panel.
 
         This will generate a mqtt response which will later be processed.
 
@@ -105,12 +107,25 @@ class HAUIUpdateController(HAUIPart):
         """
         self.log("Sending device_info request")
         self.send_mqtt(ESP_REQUEST["req_device_info"])
+
+    def request_version_info(self, check_for_update=True):
+        """Sends a version info request to the panel.
+
+        This will generate mqtt responses which will later be processed:
+        - res_version_info: yaml_version and required_tft_version
+        - res_txt (name: system.tftVersion): tft_version from display
+
+        Args:
+            check_for_update (bool, optional): Should the controller check for updates. Defaults to True.
+        """
+        self.log("Sending version_info request")
+        self.send_mqtt(ESP_REQUEST["req_version_info"])
         self._req_await = check_for_update
 
     # update
 
     def _parse_version(self, version):
-        """ Parses the given version string and returns a Version object.
+        """Parses the given version string and returns a Version object.
 
         Args:
             version (str): Version string
@@ -125,7 +140,7 @@ class HAUIUpdateController(HAUIPart):
         return vers
 
     def _update_release_infos(self):
-        """ Updates the release informations. """
+        """Updates the release informations."""
         if self._req_fetch:
             return
         self._req_fetch = True
@@ -139,7 +154,7 @@ class HAUIUpdateController(HAUIPart):
         self._req_fetch = False
 
     def _get_latest_release(self):
-        """ Returns the latest available release dict.
+        """Returns the latest available release dict.
 
         Returns:
             None|dict: Release info
@@ -156,7 +171,7 @@ class HAUIUpdateController(HAUIPart):
         return latest_release
 
     def _get_update_url(self, release_info):
-        """ Returns the update url to the tft file from given release.
+        """Returns the update url to the tft file from given release.
 
         Args:
             release_info (dict): Release info
@@ -177,7 +192,7 @@ class HAUIUpdateController(HAUIPart):
         return tft_file_asset["browser_download_url"]
 
     def _is_update_available(self):
-        """ Returns if a update is available.
+        """Returns if a update is available.
 
         Returns:
             bool: True if an update is available, False if not
@@ -193,7 +208,7 @@ class HAUIUpdateController(HAUIPart):
         return False
 
     def run_update_display(self):
-        """ Runs the update process for the display. """
+        """Runs the update process for the display."""
         latest_release = self._get_latest_release()
         if latest_release is None:
             self.log("No release info available")
@@ -207,10 +222,11 @@ class HAUIUpdateController(HAUIPart):
         self.app.call_service(f"esphome/{name}_upload_tft_url", url=update_url)
 
     def check_installed_version(self):
-        """ Checks on connect if a update is available. """
+        """Checks on connect if a update is available."""
         device_info = self.app.device.device_info
         required_version = device_info.get("required_tft_version")
         installed_version = device_info.get("tft_version")
+        self.log(f"Checking installed version: required={required_version} installed={installed_version}")
         if required_version is None or installed_version is None:
             # notify about unknown versions
             msg = self.translate("Got unknown TFT-Version information.")
@@ -220,13 +236,15 @@ class HAUIUpdateController(HAUIPart):
             v_req = self._parse_version(required_version)
             v_inst = self._parse_version(installed_version)
             if v_req <= v_inst:
-                # everything is fine (installed version is newer or equal to required version)
+                self.log("Installed TFT version is up to date")
                 return
             # invalid or unknown version installed
             if self.get("auto_install", True) and v_inst == Version("0.0.0"):
                 if self.app.device.connected:
-                    self.log(f"Invalid version installed: {installed_version}"
-                             ", auto install display")
+                    self.log(
+                        f"Invalid version installed: {installed_version}"
+                        ", auto install display"
+                    )
                     self.run_update_display()
                     return
             # notify about outdated tft version
@@ -251,7 +269,7 @@ class HAUIUpdateController(HAUIPart):
         )
 
     def check_for_update(self):
-        """ Checks if a update is available. """
+        """Checks if a update is available."""
         self._stop_timer_delay()
         self._update_release_infos()
         latest_release = self._get_latest_release()
@@ -272,7 +290,7 @@ class HAUIUpdateController(HAUIPart):
             msg += trim_text(description, 200)
             msg += "\r\n\r\n"
             msg += self.translate("Version:")
-            msg += f' {device_info["tft_version"]} -> {latest_release["tag_name"]}'
+            msg += f" {device_info['tft_version']} -> {latest_release['tag_name']}"
             msg += "\r\n\r\n"
             msg += self.translate("Do you want to update?")
             navigation.open_popup(
@@ -292,7 +310,7 @@ class HAUIUpdateController(HAUIPart):
     # callback
 
     def callback_version_response(self, btn_left, btn_right):
-        """ Callback method for check update response.
+        """Callback method for check update response.
 
         Args:
             btn_left (bool): Left button state
@@ -301,11 +319,11 @@ class HAUIUpdateController(HAUIPart):
         self.log("Callback version response")
         navigation = self.app.controller["navigation"]
         if btn_right:
-            self.request_device_info(True)
+            self.request_version_info(True)
         navigation.close_panel()
 
     def callback_update_response(self, btn_left, btn_right):
-        """ Callback method for update to new version response.
+        """Callback method for update to new version response.
 
         Args:
             btn_left (bool): Left button state
@@ -326,14 +344,14 @@ class HAUIUpdateController(HAUIPart):
             self.run_update_display()
 
     def callback_timer(self):
-        """ Callback method for timer. """
-        self.request_device_info(True)
+        """Callback method for timer."""
+        self.request_version_info(True)
         self._restart_timer()
 
     # event
 
     def process_event(self, event):
-        """ Process events.
+        """Process events.
 
         Args:
             event (HAUIEvent): Event
@@ -342,26 +360,25 @@ class HAUIUpdateController(HAUIPart):
         # on connect
         if event.name == ESP_EVENT["connected"]:
             self._stop_timer_delay()
-            # request device infos when device connects
+            # schedule delayed update check if configured
             if self.get("check_on_connect", False):
                 delay_interval = self.get("on_connect_delay", 30)
                 self.log(f"Checking for update on connect in {delay_interval} seconds")
                 self._start_timer_delay()
-            # always request device infos when device is connected
-            # so a check for outdated tft version can be done faster
-            # than first update check
-            self.request_device_info(False)
 
-        # device info received, check for update using device info
+        # device info received (device_version, yaml_version)
         if event.name == ESP_RESPONSE["res_device_info"]:
             device_info = json.loads(event.value)
             self.app.device.set_device_info(device_info, append=True)
-            # check the required tft version defined on the esp
-            # to match currently installed version on the display
+
+        # version info received (yaml_version, required_tft_version, tft_version)
+        # complete payload assembled on device side via res_txt.on_value intercept
+        if event.name == ESP_RESPONSE["res_version_info"]:
+            version_info = json.loads(event.value)
+            self.log(f"Version info received: {version_info}")
+            self.app.device.set_device_info(version_info, append=True)
             if not self._req_await:
                 self.check_installed_version()
-            # only if update interval is bigger than 0 and update controller
-            # requested the value
-            elif self._req_await and self._interval > 0:
+            else:
                 threading.Thread(target=self.check_for_update, daemon=True).start()
                 self._req_await = False

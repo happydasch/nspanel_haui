@@ -6,6 +6,10 @@ substitutions:
 # ESP Configuration
 esp32:
   board: esp32dev
+  framework:
+    type: esp-idf
+    advanced:
+      minimum_chip_revision: "3.0"
 
 
 # ESPHome Configuration
@@ -15,7 +19,6 @@ esphome:
   project:
     name: happydasch.nspanel_haui
     version: $yaml_version
-
 
 # Logger Configuration
 logger:

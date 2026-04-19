@@ -1,19 +1,19 @@
 import time
 
+from ..abstract.base import HAUIBase
+from ..abstract.event import HAUIEvent
 from ..mapping.const import ESP_EVENT
-from ..abstract.part import HAUIPart
 
 
-class HAUIGestureController(HAUIPart):
-
-    """ Gesture Controller
+class HAUIGestureController(HAUIBase):
+    """Gesture Controller
 
     Provides access to advanced gesture control.
     Supports gesture sequences.
     """
 
-    def __init__(self, app, config):
-        """ Initialize for gesture controller.
+    def __init__(self, app, config) -> None:
+        """Initialize for gesture controller.
 
         Args:
             app (NSPanelHAUI): App
@@ -25,8 +25,8 @@ class HAUIGestureController(HAUIPart):
 
     # public
 
-    def process_gesture(self, gesture_name):
-        """ Processes the gesture with the given name.
+    def process_gesture(self, gesture_name: str) -> None:
+        """Processes the gesture with the given name.
 
         Args:
             gesture_name (str): Name of the gesture
@@ -91,8 +91,8 @@ class HAUIGestureController(HAUIPart):
                         # process finished gesture sequence
                         self.process_gesture_sequence(seq_data)
 
-    def process_gesture_sequence(self, seq_data):
-        """ Processes a complete gesture sequence. """
+    def process_gesture_sequence(self, seq_data) -> None:
+        """Processes a complete gesture sequence."""
         panel_key = seq_data.get("open", "")
         if panel_key == "":
             return
@@ -102,8 +102,8 @@ class HAUIGestureController(HAUIPart):
 
     # event
 
-    def process_event(self, event):
-        """ Processes an event.
+    def process_event(self, event: HAUIEvent) -> None:
+        """Processes an event.
 
         Args:
             event (Event): Event

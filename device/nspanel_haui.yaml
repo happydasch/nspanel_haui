@@ -10,7 +10,6 @@ substitutions:
   heartbeat_interval: $heartbeat_interval
   friendly_name: $frindly_name
   name: $name
-  mqtt_name: $mqtt_name
   # MQTT config
   mqtt_ip: $mqtt_ip
   mqtt_username: $mqtt_username

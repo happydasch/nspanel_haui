@@ -1,7 +1,6 @@
-from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
-from ..abstract.panel import HAUIPanel
 from ..abstract.event import HAUIEvent
-
+from ..abstract.panel import HAUIPanel
+from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from . import HAUIPage
 
 
@@ -26,13 +25,11 @@ class SettingsPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIPanel) -> None:
         name = self.app.device.get_name()
 
         # auto dimming component
-        self.auto_dimming = self.app.get_entity(
-            f"switch.{name}_use_auto_dimming"
-        )
+        self.auto_dimming = self.app.get_entity(f"switch.{name}_use_auto_dimming")
         self._use_auto_dimming = self.auto_dimming.get_state()
         self.auto_dimming.turn_off()
 
@@ -107,7 +104,7 @@ class SettingsPage(HAUIPage):
             return
         self.send_mqtt(ESP_REQUEST["req_val"], component[1], force=True)
 
-    def callback_brightness(self, entity, attribute, old, new, cb_args):
+    def callback_brightness(self, entity, attribute, old, new, **cb_args):
         self.log(f"Got brightness callback: {entity}.{attribute}:{new}")
         # callback from ha
         if (

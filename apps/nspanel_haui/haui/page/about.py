@@ -1,7 +1,5 @@
-import haui.version
-
 from ..abstract.panel import HAUIPanel
-
+from ..version import __version__ as haui_version
 from . import HAUIPage
 
 
@@ -22,29 +20,26 @@ class AboutPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
-        self.start_rec_cmd()
+    def start_panel(self, panel: HAUIPanel) -> None:
+        with self.rec_cmd:
+            # set function buttons
+            self.set_function_buttons(
+                self.BTN_FNC_LEFT_PRI,
+                self.BTN_FNC_LEFT_SEC,
+                self.BTN_FNC_RIGHT_PRI,
+                self.BTN_FNC_RIGHT_SEC,
+            )
 
-        # set function buttons
-        self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
-            self.BTN_FNC_RIGHT_SEC,
-        )
+            # title
+            self._title = panel.get_title(self.translate("NSPanel HAUI"))
+            self.set_component_text(self.TXT_TITLE, self._title)
 
-        # title
-        self._title = panel.get_title(self.translate("NSPanel HAUI"))
-        self.set_component_text(self.TXT_TITLE, self._title)
-
-        self.stop_rec_cmd(send_commands=True)
-
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIPanel) -> None:
         name = self.app.device.device_info.get("friendly_name", self.app.device.get_name())
         ip_address = self.app.device.device_info.get("ip", "127.0.0.1")
         tft_version = self.app.device.device_info.get("tft_version", "0.0.0")
         yaml_version = self.app.device.device_info.get("yaml_version", "0.0.0")
-        ad_version = haui.version.__version__
+        ad_version = haui_version
         # about text
         self.set_component_text(
             self.TXT_ABOUT_1,

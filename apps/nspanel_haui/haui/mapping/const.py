@@ -1,5 +1,7 @@
 # ESP Events, ESP will publish on events
 # published to recv
+from typing import Any
+
 ESP_EVENT = {
     event: event
     for event in [
@@ -31,6 +33,7 @@ ESP_RESPONSE = {
     for response in [
         "res_device_info",
         "res_device_state",
+        "res_version_info",
         "res_val",
         "res_txt",
         "send_notification",
@@ -44,6 +47,7 @@ ESP_REQUEST = {
     for request in [
         "req_device_info",
         "req_device_state",
+        "req_version_info",
         "req_reconnect",
         "req_val",
         "req_txt",
@@ -90,10 +94,10 @@ ALL_CMD.update({msg: msg for msg in ESP_COMMAND})
 ALL_CMD.update({msg: msg for msg in SERVER_RESPONSE})
 
 # internal entity types
-INTERNAL_ENTITY_TYPE = ["skip", "text", "navigate", "action"]
+INTERNAL_ENTITY_TYPE: list[str] = ["skip", "text", "navigate", "action"]
 
 # entity config
-ENTITY_CONFIG = {
+ENTITY_CONFIG: dict[str, Any] = {
     "entity": None,  # entity id
     "popup_key": None,  # allows to override the default popup
     # by default the values below are returned
@@ -107,7 +111,7 @@ ENTITY_CONFIG = {
 }
 
 # panel config
-PANEL_CONFIG = {
+PANEL_CONFIG: dict[str, Any] = {
     "type": None,  # panel type
     "mode": "panel",  # panel mode: panel, subpanel, popup
     "key": None,  # internal identifier
@@ -123,7 +127,7 @@ PANEL_CONFIG = {
 }
 
 # default config
-DEFAULT_CONFIG = {
+DEFAULT_CONFIG: dict[str, Any] = {
     # common settings
     "time_format": "%H:%M",
     "date_format": "%A, %d. %B %Y",
@@ -152,9 +156,7 @@ DEFAULT_CONFIG = {
         "sound_on_notification": True,
     },
     # mqtt related settings
-    "mqtt": {
-        "topic_prefix": "nspanel_haui/nspanel_haui",
-    },
+    "mqtt": {},
     # connection related settings
     "connection": {
         "heartbeat_interval": None,  # Default 5 sec, None means use interval provided by device, value in seconds

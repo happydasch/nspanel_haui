@@ -1,6 +1,7 @@
-with open('scripts/gen_fonts/icons_data.json', 'r') as f:
+with open("scripts/gen_fonts/icons_data.json", "r") as f:
     icons = f.read()
-cheatsheet = '''
+cheatsheet = (
+    """
 <!doctype html>
 <html lang="en">
 
@@ -390,7 +391,9 @@ cheatsheet = '''
             var iconsCount = 0;
             var newIconsCount = 0;
             var deprecatedIconsCount = 0;
-            var icons = ''' + icons + ''';
+            var icons = """
+    + icons
+    + """;
             icons.forEach(function (icon) {
                 var item = getIconItem(icon);
                 document.getElementById('icons').appendChild(item);
@@ -404,6 +407,7 @@ cheatsheet = '''
 </body>
 
 </html>
-'''
-with open('docs/cheatsheet.html', 'w') as f:
+"""
+)
+with open("docs/cheatsheet.html", "w") as f:
     f.write(cheatsheet)

@@ -32,7 +32,7 @@ panels:
   # weather panel with forecast
   - type: weather
     entity: weather.home
-    show_forecast: hourl
+    show_forecast: hourly
 
   # weather panel with a background and forecast
   - type: weather

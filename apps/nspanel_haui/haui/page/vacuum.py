@@ -1,15 +1,12 @@
-from typing import List
-from ..mapping.color import COLORS
-from ..helper.icon import get_icon
-from ..abstract.panel import HAUIPanel
 from ..abstract.entity import HAUIEntity
+from ..abstract.panel import HAUIPanel
 from ..features import VacuumFeatures
-
+from ..helper.icon import get_icon
+from ..mapping.color import COLORS
 from . import HAUIPage
 
 
 class VacuumPage(HAUIPage):
-
     """
     https://developers.home-assistant.io/docs/core/entity/vacuum/
     https://github.com/home-assistant/core/blob/master/homeassistant/components/vacuum/__init__.py
@@ -47,8 +44,8 @@ class VacuumPage(HAUIPage):
     NUM_ENTITIES = 6
 
     _title = ""
-    _entities: List[HAUIEntity] = []
-    _vacuum_entity: HAUIEntity = None
+    _entities: list[HAUIEntity] = []
+    _vacuum_entity: HAUIEntity | None = None
 
     # panel
 
@@ -90,13 +87,15 @@ class VacuumPage(HAUIPage):
 
     # misc
 
-    def set_vacuum_entity(self, entity: HAUIEntity):
+    def set_vacuum_entity(self, entity: HAUIEntity | None):
         self._vacuum_entity = entity
         if not entity or not entity.has_entity_id():
             return
         # add listener
         self.add_entity_listener(entity.get_entity_id(), self.callback_vacuum_entity)
-        self.add_entity_listener(entity.get_entity_id(), self.callback_vacuum_entity, attribute="status")
+        self.add_entity_listener(
+            entity.get_entity_id(), self.callback_vacuum_entity, attribute="status"
+        )
         # use features of vacuum
         features = entity.get_entity_attr("supported_features", 0)
         # fan button
@@ -150,14 +149,13 @@ class VacuumPage(HAUIPage):
             visible = False
             icon = ""
             color = COLORS["text"]
+            entity = None
             if i < total_entities:
                 entity = self._entities[i]
                 icon = entity.get_icon()
                 color = entity.get_color()
                 visible = True
-            else:
-                entity = None
-            component = getattr(self, f"BTN_ENTITY_{i+1}")
+            component = getattr(self, f"BTN_ENTITY_{i + 1}")
             self.set_function_component(
                 component,
                 component[1],
@@ -179,9 +177,8 @@ class VacuumPage(HAUIPage):
         if features & VacuumFeatures.BATTERY:
             battery_icon = entity.get_entity_attr("battery_icon", self.ICO_BATTERY)
             self.update_function_component(
-                self.FNC_BTN_R_SEC,
-                icon=get_icon(battery_icon),
-                visible=True)
+                self.FNC_BTN_R_SEC, icon=get_icon(battery_icon), visible=True
+            )
         # status text
         status_text = self.translate_state(entity.get_entity_type(), state)
         self.set_component_text(self.TXT_STATUS, status_text)
@@ -299,9 +296,8 @@ class VacuumPage(HAUIPage):
 
     def callback_vacuum_entity(self, entity, attribute, old, new, kwargs):
         if attribute in ["state", "status"]:
-            self.start_rec_cmd()
-            self.update_vacuum_entity()
-            self.stop_rec_cmd(send_commands=True)
+            with self.rec_cmd:
+                self.update_vacuum_entity()
         else:
             self.log(f"Unknown vacuum entity attribute: {attribute}")
 

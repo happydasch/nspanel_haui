@@ -18,11 +18,6 @@ display:
         - number.set:
             id: brightness_dim
             value: !lambda return int(id(brightness_dim).state);
-        # set tft and yaml version
-        - delay: 1s
-        - lambda: |-
-              id(display_yaml_version).update();
-              id(display_tft_version).update();
         # set as initialized
         - lambda: |-
               ESP_LOGI("haui", "NSPanel HAUI Init");
@@ -37,9 +32,16 @@ display:
     on_touch:
       then:
         - lambda: |-
-            std::string event = to_string(page_id) + "," + to_string(component_id);
-            event += "," + to_string(touch_event);
+            std::string event = std::to_string(page_id) + "," + std::to_string(component_id);
+            event += "," + std::to_string(touch_event);
             id(publish_event).execute("component", event);
+            id(update_last_interaction).execute(-1, 0);
+
+    on_buffer_overflow:
+      then:
+        - lambda: |-
+            ESP_LOGW("haui", "Nextion buffer overflow detected");
+            id(publish_event).execute("buffer_overflow", "1");
             id(update_last_interaction).execute(-1, 0);
 
     on_sleep:

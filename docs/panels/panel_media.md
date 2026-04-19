@@ -40,17 +40,17 @@ It is possible to group/ungroup media_player entities. The available group membe
 
 ```yaml
 panels:
-  - type: media_player
+  - type: media
     entity: media_player.media_player_to_control
     group_entities:
-      media_player.group_member_1
-      media_player.group_member_2
-      media_player.group_member_3
+      - media_player.group_member_1
+      - media_player.group_member_2
+      - media_player.group_member_3
 
 or
 
 panels:
-  - type: media_player
+  - type: media
     entity: media_player.media_player_to_control
     entities:
       - entity: media_player.group_member_1
@@ -60,7 +60,7 @@ panels:
 or
 
 panels:
-  - type: media_player
+  - type: media
     entities:
       - entity: media_player.media_player_to_control
       - entity: media_player.group_member_1

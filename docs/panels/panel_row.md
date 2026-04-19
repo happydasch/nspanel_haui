@@ -6,11 +6,6 @@
 
 `type: row`
 
-Shows entities in rows.
-
-This panel can be also used to organize panels and subpanels.
-type: grid
-
 The entities row panel provides a panel with 5 rows. If more than 5 entities are provided, the entities can be scrolled.
 
 This panel can be also used to organize panels and subpanels.

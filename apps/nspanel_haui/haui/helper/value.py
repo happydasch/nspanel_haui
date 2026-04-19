@@ -1,5 +1,5 @@
-def scale(val, src, dst):
-    """ Scale the value
+def scale(val: float, src: tuple | list, dst: tuple | list) -> float:
+    """Scale the value
 
     Scale the given value from the scale of src
     to the scale of dst.
@@ -15,8 +15,8 @@ def scale(val, src, dst):
     return ((val - src[0]) / (src[1] - src[0])) * (dst[1] - dst[0]) + dst[0]
 
 
-def merge_dicts(dict1, dict2):
-    """ Merge two dicts together
+def merge_dicts(dict1: dict, dict2: dict) -> None:
+    """Merge two dicts together
 
     This function will merge the source dict into
     the destination dict.
@@ -25,8 +25,8 @@ def merge_dicts(dict1, dict2):
         dict1 (dict): destination dict
         dict2 (dict): source dict
     """
-    for k in dict2.keys():
-        if k in dict1 and isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
-            merge_dicts(dict1[k], dict2[k])
+    for key, value in dict2.items():
+        if key in dict1 and isinstance(dict1[key], dict) and isinstance(value, dict):
+            merge_dicts(dict1[key], value)
         else:
-            dict1[k] = dict2[k]
+            dict1[key] = value

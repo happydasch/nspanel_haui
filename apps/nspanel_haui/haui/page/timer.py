@@ -1,10 +1,9 @@
 import datetime
 import threading
 
-from ..mapping.color import COLORS
-from ..helper.icon import get_icon
 from ..abstract.panel import HAUIPanel
-
+from ..helper.icon import get_icon
+from ..mapping.color import COLORS
 from . import HAUIPage
 
 
@@ -40,20 +39,21 @@ class TimerPage(HAUIPage):
 
     DISPLAY_UPDATE_INTERVAL = 0.5
 
-    _show_notification = False
-    _persistent_config = None
-    _timer = None
-    _timer_update_display = None
-
     # panel
 
+    def start_page(self):
+        self._show_notification = False
+        self._timer = None
+        self._timer_update_display = None
+
     def start_panel(self, panel: HAUIPanel):
-        # set persistent timer dict for later access
-        self._persistent_config = panel.get_persistent_config(return_copy=False)
-        self._timer = self.initialize_timer()
+        # initialise (or restore) the timer dict from panel state
+        self._timer = self.initialize_timer(panel)
 
         # notification on timer finish
-        self._show_notification = panel.get("show_notification", self._show_notification)
+        self._show_notification = panel.get(
+            "show_notification", self._show_notification
+        )
 
         # set function buttons
         stop_btn = {
@@ -85,12 +85,21 @@ class TimerPage(HAUIPage):
         ]:
             visible = not self.is_timer_active()
             self.set_function_component(
-                x, x[1], fnc_name=x[1], color=COLORS["component_active"], visible=visible
+                x,
+                x[1],
+                fnc_name=x[1],
+                color=COLORS["component_active"],
+                visible=visible,
             )
 
         # control buttons for timer
-        for x in [(self.BTN_START, "start_timer"), (self.BTN_STOP, "stop_timer")]:
-            self.set_function_component(x[0], x[0][1], fnc_name=x[1], visible=False)
+        for ctrl, ctrl_name in [
+            (self.BTN_START, "start_timer"),
+            (self.BTN_STOP, "stop_timer"),
+        ]:
+            self.set_function_component(
+                ctrl, ctrl[1], fnc_name=ctrl_name, visible=False
+            )
 
         # display
         self.set_function_component(
@@ -129,22 +138,23 @@ class TimerPage(HAUIPage):
 
     # misc
 
-    def initialize_timer(self):
-        # timer is stored in persistent config so it can be restored
-        # after panel was closed
-        if "timer" not in self._persistent_config:
-            timer = {
-                "timer_time": datetime.datetime.now(),
-                "timer_minutes": 0,
-                "timer_seconds": 0,
-                "timer_handle": None,
-                "timer_countdown": False,
-                "timer_paused": False,
-                "timer_active": False,
-                "timer_switch": True,
-            }
-            self._persistent_config["timer"] = timer
-        return self._persistent_config["timer"]
+    def initialize_timer(self, panel: HAUIPanel):
+        # timer is stored in panel state so it can be restored after panel was closed
+        if panel.get_state("timer") is None:
+            panel.set_state(
+                "timer",
+                {
+                    "timer_time": datetime.datetime.now(),
+                    "timer_minutes": 0,
+                    "timer_seconds": 0,
+                    "timer_handle": None,
+                    "timer_countdown": False,
+                    "timer_paused": False,
+                    "timer_active": False,
+                    "timer_switch": True,
+                },
+            )
+        return panel.get_state("timer")
 
     def start_timer(self):
         timer = self._timer
@@ -175,10 +185,9 @@ class TimerPage(HAUIPage):
             )
             timer["timer_handle"].start()
         # update display
-        self.start_rec_cmd()
-        self.update_adjust_buttons(False)
-        self.update_function_component(self.FNC_BTN_R_SEC, visible=True)
-        self.stop_rec_cmd(send_commands=True)
+        with self.rec_cmd:
+            self.update_adjust_buttons(False)
+            self.update_function_component(self.FNC_BTN_R_SEC, visible=True)
 
     def stop_timer(self):
         timer = self._timer
@@ -196,10 +205,9 @@ class TimerPage(HAUIPage):
             }
         )
         # update display
-        self.start_rec_cmd()
-        self.update_adjust_buttons(True)
-        self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
-        self.stop_rec_cmd(send_commands=True)
+        with self.rec_cmd:
+            self.update_adjust_buttons(True)
+            self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
 
     def pause_timer(self):
         self._timer["timer_paused"] = True
@@ -259,9 +267,8 @@ class TimerPage(HAUIPage):
                     )
                     timer["timer_handle"].start()
         # update display
-        self.start_rec_cmd()
-        self.update_timer_components()
-        self.stop_rec_cmd(send_commands=True)
+        with self.rec_cmd:
+            self.update_timer_components()
         # set next update using interval
         self._timer_update_display = threading.Timer(
             self.DISPLAY_UPDATE_INTERVAL, self.update_timer

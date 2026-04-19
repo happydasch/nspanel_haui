@@ -1,18 +1,14 @@
-from typing import List, Optional
-import dateutil.parser as dp
 import datetime
 import threading
 
-from ..mapping.background import BACKGROUNDS
-from ..mapping.icon import WEATHER_MAPPING
-from ..mapping.color import COLORS
-from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
-from ..helper.icon import get_icon, parse_icon
-from ..helper.datetime import get_time_localized, get_date_localized, format_datetime
-from ..abstract.panel import HAUIPanel
 from ..abstract.entity import HAUIEntity
 from ..abstract.event import HAUIEvent
-
+from ..abstract.panel import HAUIPanel
+from ..helper.datetime import get_date_localized, get_time_localized
+from ..helper.icon import parse_icon
+from ..mapping.background import BACKGROUNDS
+from ..mapping.color import COLORS
+from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
 from . import HAUIPage
 
 
@@ -36,22 +32,23 @@ class ClockPage(HAUIPage):
     NUM_ENTITIES = 6
     DISPLAY_UPDATE_INTERVAL = 1.0
 
-    _timer_date = None
-    _timer_time = None
-    _timer_notifications = None
-    _show_notifications = True
-    _new_notifications = False
-    _show_weather = True
-    _show_temp = True
-    _show_home_temp = False
-    _temp_unit = "°C"
-    _temp_precision = 1
-    _weather_entity: Optional[HAUIEntity] = None
-    _entities: List[HAUIEntity] = []
-
     # panel
 
-    def create_panel(self, panel: HAUIPanel):
+    def start_page(self) -> None:
+        self._timer_date: str | None = None
+        self._timer_time: str | None = None
+        self._timer_notifications: threading.Timer | None = None
+        self._show_notifications = True
+        self._new_notifications = False
+        self._show_weather = True
+        self._show_temp = True
+        self._show_home_temp = False
+        self._temp_unit = "°C"
+        self._temp_precision = 1
+        self._weather_entity: HAUIEntity | None = None
+        self._entities: list[HAUIEntity] = []
+
+    def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background
         # set before showing panel
         background = panel.get("background", "default")
@@ -59,7 +56,7 @@ class ClockPage(HAUIPage):
         if background in BACKGROUNDS:
             self.send_cmd(f"clock.background.val={BACKGROUNDS[background]}")
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIPanel) -> None:
         # time update callback
         time = datetime.time(0, 0, 0)
         self._timer_time = self.app.run_minutely(self.callback_update_time, time)
@@ -96,7 +93,7 @@ class ClockPage(HAUIPage):
             self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications
         )
 
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIPanel) -> None:
         # time display
         self.update_time()
         # date display
@@ -106,7 +103,7 @@ class ClockPage(HAUIPage):
         # notifications
         self.update_notifications()
 
-    def stop_panel(self, panel: HAUIPanel):
+    def stop_panel(self, panel: HAUIPanel) -> None:
         # cancel time and date timer
         if self._timer_time is not None:
             self.app.cancel_timer(self._timer_time)
@@ -121,14 +118,15 @@ class ClockPage(HAUIPage):
 
     # misc
 
-    def update_time(self):
-        timeformat = self.app.config.get("time_format")
+    def update_time(self) -> None:
+        timeformat = self.app.device_config.get("time_format")
         time = get_time_localized(timeformat)
         self.update_function_component(self.TXT_TIME[1], text=time)
+        self.send_cmd(f"ref {self.ICO_MAIN[1]}")
 
-    def update_date(self):
-        strftime_format = self.app.config.get("date_format")
-        babel_format = self.app.config.get("date_format_babel")
+    def update_date(self) -> None:
+        strftime_format = self.app.device_config.get("date_format")
+        babel_format = self.app.device_config.get("date_format_babel")
         locale = self.app.device.get_locale()
         date = get_date_localized(strftime_format, babel_format, locale)
         self.update_function_component(self.TXT_DATE[1], text=date)
@@ -141,34 +139,33 @@ class ClockPage(HAUIPage):
         name = self.app.device.get_name()
         icon = self._weather_entity.get_icon()
         color = self._weather_entity.get_color()
-        msg = round(
-            float(self._weather_entity.get_entity_attr("temperature", "")), self._temp_precision
+        temp_outside = round(
+            float(self._weather_entity.get_entity_attr("temperature", "")),
+            self._temp_precision,
         )
-        if not self._temp_precision:
-            msg = int(msg)
-        if msg:
-            msg = f"{msg}{self._temp_unit}mdi:thermometer"
+        msg = ""
         if self._show_home_temp:
-            internal_temp = self.app.get_entity(f"sensor.{name}_temperature")
-            internal_temp = round(float(internal_temp.get_state()), self._temp_precision)
+            temp_inside_entity = self.app.get_entity(f"sensor.{name}_temperature")
+            temp_inside: float | int = round(
+                float(temp_inside_entity.get_state()), self._temp_precision
+            )
             if not self._temp_precision:
-                internal_temp = int(internal_temp)
-            if msg != "":
-                msg = f"  {msg}"
-            msg = f"{internal_temp}{self._temp_unit}mdi:home-thermometer{msg}"
-
-        msg = parse_icon(msg)
+                temp_inside = int(temp_inside)
+            msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
+        if not self._temp_precision:
+            temp_outside = int(temp_outside)
+        msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
         msg_sub = self._weather_entity.get_entity_attr("pressure", "")
         if msg_sub:
             pressure_unit = self._weather_entity.get_entity_attr("pressure_unit")
             msg_sub = f"{msg_sub}{pressure_unit}"
+        self.update_function_component(self.TXT_MAIN[1], text=msg, visible=self._show_temp)
+        self.update_function_component(self.TXT_SUB[1], text=msg_sub, visible=self._show_temp)
         self.update_function_component(
             self.ICO_MAIN[1], icon=icon, color=color, visible=self._show_weather
         )
-        self.update_function_component(self.TXT_MAIN[1], text=msg, visible=self._show_temp)
-        self.update_function_component(self.TXT_SUB[1], text=msg_sub, visible=self._show_temp)
 
-    def update_entities(self, entities: List[HAUIEntity]) -> None:
+    def update_entities(self, entities: list[HAUIEntity]) -> None:
         # first entity is main weather entity
         main = None
         if len(entities):
@@ -246,17 +243,17 @@ class ClockPage(HAUIPage):
 
     # callback
 
-    def callback_update_time(self, cb_args):
+    def callback_update_time(self, cb_args) -> None:
         if self.app.device.sleeping:
             return
         self.update_time()
 
-    def callback_update_date(self, cb_args):
+    def callback_update_date(self, cb_args) -> None:
         if self.app.device.sleeping:
             return
         self.update_date()
 
-    def callback_weather(self, entity, attribute, old, new, kwargs):
+    def callback_weather(self, entity, attribute, old, new, kwargs) -> None:
         if self.app.device.sleeping:
             return
         self.update_main_weather()

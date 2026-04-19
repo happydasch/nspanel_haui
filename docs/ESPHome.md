@@ -49,11 +49,10 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 - `heartbeat_interval` (5)
 - `name` (nspanel-haui)
 - `friendly_name` (NSPanel HAUI)
-- `mqtt_name` (nspanel_haui)
 - `mqtt_ip` (!secret mqtt_ip)
 - `mqtt_username` (!secret mqtt_username)
 - `mqtt_password` (!secret mqtt_password)
-- `topic_prefix` (nspanel_haui/nspanel_haui)
+- `topic_prefix` (nspanel_haui/nspanel-haui)
 - `topic_cmd` ($topic_prefix/cmd)
 - `topic_recv` ($topic_prefix/recv)
 - `ota_password` (!secret ota_password)
@@ -118,6 +117,8 @@ These are commands that are being executed on the ESP.
 - `send_commands`Sends multiple commands to the nextion display
 - `goto_page` Sets the active page on display
 - `send_notification` Sends a notification to the display
+
+  Parameters: `title` (string), `message` (string), `icon` (string, optional — pass `""` to omit), `timeout` (int, seconds), `persistent` (bool — when true the notification sound loops until dismissed)
 
 ## Events
 
@@ -255,6 +256,8 @@ This actions below are defined on the ESP. The communication between the AppDaem
 - `reset_last_interaction_offset` Action to reset the last interaction value adding an offset
 
 - `send_notification` Action to send a notification to a display
+
+  Parameters: `title`, `message`, `icon` (optional), `timeout`, `persistent`
 
 ## Page
 

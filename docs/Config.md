@@ -71,7 +71,7 @@ date_format_babel: "full"
 
 - `name` string
 
-  The name of the panel device, defaults to received mqtt_name value
+  The name of the panel device
 
 - `locale` string
 
@@ -122,9 +122,13 @@ date_format_babel: "full"
 
   Should a sound be played when the display is connected after startup. Default True.
 
-  - `sound_on_notification` bool
+- `sound_on_notification` bool
 
-  Should a sound be played when the display recieves a notification. Default True.
+  Should a sound be played when the display receives a non-persistent notification. Default True.
+
+- `persistent_sound_interval` int
+
+  Seconds between repeated sound plays for persistent notifications. Default `5`.
 
 ```yaml
 device:
@@ -141,6 +145,7 @@ device:
   always_return_to_home: false
   sound_on_startup: true
   sound_on_notification: true
+  persistent_sound_interval: 5
 ```
 
 ## Navigation Configuration

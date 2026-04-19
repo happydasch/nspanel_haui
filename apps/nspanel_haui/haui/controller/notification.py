@@ -1,10 +1,9 @@
-from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
-from ..abstract.part import HAUIPart
+from ..abstract.base import HAUIBase
 from ..abstract.event import HAUIEvent
+from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
 
 
-class HAUINotificationController(HAUIPart):
-
+class HAUINotificationController(HAUIBase):
     """Notification Controller
 
     Provides functionality for notifications.
@@ -21,10 +20,44 @@ class HAUINotificationController(HAUIPart):
         self.log(f"Creating Notification Controller with config: {config}")
         self._notifications = []  # list for notifications
 
+    def send_notification(
+        self,
+        title: str,
+        message: str = "",
+        icon: str = "",
+        timeout: int = 0,
+        persistent: bool = False,
+    ) -> None:
+        """Send a notification to the panel.
+
+        Parameters
+        ----------
+        title: str
+            Title of the notification.
+        message: str, optional
+            Body text. Can be empty.
+        icon: str, optional
+            Icon name. Pass empty string to omit.
+        timeout: int, optional
+            How long the notification should be shown in seconds.
+        persistent: bool, optional
+            When True the notification sound loops until the notification is dismissed.
+        """
+
+        self.log(f"Sending notification: title={title!r} persistent={persistent}")
+        self.add_notification(title, message, icon, timeout, persistent)
+
     # notifications
 
-    def add_notification(self, title: str, message: str = "", icon: str = "", timeout: int = 0) -> tuple:
-        notification = (title, message, icon, timeout,)
+    def add_notification(
+        self,
+        title: str,
+        message: str = "",
+        icon: str = "",
+        timeout: int = 0,
+        persistent: bool = False,
+    ) -> tuple:
+        notification = (title, message, icon, timeout, persistent)
         self._notifications.append(notification)
         event = HAUIEvent(NOTIF_EVENT["notif_add"], value=notification)
         self.app.callback_event(event)
@@ -48,6 +81,9 @@ class HAUINotificationController(HAUIPart):
 
     def has_notifications(self) -> bool:
         return len(self._notifications) > 0
+
+    def has_persistent_notifications(self) -> bool:
+        return any(n[4] for n in self._notifications)
 
     # event
 

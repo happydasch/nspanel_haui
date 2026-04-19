@@ -1,17 +1,13 @@
-from typing import List
-
+from ..abstract.entity import HAUIEntity
+from ..abstract.panel import HAUIPanel
+from ..features import ClimateFeatures
+from ..helper.icon import get_icon
 from ..mapping.color import COLORS
 from ..mapping.icon import CLIMATE_MAPPING
-from ..helper.icon import get_icon
-from ..abstract.panel import HAUIPanel
-from ..abstract.entity import HAUIEntity
-from ..features import ClimateFeatures
-
 from . import HAUIPage
 
 
 class ClimatePage(HAUIPage):
-
     # https://developers.home-assistant.io/docs/core/entity/climate
 
     # common components
@@ -25,7 +21,7 @@ class ClimatePage(HAUIPage):
         (8, "bUp"),
         (9, "bDown"),
         (10, "xSet"),
-        (11, "tUnit")
+        (11, "tUnit"),
     )
     BTN_UP_1, BTN_DOWN_1, X_SET_1, TXT_UNIT_1 = (
         (12, "bUp1"),
@@ -67,12 +63,12 @@ class ClimatePage(HAUIPage):
     NUM_MODES = 6
 
     _title = ""
-    _climate_entity: HAUIEntity = None
-    _hvac_modes: List[str] = None
+    _climate_entity: HAUIEntity | None = None
+    _hvac_modes: list[str] | None = None
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIPanel) -> None:
         # set function buttons
         power_off_btn = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,
@@ -101,20 +97,28 @@ class ClimatePage(HAUIPage):
             title = entity.get_entity_attr("friendly_name", title)
         self._title = title
 
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.TXT_TITLE, self._title)
         self.update_climate_entity()
 
     # misc
 
-    def set_climate_entity(self, entity: HAUIEntity):
+    def set_climate_entity(self, entity: HAUIEntity | None) -> None:
         self._climate_entity = entity
         if not entity or not entity.has_entity_id():
             return
         # add listener
         self.add_entity_listener(entity.get_entity_id(), self.callback_climate_entity)
-        self.add_entity_listener(entity.get_entity_id(), self.callback_climate_entity, attribute="current_temperature")
-        self.add_entity_listener(entity.get_entity_id(), self.callback_climate_entity, attribute="temperature")
+        self.add_entity_listener(
+            entity.get_entity_id(),
+            self.callback_climate_entity,
+            attribute="current_temperature",
+        )
+        self.add_entity_listener(
+            entity.get_entity_id(),
+            self.callback_climate_entity,
+            attribute="temperature",
+        )
         # use features of climate
         features = entity.get_entity_attr("supported_features", 0)
         # temperature input
@@ -196,11 +200,20 @@ class ClimatePage(HAUIPage):
                     visible=True,
                 )
         else:
-            for x in [self.BTN_UP, self.BTN_DOWN,
-                      self.BTN_UP_1, self.BTN_DOWN_1,
-                      self.BTN_UP_2, self.BTN_DOWN_2,
-                      self.X_SET, self.X_SET_1, self.X_SET_2,
-                      self.TXT_UNIT, self.TXT_UNIT_1, self.TXT_UNIT_2]:
+            for x in [
+                self.BTN_UP,
+                self.BTN_DOWN,
+                self.BTN_UP_1,
+                self.BTN_DOWN_1,
+                self.BTN_UP_2,
+                self.BTN_DOWN_2,
+                self.X_SET,
+                self.X_SET_1,
+                self.X_SET_2,
+                self.TXT_UNIT,
+                self.TXT_UNIT_1,
+                self.TXT_UNIT_2,
+            ]:
                 self.hide_component(x)
         # hvac mode buttons
         self._hvac_modes = entity.get_entity_attr("hvac_modes", [])
@@ -216,7 +229,7 @@ class ClimatePage(HAUIPage):
                     icon = CLIMATE_MAPPING[hvac_mode]
                 if f"climate_{hvac_mode}" in COLORS:
                     color_pressed = COLORS[f"climate_{hvac_mode}"]
-            component = getattr(self, f"BT_MODE_{i+1}")
+            component = getattr(self, f"BT_MODE_{i + 1}")
             self.set_function_component(
                 component,
                 component[1],
@@ -272,7 +285,7 @@ class ClimatePage(HAUIPage):
             touch=swing_mode,
         )
 
-    def update_climate_entity(self):
+    def update_climate_entity(self) -> None:
         if self._climate_entity is None:
             return
         entity = self._climate_entity
@@ -280,7 +293,7 @@ class ClimatePage(HAUIPage):
         self.update_climate_info(entity)
         self.update_hvac_modes(entity)
 
-    def update_climate_control(self, entity: HAUIEntity):
+    def update_climate_control(self, entity: HAUIEntity) -> None:
         features = entity.get_entity_attr("supported_features", 0)
         if features & ClimateFeatures.TARGET_TEMPERATURE_RANGE:
             # TODO
@@ -346,23 +359,27 @@ class ClimatePage(HAUIPage):
         else:
             self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
 
-    def update_climate_info(self, entity: HAUIEntity):
+    def update_climate_info(self, entity: HAUIEntity) -> None:
         current_temp = entity.get_entity_attr("current_temperature", 0)
         unit = entity.get_entity_attr("temperature_unit", "°C")
         self.set_component_text(self.TXT_UNIT, unit)
         self.set_component_text(self.TXT_TEMP, f"{current_temp}{unit}")
 
-    def update_hvac_modes(self, entity: HAUIEntity):
+    def update_hvac_modes(self, entity: HAUIEntity) -> None:
         hvac_mode = entity.get_entity_state()
         color_active = COLORS["component_active"]
         color_inactive = COLORS["component"]
         if f"climate_{hvac_mode}" in COLORS:
             color_active = COLORS[f"climate_{hvac_mode}"]
         for i in range(self.NUM_MODES):
-            component = getattr(self, f"BT_MODE_{i+1}")
+            component = getattr(self, f"BT_MODE_{i + 1}")
             color = color_inactive
             value = 0
-            if i < len(self._hvac_modes) and self._hvac_modes[i] == hvac_mode:
+            if (
+                self._hvac_modes is not None
+                and i < len(self._hvac_modes)
+                and self._hvac_modes[i] == hvac_mode
+            ):
                 color = color_active
                 value = 1
             self.update_function_component(component[1], color=color)
@@ -370,7 +387,7 @@ class ClimatePage(HAUIPage):
 
     # callback
 
-    def callback_function_component(self, fnc_id, fnc_name):
+    def callback_function_component(self, fnc_id, fnc_name) -> None:
         haui_entity = self._climate_entity
         self.log(f"callback_function_component: {fnc_id}, {fnc_name}")
         if fnc_name == "temp_up":
@@ -391,7 +408,7 @@ class ClimatePage(HAUIPage):
         elif fnc_name == "hvac_mode":
             hvac_mode = "off"
             for i in range(self.NUM_MODES):
-                component = getattr(self, f"BT_MODE_{i+1}")
+                component = getattr(self, f"BT_MODE_{i + 1}")
                 if i < len(self._hvac_modes) and component[1] == fnc_id:
                     hvac_mode = self._hvac_modes[i]
                     break
@@ -455,19 +472,18 @@ class ClimatePage(HAUIPage):
             if self._climate_entity.get_entity_state() != "off":
                 self._climate_entity.call_entity_service("set_hvac_mode", hvac_mode="off")
 
-    def callback_fan_mode(self, selection):
+    def callback_fan_mode(self, selection) -> None:
         self.log(f"Got fan mode selection: {selection}")
         self._climate_entity.call_entity_service("set_fan_mode", fan_mode=selection)
 
-    def callback_preset_mode(self, selection):
+    def callback_preset_mode(self, selection) -> None:
         self.log(f"Got preset mode selection: {selection}")
         self._climate_entity.call_entity_service("set_preset_mode", preset_mode=selection)
 
-    def callback_swing_mode(self, selection):
+    def callback_swing_mode(self, selection) -> None:
         self.log(f"Got swing mode selection: {selection}")
         self._climate_entity.call_entity_service("set_swing_mode", swing_mode=selection)
 
-    def callback_climate_entity(self, entity, attribute, old, new, kwargs):
-        self.start_rec_cmd()
-        self.update_climate_entity()
-        self.stop_rec_cmd(send_commands=True)
+    def callback_climate_entity(self, entity, attribute, old, new, kwargs) -> None:
+        with self.rec_cmd:
+            self.update_climate_entity()

@@ -1,20 +1,17 @@
 import datetime
 import threading
-from typing import List
 
-from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
-from ..mapping.color import COLORS
-from ..helper.icon import get_icon
-from ..abstract.panel import HAUIPanel
 from ..abstract.entity import HAUIEntity
 from ..abstract.event import HAUIEvent
+from ..abstract.panel import HAUIPanel
 from ..features import MediaPlayerFeatures
-
+from ..helper.icon import get_icon
+from ..mapping.color import COLORS
+from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from . import HAUIPage
 
 
 class MediaPage(HAUIPage):
-
     """
     https://developers.home-assistant.io/docs/core/entity/media-player
 
@@ -87,22 +84,23 @@ class MediaPage(HAUIPage):
     SCROLLING_INTERVAL = 0.5
     PROGRESS_INTERVAL = 0.5
 
-    _title = ""
-    _entities: List[HAUIEntity] = []
-    _media_entity: HAUIEntity = None
-    _group_entities = []
-    _sonos_favorites = None
-    _sonos_favorites_in_source = False
-    _media_favorites = []
-    _media_title = ""
-    _media_interpret = ""
-    _media_channel = ""
-    _timer_progress = None
-    _timer_scrolling = None
-
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_page(self) -> None:
+        self._title = ""
+        self._entities: list[HAUIEntity] = []
+        self._media_entity: HAUIEntity | None = None
+        self._group_entities: list = []
+        self._sonos_favorites: HAUIEntity | None = None
+        self._sonos_favorites_in_source = False
+        self._media_favorites: list = []
+        self._media_title = ""
+        self._media_interpret = ""
+        self._media_channel = ""
+        self._timer_progress = None
+        self._timer_scrolling: threading.Timer | None = None
+
+    def start_panel(self, panel: HAUIPanel) -> None:
         # set function buttons
         media_state_btn = {
             "fnc_component": self.BTN_FNC_RIGHT_SEC,
@@ -159,10 +157,10 @@ class MediaPage(HAUIPage):
             title = entity.get_entity_attr("friendly_name", title)
         self._title = title
 
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIPanel) -> None:
         self.update_media_entity()
 
-    def stop_panel(self, panel: HAUIPanel):
+    def stop_panel(self, panel: HAUIPanel) -> None:
         if self._timer_progress is not None:
             self._timer_progress.cancel()
             self._timer_progress = None
@@ -172,7 +170,7 @@ class MediaPage(HAUIPage):
 
     # misc
 
-    def _scrolling_text(self):
+    def _scrolling_text(self) -> None:
         if len(self._media_title) > 20:
             self._media_title = self._media_title[1:] + self._media_title[0]
             self.set_component_text(self.TXT_MEDIA_TITLE, self._media_title)
@@ -187,7 +185,7 @@ class MediaPage(HAUIPage):
             )
             self._timer_scrolling.start()
 
-    def set_media_entity(self, entity: HAUIEntity):
+    def set_media_entity(self, entity: HAUIEntity | None) -> None:
         self._media_entity = entity
         if not entity or not entity.has_entity_id():
             return
@@ -326,9 +324,10 @@ class MediaPage(HAUIPage):
         # source button
         source = False
         source_list = entity.get_entity_attr("source_list", [])
-        if supported_features & MediaPlayerFeatures.SELECT_SOURCE and len(source_list) > 0 or (
-            self._sonos_favorites is not None
-            and self._sonos_favorites_in_source is True
+        if (
+            supported_features & MediaPlayerFeatures.SELECT_SOURCE
+            and len(source_list) > 0
+            or (self._sonos_favorites is not None and self._sonos_favorites_in_source is True)
         ):
             source = True
         self.set_media_button(
@@ -352,7 +351,7 @@ class MediaPage(HAUIPage):
         self.set_media_button(3, self.ICO_SELECT_MEDIA, self.translate("Media"), media)
         self.add_component_callback(self.M3_OVL, self.callback_select_media)
 
-    def set_media_button(self, idx, icon, name, visible=True):
+    def set_media_button(self, idx, icon, name, visible=True) -> None:
         m_btn = getattr(self, f"M{idx}_BTN")
         m_ico = getattr(self, f"M{idx}_ICO")
         m_name = getattr(self, f"M{idx}_NAME")
@@ -362,7 +361,7 @@ class MediaPage(HAUIPage):
         self.set_component_text(m_ico, icon)
         self.set_component_text(m_name, name)
 
-    def update_media_title(self):
+    def update_media_title(self) -> None:
         title = self._title
         if self._media_entity:
             entity = self._media_entity
@@ -372,7 +371,7 @@ class MediaPage(HAUIPage):
                 title = media_channel
         self.set_component_text(self.TXT_TITLE, title)
 
-    def update_media_entity(self):
+    def update_media_entity(self) -> None:
         self.update_media_title()
         # media details
         self.update_media_info()
@@ -382,7 +381,7 @@ class MediaPage(HAUIPage):
         # power button
         self.update_power_button()
 
-    def update_media_info(self):
+    def update_media_info(self) -> None:
         if self._media_entity is None:
             return
         entity = self._media_entity
@@ -400,10 +399,10 @@ class MediaPage(HAUIPage):
                     media_interpret = self.translate("Unknown Interpret")
         self._media_title = media_title
         if len(self._media_title) > 20:
-            self._media_title = f'{self._media_title} {get_icon("minus")} '
+            self._media_title = f"{self._media_title} {get_icon('minus')} "
         self._media_interpret = media_interpret
         if len(self._media_interpret) > 30:
-            self._media_interpret = f'{self._media_interpret} {get_icon("minus")} '
+            self._media_interpret = f"{self._media_interpret} {get_icon('minus')} "
         self._media_channel = media_channel
         self.set_component_text(self.TXT_MEDIA_ICON, entity.get_icon())
         self.set_component_text_color(self.TXT_MEDIA_ICON, entity.get_color())
@@ -412,7 +411,7 @@ class MediaPage(HAUIPage):
         if self._timer_scrolling is None:
             self._scrolling_text()
 
-    def update_media_controls(self):
+    def update_media_controls(self) -> None:
         if self._media_entity is None:
             for fnc_id in [
                 self.BTN_SHUFFLE[1],
@@ -539,7 +538,7 @@ class MediaPage(HAUIPage):
         else:
             self.update_function_component(self.BTN_NEXT[1], visible=False)
 
-    def update_volume(self):
+    def update_volume(self) -> None:
         if self._media_entity is None:
             return
         entity = self._media_entity
@@ -554,7 +553,7 @@ class MediaPage(HAUIPage):
         self.update_function_component(self.BTN_VOL_DOWN[1], visible=volume_visible)
         self.update_function_component(self.BTN_VOL_UP[1], visible=volume_visible)
 
-    def update_progress(self):
+    def update_progress(self) -> None:
         if self._media_entity is None:
             return
         entity = self._media_entity
@@ -585,7 +584,7 @@ class MediaPage(HAUIPage):
             )
             self._timer_progress.start()
 
-    def update_power_button(self):
+    def update_power_button(self) -> None:
         if self._media_entity is None:
             self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
             return
@@ -604,7 +603,7 @@ class MediaPage(HAUIPage):
 
     # callback
 
-    def callback_media_entity(self, entity, attribute, old, new, kwargs):
+    def callback_media_entity(self, entity, attribute, old, new, kwargs) -> None:
         if attribute == "state":
             self.update_media_entity()
         elif attribute in ["media_title", "media_artist", "media_channel"]:
@@ -618,7 +617,7 @@ class MediaPage(HAUIPage):
         else:
             self.log(f"Unknown media entity attribute: {attribute}")
 
-    def callback_function_component(self, fnc_id, fnc_name):
+    def callback_function_component(self, fnc_id, fnc_name) -> None:
         if self._media_entity is None:
             return
         entity = self._media_entity
@@ -683,7 +682,7 @@ class MediaPage(HAUIPage):
         else:
             self.log("Skipping popup, no source items found")
 
-    def callback_select_media(self, event, component, button_state):
+    def callback_select_media(self, event, component, button_state) -> None:
         navigation = self.app.controller["navigation"]
         selection = []
         # add sonos favorites
@@ -715,9 +714,11 @@ class MediaPage(HAUIPage):
             )
         else:
             self.log("Skipping popup, no media items found")
-            self.log(f"No media items found {self.config}, {self.panel.get_config()}")
+            self.log(
+                f"No media items found page_config={self.config}, panel_type={self.panel.get_type()}"
+            )
 
-    def callback_select_group(self, event, component, button_state):
+    def callback_select_group(self, event, component, button_state) -> None:
         self.log(f"Got group callback: {component}-{button_state}")
         group_members = self._media_entity.get_entity_attr("group_members", [])
         navigation = self.app.controller["navigation"]
@@ -752,13 +753,15 @@ class MediaPage(HAUIPage):
             )
         else:
             self.log("Skipping popup, no media items found")
-            self.log(f"No media items found {self.config}, {self.panel.get_config()}")
+            self.log(
+                f"No media items found page_config={self.config}, panel_type={self.panel.get_type()}"
+            )
 
-    def callback_source(self, selection):
+    def callback_source(self, selection) -> None:
         self.log(f"Got source selection: {selection}")
         self._media_entity.call_entity_service("select_source", source=selection)
 
-    def callback_media(self, selection):
+    def callback_media(self, selection) -> None:
         self.log(f"Got media selection: {selection}")
         if selection.startswith("sonos_favorites:"):
             source = selection.split(":", maxsplit=1)[-1]
@@ -773,7 +776,7 @@ class MediaPage(HAUIPage):
                 media_content_id=content_id,
             )
 
-    def callback_group(self, selection):
+    def callback_group(self, selection) -> None:
         self.log(f"Got group selection: {selection}")
         group_members = self._media_entity.get_entity_attr("group_members", [])
         # look for new group members
@@ -803,7 +806,7 @@ class MediaPage(HAUIPage):
 
     # event
 
-    def process_event(self, event: HAUIEvent):
+    def process_event(self, event: HAUIEvent) -> None:
         super().process_event(event)
         # requested values
         if event.name == ESP_RESPONSE["res_val"]:
@@ -813,12 +816,12 @@ class MediaPage(HAUIPage):
             if name == self.SLD_VOL[1]:
                 self.process_volume(value)
 
-    def process_volume(self, volume):
+    def process_volume(self, volume) -> None:
         # value between 0 and 1 as float
         volume_level = volume / 100
         self._media_entity.call_entity_service("volume_set", volume_level=volume_level)
 
-    def process_power(self, power):
+    def process_power(self, power) -> None:
         if self._media_entity.get_entity_state() == "on":
             self._media_entity.call_entity_service("media_play")
         else:

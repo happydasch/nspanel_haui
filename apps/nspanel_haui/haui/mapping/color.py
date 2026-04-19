@@ -16,8 +16,8 @@ COLORS = {
     "weather_partlycloudy": 38066,  # [148, 148, 148] 50% grey: partlycloudy
     "weather_windy": 38066,  # [148, 148, 148] 50% grey: windy
     "weather_windy_variant": 64495,  # [255, 125, 123] red grey: windy-variant
-    "weather_rainy": 25375,  # [98, 97, 255] light-blue: rainy
-    "weather_pouring": 12703,  # [49, 49, 255] blue: pouring
+    "weather_rainy": 38047,  # [98, 97, 255] light-blue: rainy
+    "weather_pouring": 27519,  # [49, 49, 255] blue: pouring
     "weather_lightning": 65120,  # [255, 206, 0] yellow: lightning
     "weather_lightning_rainy": 50400,  # [197, 157, 0] dark-yellow: lightning-rainy
     "weather_hail": 65535,  # [255, 255, 255] white: hail

@@ -1,15 +1,14 @@
-import threading
-import time
 import json
+import time
 
+from ..abstract.base import HAUIBase
+from ..abstract.event import HAUIEvent
+from ..mapping.const import ESP_REQUEST, ESP_RESPONSE, SERVER_REQUEST, SERVER_RESPONSE
 from ..version import __version__ as haui_version
-from ..mapping.const import SERVER_REQUEST, SERVER_RESPONSE, ESP_REQUEST, ESP_RESPONSE
-from ..abstract.part import HAUIPart
 
 
-class HAUIConnectionController(HAUIPart):
-
-    """ Connection Controller
+class HAUIConnectionController(HAUIBase):
+    """Connection Controller
 
     Provides connection related handling. All needed functionality
     to keep a connection alive is here.
@@ -22,8 +21,8 @@ class HAUIConnectionController(HAUIPart):
         stops receiving heartbeat messages
     """
 
-    def __init__(self, app, config, connection_callback):
-        """ Initialize for Connection Controller.
+    def __init__(self, app, config, connection_callback) -> None:
+        """Initialize for Connection Controller.
 
         Args:
             app (NSPanelHAUI): App
@@ -44,40 +43,41 @@ class HAUIConnectionController(HAUIPart):
 
     # internal
 
-    def _check_timeout(self):
-        """ Checks if a timeout occured. """
+    def _check_timeout(self) -> None:
+        """Checks if a timeout occured."""
         overdue_factor = self.get("overdue_factor", 2.0)
         time_max = self._last_time + (self._interval * overdue_factor)
-        if time.monotonic() > time_max:
-            if self.connected:
-                self.log("Heartbeat timeout from device")
-                self._set_connected(False)
-        if self.is_started():
-            self._restart_timer()
+        if self.connected and time.monotonic() > time_max:
+            self.log("Heartbeat timeout from device")
+            self._set_connected(False)
 
-    def _start_timer(self):
-        """ Starts the check timer. """
-        self._timer = threading.Timer(self._interval, self._check_timeout)
-        self._timer.daemon = True
-        self._timer.start()
+    def _check_timeout_callback(self, kwargs) -> None:
+        """AppDaemon scheduler callback for heartbeat check."""
+        self._check_timeout()
 
-    def _stop_timer(self):
-        """ Stops the check timer. """
+    def _start_timer(self) -> None:
+        """Starts the check timer."""
+        self._timer = self.app.run_every(
+            self._check_timeout_callback, "now+1", self._interval
+        )
+
+    def _stop_timer(self) -> None:
+        """Stops the check timer."""
         if self._timer:
-            self._timer.cancel()
+            self.app.cancel_timer(self._timer)
             self._timer = None
 
-    def _restart_timer(self):
-        """ Restarts the check timer. """
+    def _restart_timer(self) -> None:
+        """Restarts the check timer."""
         self._stop_timer()
         self._start_timer()
 
     def _update_last_time(self):
-        """ Updates the last time a heartbeat was received. """
+        """Updates the last time a heartbeat was received."""
         self._last_time = time.monotonic()
 
-    def _set_connected(self, connected):
-        """ Sets the connection state.
+    def _set_connected(self, connected: bool) -> None:
+        """Sets the connection state.
 
         Args:
             connected (bool): Connected state
@@ -92,8 +92,8 @@ class HAUIConnectionController(HAUIPart):
 
     # part
 
-    def start_part(self):
-        """ Called when part is started. """
+    def start_part(self) -> None:
+        """Called when part is started."""
         # set interval
         device_interval = self.app.device.device_info.get("heartbeat_interval", 5.0)
         self._interval = int(self.get("heartbeat_interval", device_interval))
@@ -106,8 +106,8 @@ class HAUIConnectionController(HAUIPart):
 
     # events
 
-    def process_event(self, event):
-        """ Process events.
+    def process_event(self, event: HAUIEvent) -> None:
+        """Process events.
 
         Args:
             event (HAUIEvent): Event to process
@@ -119,10 +119,7 @@ class HAUIConnectionController(HAUIPart):
             self._update_last_time()
             if not self.connected:
                 # answer with a reconnection request
-                self.log(
-                    "Device sent heartbeat but is not connected,"
-                    " requesting reconnect"
-                )
+                self.log("Device sent heartbeat but is not connected, requesting reconnect")
                 self.send_mqtt(ESP_REQUEST["req_reconnect"])
             else:
                 # answer with a server heartbeat
@@ -149,7 +146,7 @@ class HAUIConnectionController(HAUIPart):
             # request latest device state infos
             self.send_mqtt(ESP_REQUEST["req_device_state"])
         elif event.name == ESP_RESPONSE["res_device_state"]:
-            self.log(f'Device state received {event.value}')
+            self.log(f"Device state received {event.value}")
             device_state = json.loads(event.value)
             device.set_device_info(device_state, append=True)
             # after getting device state the device is connected
@@ -157,3 +154,5 @@ class HAUIConnectionController(HAUIPart):
                 self._set_connected(True)
                 # notify device about successful connection
                 self.send_mqtt(SERVER_RESPONSE["ad_connection_initialized"], "", True)
+                # request version info independent from connection init
+                self.send_mqtt(ESP_REQUEST["req_version_info"])

@@ -158,20 +158,13 @@ Panel HomeAssistant UI Docs](docs/README.md).
   - eye-candy:
     - wider sliders in different screens
   - sounds: play sounds on startup and on notifications.
-
-  Things for this cycle to finish:
-
-  - notifications: receive notifications and show them on the display. Show an icon on the home panel and on sleep panels. Notifications are available and can be opened and closed until discarded.
-  - new panels:
-    - notification: show current notifications.
-  - new functionality:
-    - simplify config, internal handling
-    - prepare for backend
-  - panels eye-candy:
-    - time in title?
+  - notifications: receive and show notifications
+  - simplify config, internal handling
 
 - **Future**:
 
+  - Eye-Candy
+  - Cleanup code and simplify
   - Replace AppDaemon with Home Assistant Integration
 
 ## Resources

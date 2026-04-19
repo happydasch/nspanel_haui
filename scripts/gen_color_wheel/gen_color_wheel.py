@@ -4,7 +4,7 @@ from PIL import Image, ImageDraw
 
 width = 200
 height = 200
-filename = 'output.png'
+filename = "output.png"
 
 
 def hsv_to_rgb(h, s, v):
@@ -28,9 +28,9 @@ def pos_to_color(x, y, wh):
 
 
 # draw image
-img = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
 draw = ImageDraw.Draw(img)
-draw.rectangle((0, 0, width, height), fill='#1b1b1b')
+draw.rectangle((0, 0, width, height), fill="#1b1b1b")
 for y in range(height):
     for x in range(width):
         color = pos_to_color(x, y, width)

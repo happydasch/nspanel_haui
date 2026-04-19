@@ -3,49 +3,53 @@ from typing import Any
 
 from appdaemon.entity import Entity
 
+from ..helper.color import rgb_to_rgb565
+from ..helper.entity import (
+    execute_entity,
+    get_entity_color,
+    get_entity_icon,
+    get_entity_name,
+    get_entity_value,
+)
+from ..helper.text import get_state_translation
+from ..helper.value import merge_dicts
 from ..mapping.color import COLORS
 from ..mapping.const import (
     ENTITY_CONFIG,
     INTERNAL_ENTITY_TYPE,
 )
-
-from ..helper.color import rgb_to_rgb565
-from ..helper.entity import (
-    get_entity_icon,
-    get_entity_color,
-    get_entity_name,
-    get_entity_value,
-    execute_entity,
-)
-from ..helper.text import get_state_translation
-from ..helper.value import merge_dicts
-
 from .base import HAUIBase
 
 
 class HAUIEntity(HAUIBase):
     """Represents a entity from a panel"""
 
-    def __init__(self, app, config=None):
+    def __init__(self, app, config=None) -> None:
         """Initialize for config entity.
 
         Args:
             app (NSPanelHAUI): App
             config (dict, optional): Config for entity. Defaults to None.
         """
-        # initialize with default entity values
-        super().__init__(app, deepcopy(ENTITY_CONFIG))
-        # load config
+        # build merged config before passing to base — keeps config immutable after init
+        cfg = deepcopy(ENTITY_CONFIG)
         if config is not None:
-            merge_dicts(self.config, config)
+            merge_dicts(cfg, deepcopy(config))
+        super().__init__(app, cfg)
         # type of entity
         self._internal: bool = False  # is it an internal entity
-        self._internal_type: str = None  # internal entity type
-        self._internal_data: dict = ""  # internal entity data
-        self._entity_type: str = None  # entity type
-        self._entity_id: str = None  # entity id
+        self._internal_type: str | None = None  # internal entity type
+        self._internal_data: str = ""  # internal entity data
+        self._entity_type: str | None = None  # entity type
+        self._entity_id: str | None = None  # entity id
         # prepare the entity
         self._prepare_entity(self.get("entity"))
+
+    def _dbg(self, msg: str) -> None:
+        """Log a debug message when log_entities is enabled in device config."""
+        device = getattr(self.app, "device", None)
+        if device and device.get("log_entities"):
+            self.log(msg)
 
     def _prepare_entity(self, entity_id: str) -> None:
         """Prepares internal values from entity.
@@ -56,6 +60,7 @@ class HAUIEntity(HAUIBase):
         if entity_id is None:
             self._internal = True
             self._internal_type = "skip"
+            self._dbg("Entity: None -> skip")
             return
 
         # check if entity is internal
@@ -67,9 +72,13 @@ class HAUIEntity(HAUIBase):
         if self._internal:
             if ":" in entity_id:
                 self._internal_data = "".join(entity_id.split(":")[1:])
+            self._dbg(
+                f"Entity: {entity_id} -> internal type={self._internal_type} data={self._internal_data!r}"
+            )
         else:
             self._entity_id = entity_id
             self._entity_type = entity_id.split(".")[0]
+            self._dbg(f"Entity: {entity_id} -> external type={self._entity_type}")
 
     def execute(self):
         """Executes the entity."""
@@ -101,13 +110,13 @@ class HAUIEntity(HAUIBase):
         """
         return self._internal
 
-    def get_internal_type(self) -> str:
+    def get_internal_type(self) -> str:  # TODO return None
         """Returns the internal entity type.
 
         Returns:
             str: Internal Entity Type
         """
-        return self._internal_type
+        return self._internal_type or ""
 
     def get_internal_data(self) -> str:
         """Returns the internal entity data.
@@ -125,13 +134,15 @@ class HAUIEntity(HAUIBase):
         """
         return self._entity_id is not None
 
-    def get_entity_id(self) -> str:
-        """Returns the entity id.
+    def get_entity_id(self) -> str:  # TODO return None
+        """Returns the entity id, or empty string if not set.
+
+        Check has_entity_id() first if you need to distinguish an unset id.
 
         Returns:
-            str: entity id
+            str: entity id (empty if unset)
         """
-        return self._entity_id
+        return self._entity_id or ""
 
     def has_entity(self) -> bool:
         """Returns if a entity is available.
@@ -141,13 +152,13 @@ class HAUIEntity(HAUIBase):
         """
         return self._entity_id is not None and self.app.entity_exists(self._entity_id)
 
-    def get_entity(self) -> Entity:
+    def get_entity(self) -> Entity | None:
         """Returns the entity.
 
         Returns:
             Entity: Entity
         """
-        if self.has_entity():
+        if self.has_entity() and self._entity_id is not None:
             return self.app.get_entity(self._entity_id)
         return None
 
@@ -159,9 +170,9 @@ class HAUIEntity(HAUIBase):
         Returns:
             str: Entity Type
         """
-        return self._entity_type
+        return self._entity_type or ""
 
-    def get_entity_attr(self, attr, default: Any = None) -> str:
+    def get_entity_attr(self, attr, default: Any = None) -> Any:  # TODO or None
         """Returns a value from the attributes dict.
 
         The attribute value can be either a string or a list of strings. Using
@@ -188,6 +199,8 @@ class HAUIEntity(HAUIBase):
         if not self.has_entity():
             return default
         entity = self.get_entity()
+        if entity is None:
+            return default
         if isinstance(attr, str):
             res = entity.attributes.get(attr)
         elif isinstance(attr, list):
@@ -201,20 +214,22 @@ class HAUIEntity(HAUIBase):
             return default
         return res
 
-    def get_entity_state(self) -> str:
-        """Returns the state of the entity.
+    def get_entity_state(self) -> str | None:
+        """Returns the state of the entity, or None if unavailable.
 
         Returns:
-            str: Entity State
+            str | None: Entity State
         """
         if not self.has_entity():
-            return ""
+            return None
         state = self.get("state", "")
         if state == "":
             entity = self.get_entity()
+            if entity is None:
+                return None
             return entity.get_state()
         # state is overriden
-        return self.get_entity_attr(state, "")
+        return self.get_entity_attr(state, None)
 
     def call_entity_service(self, service: str, **kwargs) -> None:
         """Calls a service on the entity.
@@ -226,7 +241,30 @@ class HAUIEntity(HAUIBase):
         if not self.has_entity():
             return
         entity = self.get_entity()
+        if entity is None:
+            return
         entity.call_service(service, **kwargs)
+
+    def _resolve_state_field(self, key: str, default: str = "") -> str:
+        """Resolve a config field that may be state-based (dict) or a template string.
+
+        1. Reads the field from config.
+        2. If the value is a dict, looks up the current entity state as a key.
+        3. If the result is a non-empty string, renders it as a template.
+
+        Args:
+            key: Config key to look up.
+            default: Value to return when nothing is found.
+
+        Returns:
+            str: Resolved value.
+        """
+        value = self.get(key, default)
+        if isinstance(value, dict):
+            value = value.get(self.get_entity_state(), default)
+        if isinstance(value, str) and value:
+            return self.render_template(value)
+        return default
 
     def get_value(self) -> str:
         """Returns the value of the entity.
@@ -234,64 +272,30 @@ class HAUIEntity(HAUIBase):
         Returns:
             str: The value
         """
-        value = self.get("value", "")
-        if isinstance(value, dict):
-            entity_state = self.get_entity_state()
-            if entity_state in value:
-                value = value[entity_state]
-            else:
-                value = ""
-        if value != "":
-            value = self.render_template(value)
+        value = self._resolve_state_field("value")
 
-        # check internal entity: value
-        if self.is_internal() and value == "":
-            internal_type = self.get_internal_type()
-            internal_data = self.get_internal_data()
-            # text
-            if internal_type == "text":
-                value = internal_data
+        # internal text entity
+        if not value and self.is_internal() and self.get_internal_type() == "text":
+            value = self.get_internal_data()
 
-        # use default value
-        if value == "":
-            value = get_entity_value(self, "")
+        return value or get_entity_value(self, "")
 
-        return value
-
-    def get_name(self):
+    def get_name(self) -> str:
         """Returns the name of the entity.
 
         Returns:
             str: Name of the entity
         """
-        name = self.get("name", "")
-        # state based name
-        if isinstance(name, dict):
-            entity_state = self.get_entity_state()
-            if entity_state in name:
-                name = name[entity_state]
-            else:
-                name = ""
-        # use name from config
-        if isinstance(name, str) and name != "":
-            return self.render_template(name)
+        name = self._resolve_state_field("name")
 
-        # check internal entity: name
-        if self.is_internal() and name == "":
-            internal_type = self.get_internal_type()
-            internal_data = self.get_internal_data()
-            # navigate
-            if internal_type == "navigate":
-                panel = self.app.config.get_panel(internal_data)
-                # use the panels title
+        # internal navigate entity uses panel title
+        if not name and self.is_internal():
+            if self.get_internal_type() == "navigate":
+                panel = self.app.device_config.get_panel(self.get_internal_data())
                 if panel:
                     name = panel.get_title()
 
-        # default name
-        if name == "":
-            name = get_entity_name(self, "")
-
-        return name
+        return name or get_entity_name(self, "")
 
     def get_color(self) -> int:
         """Returns the color of the entity.
@@ -300,22 +304,13 @@ class HAUIEntity(HAUIBase):
             int: the color of the entry in rgb565
         """
         color = self.get("color")
-        # state based color
         if isinstance(color, dict):
-            entity_state = self.get_entity_state()
-            if entity_state in color:
-                color = color[entity_state]
-            else:
-                color = None
-        # use color from config
-        if isinstance(color, str) and color != "":
+            color = color.get(self.get_entity_state())
+        if isinstance(color, str) and color:
             color = self.render_template(color)
         elif isinstance(color, list) and len(color) == 3:
             color = rgb_to_rgb565(color)
-        # use default color
-        if not color:
-            color = get_entity_color(self, COLORS["entity_unavailable"])
-        return color
+        return color or get_entity_color(self, COLORS["entity_unavailable"])
 
     def get_icon(self) -> str:
         """Returns the icon of the entry.
@@ -323,26 +318,11 @@ class HAUIEntity(HAUIBase):
         Returns:
             str: Icon chr of entry
         """
-        icon = self.get("icon", "")
-        # state based icon
-        if isinstance(icon, dict):
-            entity_state = self.get_entity_state()
-            if entity_state in icon:
-                # overwrite icon with matching state
-                icon = icon[entity_state]
-            else:
-                # reset icon if no state defined
-                icon = ""
-        # use icon from config
-        if isinstance(icon, str) and icon != "":
-            icon = self.render_template(icon)
-        # use default icon
-        if not icon:
-            icon = get_entity_icon(self, "alert-circle-outline")
-        return icon
+        icon = self._resolve_state_field("icon")
+        return icon or get_entity_icon(self, "alert-circle-outline")
 
-    def translate_state(self) -> str:
-        """Returns the translation of entity state.
+    def translate_entity_state(self) -> str:
+        """Returns the translation of this entity's current state.
 
         Returns:
             str: Translated state

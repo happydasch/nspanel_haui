@@ -88,4 +88,8 @@ The device supports multiple different panels which are displayed on the display
 
 ### Notifications
 
-The device can receive notifications and display them. The notifications are available until they are discarded on the display.
+The device can receive notifications and display them. Notifications remain in the queue until dismissed by the user on the display.
+
+Notifications support an optional icon and an optional `persistent` flag. When `persistent` is set to true the notification sound loops at a regular interval until the notification is explicitly dismissed — useful for alerts that require user attention.
+
+See [Popup Notification](panels/popup_notifs.md) for full details and usage examples.

@@ -1,13 +1,12 @@
-from ..mapping.color import COLORS
 from ..abstract.panel import HAUIPanel
-
+from ..mapping.color import COLORS
 from .alarm import AlarmPage
 
 
 class UnlockPage(AlarmPage):
     _input = ""
     _title = ""
-    _unlock_panel: HAUIPanel = None
+    _unlock_panel: HAUIPanel | None = None
 
     # panel
 
@@ -27,50 +26,47 @@ class UnlockPage(AlarmPage):
             },
         }
 
-        self.start_rec_cmd()
+        with self.rec_cmd:
+            # set function buttons
+            self.set_function_buttons(
+                AlarmPage.BTN_FNC_LEFT_PRI,
+                AlarmPage.BTN_FNC_LEFT_SEC,
+                AlarmPage.BTN_FNC_RIGHT_PRI,
+                lock_btn,
+            )
 
-        # set function buttons
-        self.set_function_buttons(
-            AlarmPage.BTN_FNC_LEFT_PRI,
-            AlarmPage.BTN_FNC_LEFT_SEC,
-            AlarmPage.BTN_FNC_RIGHT_PRI,
-            lock_btn,
-        )
+            # set components
+            for c in [
+                AlarmPage.BTN_KEY_0,
+                AlarmPage.BTN_KEY_1,
+                AlarmPage.BTN_KEY_2,
+                AlarmPage.BTN_KEY_3,
+                AlarmPage.BTN_KEY_4,
+                AlarmPage.BTN_KEY_5,
+                AlarmPage.BTN_KEY_6,
+                AlarmPage.BTN_KEY_7,
+                AlarmPage.BTN_KEY_8,
+                AlarmPage.BTN_KEY_9,
+                AlarmPage.BTN_KEY_CLR,
+                AlarmPage.BTN_KEY_DEL,
+            ]:
+                self.add_component_callback(c, self.callback_keypad)
+            self.add_component_callback(AlarmPage.B1_FNC, self.callback_unlock)
+            self.set_function_component(
+                component=AlarmPage.B1_FNC,
+                fnc_id=AlarmPage.B1_FNC[1],
+                fnc_name=AlarmPage.B1_FNC[1],
+                color=COLORS["text_disabled"],
+                text=self.translate("Unlock"),
+                locked=getattr(panel, "locked", False),
+            )
 
-        # set components
-        for c in [
-            AlarmPage.BTN_KEY_0,
-            AlarmPage.BTN_KEY_1,
-            AlarmPage.BTN_KEY_2,
-            AlarmPage.BTN_KEY_3,
-            AlarmPage.BTN_KEY_4,
-            AlarmPage.BTN_KEY_5,
-            AlarmPage.BTN_KEY_6,
-            AlarmPage.BTN_KEY_7,
-            AlarmPage.BTN_KEY_8,
-            AlarmPage.BTN_KEY_9,
-            AlarmPage.BTN_KEY_CLR,
-            AlarmPage.BTN_KEY_DEL,
-        ]:
-            self.add_component_callback(c, self.callback_keypad)
-        self.add_component_callback(AlarmPage.B1_FNC, self.callback_unlock)
-        self.set_function_component(
-            component=AlarmPage.B1_FNC,
-            fnc_id=AlarmPage.B1_FNC[1],
-            fnc_name=AlarmPage.B1_FNC[1],
-            color=COLORS["text_disabled"],
-            text=self.translate("Unlock"),
-            locked=getattr(panel, "locked", False),
-        )
-
-        # prepare unlock panel using config from locked panel
-        if unlock_panel:
-            config = panel.get_config(return_copy=False)
-            config["mode"] = unlock_panel.get_mode()
-            self._title = unlock_panel.get_title(self._title)
-            self._unlock_code = unlock_panel.get("unlock_code")
-
-        self.stop_rec_cmd(send_commands=True)
+            # prepare unlock panel using config from locked panel
+            if unlock_panel:
+                # override the unlock popup's mode to match the panel it is protecting
+                panel.set_state("mode", unlock_panel.get_mode())
+                self._title = unlock_panel.get_title(self._title)
+                self._unlock_code = unlock_panel.get("unlock_code")
 
     def before_render_panel(self, panel: HAUIPanel):
         # check if unlock panel is available
@@ -133,34 +129,29 @@ class UnlockPage(AlarmPage):
         if button_state:
             return
         self.log(f"Got keypad press: {component}-{button_state}")
-        self.start_rec_cmd()
+        with self.rec_cmd:
+            # process keypad value
+            if component[1].startswith("bKey"):
+                bKeyVal = component[1][4:]
+                if bKeyVal not in ["Del", "Clr"]:
+                    self._input += str(bKeyVal)
+                elif bKeyVal == "Clr":
+                    self._input = ""
+                elif bKeyVal == "Del":
+                    self._input = self._input[:-1]
 
-        # process keypad value
-        if component[1].startswith("bKey"):
-            bKeyVal = component[1][4:]
-            if bKeyVal not in ["Del", "Clr"]:
-                self._input += str(bKeyVal)
-            elif bKeyVal == "Clr":
-                self._input = ""
-            elif bKeyVal == "Del":
-                self._input = self._input[:-1]
-
-        self.update_components()
-
-        self.stop_rec_cmd(send_commands=True)
+            self.update_components()
 
     def callback_unlock(self, event, component, button_state):
         if button_state:
             return
         if str(self._input) != str(self._unlock_code):
-            self.start_rec_cmd()
-            self._input = ""
-            self.update_components()
-            self.stop_rec_cmd(send_commands=True)
+            with self.rec_cmd:
+                self._input = ""
+                self.update_components()
             return
         # unlock panel and close this unlock popup
         self.log(f"Panel {self._unlock_panel.id} unlocked, closing unlock popup.")
-        config = self._unlock_panel.get_persistent_config(return_copy=False)
-        config["locked"] = False
+        self._unlock_panel.set_state("locked", False)
         navigation = self.app.controller["navigation"]
         navigation.close_panel()

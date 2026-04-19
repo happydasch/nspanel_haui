@@ -1,8 +1,7 @@
 from threading import Timer
 
-from ..mapping.color import COLORS
 from ..abstract.panel import HAUIPanel
-
+from ..mapping.color import COLORS
 from . import HAUIPage
 
 
@@ -23,20 +22,21 @@ class SelectPage(HAUIPage):
     ITEMS_PER_PAGE_DEFAULT = 12
     ITEMS_PER_PAGE_FULL = 4
 
-    _select_mode = []
-    _items = []
-    _selected = None
-    _multiple = False
-    _multiple_delay = 1.5
-    _multiple_timer = None
-    _close_on_select = True
-    _current_page = 0
-    _active = {}  # active items currently being displayed
-    _items_per_page = 0  # number of items per page
-    _selection_callback_fnc = None
-    _close_callback_fnc = None
-
     # panel
+
+    def start_page(self):
+        self._select_mode = []
+        self._items = []
+        self._selected = None
+        self._multiple = False
+        self._multiple_delay = 1.5
+        self._multiple_timer = None
+        self._close_on_select = True
+        self._current_page = 0
+        self._active = {}
+        self._items_per_page = 0
+        self._selection_callback_fnc = None
+        self._close_callback_fnc = None
 
     def start_panel(self, panel: HAUIPanel):
         # set function buttons
@@ -215,9 +215,8 @@ class SelectPage(HAUIPage):
         if (current_page * self._items_per_page) >= len(self._items):
             current_page = 0
         self._current_page = current_page
-        self.start_rec_cmd()
-        self.set_items()
-        self.stop_rec_cmd(send_commands=True)
+        with self.rec_cmd:
+            self.set_items()
 
     def callback_select(self, event, component, button_state):
         if button_state:
@@ -238,9 +237,8 @@ class SelectPage(HAUIPage):
                     else:
                         self._selected = value
                 break
-        self.start_rec_cmd()
-        self.set_items()
-        self.stop_rec_cmd(send_commands=True)
+        with self.rec_cmd:
+            self.set_items()
 
         # selection callback
         if self._selection_callback_fnc:

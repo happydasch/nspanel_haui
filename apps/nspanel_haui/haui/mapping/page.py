@@ -1,29 +1,28 @@
 # system panels
-from ..page.blank import BlankPage
-from ..page.system import SystemPage
-from ..page.settings import SettingsPage
 from ..page.about import AboutPage
-
-# default panels
-from ..page.weather import WeatherPage
+from ..page.alarm import AlarmPage
+from ..page.blank import BlankPage
+from ..page.climate import ClimatePage
 from ..page.clock import ClockPage
 from ..page.clocktwo import ClockTwoPage
+from ..page.cover import CoverPage
 from ..page.grid import GridPage
-from ..page.row import RowPage
 from ..page.light import LightPage
 from ..page.media import MediaPage
-from ..page.vacuum import VacuumPage
-from ..page.timer import TimerPage
+from ..page.notify import NotifsPage, NotifyPage
 from ..page.qr import QRPage
-from ..page.climate import ClimatePage
-from ..page.alarm import AlarmPage
-from ..page.cover import CoverPage
+from ..page.row import RowPage
+from ..page.select import SelectPage
+from ..page.settings import SettingsPage
+from ..page.system import SystemPage
+from ..page.timer import TimerPage
 
 # misc panels
 from ..page.unlock import UnlockPage
-from ..page.notify import NotifyPage, NotificationPage
-from ..page.select import SelectPage
+from ..page.vacuum import VacuumPage
 
+# default panels
+from ..page.weather import WeatherPage
 
 # page id mapping
 # page classes are contained in panel mapping
@@ -99,7 +98,7 @@ PANEL_MAPPING = {
     # popups
     "popup_unlock": ("alarm", UnlockPage),
     "popup_notify": ("notify", NotifyPage),
-    "popup_notification": ("notify", NotificationPage),
+    "popup_notifs": ("notifs", NotifsPage),
     "popup_select": ("select", SelectPage),
     "popup_light": ("light", LightPage),
     "popup_media_player": ("media", MediaPage),

@@ -1,12 +1,10 @@
 import json
-from typing import Union
 
 
 class HAUIEvent:
+    """Event class for HAUI. All events use this class."""
 
-    """ Event class for HAUI. All events use this class. """
-
-    def __init__(self, name: str, value: Union[int, str, dict]):
+    def __init__(self, name: str, value: int | str | dict | tuple | None):
         """Initializes the event.
 
         This class should be used for all events.
@@ -24,13 +22,16 @@ class HAUIEvent:
         self.value = value
         self.processed = False
 
-    def as_int(self) -> int:
-        """Returns the value as an int.
+    def as_int(self, default: int = 0) -> int:
+        """Returns the value as an int, or default if conversion fails.
 
         Returns:
             int: Value as int
         """
-        return int(self.value)
+        try:
+            return int(self.value)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return default
 
     def as_str(self) -> str:
         """Returns the value as str.
@@ -41,11 +42,14 @@ class HAUIEvent:
         return str(self.value)
 
     def as_json(self) -> dict:
-        """Returns the value as a json.
+        """Returns the value as a json dict, or {} if conversion fails.
 
         Returns:
             dict: Value as json
         """
         if not self.value:
             return {}
-        return json.loads(self.value)
+        try:
+            return json.loads(self.value)  # type: ignore[arg-type]
+        except (json.JSONDecodeError, TypeError):
+            return {}

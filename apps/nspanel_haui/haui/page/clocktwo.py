@@ -1,17 +1,12 @@
 import datetime
 import re
 import threading
-from typing import List, Tuple
 
+from ..abstract.panel import HAUIPanel
+from ..helper.icon import get_icon
 from ..mapping.background import BACKGROUNDS
 from ..mapping.color import COLORS
-
-from ..helper.icon import get_icon
-from ..abstract.panel import HAUIPanel
-
-
 from . import HAUIPage
-
 
 MATRIX = {
     "en": (
@@ -52,7 +47,7 @@ MATRIX = {
     ),
 }
 
-MATRIX_WORDS = {
+MATRIX_WORDS: dict[str, dict] = {
     "en": {
         "it-is": [0, 1, 3, 4],  # it is
         "am": [7, 8],  # am
@@ -230,7 +225,6 @@ INDEX_SPECIAL_LENGTH = 4
 
 
 class ClockTwoPage(HAUIPage):
-
     # components, skipping l1-110, s1-4
     TXT_NOTIF = (117, "tNotif")
 
@@ -238,24 +232,25 @@ class ClockTwoPage(HAUIPage):
 
     ICO_SPECIAL = get_icon("mdi:circle-medium")
 
-    _timer_time = None
-    _timer_notifications = None
-    _show_notifications = True
-    _new_notifications = False
-    _letter_current_state = []
-    _special_current_state = []
-    _off_color = COLORS["component_background"]
-    _letter_color = COLORS["component"]
-    _special_color = COLORS["component_accent"]
-    _show_ampm = False
-    _show_intro_text = True
-    _show_intro_text_full_hour = False
-    _clock_language = "en"
-    _clock_letters = []
-
     # panel
 
-    def create_panel(self, panel: HAUIPanel):
+    def start_page(self) -> None:
+        self._timer_time = None
+        self._timer_notifications = None
+        self._show_notifications = True
+        self._new_notifications = False
+        self._letter_current_state = []
+        self._special_current_state = []
+        self._off_color = COLORS["component_background"]
+        self._letter_color = COLORS["component"]
+        self._special_color = COLORS["component_accent"]
+        self._show_ampm = False
+        self._show_intro_text = True
+        self._show_intro_text_full_hour = False
+        self._clock_language = "en"
+        self._clock_letters = []
+
+    def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background
         # set before showing panel
         background = panel.get("background", "default")
@@ -272,7 +267,7 @@ class ClockTwoPage(HAUIPage):
         if background in BACKGROUNDS:
             self.send_cmd(f"clocktwo.background.val={BACKGROUNDS[background]}")
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIPanel) -> None:
         # time update callback
         time = datetime.time(0, 0, 0)
         self._timer_time = self.app.run_minutely(self.callback_update_time, time)
@@ -283,11 +278,11 @@ class ClockTwoPage(HAUIPage):
         )
         self.init_interface(panel)
 
-    def render_panel(self, panel: HAUIPanel):
+    def render_panel(self, panel: HAUIPanel) -> None:
         self.update_interface()
         self.update_notifications()
 
-    def stop_panel(self, panel: HAUIPanel):
+    def stop_panel(self, panel: HAUIPanel) -> None:
         # cancel time timer
         if self._timer_time is not None:
             self.app.cancel_timer(self._timer_time)
@@ -295,7 +290,7 @@ class ClockTwoPage(HAUIPage):
 
     # clock
 
-    def init_interface(self, panel):
+    def init_interface(self, panel: HAUIPanel) -> None:
         pattern = re.compile(r"\[([^\]]+)\]|.")
         self._clock_letters = [
             match.group(1) if match.group(1) else match.group(0)
@@ -314,14 +309,13 @@ class ClockTwoPage(HAUIPage):
         components = letter_components + special_components
         components_text = self._clock_letters + specials
         for component, component_text in zip(components, components_text):
-            self.start_rec_cmd()
-            self.set_component_text_color(component, self._off_color)
-            self.set_component_text(component, text=component_text)
-            self.stop_rec_cmd(True)
+            with self.rec_cmd:
+                self.set_component_text_color(component, self._off_color)
+                self.set_component_text(component, text=component_text)
         self._letter_current_state = [False] * INDEX_LETTER_LENGTH
         self._special_current_state = [False] * INDEX_SPECIAL_LENGTH
 
-    def update_interface(self):
+    def update_interface(self) -> None:
         current_time = datetime.datetime.now()
         letters_active, specials_active, time_words = self.get_matrix_from_time(
             current_time
@@ -356,8 +350,8 @@ class ClockTwoPage(HAUIPage):
                 self._special_current_state[i] = new
 
     def get_matrix_from_time(
-        self, time: datetime
-    ) -> Tuple[List[int], List[bool], List[str]]:
+        self, time: datetime.datetime
+    ) -> tuple[list[bool], list[bool], list[str]]:
         words_index = MATRIX_WORDS[self._clock_language]
         time_words, specials = self.get_words_from_time(time)
         letters_active = [False] * INDEX_LETTER_LENGTH
@@ -375,7 +369,7 @@ class ClockTwoPage(HAUIPage):
                     # if key is a tuple then all words need to match
                     # if key is a string then this word needs to match
                     # if no key matched and * in key then this will be used
-                    lit_key = None
+                    lit_key: tuple | str | None = None
                     for key in lit.keys():
                         if isinstance(key, tuple):
                             lit_key = key
@@ -399,7 +393,7 @@ class ClockTwoPage(HAUIPage):
 
         return letters_active, specials_active, time_words
 
-    def get_words_from_time(self, time: datetime) -> List[str]:
+    def get_words_from_time(self, time: datetime.datetime) -> tuple[list[str], list[bool]]:
         minutes = time.minute
         hours = time.hour % 12
         words = []
@@ -431,13 +425,13 @@ class ClockTwoPage(HAUIPage):
 
         return words, specials
 
-    def get_letter_component(self, idx: int) -> Tuple[int, str]:
-        return (INDEX_LETTER_START + idx, f"l{idx+1}")
+    def get_letter_component(self, idx: int) -> tuple[int, str]:
+        return (INDEX_LETTER_START + idx, f"l{idx + 1}")
 
-    def get_special_component(self, idx: int) -> Tuple[int, str]:
-        return (INDEX_SPECIAL_START + idx, f"s{idx+1}")
+    def get_special_component(self, idx: int) -> tuple[int, str]:
+        return (INDEX_SPECIAL_START + idx, f"s{idx + 1}")
 
-    def update_notifications(self):
+    def update_notifications(self) -> None:
         if not self._show_notifications:
             return
         notification = self.app.controller["notification"]
@@ -466,7 +460,7 @@ class ClockTwoPage(HAUIPage):
 
     # callback
 
-    def callback_update_time(self, cb_args):
+    def callback_update_time(self, cb_args) -> None:
         if self.app.device.sleeping:
             return
         self.update_interface()

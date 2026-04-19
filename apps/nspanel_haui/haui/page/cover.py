@@ -1,10 +1,9 @@
-from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
-from ..mapping.color import COLORS
-from ..features import CoverFeatures
-from ..abstract.panel import HAUIPanel
 from ..abstract.entity import HAUIEntity
 from ..abstract.event import HAUIEvent
-
+from ..abstract.panel import HAUIPanel
+from ..features import CoverFeatures
+from ..mapping.color import COLORS
+from ..mapping.const import ESP_REQUEST, ESP_RESPONSE
 from . import HAUIPage
 
 
@@ -27,7 +26,7 @@ class CoverPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIPanel) -> None:
         # set component callbacks
         self.add_component_callback(self.H_VERT_POS, self.callback_cover_pos)
         # set function buttons
@@ -38,14 +37,10 @@ class CoverPage(HAUIPage):
             self.BTN_FNC_RIGHT_SEC,
         )
         # set cover function button callbacks
-        for btn in [
-            self.BTN_UP,
-            self.BTN_STOP,
-            self.BTN_DOWN
-        ]:
+        for btn in [self.BTN_UP, self.BTN_STOP, self.BTN_DOWN]:
             self.add_component_callback(btn, self.callback_cover_buttons)
         # set entity
-        entity: HAUIEntity = None
+        entity: HAUIEntity | None = None
         entity_id = panel.get("entity_id")
         if entity_id:
             entity = HAUIEntity(self.app, {"entity": entity_id})
@@ -63,7 +58,7 @@ class CoverPage(HAUIPage):
 
     # misc
 
-    def set_cover_entity(self, entity: HAUIEntity):
+    def set_cover_entity(self, entity: HAUIEntity | None) -> None:
         self._cover_entity = entity
         if not entity or not entity.has_entity_id():
             return
@@ -72,41 +67,62 @@ class CoverPage(HAUIPage):
         # add listener
         self.add_entity_listener(entity.get_entity_id(), self.callback_cover_entity)
 
-        self.add_entity_listener(entity.get_entity_id(), self.callback_cover_entity, attribute="current_position")
+        self.add_entity_listener(
+            entity.get_entity_id(),
+            self.callback_cover_entity,
+            attribute="current_position",
+        )
         # up button
         visible = False
         if supported_features & CoverFeatures.OPEN:
             visible = True
-        self.set_function_component(self.BTN_UP, self.BTN_UP[1], visible=visible, color=COLORS["component_active"])
+        self.set_function_component(
+            self.BTN_UP,
+            self.BTN_UP[1],
+            visible=visible,
+            color=COLORS["component_active"],
+        )
         # stop button
         visible = False
         if supported_features & CoverFeatures.STOP:
             visible = True
-        self.set_function_component(self.BTN_STOP, self.BTN_STOP[1], visible=visible, color=COLORS["component_active"])
+        self.set_function_component(
+            self.BTN_STOP,
+            self.BTN_STOP[1],
+            visible=visible,
+            color=COLORS["component_active"],
+        )
         # down button
         visible = False
         if supported_features & CoverFeatures.CLOSE:
             visible = True
-        self.set_function_component(self.BTN_DOWN, self.BTN_DOWN[1], visible=visible, color=COLORS["component_active"])
+        self.set_function_component(
+            self.BTN_DOWN,
+            self.BTN_DOWN[1],
+            visible=visible,
+            color=COLORS["component_active"],
+        )
         # slider
         visible = False
         if supported_features & CoverFeatures.SET_POSITION:
             visible = True
-        self.set_function_component(self.H_VERT_POS, self.H_VERT_POS[1], value=current_position, visible=visible)
+        self.set_function_component(
+            self.H_VERT_POS, self.H_VERT_POS[1], value=current_position, visible=visible
+        )
 
-    def update_cover_entity(self):
+    def update_cover_entity(self) -> None:
         self.set_component_text(self.TXT_TITLE, self._title)
         self.update_cover_controls()
         self.update_cover_info()
 
-    def update_cover_info(self):
+    def update_cover_info(self) -> None:
         if self._cover_entity is None:
             return
         entity = self._cover_entity
         current_position = entity.get_entity_attr("current_position", 0)
         self.set_component_text(self.TXT_INFO, f"{current_position}%")
 
-    def update_cover_controls(self):
+    def update_cover_controls(self) -> None:
         if self._cover_entity is None:
             return
         entity = self._cover_entity
@@ -179,11 +195,10 @@ class CoverPage(HAUIPage):
 
     # callback
 
-    def callback_cover_entity(self, entity, attribute, old, new, kwargs):
+    def callback_cover_entity(self, entity, attribute, old, new, kwargs) -> None:
         if attribute in ["state", "current_position"]:
-            self.start_rec_cmd()
-            self.update_cover_entity()
-            self.stop_rec_cmd(send_commands=True)
+            with self.rec_cmd:
+                self.update_cover_entity()
         else:
             self.log(f"Unknown cover entity attribute: {attribute}")
 
@@ -203,7 +218,7 @@ class CoverPage(HAUIPage):
 
     # event
 
-    def process_event(self, event: HAUIEvent):
+    def process_event(self, event: HAUIEvent) -> None:
         super().process_event(event)
         # requested values
         if event.name == ESP_RESPONSE["res_val"]:
@@ -213,5 +228,5 @@ class CoverPage(HAUIPage):
             if name == self.H_VERT_POS[1]:
                 self.process_cover_pos(value)
 
-    def process_cover_pos(self, pos):
+    def process_cover_pos(self, pos) -> None:
         self._cover_entity.call_entity_service("set_cover_position", position=pos)

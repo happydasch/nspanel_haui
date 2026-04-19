@@ -40,6 +40,9 @@ mqtt:
             } else if (name == "req_device_state") {
               ESP_LOGD("haui", "Device State Request");
               id(publish_device_state).execute();
+            } else if (name == "req_version_info") {
+              ESP_LOGD("haui", "Version Info Request");
+              id(publish_version_info).execute();
             } else if (name == "req_reconnect") {
               ESP_LOGD("haui", "Reconnect Request");
               id(set_ad_connected).execute(false);
@@ -57,7 +60,7 @@ mqtt:
               id(send_command).execute(value);
             } else if (name == "send_commands") {
               ESP_LOGD("haui", "Command: send_commands %s", value.c_str());
-              StaticJsonDocument<4000> doc;
+              JsonDocument doc;
               DeserializationError error = deserializeJson(doc, value);
               if (error) {
                 ESP_LOGE("haui", "Failed to parse JSON: %s", error.c_str());
@@ -66,7 +69,6 @@ mqtt:
               // extract the values
               JsonArray array = doc["commands"].as<JsonArray>();
               for(JsonVariant v : array) {
-                Serial.println(v.as<int>());
                 auto command = v.as<std::string>();
                 id(haui_disp).send_command(command.c_str());
               }

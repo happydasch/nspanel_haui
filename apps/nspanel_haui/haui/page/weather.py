@@ -1,87 +1,100 @@
-from typing import List, Optional
-import dateutil.parser as dp
 import datetime
 import threading
 
-from ..mapping.background import BACKGROUNDS
-from ..mapping.icon import WEATHER_MAPPING
-from ..mapping.color import COLORS
-from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
-from ..helper.icon import get_icon, parse_icon
-from ..helper.datetime import get_time_localized, get_date_localized, format_datetime
-from ..abstract.panel import HAUIPanel
+import dateutil.parser as dp
+
 from ..abstract.entity import HAUIEntity
 from ..abstract.event import HAUIEvent
-
+from ..abstract.panel import HAUIPanel
+from ..helper.datetime import format_datetime, get_date_localized, get_time_localized
+from ..helper.icon import get_icon, parse_icon
+from ..mapping.background import BACKGROUNDS
+from ..mapping.color import COLORS
+from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
+from ..mapping.icon import WEATHER_MAPPING
 from . import HAUIPage
 
 
 class WeatherPage(HAUIPage):
     # time and date display
-    TXT_TIME, TXT_DATE = (2, "tTime"), (3, "tDate")
+    TXT_TIME, TXT_DATE = (3, "tTime"), (4, "tDate")
     # main weather icon
-    ICO_MAIN, TXT_MAIN, TXT_SUB = (4, "tMainIcon"), (5, "tMainText"), (6, "tSubText")
+    ICO_MAIN, TXT_MAIN, TXT_SUB = (5, "tMainIcon"), (6, "tMainText"), (7, "tSubText")
     # icons below main icon
-    D1_ICO, D2_ICO, D3_ICO = (7, "d1Icon"), (8, "d2Icon"), (9, "d2Icon")
-    D1_VAL, D2_VAL, D3_VAL = (10, "d1Val"), (11, "d2Val"), (12, "d3Val")
+    D1_ICO, D2_ICO = (8, "d1Icon"), (9, "d2Icon")
+    D1_VAL, D2_VAL = (10, "d1Val"), (11, "d2Val")
     # bottom weather forecast row
     F1_NAME, F2_NAME, F3_NAME, F4_NAME, F5_NAME = (
-        (13, "f1Name"),
-        (14, "f2Name"),
-        (15, "f3Name"),
-        (16, "f4Name"),
-        (17, "f5Name"),
+        (12, "f1Name"),
+        (13, "f2Name"),
+        (14, "f3Name"),
+        (15, "f4Name"),
+        (16, "f5Name"),
     )
     F1_ICO, F2_ICO, F3_ICO, F4_ICO, F5_ICO = (
-        (18, "f1Icon"),
-        (19, "f2Icon"),
-        (20, "f3Icon"),
-        (21, "f4Icon"),
-        (22, "f5Icon"),
+        (17, "f1Icon"),
+        (18, "f2Icon"),
+        (19, "f3Icon"),
+        (20, "f4Icon"),
+        (21, "f5Icon"),
     )
     F1_VAL, F2_VAL, F3_VAL, F4_VAL, F5_VAL = (
-        (23, "f1Val"),
-        (24, "f2Val"),
-        (25, "f3Val"),
-        (26, "f4Val"),
-        (27, "f5Val"),
+        (22, "f1Val"),
+        (23, "f2Val"),
+        (24, "f3Val"),
+        (25, "f4Val"),
+        (26, "f5Val"),
     )
     F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL, F5_SUBVAL = (
-        (28, "f1SubVal"),
-        (29, "f2SubVal"),
-        (30, "f3SubVal"),
-        (31, "f4SubVal"),
-        (32, "f5SubVal"),
+        (27, "f1SubVal"),
+        (28, "f2SubVal"),
+        (29, "f3SubVal"),
+        (30, "f4SubVal"),
+        (31, "f5SubVal"),
     )
-    TXT_NOTIF = (34, "tNotif")
+    TXT_NOTIF = (32, "tNotif")
+    # entities
+    BTN_ENTITY_1, BTN_ENTITY_2, BTN_ENTITY_3 = (
+        (33, "bEntity1"),
+        (34, "bEntity2"),
+        (35, "bEntity3"),
+    )
+    BTN_ENTITY_4, BTN_ENTITY_5, BTN_ENTITY_6 = (
+        (36, "bEntity4"),
+        (37, "bEntity5"),
+        (38, "bEntity6"),
+    )
 
+    NUM_ENTITIES = 6
     NUM_FORECAST = 5
     DISPLAY_UPDATE_INTERVAL = 1.0
 
-    _timer_time = None
-    _timer_date = None
-    _timer_notifications = None
-    _show_notifications = True
-    _new_notifications = False
-    _show_forecast = False
-    _show_weather = True
-    _show_temp = True
-    _show_home_temp = False
-    _temp_unit = "°C"
-    _temp_precision = 1
-    _forecast_precision = 0
-    _weather_entity: Optional[HAUIEntity] = None
-
     # panel
 
-    def create_panel(self, panel: HAUIPanel):
+    def start_page(self) -> None:
+        self._timer_time: str | None = None
+        self._timer_date: str | None = None
+        self._timer_notifications: threading.Timer | None = None
+        self._show_notifications = True
+        self._new_notifications = False
+        self._previous_forecast = None
+        self._show_forecast = False
+        self._show_weather = True
+        self._show_temp = True
+        self._show_home_temp = False
+        self._temp_unit = "°C"
+        self._temp_precision = 1
+        self._forecast_precision = 0
+        self._weather_entity: HAUIEntity | None = None
+
+    def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background
         background = panel.get("background", "default")
         background = self.render_template(background, False)
         if background in BACKGROUNDS:
             self.send_cmd(f"weather.background.val={BACKGROUNDS[background]}")
 
-    def start_panel(self, panel: HAUIPanel):
+    def start_panel(self, panel: HAUIPanel) -> None:
         # time update callback
         time = datetime.time(0, 0, 0)
         self._timer_time = self.app.run_minutely(self.callback_update_time, time)
@@ -95,24 +108,35 @@ class WeatherPage(HAUIPage):
                 self.add_entity_listener(
                     entity.get_entity_id(), self.callback_weather, "temperature"
                 )
-                self.add_entity_listener(entity.get_entity_id(), self.callback_weather, "pressure")
+                self.add_entity_listener(
+                    entity.get_entity_id(), self.callback_weather, "pressure"
+                )
                 found = True
                 break
         if not found:
-            self.app.log.warning("No weather entity found in config")
+            self.app.log("WARNING: No weather entity found in config")
         # setting: temp_precision
         self._temp_precision = panel.get("temp_precision", self._temp_precision)
         # setting: forecast_precision
-        self._forecast_precision = panel.get("forecast_precision", self._forecast_precision)
+        self._forecast_precision = panel.get(
+            "forecast_precision", self._forecast_precision
+        )
         # setting: show_weather
         if not panel.get("show_weather", True):
             self._show_weather = False
-        self.set_function_component(self.ICO_MAIN, self.ICO_MAIN[1], visible=self._show_weather)
+        self.set_function_component(
+            self.ICO_MAIN, self.ICO_MAIN[1], visible=self._show_weather
+        )
         # setting: show_temp
         if not panel.get("show_temp", True):
             self._show_temp = False
-        self.set_function_component(self.TXT_MAIN, self.TXT_MAIN[1], visible=self._show_temp)
-        self.set_function_component(self.TXT_SUB, self.TXT_SUB[1], visible=self._show_temp)
+
+        self.set_function_component(
+            self.TXT_MAIN, self.TXT_MAIN[1], visible=self._show_temp
+        )
+        self.set_function_component(
+            self.TXT_SUB, self.TXT_SUB[1], visible=self._show_temp
+        )
         # setting: show_home_temp
         if panel.get("show_home_temp", False):
             self._show_home_temp = True
@@ -122,6 +146,9 @@ class WeatherPage(HAUIPage):
             self.hide_forecast()
         else:
             self.show_forecast()
+        # main components
+        self.set_function_component(self.TXT_TIME, self.TXT_TIME[1], visible=True)
+        self.set_function_component(self.TXT_DATE, self.TXT_DATE[1], visible=True)
         # notification
         self._show_notifications = panel.get("show_notifications", True)
         self.set_function_component(
@@ -178,18 +205,18 @@ class WeatherPage(HAUIPage):
             self.hide_component(subval)
 
     def update_time(self):
-        timeformat = self.app.config.get("time_format")
+        timeformat = self.app.device_config.get("time_format")
         time = get_time_localized(timeformat)
         self.update_function_component(self.TXT_TIME[1], text=time)
 
     def update_date(self):
-        strftime_format = self.app.config.get("date_format")
-        babel_format = self.app.config.get("date_format_babel")
+        strftime_format = self.app.device_config.get("date_format")
+        babel_format = self.app.device_config.get("date_format_babel")
         locale = self.app.device.get_locale()
         date = get_date_localized(strftime_format, babel_format, locale)
         self.update_function_component(self.TXT_DATE[1], text=date)
 
-    def update_entities(self, entities: List[HAUIEntity]):
+    def update_entities(self, entities: list[HAUIEntity]):
         # if only one entry, create new entities which will be used for
         # forecast
         if len(entities) == 1:
@@ -206,30 +233,40 @@ class WeatherPage(HAUIPage):
             self._temp_unit = main.get_entity_attr("temperature_unit", "°C")
             self.update_main_weather()
 
-        # next 3 are entities below main weather
+        # next 2 are entities below main weather
         info = []
-        for i in range(3):
+        for i in range(2):
             if len(entities) == 0:
                 break
             info.append(entities.pop(0))
-            if len(info) == 3:
+            if len(info) == 2:
                 break
-        for i in range(len(info)):
-            self.update_info(i, info[i])
+        for i in range(1, len(info) + 1):
+            self.update_info(i, info[i - 1])
 
         # forecast
-        if self._show_forecast:
-            result = self.app.call_service(
-                "weather/get_forecasts",
-                target={"entity_id": self._weather_entity.get_entity_id()},
-                service_data={"type": self._show_forecast},
-            )
-            forecast = result["result"]["response"][self._weather_entity.get_entity_id()][
-                "forecast"
-            ]
-            for i in range(1, self.NUM_FORECAST + 1):
-                forecast_data = forecast[i - 1] if i - 1 < len(forecast) else None
+        if self._show_forecast and self._weather_entity is not None:
+            weather_id = self._weather_entity.get_entity_id()
+            forecast = None
+            try:
+                result = self.app.call_service(
+                    "weather/get_forecasts",
+                    target={"entity_id": weather_id},
+                    service_data={"type": self._show_forecast},
+                )
+                forecast = result["result"]["response"][weather_id]["forecast"]
+            except Exception:
+                if self._previous_forecast is not None:
+                    forecast = self._previous_forecast
+                else:
+                    # ATT: possible recursion
+                    self.update_entities(entities=entities)
+            if forecast is None:
+                return
+            for i in range(0, self.NUM_FORECAST):
+                forecast_data = forecast[i] if i < len(forecast) else {}
                 self.update_forecast(i, forecast_data)
+            self._previous_forecast = forecast
 
     def update_main_weather(self) -> None:
         if self._weather_entity is None:
@@ -239,23 +276,24 @@ class WeatherPage(HAUIPage):
         name = self.app.device.get_name()
         icon = self._weather_entity.get_icon()
         color = self._weather_entity.get_color()
-        msg = round(
-            float(self._weather_entity.get_entity_attr("temperature", "")), self._temp_precision
+        temp_outside = round(
+            float(self._weather_entity.get_entity_attr("temperature", "")),
+            self._temp_precision,
         )
-        if not self._temp_precision:
-            msg = int(msg)
-        if msg:
-            msg = f"{msg}{self._temp_unit}mdi:thermometer"
+        msg = ""
         if self._show_home_temp:
-            internal_temp = self.app.get_entity(f"sensor.{name}_temperature")
-            internal_temp = round(float(internal_temp.get_state()), self._temp_precision)
+            temp_inside_entity = self.app.get_entity(f"sensor.{name}_temperature")
+            temp_inside: float | int = round(
+                float(temp_inside_entity.get_state()), self._temp_precision
+            )
             if not self._temp_precision:
-                internal_temp = int(internal_temp)
-            if msg != "":
-                msg = f"  {msg}"
-            msg = f"{internal_temp}{self._temp_unit}mdi:home-thermometer{msg}"
-
-        msg = parse_icon(msg)
+                temp_inside = int(temp_inside)
+            msg = (
+                f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
+            )
+        if not self._temp_precision:
+            temp_outside = int(temp_outside)
+        msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
         msg_sub = self._weather_entity.get_entity_attr("pressure", "")
         if msg_sub:
             pressure_unit = self._weather_entity.get_entity_attr("pressure_unit")
@@ -263,26 +301,35 @@ class WeatherPage(HAUIPage):
         self.update_function_component(
             self.ICO_MAIN[1], icon=icon, color=color, visible=self._show_weather
         )
-        self.update_function_component(self.TXT_MAIN[1], text=msg, visible=self._show_temp)
-        self.update_function_component(self.TXT_SUB[1], text=msg_sub, visible=self._show_temp)
+        self.update_function_component(
+            self.TXT_MAIN[1], text=msg, visible=self._show_temp
+        )
+        self.update_function_component(
+            self.TXT_SUB[1], text=msg_sub, visible=self._show_temp
+        )
 
     def update_forecast(self, idx: int, data: dict) -> None:
-        if idx < 1 or idx > self.NUM_FORECAST:
+        if idx < 0 or idx > self.NUM_FORECAST:
             self.log("Weather Forecast index outside bounds")
             return
         if data is None:
             self.log(f"No weather forecast for index {idx}")
             return
-        forecast_temp = round(float(data.get("temperature", 20)), self._forecast_precision)
-        forecast_mintemp = round(float(data.get("templow", 0)), self._forecast_precision)
+        forecast_idx = idx + 1
+        forecast_temp = round(
+            float(data.get("temperature", 20)), self._forecast_precision
+        )
+        forecast_mintemp = round(
+            float(data.get("templow", 0)), self._forecast_precision
+        )
         if not self._forecast_precision:
             forecast_temp = int(forecast_temp)
             forecast_mintemp = int(forecast_mintemp)
 
-        forecast_name = getattr(self, f"F{idx}_NAME")
-        forecast_icon = getattr(self, f"F{idx}_ICO")
-        forecast_val = getattr(self, f"F{idx}_VAL")
-        forecast_subval = getattr(self, f"F{idx}_SUBVAL")
+        forecast_name = getattr(self, f"F{forecast_idx}_NAME")
+        forecast_icon = getattr(self, f"F{forecast_idx}_ICO")
+        forecast_val = getattr(self, f"F{forecast_idx}_VAL")
+        forecast_subval = getattr(self, f"F{forecast_idx}_SUBVAL")
         fdate = dp.parse(data["datetime"])
         name = format_datetime(fdate, "%a", "E", self.get_locale())
         condition = data.get("condition", "")
@@ -298,8 +345,8 @@ class WeatherPage(HAUIPage):
         self.set_component_text(forecast_subval, f"{forecast_mintemp}{self._temp_unit}")
 
     def update_info(self, idx, haui_entity: HAUIEntity):
-        if idx < 1 or idx > 3:
-            self.log("Weather Info uses index 1-3")
+        if idx < 1 or idx > 2:
+            self.log(f"Weather Info uses index 1-2, got {idx}")
             return
         info_icon = getattr(self, f"D{idx}_ICO")
         info_val = getattr(self, f"D{idx}_VAL")
@@ -356,6 +403,7 @@ class WeatherPage(HAUIPage):
         if self.app.device.sleeping:
             return
         self.update_time()
+        self.send_cmd(f"ref {self.ICO_MAIN[1]}")
 
     def callback_update_date(self, cb_args):
         if self.app.device.sleeping:

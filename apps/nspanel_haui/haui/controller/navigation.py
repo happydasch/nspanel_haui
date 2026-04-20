@@ -402,6 +402,11 @@ class HAUINavigationController(HAUIBase):
             self.close_panel()
             self.log("No sleep panel available")
             return
+        self._sleep_panel_active = True
+        # Swallow the touch that triggered the navigation so check_wakeup
+        # doesn't immediately exit back to home when the sleep panel is also
+        # the wakeup panel.
+        self.app.device.woke_up = True
         self.open_panel(self._sleep_panel.id, autostart=autostart)
 
     def open_wakeup_panel(self, autostart=False):

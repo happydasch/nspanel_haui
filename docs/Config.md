@@ -351,7 +351,7 @@ Panels can be locked with a code. If a unlock_code is set, the panel will be onl
 
 ## Entities
 
-`HAUIConfigEntity` is used internally to provide access to the entity from the config.
+`HAUIEntity` is used internally to provide access to the entity from the config.
 
 Basic values:
 

@@ -1,5 +1,10 @@
+import time
+from typing import Any
+from uuid import UUID
+
 from ..abstract.base import HAUIBase
 from ..abstract.event import HAUIEvent
+from ..abstract.panel import HAUIPanel
 from ..helper.page import get_page_class_for_panel, get_page_id_for_panel
 from ..mapping.const import ESP_EVENT
 from ..mapping.page import PAGE_MAPPING
@@ -22,11 +27,11 @@ class HAUINavigationController(HAUIBase):
         super().__init__(app, config)
         self.log(f"Creating Navigation Controller with config: {config}")
         self.page = None
-        self.panel = None  # current panel config
+        self.panel: HAUIPanel | None = None  # current panel config
         self.panel_kwargs = {}  # current panel kwargs
         self._current_nav = None  # current nav panel config
         self._current_nav_kwargs = {}  # current nav panel kwargs
-        self._ids = None  # ids of nav panels
+        self._ids: list = []  # ids of nav panels
         self._id_to_idx: dict = {}  # O(1) index lookup for nav panels
         self._home_panel = None  # home panel config
         self._sleep_panel = None  # sleep panel config
@@ -34,8 +39,9 @@ class HAUINavigationController(HAUIBase):
         self._wakeup_panel = None  # wakeup panel config
         self._page_timeout = None  # Timer for switching pages
         self._close_timeout = None  # Timer for panel auto close
-        self._stack = []  # stack for non-nav panels
+        self._stack: list[tuple[HAUIPanel, dict[str, Any]]] = []  # stack for non-nav panels
         self._snapshot = None  # snapshot for navigation
+        self._snapshot_time: float | None = None  # monotonic time when snapshot was created
 
     # part
 
@@ -78,7 +84,7 @@ class HAUINavigationController(HAUIBase):
 
     # public methods
 
-    def goto_page(self, page_id):
+    def goto_page(self, page_id: int) -> None:
         """Goto page method.
 
         Args:
@@ -87,30 +93,30 @@ class HAUINavigationController(HAUIBase):
         self.log(f"Goto page: {PAGE_MAPPING.get(page_id)}")
         self.send_mqtt("goto_page", str(page_id))
 
-    def unset_page(self):
+    def unset_page(self) -> None:
         """Unsets the currently set page."""
         if self.page is not None:
             if self.page.is_started():
                 self.page.stop()
             self.page = None
 
-    def get_current_panel(self):
+    def get_current_panel(self) -> HAUIPanel | None:
         """Returns the current panel.
 
         Returns:
-            HAUIConfigPanel|None
+            HAUIPanel|None
         """
         return self.panel
 
-    def get_current_nav_panel(self):
+    def get_current_nav_panel(self) -> HAUIPanel | None:
         """Returns the current nav panel.
 
         Returns:
-            HAUIConfigPanel|None
+            HAUIPanel|None
         """
         return self._current_nav
 
-    def has_prev_panel(self):
+    def has_prev_panel(self) -> bool:
         """Returns if a previous panel is available.
 
         Returns:
@@ -121,7 +127,7 @@ class HAUINavigationController(HAUIBase):
         idx = self._id_to_idx.get(self._current_nav.id)
         return idx is not None and idx != 0
 
-    def has_next_panel(self):
+    def has_next_panel(self) -> bool:
         """Returns if a next panel is available.
 
         Returns:
@@ -132,38 +138,38 @@ class HAUINavigationController(HAUIBase):
         idx = self._id_to_idx.get(self._current_nav.id)
         return idx is not None and len(self._ids) > 1 and idx != len(self._ids) - 1
 
-    def has_up_panel(self):
+    def has_up_panel(self) -> bool:
         """Returns if a up panel is available.
 
         Returns:
             bool: True if current panel has a up panel
         """
-        if len(self._stack) == 0:
-            return False
-        return True
+        return len(self._stack) == 0
 
     # main methods
 
-    def reload_panel(self):
+    def reload_panel(self) -> None:
         """Reloads the current panel."""
+        if self.panel is None:
+            return
         self.log(f"Reloading panel: {self.panel.id}")
         self.unset_page()
         if len(self._stack) > 0:
             self._stack.pop()
         self.open_panel(self.panel.id, **self.panel_kwargs)
 
-    def refresh_panel(self):
+    def refresh_panel(self) -> None:
         """Refreshes the current panel."""
-        if self.page is None:
+        if self.panel is None or self.page is None:
             return
         self.log(f"Refreshing panel: {self.panel.id}")
         self.page.refresh_panel()
 
-    def display_panel(self, panel):
+    def display_panel(self, panel: HAUIPanel) -> None:
         """Displays the given panel.
 
         Args:
-            panel (HAUIConfigPanel): Panel to display.
+            panel (HAUIPanel): Panel to display.
         """
         page_id = get_page_id_for_panel(panel.get_type())
         if self.page is not None and self.page.page_id == page_id:
@@ -173,7 +179,7 @@ class HAUINavigationController(HAUIBase):
                 self.page.start()
             self.page.set_panel(panel)
 
-    def open_popup(self, panel_id, **kwargs):
+    def open_popup(self, panel_id: UUID | str, **kwargs: Any) -> None:
         """Opens a panel as a popup.
 
         Args:
@@ -183,7 +189,7 @@ class HAUINavigationController(HAUIBase):
         kwargs["mode"] = "popup"
         self.open_panel(panel_id, **kwargs)
 
-    def open_panel(self, panel_id, **kwargs):
+    def open_panel(self, panel_id: UUID | str, **kwargs: Any) -> None:
         """Opens the panel with the given id.
 
         Args:
@@ -193,9 +199,8 @@ class HAUINavigationController(HAUIBase):
         self.log(f"Opening panel: {panel_id}-{kwargs}")
 
         # lock current panel before setting new
-        if self.panel is not None:
-            # only if the panel had a locked state
-            if self.panel.get_state("locked") is not None:
+        # only if the panel had a locked state
+        if self.panel is not None and self.panel.get_state("locked") is not None:
                 self.panel.set_state("locked", True)
 
         # create and check page of new panel
@@ -314,39 +319,42 @@ class HAUINavigationController(HAUIBase):
         if self._close_timeout is not None:
             self.app.cancel_timer(self._close_timeout)
             self._close_timeout = None
-        prev_panel, prev_kwargs = None, None
+        prev_panel: HAUIPanel | None = None
+        prev_kwargs: dict[str, Any] = {}
         # check stack
         if len(self._stack) > 0:
             # remove last stacked panel
             curr_panel, curr_kwargs = self._stack.pop()
-            unlock_panel = (
-                curr_kwargs["unlock_panel"] if "unlock_panel" in curr_kwargs else None
-            )
+            unlock_panel = curr_kwargs.get("unlock_panel", None)
             self.log(f"Closing panel: {curr_panel.id}")
             # get previous panel
             while len(self._stack) > 0:
                 panel, kwargs = self._stack.pop()
                 # if a unlock panel is set, check if it should be skipped (if not unlocked)
-                if unlock_panel and panel.id == unlock_panel.id:
-                    if panel.get_state("locked", False):
-                        continue
+                if (
+                    unlock_panel
+                    and panel.id == unlock_panel.id
+                    and panel.get_state("locked", False)
+                ):
+                    continue
                 prev_panel, prev_kwargs = panel, kwargs
                 break
         # no stack, use current nav panel
-        if prev_panel is None:
-            if self._current_nav:
-                prev_panel, prev_kwargs = self._current_nav, self._current_nav_kwargs
+        if prev_panel is None and self._current_nav:
+            prev_panel, prev_kwargs = self._current_nav, self._current_nav_kwargs
         # fallback panel home panel
         if prev_panel is None:
             prev_panel, prev_kwargs = self._home_panel, {}
         # check for locked panel before opening
         if prev_panel is not None:
             unlock_panel = prev_panel.get("unlock_panel")
-            if unlock_panel is not None:
-                if prev_panel.id == unlock_panel.id and prev_panel.get_state(
-                    "locked", False
-                ):
-                    prev_panel, prev_kwargs = None, None
+            if (
+                unlock_panel is not None
+                and prev_panel.id == unlock_panel.id
+                and prev_panel.get_state("locked", False)
+            ):
+                prev_panel, prev_kwargs = None, {}
+
         # open new panel
         if prev_panel is not None:
             self.log(f"Open previous panel: {prev_panel.id}")
@@ -377,7 +385,7 @@ class HAUINavigationController(HAUIBase):
         panel_id = self._ids[idx - 1] if idx > 0 else self._ids[-1]
         self.open_panel(panel_id)
 
-    def open_home_panel(self, autostart=False):
+    def open_home_panel(self, autostart: bool = False):
         """Opens the home panel.
 
         Args:
@@ -432,20 +440,33 @@ class HAUINavigationController(HAUIBase):
         stack = self._stack.copy()
         snapshot = (panel, panel_kwargs, current_nav, current_nav_kwargs, stack)
         self._snapshot = snapshot
+        self._snapshot_time = time.monotonic()
         self.log("Navigation snapshot created")
 
     def unset_snapshot(self) -> None:
         """Unsets the current navigation snapshot."""
         self._snapshot = None
+        self._snapshot_time = None
 
     def restore_snapshot(self, max_seconds_ago: int = 0) -> bool:
         """Restores a previously created navigation snapshot.
+
+        Args:
+            max_seconds_ago (int, optional): If > 0, only restore when the snapshot
+                is at most this many seconds old. Defaults to 0 (no age limit).
 
         Returns:
             bool: True if successfully restored, False if not
         """
         if self._snapshot is None:
             return False
+        if max_seconds_ago > 0 and self._snapshot_time is not None:
+            age = time.monotonic() - self._snapshot_time
+            if age > max_seconds_ago:
+                self.log(
+                    f"Navigation snapshot too old ({age:.1f}s > {max_seconds_ago}s), not restoring"
+                )
+                return False
         (
             self.panel,
             self.panel_kwargs,
@@ -492,11 +513,10 @@ class HAUINavigationController(HAUIBase):
                         self.display_panel(self.panel)
 
         # check timeout page event (sleep)
-        if event.name == ESP_EVENT["timeout"]:
-            if event.value == "page":
-                self._sleep_panel_active = True
-                if self._sleep_panel and self._sleep_panel.id != self.panel.id:
-                    self.open_sleep_panel()
+        if event.name == ESP_EVENT["timeout"] and event.value == "page":
+            self._sleep_panel_active = True
+            if self._sleep_panel and self._sleep_panel.id != self.panel.id:
+                self.open_sleep_panel()
 
         # check for display state event (dimmed/off/on)
         if event.name == ESP_EVENT["display_state"]:
@@ -525,10 +545,9 @@ class HAUINavigationController(HAUIBase):
                 self.open_home_panel()
 
         # sleep handling
-        if event.name == ESP_EVENT["sleep"]:
-            if self.page:
-                # unset current page
-                self.unset_page()
+        if event.name == ESP_EVENT["sleep"] and self.page:
+            # unset current page
+            self.unset_page()
 
         # allow page to process events
         if self.page is not None:

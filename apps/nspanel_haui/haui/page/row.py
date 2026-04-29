@@ -368,7 +368,7 @@ class RowPage(HAUIPage):
         - cover (3 buttons: up, stop, down)
 
         Args:
-            haui_entity (HAUIConfigEntity): entity
+            haui_entity (HAUIEntity): entity
 
         Returns:
             str: display type

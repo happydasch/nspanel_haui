@@ -221,7 +221,7 @@ class HAUIDevice(HAUIBase):
         device_name = self.get_name()
         self.app.call_service(f"esphome/{device_name}_play_sound", name=name)
 
-    def _persistent_sound_callback(self, kwargs) -> None:  # noqa: ARG002
+    def _persistent_sound_callback(self, kwargs) -> None:
         if self.app.controller["notification"].has_persistent_notifications():
             self.play_sound("notification")
         else:
@@ -342,9 +342,11 @@ class HAUIDevice(HAUIBase):
                 self._start_persistent_sound()
             elif self.get("sound_on_notification", True):
                 self.play_sound("notification")
-        elif event.name in (NOTIF_EVENT["notif_remove"], NOTIF_EVENT["notif_clear"]):
-            if not self.app.controller["notification"].has_persistent_notifications():
-                self._stop_persistent_sound()
+        elif (
+            event.name in (NOTIF_EVENT["notif_remove"], NOTIF_EVENT["notif_clear"])
+            and not self.app.controller["notification"].has_persistent_notifications()
+        ):
+            self._stop_persistent_sound()
 
     def check_wakeup(self) -> None:
         """Checks if the display just woke up to switch from wakeup page.
@@ -382,25 +384,20 @@ class HAUIDevice(HAUIBase):
             if self.woke_up:
                 self.first_touch = True
 
-            if not self.get("home_on_wakeup"):
-                if self.woke_up:
-                    self.log("not exiting sleep/wakeup screen, just woke up")
-                    self.woke_up = False
-                    exit_sleep = False
+            if not self.get("home_on_wakeup") and self.woke_up:
+                self.log("not exiting sleep/wakeup screen, just woke up")
+                self.woke_up = False
+                exit_sleep = False
 
-            if not self.get("home_on_first_touch"):
-                if self.first_touch:
-                    self.log("not exiting sleep/wakeup screen, first touch")
-                    self.first_touch = False
-                    exit_sleep = False
+            if not self.get("home_on_first_touch") and self.first_touch:
+                self.log("not exiting sleep/wakeup screen, first touch")
+                self.first_touch = False
+                exit_sleep = False
 
-            if self.get("home_only_when_on"):
-                if display_state != "on" or self.is_on_check:
-                    self.log(
-                        f"not exiting sleep/wakeup screen, display state {display_state}"
-                    )
-                    self.is_on_check = False
-                    exit_sleep = False
+            if self.get("home_only_when_on") and display_state != "on" or self.is_on_check:
+                self.log(f"not exiting sleep/wakeup screen, display state {display_state}")
+                self.is_on_check = False
+                exit_sleep = False
 
             if self.woke_up:
                 self.woke_up = False

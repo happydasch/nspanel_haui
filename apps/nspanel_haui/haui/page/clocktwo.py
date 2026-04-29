@@ -7,6 +7,11 @@ from ..helper.icon import get_icon
 from ..mapping.background import BACKGROUNDS
 from ..mapping.color import COLORS
 from . import HAUIPage
+from ..mapping.const import ESP_RESPONSE, NOTIF_EVENT
+
+
+
+
 
 MATRIX = {
     "en": (
@@ -224,6 +229,7 @@ INDEX_SPECIAL_START = 113
 INDEX_SPECIAL_LENGTH = 4
 
 
+
 class ClockTwoPage(HAUIPage):
     # components, skipping l1-110, s1-4
     TXT_NOTIF = (117, "tNotif")
@@ -287,6 +293,10 @@ class ClockTwoPage(HAUIPage):
         if self._timer_time is not None:
             self.app.cancel_timer(self._timer_time)
             self._timer_time = None
+        # update display timer
+        if self._timer_notifications is not None:
+            self._timer_notifications.cancel()
+            self._timer_notifications = None
 
     # clock
 
@@ -464,3 +474,22 @@ class ClockTwoPage(HAUIPage):
         if self.app.device.sleeping:
             return
         self.update_interface()
+
+    def process_event(self, event: HAUIEvent) -> None:
+        super().process_event(event)
+        if event.name in [
+            ESP_RESPONSE["send_notification"],
+            NOTIF_EVENT["notif_add"],
+            NOTIF_EVENT["notif_remove"],
+            NOTIF_EVENT["notif_clear"],
+        ]:
+            if event.name == NOTIF_EVENT["notif_add"]:
+                self._new_notifications = True
+            elif event.name == NOTIF_EVENT["notif_clear"]:
+                self._new_notifications = False
+            self.update_notifications()
+
+    def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
+        if fnc_id == self.TXT_NOTIF[1]:
+            navigation = self.app.controller["navigation"]
+            navigation.open_popup("popup_notify")

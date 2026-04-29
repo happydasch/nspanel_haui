@@ -20,7 +20,7 @@ def execute_entity(haui_entity):
     """Executes the given entity.
 
     Args:
-        haui_entity (HAUIConfigEntity): the entity to execute
+        haui_entity (HAUIEntity): the entity to execute
     """
     if not haui_entity.has_entity():
         return
@@ -111,7 +111,7 @@ def get_entity_color(haui_entity, default_color):
     """Returns a RGB565 color for the given entity.
 
     Args:
-        haui_entity (HAUIConfigEntity): the entity to get the color for
+        haui_entity (HAUIEntity): the entity to get the color for
         default_color (int): Default color to return
 
     Returns:
@@ -146,7 +146,7 @@ def get_entity_icon(haui_entity, default_icon):
     """Returns a icon for the given entity.
 
     Args:
-        haui_entity (HAUIConfigEntity): The entity to get the icon for
+        haui_entity (HAUIEntity): The entity to get the icon for
         default_icon (str): Default icon to return
 
     Returns:
@@ -261,7 +261,7 @@ def get_entity_value(haui_entity, default_value):
     """Returns a value for the given entity.
 
     Args:
-        haui_entity (HAUIConfigEntity): The entity to get the value for
+        haui_entity (HAUIEntity): The entity to get the value for
         default_value (str): Default value to return
 
     Returns:
@@ -284,7 +284,7 @@ def get_entity_name(haui_entity, default_name):
     """Returns the name for the given entity.
 
     Args:
-        haui_entity (HAUIConfigEntity): The entity to get the name for
+        haui_entity (HAUIEntity): The entity to get the name for
         default_name (str): Default name to return
 
     Returns:

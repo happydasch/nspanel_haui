@@ -1,8 +1,9 @@
 from ..mapping.page import PAGE_MAPPING
 from ..mapping.panel import PANEL_MAPPING
+from ..page import HAUIPage
 
 
-def get_page_id_for_panel(panel_type):
+def get_page_id_for_panel(panel_type: str) -> int | None:
     """Returns the page id for the given panel type.
 
     Args:
@@ -13,11 +14,10 @@ def get_page_id_for_panel(panel_type):
     """
     if panel_type in PANEL_MAPPING:
         panel = PANEL_MAPPING[panel_type]
-        page_id = get_page_id(panel[0])
-        return page_id
+        return get_page_id(panel[0])
 
 
-def get_page_class_for_panel(panel_type):
+def get_page_class_for_panel(panel_type: str) -> type[HAUIPage] | None:
     """Returns the page class for the given panel type.
 
     Args:
@@ -31,7 +31,7 @@ def get_page_class_for_panel(panel_type):
         return panel[1]
 
 
-def get_page_id(page_name):
+def get_page_id(page_name: str) -> int | None:
     """Returns the page id for the given page name.
 
     Args:
@@ -45,7 +45,7 @@ def get_page_id(page_name):
             return i
 
 
-def get_page_name(page_id):
+def get_page_name(page_id: int) -> str | None:
     """Returns the page name for the given page id.
 
     Args:

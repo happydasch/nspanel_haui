@@ -138,7 +138,7 @@ class HAUIPage(HAUIBase):
         The panel is set to the page and the panel is then being rendered.
 
         Args:
-            panel (HAUIConfigPanel): The panel to set.
+            panel (HAUIPanel): The panel to set.
         """
         # prepare panel
         if self.panel is not None:
@@ -165,7 +165,7 @@ class HAUIPage(HAUIBase):
         """Configures the currently set panel.
 
         Args:
-            panel (HAUIConfigPanel): Current panel
+            panel (HAUIPanel): Current panel
         """
         with self.rec_cmd:
             # physical button state
@@ -287,7 +287,7 @@ class HAUIPage(HAUIBase):
         This method should be overwritten in the page.
 
         Args:
-            panel (HAUIConfigPanel): Current panel
+            panel (HAUIPanel): Current panel
         """
 
     def start_panel(self, panel: HAUIPanel) -> None:
@@ -296,7 +296,7 @@ class HAUIPage(HAUIBase):
         This method should be overwritten in the page.
 
         Args:
-            panel (HAUIConfigPanel): Current panel
+            panel (HAUIPanel): Current panel
         """
 
     def stop_panel(self, panel: HAUIPanel) -> None:
@@ -305,7 +305,7 @@ class HAUIPage(HAUIBase):
         This method should be overwritten in the page.
 
         Args:
-            panel (HAUIConfigPanel): Current panel
+            panel (HAUIPanel): Current panel
         """
 
     def before_render_panel(self, panel: HAUIPanel) -> bool:
@@ -314,7 +314,7 @@ class HAUIPage(HAUIBase):
         This method should be overwritten in the page.
 
         Args:
-            panel (HAUIConfigPanel): Current panel
+            panel (HAUIPanel): Current panel
 
         Returns:
             bool, if False then panel will not be rendered
@@ -327,7 +327,7 @@ class HAUIPage(HAUIBase):
         This method should be overwritten in the page.
 
         Args:
-            panel (HAUIConfigPanel): Current panel
+            panel (HAUIPanel): Current panel
         """
 
     def after_render_panel(self, panel: HAUIPanel, rendered: bool) -> None:
@@ -336,7 +336,7 @@ class HAUIPage(HAUIBase):
         This gives the possibility to execute some checks after showing panel.
 
         Args:
-            panel (HAUIConfigPanel): Current panel
+            panel (HAUIPanel): Current panel
             rendered (bool): Was the panel rendered
         """
 
@@ -346,7 +346,7 @@ class HAUIPage(HAUIBase):
         """Executes the given entity.
 
         Args:
-            entity (HAUIConfigEntity): entity
+            entity (HAUIEntity): entity
         """
         entity_type = entity.get_entity_type()
         entity_state = entity.get_entity_state()
@@ -388,7 +388,7 @@ class HAUIPage(HAUIBase):
         """Turns on the given entity.
 
         Args:
-            entity (HAUIConfigEntity): entity
+            entity (HAUIEntity): entity
         """
         self.log(f"Switching entity on: {entity.get_name()} ({entity.get_entity_id()})")
         entity_type = entity.get_entity_type()
@@ -401,7 +401,7 @@ class HAUIPage(HAUIBase):
         """Turns off the given entity.
 
         Args:
-            entity (HAUIConfigEntity): entity
+            entity (HAUIEntity): entity
         """
         self.log(
             f"Switching entity off: {entity.get_name()} ({entity.get_entity_id()})"

@@ -1,4 +1,5 @@
 from copy import deepcopy
+from uuid import UUID
 
 from ..config_models import validate_config
 from ..helper.value import merge_dicts
@@ -48,7 +49,7 @@ class HAUIConfig(HAUIBase):
     # TODO update config based on time
 
     def get_panels(self, filter_nav_panel=None) -> list[HAUIPanel]:
-        """Returns all panels as HAUIConfigPanel objects.
+        """Returns all panels as HAUIPanel objects.
 
         Args:
             filter_nav_panel (bool, optional): Filter panels panel_nav attr. Defaults to None.
@@ -72,7 +73,7 @@ class HAUIConfig(HAUIBase):
         return self._panels
 
     def get_entities(self) -> list[HAUIEntity]:
-        """Returns all entities as HAUIConfigEntity objects.
+        """Returns all entities as HAUIEntity objects.
 
         Returns:
             list: List with entities
@@ -96,7 +97,7 @@ class HAUIConfig(HAUIBase):
                 return entity
         return None
 
-    def get_panel(self, panel_id) -> HAUIPanel | None:
+    def get_panel(self, panel_id: UUID | str) -> HAUIPanel | None:
         """Returns a single panel by id (UUID) or key (str).
 
         Args:

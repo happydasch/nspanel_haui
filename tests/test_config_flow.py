@@ -109,10 +109,10 @@ from nspanel_haui.config_flow import (  # noqa: E402
     NSPanelHAUIConfigFlow,
     NSPanelHAUIOptionsFlow,
     Action,
+    _apply_transforms,
     _extract_panel_config,
     _find_esphome_device,
     _mqtt_available,
-    _normalize_panel_type_options,
     _panel_action_options,
     _device_action_options,
     _device_list_options,
@@ -416,54 +416,71 @@ class TestPanelTypeOptions:
 
 class TestPanelTypeSpecificSchema:
     def test_bool_option(self):
-        schema = _panel_type_specific_schema("timer")
+        schema, transforms = _panel_type_specific_schema("timer")
         # show_notification is a bool option
         assert schema  # non-empty
+        assert isinstance(transforms, dict)
         for key in schema:
             if str(key).startswith("show_notification"):
                 assert schema[key] == bool
 
     def test_int_option(self):
-        schema = _panel_type_specific_schema("clock")
+        schema, _transforms = _panel_type_specific_schema("clock")
         for key, val in schema.items():
             if "temp_precision" in str(key):
                 assert isinstance(val, vol.Coerce)
                 assert val.type == int
 
     def test_select_option_has_choices(self):
-        schema = _panel_type_specific_schema("weather")
+        schema, transforms = _panel_type_specific_schema("weather")
         for key, val in schema.items():
             if "background" in str(key) or "show_forecast" in str(key):
                 # SelectSelector is used for select kind
                 assert val is not None
+        # Select fields should have drop_empty transform
+        for t_key in transforms:
+            if "background" in t_key or "show_forecast" in t_key:
+                assert transforms[t_key] == "drop_empty"
 
     def test_entity_with_domain(self):
-        schema = _panel_type_specific_schema("light")
+        schema, _transforms = _panel_type_specific_schema("light")
         assert schema  # should include entity with domain=light
 
     def test_str_option(self):
-        schema = _panel_type_specific_schema("qr")
+        schema, transforms = _panel_type_specific_schema("qr")
         for key, val in schema.items():
             if "qr_code" in str(key):
                 assert val == str
+        # str fields should have drop_empty transform
+        assert any("qr_code" in k for k in transforms)
 
     def test_list_str_option(self):
-        schema = _panel_type_specific_schema("media")
-        found = False
+        schema, transforms = _panel_type_specific_schema("media")
+        found_schema = False
         for key, val in schema.items():
             if "media_favorites" in str(key) or "group_entities" in str(key):
-                found = True
-        assert found
+                found_schema = True
+        assert found_schema
+        # list_str fields should have list_str transform
+        assert any(
+            transforms.get(k) == "list_str"
+            for k in transforms
+            if "media_favorites" in k or "group_entities" in k
+        )
 
     def test_unknown_type_returns_empty(self):
-        assert _panel_type_specific_schema("nonexistent") == {}
+        schema, transforms = _panel_type_specific_schema("nonexistent")
+        assert schema == {}
+        assert transforms == {}
 
     def test_empty_type_returns_empty(self):
-        assert _panel_type_specific_schema("") == {}
+        schema, transforms = _panel_type_specific_schema("")
+        assert schema == {}
+        assert transforms == {}
 
     def test_uses_current_values_for_defaults(self):
         current = {"show_weather": False, "show_temp": True, "temp_precision": 2}
-        schema = _panel_type_specific_schema("clock", current)
+        schema, _transforms = _panel_type_specific_schema("clock", current)
         for vol_key in schema:
             key_str = str(vol_key)
             if "show_weather" in key_str:
@@ -472,53 +489,72 @@ class TestPanelTypeSpecificSchema:
                 assert _vol_default(vol_key) == 2
 
     def test_all_user_panel_types_produce_valid_schemas(self):
-        """Every user-visible panel type must produce a valid schema dict."""
+        """Every user-visible panel type must produce a valid schema dict and transforms dict."""
         for pt in _user_panel_types():
-            schema = _panel_type_specific_schema(pt["value"])
+            schema, transforms = _panel_type_specific_schema(pt["value"])
             assert isinstance(schema, dict)
+            assert isinstance(transforms, dict)
 
 
 # ---------------------------------------------------------------------------
-# _normalize_panel_type_options  —  converts form values to canonical config
+# _apply_transforms  —  converts form values to canonical config via transform map
 # ---------------------------------------------------------------------------
 
 
-class TestNormalizePanelTypeOptions:
+class TestApplyTransforms:
     def test_list_str_becomes_list(self):
-        result = _normalize_panel_type_options(
-            "media", {"media_favorites": "fav1\nfav2\n", "entity": "media_player.test"}
+        transforms = {"media_favorites": "list_str"}
+        result = _apply_transforms(
+            {"media_favorites": "fav1\nfav2\n", "entity": "media_player.test"},
+            transforms,
         )
         assert result["media_favorites"] == ["fav1", "fav2"]
 
     def test_list_str_empty_becomes_empty_list(self):
-        result = _normalize_panel_type_options("media", {"media_favorites": ""})
+        transforms = {"media_favorites": "list_str"}
+        result = _apply_transforms({"media_favorites": ""}, transforms)
         assert result["media_favorites"] == []
 
     def test_empty_str_dropped(self):
-        result = _normalize_panel_type_options("clock", {"show_weather": True, "background": ""})
+        transforms = {"background": "drop_empty"}
+        result = _apply_transforms({"show_weather": True, "background": ""}, transforms)
         assert "background" not in result
         assert result["show_weather"] is True
 
     def test_empty_select_dropped(self):
-        result = _normalize_panel_type_options("clock", {"background": "", "show_weather": True})
+        transforms = {"background": "drop_empty"}
+        result = _apply_transforms({"background": "", "show_weather": True}, transforms)
         assert "background" not in result
 
     def test_non_option_keys_preserved(self):
-        result = _normalize_panel_type_options("clock", {"type": "clock", "title": "My Clock"})
+        transforms = {}  # type/title are not in transforms
+        result = _apply_transforms({"type": "clock", "title": "My Clock"}, transforms)
         assert result["type"] == "clock"
         assert result["title"] == "My Clock"
 
     def test_already_list_preserved(self):
-        result = _normalize_panel_type_options("media", {"media_favorites": ["a", "b"]})
+        transforms = {"media_favorites": "list_str"}
+        result = _apply_transforms({"media_favorites": ["a", "b"]}, transforms)
         assert result["media_favorites"] == ["a", "b"]
 
     def test_color_empty_string_dropped(self):
-        result = _normalize_panel_type_options("grid", {"text_color": ""})
+        transforms = {"text_color": "drop_empty"}
+        result = _apply_transforms({"text_color": ""}, transforms)
         assert "text_color" not in result
 
     def test_color_value_preserved(self):
-        result = _normalize_panel_type_options("grid", {"text_color": "65535"})
+        transforms = {"text_color": "drop_empty"}
+        result = _apply_transforms({"text_color": "65535"}, transforms)
         assert result["text_color"] == "65535"
+
+    def test_transforms_from_schema(self):
+        """Integration: transforms returned by _panel_type_specific_schema."""
+        _schema, transforms = _panel_type_specific_schema("media")
+        result = _apply_transforms(
+            {"media_favorites": "fav1\nfav2\n", "entity": "media_player.test"},
+            transforms,
+        )
+        assert result["media_favorites"] == ["fav1", "fav2"]
 
 
 # ---------------------------------------------------------------------------
@@ -597,6 +633,72 @@ class TestBuildPanelSchema:
         schema = flow._build_panel_schema({}, _user_panel_types())
         assert isinstance(schema, vol.Schema)
 
+
+
+# ---------------------------------------------------------------------------
+# NSPanelHAUIOptionsFlow._build_full_config  —  builds full config for validation
+# ---------------------------------------------------------------------------
+
+
+class TestBuildFullConfig:
+    def _make_flow(self, options=None):
+        entry = MagicMock()
+        entry.options = options or {}
+        entry.data = {"name": "test_device"}
+        flow = NSPanelHAUIOptionsFlow(entry)
+        # Pre-populate ctx so _build_full_config has data to work with
+        flow._ctx["panels"] = [{"type": "clock", "key": "clock_0"}]
+        return flow
+
+    def _make_flow_with_devices(self):
+        entry = MagicMock()
+        entry.options = {"mqtt_topic_prefix": "custom_prefix"}
+        entry.data = {"name": "test_device"}
+        flow = NSPanelHAUIOptionsFlow(entry)
+        flow._ctx["devices"] = [
+            {"name": "dev1", "locale": "en_US", "panels": [{"type": "clock", "key": "clock_0"}]},
+        ]
+        return flow
+
+    def test_builds_valid_config_from_panels(self):
+        flow = self._make_flow()
+        cfg = flow._build_full_config()
+        assert cfg["device"]["name"] == "test_device"
+        assert cfg["panels"] == [{"type": "clock", "key": "clock_0"}]
+        # Should pass validation (pydantic or stub)
+        from nspanel_haui.haui.config_models import validate_config
+        result = validate_config(cfg)
+        assert result is not None
+
+    def test_builds_valid_config_from_devices(self):
+        flow = self._make_flow_with_devices()
+        cfg = flow._build_full_config()
+        assert cfg["device"]["name"] == "test_device"
+        assert cfg["mqtt"]["topic_prefix"] == "custom_prefix"
+        assert len(cfg["devices"]) == 1
+        assert cfg["devices"][0]["name"] == "dev1"
+        # Panels are flattened from devices
+        assert cfg["panels"] == [{"type": "clock", "key": "clock_0"}]
+        # Should pass validation
+        from nspanel_haui.haui.config_models import validate_config
+        result = validate_config(cfg)
+        assert result is not None
+
+    def test_does_not_mutate_default_config(self):
+        from nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+        original = copy.deepcopy(DEFAULT_CONFIG["panels"])
+        flow = self._make_flow()
+        flow._build_full_config()
+        assert DEFAULT_CONFIG["panels"] == original
+
+    def test_empty_panels_falls_back_to_default(self):
+        """When _ctx has empty panels, DEFAULT_CONFIG panels are used."""
+        from nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+        flow = self._make_flow()
+        flow._ctx["panels"] = []
+        cfg = flow._build_full_config()
+        # Empty list is falsy, so cfg["panels"] retains DEFAULT_CONFIG["panels"]
+        assert cfg["panels"] == DEFAULT_CONFIG["panels"]
 
 # ---------------------------------------------------------------------------
 # NSPanelHAUIOptionsFlow  —  full options flow steps

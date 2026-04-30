@@ -192,10 +192,17 @@ def _panel_type_options(panel_type: str) -> list:
         return []
 
 
-def _panel_type_specific_schema(panel_type: str, current: dict | None = None) -> dict:
-    """Build a schema dict from each PageOption declared on the panel's page class."""
+def _panel_type_specific_schema(panel_type: str, current: dict | None = None) -> tuple[dict, dict]:
+    """Build a schema dict and transform map from PageOptions declared on the panel's page class.
+
+    Returns a (schema_dict, transforms_dict) tuple. The caller merges schema_dict
+    into the full voluptuous schema; transforms_dict maps option keys to transform
+    kinds (e.g. ``"list_str"``, ``"drop_empty"``) that should be applied to the
+    validated user input via :func:`_apply_transforms`.
+    """
     current = current or {}
     schema: dict = {}
+    transforms: dict = {}
 
     for opt in _panel_type_options(panel_type):
         # Already covered by the common panel_edit form (entity/entities multi-select).
@@ -217,11 +224,13 @@ def _panel_type_specific_schema(panel_type: str, current: dict | None = None) ->
         elif opt.kind == "str":
             default = str(cur) if cur is not None else ""
             schema[vol.Optional(opt.key, default=default)] = str
+            transforms[opt.key] = "drop_empty"
 
         elif opt.kind == "color":
             # Stored as RGB565 int or "[r,g,b]" string. Use plain str input.
             default = str(cur) if cur is not None else ""
             schema[vol.Optional(opt.key, default=default)] = str
+            transforms[opt.key] = "drop_empty"
 
         elif opt.kind == "entity":
             cfg = (
@@ -243,43 +252,42 @@ def _panel_type_specific_schema(panel_type: str, current: dict | None = None) ->
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             )
+            transforms[opt.key] = "drop_empty"
 
         elif opt.kind == "list_str":
             default_text = "\n".join(cur) if isinstance(cur, list) else (str(cur) if cur else "")
             schema[vol.Optional(opt.key, default=default_text)] = selector.TextSelector(
                 selector.TextSelectorConfig(multiline=True)
             )
+            transforms[opt.key] = "list_str"
 
         else:
             # Unknown kind — fall through as plain string.
             schema[vol.Optional(opt.key, default=str(cur) if cur is not None else "")] = str
 
-    return schema
+    return schema, transforms
 
 
-def _normalize_panel_type_options(panel_type: str, user_input: dict) -> dict:
-    """Convert form values back to the canonical config representation.
+def _apply_transforms(user_input: dict, transforms: dict) -> dict:
+    """Apply per-key transforms to convert form values into canonical config representation.
 
-    list_str → list[str]; empty strings stripped from optional keys.
+    Transforms are declared alongside the schema by :func:`_panel_type_specific_schema`.
+    Supported kinds:
+
+    * ``"list_str"`` — split multiline text into ``list[str]``, stripping blanks
+    * ``"drop_empty"`` — omit the key when the value is an empty string
     """
     cleaned: dict = {}
-    options_by_key = {opt.key: opt for opt in _panel_type_options(panel_type)}
 
     for k, v in user_input.items():
-        opt = options_by_key.get(k)
-        if opt is None:
-            cleaned[k] = v
-            continue
+        kind = transforms.get(k)
 
-        if opt.kind == "list_str":
+        if kind == "list_str":
             if isinstance(v, str):
                 cleaned[k] = [line.strip() for line in v.splitlines() if line.strip()]
             else:
                 cleaned[k] = v or []
-        elif opt.kind == "select" and v == "":
-            # Empty select → drop key so default applies.
-            continue
-        elif opt.kind in ("str", "color") and v == "":
+        elif kind == "drop_empty" and v == "":
             continue
         else:
             cleaned[k] = v
@@ -547,6 +555,29 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             "mode": None,
         }
 
+    def _build_full_config(self) -> dict:
+        """Build the full config dict from current flow state for validation.
+
+        Mirrors :func:`_options_to_config_dict` but uses the in-progress
+        ``_ctx`` state so we can validate *before* the final ``async_create_entry``.
+        """
+        cfg = copy.deepcopy(DEFAULT_CONFIG)
+        cfg["device"]["name"] = self.config_entry.data.get("name", "")
+
+        if "mqtt_topic_prefix" in self.config_entry.options:
+            cfg["mqtt"]["topic_prefix"] = self.config_entry.options["mqtt_topic_prefix"]
+
+        if self._ctx.get("devices"):
+            cfg["devices"] = copy.deepcopy(self._ctx["devices"])
+            all_panels = []
+            for dev in cfg["devices"]:
+                all_panels.extend(dev.get("panels", []))
+            cfg["panels"] = all_panels
+        elif self._ctx.get("panels"):
+            cfg["panels"] = list(self._ctx["panels"])
+
+        return cfg
+
     def _build_panel_schema(self, current: dict, panel_types, user_input=None):
         base_schema = _panel_edit_schema(current, panel_types).schema
 
@@ -562,7 +593,7 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
 
         # If type changed since last submit, drop stale option values from current.
         type_current = current if current.get("type") == panel_type else {}
-        type_schema = _panel_type_specific_schema(panel_type, type_current)
+        type_schema, _transforms = _panel_type_specific_schema(panel_type, type_current)
 
         return vol.Schema({**base_schema, **type_schema})
 
@@ -581,6 +612,22 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             new_options = dict(self.config_entry.options)
             new_options["mqtt_topic_prefix"] = user_input["mqtt_topic_prefix"]
             new_options.pop("config_yaml", None)
+
+            # Validate full config before saving
+            try:
+                validate_config(self._build_full_config())
+            except Exception:
+                return self.async_show_form(
+                    step_id="topic",
+                    data_schema=vol.Schema({
+                        vol.Required(
+                            "mqtt_topic_prefix",
+                            default=user_input["mqtt_topic_prefix"],
+                        ): str,
+                    }),
+                    errors={"base": "invalid_config"},
+                )
+
             return self.async_create_entry(data=new_options)
 
         current_prefix = self.config_entry.options.get("mqtt_topic_prefix", "nspanel_haui")
@@ -616,11 +663,46 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                 if ctx["panel_device_idx"] >= 0:
                     ctx["devices"][ctx["panel_device_idx"]]["panels"] = ctx["panels"]
                     ctx["panel_device_idx"] = -1
+
+                    # Validate full config before saving
+                    try:
+                        validate_config(self._build_full_config())
+                    except Exception:
+                        return self.async_show_form(
+                            step_id="panels",
+                            data_schema=vol.Schema({
+                                vol.Required("panel_action"): selector.SelectSelector(
+                                    selector.SelectSelectorConfig(
+                                        options=_panel_list_options(ctx["panels"]),
+                                        mode=selector.SelectSelectorMode.LIST,
+                                    )
+                                ),
+                            }),
+                            errors={"base": "invalid_config"},
+                        )
+
                     new_options = dict(self.config_entry.options)
                     new_options["devices"] = ctx["devices"]
                     new_options.pop("config_yaml", None)
                     return self.async_create_entry(data=new_options)
                 else:
+                    # Validate full config before saving
+                    try:
+                        validate_config(self._build_full_config())
+                    except Exception:
+                        return self.async_show_form(
+                            step_id="panels",
+                            data_schema=vol.Schema({
+                                vol.Required("panel_action"): selector.SelectSelector(
+                                    selector.SelectSelectorConfig(
+                                        options=_panel_list_options(ctx["panels"]),
+                                        mode=selector.SelectSelectorMode.LIST,
+                                    )
+                                ),
+                            }),
+                            errors={"base": "invalid_config"},
+                        )
+
                     new_options = dict(self.config_entry.options)
                     new_options["panels"] = ctx["panels"]
                     new_options.pop("config_yaml", None)
@@ -714,7 +796,8 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
 
         if user_input is not None:
             panel_type = user_input.get("type") or current.get("type", "")
-            normalized = _normalize_panel_type_options(panel_type, user_input)
+            _type_schema, transforms = _panel_type_specific_schema(panel_type, {})
+            normalized = _apply_transforms(user_input, transforms)
             panel_cfg = _extract_panel_config(normalized, panel_idx, ctx["panels"])
 
             # validate
@@ -764,6 +847,23 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                 return await self.async_step_device_discover()
 
             if action == Action.DONE:
+                # Validate full config before saving
+                try:
+                    validate_config(self._build_full_config())
+                except Exception:
+                    return self.async_show_form(
+                        step_id="devices",
+                        data_schema=vol.Schema({
+                            vol.Required("device_action"): selector.SelectSelector(
+                                selector.SelectSelectorConfig(
+                                    options=_device_list_options(ctx["devices"]),
+                                    mode=selector.SelectSelectorMode.LIST,
+                                )
+                            ),
+                        }),
+                        errors={"base": "invalid_config"},
+                    )
+
                 new_options = dict(self.config_entry.options)
                 new_options["devices"] = ctx["devices"]
                 new_options.pop("config_yaml", None)

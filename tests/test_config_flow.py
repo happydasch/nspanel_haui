@@ -319,11 +319,37 @@ class TestExtractPanelConfig:
 # ---------------------------------------------------------------------------
 
 class TestOptionsToConfigDict:
-    def test_yaml_override_takes_priority(self):
-        options = {"config_yaml": "device:\n  name: test\npanels: []\n"}
+    def test_yaml_mode_takes_priority(self):
+        """With config_mode=yaml, YAML is used regardless of structured options."""
+        options = {
+            "config_mode": "yaml",
+            "config_yaml": "device:\n  name: test\npanels: []\n",
+            "devices": [{"name": "ignored", "panels": []}],
+        }
         result = _options_to_config_dict("ignored", options)
         assert result["device"]["name"] == "test"
         assert result["panels"] == []
+
+    def test_ui_mode_ignores_yaml(self):
+        """With config_mode=ui, YAML is ignored even if set."""
+        options = {
+            "config_mode": "ui",
+            "config_yaml": "device:\n  name: yaml_name\npanels: []\n",
+            "panels": [{"type": "clock"}],
+        }
+        result = _options_to_config_dict("ui_name", options)
+        assert result["device"]["name"] == "ui_name"
+        assert result["panels"] == [{"type": "clock"}]
+
+    def test_default_mode_is_ui(self):
+        """Without config_mode, defaults to ui mode (structured options)."""
+        options = {
+            "config_yaml": "device:\n  name: yaml_name\npanels: []\n",
+            "panels": [{"type": "grid"}],
+        }
+        result = _options_to_config_dict("default_name", options)
+        assert result["device"]["name"] == "default_name"
+        assert result["panels"] == [{"type": "grid"}]
 
     def test_empty_options_uses_defaults(self):
         result = _options_to_config_dict("my_device", {})
@@ -358,9 +384,12 @@ class TestOptionsToConfigDict:
         assert DEFAULT_CONFIG["panels"] == original_panels
 
     def test_backward_compat_old_yaml_only_entry(self):
-        """Old entries that only have config_yaml still work via escape hatch."""
+        """After migration, old YAML-only entries get config_mode=yaml."""
         yaml_str = "device:\n  name: old_device\npanels:\n  - type: clock\n"
-        result = _options_to_config_dict("old_device", {"config_yaml": yaml_str})
+        result = _options_to_config_dict("old_device", {
+            "config_yaml": yaml_str,
+            "config_mode": "yaml",
+        })
         assert result["device"]["name"] == "old_device"
         assert result["panels"][0]["type"] == "clock"
 
@@ -1162,6 +1191,54 @@ class TestMigrateEntry:
         for dev in kwargs["options"]["devices"]:
             assert "panels" in dev
 
+    # ── v4 → v5 migration ─────────────────────────────────────────────────
+
+    def _make_v4_entry(self, data=None, options=None):
+        """Build a v4 MagicMock config entry (post v3→v4 migration)."""
+        return self._make_entry(
+            version=4,
+            data=data or {"name": "test_device"},
+            options=options or {"devices": [{"name": "dev1", "panels": []}]},
+        )
+
+    def test_v4_to_v5_yaml_entry_gets_yaml_mode(self):
+        """v4 entry with config_yaml set → config_mode = 'yaml'."""
+        entry = self._make_v4_entry(options={
+            "devices": [],
+            "config_yaml": "device:\n  name: test\n",
+        })
+        hass, result = self._run_migration(entry)
+        assert result is True
+        kwargs = self._get_update_kwargs(hass)
+        assert kwargs["version"] == 5
+        assert kwargs["options"]["config_mode"] == "yaml"
+
+    def test_v4_to_v5_no_yaml_gets_ui_mode(self):
+        """v4 entry with no/empty config_yaml → config_mode = 'ui'."""
+        entry = self._make_v4_entry(options={
+            "devices": [],
+            "config_yaml": "",
+        })
+        hass, result = self._run_migration(entry)
+        assert result is True
+        kwargs = self._get_update_kwargs(hass)
+        assert kwargs["version"] == 5
+        assert kwargs["options"]["config_mode"] == "ui"
+
+    def test_v4_to_v5_existing_config_mode_preserved(self):
+        """v4 entry that already has config_mode set is not overwritten."""
+        entry = self._make_v4_entry(options={
+            "devices": [],
+            "config_mode": "ui",
+            "config_yaml": "device:\n  name: test\n",
+        })
+        hass, result = self._run_migration(entry)
+        assert result is True
+        kwargs = self._get_update_kwargs(hass)
+        assert kwargs["version"] == 5
+        # Existing config_mode is preserved
+        assert kwargs["options"]["config_mode"] == "ui"
+
 
 # ---------------------------------------------------------------------------
 # NSPanelHAUIOptionsFlow  —  topic step
@@ -1196,6 +1273,7 @@ class TestOptionsFlowTopic:
         assert result["type"] == "create_entry"
         assert result["data"]["mqtt_topic_prefix"] == "new_prefix"
         assert "config_yaml" not in result["data"]
+        assert result["data"].get("config_mode") == "ui"
 
     def test_topic_step_default_when_no_existing(self):
         flow = self._make_flow({})
@@ -1692,3 +1770,157 @@ class TestConfigFlowEndToEnd:
         assert len(disc_result["options"]["devices"]) == 1
         assert disc_result["options"]["devices"][0]["name"] == "panel-living"
         assert disc_result["options"]["devices"][0]["esphome_device_id"] == "entry1"
+
+# ---------------------------------------------------------------------------
+# NSPanelHAUIOptionsFlow  —  config_mode switch
+# ---------------------------------------------------------------------------
+
+
+class TestConfigMode:
+    """Tests for explicit config_mode field and mode switch behavior."""
+
+    def _make_flow(self, options=None):
+        """Create an options flow with given config entry options."""
+        entry = MagicMock()
+        entry.data = {"name": "test_entry"}
+        entry.options = options if options is not None else {
+            "mqtt_topic_prefix": "nspanel_haui",
+            "devices": [{"name": "test_dev", "panels": [{"type": "clock"}]}],
+            "config_yaml": "",
+            "config_mode": "ui",
+        }
+        from nspanel_haui.config_flow import NSPanelHAUIOptionsFlow
+        flow = NSPanelHAUIOptionsFlow(entry)
+        return flow
+
+    def _make_yaml_flow(self, options=None):
+        """Create an options flow in YAML mode."""
+        opts = {
+            "mqtt_topic_prefix": "nspanel_haui",
+            "devices": [],
+            "config_yaml": "device:\n  name: yaml_dev\npanels:\n  - type: clock\n",
+            "config_mode": "yaml",
+        }
+        if options:
+            opts.update(options)
+        return self._make_flow(opts)
+
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    # ── init step branching ───────────────────────────────────────────────
+
+    def test_init_ui_mode_shows_devices_topic_switch(self):
+        """In UI mode, menu has devices, topic, switch_to_yaml."""
+        flow = self._make_flow()
+        result = self._run(flow.async_step_init())
+        assert result["type"] == "menu"
+        assert result["step_id"] == "init"
+        assert "devices" in result["menu_options"]
+        assert "topic" in result["menu_options"]
+        assert "switch_to_yaml" in result["menu_options"]
+        assert "yaml_override" not in result["menu_options"]
+
+    def test_init_yaml_mode_shows_yaml_override_switch(self):
+        """In YAML mode, menu has yaml_override, switch_to_ui."""
+        flow = self._make_yaml_flow()
+        result = self._run(flow.async_step_init())
+        assert result["type"] == "menu"
+        assert result["step_id"] == "init"
+        assert "yaml_override" in result["menu_options"]
+        assert "switch_to_ui" in result["menu_options"]
+        assert "devices" not in result["menu_options"]
+        assert "topic" not in result["menu_options"]
+        assert result.get("description_placeholders", {}).get("mode") == "YAML"
+
+    def test_init_defaults_to_ui_when_no_config_mode(self):
+        """Without config_mode, defaults to UI mode menu."""
+        flow = self._make_flow(options={
+            "mqtt_topic_prefix": "prefix",
+            "devices": [],
+        })
+        result = self._run(flow.async_step_init())
+        assert result["type"] == "menu"
+        assert "devices" in result["menu_options"]
+        assert "topic" in result["menu_options"]
+        assert "switch_to_yaml" in result["menu_options"]
+
+    # ── switch_to_yaml ────────────────────────────────────────────────────
+
+    def test_switch_to_yaml_shows_confirm_form(self):
+        """switch_to_yaml shows a confirmation form."""
+        flow = self._make_flow()
+        result = self._run(flow.async_step_switch_to_yaml())
+        assert result["type"] == "form"
+        assert result["step_id"] == "switch_to_yaml"
+
+    def test_switch_to_yaml_generates_yaml_and_sets_mode(self):
+        """Confirming switch generates config_yaml and sets mode to yaml."""
+        flow = self._make_flow()
+        result = self._run(flow.async_step_switch_to_yaml({"confirm": True}))
+        assert result["type"] == "create_entry"
+        assert "config_yaml" in result["data"]
+        assert result["data"]["config_mode"] == "yaml"
+        # Generated YAML should contain the device name and panels
+        yaml_text = result["data"]["config_yaml"]
+        assert "test_dev" in yaml_text
+        assert "clock" in yaml_text
+
+    def test_switch_to_yaml_cancel_returns_to_init(self):
+        """Cancel on switch_to_yaml returns to init menu."""
+        flow = self._make_flow()
+        result = self._run(flow.async_step_switch_to_yaml({"confirm": False}))
+        assert result["type"] == "menu"
+        assert result["step_id"] == "init"
+
+    # ── switch_to_ui ──────────────────────────────────────────────────────
+
+    def test_switch_to_ui_shows_confirm_form(self):
+        """switch_to_ui shows a confirmation form."""
+        flow = self._make_yaml_flow()
+        result = self._run(flow.async_step_switch_to_ui())
+        assert result["type"] == "form"
+        assert result["step_id"] == "switch_to_ui"
+
+    def test_switch_to_ui_parses_yaml_into_structured(self):
+        """Confirming switch parses YAML into structured fields."""
+        yaml_str = (
+            "device:\n  name: yaml_dev\n"
+            "panels:\n  - type: light\n    entity: light.kitchen\n"
+            "mqtt:\n  topic_prefix: custom_prefix\n"
+        )
+        flow = self._make_yaml_flow(options={
+            "config_mode": "yaml",
+            "config_yaml": yaml_str,
+            "devices": [],
+        })
+        result = self._run(flow.async_step_switch_to_ui({"confirm": True}))
+        assert result["type"] == "create_entry"
+        assert result["data"]["config_mode"] == "ui"
+        # config_yaml is preserved
+        assert result["data"]["config_yaml"] == yaml_str
+        # panels imported from YAML
+        assert len(result["data"]["panels"]) == 1
+        assert result["data"]["panels"][0]["type"] == "light"
+        # mqtt_topic_prefix imported from YAML
+        assert result["data"]["mqtt_topic_prefix"] == "custom_prefix"
+
+    def test_switch_to_ui_invalid_yaml_shows_error(self):
+        """Bad YAML shows error form instead of switching."""
+        flow = self._make_yaml_flow(options={
+            "config_mode": "yaml",
+            "config_yaml": "not: valid: yaml: :",
+            "devices": [],
+        })
+        result = self._run(flow.async_step_switch_to_ui({"confirm": True}))
+        assert result["type"] == "form"
+        assert result["step_id"] == "switch_to_ui"
+        assert "base" in result.get("errors", {})
+
+    def test_switch_to_ui_cancel_returns_to_init(self):
+        """Cancel on switch_to_ui returns to init menu."""
+        flow = self._make_yaml_flow()
+        result = self._run(flow.async_step_switch_to_ui({"confirm": False}))
+        assert result["type"] == "menu"
+        assert result["step_id"] == "init"
+

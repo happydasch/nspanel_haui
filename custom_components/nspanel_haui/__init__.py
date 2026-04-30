@@ -18,16 +18,20 @@ DOMAIN = "nspanel_haui"
 def _options_to_config_dict(name: str, options: dict[str, Any]) -> dict[str, Any]:
     """Build the config dict NSPanelHAUI expects from structured entry options.
 
-    Priority: options["config_yaml"] (escape hatch) overrides all structured keys,
-    so old entries that only have config_yaml continue to work unchanged.
+    Priority is controlled by options["config_mode"]:
+    - "yaml": use config_yaml (safe_load), ignoring structured options
+    - "ui" (default): use structured options (devices, panels, topic_prefix)
     """
     import yaml
 
     from .haui.mapping.const import DEFAULT_CONFIG
 
-    if options.get("config_yaml"):
+    config_mode = options.get("config_mode", "ui")
+
+    if config_mode == "yaml" and options.get("config_yaml"):
         return yaml.safe_load(options["config_yaml"]) or {}
 
+    # UI mode (or fallback if YAML mode but config_yaml is missing)
     cfg = copy.deepcopy(DEFAULT_CONFIG)
     cfg["device"]["name"] = name
 

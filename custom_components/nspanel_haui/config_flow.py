@@ -362,7 +362,7 @@ def _find_esphome_device(hass, device_name: str) -> str | None:
 
 
 class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 4
+    VERSION = 5
 
     async def async_step_user(
         self,
@@ -400,6 +400,7 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             "mqtt_topic_prefix": user_input.get("mqtt_topic_prefix", "nspanel_haui"),
                             "devices": [],
                             "config_yaml": "",
+                            "config_mode": "ui",
                         },
                     )
 
@@ -448,6 +449,7 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "mqtt_topic_prefix": prefix,
                     "devices": devices_list,
                     "config_yaml": "",
+                    "config_mode": "ui",
                 },
             )
 
@@ -544,6 +546,17 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 config_entry, options=new_options, version=4
             )
 
+        if config_entry.version == 4:
+            new_options = dict(config_entry.options)
+            if "config_mode" not in new_options:
+                if new_options.get("config_yaml"):
+                    new_options["config_mode"] = "yaml"
+                else:
+                    new_options["config_mode"] = "ui"
+            hass.config_entries.async_update_entry(
+                config_entry, options=new_options, version=5
+            )
+
         return True
 
     @staticmethod
@@ -616,10 +629,20 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
-        return self.async_show_menu(
-            step_id="init",
-            menu_options=["devices", "topic", "yaml_override"],
-        )
+        options = dict(self.config_entry.options)
+        current_mode = options.get("config_mode", "ui")
+
+        if current_mode == "yaml":
+            return self.async_show_menu(
+                step_id="init",
+                menu_options=["yaml_override", "switch_to_ui"],
+                description_placeholders={"mode": "YAML"},
+            )
+        else:
+            return self.async_show_menu(
+                step_id="init",
+                menu_options=["devices", "topic", "switch_to_yaml"],
+            )
 
     async def async_step_topic(
         self, user_input: dict[str, Any] | None = None
@@ -628,6 +651,7 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             new_options = dict(self.config_entry.options)
             new_options["mqtt_topic_prefix"] = user_input["mqtt_topic_prefix"]
             new_options.pop("config_yaml", None)
+            new_options["config_mode"] = "ui"
 
             # Validate full config before saving
             try:
@@ -699,6 +723,7 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
 
                     new_options = dict(self.config_entry.options)
                     new_options["devices"] = ctx["devices"]
+                    new_options["config_mode"] = "ui"
                     new_options.pop("config_yaml", None)
                     return self.async_create_entry(data=new_options)
                 else:
@@ -721,6 +746,7 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
 
                     new_options = dict(self.config_entry.options)
                     new_options["panels"] = ctx["panels"]
+                    new_options["config_mode"] = "ui"
                     new_options.pop("config_yaml", None)
                     return self.async_create_entry(data=new_options)
 
@@ -892,6 +918,7 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
 
                 new_options = dict(self.config_entry.options)
                 new_options["devices"] = ctx["devices"]
+                new_options["config_mode"] = "ui"
                 new_options.pop("config_yaml", None)
                 return self.async_create_entry(data=new_options)
 
@@ -1082,6 +1109,7 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             if not errors:
                 new_options = dict(self.config_entry.options)
                 new_options["config_yaml"] = raw_yaml
+                new_options["config_mode"] = "yaml"
                 return self.async_create_entry(data=new_options)
 
             current_yaml = raw_yaml
@@ -1094,6 +1122,97 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                 }),
             }),
             errors=errors,
+        )
+
+    async def async_step_switch_to_yaml(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Generate YAML from current structured config and switch mode."""
+        options = dict(self.config_entry.options)
+
+        if user_input is not None:
+            confirm = user_input.get("confirm", False)
+            if confirm:
+                # Ensure context is populated from entry options for _build_full_config
+                if not self._ctx.get("devices"):
+                    self._device_editor = ListEditor(copy.deepcopy(
+                        options.get("devices", [])
+                    ))
+                    self._ctx["devices"] = self._device_editor.items
+
+                full_config = self._build_full_config()
+                yaml_text = yaml.dump(full_config, default_flow_style=False, allow_unicode=True)
+
+                new_options = dict(options)
+                new_options["config_yaml"] = yaml_text
+                new_options["config_mode"] = "yaml"
+                return self.async_create_entry(data=new_options)
+            else:
+                return await self.async_step_init()
+
+        return self.async_show_form(
+            step_id="switch_to_yaml",
+            data_schema=vol.Schema({
+                vol.Required("confirm", default=True): bool,
+            }),
+            description_placeholders={
+                "note": "Switching to YAML mode will generate YAML from your current UI config. "
+                        "Future changes must be made in YAML. You can switch back at any time."
+            },
+        )
+
+    async def async_step_switch_to_ui(
+        self, user_input: dict[str, Any] | None = None
+    ) -> config_entries.ConfigFlowResult:
+        """Parse YAML → structured config and switch mode."""
+        options = dict(self.config_entry.options)
+        current_yaml = options.get("config_yaml", "")
+
+        if user_input is not None:
+            confirm = user_input.get("confirm", False)
+            if confirm:
+                try:
+                    parsed = yaml.safe_load(current_yaml)
+                    if not isinstance(parsed, dict):
+                        raise TypeError("must be mapping")
+                except Exception:
+                    return self.async_show_form(
+                        step_id="switch_to_ui",
+                        data_schema=vol.Schema({
+                            vol.Required("confirm", default=True): bool,
+                        }),
+                        errors={"base": "invalid_yaml"},
+                        description_placeholders={
+                            "note": "Failed to parse YAML. Please fix it in yaml_override first."
+                        },
+                    )
+
+                new_options = dict(options)
+                new_options["config_mode"] = "ui"
+
+                # Populate structured fields from parsed YAML
+                if "devices" in parsed:
+                    new_options["devices"] = parsed["devices"]
+                elif "panels" in parsed:
+                    new_options["panels"] = parsed["panels"]
+
+                if "mqtt" in parsed and "topic_prefix" in parsed["mqtt"]:
+                    new_options["mqtt_topic_prefix"] = parsed["mqtt"]["topic_prefix"]
+
+                # Keep config_yaml so user can switch back
+                return self.async_create_entry(data=new_options)
+            else:
+                return await self.async_step_init()
+
+        return self.async_show_form(
+            step_id="switch_to_ui",
+            data_schema=vol.Schema({
+                vol.Required("confirm", default=True): bool,
+            }),
+            description_placeholders={
+                "note": "Switching to UI mode will import your YAML config. "
+                        "The YAML will be preserved but no longer used. You can switch back at any time."
+            },
         )
 
 

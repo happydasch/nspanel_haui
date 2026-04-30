@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import copy
-import json
 import logging
 from enum import StrEnum
-from functools import lru_cache
 from typing import Any
 
 import voluptuous as vol
@@ -18,8 +15,32 @@ from homeassistant.helpers import selector
 from homeassistant.helpers.selector import SelectOptionDict
 
 from .haui.config_models import validate_config
-from .haui.mapping.const import DEFAULT_CONFIG, DEVICE_CONFIG, PANEL_CONFIG
+from .haui.mapping.const import DEFAULT_CONFIG, DEVICE_CONFIG
+from .config_editor import ConfigEditor
 from .list_editor import ListEditor
+from .mqtt_helpers import (
+    MQTT_DISCOVERY_TIMEOUT,
+    find_esphome_device as _find_esphome_device,
+    mqtt_available as _mqtt_available,
+    normalize_device_name as _normalize_device_name,
+    run_mqtt_discovery as _run_mqtt_discovery,
+)
+from .config_schema import ConfigSchema
+
+# Backward-compatible re-exports for tests that import from config_flow
+_user_panel_types = ConfigSchema.user_panel_types
+_panel_label = ConfigSchema.panel_label
+_panel_list_options = ConfigSchema.panel_list_options
+_panel_action_options = ConfigSchema.panel_action_options
+_device_label = ConfigSchema.device_label
+_device_list_options = ConfigSchema.device_list_options
+_device_action_options = ConfigSchema.device_action_options
+_device_edit_schema = ConfigSchema.device_edit_schema
+_panel_edit_schema = ConfigSchema.panel_edit_schema
+_panel_type_options = ConfigSchema.panel_type_options
+_panel_type_specific_schema = ConfigSchema.panel_type_specific_schema
+_apply_transforms = ConfigSchema.apply_transforms
+_extract_panel_config = ConfigSchema.extract_panel_config
 
 DOMAIN = "nspanel_haui"
 _LOGGER = logging.getLogger(__name__)
@@ -38,327 +59,6 @@ class Action(StrEnum):
     PANELS = "panels"
 
 
-MQTT_DISCOVERY_TIMEOUT = 5  # seconds
-
-
-# ── Panel type helpers ──────────────────────────────────────────────────────
-
-
-@lru_cache(maxsize=1)
-def _user_panel_types() -> list[SelectOptionDict]:
-    """Return selector options for user-visible (non-system, non-popup) panel types."""
-    try:
-        from .haui.mapping.panel import PANEL_MAPPING
-
-        result: list[SelectOptionDict] = []
-        for type_key, value in PANEL_MAPPING.items():
-            if not isinstance(value, tuple) or len(value) != 2:
-                continue
-            _, cls = value
-            d = getattr(cls, "DESCRIPTOR", None)
-            # type_key == d.type_key guards against popup aliases that reuse a
-            # non-popup class — those aliases have a mismatched key (popup_light vs light)
-            if d is not None and type_key == d.type_key and not d.is_system and not d.is_popup:
-                result.append(SelectOptionDict(value=type_key, label=d.label))
-        return sorted(result, key=lambda x: x["label"])
-    except Exception:
-        _LOGGER.debug("Could not load panel types", exc_info=True)
-        return [SelectOptionDict(value="clock", label="Clock")]
-
-
-def _panel_label(panel: dict) -> str:
-    title = panel.get("title") or ""
-    ptype = panel.get("type", "?")
-    return f"{title} ({ptype})" if title else ptype
-
-
-def _panel_list_options(panels: list[dict]) -> list[SelectOptionDict]:
-    """One row per panel + Add/Save. Selecting a panel opens the action sub-menu."""
-    opts: list[SelectOptionDict] = [SelectOptionDict(value=Action.ADD, label="+ Add panel")]
-
-    for i, p in enumerate(panels):
-        opts.append(SelectOptionDict(value=str(i), label=_panel_label(p)))
-
-    opts.append(SelectOptionDict(value=Action.DONE, label="Save & close"))
-    return opts
-
-
-def _panel_action_options(idx: int, panels: list[dict]) -> list[SelectOptionDict]:
-    """Action sub-menu for a selected panel (edit, dup, move, remove)."""
-    label = _panel_label(panels[idx])
-    return [
-        SelectOptionDict(value=f"{Action.EDIT}_{idx}", label=f"Edit: {label}"),
-        SelectOptionDict(value=f"{Action.DUP}_{idx}", label=f"Duplicate: {label}"),
-        SelectOptionDict(value=f"{Action.MOVE_UP}_{idx}", label=f"Move up: {label}"),
-        SelectOptionDict(value=f"{Action.MOVE_DOWN}_{idx}", label=f"Move down: {label}"),
-        SelectOptionDict(value=f"{Action.REMOVE}_{idx}", label=f"Remove: {label}"),
-        SelectOptionDict(value=Action.BACK, label="← Back"),
-    ]
-
-
-# ── Schema builders (add fields here to extend each step) ──────────────────
-
-def _device_label(device: dict) -> str:
-    name = device.get("name") or ""
-    locale = device.get("locale", "")
-    return f"{name} ({locale})" if locale else name
-
-
-def _device_list_options(devices: list[dict]) -> list[SelectOptionDict]:
-    """One row per device + Add/Discover/Save."""
-    opts: list[SelectOptionDict] = [SelectOptionDict(value=Action.ADD, label="+ Add device")]
-
-    if devices:
-        opts.append(SelectOptionDict(value=Action.DISCOVER, label="Scan for new devices"))
-
-    for i, d in enumerate(devices):
-        opts.append(SelectOptionDict(value=str(i), label=_device_label(d)))
-
-    opts.append(SelectOptionDict(value=Action.DONE, label="Save & close"))
-    return opts
-
-
-def _device_action_options(idx: int, devices: list[dict]) -> list[SelectOptionDict]:
-    """Action sub-menu for a selected device (edit, dup, move, remove, panels)."""
-    label = _device_label(devices[idx])
-    return [
-        SelectOptionDict(value=f"{Action.PANELS}_{idx}", label=f"Manage panels: {label}"),
-        SelectOptionDict(value=f"{Action.EDIT}_{idx}", label=f"Edit: {label}"),
-        SelectOptionDict(value=f"{Action.DUP}_{idx}", label=f"Duplicate: {label}"),
-        SelectOptionDict(value=f"{Action.MOVE_UP}_{idx}", label=f"Move up: {label}"),
-        SelectOptionDict(value=f"{Action.MOVE_DOWN}_{idx}", label=f"Move down: {label}"),
-        SelectOptionDict(value=f"{Action.REMOVE}_{idx}", label=f"Remove: {label}"),
-        SelectOptionDict(value=Action.BACK, label="← Back"),
-    ]
-
-
-def _device_edit_schema(current: dict) -> vol.Schema:
-    return vol.Schema({
-        vol.Required("name", default=current.get("name", "")): str,
-        vol.Optional("locale", default=current.get("locale", "en_US")): str,
-        vol.Optional("button_left_entity"): selector.EntitySelector(),
-        vol.Optional("button_right_entity"): selector.EntitySelector(),
-        vol.Optional("show_home_button", default=current.get("show_home_button", False)): bool,
-        vol.Optional("show_sleep_button", default=current.get("show_sleep_button", False)): bool,
-        vol.Optional("show_notifications_button", default=current.get("show_notifications_button", True)): bool,
-        vol.Optional("log_commands", default=current.get("log_commands", False)): bool,
-        vol.Optional("home_on_wakeup", default=current.get("home_on_wakeup", False)): bool,
-        vol.Optional("home_on_first_touch", default=current.get("home_on_first_touch", True)): bool,
-        vol.Optional("home_only_when_on", default=current.get("home_only_when_on", False)): bool,
-        vol.Optional("home_on_button_toggle", default=current.get("home_on_button_toggle", False)): bool,
-        vol.Optional("return_to_home_after_seconds", default=current.get("return_to_home_after_seconds", 0)): vol.Coerce(int),
-        vol.Optional("always_return_to_home", default=current.get("always_return_to_home", False)): bool,
-        vol.Optional("sound_on_startup", default=current.get("sound_on_startup", True)): bool,
-        vol.Optional("sound_on_notification", default=current.get("sound_on_notification", True)): bool,
-    })
-
-
-
-def _panel_edit_schema(current: dict, panel_types: list[SelectOptionDict]) -> vol.Schema:
-    default_type = panel_types[0]["value"] if panel_types else "clock"
-    return vol.Schema({
-        vol.Required("type", default=current.get("type", default_type)): selector.SelectSelector(
-            selector.SelectSelectorConfig(
-                options=panel_types,
-                mode=selector.SelectSelectorMode.DROPDOWN,
-            )
-        ),
-        vol.Optional("title", default=current.get("title", "")): str,
-        vol.Optional("key", default=current.get("key", "")): str,
-        vol.Optional("home_panel", default=current.get("home_panel", False)): bool,
-        vol.Optional("sleep_panel", default=current.get("sleep_panel", False)): bool,
-        vol.Optional("wakeup_panel", default=current.get("wakeup_panel", False)): bool,
-        vol.Optional("entity"): selector.EntitySelector(),
-        vol.Optional("entities"): selector.EntitySelector(
-            selector.EntitySelectorConfig(multiple=True)
-        ),
-    })
-
-
-@lru_cache(maxsize=64)
-def _panel_type_options(panel_type: str) -> list:
-    """Return the PageOption list declared on the page class for ``panel_type``."""
-    try:
-        from .haui.mapping.panel import PANEL_MAPPING
-
-        entry = PANEL_MAPPING.get(panel_type)
-        if not entry:
-            return []
-        _, cls = entry
-        d = getattr(cls, "DESCRIPTOR", None)
-        return list(d.options) if d and getattr(d, "options", None) else []
-    except Exception:
-        _LOGGER.debug("Could not load options for panel type %s", panel_type, exc_info=True)
-        return []
-
-
-def _panel_type_specific_schema(panel_type: str, current: dict | None = None) -> tuple[dict, dict]:
-    """Build a schema dict and transform map from PageOptions declared on the panel's page class.
-
-    Returns a (schema_dict, transforms_dict) tuple. The caller merges schema_dict
-    into the full voluptuous schema; transforms_dict maps option keys to transform
-    kinds (e.g. ``"list_str"``, ``"drop_empty"``) that should be applied to the
-    validated user input via :func:`_apply_transforms`.
-    """
-    current = current or {}
-    schema: dict = {}
-    transforms: dict = {}
-
-    for opt in _panel_type_options(panel_type):
-        # Already covered by the common panel_edit form (entity/entities multi-select).
-        # The per-panel "entity" override below uses domain filtering so it's still useful.
-        cur = current.get(opt.key, opt.default)
-
-        if opt.kind == "bool":
-            default = bool(cur) if cur is not None else False
-            schema[vol.Optional(opt.key, default=default)] = bool
-
-        elif opt.kind == "int":
-            default = int(cur) if cur is not None else 0
-            schema[vol.Optional(opt.key, default=default)] = vol.Coerce(int)
-
-        elif opt.kind == "float":
-            default = float(cur) if cur is not None else 0.0
-            schema[vol.Optional(opt.key, default=default)] = vol.Coerce(float)
-
-        elif opt.kind == "str":
-            default = str(cur) if cur is not None else ""
-            schema[vol.Optional(opt.key, default=default)] = str
-            transforms[opt.key] = "drop_empty"
-
-        elif opt.kind == "color":
-            # Stored as RGB565 int or "[r,g,b]" string. Use plain str input.
-            default = str(cur) if cur is not None else ""
-            schema[vol.Optional(opt.key, default=default)] = str
-            transforms[opt.key] = "drop_empty"
-
-        elif opt.kind == "entity":
-            cfg = (
-                selector.EntitySelectorConfig(domain=opt.domain)
-                if opt.domain
-                else selector.EntitySelectorConfig()
-            )
-            if cur:
-                schema[vol.Optional(opt.key, default=cur)] = selector.EntitySelector(cfg)
-            else:
-                schema[vol.Optional(opt.key)] = selector.EntitySelector(cfg)
-
-        elif opt.kind == "select":
-            choices = opt.choices or []
-            default = cur if cur is not None else (choices[0][0] if choices else "")
-            schema[vol.Optional(opt.key, default=default)] = selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[SelectOptionDict(value=v, label=lbl) for v, lbl in choices],
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            )
-            transforms[opt.key] = "drop_empty"
-
-        elif opt.kind == "list_str":
-            default_text = "\n".join(cur) if isinstance(cur, list) else (str(cur) if cur else "")
-            schema[vol.Optional(opt.key, default=default_text)] = selector.TextSelector(
-                selector.TextSelectorConfig(multiline=True)
-            )
-            transforms[opt.key] = "list_str"
-
-        else:
-            # Unknown kind — fall through as plain string.
-            schema[vol.Optional(opt.key, default=str(cur) if cur is not None else "")] = str
-
-    return schema, transforms
-
-
-def _apply_transforms(user_input: dict, transforms: dict) -> dict:
-    """Apply per-key transforms to convert form values into canonical config representation.
-
-    Transforms are declared alongside the schema by :func:`_panel_type_specific_schema`.
-    Supported kinds:
-
-    * ``"list_str"`` — split multiline text into ``list[str]``, stripping blanks
-    * ``"drop_empty"`` — omit the key when the value is an empty string
-    """
-    cleaned: dict = {}
-
-    for k, v in user_input.items():
-        kind = transforms.get(k)
-
-        if kind == "list_str":
-            if isinstance(v, str):
-                cleaned[k] = [line.strip() for line in v.splitlines() if line.strip()]
-            else:
-                cleaned[k] = v or []
-        elif kind == "drop_empty" and v == "":
-            continue
-        else:
-            cleaned[k] = v
-
-    return cleaned
-
-
-def _extract_panel_config(user_input: dict, edit_idx: int, panels: list[dict]) -> dict:
-    """Build a complete panel config dict from form input."""
-    base = dict(PANEL_CONFIG)
-    base.update({k: v for k, v in user_input.items() if v is not None})
-    if not base.get("key"):
-        ptype = base.get("type", "panel")
-        idx = edit_idx if edit_idx >= 0 else len(panels)
-        base["key"] = f"{ptype}_{idx}"
-    if not base.get("entity"):
-        base["entity"] = None
-    if not base.get("entities"):
-        base["entities"] = []
-    return base
-
-
-
-def _normalize_device_name(name: str) -> str:
-    """Normalize a device name for fuzzy comparison."""
-    return name.lower().strip().replace("_", " ").replace("-", " ")
-
-
-def _find_esphome_device(hass, device_name: str) -> str | None:
-    """Match NSPanel device name to ESPHome device entry using normalized comparison.
-
-    Returns the ESPHome config entry ID if matched, or None.
-    """
-    normalized_mqtt = _normalize_device_name(device_name)
-
-    # Primary path: esphome integration stores entries in hass.data
-    try:
-        esphome_data = hass.data.get("esphome", {})
-        if esphome_data:
-            for entry_id, entry_data in esphome_data.items():
-                if not isinstance(entry_data, dict):
-                    continue
-                device_info = entry_data.get("device_info", {})
-                if isinstance(device_info, dict):
-                    # Match by name (normalized)
-                    info_name = device_info.get("name", "")
-                    if _normalize_device_name(info_name) == normalized_mqtt:
-                        return entry_id
-
-                    # Also match by friendly_name
-                    friendly = device_info.get("friendly_name", "")
-                    if friendly and _normalize_device_name(friendly) == normalized_mqtt:
-                        return entry_id
-    except Exception:
-        _LOGGER.debug("Error in _find_esphome_device primary lookup", exc_info=True)
-
-    # Fallback: scan entity registry for esphome platform entities
-    try:
-        from homeassistant.helpers import entity_registry
-
-        er = entity_registry.async_get(hass)
-        for entity in er.entities.values():
-            if entity.platform == "esphome":
-                if normalized_mqtt in _normalize_device_name(entity.name or ""):
-                    return None  # confirmed match, entry_id not available
-    except Exception:
-        _LOGGER.debug("Error in _find_esphome_device fallback lookup", exc_info=True)
-
-    return None
-
-# ── Config Flow ─────────────────────────────────────────────────────────────
 
 
 class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -573,58 +273,35 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         super().__init__(config_entry)
-        self._panel_editor = ListEditor()
-        self._device_editor = ListEditor()
-        self._ctx: dict[str, Any] = {
-            "devices": self._device_editor.items,
-            "panels": self._panel_editor.items,
-            "device_idx": -1,
-            "panel_idx": -1,
-            "panel_device_idx": -1,
-            "mode": None,
-        }
+        self._editor = ConfigEditor(config_entry)
+
+    # Backward-compatible accessors for tests that manipulate internal state
+    @property
+    def _ctx(self) -> dict[str, Any]:
+        return self._editor.ctx
+
+    @property
+    def _panel_editor(self) -> ListEditor:
+        return self._editor._panel_editor
+
+    @_panel_editor.setter
+    def _panel_editor(self, value: ListEditor) -> None:
+        self._editor._panel_editor = value
+
+    @property
+    def _device_editor(self) -> ListEditor:
+        return self._editor._device_editor
+
+    @_device_editor.setter
+    def _device_editor(self, value: ListEditor) -> None:
+        self._editor._device_editor = value
 
     def _build_full_config(self) -> dict:
-        """Build the full config dict from current flow state for validation.
-
-        Mirrors :func:`_options_to_config_dict` but uses the in-progress
-        ``_ctx`` state so we can validate *before* the final ``async_create_entry``.
-        """
-        cfg = copy.deepcopy(DEFAULT_CONFIG)
-        cfg["device"]["name"] = self.config_entry.data.get("name", "")
-
-        if "mqtt_topic_prefix" in self.config_entry.options:
-            cfg["mqtt"]["topic_prefix"] = self.config_entry.options["mqtt_topic_prefix"]
-
-        if self._ctx.get("devices"):
-            cfg["devices"] = copy.deepcopy(self._ctx["devices"])
-            all_panels = []
-            for dev in cfg["devices"]:
-                all_panels.extend(dev.get("panels", []))
-            cfg["panels"] = all_panels
-        elif self._ctx.get("panels"):
-            cfg["panels"] = list(self._ctx["panels"])
-
-        return cfg
+        """Build the full config dict from current flow state for validation."""
+        return self._editor.build_full_config()
 
     def _build_panel_schema(self, current: dict, panel_types, user_input=None):
-        base_schema = _panel_edit_schema(current, panel_types).schema
-
-        panel_type = None
-        if user_input:
-            panel_type = user_input.get("type")
-
-        if not panel_type:
-            panel_type = current.get("type")
-
-        if not panel_type and panel_types:
-            panel_type = panel_types[0]["value"]
-
-        # If type changed since last submit, drop stale option values from current.
-        type_current = current if current.get("type") == panel_type else {}
-        type_schema, _transforms = _panel_type_specific_schema(panel_type, type_current)
-
-        return vol.Schema({**base_schema, **type_schema})
+        return ConfigSchema.build_panel_schema(current, panel_types, user_input)
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -1215,60 +892,3 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             },
         )
 
-
-# ── MQTT helpers ─────────────────────────────────────────────────────────────
-
-
-async def _mqtt_available(hass: Any) -> bool:
-    try:
-        from homeassistant.components import mqtt
-
-        return mqtt.is_connected(hass)
-    except Exception:
-        return False
-
-
-async def _run_mqtt_discovery(
-    hass: Any,
-    prefix: str = "nspanel_haui",
-    timeout: int = MQTT_DISCOVERY_TIMEOUT,
-) -> list[dict]:
-    """Subscribe to all NSPanel recv topics; collect device names + ESPHome matches."""
-    found: set[str] = set()
-
-    try:
-        from homeassistant.components import mqtt
-
-        async def _on_message(msg: Any) -> None:
-            try:
-                data = json.loads(msg.payload)
-                if data.get("name") == "connected":
-                    parts = msg.topic.split("/")
-                    if len(parts) == 3:
-                        found.add(parts[1])
-            except (json.JSONDecodeError, ValueError):
-                pass
-
-        unsub = await mqtt.async_subscribe(hass, f"{prefix}/+/recv", _on_message)
-
-        # Poll in short intervals for responsiveness
-        poll_interval = 0.5
-        steps = int(timeout / poll_interval)
-        for _ in range(steps):
-            await asyncio.sleep(poll_interval)
-            # Early exit: once we have devices, listen briefly for more then stop
-            if found and steps > 0:
-                pass
-
-        unsub()
-    except Exception as exc:
-        _LOGGER.debug("MQTT discovery error: %s", exc, exc_info=True)
-
-    # Enrich with ESPHome device matches
-    result: list[dict] = []
-    for name in sorted(found):
-        result.append({
-            "name": name,
-            "esphome_device_id": _find_esphome_device(hass, name),
-        })
-    return result

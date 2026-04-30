@@ -78,6 +78,11 @@ def _make_ha_stubs() -> None:
     helpers = MagicMock()
     helpers.selector = selector_mod
 
+    entity_registry_mod = MagicMock()
+    entity_registry_mod.async_get = MagicMock()
+
+    helpers.entity_registry = entity_registry_mod
+
     mqtt_mod = MagicMock()
     mqtt_mod.is_connected = MagicMock(return_value=True)
     mqtt_mod.async_subscribe = MagicMock()
@@ -91,6 +96,7 @@ def _make_ha_stubs() -> None:
         "homeassistant.core": MagicMock(),
         "homeassistant.helpers": helpers,
         "homeassistant.helpers.selector": selector_mod,
+        "homeassistant.helpers.entity_registry": entity_registry_mod,
         "homeassistant.helpers.config_validation": MagicMock(),
         "homeassistant.const": MagicMock(),
         "homeassistant.components": components_mod,
@@ -113,6 +119,7 @@ from nspanel_haui.config_flow import (  # noqa: E402
     _extract_panel_config,
     _find_esphome_device,
     _mqtt_available,
+    _normalize_device_name,
     _panel_action_options,
     _device_action_options,
     _device_list_options,
@@ -760,105 +767,106 @@ class TestOptionsFlowPanels:
         assert result["data"]["panels"] == flow._ctx["panels"]
         assert "config_yaml" not in result["data"]
 
-    def test_panels_select_routes_to_action_step(self):
+    def test_panels_select_shows_menu(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())  # load panels
         result = self._run(flow.async_step_panels({"panel_action": "0"}))
-        assert result["type"] == "form"
-        assert result["step_id"] == "panel_action"
+        assert result["type"] == "menu"
+        assert result["step_id"] == "panel_menu"
+        assert "edit_panel" in result["menu_options"]
 
-    def test_panel_action_edit(self):
+    def test_panel_menu_edit(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
         self._run(flow.async_step_panels({"panel_action": "0"}))
-        result = self._run(flow.async_step_panel_action({"panel_action": "edit_0"}))
+        result = self._run(flow.async_step_panel_menu({"menu_item": "edit_panel"}))
         assert result["type"] == "form"
         assert result["step_id"] == "panel_edit"
         assert flow._ctx["panel_idx"] == 0
 
-    def test_panel_action_back(self):
+    def test_panel_menu_back(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
         self._run(flow.async_step_panels({"panel_action": "0"}))
-        result = self._run(flow.async_step_panel_action({"panel_action": Action.BACK}))
+        result = self._run(flow.async_step_panel_menu({"menu_item": "back"}))
         assert result["type"] == "form"
         assert result["step_id"] == "panels"
 
-    def test_panel_action_dup(self):
+    def test_panel_menu_dup(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
         self._run(flow.async_step_panels({"panel_action": "0"}))
-        result = self._run(flow.async_step_panel_action({"panel_action": "dup_0"}))
+        result = self._run(flow.async_step_panel_menu({"menu_item": "duplicate_panel"}))
         # dup returns to panels list immediately
         assert result["type"] == "form"
         assert result["step_id"] == "panels"
         assert len(flow._ctx["panels"]) == 2
 
-    def test_panel_action_up(self):
+    def test_panel_menu_up(self):
         flow = self._make_flow({"panels": [
             {"type": "clock", "key": "clock_0"},
             {"type": "grid", "key": "grid_1"},
         ]})
         self._run(flow.async_step_panels())
         self._run(flow.async_step_panels({"panel_action": "1"}))
-        self._run(flow.async_step_panel_action({"panel_action": "up_1"}))
+        self._run(flow.async_step_panel_menu({"menu_item": "move_up"}))
         assert flow._ctx["panels"][0]["key"] == "grid_1"
         assert flow._ctx["panels"][1]["key"] == "clock_0"
 
-    def test_panel_action_up_first_element_noop(self):
+    def test_panel_menu_up_first_element_noop(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
         original = copy.deepcopy(flow._ctx["panels"])
         self._run(flow.async_step_panels({"panel_action": "0"}))
-        self._run(flow.async_step_panel_action({"panel_action": "up_0"}))
+        self._run(flow.async_step_panel_menu({"menu_item": "move_up"}))
         assert flow._ctx["panels"] == original
 
-    def test_panel_action_down(self):
+    def test_panel_menu_down(self):
         flow = self._make_flow({"panels": [
             {"type": "clock", "key": "clock_0"},
             {"type": "grid", "key": "grid_1"},
         ]})
         self._run(flow.async_step_panels())
         self._run(flow.async_step_panels({"panel_action": "0"}))
-        self._run(flow.async_step_panel_action({"panel_action": "down_0"}))
+        self._run(flow.async_step_panel_menu({"menu_item": "move_down"}))
         assert flow._ctx["panels"][0]["key"] == "grid_1"
         assert flow._ctx["panels"][1]["key"] == "clock_0"
 
-    def test_panel_action_down_last_element_noop(self):
+    def test_panel_menu_down_last_element_noop(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
         original = copy.deepcopy(flow._ctx["panels"])
         self._run(flow.async_step_panels({"panel_action": "0"}))
-        self._run(flow.async_step_panel_action({"panel_action": "down_0"}))
+        self._run(flow.async_step_panel_menu({"menu_item": "move_down"}))
         assert flow._ctx["panels"] == original
 
-    def test_panel_action_remove(self):
+    def test_panel_menu_remove(self):
         flow = self._make_flow({"panels": [
             {"type": "clock", "key": "clock_0"},
             {"type": "grid", "key": "grid_1"},
         ]})
         self._run(flow.async_step_panels())
         self._run(flow.async_step_panels({"panel_action": "0"}))
-        self._run(flow.async_step_panel_action({"panel_action": "remove_0"}))
+        self._run(flow.async_step_panel_menu({"menu_item": "remove_panel"}))
         assert len(flow._ctx["panels"]) == 1
         assert flow._ctx["panels"][0]["key"] == "grid_1"
 
-    def test_panel_action_shows_form(self):
+    def test_panel_menu_shows_menu(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
         self._run(flow.async_step_panels({"panel_action": "0"}))
-        result = self._run(flow.async_step_panel_action())
-        assert result["type"] == "form"
-        assert result["step_id"] == "panel_action"
+        result = self._run(flow.async_step_panel_menu())
+        assert result["type"] == "menu"
+        assert result["step_id"] == "panel_menu"
 
     # ── per-device panels tests ───────────────────────────────────────────
 
-    def test_manage_panels_from_device_action(self):
-        """Simulates async_step_device_action with panels_0, asserts routing and state."""
+    def test_manage_panels_from_device_menu(self):
+        """Simulates async_step_device_menu with manage_panels, asserts routing and state."""
         flow = self._make_flow_with_device()
         self._run(flow.async_step_devices())
         self._run(flow.async_step_devices({"device_action": "0"}))
-        result = self._run(flow.async_step_device_action({"device_action": "panels_0"}))
+        result = self._run(flow.async_step_device_menu({"menu_item": "manage_panels"}))
         assert result["type"] == "form"
         assert result["step_id"] == "panels"
         assert flow._ctx["panel_device_idx"] == 0
@@ -1204,6 +1212,25 @@ class TestOptionsFlowTopic:
 # ---------------------------------------------------------------------------
 
 
+class TestNormalizeDeviceName:
+    """Tests for _normalize_device_name."""
+
+    def test_lowercases(self):
+        assert _normalize_device_name("Panel-Living") == "panel living"
+
+    def test_replaces_underscores(self):
+        assert _normalize_device_name("panel_living_room") == "panel living room"
+
+    def test_replaces_hyphens(self):
+        assert _normalize_device_name("panel-living-room") == "panel living room"
+
+    def test_strips_whitespace(self):
+        assert _normalize_device_name("  panel living  ") == "panel living"
+
+    def test_mixed_chars(self):
+        assert _normalize_device_name("Panel_Living-Room") == "panel living room"
+
+
 class TestFindESPHomeDevice:
     """Tests for _find_esphome_device(hass, device_name)."""
 
@@ -1211,6 +1238,23 @@ class TestFindESPHomeDevice:
         """Returns entry_id when device_info.name matches."""
         hass = MagicMock()
         hass.data = {"esphome": {"entry1": {"device_info": {"name": "panel-living"}}}}
+        result = _find_esphome_device(hass, "panel-living")
+        assert result == "entry1"
+
+    def test_matches_by_normalized_name(self):
+        """Returns entry_id when names differ in case/separators but normalize equal."""
+        hass = MagicMock()
+        hass.data = {"esphome": {"entry1": {"device_info": {"name": "Panel Living"}}}}
+        result = _find_esphome_device(hass, "panel_living")
+        assert result == "entry1"
+
+    def test_matches_by_friendly_name(self):
+        """Returns entry_id when friendly_name matches."""
+        hass = MagicMock()
+        hass.data = {"esphome": {"entry1": {"device_info": {
+            "name": "esphome-web-abc123",
+            "friendly_name": "Panel Living",
+        }}}}
         result = _find_esphome_device(hass, "panel-living")
         assert result == "entry1"
 
@@ -1235,26 +1279,40 @@ class TestFindESPHomeDevice:
         result = _find_esphome_device(hass, "panel-living")
         assert result is None
 
-    def test_fallback_entity_states_returns_none(self):
-        """Fallback path matches via entity states but cannot determine entry_id."""
+    def test_fallback_entity_registry_returns_none(self):
+        """Fallback path matches via entity registry but cannot determine entry_id."""
+        from homeassistant.helpers import entity_registry
+
         hass = MagicMock()
         hass.data = {}
-        fake_state = MagicMock()
-        fake_state.entity_id = "esphome.panel_living"
-        fake_state.attributes = {"platform": "esphome"}
-        hass.states.async_all.return_value = [fake_state]
+
+        fake_entity = MagicMock()
+        fake_entity.platform = "esphome"
+        fake_entity.name = "panel_living"
+
+        er_mock = MagicMock()
+        er_mock.entities.values.return_value = [fake_entity]
+        entity_registry.async_get.return_value = er_mock
+
         result = _find_esphome_device(hass, "panel-living")
         # Fallback confirms match but can't determine entry_id
         assert result is None
 
-    def test_fallback_entity_states_no_match_returns_none(self):
+    def test_fallback_entity_registry_no_match_returns_none(self):
         """Fallback path: no entity match returns None."""
+        from homeassistant.helpers import entity_registry
+
         hass = MagicMock()
         hass.data = {}
-        fake_state = MagicMock()
-        fake_state.entity_id = "sensor.temperature"
-        fake_state.attributes = {}
-        hass.states.async_all.return_value = [fake_state]
+
+        fake_entity = MagicMock()
+        fake_entity.platform = "sensor"
+        fake_entity.name = "temperature"
+
+        er_mock = MagicMock()
+        er_mock.entities.values.return_value = [fake_entity]
+        entity_registry.async_get.return_value = er_mock
+
         result = _find_esphome_device(hass, "panel-living")
         assert result is None
 

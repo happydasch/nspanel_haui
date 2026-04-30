@@ -38,7 +38,7 @@ class Action(StrEnum):
     PANELS = "panels"
 
 
-MQTT_DISCOVERY_TIMEOUT = 10  # seconds
+MQTT_DISCOVERY_TIMEOUT = 5  # seconds
 
 
 # ── Panel type helpers ──────────────────────────────────────────────────────
@@ -311,11 +311,18 @@ def _extract_panel_config(user_input: dict, edit_idx: int, panels: list[dict]) -
 
 
 
+def _normalize_device_name(name: str) -> str:
+    """Normalize a device name for fuzzy comparison."""
+    return name.lower().strip().replace("_", " ").replace("-", " ")
+
+
 def _find_esphome_device(hass, device_name: str) -> str | None:
-    """Try to match an NSPanel device name to an existing ESPHome device entry.
+    """Match NSPanel device name to ESPHome device entry using normalized comparison.
 
     Returns the ESPHome config entry ID if matched, or None.
     """
+    normalized_mqtt = _normalize_device_name(device_name)
+
     # Primary path: esphome integration stores entries in hass.data
     try:
         esphome_data = hass.data.get("esphome", {})
@@ -325,18 +332,27 @@ def _find_esphome_device(hass, device_name: str) -> str | None:
                     continue
                 device_info = entry_data.get("device_info", {})
                 if isinstance(device_info, dict):
-                    if device_info.get("name") == device_name:
+                    # Match by name (normalized)
+                    info_name = device_info.get("name", "")
+                    if _normalize_device_name(info_name) == normalized_mqtt:
+                        return entry_id
+
+                    # Also match by friendly_name
+                    friendly = device_info.get("friendly_name", "")
+                    if friendly and _normalize_device_name(friendly) == normalized_mqtt:
                         return entry_id
     except Exception:
         _LOGGER.debug("Error in _find_esphome_device primary lookup", exc_info=True)
 
-    # Fallback: scan entity states for esphome platform entities.
-    # Cannot determine entry_id here, so return None even on match.
+    # Fallback: scan entity registry for esphome platform entities
     try:
-        for state in hass.states.async_all():
-            if state.attributes.get("platform") == "esphome":
-                if device_name.lower() in state.entity_id.lower():
-                    return None  # confirmed match, but no entry_id available
+        from homeassistant.helpers import entity_registry
+
+        er = entity_registry.async_get(hass)
+        for entity in er.entities.values():
+            if entity.platform == "esphome":
+                if normalized_mqtt in _normalize_device_name(entity.name or ""):
+                    return None  # confirmed match, entry_id not available
     except Exception:
         _LOGGER.debug("Error in _find_esphome_device fallback lookup", exc_info=True)
 
@@ -709,8 +725,22 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                     return self.async_create_entry(data=new_options)
 
             # Action is an index string like "0", "1", "2" for panel selection
-            ctx["panel_idx"] = int(action)
-            return await self.async_step_panel_action()
+            if action.isdigit():
+                idx = int(action)
+                ctx["panel_idx"] = idx
+                panel = ctx["panels"][idx]
+                return self.async_show_menu(
+                    step_id="panel_menu",
+                    menu_options=[
+                        "edit_panel",
+                        "duplicate_panel",
+                        "move_up",
+                        "move_down",
+                        "remove_panel",
+                        "back",
+                    ],
+                    description_placeholders={"label": _panel_label(panel)},
+                )
 
         return self.async_show_form(
             step_id="panels",
@@ -725,63 +755,59 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             description_placeholders={"count": str(len(ctx["panels"]))},
         )
 
-    async def async_step_panel_action(
+    async def async_step_panel_menu(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         ctx = self._ctx
         if user_input is not None:
-            action = user_input["panel_action"]
+            action = user_input.get("menu_item", "")
+            idx = ctx["panel_idx"]
 
-            if action == Action.BACK:
-                return await self.async_step_panels()
-
-            edit_prefix = Action.EDIT + "_"
-            if action.startswith(edit_prefix):
-                ctx["panel_idx"] = int(action[len(edit_prefix):])
+            if action == "edit_panel":
                 return await self.async_step_panel_edit()
 
-            dup_prefix = Action.DUP + "_"
-            if action.startswith(dup_prefix):
-                idx = int(action[len(dup_prefix):])
+            if action == "duplicate_panel":
                 self._panel_editor.duplicate(idx)
-
-            up_prefix = Action.MOVE_UP + "_"
-            if action.startswith(up_prefix):
-                i = int(action[len(up_prefix):])
-                self._panel_editor.move(i, -1)
-
-            down_prefix = Action.MOVE_DOWN + "_"
-            if action.startswith(down_prefix):
-                i = int(action[len(down_prefix):])
-                self._panel_editor.move(i, 1)
-
-            remove_prefix = Action.REMOVE + "_"
-            if action.startswith(remove_prefix):
-                idx = int(action[len(remove_prefix):])
+            elif action == "move_up":
+                self._panel_editor.move(idx, -1)
+            elif action == "move_down":
+                self._panel_editor.move(idx, 1)
+            elif action == "remove_panel":
                 self._panel_editor.remove(idx)
+            elif action == "back":
+                pass
+            else:
+                # Unknown action — reshow menu
+                idx = ctx["panel_idx"]
+                panel_label = _panel_label(ctx["panels"][idx])
+                return self.async_show_menu(
+                    step_id="panel_menu",
+                    menu_options=[
+                        "edit_panel",
+                        "duplicate_panel",
+                        "move_up",
+                        "move_down",
+                        "remove_panel",
+                        "back",
+                    ],
+                    description_placeholders={"label": panel_label},
+                )
 
-            # After inline actions (dup, up, down, remove), return to panel list
-            if action != Action.BACK:
-                return await self.async_step_panels()
-
-            return await self.async_step_panel_action()
+            return await self.async_step_panels()
 
         idx = ctx["panel_idx"]
         panel_label = _panel_label(ctx["panels"][idx])
-        return self.async_show_form(
-            step_id="panel_action",
-            data_schema=vol.Schema({
-                vol.Required("panel_action"): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=_panel_action_options(idx, ctx["panels"]),
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-            }),
-            description_placeholders={
-                "index": str(idx),
-                "label": panel_label,
-            },
+        return self.async_show_menu(
+            step_id="panel_menu",
+            menu_options=[
+                "edit_panel",
+                "duplicate_panel",
+                "move_up",
+                "move_down",
+                "remove_panel",
+                "back",
+            ],
+            description_placeholders={"label": panel_label},
         )
 
     async def async_step_panel_edit(
@@ -870,8 +896,22 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                 return self.async_create_entry(data=new_options)
 
             # Action is an index string like "0", "1", "2" for device selection
-            ctx["device_idx"] = int(action)
-            return await self.async_step_device_action()
+            if action.isdigit():
+                idx = int(action)
+                ctx["device_idx"] = idx
+                device = ctx["devices"][idx]
+                return self.async_show_menu(
+                    step_id="device_menu",
+                    menu_options=[
+                        "manage_panels",
+                        "edit_device",
+                        "duplicate_device",
+                        "move_up",
+                        "move_down",
+                        "remove_device",
+                    ],
+                    description_placeholders={"label": _device_label(device)},
+                )
 
         return self.async_show_form(
             step_id="devices",
@@ -886,73 +926,53 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             description_placeholders={"count": str(len(ctx["devices"]))},
         )
 
-    async def async_step_device_action(
+    async def async_step_device_menu(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         ctx = self._ctx
         if user_input is not None:
-            action = user_input["device_action"]
+            action = user_input.get("menu_item", "")
+            idx = ctx["device_idx"]
 
-            if action == Action.BACK:
-                return await self.async_step_devices()
-
-            panels_prefix = Action.PANELS + "_"
-            if action.startswith(panels_prefix):
-                idx = int(action[len(panels_prefix):])
+            if action == "manage_panels":
                 ctx["panel_device_idx"] = idx
-                self._panel_editor = ListEditor(copy.deepcopy(
+                dev_panels = copy.deepcopy(
                     ctx["devices"][idx].get("panels", [{"type": "clock"}])
-                ))
+                )
+                self._panel_editor = ListEditor(dev_panels)
                 ctx["panels"] = self._panel_editor.items
                 return await self.async_step_panels()
 
-            edit_prefix = Action.EDIT + "_"
-            if action.startswith(edit_prefix):
-                ctx["device_idx"] = int(action[len(edit_prefix):])
+            if action == "edit_device":
                 return await self.async_step_device_edit()
 
-            dup_prefix = Action.DUP + "_"
-            if action.startswith(dup_prefix):
-                idx = int(action[len(dup_prefix):])
+            if action == "duplicate_device":
                 self._device_editor.duplicate(idx)
-
-            up_prefix = Action.MOVE_UP + "_"
-            if action.startswith(up_prefix):
-                i = int(action[len(up_prefix):])
-                self._device_editor.move(i, -1)
-
-            down_prefix = Action.MOVE_DOWN + "_"
-            if action.startswith(down_prefix):
-                i = int(action[len(down_prefix):])
-                self._device_editor.move(i, 1)
-
-            remove_prefix = Action.REMOVE + "_"
-            if action.startswith(remove_prefix):
-                idx = int(action[len(remove_prefix):])
+            elif action == "move_up":
+                self._device_editor.move(idx, -1)
+            elif action == "move_down":
+                self._device_editor.move(idx, 1)
+            elif action == "remove_device":
                 self._device_editor.remove(idx)
+            else:
+                # back or unknown — return to device list
+                pass
 
-            # After inline actions, return to device list
-            if action != Action.BACK:
-                return await self.async_step_devices()
-
-            return await self.async_step_device_action()
+            return await self.async_step_devices()
 
         idx = ctx["device_idx"]
         device_label = _device_label(ctx["devices"][idx])
-        return self.async_show_form(
-            step_id="device_action",
-            data_schema=vol.Schema({
-                vol.Required("device_action"): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=_device_action_options(idx, ctx["devices"]),
-                        mode=selector.SelectSelectorMode.LIST,
-                    )
-                ),
-            }),
-            description_placeholders={
-                "index": str(idx),
-                "label": device_label,
-            },
+        return self.async_show_menu(
+            step_id="device_menu",
+            menu_options=[
+                "manage_panels",
+                "edit_device",
+                "duplicate_device",
+                "move_up",
+                "move_down",
+                "remove_device",
+            ],
+            description_placeholders={"label": device_label},
         )
 
     async def async_step_device_edit(
@@ -1111,10 +1131,19 @@ async def _run_mqtt_discovery(
                 pass
 
         unsub = await mqtt.async_subscribe(hass, f"{prefix}/+/recv", _on_message)
-        await asyncio.sleep(timeout)
+
+        # Poll in short intervals for responsiveness
+        poll_interval = 0.5
+        steps = int(timeout / poll_interval)
+        for _ in range(steps):
+            await asyncio.sleep(poll_interval)
+            # Early exit: once we have devices, listen briefly for more then stop
+            if found and steps > 0:
+                pass
+
         unsub()
     except Exception as exc:
-        _LOGGER.debug("MQTT discovery error: %s", exc)
+        _LOGGER.debug("MQTT discovery error: %s", exc, exc_info=True)
 
     # Enrich with ESPHome device matches
     result: list[dict] = []

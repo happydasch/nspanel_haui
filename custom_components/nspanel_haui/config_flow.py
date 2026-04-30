@@ -7,6 +7,7 @@ import copy
 import json
 import logging
 from enum import StrEnum
+from functools import lru_cache
 from typing import Any
 
 import voluptuous as vol
@@ -18,6 +19,7 @@ from homeassistant.helpers.selector import SelectOptionDict
 
 from .haui.config_models import validate_config
 from .haui.mapping.const import DEFAULT_CONFIG, DEVICE_CONFIG, PANEL_CONFIG
+from .list_editor import ListEditor
 
 DOMAIN = "nspanel_haui"
 _LOGGER = logging.getLogger(__name__)
@@ -42,6 +44,7 @@ MQTT_DISCOVERY_TIMEOUT = 10  # seconds
 # ── Panel type helpers ──────────────────────────────────────────────────────
 
 
+@lru_cache(maxsize=1)
 def _user_panel_types() -> list[SelectOptionDict]:
     """Return selector options for user-visible (non-system, non-popup) panel types."""
     try:
@@ -172,6 +175,7 @@ def _panel_edit_schema(current: dict, panel_types: list[SelectOptionDict]) -> vo
     })
 
 
+@lru_cache(maxsize=64)
 def _panel_type_options(panel_type: str) -> list:
     """Return the PageOption list declared on the page class for ``panel_type``."""
     try:
@@ -532,9 +536,11 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         super().__init__(config_entry)
+        self._panel_editor = ListEditor()
+        self._device_editor = ListEditor()
         self._ctx: dict[str, Any] = {
-            "devices": [],
-            "panels": [],
+            "devices": self._device_editor.items,
+            "panels": self._panel_editor.items,
             "device_idx": -1,
             "panel_idx": -1,
             "panel_device_idx": -1,
@@ -592,11 +598,12 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
         if not ctx["panels"] and user_input is None:
             if ctx["panel_device_idx"] >= 0:
                 dev = ctx["devices"][ctx["panel_device_idx"]]
-                ctx["panels"] = copy.deepcopy(dev.get("panels", [{"type": "clock"}]))
+                self._panel_editor = ListEditor(copy.deepcopy(dev.get("panels", [{"type": "clock"}])))
             else:
-                ctx["panels"] = copy.deepcopy(
+                self._panel_editor = ListEditor(copy.deepcopy(
                     self.config_entry.options.get("panels", DEFAULT_CONFIG["panels"])
-                )
+                ))
+            ctx["panels"] = self._panel_editor.items
 
         if user_input is not None:
             action = user_input["panel_action"]
@@ -654,26 +661,22 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             dup_prefix = Action.DUP + "_"
             if action.startswith(dup_prefix):
                 idx = int(action[len(dup_prefix):])
-                if 0 <= idx < len(ctx["panels"]):
-                    ctx["panels"].append(copy.deepcopy(ctx["panels"][idx]))
+                self._panel_editor.duplicate(idx)
 
             up_prefix = Action.MOVE_UP + "_"
             if action.startswith(up_prefix):
                 i = int(action[len(up_prefix):])
-                if i > 0:
-                    ctx["panels"][i - 1], ctx["panels"][i] = ctx["panels"][i], ctx["panels"][i - 1]
+                self._panel_editor.move(i, -1)
 
             down_prefix = Action.MOVE_DOWN + "_"
             if action.startswith(down_prefix):
                 i = int(action[len(down_prefix):])
-                if i < len(ctx["panels"]) - 1:
-                    ctx["panels"][i + 1], ctx["panels"][i] = ctx["panels"][i], ctx["panels"][i + 1]
+                self._panel_editor.move(i, 1)
 
             remove_prefix = Action.REMOVE + "_"
             if action.startswith(remove_prefix):
                 idx = int(action[len(remove_prefix):])
-                if 0 <= idx < len(ctx["panels"]):
-                    ctx["panels"].pop(idx)
+                self._panel_editor.remove(idx)
 
             # After inline actions (dup, up, down, remove), return to panel list
             if action != Action.BACK:
@@ -725,9 +728,9 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                 )
 
             if editing:
-                ctx["panels"][panel_idx] = panel_cfg
+                self._panel_editor.edit(panel_idx, panel_cfg)
             else:
-                ctx["panels"].append(panel_cfg)
+                self._panel_editor.add(panel_cfg)
 
             ctx["panel_idx"] = -1
             return await self.async_step_panels()
@@ -745,9 +748,10 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
     ) -> config_entries.ConfigFlowResult:
         ctx = self._ctx
         if not ctx["devices"] and user_input is None:
-            ctx["devices"] = copy.deepcopy(
+            self._device_editor = ListEditor(copy.deepcopy(
                 self.config_entry.options.get("devices", [])
-            )
+            ))
+            ctx["devices"] = self._device_editor.items
 
         if user_input is not None:
             action = user_input["device_action"]
@@ -796,9 +800,10 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             if action.startswith(panels_prefix):
                 idx = int(action[len(panels_prefix):])
                 ctx["panel_device_idx"] = idx
-                ctx["panels"] = copy.deepcopy(
+                self._panel_editor = ListEditor(copy.deepcopy(
                     ctx["devices"][idx].get("panels", [{"type": "clock"}])
-                )
+                ))
+                ctx["panels"] = self._panel_editor.items
                 return await self.async_step_panels()
 
             edit_prefix = Action.EDIT + "_"
@@ -809,26 +814,22 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             dup_prefix = Action.DUP + "_"
             if action.startswith(dup_prefix):
                 idx = int(action[len(dup_prefix):])
-                if 0 <= idx < len(ctx["devices"]):
-                    ctx["devices"].append(copy.deepcopy(ctx["devices"][idx]))
+                self._device_editor.duplicate(idx)
 
             up_prefix = Action.MOVE_UP + "_"
             if action.startswith(up_prefix):
                 i = int(action[len(up_prefix):])
-                if i > 0:
-                    ctx["devices"][i - 1], ctx["devices"][i] = ctx["devices"][i], ctx["devices"][i - 1]
+                self._device_editor.move(i, -1)
 
             down_prefix = Action.MOVE_DOWN + "_"
             if action.startswith(down_prefix):
                 i = int(action[len(down_prefix):])
-                if i < len(ctx["devices"]) - 1:
-                    ctx["devices"][i + 1], ctx["devices"][i] = ctx["devices"][i], ctx["devices"][i + 1]
+                self._device_editor.move(i, 1)
 
             remove_prefix = Action.REMOVE + "_"
             if action.startswith(remove_prefix):
                 idx = int(action[len(remove_prefix):])
-                if 0 <= idx < len(ctx["devices"]):
-                    ctx["devices"].pop(idx)
+                self._device_editor.remove(idx)
 
             # After inline actions, return to device list
             if action != Action.BACK:
@@ -871,9 +872,9 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                     device_cfg[field] = current.get(field, DEVICE_CONFIG[field])
 
             if editing:
-                ctx["devices"][device_idx] = device_cfg
+                self._device_editor.edit(device_idx, device_cfg)
             else:
-                ctx["devices"].append(device_cfg)
+                self._device_editor.add(device_cfg)
 
             ctx["device_idx"] = -1
             return await self.async_step_devices()
@@ -896,7 +897,7 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                 if device_name not in existing_names:
                     dev = copy.deepcopy(DEVICE_CONFIG)
                     dev["name"] = device_name
-                    ctx["devices"].append(dev)
+                    self._device_editor.add(dev)
             return await self.async_step_devices()
 
         # Run discovery

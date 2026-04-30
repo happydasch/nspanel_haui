@@ -108,6 +108,7 @@ from nspanel_haui.config_flow import (  # noqa: E402
     MQTT_DISCOVERY_TIMEOUT,
     NSPanelHAUIConfigFlow,
     NSPanelHAUIOptionsFlow,
+    Action,
     _extract_panel_config,
     _find_esphome_device,
     _mqtt_available,
@@ -166,14 +167,14 @@ class TestPanelListOptions:
     def test_empty_panels_has_add_and_done(self):
         opts = self._opts([])
         values = [o["value"] for o in opts]
-        assert "__add__" in values
-        assert "__done__" in values
+        assert Action.ADD in values
+        assert Action.DONE in values
         assert len(opts) == 2
 
     def test_single_panel_generates_select(self):
         opts = self._opts([{"type": "clock"}])
         values = [o["value"] for o in opts]
-        assert "select_0" in values
+        assert "0" in values
         # should NOT have individual action rows
         assert "edit_0" not in values
         assert "remove_0" not in values
@@ -182,20 +183,20 @@ class TestPanelListOptions:
         panels = [{"type": "clock"}, {"type": "grid", "title": "Home"}]
         opts = self._opts(panels)
         values = [o["value"] for o in opts]
-        assert "select_0" in values
-        assert "select_1" in values
+        assert "0" in values
+        assert "1" in values
 
     def test_order_add_selects_done(self):
         opts = self._opts([{"type": "clock"}, {"type": "light"}])
         values = [o["value"] for o in opts]
-        assert values[0] == "__add__"
-        assert values[1] == "select_0"
-        assert values[2] == "select_1"
-        assert values[-1] == "__done__"
+        assert values[0] == Action.ADD
+        assert values[1] == "0"
+        assert values[2] == "1"
+        assert values[-1] == Action.DONE
 
     def test_label_is_panel_label(self):
         opts = self._opts([{"type": "grid", "title": "Lounge"}])
-        select_opt = next(o for o in opts if o["value"] == "select_0")
+        select_opt = next(o for o in opts if o["value"] == "0")
         assert "Lounge" in select_opt["label"]
 
 
@@ -216,11 +217,11 @@ class TestPanelActionOptions:
         assert "up_0" in values
         assert "down_0" in values
         assert "remove_0" in values
-        assert "__back__" in values
+        assert Action.BACK in values
 
     def test_back_is_last(self):
         opts = self._opts(0, [{"type": "clock"}])
-        assert opts[-1]["value"] == "__back__"
+        assert opts[-1]["value"] == Action.BACK
 
     def test_uses_correct_index(self):
         opts = self._opts(2, [
@@ -607,7 +608,7 @@ class TestOptionsFlowPanels:
         entry = MagicMock()
         entry.options = options or {"panels": [{"type": "clock", "key": "clock_0"}]}
         flow = NSPanelHAUIOptionsFlow(entry)
-        flow._panels = []
+        flow._ctx["panels"] = []
         return flow
 
     def _make_flow_with_device(self, devices=None, panel_device_index=-1):
@@ -621,9 +622,9 @@ class TestOptionsFlowPanels:
             {"name": "dev1", "locale": "en_US", "panels": [{"type": "clock", "key": "c0"}]},
         ]}
         flow = NSPanelHAUIOptionsFlow(entry)
-        flow._devices = copy.deepcopy(entry.options["devices"])
-        flow._panels = []
-        flow._panel_device_index = panel_device_index
+        flow._ctx["devices"] = copy.deepcopy(entry.options["devices"])
+        flow._ctx["panels"] = []
+        flow._ctx["panel_device_idx"] = panel_device_index
         return flow
 
     def _run(self, coro):
@@ -639,57 +640,57 @@ class TestOptionsFlowPanels:
         flow = self._make_flow()
         result = self._run(flow.async_step_panels())
         assert result["type"] == "form"
-        assert flow._panels == [{"type": "clock", "key": "clock_0"}]
+        assert flow._ctx["panels"] == [{"type": "clock", "key": "clock_0"}]
 
     def test_panels_add_action(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
-        result = self._run(flow.async_step_panels({"panel_action": "__add__"}))
+        result = self._run(flow.async_step_panels({"panel_action": Action.ADD}))
         assert result["type"] == "form" or result["step_id"] == "panel_edit"
-        assert flow._edit_idx == -1
+        assert flow._ctx["panel_idx"] == -1
 
     def test_panels_done_action_saves(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
-        flow._panels.append({"type": "grid", "key": "grid_1"})
-        result = self._run(flow.async_step_panels({"panel_action": "__done__"}))
+        flow._ctx["panels"].append({"type": "grid", "key": "grid_1"})
+        result = self._run(flow.async_step_panels({"panel_action": Action.DONE}))
         assert result["type"] == "create_entry"
-        assert result["data"]["panels"] == flow._panels
+        assert result["data"]["panels"] == flow._ctx["panels"]
         assert "config_yaml" not in result["data"]
 
     def test_panels_select_routes_to_action_step(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())  # load panels
-        result = self._run(flow.async_step_panels({"panel_action": "select_0"}))
+        result = self._run(flow.async_step_panels({"panel_action": "0"}))
         assert result["type"] == "form"
         assert result["step_id"] == "panel_action"
 
     def test_panel_action_edit(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
-        self._run(flow.async_step_panels({"panel_action": "select_0"}))
+        self._run(flow.async_step_panels({"panel_action": "0"}))
         result = self._run(flow.async_step_panel_action({"panel_action": "edit_0"}))
         assert result["type"] == "form"
         assert result["step_id"] == "panel_edit"
-        assert flow._edit_idx == 0
+        assert flow._ctx["panel_idx"] == 0
 
     def test_panel_action_back(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
-        self._run(flow.async_step_panels({"panel_action": "select_0"}))
-        result = self._run(flow.async_step_panel_action({"panel_action": "__back__"}))
+        self._run(flow.async_step_panels({"panel_action": "0"}))
+        result = self._run(flow.async_step_panel_action({"panel_action": Action.BACK}))
         assert result["type"] == "form"
         assert result["step_id"] == "panels"
 
     def test_panel_action_dup(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
-        self._run(flow.async_step_panels({"panel_action": "select_0"}))
+        self._run(flow.async_step_panels({"panel_action": "0"}))
         result = self._run(flow.async_step_panel_action({"panel_action": "dup_0"}))
         # dup returns to panels list immediately
         assert result["type"] == "form"
         assert result["step_id"] == "panels"
-        assert len(flow._panels) == 2
+        assert len(flow._ctx["panels"]) == 2
 
     def test_panel_action_up(self):
         flow = self._make_flow({"panels": [
@@ -697,18 +698,18 @@ class TestOptionsFlowPanels:
             {"type": "grid", "key": "grid_1"},
         ]})
         self._run(flow.async_step_panels())
-        self._run(flow.async_step_panels({"panel_action": "select_1"}))
+        self._run(flow.async_step_panels({"panel_action": "1"}))
         self._run(flow.async_step_panel_action({"panel_action": "up_1"}))
-        assert flow._panels[0]["key"] == "grid_1"
-        assert flow._panels[1]["key"] == "clock_0"
+        assert flow._ctx["panels"][0]["key"] == "grid_1"
+        assert flow._ctx["panels"][1]["key"] == "clock_0"
 
     def test_panel_action_up_first_element_noop(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
-        original = copy.deepcopy(flow._panels)
-        self._run(flow.async_step_panels({"panel_action": "select_0"}))
+        original = copy.deepcopy(flow._ctx["panels"])
+        self._run(flow.async_step_panels({"panel_action": "0"}))
         self._run(flow.async_step_panel_action({"panel_action": "up_0"}))
-        assert flow._panels == original
+        assert flow._ctx["panels"] == original
 
     def test_panel_action_down(self):
         flow = self._make_flow({"panels": [
@@ -716,18 +717,18 @@ class TestOptionsFlowPanels:
             {"type": "grid", "key": "grid_1"},
         ]})
         self._run(flow.async_step_panels())
-        self._run(flow.async_step_panels({"panel_action": "select_0"}))
+        self._run(flow.async_step_panels({"panel_action": "0"}))
         self._run(flow.async_step_panel_action({"panel_action": "down_0"}))
-        assert flow._panels[0]["key"] == "grid_1"
-        assert flow._panels[1]["key"] == "clock_0"
+        assert flow._ctx["panels"][0]["key"] == "grid_1"
+        assert flow._ctx["panels"][1]["key"] == "clock_0"
 
     def test_panel_action_down_last_element_noop(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
-        original = copy.deepcopy(flow._panels)
-        self._run(flow.async_step_panels({"panel_action": "select_0"}))
+        original = copy.deepcopy(flow._ctx["panels"])
+        self._run(flow.async_step_panels({"panel_action": "0"}))
         self._run(flow.async_step_panel_action({"panel_action": "down_0"}))
-        assert flow._panels == original
+        assert flow._ctx["panels"] == original
 
     def test_panel_action_remove(self):
         flow = self._make_flow({"panels": [
@@ -735,15 +736,15 @@ class TestOptionsFlowPanels:
             {"type": "grid", "key": "grid_1"},
         ]})
         self._run(flow.async_step_panels())
-        self._run(flow.async_step_panels({"panel_action": "select_0"}))
+        self._run(flow.async_step_panels({"panel_action": "0"}))
         self._run(flow.async_step_panel_action({"panel_action": "remove_0"}))
-        assert len(flow._panels) == 1
-        assert flow._panels[0]["key"] == "grid_1"
+        assert len(flow._ctx["panels"]) == 1
+        assert flow._ctx["panels"][0]["key"] == "grid_1"
 
     def test_panel_action_shows_form(self):
         flow = self._make_flow()
         self._run(flow.async_step_panels())
-        self._run(flow.async_step_panels({"panel_action": "select_0"}))
+        self._run(flow.async_step_panels({"panel_action": "0"}))
         result = self._run(flow.async_step_panel_action())
         assert result["type"] == "form"
         assert result["step_id"] == "panel_action"
@@ -754,23 +755,23 @@ class TestOptionsFlowPanels:
         """Simulates async_step_device_action with panels_0, asserts routing and state."""
         flow = self._make_flow_with_device()
         self._run(flow.async_step_devices())
-        self._run(flow.async_step_devices({"device_action": "select_0"}))
+        self._run(flow.async_step_devices({"device_action": "0"}))
         result = self._run(flow.async_step_device_action({"device_action": "panels_0"}))
         assert result["type"] == "form"
         assert result["step_id"] == "panels"
-        assert flow._panel_device_index == 0
+        assert flow._ctx["panel_device_idx"] == 0
         # Per-device panels loaded from the device, not top-level options
-        assert flow._panels == [{"type": "clock", "key": "c0"}]
+        assert flow._ctx["panels"] == [{"type": "clock", "key": "c0"}]
 
     def test_panels_save_to_device(self):
         """__done__ saves to result["data"]["devices"][0]["panels"], no top-level "panels"."""
         flow = self._make_flow_with_device(panel_device_index=0)
         self._run(flow.async_step_panels())
-        flow._panels.append({"type": "grid", "key": "grid_1"})
-        result = self._run(flow.async_step_panels({"panel_action": "__done__"}))
+        flow._ctx["panels"].append({"type": "grid", "key": "grid_1"})
+        result = self._run(flow.async_step_panels({"panel_action": Action.DONE}))
         assert result["type"] == "create_entry"
         assert "devices" in result["data"]
-        assert result["data"]["devices"][0]["panels"] == flow._panels
+        assert result["data"]["devices"][0]["panels"] == flow._ctx["panels"]
         assert "panels" not in result["data"]
 
     def test_per_device_panel_isolation(self):
@@ -784,8 +785,8 @@ class TestOptionsFlowPanels:
         )
         self._run(flow.async_step_panels())
         # Add a panel to device 0
-        flow._panels.append({"type": "light", "key": "light_1"})
-        result = self._run(flow.async_step_panels({"panel_action": "__done__"}))
+        flow._ctx["panels"].append({"type": "light", "key": "light_1"})
+        result = self._run(flow.async_step_panels({"panel_action": Action.DONE}))
         assert result["data"]["devices"][0]["panels"] == [
             {"type": "clock", "key": "c0"},
             {"type": "light", "key": "light_1"},
@@ -799,8 +800,8 @@ class TestOptionsFlowPanels:
         """After __done__, _panel_device_index must be -1."""
         flow = self._make_flow_with_device(panel_device_index=0)
         self._run(flow.async_step_panels())
-        self._run(flow.async_step_panels({"panel_action": "__done__"}))
-        assert flow._panel_device_index == -1
+        self._run(flow.async_step_panels({"panel_action": Action.DONE}))
+        assert flow._ctx["panel_device_idx"] == -1
 
 
 class TestOptionsFlowPanelEdit:
@@ -814,24 +815,24 @@ class TestOptionsFlowPanelEdit:
 
     def test_edit_new_panel_shows_form(self):
         flow = self._make_flow()
-        flow._panels = []
-        flow._edit_idx = -1
+        flow._ctx["panels"] = []
+        flow._ctx["panel_idx"] = -1
         result = self._run(flow.async_step_panel_edit())
         assert result["type"] == "form"
         assert result["step_id"] == "panel_edit"
 
     def test_add_valid_panel_appends(self):
         flow = self._make_flow()
-        flow._panels = []
-        flow._edit_idx = -1
+        flow._ctx["panels"] = []
+        flow._ctx["panel_idx"] = -1
         result = self._run(flow.async_step_panel_edit({"type": "clock", "title": "Test Clock"}))
-        assert len(flow._panels) == 1
-        assert flow._panels[0]["type"] == "clock"
+        assert len(flow._ctx["panels"]) == 1
+        assert flow._ctx["panels"][0]["type"] == "clock"
 
     def test_add_invalid_panel_shows_errors(self):
         flow = self._make_flow()
-        flow._panels = []
-        flow._edit_idx = -1
+        flow._ctx["panels"] = []
+        flow._ctx["panel_idx"] = -1
         result = self._run(flow.async_step_panel_edit({"type": ""}))
         if "errors" in result:
             assert result["errors"]
@@ -840,10 +841,10 @@ class TestOptionsFlowPanelEdit:
 
     def test_edit_existing_panel_replaces(self):
         flow = self._make_flow()
-        flow._panels = [{"type": "clock", "key": "clock_0", "title": "Old Clock"}]
-        flow._edit_idx = 0
+        flow._ctx["panels"] = [{"type": "clock", "key": "clock_0", "title": "Old Clock"}]
+        flow._ctx["panel_idx"] = 0
         result = self._run(flow.async_step_panel_edit({"type": "clock", "title": "New Clock"}))
-        assert flow._panels[0]["title"] == "New Clock"
+        assert flow._ctx["panels"][0]["title"] == "New Clock"
 
 # ---------------------------------------------------------------------------
 # async_migrate_entry  v1 → v2

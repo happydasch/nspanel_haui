@@ -6,6 +6,7 @@ import asyncio
 import copy
 import json
 import logging
+from enum import StrEnum
 from typing import Any
 
 import voluptuous as vol
@@ -20,6 +21,20 @@ from .haui.mapping.const import DEFAULT_CONFIG, DEVICE_CONFIG, PANEL_CONFIG
 
 DOMAIN = "nspanel_haui"
 _LOGGER = logging.getLogger(__name__)
+
+
+class Action(StrEnum):
+    ADD = "add"
+    DONE = "done"
+    BACK = "back"
+    DISCOVER = "discover"
+    EDIT = "edit"
+    DUP = "dup"
+    MOVE_UP = "up"
+    MOVE_DOWN = "down"
+    REMOVE = "remove"
+    PANELS = "panels"
+
 
 MQTT_DISCOVERY_TIMEOUT = 10  # seconds
 
@@ -56,12 +71,12 @@ def _panel_label(panel: dict) -> str:
 
 def _panel_list_options(panels: list[dict]) -> list[SelectOptionDict]:
     """One row per panel + Add/Save. Selecting a panel opens the action sub-menu."""
-    opts: list[SelectOptionDict] = [SelectOptionDict(value="__add__", label="+ Add panel")]
+    opts: list[SelectOptionDict] = [SelectOptionDict(value=Action.ADD, label="+ Add panel")]
 
     for i, p in enumerate(panels):
-        opts.append(SelectOptionDict(value=f"select_{i}", label=_panel_label(p)))
+        opts.append(SelectOptionDict(value=str(i), label=_panel_label(p)))
 
-    opts.append(SelectOptionDict(value="__done__", label="Save & close"))
+    opts.append(SelectOptionDict(value=Action.DONE, label="Save & close"))
     return opts
 
 
@@ -69,12 +84,12 @@ def _panel_action_options(idx: int, panels: list[dict]) -> list[SelectOptionDict
     """Action sub-menu for a selected panel (edit, dup, move, remove)."""
     label = _panel_label(panels[idx])
     return [
-        SelectOptionDict(value=f"edit_{idx}", label=f"Edit: {label}"),
-        SelectOptionDict(value=f"dup_{idx}", label=f"Duplicate: {label}"),
-        SelectOptionDict(value=f"up_{idx}", label=f"Move up: {label}"),
-        SelectOptionDict(value=f"down_{idx}", label=f"Move down: {label}"),
-        SelectOptionDict(value=f"remove_{idx}", label=f"Remove: {label}"),
-        SelectOptionDict(value="__back__", label="← Back"),
+        SelectOptionDict(value=f"{Action.EDIT}_{idx}", label=f"Edit: {label}"),
+        SelectOptionDict(value=f"{Action.DUP}_{idx}", label=f"Duplicate: {label}"),
+        SelectOptionDict(value=f"{Action.MOVE_UP}_{idx}", label=f"Move up: {label}"),
+        SelectOptionDict(value=f"{Action.MOVE_DOWN}_{idx}", label=f"Move down: {label}"),
+        SelectOptionDict(value=f"{Action.REMOVE}_{idx}", label=f"Remove: {label}"),
+        SelectOptionDict(value=Action.BACK, label="← Back"),
     ]
 
 
@@ -88,15 +103,15 @@ def _device_label(device: dict) -> str:
 
 def _device_list_options(devices: list[dict]) -> list[SelectOptionDict]:
     """One row per device + Add/Discover/Save."""
-    opts: list[SelectOptionDict] = [SelectOptionDict(value="__add__", label="+ Add device")]
+    opts: list[SelectOptionDict] = [SelectOptionDict(value=Action.ADD, label="+ Add device")]
 
     if devices:
-        opts.append(SelectOptionDict(value="__discover__", label="Scan for new devices"))
+        opts.append(SelectOptionDict(value=Action.DISCOVER, label="Scan for new devices"))
 
     for i, d in enumerate(devices):
-        opts.append(SelectOptionDict(value=f"select_{i}", label=_device_label(d)))
+        opts.append(SelectOptionDict(value=str(i), label=_device_label(d)))
 
-    opts.append(SelectOptionDict(value="__done__", label="Save & close"))
+    opts.append(SelectOptionDict(value=Action.DONE, label="Save & close"))
     return opts
 
 
@@ -104,13 +119,13 @@ def _device_action_options(idx: int, devices: list[dict]) -> list[SelectOptionDi
     """Action sub-menu for a selected device (edit, dup, move, remove, panels)."""
     label = _device_label(devices[idx])
     return [
-        SelectOptionDict(value=f"panels_{idx}", label=f"Manage panels: {label}"),
-        SelectOptionDict(value=f"edit_{idx}", label=f"Edit: {label}"),
-        SelectOptionDict(value=f"dup_{idx}", label=f"Duplicate: {label}"),
-        SelectOptionDict(value=f"up_{idx}", label=f"Move up: {label}"),
-        SelectOptionDict(value=f"down_{idx}", label=f"Move down: {label}"),
-        SelectOptionDict(value=f"remove_{idx}", label=f"Remove: {label}"),
-        SelectOptionDict(value="__back__", label="← Back"),
+        SelectOptionDict(value=f"{Action.PANELS}_{idx}", label=f"Manage panels: {label}"),
+        SelectOptionDict(value=f"{Action.EDIT}_{idx}", label=f"Edit: {label}"),
+        SelectOptionDict(value=f"{Action.DUP}_{idx}", label=f"Duplicate: {label}"),
+        SelectOptionDict(value=f"{Action.MOVE_UP}_{idx}", label=f"Move up: {label}"),
+        SelectOptionDict(value=f"{Action.MOVE_DOWN}_{idx}", label=f"Move down: {label}"),
+        SelectOptionDict(value=f"{Action.REMOVE}_{idx}", label=f"Remove: {label}"),
+        SelectOptionDict(value=Action.BACK, label="← Back"),
     ]
 
 
@@ -270,7 +285,7 @@ def _normalize_panel_type_options(panel_type: str, user_input: dict) -> dict:
 
 def _extract_panel_config(user_input: dict, edit_idx: int, panels: list[dict]) -> dict:
     """Build a complete panel config dict from form input."""
-    base = copy.deepcopy(PANEL_CONFIG)
+    base = dict(PANEL_CONFIG)
     base.update({k: v for k, v in user_input.items() if v is not None})
     if not base.get("key"):
         ptype = base.get("type", "panel")
@@ -301,7 +316,7 @@ def _find_esphome_device(hass, device_name: str) -> str | None:
                     if device_info.get("name") == device_name:
                         return entry_id
     except Exception:
-        pass
+        _LOGGER.debug("Error in _find_esphome_device primary lookup", exc_info=True)
 
     # Fallback: scan entity states for esphome platform entities.
     # Cannot determine entry_id here, so return None even on match.
@@ -311,7 +326,7 @@ def _find_esphome_device(hass, device_name: str) -> str | None:
                 if device_name.lower() in state.entity_id.lower():
                     return None  # confirmed match, but no entry_id available
     except Exception:
-        pass
+        _LOGGER.debug("Error in _find_esphome_device fallback lookup", exc_info=True)
 
     return None
 
@@ -517,13 +532,14 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         super().__init__(config_entry)
-        self._panels: list[dict] = []
-        self._edit_idx: int = -1
-        self._panel_action_idx: int = -1
-        self._devices: list[dict] = []
-        self._device_edit_idx: int = -1
-        self._device_action_idx: int = -1
-        self._panel_device_index: int = -1
+        self._ctx: dict[str, Any] = {
+            "devices": [],
+            "panels": [],
+            "device_idx": -1,
+            "panel_idx": -1,
+            "panel_device_idx": -1,
+            "mode": None,
+        }
 
     def _build_panel_schema(self, current: dict, panel_types, user_input=None):
         base_schema = _panel_edit_schema(current, panel_types).schema
@@ -572,100 +588,107 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
     async def async_step_panels(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
-        if not self._panels and user_input is None:
-            if self._panel_device_index >= 0:
-                dev = self._devices[self._panel_device_index]
-                self._panels = copy.deepcopy(dev.get("panels", [{"type": "clock"}]))
+        ctx = self._ctx
+        if not ctx["panels"] and user_input is None:
+            if ctx["panel_device_idx"] >= 0:
+                dev = ctx["devices"][ctx["panel_device_idx"]]
+                ctx["panels"] = copy.deepcopy(dev.get("panels", [{"type": "clock"}]))
             else:
-                self._panels = copy.deepcopy(
+                ctx["panels"] = copy.deepcopy(
                     self.config_entry.options.get("panels", DEFAULT_CONFIG["panels"])
                 )
 
         if user_input is not None:
             action = user_input["panel_action"]
 
-            if action == "__add__":
-                self._edit_idx = -1
+            if action == Action.ADD:
+                ctx["panel_idx"] = -1
                 return await self.async_step_panel_edit()
 
-            if action == "__done__":
-                if self._panel_device_index >= 0:
-                    self._devices[self._panel_device_index]["panels"] = self._panels
-                    self._panel_device_index = -1
+            if action == Action.DONE:
+                if ctx["panel_device_idx"] >= 0:
+                    ctx["devices"][ctx["panel_device_idx"]]["panels"] = ctx["panels"]
+                    ctx["panel_device_idx"] = -1
                     new_options = dict(self.config_entry.options)
-                    new_options["devices"] = self._devices
+                    new_options["devices"] = ctx["devices"]
                     new_options.pop("config_yaml", None)
                     return self.async_create_entry(data=new_options)
                 else:
                     new_options = dict(self.config_entry.options)
-                    new_options["panels"] = self._panels
+                    new_options["panels"] = ctx["panels"]
                     new_options.pop("config_yaml", None)
                     return self.async_create_entry(data=new_options)
 
-            if action.startswith("select_"):
-                self._panel_action_idx = int(action[7:])
-                return await self.async_step_panel_action()
+            # Action is an index string like "0", "1", "2" for panel selection
+            ctx["panel_idx"] = int(action)
+            return await self.async_step_panel_action()
 
         return self.async_show_form(
             step_id="panels",
             data_schema=vol.Schema({
                 vol.Required("panel_action"): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=_panel_list_options(self._panels),
+                        options=_panel_list_options(ctx["panels"]),
                         mode=selector.SelectSelectorMode.LIST,
                     )
                 ),
             }),
-            description_placeholders={"count": str(len(self._panels))},
+            description_placeholders={"count": str(len(ctx["panels"]))},
         )
 
     async def async_step_panel_action(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
+        ctx = self._ctx
         if user_input is not None:
             action = user_input["panel_action"]
 
-            if action == "__back__":
+            if action == Action.BACK:
                 return await self.async_step_panels()
 
-            if action.startswith("edit_"):
-                self._edit_idx = int(action[5:])
+            edit_prefix = Action.EDIT + "_"
+            if action.startswith(edit_prefix):
+                ctx["panel_idx"] = int(action[len(edit_prefix):])
                 return await self.async_step_panel_edit()
 
-            if action.startswith("dup_"):
-                idx = int(action[4:])
-                if 0 <= idx < len(self._panels):
-                    self._panels.append(copy.deepcopy(self._panels[idx]))
+            dup_prefix = Action.DUP + "_"
+            if action.startswith(dup_prefix):
+                idx = int(action[len(dup_prefix):])
+                if 0 <= idx < len(ctx["panels"]):
+                    ctx["panels"].append(copy.deepcopy(ctx["panels"][idx]))
 
-            if action.startswith("up_"):
-                i = int(action[3:])
+            up_prefix = Action.MOVE_UP + "_"
+            if action.startswith(up_prefix):
+                i = int(action[len(up_prefix):])
                 if i > 0:
-                    self._panels[i - 1], self._panels[i] = self._panels[i], self._panels[i - 1]
+                    ctx["panels"][i - 1], ctx["panels"][i] = ctx["panels"][i], ctx["panels"][i - 1]
 
-            if action.startswith("down_"):
-                i = int(action[5:])
-                if i < len(self._panels) - 1:
-                    self._panels[i + 1], self._panels[i] = self._panels[i], self._panels[i + 1]
+            down_prefix = Action.MOVE_DOWN + "_"
+            if action.startswith(down_prefix):
+                i = int(action[len(down_prefix):])
+                if i < len(ctx["panels"]) - 1:
+                    ctx["panels"][i + 1], ctx["panels"][i] = ctx["panels"][i], ctx["panels"][i + 1]
 
-            if action.startswith("remove_"):
-                idx = int(action[7:])
-                if 0 <= idx < len(self._panels):
-                    self._panels.pop(idx)
+            remove_prefix = Action.REMOVE + "_"
+            if action.startswith(remove_prefix):
+                idx = int(action[len(remove_prefix):])
+                if 0 <= idx < len(ctx["panels"]):
+                    ctx["panels"].pop(idx)
 
             # After inline actions (dup, up, down, remove), return to panel list
-            if action != "__back__":
+            if action != Action.BACK:
                 return await self.async_step_panels()
 
             return await self.async_step_panel_action()
 
-        idx = self._panel_action_idx
-        panel_label = _panel_label(self._panels[idx])
+        idx = ctx["panel_idx"]
+        panel_label = _panel_label(ctx["panels"][idx])
         return self.async_show_form(
             step_id="panel_action",
             data_schema=vol.Schema({
                 vol.Required("panel_action"): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=_panel_action_options(idx, self._panels),
+                        options=_panel_action_options(idx, ctx["panels"]),
                         mode=selector.SelectSelectorMode.LIST,
                     )
                 ),
@@ -679,15 +702,17 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
     async def async_step_panel_edit(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
+        ctx = self._ctx
         panel_types = _user_panel_types()
-        editing = self._edit_idx >= 0
+        panel_idx = ctx["panel_idx"]
+        editing = panel_idx >= 0
 
-        current: dict = self._panels[self._edit_idx] if editing else {}
+        current: dict = ctx["panels"][panel_idx] if editing else {}
 
         if user_input is not None:
             panel_type = user_input.get("type") or current.get("type", "")
             normalized = _normalize_panel_type_options(panel_type, user_input)
-            panel_cfg = _extract_panel_config(normalized, self._edit_idx, self._panels)
+            panel_cfg = _extract_panel_config(normalized, panel_idx, ctx["panels"])
 
             # validate
             try:
@@ -700,11 +725,11 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                 )
 
             if editing:
-                self._panels[self._edit_idx] = panel_cfg
+                ctx["panels"][panel_idx] = panel_cfg
             else:
-                self._panels.append(panel_cfg)
+                ctx["panels"].append(panel_cfg)
 
-            self._edit_idx = -1
+            ctx["panel_idx"] = -1
             return await self.async_step_panels()
 
         return self.async_show_form(
@@ -718,99 +743,107 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
     async def async_step_devices(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
-        if not self._devices and user_input is None:
-            self._devices = copy.deepcopy(
+        ctx = self._ctx
+        if not ctx["devices"] and user_input is None:
+            ctx["devices"] = copy.deepcopy(
                 self.config_entry.options.get("devices", [])
             )
 
         if user_input is not None:
             action = user_input["device_action"]
 
-            if action == "__add__":
-                self._device_edit_idx = -1
+            if action == Action.ADD:
+                ctx["device_idx"] = -1
                 return await self.async_step_device_edit()
 
-            if action == "__discover__":
+            if action == Action.DISCOVER:
                 return await self.async_step_device_discover()
 
-            if action == "__done__":
+            if action == Action.DONE:
                 new_options = dict(self.config_entry.options)
-                new_options["devices"] = self._devices
+                new_options["devices"] = ctx["devices"]
                 new_options.pop("config_yaml", None)
                 return self.async_create_entry(data=new_options)
 
-            if action.startswith("select_"):
-                self._device_action_idx = int(action[7:])
-                return await self.async_step_device_action()
+            # Action is an index string like "0", "1", "2" for device selection
+            ctx["device_idx"] = int(action)
+            return await self.async_step_device_action()
 
         return self.async_show_form(
             step_id="devices",
             data_schema=vol.Schema({
                 vol.Required("device_action"): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=_device_list_options(self._devices),
+                        options=_device_list_options(ctx["devices"]),
                         mode=selector.SelectSelectorMode.LIST,
                     )
                 ),
             }),
-            description_placeholders={"count": str(len(self._devices))},
+            description_placeholders={"count": str(len(ctx["devices"]))},
         )
 
     async def async_step_device_action(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
+        ctx = self._ctx
         if user_input is not None:
             action = user_input["device_action"]
 
-            if action == "__back__":
+            if action == Action.BACK:
                 return await self.async_step_devices()
 
-            if action.startswith("panels_"):
-                idx = int(action[7:])
-                self._panel_device_index = idx
-                self._panels = copy.deepcopy(
-                    self._devices[idx].get("panels", [{"type": "clock"}])
+            panels_prefix = Action.PANELS + "_"
+            if action.startswith(panels_prefix):
+                idx = int(action[len(panels_prefix):])
+                ctx["panel_device_idx"] = idx
+                ctx["panels"] = copy.deepcopy(
+                    ctx["devices"][idx].get("panels", [{"type": "clock"}])
                 )
                 return await self.async_step_panels()
 
-            if action.startswith("edit_"):
-                self._device_edit_idx = int(action[5:])
+            edit_prefix = Action.EDIT + "_"
+            if action.startswith(edit_prefix):
+                ctx["device_idx"] = int(action[len(edit_prefix):])
                 return await self.async_step_device_edit()
 
-            if action.startswith("dup_"):
-                idx = int(action[4:])
-                if 0 <= idx < len(self._devices):
-                    self._devices.append(copy.deepcopy(self._devices[idx]))
+            dup_prefix = Action.DUP + "_"
+            if action.startswith(dup_prefix):
+                idx = int(action[len(dup_prefix):])
+                if 0 <= idx < len(ctx["devices"]):
+                    ctx["devices"].append(copy.deepcopy(ctx["devices"][idx]))
 
-            if action.startswith("up_"):
-                i = int(action[3:])
+            up_prefix = Action.MOVE_UP + "_"
+            if action.startswith(up_prefix):
+                i = int(action[len(up_prefix):])
                 if i > 0:
-                    self._devices[i - 1], self._devices[i] = self._devices[i], self._devices[i - 1]
+                    ctx["devices"][i - 1], ctx["devices"][i] = ctx["devices"][i], ctx["devices"][i - 1]
 
-            if action.startswith("down_"):
-                i = int(action[5:])
-                if i < len(self._devices) - 1:
-                    self._devices[i + 1], self._devices[i] = self._devices[i], self._devices[i + 1]
+            down_prefix = Action.MOVE_DOWN + "_"
+            if action.startswith(down_prefix):
+                i = int(action[len(down_prefix):])
+                if i < len(ctx["devices"]) - 1:
+                    ctx["devices"][i + 1], ctx["devices"][i] = ctx["devices"][i], ctx["devices"][i + 1]
 
-            if action.startswith("remove_"):
-                idx = int(action[7:])
-                if 0 <= idx < len(self._devices):
-                    self._devices.pop(idx)
+            remove_prefix = Action.REMOVE + "_"
+            if action.startswith(remove_prefix):
+                idx = int(action[len(remove_prefix):])
+                if 0 <= idx < len(ctx["devices"]):
+                    ctx["devices"].pop(idx)
 
             # After inline actions, return to device list
-            if action != "__back__":
+            if action != Action.BACK:
                 return await self.async_step_devices()
 
             return await self.async_step_device_action()
 
-        idx = self._device_action_idx
-        device_label = _device_label(self._devices[idx])
+        idx = ctx["device_idx"]
+        device_label = _device_label(ctx["devices"][idx])
         return self.async_show_form(
             step_id="device_action",
             data_schema=vol.Schema({
                 vol.Required("device_action"): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=_device_action_options(idx, self._devices),
+                        options=_device_action_options(idx, ctx["devices"]),
                         mode=selector.SelectSelectorMode.LIST,
                     )
                 ),
@@ -824,8 +857,10 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
     async def async_step_device_edit(
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
-        editing = self._device_edit_idx >= 0
-        current: dict = self._devices[self._device_edit_idx] if editing else {}
+        ctx = self._ctx
+        device_idx = ctx["device_idx"]
+        editing = device_idx >= 0
+        current: dict = ctx["devices"][device_idx] if editing else {}
 
         if user_input is not None:
             device_cfg = {}
@@ -836,11 +871,11 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
                     device_cfg[field] = current.get(field, DEVICE_CONFIG[field])
 
             if editing:
-                self._devices[self._device_edit_idx] = device_cfg
+                ctx["devices"][device_idx] = device_cfg
             else:
-                self._devices.append(device_cfg)
+                ctx["devices"].append(device_cfg)
 
-            self._device_edit_idx = -1
+            ctx["device_idx"] = -1
             return await self.async_step_devices()
 
         return self.async_show_form(
@@ -853,14 +888,15 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
         self, user_input: dict[str, Any] | None = None
     ) -> config_entries.ConfigFlowResult:
         """Discover new devices on MQTT and let the user add them."""
+        ctx = self._ctx
         if user_input is not None:
             selected: list[str] = user_input.get("selected_devices", [])
-            existing_names = {d.get("name") for d in self._devices}
+            existing_names = {d.get("name") for d in ctx["devices"]}
             for device_name in selected:
                 if device_name not in existing_names:
                     dev = copy.deepcopy(DEVICE_CONFIG)
                     dev["name"] = device_name
-                    self._devices.append(dev)
+                    ctx["devices"].append(dev)
             return await self.async_step_devices()
 
         # Run discovery
@@ -878,7 +914,7 @@ class NSPanelHAUIOptionsFlow(config_entries.OptionsFlowWithConfigEntry):
             self.hass, prefix=current_prefix, timeout=MQTT_DISCOVERY_TIMEOUT,
         )
 
-        existing_names = {d.get("name") for d in self._devices}
+        existing_names = {d.get("name") for d in ctx["devices"]}
         new_devices = [d for d in discovered if d["name"] not in existing_names]
 
         if not new_devices:

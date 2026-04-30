@@ -1,0 +1,141 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add NSPanel HAUI Instance",
+        "description": "Create a new NSPanel HAUI instance. Enter a name and MQTT topic prefix, then scan for devices.",
+        "data": {
+          "name": "Instance name",
+          "mqtt_topic_prefix": "MQTT topic prefix",
+          "scan_mqtt": "Scan MQTT for devices"
+        },
+        "data_description": {
+          "name": "A unique name for this HAUI instance.",
+          "mqtt_topic_prefix": "Root MQTT topic prefix. NSPanel devices communicate under this prefix.",
+          "scan_mqtt": "When enabled, scans MQTT for existing NSPanel devices to confirm connectivity."
+        }
+      },
+      "discovery": {
+        "title": "Discover NSPanel Devices",
+        "description": "Found {count} device(s) on MQTT. {esphome_info} Select which devices to include.",
+        "data": {
+          "selected_devices": "Select devices to include"
+        },
+        "data_description": {
+          "selected_devices": "Devices discovered on the MQTT topic prefix. ESPHome matches are pre-selected."
+        }
+      }
+    },
+    "error": {
+      "already_configured": "A device with this name is already configured",
+      "empty_name": "Device name cannot be empty"
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "mqtt_not_configured": "MQTT integration is not available or not connected"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "NSPanel HAUI Configuration",
+        "menu_options": {
+          "devices": "Devices",
+          "topic": "MQTT topic prefix",
+          "yaml_override": "YAML override"
+        }
+      },
+      "topic": {
+        "title": "MQTT Topic Prefix",
+        "description": "Change the MQTT topic prefix for this HAUI instance. All panels share this prefix.",
+        "data": {
+          "mqtt_topic_prefix": "MQTT topic prefix"
+        }
+      },
+      "devices": {
+        "title": "Devices ({count} configured)",
+        "description": "Select a device to edit, move, remove, or manage its panels.",
+        "data": {
+          "device_action": "Action"
+        }
+      },
+      "device_action": {
+        "title": "Device actions",
+        "description": "Actions for device #{index}: {label}",
+        "data": {
+          "device_action": "Action"
+        }
+      },
+      "device_edit": {
+        "title": "Edit device",
+        "data": {
+          "name": "Device name (must match firmware hostname)",
+          "locale": "Locale",
+          "button_left_entity": "Left button entity",
+          "button_right_entity": "Right button entity",
+          "show_home_button": "Show home button",
+          "show_sleep_button": "Show sleep button",
+          "show_notifications_button": "Show notifications button",
+          "log_commands": "Log commands",
+          "home_on_wakeup": "Home on wakeup",
+          "home_on_first_touch": "Home on first touch",
+          "home_only_when_on": "Home only when on",
+          "home_on_button_toggle": "Home on button toggle",
+          "return_to_home_after_seconds": "Return to home after (seconds, 0=off)",
+          "always_return_to_home": "Always return to home",
+          "sound_on_startup": "Sound on startup",
+          "sound_on_notification": "Sound on notification"
+        }
+      },
+      "device_discover": {
+        "title": "Discover devices",
+        "description": "Found {count} new device(s) on MQTT. Select which to add.",
+        "data": {
+          "selected_devices": "New devices"
+        }
+      },
+      "panels": {
+        "title": "Panels ({count} configured)",
+        "description": "Select a panel to edit, move or remove it.",
+        "data": {
+          "panel_action": "Action"
+        }
+      },
+      "panel_action": {
+        "title": "Panel actions",
+        "description": "Actions for panel #{index}: {label}",
+        "data": {
+          "panel_action": "Action"
+        }
+      },
+      "panel_edit": {
+        "title": "Edit panel",
+        "data": {
+          "type": "Panel type",
+          "title": "Title",
+          "key": "Key (leave blank to auto-generate)",
+          "home_panel": "Home panel",
+          "sleep_panel": "Sleep panel",
+          "wakeup_panel": "Wakeup panel",
+          "entity": "Entity (single)",
+          "entities": "Entities (multiple)"
+        }
+      },
+      "yaml_override": {
+        "title": "YAML override",
+        "description": "Raw YAML config. When set, overrides all structured settings above.",
+        "data": {
+          "config_yaml": "Device configuration (YAML)"
+        },
+        "data_description": {
+          "config_yaml": "Full device config in YAML format. Clears structured settings."
+        }
+      }
+    },
+    "error": {
+      "invalid_yaml": "Invalid YAML \u2014 check syntax",
+      "invalid_config": "Config schema error \u2014 check required fields",
+      "invalid_panel": "Invalid panel configuration"
+    }
+  }
+}

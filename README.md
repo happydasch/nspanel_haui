@@ -28,7 +28,7 @@
 
 NSPanel HAUI was started as a replacement for the original Sonoff Firmware. It provides a flexible way to configure the display and to control devices connected to home assistant.
 
-It focuses on HomeAssistant and ESPHome. It does not use any custom protocol to communicate with the nextion display. Instead the display is completely controlled through the AppDaemon app written in python.
+It focuses on HomeAssistant and ESPHome. It does not use any custom protocol to communicate with the nextion display. Instead the display is completely controlled through the Hub app written in python.
 
 For details about the configuration see [Configuration](docs/Config.md). Also take a look at [Panels](docs/panels/README.md) to get an overview of available panels.
 
@@ -36,7 +36,7 @@ For details about the configuration see [Configuration](docs/Config.md). Also ta
 
 ### Easy Installation
 
-The nspanel_haui will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the AppDaemon app.
+The nspanel_haui will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the Hub app.
 
 ### Device display configuration in a single yaml file
 
@@ -102,7 +102,7 @@ The simplified process is as followed:
 
 1. Flash Panel with [ESPHome](docs/ESPHome.md)
 2. Update [Display TFT](docs/Nextion.md)
-3. Install [AppDaemon App](docs/AppDaemon.md)
+3. Install [Hub App](docs/Hub.md)
 4. Add [Configuration](docs/Config.md)
 
 Take a look at the more detailed [Installation Guide](docs/Install.md). Have also a look at the [FAQ](docs/FAQ.md).
@@ -124,7 +124,7 @@ Panel HomeAssistant UI Docs](docs/README.md).
 - [Design Guidelines](docs/Design.md)
 - [Communication Description](docs/Communication.md)
 - [ESPHome Component](docs/ESPHome.md)
-- [AppDaemon Component](docs/AppDaemon.md)
+- [Hub Component](docs/Hub.md)
 - [Nextion Component](docs/Nextion.md)
 
 ## Roadmap
@@ -165,7 +165,7 @@ Panel HomeAssistant UI Docs](docs/README.md).
 
   - Eye-Candy
   - Cleanup code and simplify
-  - Replace AppDaemon with Home Assistant Integration
+  - Replaced by native Home Assistant Integration
 
 ## Resources
 

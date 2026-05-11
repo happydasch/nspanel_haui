@@ -1,0 +1,217 @@
+---
+# API Configuration
+api:
+
+  # API Password for HA
+  encryption:
+    key: $api_encryption_key
+
+  # When native API client connects (HA)
+  on_client_connected:
+    then:
+      - lambda: |-
+          id(hub_availability) = true;
+      - delay: 500ms
+      - script.execute: publish_connection_request
+
+  # When native API client disconnects (HA)
+  on_client_disconnected:
+    then:
+      - script.execute:
+          id: set_hub_connected
+          connected: 0
+
+  # Available actions
+  actions:
+
+    # Action to update a TFT file
+    # This will update the nextion display with the tft file
+    # from tft_url
+    - action: upload_tft
+      then:
+        - lambda: id(haui_disp).upload_tft();
+
+    # Action to update a TFT file from URL
+    - action: upload_tft_url
+      variables:
+        url: string
+      then:
+        - lambda: id(haui_disp).set_tft_url(url.c_str());
+        - lambda: id(haui_disp).upload_tft();
+
+    # Batch send_commands - receives string array, sends each to display
+    - action: send_commands
+      variables:
+        commands: string[]
+      then:
+        - lambda: |-
+            for (auto& cmd : commands) {
+              id(haui_disp).send_command(cmd.c_str());
+            }
+            id(haui_disp).update();
+
+    # Connection handshake - called by HA when it receives req_connection event
+    - action: hub_connection_response
+      variables:
+        version: string
+      then:
+        - script.execute: publish_connection_response
+
+    # HA acknowledges initialization complete
+    - action: hub_connection_initialized
+      then:
+        - script.execute:
+            id: set_hub_connected
+            connected: 1
+      # NOTE: set_hub_connected(1) already updates hub_connection internally.
+      # Do NOT add an extra lambda setting id(hub_connection)=true here.
+
+    # HA closes connection
+    - action: hub_connection_closed
+      then:
+        - script.execute:
+            id: set_hub_connected
+            connected: 0
+
+    # HA requests device info
+    - action: req_device_info
+      then:
+        - script.execute: publish_device_info
+
+    # HA requests device state
+    - action: req_device_state
+      then:
+        - script.execute: publish_device_state
+
+    # Action to send a command
+    # This will send a command to the nextion display
+    - action: send_command
+      variables:
+        cmd: string
+      then:
+        - lambda: |-
+            id(haui_disp).send_command(cmd.c_str());
+
+    # Action to change the brightness of the display
+    - action: set_brightness
+      variables:
+        intensity: int
+      then:
+        - lambda: id(set_brightness).execute(intensity);
+
+    # Action to change the page of the display
+    - action: goto_page
+      variables:
+        page: string
+      then:
+        - script.execute:
+            id: goto_page
+            page: !lambda 'return page;'
+
+    # Action to put the display into hardware sleep
+    - action: display_sleep
+      then:
+        - script.execute: display_sleep
+
+    # HA heartbeat - resets heartbeat timer on device
+    - action: hub_heartbeat
+      then:
+        - lambda: |-
+            id(hub_heartbeat) = millis() / 1000;
+
+    # Reconnect request from HA
+    - action: req_reconnect
+      then:
+        - script.execute:
+            id: set_hub_connected
+            connected: 0
+
+    # Request a number value
+    - action: req_val
+      variables:
+        name: string
+      then:
+        - script.execute:
+            id: request_number
+            component: !lambda 'return name;'
+
+    # Request a text value
+    - action: req_txt
+      variables:
+        name: string
+      then:
+        - script.execute:
+            id: request_text
+            component: !lambda 'return name;'
+
+    # Action to play a song for RTTTL strings
+    - action: play_rtttl
+      variables:
+        # see https://picaxe.com/rtttl-ringtones-for-tune-command/
+        song_str: string
+      then:
+        - lambda: id(play_rtttl).execute(song_str);
+
+    # Action to play a named sound
+    - action: play_sound
+      variables:
+        name: string
+      then:
+        - lambda: id(play_sound).execute(name);
+
+    # Action to reset the last interaction value
+    - action: reset_last_interaction
+      variables:
+        offset: int
+      then:
+        - lambda: id(update_last_interaction).execute(-1, offset);
+    # Action to support device discovery - returns device identity metadata
+    - action: haui_discover
+      then:
+        - script.execute: publish_haui_discover
+
+
+    # Action to send a notification
+    - action: send_notification
+      variables:
+        title: string
+        message: string
+        icon: string
+      then:
+        - lambda: |-
+            id(send_notification).execute(
+              title, message, icon, 0, false
+            );
+    - action: send_notification_with_timeout
+      variables:
+        title: string
+        message: string
+        icon: string
+        timeout: int
+      then:
+        - lambda: |-
+            id(send_notification).execute(
+              title, message, icon, timeout, false
+            );
+    # Action to send a persistent notification (must be dismissed to stop sound)
+    - action: send_notification_persistent
+      variables:
+        title: string
+        message: string
+        icon: string
+      then:
+        - lambda: |-
+            id(send_notification).execute(
+              title, message, icon, 0, true
+            );
+    - action: send_notification_persistent_with_timeout
+      variables:
+        title: string
+        message: string
+        icon: string
+        timeout: int
+      then:
+        - lambda: |-
+            id(send_notification).execute(
+              title, message, icon, timeout, true
+            );

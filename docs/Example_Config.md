@@ -10,158 +10,115 @@
 
 ## Simple config
 
+Import via the HA UI: **NSPanel HAUI → YAML Import** (enter your device name).
+
 ```yaml
-nspanel-haui:
-  module: nspanel_haui
-  class: NSPanelHAUI
+# device settings
+config:
+  locale: en_US
 
-  # panel config
-  config:
-
-    # device config
-    device:
-      name: nspanel_haui
-      locale: en_US
-      log_commands: false
-
-    # panels
-    panels:
-      # clock panel
-      - type: clock
-        sleep_panel: true
-        home_panel: true
-        entity: weather.home
+# panels
+panels:
+  # clock panel
+  - type: clock
+    sleep_panel: true
+    home_panel: true
+    entity: weather.home
 ```
 
 ## Single page
 
 ```yaml
-nspanel-haui:
-  module: nspanel_haui
-  class: NSPanelHAUI
+config:
+  locale: en_US
 
-  # panel config
-  config:
-
-    # device config
-    device:
-      name: nspanel_haui
-      locale: en_US
-      log_commands: false
-
-    # panels
-    panels:
-
-      - type: grid
-        title: Single Page
-        home_panel: true
-        entity: light.example_item
+panels:
+  - type: grid
+    title: Single Page
+    home_panel: true
+    entity: light.example_item
 ```
 
 ## Multiple navigation pages
 
 ```yaml
-nspanel-haui:
-  module: nspanel_haui
-  class: NSPanelHAUI
+config:
+  locale: en_US
 
-  # panel config
-  config:
+panels:
+  # weather panel
+  - type: weather
+    mode: subpanel  # it will not show up in navigation
+    entity: weather.home
+    sleep_panel: true
+    key: weather
 
-    # device config
-    device:
-      name: nspanel_haui
-      locale: en_US
-      log_commands: false
+  # home panel
+  - type: grid
+    title: Multi Nav Pages
+    home_panel: true
+    entities:
+      - entity: light.example_item
+      - entity: switch.example_item
 
-    # panels
-    panels:
-      # weather panel
-      - type: weather
-        mode: subpanel  # it will not show up in navigation
-        entity: weather.home
-        sleep_panel: true
-        key: weather
-
-      # home panel
-      - type: grid
-        title: Multi Nav Pages
-        home_panel: true
-        entities:
-          - entity: light.example_item
-          - entity: switch.example_item
-
-      # qr code
-      - type: qr
-        title: QR Code
-        qr_code: WIFI:S:wifi_ssid;T:WPA;P:wifi_pw;;
-        entities:
-          - entity: "text:wifi_ssid"
-            name: Wifi SSID
-            icon: mdi:wifi
-          - entity: "text:wifi_pw"
-            name: Wifi Key
-            icon: mdi:key
-
+  # qr code
+  - type: qr
+    title: QR Code
+    qr_code: WIFI:S:wifi_ssid;T:WPA;P:wifi_pw;;
+    entities:
+      - entity: "text:wifi_ssid"
+        name: Wifi SSID
+        icon: mdi:wifi
+      - entity: "text:wifi_pw"
+        name: Wifi Key
+        icon: mdi:key
 ```
 
 ## Multiple pages with subpages
 
 ```yaml
-nspanel-haui:
-  module: nspanel_haui
-  class: NSPanelHAUI
+config:
+  locale: en_US
 
-  # panel config
-  config:
+panels:
+  # weather panel
+  - type: weather
+    mode: subpanel  # it will not show up in navigation
+    entity: weather.home
+    sleep_panel: true
+    key: weather
 
-    # device config
-    device:
-      name: nspanel_haui
-      locale: en_US
-      log_commands: false
+  # home panel
+  - type: grid
+    title: Example
+    home_panel: true
 
-    # panels
-    panels:
-      # weather panel
-      - type: weather
-        mode: subpanel  # it will not show up in navigation
-        entity: weather.home
-        sleep_panel: true
-        key: weather
+    entities:
+      - entity: navigate:panel_key
+      - entity: light.example_item
+      - entity: switch.example_item
 
-      # home panel
-      - type: grid
-        title: Example
-        home_panel: true
+  # subpanel
+  - type: grid
+    title: Subpanel Open
+    mode: subpanel
+    key: panel_key
+    entities:
+      - entity: light.example_item
+      - entity: switch.example_item
+      - entity: null
+      - entity: button.example_item
+      - entity: cover.example_item
 
-        entities:
-          - entity: navigate:panel_key
-          - entity: light.example_item
-          - entity: switch.example_item
-
-      # subpanel
-      - type: grid
-        title: Subpanel Open
-        mode: subpanel
-        key: panel_key
-        entities:
-          - entity: light.example_item
-          - entity: switch.example_item
-          - entity: null
-          - entity: button.example_item
-          - entity: cover.example_item
-
-      # qr code
-      - type: qr
-        title: Small QR Code
-        qr_code: WIFI:S:wifi_ssid;T:WPA;P:wifi_pw;;
-        entities:
-          - entity: "text:wifi_ssid"
-            name: Wifi SSID
-            icon: mdi:wifi
-          - entity: "text:wifi_pw"
-            name: Wifi Key
-            icon: mdi:key
-
+  # qr code
+  - type: qr
+    title: Small QR Code
+    qr_code: WIFI:S:wifi_ssid;T:WPA;P:wifi_pw;;
+    entities:
+      - entity: "text:wifi_ssid"
+        name: Wifi SSID
+        icon: mdi:wifi
+      - entity: "text:wifi_pw"
+        name: Wifi Key
+        icon: mdi:key
 ```

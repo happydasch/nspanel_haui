@@ -1,0 +1,107 @@
+---
+script:
+
+  # Script to send a notification
+  - id: send_notification
+    parameters:
+      title: string
+      message: string
+      icon: string        # pass empty string "" to omit icon
+      timeout: int
+      persistent: bool    # true = notification must be dismissed to stop sound
+    then:
+      - lambda: |-
+          ESP_LOGV("haui", "Script: send_notification: %s - %s - %s - %i - persistent:%i", title.c_str(), message.c_str(), icon.c_str(), timeout, persistent);
+          const json::json_build_t payload = [
+              title, message, icon, timeout, persistent
+          ](JsonObject root) {
+            root["title"] = title;
+            root["message"] = message;
+            if (!icon.empty()) {
+              root["icon"] = icon;
+            }
+            root["timeout"] = timeout;
+            root["persistent"] = persistent;
+          };
+          std::string payload_str = build_json(payload);
+          id(publish_event_native).execute("esphome.send_notification", payload_str);
+
+  - id: request_number
+    parameters:
+      component: string
+    then:
+      - lambda: |-
+          id(req_val_component).publish_state(component);
+          if (id(haui_disp).is_sleeping()) { id(display_wakeup).execute(); }
+          id(haui_disp).send_command_printf("system.resVal.val=%s.val", component.c_str());
+          id(res_val).update();
+
+  # Script to request a text value from a component or global variable
+  - id: request_text
+    parameters:
+      component: string
+    then:
+      - lambda: |-
+          id(req_txt_component).publish_state(component);
+          // For global text variables, assign directly (no .txt suffix).
+          // The .txt suffix is for components only; variables use the
+          // bare name.  covx was tried but returns "Invalid parameter
+          // count" on this Nextion firmware.
+          if (id(haui_disp).is_sleeping()) { id(display_wakeup).execute(); }
+          id(haui_disp).send_command_printf("system.resTxt.txt=%s", component.c_str());
+          id(res_txt).update();
+
+  # Script to play a rtttl string
+  - id: play_rtttl
+    parameters:
+      song_str: std::string
+    then:
+      - lambda: |-
+          ESP_LOGI("haui", "play_rtttl %s", song_str.c_str());
+          id(haui_rtttl).play(song_str);
+
+  # Script to play a named sound
+  - id: play_sound
+    parameters:
+      name: std::string
+      # available sounds:
+      # - startup: a startup sequence
+      # - tone: a single tone
+      # - tone_up: a single higher tone
+      # - tone_down: a single lower tone
+      # - seq_up: a raising tone sequence
+      # - seq_down: a falling tone sequence
+      # - notification: a notification sequence
+      # - alert: a alert sequence
+      # - alert_fast: a fast alert sequence
+      # - elise: beethovens: für elise
+    then:
+      - lambda: |-
+          ESP_LOGI("haui", "Script play_sound %s", name.c_str());
+          std::string sound_string = "";
+
+          if (name == "startup") {
+            sound_string = "startup:4:d=4,o=5,b=200:8c7,8g7,8d7,8g7";
+          } else if (name == "tone") {
+            sound_string = "tone:4:d=8,o=6,b=200:16e6";
+          } else if (name == "tone_up") {
+            sound_string = "tone:4:d=8,o=6,b=200:16d6";
+          } else if (name == "tone_down") {
+            sound_string = "tone:4:d=8,o=6,b=200:16g6";
+          } else if (name == "seq_up") {
+            sound_string = "seq_up:4:d=16,o=5,b=160:16e6,16g6";
+          } else if (name == "seq_down") {
+            sound_string = "seq_down:4:d=16,o=5,b=160:16g6,16d6";
+          } else if (name == "notification") {
+            sound_string = "notification:4:d=8,o=6,b=200:16e,16c6,16g6,8c6,8g6";
+          } else if (name == "alert_fast") {
+            sound_string = "alert_fast:4:d=8,o=6,b=200:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7";
+          } else if (name == "alert") {
+            sound_string = "alert:4:d=16,o=6,b=400:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7";
+          } else if (name == "elise") {
+            sound_string = "elise:d=8,o=5,b=125:32p,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,e,g#,b,4c.6,32p,e,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,d,c6,b,2a";
+          }
+
+          if (sound_string != "") {
+            id(haui_rtttl).play(sound_string);
+          }

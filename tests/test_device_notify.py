@@ -1,11 +1,5 @@
-import os
-import sys
-
-# Ensure repository root is in sys.path for imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from apps.nspanel_haui.haui.controller.notification import HAUINotificationController
-from apps.nspanel_haui.haui.device import HAUIDevice
+from nspanel_haui.haui.controller.notification import HAUINotificationController
+from nspanel_haui.haui.device import HAUIDevice
 
 
 class DummyNavigation:
@@ -14,9 +8,11 @@ class DummyNavigation:
 
     def open_panel(self, panel):
         self.opened_panel = panel
+    def cancel_timeouts(self):
+        pass
 
 
-class DummyMQTT:
+class DummyESPHome:
     def __init__(self):
         self.calls = []
 
@@ -24,14 +20,22 @@ class DummyMQTT:
         self.calls.append((command, payload, force))
 
 
+class _DevStub:
+    """Stub for self.app.device required by HAUIBase.debug_log()."""
+    def get(self, key: str, default=0):
+        return default
+
+
 class DummyApp:
     def __init__(self):
+        self.device = _DevStub()
         self.controller = {
             "navigation": DummyNavigation(),
             "notification": None,  # Will be set up in test
         }
         self.service_calls = []
         self.log_calls = []
+        self.callback_event_calls = []
 
     def log(self, msg, *args, **kwargs):
         self.log_calls.append(msg)
@@ -46,7 +50,7 @@ class DummyApp:
         raise RuntimeError("Not implemented")
 
     def callback_event(self, event):
-        pass
+        self.callback_event_calls.append(event)
 
 
 def test_device_notify_method():
@@ -71,12 +75,18 @@ def test_device_notify_method():
     original_send_notification = mock_notification_controller.send_notification
     captured_call = []
 
-    def mock_send_notification(title, message, icon, timeout):
+    def mock_send_notification(title, message, icon, timeout, persistent=False):
         captured_call.append(
-            {"title": title, "message": message, "icon": icon, "timeout": timeout}
+            {
+                "title": title,
+                "message": message,
+                "icon": icon,
+                "timeout": timeout,
+                "persistent": persistent,
+            }
         )
         # Call the original method to maintain functionality
-        return original_send_notification(title, message, icon, timeout)
+        return original_send_notification(title, message, icon, timeout, persistent)
 
     mock_notification_controller.send_notification = mock_send_notification
 
@@ -111,12 +121,18 @@ def test_device_notify_method_defaults():
     original_send_notification = mock_notification_controller.send_notification
     captured_call = []
 
-    def mock_send_notification(title, message="", icon="", timeout=0):
+    def mock_send_notification(title, message="", icon="", timeout=0, persistent=False):
         captured_call.append(
-            {"title": title, "message": message, "icon": icon, "timeout": timeout}
+            {
+                "title": title,
+                "message": message,
+                "icon": icon,
+                "timeout": timeout,
+                "persistent": persistent,
+            }
         )
         # Call the original method to maintain functionality
-        return original_send_notification(title, message, icon, timeout)
+        return original_send_notification(title, message, icon, timeout, persistent)
 
     mock_notification_controller.send_notification = mock_send_notification
 
@@ -133,12 +149,8 @@ def test_device_notify_method_defaults():
 
 
 def test_device_notify_method_integration():
-    """Test full integration of notify method with MQTT communication."""
+    """Test full integration of notify method: fires notif_add callback_event."""
     app = DummyApp()
-
-    # Create a mock MQTT controller
-    mock_mqtt = DummyMQTT()
-    app.controller["mqtt"] = mock_mqtt
 
     # Create a notification controller
     notification_controller = HAUINotificationController(app, {})
@@ -155,17 +167,9 @@ def test_device_notify_method_integration():
     # Call the notify method
     device.notify(title, message, icon, timeout)
 
-    # Verify the MQTT call was made
-    assert len(mock_mqtt.calls) == 1
-    command, payload, force = mock_mqtt.calls[0]
-    assert command == "send_notification"
-    assert force is True
-
-    # Verify payload structure
-    import json
-
-    payload_dict = json.loads(payload)
-    assert payload_dict["title"] == title
-    assert payload_dict["message"] == message
-    assert payload_dict["icon"] == icon
-    assert payload_dict["timeout"] == timeout
+    # Verify callback_event was called with the correct notif_add event
+    assert len(app.callback_event_calls) == 1
+    event = app.callback_event_calls[0]
+    assert event.name == "notif_add"
+    expected_value = (title, message, icon, timeout, False)
+    assert event.value == expected_value

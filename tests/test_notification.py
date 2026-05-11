@@ -1,17 +1,8 @@
-import json
-import os
-import sys
-
 import pytest
-
-# Ensure repository root is in sys.path for imports
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-# Import the required classes
-from apps.nspanel_haui.haui.abstract.event import HAUIEvent
-from apps.nspanel_haui.haui.controller.notification import HAUINotificationController
-from apps.nspanel_haui.haui.device import HAUIDevice
-from apps.nspanel_haui.haui.mapping.const import NOTIF_EVENT
+from nspanel_haui.haui.abstract.event import HAUIEvent
+from nspanel_haui.haui.controller.notification import HAUINotificationController
+from nspanel_haui.haui.device import HAUIDevice
+from nspanel_haui.haui.mapping.const import NotifEvent
 
 
 class DummyEntity:
@@ -22,9 +13,16 @@ class DummyEntity:
         self.calls.append((service, kwargs))
 
 
+class _DevStub:
+    """Stub for self.app.device required by HAUIBase.debug_log()."""
+    def get(self, key: str, default=0):
+        return default
+
+
 class DummyApp:
     def __init__(self):
         self.controller = {}
+        self.device = _DevStub()
         self.log_calls = []
         self.call_service_calls = []
         self.entity_calls = []
@@ -55,7 +53,7 @@ class DummyApp:
         self.callback_event_calls.append(event)
 
 
-class DummyMQTT:
+class DummyESPHome:
     def __init__(self):
         self.calls = []
 
@@ -69,8 +67,8 @@ def dummy_app():
 
 
 @pytest.fixture
-def dummy_mqtt():
-    return DummyMQTT()
+def dummy_esphome():
+    return DummyESPHome()
 
 
 def test_notification_controller_add_remove_clear_get(dummy_app):
@@ -97,10 +95,8 @@ def test_notification_controller_add_remove_clear_get(dummy_app):
     assert controller.get_notifications() == []
 
 
-def test_notification_controller_send_mqtt(dummy_app, dummy_mqtt):
-    """Ensure send_notification forwards the correct payload to the MQTT controller."""
-    # Attach dummy MQTT controller before creating notification controller
-    dummy_app.controller["mqtt"] = dummy_mqtt
+def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
+    """Ensure send_notification fires notif_add callback_event with correct data."""
     controller = HAUINotificationController(dummy_app, {})
 
     title = "Alert"
@@ -109,17 +105,11 @@ def test_notification_controller_send_mqtt(dummy_app, dummy_mqtt):
     timeout = 15
     controller.send_notification(title, message, icon, timeout)
 
-    assert len(dummy_mqtt.calls) == 1
-    command, payload, force = dummy_mqtt.calls[0]
-    assert command == "send_notification"
-    assert force is True
-    payload_dict = json.loads(payload)
-    assert payload_dict == {
-        "title": title,
-        "message": message,
-        "icon": icon,
-        "timeout": timeout,
-    }
+    assert len(dummy_app.callback_event_calls) == 1
+    event = dummy_app.callback_event_calls[0]
+    assert event.name == "notif_add"
+    expected_value = (title, message, icon, timeout, False)
+    assert event.value == expected_value
 
 
 def test_device_play_sound_on_notification_event(dummy_app):
@@ -135,7 +125,7 @@ def test_device_play_sound_on_notification_event(dummy_app):
 
     device.play_sound = mock_play
 
-    event = HAUIEvent(NOTIF_EVENT["notif_add"], ("Title", "Msg", "Icon", 0))
+    event = HAUIEvent(NotifEvent.NOTIF_ADD, ("Title", "Msg", "Icon", 0))
     device.process_event(event)
 
     assert device._played == "notification"

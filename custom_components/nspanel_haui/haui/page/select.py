@@ -65,8 +65,8 @@ class SelectPage(HAUIPage):
         self._multiple = panel.get("multiple", self._multiple)
         self._multiple_delay = panel.get("multiple_delay", self._multiple_delay)
         self._close_on_select = panel.get("close_on_select", self._close_on_select)
-        self._selection_callback_fnc = panel.get("selection_callback_fnc")
-        self._close_callback_fnc = panel.get("close_callback_fnc")
+        self._selection_callback_fnc = panel.get("selection_callback_fnc", None)
+        self._close_callback_fnc = panel.get("close_callback_fnc", None)
         # prepare items
         items_per_page = self.ITEMS_PER_PAGE_DEFAULT
         if self._select_mode == "full":

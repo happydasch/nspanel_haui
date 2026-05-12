@@ -515,49 +515,39 @@ class TestFindESPHomeDevice:
     """Tests for _find_esphome_device(hass, device_name)."""
 
     def test_matches_by_device_info_name(self):
-        """Returns (entry_id, friendly_name) when device_info.name matches."""
+        """Returns entry_id when device_info.name matches."""
         hass = MagicMock()
         hass.data = {"esphome": {"entry1": {"device_info": {"name": "panel-living"}}}}
         result = _find_esphome_device(hass, "panel-living")
-        assert result == ("entry1", "")
+        assert result == "entry1"
 
     def test_matches_by_normalized_name(self):
-        """Returns (entry_id, friendly_name) when names differ in case/separators but normalize equal."""
+        """Returns entry_id when names differ in case/separators but normalize equal."""
         hass = MagicMock()
         hass.data = {"esphome": {"entry1": {"device_info": {"name": "Panel Living"}}}}
         result = _find_esphome_device(hass, "panel_living")
-        assert result == ("entry1", "")
-
-    def test_matches_by_friendly_name(self):
-        """Returns (entry_id, friendly_name) when friendly_name matches."""
-        hass = MagicMock()
-        hass.data = {"esphome": {"entry1": {"device_info": {
-            "name": "esphome-web-abc123",
-            "friendly_name": "Panel Living",
-        }}}}
-        result = _find_esphome_device(hass, "panel-living")
-        assert result == ("entry1", "Panel Living")
+        assert result == "entry1"
 
     def test_no_match_returns_none(self):
-        """Returns (None, None) when no device_info.name matches."""
+        """Returns None when no device_info.name matches."""
         hass = MagicMock()
         hass.data = {"esphome": {"entry1": {"device_info": {"name": "panel-living"}}}}
         result = _find_esphome_device(hass, "other-panel")
-        assert result == (None, None)
+        assert result is None
 
     def test_empty_esphome_data_returns_none(self):
-        """Returns (None, None) when esphome data dict is empty."""
+        """Returns None when esphome data dict is empty."""
         hass = MagicMock()
         hass.data = {"esphome": {}}
         result = _find_esphome_device(hass, "panel-living")
-        assert result == (None, None)
+        assert result is None
 
     def test_no_esphome_key_returns_none(self):
-        """Returns (None, None) when hass.data has no 'esphome' key."""
+        """Returns None when hass.data has no 'esphome' key."""
         hass = MagicMock()
         hass.data = {}
         result = _find_esphome_device(hass, "panel-living")
-        assert result == (None, None)
+        assert result is None
 
     def test_fallback_entity_registry_returns_none(self):
         """Fallback path matches via entity registry but cannot determine entry_id."""
@@ -576,10 +566,10 @@ class TestFindESPHomeDevice:
 
         result = _find_esphome_device(hass, "panel-living")
         # Fallback confirms match but can't determine entry_id
-        assert result == (None, "")
+        assert result is None
 
     def test_fallback_entity_registry_no_match_returns_none(self):
-        """Fallback path: no entity match returns (None, None)."""
+        """Fallback path: no entity match returns None."""
         from homeassistant.helpers import entity_registry
 
         hass = MagicMock()
@@ -594,29 +584,29 @@ class TestFindESPHomeDevice:
         entity_registry.async_get.return_value = er_mock
 
         result = _find_esphome_device(hass, "panel-living")
-        assert result == (None, None)
+        assert result is None
 
     def test_exception_handled_gracefully(self):
-        """Exceptions during lookup are caught and return (None, None)."""
+        """Exceptions during lookup are caught and return None."""
         hass = MagicMock()
         hass.data = MagicMock()
         hass.data.get.side_effect = AttributeError("boom")
         result = _find_esphome_device(hass, "panel-living")
-        assert result == (None, None)
+        assert result is None
 
     def test_non_dict_entry_skipped(self):
         """Non-dict esphome entries are gracefully skipped."""
         hass = MagicMock()
         hass.data = {"esphome": {"entry1": ["not", "a", "dict"], "entry2": {"device_info": {"name": "panel-living"}}}}
         result = _find_esphome_device(hass, "panel-living")
-        assert result == ("entry2", "")
+        assert result == "entry2"
 
 
 class TestDiscoverEspHomeDevices:
     """Tests for _discover_esphome_devices(hass)."""
 
     def test_returns_list_of_dicts(self):
-        """Each result has 'name', 'esphome_device_id', and 'friendly_name' keys."""
+        """Each result has 'name' and 'esphome_device_id' keys."""
         from nspanel_haui.esphome_helpers import discover_esphome_devices
 
         # Mock a HAUI service so is_haui_device() returns True
@@ -626,7 +616,8 @@ class TestDiscoverEspHomeDevices:
         entry1 = MagicMock()
         entry1.entry_id = "entry1"
         entry1.title = "Panel Kitchen"
-        entry1.data = {"device": {"friendly_name": "Kitchen Display"}}
+        # Use device_name so the name is resolved from it
+        entry1.data = {"device_name": "kitchen-panel"}
         entry1.runtime_data = MagicMock()
         entry1.runtime_data.services = {"svc1": svc}
 
@@ -635,9 +626,8 @@ class TestDiscoverEspHomeDevices:
 
         result = asyncio.run(discover_esphome_devices(hass))
         assert len(result) == 1
-        assert result[0]["name"] == "Panel Kitchen"
+        assert result[0]["name"] == "kitchen-panel"
         assert result[0]["esphome_device_id"] == "entry1"
-        assert result[0]["friendly_name"] == "Kitchen Display"
 
     def test_returns_empty_list_when_no_esphome_entries(self):
         """Returns [] when there are no ESPHome config entries."""
@@ -649,8 +639,8 @@ class TestDiscoverEspHomeDevices:
         result = asyncio.run(discover_esphome_devices(hass))
         assert result == []
 
-    def test_falls_back_to_title_when_no_friendly_name(self):
-        """Uses entry.title when device data doesn't have friendly_name."""
+    def test_name_falls_back_to_title(self):
+        """Uses entry.title when device_name is not in data."""
         from nspanel_haui.esphome_helpers import discover_esphome_devices
 
         # Mock a HAUI service so is_haui_device() returns True
@@ -670,7 +660,6 @@ class TestDiscoverEspHomeDevices:
         result = asyncio.run(discover_esphome_devices(hass))
         assert len(result) == 1
         assert result[0]["name"] == "My Panel"
-        assert result[0]["friendly_name"] == "My Panel"
 
     def test_esphome_device_id_populated(self):
         """ESPHome discovery result includes entry_id as esphome_device_id."""

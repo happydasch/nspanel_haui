@@ -173,7 +173,6 @@ async def _auto_add_esphome_devices(
         if d["name"] not in existing_names:
             dev = copy.deepcopy(DEVICE_CONFIG)
             dev["name"] = d["name"]
-            dev["friendly_name"] = d.get("friendly_name", "")
             dev["enabled"] = False  # New devices are disabled by default
             if d.get("esphome_device_id"):
                 dev["esphome_device_id"] = d["esphome_device_id"]

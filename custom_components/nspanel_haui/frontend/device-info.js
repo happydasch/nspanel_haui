@@ -6,8 +6,8 @@
  *   - renderDeviceInfoStrip (always-visible inline strip)
  *
  * Device Info dialog and Logs dialog are now separate custom elements:
- *   - ha-dialog-device-info  (in dialogs/device-info-dialog.js)
- *   - ha-dialog-logs         (in dialogs/logs-dialog.js)
+ *   - ha-dialog-device-info  (in dialogs/device-info.js)
+ *   - ha-dialog-logs         (in dialogs/logs.js)
  */
 import { html } from './lit-import.js';
 import * as Api from './api.js';

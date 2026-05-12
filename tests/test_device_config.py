@@ -32,7 +32,7 @@ from nspanel_haui.haui.device_config import (  # noqa: E402
 def test_device_config_has_all_required_keys() -> None:
     """Every key needed at runtime is present in DEVICE_CONFIG."""
     required = {
-        "name", "friendly_name", "panels", "esphome_device_id", "enabled",
+        "name", "panels", "esphome_device_id", "enabled",
         "locale", "button_left_entity", "button_right_entity",
         "home_panel", "sleep_panel", "wakeup_panel",
         "show_home_button", "show_sleep_button", "show_notifications_button",
@@ -82,13 +82,11 @@ def test_locale_options_format() -> None:
 def test_device_config_getters() -> None:
     data = {
         "name": "test-device",
-        "friendly_name": "Test Device",
         "debug_level": 2,
         "enabled": False,
     }
     dc = DeviceConfig(data)
     assert dc.name == "test-device"
-    assert dc.friendly_name == "Test Device"
     assert dc.debug_level == 2
     assert dc.enabled is False
 
@@ -97,7 +95,6 @@ def test_device_config_defaults() -> None:
     """Missing keys return sensible defaults."""
     dc = DeviceConfig({})
     assert dc.name == ""
-    assert dc.friendly_name == ""
     assert dc.locale == "en_US"
     assert dc.enabled is True
     assert dc.debug_level == 0

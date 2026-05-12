@@ -96,8 +96,6 @@ class VacuumPage(HAUIPage):
 
     def stop_panel(self, panel: HAUIPanel) -> None:
         super().stop_panel(panel)
-        while self._handles:
-            self.remove_item_listener(self._handles.pop())
 
     # misc
 

@@ -178,11 +178,9 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
   if (label || hint) {
     return html`
       <div class="form-group">
-        <label for=${id}>
-          ${label || ""}
-          ${hint ? html`<span class="hint">${hint}</span>` : ""}
-        </label>
+        <label for=${id}>${label || ""}</label>
         ${picker}
+        ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
       </div>
     `;
   }

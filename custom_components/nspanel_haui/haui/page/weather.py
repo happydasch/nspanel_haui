@@ -178,10 +178,6 @@ class WeatherPage(HAUIPage):
         self._timer_weather_refresh = self.app.run_every(
             self._callback_weather_refresh, "now+900", 900
         )
-        # item listener - cancel any prior listeners before adding new ones
-        while self._handles:
-            self.remove_item_listener(self._handles.pop())
-
         # Weather entity - role-based creation from explicit config keys
         weather_entity_id = self._extract_entity_id(panel.get("item", None))
         if weather_entity_id:
@@ -264,8 +260,6 @@ class WeatherPage(HAUIPage):
 
     def stop_panel(self, panel: HAUIPanel) -> None:
         super().stop_panel(panel)
-        while self._handles:
-            self.remove_item_listener(self._handles.pop())
         # cancel time and date tick subscriptions
         self.app.unsubscribe_tick("minute", self.callback_update_time)
         self.app.unsubscribe_tick("hour", self.callback_update_date)
@@ -356,23 +350,29 @@ class WeatherPage(HAUIPage):
         if not self._show_forecast or self._weather_item is None:
             return
         weather_id = self._weather_item.get_item_id()
+        if not weather_id:
+            self.log("Weather forecast skipped: no entity ID", level="DEBUG")
+            return
         forecast = None
         try:
             result = self.app.call_service(
                 "weather/get_forecasts",
-                target={"item_id": weather_id},
+                target={"entity_id": weather_id},
                 service_data={"type": self._show_forecast},
             )
-            forecast = result["result"]["response"][weather_id]["forecast"]
-        except (KeyError, IndexError, TypeError) as exc:
+            if result is None:
+                self.log(
+                    f"Weather forecast service returned no result for '{self._show_forecast}'",
+                    level="WARNING",
+                )
+            else:
+                forecast = result["result"]["response"][weather_id]["forecast"]
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
             self.log(
                 f"Weather forecast extract failed for '{self._show_forecast}': {exc}",
                 level="WARNING",
             )
-            if self._previous_forecast is not None:
-                forecast = self._previous_forecast
-            else:
-                return
+            forecast = self._previous_forecast
         except Exception:
             self.log(
                 f"Weather forecast service call failed for '{self._show_forecast}'",

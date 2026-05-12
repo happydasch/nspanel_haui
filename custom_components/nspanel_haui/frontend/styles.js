@@ -59,13 +59,12 @@ export const editorStyles = css`
     padding-bottom: var(--ha-space-6);
   }
 
-  /* ── toolbar ─────────────────────── */
+  /* ── title header ──────────────── */
   .toolbar-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 12px;
     height: var(--header-height, 56px);
+    padding: 0 12px;
     box-sizing: border-box;
     background: var(--app-header-background-color, var(--sidebar-background-color, #f0f0f0));
     color: var(--app-header-text-color, var(--sidebar-text-color, #333));
@@ -82,27 +81,16 @@ export const editorStyles = css`
     font-size: var(--ha-font-size-xl, 20px);
     font-weight: 400;
   }
-  .toolbar-spacer {
-    flex: 1;
-  }
 
-  /* ── action bar ──────────────────── */
-  .action-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 4px 12px;
-    width: 100%;
-    box-sizing: border-box;
-    background: var(--app-header-background-color, var(--sidebar-background-color, #f0f0f0));
-    color: var(--app-header-text-color, var(--sidebar-text-color, #333));
-    border-bottom: 1px solid var(--divider-color, #e0e0e0);
+  /* ── device manager button ────────── */
+  .device-manager-btn {
+    --mdc-icon-button-size: 36px;
   }
-  .action-bar .toolbar-spacer {
-    flex: 1;
+  .device-manager-btn ha-icon {
+    color: var(--primary-color, #03a9f4);
   }
   .toolbar-select {
-    flex: 1 1 200px;
+    flex: 1;
     min-width: 0;
     --mdc-menu-min-width: 200px;
   }
@@ -119,6 +107,31 @@ export const editorStyles = css`
     font-weight: 400;
     margin-left: 6px;
     font-size: 0.85em;
+  }
+
+  /* ── device selector bar (no-device state) ── */
+  .device-selector-bar {
+    padding: 16px;
+  }
+
+  /* ── panel list header (Add Panel + device info inside card) ── */
+  .panel-list-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--divider-color, #e0e0e0);
+  }
+  .panel-list-header .device-selector-inline {
+    flex: 1;
+    min-width: 0;
+  }
+  .panel-list-header .device-selector-inline .toolbar-select {
+    width: 100%;
+  }
+  /* ── card footer (device info strip) ────────────────── */
+  .card-footer {
+    padding: 10px 16px;
   }
 
   /* ── content card ────────────────── */
@@ -153,10 +166,9 @@ export const editorStyles = css`
     border-top: 1px solid var(--divider-color, #e0e0e0);
   }
   .plain-panel-group {
-    margin-bottom: 12px;
   }
   .plain-group-title {
-    padding: 12px 8px;
+    padding: 12px;
     font-weight: 600;
     font-size: 1em;
   }
@@ -164,7 +176,7 @@ export const editorStyles = css`
   /* ── panel list ──────────────────── */
   .panel-item {
     display: grid;
-    grid-template-columns: auto 1fr 1fr auto;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
     min-height: 44px;
     padding: 8px 12px;
@@ -189,14 +201,6 @@ export const editorStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     margin-left: 6px;
-  }
-  .panel-item .col-info {
-    color: var(--secondary-text-color, #666);
-    font-size: 0.85em;
-    min-height: 1em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .panel-item .col-actions {
     display: flex;
@@ -234,9 +238,10 @@ export const editorStyles = css`
 
   /* ── dialog body (inside ha-dialog) ── */
   .dialog-body {
+    position: relative;
   }
   .dialog-body > .form-group:not(:last-child) {
-    margin-bottom: 14px;
+    margin-bottom: 18px;
   }
 
   /* ── form ────────────────────────── */
@@ -247,17 +252,12 @@ export const editorStyles = css`
   }
 
   .form-group {
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
   .form-group label {
     display: block;
     font-weight: 500;
-    margin-bottom: 4px;
-  }
-  .form-group label .hint {
-    font-weight: 400;
-    font-size: 0.85em;
-    color: var(--secondary-text-color, #666);
+    font-size: 0.92em;
   }
   .form-row {
     display: flex;
@@ -311,11 +311,11 @@ export const editorStyles = css`
     background: var(--secondary-background-color, #f5f5f5);
   }
   .config-section-body {
-    padding: 12px 14px;
+    padding: 12px 0;
   }
   .config-section-intro {
-    margin: 0 0 12px;
-    font-size: 0.85em;
+    margin: 0 0 16px;
+    font-size: 1.05em;
     color: var(--secondary-text-color, #666);
   }
   .config-section-body .form-group:last-child,
@@ -331,13 +331,27 @@ export const editorStyles = css`
   }
   .checkbox-row label {
     margin-bottom: 0;
-    font-weight: 400;
+    font-weight: 500;
+    font-size: 0.92em;
+  }
+  /* Wrapper for toggles with help text below — used in device config dialog */
+  .checkbox-wrap {
+    margin-bottom: 12px;
+  }
+  .checkbox-wrap .checkbox-row {
+    margin-bottom: 2px;
+  }
+  .checkbox-wrap .field-hint {
+    margin-top: 4px;
+    margin-bottom: 8px;
+  }
+  .config-section-body .checkbox-wrap:last-child {
+    margin-bottom: 0;
   }
   .field-hint {
     display: block;
     font-size: 0.85em;
     color: var(--secondary-text-color, #666);
-    margin-top: 4px;
   }
   .field-full {
     display: block;
@@ -488,8 +502,7 @@ export const editorStyles = css`
     transition: background 0.15s, border-color 0.15s;
   }
   .item-list-row:hover {
-    background: var(--secondary-background-color, #f5f5f5);
-    border-color: var(--divider-color, #e0e0e0);
+    border-color: var(--primary-color, #03a9f4);
   }
   .item-row-icon {
     flex-shrink: 0;
@@ -626,7 +639,6 @@ export const editorStyles = css`
   }
 
   /* ── dropdown menu ───────────────── */
-  .toolbar-more ha-icon-button.active,
   .panel-more ha-icon-button.active {
     background: var(--secondary-background-color, #f5f5f5);
     border-radius: 50%;
@@ -661,6 +673,18 @@ export const editorStyles = css`
   .dropdown-item:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .dropdown-divider {
+    height: 1px;
+    background: var(--divider-color, #e0e0e0);
+    margin: 4px 0;
+  }
+  .dropdown-item.danger {
+    color: var(--error-color, #db4437);
+  }
+  .dropdown-item.danger:hover {
+    background: color-mix(in srgb, var(--error-color, #db4437) 10%, transparent);
   }
 
   /* ── entity picker dropdown ────────── */
@@ -713,49 +737,38 @@ export const editorStyles = css`
     color: var(--secondary-text-color, #666);
   }
 
-  /* ── device info strip ───────────── */
+  /* ── device info strip (inline in toolbar) ── */
   .device-info-strip {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: var(--ha-space-2);
-    font-size: 0.85em;
+    gap: 12px;
+    font-size: 0.82em;
     color: var(--secondary-text-color, #666);
+    white-space: nowrap;
   }
   .info-strip-item {
     display: inline-flex;
     align-items: center;
-    vertical-align: middle;
-    gap: 4px;
-    background: var(--secondary-background-color, #e8e8e8);
-    color: var(--secondary-text-color, #666);
-    font-weight: 400;
-    font-size: 0.85em;
-    padding: 2px 10px;
-    border-radius: 9px;
-    white-space: nowrap;
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    gap: 5px;
   }
   .connection-indicator-dot {
     display: inline-block;
-    width: 10px;
-    height: 10px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     flex-shrink: 0;
   }
   .connection-indicator-dot.dot-connected {
-    background: #43a047;
+    background: var(--success-color, #43a047);
   }
   .connection-indicator-dot.dot-handshaking {
-    background: #fb8c00;
+    background: var(--warning-color, #fb8c00);
   }
   .connection-indicator-dot.dot-disconnected {
-    background: #e53935;
+    background: var(--error-color, #e53935);
   }
   .connection-indicator-dot.dot-unknown {
-    background: #9e9e9e;
+    background: var(--disabled-text-color, #9e9e9e);
   }
 
   /* ── active listeners table ──────── */
@@ -866,5 +879,126 @@ export const editorStyles = css`
     margin: 0;
     white-space: pre-wrap;
     word-break: break-all;
+  }
+
+  /* ── device manager dialog ──────── */
+  .device-mgr-add-form {
+    background: var(--secondary-background-color, #f5f5f5);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+  .device-mgr-add-form ha-input {
+    display: block;
+    width: 100%;
+  }
+  .device-mgr-add-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+  .device-mgr-error {
+    color: var(--error-color, #e53935);
+    font-size: 0.85em;
+    margin: 4px 0 0;
+  }
+  .device-mgr-section {
+    margin-top: 12px;
+  }
+  .device-mgr-section-title {
+    margin: 0 0 8px;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--primary-text-color, #333);
+  }
+
+
+  .device-mgr-empty {
+    color: var(--secondary-text-color, #666);
+    font-size: 0.9em;
+    font-style: italic;
+  }
+
+  .device-mgr-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .device-mgr-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 12px;
+    border-radius: 8px;
+    margin-bottom: 6px;
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+  .device-mgr-row:hover {
+    background: var(--secondary-background-color, #f5f5f5);
+  }
+  .device-mgr-row.selected {
+    background: color-mix(in srgb, var(--primary-color, #03a9f4) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary-color, #03a9f4) 20%, transparent);
+  }
+  .device-mgr-row-status {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .device-mgr-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .device-mgr-dot.dot-connected {
+    background: var(--success-color, #43a047);
+  }
+  .device-mgr-dot.dot-disconnected {
+    background: var(--disabled-text-color, #9e9e9e);
+  }
+  .device-mgr-row-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .device-mgr-name {
+    font-weight: 500;
+    font-size: 0.95em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .device-mgr-meta {
+    font-size: 0.8em;
+    color: var(--secondary-text-color, #666);
+  }
+  .device-mgr-badge {
+    font-size: 0.82em;
+    color: var(--secondary-text-color, #666);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .device-mgr-row-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .device-mgr-remove-btn ha-icon {
+    color: var(--error-color, #e53935);
+  }
+  .discovered-row {
+    background: color-mix(in srgb, var(--primary-color, #03a9f4) 4%, transparent);
+    border-radius: 8px;
+  }
+  .discovered-row:hover {
+    background: color-mix(in srgb, var(--primary-color, #03a9f4) 8%, transparent);
   }
 `;

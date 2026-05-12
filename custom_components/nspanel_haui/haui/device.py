@@ -232,7 +232,10 @@ class HAUIDevice(HAUIBase):
         Returns:
             str: Device name
         """
-        return self.get("name")
+        # self.get("name") returns the hub-level name from the device
+        # sub-dict config. The actual per-device name is resolved at app
+        # level in NSPanelHAUI.initialize() and stored in _runtime_device_name.
+        return self.app._runtime_device_name or self.get("name")
 
     def get_active_listeners(self) -> list[dict[str, Any]]:
         """Returns active device-level entity listeners for status reporting.

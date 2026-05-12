@@ -127,6 +127,17 @@ class MediaPage(HAUIPage):
 
     # panel
 
+    @staticmethod
+    def _extract_entity_id(value: Any) -> str | None:
+        """Extract entity ID from a config value that may be plain string or {item: ...} dict.
+
+        The frontend serializes ``kind=\"item\"`` fields through ``serializeItem()``,
+        which stores them as ``{item: \"entity_id\"}`` dicts.
+        """
+        if isinstance(value, dict):
+            return value.get("item")
+        return value
+
     def start_page(self) -> None:
         self._title = ""
         self._items: list[HAUIItem] = []
@@ -160,7 +171,8 @@ class MediaPage(HAUIPage):
         )
         # sonos favorites item
         sonos_favorites = None
-        sonos_favorites_id = panel.get("sonos_favorites")
+        sonos_favorites_value = panel.get("sonos_favorites", None)
+        sonos_favorites_id = self._extract_entity_id(sonos_favorites_value)
         if sonos_favorites_id:
             self.log(f"setting sonos_favorites {sonos_favorites_id}")
             sonos_favorites = HAUIItem(self.app, {"item": sonos_favorites_id})
@@ -203,8 +215,6 @@ class MediaPage(HAUIPage):
 
     def stop_panel(self, panel: HAUIPanel) -> None:
         super().stop_panel(panel)
-        while self._handles:
-            self.remove_item_listener(self._handles.pop())
         if self._timer_progress is not None:
             self._timer_progress.cancel()
             self._timer_progress = None
@@ -574,7 +584,11 @@ class MediaPage(HAUIPage):
         media_duration = item.get_item_attr("media_duration", 0)
         media_position = item.get_item_attr("media_position", 0)
         media_position_updated_at = item.get_item_attr("media_position_updated_at", "")
-        if media_position_updated_at:
+        if isinstance(media_position_updated_at, datetime.datetime):
+            media_position_updated_at = media_position_updated_at.timestamp()
+            now = datetime.datetime.now().timestamp()
+            media_position += now - media_position_updated_at
+        elif media_position_updated_at:
             media_position_updated_at = datetime.datetime.fromisoformat(
                 media_position_updated_at
             ).timestamp()

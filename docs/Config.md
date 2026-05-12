@@ -74,11 +74,6 @@ date_format_locale: "full"
 
   The name of the panel device
 
-- `friendly_name` string
-
-  The friendly/display name of the device. Auto-detected from ESPHome during
-  discovery; editable in the HAUI Editor. Falls back to `name` if not set.
-
 - `locale` string
 
   The locale of the device
@@ -186,7 +181,6 @@ date_format_locale: "full"
 ```yaml
 device:
   name: ""
-  friendly_name: ""
   locale: "en_US"
   panels: [{"type": "clock"}]
   esphome_device_id: ""

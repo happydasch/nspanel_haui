@@ -119,7 +119,7 @@ class ClockPage(HAUIPage):
             self._callback_weather_refresh, "now+300", 300
         )
         # setting: temp_precision
-        self._temp_precision = panel.get("temp_precision", self._temp_precision)
+        self._temp_precision = panel.get_int("temp_precision", self._temp_precision)
         # setting: show_weather
         if not panel.get("show_weather", True):
             self._show_weather = False
@@ -159,8 +159,6 @@ class ClockPage(HAUIPage):
 
     def stop_panel(self, panel: HAUIPanel) -> None:
         super().stop_panel(panel)
-        while self._handles:
-            self.remove_item_listener(self._handles.pop())
         # cancel time and date tick subscriptions
         self.app.unsubscribe_tick("minute", self.callback_update_time)
         self.app.unsubscribe_tick("hour", self.callback_update_date)

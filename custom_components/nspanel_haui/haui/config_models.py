@@ -79,7 +79,6 @@ def _get_device_config_model() -> type[BaseModel] | None:
             debug_level: int = 0
             log_items: bool = False
             enabled: bool = True
-            friendly_name: str = ""
 
         _device_config_cache["model"] = _DeviceConfig
     except ImportError:

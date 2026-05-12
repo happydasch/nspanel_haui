@@ -282,9 +282,9 @@ class GridPage(HAUIPage):
         color_pressed = panel.get("color_pressed", COLORS["text"])
         back_color_pressed = panel.get("back_color_pressed", COLORS["component_pressed"])
         power_color = panel.get("power_color", COLORS["component_active"])
-        text_color = panel.get("text_color")
-        back_color = panel.get("back_color")
-        color_mode = panel.get("color_mode")
+        text_color = panel.get("text_color", None)
+        back_color = panel.get("back_color", None)
+        color_mode = panel.get("color_mode", None)
         color_seed = panel.get("color_seed", self._color_seed)
         # no background color check if color mode or set default
         if not back_color and color_mode:

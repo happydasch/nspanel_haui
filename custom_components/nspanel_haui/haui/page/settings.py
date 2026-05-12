@@ -86,11 +86,11 @@ class SettingsPage(HAUIPage):
         self.set_component_text(self.TXT_BRGHT_TITLE, self.translate("Full and Dimmed Brightness:"))
         # update settings
         brightness_full_state = self.brightness_full_entity.get_state()
-        if brightness_full_state != "unavailable":
+        if brightness_full_state is not None and brightness_full_state != "unavailable":
             brightness_full = int(float(brightness_full_state))
             self.set_brightness_full_slider(brightness_full)
         brightness_dimmed_state = self.brightness_dimmed_entity.get_state()
-        if brightness_dimmed_state != "unavailable":
+        if brightness_dimmed_state is not None and brightness_dimmed_state != "unavailable":
             brightness_dimmed = int(float(brightness_dimmed_state))
             self.set_brightness_dim_slider(brightness_dimmed)
 

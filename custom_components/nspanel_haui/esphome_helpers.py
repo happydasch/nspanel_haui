@@ -26,10 +26,10 @@ def normalize_device_name(name: str) -> str:
     return name.lower().strip().replace("_", " ").replace("-", " ")
 
 
-def find_esphome_device(hass, device_name: str) -> tuple[str | None, str | None]:
+def find_esphome_device(hass, device_name: str) -> str | None:
     """Match NSPanel device name to ESPHome device entry using normalized comparison.
 
-    Returns (entry_id, friendly_name) tuple. Both are None when no match is found.
+    Returns the entry_id string, or None when no match is found.
     """
     normalized_device_name = normalize_device_name(device_name)
 
@@ -45,15 +45,10 @@ def find_esphome_device(hass, device_name: str) -> tuple[str | None, str | None]
                     continue
                 device_info = entry_data.get("device_info", {})
                 if isinstance(device_info, dict):
-                    friendly = device_info.get("friendly_name", "")
                     # Match by name (normalized)
                     info_name = device_info.get("name", "")
                     if normalize_device_name(info_name) == normalized_device_name:
-                        return (entry_id, friendly)
-
-                    # Also match by friendly_name
-                    if friendly and normalize_device_name(friendly) == normalized_device_name:
-                        return (entry_id, friendly)
+                        return entry_id
     except (AttributeError, KeyError, TypeError):
         _LOGGER.debug("Error in find_esphome_device primary lookup", exc_info=True)
 
@@ -65,11 +60,11 @@ def find_esphome_device(hass, device_name: str) -> tuple[str | None, str | None]
         for entity in er.entities.values():
             if entity.platform == "esphome":
                 if normalized_device_name in normalize_device_name(entity.name or ""):
-                    return (None, "")  # confirmed match, entry_id not available
+                    return None  # confirmed match, entry_id not available
     except (AttributeError, KeyError, TypeError):
         _LOGGER.debug("Error in find_esphome_device fallback lookup", exc_info=True)
 
-    return (None, None)
+    return None
 
 
 def is_haui_device(hass: Any, entry: Any) -> bool:
@@ -153,7 +148,7 @@ async def discover_esphome_devices(hass: Any) -> list[dict]:
 
     Only returns devices confirmed to have HAUI firmware installed.
     Iterates ESPHome config entries and returns a list of device dicts with
-    ``name``, ``esphome_device_id``, and ``friendly_name`` keys.
+    ``name`` and ``esphome_device_id`` keys.
     """
     devices: list[dict] = []
     for entry in hass.config_entries.async_entries("esphome"):
@@ -165,14 +160,10 @@ async def discover_esphome_devices(hass: Any) -> list[dict]:
         name = entry.data.get("device_name") or (
             device.get("name") if isinstance(device, dict) else None
         )
-        friendly_name = device.get("friendly_name", "") if isinstance(device, dict) else ""
-        if not friendly_name and hasattr(entry, "title"):
-            friendly_name = entry.title or ""
         devices.append(
             {
                 "name": name or entry.title or entry.entry_id,
                 "esphome_device_id": entry.entry_id,
-                "friendly_name": friendly_name or name or "",
             }
         )
     return devices

@@ -44,7 +44,7 @@ class AboutPage(HAUIPage):
             self.set_component_text(self.TXT_TITLE, self._title)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        name = self.app.device.device_info.get("friendly_name", self.app.device.get_name())
+        name = self.app.device.get_name()
         ip_address = self.app.device.device_info.get("ip", "127.0.0.1")
         tft_version = self.app.device.device_info.get("tft_version", "0.0.0")
         yaml_version = self.app.device.device_info.get("yaml_version", "0.0.0")

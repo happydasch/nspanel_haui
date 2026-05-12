@@ -280,7 +280,6 @@ class NSPanelHAUI(HAAdapter):
         runtime_info = self.device.device_info if self.device else {}
         result["device_info"] = {
             "name": self._runtime_device_name or device_config.get("name", self.name),
-            "friendly_name": device_config.get("friendly_name", ""),
             "tft_version": runtime_info.get("tft_version") or "",
             "yaml_version": runtime_info.get("yaml_version") or "",
             "last_panel_update": self._last_panel_update,

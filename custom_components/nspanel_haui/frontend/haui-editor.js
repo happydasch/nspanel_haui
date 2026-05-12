@@ -20,11 +20,12 @@ import * as DeviceConfig from './device-config.js';
 import * as Toast from './toast.js';
 
 // Register dialog custom elements
-import './dialogs/edit-dialog.js';
-import './dialogs/confirm-dialog.js';
-import './dialogs/device-config-dialog.js';
-import './dialogs/device-info-dialog.js';
-import './dialogs/logs-dialog.js';
+import './dialogs/edit.js';
+import './dialogs/confirm.js';
+import './dialogs/device-config.js';
+import './dialogs/device-info.js';
+import './dialogs/logs.js';
+import './dialogs/device-manager.js';
 
 import { renderOptionField } from './form-fields.js';
 import { encodeItemValue } from './haui-item.js';
@@ -32,8 +33,8 @@ import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
 import { formVal } from './dom-helpers.js';
 import { selectDevice } from './device-manager.js';
 import { renderPanelTable, renderSystemPanels, renderEmptyCard } from './panel-table.js';
-import { renderAddButton, renderToolbarActions, renderDeviceSelector } from './toolbar.js';
-import { startStatusPolling, stopStatusPolling, renderDeviceInfoStrip } from './device-info.js';
+import { renderTitleHeader, renderActionBar } from './toolbar.js';
+import { startStatusPolling, stopStatusPolling } from './device-info.js';
 
 /* ── component ───────────────────────────────────────────────────────────── */
 
@@ -62,10 +63,10 @@ class NSPanelEditor extends LitElement {
       _deviceStatusError: { type: String, state: true },
       _showDeviceInfo: { type: Boolean, state: true },
       _showLogs: { type: Boolean, state: true },
+      _showDeviceManager: { type: Boolean, state: true },
       _editingItem: { type: Object, state: true },
       _editingItemType: { type: String, state: true },
 
-      _showToolbarMenu: { type: Boolean, state: true },
       _actionsMenuIndex: { type: Number, state: true },
 
     };
@@ -93,14 +94,13 @@ class NSPanelEditor extends LitElement {
     this._editingItem = null;
     this._itemListData = {};
     this._editingItemType = null;
-    this._showToolbarMenu = false;
     this._actionsMenuIndex = null;
-
 
     this._deviceStatus = null;
     this._deviceStatusError = null;
     this._showDeviceInfo = false;
     this._showLogs = false;
+    this._showDeviceManager = false;
     this._statusTimer = null;
     this._panelSaveTimer = null;
     this.__systemPanelsOpen = false;
@@ -117,13 +117,6 @@ class NSPanelEditor extends LitElement {
         if (d && !path.includes(d)) {
           d.open = false;
           this.__systemPanelsOpen = false;
-        }
-      }
-      if (this._showToolbarMenu) {
-        const m = this.renderRoot.querySelector('.toolbar-more');
-        if (m && !path.includes(m)) {
-          this._showToolbarMenu = false;
-          this.requestUpdate();
         }
       }
       if (this._actionsMenuIndex !== null && this._actionsMenuIndex !== undefined) {
@@ -220,6 +213,101 @@ class NSPanelEditor extends LitElement {
   _closeDeviceConfig()     { DeviceConfig.closeDeviceConfig(this); this.requestUpdate(); }
   async _saveDeviceConfig(){ return DeviceConfig.saveDeviceConfig(this); }
 
+  /* ── device manager ────────────────────────────────────────────────── */
+
+  _openDeviceManager() {
+    this._showDeviceManager = true;
+    this.requestUpdate();
+  }
+
+  _closeDeviceManager() {
+    this._showDeviceManager = false;
+    this.requestUpdate();
+  }
+
+  /* ── header menu ───────────────────────────────────────────────── */
+
+  _toggleHeaderMenu() {
+    this._actionsMenuIndex = this._actionsMenuIndex === '__header__' ? null : '__header__';
+    this.requestUpdate();
+  }
+
+  _onHeaderSettings() {
+    this._actionsMenuIndex = null;
+    if (!this._selectedDevice) return;
+    this._loadDeviceConfig(this._selectedDevice);
+    this._openDeviceConfig();
+    this.requestUpdate();
+  }
+
+  _onHeaderImportYaml() {
+    this._actionsMenuIndex = null;
+    this._onDeviceManagerImportYaml();
+  }
+
+  _onHeaderExportYaml() {
+    this._actionsMenuIndex = null;
+    this._onDeviceManagerExportYaml();
+  }
+
+  _onDeviceManagerSelect(e) {
+    const name = e.detail?.name;
+    if (!name) return;
+    this._selectDevice(name);
+  }
+
+  _onDeviceManagerSettings(e) {
+    const name = e.detail?.name;
+    if (!name) return;
+    this._showDeviceManager = false;
+    this._selectedDevice = name;
+    this._loadDeviceConfig(name);
+    this._openDeviceConfig();
+    this.requestUpdate();
+  }
+
+  async _onDeviceManagerRemove(e) {
+    const name = e.detail?.name;
+    if (!name) return;
+    try {
+      await Api.removeDevice(this, name);
+      await Api.loadPanels(this);
+      this._showToast(`Removed "${name}"`, "success");
+    } catch (err) {
+      this._showToast(err.message || "Failed to remove device", "error");
+    }
+    this.requestUpdate();
+  }
+
+  async _onDeviceManagerAdd(e) {
+    const device = e.detail?.device;
+    if (!device) return;
+    try {
+      await Api.addDevice(this, device);
+      await Api.loadPanels(this);
+      this._showToast(`Added "${device.name}"`, "success");
+    } catch (err) {
+      this._showToast(err.message || "Failed to add device", "error");
+    }
+    this.requestUpdate();
+  }
+
+  /* ── device manager action events ─────────────────────────────── */
+
+  async _onDeviceManagerImportYaml() {
+    const { importDeviceYaml } = await import('./device-manager.js');
+    this._showDeviceManager = false;
+    importDeviceYaml(this);
+    this.requestUpdate();
+  }
+
+  async _onDeviceManagerExportYaml() {
+    const { exportDeviceYaml } = await import('./device-manager.js');
+    this._showDeviceManager = false;
+    exportDeviceYaml(this);
+    this.requestUpdate();
+  }
+
   /* ── auto device discovery ──────────────────────────────────────────── */
 
   _autoDiscovered = false;
@@ -269,9 +357,7 @@ class NSPanelEditor extends LitElement {
   render() {
     if (!this.entryId) {
       return html`<div class="container">
-        <div class="toolbar toolbar-header">
-          <span class="toolbar-title">NSPanel HAUI - Editor</span>
-        </div>
+        ${renderTitleHeader(this)}
         <ha-card outlined class="content-card">
           ${renderEmptyCard("No NSPanel HAUI integration configured. Add one via Settings → Devices and Services.")}
         </ha-card>
@@ -280,28 +366,16 @@ class NSPanelEditor extends LitElement {
 
     if (this._loading) {
       return html`<div class="container">
-        <div class="toolbar toolbar-header">
-          <span class="toolbar-title">NSPanel HAUI - Editor</span>
-        </div>
+        ${renderTitleHeader(this)}
+        ${renderActionBar(this)}
         <div class="loading">Loading panels...</div>
       </div>`;
     }
 
     return html`
       <div class="container">
-        <div class="toolbar toolbar-header">
-          <span class="toolbar-title">NSPanel HAUI - Editor</span>
-        </div>
-
-        ${Object.keys(this._panels.devices || {}).length > 0 ? html`
-          <div class="action-bar">
-            ${renderAddButton(this)}
-            ${renderDeviceSelector(this)}
-            ${renderToolbarActions(this)}
-          </div>
-        ` : ""}
-
-        ${this._selectedDevice ? renderDeviceInfoStrip(this) : ""}
+        ${renderTitleHeader(this)}
+        ${renderActionBar(this)}
 
         <ha-card outlined class="content-card">
           <div class="card-content">
@@ -355,6 +429,20 @@ class NSPanelEditor extends LitElement {
           .logs=${this._deviceStatus?.logs || []}
           @dialog-closed=${() => { this._showLogs = false; this.requestUpdate(); }}
         ></ha-dialog-logs>
+        <ha-dialog-device-manager
+          .hass=${this.hass}
+          .open=${this._showDeviceManager}
+          .devices=${this._panels.devices || {}}
+          .selectedDevice=${this._selectedDevice}
+          .entryId=${this.entryId}
+          @dialog-closed=${this._closeDeviceManager}
+          @select-device=${this._onDeviceManagerSelect}
+          @device-settings=${this._onDeviceManagerSettings}
+          @remove-device=${this._onDeviceManagerRemove}
+          @add-device=${this._onDeviceManagerAdd}
+          @import-yaml=${this._onDeviceManagerImportYaml}
+          @export-yaml=${this._onDeviceManagerExportYaml}
+        ></ha-dialog-device-manager>
 
         ${this._toast ? Toast.renderToast(this) : ""}
       </div>
@@ -386,7 +474,7 @@ class NSPanelEditor extends LitElement {
 
     // Read per-item appearance overrides (declared by the panel type descriptor).
     // Read from ee.config (not DOM) — renderItemOptionField mutates ee.config via
-    // setVal, which correctly handles bool checkboxes that formVal cannot.
+    // setVal, which handles ha-switch toggle events correctly.
     const savePt = this._editingPanelType || this._editingPanel?.data?.type;
     const descriptor = (savePt && this._panelTypes)
       ? this._panelTypes.find(d => d.type_key === savePt) || null

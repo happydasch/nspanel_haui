@@ -363,7 +363,8 @@ class HAAdapter:
     def log(self, msg: str, **kwargs: Any) -> None:
         level_name = kwargs.get("level", "INFO").upper()
         level = getattr(logging, level_name, logging.INFO)
-        _LOGGER.log(level, msg)
+        exc_info = kwargs.get("exc_info")
+        _LOGGER.log(level, msg, exc_info=exc_info)
         # Capture last 100 log lines for the status view
         import time as _time
         ts = _time.strftime("%H:%M:%S")
@@ -421,7 +422,7 @@ class HAAdapter:
     # services
 
     def call_service(self, service: str, **kwargs: Any) -> Any:
-        if not isinstance(service, str) or "." not in service:
+        if not isinstance(service, str) or "." not in service.replace("/", "."):
             raise ValueError(f"Invalid service: {service!r}")
         domain, svc = service.replace("/", ".").split(".", 1)
         target = kwargs.pop("target", None)

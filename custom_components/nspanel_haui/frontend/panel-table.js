@@ -5,7 +5,7 @@
  * element instance (`host`) as its first parameter.
  */
 import { html } from './lit-import.js';
-import { itemSummary } from "./haui-item.js";
+import { renderDeviceSelector, renderDeviceInfoStrip } from './toolbar.js';
 /**
  * Render a consistent empty-state card for use across the editor.
  * @param {string} message - Message to display inside the card.
@@ -44,16 +44,6 @@ function renderPanelRow(host, p, panels, isNavPanel) {
         const displayTitle = p.title || "";
         return html`${displayTitle ? html`${displayTitle} — ` : ""}${label} <span class="col-key key">${p.key || "-"}</span>`;
       })()}</span>
-      <span class="col-info">${(() => {
-        const textParts = [];
-        if (p.item) {
-          const summaryConfig = typeof p.item === 'object' ? p.item : { item: p.item };
-          textParts.push(itemSummary(summaryConfig));
-        }
-        if (p.items && p.items.length) textParts.push(`${p.items.length} items`);
-        return textParts.join(' · ');
-      })()}</span>
-
       <div class="col-actions">
         ${isNavPanel ? html`
           <ha-icon-button
@@ -96,12 +86,16 @@ function renderPanelRow(host, p, panels, isNavPanel) {
                   @click=${() => { host._actionsMenuIndex = null; host._moveDown(p.key); }}>
                   <ha-icon icon="mdi:arrow-down"></ha-icon> Move Down
                 </button>
+                <div class="dropdown-divider"></div>
               ` : ''}
+
               <button class="dropdown-item"
                 @click=${() => { host._actionsMenuIndex = null; host._toggleNavVisibility(p.key); }}>
                 <ha-icon icon="${p.show_in_navigation !== false ? 'mdi:eye-off-outline' : 'mdi:eye-outline'}"></ha-icon>
                 ${p.show_in_navigation !== false ? 'Non-Navigation' : 'Navigation'}
               </button>
+              <div class="dropdown-divider"></div>
+
               ${p.key && host._deviceConfig && host._deviceConfig.home_panel !== p.key ? html`
                 <button class="dropdown-item"
                   @click=${() => { host._actionsMenuIndex = null; host._setSpecialPanel('home_panel', p.key); }}>
@@ -135,7 +129,9 @@ function renderPanelRow(host, p, panels, isNavPanel) {
                   <ha-icon icon="mdi:cancel"></ha-icon> Unset Wakeup
                 </button>
               ` : '')}
-              <button class="dropdown-item"
+
+              <div class="dropdown-divider"></div>
+              <button class="dropdown-item danger"
                 @click=${() => { host._actionsMenuIndex = null; host._confirmDelete(pIdx); }}>
                 <ha-icon icon="mdi:delete"></ha-icon> Delete
               </button>
@@ -159,7 +155,6 @@ function renderSystemPanelRow(host, sp) {
         ${sp.label}
         <span class="col-key key">${sp.key || "-"}</span>
       </span>
-      <span class="col-info">${sp.description}</span>
       <span class="col-actions"></span>
     </div>
   `;
@@ -176,15 +171,76 @@ export function renderPanelTable(host) {
     if (devices.length === 0) {
       return renderEmptyCard("No devices found");
     }
-    return html`<p>Select a device to edit its panels.</p>`;
+    return html`
+      <div class="device-selector-bar">
+        ${renderDeviceSelector(host)}
+      </div>
+      <p style="padding:16px;">Select a device to edit its panels.</p>
+    `;
   }
 
   const navPanels = panels.filter(p => p.show_in_navigation !== false);
   const hiddenPanels = panels.filter(p => p.show_in_navigation === false);
 
   return html`
+    <div class="panel-list-header">
+      <ha-icon-button
+        title="Add Panel"
+        label="Add Panel"
+        @click=${() => host._openAdd()}
+      >
+        <ha-icon icon="mdi:plus"></ha-icon>
+      </ha-icon-button>
+      <div class="device-selector-inline">
+        ${renderDeviceSelector(host)}
+      </div>
+      <ha-icon-button
+        title="Info"
+        label="Info"
+        @click=${() => { host._showDeviceInfo = true; host.requestUpdate(); }}
+      >
+        <ha-icon icon="mdi:information-outline"></ha-icon>
+      </ha-icon-button>
+      <div class="panel-more" style="position:relative;display:inline-block;">
+        <ha-icon-button
+          title="Device actions"
+          label="Device actions"
+          @click=${() => host._toggleHeaderMenu()}
+        >
+          <ha-icon icon="mdi:dots-vertical"></ha-icon>
+        </ha-icon-button>
+        ${host._actionsMenuIndex === '__header__' ? html`
+          <div class="dropdown-menu">
+            <button class="dropdown-item${host._selectedDevice ? '' : ' disabled'}"
+                    ?disabled=${!host._selectedDevice}
+                    @click=${() => host._onHeaderSettings()}>
+              <ha-icon icon="mdi:cog-outline"></ha-icon>
+              Settings
+            </button>
+            <button class="dropdown-item"
+                    @click=${() => { host._showLogs = true; host.requestUpdate(); }}>
+              <ha-icon icon="mdi:file-document-outline"></ha-icon>
+              Logs
+            </button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item${host._selectedDevice ? '' : ' disabled'}"
+                    ?disabled=${!host._selectedDevice}
+                    @click=${() => host._onHeaderImportYaml()}>
+              <ha-icon icon="mdi:file-import"></ha-icon>
+              Import YAML
+            </button>
+            <button class="dropdown-item${host._selectedDevice ? '' : ' disabled'}"
+                    ?disabled=${!host._selectedDevice}
+                    @click=${() => host._onHeaderExportYaml()}>
+              <ha-icon icon="mdi:file-export"></ha-icon>
+              Export YAML
+            </button>
+          </div>
+        ` : ""}
+      </div>
+    </div>
     ${panels.length === 0
-      ? renderEmptyCard('No panels configured. Click "Add Panel" to create one.')
+      ? renderEmptyCard('No panels configured yet.')
       : html`
         <div class="plain-panel-group">
           <div class="plain-group-title">Navigation (${navPanels.length} panels)</div>
@@ -195,6 +251,9 @@ export function renderPanelTable(host) {
           ${hiddenPanels.map(p => renderPanelRow(host, p, panels, false))}
         </div>
       `}
+    <div class="card-footer">
+      ${renderDeviceInfoStrip(host)}
+    </div>
   `;
 }
 

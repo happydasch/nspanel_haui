@@ -77,28 +77,28 @@ class HAUIConfig(HAUIBase):
         return self._panels
 
     def get_items(self) -> list[HAUIItem]:
-        """Returns all entities as HAUIItem objects.
+        """Returns all items as HAUIItem objects.
 
         Returns:
-            list: List with entities
+            list: List with items
         """
-        entities = []
+        items = []
         for panel in self._panels:
-            entities.extend(panel.get_items())
-        return entities
+            items.extend(panel.get_items())
+        return items
 
     def get_item(self, item_id: str) -> HAUIItem | None:
-        """Returns a single entity.
+        """Returns a single item.
 
         Args:
             item_id (str): Item id
 
         Returns:
-            HAUIItem | None: Entity or None
+            HAUIItem | None: Item or None
         """
-        for entity in self.get_items():
-            if entity.get_item_id() == item_id:
-                return entity
+        for item in self.get_items():
+            if item.get_item_id() == item_id:
+                return item
         return None
 
     def get_panel(self, panel_id: UUID | str) -> HAUIPanel | None:

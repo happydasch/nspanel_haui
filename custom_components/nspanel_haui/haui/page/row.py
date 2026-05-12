@@ -133,7 +133,7 @@ class RowPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
         self._items = panel.get_items()
-        self._current_page = panel.get("initial_page", 0)
+        self._current_page = panel.get_int("initial_page", 0)
         # set function buttons
         show_in_nav = panel.show_in_navigation()
         nav_btn: dict = {

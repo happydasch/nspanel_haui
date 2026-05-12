@@ -1,67 +1,52 @@
 /**
  * NSPanel HAUI - Editor - toolbar rendering.
  *
- * Renders the top toolbar: Add Panel button, device selector, device settings,
- * and a "More" dropdown.  Extracted from panel-table.js and combined with the
- * device bar previously rendered separately.
+ * Renders the top toolbar with:
+ *   - Title bar (separate from action bar)
+ *   - Device manager button
+ *   - Device selector dropdown
+ *   - Device info strip (exported for use in content area)
  */
 import { html } from './lit-import.js';
-import * as DeviceConfig from './device-config.js';
 import {
   buildDeviceMap,
   getDeviceDisplayName,
   selectDevice,
-  exportDeviceYaml,
-  importDeviceYaml,
+  renderDeviceManagerButton,
 } from './device-manager.js';
 
-/**
- * Render the Add Panel button - sits before the device selector.
- */
-export function renderAddButton(host) {
-  return html`
-    <ha-icon-button title="Add Panel" @click=${() => host._openAdd()}>
-      <ha-icon icon="mdi:plus"></ha-icon>
-    </ha-icon-button>
-  `;
-}
+/* ── re-exports for haui-editor.js ─────────────────────────────────────────── */
+
+export { selectDevice } from './device-manager.js';
+
+/* ── title header ────────────────────────────────────────────────────────── */
 
 /**
- * Render the action buttons (Cog, More) that go after the device selector.
+ * Render the editor title bar (separate from toolbar actions).
  */
-export function renderToolbarActions(host) {
+export function renderTitleHeader(host) {
   return html`
-    <ha-icon-button title="Device settings" @click=${() => { DeviceConfig.openDeviceConfig(host); host.requestUpdate(); }}>
-      <ha-icon icon="mdi:cog"></ha-icon>
-    </ha-icon-button>
-
-    <div class="toolbar-more" style="position:relative;display:inline-block;">
-      <ha-icon-button title="More" class=${host._showToolbarMenu ? 'active' : ''} @click=${(e) => {
-        e.stopPropagation();
-        host._showToolbarMenu = !host._showToolbarMenu;
-        host.requestUpdate();
-      }}>
-        <ha-icon icon="mdi:dots-vertical"></ha-icon>
-      </ha-icon-button>
-      ${host._showToolbarMenu ? html`
-        <div class="dropdown-menu">
-          <button class="dropdown-item" @click=${() => { host._showToolbarMenu = false; host._showDeviceInfo = true; host.requestUpdate(); }}>
-            <ha-icon icon="mdi:information-outline"></ha-icon> Device Info
-          </button>
-          <button class="dropdown-item" @click=${() => { host._showToolbarMenu = false; host._showLogs = true; host.requestUpdate(); }}>
-            <ha-icon icon="mdi:file-document-outline"></ha-icon> Device Logs
-          </button>
-          <button class="dropdown-item" @click=${() => { host._showToolbarMenu = false; importDeviceYaml(host); }}>
-            <ha-icon icon="mdi:file-import"></ha-icon> Import YAML
-          </button>
-          <button class="dropdown-item" @click=${() => { host._showToolbarMenu = false; exportDeviceYaml(host); }}>
-            <ha-icon icon="mdi:file-export"></ha-icon> Export YAML
-          </button>
-        </div>
-      ` : ''}
+    <div class="toolbar-header">
+      <span class="toolbar-title">NSPanel HAUI - Editor</span>
+      ${renderDeviceManagerButton(host)}
     </div>
   `;
 }
+
+/* ── device actions bar ──────────────────────────────────────────────────── */
+
+/**
+ * Render the device action bar: no longer needed — all controls are in the title bar.
+ */
+export function renderActionBar(_host) {
+  return "";
+}
+
+/* ── device manager button ─────────────────────────────────────────────── */
+
+export { renderDeviceManagerButton };
+
+/* ── device selector ─────────────────────────────────────────────────────── */
 
 /**
  * Render a device selector dropdown. Always shows as a dropdown so users
@@ -96,5 +81,48 @@ export function renderDeviceSelector(host) {
       .options=${options}
       @selected=${(e) => selectDevice(host, e.detail.value)}
     ></ha-select>
+  `;
+}
+
+/* ── device info strip ────────────────────────────────────────────────────── */
+
+/**
+ * Render the inline device status strip shown below the primary action row.
+ */
+export function renderDeviceInfoStrip(host) {
+  const ds = host._deviceStatus;
+  const err = host._deviceStatusError;
+
+  const connected = ds?.connected;
+  const connState = ds?.connection_state || "unknown";
+
+  let dotClass, label;
+  if (connected === true) {
+    dotClass = "dot-connected";
+    label = "Connected";
+  } else if (connState === "handshaking") {
+    dotClass = "dot-handshaking";
+    label = "Handshaking\u2026";
+  } else if (connState === "disconnected") {
+    dotClass = "dot-disconnected";
+    label = "Disconnected";
+  } else {
+    dotClass = "dot-unknown";
+    label = "Unknown";
+  }
+
+  const currentPage = ds?.current_page || "-";
+
+  return html`
+    <div class="device-info-strip">
+      <span class="info-strip-item connection-indicator" title="Connection: ${connState}">
+        <span class="connection-indicator-dot ${dotClass}"></span>
+        ${label}
+      </span>
+      <span class="info-strip-item" title="Current page: ${currentPage}">
+        ${currentPage}
+      </span>
+      ${err ? html`<span class="info-strip-item" style="color:var(--error-color,#f44336);">${err}</span>` : ""}
+    </div>
   `;
 }

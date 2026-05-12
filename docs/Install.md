@@ -66,10 +66,9 @@ With the prepared and connected device it is now possible to install ESPHome on 
   Only substitutions needs to be edited.
   Either use a secrets.yaml file or set the configuration values directly in this file.
 
-  The name of the device can be set with `name` and `friendly_name`
+  The name of the device can be set with `name`.
 
   - name: host- and device name
-  - friendly_name: friendly name of device
 
   Some credentials needs to be provided:
 

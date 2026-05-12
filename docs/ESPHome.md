@@ -52,7 +52,6 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 
 - `heartbeat_interval` (5)
 - `name` (nspanel-haui)
-- `friendly_name` (NSPanel HAUI)
 - `ota_password` (!secret ota_password)
 - `api_encryption_key` (!secret api_encryption_key)
 - `web_username` (!secret web_username)

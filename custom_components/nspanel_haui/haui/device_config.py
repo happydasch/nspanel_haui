@@ -18,7 +18,6 @@ _LOGGER = logging.getLogger(__name__)
 
 DEVICE_CONFIG: dict[str, Any] = {
     "name": "",
-    "friendly_name": "",
     "panels": [{"type": "clock"}],
     "esphome_device_id": "",  # ESPHome device ID when matched to an existing ESPHome device
     "enabled": True,  # device can be disabled to hide from runtime without deleting config
@@ -60,7 +59,6 @@ DEVICE_CONFIG: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 
 DEVICE_CONFIG_FIELDS: list[str] = [
-    "friendly_name",
     "locale",
     "button_left_entity",
     "button_right_entity",
@@ -213,13 +211,13 @@ def _apply_panel_store(cfg: dict, store: dict, fields: list) -> None:
 class DeviceConfig:
     """Typed, read-write wrapper around a single device config dict.
 
-    Provides attribute-style access to all 26 DEVICE_CONFIG keys with
+    Provides attribute-style access to all DEVICE_CONFIG keys with
     proper type conversions for booleans and integers.
 
     Usage::
 
         dc = DeviceConfig(dev_dict)
-        print(dc.friendly_name)
+        print(dc.name)
         dc.debug_level = 1
     """
 
@@ -237,14 +235,6 @@ class DeviceConfig:
     @name.setter
     def name(self, value: str) -> None:
         self._data["name"] = value
-
-    @property
-    def friendly_name(self) -> str:
-        return str(self._data.get("friendly_name", ""))
-
-    @friendly_name.setter
-    def friendly_name(self, value: str) -> None:
-        self._data["friendly_name"] = value
 
     @property
     def esphome_device_id(self) -> str:

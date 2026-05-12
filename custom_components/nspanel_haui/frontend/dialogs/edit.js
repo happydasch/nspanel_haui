@@ -57,20 +57,37 @@ class EditPanelDialog extends LitElement {
     this._editingPanelType = null;
     this._editingPanel = null;
     this._itemListData = {};
+    this._userSelectedType = false;
   }
 
   willUpdate(changed) {
+    if (changed.has("open") && this.open) {
+      // Reset user type selection each time the dialog opens
+      this._userSelectedType = false;
+    }
     if (changed.has("panel") && this.panel) {
-      this._editingPanelType = this.panel.data?.type || "clock";
-      // Forward _editingPanel and _itemListData for renderOptionField's host access pattern
-      this._editingPanel = this.panel;
-      this._itemListData = {};
+      // Don't overwrite the user's explicit type selection when the parent
+      // re-renders due to status polling or other reactive updates.
+      if (!this._userSelectedType) {
+        this._editingPanelType = this.panel.data?.type || "clock";
+        // Only sync _editingPanel from the parent prop when the user hasn't
+        // made an explicit type change — otherwise the parent's stale
+        // _editingPanel (never updated on type change) would overwrite
+        // the user's in-progress edits.
+        this._editingPanel = this.panel;
+        this._itemListData = {};
+      }
     }
   }
 
   render() {
     if (!this.panel) return "";
-    const ep = this.panel;
+    // Always prefer the dialog's own _editingPanel over the parent's panel prop.
+    // The parent's _editingPanel reference is never updated on type change, so
+    // relying on "this._editingPanel || this.panel" means the parent's stale
+    // data would overwrite the user's type selection on re-render.
+    // Instead, once _userSelectedType is true, ALWAYS use _editingPanel.
+    const ep = (this._userSelectedType && this._editingPanel) ? this._editingPanel : (this._editingPanel || this.panel);
     const isAdd = ep.index < 0;
     const panelType = this._editingPanelType || ep.data?.type || "clock";
     const descriptor = this.panelTypes.find((pt) => pt.type_key === panelType);
@@ -110,6 +127,13 @@ class EditPanelDialog extends LitElement {
               name="title"
               .value=${ep.data.title || ""}
               style="width: 100%"
+              @input=${(e) => {
+                this._editingPanel = {
+                  ...this._editingPanel,
+                  data: { ...this._editingPanel.data, title: e.target.value },
+                };
+                this.requestUpdate();
+              }}
             ></ha-input>
             <span class="field-hint">Optional display name shown on the panel header. Falls back to panel type if left empty.</span>
           </div>
@@ -136,15 +160,29 @@ class EditPanelDialog extends LitElement {
                   name="key"
                   .value=${ep.data.key || ""}
                   style="width: 100%"
+                  @input=${(e) => {
+                    this._editingPanel = {
+                      ...this._editingPanel,
+                      data: { ...this._editingPanel.data, key: e.target.value },
+                    };
+                    this.requestUpdate();
+                  }}
                 ></ha-input>
                 <span class="field-hint">Used to reference this panel in actions and gestures</span>
               </div>
 
               <div class="checkbox-row">
-                <ha-checkbox
+                <ha-switch
                   id="fld-show-in-nav"
                   ?checked=${ep.data.show_in_navigation !== false}
-                ></ha-checkbox>
+                  @change=${(e) => {
+                    this._editingPanel = {
+                      ...this._editingPanel,
+                      data: { ...this._editingPanel.data, show_in_navigation: e.target.checked },
+                    };
+                    this.requestUpdate();
+                  }}
+                ></ha-switch>
                 <label for="fld-show-in-nav">Show in navigation</label>
               </div>
               <span class="field-hint">When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)</span>
@@ -181,12 +219,18 @@ class EditPanelDialog extends LitElement {
 
   _onTypeChange(e) {
     const newType = e.detail.value;
+    // Idempotency guard: ha-select fires @selected synchronously on user
+    // interaction only, but a re-rendered ha-select may fire the event again
+    // with its restored .value.  Skip if the type hasn't actually changed.
+    if (newType === this._editingPanelType) return;
+
     this._editingPanelType = newType;
+    this._userSelectedType = true;
     this._itemListData = {};
     if (this.panel) {
       // Preserve live-edited fields from _editingPanel.data when changing type.
       const liveData = this._editingPanel?.data || this.panel.data;
-      this.panel = {
+      this._editingPanel = {
         ...this.panel,
         data: {
           ...liveData,
@@ -194,8 +238,6 @@ class EditPanelDialog extends LitElement {
           key: generateAutoKey(this.devicePanels, newType),
         },
       };
-      // Keep _editingPanel in sync for renderOptionField's host access pattern
-      this._editingPanel = this.panel;
     }
     this.requestUpdate();
   }

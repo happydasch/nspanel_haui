@@ -41,7 +41,6 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         for d in discovered:
             dev = copy.deepcopy(DEVICE_CONFIG)
             dev["name"] = d["name"]
-            dev["friendly_name"] = d.get("friendly_name", "")
             dev["enabled"] = False  # New devices are disabled by default
             if d.get("esphome_device_id"):
                 dev["esphome_device_id"] = d["esphome_device_id"]
@@ -76,9 +75,7 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 dev["enabled"] = False  # New devices are disabled by default
                 match = discovered_map.get(device_name)
                 if match:
-                    dev["friendly_name"] = match.get("friendly_name", "")
-                    if match.get("esphome_device_id"):
-                        dev["esphome_device_id"] = match["esphome_device_id"]
+                    dev["esphome_device_id"] = match.get("esphome_device_id", "")
                 devices_list.append(dev)
 
             return self.async_create_entry(
@@ -106,7 +103,7 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         device_options = [
             SelectOptionDict(
                 value=d["name"],
-                label=d.get("friendly_name") or d["name"],
+                label=d["name"],
             )
             for d in discovered
         ]

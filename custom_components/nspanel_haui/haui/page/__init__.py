@@ -358,11 +358,15 @@ class HAUIPage(HAUIBase):
     def stop_panel(self, panel: HAUIPanel) -> None:
         """Called when a panel is stopped.
 
-        This method should be overwritten in the page.
+        Clears all item state listeners.  Subclasses **must** call
+        ``super().stop_panel(panel)`` at the start of their override, then
+        do their own cleanup (tick subscriptions, timers, etc.).
 
         Args:
             panel (HAUIPanel): Current panel
         """
+        while self._handles:
+            self.remove_item_listener(self._handles.pop())
 
     def before_render_panel(self, panel: HAUIPanel) -> bool:
         """Called before the panel is rendered.

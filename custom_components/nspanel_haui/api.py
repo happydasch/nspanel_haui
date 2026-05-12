@@ -213,7 +213,6 @@ class DeviceDiscoveryView(HomeAssistantView):
                     {
                         "name": d["name"],
                         "esphome_device_id": d.get("esphome_device_id"),
-                        "friendly_name": d.get("friendly_name", ""),
                         "configured": d["name"] in configured_names,
                     }
                     for d in discovered
@@ -259,7 +258,6 @@ class DeviceConfigView(HomeAssistantView):
         # Add to config_entry.data["devices"]
         new_dev = copy.deepcopy(DEVICE_CONFIG)
         new_dev["name"] = name
-        new_dev["friendly_name"] = body.get("friendly_name", "")
         new_dev["enabled"] = False
         # New devices are disabled by default; enable via device settings
         if "esphome_device_id" in body:

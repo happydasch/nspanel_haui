@@ -79,7 +79,7 @@ class ConfigSchema:
 
     @staticmethod
     def device_label(device: dict) -> str:
-        display = device.get("friendly_name") or device.get("name") or ""
+        display = device.get("name", "")
         locale = device.get("locale", "")
         return f"{display} ({locale})" if locale else display
 
@@ -183,9 +183,6 @@ class ConfigSchema:
                 vol.Required(
                     "debug_level", default=current.get("debug_level", 0)
                 ): vol.Coerce(int),
-                vol.Required(
-                    "friendly_name", default=current.get("friendly_name", "")
-                ): str,
                 vol.Required(
                     "hub_idle_timeout", default=current.get("hub_idle_timeout", 0)
                 ): vol.Coerce(int),

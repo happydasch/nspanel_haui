@@ -11,7 +11,7 @@ class PageOption:
     Used by the integration's config flow to render appropriate form controls
     per panel type. ``kind`` determines the control:
 
-      - bool         → checkbox
+      - bool         → toggle (ha-switch)
       - int / float  → number input
       - color_seed  → number input with randomize button + palette preview
       - str          → text input

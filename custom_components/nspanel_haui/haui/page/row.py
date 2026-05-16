@@ -25,17 +25,19 @@ class RowPage(HAUIPage):
             PageOption(
                 key="items",
                 kind="item_list",
-                label="Items",
-                section="Items",
+                description="Items displayed as a row with cover/action controls.",
+                section="Rows",
             ),
             PageOption(
                 key="initial_page",
                 kind="int",
                 default=0,
                 label="Initial page",
+                description="Starting page index (0-based) when the row is first displayed.",
                 section="Pagination",
             ),
         ],
+        icon="mdi:view-list-outline",
     )
 
     # common components
@@ -132,14 +134,12 @@ class RowPage(HAUIPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
-        self._items = panel.get_items()
-        self._current_page = panel.get_int("initial_page", 0)
+        self._items = self._build_items_from_panel(panel, "items")
+        self._current_page = panel.get("initial_page", 0)
         # set function buttons
         show_in_nav = panel.show_in_navigation()
         nav_btn: dict = {
-            "fnc_component": (
-                self.BTN_FNC_RIGHT_SEC if show_in_nav else self.BTN_FNC_RIGHT_PRI
-            ),
+            "fnc_component": (self.BTN_FNC_RIGHT_SEC if show_in_nav else self.BTN_FNC_RIGHT_PRI),
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": self.ICO_NEXT_PAGE,
@@ -256,9 +256,7 @@ class RowPage(HAUIPage):
             self.set_row_entry(idx, visible=visible)
         # create listener for active entities
         for item_id in item_ids:
-            handle = self.add_item_listener(
-                item_id, self.callback_item_state, attribute="all"
-            )
+            handle = self.add_item_listener(item_id, self.callback_item_state, attribute="all")
             self._active_handles.append(handle)
 
     def set_row_entry(self, idx: int, visible: bool = True) -> None:
@@ -476,9 +474,12 @@ class RowPage(HAUIPage):
         if features & CoverFeatures.OPEN:  # SUPPORT_OPEN
             if pos != 100 and not (item_state == "open" and pos == "disable"):
                 icon_up_status = True
-            icon_up = get_icon_name_by_action(
-                item_type=item_type, action="open", device_class=device_class
-            ) or ""
+            icon_up = (
+                get_icon_name_by_action(
+                    item_type=item_type, action="open", device_class=device_class
+                )
+                or ""
+            )
             icon_up = get_icon(icon_up) or ""
         (
             color,
@@ -497,9 +498,12 @@ class RowPage(HAUIPage):
         )
 
         if features & CoverFeatures.STOP:  # SUPPORT_STOP
-            icon_stop = get_icon_name_by_action(
-                item_type=item_type, action="stop", device_class=device_class
-            ) or ""
+            icon_stop = (
+                get_icon_name_by_action(
+                    item_type=item_type, action="stop", device_class=device_class
+                )
+                or ""
+            )
             icon_stop = get_icon(icon_stop) or ""
             if item_state not in ["open", "close"]:
                 icon_stop_status = True
@@ -522,9 +526,12 @@ class RowPage(HAUIPage):
         if features & CoverFeatures.CLOSE:  # SUPPORT_CLOSE
             if pos != 0 and not (item_state == "closed" and pos == "disable"):
                 icon_down_status = True
-            icon_down = get_icon_name_by_action(
-                item_type=item_type, action="close", device_class=device_class
-            ) or ""
+            icon_down = (
+                get_icon_name_by_action(
+                    item_type=item_type, action="close", device_class=device_class
+                )
+                or ""
+            )
             icon_down = get_icon(icon_down) or ""
         (
             color,

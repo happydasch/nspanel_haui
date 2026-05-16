@@ -32,12 +32,14 @@ panels:
 
   # big qr code
   - type: qr
-    qr_code: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
+    essid: MySSID
+    password: MyPassW0rd
     big_qr: true
 
   # small qr code
   - type: qr
-    qr_code: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
+    essid: MySSID
+    password: MyPassW0rd
     big_qr: false
     entities:
       - entity: "text:Test 1"
@@ -48,16 +50,15 @@ panels:
         icon: mdi:wifi
 ```
 
-### QR-Code Format
+### ESSID + Password
+
+The wifi credentials are entered as two separate text fields: `essid` (WiFi network name) and `password` (WiFi password). The integration automatically builds the QR code string in the standard WiFi format:
+
+```
+WIFI:S:<SSID>;T:WPA;P:<PASSWORD>;;
+```
 
 Source: [https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network](https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network)
-
-The qr code can be created by using the format below.
-
-```yaml
-    Common format: WIFI:S:<SSID>;T:<WEP|WPA|blank>;P:<PASSWORD>;H:<true|false|blank>;;
-    Sample: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
-```
 
 ### Start with big QR
 

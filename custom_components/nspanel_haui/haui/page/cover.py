@@ -19,8 +19,15 @@ class CoverPage(HAUIPage):
         label="Cover",
         description="Cover item with open, close and position controls.",
         options=[
-            PageOption(key="item", kind="item", domain="cover", label="Cover item"),
+            PageOption(
+                key="item",
+                kind="item",
+                domain="cover",
+                description="Cover entity for opening, closing and positioning window coverings.",
+                section="Cover",
+            ),
         ],
+        icon="mdi:blinds",
     )
 
     # https://developers.home-assistant.io/docs/core/item/cover

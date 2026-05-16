@@ -15,7 +15,7 @@ class UnlockPage(AlarmPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # store panel infos
-        self._unlock_panel = unlock_panel = panel.get("unlock_panel")
+        self._unlock_panel = unlock_panel = panel.get("unlock_panel", None)
         self._title = panel.get("title", self.translate("Unlock Panel"))
         # lock right secondary function button
         lock_btn = {
@@ -128,9 +128,7 @@ class UnlockPage(AlarmPage):
 
     # callback
 
-    def callback_keypad(
-        self, event: HAUIEvent, component: tuple, button_state: int
-    ) -> None:
+    def callback_keypad(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
         if button_state:
             return
         self.log(f"Got keypad press: {component}-{button_state}")
@@ -147,9 +145,7 @@ class UnlockPage(AlarmPage):
 
             self.update_components()
 
-    def callback_unlock(
-        self, event: HAUIEvent, component: tuple, button_state: int
-    ) -> None:
+    def callback_unlock(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
         if button_state:
             return
         if str(self._input) != str(self._unlock_code):

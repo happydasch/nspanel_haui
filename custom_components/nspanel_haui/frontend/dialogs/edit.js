@@ -100,7 +100,7 @@ class EditPanelDialog extends LitElement {
         .open=${this.open}
         @closed=${this._dispatchClose}
         header-title=${headerTitle}
-        .preventScrimClose=${this.saving}
+        .preventScrimClose=${true}
       >
 
         <form id="panel-edit-form" @submit=${(e) => e.preventDefault()}>
@@ -108,20 +108,24 @@ class EditPanelDialog extends LitElement {
 
           ${isAdd ? html`
             <div class="form-group">
-              <label for="fld-type">Panel Type</label>
-              <ha-select
-                id="fld-type"
-                name="type"
-                .value=${panelType}
-                .options=${this.panelTypes.map((pt) => ({ value: pt.type_key, label: pt.label }))}
-                @selected=${this._onTypeChange}
-              ></ha-select>
+              <label for="fld-type">Panel type</label>
+              <div style="display:flex;align-items:center;gap:8px;">
+                ${descriptor?.icon ? html`<ha-icon .icon=${descriptor.icon}></ha-icon>` : ""}
+                <ha-select
+                  id="fld-type"
+                  name="type"
+                  style="flex:1"
+                  .value=${panelType}
+                  .options=${this.panelTypes.map((pt) => ({ value: pt.type_key, label: pt.label }))}
+                  @selected=${this._onTypeChange}
+                ></ha-select>
+              </div>
               ${descriptor ? html`<span class="field-hint">${descriptor.description}</span>` : ""}
             </div>
           ` : ""}
 
           <div class="form-group">
-            <label for="fld-title">Panel Title</label>
+            <label for="fld-title">Panel title</label>
             <ha-input
               id="fld-title"
               name="title"
@@ -135,7 +139,7 @@ class EditPanelDialog extends LitElement {
                 this.requestUpdate();
               }}
             ></ha-input>
-            <span class="field-hint">Optional display name shown on the panel header. Falls back to panel type if left empty.</span>
+            <span class="field-hint">Title shown on the panel header. Falls back to unnamed if left empty.</span>
           </div>
 
           ${getPanelOptionGroups(descriptor).map(group => {
@@ -153,8 +157,9 @@ class EditPanelDialog extends LitElement {
           <details class="config-section">
             <summary>Advanced</summary>
             <div class="config-section-body">
+
               <div class="form-group">
-                <label for="fld-key">Key</label>
+                <label for="fld-key">Panel Key</label>
                 <ha-input
                   id="fld-key"
                   name="key"
@@ -171,21 +176,42 @@ class EditPanelDialog extends LitElement {
                 <span class="field-hint">Used to reference this panel in actions and gestures</span>
               </div>
 
-              <div class="checkbox-row">
-                <ha-switch
-                  id="fld-show-in-nav"
-                  ?checked=${ep.data.show_in_navigation !== false}
-                  @change=${(e) => {
+              <div class="form-group">
+                <label for="fld-unlock-code">Panel Pin</label>
+                <ha-input
+                  id="fld-unlock-code"
+                  name="unlock_code"
+                  type="password"
+                  .value=${ep.data.unlock_code || ""}
+                  style="width: 100%"
+                  @input=${(e) => {
                     this._editingPanel = {
                       ...this._editingPanel,
-                      data: { ...this._editingPanel.data, show_in_navigation: e.target.checked },
+                      data: { ...this._editingPanel.data, unlock_code: e.target.value },
                     };
                     this.requestUpdate();
                   }}
-                ></ha-switch>
-                <label for="fld-show-in-nav">Show in navigation</label>
+                ></ha-input>
+                <span class="field-hint">Set a PIN code to lock this panel. Users must enter this code before accessing the panel.</span>
               </div>
-              <span class="field-hint">When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)</span>
+
+              <div class="form-group">
+                <div class="checkbox-row">
+                  <ha-switch
+                    id="fld-show-in-nav"
+                    ?checked=${ep.data.show_in_navigation !== false}
+                    @change=${(e) => {
+                      this._editingPanel = {
+                        ...this._editingPanel,
+                        data: { ...this._editingPanel.data, show_in_navigation: e.target.checked },
+                      };
+                      this.requestUpdate();
+                    }}
+                  ></ha-switch>
+                  <label for="fld-show-in-nav">Show in navigation</label>
+                </div>
+                <span class="field-hint">When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)</span>
+              </div>
             </div>
           </details>
 
@@ -199,6 +225,7 @@ class EditPanelDialog extends LitElement {
         <ha-dialog-footer slot="footer">
           <ha-button
             slot="secondaryAction"
+            variant="neutral"
             appearance="plain"
             @click=${this._dispatchClose}
           >
@@ -305,10 +332,12 @@ class EditPanelDialog extends LitElement {
     const inputVal = formVal(inline, "item-entity");
     const config = { item: encodeItemValue(inputVal, typeVal) };
 
-    // Read standard entity override fields
+    // Read standard entity override fields from ee.config — the input handlers
+    // mutate ee.config with typed values (list/int/dict) where applicable, so
+    // reading the DOM string would discard those types (e.g., strip list brackets).
     for (const f of ENTITY_OVERRIDE_FIELDS) {
-      const fv = formVal(inline, `item-${f}`);
-      if (fv) config[f] = fv;
+      const fv = ee.config?.[f];
+      if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
     }
 
     // Read per-item appearance overrides (declared by the panel type descriptor).

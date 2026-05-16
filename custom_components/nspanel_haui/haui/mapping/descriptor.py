@@ -21,6 +21,10 @@ class PageOption:
       - generic      → generic text input (catch-all for custom values)
       - item         → item selector (filtered by ``domain`` if set)
       - select       → dropdown (uses ``choices``)
+      - list_items   → list editor with one input per item plus add/remove buttons
+                        (select if ``choices`` set, otherwise plain text input)
+      - list_entities → list editor for entity IDs with one entity picker per item
+                        plus add/remove buttons; ``domain`` filters the picker
       - list_str     → multi-line text input, one item per line
       - item_list    → item list editor with modal config dialog
     """
@@ -47,3 +51,5 @@ class PageDescriptor:
     options: list[PageOption] = field(default_factory=list)
     item_options: list[str] = field(default_factory=list)
     """Panel-level option keys that can also be overridden per-item."""
+    icon: str = ""
+    """MDI icon string to display alongside the panel type in the editor UI."""

@@ -54,7 +54,6 @@ export async function saveDeviceConfig(host) {
 
   // Read text fields
   let dcEl;
-  dcEl = form.querySelector("#dc-friendly_name"); cfg.friendly_name = dcEl ? dcEl.value : "";
   dcEl = form.querySelector("#dc-locale"); cfg.locale = dcEl ? dcEl.value : "en_US";
   dcEl = form.querySelector("#dc-button_left_entity"); cfg.button_left_entity = dcEl ? dcEl.value : null;
   dcEl = form.querySelector("#dc-button_right_entity"); cfg.button_right_entity = dcEl ? dcEl.value : null;

@@ -22,7 +22,3 @@ def test_get_panels_and_items():
     panels = ha_config.get_panels()
     assert len(panels) == 1
     assert panels[0].get("key") == "test_panel"
-
-    item = ha_config.get_item("switch.test")
-    assert item is not None
-    assert item.get_item_type() == "switch"

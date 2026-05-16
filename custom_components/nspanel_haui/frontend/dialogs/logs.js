@@ -28,19 +28,20 @@ class LogsDialog extends LitElement {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        header-title="Logs"
+        .preventScrimClose=${true}
+        header-title="Device Logs"
       >
 
         <div class="dialog-body">
           ${this.logs.length ? html`
             <pre class="logs-content">${this.logs.join("\n")}</pre>
           ` : html`
-            <p style="color:var(--secondary-text-color,#666);">No log entries yet.</p>
+            <p class="text-secondary">No log entries yet.</p>
           `}
         </div>
 
         <ha-dialog-footer slot="footer">
-          <ha-button slot="primaryAction" appearance="plain" @click=${this._dispatchClose}>
+          <ha-button slot="primaryAction" @click=${this._dispatchClose}>
             Close
           </ha-button>
         </ha-dialog-footer>

@@ -23,8 +23,11 @@ class TimerPage(HAUIPage):
                 kind="bool",
                 default=True,
                 label="Show notification on finish",
+                description="Show a notification on the display when the timer completes.",
+                section="Timer",
             ),
         ],
+        icon="mdi:timer-outline",
     )
 
     ICO_START = get_icon("mdi:play")

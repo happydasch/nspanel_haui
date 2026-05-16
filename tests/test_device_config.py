@@ -32,16 +32,32 @@ from nspanel_haui.haui.device_config import (  # noqa: E402
 def test_device_config_has_all_required_keys() -> None:
     """Every key needed at runtime is present in DEVICE_CONFIG."""
     required = {
-        "name", "panels", "esphome_device_id", "enabled",
-        "locale", "button_left_entity", "button_right_entity",
-        "home_panel", "sleep_panel", "wakeup_panel",
-        "show_home_button", "show_sleep_button", "show_notifications_button",
-        "log_items", "debug_level",
-        "home_on_wakeup", "home_on_first_touch", "home_only_when_on",
-        "home_on_button_toggle", "return_to_home_after_seconds",
-        "always_return_to_home", "hub_idle_timeout",
-        "use_relay_left", "use_relay_right",
-        "sound_on_startup", "sound_on_notification",
+        "name",
+        "panels",
+        "esphome_device_id",
+        "enabled",
+        "locale",
+        "button_left_entity",
+        "button_right_entity",
+        "home_panel",
+        "sleep_panel",
+        "wakeup_panel",
+        "show_home_button",
+        "show_sleep_button",
+        "show_notifications_button",
+        "log_items",
+        "debug_level",
+        "home_on_wakeup",
+        "home_on_first_touch",
+        "home_only_when_on",
+        "home_on_button_toggle",
+        "return_to_home_after_seconds",
+        "always_return_to_home",
+        "hub_idle_timeout",
+        "use_relay_left",
+        "use_relay_right",
+        "sound_on_startup",
+        "sound_on_notification",
     }
     assert set(DEVICE_CONFIG.keys()) == required
 
@@ -279,9 +295,7 @@ def test_populate_when_empty() -> None:
     cfg: dict[str, Any] = {}
     store = {"dev-a": {"panels": [{"type": "grid"}], "config": {"log_items": True}}}
     _populate_devices_from_store(cfg, store, ["log_items"])
-    assert cfg["devices"] == [
-        {"name": "dev-a", "panels": [{"type": "grid"}], "log_items": True}
-    ]
+    assert cfg["devices"] == [{"name": "dev-a", "panels": [{"type": "grid"}], "log_items": True}]
 
 
 def test_populate_skips_when_devices_exist() -> None:

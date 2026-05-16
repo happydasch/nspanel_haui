@@ -34,9 +34,7 @@ class HAUIEvent:
         try:
             return int(self.value)  # type: ignore[arg-type]
         except (TypeError, ValueError) as exc:
-            _LOGGER.warning(
-                "Event value parse error (as_int): %s, value=%r", exc, self.value
-            )
+            _LOGGER.warning("Event value parse error (as_int): %s, value=%r", exc, self.value)
             return default
 
     def as_str(self) -> str:
@@ -58,7 +56,5 @@ class HAUIEvent:
         try:
             return json.loads(self.value)  # type: ignore[arg-type]
         except (json.JSONDecodeError, TypeError) as exc:
-            _LOGGER.warning(
-                "Event value parse error (as_json): %s, value=%r", exc, self.value
-            )
+            _LOGGER.warning("Event value parse error (as_json): %s, value=%r", exc, self.value)
             return {}

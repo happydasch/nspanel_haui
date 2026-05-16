@@ -24,10 +24,18 @@ class ClockPage(HAUIPage):
         description="Digital clock with date and notification indicator.",
         options=[
             PageOption(
+                key="item",
+                kind="item",
+                domain="weather",
+                description="Weather entity to display temperature, pressure and weather icon.",
+                section="Weather",
+            ),
+            PageOption(
                 key="background",
                 kind="select",
                 default="default",
                 label="Background",
+                description="Background image theme for the clock display.",
                 choices=[
                     ("default", "Default"),
                     ("spring", "Spring"),
@@ -38,23 +46,50 @@ class ClockPage(HAUIPage):
                     ("dog_2", "Dog 2"),
                     ("cat", "Cat"),
                 ],
-            ),
-            PageOption(key="temp_precision", kind="int", default=1, label="Temperature precision"),
-            PageOption(
-                key="item",
-                kind="item",
-                domain="weather",
-                label="Weather item",
-            ),
-            PageOption(key="show_weather", kind="bool", default=True, label="Show weather"),
-            PageOption(key="show_temp", kind="bool", default=True, label="Show temperature"),
-            PageOption(
-                key="show_home_temp", kind="bool", default=False, label="Show home temperature"
+                section="Appearance",
             ),
             PageOption(
-                key="show_notifications", kind="bool", default=True, label="Show notifications"
+                key="show_weather",
+                kind="bool",
+                default=True,
+                label="Show weather",
+                description="Show weather icon and temperature on the clock screen.",
+                section="Weather",
+            ),
+            PageOption(
+                key="show_temp",
+                kind="bool",
+                default=True,
+                label="Show temperature",
+                description="Show temperature value text on the clock screen.",
+                section="Weather",
+            ),
+            PageOption(
+                key="show_home_temp",
+                kind="bool",
+                default=False,
+                label="Show home temperature",
+                description="Show internal NSPanel temperature alongside weather temperature.",
+                section="Weather",
+            ),
+            PageOption(
+                key="temp_precision",
+                kind="int",
+                default=1,
+                label="Temperature precision",
+                description="Number of decimal places for temperature display (0 = whole number).",
+                section="Precision",
+            ),
+            PageOption(
+                key="show_notifications",
+                kind="bool",
+                default=True,
+                label="Show notifications",
+                description="Show notification indicator when there are pending notifications.",
+                section="Notifications",
             ),
         ],
+        icon="mdi:clock-outline",
     )
 
     # main components
@@ -105,11 +140,9 @@ class ClockPage(HAUIPage):
         # date update callback (shared device-wide tick)
         self.app.subscribe_tick("hour", self.callback_update_date)
         # item listeners
-        for item in panel.get_items():
+        for item in self._build_items_from_panel(panel, "item", "items"):
             if item.get_item_type() == "weather":
-                self.add_item_listener(
-                    item.get_item_id(), self.callback_weather, "temperature"
-                )
+                self.add_item_listener(item.get_item_id(), self.callback_weather, "temperature")
                 self.add_item_listener(item.get_item_id(), self.callback_weather, "pressure")
                 break
         # periodic weather re-read (5-minute interval)
@@ -119,19 +152,16 @@ class ClockPage(HAUIPage):
             self._callback_weather_refresh, "now+300", 300
         )
         # setting: temp_precision
-        self._temp_precision = panel.get_int("temp_precision", self._temp_precision)
+        self._temp_precision = int(panel.get("temp_precision", 1))
         # setting: show_weather
-        if not panel.get("show_weather", True):
-            self._show_weather = False
+        self._show_weather = panel.get("show_weather", True)
         self.set_function_component(self.ICO_MAIN, self.ICO_MAIN[1], visible=self._show_weather)
         # setting: show_temp
-        if not panel.get("show_temp", True):
-            self._show_temp = False
+        self._show_temp = panel.get("show_temp", True)
         self.set_function_component(self.TXT_MAIN, self.TXT_MAIN[1], visible=self._show_temp)
         self.set_function_component(self.TXT_SUB, self.TXT_SUB[1], visible=self._show_temp)
         # setting: show_home_temp
-        if panel.get("show_home_temp", False):
-            self._show_home_temp = True
+        self._show_home_temp = panel.get("show_home_temp", False)
         # main components
         self.set_function_component(self.TXT_TIME, self.TXT_TIME[1], visible=True)
         self.set_function_component(self.TXT_DATE, self.TXT_DATE[1], visible=True)
@@ -153,7 +183,7 @@ class ClockPage(HAUIPage):
         # date display
         self.update_date()
         # entities
-        self.update_items(panel.get_items())
+        self.update_items(self._build_items_from_panel(panel, "item", "items"))
         # notifications
         self.update_notifications()
 
@@ -195,6 +225,7 @@ class ClockPage(HAUIPage):
 
         # set up main weather details
         name = self.app.device.get_name()
+        name_slug = name.lower().replace("-", "_").replace(" ", "_")
         icon = self._weather_item.get_icon()
         color = self._weather_item.get_color()
         try:
@@ -206,7 +237,7 @@ class ClockPage(HAUIPage):
             return
         msg = ""
         if self._show_home_temp:
-            temp_inside_entity = self.app.get_item(f"sensor.{name}_temperature")
+            temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
             try:
                 temp_inside: float | int | None = round(
                     float(temp_inside_entity.get_state()), self._temp_precision

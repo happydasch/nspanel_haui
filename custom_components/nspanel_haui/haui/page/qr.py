@@ -15,17 +15,39 @@ class QRPage(HAUIPage):
         description="Display a QR code alongside item info.",
         options=[
             PageOption(
-                key="qr_code",
+                key="essid",
                 kind="str",
                 default="",
-                label="QR code content",
-                description="e.g. WIFI:S:my_ssid;T:WPA;P:my_password;;",
+                label="WiFi SSID",
+                description="WiFi network name (SSID).",
+                section="Network",
             ),
             PageOption(
-                key="big_qr", kind="bool", default=False, label="Big QR code (no item list)"
+                key="password",
+                kind="str",
+                default="",
+                label="WiFi password",
+                description="WiFi network password.",
+                section="Network",
             ),
-            PageOption(key="items", kind="item_list", label="Items", max_items=2),
+            PageOption(
+                key="big_qr",
+                kind="bool",
+                default=False,
+                label="Big QR code (no item list)",
+                description="Show a larger QR code and hide the item list below it.",
+                section="Display",
+            ),
+            PageOption(
+                key="items",
+                kind="item_list",
+                label="Items",
+                description="Entities shown below the QR code (max 2).",
+                section="Display",
+                max_items=2,
+            ),
         ],
+        icon="mdi:qrcode",
     )
 
     # common components
@@ -61,7 +83,9 @@ class QRPage(HAUIPage):
         self._use_auto_page = self.auto_page.get_state()
 
         with self.rec_cmd:
-            qr_code = panel.get("qr_code", "")
+            essid = panel.get("essid", "")
+            password = panel.get("password", "")
+            qr_code = f"WIFI:S:{essid};T:WPA;P:{password};;" if essid else ""
             # zoom function button
             btn_right_sec = None
             if self._header_toggle_show:
@@ -77,7 +101,7 @@ class QRPage(HAUIPage):
                 btn_right_sec,
             )
             # components
-            items = panel.get_items()
+            items = self._build_items_from_panel(panel, "items")
             if len(items) == 0:
                 self.update_qr(big=True)
                 self._header_toggle_show = False
@@ -98,7 +122,7 @@ class QRPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.TXT_TITLE, panel.get_title())
-        items = panel.get_items()
+        items = self._build_items_from_panel(panel, "items")
         max_len = 20
         for i in range(2):
             if len(items) <= i:
@@ -172,10 +196,9 @@ class QRPage(HAUIPage):
             return
         if not self.auto_page or not self.auto_dimming:
             return
-        items = self.panel.get_items()
+        items = self._build_items_from_panel(self.panel, "items")
         if len(items) == 0:
             return
-        self.log(f"Got big qr code press: {component}-{button_state}")
         # switch to small qr code
         with self.rec_cmd:
             self.update_qr(big=False)

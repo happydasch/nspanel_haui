@@ -9,6 +9,7 @@ import {
   hasOverrides,
   detectItemType,
   parseItemValue,
+  renderPanelKeyPicker,
   ITEM_TYPE,
   ITEM_LABELS,
   ITEM_TYPE_ICONS,
@@ -17,6 +18,58 @@ import {
   itemSecondaryText,
 } from './haui-item.js';
 
+
+/**
+ * Format a typed value (list, dict, number, bool, string) into a string suitable
+ * for display in a form input. Lists render with brackets and ", " separators,
+ * dicts render as JSON, primitives via String(). null/undefined → "".
+ *
+ * Preserves the original repr so editing a list value doesn't strip its brackets
+ * when piped through `String(arr)` (which would join with commas only).
+ */
+function formatFieldValue(v) {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return "[" + v.map((x) => formatFieldValue(x)).join(", ") + "]";
+  if (typeof v === "object") {
+    try { return JSON.stringify(v); } catch { return String(v); }
+  }
+  return String(v);
+}
+
+/**
+ * Parse a string from a form input back to its likely typed value.
+ * Recognises integers, floats, JSON lists, JSON dicts. Templates and any
+ * unrecognised string pass through unchanged. null/empty → "".
+ *
+ * Accepts both single-quoted and double-quoted JSON-like inputs.
+ */
+function parseFieldValue(s) {
+  if (s === null || s === undefined) return "";
+  if (typeof s !== "string") return s;
+  const str = s.trim();
+  if (str === "") return "";
+  // Templates pass through unchanged
+  if (str.includes("{{")) return s;
+  // Integer
+  if (/^-?\d+$/.test(str)) {
+    const n = parseInt(str, 10);
+    if (Number.isFinite(n)) return n;
+  }
+  // Float
+  if (/^-?\d+\.\d+$/.test(str)) {
+    const n = parseFloat(str);
+    if (Number.isFinite(n)) return n;
+  }
+  // List or dict (try JSON, then Python-style with single quotes)
+  if ((str.startsWith("[") && str.endsWith("]")) ||
+      (str.startsWith("{") && str.endsWith("}"))) {
+    try { return JSON.parse(str); } catch {}
+    try { return JSON.parse(str.replace(/'/g, '"')); } catch {}
+  }
+  return s;
+}
 
 /** Convert hex #rrggbb to RGB565 integer (0-65535). */
 function hexToRgb565(hex) {
@@ -34,26 +87,48 @@ function hexToRgbList(hex) {
   return `[${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}]`;
 }
 
+/** Convert hex #rrggbb to [r, g, b] number array. */
+function hexToRgbArray(hex) {
+  const m = hex.match(/^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/);
+  if (!m) return null;
+  return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+}
+
+/** Convert a [r5,g6,b5] RGB565 integer to a `#rrggbb` hex string. */
+function rgb565ToHex(num) {
+  const n = num | 0;
+  const r5 = (n >> 11) & 0x1F;
+  const g6 = (n >> 5) & 0x3F;
+  const b5 = n & 0x1F;
+  const r = Math.round((r5 * 255) / 31);
+  const g = Math.round((g6 * 255) / 63);
+  const b = Math.round((b5 * 255) / 31);
+  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+}
+
 /**
- * Parse a color string to hex #rrggbb, or return "" if unparseable or empty.
- * Accepts "[r, g, b]" list format and "#rrggbb" / "rrggbb" hex format.
+ * Parse any color value to hex #rrggbb, or "" if unparseable.
+ * Accepts: number (RGB565), [r,g,b] array, "[r, g, b]" string, "#rrggbb" / "rrggbb".
  */
 function parseRgbListToHex(val) {
-  if (!val) return "";
+  if (val === null || val === undefined || val === "") return "";
+  // Number → RGB565
+  if (typeof val === "number") return rgb565ToHex(val);
+  // [r, g, b] array
+  if (Array.isArray(val) && val.length === 3) {
+    const r = Math.min(255, Math.max(0, parseInt(val[0], 10)));
+    const g = Math.min(255, Math.max(0, parseInt(val[1], 10)));
+    const b = Math.min(255, Math.max(0, parseInt(val[2], 10)));
+    if ([r, g, b].every(Number.isFinite)) {
+      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+    return "";
+  }
   const s = String(val).trim();
   // Template string — skip (no preview available)
   if (s.includes("{{")) return "";
-  // RGB565 integer (e.g., "12345") — convert to hex for preview
-  if (/^\d{1,5}$/.test(s)) {
-    const num = parseInt(s, 10);
-    const r5 = (num >> 11) & 0x1F;
-    const g6 = (num >> 5) & 0x3F;
-    const b5 = num & 0x1F;
-    const r = Math.round((r5 * 255) / 31);
-    const g = Math.round((g6 * 255) / 63);
-    const b = Math.round((b5 * 255) / 31);
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-  }
+  // RGB565 integer string (e.g., "12345") — convert to hex for preview
+  if (/^\d{1,5}$/.test(s)) return rgb565ToHex(parseInt(s, 10));
   // "[r, g, b]" format
   const rgbMatch = s.match(/\[\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\]/);
   if (rgbMatch) {
@@ -68,6 +143,22 @@ function parseRgbListToHex(val) {
     return `#${hexMatch[1].toLowerCase()}${hexMatch[2].toLowerCase()}${hexMatch[3].toLowerCase()}`;
   }
   return "";
+}
+
+/**
+ * Convert a hex #rrggbb to a new color value, matching the type of the
+ * previous value: number (RGB565), array [r,g,b], "[r, g, b]" string, "#rrggbb"
+ * string, or number as a default fallback.
+ */
+function hexToColorMatching(hex, prevVal) {
+  if (Array.isArray(prevVal)) return hexToRgbArray(hex);
+  if (typeof prevVal === "number") return hexToRgb565(hex);
+  if (typeof prevVal === "string") {
+    const t = prevVal.trim();
+    if (t.startsWith("[")) return hexToRgbList(hex);
+    if (t.startsWith("#")) return hex;
+  }
+  return hexToRgb565(hex);
 }
 
 /** Common MDI icons relevant to smart-home / NSPanel UI controls. */
@@ -156,8 +247,7 @@ function _ensureIcons(hass) {
   _iconFetchPromise = (async () => {
     try {
       const url = "/api/nspanel_haui/icons";
-      const resp = await hass.callApi("GET", url.replace("/api/", ""));
-      // hass.callApi strips "/api/" prefix automatically
+      const resp = await (await hass.fetchWithAuth(url)).json();
       _iconCache = Array.isArray(resp) ? resp : [];
     } catch {
       // Fallback to a small curated set if the API fails
@@ -219,17 +309,50 @@ const _templateCache = {};
 const _templateTimers = {};
 
 /**
+ * Resolve the preview <span> for a given previewId. Searches the contextEl's
+ * own root (shadow root or document) first; falls back to scanning all shadow
+ * roots reachable from the document.
+ */
+function _findPreviewEl(previewId, contextEl) {
+  const sel = "#" + (typeof CSS !== "undefined" && CSS.escape ? CSS.escape(previewId) : previewId);
+  if (contextEl?.getRootNode) {
+    const r = contextEl.getRootNode();
+    if (r && r.querySelector) {
+      const hit = r.querySelector(sel);
+      if (hit) return hit;
+    }
+  }
+  // Fallback: traverse all shadow roots under document.
+  const stack = [document];
+  while (stack.length) {
+    const root = stack.pop();
+    if (!root) continue;
+    if (root.querySelector) {
+      const hit = root.querySelector(sel);
+      if (hit) return hit;
+    }
+    const all = root.querySelectorAll ? root.querySelectorAll("*") : [];
+    for (const node of all) {
+      if (node.shadowRoot) stack.push(node.shadowRoot);
+    }
+  }
+  return null;
+}
+
+/**
  * Schedule a template render via the HA template API.
  * Debounces rapid input by 500ms and caches results.
  *
- * @param {object}   hass      - HA hass object (for callApi)
- * @param {string}   value     - Raw field value (may contain {{ ... }} templates)
- * @param {string}   previewId - DOM id of the <span> to update
+ * @param {object}   hass        - HA hass object (for callWS)
+ * @param {string}   value       - Raw field value (may contain {{ ... }} templates)
+ * @param {string}   previewId   - DOM id of the <span> to update
+ * @param {Element}  [contextEl] - Any element inside the host's render root —
+ *                                 used to locate the span across shadow DOM.
  */
-function scheduleTemplateRender(hass, value, previewId) {
+function scheduleTemplateRender(hass, value, previewId, contextEl) {
   if (!hass) return;
 
-  const el = document.getElementById(previewId);
+  const el = _findPreviewEl(previewId, contextEl);
   const wrapper = el?.closest(".template-preview");
   const str = String(value || "");
 
@@ -250,15 +373,15 @@ function scheduleTemplateRender(hass, value, previewId) {
 
   _templateTimers[previewId] = setTimeout(async () => {
     try {
-      const result = await hass.callApi("POST", "template", { template: str });
+      const result = await hass.callWS({ type: "render_template", template: str });
       _templateCache[str] = result;
-      const el2 = document.getElementById(previewId);
+      const el2 = _findPreviewEl(previewId, contextEl);
       if (el2) {
         el2.textContent = result;
         el2.style.color = "";
       }
     } catch (e) {
-      const el2 = document.getElementById(previewId);
+      const el2 = _findPreviewEl(previewId, contextEl);
       if (el2) {
         el2.textContent = "(template error)";
         el2.style.color = "var(--error-color, red)";
@@ -315,7 +438,7 @@ function renderIconPicker(id, value, hass = null, onInput = null) {
             });
             dropdown.hidden = !any;
           }
-          if (hass) scheduleTemplateRender(hass, val, `tp-${id}`);
+          if (hass) scheduleTemplateRender(hass, val, `tp-${id}`, tf);
           if (onInput) onInput(val);
         }}
         @focus=${async (e) => {
@@ -338,7 +461,7 @@ function renderIconPicker(id, value, hass = null, onInput = null) {
             }
           }
           _openIconDropdown(wrap);
-          if (hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(hass, e.target.value, `tp-${id}`);
+          if (hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target);
         }}
         @blur=${(e) => {
           const wrap = e.target?.closest(".icon-picker-wrap");
@@ -420,7 +543,7 @@ function _selectIconItem(wrap, item, hass, onInput) {
   const val = `mdi:${icon}`;
   if (tf) tf.value = val;
   if (preview) preview.icon = val;
-  if (hass) scheduleTemplateRender(hass, val, `tp-${tf?.id || ""}`);
+  if (hass) scheduleTemplateRender(hass, val, `tp-${tf?.id || ""}`, tf);
   if (onInput) onInput(val);
   _hideIconDropdown(wrap);
 }
@@ -444,17 +567,17 @@ function renderTextField(id, value, fullWidth = false, hass = null) {
         <ha-input
           id=${id}
           .value=${val}
-          style="display:block; width:100%;"
-          @input=${(e) => { if (hass) scheduleTemplateRender(hass, e.target.value, `tp-${id}`); }}
-          @focus=${(e) => { if (hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(hass, e.target.value, `tp-${id}`); }}
+          class="w-full"
+          @input=${(e) => { if (hass) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target); }}
+          @focus=${(e) => { if (hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target); }}
         ></ha-input>
       `
     : html`
         <ha-input
           id=${id}
           .value=${val}
-          @input=${(e) => { if (hass) scheduleTemplateRender(hass, e.target.value, `tp-${id}`); }}
-          @focus=${(e) => { if (hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(hass, e.target.value, `tp-${id}`); }}
+          @input=${(e) => { if (hass) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target); }}
+          @focus=${(e) => { if (hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target); }}
         ></ha-input>
       `;
 
@@ -502,7 +625,7 @@ export function renderOptionField(host, opt, currentValue) {
                 host.requestUpdate();
               }}
             ></ha-switch>
-            <label for=${id}>${opt.label || opt.key}</label>
+            <label for=${id} title=${opt.description}>${opt.label}</label>
           </div>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
         </div>
@@ -511,7 +634,7 @@ export function renderOptionField(host, opt, currentValue) {
     case "int":
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <ha-input
             id=${id}
             type="number"
@@ -537,7 +660,7 @@ export function renderOptionField(host, opt, currentValue) {
     case "color_seed":
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <div class="field-row">
             <ha-input
               id=${id}
@@ -600,7 +723,7 @@ export function renderOptionField(host, opt, currentValue) {
     case "float":
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <ha-input
             id=${id}
             type="number"
@@ -625,22 +748,23 @@ export function renderOptionField(host, opt, currentValue) {
 
     case "color": {
       const colorHex = parseRgbListToHex(val);
-      const hasTpl = String(val).includes("{{");
+      const displayStr = formatFieldValue(val);
+      const hasTpl = displayStr.includes("{{");
       return html`
         <div class="form-group color-form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <div class="color-picker-wrap">
-            <ha-input id=${id} .value=${String(val != null ? val : "")}
+            <ha-input id=${id} .value=${displayStr}
               @input=${(e) => {
                 const raw = e.target.value;
-                if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`);
+                if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
                 host._editingPanel = {
                   ...host._editingPanel,
-                  data: { ...host._editingPanel.data, [opt.key]: raw },
+                  data: { ...host._editingPanel.data, [opt.key]: parseFieldValue(raw) },
                 };
                 host.requestUpdate();
               }}
-              @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`); }}
+              @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
             ></ha-input>
             <ha-icon-button
               class="color-picker-btn"
@@ -656,16 +780,17 @@ export function renderOptionField(host, opt, currentValue) {
             <input
               type="color"
               class="color-input-hidden"
-              .value=${colorHex}
+              .value=${colorHex || "#000000"}
               @input=${(e) => {
                 const hex = e.target.value;
-                const rgb565 = hexToRgb565(hex);
+                const prevVal = host._editingPanel?.data?.[opt.key];
+                const newVal = hexToColorMatching(hex, prevVal);
                 const group = e.target.closest(".color-form-group");
                 const tf = group?.querySelector(".color-picker-wrap ha-input");
-                if (tf) tf.value = String(rgb565);
+                if (tf) tf.value = formatFieldValue(newVal);
                 host._editingPanel = {
                   ...host._editingPanel,
-                  data: { ...host._editingPanel.data, [opt.key]: rgb565 },
+                  data: { ...host._editingPanel.data, [opt.key]: newVal },
                 };
                 host.requestUpdate();
               }}
@@ -718,7 +843,7 @@ export function renderOptionField(host, opt, currentValue) {
 
       return html`
         <div class="form-group" id="fld-${opt.key}">
-          <label>${opt.label || opt.key}</label>
+          <label title=${opt.description}>${opt.label}</label>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
 
           ${isEditing
@@ -741,7 +866,7 @@ export function renderOptionField(host, opt, currentValue) {
     case "select":
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <ha-select
             id=${id}
             .value=${String(val != null ? val : "")}
@@ -764,29 +889,37 @@ export function renderOptionField(host, opt, currentValue) {
         </div>
       `;
 
+    case "list_items":
+      return renderListItemsField(host, opt, val, id);
+
+    case "list_entities":
+      return renderListItemsField(host, opt, val, id, { entityPicker: true });
+
     case "list_str":
       // val may be an array of {item: "light.x"} dicts or plain strings.
       // Normalize to a newline-separated list of HA entity IDs for the textarea.
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
-          <ha-textarea
+          <label for=${id} title=${opt.description}>${opt.label}</label>
+          <textarea
             id=${id}
+            class="w-full"
             .value=${Array.isArray(val)
               ? val.map((v) => (typeof v === "string" ? v : v?.item || "")).join("\n")
               : String(val != null ? val : "")}
             @input=${(e) => {
               const v = e.target.value;
+              const ep = host._editingPanel || { index: -1, data: {} };
               host._editingPanel = {
-                ...host._editingPanel,
+                ...ep,
                 data: {
-                  ...host._editingPanel.data,
+                  ...ep.data,
                   [opt.key]: v,
                 },
               };
               host.requestUpdate();
             }}
-          ></ha-textarea>
+          ></textarea>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
         </div>
       `;
@@ -797,7 +930,7 @@ export function renderOptionField(host, opt, currentValue) {
     case "icon":
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           ${renderIconPicker(id, val, host.hass, (newVal) => {
             host._editingPanel = {
               ...host._editingPanel,
@@ -812,26 +945,28 @@ export function renderOptionField(host, opt, currentValue) {
         </div>
       `;
 
-    case "generic":
+    case "generic": {
+      const displayStr = formatFieldValue(val);
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <ha-input
             id=${id}
-            .value=${String(val != null ? val : "")}
-            style="display:block; width:100%;"
+            .value=${displayStr}
+            class="w-full"
             @input=${(e) => {
-              if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`);
+              const raw = e.target.value;
+              if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
               host._editingPanel = {
                 ...host._editingPanel,
                 data: {
                   ...host._editingPanel.data,
-                  [opt.key]: e.target.value,
+                  [opt.key]: parseFieldValue(raw),
                 },
               };
               host.requestUpdate();
             }}
-            @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`); }}
+            @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
           ></ha-input>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
           ${host.hass
@@ -843,18 +978,19 @@ export function renderOptionField(host, opt, currentValue) {
             : ""}
         </div>
       `;
+    }
 
     default:
       // str or unknown → text field
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <ha-input
             id=${id}
             .value=${String(val != null ? val : "")}
-            style="display:block; width:100%;"
+            class="w-full"
             @input=${(e) => {
-              if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`);
+              if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target);
               host._editingPanel = {
                 ...host._editingPanel,
                 data: {
@@ -864,7 +1000,7 @@ export function renderOptionField(host, opt, currentValue) {
               };
               host.requestUpdate();
             }}
-            @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`); }}
+            @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
           ></ha-input>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
           ${host.hass
@@ -896,9 +1032,32 @@ function renderItemListRow(host, item, actions, flags = {}) {
   const primary = itemPrimaryText(item);
   const secondary = itemSecondaryText(item);
   const showTypeChip = !item?.name; // primary already is the type label when no name
+  // Resolve colors to hex for visual preview — skip template strings and
+  // state-based dicts (those depend on runtime state).
+  const parseItemColor = (val) =>
+    val && !(typeof val === 'object' && !Array.isArray(val))
+      ? parseRgbListToHex(val)
+      : '';
+  const itemColor = parseItemColor(item?.color);
+  const itemBackColor = parseItemColor(item?.back_color);
+  const iconBgStyle = itemBackColor
+    ? `background-color:${itemBackColor};`
+    : '';
+  const iconColorStyle = itemColor
+    ? `color:${itemColor};`
+    : '';
   return html`
     <div class="item-list-row">
-      <span class="item-row-icon"><ha-icon icon=${icon}></ha-icon></span>
+      <span class="item-row-icon" style=${iconBgStyle || ''}>
+        <ha-icon icon=${icon} style=${iconColorStyle || ''}></ha-icon>
+        ${itemColor
+          ? html`<span
+              class="item-row-color-dot"
+              style="background-color:${itemColor}"
+              title="Color: ${itemColor}"
+            ></span>`
+          : ''}
+      </span>
       <div class="item-row-text">
         <div class="item-row-primary">
           <span class="item-row-name">${primary}</span>
@@ -942,6 +1101,134 @@ function renderItemListRow(host, item, actions, flags = {}) {
 }
 
 /**
+ * Render a list-of-strings editor for `kind: list_items` and `kind: list_entities`.
+ * One input per item with remove button, plus an add button.
+ * Uses select only when `opt.choices` has entries. `list_entities` uses the
+ * Home Assistant entity picker when hass is available.
+ */
+export function renderListItemsField(host, opt, currentValue, id, options = {}) {
+  const ep = host._editingPanel || { index: -1, data: {} };
+  let list = ep.data?.[opt.key];
+  if (!Array.isArray(list)) {
+    list = Array.isArray(currentValue)
+      ? currentValue.map((v) => (typeof v === "string" ? v : v?.item || ""))
+      : [];
+    host._editingPanel = { ...ep, data: { ...ep.data, [opt.key]: list } };
+  }
+
+  const domain = opt.domain || "";
+  const choices = Array.isArray(opt.choices) ? opt.choices : null;
+  const max = opt.max_items;
+
+  const mutate = (fn) => {
+    const cur = host._editingPanel?.data?.[opt.key];
+    const arr = Array.isArray(cur) ? [...cur] : [];
+    fn(arr);
+    host._editingPanel = {
+      ...host._editingPanel,
+      data: { ...host._editingPanel.data, [opt.key]: arr },
+    };
+    host.requestUpdate();
+  };
+
+  const renderRowInput = (item, i) => {
+    const rowId = `${id}-${i}`;
+    if (choices?.length > 0 && !options.entityPicker) {
+      return html`
+        <ha-select
+          id=${rowId}
+          class="w-full"
+          .value=${String(item != null ? item : "")}
+          .options=${choices.map((c) =>
+            Array.isArray(c) ? { value: c[0], label: c[1] } : c
+          )}
+          @selected=${(e) => {
+            const v = e.detail.value;
+            mutate((arr) => { arr[i] = v; });
+          }}
+          @closed=${(e) => e.stopPropagation()}
+        >
+        </ha-select>
+      `;
+    }
+    if (options.entityPicker && host.hass) {
+      return renderEntityPicker(host, {
+        id: rowId,
+        value: item || "",
+        hass: host.hass,
+        domain,
+        placeholder: `${domain}.…`,
+        onInput: (v) => {
+          const cur = host._editingPanel?.data?.[opt.key];
+          if (Array.isArray(cur)) cur[i] = v;
+        },
+        onSelect: (v) => {
+          mutate((arr) => { arr[i] = v; });
+        },
+      });
+    }
+    return html`
+      <ha-input
+        id=${rowId}
+        class="w-full"
+        placeholder=${domain ? `${domain}.…` : ""}
+        .value=${String(item != null ? item : "")}
+        @input=${(e) => {
+          const v = e.target.value;
+          const cur = host._editingPanel?.data?.[opt.key];
+          if (Array.isArray(cur)) cur[i] = v;
+        }}
+        @change=${(e) => {
+          const v = e.target.value;
+          mutate((arr) => { arr[i] = v; });
+        }}
+      ></ha-input>
+    `;
+  };
+
+  const atMax = max != null && list.length >= max;
+
+  return html`
+    <div class="form-group" id=${id}>
+      <label title=${opt.description}>${opt.label}</label>
+      ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+      <div class="list-items">
+        ${list.length === 0
+          ? html`<div class="item-list-empty">No items yet. Click "+ Add" below.</div>`
+          : list.map((item, i) => {
+              return html`
+                <div class="list-items-row">
+                  <div class="list-items-input">${renderRowInput(item, i)}</div>
+                  <ha-icon-button
+                    title="Remove"
+                    class="list-items-remove"
+                    @click=${() => mutate((arr) => { arr.splice(i, 1); })}
+                  >
+                    <ha-icon icon="mdi:delete"></ha-icon>
+                  </ha-icon-button>
+                </div>
+              `;
+            })}
+      </div>
+      ${atMax
+        ? html`<div class="item-list-limit">Maximum ${max} items</div>`
+        : html`
+            <button
+              class="add-item-btn"
+              @click=${(e) => {
+                e.preventDefault();
+                const seed = choices && choices.length
+                  ? (Array.isArray(choices[0]) ? choices[0][0] : choices[0].value)
+                  : "";
+                mutate((arr) => { arr.push(seed); });
+              }}
+            >+ Add</button>
+          `}
+    </div>
+  `;
+}
+
+/**
  * Render a rich entity list editor for `kind: item_list`.
  * Stores per-option data on host._itemListData so the UI remains
  * interactive between renders.
@@ -968,7 +1255,7 @@ export function renderItemListField(host, opt, currentValue) {
 
   return html`
     <div class="form-group" id=${id}>
-      <label>${opt.label || opt.key}</label>
+      <label title=${opt.description}>${opt.label}</label>
       ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
 
       <div class="item-list">
@@ -1089,7 +1376,7 @@ function renderItemOptionField(host, opt, currentValue) {
               ?checked=${Boolean(val)}
               @change=${(e) => setVal(e.target.checked)}
             ></ha-switch>
-            <label for=${id}>${opt.label || opt.key}</label>
+            <label for=${id} title=${opt.description}>${opt.label}</label>
           </div>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
         </div>
@@ -1098,7 +1385,7 @@ function renderItemOptionField(host, opt, currentValue) {
     case "int":
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <ha-input
             id=${id}
             type="number"
@@ -1120,7 +1407,7 @@ function renderItemOptionField(host, opt, currentValue) {
       const mode = itemMode != null && itemMode !== "" ? itemMode : panelMode;
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <div class="field-row">
             <ha-input
               id=${id}
@@ -1170,18 +1457,19 @@ function renderItemOptionField(host, opt, currentValue) {
 
     case "color": {
       const colorHex = parseRgbListToHex(val);
-      const hasTpl = String(val || "").includes("{{");
+      const displayStr = formatFieldValue(val);
+      const hasTpl = displayStr.includes("{{");
       return html`
         <div class="form-group color-form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <div class="color-picker-wrap">
-            <ha-input id=${id} .value=${String(val != null ? val : "")}
+            <ha-input id=${id} .value=${displayStr}
               @input=${(e) => {
                 const raw = e.target.value;
-                if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`);
-                setVal(raw);
+                if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
+                setVal(parseFieldValue(raw));
               }}
-              @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`); }}
+              @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
             ></ha-input>
             <ha-icon-button
               class="color-picker-btn"
@@ -1197,11 +1485,12 @@ function renderItemOptionField(host, opt, currentValue) {
             <input
               type="color"
               class="color-input-hidden"
-              .value=${colorHex}
+              .value=${colorHex || "#000000"}
               @input=${(e) => {
                 const hex = e.target.value;
-                const rgb565 = hexToRgb565(hex);
-                setVal(rgb565);
+                const prevVal = host._editingItem?.config?.[opt.key];
+                const newVal = hexToColorMatching(hex, prevVal);
+                setVal(newVal);
               }}
             />
           </div>
@@ -1223,7 +1512,7 @@ function renderItemOptionField(host, opt, currentValue) {
     case "select":
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <ha-select
             id=${id}
             .value=${String(val != null ? val : "")}
@@ -1244,16 +1533,16 @@ function renderItemOptionField(host, opt, currentValue) {
       // str or unknown → text field (mirrors renderOptionField default)
       return html`
         <div class="form-group">
-          <label for=${id}>${opt.label || opt.key}</label>
+          <label for=${id} title=${opt.description}>${opt.label}</label>
           <ha-input
             id=${id}
             .value=${String(val != null ? val : "")}
-            style="display:block; width:100%;"
+            class="w-full"
             @input=${(e) => {
-              if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`);
+              if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target);
               setVal(e.target.value);
             }}
-            @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`); }}
+            @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
           ></ha-input>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
           ${host.hass
@@ -1273,10 +1562,16 @@ export function renderItemEditFields(host, descriptor) {
   // Derive descriptor from panel type if not explicitly provided.
   // Prefer _editingPanelType, with fallback to _editingPanel?.data?.type
   // for cases where _editingPanelType hasn't been set yet.
-  if (!descriptor && host._panelTypes) {
-    const pt = host._editingPanelType || host._editingPanel?.data?.type;
-    if (pt) {
-      descriptor = host._panelTypes.find(d => d.type_key === pt) || null;
+  // Check both host._panelTypes (NSPanelEditor) and host.panelTypes
+  // (EditPanelDialog) since the two components use different naming
+  // conventions for this property.
+  if (!descriptor) {
+    const panelTypes = host._panelTypes || host.panelTypes;
+    if (panelTypes) {
+      const pt = host._editingPanelType || host._editingPanel?.data?.type;
+      if (pt) {
+        descriptor = panelTypes.find(d => d.type_key === pt) || null;
+      }
     }
   }
   const ee = host._editingItem;
@@ -1292,7 +1587,7 @@ export function renderItemEditFields(host, descriptor) {
   return html`
     <div class="item-edit-inline" id="${uid}">
       <div class="form-group">
-        <label for="item-type">Type</label>
+        <label for="item-type" title="Type of item this entity slot represents — Entity, Skip, Text, Navigate, or Action">Type</label>
         <ha-select
           id="item-type"
           .value=${itemType}
@@ -1323,18 +1618,34 @@ export function renderItemEditFields(host, descriptor) {
               label: info.label,
               placeholder: info.placeholder,
               hass: host.hass,
-              onInput: () => host.requestUpdate(),
+              onSelect: (eid) => {
+                if (!host._editingItem) return;
+                host._editingItem.config = host._editingItem.config || {};
+                host._editingItem.config.item = eid;
+              },
+            });
+          }
+          if (itemType === ITEM_TYPE.NAVIGATE) {
+            const panelKeys = (host.devicePanels || [])
+              .filter(p => p.key)
+              .map(p => p.key);
+            return renderPanelKeyPicker(host, {
+              id: "item-entity",
+              value: itemValue,
+              label: info.label,
+              placeholder: info.placeholder,
+              panelKeys,
             });
           }
           return html`
-            <label for="item-entity">${info.label}</label>
+            <label for="item-entity" title="${info.label} — enter an entity ID, panel key, service name, or custom text">${info.label}</label>
             <ha-input
               id="item-entity"
-              style="width:100%"
+              class="w-full"
               .value=${itemValue}
               placeholder=${info.placeholder}
               @input=${(e) => {
-                if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-item-entity`);
+                if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-item-entity`, e.target);
                 host._editingItem = {
                   ...host._editingItem,
                   config: {
@@ -1344,7 +1655,7 @@ export function renderItemEditFields(host, descriptor) {
                 };
                 host.requestUpdate();
               }}
-              @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-entity`); }}
+              @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-entity`, e.target); }}
             ></ha-input>
             ${host.hass
               ? html`
@@ -1373,38 +1684,46 @@ export function renderItemEditFields(host, descriptor) {
       <div class="item-advanced-section">
         ${ENTITY_OVERRIDE_FIELDS.map(
           (f) => {
+            const fieldLabels = {
+              name: "Name",
+              icon: "Icon",
+              color: "Color",
+              value: "Value",
+              state: "State",
+              popup_key: "Popup key",
+            };
             const hints = {
-              name: "Custom display name or template",
-              icon: "mdi icon or template",
-              color: "CSS color or template",
-              value: "Display value or template",
-              state: "JSON state dict or template",
-              popup_key: "Custom popup target key",
+              name: "Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel.",
+              icon: "An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon.",
+              color: "A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0\u201365535), or a Home Assistant template that overrides the default entity color.",
+              value: "A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects).",
+              state: "A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display.",
+              popup_key: "The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior.",
             };
             return html`
             <div class="form-group">
-              <label for="item-${f}">${f}</label>
-              <div class="field-hint">${hints[f]}</div>
+              <label for="item-${f}" title=${hints[f]}>${fieldLabels[f]}</label>
               ${f === "color"
                 ? (() => {
-                    const cv = ee.config?.[f] || "";
+                    const cv = ee.config?.[f];
                     const cHex = parseRgbListToHex(cv);
-                    const hasTpl = String(cv).includes("{{");
+                    const displayStr = formatFieldValue(cv);
+                    const hasTpl = displayStr.includes("{{");
                     return html`
                     <div class="color-picker-wrap">
                       <ha-input
                         id="item-${f}"
-                        .value=${cv}
+                        .value=${displayStr}
                         @input=${(e) => {
                           const raw = e.target.value;
-                          if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`);
+                          if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
                           host._editingItem = {
                             ...host._editingItem,
-                            config: { ...host._editingItem.config, [f]: raw },
+                            config: { ...host._editingItem.config, [f]: parseFieldValue(raw) },
                           };
                           host.requestUpdate();
                         }}
-                        @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`); }}
+                        @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
                       ></ha-input>
                       <ha-icon-button
                         class="color-picker-btn"
@@ -1423,19 +1742,20 @@ export function renderItemEditFields(host, descriptor) {
                         .value=${cHex}
                         @input=${(e) => {
                           const hex = e.target.value;
-                          const rgb565 = hexToRgb565(hex);
+                          const prevVal = host._editingItem?.config?.[f];
+                          const newVal = hexToColorMatching(hex, prevVal);
                           const formGroup = e.target.closest(".form-group");
                           const tf = formGroup?.querySelector(".color-picker-wrap ha-input");
-                          if (tf) tf.value = String(rgb565);
+                          if (tf) tf.value = formatFieldValue(newVal);
                           host._editingItem = {
                             ...host._editingItem,
-                            config: { ...host._editingItem.config, [f]: rgb565 },
+                            config: { ...host._editingItem.config, [f]: newVal },
                           };
                           host.requestUpdate();
                         }}
                       />
                     </div>
-                    ${cv
+                    ${cv != null && cv !== ""
                       ? html`
                           <div class="color-preview-row">
                             <div class="color-preview-swatch" style=${`background-color:${cHex || "#888888"}`}></div>
@@ -1457,33 +1777,46 @@ export function renderItemEditFields(host, descriptor) {
                     };
                     host.requestUpdate();
                   })
-                : html`
+                : (() => {
+                    // Override fields that should preserve typed values
+                    // (lists, ints, dicts). Other fields (name, popup_key)
+                    // stay as plain strings.
+                    const typedFields = new Set(["value", "state"]);
+                    const isTyped = typedFields.has(f);
+                    const rawVal = ee.config?.[f];
+                    const displayStr = isTyped
+                      ? formatFieldValue(rawVal)
+                      : (rawVal != null ? String(rawVal) : "");
+                    return html`
                     <ha-input
                       id="item-${f}"
-                      .value=${ee.config?.[f] || ""}
-                      style="display:block; width:100%;"
+                      .value=${displayStr}
+                      class="w-full"
                       @input=${(e) => {
-                        if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`);
+                        const raw = e.target.value;
+                        if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
                         host._editingItem = {
                           ...host._editingItem,
                           config: {
                             ...host._editingItem.config,
-                            [f]: e.target.value,
+                            [f]: isTyped ? parseFieldValue(raw) : raw,
                           },
                         };
                         host.requestUpdate();
                       }}
-                      @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`); }}
+                      @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
                     ></ha-input>
                     ${host.hass
                       ? html`
-                          <div class="template-preview" ?hidden=${!(String(ee.config?.[f] || "").includes("{{"))}>
-                  <span id="tp-item-${f}">${(String(ee.config?.[f] || "").includes("{{")) ? "..." : ""}</span>
-                </div>
+                          <div class="template-preview" ?hidden=${!displayStr.includes("{{")}>
+                            <span id="tp-item-${f}">${displayStr.includes("{{") ? "..." : ""}</span>
+                          </div>
                         `
                       : ""}
-                  `
+                  `;
+                  })()
                 }
+              <div class="field-hint">${hints[f]}</div>
             </div>
           `;
           }
@@ -1502,7 +1835,7 @@ export function renderItemEditFields(host, descriptor) {
       </div>
 
       <div class="item-edit-actions">
-        <ha-button appearance="plain" @click=${host._cancelItemEdit}>
+        <ha-button variant="neutral" appearance="plain" @click=${host._cancelItemEdit}>
           Cancel
         </ha-button>
         <ha-button variant="brand" @click=${host._saveItemEdit}>
@@ -1550,8 +1883,13 @@ export function renderTypeFields(host, panelType, currentData) {
 
   const groups = getPanelOptionGroups(descriptor);
   return html`
-    ${groups.map((group) =>
-      group.options.map((opt) => renderOptionField(host, opt, currentData[opt.key]))
+    ${groups.map(
+      (group) => html`
+        ${group.section
+          ? html`<h3 class="section-header">${group.section}</h3>`
+          : ""}
+        ${group.options.map((opt) => renderOptionField(host, opt, currentData[opt.key]))}
+      `
     )}
   `;
 }

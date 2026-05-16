@@ -105,7 +105,6 @@ class HAUIESPHomeController(HAUIBase):
         self.esphome.publish(bare_cmd, cmd_json)
         self.prev_cmd = cmd_json
 
-
     def callback_event(self, event_name: str, data: dict[str, Any], kwargs: dict[str, Any]) -> None:
         """Callback for ESPHome events.
 

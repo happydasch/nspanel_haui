@@ -7,18 +7,26 @@ from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
-# ESPHome project.name substring that identifies HAUI firmware
+# Identifiers for HAUI firmware.
+# The ESPHome YAML sets ``esphome.project.name: happydasch.nspanel_haui``.
+# The ESPHome integration splits this into manufacturer/model on the HA
+# device registry entry, so a registry-based check works offline and is
+# our most reliable detection method.
+_HAUI_PROJECT_NAME = "happydasch.nspanel_haui"
+_HAUI_MANUFACTURER = "happydasch"
 _HAUI_MODEL = "nspanel_haui"
 
 # ESPHome custom services that identify HAUI firmware (service-based fallback)
-_HAUI_SERVICES: frozenset[str] = frozenset({
-    "haui_discover",
-    "send_command",
-    "send_commands",
-    "goto_page",
-    "upload_tft_url",
-    "set_brightness",
-})
+_HAUI_SERVICES: frozenset[str] = frozenset(
+    {
+        "haui_discover",
+        "send_command",
+        "send_commands",
+        "goto_page",
+        "upload_tft_url",
+        "set_brightness",
+    }
+)
 
 
 def normalize_device_name(name: str) -> str:
@@ -70,35 +78,60 @@ def find_esphome_device(hass, device_name: str) -> str | None:
 def is_haui_device(hass: Any, entry: Any) -> bool:
     """Check whether an ESPHome config entry has HAUI firmware.
 
-    Uses three strategies, checked in order:
-    1. Model check: inspect ``entry.runtime_data.device_info.model`` for ``"nspanel_haui"``.
-    2. Service check: inspect ``entry.runtime_data.services`` for HAUI-specific actions.
-    3. Service registry fallback: check the HA service registry for HAUI-specific names.
+    Strategies, in order of reliability:
+    1. HA device registry: any device tied to the entry with manufacturer
+       ``happydasch`` and model ``nspanel_haui``. The ESPHome integration
+       writes these from ``device_info.project_name`` and they persist
+       across HA restarts even when the device is offline.
+    2. ``entry.runtime_data.device_info`` (only populated while the device
+       is connected via the ESPHome API).
+    3. ``entry.runtime_data.services`` for HAUI-specific custom actions.
+    4. HA service registry (services persist after disconnect).
     """
-    # Strategy 1: ESPHome model (most definitive, available when device was ever online)
+    # Strategy 1: device registry — authoritative, works offline.
     try:
-        if entry.runtime_data and hasattr(entry.runtime_data, "device_info"):
-            di = entry.runtime_data.device_info
-            if di and hasattr(di, "model") and di.model and _HAUI_MODEL in di.model:
-                return True
-    except (AttributeError, KeyError, TypeError):
-        _LOGGER.debug("is_haui_device model check failed", exc_info=True)
+        from homeassistant.helpers import device_registry as dr
 
-    # Strategy 2: runtime_data services (device is online / has been connected)
-    try:
-        if entry.runtime_data and hasattr(entry.runtime_data, "services"):
-            for svc in entry.runtime_data.services.values():
-                if hasattr(svc, "name") and svc.name in _HAUI_SERVICES:
+        dev_reg = dr.async_get(hass)
+        entry_id = getattr(entry, "entry_id", None)
+        if entry_id:
+            for dev_entry in dr.async_entries_for_config_entry(dev_reg, entry_id):
+                mfg = (dev_entry.manufacturer or "").lower()
+                model = (dev_entry.model or "").lower()
+                if mfg == _HAUI_MANUFACTURER and _HAUI_MODEL in model:
                     return True
-    except (AttributeError, KeyError, TypeError):
-        _LOGGER.debug("is_haui_device service check failed", exc_info=True)
+    except (ImportError, AttributeError, KeyError, TypeError):
+        _LOGGER.debug("is_haui_device device registry check failed", exc_info=True)
 
-    # Strategy 3: HA service registry (services persist after disconnect)
+    # Strategy 2: ESPHome runtime device_info (device currently online).
+    runtime_data = getattr(entry, "runtime_data", None)
+    if runtime_data is not None:
+        try:
+            if hasattr(runtime_data, "device_info"):
+                di = runtime_data.device_info
+                if di is not None:
+                    if (hasattr(di, "project_name") and di.project_name
+                            and _HAUI_MODEL in di.project_name):
+                        return True
+                    if (hasattr(di, "model") and di.model
+                            and _HAUI_MODEL in di.model):
+                        return True
+        except (AttributeError, KeyError, TypeError):
+            _LOGGER.debug("is_haui_device device_info check failed", exc_info=True)
+
+        # Strategy 3: runtime_data services.
+        try:
+            if hasattr(runtime_data, "services"):
+                for svc in runtime_data.services.values():
+                    if hasattr(svc, "name") and svc.name in _HAUI_SERVICES:
+                        return True
+        except (AttributeError, KeyError, TypeError):
+            _LOGGER.debug("is_haui_device service check failed", exc_info=True)
+
+    # Strategy 4: HA service registry.
     try:
         device_name: str = entry.data.get("device_name", "")
         if device_name:
-            # ESPHome's build_service_name() replaces hyphens with underscores,
-            # so we must sanitize before matching against registered services.
             sanitized = device_name.lower().replace("-", "_")
             esphome_services = hass.services.async_services().get("esphome", {})
             for svc_name in esphome_services:
@@ -155,15 +188,15 @@ async def discover_esphome_devices(hass: Any) -> list[dict]:
         if not is_haui_device(hass, entry):
             continue
         device = entry.data.get("device") or entry.data
-        # Real ESPHome node name lives in entry.data["device_name"].
-        # entry.title is the display/friendly name and must not be used as identity.
         name = entry.data.get("device_name") or (
             device.get("name") if isinstance(device, dict) else None
         )
         devices.append(
             {
                 "name": name or entry.title or entry.entry_id,
+                "friendly_name": entry.title or name or entry.entry_id,
                 "esphome_device_id": entry.entry_id,
             }
         )
+    _LOGGER.debug("discover_esphome_devices: %d HAUI device(s)", len(devices))
     return devices

@@ -2,7 +2,7 @@
  * NSPanel HAUI - Editor - shared Lit re-export.
  *
  * Every module that needs Lit imports from here instead of the raw CDN URL.
- * This gives us a single place to change the Lit version or switch to a
- * bundled copy without touching every file.
+ * Lit is vendored locally so the panel works without internet access to
+ * unpkg / jsdelivr.  The bundle was created with esbuild from lit@3.
  */
-export { LitElement, html, css } from "https://unpkg.com/lit@3?module";
+export { LitElement, html, css } from "./vendor/lit/index.js";

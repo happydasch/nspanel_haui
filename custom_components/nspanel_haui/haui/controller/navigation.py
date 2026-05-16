@@ -47,10 +47,16 @@ class HAUINavigationController(HAUIBase):
         self._idle_timer = None  # Timer for hub-side idle timeout
         self._last_interaction: float = 0.0  # monotonic time of last user interaction
         self._stack: list[tuple[HAUIPanel, dict[str, Any]]] = []  # stack for non-nav panels
-        self._snapshot: tuple[
-            HAUIPanel | None, dict[str, Any], HAUIPanel | None, dict[str, Any],
-            list[tuple[HAUIPanel, dict[str, Any]]],
-        ] | None = None  # snapshot for navigation
+        self._snapshot: (
+            tuple[
+                HAUIPanel | None,
+                dict[str, Any],
+                HAUIPanel | None,
+                dict[str, Any],
+                list[tuple[HAUIPanel, dict[str, Any]]],
+            ]
+            | None
+        ) = None  # snapshot for navigation
         self._snapshot_time: float | None = None  # monotonic time when snapshot was created
         self._navigating = False  # re-entrance guard for navigation operations
         self._pending_reload = False  # reload was queued while navigating
@@ -155,9 +161,7 @@ class HAUINavigationController(HAUIBase):
         # re-resolve currently displayed panel (otherwise stale reference)
         if self.panel is not None:
             current_key = self.panel.get("key", "")
-            new_panel = (
-                self.app.device_config.get_panel(current_key) if current_key else None
-            )
+            new_panel = self.app.device_config.get_panel(current_key) if current_key else None
             if new_panel is not None:
                 self.panel = new_panel
         # clear stack (stale panel references)
@@ -361,7 +365,7 @@ class HAUINavigationController(HAUIBase):
             # lock new panel
             panel.set_state("locked", True)
             # open the unlock panel with the panel to unlock as a param
-            self.open_popup("popup_unlock", unlock_panel=panel)
+            self._open_panel_impl("popup_unlock", unlock_panel=panel, autostart=True, mode="popup")
             return
 
         # extract optional force flag before passing to goto_page
@@ -697,8 +701,7 @@ class HAUINavigationController(HAUIBase):
                 prev_panel = resolved
             else:
                 self.log(
-                    f"Snapshot panel {prev_panel.id} no longer in config, "
-                    f"falling back to home"
+                    f"Snapshot panel {prev_panel.id} no longer in config, falling back to home"
                 )
                 self.unset_snapshot()
                 self._sleep_panel_active = False
@@ -808,9 +811,10 @@ class HAUINavigationController(HAUIBase):
                         # Fallback: exit sleep when esphome.wakeup wasn't received.
                         # Restore snapshot to return to the user's prior panel
                         # (matches check_wakeup behavior) unless config forces home.
-                        if (
-                            self.app.device.get("always_return_to_home")
-                            or not self.restore_snapshot()
+                        if self.app.device.get(
+                            "always_return_to_home"
+                        ) or not self.restore_snapshot(
+                            self.app.device.get("return_to_home_after_seconds")
                         ):
                             self.open_home_panel()
 
@@ -828,7 +832,9 @@ class HAUINavigationController(HAUIBase):
                 self.log("No wakeup panel available, restoring snapshot or home")
                 self._sleep_panel_active = False
                 self.app.device.sleeping = False
-                if self.app.device.get("always_return_to_home") or not self.restore_snapshot():
+                if self.app.device.get("always_return_to_home") or not self.restore_snapshot(
+                    self.app.device.get("return_to_home_after_seconds")
+                ):
                     self.open_home_panel()
 
         # sleep handling

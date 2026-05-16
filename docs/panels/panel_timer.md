@@ -26,7 +26,7 @@ The timer panel allows to run a (for now local) timer. If a time bigger than 0 i
 ```yaml
 panels:
   - type: timer
-    show_notification: false
+    show_notification: true
 ```
 
 ## Notification on timer end

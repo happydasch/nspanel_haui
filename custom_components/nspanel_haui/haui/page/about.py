@@ -11,6 +11,7 @@ class AboutPage(HAUIPage):
         label="About",
         description="Device info and version details.",
         is_system=True,
+        icon="mdi:information-outline",
     )
 
     # common components

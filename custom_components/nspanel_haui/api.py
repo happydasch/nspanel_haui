@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 from aiohttp import web
 from homeassistant.helpers.http import HomeAssistantView
@@ -17,6 +18,21 @@ from .haui.config_models import validate_config, validate_panels
 _LOGGER = logging.getLogger(__name__)
 
 PANEL_STORE_VERSION = 1
+
+
+def _lookup_esphome_friendly_name(hass: Any, node_name: str) -> str:
+    """Look up the friendly name (entry.title) for an ESPHome device by node name.
+
+    Returns the friendly name if found, or the node_name as fallback.
+    """
+    from homeassistant.util import slugify
+
+    slugified = slugify(node_name)
+    for entry in hass.config_entries.async_entries("esphome"):
+        dev_name = entry.data.get("device_name", "")
+        if slugify(dev_name) == slugified:
+            return entry.title or node_name
+    return node_name
 
 
 class DeviceStatusView(HomeAssistantView):
@@ -53,9 +69,7 @@ class DeviceStatusView(HomeAssistantView):
                 )
             return self.json(app.get_device_status())
 
-        return self.json(
-            {"devices": {n: a.get_device_status() for n, a in apps.items()}}
-        )
+        return self.json({"devices": {n: a.get_device_status() for n, a in apps.items()}})
 
 
 class PanelTypesView(HomeAssistantView):
@@ -88,6 +102,13 @@ class PanelConfigView(HomeAssistantView):
         from .haui.mapping.panel import get_system_panel_entries
 
         result["system_panels"] = get_system_panel_entries()
+
+        # Enrich each device with friendly_name from ESPHome config entries
+        for dev_key, dev_data in result.get("devices", {}).items():
+            if "friendly_name" not in dev_data:
+                friendly_name = _lookup_esphome_friendly_name(hass, dev_key)
+                dev_data["friendly_name"] = friendly_name
+
         return self.json(result)
 
     async def post(self, request, entry_id: str):
@@ -96,8 +117,10 @@ class PanelConfigView(HomeAssistantView):
         data = await request.json()
 
         try:
-            validate_config(data)
-            validate_panels(data)
+            # Offload Pydantic model validation to executor thread to avoid
+            # blocking the event loop (modelling triggers importlib.metadata I/O).
+            await hass.async_add_executor_job(validate_config, data)
+            await hass.async_add_executor_job(validate_panels, data)
         except Exception as exc:
             _LOGGER.warning("Panel config validation failed: %s", exc)
             return self.json({"status": "error", "message": str(exc)}, status_code=400)
@@ -150,7 +173,8 @@ class PanelConfigView(HomeAssistantView):
                 except Exception:
                     _LOGGER.exception(
                         "Failed to push panel update to device '%s' for entry %s",
-                        device_name, entry_id,
+                        device_name,
+                        entry_id,
                     )
 
         # Handle newly-enabled devices - create and start app instances
@@ -159,20 +183,26 @@ class PanelConfigView(HomeAssistantView):
             if not entry:
                 _LOGGER.warning(
                     "Config entry %s not found; cannot start device '%s'",
-                    entry_id, dev_name,
+                    entry_id,
+                    dev_name,
                 )
                 continue
             try:
                 app = await _create_app(
-                    hass, entry, entry.data["name"],
-                    dict(entry.data), dict(entry.options), data,
+                    hass,
+                    entry,
+                    entry.data["name"],
+                    dict(entry.data),
+                    dict(entry.options),
+                    data,
                     dev_name,
                 )
                 apps[dev_name] = app
             except Exception:
                 _LOGGER.exception(
                     "Failed to start newly-enabled device '%s' for entry %s",
-                    dev_name, entry_id,
+                    dev_name,
+                    entry_id,
                 )
 
         # Handle newly-disabled devices - stop and remove app instances
@@ -359,10 +389,7 @@ class DeviceYamlView(HomeAssistantView):
                 )
             export = _strip_empty_configs(devices[device_name])
         else:
-            export = {
-                name: _strip_empty_configs(dev_data)
-                for name, dev_data in devices.items()
-            }
+            export = {name: _strip_empty_configs(dev_data) for name, dev_data in devices.items()}
 
         import yaml
 
@@ -454,7 +481,8 @@ class DeviceYamlView(HomeAssistantView):
                     except Exception:
                         _LOGGER.exception(
                             "Failed to push YAML import to device '%s' for entry %s",
-                            dname, entry_id,
+                            dname,
+                            entry_id,
                         )
             else:
                 _LOGGER.info(

@@ -116,7 +116,7 @@ class TestConnectionStateMachine:
         # Should have sent hub_connection_response
         expected = ServerResponse.HUB_CONNECTION_RESPONSE
         assert any(name == expected for name, _, _ in app.sent_esphome), (
-            f"Expected {expected} in sent commands: {[n for n,_,_ in app.sent_esphome]}"
+            f"Expected {expected} in sent commands: {[n for n, _, _ in app.sent_esphome]}"
         )
         # Callback should NOT have been called (not yet connected)
         cb.assert_not_called()
@@ -136,7 +136,7 @@ class TestConnectionStateMachine:
         assert ctrl._state == ConnectionState.HANDSHAKING
         expected = "esphome.req_device_state"
         assert any(name == expected for name, _, _ in app.sent_esphome), (
-            f"Expected {expected}: {[n for n,_,_ in app.sent_esphome]}"
+            f"Expected {expected}: {[n for n, _, _ in app.sent_esphome]}"
         )
         cb.assert_not_called()
 
@@ -145,9 +145,7 @@ class TestConnectionStateMachine:
 
         # Drive through handshake steps 1 and 2
         ctrl.process_event(HAUIEvent(ServerRequest.REQ_CONNECTION, '{"name":"test"}'))
-        ctrl.process_event(
-            HAUIEvent(ServerRequest.RES_CONNECTION, '{"heartbeat_interval":5.0}')
-        )
+        ctrl.process_event(HAUIEvent(ServerRequest.RES_CONNECTION, '{"heartbeat_interval":5.0}'))
 
         # Step 3: res_device_state
         event3 = HAUIEvent(ESPResponse.RES_DEVICE_STATE, '{"page":"5","brightness":"80"}')
@@ -255,9 +253,7 @@ class TestConnectionStateMachine:
         assert ctrl._state == ConnectionState.HANDSHAKING
 
         # Step 2: res_connection
-        ctrl.process_event(
-            HAUIEvent(ServerRequest.RES_CONNECTION, '{"heartbeat_interval":5.0}')
-        )
+        ctrl.process_event(HAUIEvent(ServerRequest.RES_CONNECTION, '{"heartbeat_interval":5.0}'))
         assert ctrl._state == ConnectionState.HANDSHAKING
 
         # Step 3: res_device_state
@@ -283,9 +279,7 @@ class TestConnectionStateMachine:
         cb.reset_mock()
         ctrl.process_event(HAUIEvent(ServerRequest.REQ_CONNECTION, '{"name":"test"}'))
         assert ctrl._state == ConnectionState.HANDSHAKING
-        ctrl.process_event(
-            HAUIEvent(ServerRequest.RES_CONNECTION, '{"heartbeat_interval":5.0}')
-        )
+        ctrl.process_event(HAUIEvent(ServerRequest.RES_CONNECTION, '{"heartbeat_interval":5.0}'))
         assert ctrl._state == ConnectionState.HANDSHAKING
         ctrl.process_event(HAUIEvent(ESPResponse.RES_DEVICE_STATE, '{"page":"1"}'))
         assert ctrl._state == ConnectionState.CONNECTED

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import time
 from collections.abc import Callable
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -39,6 +38,7 @@ class FncType(StrEnum):
     NAV_HOME = "nav_home"
     NAV_SLEEP = "nav_sleep"
     NAV_NOTIF = "nav_notif"
+    NAV_ABOUT = "nav_about"
     UNLOCK = "unlock"
 
 
@@ -79,6 +79,7 @@ class HAUIPage(HAUIBase):
     ICO_NEXT_MESSAGE = get_icon("mdi:chevron-double-right")
     ICO_MESSAGE = get_icon("mdi:email")
     ICO_SLEEP = get_icon("mdi:sleep")
+    ICO_ABOUT = get_icon("mdi:information-outline")
 
     # functions for function components
     FNC_TYPE_NAV_NEXT = FncType.NAV_NEXT
@@ -88,6 +89,7 @@ class HAUIPage(HAUIBase):
     FNC_TYPE_NAV_HOME = FncType.NAV_HOME
     FNC_TYPE_NAV_SLEEP = FncType.NAV_SLEEP
     FNC_TYPE_NAV_NOTIF = FncType.NAV_NOTIF
+    FNC_TYPE_NAV_ABOUT = FncType.NAV_ABOUT
     FNC_TYPE_UNLOCK = FncType.UNLOCK
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any] | None = None) -> None:
@@ -107,9 +109,6 @@ class HAUIPage(HAUIBase):
         self._handles: list[str] = []
         # item listener metadata for debugging
         self._listener_meta: dict[str, dict] = {}
-        # render tracking
-        self._render_count: int = 0
-        self._last_render_time: float | None = None
 
     # part
 
@@ -200,14 +199,6 @@ class HAUIPage(HAUIBase):
             with self.rec_cmd:
                 self.render_panel(panel)
             rendered = True
-            # update render stats
-            self._render_count += 1
-            self._last_render_time = time.time()
-            self.debug_log(
-                f"Render complete (total: {self._render_count} renders"
-                f" on page {PAGE_MAPPING.get(self.page_id)})",
-                min_level=2,
-            )
         # 4. call after render for panel
         self.after_render_panel(panel, rendered)
 
@@ -244,33 +235,30 @@ class HAUIPage(HAUIBase):
                 if fnc_item["fnc_name"] is None:
                     # left primary button
                     if fnc_id == self.FNC_BTN_L_PRI:
-                        if show_in_nav:
-                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_PREV
-                        elif not show_in_nav:
-                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_UP
-                        elif (
+                        if (
                             is_popup
                             and not (home_key and panel.get("key") == home_key)
                             and panel.show_home_button()
                         ):
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
+                        elif show_in_nav:
+                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_PREV
+                        else:
+                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_UP
                     # left secondary button
                     if fnc_id == self.FNC_BTN_L_SEC:
-                        if not is_popup and not (
-                            home_key and panel.get("key") == home_key
-                        ):
+                        if not is_popup and not (home_key and panel.get("key") == home_key):
                             if panel.show_home_button():
                                 fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
-                        elif not is_popup and (
-                            home_key and panel.get("key") == home_key
-                        ):
+                        elif not is_popup and (home_key and panel.get("key") == home_key):
                             if panel.show_notifications_button():
                                 notification = self.app.controller["notification"]
                                 fnc_item["fnc_name"] = self.FNC_TYPE_NAV_NOTIF
                                 fnc_item["fnc_args"]["visible"] = notification.has_notifications()
-                            if fnc_item["fnc_args"]["visible"] is False:
-                                fnc_item["fnc_name"] = self.FNC_TYPE_NAV_SLEEP
-                                fnc_item["fnc_args"]["visible"] = True
+                            if fnc_item["fnc_args"].get("visible") is False:
+                                if panel.show_sleep_button():
+                                    fnc_item["fnc_name"] = self.FNC_TYPE_NAV_SLEEP
+                                    fnc_item["fnc_args"]["visible"] = True
 
                     # right primary button
                     elif fnc_id == self.FNC_BTN_R_PRI:
@@ -365,8 +353,10 @@ class HAUIPage(HAUIBase):
         Args:
             panel (HAUIPanel): Current panel
         """
-        while self._handles:
-            self.remove_item_listener(self._handles.pop())
+        for handle in list(self._handles):
+            self.app.cancel_listen_state(handle)
+        self._handles.clear()
+        self._listener_meta.clear()
 
     def before_render_panel(self, panel: HAUIPanel) -> bool:
         """Called before the panel is rendered.
@@ -401,6 +391,30 @@ class HAUIPage(HAUIBase):
         """
 
     # item
+
+    def _build_items_from_panel(self, panel: HAUIPanel, *keys: str) -> list[HAUIItem]:
+        """Build HAUIItem list from a panel's item config keys.
+
+        Reads each config key in order.  For each key, if the value is a
+        list every entry is added as a separate item; if it's a single
+        value (dict or string) it is wrapped as a single item.
+
+        Args:
+            panel: The panel whose item config to read.
+            *keys: Config key(s) to read item entries from.
+
+        Returns:
+            List of HAUIItem objects.
+        """
+        items: list[HAUIItem] = []
+        for key in keys:
+            val = panel.get(key, None)
+            if isinstance(val, list):
+                for entry in val:
+                    items.append(HAUIItem(self.app, entry))
+            elif val is not None:
+                items.append(HAUIItem(self.app, val))
+        return items
 
     def execute_item(self, item: HAUIItem) -> None:
         """Executes the given item.
@@ -513,7 +527,8 @@ class HAUIPage(HAUIBase):
                 f" item={self._listener_meta.get(handle, {}).get('item_id', '?')}",
                 min_level=2,
             )
-            del self._handles[self._handles.index(handle)]
+            if handle in self._handles:
+                self._handles.remove(handle)
             self._listener_meta.pop(handle, None)
 
     # basic page functionality (see HAUIBase for generic methods)
@@ -541,19 +556,23 @@ class HAUIPage(HAUIBase):
                     color.strip(),
                 )
                 if rgb_match:
-                    component_color = rgb_to_rgb565([
-                        int(rgb_match.group(1)),
-                        int(rgb_match.group(2)),
-                        int(rgb_match.group(3)),
-                    ])
+                    component_color = rgb_to_rgb565(
+                        [
+                            int(rgb_match.group(1)),
+                            int(rgb_match.group(2)),
+                            int(rgb_match.group(3)),
+                        ]
+                    )
                 # handle "#rrggbb" hex format (from frontend color picker)
                 elif re.match(r"^#([0-9a-fA-F]{6})$", color.strip()):
                     hex_str = color.strip()[1:]
-                    component_color = rgb_to_rgb565([
-                        int(hex_str[0:2], 16),
-                        int(hex_str[2:4], 16),
-                        int(hex_str[4:6], 16),
-                    ])
+                    component_color = rgb_to_rgb565(
+                        [
+                            int(hex_str[0:2], 16),
+                            int(hex_str[2:4], 16),
+                            int(hex_str[4:6], 16),
+                        ]
+                    )
                 else:
                     try:
                         component_color = int(self.app.render_template(color))
@@ -875,6 +894,8 @@ class HAUIPage(HAUIBase):
                     icon = self.ICO_SLEEP
                 elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
                     icon = self.ICO_NAV_MESSAGE
+                elif fnc_name == self.FNC_TYPE_NAV_ABOUT:
+                    icon = self.ICO_ABOUT
                 elif fnc_name == self.FNC_TYPE_NAV_UP:
                     icon = self.ICO_NAV_UP
                 elif fnc_name == self.FNC_TYPE_NAV_CLOSE:
@@ -1004,6 +1025,8 @@ class HAUIPage(HAUIBase):
             navigation.open_sleep_panel()
         elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
             navigation.open_popup("popup_notifs")
+        elif fnc_name == self.FNC_TYPE_NAV_ABOUT:
+            navigation.open_popup("sys_about")
         elif fnc_name == self.FNC_TYPE_NAV_UP or fnc_name == self.FNC_TYPE_NAV_CLOSE:
             navigation.close_panel()
         elif fnc_name == self.FNC_TYPE_UNLOCK:

@@ -191,8 +191,8 @@ def _apply_panel_store(cfg: dict, store: dict, fields: list) -> None:
 
     # Apply to cfg["device"] (HAUIDevice runtime config) from the runtime
     # device only. Runtime device = first entry in cfg["devices"] (matches
-    # NSPanelHAUI.initialize); cfg["device"]["name"] holds the hub title,
-    # not a device key, so it must not be used to look up store entries.
+    # NSPanelHAUI.initialize); cfg["device"]["name"] mirrors the runtime
+    # device name when one is available, so it may also be used as a lookup key.
     devs = cfg.get("devices", [])
     runtime_name = devs[0].get("name", "") if devs else ""
     if not runtime_name:

@@ -1,6 +1,14 @@
 import json
+import logging
 import os
 from typing import Any
+
+_LOGGER = logging.getLogger(__name__)
+
+# Cache translation files per language so we read each one only once.
+# Keyed by language code; value is the parsed dict or ``{}`` if the file
+# was missing (cached so we do not retry the disk read on every call).
+_TRANSLATION_CACHE: dict[str, dict] = {}
 
 
 def get_translation(text: str, locale: str) -> str:
@@ -26,14 +34,47 @@ def get_state_translation(item_type: str, state: str, locale: str, attr: str = "
     return state
 
 
+def _translations_root() -> str:
+    """Resolve the absolute path to the translations/ directory.
+
+    ``text.py`` lives at ``custom_components/nspanel_haui/haui/utils/`` and
+    the JSON files live at ``custom_components/nspanel_haui/translations/``.
+    ``os.path.realpath`` collapses the ``..`` segments so the path that
+    reaches ``open()`` is canonical — some HA installs (notably under
+    s6/Supervisor) reject the un-normalized form.
+    """
+    here = os.path.dirname(os.path.realpath(__file__))
+    return os.path.realpath(os.path.join(here, "..", "..", "translations"))
+
+
 def get_translations(locale: str) -> dict:
-    lang = locale.split("_")[0]
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    path_file = os.path.join(dir_path, "..", "..", "translations", f"{lang}.json")
+    lang = (locale or "en").split("_")[0] or "en"
+    if lang in _TRANSLATION_CACHE:
+        return _TRANSLATION_CACHE[lang]
+
+    root = _translations_root()
+    path_file = os.path.join(root, f"{lang}.json")
     if not os.path.isfile(path_file):
-        path_file = os.path.join(dir_path, "..", "..", "translations", "en.json")
-    with open(path_file) as translation_file:
-        translations = json.load(translation_file)
+        path_file = os.path.join(root, "en.json")
+
+    if not os.path.isfile(path_file):
+        _LOGGER.warning(
+            "Translations directory missing or unreadable at %s; "
+            "returning empty translation table",
+            root,
+        )
+        _TRANSLATION_CACHE[lang] = {}
+        return {}
+
+    try:
+        with open(path_file, encoding="utf-8") as translation_file:
+            translations = json.load(translation_file)
+    except OSError as exc:
+        _LOGGER.warning("Could not read translation file %s: %s", path_file, exc)
+        _TRANSLATION_CACHE[lang] = {}
+        return {}
+
+    _TRANSLATION_CACHE[lang] = translations
     return translations
 
 

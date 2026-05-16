@@ -4,6 +4,7 @@ import datetime
 import threading
 from typing import Any
 
+from ..abstract.entity import HAUIEntity
 from ..abstract.event import HAUIEvent
 from ..abstract.item import HAUIItem
 from ..abstract.panel import HAUIPanel
@@ -24,33 +25,48 @@ class MediaPage(HAUIPage):
         description="Media player controls with track info and volume.",
         options=[
             PageOption(
-                key="item", kind="item", domain="media_player", label="Media player item"
+                key="item",
+                kind="item",
+                domain="media_player",
+                description="Media player entity to control playback and volume.",
+                section="Media Player",
             ),
             PageOption(
                 key="sonos_favorites",
                 kind="item",
                 domain="sensor",
-                label="Sonos favorites sensor",
+                description="Sensor entity containing Sonos favorites data.",
+                section="Media Player",
+            ),
+            PageOption(
+                key="group_items",
+                kind="list_entities",
+                domain="media_player",
+                default=[],
+                label="Group media player entities",
+                description=(
+                    "Additional media player entity IDs to group as a multi-room speaker set."
+                ),
+                section="Groups",
+            ),
+            PageOption(
+                key="media_favorites",
+                kind="list_items",
+                default=[],
+                label="Media favorites",
+                description="Media content IDs shown in the media selector.",
+                section="Favorites",
             ),
             PageOption(
                 key="sonos_favorites_in_source",
                 kind="bool",
                 default=False,
-                label="Show Sonos favorites in source list",
-            ),
-            PageOption(
-                key="media_favorites",
-                kind="list_str",
-                default=[],
-                label="Media favorites (one per line, format: name|content_id|content_type)",
-            ),
-            PageOption(
-                key="group_items",
-                kind="list_str",
-                default=[],
-                label="Group items (one item_id per line)",
+                label="Sonos favorites in source list",
+                description=("Iterpret favorites as sonos favorites."),
+                section="Favorites",
             ),
         ],
+        icon="mdi:music",
     )
 
     """
@@ -138,14 +154,18 @@ class MediaPage(HAUIPage):
             return value.get("item")
         return value
 
+    @staticmethod
+    def _looks_like_entity_id(value: str) -> bool:
+        return value.startswith("media_player.") and "." in value
+
     def start_page(self) -> None:
         self._title = ""
-        self._items: list[HAUIItem] = []
+        self._items: list[HAUIEntity] = []
         self._media_item: HAUIItem | None = None
-        self._group_items: list = []
+        self._group_items: list[str] = []
         self._sonos_favorites: HAUIItem | None = None
         self._sonos_favorites_in_source = False
-        self._media_favorites: list = []
+        self._media_favorites: list[str] = []
         self._media_title = ""
         self._media_interpret = ""
         self._media_channel = ""
@@ -181,28 +201,27 @@ class MediaPage(HAUIPage):
         self._sonos_favorites_in_source = panel.get(
             "sonos_favorites_in_source", self._sonos_favorites_in_source
         )
-        # media favorites
-        media_favorites = panel.get("media_favorites", [])
-        self._media_favorites = media_favorites
-        # set group items
-        group_items = []
+        # media favorites — plain entity ID strings from config
+        self._media_favorites = []
+        temp_media_favorites = panel.get("media_favorites", [])
+        for fav in temp_media_favorites:
+            entity_id = self._extract_entity_id(fav)
+            if entity_id:
+                self._media_favorites.append(entity_id)
+        # set group items — plain entity ID strings from config
+        self._group_items = []
         temp_group_items = panel.get("group_items", [])
         if len(temp_group_items) > 0:
             for group_item in temp_group_items:
-                haui_item = HAUIItem(self.app, {"item": group_item})
-                group_items.append(haui_item)
-        self._group_items = group_items
+                entity_id = self._extract_entity_id(group_item)
+                if entity_id:
+                    self._group_items.append(entity_id)
         # set item
         item = None
-        entity_id = panel.get("item_id")
+        entity_id = panel.get("item_id") or self._extract_entity_id(panel.get("item"))
         if entity_id:
             item = HAUIItem(self.app, {"item": entity_id})
-        items = panel.get_items()
-        if len(items) > 0:
-            first_item = items.pop(0)
-            if item is None:
-                item = first_item
-        self._items = items
+        self._items = []
         self.set_media_item(item)
         # set title
         title = panel.get_title(self.translate("Media"))
@@ -246,9 +265,7 @@ class MediaPage(HAUIPage):
         # (title, artist, position, ...) into one state_changed event where the
         # primary state often stays "playing", which caused per-attribute
         # listeners to miss song changes on streaming sources like Sonos.
-        self.add_item_listener(
-            item.get_item_id(), self.callback_media_entity, attribute="all"
-        )
+        self.add_item_listener(item.get_item_id(), self.callback_media_entity, attribute="all")
         # media icon
         source = False
         if supported_features & MediaPlayerFeatures.SELECT_SOURCE:
@@ -701,14 +718,22 @@ class MediaPage(HAUIPage):
             for name in items.values():
                 value = f"sonos_favorites:{name}"
                 selection.append({"value": value, "name": trim_text(name, 14)})
-        # add media favorites
-        for item in self._media_favorites:
-            content_type = item.get("content_type", "music")
-            content_id = item.get("content_id")
-            name = item.get("name", content_id)
-            if content_id is not None:
+        # add media favorites. Entity IDs keep the legacy metadata lookup; other
+        # strings are treated as media content IDs with the default music type.
+        for favorite in self._media_favorites:
+            content_id = favorite
+            content_type = "music"
+            name = favorite.rsplit("/", maxsplit=1)[-1]
+            if self._looks_like_entity_id(favorite):
+                entity = HAUIEntity(self.app, favorite)
+                content_id = entity.get_entity_attr("media_content_id", favorite)
+                content_type = entity.get_entity_attr("media_content_type", "music")
+                name = entity.get_entity_attr("friendly_name", favorite)
+            if content_id:
                 value = f"media_favorites:{content_type}:{content_id}"
                 selection.append({"value": value, "name": trim_text(name, 14)})
+            else:
+                self.log(f"Skipping media favorite {favorite}: no media_content_id")
         # show popup
         if len(selection) > 0:
             navigation.open_popup(
@@ -736,19 +761,16 @@ class MediaPage(HAUIPage):
         items = []
         # collect all items for group
         for value in group_members:
-            item_map[value] = HAUIItem(self.app, {"item": value})
-        # collect all items defined by items
-        for item in self._items:
-            if item.get_item_id() not in item_map:
-                item_map[item.get_item_id()] = item
-        # collect all items defined by group items
-        for item in self._group_items:
-            if item.get_item_id() not in item_map:
-                item_map[item.get_item_id()] = item
+            item_map[value] = HAUIEntity(self.app, value)
+        # collect all items defined by group items — plain entity ID strings
+        for entity_id in self._group_items:
+            if entity_id not in item_map:
+                item_map[entity_id] = HAUIEntity(self.app, entity_id)
         # generate selection items
-        for entity_id, item in item_map.items():
-            self.log(f"{entity_id} - {item.get_name()}")
-            items.append({"value": entity_id, "name": item.get_name()})
+        for entity_id, entity in item_map.items():
+            name = entity.get_entity_attr("friendly_name", entity_id)
+            self.log(f"{entity_id} - {name}")
+            items.append({"value": entity_id, "name": name})
         # show popup
         if len(items) > 0:
             navigation.open_popup(
@@ -816,8 +838,8 @@ class MediaPage(HAUIPage):
             self._media_item.call_item_service("join", group_members=list(selection))
         if len(removed_group_members) > 0:
             for entity_id in removed_group_members:
-                item = HAUIItem(self.app, {"item": entity_id})
-                item.call_item_service("unjoin")
+                entity = HAUIEntity(self.app, entity_id)
+                entity.call_entity_service("unjoin")
 
     # event
 

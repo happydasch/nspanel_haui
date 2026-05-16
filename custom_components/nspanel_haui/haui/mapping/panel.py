@@ -108,6 +108,7 @@ def get_user_panel_type_descriptors() -> list[dict]:
                     "type_key": d.type_key,
                     "label": d.label,
                     "description": d.description,
+                    "icon": d.icon,
                     "item_options": d.item_options,
                     "options": [
                         {
@@ -136,10 +137,13 @@ def get_system_panel_entries() -> list[dict]:
             _, cls = PANEL_MAPPING[type_key]
             d = getattr(cls, "DESCRIPTOR", None)
             if d is not None:
-                result.append({
-                    "type": type_key,
-                    "key": sys_key,
-                    "label": d.label,
-                    "description": d.description,
-                })
+                result.append(
+                    {
+                        "type": type_key,
+                        "key": sys_key,
+                        "label": d.label,
+                        "description": d.description,
+                        "icon": d.icon,
+                    }
+                )
     return result

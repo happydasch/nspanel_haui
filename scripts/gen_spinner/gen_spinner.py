@@ -278,21 +278,15 @@ def fast_out_slow_in(x):
     quantized = position * step_size
     diff = x - quantized
     weight = diff / step_size
-    return VALUES[int(position)] + weight * (
-        VALUES[int(position + 1)] - VALUES[int(position)]
-    )
+    return VALUES[int(position)] + weight * (VALUES[int(position + 1)] - VALUES[int(position)])
 
 
 def update_segment_positions(frame):
     # Adds constant rotation to segment positions.
     playtime = (TOTAL_DURATION_IN_MS / num_frames) * frame
-    animation_fraction = (1 / TOTAL_DURATION_IN_MS) * (
-        TOTAL_DURATION_IN_MS / num_frames
-    )
+    animation_fraction = (1 / TOTAL_DURATION_IN_MS) * (TOTAL_DURATION_IN_MS / num_frames)
     end_fraction = fast_out_slow_in(animation_fraction * frame - TOTAL_DURATION_IN_MS)
-    segment_positions[0] = (
-        CONSTANT_ROTATION_DEGREES * animation_fraction + TAIL_DEGREES_OFFSET
-    )
+    segment_positions[0] = CONSTANT_ROTATION_DEGREES * animation_fraction + TAIL_DEGREES_OFFSET
     segment_positions[1] = CONSTANT_ROTATION_DEGREES * animation_fraction
 
     # Adds cycle specific rotation to segment positions.

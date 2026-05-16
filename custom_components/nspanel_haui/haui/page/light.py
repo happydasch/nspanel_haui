@@ -26,15 +26,19 @@ class LightPage(HAUIPage):
                 key="item",
                 kind="item",
                 domain="light",
-                label="Light item",
+                description="Light entity to control brightness, color and temperature.",
+                section="Light",
             ),
             PageOption(
                 key="show_kelvin",
                 kind="bool",
                 default=False,
                 label="Show color temperature in Kelvin",
+                description="Show Kelvin instead of Mireds (Mired is default).",
+                section="Light",
             ),
         ],
+        icon="mdi:lightbulb-outline",
     )
 
     # https://developers.home-assistant.io/docs/core/item/light
@@ -118,7 +122,7 @@ class LightPage(HAUIPage):
         if entity_id:
             item = HAUIItem(self.app, {"item": entity_id})
         if item is None:
-            items = panel.get_items()
+            items = self._build_items_from_panel(panel, "items")
             if len(items) > 0:
                 item = items[0]
         self.set_light_item(item)
@@ -470,10 +474,7 @@ class LightPage(HAUIPage):
         if self._light_item is None:
             return
         # update function button
-        if (
-            self._light_item.get_item_state() == "on"
-            and self._current_light_function is not None
-        ):
+        if self._light_item.get_item_state() == "on" and self._current_light_function is not None:
             color = COLORS["component_accent"]
             self.update_function_component(self.FNC_BTN_R_SEC, visible=True, color=color)
         else:

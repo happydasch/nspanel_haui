@@ -1,4 +1,5 @@
 """Connection Controller - state-machine handshake with bidirectional heartbeats."""
+
 from __future__ import annotations
 
 import json
@@ -237,9 +238,7 @@ class HAUIConnectionController(HAUIBase):
         if self._state != ConnectionState.CONNECTED:
             return
 
-        time_max = self._last_time + max(
-            self._heartbeat_interval * self._overdue_factor, 10.0
-        )
+        time_max = self._last_time + max(self._heartbeat_interval * self._overdue_factor, 10.0)
         if time.monotonic() > time_max:
             self.log("Device connection timeout - no heartbeat received")
             self._set_state(ConnectionState.DISCONNECTED)
@@ -250,10 +249,7 @@ class HAUIConnectionController(HAUIBase):
         Resets the timer on each fire so the warning appears at most
         once per minute.
         """
-        if (
-            self._state == ConnectionState.DISCONNECTED
-            and self._disconnected_since is not None
-        ):
+        if self._state == ConnectionState.DISCONNECTED and self._disconnected_since is not None:
             elapsed = time.monotonic() - self._disconnected_since
             if elapsed > 60:
                 self.log(
@@ -349,8 +345,7 @@ class HAUIConnectionController(HAUIBase):
                 ESPResponse.RES_DEVICE_STATE,
             ):
                 self.log(
-                    f"Livesign received while disconnected: {event.name}, "
-                    f"initiating handshake"
+                    f"Livesign received while disconnected: {event.name}, initiating handshake"
                 )
                 self._initiate_handshake("livesign")
                 return  # Do NOT fall through - the next event drives the handshake
@@ -393,23 +388,17 @@ class HAUIConnectionController(HAUIBase):
                 connection_response = json.loads(event.value)
                 # Adopt the device's heartbeat_interval if declared
                 try:
-                    dev_interval = float(
-                        connection_response.get("heartbeat_interval", 5.0)
-                    )
+                    dev_interval = float(connection_response.get("heartbeat_interval", 5.0))
                     if dev_interval > 0.5:
                         self._heartbeat_interval = dev_interval
-                        self.log(
-                            f"Device heartbeat interval: {self._heartbeat_interval}s"
-                        )
+                        self.log(f"Device heartbeat interval: {self._heartbeat_interval}s")
                 except (TypeError, ValueError):
                     self.log(
                         "Invalid heartbeat_interval from device, using default",
                         level="WARNING",
                     )
                 device.set_device_info(connection_response, append=True)
-                self.debug_log(
-                    f"Connection response from device: {connection_response}"
-                )
+                self.debug_log(f"Connection response from device: {connection_response}")
             self.send_esphome(ESPRequest.REQ_DEVICE_STATE)
             return
 
@@ -421,9 +410,7 @@ class HAUIConnectionController(HAUIBase):
                     device_state = json.loads(event.value)
                     device.set_device_info(device_state, append=True)
                 except json.JSONDecodeError:
-                    self.log(
-                        "Invalid device state JSON", level="WARNING"
-                    )
+                    self.log("Invalid device state JSON", level="WARNING")
             if self._state == ConnectionState.HANDSHAKING:
                 self.debug_log(f"Device state received {event.value}")
                 self._set_state(ConnectionState.CONNECTED)

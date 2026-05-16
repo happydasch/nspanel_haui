@@ -18,8 +18,22 @@ class VacuumPage(HAUIPage):
         label="Vacuum",
         description="Vacuum robot controls and status.",
         options=[
-            PageOption(key="item", kind="item", domain="vacuum", label="Vacuum item"),
+            PageOption(
+                key="item",
+                kind="item",
+                domain="vacuum",
+                description="Vacuum robot entity for starting, stopping and returning to dock.",
+                section="Vacuum",
+            ),
+            PageOption(
+                key="items",
+                kind="item_list",
+                section="Secondary Items",
+                description="Additional items to display below the vacuum controls (up to 6).",
+                max_items=6,
+            ),
         ],
+        icon="mdi:robot-vacuum",
     )
 
     ICO_START = get_icon("mdi:play")
@@ -78,7 +92,7 @@ class VacuumPage(HAUIPage):
         entity_id = panel.get("item_id")
         if entity_id:
             item = HAUIItem(self.app, {"item": entity_id})
-        items = panel.get_items()
+        items = self._build_items_from_panel(panel, "items")
         if len(items) > 0:
             first_item = items.pop(0)
             if item is None:
@@ -105,9 +119,7 @@ class VacuumPage(HAUIPage):
             return
         # add listener
         self.add_item_listener(item.get_item_id(), self.callback_vacuum_entity)
-        self.add_item_listener(
-            item.get_item_id(), self.callback_vacuum_entity, attribute="status"
-        )
+        self.add_item_listener(item.get_item_id(), self.callback_vacuum_entity, attribute="status")
         # use features of vacuum
         features = item.get_item_attr("supported_features", 0)
         # fan button

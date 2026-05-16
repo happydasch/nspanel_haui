@@ -12,6 +12,7 @@ class DummyNavigation:
         self.panel = None
         self._current_nav = None
         self._home_panel = None
+
     def cancel_timeouts(self):
         pass
 

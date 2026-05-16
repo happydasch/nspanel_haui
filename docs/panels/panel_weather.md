@@ -32,12 +32,12 @@ panels:
   # weather panel with forecast
   - type: weather
     entity: weather.home
-    show_forecast: hourly
+    forecast_type: hourly
 
   # weather panel with a background and forecast
   - type: weather
     entity: weather.home
-    show_forecast: daily
+    forecast_type: daily
     background: dog_1
     temp_precision: 1
     forecast_precision: 0
@@ -46,6 +46,32 @@ panels:
     show_notifications: false
 ```
 
+
+### Info Items
+
+Additional sensor entities can be shown as info panels below the main weather data using `info_items`. Max 2 items.
+
+```yaml
+panels:
+  - type: weather
+    entity: weather.home
+    info_items:
+      - entity: sensor.example_sensor_1
+      - entity: sensor.example_sensor_2
+```
+
+### Entity Buttons
+
+Quick-action buttons can be placed below the weather display using `entity_buttons`. Max 6 items.
+
+```yaml
+panels:
+  - type: weather
+    entity: weather.home
+    entity_buttons:
+      - entity: light.example_light
+      - entity: switch.example_switch
+```
 
 ### Background
 
@@ -78,7 +104,7 @@ The precision of the forecast can be set using `forecast_precision`. Defaults to
 
 ### Show forecast
 
-To get weather forecasts on the panel set `show_forecast` to `daily`, `twice_daily` or `hourly`.
+To get weather forecasts on the panel set `forecast_type` to `daily` or `hourly`.
 
 ### Show weather
 

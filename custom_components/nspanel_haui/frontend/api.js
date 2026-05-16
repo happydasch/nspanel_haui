@@ -199,7 +199,7 @@ function pickYamlFile() {
  * GET /api/nspanel_haui/discover/{entryId}
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
- * @returns {Promise<{ devices: Array<{ name: string, esphome_device_id: string|null, friendly_name: string, configured: boolean }> }>}
+ * @returns {Promise<{ devices: Array<{ name: string, esphome_device_id: string|null, configured: boolean }> }>}
  */
 export async function discoverDevices(host) {
   if (!host.entryId || !host.hass) {
@@ -221,7 +221,7 @@ export async function discoverDevices(host) {
  * POST /api/nspanel_haui/devices/{entryId}
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
- * @param {{ name: string, friendly_name?: string, esphome_device_id?: string }} device
+ * @param {{ name: string, esphome_device_id?: string }} device
  * @returns {Promise<{ status: string }>}
  */
 export async function addDevice(host, device) {

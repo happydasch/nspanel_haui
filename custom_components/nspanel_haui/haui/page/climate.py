@@ -19,8 +19,32 @@ class ClimatePage(HAUIPage):
         label="Climate",
         description="Climate item with temperature and mode controls.",
         options=[
-            PageOption(key="item", kind="item", domain="climate", label="Climate item"),
+            PageOption(
+                key="item",
+                kind="item",
+                domain="climate",
+                description="Climate/HVAC entity for temperature control and mode switching.",
+                section="Climate",
+            ),
+            PageOption(
+                key="hvac_modes",
+                kind="list_items",
+                default=[],
+                choices=[
+                    ("off", "Off"),
+                    ("heat", "Heat"),
+                    ("cool", "Cool"),
+                    ("heat_cool", "Heat/Cool"),
+                    ("auto", "Auto"),
+                    ("dry", "Dry"),
+                    ("fan_only", "Fan Only"),
+                ],
+                label="HVAC modes override",
+                description="Override HVAC modes shown on this panel.",
+                section="Climate",
+            ),
         ],
+        icon="mdi:thermostat",
     )
 
     # https://developers.home-assistant.io/docs/core/item/climate

@@ -367,15 +367,16 @@ class HAAdapter:
         _LOGGER.log(level, msg, exc_info=exc_info)
         # Capture last 100 log lines for the status view
         import time as _time
+
         ts = _time.strftime("%H:%M:%S")
         self._status_logs.append(f"[{ts}] {level_name[:4]} {msg}")
         if len(self._status_logs) > 100:
             self._status_logs = self._status_logs[-100:]
 
-
     def get_status_logs(self) -> list[str]:
         """Return a copy of the captured status log lines."""
         return list(self._status_logs)
+
     def stop(self) -> None:
         """Centralized cleanup: cancel all remaining listeners and timers.
 
@@ -616,6 +617,7 @@ class HAAdapter:
 
     def run_hourly(self, cb: Callable, start: Any = None, **kwargs: Any) -> str:
         return self.run_every(cb, start, 3600, **kwargs)
+
     def run_daily(self, cb: Callable, start: Any = None, **kwargs: Any) -> str:
         return self.run_every(cb, start, 86400, **kwargs)
 

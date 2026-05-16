@@ -12,6 +12,7 @@ class SystemPage(HAUIPage):
         label="System",
         description="System status and connection screen.",
         is_system=True,
+        icon="mdi:cog-outline",
     )
 
     # qr code with url

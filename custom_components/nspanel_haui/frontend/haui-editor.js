@@ -103,7 +103,6 @@ class NSPanelEditor extends LitElement {
     this._showDeviceManager = false;
     this._statusTimer = null;
     this._panelSaveTimer = null;
-    this.__systemPanelsOpen = false;
   }
 
   /* ── lifecycle ────────────────────────────────────────────────────────── */
@@ -112,15 +111,8 @@ class NSPanelEditor extends LitElement {
     super.connectedCallback();
     this.__onDocMouseDown = (e) => {
       const path = e.composedPath();
-      if (this.__systemPanelsOpen) {
-        const d = this.renderRoot.querySelector('details.system-panel-group');
-        if (d && !path.includes(d)) {
-          d.open = false;
-          this.__systemPanelsOpen = false;
-        }
-      }
       if (this._actionsMenuIndex !== null && this._actionsMenuIndex !== undefined) {
-        const wraps = this.renderRoot.querySelectorAll('.panel-more');
+        const wraps = this.renderRoot.querySelectorAll('.pl-more');
         let inside = false;
         wraps.forEach((w) => { if (path.includes(w)) inside = true; });
         if (!inside) {
@@ -250,6 +242,28 @@ class NSPanelEditor extends LitElement {
     this._onDeviceManagerExportYaml();
   }
 
+  async _onDeviceManagerMoveDevice(e) {
+    const { name, direction } = e.detail || {};
+    if (!name || !direction) return;
+    const devices = this._panels.devices || {};
+    const deviceKeys = Object.keys(devices);
+    const idx = deviceKeys.indexOf(name);
+    if (idx < 0) return;
+    const swapIdx = idx + direction;
+    if (swapIdx < 0 || swapIdx >= deviceKeys.length) return;
+
+    const newKeys = [...deviceKeys];
+    [newKeys[idx], newKeys[swapIdx]] = [newKeys[swapIdx], newKeys[idx]];
+
+    const newDevices = {};
+    for (const key of newKeys) {
+      newDevices[key] = devices[key];
+    }
+    this._panels = { ...this._panels, devices: newDevices };
+    const label = direction < 0 ? "up" : "down";
+    await this._savePanels(this._devicePanels(), `Device "${name}" moved ${label}`);
+  }
+
   _onDeviceManagerSelect(e) {
     const name = e.detail?.name;
     if (!name) return;
@@ -321,7 +335,6 @@ class NSPanelEditor extends LitElement {
         try {
           await Api.addDevice(this, {
             name: device.name,
-            friendly_name: device.friendly_name || "",
             esphome_device_id: device.esphome_device_id || "",
           });
           added++;
@@ -383,7 +396,11 @@ class NSPanelEditor extends LitElement {
           </div>
         </ha-card>
 
-        ${renderSystemPanels(this)}
+        <ha-card outlined class="content-card">
+          <div class="card-content">
+            ${renderSystemPanels(this)}
+          </div>
+        </ha-card>
 
         <ha-dialog-edit-panel
           .hass=${this.hass}
@@ -442,6 +459,7 @@ class NSPanelEditor extends LitElement {
           @add-device=${this._onDeviceManagerAdd}
           @import-yaml=${this._onDeviceManagerImportYaml}
           @export-yaml=${this._onDeviceManagerExportYaml}
+          @move-device=${this._onDeviceManagerMoveDevice}
         ></ha-dialog-device-manager>
 
         ${this._toast ? Toast.renderToast(this) : ""}
@@ -466,15 +484,15 @@ class NSPanelEditor extends LitElement {
     const inputVal = formVal(inline, "item-entity");
     const config = { item: encodeItemValue(inputVal, typeVal) };
 
-    // Read standard entity override fields
+    // Read standard entity override fields from ee.config — the input handlers
+    // mutate ee.config with typed values (list/int/dict) where applicable, so
+    // reading the DOM string would discard those types (e.g., strip list brackets).
     for (const f of ENTITY_OVERRIDE_FIELDS) {
-      const fv = formVal(inline, `item-${f}`);
-      if (fv) config[f] = fv;
+      const fv = ee.config?.[f];
+      if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
     }
 
     // Read per-item appearance overrides (declared by the panel type descriptor).
-    // Read from ee.config (not DOM) — renderItemOptionField mutates ee.config via
-    // setVal, which handles ha-switch toggle events correctly.
     const savePt = this._editingPanelType || this._editingPanel?.data?.type;
     const descriptor = (savePt && this._panelTypes)
       ? this._panelTypes.find(d => d.type_key === savePt) || null

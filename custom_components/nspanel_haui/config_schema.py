@@ -115,89 +115,67 @@ class ConfigSchema:
 
     @staticmethod
     def device_edit_schema(current: dict) -> vol.Schema:
-        return vol.Schema(
-            {
-                vol.Required("name", default=current.get("name", "")): str,
-                vol.Required("enabled", default=current.get("enabled", True)): bool,
-                vol.Required(
-                    "locale", default=current.get("locale", "en_US")
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=[SelectOptionDict(value=v, label=lbl) for v, lbl in LOCALE_OPTIONS],
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-                vol.Required(
-                    "button_left_entity", default=current.get("button_left_entity", "")
-                ): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="switch")
-                ),
-                vol.Required(
-                    "button_right_entity", default=current.get("button_right_entity", "")
-                ): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="switch")
-                ),
-                vol.Required(
-                    "use_relay_left", default=current.get("use_relay_left", True)
-                ): bool,
-                vol.Required(
-                    "use_relay_right", default=current.get("use_relay_right", True)
-                ): bool,
-                vol.Required(
-                    "show_home_button", default=current.get("show_home_button", False)
-                ): bool,
-                vol.Required(
-                    "show_sleep_button", default=current.get("show_sleep_button", False)
-                ): bool,
-                vol.Required(
-                    "show_notifications_button",
-                    default=current.get("show_notifications_button", True),
-                ): bool,
+        schema: dict[vol.Required | vol.Optional, Any] = {
+            vol.Required("name", default=current.get("name", "")): str,
+            vol.Required("enabled", default=current.get("enabled", True)): bool,
+            vol.Required("locale", default=current.get("locale", "en_US")): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[SelectOptionDict(value=v, label=lbl) for v, lbl in LOCALE_OPTIONS],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Required("use_relay_left", default=current.get("use_relay_left", True)): bool,
+            vol.Required("use_relay_right", default=current.get("use_relay_right", True)): bool,
+            vol.Required("show_home_button", default=current.get("show_home_button", False)): bool,
+            vol.Required(
+                "show_sleep_button", default=current.get("show_sleep_button", False)
+            ): bool,
+            vol.Required(
+                "show_notifications_button",
+                default=current.get("show_notifications_button", True),
+            ): bool,
+            vol.Required("home_on_wakeup", default=current.get("home_on_wakeup", False)): bool,
+            vol.Required(
+                "home_on_first_touch", default=current.get("home_on_first_touch", True)
+            ): bool,
+            vol.Required(
+                "home_only_when_on", default=current.get("home_only_when_on", False)
+            ): bool,
+            vol.Required(
+                "home_on_button_toggle", default=current.get("home_on_button_toggle", False)
+            ): bool,
+            vol.Required(
+                "return_to_home_after_seconds",
+                default=current.get("return_to_home_after_seconds", 0),
+            ): vol.Coerce(int),
+            vol.Required(
+                "always_return_to_home", default=current.get("always_return_to_home", False)
+            ): bool,
+            vol.Required("sound_on_startup", default=current.get("sound_on_startup", True)): bool,
+            vol.Required(
+                "sound_on_notification", default=current.get("sound_on_notification", True)
+            ): bool,
+            vol.Required("log_items", default=current.get("log_items", False)): bool,
+            vol.Required("debug_level", default=current.get("debug_level", 0)): vol.Coerce(int),
+            vol.Required(
+                "hub_idle_timeout", default=current.get("hub_idle_timeout", 0)
+            ): vol.Coerce(int),
+            vol.Required("home_panel", default=current.get("home_panel", "")): str,
+            vol.Required("sleep_panel", default=current.get("sleep_panel", "")): str,
+            vol.Required("wakeup_panel", default=current.get("wakeup_panel", "")): str,
+        }
 
-                vol.Required("home_on_wakeup", default=current.get("home_on_wakeup", False)): bool,
-                vol.Required(
-                    "home_on_first_touch", default=current.get("home_on_first_touch", True)
-                ): bool,
-                vol.Required(
-                    "home_only_when_on", default=current.get("home_only_when_on", False)
-                ): bool,
-                vol.Required(
-                    "home_on_button_toggle", default=current.get("home_on_button_toggle", False)
-                ): bool,
-                vol.Required(
-                    "return_to_home_after_seconds",
-                    default=current.get("return_to_home_after_seconds", 0),
-                ): vol.Coerce(int),
-                vol.Required(
-                    "always_return_to_home", default=current.get("always_return_to_home", False)
-                ): bool,
-                vol.Required(
-                    "sound_on_startup", default=current.get("sound_on_startup", True)
-                ): bool,
-                vol.Required(
-                    "sound_on_notification", default=current.get("sound_on_notification", True)
-                ): bool,
-                vol.Required(
-                    "log_items", default=current.get("log_items", False)
-                ): bool,
-                vol.Required(
-                    "debug_level", default=current.get("debug_level", 0)
-                ): vol.Coerce(int),
-                vol.Required(
-                    "hub_idle_timeout", default=current.get("hub_idle_timeout", 0)
-                ): vol.Coerce(int),
-                vol.Required(
-                    "home_panel", default=current.get("home_panel", "")
-                ): str,
-                vol.Required(
-                    "sleep_panel", default=current.get("sleep_panel", "")
-                ): str,
-                vol.Required(
-                    "wakeup_panel", default=current.get("wakeup_panel", "")
-                ): str,
-            }
-        )
+        if not current.get("use_relay_left", True):
+            schema[
+                vol.Required("button_left_entity", default=current.get("button_left_entity", ""))
+            ] = selector.EntitySelector(selector.EntitySelectorConfig(domain="switch"))
 
+        if not current.get("use_relay_right", True):
+            schema[
+                vol.Required("button_right_entity", default=current.get("button_right_entity", ""))
+            ] = selector.EntitySelector(selector.EntitySelectorConfig(domain="switch"))
+
+        return vol.Schema(schema)
 
     @staticmethod
     def panel_edit_schema(current: dict, panel_types: list[SelectOptionDict]) -> vol.Schema:
@@ -305,13 +283,13 @@ class ConfigSchema:
                     schema[vol.Optional(opt.key)] = selector.EntitySelector(cfg)
 
             elif opt.kind == "item_list":
-                cfg = (
-                    selector.EntitySelectorConfig(domain=opt.domain, multiple=True)
-                    if opt.domain
-                    else selector.EntitySelectorConfig(multiple=True)
-                )
+                # item_list fields store structured item configs as list[dict].
+                # EntitySelector(multiple=True) can only represent flat entity_id
+                # strings, so we use `list` as the validator and normalize via
+                # transform instead, preserving stored dict-based configs.
                 default_val = cur if isinstance(cur, list) else (list(cur) if cur else [])
-                schema[vol.Optional(opt.key, default=default_val)] = selector.EntitySelector(cfg)
+                schema[vol.Optional(opt.key, default=default_val)] = list
+                transforms[opt.key] = "item_list"
 
             elif opt.kind == "select":
                 choices = opt.choices or []
@@ -323,6 +301,15 @@ class ConfigSchema:
                     )
                 )
                 transforms[opt.key] = "drop_empty"
+
+            elif opt.kind in ("list_items", "list_entities"):
+                default_text = (
+                    "\n".join(cur) if isinstance(cur, list) else (str(cur) if cur else "")
+                )
+                schema[vol.Optional(opt.key, default=default_text)] = selector.TextSelector(
+                    selector.TextSelectorConfig(multiline=True)
+                )
+                transforms[opt.key] = opt.kind
 
             elif opt.kind == "list_str":
                 default_text = (
@@ -349,7 +336,10 @@ class ConfigSchema:
         :func:`ConfigSchema.panel_type_specific_schema`.
         Supported kinds:
 
+        * ``"list_items"`` - split multiline text into ``list[str]``, stripping blanks
+        * ``"list_entities"`` - split multiline text into ``list[str]``, stripping blanks
         * ``"list_str"`` - split multiline text into ``list[str]``, stripping blanks
+        * ``"item_list"`` - normalize list to list[dict]: wrap bare strings as ``{"item": s}``
         * ``"drop_empty"`` - omit the key when the value is an empty string (used by
           ``str``, ``icon``, ``generic``, and ``select`` kinds)
         """
@@ -358,9 +348,21 @@ class ConfigSchema:
         for k, v in user_input.items():
             kind = transforms.get(k)
 
-            if kind == "list_str":
+            if kind in ("list_items", "list_entities"):
                 if isinstance(v, str):
                     cleaned[k] = [line.strip() for line in v.splitlines() if line.strip()]
+                elif isinstance(v, list):
+                    cleaned[k] = [str(x).strip() for x in v if x and str(x).strip()]
+                else:
+                    cleaned[k] = []
+            elif kind == "list_str":
+                if isinstance(v, str):
+                    cleaned[k] = [line.strip() for line in v.splitlines() if line.strip()]
+                else:
+                    cleaned[k] = v or []
+            elif kind == "item_list":
+                if isinstance(v, list):
+                    cleaned[k] = [{"item": item} if isinstance(item, str) else item for item in v]
                 else:
                     cleaned[k] = v or []
             elif kind == "drop_empty" and v == "":

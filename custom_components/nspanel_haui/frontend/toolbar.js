@@ -62,15 +62,9 @@ export function renderDeviceSelector(host) {
 
   const options = displayNames.map((name) => {
     const devKey = deviceMap[name];
-    const panelCount = (host._panels.devices[devKey]?.panels || []).length;
-    const devConfig = (host._panels.devices[devKey]?.config) || {};
-    const devEnabled = devConfig.enabled !== false;
-    const suffix = devEnabled
-      ? `\u00b7 ${panelCount} panel${panelCount !== 1 ? 's' : ''}`
-      : `\u00b7 (disabled)`;
     return {
       value: name,
-      label: `${name} ${suffix}`,
+      label: `${name}`,
     };
   });
 

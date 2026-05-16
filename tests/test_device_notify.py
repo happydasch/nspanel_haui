@@ -8,6 +8,7 @@ class DummyNavigation:
 
     def open_panel(self, panel):
         self.opened_panel = panel
+
     def cancel_timeouts(self):
         pass
 
@@ -22,6 +23,7 @@ class DummyESPHome:
 
 class _DevStub:
     """Stub for self.app.device required by HAUIBase.debug_log()."""
+
     def get(self, key: str, default=0):
         return default
 

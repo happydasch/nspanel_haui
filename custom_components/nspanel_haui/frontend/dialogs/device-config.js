@@ -5,7 +5,7 @@
  * Uses ha-dialog / ha-dialog-header / ha-dialog-footer with ha-button.
  * Communicates form changes via CustomEvent.
  */
-import { LitElement, html } from '../lit-import.js';
+import { LitElement, html, css } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
 import { LOCALE_OPTIONS, DEBUG_LEVELS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
@@ -66,7 +66,24 @@ class DeviceConfigDialog extends LitElement {
     };
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles];
+  static styles = [haStyle, haStyleDialog, editorStyles, css`
+    .footer-wrapper {
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+    .footer-toggle-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+    .footer-toggle-wrapper label {
+      margin: 0;
+      font-weight: 500;
+      font-size: 0.92em;
+    }
+  `];
 
   constructor() {
     super();
@@ -97,25 +114,91 @@ class DeviceConfigDialog extends LitElement {
         .open=${this.open}
         @closed=${this._dispatchClose}
         header-title="Device Settings"
-        .preventScrimClose=${this.saving}
+        .preventScrimClose=${true}
       >
 
         <form id="device-config-form" @submit=${(e) => e.preventDefault()}>
           <div class="dialog-body">
-            <details class="config-section">
-              <summary>Panel Assignments</summary>
-              <div class="config-section-body">
-                <p class="config-section-intro">
-                  Choose which panels appear in specific display states. Leave unset to keep the current panel.
-                </p>
-                ${selectField(this, "dc-home_panel", "home_panel", cfg, "Home Panel", panelOptions, (v) => v,
-                  "The panel shown when the user navigates home or after dim/sleep returns")}
-                ${selectField(this, "dc-sleep_panel", "sleep_panel", cfg, "Sleep Panel", panelOptions, (v) => v,
-                  "The panel shown when the display enters sleep mode")}
-                ${selectField(this, "dc-wakeup_panel", "wakeup_panel", cfg, "Wakeup Panel", panelOptions, (v) => v,
-                  "The panel shown briefly when the display wakes from sleep")}
-              </div>
-            </details>
+
+          <p class="config-section-intro">
+            Configure how this device behaves: language and diagnostics, audible alerts, hardware buttons, navigation, sleep/wakeup, and which panels appear in each display state.
+          </p>
+
+          <details class="config-section">
+            <summary>Common Settings</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                Generic device behavior: display language, diagnostic logging verbosity, and audible alerts for startup and notifications.
+              </p>
+              ${selectField(this, "dc-locale", "locale", cfg, "Language", LOCALE_OPTIONS, (v) => v,
+                "The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels")}
+              ${selectField(this, "dc-debug_level", "debug_level", cfg, "Debug Level", DEBUG_LEVELS, (v) => parseInt(v, 10),
+                "Controls the verbosity of diagnostic logging sent to the Home Assistant logs: Off = no debug output, Basic = key lifecycle events, Verbose = all commands and data exchanged with the display")}
+              ${checkbox(this, "dc-sound_on_startup", "sound_on_startup", cfg, "Sound on startup",
+                "Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle")}
+              ${checkbox(this, "dc-sound_on_notification", "sound_on_notification", cfg, "Sound on notification",
+                "Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display")}
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>Hardware Buttons</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.
+              </p>
+              ${checkbox(this, "dc-use_relay_left", "use_relay_left", cfg, "Left Button - Use Relay",
+                "When enabled, the left hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead.")}
+
+              ${!(cfg.use_relay_left ?? true) ? renderEntityPicker(this, {
+                id: "dc-button_left_entity",
+                value: this._deviceConfigForm?.button_left_entity ?? cfg.button_left_entity,
+                label: "Left Button Entity",
+                hint: "Toggle this Home Assistant entity (light, switch, scene, etc.) when the left hardware button is pressed. Only available when the left relay is disabled.",
+                hass: this.hass,
+                onInput: (val) => {
+                  this._deviceConfigForm = { ...this._deviceConfigForm, button_left_entity: val };
+                },
+                onSelect: (v) => {
+                  this._deviceConfigForm = { ...this._deviceConfigForm, button_left_entity: v };
+                },
+              }) : ""}
+
+              <div class="section-divider"></div>
+
+              ${checkbox(this, "dc-use_relay_right", "use_relay_right", cfg, "Right Button - Use Relay",
+                "When enabled, the right hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead.")}
+
+              ${!(cfg.use_relay_right ?? true) ? renderEntityPicker(this, {
+                id: "dc-button_right_entity",
+                value: this._deviceConfigForm?.button_right_entity ?? cfg.button_right_entity,
+                label: "Right Button Entity",
+                hint: "Toggle this Home Assistant entity (light, switch, scene, etc.) when the right hardware button is pressed. Only available when the right relay is disabled.",
+                hass: this.hass,
+                onInput: (val) => {
+                  this._deviceConfigForm = { ...this._deviceConfigForm, button_right_entity: val };
+                },
+                onSelect: (v) => {
+                  this._deviceConfigForm = { ...this._deviceConfigForm, button_right_entity: v };
+                },
+              }) : ""}
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>Navigation Buttons</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                Toggle visibility of on-screen navigation buttons on panels.
+              </p>
+              ${checkbox(this, "dc-show_home_button", "show_home_button", cfg, "Show home button",
+                "Show a home navigation button on panels so users can tap to return to the configured home panel from any page")}
+              ${checkbox(this, "dc-show_sleep_button", "show_sleep_button", cfg, "Show sleep button",
+                "Show a sleep button on the home panel that lets users manually put the display into sleep mode")}
+              ${checkbox(this, "dc-show_notifications_button", "show_notifications_button", cfg, "Show notifications button",
+                "Show a notifications button on supported panels that indicates and provides access to any pending notifications")}
+            </div>
+          </details>
 
             <details class="config-section">
               <summary>Sleep and Wakeup</summary>
@@ -157,115 +240,49 @@ class DeviceConfigDialog extends LitElement {
             </details>
 
             <details class="config-section">
-              <summary>Navigation Buttons</summary>
+              <summary>Panel Assignments</summary>
               <div class="config-section-body">
                 <p class="config-section-intro">
-                  Toggle visibility of on-screen navigation buttons on panels.
+                  Choose which panels appear in specific display states. Leave unset to keep the current panel.
                 </p>
-                ${checkbox(this, "dc-show_home_button", "show_home_button", cfg, "Show home button",
-                  "Show a home navigation button on panels so users can tap to return to the configured home panel from any page")}
-                ${checkbox(this, "dc-show_sleep_button", "show_sleep_button", cfg, "Show sleep button",
-                  "Show a sleep button on the home panel that lets users manually put the display into sleep mode")}
-                ${checkbox(this, "dc-show_notifications_button", "show_notifications_button", cfg, "Show notifications button",
-                  "Show a notifications button on supported panels that indicates and provides access to any pending notifications")}
+                ${selectField(this, "dc-home_panel", "home_panel", cfg, "Home Panel", panelOptions, (v) => v,
+                  "The panel shown when the user navigates home or after dim/sleep returns")}
+                ${selectField(this, "dc-sleep_panel", "sleep_panel", cfg, "Sleep Panel", panelOptions, (v) => v,
+                  "The panel shown when the display enters sleep mode")}
+                ${selectField(this, "dc-wakeup_panel", "wakeup_panel", cfg, "Wakeup Panel", panelOptions, (v) => v,
+                  "The panel shown briefly when the display wakes from sleep")}
               </div>
             </details>
 
-            <details class="config-section">
-              <summary>Hardware Buttons</summary>
-              <div class="config-section-body">
-                <p class="config-section-intro">
-                  Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.
-                </p>
-                ${renderEntityPicker(this, {
-                  id: "dc-button_left_entity",
-                  value: cfg.button_left_entity,
-                  label: "Left Button Entity",
-                  hint: "A Home Assistant entity (e.g. a light, switch, or scene) that is toggled when the left hardware button is pressed. Leave empty to use the internal relay.",
-                  hass: this.hass,
-                })}
-                ${renderEntityPicker(this, {
-                  id: "dc-button_right_entity",
-                  value: cfg.button_right_entity,
-                  label: "Right Button Entity",
-                  hint: "A Home Assistant entity (e.g. a light, switch, or scene) that is toggled when the right hardware button is pressed. Leave empty to use the internal relay.",
-                  hass: this.hass,
-                })}
-                ${checkbox(this, "dc-use_relay_left", "use_relay_left", cfg, "Use Relay Left",
-                  "When enabled, pressing the left hardware button toggles the built-in physical relay. Disable this if you have assigned a Home Assistant entity to the button instead")}
-                ${checkbox(this, "dc-use_relay_right", "use_relay_right", cfg, "Use Relay Right",
-                  "When enabled, pressing the right hardware button toggles the built-in physical relay. Disable this if you have assigned a Home Assistant entity to the button instead")}
-              </div>
-            </details>
-
-            <details class="config-section">
-              <summary>Sounds</summary>
-              <div class="config-section-body">
-                <p class="config-section-intro">
-                  Enable or disable audio feedback for different events.
-                </p>
-                ${checkbox(this, "dc-sound_on_startup", "sound_on_startup", cfg, "Sound on startup",
-                  "Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle")}
-                ${checkbox(this, "dc-sound_on_notification", "sound_on_notification", cfg, "Sound on notification",
-                  "Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display")}
-              </div>
-            </details>
-
-            <details class="config-section">
-              <summary>Language</summary>
-              <div class="config-section-body">
-                ${selectField(this, "dc-locale", "locale", cfg, "Language", LOCALE_OPTIONS, (v) => v,
-                  "The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels")}
-              </div>
-            </details>
-
-            <details class="config-section">
-              <summary>Debug</summary>
-              <div class="config-section-body">
-                <p class="config-section-intro">
-                  Controls logging verbosity for troubleshooting.
-                </p>
-                ${selectField(this, "dc-debug_level", "debug_level", cfg, "Debug Level", DEBUG_LEVELS, (v) => parseInt(v, 10),
-                  "Controls the verbosity of diagnostic logging sent to the Home Assistant logs: Off = no debug output, Basic = key lifecycle events, Verbose = all commands and data exchanged with the display")}
-              </div>
-            </details>
-
-            <hr style="border: none; border-top: 1px solid var(--divider-color, #e0e0e0); margin: 12px 0 16px 0;">
-
-            <div class="checkbox-wrap" style="margin-bottom: 0;">
-              <div class="checkbox-row">
-                <ha-switch
-                  id="dc-enabled"
-                  ?checked=${Boolean(cfg.enabled)}
-                  @change=${(e) => {
-                    this._deviceConfigForm = { ...this._deviceConfigForm, enabled: e.target.checked };
-                    this.requestUpdate();
-                  }}
-                ></ha-switch>
-                <label for="dc-enabled">Device Enabled</label>
-              </div>
-              <div class="field-hint">
-                When disabled, the device is skipped entirely by HAUI at runtime — its display will not update and touch events will not be processed. Use this to temporarily deactivate a device without deleting its configuration.
-              </div>
             </div>
-
-
-          </div>
         </form>
 
-        <ha-dialog-footer slot="footer">
-          <ha-button slot="secondaryAction" appearance="plain" @click=${this._dispatchClose}>
-            Cancel
-          </ha-button>
-          <ha-button
-            slot="primaryAction"
-            variant="brand"
-            @click=${this._dispatchSave}
-            ?disabled=${this.saving}
-          >
-            ${this.saving ? "Saving…" : "Save"}
-          </ha-button>
-        </ha-dialog-footer>
+        <div slot="footer" class="footer-wrapper">
+          <div class="footer-toggle-wrapper">
+            <ha-switch
+              id="dc-enabled"
+              ?checked=${Boolean(cfg.enabled)}
+              @change=${(e) => {
+                this._deviceConfigForm = { ...this._deviceConfigForm, enabled: e.target.checked };
+                this.requestUpdate();
+              }}
+            ></ha-switch>
+            <label for="dc-enabled" style="margin-inline-start:8px;">Device Enabled</label>
+          </div>
+          <ha-dialog-footer>
+            <ha-button slot="secondaryAction" variant="neutral" appearance="plain" @click=${this._dispatchClose}>
+              Cancel
+            </ha-button>
+            <ha-button
+              slot="primaryAction"
+              variant="brand"
+              @click=${this._dispatchSave}
+              ?disabled=${this.saving}
+            >
+              ${this.saving ? "Saving…" : "Save"}
+            </ha-button>
+          </ha-dialog-footer>
+        </div>
       </ha-dialog>
     `;
   }
@@ -275,7 +292,6 @@ class DeviceConfigDialog extends LitElement {
   }
 
   _dispatchSave() {
-    // Attach current form state so the editor can read it
     this.dispatchEvent(new CustomEvent("dialog-save", {
       detail: { config: this._deviceConfigForm },
     }));

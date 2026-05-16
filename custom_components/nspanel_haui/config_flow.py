@@ -7,122 +7,123 @@ editor (talks to ``/api/nspanel_haui/panels``).
 from __future__ import annotations
 
 import copy
+import logging
 from typing import Any
 
-import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.helpers import selector
-from homeassistant.helpers.selector import SelectOptionDict
 
 from .esphome_helpers import discover_esphome_devices as _discover_esphome_devices
 from .haui.device_config import DEVICE_CONFIG
 
+_LOGGER = logging.getLogger(__name__)
+
 DOMAIN = "nspanel_haui"
+
+
+def _make_device_entry(d: dict[str, Any]) -> dict[str, Any]:
+    """Build a hub device entry from a discovery result."""
+    dev = copy.deepcopy(DEVICE_CONFIG)
+    dev["name"] = d["name"]
+    dev["enabled"] = False
+    if d.get("esphome_device_id"):
+        dev["esphome_device_id"] = d["esphome_device_id"]
+    return dev
 
 
 class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    HUB_NAME = "NSPanel HAUI Hub"
 
     async def async_step_user(
         self,
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
         """Create the hub entry - auto-discovers ESPHome devices and creates entry."""
-        # Prevent multiple config entries - only one hub supported
         if self._async_current_entries():
-            # TODO user readable string
             return self.async_abort(reason="single_instance_allowed")
 
-        name = "NSPanel HAUI Hub"
-
-        # Discover NSPanel devices via ESPHome config entries
-        devices: list[dict[str, Any]] = []
         discovered = await _discover_esphome_devices(self.hass)
-        for d in discovered:
-            dev = copy.deepcopy(DEVICE_CONFIG)
-            dev["name"] = d["name"]
-            dev["enabled"] = False  # New devices are disabled by default
-            if d.get("esphome_device_id"):
-                dev["esphome_device_id"] = d["esphome_device_id"]
-            devices.append(dev)
+        devices = [_make_device_entry(d) for d in discovered]
 
-        await self.async_set_unique_id(name)
+        _LOGGER.info("Creating hub entry with %d device(s)", len(devices))
+
+        await self.async_set_unique_id(self.HUB_NAME)
         self._abort_if_unique_id_configured()
         return self.async_create_entry(
-            title=name,
-            data={
-                "name": name,
-                "devices": devices,
-            },
+            title=self.HUB_NAME,
+            data={"name": self.HUB_NAME, "devices": devices},
         )
 
-    async def async_step_select_devices(
+    async def _async_show_discovery_card(
+        self,
+    ) -> config_entries.ConfigFlowResult:
+        """Validate HAUI devices exist, then show the discovery card."""
+        await self.async_set_unique_id(self.HUB_NAME)
+        self._abort_if_unique_id_configured()
+
+        discovered = await _discover_esphome_devices(self.hass)
+        if not discovered:
+            return self.async_abort(reason="no_devices_found")
+
+        self._discovered_devices = discovered
+        self.context["title_placeholders"] = {
+            "name": self.HUB_NAME,
+            "count": str(len(discovered)),
+        }
+        return await self.async_step_confirm()
+
+    async def async_step_confirm(
         self,
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
-        """Second step: pick discovered devices."""
-        discovered: list[dict] = getattr(self, "_discovered_devices", [])
-        entry_name: str = getattr(self, "_entry_name", "nspanel_haui")
-
+        """Discovery confirmation card shown on the HA dashboard."""
+        discovered = getattr(self, "_discovered_devices", None) or []
         if user_input is not None:
-            selected: list[str] = user_input.get("selected_devices", [])
-
-            discovered_map: dict[str, dict] = {d["name"]: d for d in discovered}
-            devices_list: list[dict] = []
-            for device_name in selected:
-                dev = copy.deepcopy(DEVICE_CONFIG)
-                dev["name"] = device_name
-                dev["enabled"] = False  # New devices are disabled by default
-                match = discovered_map.get(device_name)
-                if match:
-                    dev["esphome_device_id"] = match.get("esphome_device_id", "")
-                devices_list.append(dev)
-
+            devices = [_make_device_entry(d) for d in discovered]
+            _LOGGER.info(
+                "Creating hub entry with %d HAUI device(s)", len(devices),
+            )
             return self.async_create_entry(
-                title=entry_name,
-                data={
-                    "name": entry_name,
-                    "devices": devices_list,
-                },
+                title=self.HUB_NAME,
+                data={"name": self.HUB_NAME, "devices": devices},
             )
 
-        if not discovered:
-            return self.async_show_form(
-                step_id="select_devices",
-                data_schema=vol.Schema({}),
-                description_placeholders={"count": "0", "esphome_info": ""},
-            )
-
-        esphome_count = sum(1 for d in discovered if d.get("esphome_device_id"))
-        esphome_info = f"ESPHome matched: {esphome_count} device(s)" if esphome_count > 0 else ""
-
-        preselected = [d["name"] for d in discovered if d.get("esphome_device_id")]
-        if not preselected:
-            preselected = [d["name"] for d in discovered]
-
-        device_options = [
-            SelectOptionDict(
-                value=d["name"],
-                label=d["name"],
-            )
-            for d in discovered
-        ]
+        self._set_confirm_only()
         return self.async_show_form(
-            step_id="select_devices",
-            data_schema=vol.Schema({
-                vol.Required("selected_devices", default=preselected): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=device_options,
-                        mode=selector.SelectSelectorMode.LIST,
-                        multiple=True,
-                    )
-                ),
-            }),
+            step_id="confirm",
             description_placeholders={
                 "count": str(len(discovered)),
-                "esphome_info": esphome_info,
+                "names": ", ".join(d["name"] for d in discovered) or "—",
             },
         )
+
+    async def async_step_integration_discovery(
+        self,
+        discovery_info: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Surface a discovery card on the dashboard."""
+        if self._async_current_entries():
+            return self.async_abort(reason="already_configured")
+        return await self._async_show_discovery_card()
+
+    async def async_step_zeroconf(
+        self,
+        discovery_info: Any,
+    ) -> config_entries.ConfigFlowResult:
+        """Handle zeroconf discovery (manifest filters by project_name)."""
+        if self._async_current_entries():
+            return self.async_abort(reason="already_configured")
+        return await self._async_show_discovery_card()
+
+    async def async_step_dhcp(
+        self,
+        discovery_info: Any,
+    ) -> config_entries.ConfigFlowResult:
+        """Handle DHCP discovery for registered HAUI devices."""
+        if self._async_current_entries():
+            return self.async_abort(reason="already_configured")
+        return await self._async_show_discovery_card()
 
     @staticmethod
     async def async_migrate_entry(hass, config_entry):

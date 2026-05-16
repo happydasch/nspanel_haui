@@ -50,8 +50,8 @@ class NotifyPage(CommonNotifyPage):
         self._notification = parse_icon(panel.get("notification", ""))
         self._btn_left = parse_icon(panel.get("btn_left", ""))
         self._btn_right = parse_icon(panel.get("btn_right", ""))
-        self._button_callback_fnc = panel.get("button_callback_fnc")
-        self._close_callback_fnc = panel.get("close_callback_fnc")
+        self._button_callback_fnc = panel.get("button_callback_fnc", None)
+        self._close_callback_fnc = panel.get("close_callback_fnc", None)
 
         # set button callbacks
         for btn in [self.BTN_LEFT, self.BTN_RIGHT]:

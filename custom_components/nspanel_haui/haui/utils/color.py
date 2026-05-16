@@ -29,7 +29,12 @@ def generate_color_palette(
     random.seed(seed)
     # Guard against empty or unknown palette_type — return unmodified base color
     if not palette_type or palette_type not in (
-        "vibrant", "pastel", "light", "lighten", "dark", "darken",
+        "vibrant",
+        "pastel",
+        "light",
+        "lighten",
+        "dark",
+        "darken",
     ):
         return [rgb_color] * num_colors
     hsv_background = colorsys.rgb_to_hsv(rgb_color[0] / 255, rgb_color[1] / 255, rgb_color[2] / 255)

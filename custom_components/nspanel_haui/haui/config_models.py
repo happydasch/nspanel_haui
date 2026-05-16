@@ -7,84 +7,100 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator  # noqa: F401
-
 __all__ = ["validate_config", "validate_device_config"]
 
-_cache: dict[str, type[BaseModel] | None] = {}
-_device_config_cache: dict[str, type[BaseModel] | None] = {}
+# Pydantic's BaseModel metaclass triggers blocking importlib.metadata I/O
+# (os.listdir, open, read_text) during class creation.  To avoid that on the
+# HA event loop, we defer class creation until the first validate_* call by
+# wrapping it in a lazy initializer function.  Callers on the event loop
+# (e.g. api.py) already dispatch validation via async_add_executor_job, so
+# the lazy init will run on a worker thread.
+#
+# The module-level from-import of BaseModel itself does NOT trigger blocking
+# I/O — only creating subclasses does.
+try:
+    from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+    _HAVE_PYDANTIC = True
+except ImportError:
+    _HAVE_PYDANTIC = False
+
+_CONFIG_MODEL: type | None = None
+_DEVICE_CONFIG_MODEL: type | None = None
+
+
+def _ensure_models() -> None:
+    """Create Pydantic model classes lazily, outside any import path.
+
+    Pydantic's metaclass triggers importlib.metadata I/O (listdir, read_text,
+    open) that must not run on the HA event loop.  This function is called
+    from the validate_* helpers, which are themselves invoked from executor
+    jobs or sync worker threads.
+    """
+    global _CONFIG_MODEL, _DEVICE_CONFIG_MODEL  # noqa: PLW0603
+
+    if not _HAVE_PYDANTIC or _CONFIG_MODEL is not None:
+        return
+
+    class _PanelConfig(BaseModel):
+        model_config = ConfigDict(extra="allow")
+        type: str | None = None
+        title: str = ""
+        key: str | None = None
+        show_in_navigation: bool = True
+        unlock_code: str | None = None
+
+    class _ConfigModel(BaseModel):
+        model_config = ConfigDict(extra="allow")
+        panels: list[_PanelConfig] = Field(default_factory=list)
+        sys_panels: list[_PanelConfig] = Field(default_factory=list)
+
+        @model_validator(mode="before")
+        @classmethod
+        def _coerce_lists(cls, v: Any) -> Any:
+            v.setdefault("panels", [])
+            v.setdefault("sys_panels", [])
+            return v
+
+    class _DeviceConfig(BaseModel):
+        model_config = ConfigDict(extra="allow")
+        locale: str | None = None
+        button_left_entity: str | None = None
+        button_right_entity: str | None = None
+        home_panel: str = ""
+        sleep_panel: str = ""
+        wakeup_panel: str = ""
+        show_home_button: bool = False
+        show_sleep_button: bool = False
+        show_notifications_button: bool = True
+        home_on_wakeup: bool = False
+        home_on_first_touch: bool = True
+        home_only_when_on: bool = False
+        home_on_button_toggle: bool = False
+        return_to_home_after_seconds: int = 0
+        always_return_to_home: bool = False
+        sound_on_startup: bool = True
+        sound_on_notification: bool = True
+        use_relay_left: bool = True
+        use_relay_right: bool = True
+        debug_level: int = 0
+        log_items: bool = False
+        enabled: bool = True
+
+    _CONFIG_MODEL = _ConfigModel
+    _DEVICE_CONFIG_MODEL = _DeviceConfig
 
 
 def _get_model() -> type[BaseModel] | None:
-    """Return the ConfigModel class, building and caching it on first call."""
-    if "model" in _cache:
-        return _cache["model"]
-
-    try:
-
-        class _PanelConfig(BaseModel):
-            model_config = ConfigDict(extra="allow")
-            type: str | None = None
-            title: str = ""
-            key: str | None = None
-            show_in_navigation: bool = True
-
-        class _ConfigModel(BaseModel):
-            model_config = ConfigDict(extra="allow")
-            panels: list[_PanelConfig] = Field(default_factory=list)
-            sys_panels: list[_PanelConfig] = Field(default_factory=list)
-
-            @model_validator(mode="before")
-            @classmethod
-            def _coerce_lists(cls, v: Any) -> Any:
-                v.setdefault("panels", [])
-                v.setdefault("sys_panels", [])
-                return v
-
-        _cache["model"] = _ConfigModel
-    except ImportError:
-        _cache["model"] = None
-
-    return _cache["model"]
+    """Return the ConfigModel class, creating it lazily if needed."""
+    _ensure_models()
+    return _CONFIG_MODEL  # type: ignore[return-value]
 
 
 def _get_device_config_model() -> type[BaseModel] | None:
-    """Return the DeviceConfig model class, building and caching it on first call."""
-    if "model" in _device_config_cache:
-        return _device_config_cache["model"]
-
-    try:
-
-        class _DeviceConfig(BaseModel):
-            model_config = ConfigDict(extra="allow")
-            locale: str | None = None
-            button_left_entity: str | None = None
-            button_right_entity: str | None = None
-            home_panel: str = ""
-            sleep_panel: str = ""
-            wakeup_panel: str = ""
-            show_home_button: bool = False
-            show_sleep_button: bool = False
-            show_notifications_button: bool = True
-            home_on_wakeup: bool = False
-            home_on_first_touch: bool = True
-            home_only_when_on: bool = False
-            home_on_button_toggle: bool = False
-            return_to_home_after_seconds: int = 0
-            always_return_to_home: bool = False
-            sound_on_startup: bool = True
-            sound_on_notification: bool = True
-            use_relay_left: bool = True
-            use_relay_right: bool = True
-            debug_level: int = 0
-            log_items: bool = False
-            enabled: bool = True
-
-        _device_config_cache["model"] = _DeviceConfig
-    except ImportError:
-        _device_config_cache["model"] = None
-
-    return _device_config_cache["model"]
+    """Return the DeviceConfig model class, creating it lazily if needed."""
+    _ensure_models()
+    return _DEVICE_CONFIG_MODEL  # type: ignore[return-value]
 
 
 def validate_config(raw_cfg: dict) -> BaseModel | dict | None:

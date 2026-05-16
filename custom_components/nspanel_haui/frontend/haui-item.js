@@ -15,6 +15,7 @@
  *   - ""                    → entity type, no entity chosen yet
  */
 
+import { html } from './lit-import.js';
 import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
 
 /** Item type constants (match Python INTERNAL_ITEM_TYPE). */
@@ -215,4 +216,162 @@ export function serializeItem(config) {
   }
   return item;
 }
+
+/* ── panel key picker ────────────────────────────────────────────────── */
+
+/**
+ * Open the panel key dropdown and attach a click-outside listener.
+ */
+function _openPanelKeyDropdown(wrap) {
+  const dropdown = wrap?.querySelector(".entity-dropdown");
+  if (!dropdown) return;
+  const items = dropdown.querySelectorAll(".entity-dropdown-item");
+  items.forEach((item) => { item.style.display = ""; });
+  dropdown.style.display = items.length ? "" : "none";
+  if (items.length === 0) return;
+
+  // Close on click outside — install once on the document
+  if (wrap._panelOutsideHandler) return;
+  wrap._panelOutsideHandler = (ev) => {
+    if (!wrap || wrap.contains(ev.target)) return;
+    _hidePanelKeyDropdown(wrap);
+  };
+  document.addEventListener("mousedown", wrap._panelOutsideHandler);
+}
+
+/** Hide the panel key dropdown and detach the outside listener. */
+function _hidePanelKeyDropdown(wrap) {
+  const dropdown = wrap?.querySelector(".entity-dropdown");
+  if (dropdown) dropdown.style.display = "none";
+  if (wrap) wrap._panelActiveIndex = -1;
+  if (wrap?._panelOutsideHandler) {
+    document.removeEventListener("mousedown", wrap._panelOutsideHandler);
+    delete wrap._panelOutsideHandler;
+  }
+}
+
+/**
+ * Render a panel key picker: text input with an autocomplete dropdown
+ * that lists available panel keys for the device.
+ *
+ * Dropdown filtering is done via DOM (no full re-render on keystroke) to
+ * keep the input responsive. The caller reads the value from the DOM on
+ * save, so no host.requestUpdate() is needed on selection.
+ *
+ * @param {object}  host         - The Lit component (host of the inline editor)
+ * @param {object}  opts
+ * @param {string}  opts.id      - DOM id for the text field
+ * @param {string}  opts.value   - Current panel key value
+ * @param {string}  [opts.label] - Field label
+ * @param {string}  [opts.placeholder]
+ * @param {string[]} opts.panelKeys - Available panel key strings
+ */
+export function renderPanelKeyPicker(host, { id, value, label, placeholder, panelKeys }) {
+  const keys = panelKeys || [];
+
+  const picker = html`
+    <div class="entity-picker-wrap" style="position:relative;">
+      <ha-input
+        id=${id}
+        class="entity-picker-input"
+        .value=${String(value != null ? value : "")}
+        placeholder=${placeholder || ""}
+        style="width:100%"
+        @input=${(e) => {
+          const val = (e.target.value || "").toLowerCase();
+          const wrap = e.target.closest(".entity-picker-wrap");
+          const dropdown = wrap?.querySelector(".entity-dropdown");
+          if (!dropdown) return;
+          const items = dropdown.querySelectorAll(".entity-dropdown-item");
+          let any = false;
+          items.forEach((item) => {
+            const key = (item.getAttribute("data-panel-key") || "").toLowerCase();
+            const match = !val || key.includes(val);
+            item.style.display = match ? "" : "none";
+            if (match) any = true;
+          });
+          dropdown.style.display = any ? "" : "none";
+        }}
+        @focus=${(e) => _openPanelKeyDropdown(e.target.closest(".entity-picker-wrap"))}
+        @blur=${(e) => {
+          const wrap = e.target?.closest(".entity-picker-wrap");
+          setTimeout(() => { if (wrap) _hidePanelKeyDropdown(wrap); }, 80);
+        }}
+        @keydown=${(e) => {
+          const wrap = e.target.closest(".entity-picker-wrap");
+          const dropdown = wrap?.querySelector(".entity-dropdown");
+          if (!dropdown || dropdown.style.display === "none") return;
+
+          const visibleItems = [...dropdown.querySelectorAll(".entity-dropdown-item")]
+            .filter((el) => el.style.display !== "none");
+          if (!visibleItems.length) return;
+
+          let idx = wrap._panelActiveIndex != null ? wrap._panelActiveIndex : -1;
+
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            idx = Math.min(idx + 1, visibleItems.length - 1);
+          } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            idx = Math.max(idx - 1, 0);
+          } else if (e.key === "Enter") {
+            if (idx >= 0) {
+              e.preventDefault();
+              _selectPanelKey(wrap, visibleItems[idx]);
+            }
+            return;
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            _hidePanelKeyDropdown(wrap);
+            return;
+          } else {
+            return;
+          }
+
+          wrap._panelActiveIndex = idx;
+          dropdown.querySelectorAll(".entity-dropdown-item").forEach((item, i) => {
+            item.classList.toggle("active", i === idx);
+          });
+          if (visibleItems[idx]) {
+            visibleItems[idx].scrollIntoView({ block: "nearest" });
+          }
+        }}
+      ></ha-input>
+
+      <div class="entity-dropdown"
+        style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:200px; overflow-y:auto; border:1px solid var(--divider-color,#ddd); border-radius:4px; background:var(--card-background-color,#fff); margin-top:2px;">
+        ${keys.map((key) => html`
+          <div class="entity-dropdown-item"
+            data-panel-key="${key}"
+            @mousedown=${(e) => {
+              e.preventDefault();
+              _selectPanelKey(e.target.closest(".entity-picker-wrap"), e.currentTarget);
+            }}
+            style="cursor:pointer; padding:6px 10px;"
+          >${key}</div>
+        `)}
+      </div>
+    </div>
+  `;
+
+  if (label) {
+    return html`
+      <div class="form-group">
+        <label for=${id}>${label}</label>
+        ${picker}
+      </div>
+    `;
+  }
+
+  return picker;
+}
+
+/** Internal: set the input value from a selected dropdown item. */
+function _selectPanelKey(wrap, item) {
+  const tf = wrap?.querySelector(".entity-picker-input");
+  const key = item.getAttribute("data-panel-key") || "";
+  if (tf) tf.value = key;
+  _hidePanelKeyDropdown(wrap);
+}
+
 

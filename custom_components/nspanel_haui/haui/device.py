@@ -64,9 +64,7 @@ class HAUIDevice(HAUIBase):
         for panel in config.get_panels():
             if panel.get_type() not in PANEL_MAPPING:
                 raise ValueError(f"Panel type {panel.get_type()} not supported")
-        self.log(
-            f"Loaded {len(config.get_panels())} panels and {len(config.get_items())} entities"
-        )
+        self.log(f"Loaded {len(config.get_panels())} panels")
 
     def _register_callbacks(self) -> None:
         """Registers all device callbacks."""
@@ -77,7 +75,8 @@ class HAUIDevice(HAUIBase):
             # no entity id set, use relay
             if not entity_id:
                 # default button entity - hardware relay
-                entity_id = f"switch.{self.get_name()}_relay_{i}"
+                slug = self.get_name().lower().replace("-", "_").replace(" ", "_")
+                entity_id = f"switch.{slug}_relay_{i}"
             # entity exists, add callbacks and set up hardware button entity
             if self.app.item_exists(entity_id):
                 handle = self.app.listen_state(self.callback_button_state_entities, entity_id)
@@ -174,11 +173,7 @@ class HAUIDevice(HAUIBase):
                 # timeout to fire.
                 panel = navigation.get_current_panel()
                 nav_panel = navigation.get_current_nav_panel()
-                if (
-                    panel is not None
-                    and nav_panel is not None
-                    and panel.id == nav_panel.id
-                ):
+                if panel is not None and nav_panel is not None and panel.id == nav_panel.id:
                     # Current panel is the nav panel - re-open it directly
                     self.app.run_in(
                         lambda _: navigation.open_panel(panel.id, force=True),
@@ -248,12 +243,14 @@ class HAUIDevice(HAUIBase):
         for side in ["left", "right"]:
             info: dict[str, Any] = getattr(self, f"_btn_{side}_info")
             if info["handle"]:
-                listeners.append({
-                    "handle": info["handle"],
-                    "item_id": info["item_id"],
-                    "attribute": None,
-                    "callback_name": "callback_button_state_entities",
-                })
+                listeners.append(
+                    {
+                        "handle": info["handle"],
+                        "item_id": info["item_id"],
+                        "attribute": None,
+                        "callback_name": "callback_button_state_entities",
+                    }
+                )
         return listeners
 
     def _get_button_state(self, side: str) -> bool:
@@ -370,9 +367,7 @@ class HAUIDevice(HAUIBase):
         elif event.as_str() == "swipe_right":
             navigation.open_prev_panel()
         elif event.as_str() == "swipe_up":
-            if not navigation.has_up_panel() or unlock_panel:
-                navigation.open_popup("sys_about")
-            else:
+            if navigation.has_up_panel() and not unlock_panel:
                 navigation.close_panel()
         elif event.as_str() == "swipe_down":
             if not navigation.has_up_panel() or unlock_panel:
@@ -479,10 +474,7 @@ class HAUIDevice(HAUIBase):
             and navigation.panel.get("key") == self.get("wakeup_panel")
             and navigation.panel.get("key") != self.get("home_panel")
         )
-        has_sleep_panel = (
-            not self.get("wakeup_panel")
-            and navigation._sleep_panel_active
-        )
+        has_sleep_panel = not self.get("wakeup_panel") and navigation._sleep_panel_active
         if has_wakeup_panel or has_sleep_panel:
             exit_sleep = True
             display_state = self.device_info.get("display_state")

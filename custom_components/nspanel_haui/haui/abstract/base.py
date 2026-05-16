@@ -44,7 +44,12 @@ class HAUIBase:
             if getattr(hass, "async_add_executor_job", None) is not None:
 
                 def _executor_wrapper(func: Callable[[], None]) -> None:
-                    loop.call_soon_threadsafe(hass.async_add_executor_job, func)
+                    try:
+                        loop.call_soon_threadsafe(
+                            hass.async_add_executor_job, func
+                        )
+                    except RuntimeError:
+                        pass  # Event loop is closed during HA shutdown
 
                 executor = _executor_wrapper
         self.debouncer = Debouncer(executor=executor)
@@ -89,8 +94,7 @@ class HAUIBase:
                 if default is not _MISSING:
                     return default
                 raise KeyError(
-                    f"Config key '{key}' not found "
-                    f"(intermediate value is None at '{p}')"
+                    f"Config key '{key}' not found (intermediate value is None at '{p}')"
                 )
             if not hasattr(value, "get") or not callable(getattr(value, "get", None)):
                 if default is not _MISSING:
@@ -109,6 +113,7 @@ class HAUIBase:
                 return default
             raise KeyError(f"Config key '{key}' is None")
         return value
+
     def get_int(self, key: str, default: int = 0) -> int:
         """Gets a config value as int, coercing and logging on type mismatch.
 
@@ -204,7 +209,6 @@ class HAUIBase:
                 level="WARNING",
             )
             return default
-
 
     def log(self, msg: str, **kwargs: Any) -> None:
         """Logs a message.
@@ -321,6 +325,7 @@ class HAUIBase:
 
     def stop(self) -> None:
         """Stops the object."""
+        self.debouncer.clear_all()  # cancel any pending state-flap timers
         if not self.started:
             return
         self.stop_part()

@@ -120,8 +120,7 @@ ALL_RECV: frozenset[str] = frozenset(
 
 # all messages on cmd
 ALL_CMD: frozenset[str] = frozenset(
-    member.value
-    for member in (*ESPRequest, *ESPCommand, *ServerResponse)
+    member.value for member in (*ESPRequest, *ESPCommand, *ServerResponse)
 ) | frozenset(f"esphome.{member.value}" for member in ESPAction)
 
 # item config
@@ -144,6 +143,7 @@ ITEM_CONFIG: dict[str, Any] = {
     "color_pressed": None,
     "back_color_pressed": None,
     "power_color": None,
+    "show_power_button": None,
 }
 
 # panel config
@@ -165,7 +165,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "date_format_locale": "full",
     # device related settings
     "device": copy.deepcopy(DEVICE_CONFIG),
-
     # multi-device settings (populated at runtime from options)
     "devices": [],
     # connection related settings

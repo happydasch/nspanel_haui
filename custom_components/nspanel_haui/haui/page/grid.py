@@ -31,13 +31,11 @@ class GridPage(HAUIPage):
             "show_power_button",
         ],
         options=[
-            PageOption(key="items", kind="item_list", label="Items", section="Items"),
             PageOption(
-                key="initial_page",
-                kind="int",
-                default=0,
-                label="Initial page",
-                section="Pagination",
+                key="items",
+                kind="item_list",
+                description="Items to display as tiles on the grid page.",
+                section="Tiles",
             ),
             PageOption(
                 key="color_mode",
@@ -45,12 +43,15 @@ class GridPage(HAUIPage):
                 kind="select",
                 default="",
                 label="Auto-color mode",
+                description="Automatic color scheme applied to all grid tiles.",
                 choices=[
                     ("", "Off"),
                     ("pastel", "Pastel"),
                     ("light", "Light"),
                     ("lighten", "Lighten"),
                     ("vibrant", "Vibrant"),
+                    ("dark", "Dark"),
+                    ("darken", "Darken"),
                 ],
             ),
             PageOption(
@@ -58,28 +59,42 @@ class GridPage(HAUIPage):
                 kind="color_seed",
                 default=0,
                 label="Auto-color seed (0 = random)",
+                description="Seed for auto-color palette. 0 = random on each restart.",
                 section="Color Palette",
             ),
-            PageOption(key="text_color", kind="color", label="Text color", section="Appearance"),
             PageOption(
-                key="back_color", kind="color", label="Background color", section="Appearance"
+                key="text_color",
+                kind="color",
+                label="Text color",
+                description="Color for tile text and icons.",
+                section="Appearance",
+            ),
+            PageOption(
+                key="back_color",
+                kind="color",
+                label="Background color",
+                description="Background color for tiles.",
+                section="Appearance",
             ),
             PageOption(
                 key="color_pressed",
                 kind="color",
                 label="Pressed text color",
+                description="Text/icon color when pressed.",
                 section="Appearance",
             ),
             PageOption(
                 key="back_color_pressed",
                 kind="color",
                 label="Pressed background color",
+                description="Background color when pressed.",
                 section="Appearance",
             ),
             PageOption(
                 key="power_color",
                 kind="color",
                 label="Power button color",
+                description="Power toggle color on tiles.",
                 section="Appearance",
             ),
             PageOption(
@@ -87,9 +102,19 @@ class GridPage(HAUIPage):
                 kind="bool",
                 default=False,
                 label="Show power button",
+                description="Show a power on/off toggle button on each grid tile.",
                 section="Appearance",
             ),
+            PageOption(
+                key="initial_page",
+                kind="int",
+                default=0,
+                label="Initial page",
+                description="Starting page index (0-based) when the grid is first displayed.",
+                section="Pagination",
+            ),
         ],
+        icon="mdi:grid",
     )
 
     # common components
@@ -156,15 +181,13 @@ class GridPage(HAUIPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
-        self._items = panel.get_items()
+        self._items = self._build_items_from_panel(panel, "items")
         self._current_page = int(panel.get("initial_page", 0))
-        self._color_seed = panel.get("color_seed", random.randint(0, 1000))
+        self._color_seed = panel.get("color_seed", 0)
         # set function buttons
         show_in_nav = panel.show_in_navigation()
         nav_btn: dict = {
-            "fnc_component": (
-                self.BTN_FNC_RIGHT_SEC if show_in_nav else self.BTN_FNC_RIGHT_PRI
-            ),
+            "fnc_component": (self.BTN_FNC_RIGHT_SEC if show_in_nav else self.BTN_FNC_RIGHT_PRI),
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": self.ICO_NEXT_PAGE,
@@ -272,9 +295,7 @@ class GridPage(HAUIPage):
         self._item_mapping = mapping
         # create listener for active entities
         for item_id in item_ids:
-            handle = self.add_item_listener(
-                item_id, self.callback_item_state, attribute="all"
-            )
+            handle = self.add_item_listener(item_id, self.callback_item_state, attribute="all")
             self._active_handles.append(handle)
 
     def get_grid_colors(self, panel: HAUIPanel, item: HAUIItem | None, idx: int = 0) -> tuple:
@@ -288,7 +309,7 @@ class GridPage(HAUIPage):
         color_seed = panel.get("color_seed", self._color_seed)
         # no background color check if color mode or set default
         if not back_color and color_mode:
-            self.log(f"Using seed for grid: {color_seed}")
+            self.debug_log(f"Using seed for grid: {color_seed}")
             colors = generate_color_palette(
                 rgb565_to_rgb(COLORS["background"]), color_mode, color_seed, 6
             )
@@ -300,7 +321,7 @@ class GridPage(HAUIPage):
                     text_color = COLORS["background"]
                 color_pressed = COLORS["component_pressed"]
                 power_color = COLORS["background"]
-            elif color_mode in ["vibrant"]:
+            elif color_mode in ["vibrant", "dark", "darken"]:
                 if not text_color:
                     text_color = COLORS["component"]
                 color_pressed = COLORS["component"]

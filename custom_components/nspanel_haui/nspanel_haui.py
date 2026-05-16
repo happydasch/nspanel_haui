@@ -124,7 +124,6 @@ class NSPanelHAUI(HAAdapter):
         # missed in their own stop_part cleanup.
         HAAdapter.stop(self)
 
-
     # shared tick timers (minute / hour / day cadences)
 
     def subscribe_tick(self, cadence: str, callback: Callable) -> None:
@@ -141,6 +140,7 @@ class NSPanelHAUI(HAAdapter):
         self._tick_subscribers[cadence].add(callback)
 
         if cadence not in self._tick_timers:
+
             def _dispatch(cb_args: dict) -> None:
                 for cb in list(self._tick_subscribers.get(cadence, set())):
                     cb(cb_args)
@@ -150,14 +150,10 @@ class NSPanelHAUI(HAAdapter):
             now = datetime.datetime.now()
             if cadence == "minute":
                 secs = 60 - now.second
-                self._tick_timers[cadence] = self.run_minutely(
-                    _dispatch, f"now+{secs}"
-                )
+                self._tick_timers[cadence] = self.run_minutely(_dispatch, f"now+{secs}")
             elif cadence == "hour":
                 secs = 3600 - (now.minute * 60 + now.second)
-                self._tick_timers[cadence] = self.run_hourly(
-                    _dispatch, f"now+{secs}"
-                )
+                self._tick_timers[cadence] = self.run_hourly(_dispatch, f"now+{secs}")
 
     def unsubscribe_tick(self, cadence: str, callback: Callable) -> None:
         """Unregister a callback previously added via :meth:`subscribe_tick`."""
@@ -166,6 +162,7 @@ class NSPanelHAUI(HAAdapter):
             subs.discard(callback)
             if not subs and cadence in self._tick_timers:
                 self.cancel_timer(self._tick_timers.pop(cadence))
+
     # panel reload (called by API when panels are saved)
 
     def _rebuild_panel_collections(self, panel_configs: list) -> tuple[list, dict, dict]:
@@ -222,9 +219,7 @@ class NSPanelHAUI(HAAdapter):
             all_panel_configs.extend(runtime_dev.get("panels", []))
         all_panel_configs += self.device_config.get("sys_panels", [])
 
-        new_panels, panels_by_id, panels_by_key = self._rebuild_panel_collections(
-            all_panel_configs
-        )
+        new_panels, panels_by_id, panels_by_key = self._rebuild_panel_collections(all_panel_configs)
 
         self.device_config._panels = new_panels
         self.device_config._panels_by_id = panels_by_id
@@ -271,7 +266,6 @@ class NSPanelHAUI(HAAdapter):
             "connected": conn.connected if conn else False,
             "connection_state": conn.connection_state.value if conn else "unknown",
             "current_page": self._format_current_page(page),
-            "render_count": getattr(page, "_render_count", 0) if page else 0,
             "logs": self.get_status_logs()[-50:],
         }
 
@@ -306,12 +300,14 @@ class NSPanelHAUI(HAAdapter):
         if nav is not None and nav.page is not None:
             meta = getattr(nav.page, "_listener_meta", {})
             for handle, entry in meta.items():
-                active_listeners.append({
-                    "handle": handle,
-                    "item_id": entry.get("item_id", ""),
-                    "attribute": entry.get("attribute"),
-                    "callback_name": entry.get("callback_name", ""),
-                })
+                active_listeners.append(
+                    {
+                        "handle": handle,
+                        "item_id": entry.get("item_id", ""),
+                        "attribute": entry.get("attribute"),
+                        "callback_name": entry.get("callback_name", ""),
+                    }
+                )
         # Also include device-level listeners (button entities)
         if self.device is not None:
             active_listeners.extend(self.device.get_active_listeners())
@@ -322,12 +318,14 @@ class NSPanelHAUI(HAAdapter):
         active_timers = []
         for handle in list(self._timer_handles):
             meta = self._timer_meta.get(handle, {})
-            active_timers.append({
-                "handle": handle,
-                "callback_name": meta.get("callback_name", "?"),
-                "type": meta.get("type", "?"),
-                "interval": meta.get("interval"),
-            })
+            active_timers.append(
+                {
+                    "handle": handle,
+                    "callback_name": meta.get("callback_name", "?"),
+                    "type": meta.get("type", "?"),
+                    "interval": meta.get("interval"),
+                }
+            )
         result["active_timers"] = active_timers
         result["active_timer_count"] = len(active_timers)
 
@@ -352,8 +350,7 @@ class NSPanelHAUI(HAAdapter):
             self.device.process_event(event)
         except Exception:
             self.log(
-                f"Error processing event {event.name} in device:\n"
-                f"{traceback.format_exc()}",
+                f"Error processing event {event.name} in device:\n{traceback.format_exc()}",
                 level="ERROR",
             )
 

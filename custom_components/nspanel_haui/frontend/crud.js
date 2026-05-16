@@ -67,9 +67,12 @@ export function moveUp(host, panelKey) {
   const panels = host._devicePanels();
   const idx = panels.findIndex(p => p.key === panelKey);
   if (idx < 0) return;
+  const isNav = panels[idx].show_in_navigation !== false;
   let prevIdx = idx - 1;
-  while (prevIdx >= 0 && panels[prevIdx].show_in_navigation === false) {
-    prevIdx--;
+  if (isNav) {
+    while (prevIdx >= 0 && panels[prevIdx].show_in_navigation === false) prevIdx--;
+  } else {
+    while (prevIdx >= 0 && panels[prevIdx].show_in_navigation !== false) prevIdx--;
   }
   if (prevIdx < 0) return;
   const newPanels = [...panels];
@@ -81,9 +84,12 @@ export function moveDown(host, panelKey) {
   const panels = host._devicePanels();
   const idx = panels.findIndex(p => p.key === panelKey);
   if (idx < 0) return;
+  const isNav = panels[idx].show_in_navigation !== false;
   let nextIdx = idx + 1;
-  while (nextIdx < panels.length && panels[nextIdx].show_in_navigation === false) {
-    nextIdx++;
+  if (isNav) {
+    while (nextIdx < panels.length && panels[nextIdx].show_in_navigation === false) nextIdx++;
+  } else {
+    while (nextIdx < panels.length && panels[nextIdx].show_in_navigation !== false) nextIdx++;
   }
   if (nextIdx >= panels.length) return;
   const newPanels = [...panels];
@@ -173,16 +179,35 @@ export async function save(host) {
         const v = parseFloat(el.value);
         panel[opt.key] = isNaN(v) ? (opt.default != null ? opt.default : 0.0) : v;
       } else if (opt.kind === "list_str") {
-        panel[opt.key] = (el.value || "")
+        const raw = (el.value || "")
           .split("\n")
           .map((s) => s.trim())
-          .filter(Boolean)
-          .map((entity_id) => ({ item: entity_id }));
+          .filter(Boolean);
+        // Only store if the user actually typed something — empty list would
+        // override the entity's runtime default when the field was untouched.
+        if (raw.length > 0) {
+          panel[opt.key] = raw;
+        }
       } else if (opt.kind === "item_list") {
         const list = host._itemListData?.[opt.key] || [];
         panel[opt.key] = list.map(serializeItem);
         // Clean up after save
         delete host._itemListData[opt.key];
+      } else if (opt.kind === "list_items" || opt.kind === "list_entities") {
+        // Value stored in host._editingPanel.data as an array of strings
+        // (from renderListItemsField). Strip empty rows; omit if all empty
+        // so the entity's runtime default is preserved.
+        const ep = host._editingPanel;
+        const val = ep?.data?.[opt.key];
+        if (Array.isArray(val)) {
+          const cleaned = val
+            .map((s) => (typeof s === "string" ? s.trim() : s?.item || ""))
+            .filter(Boolean);
+          if (cleaned.length > 0) panel[opt.key] = cleaned;
+        } else if (typeof val === "string") {
+          const lines = val.split("\n").map((s) => s.trim()).filter(Boolean);
+          if (lines.length > 0) panel[opt.key] = lines;
+        }
       } else if (opt.kind === "item") {
         // Read from shared _itemListData (single item stored at index 0).
         const list = host._itemListData?.[opt.key] || [];
@@ -294,13 +319,36 @@ export async function saveFromData(host, panel, index) {
         }
         delete itemListData[opt.key];
       } else if (opt.kind === "list_str") {
-        // The dialog sends raw textarea string; convert to item array.
-        const raw = newPanel[opt.key];
-        newPanel[opt.key] = (typeof raw === "string" ? raw : "")
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean)
-          .map((entity_id) => ({ item: entity_id }));
+        // The dialog sends raw textarea string; convert to string array.
+        // Only convert if the key was actually set by the user — otherwise
+        // an empty array would override the entity's runtime default.
+        if (opt.key in newPanel) {
+          const raw = newPanel[opt.key];
+          if (Array.isArray(raw)) {
+            // Already the correct format (array of strings or {item: ...} objects).
+            newPanel[opt.key] = raw
+              .map((s) => (typeof s === "string" ? s : s.item || ""))
+              .filter(Boolean);
+          } else {
+            newPanel[opt.key] = (typeof raw === "string" ? raw : "")
+              .split("\n")
+              .map((s) => s.trim())
+              .filter(Boolean);
+          }
+        }
+      } else if (opt.kind === "list_items" || opt.kind === "list_entities") {
+        // Array of strings from renderListItemsField. Strip empties; drop the
+        // key entirely if everything was blank so runtime defaults survive.
+        if (opt.key in newPanel) {
+          const raw = newPanel[opt.key];
+          if (Array.isArray(raw)) {
+            const cleaned = raw
+              .map((s) => (typeof s === "string" ? s.trim() : s?.item || ""))
+              .filter(Boolean);
+            if (cleaned.length === 0) delete newPanel[opt.key];
+            else newPanel[opt.key] = cleaned;
+          }
+        }
       } else if (itemListData[opt.key]) {
         // Generic fallback for any other kind with _itemListData
         newPanel[opt.key] = [...itemListData[opt.key]];

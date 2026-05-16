@@ -108,6 +108,8 @@ def _color_light(entity: Any, item_state: str | None, haui_item: HAUIItem) -> in
     attr = entity.attributes
     if "rgb_color" in attr:
         color = attr["rgb_color"]
+        if color is None:
+            color = rgb565_to_rgb(COLORS["item_on"])
         if "brightness" in attr:
             color = rgb_brightness(color, attr["brightness"])
         return rgb_to_rgb565(color)
@@ -243,9 +245,7 @@ def _value_script(entity: Any, item_state: str | None, haui_item: HAUIItem) -> s
 
 def _value_lock(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:
     return (
-        haui_item.translate("Lock")
-        if entity.state == "unlocked"
-        else haui_item.translate("Unlock")
+        haui_item.translate("Lock") if entity.state == "unlocked" else haui_item.translate("Unlock")
     )
 
 
@@ -266,11 +266,7 @@ def _value_alarm(entity: Any, item_state: str | None, haui_item: HAUIItem) -> st
 
 
 def _value_vacuum(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:
-    return (
-        haui_item.translate("Clean")
-        if entity.state == "docked"
-        else haui_item.translate("Stop")
-    )
+    return haui_item.translate("Clean") if entity.state == "docked" else haui_item.translate("Stop")
 
 
 _VALUE_DISPATCH = {

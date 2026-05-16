@@ -13,6 +13,7 @@ class BlankPage(HAUIPage):
         label="Blank",
         description="Blank/idle page used for sleep state.",
         is_system=True,
+        icon="mdi:circle-outline",
     )
 
     H_BLANK = (1, "hBlank")

@@ -24,7 +24,7 @@ export function defaultPanel(type = "clock") {
  */
 export const DEVICE_CONFIG_DEFAULTS = {
   locale: "en_US",
-  enabled: true,
+  enabled: false,
   button_left_entity: "",
   button_right_entity: "",
   show_home_button: false,
@@ -44,7 +44,6 @@ export const DEVICE_CONFIG_DEFAULTS = {
   home_panel: "",
   sleep_panel: "",
   wakeup_panel: "",
-  friendly_name: "",
 };
 
 /** Supported locale options for the device config locale dropdown. */

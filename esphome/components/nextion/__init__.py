@@ -1,7 +1,8 @@
 import esphome.codegen as cg
-from esphome.components import uart
 from esphome.config_helpers import filter_source_files_from_platform
 from esphome.const import PlatformFramework
+
+from esphome.components import uart
 
 nextion_ns = cg.esphome_ns.namespace("nextion")
 Nextion = nextion_ns.class_("Nextion", cg.PollingComponent, uart.UARTDevice)

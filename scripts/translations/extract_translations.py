@@ -13,7 +13,7 @@ for root, dirs, files in os.walk(directory):
     for file in files:
         if file.endswith(".py"):
             # Read the contents of the file into a string
-            with open(os.path.join(root, file), "r") as f:
+            with open(os.path.join(root, file)) as f:
                 contents = f.read()
             # Use the regular expression to find all `self.translate()` calls with arguments
             for match in translate_pattern.finditer(contents):

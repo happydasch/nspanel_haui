@@ -33,15 +33,16 @@ class ConfirmDialog extends LitElement {
         .open=${this.open}
         @closed=${this._dispatchClose}
         type="alert"
-        prevent-scrim-close
+        .preventScrimClose=${true}
         header-title=${title || "Confirm"}
       >
         <div class="dialog-body">
-          <p style="margin:0;">${message || ""}</p>
+          <p>${message || ""}</p>
         </div>
         <ha-dialog-footer slot="footer">
           <ha-button
             slot="secondaryAction"
+            variant="neutral"
             appearance="plain"
             @click=${this._dispatchClose}
           >

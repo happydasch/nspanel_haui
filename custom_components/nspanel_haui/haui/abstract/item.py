@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
@@ -51,21 +52,15 @@ class HAUIItem(HAUIBase):
         if device and device.get("log_items"):
             self.log(msg)
 
-    def _prepare_item(self, item_id: str) -> None:
+    def _prepare_item(self, item_id: str | None) -> None:
         """Prepares internal values from entity.
 
         Args:
-            item_id (str): The item id
+            item_id: The item id (string entity id, internal prefix, or None).
         """
-        if item_id is None or not isinstance(item_id, str):
-            if item_id is not None:
-                self.app.log(
-                    f"HAUIItem: invalid item type {type(item_id).__name__}: {item_id!r}",
-                    level="WARNING",
-                )
+        if not isinstance(item_id, str):
             self._internal = True
             self._internal_type = "skip"
-            self._dbg(f"Item: {item_id!r} -> skip (non-string)")
             return
 
         # check if item is internal
@@ -305,6 +300,29 @@ class HAUIItem(HAUIBase):
             color = color.get(self.get_item_state())
         if isinstance(color, str) and color:
             color = self.render_template(color)
+            # Parse bracket "[r,g,b]" and hex "#rrggbb" formats to RGB565 int
+            if isinstance(color, str) and color:
+                rgb_match = re.match(
+                    r"\[\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\]",
+                    color.strip(),
+                )
+                if rgb_match:
+                    color = rgb_to_rgb565(
+                        [
+                            int(rgb_match.group(1)),
+                            int(rgb_match.group(2)),
+                            int(rgb_match.group(3)),
+                        ]
+                    )
+                elif re.match(r"^#([0-9a-fA-F]{6})$", color.strip()):
+                    hex_str = color.strip()[1:]
+                    color = rgb_to_rgb565(
+                        [
+                            int(hex_str[0:2], 16),
+                            int(hex_str[2:4], 16),
+                            int(hex_str[4:6], 16),
+                        ]
+                    )
         elif isinstance(color, list) and len(color) == 3:
             color = rgb_to_rgb565(color)
         return color if color is not None else get_item_color(self, COLORS["item_unavailable"])

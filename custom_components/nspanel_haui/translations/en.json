@@ -1,5 +1,6 @@
 {
   "config": {
+    "flow_title": "NSPanel HAUI ({count} device(s) discovered)",
     "step": {
       "user": {
         "title": "Add NSPanel HAUI Hub",
@@ -10,6 +11,10 @@
         "data_description": {
           "name": "A unique name for this hub."
         }
+      },
+      "confirm": {
+        "title": "NSPanel HAUI devices discovered",
+        "description": "Found {count} ESPHome device(s) running HAUI firmware: {names}. Add them to a new NSPanel HAUI hub? Devices stay disabled until you enable them in the HAUI Editor."
       },
       "select_devices": {
         "title": "Select NSPanel Devices",
@@ -26,7 +31,10 @@
       "empty_name": "Hub name cannot be empty"
     },
     "abort": {
-      "already_configured": "A hub with this name is already configured"
+      "already_configured": "A hub with this name is already configured",
+      "already_in_progress": "A hub configuration is already in progress",
+      "single_instance_allowed": "Only one NSPanel HAUI hub is supported",
+      "no_devices_found": "No NSPanel HAUI devices were detected. Install the HAUI firmware on an ESPHome device first."
     }
   },
   "options": {

@@ -9,7 +9,6 @@ if TYPE_CHECKING:
 from ..mapping.const import PANEL_CONFIG
 from ..utils.value import merge_dicts
 from .base import HAUIBase
-from .item import HAUIItem
 
 
 class HAUIPanel(HAUIBase):
@@ -33,19 +32,6 @@ class HAUIPanel(HAUIBase):
         super().__init__(app, cfg)
         # store the initial config so apply_kwargs can always reset to it
         self._default_config: dict = deepcopy(cfg)
-        # load all entities
-        self._items: list[HAUIItem] = []
-        # single entity config
-        item_val = self.get("item", None)
-        if isinstance(item_val, dict):
-            # Unified format: {item: "light.x", name: "Kitchen", ...}
-            self._items.append(HAUIItem(self.app, item_val))
-        elif item_val is not None:
-            # Legacy plain string (override fields at panel level)
-            self._items.append(HAUIItem(self.app, config))
-        # multiple entities config
-        for e in self.get("items", []):
-            self._items.append(HAUIItem(self.app, e))
 
     # public
 
@@ -81,8 +67,7 @@ class HAUIPanel(HAUIBase):
         # Popup panels are never part of the navigation cycle
         if self.get_state("mode", self.get("mode", "panel")) == "popup":
             return False
-        return self.get_state("show_in_navigation",
-                              self.get("show_in_navigation", True))
+        return self.get_state("show_in_navigation", self.get("show_in_navigation", True))
 
     def get_title(self, default_title: str | None = None) -> str:
         """Returns the title of this panel.
@@ -125,19 +110,6 @@ class HAUIPanel(HAUIBase):
     def show_notifications_button(self) -> bool:
         """Returns True if notifications button should be shown."""
         return self.show_button("notifications")
-
-    def get_items(self, return_copy: bool = True) -> list[HAUIItem]:
-        """Returns all entities from this panel.
-
-        Args:
-            return_copy (bool, optional): Copy entities. Defaults to True.
-
-        Returns:
-            list: List with entities
-        """
-        if return_copy:
-            return self._items.copy()
-        return self._items
 
     def apply_kwargs(self, kwargs: dict) -> None:
         """Reset panel config to defaults and apply navigation kwargs.

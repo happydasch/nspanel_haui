@@ -1,12 +1,12 @@
-import os
 import json
+import os
 
 
 def update_json_file(original_file_path, source_file_path):
-    with open(original_file_path, "r") as original_file:
+    with open(original_file_path) as original_file:
         original_json = json.load(original_file)
 
-    with open(source_file_path, "r") as source_file:
+    with open(source_file_path) as source_file:
         source_json = json.load(source_file)
 
     for text in source_json["text"].keys():

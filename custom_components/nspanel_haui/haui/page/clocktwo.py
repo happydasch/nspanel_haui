@@ -246,6 +246,8 @@ class ClockTwoPage(HAUIPage):
                 kind="select",
                 default="default",
                 label="Background",
+                description="Background image theme for the word clock display.",
+                section="Appearance",
                 choices=[
                     ("default", "Default"),
                     ("spring", "Spring"),
@@ -262,23 +264,68 @@ class ClockTwoPage(HAUIPage):
                 kind="select",
                 default="en",
                 label="Clock language",
+                description="Language for the word clock text matrix.",
+                section="Appearance",
                 choices=[("en", "English"), ("de", "German"), ("pl", "Polish")],
             ),
-            PageOption(key="off_color", kind="color", label="Off-letter color"),
-            PageOption(key="letter_color", kind="color", label="Active letter color"),
-            PageOption(key="special_color", kind="color", label="Special letter color"),
-            PageOption(key="show_ampm", kind="bool", default=False, label="Show AM/PM"),
-            PageOption(key="show_intro_text", kind="bool", default=True, label="Show intro text"),
+            PageOption(
+                key="off_color",
+                kind="color",
+                default=8452,
+                label="Off-letter color",
+                description="Default: 8452 (dark gray). Accepts RGB565, [r,g,b], or #rrggbb.",
+                section="Colors",
+            ),
+            PageOption(
+                key="letter_color",
+                kind="color",
+                default=65535,
+                label="Active letter color",
+                description="Default: 65535 (white). Accepts RGB565, [r,g,b], or #rrggbb.",
+                section="Colors",
+            ),
+            PageOption(
+                key="special_color",
+                kind="color",
+                default=62694,
+                label="Special letter color",
+                description="Default: 62694 (amber). Accepts RGB565, [r,g,b], or #rrggbb.",
+                section="Colors",
+            ),
+            PageOption(
+                key="show_ampm",
+                kind="bool",
+                default=False,
+                label="Show AM/PM",
+                description="Show AM/PM indicator on the word clock display.",
+                section="Display",
+            ),
+            PageOption(
+                key="show_intro_text",
+                kind="bool",
+                default=True,
+                label="Show intro text",
+                description="Show intro text ('IT IS') at start of word clock display.",
+                section="Display",
+            ),
             PageOption(
                 key="show_intro_text_full_hour",
                 kind="bool",
                 default=True,
                 label="Show intro text on full hour",
+                description="Show 'IT IS' text on full hour (e.g. 'IT IS FIVE OCLOCK').",
+                section="Display",
             ),
             PageOption(
-                key="show_notifications", kind="bool", default=True, label="Show notifications"
+                key="show_notifications",
+                kind="bool",
+                default=True,
+                label="Show notifications",
+                description="Show notification indicator icon on the word clock screen.",
+                section="Notifications",
             ),
         ],
+        icon="mdi:clock-edit-outline",
     )
 
     # components, skipping l1-110, s1-4
@@ -315,13 +362,6 @@ class ClockTwoPage(HAUIPage):
         self._new_notifications = False
         self._letter_current_state: list[bool] = []
         self._special_current_state: list[bool] = []
-        self._off_color = COLORS["component_background"]
-        self._letter_color = COLORS["component"]
-        self._special_color = COLORS["component_accent"]
-        self._show_ampm = False
-        self._show_intro_text = True
-        self._show_intro_text_full_hour = False
-        self._clock_language = "en"
         self._clock_letters: list[str] = []
 
     def create_panel(self, panel: HAUIPanel) -> None:
@@ -329,9 +369,9 @@ class ClockTwoPage(HAUIPage):
         # set before showing panel
         background = panel.get("background", "default")
         background = self.render_template(background, False)
-        self._off_color = panel.get_int("off_color", self._off_color)
-        self._letter_color = panel.get_int("letter_color", self._letter_color)
-        self._special_color = panel.get_int("special_color", self._special_color)
+        self._off_color = panel.get("off_color", self._off_color)
+        self._letter_color = panel.get("letter_color", self._letter_color)
+        self._special_color = panel.get("special_color", self._special_color)
         self._clock_language = panel.get("clock_language", self._clock_language)
         self._show_ampm = panel.get("show_ampm", self._show_ampm)
         self._show_intro_text = panel.get("show_intro_text", self._show_intro_text)

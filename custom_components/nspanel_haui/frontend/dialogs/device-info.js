@@ -53,7 +53,7 @@ function renderActiveTimers(ds) {
   if (!timers || timers.length === 0) {
     return html`<div class="active-timers-section">
       <h4>Active Timers (${count})</h4>
-      <p style="color:var(--secondary-text-color,#666);font-style:italic;">No active timers.</p>
+      <p class="empty-state-text">No active timers.</p>
     </div>`;
   }
 
@@ -85,7 +85,7 @@ function renderActiveListeners(ds) {
   if (!listeners || listeners.length === 0) {
     return html`<div class="active-listeners-section">
       <h4>Active Listeners (${count})</h4>
-      <p style="color:var(--secondary-text-color,#666);font-style:italic;">No active listeners.</p>
+      <p class="empty-state-text">No active listeners.</p>
     </div>`;
   }
 
@@ -139,24 +139,22 @@ class DeviceInfoDialog extends LitElement {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
+        .preventScrimClose=${true}
         header-title="Device Info"
       >
 
         <div class="dialog-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="info-grid-2col">
             <div>
-              <strong>Device:</strong> ${di.friendly_name || "-"}
+              <strong>Device:</strong> ${di.name || "-"}
             </div>
             <div>
               <strong>Connection:</strong>
               ${ds.connected ? "Connected" : "Disconnected"}
-              <span style="color:var(--secondary-text-color,#666);">(${ds.connection_state || "unknown"})</span>
+              <span class="text-secondary">(${ds.connection_state || "unknown"})</span>
             </div>
             <div>
               <strong>Current Page:</strong> ${ds.current_page || "-"}
-            </div>
-            <div>
-              <strong>Render Count:</strong> ${ds.render_count ?? "-"}
             </div>
             <div>
               <strong>YAML Version:</strong> ${di.yaml_version || "-"}
@@ -177,7 +175,7 @@ class DeviceInfoDialog extends LitElement {
         </div>
 
         <ha-dialog-footer slot="footer">
-          <ha-button slot="primaryAction" appearance="plain" @click=${this._dispatchClose}>
+          <ha-button slot="primaryAction" @click=${this._dispatchClose}>
             Close
           </ha-button>
         </ha-dialog-footer>

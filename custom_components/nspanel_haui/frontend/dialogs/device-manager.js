@@ -47,7 +47,7 @@ class DeviceManagerDialog extends LitElement {
         .open=${this.open}
         @closed=${this._dispatchClose}
         header-title="Device Manager"
-        prevent-scrim-close
+        .preventScrimClose=${true}
       >
         <form @submit=${(e) => e.preventDefault()}>
           <div class="dialog-body">
@@ -63,7 +63,7 @@ class DeviceManagerDialog extends LitElement {
                   ></ha-input>
                 </div>
                 <div class="device-mgr-add-actions">
-                  <ha-button appearance="plain" @click=${() => { this._showAddForm = false; this._newDeviceName = ""; this._addError = ""; }}>
+                  <ha-button variant="neutral" appearance="plain" @click=${() => { this._showAddForm = false; this._newDeviceName = ""; this._addError = ""; }}>
                     Cancel
                   </ha-button>
                   <ha-button @click=${this._onAddDevice}>
@@ -80,9 +80,10 @@ class DeviceManagerDialog extends LitElement {
                 <h3 class="device-mgr-section-title">Discovered Devices (${this._discoveredDevices.length})</h3>
                 ${this._discoveredDevices.map(d => html`
                   <div class="device-mgr-row discovered-row">
-                    <span class="device-mgr-name">${d.name}</span>
-                    <span class="device-mgr-badge">${d.friendly_name || ""}</span>
-                    <ha-button appearance="plain" @click=${() => this._onAddDiscovered(d)}>
+                    <div class="device-mgr-row-info">
+                      <span class="device-mgr-name"><strong>${d.name}</strong></span>
+                    </div>
+                    <ha-button variant="neutral" appearance="plain" @click=${() => this._onAddDiscovered(d)}>
                       Add
                     </ha-button>
                   </div>
@@ -105,7 +106,7 @@ class DeviceManagerDialog extends LitElement {
           <ha-button
             ?disabled=${this._discovering}
             @click=${this._onDiscover}
-            appearance="plain"
+            variant="neutral" appearance="plain"
           >
             <ha-icon icon="mdi:wifi" slot="icon"></ha-icon>
             ${this._discovering ? "Discovering…" : "Discover"}
@@ -125,6 +126,10 @@ class DeviceManagerDialog extends LitElement {
     const panelCount = (dev.panels || []).length;
     const isSelected = name === this.selectedDevice;
     const isRemoving = name === this._removingDevice;
+    const deviceKeys = Object.keys(this.devices || {});
+    const idx = deviceKeys.indexOf(name);
+    const canMoveUp = idx > 0;
+    const canMoveDown = idx >= 0 && idx < deviceKeys.length - 1;
 
     return html`
       <div class="device-mgr-row ${isSelected ? 'selected' : ''}" @click=${() => this._dispatchSelectDevice(name)}>
@@ -133,14 +138,27 @@ class DeviceManagerDialog extends LitElement {
                 title=${enabled ? "Enabled" : "Disabled"}></span>
         </div>
         <div class="device-mgr-row-info">
-          <span class="device-mgr-name">${name}</span>
+          <span class="device-mgr-name"><strong>${name}</strong></span>
           <span class="device-mgr-meta">
-            ${config.friendly_name ? html`${config.friendly_name} · ` : ""}
             ${panelCount} panel${panelCount !== 1 ? 's' : ''}
             ${!enabled ? '· (disabled)' : ''}
           </span>
         </div>
         <div class="device-mgr-row-actions">
+          <ha-icon-button
+            title="Move up"
+            ?disabled=${!canMoveUp}
+            @click=${(e) => { e.stopPropagation(); this._dispatchMoveDevice(name, -1); }}
+          >
+            <ha-icon icon="mdi:arrow-up"></ha-icon>
+          </ha-icon-button>
+          <ha-icon-button
+            title="Move down"
+            ?disabled=${!canMoveDown}
+            @click=${(e) => { e.stopPropagation(); this._dispatchMoveDevice(name, 1); }}
+          >
+            <ha-icon icon="mdi:arrow-down"></ha-icon>
+          </ha-icon-button>
           <ha-icon-button
             title="Device Settings"
             @click=${(e) => { e.stopPropagation(); this._dispatchDeviceSettings(name); }}
@@ -198,6 +216,14 @@ class DeviceManagerDialog extends LitElement {
     }));
   }
 
+  _dispatchMoveDevice(name, direction) {
+    this.dispatchEvent(new CustomEvent("move-device", {
+      detail: { name, direction },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
 
 
   /* ── add device ──────────────────────────────────────────────────── */
@@ -216,7 +242,6 @@ class DeviceManagerDialog extends LitElement {
     }
     this._dispatchAddDevice({
       name,
-      friendly_name: "",
       esphome_device_id: "",
     });
     this._showAddForm = false;
@@ -254,7 +279,6 @@ class DeviceManagerDialog extends LitElement {
   _onAddDiscovered(device) {
     this._dispatchAddDevice({
       name: device.name,
-      friendly_name: device.friendly_name || "",
       esphome_device_id: device.esphome_device_id || "",
     });
     this._discoveredDevices = this._discoveredDevices.filter(d => d.name !== device.name);

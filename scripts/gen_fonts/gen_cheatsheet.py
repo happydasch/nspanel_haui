@@ -1,4 +1,4 @@
-with open("scripts/gen_fonts/icons_data.json", "r") as f:
+with open("scripts/gen_fonts/icons_data.json") as f:
     icons = f.read()
 cheatsheet = (
     """

@@ -15,9 +15,14 @@ class AlarmPage(HAUIPage):
         description="Alarm control panel with numeric keypad.",
         options=[
             PageOption(
-                key="item", kind="item", domain="alarm_control_panel", label="Alarm item"
+                key="item",
+                kind="item",
+                domain="alarm_control_panel",
+                description="Alarm control panel item for arming/disarming the security system.",
+                section="Alarm",
             ),
         ],
+        icon="mdi:shield-lock-outline",
     )
 
     # common components
@@ -78,12 +83,10 @@ class AlarmPage(HAUIPage):
         )
         self.set_function_component(self.BTN_FNC_RIGHT_SEC, self.FNC_BTN_R_SEC, "armed_indicator")
         # register alarm item state listener
-        items = panel.get_items()
+        items = self._build_items_from_panel(panel, "items")
         if items:
             item = items[0]
-            self.add_item_listener(
-                item.get_item_id(), self.callback_alarm_state, "state"
-            )
+            self.add_item_listener(item.get_item_id(), self.callback_alarm_state, "state")
             # initial state render
             self.update_armed_indicator(item)
 

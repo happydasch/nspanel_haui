@@ -27,10 +27,35 @@ class WeatherPage(HAUIPage):
         description="Weather display with time, date and forecast.",
         options=[
             PageOption(
+                key="item",
+                kind="item",
+                domain="weather",
+                description="Weather entity to display conditions, temperature and forecast.",
+                section="Items",
+            ),
+            PageOption(
+                key="info_items",
+                kind="item_list",
+                label="Info Items",
+                description="Additional sensor entities to display as info panels (max 2).",
+                section="Items",
+                max_items=2,
+            ),
+            PageOption(
+                key="entity_buttons",
+                kind="item_list",
+                label="Entity buttons",
+                description="Quick-action buttons below the weather display (max 6).",
+                section="Items",
+                max_items=6,
+            ),
+            PageOption(
                 key="background",
                 kind="select",
                 default="default",
                 label="Background",
+                description="Background image theme for the weather display.",
+                section="Appearance",
                 choices=[
                     ("default", "Default"),
                     ("spring", "Spring"),
@@ -42,39 +67,65 @@ class WeatherPage(HAUIPage):
                     ("cat", "Cat"),
                 ],
             ),
-            PageOption(key="temp_precision", kind="int", default=1, label="Temperature precision"),
             PageOption(
-                key="item",
-                kind="item",
-                domain="weather",
-                label="Weather item",
-            ),
-            PageOption(
-                key="info_item_1", kind="item", label="Info entity 1 (D1)"
-            ),
-            PageOption(
-                key="info_item_2", kind="item", label="Info entity 2 (D2)"
-            ),
-            PageOption(
-                key="entity_buttons", kind="item_list", label="Entity buttons", max_items=6,
-            ),
-            PageOption(key="forecast_precision", kind="int", default=0, label="Forecast precision"),
-            PageOption(key="show_weather", kind="bool", default=True, label="Show weather"),
-            PageOption(key="show_temp", kind="bool", default=True, label="Show temperature"),
-            PageOption(
-                key="show_home_temp", kind="bool", default=False, label="Show home temperature"
-            ),
-            PageOption(
-                key="show_forecast",
+                key="forecast_type",
                 kind="select",
                 default="",
-                label="Show forecast",
+                label="Forecast type",
+                description="Show daily or hourly weather forecast on the bottom row.",
+                section="Appearance",
                 choices=[("", "Off"), ("daily", "Daily"), ("hourly", "Hourly")],
             ),
             PageOption(
-                key="show_notifications", kind="bool", default=True, label="Show notifications"
+                key="show_weather",
+                kind="bool",
+                default=True,
+                label="Show weather",
+                description="Show the main weather icon and condition text.",
+                section="Appearance",
+            ),
+            PageOption(
+                key="show_temp",
+                kind="bool",
+                default=True,
+                label="Show temperature",
+                description="Show the current temperature value.",
+                section="Appearance",
+            ),
+            PageOption(
+                key="show_home_temp",
+                kind="bool",
+                default=False,
+                label="Show home temperature",
+                description="Show internal NSPanel temperature sensor alongside weather data.",
+                section="Appearance",
+            ),
+            PageOption(
+                key="temp_precision",
+                kind="int",
+                default=1,
+                label="Temperature precision",
+                description="Number of decimal places for temperature values (0 = whole number).",
+                section="Precision",
+            ),
+            PageOption(
+                key="forecast_precision",
+                kind="int",
+                default=0,
+                label="Forecast precision",
+                description="Decimal places for forecast temperature values (0 = whole number).",
+                section="Precision",
+            ),
+            PageOption(
+                key="show_notifications",
+                kind="bool",
+                default=True,
+                label="Show notifications",
+                description="Show notification indicator icon on the weather screen.",
+                section="Notifications",
             ),
         ],
+        icon="mdi:weather-partly-cloudy",
     )
 
     # time and date display
@@ -138,7 +189,7 @@ class WeatherPage(HAUIPage):
         self._show_notifications = True
         self._new_notifications = False
         self._previous_forecast = None
-        self._show_forecast = False
+        self._forecast_type = ""
         self._show_weather = True
         self._show_temp = True
         self._show_home_temp = False
@@ -183,17 +234,15 @@ class WeatherPage(HAUIPage):
         if weather_entity_id:
             self._weather_item = HAUIItem(self.app, {"item": weather_entity_id})
             self._temp_unit = self._weather_item.get_item_attr("temperature_unit", "°C")
-            self.add_item_listener(
-                weather_entity_id, self.callback_weather, "temperature"
-            )
+            self.add_item_listener(weather_entity_id, self.callback_weather, "temperature")
             self.add_item_listener(weather_entity_id, self.callback_weather, "pressure")
         else:
             self.app.log("WARNING: No weather entity found in config")
 
-        # Info items (D1/D2) - explicit single entity keys
+        # Info items (D1/D2) - explicit item_list key
         self._info_items.clear()
-        for key in ("info_item_1", "info_item_2"):
-            entity_id = self._extract_entity_id(panel.get(key, None))
+        for entity_id in panel.get("info_items", []):
+            entity_id = self._extract_entity_id(entity_id)
             if entity_id:
                 self._info_items.append(HAUIItem(self.app, {"item": entity_id}))
 
@@ -205,25 +254,21 @@ class WeatherPage(HAUIPage):
                 self._entity_button_items.append(HAUIItem(self.app, {"item": entity_id}))
 
         # setting: temp_precision
-        self._temp_precision = panel.get_int("temp_precision", self._temp_precision)
+        self._temp_precision = int(panel.get("temp_precision", 1))
         # setting: forecast_precision
-        self._forecast_precision = panel.get_int("forecast_precision", self._forecast_precision)
+        self._forecast_precision = int(panel.get("forecast_precision", 0))
         # setting: show_weather
-        if not panel.get("show_weather", True):
-            self._show_weather = False
+        self._show_weather = panel.get("show_weather", True)
         self.set_function_component(self.ICO_MAIN, self.ICO_MAIN[1], visible=self._show_weather)
         # setting: show_temp
-        if not panel.get("show_temp", True):
-            self._show_temp = False
-
+        self._show_temp = panel.get("show_temp", True)
         self.set_function_component(self.TXT_MAIN, self.TXT_MAIN[1], visible=self._show_temp)
         self.set_function_component(self.TXT_SUB, self.TXT_SUB[1], visible=self._show_temp)
         # setting: show_home_temp
-        if panel.get("show_home_temp", False):
-            self._show_home_temp = True
+        self._show_home_temp = panel.get("show_home_temp", False)
         # setting: forecast
-        self._show_forecast = panel.get("show_forecast", False)
-        if not self._show_forecast:
+        self._forecast_type = panel.get("forecast_type", "") or panel.get("show_forecast", "")
+        if not self._forecast_type:
             self.hide_forecast()
         else:
             self.show_forecast()
@@ -347,7 +392,7 @@ class WeatherPage(HAUIPage):
             self.update_info(i, item)
 
     def render_forecast(self) -> None:
-        if not self._show_forecast or self._weather_item is None:
+        if not self._forecast_type or self._weather_item is None:
             return
         weather_id = self._weather_item.get_item_id()
         if not weather_id:
@@ -358,24 +403,24 @@ class WeatherPage(HAUIPage):
             result = self.app.call_service(
                 "weather/get_forecasts",
                 target={"entity_id": weather_id},
-                service_data={"type": self._show_forecast},
+                service_data={"type": self._forecast_type},
             )
             if result is None:
                 self.log(
-                    f"Weather forecast service returned no result for '{self._show_forecast}'",
+                    f"Weather forecast service returned no result for '{self._forecast_type}'",
                     level="WARNING",
                 )
             else:
                 forecast = result["result"]["response"][weather_id]["forecast"]
         except (KeyError, IndexError, TypeError, AttributeError) as exc:
             self.log(
-                f"Weather forecast extract failed for '{self._show_forecast}': {exc}",
+                f"Weather forecast extract failed for '{self._forecast_type}': {exc}",
                 level="WARNING",
             )
             forecast = self._previous_forecast
         except Exception:
             self.log(
-                f"Weather forecast service call failed for '{self._show_forecast}'",
+                f"Weather forecast service call failed for '{self._forecast_type}'",
                 level="WARNING",
                 exc_info=True,
             )
@@ -396,6 +441,7 @@ class WeatherPage(HAUIPage):
 
         # set up main weather details
         name = self.app.device.get_name()
+        name_slug = name.lower().replace("-", "_").replace(" ", "_")
         icon = self._weather_item.get_icon()
         color = self._weather_item.get_color()
         temp_outside_str = self._weather_item.get_item_attr("temperature", "")
@@ -412,11 +458,9 @@ class WeatherPage(HAUIPage):
         )
         msg = ""
         if self._show_home_temp:
-            temp_inside_entity = self.app.get_item(f"sensor.{name}_temperature")
+            temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
             if (temp_inside_state := temp_inside_entity.get_state()) is not None:
-                temp_inside: float | int = round(
-                    float(temp_inside_state), self._temp_precision
-                )
+                temp_inside: float | int = round(float(temp_inside_state), self._temp_precision)
                 if not self._temp_precision:
                     temp_inside = int(temp_inside)
                 msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "

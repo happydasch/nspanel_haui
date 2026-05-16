@@ -16,6 +16,7 @@ class SettingsPage(HAUIPage):
         label="Settings",
         description="Display brightness and system settings.",
         is_system=True,
+        icon="mdi:tune",
     )
 
     # common components

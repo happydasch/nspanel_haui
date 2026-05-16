@@ -13,13 +13,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Stub out homeassistant before importing config_flow so tests run without HA.
 # ---------------------------------------------------------------------------
 
+
 def _make_ha_stubs() -> None:
     """Insert minimal homeassistant stubs into sys.modules."""
 
     class _ConfigFlow:
         """Stub for config_entries.ConfigFlow - accepts domain= keyword."""
+
         def __init_subclass__(cls, domain: str = "", **kwargs: Any) -> None:
             super().__init_subclass__(**kwargs)
+
+        def __init__(self) -> None:
+            self.context: dict[str, Any] = {}
 
         def async_show_form(self, **kwargs: Any) -> dict:
             return {"type": "form", **kwargs}
@@ -34,12 +39,16 @@ def _make_ha_stubs() -> None:
             return {"type": "abort", "reason": reason}
 
         async def async_set_unique_id(self, unique_id: str) -> None:
-            pass
+            self.unique_id = unique_id
 
         def _abort_if_unique_id_configured(self) -> None:
             pass
+
         def _async_current_entries(self) -> list:
             return []
+
+        def _set_confirm_only(self) -> None:
+            self._confirm_only = True
 
     ha = MagicMock()
     ha.config_entries.ConfigFlow = _ConfigFlow
@@ -75,6 +84,7 @@ def _make_ha_stubs() -> None:
 
     class _Store:
         """Minimal Store stub for tests."""
+
         def __init__(self, hass: Any, version: int, key: str) -> None:
             self._hass = hass
             self._version = version
@@ -125,6 +135,7 @@ from nspanel_haui.esphome_helpers import (  # noqa: E402
 # ---------------------------------------------------------------------------
 # _build_config_dict  -  three-layer model (data, options, panels)
 # ---------------------------------------------------------------------------
+
 
 class TestOptionsToConfigDict:
     """Tests for _build_config_dict with the simplified three-layer model.
@@ -190,12 +201,8 @@ class TestOptionsToConfigDict:
             {},
             panels,
         )
-        assert result["devices"][0]["panels"] == [
-            {"type": "grid", "key": "grid_0"}
-        ]
-        assert result["panels"] == [
-            {"type": "grid", "key": "grid_0"}
-        ]
+        assert result["devices"][0]["panels"] == [{"type": "grid", "key": "grid_0"}]
+        assert result["panels"] == [{"type": "grid", "key": "grid_0"}]
 
     def test_panels_store_config_flows_to_device(self):
         """When panels arg carries per-device config, cfg["device"] reflects it."""
@@ -304,7 +311,6 @@ class TestOptionsToConfigDict:
         # other_room doesn't match living_room → device stays default
         assert result["device"]["locale"] == "en_US"
 
-
     def test_build_config_dict_per_device_filtering(self):
         """_build_config_dict with device_name= filters to only that device."""
         data = {
@@ -388,16 +394,19 @@ class TestResolveHaDeviceId:
         dev_reg = MagicMock()
         dev_reg.async_entries_for_config_entry = MagicMock(return_value=[device_entry])
 
-        with patch.object(
-            sys.modules["homeassistant.helpers.device_registry"],
-            "async_get",
-            return_value=dev_reg,
-            create=True,
-        ), patch.object(
-            sys.modules["homeassistant.helpers.device_registry"],
-            "async_entries_for_config_entry",
-            return_value=[device_entry],
-            create=True,
+        with (
+            patch.object(
+                sys.modules["homeassistant.helpers.device_registry"],
+                "async_get",
+                return_value=dev_reg,
+                create=True,
+            ),
+            patch.object(
+                sys.modules["homeassistant.helpers.device_registry"],
+                "async_entries_for_config_entry",
+                return_value=[device_entry],
+                create=True,
+            ),
         ):
             hass = MagicMock()
             esphome_entry = MagicMock()
@@ -597,7 +606,12 @@ class TestFindESPHomeDevice:
     def test_non_dict_entry_skipped(self):
         """Non-dict esphome entries are gracefully skipped."""
         hass = MagicMock()
-        hass.data = {"esphome": {"entry1": ["not", "a", "dict"], "entry2": {"device_info": {"name": "panel-living"}}}}
+        hass.data = {
+            "esphome": {
+                "entry1": ["not", "a", "dict"],
+                "entry2": {"device_info": {"name": "panel-living"}},
+            }
+        }
         result = _find_esphome_device(hass, "panel-living")
         assert result == "entry2"
 
@@ -682,6 +696,75 @@ class TestDiscoverEspHomeDevices:
         result = asyncio.run(discover_esphome_devices(hass))
         assert len(result) == 1
         assert result[0]["esphome_device_id"] == "abc123"
+
+    def test_matches_via_device_registry_offline(self):
+        """Offline device with no runtime_data still matches via device registry.
+
+        The ESPHome integration writes manufacturer/model on the HA device
+        entry. These persist across restarts and let us detect HAUI
+        devices that are not currently online.
+        """
+        from nspanel_haui.esphome_helpers import discover_esphome_devices
+
+        # Build a fake device_registry module exposing
+        # async_get(hass) -> registry, plus async_entries_for_config_entry.
+        dev_reg_mod = types.ModuleType("homeassistant.helpers.device_registry")
+
+        dev_entry = MagicMock()
+        dev_entry.manufacturer = "happydasch"
+        dev_entry.model = "nspanel_haui"
+
+        registry = MagicMock()
+        dev_reg_mod.async_get = MagicMock(return_value=registry)
+        dev_reg_mod.async_entries_for_config_entry = MagicMock(
+            return_value=[dev_entry]
+        )
+        sys.modules["homeassistant.helpers.device_registry"] = dev_reg_mod
+
+        # Offline ESPHome entry: no runtime_data services, no project_name.
+        entry1 = MagicMock()
+        entry1.entry_id = "offline-entry"
+        entry1.title = "Bedroom Panel"
+        entry1.data = {"device_name": "nspanel-bedroom"}
+        # Force runtime_data to look "empty": no device_info, no services.
+        entry1.runtime_data = MagicMock(spec=[])
+
+        hass = MagicMock()
+        hass.config_entries.async_entries = MagicMock(return_value=[entry1])
+        hass.services.async_services = MagicMock(return_value={"esphome": {}})
+
+        result = asyncio.run(discover_esphome_devices(hass))
+        assert len(result) == 1
+        assert result[0]["name"] == "nspanel-bedroom"
+        assert result[0]["esphome_device_id"] == "offline-entry"
+
+    def test_skips_non_haui_via_device_registry(self):
+        """Non-HAUI ESPHome entry (different manufacturer/model) is skipped."""
+        from nspanel_haui.esphome_helpers import discover_esphome_devices
+
+        dev_reg_mod = types.ModuleType("homeassistant.helpers.device_registry")
+        dev_entry = MagicMock()
+        dev_entry.manufacturer = "espressif"
+        dev_entry.model = "esp32dev"
+        registry = MagicMock()
+        dev_reg_mod.async_get = MagicMock(return_value=registry)
+        dev_reg_mod.async_entries_for_config_entry = MagicMock(
+            return_value=[dev_entry]
+        )
+        sys.modules["homeassistant.helpers.device_registry"] = dev_reg_mod
+
+        entry1 = MagicMock()
+        entry1.entry_id = "non-haui"
+        entry1.title = "Some other ESPHome device"
+        entry1.data = {"device_name": "some-other-device"}
+        entry1.runtime_data = MagicMock(spec=[])
+
+        hass = MagicMock()
+        hass.config_entries.async_entries = MagicMock(return_value=[entry1])
+        hass.services.async_services = MagicMock(return_value={"esphome": {}})
+
+        result = asyncio.run(discover_esphome_devices(hass))
+        assert result == []
 
 
 class TestConfigFlowUserStep:
@@ -774,3 +857,72 @@ class TestConfigFlowUserStep:
             assert result["data"]["devices"] == []
 
 
+class TestDiscoveryCard:
+    """Tests for the integration_discovery confirm card flow."""
+
+    def _make_flow(self):
+        flow = NSPanelHAUIConfigFlow()
+        flow.hass = MagicMock()
+        return flow
+
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_integration_discovery_shows_form_when_devices_found(self):
+        """integration_discovery → confirm form, not auto-create."""
+        flow = self._make_flow()
+        discovered = [
+            {"name": "panel-living", "esphome_device_id": "e1"},
+            {"name": "panel-kitchen", "esphome_device_id": "e2"},
+        ]
+        with patch(
+            "nspanel_haui.config_flow._discover_esphome_devices",
+            new=AsyncMock(return_value=discovered),
+        ):
+            result = self._run(flow.async_step_integration_discovery({}))
+        assert result["type"] == "form"
+        assert result["step_id"] == "confirm"
+        assert result["description_placeholders"]["count"] == "2"
+        assert "panel-living" in result["description_placeholders"]["names"]
+
+    def test_integration_discovery_aborts_when_no_devices(self):
+        """integration_discovery aborts with no_devices_found if scan empty."""
+        flow = self._make_flow()
+        with patch(
+            "nspanel_haui.config_flow._discover_esphome_devices",
+            new=AsyncMock(return_value=[]),
+        ):
+            result = self._run(flow.async_step_integration_discovery({}))
+        assert result["type"] == "abort"
+        assert result["reason"] == "no_devices_found"
+
+    def test_integration_discovery_aborts_when_entry_exists(self):
+        """integration_discovery aborts if a hub entry is already present."""
+        flow = self._make_flow()
+        flow._async_current_entries = MagicMock(return_value=[MagicMock()])
+        result = self._run(flow.async_step_integration_discovery({}))
+        assert result["type"] == "abort"
+        assert result["reason"] == "already_configured"
+
+    def test_confirm_creates_entry_on_submit(self):
+        """Submitting the confirm form creates the hub entry with devices."""
+        flow = self._make_flow()
+        flow._discovered_devices = [
+            {"name": "panel-living", "esphome_device_id": "e1"},
+        ]
+        with patch(
+            "nspanel_haui.config_flow._register_discovery",
+            new=AsyncMock(return_value=None),
+            create=True,
+        ):
+            # _register_discovery is imported inside the method via
+            # ``from . import _register_discovery``; patch the package attr.
+            import nspanel_haui as pkg
+
+            pkg._register_discovery = AsyncMock(return_value=None)
+            result = self._run(flow.async_step_confirm({}))
+        assert result["type"] == "create_entry"
+        assert result["title"] == "NSPanel HAUI Hub"
+        assert len(result["data"]["devices"]) == 1
+        assert result["data"]["devices"][0]["name"] == "panel-living"
+        assert result["data"]["devices"][0]["esphome_device_id"] == "e1"

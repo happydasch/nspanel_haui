@@ -372,4 +372,3 @@ class HAUIUpdateController(HAUIBase):
         if event.name == ESPResponse.RES_DEVICE_STATE:
             device_state = json.loads(event.value)
             self.app.device.set_device_info(device_state, append=True)
-

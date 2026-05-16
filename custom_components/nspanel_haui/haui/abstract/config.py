@@ -11,7 +11,6 @@ from ..config_models import validate_config
 from ..mapping.const import DEFAULT_CONFIG
 from ..utils.value import merge_dicts
 from .base import HAUIBase
-from .item import HAUIItem
 from .panel import HAUIPanel
 
 
@@ -75,31 +74,6 @@ class HAUIConfig(HAUIBase):
             )
             return nav_panels
         return self._panels
-
-    def get_items(self) -> list[HAUIItem]:
-        """Returns all items as HAUIItem objects.
-
-        Returns:
-            list: List with items
-        """
-        items = []
-        for panel in self._panels:
-            items.extend(panel.get_items())
-        return items
-
-    def get_item(self, item_id: str) -> HAUIItem | None:
-        """Returns a single item.
-
-        Args:
-            item_id (str): Item id
-
-        Returns:
-            HAUIItem | None: Item or None
-        """
-        for item in self.get_items():
-            if item.get_item_id() == item_id:
-                return item
-        return None
 
     def get_panel(self, panel_id: UUID | str) -> HAUIPanel | None:
         """Returns a single panel by id (UUID) or key (str).

@@ -1,15 +1,13 @@
 
 # NSPanel HAUI (HomeAssistant UI)
 
-`nspanel_haui` is a versatile display system for HomeAssistant based smart homes.
-
-![Panel](docs/assets/home_panel.png)
+`nspanel_haui` is a home assistant custom integration for Sonoff NSPanel devices. The integration provides multiple configurable panels and a simple editor.
 
 - [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
   - [About](#about)
   - [Features](#features)
     - [Easy Installation](#easy-installation)
-    - [Device display configuration in a single yaml file](#device-display-configuration-in-a-single-yaml-file)
+    - [Device configuration in home assistant](#device-configuration-in-home-assistant)
     - [A variety of different panels](#a-variety-of-different-panels)
     - [Touch gestures and sequences](#touch-gestures-and-sequences)
     - [Live state updates](#live-state-updates)
@@ -26,9 +24,9 @@
 
 ## About
 
-NSPanel HAUI was started as a replacement for the original Sonoff Firmware. It provides a flexible way to configure the display and to control devices connected to home assistant.
+NSPanel HAUI was started as a replacement for the original Sonoff Firmware. Initially it used an AppDaemon app but with version 0.3.0 the integration now has direct communication through esphome and runs within home assistant.
 
-It focuses on HomeAssistant and ESPHome. It does not use any custom protocol to communicate with the nextion display. Instead the display is completely controlled through the Hub app written in python.
+To install NSPanel HAUI you only need to install the firmware and the custom integration.
 
 For details about the configuration see [Configuration](docs/Config.md). Also take a look at [Panels](docs/panels/README.md) to get an overview of available panels.
 
@@ -38,61 +36,61 @@ For details about the configuration see [Configuration](docs/Config.md). Also ta
 
 The nspanel_haui will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the Hub app.
 
-### Device display configuration in a single yaml file
+### Device configuration in home assistant
+
+A editor is available in home assistant to configure your devices.
 
 ![Config](docs/assets/feature_config.png)
 
-The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
-
 ### A variety of different panels
 
-  ![Panels 1](docs/assets/feature_panels_1.png)
+Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
 
-  ![Panels 2](docs/assets/feature_panels_2.png)
+![Panels 1](docs/assets/feature_panels_1.png)
 
-  Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
+![Panels 2](docs/assets/feature_panels_2.png)
 
 ### Touch gestures and sequences
 
-  ![Touch](docs/assets/feature_touch.png)
+Different touch gestures as swipe left or right are supported. There is also support for gesture sequences.
 
-  Different touch gestures as swipe left or right are supported. There is also support for gesture sequences.
+![Touch](docs/assets/feature_touch.png)
 
 ### Live state updates
 
-  ![Touch](docs/assets/feature_live_update.png)
+The display will update when a entity state changes. All entities being displayed will notify about changes and the display will update.
 
-  The display will update when a entity state changes. All entities being displayed will notify about changes and the display will update.
+![Live Update](docs/assets/feature_live_update.png)
 
 ### Button and relay states, coupled and uncoupled relays
 
-  ![Buttons](docs/assets/feature_buttons.png)
+The buttons can be used in a couped state, so that by button presses, the relay will get activated. It is also possible to disable the relay and use the physical buttons as software buttonms.
 
-  The buttons can be used in a couped state, so that by button presses, the relay will get activated. It is also possible to disable the relay and use the physical buttons as software buttonms.
+![Buttons](docs/assets/feature_buttons.png)
 
 ### Dimming of the display after a timeout
 
-  ![Dimming](docs/assets/feature_dimming.png)
-
   The display will automatically dim its brightness after a timeout.
+
+  ![Dimming](docs/assets/feature_dimming.png)
 
 ### Sleep display change after a timeout
 
-  ![Sleep](docs/assets/feature_sleep.png)
-
   The display can switch to a page after a timeout. There are sleep and wakeup panels possible.
+
+  ![Sleep](docs/assets/feature_sleep.png)
 
 ### Locking/Unlocking mechanism for panels
 
-  ![Unlock](docs/assets/feature_unlock.png)
-
   All panels can be locked by a pin code. The panel can be accessed after entering the pin code.
+
+  ![Unlock](docs/assets/feature_unlock.png)
 
 ### Device settings in HomeAssistant
 
-  ![Config](docs/assets/feature_settings.png)
-
   The whole device configuration can be done in HomeAssistant.
+
+  ![Config](docs/assets/feature_settings.png)
 
 ## Installation
 

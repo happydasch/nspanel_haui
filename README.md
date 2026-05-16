@@ -38,9 +38,8 @@ NSPanel HAUI will load most parts of the required files automatically. Only the 
 
 Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
 
-![Panels 1](docs/assets/feature_panels_1.png)
+![Panels 1](docs/assets/feature_panels.png)
 
-![Panels 2](docs/assets/feature_panels_2.png)
 
 ### A variaty of features
 

@@ -1,0 +1,111 @@
+---
+script:
+
+  - id: set_hub_connected
+    parameters:
+      connected: int
+    then:
+      - lambda: |-
+          ESP_LOGV("haui", "Script: set_hub_connected: %i", connected);
+          bool hub_connection_state = bool(connected);
+          auto haui_status_str = hub_connection_state ? "online" : "offline";
+          id(hub_connection) = hub_connection_state;
+          // On connect: anchor hub_heartbeat to millis()/1000 so
+          // check_hub_connection can detect a silent hub (no heartbeats arriving)
+          // instead of staying "connected" forever.
+          // On disconnect: reset to 0 to prevent stale heartbeat timestamps.
+          id(hub_heartbeat) = hub_connection_state ? (millis() / 1000) : 0;
+          if (hub_connection_state) {
+            // notify display that connection is established
+            id(haui_disp).send_command("system.firstRun.txt=\"0\"");
+          } else {
+            // On disconnect: navigate to system page (page 1) unless already there
+            if (int(id(page).state) != 1) {
+              id(display_wakeup).execute();
+              id(goto_page).execute("1");  // system
+            }
+          }
+          if (id(client_status).state != haui_status_str) {
+            id(client_status).publish_state(haui_status_str);
+            id(update_last_interaction).execute(-1, 0);
+          }
+
+  # Script to check the hub connection
+  - id: check_hub_connection
+    then:
+      - lambda: |-
+          ESP_LOGVV("haui", "Script: check_hub_connection");
+          bool hub_available = id(hub_availability);
+          bool hub_connected = id(hub_connection);
+          uint32_t time_now = millis() / 1000;
+          uint32_t time_max = id(hub_heartbeat);
+          int overdue_factor = 2;
+          time_max = time_max > 0 ? time_max : time_now;
+          time_max += $heartbeat_interval * overdue_factor;
+          // check if hub connection state changed
+          if (hub_connected) {
+            if (time_now > time_max) {
+              // check for a disconnection while connected
+              ESP_LOGD(
+                "haui", "Connection with Hub timed out %i %i %i",
+                time_now, time_max, $heartbeat_interval * overdue_factor);
+              id(set_hub_connected).execute(false);
+            } else if (!hub_available) {
+              // check for hub app being not available
+              ESP_LOGD("haui", "Connection with Hub but Hub not available");
+              id(set_hub_connected).execute(false);
+            }
+          }
+
+  # Script to check the connection
+  - id: check_connection
+    then:
+      - lambda: |-
+          ESP_LOGVV("haui", "Script: check_connection");
+          // Static variables across script invocations:
+          // - connecting: true while waiting for handshake response (10s cooldown)
+          // - connecting_time: epoch of last connection request sent
+          // - prev_connected: previous state for change detection
+          static bool connecting = false;
+          static uint32_t connecting_time = 0;
+          uint32_t time_now = millis() / 1000;
+          int timeout_seconds = 10;
+
+          static bool prev_connected = false;
+          bool api_connected = global_api_server->is_connected();
+          bool haui_initialized = id(haui_init);
+          bool hub_available = id(hub_availability);
+          bool hub_connected = id(hub_connection);
+
+          // request connection if not connected
+          if (connecting and connecting_time + timeout_seconds < time_now) {
+            connecting = false;
+            connecting_time = 0;
+          }
+          if (!hub_connected and haui_initialized and hub_available) {
+            if (!connecting) {
+              ESP_LOGD("haui", "Not connected, sending connection request");
+              id(publish_connection_request).execute();
+              connecting_time = time_now;
+              connecting = true;
+            }
+          }
+
+          // all conditions must be met for state connected
+          // display initialized, conected with api, connected with hub
+          // until then the state is not connected
+          bool connected = haui_initialized and api_connected and hub_available and hub_connected;
+
+          // check if connection state changed
+          if (connected != prev_connected) {
+            ESP_LOGI("haui", "Connection state changed %i", connected);
+            id(publish_event_native).execute("esphome.connected", "");
+            if (connected) {
+              // Connection established - reset retry state so that a
+              // fast disconnect does not leave the connecting flag set
+              // and block the next reconnection attempt for up to 10 s.
+              connecting = false;
+              connecting_time = 0;
+            }
+          }
+          prev_connected = connected;

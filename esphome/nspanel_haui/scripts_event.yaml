@@ -1,0 +1,137 @@
+---
+# Script Configuration
+script:
+
+  # Script to publish an event via ESPHome native API
+  # The name parameter MUST already include the "esphome." prefix
+  - id: publish_event_native
+    parameters:
+      name: string
+      value: string
+    then:
+      - homeassistant.event:
+          event: esphome.nspanel_event
+          data:
+            name: !lambda 'return name;'
+            value: !lambda 'return value;'
+
+  # Script to publish a heartbeat event to the hub
+  - id: publish_heartbeat
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_heartbeat");
+          id(publish_event_native).execute("esphome.heartbeat", "");
+
+  # Script to publish a connection response
+  - id: publish_connection_request
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_connection_request");
+          auto name = App.get_name();
+          auto friendly_name = App.get_friendly_name();
+          auto ip =  id(ip_address).state;
+          auto yaml_version = "$yaml_version";
+          const json::json_build_t payload = [
+              yaml_version, name, friendly_name, ip
+          ](JsonObject root) {
+            root["yaml_version"] = yaml_version;
+            root["name"] = name;
+            root["friendly_name"] = friendly_name;
+            root["ip"] = ip;
+          };
+          std::string payload_str = build_json(payload);
+          id(publish_event_native).execute("esphome.req_connection", payload_str);
+
+
+  # Script to publish HAUI discovery metadata (identity, version, IP)
+  - id: publish_haui_discover
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_haui_discover");
+          auto name = App.get_name();
+          auto friendly_name = App.get_friendly_name();
+          auto ip = id(ip_address).state;
+          auto yaml_version = "$yaml_version";
+          auto device_version = std::string(ESPHOME_VERSION);
+          const json::json_build_t payload = [
+              name, friendly_name, ip, yaml_version, device_version
+          ](JsonObject root) {
+            root["name"] = name;
+            root["friendly_name"] = friendly_name;
+            root["ip"] = ip;
+            root["yaml_version"] = yaml_version;
+            root["device_version"] = device_version;
+          };
+          std::string payload_str = build_json(payload);
+          id(publish_event_native).execute("esphome.haui_discover", payload_str);
+  # Script to publish a connection response
+  - id: publish_connection_response
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_connection_response");
+          auto heartbeat_interval_str = "$heartbeat_interval";
+          const json::json_build_t payload = [heartbeat_interval_str](JsonObject root) {
+            root["heartbeat_interval"] = heartbeat_interval_str;
+          };
+          std::string payload_str = build_json(payload);
+          id(publish_event_native).execute("esphome.res_connection", payload_str);
+
+  # Script to publish device details
+  - id: publish_device_info
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_device_info");
+          auto device_version = std::string(ESPHOME_VERSION);
+          auto yaml_version = "$yaml_version";
+          const json::json_build_t payload = [
+              device_version, yaml_version
+          ](JsonObject root) {
+            root["device_version"] = device_version;
+            root["yaml_version"] = yaml_version;
+          };
+          std::string payload_str = build_json(payload);
+          id(publish_event_native).execute("esphome.res_device_info", payload_str);
+
+  # Script to publish device state
+  - id: publish_device_state
+    then:
+      - lambda: |-
+          ESP_LOGD("haui", "Script: publish_device_state");
+          int page_val = int(id(page).state);
+          // Guard: template sensor may be uninitialized (NaN);
+          // use 0 to avoid UB from float-to-int conversion of NaN.
+          float brightness_raw = id(brightness).state;
+          int brightness_val = isnan(brightness_raw) ? 0 : int(brightness_raw);
+          int button_left_val = id(button_left).state;
+          int button_right_val = id(button_right).state;
+          int relay_left_val = id(relay_left).state;
+          int relay_right_val = id(relay_right).state;
+          int use_relay_left_val = id(use_relay_left).state ? 1: 0;
+          int use_relay_right_val = id(use_relay_right).state ? 1: 0;
+          // Send display_state as string ("on"/"dim"/"off") so it matches
+          // the esphome.display_state event payload.  device.py compares
+          // against "on" - int 0/1/2 silently breaks that check.
+          int display_state_int = int(id(haui_display_state));
+          std::string display_state_val = display_state_int == 2 ? "on"
+              : display_state_int == 1 ? "dim" : "off";
+          auto tft_version_str = id(tft_version).state;
+          auto yaml_version = "$yaml_version";
+          const json::json_build_t payload = [
+              page_val, brightness_val, button_left_val, button_right_val,
+              relay_left_val, relay_right_val, use_relay_left_val, use_relay_right_val,
+              display_state_val, yaml_version, tft_version_str
+          ](JsonObject root) {
+            root["page"] = page_val;
+            root["brightness"] = brightness_val;
+            root["button_left"] = button_left_val;
+            root["button_right"] = button_right_val;
+            root["relay_left"] = relay_left_val;
+            root["relay_right"] = relay_right_val;
+            root["use_relay_left"] = use_relay_left_val;
+            root["use_relay_right"] = use_relay_right_val;
+            root["display_state"] = display_state_val;
+            root["yaml_version"] = yaml_version;
+            root["tft_version"] = tft_version_str;
+          };
+          std::string payload_str = build_json(payload);
+          id(publish_event_native).execute("esphome.res_device_state", payload_str);

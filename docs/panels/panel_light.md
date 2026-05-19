@@ -28,7 +28,7 @@ The functions available depend on the light entity being used. Only buttons for 
 panels:
   - type: light
     entity: light.example_light
-    show_kelvin: true  # true = Kelvin (default), false = Mireds for color temperature display
+    show_kelvin: false  # false = Mireds (default), true = Kelvin for color temperature display
 ```
 
 ## Screens

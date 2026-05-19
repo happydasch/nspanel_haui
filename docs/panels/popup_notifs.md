@@ -22,7 +22,7 @@ Notifications are kept in the queue until explicitly dismissed by the user. The 
 
 ## Sending notifications
 
-Notifications are sent from an ESPHome script or from Python/AppDaemon.
+Notifications are sent from an ESPHome script or from Python/Hub.
 
 **ESPHome script:**
 
@@ -31,12 +31,12 @@ Notifications are sent from an ESPHome script or from Python/AppDaemon.
   data:
     title: "Alert"
     message: "Motion detected in hallway"
-    icon: "mdi:motion-sensor"   # optional — pass empty string "" to omit
+    icon: "mdi:motion-sensor"   # optional - pass empty string "" to omit
     timeout: 0                  # seconds before auto-dismiss; 0 = no timeout
     persistent: false           # true = sound loops until dismissed (see below)
 ```
 
-**Python / AppDaemon:**
+**Python / Hub:**
 
 ```python
 # via device shorthand
@@ -68,7 +68,7 @@ When `persistent: true` the notification sound loops at a regular interval until
 - Sound repeats every `persistent_sound_interval` seconds (default `5`).
 - Sound stops as soon as the notification is dismissed or all persistent notifications are cleared.
 
-Persistent notifications are intended for alerts that require user attention — for example alarms, door sensors, or smoke detectors.
+Persistent notifications are intended for alerts that require user attention - for example alarms, door sensors, or smoke detectors.
 
 ## Device config
 

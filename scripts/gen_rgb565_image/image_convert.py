@@ -1,6 +1,6 @@
 import struct
-from PIL import Image
 
+from PIL import Image
 
 # Open the image
 image = Image.open("image.png")

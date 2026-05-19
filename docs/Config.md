@@ -8,7 +8,6 @@
   - [Device Configuration](#device-configuration)
   - [Navigation Configuration](#navigation-configuration)
   - [Notification Configuration](#notification-configuration)
-  - [MQTT Controller](#mqtt-controller)
   - [Update Controller](#update-controller)
   - [Connection Controller](#connection-controller)
   - [Gesture Controller](#gesture-controller)
@@ -20,19 +19,20 @@
     - [Using a Panel as a Sleep Panel](#using-a-panel-as-a-sleep-panel)
     - [Using Panel as a Wakeup Panel](#using-panel-as-a-wakeup-panel)
     - [Locking a Panel with a Code](#locking-a-panel-with-a-code)
-  - [Entities](#entities)
-    - [Entity State](#entity-state)
-    - [Entity Name](#entity-name)
-    - [Entity Value](#entity-value)
-    - [Entity Icon](#entity-icon)
+  - [Items](#items)
+    - [How items relate to HA entities](#how-items-relate-to-ha-entities)
+    - [Item State](#item-state)
+    - [Item Name](#item-name)
+    - [Item Value](#item-value)
+    - [Item Icon](#item-icon)
       - [Templating using HomeAssistant](#templating-using-homeassistant)
       - [Icon value type](#icon-value-type)
-    - [Entity Color](#entity-color)
-    - [Internal Entities](#internal-entities)
-      - [Entity: skip](#entity-skip)
-      - [Entity: text](#entity-text)
-      - [Entity: navigate](#entity-navigate)
-      - [Entity: action](#entity-action)
+    - [Item Color](#item-color)
+    - [Internal Items](#internal-items)
+      - [Item: skip](#item-skip)
+      - [Item: text](#item-text)
+      - [Item: navigate](#item-navigate)
+      - [Item: action](#item-action)
     - [Override a default popup](#override-a-default-popup)
 
 ## Example Configuration
@@ -43,9 +43,9 @@ To get an idea of the configuration, take also a look into [example configuratio
 
 For time and date formats see:
 
-Babel Documentation [https://babel.pocoo.org/en/latest/dates.html#date-fields](https://babel.pocoo.org/en/latest/dates.html#date-fields)
+CLDR Locale Data (see `haui/utils/locale_data.py` for supported format keys)
 
-Python Documenation [https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
+Python Documentation [https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)
 
 - `time_format` string
 
@@ -55,14 +55,15 @@ Python Documenation [https://docs.python.org/3/library/datetime.html#strftime-an
 
   Date format
 
-- `date_format_babel` string
+- `date_format_locale` string
 
-  Babel date format
+  CLDR locale format key (e.g. `full`, `long`, `medium`, `short`).
+  Deprecated alias: `date_format_babel` (still supported for backward compatibility).
 
 ```yaml
 time_format: "%H:%M"
 date_format: "%A, %d. %B %Y"
-date_format_babel: "full"
+date_format_locale: "full"
 ```
 
 ## Device Configuration
@@ -77,13 +78,55 @@ date_format_babel: "full"
 
   The locale of the device
 
+- `panels` list
+
+  Per-device panel list.  Each panel is at minimum ``{\"type\": \"<type_key>\"}``.
+  Default ``[{\"type\": \"clock\"}]``.
+
+- `esphome_device_id` string
+
+  The ESPHome device ID this config entry is linked to.  Set automatically
+  during discovery.  Default empty.
+
+- `enabled` bool
+
+  Whether the device is active at runtime.  Disabled devices are skipped
+  without deleting their config.  Default ``True``.
+
+- `home_panel` string
+
+  Panel key of the home panel.  Empty means no home panel set.
+
+- `sleep_panel` string
+
+  Panel key of the panel shown when the display goes to sleep.  Empty means
+  no sleep panel is set.
+
+- `wakeup_panel` string
+
+  Panel key of the panel shown when the display wakes up.  Empty means no
+  wakeup panel is set.
+
+- `show_notifications_button` bool
+
+  Whether the notifications button is visible on supported panels.
+  Default ``True``.
+
 - `button_left_entity` string
 
-  The entity to use for button left. Default None.
+  The entity (entity ID) for the left hardware button. Default empty.
 
 - `button_right_entity` string
 
-  The entity to use for button right. Default None.
+  The entity (entity ID) for the right hardware button. Default empty.
+
+- `use_relay_left` bool
+
+  Whether the left hardware button should toggle the internal relay. Default True.
+
+- `use_relay_right` bool
+
+  Whether the right hardware button should toggle the internal relay. Default True.
 
 - `show_home_button` bool
 
@@ -93,9 +136,9 @@ date_format_babel: "full"
 
   Should the panels show a sleep button when on home panel. Default False.
 
-- `log_commands` bool
+- `log_items` bool
 
-  Should commands be logged. Default False.
+  Should display items/commands be logged. Default False.
 
 - `home_on_wakeup` bool
 
@@ -126,26 +169,42 @@ date_format_babel: "full"
 
   Should a sound be played when the display receives a non-persistent notification. Default True.
 
-- `persistent_sound_interval` int
+- `return_to_home_after_seconds` int
 
-  Seconds between repeated sound plays for persistent notifications. Default `5`.
+  Number of seconds of inactivity on the home panel before auto-navigating
+  back to the home panel.  Default ``0`` (disabled).
+
+- `debug_level` int
+
+  Debug verbosity level (0-3). Higher values produce more log output. Default ``0``.
 
 ```yaml
 device:
-  name: null
+  name: ""
   locale: "en_US"
-  button_left_entity: null
-  button_right_entity: null
+  panels: [{"type": "clock"}]
+  esphome_device_id: ""
+  enabled: true
+  button_left_entity: ""
+  button_right_entity: ""
+  home_panel: ""
+  sleep_panel: ""
+  wakeup_panel: ""
   show_home_button: false
-  log_commands: false
+  show_sleep_button: false
+  show_notifications_button: true
+  log_items: false
+  debug_level: 0
   home_on_wakeup: false
   home_on_first_touch: true
   home_only_when_on: false
   home_on_button_toggle: false
+  return_to_home_after_seconds: 0
   always_return_to_home: false
+  use_relay_left: true
+  use_relay_right: true
   sound_on_startup: true
   sound_on_notification: true
-  persistent_sound_interval: 5
 ```
 
 ## Navigation Configuration
@@ -165,17 +224,6 @@ navigation:
 notification: {}
 ```
 
-## MQTT Controller
-
-`mqtt` dict
-
-```yaml
-mqtt:
-  topic_prefix: nspanel_haui/nspanel_haui
-```
-
-- `topic_prefix`
-
 ## Update Controller
 
 The update controller is responsible for checking version informations and notify about any issues.
@@ -191,13 +239,13 @@ update:
   tft_filename: nspanel_haui.tft  # The asset filename to load
   check_on_connect: false  # Should be checked for updates when connected
   on_connect_delay: 60  # Delay between connect and check
-  interval: 0  # Set to 86400 for daily checks
+  update_interval: 0  # Set to 86400 for daily checks
 ```
 
 - `auto_install` bool
 - `auto_update` bool
 - `tft_filename` string
-- `interval` int
+- `update_interval` int
 - `check_on_connect` bool
 - `on_connect_delay` int
 
@@ -207,11 +255,11 @@ update:
 
 ```yaml
 connection:
-  interval: null
+  heartbeat_interval: null
   overdue_factor: 2.0
 ```
 
-- `interval` int
+- `heartbeat_interval` int
 - `overdue_factor` float
 
 ## Gesture Controller
@@ -251,9 +299,9 @@ sleep_panel: false
 wakeup_panel: false
 # show home button (Default: device config value `show_home_button`)
 show_home_button: null
-# single entity
+# single item (maps to a HA entity or internal keyword)
 entity: None
-# multiple entities
+# multiple items (list of entity entries)
 entities: []
 # unlock code for panel
 unlock_code: null
@@ -349,26 +397,50 @@ unlock_code: "1234"
 
 Panels can be locked with a code. If a unlock_code is set, the panel will be only accessible after entering the unlock code.
 
-## Entities
+## Items
 
-`HAUIConfigEntity` is used internally to provide access to the entity from the config.
+An **item** is the basic building block that a panel displays or acts on.  Each item is
+represented at runtime by the ``HAUIItem`` class.  An item can be one of two kinds:
 
-Basic values:
+- **External item** - wraps a real Home Assistant entity (e.g. ``light.kitchen``).
+  Internally delegates to ``HAUIEntity`` for entity state, attributes, and services.
+- **Internal item** - does *not* correspond to any HA entity.  Recognised keywords are
+  ``skip``, ``text``, ``navigate``, and ``action``.
 
-- `entity` the entity id (ex. sensor.temperature)
-- `name` name override, a default entity name will be used if not set
-- `value` value override, a default entity value will be used if not set
-- `icon` icon override, a default entity icon will be used if not set
-- `color` color override, a default entity color will be used if not set
-- `state` state override, by default state will be used
+### How items relate to HA entities
 
-the name, value, icon and color can also contain homeassistant template code. These values can contain `mdi:` icons which will be replaced by its unicode representations.
+``HAUIItem`` (in ``abstract/item.py``) is the class you interact with in page code.
+It extends ``HAUIBase``, so it has config access, template rendering, and logging.
+For external items it holds a reference to an ``HAUIEntity`` instance.
 
-### Entity State
+``HAUIEntity`` (in ``abstract/entity.py``) is a **lightweight, internal bridge**.
+It does *not* extend ``HAUIBase`` - it only wraps an entity ID and provides
+synchronous access to state, attributes, and service calls through the ``HAAdapter`` bridge.
+You never create an ``HAUIEntity`` directly in config; you create an ``HAUIItem``
+that uses one internally.
 
-`haui_entity.get_state()`
+In your YAML config each item entry uses the ``entity`` key for the entity ID
+(or an internal keyword), plus optional override keys:
 
-The state of the entity. By default, the state will be used. It is possible to override the state value by defining a state in config. If a string is set, the entity attribute with that name will be used. If a list is provided, the list values are being used as keys to get the state value from attributes.
+- ``entity`` - the HA entity id (e.g. ``sensor.temperature``) or internal keyword
+- ``name`` - name override; defaults to the entity's friendly name
+- ``value`` - value override; defaults to the entity's state or derived value
+- ``icon`` - icon override; defaults to the entity's icon
+- ``color`` - color override; defaults to a type-based color
+- ``state`` - state override; by default the entity's ``state`` is used
+
+name, value, icon and color can also contain Home Assistant template code.
+These values may contain ``mdi:`` icons which will be replaced by their
+unicode representations.
+
+### Item State
+
+``haui_item.get_item_state()``
+
+The state of the item. By default, the entity state is used. It is possible to
+override the state by defining a ``state`` in config. If a string is set, the
+entity attribute with that name will be used. If a list is provided, the list
+values are used as keys to get the state value from attributes.
 
 ```yaml
 # use attribute forecast condition as state of a weather entity
@@ -380,21 +452,24 @@ The state of the entity. By default, the state will be used. It is possible to o
     state: "temperature"
 ```
 
-### Entity Name
+### Item Name
 
-`haui_entity.get_name()`
+``haui_item.get_name()``
 
-The name of the entity. The name to be returned can be configured in different ways. By default it will return a value based on the entity. Either name or friendly name will be returned.
+The name of the item. The name to be returned can be configured in different ways.
+By default it will return a value based on the entity - either ``name`` or
+``friendly_name`` will be returned.
 
 If a string is provided, this will be used as the name.
 
-If a dict is provided and the entity state matches the dict key, then this name will be returned.
+If a dict is provided and the entity state matches the dict key, then this name
+will be returned.
 
 Accepts:
 
-- `dict`:
+- ``dict``:
 
-  state: value assignment based on current entity state
+  state → name mapping based on current entity state
 
   ```yaml
   - entity: switch.example_entity
@@ -403,7 +478,7 @@ Accepts:
       off: "name y"
   ```
 
-- `str`:
+- ``str``:
 
   name to use
 
@@ -411,23 +486,25 @@ Accepts:
   name: Name
   ```
 
-### Entity Value
+### Item Value
 
-`haui_entity.get_value()`
+``haui_item.get_value()``
 
-The entity value to display. The value to be returned can be configured in different ways. By default it will return a value based on entity state and type.
+The value to display for the item. The value to be returned can be configured in
+different ways. By default it will return a value based on entity state and type.
 
-It is possible to override the value in the config of the entity.
+It is possible to override the value in the config of the item.
 
 If a string is provided, this will be used as a value.
 
-If a dict is provided and the entity state matches the dict key, then this value will be returned.
+If a dict is provided and the entity state matches the dict key, then this value
+will be returned.
 
 Accepts:
 
-- `dict`:
+- ``dict``:
 
-  state: value assignment based on current entity state
+  state → value mapping based on current entity state
 
   ```yaml
   value:
@@ -435,7 +512,7 @@ Accepts:
     off: value y
   ```
 
-- `str`:
+- ``str``:
 
   value to use
 
@@ -443,23 +520,23 @@ Accepts:
   value: Text
   ```
 
-### Entity Icon
+### Item Icon
 
 [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)
 
-`haui_entity.get_icon()`
+``haui_item.get_icon()``
 
 #### Templating using HomeAssistant
 
-name, value, icon and color can also be templated. The value needs to start with `template:`
+name, value, icon and color can also be templated. The value needs to start with ``template:``
 
-- `template:` home assistant template
+- ``template:`` home assistant template
 
 #### Icon value type
 
-- `dict`:
+- ``dict``:
 
-  state: icon assignment based on current entity state
+  state → icon mapping based on current entity state
 
   ```yaml
   icon:
@@ -467,7 +544,7 @@ name, value, icon and color can also be templated. The value needs to start with
     off: "icon_name_y"
   ```
 
-- `str`:
+- ``str``:
 
   icon to use
 
@@ -475,15 +552,15 @@ name, value, icon and color can also be templated. The value needs to start with
   icon: "icon_name"
   ```
 
-### Entity Color
+### Item Color
 
-`haui_entity.get_color()`
+``haui_item.get_color()``
 
-- `dict`:
+- ``dict``:
 
-  state: color assignment based on current entity state
+  state → color mapping based on current entity state
 
-  **Note:** Use quotes for on and off to not prevent yaml to be interpreted as boolean.
+  **Note:** Use quotes for ``on`` and ``off`` to prevent YAML interpreting them as booleans.
 
   ```yaml
   color:
@@ -491,26 +568,27 @@ name, value, icon and color can also be templated. The value needs to start with
     "off": "6339"
   ```
 
-- `list`, `tuple`:
+- ``list``, ``tuple``:
 
-  color to use as list with rgb values
+  color to use as list with RGB values
 
   ```yaml
   color: [255, 255, 255]
   ```
 
-- `str`, `int`:
+- ``str``, ``int``:
 
-  color to use as rgb565 number
+  color to use as RGB565 number
 
   ```yaml
   color: "6339"
   color: 6339
   ```
 
-### Internal Entities
+### Internal Items
 
-Internal entities begin with a keyword followed by `:` or just the keyword.
+Internal items begin with a keyword followed by ``:`` or just the keyword.
+These items do **not** wrap an ``HAUIEntity`` - ``HAUIItem`` handles them directly.
 
 ```yaml
   - entity: skip
@@ -519,11 +597,11 @@ Internal entities begin with a keyword followed by `:` or just the keyword.
   - entity: navigate:key
 ```
 
-#### Entity: skip
+#### Item: skip
 
-- `skip`
+- ``skip``
 
-  The entity should be skipped. This is the same as `entity: null`
+  The item should be skipped. This is the same as ``entity: null``.
 
   ```yaml
   - entity: "skip"
@@ -532,34 +610,34 @@ Internal entities begin with a keyword followed by `:` or just the keyword.
   - entity: null
   ```
 
-#### Entity: text
+#### Item: text
 
-- `text`
+- ``text``
 
-  Use the text instead of an entity, the text is available as the entity value
-  `text:Text to use`
+  Use the text instead of an entity. The text is available as the item value.
+  ``text:Text to use``
 
   ```yaml
   - entity: "text:Text to use"
   ```
 
-#### Entity: navigate
+#### Item: navigate
 
-- `navigate`
+- ``navigate``
 
-  Navigate to the panel with the key `navigate:key`
+  Navigate to the panel with the key ``navigate:key``
 
   ```yaml
   - entity: "navigate:key"
   ```
 
-#### Entity: action
+#### Item: action
 
-- `action`
+- ``action``
 
-  Action to execute
+  Action to execute.
 
-  Pass parameters using `action_data`
+  Pass parameters using ``action_data``
 
   ```yaml
   - entity: "action:action_to_call"
@@ -569,11 +647,11 @@ Internal entities begin with a keyword followed by `:` or just the keyword.
 
 ### Override a default popup
 
-`popup_key` string
+``popup_key`` string
 
 ```yaml
 popup_key: popup_media_player
 ```
 
 A different than the default popup can be opened when executing by
-setting `popup_key` to the panel key to open.
+setting ``popup_key`` to the panel key to open.

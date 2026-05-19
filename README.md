@@ -1,96 +1,64 @@
 
 # NSPanel HAUI (HomeAssistant UI)
 
-`nspanel_haui` is a versatile display system for HomeAssistant based smart homes.
+NSPanel HAUI is a home-assistant custom integration for Sonoff NSPanel devices. The integration provides multiple configurable panels and a simple editor.
 
-![Panel](docs/assets/home_panel.png)
-
-- [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
-  - [About](#about)
-  - [Features](#features)
-    - [Easy Installation](#easy-installation)
-    - [Device display configuration in a single yaml file](#device-display-configuration-in-a-single-yaml-file)
-    - [A variety of different panels](#a-variety-of-different-panels)
-    - [Touch gestures and sequences](#touch-gestures-and-sequences)
-    - [Live state updates](#live-state-updates)
-    - [Button and relay states, coupled and uncoupled relays](#button-and-relay-states-coupled-and-uncoupled-relays)
-    - [Dimming of the display after a timeout](#dimming-of-the-display-after-a-timeout)
-    - [Sleep display change after a timeout](#sleep-display-change-after-a-timeout)
-    - [Locking/Unlocking mechanism for panels](#lockingunlocking-mechanism-for-panels)
-    - [Device settings in HomeAssistant](#device-settings-in-homeassistant)
-  - [Installation](#installation)
-  - [Next Steps](#next-steps)
-  - [Development](#development)
-  - [Roadmap](#roadmap)
-  - [Resources](#resources)
-
-## About
-
-NSPanel HAUI was started as a replacement for the original Sonoff Firmware. It provides a flexible way to configure the display and to control devices connected to home assistant.
-
-It focuses on HomeAssistant and ESPHome. It does not use any custom protocol to communicate with the nextion display. Instead the display is completely controlled through the AppDaemon app written in python.
+To install NSPanel HAUI you only need to install the firmware and the custom integration.
 
 For details about the configuration see [Configuration](docs/Config.md). Also take a look at [Panels](docs/panels/README.md) to get an overview of available panels.
+
+- [Features](#features)
+- [Installation](#installation)
+- [Next Steps](#next-steps)
+- [Development](#development)
+- [Roadmap](#roadmap)
+- [Resources](#resources)
 
 ## Features
 
 ### Easy Installation
 
-The nspanel_haui will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the AppDaemon app.
-
-### Device display configuration in a single yaml file
-
-![Config](docs/assets/feature_config.png)
-
-The whole configuration is located in the `apps.yaml` file. The configuration is done per device.
+NSPanel HAUI will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the Hub app.
 
 ### A variety of different panels
 
-  ![Panels 1](docs/assets/feature_panels_1.png)
+Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
 
-  ![Panels 2](docs/assets/feature_panels_2.png)
+![Panels](docs/assets/feature_panels.png)
 
-  Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
+### Device configuration in home-assistant
 
-### Touch gestures and sequences
+![Config](docs/assets/feature_config.png)
 
-  ![Touch](docs/assets/feature_touch.png)
+### A variaty of features
+
+NSPanel HAUI has a lot of features, here are some highlights:
+
+- **Touch gestures and sequences**
 
   Different touch gestures as swipe left or right are supported. There is also support for gesture sequences.
 
-### Live state updates
-
-  ![Touch](docs/assets/feature_live_update.png)
+- **Live state updates**
 
   The display will update when a entity state changes. All entities being displayed will notify about changes and the display will update.
 
-### Button and relay states, coupled and uncoupled relays
-
-  ![Buttons](docs/assets/feature_buttons.png)
+- **Button and relay states, coupled and uncoupled relays**
 
   The buttons can be used in a couped state, so that by button presses, the relay will get activated. It is also possible to disable the relay and use the physical buttons as software buttonms.
 
-### Dimming of the display after a timeout
-
-  ![Dimming](docs/assets/feature_dimming.png)
+- **Dimming of the display after a timeout**
 
   The display will automatically dim its brightness after a timeout.
 
-### Sleep display change after a timeout
-
-  ![Sleep](docs/assets/feature_sleep.png)
+- **Sleep display change after a timeout**
 
   The display can switch to a page after a timeout. There are sleep and wakeup panels possible.
 
-### Locking/Unlocking mechanism for panels
-
-  ![Unlock](docs/assets/feature_unlock.png)
+- **Locking/Unlocking mechanism for panels**
 
   All panels can be locked by a pin code. The panel can be accessed after entering the pin code.
 
-### Device settings in HomeAssistant
-
-  ![Config](docs/assets/feature_settings.png)
+- **Device settings in HomeAssistant**
 
   The whole device configuration can be done in HomeAssistant.
 
@@ -102,7 +70,7 @@ The simplified process is as followed:
 
 1. Flash Panel with [ESPHome](docs/ESPHome.md)
 2. Update [Display TFT](docs/Nextion.md)
-3. Install [AppDaemon App](docs/AppDaemon.md)
+3. Install [Hub App](docs/Hub.md)
 4. Add [Configuration](docs/Config.md)
 
 Take a look at the more detailed [Installation Guide](docs/Install.md). Have also a look at the [FAQ](docs/FAQ.md).
@@ -124,7 +92,7 @@ Panel HomeAssistant UI Docs](docs/README.md).
 - [Design Guidelines](docs/Design.md)
 - [Communication Description](docs/Communication.md)
 - [ESPHome Component](docs/ESPHome.md)
-- [AppDaemon Component](docs/AppDaemon.md)
+- [Hub Component](docs/Hub.md)
 - [Nextion Component](docs/Nextion.md)
 
 ## Roadmap
@@ -161,11 +129,23 @@ Panel HomeAssistant UI Docs](docs/README.md).
   - notifications: receive and show notifications
   - simplify config, internal handling
 
-- **Future**:
+- **Versions 0.3.x**: A new start - custom integration
 
-  - Eye-Candy
-  - Cleanup code and simplify
-  - Replace AppDaemon with Home Assistant Integration
+  Replaces AppDaemon with native Home Assistant Integration
+
+  Things done for this cycle:
+
+  - switch to a custom integration
+  - remove AppDaemon and MQTT dependancy. Only esphome and home-assistant is used.
+  - add a editor to home-assistant.
+
+  **Future**:
+
+  - custom integration and hacs
+  - frontend editor visuals, declutter and simplify configuration
+  - clean up code for frontend and backend
+  - new panels and update existing panels
+  - documentation
 
 ## Resources
 

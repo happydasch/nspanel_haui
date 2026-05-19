@@ -15,7 +15,7 @@
 
 `key: popup_notify`
 
-The notification popup is used for one-shot, ad-hoc popups — for example to notify the user about errors or to prompt a yes/no decision. It is opened programmatically and supports optional buttons and an optional icon.
+The notification popup is used for one-shot, ad-hoc popups - for example to notify the user about errors or to prompt a yes/no decision. It is opened programmatically and supports optional buttons and an optional icon.
 
 The panel can also execute a callback on close to notify other parts about the notification result. In the callback the button states are available (which button was pressed).
 
@@ -27,7 +27,7 @@ When a button is visible and pressed the panel closes. Set `close_on_button: fal
 notification: Notification text
 btn_right: Button right text
 btn_left: Button left text
-icon: icon name or char   # optional — omit or leave empty to show full-width text
+icon: icon name or char   # optional - omit or leave empty to show full-width text
 btn_left_color: color definition
 btn_right_color: color definition
 btn_left_back_color: color definition

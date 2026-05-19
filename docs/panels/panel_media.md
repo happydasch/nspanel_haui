@@ -31,18 +31,18 @@ panels:
     sonos_favorites: sensor.sonos_favorites
     sonos_favorites_in_source: false
     media_favorites: []
-    group_entities: []
+    group_items: []
 ```
 
 ## Grouping / Ungrouping
 
-It is possible to group/ungroup media_player entities. The available group members will be generated from `entities[1:]`, `group_entities`, `group_members` of entity.
+It is possible to group/ungroup media_player entities. The available group members will be generated from `entities[1:]`, `group_items`, `group_members` of entity.
 
 ```yaml
 panels:
   - type: media
     entity: media_player.media_player_to_control
-    group_entities:
+    group_items:
       - media_player.group_member_1
       - media_player.group_member_2
       - media_player.group_member_3
@@ -72,17 +72,15 @@ panels:
 
 `sonos_favorites` allows to use sonos favorites as the source for media items. This entity needs to be enabled in home assistant. If `sonos_favorites_in_source` is True then the favorites will show up in the source popup.
 
-- `media_favorites` allows to use any content defined.
+- `media_favorites` allows to use media content IDs. The editor shows one editable row
+  per favorite.
 
 ```yaml
 sonos_favorites: sensor.sonos_favorites
 sonos_favorites_in_source: false
 media_favorites:
-  - name: Media Name
-    content_id: content_id of media to play
-    content_type: content_type (music, ), # Default: music, https://github.com/home-assistant/core/blob/dev/homeassistant/components/media_player/const.py#L103C1-L103C26
-  - name: Another Media Name
-    content_id: ""
+  - media-source://media_source/local/playlist_1.mp3
+  - media-source://media_source/local/playlist_2.mp3
 ```
 
 ## Screens

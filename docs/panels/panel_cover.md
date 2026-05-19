@@ -25,6 +25,7 @@ The cover entity panel allows to control a single cover entity. Open, stop, and 
 ```yaml
 panels:
   - type: cover
+    entity: cover.example_cover
 ```
 
 ## Screens

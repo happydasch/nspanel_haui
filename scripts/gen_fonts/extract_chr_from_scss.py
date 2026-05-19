@@ -7,7 +7,7 @@ start = 0xF0001
 # offset for chr value (i - offset)
 offset = 0xE2001
 
-with open(scss_file, "r") as f:
+with open(scss_file) as f:
     string = f.read()
 
 content = string[string.find("(") + 1 : string.find(")")]

@@ -4,3 +4,5 @@ __pycache__
 .vscode/*
 .venv
 venv
+nspanel_haui_env/
+ref_src/

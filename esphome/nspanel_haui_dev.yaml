@@ -1,0 +1,51 @@
+#
+# Configuration for NSPanel HomeAssistant UI
+#
+# useable for local development
+#
+
+# Use patched Nextion component with 0x70 text sensor fix
+external_components:
+  - source:
+      type: local
+      path: /config/esphome/components
+
+substitutions:
+
+  # Heartbeat interval in seconds
+  heartbeat_interval: '5'
+  # Friendly name of the device
+  friendly_name: 'NSPanel HAUI'
+  # Name of the device
+  name: nspanel-haui  # this name is also used for hostname
+
+  # Accounts and Passwords
+  ota_password: !secret ota_password
+  api_encryption_key: !secret api_encryption_key
+  web_username: !secret web_username
+  web_password: !secret web_password
+  wifi_ssid: !secret wifi_ssid
+  wifi_password: !secret wifi_password
+  ap_password: !secret ap_password
+
+  # Custom Update Url
+  #tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/esphome/nspanel_haui.tft
+  tft_update_url: http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft
+
+packages:
+  version: !include nspanel_haui/version.yaml
+  globals: !include nspanel_haui/globals.yaml
+  base: !include nspanel_haui/base.yaml
+  hardware: !include nspanel_haui/hardware.yaml
+  display: !include nspanel_haui/display.yaml
+  interval: !include nspanel_haui/interval.yaml
+  scripts_event: !include nspanel_haui/scripts_event.yaml
+  scripts_connection: !include nspanel_haui/scripts_connection.yaml
+  scripts_display: !include nspanel_haui/scripts_display.yaml
+  scripts_interaction: !include nspanel_haui/scripts_interaction.yaml
+  scripts_notification: !include nspanel_haui/scripts_notification.yaml
+  api: !include nspanel_haui/api.yaml
+  button: !include nspanel_haui/button.yaml
+  number: !include nspanel_haui/number.yaml
+  switch: !include nspanel_haui/switch.yaml
+  sensor: !include nspanel_haui/sensor.yaml

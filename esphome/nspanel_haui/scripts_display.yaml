@@ -1,0 +1,291 @@
+---
+script:
+
+  - id: set_brightness
+    parameters:
+      intensity: int
+    then:
+      - lambda: |-
+          float percent_on = float(intensity)/100;
+          percent_on = percent_on > 1 ? 1 : percent_on;
+          percent_on = percent_on < 0 ? 0 : percent_on;
+          ESP_LOGV("haui", "Script set_brightness: %i - %f", intensity, percent_on);
+          id(haui_disp).set_backlight_brightness(percent_on);
+          id(brightness).publish_state(intensity);
+
+  - id: check_display
+    then:
+      - lambda: |-
+          // Guard: if brightness sensor returned garbage (e.g., 2147483647
+          // from an uninitialized Nextion dim variable), skip all display
+          // commands to avoid flooding the UART queue.
+          if (isnan(id(brightness).state) || id(brightness).state < 0 || id(brightness).state > 100) {
+            return;
+          }
+          static int last_set_brightness = -1;
+          // no auto dimming, hub not available, full brightness
+          if (!id(hub_connection) || !id(use_auto_dimming).state) {
+            int full_val = id(brightness_full).state;
+            if (last_set_brightness != full_val) {
+              id(set_brightness).execute(full_val);
+              last_set_brightness = full_val;
+            }
+            if (!id(hub_connection) && int(id(page).state) != 1) {
+              // Throttle: only send goto_page once per second to
+              // prevent flooding when page sensor is stale or
+              // check_display_state is toggling the page back to 0.
+              static uint32_t last_goto_page_millis = 0;
+              uint32_t now_millis = millis();
+              if (now_millis - last_goto_page_millis > 1000) {
+                id(goto_page).execute("1");  // system
+                last_goto_page_millis = now_millis;
+              }
+            }
+          return;
+          }
+
+          int brightness_val = id(brightness).state;
+          // the target and current brightness
+          int target_brightness = 0;
+          int new_brightness = brightness_val;
+          // timeout values
+          int timeout_dim_val = int(id(timeout_dim).state);
+          int timeout_sleep_val = int(id(timeout_sleep).state);
+          // duration of dimming
+          float duration_dim_val = id(duration_dim).state;
+          // last interaction with device
+          int last_interaction_val = int(id(last_interaction).state);
+          // time diff in seconds
+          float diff_seconds = 0;
+          static float last_diff_seconds = 0;
+          if (last_interaction_val > 0) {
+            // get timings for last interaction
+            unsigned long duration_now = millis() / 10; // use 0.01s as the lowest change
+            if (duration_now < last_interaction_val) {
+              // overflow occurred, reset variables
+              last_interaction_val = 0;
+              duration_now = 0;
+            }
+            diff_seconds = ((float)(duration_now/10) - last_interaction_val) / 10;
+          }
+
+          // screen timeout means brightness goes off -> target 0
+          if (id(use_auto_sleeping).state && timeout_sleep_val > 0 && diff_seconds > timeout_sleep_val) {
+
+            if (brightness_val != 0) {
+              new_brightness = target_brightness;
+              ESP_LOGV("haui", "Target brightness for Off: %i -> %i", brightness_val, target_brightness);
+            }
+
+            float ramp_remaining = duration_dim_val - (diff_seconds - timeout_sleep_val);
+            if (duration_dim_val > 0 && target_brightness < brightness_val && ramp_remaining > 0) {
+              float step_size = (float)brightness_val / (ramp_remaining * 10);
+              new_brightness = max(target_brightness, int(brightness_val - step_size));
+              ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+            } else if (target_brightness < brightness_val) {
+              // Ramp window expired or instant transition - snap to target
+              new_brightness = target_brightness;
+            }
+            if (new_brightness != brightness_val) {
+              ESP_LOGV("haui", "New brightness for off: %i -> %i", brightness_val, new_brightness);
+            }
+
+            // send event if sleeping only on time crossing timeout
+            if (last_diff_seconds <= timeout_sleep_val) {
+              id(publish_event_native).execute("esphome.timeout", "sleep");
+            }
+
+          // dim timeout means brightness goes to brightness_dim
+          } else if (id(use_auto_dimming).state && timeout_dim_val > 0 && diff_seconds > timeout_dim_val) {
+
+            target_brightness = int(id(brightness_dim).state);
+            int curr_duration = diff_seconds - timeout_dim_val;
+            float ramp_remaining = duration_dim_val - curr_duration;
+            if (duration_dim_val > 0 && curr_duration <= duration_dim_val && ramp_remaining > 0) {
+              if (target_brightness < brightness_val) {
+                  float step_size = (brightness_val - target_brightness) / (ramp_remaining * 10) + 1;
+                  new_brightness = max(target_brightness, int(brightness_val - step_size));
+                  ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+              } else if (target_brightness > brightness_val) {
+                  float step_size = (target_brightness - brightness_val) / (ramp_remaining * 10) + 1;
+                  new_brightness = min(target_brightness, int(brightness_val + step_size));
+                  ESP_LOGV("haui", "Step size %i - %i - %i", brightness_val, new_brightness, target_brightness);
+              }
+            } else {
+              new_brightness = target_brightness;
+            }
+
+            if (new_brightness != brightness_val) {
+              ESP_LOGV("haui", "New brightness for dimming: %i -> %i", brightness_val, new_brightness);
+            }
+
+            // send event if dimming only on time crossing timeout
+            if (last_diff_seconds <= timeout_dim_val) {
+              id(publish_event_native).execute("esphome.timeout", "dim");
+            }
+
+          // no active timeout, just use full brightness
+          } else {
+
+            target_brightness = int(id(brightness_full).state);
+            if (target_brightness != brightness_val) {
+              new_brightness = target_brightness;
+              ESP_LOGV("haui", "Target brightness for Full: %i -> %i", brightness_val, target_brightness);
+            }
+          }
+
+          // set new brightness (only when actually different from last sent value)
+          if (new_brightness != last_set_brightness) {
+            ESP_LOGV("haui", "Setting brightness for screen: %i", new_brightness);
+            id(set_brightness).execute(new_brightness);
+            last_set_brightness = new_brightness;
+          }
+
+          // remember current diff in seconds
+          last_diff_seconds = diff_seconds;
+
+  # Script to check display state related changes
+  - id: check_display_state
+    then:
+      - lambda: |-
+          // TFT Version check - throttle update() calls so we don't
+          // flood the UART queue while the value is still empty.
+          static uint32_t last_tft_check_millis = 0;
+          if (id(tft_version).state == "") {
+            uint32_t now_millis = millis();
+            if (now_millis - last_tft_check_millis > 5000) {
+              id(tft_version).update();
+              last_tft_check_millis = now_millis;
+            }
+          }
+
+          // timeout values
+          int timeout_dim_val = int(id(timeout_dim).state);
+          int timeout_sleep_val = int(id(timeout_sleep).state);
+          int current_state = int(id(haui_display_state));
+          int new_state = current_state;
+
+          // wakeup page (default system)
+          static std::string wakeup_page = "1"; // system
+          // duration of dimming
+          float duration_dim_val = id(duration_dim).state;
+          // last interaction with device
+          int last_interaction_val = int(id(last_interaction).state);
+          // time passed since last interaction
+          float diff_seconds = 0;
+
+          // get timings for last interaction
+          if (last_interaction_val > 0) {
+            // get timings for last interaction
+            unsigned long duration_now = millis() / 10; // use 0.01s as the lowest change
+            if (duration_now < last_interaction_val) {
+              // overflow occurred, reset variables
+              last_interaction_val = 0;
+              duration_now = 0;
+            }
+            diff_seconds = ((float)(duration_now/10) - last_interaction_val) / 10;
+          }
+
+          // update display state
+          if (id(use_auto_sleeping).state && timeout_sleep_val > 0 && diff_seconds > (timeout_sleep_val + duration_dim_val)) {
+            if (!id(hub_connection)) {
+              // Hub disconnected while sleep timeout elapsed - reset and go full on
+              id(update_last_interaction).execute(-1, 0);
+              new_state = 2;
+            } else if (current_state != 0) {
+              new_state = 0;
+            }
+          } else if (!id(use_auto_sleeping).state && current_state == 0) {
+            // Auto-sleep was disabled while display was sleeping - wake up
+            id(update_last_interaction).execute(-1, 0);
+            new_state = 2;
+          } else if (id(use_auto_dimming).state && timeout_dim_val > 0 && diff_seconds > (timeout_dim_val + duration_dim_val)) {
+            if (!id(hub_connection)) {
+              new_state = 2;
+            } else if (current_state != 1) {
+              new_state = 1;
+            }
+          } else if (!id(use_auto_dimming).state && current_state == 1) {
+            // Auto-dimming was disabled while display was dimmed - go full on
+            new_state = 2;
+          } else if (current_state != 2) {
+            new_state = 2;
+          }
+
+          // check sleep/wakeup - use is_sleeping() as the guard so
+          // commands are only sent when the display actually needs to
+          // transition, not on every timer tick
+          if (current_state == 0 && !id(haui_disp).is_sleeping()) {
+            // before sleep, remember current page
+            int page_val = int(id(page).state);
+            if (page_val > 0 && page_val <= 255) {
+              wakeup_page = to_string(page_val);
+            }
+            if (id(hub_connection)) {
+              // Hub is connected - let the hub navigate to the configured
+              // sleep panel.  The hub receives esphome.timeout="sleep" and
+              // calls open_sleep_panel() which sends goto_page to the
+              // user's sleep panel page.  Display brightness is already 0
+              // (set by check_display), so the screen stays black.
+              // Skip goto_page("0") and display_sleep so the hub's
+              // goto_page command takes effect on the display.
+            } else {
+              // No hub connected - navigate to page 0 and sleep directly
+              id(goto_page).execute("0");  // blank
+              id(display_sleep).execute();
+            }
+          } else if (new_state != 0 && (id(haui_disp).is_sleeping()
+                  || (id(hub_connection) && current_state == 0))) {
+            id(display_wakeup).execute();
+            bool hub_connected = id(hub_connection);
+            if (hub_connected == true && wakeup_page != "" && wakeup_page != "0") {
+              ESP_LOGD("haui", "Wakeup page: %s", wakeup_page.c_str());
+              id(goto_page).execute(wakeup_page);
+            } else {
+              id(goto_page).execute("1");  // system
+            }
+          }
+
+          // the state changed
+          if (new_state != current_state) {
+            id(haui_display_state) = new_state;
+            std::string display_state_val;
+            if (new_state == 2) {
+              display_state_val = "on";
+            } else if (new_state == 1) {
+              display_state_val = "dim";
+            } else {
+              display_state_val = "off";
+            }
+            id(publish_event_native).execute("esphome.display_state", display_state_val);
+          }
+
+  - id: goto_page
+    parameters:
+      page: string
+    then:
+      - lambda: |-
+          if (page != "") {
+            ESP_LOGI("haui", "goto_page '%s'", page.c_str());
+            id(haui_disp).goto_page(page.c_str());
+          }
+
+  # Script to send the display into sleep mode
+  - id: display_sleep
+    then:
+      - lambda: |-
+          if (!id(haui_disp).is_sleeping()) {
+            ESP_LOGI("haui", "Display is going to sleep");
+            id(haui_disp).sleep(true);
+            id(publish_event_native).execute("esphome.sleep", "");
+          }
+
+  # Script to send the display out of sleep mode
+  - id: display_wakeup
+    then:
+      - lambda: |-
+          if (id(haui_disp).is_sleeping()) {
+            ESP_LOGI("haui", "Display is waking up");
+            id(haui_disp).sleep(false);
+            id(publish_event_native).execute("esphome.wakeup", "");
+          }

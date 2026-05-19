@@ -6,8 +6,8 @@
   - [Requirements](#requirements)
   - [1. Step: Preparations](#1-step-preparations)
   - [2. Step: Install ESPHome](#2-step-install-esphome)
-  - [3. Step: Install AppDaemon App](#3-step-install-appdaemon-app)
-  - [4. Step: Configuration for AppDaemon](#4-step-configuration-for-appdaemon)
+  - [3. Step: Install Hub App](#3-step-install-hub-app)
+  - [4. Step: Configuration for Hub](#4-step-configuration-for-hub)
   - [5. Step: Install TFT File](#5-step-install-tft-file)
   - [Finished](#finished)
 
@@ -16,8 +16,7 @@
 HomeAssistant needs to provide following applications:
 
 - ESPHome
-- AppDaemon
-- A MQTT Broker
+- Hub (nspanel_haui custom integration)
 
 Please install all requirements before continuing.
 
@@ -45,7 +44,7 @@ With the prepared and connected device it is now possible to install ESPHome on 
 
 - Get config for ESPHome
 
-  The configuration can be found in `device/install.yaml`
+  The configuration can be found in `esphome/install.yaml`
 
   copy the content of this file into esphome and adjust the values accordingly. See below for an more detailed explaination of the configuration values.
 
@@ -58,7 +57,7 @@ With the prepared and connected device it is now possible to install ESPHome on 
 
 - Replace configuration
 
-  Store the ota password and encryption key and replace the exisiting config with the config from [device/install.yaml](https://github.com/happydasch/nspanel_haui/blob/master/device/install.yaml)
+  Store the ota password and encryption key and replace the existing config with the config from `esphome/install.yaml`. See `esphome/README.md` for the full directory layout.
 
   ![Device Name](assets/esphome_created_config.png)
 
@@ -67,14 +66,12 @@ With the prepared and connected device it is now possible to install ESPHome on 
   Only substitutions needs to be edited.
   Either use a secrets.yaml file or set the configuration values directly in this file.
 
-  The name of the device can be set with `name` and `friendly_name`
+  The name of the device can be set with `name`.
 
   - name: host- and device name
-  - friendly_name: friendly name of device
 
   Some credentials needs to be provided:
 
-  - MQTT IP, Username and Password `mqtt_ip`, `mqtt_username`, `mqtt_password`
   - Wifi SSID and Password for autoconnect `wifi_ssid`, `wifi_password`
   - Web Access Login Details `web_username`, `web_password`
   - OTA Password and API Encryption Key `ota_password`, `api_encryption_key`
@@ -97,31 +94,31 @@ With the prepared and connected device it is now possible to install ESPHome on 
   Successfully flashed, disconnect and put everything back together again.
   ![ESPHome Web Finished](assets/esphome_web_finished.jpg)
 
-## 3. Step: Install AppDaemon App
+## 3. Step: Install Hub App
 
-Now that the device is prepared, the AppDaemon app can be activated. Install manually by copying the `apps/nspanel_haui` folder on the home assistant server or install via HACS.
+Now that the device is prepared, the Hub app can be activated. Install manually by copying the `custom_components/nspanel_haui` folder from this repository into your Home Assistant `custom_components/` directory, or install via HACS.
 
-- Install AppDaemon on Server
+- Install Hub on Server
 
-  Copy the folder `nspanel_haui` to `appdaemon/apps/`.
+  Copy the folder `nspanel_haui` to `custom_components/nspanel_haui/`.
 
-- Install AppDaemon using HACS
+- Install Hub using HACS
 
 This needs to be done only once.
 
-## 4. Step: Configuration for AppDaemon
+## 4. Step: Configuration for Hub
 
-Edit `addon_configs/a0d7b954_appdaemon/apps/apps.yaml` and create the config for AppDaemon.
+Edit `configuration.yaml` and create the config for Hub.
 
 - Add configuration for panel
 
-  Open and edit the file `addon_configs/a0d7b954_appdaemon/apps/apps.yaml` for more details about the configuration file and available options see [Configuration Details](Config.md).
+  Open and edit the file `configuration.yaml` for more details about the configuration file and available options see [Configuration Details](Config.md).
 
   See [Config Examples](Example_Config.md) for some sample configurations.
 
 ## 5. Step: Install TFT File
 
-The display needs a custom interface which is provided in a TFT file. The file will automatically be installed on the display when the Device connects to the AppDaemon App.
+The display needs a custom interface which is provided in a TFT file. The file will automatically be installed on the display when the Device connects to the Hub App.
 
 The installation process can also be executed manually. See [Nextion Display](Nextion.md) for details.
 

@@ -1,5 +1,6 @@
 import colorsys
 import math
+
 from PIL import Image, ImageDraw
 
 width = 200

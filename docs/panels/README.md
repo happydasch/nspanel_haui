@@ -18,6 +18,7 @@
     - [Panel Cover `cover`](#panel-cover-cover)
     - [Panel Climate `climate`](#panel-climate-climate)
     - [Panel Timer `timer`](#panel-timer-timer)
+    - [Panel Alarm `alarm`](#panel-alarm-alarm)
   - [Other Panels](#other-panels)
     - [Popup Unlock  `popup_unlock`](#popup-unlock--popup_unlock)
     - [Popup Notify `popup_notify`](#popup-notify-popup_notify)
@@ -112,6 +113,12 @@ Panels with navigation. Main Display Elements.
   Timer panel.
 
   ![Panel Timer](../assets/panel_timer.png)
+
+### [Panel Alarm](panel_alarm.md) `alarm`
+
+  Alarm control panel.
+
+  ![Panel Alarm](../assets/panel_alarm.png)
 
 ## Other Panels
 

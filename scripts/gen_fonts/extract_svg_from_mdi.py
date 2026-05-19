@@ -1,8 +1,8 @@
-import os
 import json
+import os
 import re
 
-with open("scripts/gen_fonts/icons_mapping.json", "r") as f:
+with open("scripts/gen_fonts/icons_mapping.json") as f:
     icon_mapping = json.load(f)
 icon_data = []
 
@@ -13,13 +13,11 @@ for icon in icon_mapping.keys():
     pathfile = os.path.abspath(filename)
     if not os.path.isfile(pathfile):
         print(f"Missing icon: {icon}")
-    with open(pathfile, "r") as f:
+    with open(pathfile) as f:
         icon_cnt = f.read()
         value = ord(icon_mapping[icon])
         data_value = re.search(r'path\sd="([^"]*)"', icon_cnt).group(1)
-        icon_data.append(
-            {"name": icon, "hex": hex(value)[2:].upper(), "data": data_value}
-        )
+        icon_data.append({"name": icon, "hex": hex(value)[2:].upper(), "data": data_value})
 
 with open("scripts/gen_fonts/icons_data.json", "w") as f:
     json.dump(icon_data, f)

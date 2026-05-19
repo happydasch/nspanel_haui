@@ -1,0 +1,46 @@
+{
+  "config": {
+    "flow_title": "NSPanel HAUI ({count} device(s) discovered)",
+    "step": {
+      "user": {
+        "title": "Add NSPanel HAUI Hub"
+      },
+      "confirm": {
+        "title": "NSPanel HAUI devices discovered",
+        "description": "Found {count} ESPHome device(s) running HAUI firmware: {names}. Add them to a new NSPanel HAUI hub? Devices stay disabled until you enable them in the HAUI Editor."
+      },
+      "select_devices": {
+        "title": "Select NSPanel Devices",
+        "description": "Found {count} ESPHome device(s). {esphome_info} Pick which ones belong to this hub. Per-device and panel settings are managed in the NSPanel HAUI \u2014 HAUI Editor in the sidebar.",
+        "data": {
+          "selected_devices": "Devices"
+        },
+        "data_description": {
+          "selected_devices": "ESPHome devices discovered on your network."
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "A hub with this name is already configured",
+      "already_in_progress": "A hub configuration is already in progress",
+      "single_instance_allowed": "Only one NSPanel HAUI hub is supported",
+      "no_devices_found": "No NSPanel HAUI devices were detected. Install the HAUI firmware on an ESPHome device first."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "NSPanel HAUI Hub Settings",
+        "description": "Runtime options for this hub. Per-device and panel settings live in the NSPanel HAUI \u2014 HAUI Editor.",
+        "data": {
+          "update_interval": "Update interval (seconds)",
+          "debug": "Debug logging"
+        },
+        "data_description": {
+          "update_interval": "How often the integration polls panel state (5\u2013300 s).",
+          "debug": "Verbose debug logging for this hub."
+        }
+      }
+    }
+  }
+}

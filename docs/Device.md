@@ -14,7 +14,7 @@
 
 ## Device
 
-The device is responsible for gestures, display state and its hardware buttons. The device functionality is implemented in `haui/device.py`. The communication between server and client is described in [Communication.md](Communication.md).
+The device is responsible for gestures, display state and its hardware buttons. The device functionality is implemented in `haui/device.py`. Per-device configuration constants (field names, defaults) live in `haui/device_config.py`. The communication between server and client is described in [Communication.md](Communication.md).
 
 ### Gestures
 
@@ -67,7 +67,9 @@ The opening of the previous panel can be disabled. See the config value `always_
 
 ### Hardware Buttons
 
-The device can either control the internal relays or toggle a entity.
+The device can either control the internal relays or toggle an entity.
+Use `use_relay_left` / `use_relay_right` to control whether the left/right
+button toggles its internal relay (default `true`) or a configured entity.
 
 It is also possible to completely disable the hardware buttons to be used for checking interactions and change the display state and / or to prevent the display from waking up.
 
@@ -90,6 +92,6 @@ The device supports multiple different panels which are displayed on the display
 
 The device can receive notifications and display them. Notifications remain in the queue until dismissed by the user on the display.
 
-Notifications support an optional icon and an optional `persistent` flag. When `persistent` is set to true the notification sound loops at a regular interval until the notification is explicitly dismissed — useful for alerts that require user attention.
+Notifications support an optional icon and an optional `persistent` flag. When `persistent` is set to true the notification sound loops at a regular interval until the notification is explicitly dismissed - useful for alerts that require user attention.
 
 See [Popup Notification](panels/popup_notifs.md) for full details and usage examples.

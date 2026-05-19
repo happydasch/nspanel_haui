@@ -2,23 +2,27 @@
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
-The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome and MQTT is being used.
+The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome is being used.
 
 - Uses the ESPHome and the nextion display component
 - Provides scripts and actions for communication with the display
 - Responsible for handling the device functionality
 
-For the communication between the device and the server MQTT is being used.
+For the communication between the device and the server ESPHome native API events are used.
 
 - [ESPHome Component](#esphome-component)
   - [Installation](#installation)
   - [Config](#config)
   - [Communication](#communication)
+    - [Connection Globals](#connection-globals)
+    - [Connection Scripts](#connection-scripts)
+    - [Events](#events)
+    - [Actions](#actions)
   - [Requests](#requests)
   - [Responses](#responses)
   - [Commands](#commands)
-  - [Events](#events)
-  - [Actions](#actions)
+  - [Events](#events-1)
+  - [Actions](#actions-1)
   - [Page](#page)
   - [Interaction](#interaction)
     - [Interaction Sensors](#interaction-sensors)
@@ -31,14 +35,14 @@ For the communication between the device and the server MQTT is being used.
 
 ## Installation
 
-See `device/install.yaml` for the installation configuration. This file is going to be installed on the device.
-See `device/nspanel_haui.yaml` for the esphome configuration file. This file contains all ESPHome functionality.
+See `esphome/install.yaml` for the installation configuration. This file is going to be installed on the device.
+See `esphome/nspanel_haui.yaml` for the esphome configuration file. This file contains all ESPHome functionality.
 
-Copy the secrets from `device/secrets.yaml` and add them in ESPHome by pressing the `Secrets` Link in the right corner. This step is not neccessary if you add the secrets directly in the config file.
+Copy the secrets from `esphome/secrets.yaml` and add them in ESPHome by pressing the `Secrets` Link in the right corner. This step is not neccessary if you add the secrets directly in the config file.
 
-To install ESPHome on the device use the config from `device/install.yaml`. Edit the substitution values and install the device.
+To install ESPHome on the device use the config from `esphome/install.yaml`. Edit the substitution values and install the device.
 
-If the device shows up in Home Assistant you can manually install the TFT file by pressing the `Upload Display` button. The TFT file will automatically be installed when the device connects to the AppDaemon app.
+If the device shows up in Home Assistant you can manually install the TFT file by pressing the `Upload Display` button. The TFT file will automatically be installed when the device connects to the Hub app.
 
 See [Nextion](Nextion.md) for more details about the display.
 
@@ -48,39 +52,58 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 
 - `heartbeat_interval` (5)
 - `name` (nspanel-haui)
-- `friendly_name` (NSPanel HAUI)
-- `mqtt_ip` (!secret mqtt_ip)
-- `mqtt_username` (!secret mqtt_username)
-- `mqtt_password` (!secret mqtt_password)
-- `topic_prefix` (nspanel_haui/nspanel-haui)
-- `topic_cmd` ($topic_prefix/cmd)
-- `topic_recv` ($topic_prefix/recv)
 - `ota_password` (!secret ota_password)
 - `api_encryption_key` (!secret api_encryption_key)
 - `web_username` (!secret web_username)
 - `web_password` (!secret web_password)
 - `wifi_ssid` (!secret wifi_ssid)
 - `wifi_password` (!secret wifi_password)
-- `tft_update_url` ([https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft](https://github.com/happydasch/nspanel_haui/raw/master/device/nspanel_haui.tft))
+- `tft_update_url` (URL to the ``nspanel_haui.tft`` file, e.g. ``http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft``)
 
 ## Communication
 
-The name of the configuration for this functionality is `device/dev/communication.yaml`
+All communication between the ESPHome device and the Hub app uses ESPHome Native API events. The configuration for events is in `esphome/nspanel_haui/scripts_event.yaml`. The connection scripts are in `esphome/nspanel_haui/scripts_connection.yaml`.
 
-A description of events being used for communication between ESP and AppDaemon.
+See [docs/Communication.md](Communication.md) for the full protocol description.
 
-- `heartbeat` Heartbeat Event:
+### Connection Globals
 
-  Will be published every 5 seconds (can be changed in config)
-  Value: string (alive)
+The device maintains four globals for connection state (defined in `esphome/nspanel_haui/globals.yaml`):
 
-  The client will get an heartbeat timeout after heartbeat_interval * 2 (can be changed in the config) and will reset to system page.
+- `hub_availability` (bool) - Whether the ESPHome Native API is connected to Home Assistant. Set by `on_client_connected` / `on_client_disconnected`.
+- `hub_heartbeat` (int) - Last timestamp (epoch seconds) when a hub heartbeat was received. Set by the `hub_heartbeat` action; used by `check_hub_connection` for timeout detection.
+- `hub_connection` (bool) - Whether the connection handshake with the Hub app has completed. Set by `set_hub_connected` script.
+- `haui_init` (bool) - Whether the device has been initialized by the Hub app.
 
-- `req_connection` Connection Request
-- `res_connection` Connection Response
-- `ad_heartbeat` Appdaemon server Heartbeat Response
-- `ad_connection_initialized` Appdaemon server Response
-- `ad_connection_closed` Appdaemon server Response
+### Connection Scripts
+
+Defined in `esphome/nspanel_haui/scripts_connection.yaml`:
+
+- `set_hub_connected(connected: int)` - Updates `hub_connection`, anchors/resets `hub_heartbeat`, shows system page on disconnect, writes `system.firstRun.txt="0"` on connect, publishes `client_status` sensor.
+- `check_hub_connection` - Runs every 100ms. Detects timeout (hub heartbeat not received within `heartbeat_interval × 2`) or hub unavailability.
+- `check_connection` - Runs every 100ms. Sends `req_connection` when disconnected but hub is available, with 10s cooldown between attempts.
+
+### Events
+
+The primary events used for connection management:
+
+- **`esphome.heartbeat`** - Device→Hub heartbeat. Published every `heartbeat_interval` seconds (5s by default) when `hub_connection = true`. Value: `"alive"`.
+- **`esphome.req_connection`** - Device→Hub connection request. Published when disconnected and hub is available. Value: JSON with device info (name, MAC, IP, TFT version, etc.).
+- **`esphome.res_connection`** - Device→Hub connection response. Published after receiving `hub_connection_response`. Value: JSON with `heartbeat_interval`.
+- **`esphome.res_device_state`** - Device→Hub state response. Published after receiving `req_device_state`. Value: JSON with device state (page, brightness, display_state, etc.).
+
+### Actions
+
+Actions that the Hub app can call on the device (via ESPHome Native API service calls):
+
+- **`hub_heartbeat`** - Hub→Device heartbeat. Resets `hub_heartbeat` timestamp on the device.
+- **`hub_connection_response`** - Hub acknowledges connection request. Device transitions to sending `res_connection`.
+- **`hub_connection_initialized`** - Handshake complete. Sets `hub_connection = true` on the device.
+- **`hub_connection_closed`** - Hub disconnects the device. Sets `hub_connection = false`.
+- **`req_device_state`** - Hub requests device state. Device responds with `res_device_state` event.
+- **`req_device_info`** - Hub requests device info. Device responds with `res_device_info` event.
+- **`req_reconnect`** - Hub requests device to reconnect. Calls `set_hub_connected(false)`.
+- **`reset_last_interaction`** - Resets the device's display inactivity timer (dim/sleep).
 
 ## Requests
 
@@ -118,7 +141,7 @@ These are commands that are being executed on the ESP.
 - `goto_page` Sets the active page on display
 - `send_notification` Sends a notification to the display
 
-  Parameters: `title` (string), `message` (string), `icon` (string, optional — pass `""` to omit), `timeout` (int, seconds), `persistent` (bool — when true the notification sound loops until dismissed)
+  Parameters: `title` (string), `message` (string), `icon` (string, optional - pass `""` to omit), `timeout` (int, seconds), `persistent` (bool - when true the notification sound loops until dismissed)
 
 ## Events
 
@@ -202,7 +225,7 @@ Different ESP device events.
 
 ## Actions
 
-This actions below are defined on the ESP. The communication between the AppDaemon server and the ESP is using these.
+This actions below are defined on the ESP. The communication between the Hub server and the ESP is using these.
 
 - `send_command` Action to send a command
 
@@ -230,6 +253,9 @@ This actions below are defined on the ESP. The communication between the AppDaem
   notification:4:d=8,o=6,b=200:16e,16c6,16g6,8c6,8g6
   alert_fast:4:d=8,o=6,b=200:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7
   alert:4:d=16,o=6,b=400:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7
+  seq_up:4:d=16,o=5,b=160:16e6,16g6
+  seq_down:4:d=16,o=5,b=160:16g6,16d6
+  elise:d=8,o=5,b=125:32p,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,e,g#,b,4c.6,32p,e,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,d,c6,b,2a
   ```
 
   Other sounds from different sources:
@@ -276,7 +302,7 @@ These events will be sent out when the device have some page related events.
 
 ## Interaction
 
-The name of the configuration for this functionality is `device/dev/interaction.yaml`
+The configuration for this functionality is in `esphome/nspanel_haui/scripts_interaction.yaml`
 
 When tracking the last interaction with the device, two input methods are possible: Touchscreen and Buttons. It's possible to disable button as an interaction source by switching off `use_button_interaction`.
 
@@ -338,7 +364,7 @@ The ESP provides some interaction related events. See below for a overview of al
 
 ## Brightness and Dimming
 
-The name of the configuration for this functionality is `device/dev/dimming.yaml`
+The configuration for this functionality is in `esphome/nspanel_haui/scripts_display.yaml`
 
 The display has 3 states: on, off and dimmed
 

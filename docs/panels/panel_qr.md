@@ -7,6 +7,7 @@
   - [Config](#config)
     - [QR-Code Format](#qr-code-format)
     - [Start with big QR](#start-with-big-qr)
+    - [Text display](#text-display)
   - [Screens](#screens)
 
 ## About
@@ -25,6 +26,8 @@ The entity values will be split on two lines if value is longer than 15 characte
 
 The panel can be started with a big QR by setting `big_qr` to True.
 
+There is also a **text display** option: when no entities are configured and `show_text` is `true`, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle works normally — big QR hides the text, small QR shows it with the text.
+
 ## Config
 
 ```yaml
@@ -32,12 +35,14 @@ panels:
 
   # big qr code
   - type: qr
-    qr_code: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
+    essid: MySSID
+    password: MyPassW0rd
     big_qr: true
 
   # small qr code
   - type: qr
-    qr_code: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
+    essid: MySSID
+    password: MyPassW0rd
     big_qr: false
     entities:
       - entity: "text:Test 1"
@@ -48,16 +53,15 @@ panels:
         icon: mdi:wifi
 ```
 
-### QR-Code Format
+### ESSID + Password
+
+The wifi credentials are entered as two separate text fields: `essid` (WiFi network name) and `password` (WiFi password). The integration automatically builds the QR code string in the standard WiFi format:
+
+```
+WIFI:S:<SSID>;T:WPA;P:<PASSWORD>;;
+```
 
 Source: [https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network](https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network)
-
-The qr code can be created by using the format below.
-
-```yaml
-    Common format: WIFI:S:<SSID>;T:<WEP|WPA|blank>;P:<PASSWORD>;H:<true|false|blank>;;
-    Sample: WIFI:S:MySSID;T:WPA;P:MyPassW0rd;;
-```
 
 ### Start with big QR
 
@@ -65,6 +69,17 @@ The qr code can be created by using the format below.
 - type: qr
   ...
   big_qr: true
+```
+
+### Text display
+
+When `show_text` is `true` and no entities are configured, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle controls visibility — big QR hides the text, small QR reveals it.
+
+```yaml
+- type: qr
+  essid: MySSID
+  password: MyPassW0rd
+  show_text: true
 ```
 
 ## Screens

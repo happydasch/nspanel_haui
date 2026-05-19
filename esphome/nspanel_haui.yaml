@@ -1,0 +1,46 @@
+#
+# Configuration for NSPanel HomeAssistant UI
+#
+
+# The substituions will be defined in the install.yaml.
+# this file should not be directly edited.
+
+# Use patched Nextion component with 0x70 text sensor fix
+external_components:
+  - source:
+      type: local
+      path: components
+
+substitutions:
+  # General config
+  heartbeat_interval: $heartbeat_interval
+  friendly_name: $friendly_name
+  name: $name
+  # Accounts and Passwords
+  ota_password: $ota_password
+  api_encryption_key: $api_encryption_key
+  web_username: $web_username
+  web_password: $web_password
+  wifi_ssid: $wifi_ssid
+  wifi_password: $wifi_password
+  ap_password: $ap_password
+  # Custom Update Url
+  tft_update_url: $tft_update_url
+
+packages:
+  version: !include nspanel_haui/version.yaml
+  globals: !include nspanel_haui/globals.yaml
+  base: !include nspanel_haui/base.yaml
+  hardware: !include nspanel_haui/hardware.yaml
+  display: !include nspanel_haui/display.yaml
+  interval: !include nspanel_haui/interval.yaml
+  scripts_event: !include nspanel_haui/scripts_event.yaml
+  scripts_connection: !include nspanel_haui/scripts_connection.yaml
+  scripts_display: !include nspanel_haui/scripts_display.yaml
+  scripts_interaction: !include nspanel_haui/scripts_interaction.yaml
+  scripts_notification: !include nspanel_haui/scripts_notification.yaml
+  api: !include nspanel_haui/api.yaml
+  button: !include nspanel_haui/button.yaml
+  number: !include nspanel_haui/number.yaml
+  switch: !include nspanel_haui/switch.yaml
+  sensor: !include nspanel_haui/sensor.yaml

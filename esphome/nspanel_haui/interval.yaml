@@ -1,0 +1,36 @@
+---
+# Interval Configuration
+interval:
+
+  # Check state timer
+  - interval: 100ms
+    then:
+      - lambda: |-
+          id(check_hub_connection).execute();
+          id(check_connection).execute();
+          id(check_display_state).execute();
+          id(check_display).execute();
+          id(check_page).execute();
+          // Device-to-hub heartbeat: publish only when hub_connection=true,
+          // otherwise the event would trigger a premature handshake (livesign).
+          // Published every heartbeat_interval seconds.
+          static uint16_t heartbeat_counter = 0;
+          heartbeat_counter++;
+          if (heartbeat_counter >= int($heartbeat_interval * 10)) {
+            heartbeat_counter = 0;
+            if (id(hub_connection)) {
+              id(publish_heartbeat).execute();
+            }
+          }
+
+  # Interaction timeout check
+  - interval: 200ms
+    then:
+      - lambda: |-
+          id(check_interaction).execute();
+
+  # Heartbeat is handled via native API:
+  # - Hub→device: HA calls the hub_heartbeat action, which resets hub_heartbeat timestamp.
+  #   Timeout detection runs in check_hub_connection (100ms interval above).
+  # - Device→hub: device publishes esphome.heartbeat events at heartbeat_interval
+  #   (counter logic in the 100ms lambda above).

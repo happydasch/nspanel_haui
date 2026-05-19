@@ -716,9 +716,7 @@ class TestDiscoverEspHomeDevices:
 
         registry = MagicMock()
         dev_reg_mod.async_get = MagicMock(return_value=registry)
-        dev_reg_mod.async_entries_for_config_entry = MagicMock(
-            return_value=[dev_entry]
-        )
+        dev_reg_mod.async_entries_for_config_entry = MagicMock(return_value=[dev_entry])
         sys.modules["homeassistant.helpers.device_registry"] = dev_reg_mod
 
         # Offline ESPHome entry: no runtime_data services, no project_name.
@@ -748,9 +746,7 @@ class TestDiscoverEspHomeDevices:
         dev_entry.model = "esp32dev"
         registry = MagicMock()
         dev_reg_mod.async_get = MagicMock(return_value=registry)
-        dev_reg_mod.async_entries_for_config_entry = MagicMock(
-            return_value=[dev_entry]
-        )
+        dev_reg_mod.async_entries_for_config_entry = MagicMock(return_value=[dev_entry])
         sys.modules["homeassistant.helpers.device_registry"] = dev_reg_mod
 
         entry1 = MagicMock()

@@ -236,13 +236,15 @@ async def _register_discovery(hass: HomeAssistant) -> None:
 
     cancel.append(
         hass.bus.async_listen(
-            dr.EVENT_DEVICE_REGISTRY_UPDATED, _on_device_registry_change,
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+            _on_device_registry_change,
         )
     )
 
     # One-shot bootstrap covers the case where HAUI devices already
     # exist in the registry before our integration was loaded.
     hass.async_create_task(_trigger_haui_discovery(hass))
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up NSPanel HAUI from a config entry.
@@ -305,7 +307,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
 
     if not apps:
-        _LOGGER.warning("NSPanel HAUI '%s': no enabled devices configured; entry is idle", name)
+        _LOGGER.warning("NSPanel HAUI '%s': no enabled devices configured; hub is idle", name)
         # Store an empty dict so the entry is registered as active rather
         # than failing.  Devices added later trigger a reload which will
         # re-run async_setup_entry and populate real apps.
@@ -356,14 +358,77 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _cancel_listener()
 
         _cancel_listener = hass.bus.async_listen(
-            dr.EVENT_DEVICE_REGISTRY_UPDATED, _resolve_device_id,
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+            _resolve_device_id,
         )
 
         # Store cancel handle so unload can clean it up
         _device_id_listeners: dict = hass.data[DOMAIN].setdefault("_device_id_listeners", {})
         _device_id_listeners[entry.entry_id] = _cancel_listener
 
+    # ── auto-add newly discovered ESPHome HAUI devices ─────────────
+    # Schedule a deferred scan for ESPHome entries with HAUI firmware
+    # that aren't already configured.  Useful in Docker bridge mode
+    # where mDNS auto-discovery doesn't fire — users add ESPHome
+    # entries manually via the ESPHome integration, and this picks
+    # them up without requiring a manual "Scan" button press.
+    hass.async_create_task(_auto_add_unconfigured_devices(hass, entry))
+
     return True
+
+
+async def _auto_add_unconfigured_devices(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Auto-add unconfigured HAUI ESPHome devices to the hub.
+
+    Scans for ESPHome config entries with HAUI firmware that aren't
+    already listed in the hub entry's device list.  When new devices
+    are found, adds them and reloads the hub so they appear as app
+    instances.
+
+    Safe to call multiple times (checks ``configured_names``).
+    """
+    from .esphome_helpers import discover_esphome_devices
+    from .haui.device_config import DEVICE_CONFIG
+
+    try:
+        discovered = await discover_esphome_devices(hass)
+        configured_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
+        unconfigured = [d for d in discovered if d["name"] not in configured_names]
+        if not unconfigured:
+            return
+
+        import copy
+
+        new_devices = list(entry.data.get("devices", []))
+        for dev in unconfigured:
+            new_dev = copy.deepcopy(DEVICE_CONFIG)
+            new_dev["name"] = dev["name"]
+            new_dev["enabled"] = True
+            if dev.get("esphome_device_id"):
+                new_dev["esphome_device_id"] = dev["esphome_device_id"]
+            new_devices.append(new_dev)
+            _LOGGER.info(
+                "Auto-added HAUI device '%s' to hub '%s'",
+                dev["name"],
+                entry.title,
+            )
+
+        hass.config_entries.async_update_entry(
+            entry,
+            data={**entry.data, "devices": new_devices},
+        )
+        _LOGGER.info(
+            "Auto-added %d device(s) to hub '%s'; reloading",
+            len(unconfigured),
+            entry.title,
+        )
+        await async_reload_entry(hass, entry)
+    except Exception:
+        _LOGGER.warning(
+            "Auto-discovery scan for hub '%s' failed",
+            entry.title,
+            exc_info=True,
+        )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -425,7 +490,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     await async_register_frontend(hass)
 
     _LOGGER.info(
-        "NSPanel HAUI integration loaded (entries=%d)",
+        "NSPanel HAUI integration loaded (hubs=%d)",
         len(hass.config_entries.async_entries(DOMAIN)),
     )
 

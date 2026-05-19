@@ -7,6 +7,7 @@
   - [Config](#config)
     - [QR-Code Format](#qr-code-format)
     - [Start with big QR](#start-with-big-qr)
+    - [Text display](#text-display)
   - [Screens](#screens)
 
 ## About
@@ -24,6 +25,8 @@ If the big qr code is activated, then the display will not turn off.
 The entity values will be split on two lines if value is longer than 15 characters.
 
 The panel can be started with a big QR by setting `big_qr` to True.
+
+There is also a **text display** option: when no entities are configured and `show_text` is `true`, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle works normally — big QR hides the text, small QR shows it with the text.
 
 ## Config
 
@@ -66,6 +69,17 @@ Source: [https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network](
 - type: qr
   ...
   big_qr: true
+```
+
+### Text display
+
+When `show_text` is `true` and no entities are configured, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle controls visibility — big QR hides the text, small QR reveals it.
+
+```yaml
+- type: qr
+  essid: MySSID
+  password: MyPassW0rd
+  show_text: true
 ```
 
 ## Screens

@@ -524,7 +524,7 @@ class IconSearchView(HomeAssistantView):
         Maximum 200 results to keep responses small.
         """
         if IconSearchView._icons is None:
-            from .haui.mapping.icons import ICON_NAMES
+            from .haui.mapping.icon_names import ICON_NAMES
 
             IconSearchView._icons = ICON_NAMES
 

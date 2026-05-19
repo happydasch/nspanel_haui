@@ -50,6 +50,7 @@ Inside the Hub app, components follow a layered structure:
 | `custom_components/nspanel_haui/api.py` | REST API views for panel config CRUD, device discovery, device config, and debug |
 | `custom_components/nspanel_haui/esphome_helpers.py` | ESPHome discovery utilities (find HAUI devices, service validation) |
 | `custom_components/nspanel_haui/haui/abstract/base.py` | `HAUIBase` - root base class: config access, command sending/batching, logging, lifecycle |
+| `custom_components/nspanel_haui/haui/abstract/component.py` | `Component(NamedTuple)` + `ComponentRegistry` - type-safe page component declarations |
 | `custom_components/nspanel_haui/haui/abstract/config.py` | `HAUIConfig` - typed config wrapper around the merged config dict |
 | `custom_components/nspanel_haui/haui/abstract/panel.py` | `HAUIPanel` - runtime panel instance (holds items, pages, navigation actions) |
 | `custom_components/nspanel_haui/haui/abstract/item.py` | `HAUIItem` - runtime item instance (wraps entity config with display logic) |
@@ -147,14 +148,83 @@ There is no build step - the integration is installed by copying `custom_compone
 
 ## Patterns
 
+### Page component declarations
+
+Use `Component` (NamedTuple with `.id` and `.name`) and `ComponentRegistry` instead of raw `(int, str)` tuples for Nextion display widget declarations.
+
+**Base page provides header buttons:**
+```python
+from typing import ClassVar
+from ..abstract.component import Component, ComponentRegistry
+
+class HAUIPage:
+    components: ClassVar[ComponentRegistry] = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+    )
+```
+
+**Subclass pages extend via `.merge()`:**
+```python
+class CoverPage(HAUIPage):
+    components = HAUIPage.components.merge(
+        title=Component(2, "tTitle"),
+        btn_up=Component(7, "bUp"),
+        btn_stop=Component(8, "bStop"),
+        btn_down=Component(9, "bDown"),
+        h_vert_pos=Component(10, "hVertPos"),
+        info=Component(11, "tInfo"),
+    )
+```
+
+**Access pattern:**
+```python
+self.set_component_text(self.components.title, "Hello")
+self.set_component_text(self.components.t_info, "42%")
+component.name   # instead of component[1]
+component.id     # instead of component[0]
+```
+
+**Naming convention:** Use snake_case purpose-based names (e.g., `title`, `btn_up`, `t_time`, `t_main_icon`), not Nextion widget identifiers.
+
+**Method signatures** use `Component` type instead of `tuple[int, str]` or `tuple`:
+- `set_component_text(component: Component, text: str)`
+- `set_component_value(component: Component, value: int)`
+- `add_component_callback(component: Component, callback: Callable)`
+- Callback handlers: `def callback(self, event: HAUIEvent, component: Component, button_state: int)`
+
 ### Adding a new panel type
 
 1. Create a page class in `haui/page/yourpanel.py` that extends `HAUIBase` (or a relevant page base).
-2. Define a `DESCRIPTOR` class attribute of type `PageDescriptor` with at least `type_key`, `page_name`, `label`, and `description`.
-3. Import the class in `haui/mapping/panel.py` and add it to the `_page_classes` list inside `_build_panel_mapping()`.
-4. If the panel has configurable options, add `OptionDescriptor` entries to `DESCRIPTOR.options`.
-5. If it needs a popup variant, add a `popup_<SOMETHING>` alias in the `popup_aliases` dict.
-6. Document the panel in `docs/panels/panel_yourpanel.md`.
+2. Define a `components` class attribute using `ComponentRegistry` with `Component` entries for each Nextion widget on the page. Follow snake_case purpose-based naming.
+3. Define a `DESCRIPTOR` class attribute of type `PageDescriptor` with at least `type_key`, `page_name`, `label`, and `description`.
+4. Import the class in `haui/mapping/panel.py` and add it to the `_page_classes` list inside `_build_panel_mapping()`.
+5. If the panel has configurable options, add `OptionDescriptor` entries to `DESCRIPTOR.options`.
+6. If it needs a popup variant, add a `popup_<SOMETHING>` alias in the `popup_aliases` dict.
+7. Document the panel in `docs/panels/panel_yourpanel.md`.
+
+### Page lifecycle hook ordering
+
+Pages follow a defined lifecycle when panels are shown. The canonical hook ordering is:
+
+1. **`prepare()`** (optional) — Set instance attribute defaults. Called during `__init__()`, automatically. Use instead of overriding `__init__()`.
+2. **`start_panel(panel)`** (required) — Register callbacks, create items, save state.
+3. **`config_panel(panel)`** (rare) — Auto button setup via base class. Typically not overridden.
+4. **`before_render_panel(panel)`** (optional) — Return `False` to abort rendering.
+5. **`render_panel(panel)`** (required) — Send display commands.
+6. **`after_render_panel(panel, rendered)`** (optional) — Post-render actions.
+7. **`stop_panel(panel)`** (required for cleanup) — Unregister callbacks, restore state. **Always call `super().stop_panel(panel)`**.
+
+Key rules:
+- Use `prepare()` instead of `__init__()` for setting default attribute values. No need to call `super().prepare()` — the base implementation is a no-op.
+- Override `_stop_panel(panel)` instead of `stop_panel(panel)` for per-class cleanup. Do NOT call super — the base `stop_panel()` handles listener cleanup automatically, then calls `_stop_panel()`.
+- Use `_save_auto_state()` / `_restore_auto_state()` helpers (available on `HAUIPage`) instead of manually saving/restoring `auto_dimming`, `auto_page`, and `auto_sleeping` in popup overlays.
+
+Additional notes:
+- `start_page` as a config key does **not** exist — navigation uses `home_panel` from device config instead. `start_page()` is a lifecycle hook method on `HAUIPage` (rarely used).
+- `BlankPage` intentionally has no `render_panel()` — it is a blank/idle page used for sleep state.
 
 ### Config flow and schema
 

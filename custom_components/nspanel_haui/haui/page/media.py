@@ -4,17 +4,36 @@ import datetime
 import threading
 from typing import Any
 
-from ..abstract.entity import HAUIEntity
-from ..abstract.event import HAUIEvent
-from ..abstract.item import HAUIItem
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_entity import HAUIEntity
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_item import HAUIItem
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..features import MediaPlayerFeatures
 from ..mapping.color import COLORS
-from ..mapping.const import ESPRequest, ESPResponse
+from ..mapping.const import ESPRequest, ESPResponse, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.icons import (
+    ICO_ENTITY_POWER,
+    ICO_NEXT,
+    ICO_PAUSE,
+    ICO_PLAY,
+    ICO_PREV,
+    ICO_REPEAT,
+    ICO_REPEAT_OFF,
+    ICO_REPEAT_ONE,
+    ICO_SELECT_GROUP,
+    ICO_SELECT_MEDIA,
+    ICO_SELECT_SOURCE,
+    ICO_SHUFFLE,
+    ICO_SHUFFLE_DISABLED,
+    ICO_STOP,
+    ICO_VOLUME_DOWN,
+    ICO_VOLUME_UP,
+)
 from ..utils.icon import get_icon
 from ..utils.text import trim_text
-from . import HAUIPage
 
 
 class MediaPage(HAUIPage):
@@ -66,77 +85,42 @@ class MediaPage(HAUIPage):
                 section="Favorites",
             ),
         ],
+        can_show_popup=True,
         icon="mdi:music",
     )
 
-    """
-    https://developers.home-assistant.io/docs/core/item/media-player
-
-    Supported features for media player:
-    https://github.com/home-assistant/core/blob/dev/homeassistant/components/media_player/const.py
-    """
-
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # basic info
-    TXT_MEDIA_ICON, TXT_MEDIA_TITLE, TXT_MEDIA_INTERPRET = (
-        (7, "tIcon"),
-        (8, "tMTitle"),
-        (9, "tMInterpret"),
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        t_icon=Component(7, "tIcon"),
+        t_m_title=Component(8, "tMTitle"),
+        t_m_interpret=Component(9, "tMInterpret"),
+        btn_shuffle=Component(10, "bShuffle"),
+        btn_prev=Component(11, "bPrev"),
+        btn_play=Component(12, "bPlay"),
+        btn_next=Component(13, "bNext"),
+        btn_repeat=Component(14, "bRepeat"),
+        btn_vol_down=Component(15, "bVolDown"),
+        btn_vol_up=Component(16, "bVolUp"),
+        h_volume=Component(17, "hVolume"),
+        m1_btn=Component(18, "m1Btn"),
+        m1_icon=Component(19, "m1Icon"),
+        m1_name=Component(20, "m1Name"),
+        m1_overlay=Component(21, "m1Overlay"),
+        m2_btn=Component(22, "m2Btn"),
+        m2_icon=Component(23, "m2Icon"),
+        m2_name=Component(24, "m2Name"),
+        m2_overlay=Component(25, "m2Overlay"),
+        m3_btn=Component(26, "m3Btn"),
+        m3_icon=Component(27, "m3Icon"),
+        m3_name=Component(28, "m3Name"),
+        m3_overlay=Component(29, "m3Overlay"),
+        btn_power=Component(30, "bPower"),
+        j_progress=Component(31, "jProgress"),
     )
-    # control
-    BTN_SHUFFLE, BTN_PREV, BTN_PLAY = (10, "bShuffle"), (11, "bPrev"), (12, "bPlay")
-    BTN_NEXT, BTN_REPEAT = (13, "bNext"), (14, "bRepeat")
-    BTN_VOL_DOWN, BTN_VOL_UP, SLD_VOL = (
-        (15, "bVolDown"),
-        (16, "bVolUp"),
-        (17, "hVolume"),
-    )
-    # m entities
-    M1_BTN, M1_ICO, M1_NAME, M1_OVL = (
-        (18, "m1Btn"),
-        (19, "m1Icon"),
-        (20, "m1Name"),
-        (21, "m1Overlay"),
-    )
-    M2_BTN, M2_ICO, M2_NAME, M2_OVL = (
-        (22, "m2Btn"),
-        (23, "m2Icon"),
-        (24, "m2Name"),
-        (25, "m2Overlay"),
-    )
-    M3_BTN, M3_ICO, M3_NAME, M3_OVL = (
-        (26, "m3Btn"),
-        (27, "m3Icon"),
-        (28, "m3Name"),
-        (29, "m3Overlay"),
-    )
-    # power button
-    BTN_POWER = (30, "bPower")
-    # progress bar
-    J_PROGRESS = (31, "jProgress")
-
-    ICO_PLAY = get_icon("mdi:play")
-    ICO_PAUSE = get_icon("mdi:pause")
-    ICO_STOP = get_icon("mdi:stop")
-    ICO_PREV = get_icon("mdi:skip-previous")
-    ICO_NEXT = get_icon("mdi:skip-next")
-    # repeat icons
-    ICO_REPEAT = get_icon("mdi:repeat")
-    ICO_REPEAT_ONE = get_icon("mdi:repeat-once")
-    ICO_REPEAT_OFF = get_icon("mdi:repeat-off")
-    # shuffle icons
-    ICO_SHUFFLE = get_icon("mdi:shuffle")
-    ICO_SHUFFLE_DISABLED = get_icon("mdi:shuffle-disabled")
-    # volume icons
-    ICO_VOLUME_DOWN = get_icon("mdi:volume-minus")
-    ICO_VOLUME_UP = get_icon("mdi:volume-plus")
-    # misc
-    ICO_SELECT_SOURCE = get_icon("mdi:speaker")
-    ICO_SELECT_MEDIA = get_icon("mdi:playlist-music")
-    ICO_SELECT_GROUP = get_icon("mdi:group")
 
     SCROLLING_INTERVAL = 0.5
     PROGRESS_INTERVAL = 0.5
@@ -175,18 +159,18 @@ class MediaPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # set function buttons
         media_state_btn = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC,
+            "fnc_component": self.COMPONENTS.fnc_right_sec,
             "fnc_name": "media_state",
             "fnc_args": {
-                "icon": self.ICO_STOP,
+                "icon": ICO_STOP,
                 "color": COLORS["component_accent"],
                 "visible": False,
             },
         }
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
             media_state_btn,
         )
         # sonos favorites item
@@ -232,8 +216,7 @@ class MediaPage(HAUIPage):
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_media_item()
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
-        super().stop_panel(panel)
+    def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._timer_progress is not None:
             self._timer_progress.cancel()
             self._timer_progress = None
@@ -246,10 +229,10 @@ class MediaPage(HAUIPage):
     def _scrolling_text(self) -> None:
         if len(self._media_title) > 20:
             self._media_title = self._media_title[1:] + self._media_title[0]
-            self.set_component_text(self.TXT_MEDIA_TITLE, self._media_title)
+            self.set_component_text(self.COMPONENTS.t_m_title, self._media_title)
         if len(self._media_interpret) > 30:
             self._media_interpret = self._media_interpret[1:] + self._media_interpret[0]
-            self.set_component_text(self.TXT_MEDIA_INTERPRET, self._media_interpret)
+            self.set_component_text(self.COMPONENTS.t_m_interpret, self._media_interpret)
         if self.is_started():
             if self._timer_scrolling:
                 self._timer_scrolling.cancel()
@@ -271,7 +254,7 @@ class MediaPage(HAUIPage):
         if supported_features & MediaPlayerFeatures.SELECT_SOURCE:
             source = True
         if source:
-            self.add_component_callback(self.TXT_MEDIA_ICON, self.callback_select_source)
+            self.add_component_callback(self.COMPONENTS.t_icon, self.callback_select_source)
         # play button
         play = False
         if (
@@ -280,10 +263,10 @@ class MediaPage(HAUIPage):
         ):
             play = True
         self.set_function_component(
-            self.BTN_PLAY,
-            self.BTN_PLAY[1],
+            self.COMPONENTS.btn_play,
+            self.COMPONENTS.btn_play[1],
             "media_play",
-            icon=self.ICO_PLAY,
+            icon=ICO_PLAY,
             color=COLORS["component_active"],
             visible=play,
         )
@@ -292,33 +275,36 @@ class MediaPage(HAUIPage):
         if supported_features & MediaPlayerFeatures.VOLUME_SET:
             volume_visible = True
         self.set_function_component(
-            self.BTN_VOL_DOWN,
-            self.BTN_VOL_DOWN[1],
+            self.COMPONENTS.btn_vol_down,
+            self.COMPONENTS.btn_vol_down[1],
             "volume_down",
-            icon=self.ICO_VOLUME_DOWN,
+            icon=ICO_VOLUME_DOWN,
             color=COLORS["component_active"],
             visible=volume_visible,
         )
         self.set_function_component(
-            self.BTN_VOL_UP,
-            self.BTN_VOL_UP[1],
+            self.COMPONENTS.btn_vol_up,
+            self.COMPONENTS.btn_vol_up[1],
             "volume_up",
-            icon=self.ICO_VOLUME_UP,
+            icon=ICO_VOLUME_UP,
             color=COLORS["component_active"],
             visible=volume_visible,
         )
         self.set_function_component(
-            self.SLD_VOL, self.SLD_VOL[1], "set_volume", visible=volume_visible
+            self.COMPONENTS.h_volume,
+            self.COMPONENTS.h_volume[1],
+            "set_volume",
+            visible=volume_visible,
         )
         # prev button
         prev_track = False
         if supported_features & MediaPlayerFeatures.PREVIOUS_TRACK:
             prev_track = True
         self.set_function_component(
-            self.BTN_PREV,
-            self.BTN_PREV[1],
+            self.COMPONENTS.btn_prev,
+            self.COMPONENTS.btn_prev[1],
             "media_prev",
-            icon=self.ICO_PREV,
+            icon=ICO_PREV,
             color=COLORS["component_active"],
             visible=prev_track,
         )
@@ -327,10 +313,10 @@ class MediaPage(HAUIPage):
         if supported_features & MediaPlayerFeatures.NEXT_TRACK:
             next_track = True
         self.set_function_component(
-            self.BTN_NEXT,
-            self.BTN_NEXT[1],
+            self.COMPONENTS.btn_next,
+            self.COMPONENTS.btn_next[1],
             "media_next",
-            icon=self.ICO_NEXT,
+            icon=ICO_NEXT,
             color=COLORS["component_active"],
             visible=next_track,
         )
@@ -339,10 +325,10 @@ class MediaPage(HAUIPage):
         if supported_features & MediaPlayerFeatures.SHUFFLE_SET:
             shuffle = True
         self.set_function_component(
-            self.BTN_SHUFFLE,
-            self.BTN_SHUFFLE[1],
+            self.COMPONENTS.btn_shuffle,
+            self.COMPONENTS.btn_shuffle[1],
             "media_shuffle",
-            icon=self.ICO_SHUFFLE_DISABLED,
+            icon=ICO_SHUFFLE_DISABLED,
             color=COLORS["component_active"],
             visible=shuffle,
         )
@@ -351,18 +337,18 @@ class MediaPage(HAUIPage):
         if supported_features & MediaPlayerFeatures.REPEAT_SET:
             repeat = True
         self.set_function_component(
-            self.BTN_REPEAT,
-            self.BTN_REPEAT[1],
+            self.COMPONENTS.btn_repeat,
+            self.COMPONENTS.btn_repeat[1],
             "media_repeat",
-            icon=self.ICO_REPEAT_OFF,
+            icon=ICO_REPEAT_OFF,
             color=COLORS["component_active"],
             visible=repeat,
         )
         # progress bar
         # visibility will be set by timer calls when media is playing
         self.set_function_component(
-            self.J_PROGRESS,
-            self.J_PROGRESS[1],
+            self.COMPONENTS.j_progress,
+            self.COMPONENTS.j_progress[1],
             "progress",
             color=COLORS["text_inactive"],
             back_color=COLORS["text_disabled"],
@@ -377,29 +363,29 @@ class MediaPage(HAUIPage):
             or (self._sonos_favorites is not None and self._sonos_favorites_in_source is True)
         ):
             source = True
-        self.set_media_button(1, self.ICO_SELECT_SOURCE, self.translate("Source"), source)
-        self.add_component_callback(self.M1_OVL, self.callback_select_source)
+        self.set_media_button(1, ICO_SELECT_SOURCE, self.translate("Source"), source)
+        self.add_component_callback(self.COMPONENTS.m1_overlay, self.callback_select_source)
         # group button
         group = False
         group_list = item.get_item_attr("group_list", [])
         if supported_features & MediaPlayerFeatures.GROUPING and len(group_list) > 0:
             group = True
-        self.set_media_button(2, self.ICO_SELECT_GROUP, self.translate("Group"), group)
-        self.add_component_callback(self.M2_OVL, self.callback_select_group)
+        self.set_media_button(2, ICO_SELECT_GROUP, self.translate("Group"), group)
+        self.add_component_callback(self.COMPONENTS.m2_overlay, self.callback_select_group)
         # media button
         media = False
         if len(self._media_favorites) > 0 or (
             self._sonos_favorites is not None and self._sonos_favorites_in_source is False
         ):
             media = True
-        self.set_media_button(3, self.ICO_SELECT_MEDIA, self.translate("Media"), media)
-        self.add_component_callback(self.M3_OVL, self.callback_select_media)
+        self.set_media_button(3, ICO_SELECT_MEDIA, self.translate("Media"), media)
+        self.add_component_callback(self.COMPONENTS.m3_overlay, self.callback_select_media)
 
     def set_media_button(self, idx: int, icon: str, name: str, visible: bool = True) -> None:
-        m_btn = getattr(self, f"M{idx}_BTN")
-        m_ico = getattr(self, f"M{idx}_ICO")
-        m_name = getattr(self, f"M{idx}_NAME")
-        m_ovl = getattr(self, f"M{idx}_OVL")
+        m_btn = getattr(self.COMPONENTS, f"m{idx}_btn")
+        m_ico = getattr(self.COMPONENTS, f"m{idx}_icon")
+        m_name = getattr(self.COMPONENTS, f"m{idx}_name")
+        m_ovl = getattr(self.COMPONENTS, f"m{idx}_overlay")
         for x in [m_btn, m_ico, m_name, m_ovl]:
             self.show_component(x) if visible else self.hide_component(x)
         self.set_component_text(m_ico, icon)
@@ -413,7 +399,7 @@ class MediaPage(HAUIPage):
             media_channel = item.get_item_attr("media_channel")
             if media_channel:
                 title = media_channel
-        self.set_component_text(self.TXT_TITLE, title)
+        self.set_component_text(self.COMPONENTS.title, title)
 
     def update_media_item(self) -> None:
         self.update_media_title()
@@ -448,26 +434,26 @@ class MediaPage(HAUIPage):
         if len(self._media_interpret) > 30:
             self._media_interpret = f"{self._media_interpret} {get_icon('minus')} "
         self._media_channel = media_channel
-        self.set_component_text(self.TXT_MEDIA_ICON, item.get_icon())
-        self.set_component_text_color(self.TXT_MEDIA_ICON, item.get_color())
-        self.set_component_text(self.TXT_MEDIA_TITLE, media_title)
-        self.set_component_text(self.TXT_MEDIA_INTERPRET, media_interpret)
+        self.set_component_text(self.COMPONENTS.t_icon, item.get_icon())
+        self.set_component_text_color(self.COMPONENTS.t_icon, item.get_color())
+        self.set_component_text(self.COMPONENTS.t_m_title, media_title)
+        self.set_component_text(self.COMPONENTS.t_m_interpret, media_interpret)
         if self._timer_scrolling is None:
             self._scrolling_text()
 
     def update_media_controls(self) -> None:
         if self._media_item is None:
             for fnc_id in [
-                self.BTN_SHUFFLE[1],
-                self.BTN_PREV[1],
-                self.BTN_PLAY[1],
-                self.BTN_NEXT[1],
-                self.BTN_REPEAT[1],
-                self.BTN_VOL_DOWN[1],
-                self.BTN_VOL_UP[1],
+                self.COMPONENTS.btn_shuffle[1],
+                self.COMPONENTS.btn_prev[1],
+                self.COMPONENTS.btn_play[1],
+                self.COMPONENTS.btn_next[1],
+                self.COMPONENTS.btn_repeat[1],
+                self.COMPONENTS.btn_vol_down[1],
+                self.COMPONENTS.btn_vol_up[1],
             ]:
                 self.update_function_component(fnc_id, visible=False)
-            self.update_function_component(self.SLD_VOL[1], visible=False)
+            self.update_function_component(self.COMPONENTS.h_volume[1], visible=False)
             return
         item = self._media_item
         state = item.get_item_state()
@@ -486,11 +472,11 @@ class MediaPage(HAUIPage):
             ) = self.get_button_colors(queue_size > 1)
             shuffle = item.get_item_attr("shuffle")
             if shuffle is False:
-                icon = self.ICO_SHUFFLE_DISABLED
+                icon = ICO_SHUFFLE_DISABLED
             elif shuffle is True:
-                icon = self.ICO_SHUFFLE
+                icon = ICO_SHUFFLE
             self.update_function_component(
-                self.BTN_SHUFFLE[1],
+                self.COMPONENTS.btn_shuffle[1],
                 visible=True,
                 icon=icon,
                 touch=touch_enabled,
@@ -499,7 +485,7 @@ class MediaPage(HAUIPage):
                 back_color_pressed=back_color_pressed,
             )
         else:
-            self.update_function_component(self.BTN_SHUFFLE[1], visible=False)
+            self.update_function_component(self.COMPONENTS.btn_shuffle[1], visible=False)
         # repeat
         if supported_features & MediaPlayerFeatures.REPEAT_SET:
             icon = None
@@ -512,13 +498,13 @@ class MediaPage(HAUIPage):
             ) = self.get_button_colors(queue_size > 0)
             repeat = item.get_item_attr("repeat")
             if repeat == "all":
-                icon = self.ICO_REPEAT
+                icon = ICO_REPEAT
             elif repeat == "one":
-                icon = self.ICO_REPEAT_ONE
+                icon = ICO_REPEAT_ONE
             elif repeat == "off":
-                icon = self.ICO_REPEAT_OFF
+                icon = ICO_REPEAT_OFF
             self.update_function_component(
-                self.BTN_REPEAT[1],
+                self.COMPONENTS.btn_repeat[1],
                 visible=True,
                 icon=icon,
                 touch=touch_enabled,
@@ -527,16 +513,18 @@ class MediaPage(HAUIPage):
                 back_color_pressed=back_color_pressed,
             )
         else:
-            self.update_function_component(self.BTN_REPEAT[1], visible=False)
+            self.update_function_component(self.COMPONENTS.btn_repeat[1], visible=False)
         # play, pause
         if (
             supported_features & MediaPlayerFeatures.PLAY
             or supported_features & MediaPlayerFeatures.PAUSE
         ):
-            play_icon = self.ICO_PAUSE if state == "playing" else self.ICO_PLAY
-            self.update_function_component(self.BTN_PLAY[1], visible=True, icon=play_icon)
+            play_icon = ICO_PAUSE if state == "playing" else ICO_PLAY
+            self.update_function_component(
+                self.COMPONENTS.btn_play[1], visible=True, icon=play_icon
+            )
         else:
-            self.update_function_component(self.BTN_PLAY[1], visible=False)
+            self.update_function_component(self.COMPONENTS.btn_play[1], visible=False)
         # prev
         if supported_features & MediaPlayerFeatures.PREVIOUS_TRACK:
             prev_enabled = False
@@ -549,7 +537,7 @@ class MediaPage(HAUIPage):
                 back_color_pressed,
             ) = self.get_button_colors(prev_enabled)
             self.update_function_component(
-                self.BTN_PREV[1],
+                self.COMPONENTS.btn_prev[1],
                 visible=True,
                 touch=prev_enabled,
                 color=color,
@@ -557,7 +545,7 @@ class MediaPage(HAUIPage):
                 back_color_pressed=back_color_pressed,
             )
         else:
-            self.update_function_component(self.BTN_PREV[1], visible=False)
+            self.update_function_component(self.COMPONENTS.btn_prev[1], visible=False)
         # next
         if supported_features & MediaPlayerFeatures.NEXT_TRACK:
             next_enabled = False
@@ -570,7 +558,7 @@ class MediaPage(HAUIPage):
                 back_color_pressed,
             ) = self.get_button_colors(next_enabled)
             self.update_function_component(
-                self.BTN_NEXT[1],
+                self.COMPONENTS.btn_next[1],
                 visible=True,
                 touch=next_enabled,
                 color=color,
@@ -578,7 +566,7 @@ class MediaPage(HAUIPage):
                 back_color_pressed=back_color_pressed,
             )
         else:
-            self.update_function_component(self.BTN_NEXT[1], visible=False)
+            self.update_function_component(self.COMPONENTS.btn_next[1], visible=False)
 
     def update_volume(self) -> None:
         if self._media_item is None:
@@ -589,9 +577,11 @@ class MediaPage(HAUIPage):
         volume_visible = False
         if supported_features & MediaPlayerFeatures.VOLUME_SET:
             volume_visible = True
-        self.update_function_component(self.SLD_VOL[1], value=volume, visible=volume_visible)
-        self.update_function_component(self.BTN_VOL_DOWN[1], visible=volume_visible)
-        self.update_function_component(self.BTN_VOL_UP[1], visible=volume_visible)
+        self.update_function_component(
+            self.COMPONENTS.h_volume[1], value=volume, visible=volume_visible
+        )
+        self.update_function_component(self.COMPONENTS.btn_vol_down[1], visible=volume_visible)
+        self.update_function_component(self.COMPONENTS.btn_vol_up[1], visible=volume_visible)
 
     def update_progress(self) -> None:
         if self._media_item is None:
@@ -613,9 +603,11 @@ class MediaPage(HAUIPage):
             media_position += now - media_position_updated_at
         if media_duration > 0 and media_position > 0 and state == "playing":
             progress = int(media_position / (media_duration / 100))
-            self.update_function_component(self.J_PROGRESS[1], visible=True, value=progress)
+            self.update_function_component(
+                self.COMPONENTS.j_progress[1], visible=True, value=progress
+            )
         else:
-            self.update_function_component(self.J_PROGRESS[1], visible=False)
+            self.update_function_component(self.COMPONENTS.j_progress[1], visible=False)
         if self.is_started():
             if self._timer_progress:
                 self._timer_progress.cancel()
@@ -631,10 +623,10 @@ class MediaPage(HAUIPage):
         supported_features = item.get_item_attr("supported_features", 0)
         # power switch supported
         if supported_features & MediaPlayerFeatures.TURN_ON:
-            icon = self.ICO_ENTITY_POWER
+            icon = ICO_ENTITY_POWER
             self.update_function_component(self.FNC_BTN_R_SEC, visible=True, icon=icon)
         elif state == "playing":
-            icon = self.ICO_STOP
+            icon = ICO_STOP
             self.update_function_component(self.FNC_BTN_R_SEC, visible=True, icon=icon)
         else:
             self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
@@ -680,9 +672,11 @@ class MediaPage(HAUIPage):
         elif fnc_name == "volume_up":
             item.call_item_service("volume_up")
         elif fnc_name == "set_volume":
-            self.send_esphome(ESPRequest.REQ_VAL, self.SLD_VOL[1], force=True)
+            self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.h_volume[1], force=True)
 
     def callback_select_source(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+        if self._media_item is None:
+            return
         navigation = self.app.controller["navigation"]
         source_list = self._media_item.get_item_attr("source_list", [])
         source = self._media_item.get_item_attr("source", "")
@@ -697,8 +691,8 @@ class MediaPage(HAUIPage):
                 selection.append({"value": name, "name": name})
         # show popup
         if len(selection) > 0:
-            navigation.open_popup(
-                "popup_select",
+            navigation.open_panel(
+                SysPanelKey.POPUP_SELECT,
                 title=self.translate("Select source"),
                 selected=source,
                 items=selection,
@@ -736,8 +730,8 @@ class MediaPage(HAUIPage):
                 self.log(f"Skipping media favorite {favorite}: no media_content_id")
         # show popup
         if len(selection) > 0:
-            navigation.open_popup(
-                "popup_select",
+            navigation.open_panel(
+                SysPanelKey.POPUP_SELECT,
                 title=self.translate("Select media"),
                 items=selection,
                 select_mode="default",
@@ -773,8 +767,8 @@ class MediaPage(HAUIPage):
             items.append({"value": entity_id, "name": name})
         # show popup
         if len(items) > 0:
-            navigation.open_popup(
-                "popup_select",
+            navigation.open_panel(
+                SysPanelKey.POPUP_SELECT,
                 title=self.translate("Select group members"),
                 items=items,
                 selected=group_members,
@@ -850,7 +844,7 @@ class MediaPage(HAUIPage):
             data = event.as_json()
             name = data.get("name", "")
             value = int(data.get("value", 0))
-            if name == self.SLD_VOL[1]:
+            if name == self.COMPONENTS.h_volume[1]:
                 self.process_volume(value)
 
     def process_volume(self, volume: int) -> None:

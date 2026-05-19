@@ -7,8 +7,8 @@ if TYPE_CHECKING:
     from ...ha_adapter import ESPHomeProxy
     from ...nspanel_haui import NSPanelHAUI
 
-from ..abstract.base import HAUIBase
-from ..abstract.event import HAUIEvent
+from ..abstract.haui_base import HAUIBase
+from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ALL_CMD, ALL_RECV, ESP_NS_EVENT
 
 

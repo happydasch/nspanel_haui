@@ -222,7 +222,7 @@ MEDIA_CONTENT_TYPE_MAPPING = {
 }
 
 # mdi icons mapping
-ICONS_MAPPING = {
+ICON_MAPPING = {
     "ab-testing": "",
     "abacus": "",
     "abjad-arabic": "",

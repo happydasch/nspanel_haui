@@ -1,19 +1,21 @@
 from __future__ import annotations
 
-import datetime
-import threading
+from datetime import datetime
 from typing import Any
 
-from ..abstract.event import HAUIEvent
-from ..abstract.item import HAUIItem
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_item import HAUIItem
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.background import BACKGROUNDS
 from ..mapping.color import COLORS
-from ..mapping.const import ESPResponse, NotifEvent
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.icons import ICO_MESSAGE
 from ..utils.datetime import get_date_localized, get_time_localized
 from ..utils.icon import parse_icon
-from . import HAUIPage
+from ..utils.notification_blinker import NotificationBlinker
 
 
 class ClockPage(HAUIPage):
@@ -92,32 +94,36 @@ class ClockPage(HAUIPage):
         icon="mdi:clock-outline",
     )
 
-    # main components
-    TXT_TIME, TXT_DATE = (3, "tTime"), (4, "tDate")
-    ICO_MAIN, TXT_MAIN, TXT_SUB = (5, "tMainIcon"), (6, "tMainText"), (7, "tSubText")
-    TXT_NOTIF = (8, "tNotif")
-    # entities
-    BTN_ENTITY_1, BTN_ENTITY_2, BTN_ENTITY_3 = (
-        (9, "bEntity1"),
-        (10, "bEntity2"),
-        (11, "bEntity3"),
-    )
-    BTN_ENTITY_4, BTN_ENTITY_5, BTN_ENTITY_6 = (
-        (12, "bEntity4"),
-        (13, "bEntity5"),
-        (14, "bEntity6"),
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        t_time=Component(3, "tTime"),
+        t_date=Component(4, "tDate"),
+        t_main_icon=Component(5, "tMainIcon"),
+        t_main_text=Component(6, "tMainText"),
+        t_sub_text=Component(7, "tSubText"),
+        t_notif=Component(8, "tNotif"),
+        btn_entity_1=Component(9, "bEntity1"),
+        btn_entity_2=Component(10, "bEntity2"),
+        btn_entity_3=Component(11, "bEntity3"),
+        btn_entity_4=Component(12, "bEntity4"),
+        btn_entity_5=Component(13, "bEntity5"),
+        btn_entity_6=Component(14, "bEntity6"),
     )
 
     NUM_ENTITIES = 6
     DISPLAY_UPDATE_INTERVAL = 1.0
 
     # panel
+    def prepare(self) -> None:
 
-    def start_page(self) -> None:
         self._timer_weather_refresh: str | None = None
-        self._timer_notifications: threading.Timer | None = None
         self._show_notifications = True
-        self._new_notifications = False
+        self._notif_blinker = NotificationBlinker(
+            self._refresh_notif, interval=self.DISPLAY_UPDATE_INTERVAL
+        )
         self._show_weather = True
         self._show_temp = True
         self._show_home_temp = False
@@ -155,27 +161,33 @@ class ClockPage(HAUIPage):
         self._temp_precision = int(panel.get("temp_precision", 1))
         # setting: show_weather
         self._show_weather = panel.get("show_weather", True)
-        self.set_function_component(self.ICO_MAIN, self.ICO_MAIN[1], visible=self._show_weather)
+        self.set_function_component(
+            self.COMPONENTS.t_main_icon, self.COMPONENTS.t_main_icon[1], visible=self._show_weather
+        )
         # setting: show_temp
         self._show_temp = panel.get("show_temp", True)
-        self.set_function_component(self.TXT_MAIN, self.TXT_MAIN[1], visible=self._show_temp)
-        self.set_function_component(self.TXT_SUB, self.TXT_SUB[1], visible=self._show_temp)
+        self.set_function_component(
+            self.COMPONENTS.t_main_text, self.COMPONENTS.t_main_text[1], visible=self._show_temp
+        )
+        self.set_function_component(
+            self.COMPONENTS.t_sub_text, self.COMPONENTS.t_sub_text[1], visible=self._show_temp
+        )
         # setting: show_home_temp
         self._show_home_temp = panel.get("show_home_temp", False)
         # main components
-        self.set_function_component(self.TXT_TIME, self.TXT_TIME[1], visible=True)
-        self.set_function_component(self.TXT_DATE, self.TXT_DATE[1], visible=True)
+        self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
+        self.set_function_component(self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True)
         # notification
         self._show_notifications = panel.get("show_notifications", True)
         self.set_function_component(
-            self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications
+            self.COMPONENTS.t_notif, self.COMPONENTS.t_notif[1], visible=self._show_notifications
         )
         # Pre-register entity button components so config_panel registers
         # touch callbacks.  No display kwargs here - update_items()
         # applies the correct state once entity data is available.
         for i in range(self.NUM_ENTITIES):
-            component = getattr(self, f"BTN_ENTITY_{i + 1}")
-            self.set_function_component(component, component[1], "item")
+            component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
+            self.set_function_component(component, component.name, "item")
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # time display
@@ -185,10 +197,9 @@ class ClockPage(HAUIPage):
         # entities
         self.update_items(self._build_items_from_panel(panel, "item", "items"))
         # notifications
-        self.update_notifications()
+        self._notif_blinker.refresh()
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
-        super().stop_panel(panel)
+    def _stop_panel(self, panel: HAUIPanel) -> None:
         # cancel time and date tick subscriptions
         self.app.unsubscribe_tick("minute", self.callback_update_time)
         self.app.unsubscribe_tick("hour", self.callback_update_date)
@@ -196,9 +207,7 @@ class ClockPage(HAUIPage):
             self.app.cancel_timer(self._timer_weather_refresh)
             self._timer_weather_refresh = None
         # update display timer
-        if self._timer_notifications is not None:
-            self._timer_notifications.cancel()
-            self._timer_notifications = None
+        self._notif_blinker.stop()
 
     # misc
 
@@ -206,8 +215,8 @@ class ClockPage(HAUIPage):
         timeformat = self.app.device_config.get("time_format")
         timezone = self.app.hass.config.time_zone
         time = get_time_localized(timeformat, timezone)
-        self.update_function_component(self.TXT_TIME[1], text=time)
-        self.send_cmd(f"ref {self.ICO_MAIN[1]}")
+        self.update_function_component(self.COMPONENTS.t_time[1], text=time)
+        self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
 
     def update_date(self) -> None:
         strftime_format = self.app.device_config.get("date_format")
@@ -217,7 +226,7 @@ class ClockPage(HAUIPage):
         locale = self.app.device.get_locale()
         timezone = self.app.hass.config.time_zone
         date = get_date_localized(strftime_format, babel_format, locale, timezone)
-        self.update_function_component(self.TXT_DATE[1], text=date)
+        self.update_function_component(self.COMPONENTS.t_date[1], text=date)
 
     def update_main_weather(self) -> None:
         if self._weather_item is None:
@@ -255,10 +264,14 @@ class ClockPage(HAUIPage):
         if msg_sub:
             pressure_unit = self._weather_item.get_item_attr("pressure_unit")
             msg_sub = f"{msg_sub}{pressure_unit}"
-        self.update_function_component(self.TXT_MAIN[1], text=msg, visible=self._show_temp)
-        self.update_function_component(self.TXT_SUB[1], text=msg_sub, visible=self._show_temp)
         self.update_function_component(
-            self.ICO_MAIN[1], icon=icon, color=color, visible=self._show_weather
+            self.COMPONENTS.t_main_text[1], text=msg, visible=self._show_temp
+        )
+        self.update_function_component(
+            self.COMPONENTS.t_sub_text[1], text=msg_sub, visible=self._show_temp
+        )
+        self.update_function_component(
+            self.COMPONENTS.t_main_icon[1], icon=icon, color=color, visible=self._show_weather
         )
 
     def update_items(self, items: list[HAUIItem]) -> None:
@@ -285,60 +298,40 @@ class ClockPage(HAUIPage):
                 visible = True
             else:
                 item = None
-            component = getattr(self, f"BTN_ENTITY_{i + 1}")
+            component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
             self.set_function_component(
                 component,
-                component[1],
+                component.name,
                 "item",
                 item=item,
                 icon=icon,
                 color=color,
                 visible=visible,
             )
-            self.update_function_component(component[1])
+            self.update_function_component(component.name)
 
-    def update_notifications(self) -> None:
+    def _refresh_notif(self) -> None:
         if not self._show_notifications:
             return
         notification = self.app.controller["notification"]
-        if self._new_notifications:
+        if self._notif_blinker.new_notifications:
             color = COLORS["component_accent"]
+            visible = datetime.now().second % 2 == 0
         else:
             color = COLORS["component"]
-        if self._new_notifications:
-            if datetime.datetime.now().second % 2:
-                visible = False
-            else:
-                visible = True
-        else:
             visible = notification.has_notifications()
-        notif_kwargs = {
-            "icon": self.ICO_MESSAGE,
-            "visible": visible,
-            "color": color,
-        }
-        self.update_function_component(self.TXT_NOTIF[1], None, **notif_kwargs)
-        if self._new_notifications:
-            self._timer_notifications = threading.Timer(
-                self.DISPLAY_UPDATE_INTERVAL, self.update_notifications
-            )
-            self._timer_notifications.start()
+        self.update_function_component(
+            self.COMPONENTS.t_notif[1],
+            icon=ICO_MESSAGE,
+            visible=visible,
+            color=color,
+        )
 
     # event
 
     def process_event(self, event: HAUIEvent) -> None:
         super().process_event(event)
-        if event.name in [
-            ESPResponse.SEND_NOTIFICATION,
-            NotifEvent.NOTIF_ADD,
-            NotifEvent.NOTIF_REMOVE,
-            NotifEvent.NOTIF_CLEAR,
-        ]:
-            if event.name == NotifEvent.NOTIF_ADD:
-                self._new_notifications = True
-            elif event.name == NotifEvent.NOTIF_CLEAR:
-                self._new_notifications = False
-            self.update_notifications()
+        self._notif_blinker.handle_event(event)
 
     # callback
 
@@ -371,9 +364,9 @@ class ClockPage(HAUIPage):
         self.update_main_weather()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        if fnc_id == self.TXT_NOTIF[1]:
+        if fnc_id == self.COMPONENTS.t_notif[1]:
             navigation = self.app.controller["navigation"]
-            navigation.open_popup("popup_notify")
+            navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
         elif fnc_name == "item":
             item = self._fnc_items[fnc_id]["fnc_args"].get("item")
             if item is not None:

@@ -4,11 +4,20 @@ import datetime
 import threading
 from typing import Any
 
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import COLORS
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
-from ..utils.icon import get_icon
-from . import HAUIPage
+from ..mapping.icons import (
+    ICO_PAUSE,
+    ICO_RESET,
+    ICO_START,
+    ICO_STOP,
+    ICO_TIMER_FINISHED,
+    ICO_TIMER_OFF,
+)
 
 
 class TimerPage(HAUIPage):
@@ -27,46 +36,40 @@ class TimerPage(HAUIPage):
                 section="Timer",
             ),
         ],
+        can_show_popup=True,
         icon="mdi:timer-outline",
     )
 
-    ICO_START = get_icon("mdi:play")
-    ICO_PAUSE = get_icon("mdi:pause")
-    ICO_STOP = get_icon("mdi:stop")
-    ICO_RESET = get_icon("mdi:close")
-    ICO_TIMER_OFF = get_icon("mdi:timer-off-outline")
-    ICO_TIMER_FINISHED = get_icon("mdi:timer-check")
-
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # timer
-    TXT_MINUTES, TXT_SPACE, TXT_SECONDS = (7, "tMin"), (8, "tSpace"), (9, "tSec")
-    # up and down buttons
-    BTN_UP_1, BTN_UP_2, BTN_UP_3, BTN_UP_4 = (
-        (10, "bUp1"),
-        (11, "bUp2"),
-        (12, "bUp3"),
-        (13, "bUp4"),
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        t_minutes=Component(7, "tMin"),
+        t_space=Component(8, "tSpace"),
+        t_seconds=Component(9, "tSec"),
+        btn_up_1=Component(10, "bUp1"),
+        btn_up_2=Component(11, "bUp2"),
+        btn_up_3=Component(12, "bUp3"),
+        btn_up_4=Component(13, "bUp4"),
+        btn_down_1=Component(14, "bDown1"),
+        btn_down_2=Component(15, "bDown2"),
+        btn_down_3=Component(16, "bDown3"),
+        btn_down_4=Component(17, "bDown4"),
+        btn_start=Component(18, "bStart"),
+        btn_stop=Component(19, "bStop"),
     )
-    BTN_DOWN_1, BTN_DOWN_2, BTN_DOWN_3, BTN_DOWN_4 = (
-        (14, "bDown1"),
-        (15, "bDown2"),
-        (16, "bDown3"),
-        (17, "bDown4"),
-    )
-    # buttons
-    BTN_START, BTN_STOP = (18, "bStart"), (19, "bStop")
 
     DISPLAY_UPDATE_INTERVAL = 0.5
 
     # panel
 
-    def start_page(self) -> None:
+    def prepare(self) -> None:
+
         self._show_notification = False
-        self._timer = None
-        self._timer_update_display = None
+        self._timer: dict
+        self._timer_update_display: threading.Timer | None = None
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # initialise (or restore) the timer dict from panel state
@@ -77,31 +80,31 @@ class TimerPage(HAUIPage):
 
         # set function buttons
         stop_btn = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC,
+            "fnc_component": self.COMPONENTS.fnc_right_sec,
             "fnc_name": "stop_timer",
             "fnc_args": {
-                "icon": self.ICO_TIMER_OFF,
+                "icon": ICO_TIMER_OFF,
                 "color": COLORS["component_accent"],
                 "visible": self.is_timer_active(),
             },
         }
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
             stop_btn,
         )
 
         # adjust buttons for timer
         for x in [
-            self.BTN_UP_1,
-            self.BTN_UP_2,
-            self.BTN_UP_3,
-            self.BTN_UP_4,
-            self.BTN_DOWN_1,
-            self.BTN_DOWN_2,
-            self.BTN_DOWN_3,
-            self.BTN_DOWN_4,
+            self.COMPONENTS.btn_up_1,
+            self.COMPONENTS.btn_up_2,
+            self.COMPONENTS.btn_up_3,
+            self.COMPONENTS.btn_up_4,
+            self.COMPONENTS.btn_down_1,
+            self.COMPONENTS.btn_down_2,
+            self.COMPONENTS.btn_down_3,
+            self.COMPONENTS.btn_down_4,
         ]:
             visible = not self.is_timer_active()
             self.set_function_component(
@@ -114,41 +117,41 @@ class TimerPage(HAUIPage):
 
         # control buttons for timer
         for ctrl, ctrl_name in [
-            (self.BTN_START, "start_timer"),
-            (self.BTN_STOP, "stop_timer"),
+            (self.COMPONENTS.btn_start, "start_timer"),
+            (self.COMPONENTS.btn_stop, "stop_timer"),
         ]:
             self.set_function_component(ctrl, ctrl[1], fnc_name=ctrl_name, visible=False)
 
         # display
         self.set_function_component(
-            self.TXT_MINUTES,
-            self.TXT_MINUTES[1],
-            fnc_name=self.TXT_MINUTES[1],
+            self.COMPONENTS.t_minutes,
+            self.COMPONENTS.t_minutes.name,
+            fnc_name=self.COMPONENTS.t_minutes.name,
             visible=True,
             color=COLORS["component"],
         )
         self.set_function_component(
-            self.TXT_SPACE,
-            self.TXT_SPACE[1],
-            fnc_name=self.TXT_SPACE[1],
+            self.COMPONENTS.t_space,
+            self.COMPONENTS.t_space.name,
+            fnc_name=self.COMPONENTS.t_space.name,
             visible=True,
             color=COLORS["component"],
         )
         self.set_function_component(
-            self.TXT_SECONDS,
-            self.TXT_SECONDS[1],
-            fnc_name=self.TXT_SECONDS[1],
+            self.COMPONENTS.t_seconds,
+            self.COMPONENTS.t_seconds.name,
+            fnc_name=self.COMPONENTS.t_seconds.name,
             visible=True,
             color=COLORS["component"],
         )
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
+    def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._timer_update_display is not None:
             self._timer_update_display.cancel()
             self._timer_update_display = None
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.TXT_TITLE, panel.get_title(self.translate("Timer")))
+        self.set_component_text(self.COMPONENTS.title, panel.get_title(self.translate("Timer")))
         # initial call sets up timers
         self.update_timer()
 
@@ -293,33 +296,33 @@ class TimerPage(HAUIPage):
         minutes = timer["timer_minutes"]
         seconds = timer["timer_seconds"]
         switch = timer["timer_switch"]
-        self.update_function_component(self.TXT_MINUTES[1], text=f"{minutes:02}")
-        self.update_function_component(self.TXT_SPACE[1], text=(":" if switch else " "))
-        self.update_function_component(self.TXT_SECONDS[1], text=f"{seconds:02}")
+        self.update_function_component(self.COMPONENTS.t_minutes.name, text=f"{minutes:02}")
+        self.update_function_component(self.COMPONENTS.t_space.name, text=(":" if switch else " "))
+        self.update_function_component(self.COMPONENTS.t_seconds.name, text=f"{seconds:02}")
 
     def update_control_buttons(self) -> None:
         timer = self._timer
         minutes = timer["timer_minutes"]
         seconds = timer["timer_seconds"]
-        for x in [self.BTN_START, self.BTN_STOP]:
+        for x in [self.COMPONENTS.btn_start, self.COMPONENTS.btn_stop]:
             fnc_name = None
             enabled = True
-            if x == self.BTN_START:
+            if x == self.COMPONENTS.btn_start:
                 if not timer["timer_active"]:
-                    icon = self.ICO_START
+                    icon = ICO_START
                     fnc_name = "start_timer"
                 elif timer["timer_paused"]:
-                    icon = self.ICO_START
+                    icon = ICO_START
                     fnc_name = "resume_timer"
                 else:
-                    icon = self.ICO_PAUSE
+                    icon = ICO_PAUSE
                     fnc_name = "pause_timer"
-            elif x == self.BTN_STOP:
+            elif x == self.COMPONENTS.btn_stop:
                 fnc_name = "stop_timer"
-                icon = self.ICO_STOP
+                icon = ICO_STOP
                 if not timer["timer_active"]:
                     if minutes != 0 or seconds != 0:
-                        icon = self.ICO_RESET
+                        icon = ICO_RESET
                     else:
                         enabled = False
             (
@@ -341,14 +344,14 @@ class TimerPage(HAUIPage):
 
     def update_adjust_buttons(self, visible: bool) -> None:
         for x in [
-            self.BTN_UP_1,
-            self.BTN_UP_2,
-            self.BTN_UP_3,
-            self.BTN_UP_4,
-            self.BTN_DOWN_1,
-            self.BTN_DOWN_2,
-            self.BTN_DOWN_3,
-            self.BTN_DOWN_4,
+            self.COMPONENTS.btn_up_1,
+            self.COMPONENTS.btn_up_2,
+            self.COMPONENTS.btn_up_3,
+            self.COMPONENTS.btn_up_4,
+            self.COMPONENTS.btn_down_1,
+            self.COMPONENTS.btn_down_2,
+            self.COMPONENTS.btn_down_3,
+            self.COMPONENTS.btn_down_4,
         ]:
             self.update_function_component(x[1], visible=visible)
 
@@ -358,21 +361,21 @@ class TimerPage(HAUIPage):
         timer = self._timer
         minutes = timer["timer_minutes"]
         seconds = timer["timer_seconds"]
-        if fnc_id == self.BTN_UP_1[1]:
+        if fnc_id == self.COMPONENTS.btn_up_1.name:
             minutes += 10
-        elif fnc_id == self.BTN_UP_2[1]:
+        elif fnc_id == self.COMPONENTS.btn_up_2.name:
             minutes += 1
-        elif fnc_id == self.BTN_UP_3[1]:
+        elif fnc_id == self.COMPONENTS.btn_up_3.name:
             seconds += 10
-        elif fnc_id == self.BTN_UP_4[1]:
+        elif fnc_id == self.COMPONENTS.btn_up_4.name:
             seconds += 1
-        elif fnc_id == self.BTN_DOWN_1[1]:
+        elif fnc_id == self.COMPONENTS.btn_down_1.name:
             minutes -= 10
-        elif fnc_id == self.BTN_DOWN_2[1]:
+        elif fnc_id == self.COMPONENTS.btn_down_2.name:
             minutes -= 1
-        elif fnc_id == self.BTN_DOWN_3[1]:
+        elif fnc_id == self.COMPONENTS.btn_down_3.name:
             seconds -= 10
-        elif fnc_id == self.BTN_DOWN_4[1]:
+        elif fnc_id == self.COMPONENTS.btn_down_4.name:
             seconds -= 1
         # update timer values in persistent config
         if seconds >= 60:
@@ -406,10 +409,10 @@ class TimerPage(HAUIPage):
             navigation = self.app.controller["navigation"]
             msg = self.translate("Timer has finished.")
             # open notification
-            navigation.open_popup(
-                "popup_notify",
+            navigation.open_panel(
+                SysPanelKey.POPUP_NOTIFY,
                 title=self.translate("Timer finished"),
                 btn_right=self.translate("Close"),
-                icon=self.ICO_TIMER_FINISHED,
+                icon=ICO_TIMER_FINISHED,
                 notification=msg,
             )

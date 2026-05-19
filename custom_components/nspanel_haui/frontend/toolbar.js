@@ -62,9 +62,13 @@ export function renderDeviceSelector(host) {
 
   const options = displayNames.map((name) => {
     const devKey = deviceMap[name];
+    const dev = (host._panels.devices || {})[devKey] || {};
+    const config = dev.config || {};
+    const enabled = config.enabled !== false;
+    const label = enabled ? `${name}` : `${name} (disabled)`;
     return {
       value: name,
-      label: `${name}`,
+      label,
     };
   });
 

@@ -8,15 +8,17 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from .component import Component
+
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
 
-from ..abstract.display_interface import DisplayInterface, ESPHomeTransport
 from ..mapping.page import PAGE_MAPPING
 from ..utils.debounce import Debouncer
 from ..utils.icon import parse_icon
 from ..utils.text import get_state_translation, get_translation
-from .event import HAUIEvent
+from .display_interface import DisplayInterface, ESPHomeTransport
+from .haui_event import HAUIEvent
 
 _MISSING = object()
 
@@ -45,9 +47,7 @@ class HAUIBase:
 
                 def _executor_wrapper(func: Callable[[], None]) -> None:
                     try:
-                        loop.call_soon_threadsafe(
-                            hass.async_add_executor_job, func
-                        )
+                        loop.call_soon_threadsafe(hass.async_add_executor_job, func)
                     except RuntimeError:
                         pass  # Event loop is closed during HA shutdown
 
@@ -468,7 +468,7 @@ class HAUIBase:
         self.app._last_panel_update = datetime.now(UTC).isoformat()
         self.display.send_cmds(cmds)
 
-    def set_component_text(self, component: tuple[int, str], text: str) -> None:
+    def set_component_text(self, component: Component, text: str) -> None:
         """Sends a command to set the text of a component.
 
         Args:
@@ -477,9 +477,9 @@ class HAUIBase:
         """
         if not component:
             return
-        self.send_cmd(f'{component[1]}.txt="{text!s}"')
+        self.send_cmd(f'{component.name}.txt="{text!s}"')
 
-    def set_component_value(self, component: tuple[int, str], value: int) -> None:
+    def set_component_value(self, component: Component, value: int) -> None:
         """Sends a command to set the value of a component.
 
         Args:
@@ -488,7 +488,7 @@ class HAUIBase:
         """
         if not component:
             return
-        self.send_cmd(f"{component[1]}.val={int(value)}")
+        self.send_cmd(f"{component.name}.val={int(value)}")
 
     def render_template(self, template: str, parse_icons: bool = True) -> str:
         """Returns a rendered home assistant template string.

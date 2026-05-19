@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from ..mapping.color import COLORS
-from ..mapping.icon import (
+from ..mapping.icon_mapping import (
     INTERNAL_TYPE_MAPPING,
     MEDIA_CONTENT_TYPE_MAPPING,
     SIMPLE_TYPE_MAPPING,
@@ -12,7 +12,7 @@ from .color import rgb565_to_rgb, rgb_brightness, rgb_to_rgb565
 from .icon import get_icon, get_icon_name_by_state
 
 if TYPE_CHECKING:
-    from ..abstract.item import HAUIItem
+    from ..abstract.haui_item import HAUIItem
 
 # --- execute_item dispatch ---
 
@@ -165,7 +165,7 @@ def get_item_color(haui_item: HAUIItem, default_color: int) -> int:
     return result_color
 
 
-def get_item_icon(haui_item: HAUIItem, default_icon: str) -> str | None:
+def get_item_icon(haui_item: HAUIItem, default_icon: str) -> str:
     """Returns a icon for the given entity.
 
     Args:

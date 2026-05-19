@@ -1,28 +1,55 @@
 from __future__ import annotations
 
-from ..abstract.event import HAUIEvent
-from ..abstract.panel import HAUIPanel
+from typing import TYPE_CHECKING
+
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import COLORS
 from ..mapping.const import NotifEvent
+from ..mapping.descriptor import PageDescriptor
+from ..mapping.icons import ICO_NEXT_MESSAGE, ICO_PREV_MESSAGE
 from ..utils.icon import parse_icon
-from . import HAUIPage
+
+if TYPE_CHECKING:
+    pass
 
 
 class CommonNotifyPage(HAUIPage):
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # notification components
-    TXT_TEXT_FULL, TXT_TEXT, TXT_ICON = (7, "tTextFull"), (8, "tText"), (9, "tIcon")
-    # buttons
-    BTN_LEFT, BTN_RIGHT = (10, "bBtnLeft"), (11, "bBtnRight")
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        t_text_full=Component(7, "tTextFull"),
+        t_text=Component(8, "tText"),
+        t_icon=Component(9, "tIcon"),
+        btn_left=Component(10, "bBtnLeft"),
+        btn_right=Component(11, "bBtnRight"),
+    )
 
 
 class NotifyPage(CommonNotifyPage):
+    DESCRIPTOR = PageDescriptor(
+        type_key="notify",
+        page_name="notify",
+        label="Notification",
+        description="Pop-up notification panel with icon and optional buttons.",
+        is_system=True,
+        sys_panel_default={
+            "key": "popup_notify",
+            "show_in_navigation": False,
+        },
+        can_show_popup=True,
+        icon="mdi:email-outline",
+    )
+
     # panel
 
-    def start_page(self) -> None:
+    def prepare(self) -> None:
+
         self._icon = ""
         self._notification = ""
         self._btn_left = ""
@@ -31,20 +58,7 @@ class NotifyPage(CommonNotifyPage):
         self._close_callback_fnc = None
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        name = self.app.device.get_name()
-
-        # auto components
-        self.auto_dimming = self.app.get_item(f"switch.{name}_use_auto_dimming")
-        self.auto_page = self.app.get_item(f"switch.{name}_use_auto_page")
-        self.auto_sleeping = self.app.get_item(f"switch.{name}_use_auto_sleeping")
-
-        self._use_auto_dimming = self.auto_dimming.get_state()
-        self._use_auto_page = self.auto_page.get_state()
-        self._use_auto_sleeping = self.auto_sleeping.get_state()
-
-        self.auto_dimming.turn_off()
-        self.auto_page.turn_off()
-        self.auto_sleeping.turn_off()
+        self._saved_auto = self._save_auto_state()
 
         self._icon = parse_icon(panel.get("icon", ""))
         self._notification = parse_icon(panel.get("notification", ""))
@@ -54,67 +68,61 @@ class NotifyPage(CommonNotifyPage):
         self._close_callback_fnc = panel.get("close_callback_fnc", None)
 
         # set button callbacks
-        for btn in [self.BTN_LEFT, self.BTN_RIGHT]:
+        for btn in [self.COMPONENTS.btn_left, self.COMPONENTS.btn_right]:
             self.add_component_callback(btn, self.callback_button)
 
         # set function buttons
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
-            self.BTN_FNC_RIGHT_SEC,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
+            self.COMPONENTS.fnc_right_sec,
         )
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
-        # restore previous auto values
-        if self._use_auto_dimming:
-            self.auto_dimming.turn_on()
-        if self._use_auto_page:
-            self.auto_page.turn_on()
-        if self._use_auto_sleeping:
-            self.auto_sleeping.turn_on()
+    def _stop_panel(self, panel: HAUIPanel) -> None:
+        self._restore_auto_state(self._saved_auto)
         # notify about close
         if self._close_callback_fnc:
             self._close_callback_fnc()
 
     def render_panel(self, panel: HAUIPanel) -> None:
         title = self.get("title", panel.get_title())
-        self.set_component_text(self.TXT_TITLE, title)
+        self.set_component_text(self.COMPONENTS.title, title)
 
         if self._icon:
             icon_color = panel.get("icon_color")
             if icon_color:
-                self.set_component_text_color(self.TXT_ICON, icon_color)
+                self.set_component_text_color(self.COMPONENTS.t_icon, icon_color)
             else:
-                self.set_component_text_color(self.TXT_ICON, COLORS["component"])
-            self.set_component_text(self.TXT_ICON, self._icon)
-            self.set_component_text(self.TXT_TEXT, self._notification)
-            self.hide_component(self.TXT_TEXT_FULL)
-            self.show_component(self.TXT_TEXT)
-            self.show_component(self.TXT_ICON)
+                self.set_component_text_color(self.COMPONENTS.t_icon, COLORS["component"])
+            self.set_component_text(self.COMPONENTS.t_icon, self._icon)
+            self.set_component_text(self.COMPONENTS.t_text, self._notification)
+            self.hide_component(self.COMPONENTS.t_text_full)
+            self.show_component(self.COMPONENTS.t_text)
+            self.show_component(self.COMPONENTS.t_icon)
         else:
-            self.set_component_text(self.TXT_TEXT_FULL, self._notification)
-            self.hide_component(self.TXT_TEXT)
-            self.hide_component(self.TXT_ICON)
-            self.show_component(self.TXT_TEXT_FULL)
+            self.set_component_text(self.COMPONENTS.t_text_full, self._notification)
+            self.hide_component(self.COMPONENTS.t_text)
+            self.hide_component(self.COMPONENTS.t_icon)
+            self.show_component(self.COMPONENTS.t_text_full)
         if self._btn_left:
             btn_left_color = panel.get("btn_left_color", COLORS["component"])
             btn_left_back_color = panel.get("btn_left_back_color", COLORS["background"])
-            self.set_component_text_color(self.BTN_LEFT, btn_left_color)
-            self.set_component_back_color(self.BTN_LEFT, btn_left_back_color)
-            self.set_component_text(self.BTN_LEFT, self._btn_left)
-            self.show_component(self.BTN_LEFT)
+            self.set_component_text_color(self.COMPONENTS.btn_left, btn_left_color)
+            self.set_component_back_color(self.COMPONENTS.btn_left, btn_left_back_color)
+            self.set_component_text(self.COMPONENTS.btn_left, self._btn_left)
+            self.show_component(self.COMPONENTS.btn_left)
         else:
-            self.hide_component(self.BTN_LEFT)
+            self.hide_component(self.COMPONENTS.btn_left)
         if self._btn_right:
             btn_right_color = panel.get("btn_right_color", COLORS["component"])
             btn_right_back_color = panel.get("btn_right_back_color", COLORS["background"])
-            self.set_component_text_color(self.BTN_RIGHT, btn_right_color)
-            self.set_component_back_color(self.BTN_RIGHT, btn_right_back_color)
-            self.set_component_text(self.BTN_RIGHT, self._btn_right)
-            self.show_component(self.BTN_RIGHT)
+            self.set_component_text_color(self.COMPONENTS.btn_right, btn_right_color)
+            self.set_component_back_color(self.COMPONENTS.btn_right, btn_right_back_color)
+            self.set_component_text(self.COMPONENTS.btn_right, self._btn_right)
+            self.show_component(self.COMPONENTS.btn_right)
         else:
-            self.hide_component(self.BTN_RIGHT)
+            self.hide_component(self.COMPONENTS.btn_right)
 
     # callback
 
@@ -123,8 +131,8 @@ class NotifyPage(CommonNotifyPage):
             return
         self.log(f"Got button press: {component}-{button_state}")
         if self._button_callback_fnc:
-            btn_left = True if component == self.BTN_LEFT else False
-            btn_right = True if component == self.BTN_RIGHT else False
+            btn_left = True if component == self.COMPONENTS.btn_left else False
+            btn_right = True if component == self.COMPONENTS.btn_right else False
             self._button_callback_fnc(btn_left, btn_right)
         close_on_button = self.panel.get("close_on_button", True) if self.panel else True
         if close_on_button:
@@ -134,57 +142,68 @@ class NotifyPage(CommonNotifyPage):
 
 
 class NotifsPage(CommonNotifyPage):
-    # panel
+    DESCRIPTOR = PageDescriptor(
+        type_key="notifs",
+        page_name="notifs",
+        label="Notifications",
+        description="Notification list with prev/next navigation.",
+        is_system=True,
+        sys_panel_default={
+            "key": "popup_notifs",
+            "show_in_navigation": False,
+        },
+        can_show_popup=True,
+        icon="mdi:email-multiple-outline",
+    )
 
-    def start_page(self) -> None:
-        self._index = 0
+    # panel
 
     def start_panel(self, panel: HAUIPanel) -> None:
         self._index = 0
 
         # set button callbacks
-        for btn in [self.BTN_LEFT, self.BTN_RIGHT]:
+        for btn in [self.COMPONENTS.btn_left, self.COMPONENTS.btn_right]:
             self.add_component_callback(btn, self.callback_button)
 
         notifications = self.app.controller["notification"].get_notifications()
         count = len(notifications)
         prev_btn = {
-            "fnc_component": self.BTN_FNC_LEFT_SEC,
+            "fnc_component": self.COMPONENTS.fnc_left_sec,
             "fnc_name": "prev_notification",
             "fnc_args": {
-                "icon": self.ICO_PREV_MESSAGE,
+                "icon": ICO_PREV_MESSAGE,
                 "color": COLORS["component_accent"],
                 "visible": count > 1,
             },
         }
         next_btn = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC,
+            "fnc_component": self.COMPONENTS.fnc_right_sec,
             "fnc_name": "next_notification",
             "fnc_args": {
-                "icon": self.ICO_NEXT_MESSAGE,
+                "icon": ICO_NEXT_MESSAGE,
                 "color": COLORS["component_accent"],
                 "visible": count > 1,
             },
         }
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
+            self.COMPONENTS.fnc_left_pri,
             prev_btn,
-            self.BTN_FNC_RIGHT_PRI,
+            self.COMPONENTS.fnc_right_pri,
             next_btn,
         )
 
     def render_panel(self, panel: HAUIPanel) -> None:
         title = panel.get_title(self.translate("Notifications"))
-        self.set_component_text(self.TXT_TITLE, title)
+        self.set_component_text(self.COMPONENTS.title, title)
 
         notifications = self.app.controller["notification"].get_notifications()
         if not notifications:
-            self.set_component_text(self.TXT_TEXT_FULL, self.translate("No notifications"))
-            self.hide_component(self.TXT_TEXT)
-            self.hide_component(self.TXT_ICON)
-            self.show_component(self.TXT_TEXT_FULL)
-            self.hide_component(self.BTN_LEFT)
-            self.hide_component(self.BTN_RIGHT)
+            self.set_component_text(self.COMPONENTS.t_text_full, self.translate("No notifications"))
+            self.hide_component(self.COMPONENTS.t_text)
+            self.hide_component(self.COMPONENTS.t_icon)
+            self.show_component(self.COMPONENTS.t_text_full)
+            self.hide_component(self.COMPONENTS.btn_left)
+            self.hide_component(self.COMPONENTS.btn_right)
             return
 
         # clamp index
@@ -196,29 +215,29 @@ class NotifsPage(CommonNotifyPage):
 
         # show per-notification title when available
         display_title = notif_title or title
-        self.set_component_text(self.TXT_TITLE, display_title)
+        self.set_component_text(self.COMPONENTS.title, display_title)
 
         if icon:
-            self.set_component_text_color(self.TXT_ICON, COLORS["component"])
-            self.set_component_text(self.TXT_ICON, icon)
-            self.set_component_text(self.TXT_TEXT, message)
-            self.hide_component(self.TXT_TEXT_FULL)
-            self.show_component(self.TXT_TEXT)
-            self.show_component(self.TXT_ICON)
+            self.set_component_text_color(self.COMPONENTS.t_icon, COLORS["component"])
+            self.set_component_text(self.COMPONENTS.t_icon, icon)
+            self.set_component_text(self.COMPONENTS.t_text, message)
+            self.hide_component(self.COMPONENTS.t_text_full)
+            self.show_component(self.COMPONENTS.t_text)
+            self.show_component(self.COMPONENTS.t_icon)
         else:
-            self.set_component_text(self.TXT_TEXT_FULL, message)
-            self.hide_component(self.TXT_TEXT)
-            self.hide_component(self.TXT_ICON)
-            self.show_component(self.TXT_TEXT_FULL)
+            self.set_component_text(self.COMPONENTS.t_text_full, message)
+            self.hide_component(self.COMPONENTS.t_text)
+            self.hide_component(self.COMPONENTS.t_icon)
+            self.show_component(self.COMPONENTS.t_text_full)
 
         # dismiss button - accent color signals persistent (sound loops until dismissed)
         dismiss_label = self.translate("Dismiss")
         btn_color = COLORS["component_accent"] if persistent else COLORS["component"]
-        self.set_component_text_color(self.BTN_RIGHT, btn_color)
-        self.set_component_back_color(self.BTN_RIGHT, COLORS["background"])
-        self.set_component_text(self.BTN_RIGHT, dismiss_label)
-        self.show_component(self.BTN_RIGHT)
-        self.hide_component(self.BTN_LEFT)
+        self.set_component_text_color(self.COMPONENTS.btn_right, btn_color)
+        self.set_component_back_color(self.COMPONENTS.btn_right, COLORS["background"])
+        self.set_component_text(self.COMPONENTS.btn_right, dismiss_label)
+        self.show_component(self.COMPONENTS.btn_right)
+        self.hide_component(self.COMPONENTS.btn_left)
 
     # callback
 
@@ -226,7 +245,7 @@ class NotifsPage(CommonNotifyPage):
         if button_state:
             return
         self.log(f"Got notification button press: {component}")
-        if component == self.BTN_RIGHT:
+        if component == self.COMPONENTS.btn_right:
             # dismiss current notification
             notifications = self.app.controller["notification"].get_notifications()
             if notifications:

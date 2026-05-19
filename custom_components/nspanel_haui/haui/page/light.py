@@ -3,16 +3,17 @@ from __future__ import annotations
 import threading
 from typing import Any
 
-from ..abstract.event import HAUIEvent
-from ..abstract.item import HAUIItem
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_item import HAUIItem
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import COLORS
-from ..mapping.const import ESPEvent, ESPRequest, ESPResponse
+from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.icons import ICO_BRIGHTNESS, ICO_COLOR, ICO_COLOR_TEMP, ICO_EFFECT, ICO_POWER
 from ..utils.color import color_to_pos, pos_to_color
-from ..utils.icon import get_icon
 from ..utils.value import scale
-from . import HAUIPage
 
 
 class LightPage(HAUIPage):
@@ -38,41 +39,38 @@ class LightPage(HAUIPage):
                 section="Light",
             ),
         ],
+        can_show_popup=True,
         icon="mdi:lightbulb-outline",
     )
 
-    # https://developers.home-assistant.io/docs/core/item/light
-
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # function buttons
-    BTN_LIGHT_FNC_1, BTN_LIGHT_FNC_2 = (7, "btLightFnc1"), (8, "btLightFnc2")
-    BTN_LIGHT_FNC_3, BTN_LIGHT_FNC_4 = (9, "btLightFnc3"), (10, "btLightFnc4")
-    # selectors
-    PIC_COLOR_WHEEL, H_BRIGHTNESS = (11, "pColorWheel"), (12, "hBrightness")
-    H_COLOR_TEMP, BTN_POWER = (13, "hColorTemp"), (14, "bPower")
-    # info
-    TXT_INFO = (15, "tInfo")
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        btn_light_fnc_1=Component(7, "btLightFnc1"),
+        btn_light_fnc_2=Component(8, "btLightFnc2"),
+        btn_light_fnc_3=Component(9, "btLightFnc3"),
+        btn_light_fnc_4=Component(10, "btLightFnc4"),
+        pic_color_wheel=Component(11, "pColorWheel"),
+        h_brightness=Component(12, "hBrightness"),
+        h_color_temp=Component(13, "hColorTemp"),
+        btn_power=Component(14, "bPower"),
+        t_info=Component(15, "tInfo"),
+    )
 
     # hardcoded to not request too often, needed for color to pos
     PIC_COLOR_WHEEL_WH = 200
     PIC_COLOR_WHEEL_X = 125
     PIC_COLOR_WHEEL_Y = 75
 
-    # icons for light functions
-    ICO_BRIGHTNESS = get_icon("mdi:brightness-6")
-    ICO_COLOR = get_icon("mdi:palette")
-    ICO_COLOR_TEMP = get_icon("mdi:thermometer")
-    ICO_EFFECT = get_icon("mdi:fire")
-    ICO_POWER = get_icon("mdi:power")
-
     DEFAULT_FUNCTION = "brightness"
 
     # panel
 
-    def start_page(self) -> None:
+    def prepare(self) -> None:
+
         self._title = ""
         self._light_item: HAUIItem | None = None
         self._show_kelvin = True
@@ -86,32 +84,32 @@ class LightPage(HAUIPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set component callbacks
-        self.add_component_callback(self.PIC_COLOR_WHEEL, self.callback_color_wheel)
-        self.add_component_callback(self.H_BRIGHTNESS, self.callback_brightness)
-        self.add_component_callback(self.H_COLOR_TEMP, self.callback_color_temp)
-        self.add_component_callback(self.BTN_POWER, self.callback_power)
+        self.add_component_callback(self.COMPONENTS.pic_color_wheel, self.callback_color_wheel)
+        self.add_component_callback(self.COMPONENTS.h_brightness, self.callback_brightness)
+        self.add_component_callback(self.COMPONENTS.h_color_temp, self.callback_color_temp)
+        self.add_component_callback(self.COMPONENTS.btn_power, self.callback_power)
         # set function buttons
         power_off_btn = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC,
+            "fnc_component": self.COMPONENTS.fnc_right_sec,
             "fnc_name": "power_off",
             "fnc_args": {
-                "icon": self.ICO_POWER,
+                "icon": ICO_POWER,
                 "color": COLORS["component_accent"],
                 "visible": False,
             },
         }
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
             power_off_btn,
         )
         # set light function button callbacks
         for btn in [
-            self.BTN_LIGHT_FNC_1,
-            self.BTN_LIGHT_FNC_2,
-            self.BTN_LIGHT_FNC_3,
-            self.BTN_LIGHT_FNC_4,
+            self.COMPONENTS.btn_light_fnc_1,
+            self.COMPONENTS.btn_light_fnc_2,
+            self.COMPONENTS.btn_light_fnc_3,
+            self.COMPONENTS.btn_light_fnc_4,
         ]:
             self.add_component_callback(btn, self.callback_light_function_button)
         # if kelvin should be used instead of mired
@@ -134,16 +132,13 @@ class LightPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # set basic panel info
-        self.set_component_text(self.TXT_TITLE, self._title)
-        if not self.update_functions(self.DEFAULT_FUNCTION) and panel.get_mode() == "popup":
+        self.set_component_text(self.COMPONENTS.title, self._title)
+        if not self.update_functions(self.DEFAULT_FUNCTION) and panel.can_show_popup():
             self.stop_rec_cmd(send_commands=False)
             navigation = self.app.controller["navigation"]
             navigation.close_panel()
 
     # misc
-
-    def stop_panel(self, panel: HAUIPanel) -> None:
-        super().stop_panel(panel)
 
     def set_light_item(self, item: HAUIItem | None) -> None:
         self._light_item = item
@@ -223,10 +218,10 @@ class LightPage(HAUIPage):
         # update light functions
         idx = 1
         for ico, name, val, status, show_info in [
-            (self.ICO_BRIGHTNESS, "brightness", brightness_val, brightness, True),
-            (self.ICO_COLOR, "color", color_val, color, False),
-            (self.ICO_COLOR_TEMP, "color_temp", color_temp_val, color_temp, True),
-            (self.ICO_EFFECT, "effect", effect_val, effect, False),
+            (ICO_BRIGHTNESS, "brightness", brightness_val, brightness, True),
+            (ICO_COLOR, "color", color_val, color, False),
+            (ICO_COLOR_TEMP, "color_temp", color_temp_val, color_temp, True),
+            (ICO_EFFECT, "effect", effect_val, effect, False),
         ]:
             if status:
                 function = {
@@ -250,8 +245,8 @@ class LightPage(HAUIPage):
         status: bool,
         show_info: bool,
         **kwargs: Any,
-    ) -> tuple:
-        btn = getattr(self, f"BTN_LIGHT_FNC_{idx}")
+    ) -> Component:
+        btn = getattr(self.COMPONENTS, f"btn_light_fnc_{idx}")
         self.set_component_text(btn, ico)
         if status is True:
             if self._current_light_function is not None:
@@ -279,15 +274,15 @@ class LightPage(HAUIPage):
             txt_value = f"{conv_value}%"
         else:
             txt_value = self.translate("Off")
-        self.set_component_value(self.H_BRIGHTNESS, conv_value)
+        self.set_component_value(self.COMPONENTS.h_brightness, conv_value)
         if self._current_light_function == "brightness":
-            self.set_component_text(self.TXT_INFO, txt_value)
+            self.set_component_text(self.COMPONENTS.t_info, txt_value)
 
     def set_color_info(self, value: int) -> None:
         fnc = self.get_light_function("color")
         if fnc is None:
             return
-        self.set_component_text_color(self.BTN_POWER, value)
+        self.set_component_text_color(self.COMPONENTS.btn_power, value)
         self.update_color_wheel()
 
     def set_color_temp_info(self, value: int) -> None:
@@ -309,9 +304,9 @@ class LightPage(HAUIPage):
             txt_value = f"{value}{unit}"
         else:
             txt_value = ""
-        self.set_component_value(self.H_COLOR_TEMP, conv_value)
+        self.set_component_value(self.COMPONENTS.h_color_temp, conv_value)
         if self._current_light_function == "color_temp":
-            self.set_component_text(self.TXT_INFO, txt_value)
+            self.set_component_text(self.COMPONENTS.t_info, txt_value)
 
     def set_effect_info(self, value: str) -> None:
         fnc = self.get_light_function("effect")
@@ -350,8 +345,8 @@ class LightPage(HAUIPage):
                         name = no_effect
                     effects.append({"value": value, "name": name})
                 if len(effects) > 0:
-                    navigation.open_popup(
-                        "popup_select",
+                    navigation.open_panel(
+                        SysPanelKey.POPUP_SELECT,
                         title=self.translate("Select effect"),
                         items=effects,
                         selection_callback_fnc=self.callback_effect,
@@ -371,9 +366,9 @@ class LightPage(HAUIPage):
             if fnc["status"] is False or fnc["val"] is None:
                 continue
             if fnc["name"] == "brightness":
-                self.set_component_value(self.H_BRIGHTNESS, fnc["val"])
+                self.set_component_value(self.COMPONENTS.h_brightness, fnc["val"])
             elif fnc["name"] == "color_temp":
-                self.set_component_value(self.H_COLOR_TEMP, fnc["val"])
+                self.set_component_value(self.COMPONENTS.h_color_temp, fnc["val"])
             elif fnc["name"] == "color":
                 self.update_color_wheel()
 
@@ -397,16 +392,16 @@ class LightPage(HAUIPage):
         to_show = None
         if fnc is not None:
             if fnc["name"] == "brightness":
-                to_show = self.H_BRIGHTNESS
+                to_show = self.COMPONENTS.h_brightness
             elif fnc["name"] == "color":
-                to_show = self.PIC_COLOR_WHEEL
+                to_show = self.COMPONENTS.pic_color_wheel
             elif fnc["name"] == "color_temp":
-                to_show = self.H_COLOR_TEMP
+                to_show = self.COMPONENTS.h_color_temp
             # function info
             if not fnc["show_info"]:
-                self.hide_component(self.TXT_INFO)
+                self.hide_component(self.COMPONENTS.t_info)
         else:
-            self.hide_component(self.TXT_INFO)
+            self.hide_component(self.COMPONENTS.t_info)
         # function buttons
         for i in range(4):
             if i < len(self._light_functions):
@@ -419,17 +414,21 @@ class LightPage(HAUIPage):
                     self.set_component_value(btn, 0)
             else:
                 idx = i + 1
-                btn = getattr(self, f"BTN_LIGHT_FNC_{idx}")
+                btn = getattr(self.COMPONENTS, f"btn_light_fnc_{idx}")
                 self.hide_component(btn)
         # function components
-        for x in [self.H_BRIGHTNESS, self.PIC_COLOR_WHEEL, self.H_COLOR_TEMP]:
+        for x in [
+            self.COMPONENTS.h_brightness,
+            self.COMPONENTS.pic_color_wheel,
+            self.COMPONENTS.h_color_temp,
+        ]:
             if x == to_show:
                 self.show_component(x)
             else:
                 self.hide_component(x)
         if fnc is not None:
             if fnc["show_info"]:
-                self.show_component(self.TXT_INFO)
+                self.show_component(self.COMPONENTS.t_info)
             self.update_light_function_info(fnc)
 
     def update_light_function_info(self, fnc: dict) -> None:
@@ -459,7 +458,7 @@ class LightPage(HAUIPage):
         # get pos xy based on smaller circle
         pos_x, pos_y = color_to_pos(rgb_color, wh)
         # refresh color wheel to remove circle
-        self.send_cmd(f"ref {self.PIC_COLOR_WHEEL[0]}")
+        self.send_cmd(f"ref {self.COMPONENTS.pic_color_wheel[0]}")
         if pos_x is not None and pos_y is not None and pos_x > 0 and pos_y > 0:
             self.log(f"Set color wheel: {pos_x},{pos_y}")
             # adjust pos based on radius of circle
@@ -487,16 +486,16 @@ class LightPage(HAUIPage):
         else:
             color = COLORS["item_unavailable"]
         if self._current_light_function is None:
-            self.set_component_text_color(self.BTN_POWER, color)
-            self.show_component(self.BTN_POWER)
+            self.set_component_text_color(self.COMPONENTS.btn_power, color)
+            self.show_component(self.COMPONENTS.btn_power)
         else:
-            self.hide_component(self.BTN_POWER)
+            self.hide_component(self.COMPONENTS.btn_power)
 
     def update_not_available(self) -> None:
         self.log("update_not_available")
         color = COLORS["item_unavailable"]
-        self.set_component_text_color(self.BTN_POWER, color)
-        self.show_component(self.BTN_POWER)
+        self.set_component_text_color(self.COMPONENTS.btn_power, color)
+        self.show_component(self.COMPONENTS.btn_power)
 
     # callback
 
@@ -508,7 +507,8 @@ class LightPage(HAUIPage):
             if attribute == "state":
                 if (
                     not self.update_functions(self.DEFAULT_FUNCTION)
-                    and self.panel.get_mode() == "popup"
+                    and self.panel is not None
+                    and self.panel.can_show_popup()
                 ):
                     navigation = self.app.controller["navigation"]
                     navigation.close_panel()
@@ -564,10 +564,10 @@ class LightPage(HAUIPage):
         # update components
         with self.rec_cmd:
             for btn in [
-                self.BTN_LIGHT_FNC_1,
-                self.BTN_LIGHT_FNC_2,
-                self.BTN_LIGHT_FNC_3,
-                self.BTN_LIGHT_FNC_4,
+                self.COMPONENTS.btn_light_fnc_1,
+                self.COMPONENTS.btn_light_fnc_2,
+                self.COMPONENTS.btn_light_fnc_3,
+                self.COMPONENTS.btn_light_fnc_4,
             ]:
                 if btn != component or (fnc and fnc["name"] == "effect"):
                     self.set_component_value(btn, 0)
@@ -588,19 +588,19 @@ class LightPage(HAUIPage):
         if button_state:
             return
         self.log(f"Got brightness press: {component}-{button_state}")
-        self.send_esphome(ESPRequest.REQ_VAL, self.H_BRIGHTNESS[1], force=True)
+        self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.h_brightness[1], force=True)
 
     def callback_color_temp(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
         if button_state:
             return
         self.log(f"Got color temp press: {component}-{button_state}")
-        self.send_esphome(ESPRequest.REQ_VAL, self.H_COLOR_TEMP[1], force=True)
+        self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.h_color_temp[1], force=True)
 
     def callback_power(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
         if button_state:
             return
         self.log(f"Got power press: {component}-{button_state}")
-        self.send_esphome(ESPRequest.REQ_VAL, self.BTN_POWER[1], force=True)
+        self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.btn_power[1], force=True)
 
     def callback_effect(self, selection: list) -> None:
         self.log(f"Got effect selection: {selection}")
@@ -628,11 +628,11 @@ class LightPage(HAUIPage):
             data = event.as_json()
             name = data.get("name", "")
             value = int(data.get("value", 0))
-            if name == self.BTN_POWER[1]:
+            if name == self.COMPONENTS.btn_power[1]:
                 self.process_power(value)
-            elif name == self.H_BRIGHTNESS[1]:
+            elif name == self.COMPONENTS.h_brightness[1]:
                 self.process_brightness(value)
-            elif name == self.H_COLOR_TEMP[1]:
+            elif name == self.COMPONENTS.h_color_temp[1]:
                 self.process_color_temp(value)
 
     def process_color(self, color: tuple[int, int, int]) -> None:
@@ -667,10 +667,12 @@ class LightPage(HAUIPage):
         if self._light_item is None:
             return
         # scale 0-100 from slider to color range of lamp
-        color_temp = scale(
-            color_temp,
-            (0, 100),
-            (self._color_temp_max, self._color_temp_min),
+        color_temp = int(
+            scale(
+                color_temp,
+                (0, 100),
+                (self._color_temp_max, self._color_temp_min),
+            )
         )
         args = {}
         if self._show_kelvin:

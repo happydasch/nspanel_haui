@@ -7,10 +7,11 @@ from uuid import UUID
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
 
-from ..abstract.base import HAUIBase
-from ..abstract.event import HAUIEvent
-from ..abstract.panel import HAUIPanel
-from ..mapping.const import ESPCommand, ESPEvent
+from ..abstract.haui_base import HAUIBase
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
+from ..mapping.const import ESPCommand, ESPEvent, SysPanelKey
 from ..mapping.page import PAGE_MAPPING
 from ..utils.page import get_page_class_for_panel, get_page_id_for_panel
 
@@ -31,20 +32,20 @@ class HAUINavigationController(HAUIBase):
         """
         super().__init__(app, config)
         self.debug_log(f"Creating Navigation Controller with config: {config}")
-        self.page = None
+        self.page: HAUIPage | None = None
         self.panel: HAUIPanel | None = None  # current panel config
         self.panel_kwargs: dict[str, Any] = {}  # current panel kwargs
         self._current_nav: HAUIPanel | None = None  # current nav panel config
         self._current_nav_kwargs: dict[str, Any] = {}  # current nav panel kwargs
         self._ids: list = []  # ids of nav panels
         self._id_to_idx: dict = {}  # O(1) index lookup for nav panels
-        self._home_panel = None  # home panel config
-        self._sleep_panel = None  # sleep panel config
+        self._home_panel: HAUIPanel | None = None  # home panel config
+        self._sleep_panel: HAUIPanel | None = None  # sleep panel config
         self._sleep_panel_active = False  # sleep panel state
-        self._wakeup_panel = None  # wakeup panel config
-        self._page_timeout = None  # Timer for switching pages
-        self._close_timeout = None  # Timer for panel auto close
-        self._idle_timer = None  # Timer for hub-side idle timeout
+        self._wakeup_panel: HAUIPanel | None = None  # wakeup panel config
+        self._page_timeout: str | None = None  # Timer for switching pages
+        self._close_timeout: str | None = None  # Timer for panel auto close
+        self._idle_timer: str | None = None  # Timer for hub-side idle timeout
         self._last_interaction: float = 0.0  # monotonic time of last user interaction
         self._stack: list[tuple[HAUIPanel, dict[str, Any]]] = []  # stack for non-nav panels
         self._snapshot: (
@@ -280,16 +281,6 @@ class HAUINavigationController(HAUIBase):
             # Start hub-side idle timer when a panel is displayed
             self._start_idle_timer()
 
-    def open_popup(self, panel_id: UUID | str, **kwargs: Any) -> None:
-        """Opens a panel as a popup.
-
-        Args:
-            panel_id (str): Id of panel
-            kwargs (dict): Additional arguments for panel
-        """
-        kwargs["mode"] = "popup"
-        self.open_panel(panel_id, **kwargs)
-
     def open_panel(self, panel_id: UUID | str, **kwargs: Any) -> None:
         """Opens the panel with the given id.
 
@@ -365,7 +356,7 @@ class HAUINavigationController(HAUIBase):
             # lock new panel
             panel.set_state("locked", True)
             # open the unlock panel with the panel to unlock as a param
-            self._open_panel_impl("popup_unlock", unlock_panel=panel, autostart=True, mode="popup")
+            self._open_panel_impl(SysPanelKey.POPUP_UNLOCK, unlock_panel=panel, autostart=True)
             return
 
         # extract optional force flag before passing to goto_page

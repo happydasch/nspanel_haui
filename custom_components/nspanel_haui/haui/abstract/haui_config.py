@@ -10,8 +10,8 @@ if TYPE_CHECKING:
 from ..config_models import validate_config
 from ..mapping.const import DEFAULT_CONFIG
 from ..utils.value import merge_dicts
-from .base import HAUIBase
-from .panel import HAUIPanel
+from .haui_base import HAUIBase
+from .haui_panel import HAUIPanel
 
 
 class HAUIConfig(HAUIBase):
@@ -29,6 +29,12 @@ class HAUIConfig(HAUIBase):
         if config is not None:
             merge_dicts(cfg, deepcopy(config))
         super().__init__(app, cfg)
+        # Always populate sys_panels from page descriptors when the list
+        # is empty, since device._check_config() requires them all.
+        if not cfg.get("sys_panels"):
+            from ..mapping.panel import build_sys_panels_defaults
+
+            cfg["sys_panels"] = build_sys_panels_defaults()
         # validate after base init so self.app etc. are available
         validate_config(cfg)
         # load all panels

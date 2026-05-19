@@ -1,22 +1,27 @@
 from __future__ import annotations
 
-import datetime
-import threading
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 import dateutil.parser as dp
 
-from ..abstract.event import HAUIEvent
-from ..abstract.item import HAUIItem
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_item import HAUIItem
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.background import BACKGROUNDS
 from ..mapping.color import COLORS
-from ..mapping.const import ESPResponse, NotifEvent
+from ..mapping.const import ESPResponse, NotifEvent, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
-from ..mapping.icon import WEATHER_MAPPING
+from ..mapping.icon_mapping import WEATHER_MAPPING
+from ..mapping.icons import ICO_MESSAGE
 from ..utils.datetime import format_datetime, get_date_localized, get_time_localized
 from ..utils.icon import get_icon, parse_icon
-from . import HAUIPage
+from ..utils.notification_blinker import NotificationBlinker
+
+if TYPE_CHECKING:
+    pass
 
 
 class WeatherPage(HAUIPage):
@@ -128,53 +133,47 @@ class WeatherPage(HAUIPage):
         icon="mdi:weather-partly-cloudy",
     )
 
-    # time and date display
-    TXT_TIME, TXT_DATE = (3, "tTime"), (4, "tDate")
-    # main weather icon
-    ICO_MAIN, TXT_MAIN, TXT_SUB = (5, "tMainIcon"), (6, "tMainText"), (7, "tSubText")
-    # icons below main icon
-    D1_ICO, D2_ICO = (8, "d1Icon"), (9, "d2Icon")
-    D1_VAL, D2_VAL = (10, "d1Val"), (11, "d2Val")
-    # bottom weather forecast row
-    F1_NAME, F2_NAME, F3_NAME, F4_NAME, F5_NAME = (
-        (12, "f1Name"),
-        (13, "f2Name"),
-        (14, "f3Name"),
-        (15, "f4Name"),
-        (16, "f5Name"),
-    )
-    F1_ICO, F2_ICO, F3_ICO, F4_ICO, F5_ICO = (
-        (17, "f1Icon"),
-        (18, "f2Icon"),
-        (19, "f3Icon"),
-        (20, "f4Icon"),
-        (21, "f5Icon"),
-    )
-    F1_VAL, F2_VAL, F3_VAL, F4_VAL, F5_VAL = (
-        (22, "f1Val"),
-        (23, "f2Val"),
-        (24, "f3Val"),
-        (25, "f4Val"),
-        (26, "f5Val"),
-    )
-    F1_SUBVAL, F2_SUBVAL, F3_SUBVAL, F4_SUBVAL, F5_SUBVAL = (
-        (27, "f1SubVal"),
-        (28, "f2SubVal"),
-        (29, "f3SubVal"),
-        (30, "f4SubVal"),
-        (31, "f5SubVal"),
-    )
-    TXT_NOTIF = (32, "tNotif")
-    # entities
-    BTN_ENTITY_1, BTN_ENTITY_2, BTN_ENTITY_3 = (
-        (33, "bEntity1"),
-        (34, "bEntity2"),
-        (35, "bEntity3"),
-    )
-    BTN_ENTITY_4, BTN_ENTITY_5, BTN_ENTITY_6 = (
-        (36, "bEntity4"),
-        (37, "bEntity5"),
-        (38, "bEntity6"),
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        t_time=Component(3, "tTime"),
+        t_date=Component(4, "tDate"),
+        t_main_icon=Component(5, "tMainIcon"),
+        t_main_text=Component(6, "tMainText"),
+        t_sub_text=Component(7, "tSubText"),
+        d1_ico=Component(8, "d1Icon"),
+        d2_ico=Component(9, "d2Icon"),
+        d1_val=Component(10, "d1Val"),
+        d2_val=Component(11, "d2Val"),
+        f1_name=Component(12, "f1Name"),
+        f2_name=Component(13, "f2Name"),
+        f3_name=Component(14, "f3Name"),
+        f4_name=Component(15, "f4Name"),
+        f5_name=Component(16, "f5Name"),
+        f1_ico=Component(17, "f1Icon"),
+        f2_ico=Component(18, "f2Icon"),
+        f3_ico=Component(19, "f3Icon"),
+        f4_ico=Component(20, "f4Icon"),
+        f5_ico=Component(21, "f5Icon"),
+        f1_val=Component(22, "f1Val"),
+        f2_val=Component(23, "f2Val"),
+        f3_val=Component(24, "f3Val"),
+        f4_val=Component(25, "f4Val"),
+        f5_val=Component(26, "f5Val"),
+        f1_subval=Component(27, "f1SubVal"),
+        f2_subval=Component(28, "f2SubVal"),
+        f3_subval=Component(29, "f3SubVal"),
+        f4_subval=Component(30, "f4SubVal"),
+        f5_subval=Component(31, "f5SubVal"),
+        t_notif=Component(32, "tNotif"),
+        btn_entity_1=Component(33, "bEntity1"),
+        btn_entity_2=Component(34, "bEntity2"),
+        btn_entity_3=Component(35, "bEntity3"),
+        btn_entity_4=Component(36, "bEntity4"),
+        btn_entity_5=Component(37, "bEntity5"),
+        btn_entity_6=Component(38, "bEntity6"),
     )
 
     NUM_ENTITIES = 6
@@ -183,11 +182,13 @@ class WeatherPage(HAUIPage):
 
     # panel
 
-    def start_page(self) -> None:
+    def prepare(self) -> None:
+
         self._timer_weather_refresh: str | None = None
-        self._timer_notifications: threading.Timer | None = None
         self._show_notifications = True
-        self._new_notifications = False
+        self._notif_blinker = NotificationBlinker(
+            self._refresh_notif, interval=self.DISPLAY_UPDATE_INTERVAL
+        )
         self._previous_forecast = None
         self._forecast_type = ""
         self._show_weather = True
@@ -259,11 +260,17 @@ class WeatherPage(HAUIPage):
         self._forecast_precision = int(panel.get("forecast_precision", 0))
         # setting: show_weather
         self._show_weather = panel.get("show_weather", True)
-        self.set_function_component(self.ICO_MAIN, self.ICO_MAIN[1], visible=self._show_weather)
+        self.set_function_component(
+            self.COMPONENTS.t_main_icon, self.COMPONENTS.t_main_icon[1], visible=self._show_weather
+        )
         # setting: show_temp
         self._show_temp = panel.get("show_temp", True)
-        self.set_function_component(self.TXT_MAIN, self.TXT_MAIN[1], visible=self._show_temp)
-        self.set_function_component(self.TXT_SUB, self.TXT_SUB[1], visible=self._show_temp)
+        self.set_function_component(
+            self.COMPONENTS.t_main_text, self.COMPONENTS.t_main_text[1], visible=self._show_temp
+        )
+        self.set_function_component(
+            self.COMPONENTS.t_sub_text, self.COMPONENTS.t_sub_text[1], visible=self._show_temp
+        )
         # setting: show_home_temp
         self._show_home_temp = panel.get("show_home_temp", False)
         # setting: forecast
@@ -273,19 +280,19 @@ class WeatherPage(HAUIPage):
         else:
             self.show_forecast()
         # main components
-        self.set_function_component(self.TXT_TIME, self.TXT_TIME[1], visible=True)
-        self.set_function_component(self.TXT_DATE, self.TXT_DATE[1], visible=True)
+        self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
+        self.set_function_component(self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True)
         # notification
         self._show_notifications = panel.get("show_notifications", True)
         self.set_function_component(
-            self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications
+            self.COMPONENTS.t_notif, self.COMPONENTS.t_notif[1], visible=self._show_notifications
         )
         # Pre-register entity button components so config_panel registers
         # touch callbacks.  No display kwargs here - render_entity_buttons()
         # applies the correct state once entity data is available.
         for i in range(self.NUM_ENTITIES):
-            component = getattr(self, f"BTN_ENTITY_{i + 1}")
-            self.set_function_component(component, component[1], "item")
+            component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
+            self.set_function_component(component, component.name, "item")
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # time display
@@ -301,10 +308,9 @@ class WeatherPage(HAUIPage):
         # forecast
         self.render_forecast()
         # notifications
-        self.update_notifications()
+        self._notif_blinker.refresh()
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
-        super().stop_panel(panel)
+    def _stop_panel(self, panel: HAUIPanel) -> None:
         # cancel time and date tick subscriptions
         self.app.unsubscribe_tick("minute", self.callback_update_time)
         self.app.unsubscribe_tick("hour", self.callback_update_date)
@@ -312,19 +318,17 @@ class WeatherPage(HAUIPage):
             self.app.cancel_timer(self._timer_weather_refresh)
             self._timer_weather_refresh = None
         # update display timer
-        if self._timer_notifications is not None:
-            self._timer_notifications.cancel()
-            self._timer_notifications = None
+        self._notif_blinker.stop()
 
     # misc
 
     def show_forecast(self) -> None:
         for i in range(self.NUM_FORECAST):
             idx = i + 1
-            name = getattr(self, f"F{idx}_NAME")
-            ico = getattr(self, f"F{idx}_ICO")
-            val = getattr(self, f"F{idx}_VAL")
-            subval = getattr(self, f"F{idx}_SUBVAL")
+            name = getattr(self.COMPONENTS, f"f{idx}_name")
+            ico = getattr(self.COMPONENTS, f"f{idx}_ico")
+            val = getattr(self.COMPONENTS, f"f{idx}_val")
+            subval = getattr(self.COMPONENTS, f"f{idx}_subval")
             self.show_component(name)
             self.show_component(ico)
             self.show_component(val)
@@ -333,10 +337,10 @@ class WeatherPage(HAUIPage):
     def hide_forecast(self) -> None:
         for i in range(self.NUM_FORECAST):
             idx = i + 1
-            name = getattr(self, f"F{idx}_NAME")
-            ico = getattr(self, f"F{idx}_ICO")
-            val = getattr(self, f"F{idx}_VAL")
-            subval = getattr(self, f"F{idx}_SUBVAL")
+            name = getattr(self.COMPONENTS, f"f{idx}_name")
+            ico = getattr(self.COMPONENTS, f"f{idx}_ico")
+            val = getattr(self.COMPONENTS, f"f{idx}_val")
+            subval = getattr(self.COMPONENTS, f"f{idx}_subval")
             self.hide_component(name)
             self.hide_component(ico)
             self.hide_component(val)
@@ -346,7 +350,7 @@ class WeatherPage(HAUIPage):
         timeformat = self.app.device_config.get("time_format")
         timezone = self.app.hass.config.time_zone
         time = get_time_localized(timeformat, timezone)
-        self.update_function_component(self.TXT_TIME[1], text=time)
+        self.update_function_component(self.COMPONENTS.t_time[1], text=time)
 
     def update_date(self) -> None:
         strftime_format = self.app.device_config.get("date_format")
@@ -356,7 +360,7 @@ class WeatherPage(HAUIPage):
         locale = self.app.device.get_locale()
         timezone = self.app.hass.config.time_zone
         date = get_date_localized(strftime_format, babel_format, locale, timezone)
-        self.update_function_component(self.TXT_DATE[1], text=date)
+        self.update_function_component(self.COMPONENTS.t_date[1], text=date)
 
     def render_main_weather(self) -> None:
         if self._weather_item is not None:
@@ -375,17 +379,17 @@ class WeatherPage(HAUIPage):
                 visible = True
             else:
                 item = None
-            component = getattr(self, f"BTN_ENTITY_{i + 1}")
+            component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
             self.set_function_component(
                 component,
-                component[1],
+                component.name,
                 "item",
                 item=item,
                 icon=icon,
                 color=color,
                 visible=visible,
             )
-            self.update_function_component(component[1])
+            self.update_function_component(component.name)
 
     def render_info_panels(self) -> None:
         for i, item in enumerate(self._info_items, start=1):
@@ -447,10 +451,10 @@ class WeatherPage(HAUIPage):
         temp_outside_str = self._weather_item.get_item_attr("temperature", "")
         if not temp_outside_str:
             self.update_function_component(
-                self.ICO_MAIN[1], icon=icon, color=color, visible=self._show_weather
+                self.COMPONENTS.t_main_icon[1], icon=icon, color=color, visible=self._show_weather
             )
-            self.update_function_component(self.TXT_MAIN[1], visible=False)
-            self.update_function_component(self.TXT_SUB[1], visible=False)
+            self.update_function_component(self.COMPONENTS.t_main_text[1], visible=False)
+            self.update_function_component(self.COMPONENTS.t_sub_text[1], visible=False)
             return
         temp_outside = round(
             float(temp_outside_str),
@@ -472,10 +476,14 @@ class WeatherPage(HAUIPage):
             pressure_unit = self._weather_item.get_item_attr("pressure_unit")
             msg_sub = f"{msg_sub}{pressure_unit}"
         self.update_function_component(
-            self.ICO_MAIN[1], icon=icon, color=color, visible=self._show_weather
+            self.COMPONENTS.t_main_icon[1], icon=icon, color=color, visible=self._show_weather
         )
-        self.update_function_component(self.TXT_MAIN[1], text=msg, visible=self._show_temp)
-        self.update_function_component(self.TXT_SUB[1], text=msg_sub, visible=self._show_temp)
+        self.update_function_component(
+            self.COMPONENTS.t_main_text[1], text=msg, visible=self._show_temp
+        )
+        self.update_function_component(
+            self.COMPONENTS.t_sub_text[1], text=msg_sub, visible=self._show_temp
+        )
 
     def update_forecast(self, idx: int, data: dict) -> None:
         if idx < 0 or idx > self.NUM_FORECAST:
@@ -491,10 +499,10 @@ class WeatherPage(HAUIPage):
             forecast_temp = int(forecast_temp)
             forecast_mintemp = int(forecast_mintemp)
 
-        forecast_name = getattr(self, f"F{forecast_idx}_NAME")
-        forecast_icon = getattr(self, f"F{forecast_idx}_ICO")
-        forecast_val = getattr(self, f"F{forecast_idx}_VAL")
-        forecast_subval = getattr(self, f"F{forecast_idx}_SUBVAL")
+        forecast_name = getattr(self.COMPONENTS, f"f{forecast_idx}_name")
+        forecast_icon = getattr(self.COMPONENTS, f"f{forecast_idx}_ico")
+        forecast_val = getattr(self.COMPONENTS, f"f{forecast_idx}_val")
+        forecast_subval = getattr(self.COMPONENTS, f"f{forecast_idx}_subval")
         fdate = dp.parse(data["datetime"])
         name = format_datetime(fdate, "%a", "E", self.get_locale())
         condition = data.get("condition", "")
@@ -513,8 +521,8 @@ class WeatherPage(HAUIPage):
         if idx < 1 or idx > 2:
             self.log(f"Weather Info uses index 1-2, got {idx}")
             return
-        info_icon = getattr(self, f"D{idx}_ICO")
-        info_val = getattr(self, f"D{idx}_VAL")
+        info_icon = getattr(self.COMPONENTS, f"d{idx}_ico")
+        info_val = getattr(self.COMPONENTS, f"d{idx}_val")
         self.set_component_text_color(info_icon, haui_item.get_color())
         self.set_component_text(info_icon, haui_item.get_icon())
         self.set_component_text(info_val, haui_item.get_value())
@@ -537,32 +545,22 @@ class WeatherPage(HAUIPage):
         """
         self.render_forecast()
 
-    def update_notifications(self) -> None:
+    def _refresh_notif(self) -> None:
         if not self._show_notifications:
             return
         notification = self.app.controller["notification"]
-        if self._new_notifications:
+        if self._notif_blinker.new_notifications:
             color = COLORS["component_accent"]
+            visible = datetime.now().second % 2 == 0
         else:
             color = COLORS["component"]
-        if self._new_notifications:
-            if datetime.datetime.now().second % 2:
-                visible = False
-            else:
-                visible = True
-        else:
             visible = notification.has_notifications()
-        notif_kwargs = {
-            "icon": self.ICO_MESSAGE,
-            "visible": visible,
-            "color": color,
-        }
-        self.update_function_component(self.TXT_NOTIF[1], **notif_kwargs)
-        if self._new_notifications:
-            self._timer_notifications = threading.Timer(
-                self.DISPLAY_UPDATE_INTERVAL, self.update_notifications
-            )
-            self._timer_notifications.start()
+        self.update_function_component(
+            self.COMPONENTS.t_notif[1],
+            icon=ICO_MESSAGE,
+            visible=visible,
+            color=color,
+        )
 
     # event
 
@@ -574,11 +572,7 @@ class WeatherPage(HAUIPage):
             NotifEvent.NOTIF_REMOVE,
             NotifEvent.NOTIF_CLEAR,
         ]:
-            if event.name == NotifEvent.NOTIF_ADD:
-                self._new_notifications = True
-            elif event.name == NotifEvent.NOTIF_CLEAR:
-                self._new_notifications = False
-            self.update_notifications()
+            self._notif_blinker.handle_event(event)
 
     # callback
 
@@ -588,7 +582,7 @@ class WeatherPage(HAUIPage):
         if self.app.device.device_info.get("display_state") == "off":
             return
         self.update_time()
-        self.send_cmd(f"ref {self.ICO_MAIN[1]}")
+        self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
 
     def callback_update_date(self, cb_args: Any) -> None:
         if not self.started:
@@ -618,9 +612,9 @@ class WeatherPage(HAUIPage):
         self._update_forecast_data()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        if fnc_id == self.TXT_NOTIF[1]:
+        if fnc_id == self.COMPONENTS.t_notif[1]:
             navigation = self.app.controller["navigation"]
-            navigation.open_popup("popup_notify")
+            navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
         elif fnc_name == "item":
             item = self._fnc_items[fnc_id]["fnc_args"].get("item")
             if item is not None:

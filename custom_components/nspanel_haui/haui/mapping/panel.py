@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..mapping.const import SysPanelKey
+
 # system panels
 from ..page.about import AboutPage
 from ..page.alarm import AlarmPage
@@ -27,21 +29,21 @@ from .descriptor import PageDescriptor
 # sys_panel_key -> panel_type
 SYS_PANEL_MAPPING = {
     # sys pages
-    "sys_blank": "blank",
-    "sys_system": "system",
-    "sys_settings": "system_settings",
-    "sys_about": "system_about",
+    SysPanelKey.SYS_BLANK: "blank",
+    SysPanelKey.SYS_SYSTEM: "system",
+    SysPanelKey.SYS_SETTINGS: "system_settings",
+    SysPanelKey.SYS_ABOUT: "system_about",
     # popups
-    "popup_unlock": "popup_unlock",
-    "popup_notify": "popup_notify",
-    "popup_notifs": "popup_notifs",
-    "popup_select": "popup_select",
-    "popup_light": "popup_light",
-    "popup_media_player": "popup_media_player",
-    "popup_vacuum": "popup_vacuum",
-    "popup_climate": "popup_climate",
-    "popup_timer": "popup_timer",
-    "popup_cover": "popup_cover",
+    SysPanelKey.POPUP_UNLOCK: "popup_unlock",
+    SysPanelKey.POPUP_NOTIFY: "popup_notify",
+    SysPanelKey.POPUP_NOTIFS: "popup_notifs",
+    SysPanelKey.POPUP_SELECT: "popup_select",
+    SysPanelKey.POPUP_LIGHT: "popup_light",
+    SysPanelKey.POPUP_MEDIA_PLAYER: "popup_media_player",
+    SysPanelKey.POPUP_VACUUM: "popup_vacuum",
+    SysPanelKey.POPUP_CLIMATE: "popup_climate",
+    SysPanelKey.POPUP_TIMER: "popup_timer",
+    SysPanelKey.POPUP_COVER: "popup_cover",
 }
 
 
@@ -78,6 +80,8 @@ def _build_panel_mapping() -> dict[str, tuple[str, type]]:
             mapping[d.type_key] = (d.page_name, cls)
 
     # popup aliases - share page classes with their non-popup counterparts
+    # Explicit dict is the clearest approach since the alias key differs from
+    # the base type_key in non-trivial ways (e.g. "media" -> "popup_media_player").
     popup_aliases = {
         "popup_unlock": ("alarm", UnlockPage),
         "popup_notify": ("notify", NotifyPage),
@@ -95,6 +99,47 @@ def _build_panel_mapping() -> dict[str, tuple[str, type]]:
 
 
 PANEL_MAPPING: dict[str, tuple[str, type]] = _build_panel_mapping()
+
+
+def build_sys_panels_defaults() -> list[dict]:
+    """Build the DEFAULT_CONFIG["sys_panels"] list from SYS_PANEL_MAPPING.
+
+    Iterates ``SYS_PANEL_MAPPING`` (the authoritative list of system panel keys)
+    and for each entry looks up the page class in ``PANEL_MAPPING``:
+    - If the page class's ``DESCRIPTOR.sys_panel_default`` is set, that dict
+      is used (with ``type`` patched in).
+    - Otherwise a minimal default with ``show_in_navigation=False`` is generated.
+    """
+    defaults: list[dict] = []
+    seen_keys: set[str] = set()
+
+    for sys_key, type_key in SYS_PANEL_MAPPING.items():
+        if sys_key in seen_keys:
+            continue
+        seen_keys.add(sys_key)
+
+        entry = PANEL_MAPPING.get(type_key)
+        if entry is None:
+            # Fallback: minimal default
+            defaults.append(
+                {
+                    "type": type_key,
+                    "key": sys_key,
+                    "show_in_navigation": False,
+                }
+            )
+            continue
+
+        _, cls = entry
+        d = getattr(cls, "DESCRIPTOR", None)
+        pdef = d.sys_panel_default if d and d.sys_panel_default else {}
+        pdef = dict(pdef)
+        pdef.setdefault("show_in_navigation", False)
+        pdef["key"] = sys_key
+        pdef["type"] = type_key
+        defaults.append(pdef)
+
+    return defaults
 
 
 def get_user_panel_type_descriptors() -> list[dict]:

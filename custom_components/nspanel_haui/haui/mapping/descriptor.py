@@ -51,5 +51,27 @@ class PageDescriptor:
     options: list[PageOption] = field(default_factory=list)
     item_options: list[str] = field(default_factory=list)
     """Panel-level option keys that can also be overridden per-item."""
+    can_show_popup: bool = False
+    """True if this panel type supports overlay (popup) display.
+
+    Single-entity panels (light, climate, media, cover, vacuum, timer)
+    and system popup panels set this to True. Multi-entity panels (grid,
+    row, clock, weather) set this to False — they display as full-page
+    subpanels when show_in_navigation is False.
+    """
     icon: str = ""
     """MDI icon string to display alongside the panel type in the editor UI."""
+    sys_panel_default: dict | None = None
+    """Default panel config dict for system panels.
+
+    When set, the page class defines its own system-panel default config.
+    Keys include ``key``, ``show_in_navigation``, ``show_home_button``, etc.
+    Only relevant for pages where ``is_system=True``.
+    """
+    popup_alias_for: str | None = None
+    """When set, this page is a popup variant of another page type.
+
+    The value is the ``type_key`` of the parent page (e.g. ``"alarm"``
+    for ``popup_unlock``).  Popup aliases are auto-registered and do
+    **not** appear as user-selectable panel types.
+    """

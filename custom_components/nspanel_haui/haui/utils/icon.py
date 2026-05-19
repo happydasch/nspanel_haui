@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import re
 
-from ..mapping.icon import (
+from ..mapping.icon_mapping import (
     ALARM_CONTROL_PANEL_MAPPING,
     CLIMATE_MAPPING,
     COVER_MAPPING,
-    ICONS_MAPPING,
+    ICON_MAPPING,
     SENSOR_MAPPING,
     SENSOR_MAPPING_OFF,
     SENSOR_MAPPING_ON,
@@ -31,29 +31,25 @@ def parse_icon(template: str) -> str:
 
     if template != "":
         template = re.sub(r"(mdi|hass):(\S+)($|\s)", replace_icon, template)
-    if template and template in ICONS_MAPPING:
-        template = ICONS_MAPPING[template]
+    if template and template in ICON_MAPPING:
+        template = ICON_MAPPING[template]
     return template
 
 
-def get_icon(icon_name: str, return_default: bool = True) -> str | None:
+def get_icon(icon_name: str, return_default: bool = True) -> str:
     """Returns the icon chr value from icon name.
 
     Args:
         icon_name (str): Icon name
-        return_default (bool): If true, returns default icon if icon name is not
-            found.
 
     Returns:
         str: Icon character
     """
     if ":" in icon_name:
         icon_name = icon_name.split(":")[1]
-    if icon_name in ICONS_MAPPING:
-        return ICONS_MAPPING[icon_name]
-    elif return_default:
-        return ICONS_MAPPING["alert-circle-outline"]
-    return None
+    if icon_name in ICON_MAPPING:
+        return ICON_MAPPING[icon_name]
+    return ICON_MAPPING["alert-circle-outline"]
 
 
 def get_icon_name_by_state(

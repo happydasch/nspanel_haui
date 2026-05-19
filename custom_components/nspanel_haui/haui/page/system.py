@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.descriptor import PageDescriptor
-from . import HAUIPage
 
 
 class SystemPage(HAUIPage):
@@ -12,17 +13,24 @@ class SystemPage(HAUIPage):
         label="System",
         description="System status and connection screen.",
         is_system=True,
+        sys_panel_default={
+            "key": "sys_system",
+            "show_in_navigation": False,
+        },
         icon="mdi:cog-outline",
     )
 
-    # qr code with url
-    QR_URL = (1, "qrUrl")
-    # spinner animation
-    H_SPINNER = (2, "hSpinner")
-    # text components
-    TXT_TITLE = (3, "tTitle")
-    TXT_MSG1 = (4, "tMsg1")
-    TXT_MSG2 = (5, "tMsg2")
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        qr_url=Component(1, "qrUrl"),
+        h_spinner=Component(2, "hSpinner"),
+        title=Component(3, "tTitle"),
+        t_msg1=Component(4, "tMsg1"),
+        t_msg2=Component(5, "tMsg2"),
+    )
 
     # panel
 
@@ -42,8 +50,8 @@ class SystemPage(HAUIPage):
     # misc
 
     def set_title(self, title: str) -> None:
-        self.set_component_text(self.TXT_TITLE, title)
+        self.set_component_text(self.COMPONENTS.title, title)
 
     def set_message(self, text_1: str, text_2: str) -> None:
-        self.set_component_text(self.TXT_MSG1, text_1)
-        self.set_component_text(self.TXT_MSG2, text_2)
+        self.set_component_text(self.COMPONENTS.t_msg1, text_1)
+        self.set_component_text(self.COMPONENTS.t_msg2, text_2)

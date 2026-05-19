@@ -45,6 +45,31 @@ class ESPAction(StrEnum):
     HAUI_DISCOVER = "haui_discover"
 
 
+class SysPanelKey(StrEnum):
+    """Well-known system panel keys used across the integration.
+
+    Each member's value is the panel key passed to ``navigation.open_panel()``.
+    Using this enum instead of raw strings prevents typos and enables code
+    navigation / refactoring.
+    """
+
+    SYS_BLANK = "sys_blank"
+    SYS_SYSTEM = "sys_system"
+    SYS_SETTINGS = "sys_settings"
+    SYS_ABOUT = "sys_about"
+
+    POPUP_NOTIFY = "popup_notify"
+    POPUP_NOTIFS = "popup_notifs"
+    POPUP_SELECT = "popup_select"
+    POPUP_LIGHT = "popup_light"
+    POPUP_MEDIA_PLAYER = "popup_media_player"
+    POPUP_VACUUM = "popup_vacuum"
+    POPUP_CLIMATE = "popup_climate"
+    POPUP_TIMER = "popup_timer"
+    POPUP_COVER = "popup_cover"
+    POPUP_UNLOCK = "popup_unlock"
+
+
 class NotificationAction(StrEnum):
     """Notification action variants (published with device_name_ prefix)."""
 
@@ -123,29 +148,6 @@ ALL_CMD: frozenset[str] = frozenset(
     member.value for member in (*ESPRequest, *ESPCommand, *ServerResponse)
 ) | frozenset(f"esphome.{member.value}" for member in ESPAction)
 
-# item config
-ITEM_CONFIG: dict[str, Any] = {
-    "item": None,  # item id
-    "popup_key": None,  # allows to override the default popup
-    # by default the values below are returned
-    # based on the item. if defined, the values
-    # will be overwritten, see documentation for details
-    "state": None,  # item state override
-    "value": None,  # item value override
-    "name": None,  # item name override
-    "icon": None,  # item icon override
-    "color": None,  # item color override
-    # per-item appearance overrides (used by grid panel and potentially others)
-    "color_mode": None,
-    "color_seed": None,
-    "text_color": None,
-    "back_color": None,
-    "color_pressed": None,
-    "back_color_pressed": None,
-    "power_color": None,
-    "show_power_button": None,
-}
-
 # panel config
 PANEL_CONFIG: dict[str, Any] = {
     "type": None,  # panel type
@@ -192,108 +194,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     # gesture related settings
     "gesture": {},
-    # system panels configuration
-    # this panels can be also overriden
-    "sys_panels": [
-        {
-            # blank panel
-            "type": "blank",
-            "show_in_navigation": False,
-            "key": "sys_blank",
-        },
-        {
-            # system panel
-            "type": "system",
-            "show_in_navigation": False,
-            "key": "sys_system",
-        },
-        {
-            # panel for settings page
-            "type": "system_settings",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "sys_settings",
-            "show_home_button": False,
-        },
-        {
-            # panel for about page
-            "type": "system_about",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "sys_about",
-            "show_home_button": False,
-        },
-        {
-            # popup unlock
-            "type": "popup_unlock",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_unlock",
-        },
-        {
-            # popup notify
-            "type": "popup_notify",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_notify",
-        },
-        {
-            # popup notifs
-            "type": "popup_notifs",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_notifs",
-        },
-        {
-            # popup select
-            "type": "popup_select",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_select",
-        },
-        {
-            # popup light
-            "type": "popup_light",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_light",
-        },
-        {
-            # popup media
-            "type": "popup_media_player",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_media_player",
-        },
-        {
-            # popup vacuum
-            "type": "popup_vacuum",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_vacuum",
-        },
-        {
-            # popup climate
-            "type": "popup_climate",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_climate",
-        },
-        {
-            # popup timer
-            "type": "popup_timer",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_timer",
-        },
-        {
-            # popup cover
-            "type": "popup_cover",
-            "mode": "popup",
-            "show_in_navigation": False,
-            "key": "popup_cover",
-        },
-    ],
+    # system panels configuration - populated lazily from page descriptors
+    "sys_panels": [],
     # panels configuration
     "panels": [
         {

@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from unittest.mock import MagicMock
 
-from nspanel_haui.haui.abstract.event import HAUIEvent
+from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.controller.connection import (
     ConnectionState,
     HAUIConnectionController,

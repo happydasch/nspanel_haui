@@ -119,7 +119,7 @@ script:
           int min_distance_x = 200;
           int min_distance_y = 150;
           int max_angle = 20;
-          int border_margin = 20;
+          int border_margin = 40;
           // Display dimensions (Sonoff NSPanel landscape: 480x320)
           int screen_w = 480;
           int screen_h = 320;

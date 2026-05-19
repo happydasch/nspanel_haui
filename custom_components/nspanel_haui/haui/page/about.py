@@ -1,7 +1,10 @@
-from ..abstract.panel import HAUIPanel
+from __future__ import annotations
+
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.descriptor import PageDescriptor
 from ..version import get_version
-from . import HAUIPage
 
 
 class AboutPage(HAUIPage):
@@ -11,20 +14,32 @@ class AboutPage(HAUIPage):
         label="About",
         description="Device info and version details.",
         is_system=True,
+        sys_panel_default={
+            "key": "sys_about",
+            "show_in_navigation": False,
+            "show_home_button": False,
+        },
+        can_show_popup=True,
         icon="mdi:information-outline",
     )
 
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # about text
-    TXT_ABOUT_1, TXT_ABOUT_2 = (7, "tAbout1"), (8, "tAbout2")
-    # about vars
-    TXT_NAME, TXT_IP = (9, "tDeviceName"), (10, "tIP")
-    TXT_TFT_VERS, TXT_TFT_VERS_VAL = (11, "tTftVers"), (12, "tTftVersVal")
-    TXT_YAML_VERS, TXT_YAML_VERS_VAL = (13, "tYamlVers"), (14, "tYamlVersVal")
-    TXT_AD_VERS, TXT_AD_VERS_VAL = (15, "tADVers"), (16, "tADVersVal")
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        t_about_1=Component(7, "tAbout1"),
+        t_about_2=Component(8, "tAbout2"),
+        t_device_name=Component(9, "tDeviceName"),
+        t_ip=Component(10, "tIP"),
+        t_tft_vers=Component(11, "tTftVers"),
+        t_tft_vers_val=Component(12, "tTftVersVal"),
+        t_yaml_vers=Component(13, "tYamlVers"),
+        t_yaml_vers_val=Component(14, "tYamlVersVal"),
+        t_ad_vers=Component(15, "tADVers"),
+        t_ad_vers_val=Component(16, "tADVersVal"),
+    )
 
     _title = ""
 
@@ -34,15 +49,15 @@ class AboutPage(HAUIPage):
         with self.rec_cmd:
             # set function buttons
             self.set_function_buttons(
-                self.BTN_FNC_LEFT_PRI,
-                self.BTN_FNC_LEFT_SEC,
-                self.BTN_FNC_RIGHT_PRI,
-                self.BTN_FNC_RIGHT_SEC,
+                self.COMPONENTS.fnc_left_pri,
+                self.COMPONENTS.fnc_left_sec,
+                self.COMPONENTS.fnc_right_pri,
+                self.COMPONENTS.fnc_right_sec,
             )
 
             # title
             self._title = panel.get_title(self.translate("NSPanel HAUI"))
-            self.set_component_text(self.TXT_TITLE, self._title)
+            self.set_component_text(self.COMPONENTS.title, self._title)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         name = self.app.device.get_name()
@@ -52,22 +67,22 @@ class AboutPage(HAUIPage):
         ad_version = get_version()
         # about text
         self.set_component_text(
-            self.TXT_ABOUT_1,
+            self.COMPONENTS.t_about_1,
             self.translate("Versatile wall panel for HomeAssistant based"),
         )
         self.set_component_text(
-            self.TXT_ABOUT_2, self.translate("smart homes with a custom UI Design.")
+            self.COMPONENTS.t_about_2, self.translate("smart homes with a custom UI Design.")
         )
         # name
-        self.set_component_text(self.TXT_NAME, name)
+        self.set_component_text(self.COMPONENTS.t_device_name, name)
         # ip address
-        self.set_component_text(self.TXT_IP, f"{ip_address}")
+        self.set_component_text(self.COMPONENTS.t_ip, f"{ip_address}")
         # tft version
-        self.set_component_text(self.TXT_TFT_VERS, self.translate("TFT-Version:"))
-        self.set_component_text(self.TXT_TFT_VERS_VAL, tft_version)
+        self.set_component_text(self.COMPONENTS.t_tft_vers, self.translate("TFT-Version:"))
+        self.set_component_text(self.COMPONENTS.t_tft_vers_val, tft_version)
         # yaml version
-        self.set_component_text(self.TXT_YAML_VERS, self.translate("YAML-Version:"))
-        self.set_component_text(self.TXT_YAML_VERS_VAL, yaml_version)
+        self.set_component_text(self.COMPONENTS.t_yaml_vers, self.translate("YAML-Version:"))
+        self.set_component_text(self.COMPONENTS.t_yaml_vers_val, yaml_version)
         # ad version
-        self.set_component_text(self.TXT_AD_VERS, self.translate("AD-Version:"))
-        self.set_component_text(self.TXT_AD_VERS_VAL, ad_version)
+        self.set_component_text(self.COMPONENTS.t_ad_vers, self.translate("AD-Version:"))
+        self.set_component_text(self.COMPONENTS.t_ad_vers_val, ad_version)

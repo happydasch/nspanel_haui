@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..abstract.item import HAUIItem
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_item import HAUIItem
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..features import ClimateFeatures
 from ..mapping.color import COLORS
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
-from ..mapping.icon import CLIMATE_MAPPING
+from ..mapping.icon_mapping import CLIMATE_MAPPING
+from ..mapping.icons import ICO_DOWN, ICO_FAN, ICO_POWER, ICO_PRESET, ICO_SWING, ICO_UP
 from ..utils.icon import get_icon
-from . import HAUIPage
 
 
 class ClimatePage(HAUIPage):
@@ -44,60 +47,39 @@ class ClimatePage(HAUIPage):
                 section="Climate",
             ),
         ],
+        can_show_popup=True,
         icon="mdi:thermostat",
     )
 
-    # https://developers.home-assistant.io/docs/core/item/climate
-
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # info
-    TXT_TEMP = (7, "tTemp")
-    # control
-    BTN_UP, BTN_DOWN, X_SET, TXT_UNIT = (
-        (8, "bUp"),
-        (9, "bDown"),
-        (10, "xSet"),
-        (11, "tUnit"),
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        t_temp=Component(7, "tTemp"),
+        btn_up=Component(8, "bUp"),
+        btn_down=Component(9, "bDown"),
+        x_set=Component(10, "xSet"),
+        t_unit=Component(11, "tUnit"),
+        btn_up_1=Component(12, "bUp1"),
+        btn_down_1=Component(13, "bDown1"),
+        x_set_1=Component(14, "xSet1"),
+        t_unit_1=Component(15, "tUnit1"),
+        btn_up_2=Component(16, "bUp2"),
+        btn_down_2=Component(17, "bDown2"),
+        x_set_2=Component(18, "xSet2"),
+        t_unit_2=Component(19, "tUnit2"),
+        bt_mode_1=Component(20, "btMode1"),
+        bt_mode_2=Component(21, "btMode2"),
+        bt_mode_3=Component(22, "btMode3"),
+        bt_mode_4=Component(23, "btMode4"),
+        bt_mode_5=Component(24, "btMode5"),
+        bt_mode_6=Component(25, "btMode6"),
+        btn_fan=Component(26, "bFan"),
+        btn_preset=Component(27, "bPreset"),
+        btn_swing=Component(28, "bSwing"),
     )
-    BTN_UP_1, BTN_DOWN_1, X_SET_1, TXT_UNIT_1 = (
-        (12, "bUp1"),
-        (13, "bDown1"),
-        (14, "xSet1"),
-        (15, "tUnit1"),
-    )
-    BTN_UP_2, BTN_DOWN_2, X_SET_2, TXT_UNIT_2 = (
-        (16, "bUp2"),
-        (17, "bDown2"),
-        (18, "xSet2"),
-        (19, "tUnit2"),
-    )
-    # modes
-    BT_MODE_1, BT_MODE_2, BT_MODE_3 = (
-        (20, "btMode1"),
-        (21, "btMode2"),
-        (22, "btMode3"),
-    )
-    BT_MODE_4, BT_MODE_5, BT_MODE_6 = (
-        (23, "btMode4"),
-        (24, "btMode5"),
-        (25, "btMode6"),
-    )
-    # functions
-    BTN_FAN, BTN_PRESET, BTN_SWING = (
-        (26, "bFan"),
-        (27, "bPreset"),
-        (28, "bSwing"),
-    )
-
-    ICO_UP = get_icon("mdi:chevron-up")
-    ICO_DOWN = get_icon("mdi:chevron-down")
-    ICO_FAN = get_icon("mdi:fan")
-    ICO_PRESET = get_icon("mdi:view-list")
-    ICO_SWING = get_icon("mdi:arrow-all")
-    ICO_POWER = get_icon("mdi:power")
 
     NUM_MODES = 6
 
@@ -110,18 +92,18 @@ class ClimatePage(HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # set function buttons
         power_off_btn = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC,
+            "fnc_component": self.COMPONENTS.fnc_right_sec,
             "fnc_name": "power_off",
             "fnc_args": {
-                "icon": self.ICO_POWER,
+                "icon": ICO_POWER,
                 "color": COLORS["component_accent"],
                 "visible": False,
             },
         }
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
             power_off_btn,
         )
         # set item
@@ -137,11 +119,8 @@ class ClimatePage(HAUIPage):
         self._title = title
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.TXT_TITLE, self._title)
+        self.set_component_text(self.COMPONENTS.title, self._title)
         self.update_climate_item()
-
-    def stop_panel(self, panel: HAUIPanel) -> None:
-        super().stop_panel(panel)
 
     # misc
 
@@ -172,89 +151,89 @@ class ClimatePage(HAUIPage):
         if temp_setting is not None:
             # set temperature if False, set temperature_range if True
             if not temp_setting:
-                self.hide_component(self.BTN_UP_1)
-                self.hide_component(self.BTN_DOWN_1)
-                self.hide_component(self.X_SET_1)
-                self.hide_component(self.TXT_UNIT_1)
-                self.hide_component(self.BTN_UP_2)
-                self.hide_component(self.BTN_DOWN_2)
-                self.hide_component(self.X_SET_2)
-                self.hide_component(self.TXT_UNIT_2)
+                self.hide_component(self.COMPONENTS.btn_up_1)
+                self.hide_component(self.COMPONENTS.btn_down_1)
+                self.hide_component(self.COMPONENTS.x_set_1)
+                self.hide_component(self.COMPONENTS.t_unit_1)
+                self.hide_component(self.COMPONENTS.btn_up_2)
+                self.hide_component(self.COMPONENTS.btn_down_2)
+                self.hide_component(self.COMPONENTS.x_set_2)
+                self.hide_component(self.COMPONENTS.t_unit_2)
                 #
-                self.show_component(self.X_SET)
-                self.show_component(self.TXT_UNIT)
+                self.show_component(self.COMPONENTS.x_set)
+                self.show_component(self.COMPONENTS.t_unit)
                 self.set_function_component(
-                    self.BTN_UP,
-                    self.BTN_UP[1],
+                    self.COMPONENTS.btn_up,
+                    self.COMPONENTS.btn_up[1],
                     "temp_up",
                     color=COLORS["component_active"],
-                    icon=self.ICO_UP,
+                    icon=ICO_UP,
                     visible=True,
                 )
                 self.set_function_component(
-                    self.BTN_DOWN,
-                    self.BTN_DOWN[1],
+                    self.COMPONENTS.btn_down,
+                    self.COMPONENTS.btn_down[1],
                     "temp_down",
                     color=COLORS["component_active"],
-                    icon=self.ICO_DOWN,
+                    icon=ICO_DOWN,
                     visible=True,
                 )
             else:
-                self.hide_component(self.BTN_UP)
-                self.hide_component(self.BTN_DOWN)
-                self.hide_component(self.X_SET)
-                self.hide_component(self.TXT_UNIT)
+                self.hide_component(self.COMPONENTS.btn_up)
+                self.hide_component(self.COMPONENTS.btn_down)
+                self.hide_component(self.COMPONENTS.x_set)
+                self.hide_component(self.COMPONENTS.t_unit)
                 #
-                self.show_component(self.X_SET_1)
-                self.show_component(self.TXT_UNIT_1)
-                self.show_component(self.X_SET_2)
-                self.show_component(self.TXT_UNIT_2)
+                self.show_component(self.COMPONENTS.x_set_1)
+                self.show_component(self.COMPONENTS.t_unit_1)
+                self.show_component(self.COMPONENTS.x_set_2)
+                self.show_component(self.COMPONENTS.t_unit_2)
                 self.set_function_component(
-                    self.BTN_UP_1,
-                    self.BTN_UP_1[1],
+                    self.COMPONENTS.btn_up_1,
+                    self.COMPONENTS.btn_up_1[1],
                     "temp_up_1",
                     color=COLORS["component_active"],
-                    icon=self.ICO_UP,
+                    icon=ICO_UP,
                     visible=True,
                 )
                 self.set_function_component(
-                    self.BTN_DOWN_1,
-                    self.BTN_DOWN_1[1],
+                    self.COMPONENTS.btn_down_1,
+                    self.COMPONENTS.btn_down_1[1],
                     "temp_down_1",
                     color=COLORS["component_active"],
-                    icon=self.ICO_DOWN,
+                    icon=ICO_DOWN,
                     visible=True,
                 )
                 self.set_function_component(
-                    self.BTN_UP_2,
-                    self.BTN_UP_2[1],
+                    self.COMPONENTS.btn_up_2,
+                    self.COMPONENTS.btn_up_2[1],
                     "temp_up_2",
                     color=COLORS["component_active"],
-                    icon=self.ICO_UP,
+                    icon=ICO_UP,
                     visible=True,
                 )
                 self.set_function_component(
-                    self.BTN_DOWN_2,
-                    self.BTN_DOWN_2[1],
+                    self.COMPONENTS.btn_down_2,
+                    self.COMPONENTS.btn_down_2[1],
                     "temp_down_2",
                     color=COLORS["component_active"],
-                    icon=self.ICO_DOWN,
+                    icon=ICO_DOWN,
                     visible=True,
                 )
         else:
             for x in [
-                self.BTN_UP,
-                self.BTN_DOWN,
-                self.BTN_UP_1,
-                self.BTN_DOWN_1,
-                self.BTN_UP_2,
-                self.BTN_DOWN_2,
-                self.X_SET,
-                self.X_SET_1,
-                self.X_SET_2,
-                self.TXT_UNIT,
-                self.TXT_UNIT_1,
-                self.TXT_UNIT_2,
+                self.COMPONENTS.btn_up,
+                self.COMPONENTS.btn_down,
+                self.COMPONENTS.btn_up_1,
+                self.COMPONENTS.btn_down_1,
+                self.COMPONENTS.btn_up_2,
+                self.COMPONENTS.btn_down_2,
+                self.COMPONENTS.x_set,
+                self.COMPONENTS.x_set_1,
+                self.COMPONENTS.x_set_2,
+                self.COMPONENTS.t_unit,
+                self.COMPONENTS.t_unit_1,
+                self.COMPONENTS.t_unit_2,
             ]:
                 self.hide_component(x)
         # hvac mode buttons
@@ -271,10 +250,10 @@ class ClimatePage(HAUIPage):
                     icon = CLIMATE_MAPPING[hvac_mode]
                 if f"climate_{hvac_mode}" in COLORS:
                     color_pressed = COLORS[f"climate_{hvac_mode}"]
-            component = getattr(self, f"BT_MODE_{i + 1}")
+            component = getattr(self.COMPONENTS, f"bt_mode_{i + 1}")
             self.set_function_component(
                 component,
-                component[1],
+                component.name,
                 "hvac_mode",
                 item=item,
                 icon=get_icon(icon),
@@ -288,10 +267,10 @@ class ClimatePage(HAUIPage):
             fan_mode = True
             color = COLORS["component_active"]
         self.set_function_component(
-            self.BTN_FAN,
-            self.BTN_FAN[1],
+            self.COMPONENTS.btn_fan,
+            self.COMPONENTS.btn_fan[1],
             "fan_mode",
-            icon=self.ICO_FAN,
+            icon=ICO_FAN,
             visible=True,
             color=color,
             touch=fan_mode,
@@ -303,10 +282,10 @@ class ClimatePage(HAUIPage):
             preset_mode = True
             color = COLORS["component_active"]
         self.set_function_component(
-            self.BTN_PRESET,
-            self.BTN_PRESET[1],
+            self.COMPONENTS.btn_preset,
+            self.COMPONENTS.btn_preset[1],
             "preset_mode",
-            icon=self.ICO_PRESET,
+            icon=ICO_PRESET,
             visible=True,
             color=color,
             touch=preset_mode,
@@ -318,10 +297,10 @@ class ClimatePage(HAUIPage):
             swing_mode = True
             color = COLORS["component_active"]
         self.set_function_component(
-            self.BTN_SWING,
-            self.BTN_SWING[1],
+            self.COMPONENTS.btn_swing,
+            self.COMPONENTS.btn_swing[1],
             "swing_mode",
-            icon=self.ICO_SWING,
+            icon=ICO_SWING,
             visible=True,
             color=color,
             touch=swing_mode,
@@ -342,7 +321,7 @@ class ClimatePage(HAUIPage):
             pass
         elif features & ClimateFeatures.TARGET_TEMPERATURE:
             target_temp = item.get_item_attr("temperature", 0)
-            self.set_component_value(self.X_SET, int(target_temp * 10))
+            self.set_component_value(self.COMPONENTS.x_set, int(target_temp * 10))
         # fan mode
         fan_mode = False
         if features & ClimateFeatures.FAN_MODE:
@@ -354,7 +333,7 @@ class ClimatePage(HAUIPage):
             back_color_pressed,
         ) = self.get_button_colors(fan_mode)
         self.update_function_component(
-            self.BTN_FAN[1],
+            self.COMPONENTS.btn_fan[1],
             touch=fan_mode,
             color=color,
             color_pressed=color_pressed,
@@ -371,7 +350,7 @@ class ClimatePage(HAUIPage):
             back_color_pressed,
         ) = self.get_button_colors(preset_mode)
         self.update_function_component(
-            self.BTN_PRESET[1],
+            self.COMPONENTS.btn_preset[1],
             touch=preset_mode,
             color=color,
             color_pressed=color_pressed,
@@ -388,7 +367,7 @@ class ClimatePage(HAUIPage):
             back_color_pressed,
         ) = self.get_button_colors(swing_mode)
         self.update_function_component(
-            self.BTN_SWING[1],
+            self.COMPONENTS.btn_swing[1],
             touch=swing_mode,
             color=color,
             color_pressed=color_pressed,
@@ -404,8 +383,8 @@ class ClimatePage(HAUIPage):
     def update_climate_info(self, item: HAUIItem) -> None:
         current_temp = item.get_item_attr("current_temperature", 0)
         unit = item.get_item_attr("temperature_unit", "°C")
-        self.set_component_text(self.TXT_UNIT, unit)
-        self.set_component_text(self.TXT_TEMP, f"{current_temp}{unit}")
+        self.set_component_text(self.COMPONENTS.t_unit, unit)
+        self.set_component_text(self.COMPONENTS.t_temp, f"{current_temp}{unit}")
 
     def update_hvac_modes(self, item: HAUIItem) -> None:
         hvac_mode = item.get_item_state()
@@ -414,7 +393,7 @@ class ClimatePage(HAUIPage):
         if f"climate_{hvac_mode}" in COLORS:
             color_active = COLORS[f"climate_{hvac_mode}"]
         for i in range(self.NUM_MODES):
-            component = getattr(self, f"BT_MODE_{i + 1}")
+            component = getattr(self.COMPONENTS, f"bt_mode_{i + 1}")
             color = color_inactive
             value = 0
             if (
@@ -424,7 +403,7 @@ class ClimatePage(HAUIPage):
             ):
                 color = color_active
                 value = 1
-            self.update_function_component(component[1], color=color)
+            self.update_function_component(component.name, color=color)
             self.set_component_value(component, value)
 
     # callback
@@ -452,11 +431,11 @@ class ClimatePage(HAUIPage):
         elif fnc_name == "hvac_mode":
             hvac_mode = "off"
             for i in range(self.NUM_MODES):
-                component = getattr(self, f"BT_MODE_{i + 1}")
+                component = getattr(self.COMPONENTS, f"bt_mode_{i + 1}")
                 if (
                     self._hvac_modes is not None
                     and i < len(self._hvac_modes)
-                    and component[1] == fnc_id
+                    and component.name == fnc_id
                 ):
                     hvac_mode = self._hvac_modes[i]
                     break
@@ -471,8 +450,8 @@ class ClimatePage(HAUIPage):
                 name = self.translate_state("climate", value, attr="fan_mode")
                 fan_modes.append({"value": value, "name": name})
             if len(fan_modes) > 0:
-                navigation.open_popup(
-                    "popup_select",
+                navigation.open_panel(
+                    SysPanelKey.POPUP_SELECT,
                     title=self.translate("Select fan mode"),
                     items=fan_modes,
                     selected=selected,
@@ -489,8 +468,8 @@ class ClimatePage(HAUIPage):
                 name = self.translate_state("climate", value, attr="preset_mode")
                 preset_modes.append({"value": value, "name": name})
             if len(preset_modes) > 0:
-                navigation.open_popup(
-                    "popup_select",
+                navigation.open_panel(
+                    SysPanelKey.POPUP_SELECT,
                     title=self.translate("Select preset mode"),
                     items=preset_modes,
                     selected=selected,
@@ -507,8 +486,8 @@ class ClimatePage(HAUIPage):
                 name = self.translate_state("climate", value, attr="swing_mode")
                 swing_modes.append({"value": value, "name": name})
             if len(swing_modes) > 0:
-                navigation.open_popup(
-                    "popup_select",
+                navigation.open_panel(
+                    SysPanelKey.POPUP_SELECT,
                     title=self.translate("Select swing mode"),
                     items=swing_modes,
                     selected=selected,

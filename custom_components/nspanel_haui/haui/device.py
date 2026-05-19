@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .abstract.base import HAUIBase
-from .abstract.event import HAUIEvent
+from .abstract.haui_base import HAUIBase
+from .abstract.haui_event import HAUIEvent
 from .mapping.const import ESPEvent, NotifEvent
 from .mapping.panel import PANEL_MAPPING, SYS_PANEL_MAPPING
 
 if TYPE_CHECKING:
     from ..nspanel_haui import NSPanelHAUI
+from .mapping.const import SysPanelKey
 
 
 class HAUIDevice(HAUIBase):
@@ -157,7 +158,7 @@ class HAUIDevice(HAUIBase):
             # Without this guard, every reconnect (~30s ESPHome heartbeat timeout)
             # triggers sys_system → home → clock, disrupting the user.
             if not self._initial_connect_done:
-                navigation.open_panel("sys_system")
+                navigation.open_panel(SysPanelKey.SYS_SYSTEM)
                 self._initial_connect_done = True
             else:
                 # Reconnect: restore the correct panel on the display.
@@ -359,21 +360,15 @@ class HAUIDevice(HAUIBase):
         navigation = self.app.controller["navigation"]
         if not navigation.page or not navigation.page.panel:
             return
-        # check if currently a locked panel is active
-        unlock_panel = navigation.page.panel.get("unlock_panel", None)
         # check event
         if event.as_str() == "swipe_left":
             navigation.open_next_panel()
         elif event.as_str() == "swipe_right":
             navigation.open_prev_panel()
         elif event.as_str() == "swipe_up":
-            if navigation.has_up_panel() and not unlock_panel:
-                navigation.close_panel()
+            navigation.open_panel(SysPanelKey.SYS_ABOUT)
         elif event.as_str() == "swipe_down":
-            if not navigation.has_up_panel() or unlock_panel:
-                navigation.open_popup("sys_settings")
-            else:
-                navigation.close_panel()
+            navigation.open_panel(SysPanelKey.SYS_SETTINGS)
 
     def process_event(self, event: HAUIEvent) -> None:
         """Process event.

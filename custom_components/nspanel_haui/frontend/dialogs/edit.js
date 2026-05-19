@@ -159,7 +159,7 @@ class EditPanelDialog extends LitElement {
             <div class="config-section-body">
 
               <div class="form-group">
-                <label for="fld-key">Panel Key</label>
+                <label for="fld-key">Panel key</label>
                 <ha-input
                   id="fld-key"
                   name="key"
@@ -177,7 +177,7 @@ class EditPanelDialog extends LitElement {
               </div>
 
               <div class="form-group">
-                <label for="fld-unlock-code">Panel Pin</label>
+                <label for="fld-unlock-code">Panel pin</label>
                 <ha-input
                   id="fld-unlock-code"
                   name="unlock_code"

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from ..abstract.event import HAUIEvent
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.descriptor import PageDescriptor
-from . import HAUIPage
 
 
 class BlankPage(HAUIPage):
@@ -13,15 +14,21 @@ class BlankPage(HAUIPage):
         label="Blank",
         description="Blank/idle page used for sleep state.",
         is_system=True,
+        sys_panel_default={
+            "key": "sys_blank",
+            "show_in_navigation": False,
+        },
         icon="mdi:circle-outline",
     )
 
-    H_BLANK = (1, "hBlank")
+    COMPONENTS = HAUIPage.COMPONENTS.merge(
+        h_blank=Component(1, "hBlank"),
+    )
 
     # panel
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        self.add_component_callback(self.H_BLANK, self.callback_blank)
+        self.add_component_callback(self.COMPONENTS.h_blank, self.callback_blank)
 
     # callback
 

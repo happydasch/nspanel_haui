@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..abstract.event import HAUIEvent
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import ESPRequest, ESPResponse
 from ..mapping.descriptor import PageDescriptor
-from . import HAUIPage
 
 
 class SettingsPage(HAUIPage):
@@ -16,25 +17,28 @@ class SettingsPage(HAUIPage):
         label="Settings",
         description="Display brightness and system settings.",
         is_system=True,
+        sys_panel_default={
+            "key": "sys_settings",
+            "show_in_navigation": False,
+            "show_home_button": False,
+        },
+        can_show_popup=True,
         icon="mdi:tune",
     )
 
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # subtitle brightness
-    TXT_BRGHT_TITLE = (7, "tBrghtTitle")
-    # brightness components
-    TXT_BRGHT_ICO, SLD_BRGHT, TXT_BRGHT_PCT = (
-        (8, "tBrghtIco"),
-        (9, "hBrght"),
-        (10, "tBrghtPct"),
-    )
-    TXT_BRGHT_DIM_ICO, SLD_BRGHT_DIM, TXT_BRGHT_DIM_PCT = (
-        (11, "tBrghtDimIco"),
-        (12, "hBrghtDim"),
-        (13, "tBrghtDimPct"),
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        t_brght_title=Component(7, "tBrghtTitle"),
+        t_brght_ico=Component(8, "tBrghtIco"),
+        h_brght=Component(9, "hBrght"),
+        t_brght_pct=Component(10, "tBrghtPct"),
+        t_brght_dim_ico=Component(11, "tBrghtDimIco"),
+        h_brght_dim=Component(12, "hBrghtDim"),
+        t_brght_dim_pct=Component(13, "tBrghtDimPct"),
     )
 
     # panel
@@ -60,20 +64,20 @@ class SettingsPage(HAUIPage):
         self._dimmed_brightness = self.brightness_dimmed_entity.get_state()
 
         # display components
-        self.add_component_callback(self.SLD_BRGHT, self.callback_slider_brightness)
-        self.add_component_callback(self.SLD_BRGHT_DIM, self.callback_slider_brightness)
+        self.add_component_callback(self.COMPONENTS.h_brght, self.callback_slider_brightness)
+        self.add_component_callback(self.COMPONENTS.h_brght_dim, self.callback_slider_brightness)
 
         # set function buttons
         with self.rec_cmd:
             self.set_function_buttons(
-                self.BTN_FNC_LEFT_PRI,
-                self.BTN_FNC_LEFT_SEC,
-                self.BTN_FNC_RIGHT_PRI,
-                self.BTN_FNC_RIGHT_SEC,
+                self.COMPONENTS.fnc_left_pri,
+                self.COMPONENTS.fnc_left_sec,
+                self.COMPONENTS.fnc_right_pri,
+                self.COMPONENTS.fnc_right_sec,
             )
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
-        # remove exisiting handles
+    def _stop_panel(self, panel: HAUIPanel) -> None:
+        # remove existing handles
         if self._handle_brightness_full:
             self.app.cancel_listen_state(self._handle_brightness_full)
         if self._handle_brightness_dimmed:
@@ -83,8 +87,10 @@ class SettingsPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         title = panel.get_title(self.translate("Settings"))
-        self.set_component_text(self.TXT_TITLE, title)
-        self.set_component_text(self.TXT_BRGHT_TITLE, self.translate("Full and Dimmed Brightness:"))
+        self.set_component_text(self.COMPONENTS.title, title)
+        self.set_component_text(
+            self.COMPONENTS.t_brght_title, self.translate("Full and Dimmed Brightness:")
+        )
         # update settings
         brightness_full_state = self.brightness_full_entity.get_state()
         if brightness_full_state is not None and brightness_full_state != "unavailable":
@@ -98,12 +104,12 @@ class SettingsPage(HAUIPage):
     # misc
 
     def set_brightness_full_slider(self, value: int) -> None:
-        self.set_component_value(self.SLD_BRGHT, value)
-        self.send_cmd(f"click {self.TXT_BRGHT_PCT[1]},0")
+        self.set_component_value(self.COMPONENTS.h_brght, value)
+        self.send_cmd(f"click {self.COMPONENTS.t_brght_pct[1]},0")
 
     def set_brightness_dim_slider(self, value: int) -> None:
-        self.set_component_value(self.SLD_BRGHT_DIM, value)
-        self.send_cmd(f"click {self.TXT_BRGHT_DIM_PCT[1]},0")
+        self.set_component_value(self.COMPONENTS.h_brght_dim, value)
+        self.send_cmd(f"click {self.COMPONENTS.t_brght_dim_pct[1]},0")
 
     # callback
 
@@ -139,11 +145,11 @@ class SettingsPage(HAUIPage):
         if event.name == ESPResponse.RES_VAL:
             # parse json response, set brightness
             data = event.as_json()
-            if data.get("name", "") == self.SLD_BRGHT[1]:
+            if data.get("name", "") == self.COMPONENTS.h_brght[1]:
                 if self._full_brightness != data["value"]:
                     self._full_brightness = data["value"]
                     self.brightness_full_entity.set_state(state=data["value"])
-            elif data.get("name", "") == self.SLD_BRGHT_DIM[1]:
+            elif data.get("name", "") == self.COMPONENTS.h_brght_dim[1]:
                 if self._dimmed_brightness != data["value"]:
                     self._dimmed_brightness = data["value"]
                     self.brightness_dimmed_entity.set_state(state=data["value"])

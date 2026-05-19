@@ -1,6 +1,6 @@
+from ..abstract.haui_page import HAUIPage
 from ..mapping.page import PAGE_MAPPING
 from ..mapping.panel import PANEL_MAPPING
-from ..page import HAUIPage
 
 
 def get_page_id_for_panel(panel_type: str) -> int:

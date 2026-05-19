@@ -2,21 +2,19 @@ from __future__ import annotations
 
 import datetime
 import re
-import threading
 import zoneinfo
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
-
-from ..abstract.event import HAUIEvent
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.background import BACKGROUNDS
 from ..mapping.color import COLORS
-from ..mapping.const import ESPResponse, NotifEvent
+from ..mapping.const import ESPResponse, NotifEvent, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
-from ..utils.icon import get_icon
-from . import HAUIPage
+from ..mapping.icons import ICO_MESSAGE, ICO_SPECIAL
+from ..utils.notification_blinker import NotificationBlinker
 
 MATRIX = {
     "en": (
@@ -329,20 +327,15 @@ class ClockTwoPage(HAUIPage):
     )
 
     # components, skipping l1-110, s1-4
-    TXT_NOTIF = (117, "tNotif")
+    COMPONENTS = HAUIPage.COMPONENTS.merge(
+        t_notif=Component(117, "tNotif"),
+    )
 
     DISPLAY_UPDATE_INTERVAL = 1.0
 
-    ICO_SPECIAL = get_icon("mdi:circle-medium")
+    # panel
 
-    def __init__(self, app: NSPanelHAUI, config: dict[str, Any] | None = None) -> None:
-        """Initializes the ClockTwoPage.
-
-        Args:
-            app: The app instance that this page is associated with.
-            config: Optional configuration settings for the page.
-        """
-        super().__init__(app, config)
+    def prepare(self) -> None:
         # Initialize defaults used by create_panel() before start_page() runs.
         # Navigation calls create_panel() immediately after constructing the
         # page instance, which is before start_page() is invoked.
@@ -354,12 +347,11 @@ class ClockTwoPage(HAUIPage):
         self._show_intro_text = True
         self._show_intro_text_full_hour = False
 
-    # panel
-
-    def start_page(self) -> None:
-        self._timer_notifications: threading.Timer | None = None
         self._show_notifications = True
-        self._new_notifications = False
+        self._notif_blinker = NotificationBlinker(
+            self._refresh_notif, interval=self.DISPLAY_UPDATE_INTERVAL
+        )
+
         self._letter_current_state: list[bool] = []
         self._special_current_state: list[bool] = []
         self._clock_letters: list[str] = []
@@ -387,21 +379,19 @@ class ClockTwoPage(HAUIPage):
         # notification
         self._show_notifications = panel.get("show_notifications", True)
         self.set_function_component(
-            self.TXT_NOTIF, self.TXT_NOTIF[1], visible=self._show_notifications
+            self.COMPONENTS.t_notif, self.COMPONENTS.t_notif.name, visible=self._show_notifications
         )
         self.init_interface(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_interface()
-        self.update_notifications()
+        self._notif_blinker.refresh()
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
+    def _stop_panel(self, panel: HAUIPanel) -> None:
         # cancel time tick subscription
         self.app.unsubscribe_tick("minute", self.callback_update_time)
         # update display timer
-        if self._timer_notifications is not None:
-            self._timer_notifications.cancel()
-            self._timer_notifications = None
+        self._notif_blinker.stop()
 
     # clock
 
@@ -420,7 +410,7 @@ class ClockTwoPage(HAUIPage):
         for i in range(INDEX_SPECIAL_LENGTH):
             component = self.get_special_component(i)
             special_components.append(component)
-            specials.append(self.ICO_SPECIAL)
+            specials.append(ICO_SPECIAL)
         components = letter_components + special_components
         components_text = self._clock_letters + specials
         for component, component_text in zip(components, components_text, strict=True):
@@ -539,38 +529,28 @@ class ClockTwoPage(HAUIPage):
 
         return words, specials
 
-    def get_letter_component(self, idx: int) -> tuple[int, str]:
-        return (INDEX_LETTER_START + idx, f"l{idx + 1}")
+    def get_letter_component(self, idx: int) -> Component:
+        return Component(INDEX_LETTER_START + idx, f"l{idx + 1}")
 
-    def get_special_component(self, idx: int) -> tuple[int, str]:
-        return (INDEX_SPECIAL_START + idx, f"s{idx + 1}")
+    def get_special_component(self, idx: int) -> Component:
+        return Component(INDEX_SPECIAL_START + idx, f"s{idx + 1}")
 
-    def update_notifications(self) -> None:
+    def _refresh_notif(self) -> None:
         if not self._show_notifications:
             return
         notification = self.app.controller["notification"]
-        if self._new_notifications:
+        if self._notif_blinker.new_notifications:
             color = COLORS["component_accent"]
+            visible = datetime.datetime.now().second % 2 == 0
         else:
             color = COLORS["component"]
-        if self._new_notifications:
-            if datetime.datetime.now().second % 2:
-                visible = False
-            else:
-                visible = True
-        else:
             visible = notification.has_notifications()
-        notif_kwargs = {
-            "icon": self.ICO_MESSAGE,
-            "visible": visible,
-            "color": color,
-        }
-        self.update_function_component(self.TXT_NOTIF[1], None, **notif_kwargs)
-        if self._new_notifications:
-            self._timer_notifications = threading.Timer(
-                self.DISPLAY_UPDATE_INTERVAL, self.update_notifications
-            )
-            self._timer_notifications.start()
+        self.update_function_component(
+            self.COMPONENTS.t_notif.name,
+            icon=ICO_MESSAGE,
+            visible=visible,
+            color=color,
+        )
 
     # callback
 
@@ -587,13 +567,9 @@ class ClockTwoPage(HAUIPage):
             NotifEvent.NOTIF_REMOVE,
             NotifEvent.NOTIF_CLEAR,
         ]:
-            if event.name == NotifEvent.NOTIF_ADD:
-                self._new_notifications = True
-            elif event.name == NotifEvent.NOTIF_CLEAR:
-                self._new_notifications = False
-            self.update_notifications()
+            self._notif_blinker.handle_event(event)
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        if fnc_id == self.TXT_NOTIF[1]:
+        if fnc_id == self.COMPONENTS.t_notif.name:
             navigation = self.app.controller["navigation"]
-            navigation.open_popup("popup_notify")
+            navigation.open_panel(SysPanelKey.POPUP_NOTIFY)

@@ -3,16 +3,18 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from ..abstract.event import HAUIEvent
-from ..abstract.item import HAUIItem
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_item import HAUIItem
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..features import CoverFeatures
 from ..mapping.color import COLORS
 from ..mapping.const import ESPRequest, ESPResponse
 from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.icon import get_icon, get_icon_name_by_action
 from ..utils.text import trim_text
-from . import HAUIPage
 
 
 class RowPage(HAUIPage):
@@ -39,93 +41,71 @@ class RowPage(HAUIPage):
         ],
         icon="mdi:view-list-outline",
     )
-
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # row entities
-    R1_ICO, R1_NAME, R1_BTN_UP, R1_BTN_STOP, R1_BTN_DOWN = (
-        (7, "r1Icon"),
-        (8, "r1Name"),
-        (9, "r1BtnUp"),
-        (10, "r1BtnStop"),
-        (11, "r1BtnDown"),
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        r1_ico=Component(7, "r1Icon"),
+        r1_name=Component(8, "r1Name"),
+        r1_btn_up=Component(9, "r1BtnUp"),
+        r1_btn_stop=Component(10, "r1BtnStop"),
+        r1_btn_down=Component(11, "r1BtnDown"),
+        r1_toggle=Component(12, "r1Toggle"),
+        r1_slider=Component(13, "r1Slider"),
+        r1_slider_txt=Component(14, "r1SliderTxt"),
+        r1_btn_txt=Component(15, "r1BtnText"),
+        r1_ovl=Component(16, "r1Overlay"),
+        r2_ico=Component(17, "r2Icon"),
+        r2_name=Component(18, "r2Name"),
+        r2_btn_up=Component(19, "r2BtnUp"),
+        r2_btn_stop=Component(20, "r2BtnStop"),
+        r2_btn_down=Component(21, "r2BtnDown"),
+        r2_toggle=Component(22, "r2Toggle"),
+        r2_slider=Component(23, "r2Slider"),
+        r2_slider_txt=Component(24, "r2SliderTxt"),
+        r2_btn_txt=Component(25, "r2BtnText"),
+        r2_ovl=Component(26, "r2Overlay"),
+        r3_ico=Component(27, "r3Icon"),
+        r3_name=Component(28, "r3Name"),
+        r3_btn_up=Component(29, "r3BtnUp"),
+        r3_btn_stop=Component(30, "r3BtnStop"),
+        r3_btn_down=Component(31, "r3BtnDown"),
+        r3_toggle=Component(32, "r3Toggle"),
+        r3_slider=Component(33, "r3Slider"),
+        r3_slider_txt=Component(34, "r3SliderTxt"),
+        r3_btn_txt=Component(35, "r3BtnText"),
+        r3_ovl=Component(36, "r3Overlay"),
+        r4_ico=Component(37, "r4Icon"),
+        r4_name=Component(38, "r4Name"),
+        r4_btn_up=Component(39, "r4BtnUp"),
+        r4_btn_stop=Component(40, "r4BtnStop"),
+        r4_btn_down=Component(41, "r4BtnDown"),
+        r4_toggle=Component(42, "r4Toggle"),
+        r4_slider=Component(43, "r4Slider"),
+        r4_slider_txt=Component(44, "r4SliderTxt"),
+        r4_btn_txt=Component(45, "r4BtnText"),
+        r4_ovl=Component(46, "r4Overlay"),
+        r5_ico=Component(47, "r5Icon"),
+        r5_name=Component(48, "r5Name"),
+        r5_btn_up=Component(49, "r5BtnUp"),
+        r5_btn_stop=Component(50, "r5BtnStop"),
+        r5_btn_down=Component(51, "r5BtnDown"),
+        r5_toggle=Component(52, "r5Toggle"),
+        r5_slider=Component(53, "r5Slider"),
+        r5_slider_txt=Component(54, "r5SliderTxt"),
+        r5_btn_txt=Component(55, "r5BtnText"),
+        r5_ovl=Component(56, "r5Overlay"),
     )
-    R1_TOGGLE, R1_SLIDER, R1_SLIDER_TXT, R1_BTN_TXT, R1_OVL = (
-        (12, "r1Toggle"),
-        (13, "r1Slider"),
-        (14, "r1SliderTxt"),
-        (15, "r1BtnText"),
-        (16, "r1Overlay"),
-    )
-    R2_ICO, R2_NAME, R2_BTN_UP, R2_BTN_STOP, R2_BTN_DOWN = (
-        (17, "r2Icon"),
-        (18, "r2Name"),
-        (19, "r2BtnUp"),
-        (20, "r2BtnStop"),
-        (21, "r2BtnDown"),
-    )
-    R2_TOGGLE, R2_SLIDER, R2_SLIDER_TXT, R2_BTN_TXT, R2_OVL = (
-        (22, "r2Toggle"),
-        (23, "r2Slider"),
-        (24, "r2SliderTxt"),
-        (25, "r2BtnText"),
-        (26, "r2Overlay"),
-    )
-    R3_ICO, R3_NAME, R3_BTN_UP, R3_BTN_STOP, R3_BTN_DOWN = (
-        (27, "r3Icon"),
-        (28, "r3Name"),
-        (29, "r3BtnUp"),
-        (30, "r3BtnStop"),
-        (31, "r3BtnDown"),
-    )
-    R3_TOGGLE, R3_SLIDER, R3_SLIDER_TXT, R3_BTN_TXT, R3_OVL = (
-        (32, "r3Toggle"),
-        (33, "r3Slider"),
-        (34, "r3SliderTxt"),
-        (35, "r3BtnText"),
-        (36, "r3Overlay"),
-    )
-    R4_ICO, R4_NAME, R4_BTN_UP, R4_BTN_STOP, R4_BTN_DOWN = (
-        (37, "r4Icon"),
-        (38, "r4Name"),
-        (39, "r4BtnUp"),
-        (40, "r4BtnStop"),
-        (41, "r4BtnDown"),
-    )
-    R4_TOGGLE, R4_SLIDER, R4_SLIDER_TXT, R4_BTN_TXT, R4_OVL = (
-        (42, "r4Toggle"),
-        (43, "r4Slider"),
-        (44, "r4SliderTxt"),
-        (45, "r4BtnText"),
-        (46, "r4Overlay"),
-    )
-    R5_ICO, R5_NAME, R5_BTN_UP, R5_BTN_STOP, R5_BTN_DOWN = (
-        (47, "r5Icon"),
-        (48, "r5Name"),
-        (49, "r5BtnUp"),
-        (50, "r5BtnStop"),
-        (51, "r5BtnDown"),
-    )
-    R5_TOGGLE, R5_SLIDER, R5_SLIDER_TXT, R5_BTN_TXT, R5_OVL = (
-        (52, "r5Toggle"),
-        (53, "r5Slider"),
-        (54, "r5SliderTxt"),
-        (55, "r5BtnText"),
-        (56, "r5Overlay"),
-    )
-    # additional icons
-    ICO_COVER_UP = get_icon("mdi:chevron-up")
-    ICO_COVER_DOWN = get_icon("mdi:chevron-down")
-    ICO_COVER_STOP = get_icon("mdi:stop")
     # definitions
     NUM_ROWS = 5
     LEN_NAME = 20
 
     # panel
 
-    def start_page(self) -> None:
+    def prepare(self) -> None:
+
         self._items: list[HAUIItem] = []
         self._active_items: dict[tuple, HAUIItem | None] = {}
         self._active_handles: list = []
@@ -139,10 +119,12 @@ class RowPage(HAUIPage):
         # set function buttons
         show_in_nav = panel.show_in_navigation()
         nav_btn: dict = {
-            "fnc_component": (self.BTN_FNC_RIGHT_SEC if show_in_nav else self.BTN_FNC_RIGHT_PRI),
+            "fnc_component": (
+                self.COMPONENTS.fnc_right_sec if show_in_nav else self.COMPONENTS.fnc_right_pri
+            ),
             "fnc_name": "next_page",
             "fnc_args": {
-                "icon": self.ICO_NEXT_PAGE,
+                "icon": ICO_NEXT_PAGE,
                 "color": COLORS["component_accent"],
                 "visible": len(self._items) > self.NUM_ROWS,
             },
@@ -150,30 +132,30 @@ class RowPage(HAUIPage):
         btn_right_1: tuple | dict
         btn_right_2: tuple | dict
         if show_in_nav:
-            btn_right_1 = self.BTN_FNC_RIGHT_PRI
+            btn_right_1 = self.COMPONENTS.fnc_right_pri
             btn_right_2 = nav_btn
         else:
             btn_right_1 = nav_btn
-            btn_right_2 = self.BTN_FNC_RIGHT_SEC
+            btn_right_2 = self.COMPONENTS.fnc_right_sec
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
             btn_right_1,
             btn_right_2,
         )
         # set item overlay callbacks
         for i in range(self.NUM_ROWS):
             idx = i + 1
-            ico = getattr(self, f"R{idx}_ICO")
-            name = getattr(self, f"R{idx}_NAME")
-            ovl = getattr(self, f"R{idx}_OVL")
-            btn_text = getattr(self, f"R{idx}_BTN_TXT")
-            btn_up = getattr(self, f"R{idx}_BTN_UP")
-            btn_down = getattr(self, f"R{idx}_BTN_DOWN")
-            btn_stop = getattr(self, f"R{idx}_BTN_STOP")
-            toggle = getattr(self, f"R{idx}_TOGGLE")
-            slider = getattr(self, f"R{idx}_SLIDER")
-            slider_txt = getattr(self, f"R{idx}_SLIDER_TXT")
+            ico = getattr(self.COMPONENTS, f"r{idx}_ico")
+            name = getattr(self.COMPONENTS, f"r{idx}_name")
+            ovl = getattr(self.COMPONENTS, f"r{idx}_ovl")
+            btn_text = getattr(self.COMPONENTS, f"r{idx}_btn_txt")
+            btn_up = getattr(self.COMPONENTS, f"r{idx}_btn_up")
+            btn_down = getattr(self.COMPONENTS, f"r{idx}_btn_down")
+            btn_stop = getattr(self.COMPONENTS, f"r{idx}_btn_stop")
+            toggle = getattr(self.COMPONENTS, f"r{idx}_toggle")
+            slider = getattr(self.COMPONENTS, f"r{idx}_slider")
+            slider_txt = getattr(self.COMPONENTS, f"r{idx}_slider_txt")
             self.set_function_component(ico, ico[1], "icon", row_index=i)
             self.set_function_component(name, name[1], "name", row_index=i)
             self.set_function_component(ovl, ovl[1], "overlay", row_index=i)
@@ -204,7 +186,7 @@ class RowPage(HAUIPage):
                 row_index=i,
             )
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
+    def _stop_panel(self, panel: HAUIPanel) -> None:
         # cancel any pending debounced item-state updates
         self.debouncer.cancel("row_item_state")
         self._pending_item_updates.clear()
@@ -213,7 +195,7 @@ class RowPage(HAUIPage):
             self.remove_item_listener(handle)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.TXT_TITLE, panel.get_title())
+        self.set_component_text(self.COMPONENTS.title, panel.get_title())
         self.set_row_entries()
 
     # misc
@@ -239,7 +221,7 @@ class RowPage(HAUIPage):
                 item = items[i]
             # click events are captured by overlay, assign
             # entities to overlay
-            ovl = getattr(self, f"R{idx}_OVL")
+            ovl = getattr(self.COMPONENTS, f"r{idx}_ovl")
             self._active_items[ovl] = item
             # visibility of row entry
             visible = False
@@ -261,7 +243,7 @@ class RowPage(HAUIPage):
 
     def set_row_entry(self, idx: int, visible: bool = True) -> None:
         # visibility of row entry components
-        ovl = getattr(self, f"R{idx}_OVL")
+        ovl = getattr(self.COMPONENTS, f"r{idx}_ovl")
         item = self._active_items[ovl]
         # detail visibility
         detail_visible = None
@@ -270,20 +252,20 @@ class RowPage(HAUIPage):
         # visibility
         if visible:
             # left part of item
-            for n in ["ICO", "NAME", "OVL"]:
-                item = getattr(self, f"R{idx}_{n}")
+            for n in ["ico", "name", "ovl"]:
+                item = getattr(self.COMPONENTS, f"r{idx}_{n}")
                 self.update_function_component(item[1], visible=True)
             # detail part of item
             for n in [
-                "BTN_TXT",
-                "BTN_UP",
-                "BTN_STOP",
-                "BTN_DOWN",
-                "TOGGLE",
-                "SLIDER",
-                "SLIDER_TXT",
+                "btn_txt",
+                "btn_up",
+                "btn_stop",
+                "btn_down",
+                "toggle",
+                "slider",
+                "slider_txt",
             ]:
-                item = getattr(self, f"R{idx}_{n}")
+                item = getattr(self.COMPONENTS, f"r{idx}_{n}")
                 show = False
                 readonly = None
                 color = None
@@ -291,28 +273,28 @@ class RowPage(HAUIPage):
                 back_color_pressed = None
                 # check detail
                 if detail_visible:
-                    # 'BTN_UP', 'BTN_STOP', 'BTN_DOWN' cover control
+                    # 'btn_up', 'btn_stop', 'btn_down' cover control
                     if detail_visible == "cover":
-                        if n in ["BTN_UP", "BTN_DOWN", "BTN_STOP"]:
+                        if n in ["btn_up", "btn_down", "btn_stop"]:
                             show = True
                     # 'TOGGLE' on / off control
                     elif detail_visible == "toggle":
-                        if n == "TOGGLE":
+                        if n == "toggle":
                             show = True
                     # 'SLIDER', 'SLIDER_TXT' value slider
                     elif detail_visible == "slider":
-                        if n in ["SLIDER", "SLIDER_TXT"]:
+                        if n in ["slider", "slider_txt"]:
                             show = True
-                    # BTN_TXT
+                    # btn_txt
                     elif detail_visible == "button":
-                        if n == "BTN_TXT":
+                        if n == "btn_txt":
                             show = True
                             readonly = False
                             color = COLORS["component_active"]
                             back_color = COLORS["component_background"]
                             back_color_pressed = COLORS["component_pressed"]
-                    # 'BTN_TXT' will be used as default, text as disabled btn
-                    elif n == "BTN_TXT":
+                    # 'btn_txt' will be used as default, text as disabled btn
+                    elif n == "btn_txt":
                         show = True
                         readonly = True
                         color = COLORS["component"]
@@ -330,18 +312,18 @@ class RowPage(HAUIPage):
                 self.update_row_entry(idx)
         else:
             for n in [
-                "ICO",
-                "NAME",
-                "OVL",
-                "BTN_UP",
-                "BTN_STOP",
-                "BTN_DOWN",
-                "TOGGLE",
-                "SLIDER",
-                "SLIDER_TXT",
-                "BTN_TXT",
+                "ico",
+                "name",
+                "ovl",
+                "btn_up",
+                "btn_stop",
+                "btn_down",
+                "toggle",
+                "slider",
+                "slider_txt",
+                "btn_txt",
             ]:
-                item = getattr(self, f"R{idx}_{n}")
+                item = getattr(self.COMPONENTS, f"r{idx}_{n}")
                 self.update_function_component(item[1], visible=False)
 
     def update_row_entries(self) -> None:
@@ -353,12 +335,12 @@ class RowPage(HAUIPage):
             self.update_row_entry(idx)
 
     def update_row_entry(self, idx: int) -> None:
-        ovl = getattr(self, f"R{idx}_OVL")
+        ovl = getattr(self.COMPONENTS, f"r{idx}_ovl")
         item = self._active_items[ovl]
         if item is None:
             return
-        ico = getattr(self, f"R{idx}_ICO")
-        name = getattr(self, f"R{idx}_NAME")
+        ico = getattr(self.COMPONENTS, f"r{idx}_ico")
+        name = getattr(self.COMPONENTS, f"r{idx}_name")
         self.update_function_component(name[1], text=trim_text(item.get_name(), self.LEN_NAME))
         self.update_function_component(ico[1], text=item.get_icon(), color=item.get_color())
         display_type = self.get_item_display_type(item)
@@ -418,25 +400,25 @@ class RowPage(HAUIPage):
         return display_type
 
     def update_item_text(self, haui_item: HAUIItem, idx: int) -> None:
-        item = getattr(self, f"R{idx}_BTN_TXT")
+        item = getattr(self.COMPONENTS, f"r{idx}_btn_txt")
         self.update_function_component(item[1], text=haui_item.get_value())
 
     def update_item_button(self, haui_item: HAUIItem, idx: int) -> None:
-        item = getattr(self, f"R{idx}_BTN_TXT")
+        item = getattr(self.COMPONENTS, f"r{idx}_btn_txt")
         self.update_function_component(item[1], text=haui_item.get_value())
 
     def update_item_timer(self, haui_item: HAUIItem, idx: int) -> None:
-        item = getattr(self, f"R{idx}_BTN_TXT")
+        item = getattr(self.COMPONENTS, f"r{idx}_btn_txt")
         self.update_function_component(item[1], text=haui_item.get_value())
 
     def update_item_toggle(self, haui_item: HAUIItem, idx: int) -> None:
-        toggle = getattr(self, f"R{idx}_TOGGLE")
+        toggle = getattr(self.COMPONENTS, f"r{idx}_toggle")
         value = 0 if haui_item.get_item_state() == "off" else 1
         self.update_function_component(toggle[1], value=value)
 
     def update_item_slider(self, haui_item: HAUIItem, idx: int) -> None:
-        slider = getattr(self, f"R{idx}_SLIDER")
-        slider_txt = getattr(self, f"R{idx}_SLIDER_TXT")
+        slider = getattr(self.COMPONENTS, f"r{idx}_slider")
+        slider_txt = getattr(self.COMPONENTS, f"r{idx}_slider_txt")
         # get values needed for slider
         value = str(haui_item.get_item_state() or "0")
         minval = float(haui_item.get_item_attr("min", 0))
@@ -456,9 +438,9 @@ class RowPage(HAUIPage):
         self.update_function_component(slider_txt[1], text=value)
 
     def update_item_cover(self, haui_item: HAUIItem, idx: int) -> None:
-        btn_up = getattr(self, f"R{idx}_BTN_UP")
-        btn_stop = getattr(self, f"R{idx}_BTN_STOP")
-        btn_down = getattr(self, f"R{idx}_BTN_DOWN")
+        btn_up = getattr(self.COMPONENTS, f"r{idx}_btn_up")
+        btn_stop = getattr(self.COMPONENTS, f"r{idx}_btn_stop")
+        btn_down = getattr(self.COMPONENTS, f"r{idx}_btn_down")
         icon_up = ""
         icon_stop = ""
         icon_down = ""
@@ -591,11 +573,11 @@ class RowPage(HAUIPage):
                 self.set_row_entries()
 
         items = self.get_function_components()
-        item = items[fnc_id]
-        i = item["fnc_args"].get("row_index", -1)
+        fnc_item = items[fnc_id]
+        i = fnc_item["fnc_args"].get("row_index", -1)
         if i < 0:
             return
-        ovl = getattr(self, f"R{i + 1}_OVL")
+        ovl = getattr(self.COMPONENTS, f"r{i + 1}_ovl")
         item = self._active_items[ovl]
         if item is None:
             return
@@ -607,7 +589,7 @@ class RowPage(HAUIPage):
         elif fnc_name == "toggle":
             item.call_item_service("toggle")
         elif fnc_name == "slider":
-            self.send_esphome(ESPRequest.REQ_VAL, item["fnc_component"][1], force=True)
+            self.send_esphome(ESPRequest.REQ_VAL, fnc_item["fnc_component"][1], force=True)
         elif fnc_name == "btn_up":
             item.call_item_service("open_cover")
         elif fnc_name == "btn_stop":
@@ -628,7 +610,7 @@ class RowPage(HAUIPage):
             i = item["fnc_args"].get("row_index", -1)
             if i < 0:
                 return
-            ovl = getattr(self, f"R{i + 1}_OVL")
+            ovl = getattr(self.COMPONENTS, f"r{i + 1}_ovl")
             item = self._active_items[ovl]
             if item is None:
                 return

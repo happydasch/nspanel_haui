@@ -53,7 +53,8 @@ def NextionName(value):
     for char in value:
         if char not in valid_chars:
             raise cv.Invalid(
-                f"Must only consist of upper/lowercase characters, numbers, the underscore '_', and the period '.'. The character '{char}' cannot be used."
+                "Must only consist of upper/lowercase characters, numbers, the underscore '_',"
+                f" and the period '.'. The character '{char}' cannot be used."
             )
 
     return value

@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 from typing import Any
 
-from ..abstract.item import HAUIItem
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_item import HAUIItem
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption
-from . import HAUIPage
 
 
 class AlarmPage(HAUIPage):
@@ -25,25 +28,28 @@ class AlarmPage(HAUIPage):
         icon="mdi:shield-lock-outline",
     )
 
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # keypad
-    BTN_KEY_1, BTN_KEY_2, BTN_KEY_3 = (7, "bKey1"), (8, "bKey2"), (9, "bKey3")
-    BTN_KEY_4, BTN_KEY_5, BTN_KEY_6 = (10, "bKey4"), (11, "bKey5"), (12, "bKey6")
-    BTN_KEY_7, BTN_KEY_8, BTN_KEY_9 = (13, "bKey7"), (14, "bKey8"), (15, "bKey9")
-    BTN_KEY_CLR, BTN_KEY_0, BTN_KEY_DEL = (
-        (16, "bKeyClr"),
-        (17, "bKey0"),
-        (18, "bKeyDel"),
-    )
-    # functions
-    B1_FNC, B2_FNC, B3_FNC, B4_FNC = (
-        (19, "b1Fnc"),
-        (20, "b2Fnc"),
-        (21, "b3Fnc"),
-        (22, "b4Fnc"),
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        btn_key_1=Component(7, "bKey1"),
+        btn_key_2=Component(8, "bKey2"),
+        btn_key_3=Component(9, "bKey3"),
+        btn_key_4=Component(10, "bKey4"),
+        btn_key_5=Component(11, "bKey5"),
+        btn_key_6=Component(12, "bKey6"),
+        btn_key_7=Component(13, "bKey7"),
+        btn_key_8=Component(14, "bKey8"),
+        btn_key_9=Component(15, "bKey9"),
+        btn_key_clr=Component(16, "bKeyClr"),
+        btn_key_0=Component(17, "bKey0"),
+        btn_key_del=Component(18, "bKeyDel"),
+        b1_fnc=Component(19, "b1Fnc"),
+        b2_fnc=Component(20, "b2Fnc"),
+        b3_fnc=Component(21, "b3Fnc"),
+        b4_fnc=Component(22, "b4Fnc"),
     )
 
     # alarm state icons
@@ -76,12 +82,14 @@ class AlarmPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # set function buttons
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
-            self.BTN_FNC_RIGHT_SEC,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
+            self.COMPONENTS.fnc_right_sec,
         )
-        self.set_function_component(self.BTN_FNC_RIGHT_SEC, self.FNC_BTN_R_SEC, "armed_indicator")
+        self.set_function_component(
+            self.COMPONENTS.fnc_right_sec, self.FNC_BTN_R_SEC, "armed_indicator"
+        )
         # register alarm item state listener
         items = self._build_items_from_panel(panel, "items")
         if items:
@@ -89,9 +97,6 @@ class AlarmPage(HAUIPage):
             self.add_item_listener(item.get_item_id(), self.callback_alarm_state, "state")
             # initial state render
             self.update_armed_indicator(item)
-
-    def stop_panel(self, panel: HAUIPanel) -> None:
-        super().stop_panel(panel)
 
     # callback
 

@@ -3,17 +3,15 @@ from collections.abc import Callable
 from typing import Any, TypedDict
 
 from .ha_adapter import HAAdapter
-from .haui.abstract.base import HAUIBase
-from .haui.abstract.config import HAUIConfig
-from .haui.abstract.panel import HAUIPanel
-from .haui.controller import (
-    HAUIConnectionController,
-    HAUIESPHomeController,
-    HAUIGestureController,
-    HAUINavigationController,
-    HAUINotificationController,
-    HAUIUpdateController,
-)
+from .haui.abstract.haui_base import HAUIBase
+from .haui.abstract.haui_config import HAUIConfig
+from .haui.abstract.haui_panel import HAUIPanel
+from .haui.controller.connection import HAUIConnectionController
+from .haui.controller.esphome import HAUIESPHomeController
+from .haui.controller.gesture import HAUIGestureController
+from .haui.controller.navigation import HAUINavigationController
+from .haui.controller.notification import HAUINotificationController
+from .haui.controller.update import HAUIUpdateController
 from .haui.device import HAUIDevice
 from .haui.device_config import DEVICE_CONFIG_FIELDS
 from .haui.mapping.page import PAGE_MAPPING
@@ -46,8 +44,8 @@ class NSPanelHAUI(HAAdapter):
         super().__init__(hass, name)
         self._config_args = config_args
         self.controller: ControllerDict = {}  # type: ignore[typeddict-item]
-        self.device_config: HAUIConfig | None
-        self.device: HAUIDevice | None
+        self.device_config: HAUIConfig
+        self.device: HAUIDevice
         self._runtime_device_name: str = runtime_device_name
         self._ha_device_id: str | None = ha_device_id
         self._last_panel_update: str | None = None

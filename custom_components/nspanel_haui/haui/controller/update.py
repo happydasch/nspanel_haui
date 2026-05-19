@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -9,10 +8,10 @@ from packaging.version import InvalidVersion, Version, parse
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
 
-from ..abstract.base import HAUIBase
-from ..abstract.event import HAUIEvent
+from ..abstract.haui_base import HAUIBase
+from ..abstract.haui_event import HAUIEvent
 from ..mapping.color import COLORS
-from ..mapping.const import ESPAction, ESPEvent, ESPRequest, ESPResponse
+from ..mapping.const import ESPAction, ESPEvent, ESPRequest, ESPResponse, SysPanelKey
 from ..utils.text import trim_text
 
 
@@ -48,8 +47,8 @@ class HAUIUpdateController(HAUIBase):
         """
         super().__init__(app, config)
         self.debug_log(f"Creating Update Controller with config: {config}")
-        self._timer = None  # timer for update check by interval
-        self._timer_delay = None  # timer to delay update check on connected event
+        self._timer: str | None = None  # timer for update check by interval
+        self._timer_delay: str | None = None  # timer to delay update check on connected event
         self._interval = 0  # update check interval
         self._interval_delay = 0  # on connect check delay
         self._req_fetch = False  # is being used to identify release info request
@@ -252,8 +251,8 @@ class HAUIUpdateController(HAUIBase):
         msg += self.translate("Do you want to check for a update?")
         # open notification
         navigation = self.app.controller["navigation"]
-        navigation.open_popup(
-            "popup_notify",
+        navigation.open_panel(
+            SysPanelKey.POPUP_NOTIFY,
             icon="mdi:message-question",
             title=self.translate("Outdated TFT-Version"),
             btn_left_color=COLORS["component_active"],
@@ -290,8 +289,8 @@ class HAUIUpdateController(HAUIBase):
             msg += f" {device_info.get('tft_version', '0.0.0')} -> {latest_release['tag_name']}"
             msg += "\r\n\r\n"
             msg += self.translate("Do you want to update?")
-            navigation.open_popup(
-                "popup_notify",
+            navigation.open_panel(
+                SysPanelKey.POPUP_NOTIFY,
                 icon="mdi:message-question",
                 title=self.translate("Update available"),
                 btn_left_color=COLORS["component_active"],
@@ -332,8 +331,8 @@ class HAUIUpdateController(HAUIBase):
             navigation.close_panel()
         if btn_right:
             msg = self.translate("Please wait while the update is starting")
-            navigation.open_popup(
-                "popup_notify",
+            navigation.open_panel(
+                SysPanelKey.POPUP_NOTIFY,
                 icon="mdi:message-cog",
                 title=self.translate("Starting Update"),
                 notification=msg,
@@ -365,10 +364,10 @@ class HAUIUpdateController(HAUIBase):
 
         # device info received (device_version, yaml_version)
         if event.name == ESPResponse.RES_DEVICE_INFO:
-            device_info = json.loads(event.value)
+            device_info = event.as_json()
             self.app.device.set_device_info(device_info, append=True)
 
         # device state received (includes yaml_version, tft_version)
         if event.name == ESPResponse.RES_DEVICE_STATE:
-            device_state = json.loads(event.value)
+            device_state = event.as_json()
             self.app.device.set_device_info(device_state, append=True)

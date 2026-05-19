@@ -82,7 +82,8 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             devices = [_make_device_entry(d) for d in discovered]
             _LOGGER.info(
-                "Creating hub entry with %d HAUI device(s)", len(devices),
+                "Creating hub entry with %d HAUI device(s)",
+                len(devices),
             )
             return self.async_create_entry(
                 title=self.HUB_NAME,

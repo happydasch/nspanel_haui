@@ -391,7 +391,7 @@ cheatsheet = (
             var iconsCount = 0;
             var newIconsCount = 0;
             var deprecatedIconsCount = 0;
-            var icons = """
+            var icons = """  # noqa: E501
     + icons
     + """;
             icons.forEach(function (icon) {

@@ -203,6 +203,7 @@ export const editorStyles = css`
   .pl-type {
     flex-shrink: 0;
     color: var(--secondary-text-color, #666);
+    opacity: 0.55;
     min-width: 0;
     max-width: 40px;
     overflow: hidden;

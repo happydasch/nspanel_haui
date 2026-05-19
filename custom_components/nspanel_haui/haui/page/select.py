@@ -1,61 +1,92 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from threading import Timer
+from typing import Any
 
-from ..abstract.event import HAUIEvent
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import COLORS
-from . import HAUIPage
+from ..mapping.descriptor import PageDescriptor
+from ..mapping.icons import ICO_NEXT_PAGE
 
 
 class SelectPage(HAUIPage):
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # full width buttons
-    BTN_SEL_FULL_1, BTN_SEL_FULL_2 = (7, "bSelFull1"), (8, "bSelFull2")
-    BTN_SEL_FULL_3, BTN_SEL_FULL_4 = (9, "bSelFull3"), (10, "bSelFull4")
-    # default buttons
-    BTN_SEL_1, BTN_SEL_2, BTN_SEL_3 = (11, "bSel1"), (12, "bSel2"), (13, "bSel3")
-    BTN_SEL_4, BTN_SEL_5, BTN_SEL_6 = (14, "bSel4"), (15, "bSel5"), (16, "bSel6")
-    BTN_SEL_7, BTN_SEL_8, BTN_SEL_9 = (17, "bSel7"), (18, "bSel8"), (19, "bSel9")
-    BTN_SEL_10, BTN_SEL_11, BTN_SEL_12 = (20, "bSel10"), (21, "bSel11"), (22, "bSel12")
+    DESCRIPTOR = PageDescriptor(
+        type_key="select",
+        page_name="select",
+        label="Selection List",
+        description="Item selection panel with multi-page support.",
+        is_system=True,
+        sys_panel_default={
+            "key": "popup_select",
+            "show_in_navigation": False,
+        },
+        can_show_popup=True,
+        icon="mdi:format-list-bulleted",
+    )
+
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        btn_sel_full_1=Component(7, "bSelFull1"),
+        btn_sel_full_2=Component(8, "bSelFull2"),
+        btn_sel_full_3=Component(9, "bSelFull3"),
+        btn_sel_full_4=Component(10, "bSelFull4"),
+        btn_sel_1=Component(11, "bSel1"),
+        btn_sel_2=Component(12, "bSel2"),
+        btn_sel_3=Component(13, "bSel3"),
+        btn_sel_4=Component(14, "bSel4"),
+        btn_sel_5=Component(15, "bSel5"),
+        btn_sel_6=Component(16, "bSel6"),
+        btn_sel_7=Component(17, "bSel7"),
+        btn_sel_8=Component(18, "bSel8"),
+        btn_sel_9=Component(19, "bSel9"),
+        btn_sel_10=Component(20, "bSel10"),
+        btn_sel_11=Component(21, "bSel11"),
+        btn_sel_12=Component(22, "bSel12"),
+    )
 
     ITEMS_PER_PAGE_DEFAULT = 12
     ITEMS_PER_PAGE_FULL = 4
 
     # panel
 
-    def start_page(self) -> None:
-        self._select_mode = []
-        self._items = []
-        self._selected = None
+    def prepare(self) -> None:
+
+        self._select_mode: list = []
+        self._items: list = []
+        self._selected: Any = None
         self._multiple = False
         self._multiple_delay = 1.5
-        self._multiple_timer = None
+        self._multiple_timer: Timer | None = None
         self._close_on_select = True
         self._current_page = 0
-        self._active = {}
+        self._active: dict = {}
         self._items_per_page = 0
-        self._selection_callback_fnc = None
+        self._selection_callback_fnc: Callable[..., Any] | None = None
         self._close_callback_fnc = None
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set function buttons
         page_btn = {
-            "fnc_component": self.BTN_FNC_RIGHT_SEC,
+            "fnc_component": self.COMPONENTS.fnc_right_sec,
             "fnc_name": "next_page",
             "fnc_args": {
-                "icon": self.ICO_NEXT_PAGE,
+                "icon": ICO_NEXT_PAGE,
                 "color": COLORS["component_accent"],
                 "visible": False,
             },
         }
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
             page_btn,
         )
         # get params
@@ -75,14 +106,14 @@ class SelectPage(HAUIPage):
         # set function components
         for i in range(self.ITEMS_PER_PAGE_DEFAULT):
             idx = i + 1
-            btn = getattr(self, "BTN_SEL_" + str(idx))
+            btn = getattr(self.COMPONENTS, "btn_sel_" + str(idx))
             self.set_function_component(
                 btn, btn[1], color=COLORS["component_active"], visible=False
             )
             self.add_component_callback(btn, self.callback_select)
         for i in range(self.ITEMS_PER_PAGE_FULL):
             idx = i + 1
-            btn = getattr(self, "BTN_SEL_FULL_" + str(idx))
+            btn = getattr(self.COMPONENTS, "btn_sel_full_" + str(idx))
             self.set_function_component(
                 btn, btn[1], color=COLORS["component_active"], visible=False
             )
@@ -100,7 +131,7 @@ class SelectPage(HAUIPage):
             else:
                 self._selected = str(self._selected)
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
+    def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._multiple_timer is not None:
             self._multiple_timer.run()
         if self._close_callback_fnc:
@@ -117,12 +148,13 @@ class SelectPage(HAUIPage):
         return True
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.TXT_TITLE, panel.get_title())
+        self.set_component_text(self.COMPONENTS.title, panel.get_title())
         self.set_items()
 
     # misc
 
     def _notify_selection_single(self) -> None:
+        assert self._selection_callback_fnc is not None
         self._selection_callback_fnc(self._selected)
         # close on select
         if self._close_on_select:
@@ -145,6 +177,7 @@ class SelectPage(HAUIPage):
 
     def _finish_selection_multiple(self) -> None:
         self._stop_selection_timer()
+        assert self._selection_callback_fnc is not None
         self._selection_callback_fnc(self._selected)
         if self._close_on_select:
             navigation = self.app.controller["navigation"]
@@ -162,7 +195,7 @@ class SelectPage(HAUIPage):
         for i in range(self._items_per_page):
             idx = i + 1
             sel_i = (self._current_page * self._items_per_page) + i
-            btn_name = "BTN_SEL_FULL_" if self._select_mode == "full" else "BTN_SEL_"
+            btn_name = "btn_sel_full_" if self._select_mode == "full" else "btn_sel_"
             btn_name += str(idx)
             btn = getattr(self, btn_name)
             if sel_i < len(selection):

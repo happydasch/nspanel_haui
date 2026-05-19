@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
+from ..abstract.component import Component
 from ..mapping.const import ESPCommand
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ class ESPHomeTransport:
 
 @dataclass
 class DisplayInterface:
-    """High‑level interface for Nextion display commands.
+    """High-level interface for Nextion display commands.
 
     The interface mirrors the public methods that existed on :class:`haui.base.HAUIBase`
     (``set_component_text``/``set_component_value``/``send_cmd``/``send_cmds``).  It delegates to a
@@ -58,27 +59,12 @@ class DisplayInterface:
         if batch:
             self.transport.send(ESPCommand.SEND_COMMANDS, json.dumps({"commands": batch}))
 
-    def set_component_text(self, component: tuple[int, str], text: str) -> None:
+    def set_component_text(self, component: Component, text: str) -> None:
         if not component:
             return
-        self.send_cmd(f'{component[1]}.txt="{str(text)}"')
+        self.send_cmd(f'{component.name}.txt="{str(text)}"')
 
-    def set_component_value(self, component: tuple[int, str], value: int) -> None:
+    def set_component_value(self, component: Component, value: int) -> None:
         if not component:
             return
-        self.send_cmd(f"{component[1]}.val={int(value)}")
-
-    def render_template(self, template: str, parse_icons: bool = True) -> str:
-        # For now simply return the template; parsing can be added later.
-        return template
-
-    # ---------------------------------------------------------------------
-    # Convenience wrappers used by page classes
-    # ---------------------------------------------------------------------
-    def set_title(self, component: tuple[int, str], title: str) -> None:
-        self.set_component_text(component, title)
-
-    def set_message(self, component: tuple[int, str], message: str) -> None:
-        self.set_component_text(component, message)
-
-    # Future methods can be added here as needed
+        self.send_cmd(f"{component.name}.val={int(value)}")

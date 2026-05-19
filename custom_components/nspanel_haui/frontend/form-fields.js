@@ -1821,6 +1821,34 @@ export function renderItemEditFields(host, descriptor) {
           `;
           }
         )}
+                /* ── Service data (action items only) ────────────────────────────── */
+        ${host._editingItemType === ITEM_TYPE.ACTION
+          ? html`
+            <div class="form-group">
+              <label for="item-service_data" title="JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.">Service data</label>
+              <textarea
+                id="item-service_data"
+                class="w-full"
+                style="min-height:80px;font-family:var(--code-font-family,monospace);font-size:13px;"
+                .value=${(() => {
+                  const sd = host._editingItem?.config?.service_data;
+                  if (sd && typeof sd === 'object') return JSON.stringify(sd, null, 2);
+                  return sd != null ? String(sd) : '';
+                })()}
+                @input=${(e) => {
+                  const raw = e.target.value;
+                  let parsed;
+                  try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+                  host._editingItem = host._editingItem
+                    ? { ...host._editingItem, config: { ...host._editingItem.config, service_data: parsed } }
+                    : { config: { service_data: parsed } };
+                  host.requestUpdate();
+                }}
+                placeholder='{"vacuum_repeat": 1, "mode": "turbo"}'
+              ></textarea>
+              <div class="field-hint">JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {"vacuum_repeat": 2}</div>
+            </div>`
+          : ""}
         ${descriptor?.item_options?.length
           ? descriptor.item_options.map((itemKey) => {
               const opt = descriptor.options.find(o => o.key === itemKey);

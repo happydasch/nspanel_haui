@@ -1,28 +1,18 @@
 
 # NSPanel HAUI (HomeAssistant UI)
 
-`nspanel_haui` is a home-assistant custom integration for Sonoff NSPanel devices. The integration provides multiple configurable panels and a simple editor.
-
-- [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
-  - [About](#about)
-  - [Features](#features)
-    - [Easy Installation](#easy-installation)
-    - [Device configuration in home-assistant](#device-configuration-in-home-assistant)
-    - [A variety of different panels](#a-variety-of-different-panels)
-    - [A variaty of features](#a-variaty-of-features)
-  - [Installation](#installation)
-  - [Next Steps](#next-steps)
-  - [Development](#development)
-  - [Roadmap](#roadmap)
-  - [Resources](#resources)
-
-## About
-
-NSPanel HAUI was started as a replacement for the original Sonoff Firmware. Initially it used an AppDaemon app but with version 0.3.0 the integration now has direct communication through esphome and runs within home-assistant.
+NSPanel HAUI is a home-assistant custom integration for Sonoff NSPanel devices. The integration provides multiple configurable panels and a simple editor.
 
 To install NSPanel HAUI you only need to install the firmware and the custom integration.
 
 For details about the configuration see [Configuration](docs/Config.md). Also take a look at [Panels](docs/panels/README.md) to get an overview of available panels.
+
+- [Features](#features)
+- [Installation](#installation)
+- [Next Steps](#next-steps)
+- [Development](#development)
+- [Roadmap](#roadmap)
+- [Resources](#resources)
 
 ## Features
 
@@ -30,16 +20,15 @@ For details about the configuration see [Configuration](docs/Config.md). Also ta
 
 NSPanel HAUI will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the Hub app.
 
-### Device configuration in home-assistant
-
-![Config](docs/assets/feature_config.png)
-
 ### A variety of different panels
 
 Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
 
-![Panels 1](docs/assets/feature_panels.png)
+![Panels](docs/assets/feature_panels.png)
 
+### Device configuration in home-assistant
+
+![Config](docs/assets/feature_config.png)
 
 ### A variaty of features
 

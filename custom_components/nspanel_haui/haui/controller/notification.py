@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
 
-from ..abstract.base import HAUIBase
-from ..abstract.event import HAUIEvent
+from ..abstract.haui_base import HAUIBase
+from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ESPResponse, NotifEvent
 
 

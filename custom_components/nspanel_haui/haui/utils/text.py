@@ -59,8 +59,7 @@ def get_translations(locale: str) -> dict:
 
     if not os.path.isfile(path_file):
         _LOGGER.warning(
-            "Translations directory missing or unreadable at %s; "
-            "returning empty translation table",
+            "Translations directory missing or unreadable at %s; returning empty translation table",
             root,
         )
         _TRANSLATION_CACHE[lang] = {}

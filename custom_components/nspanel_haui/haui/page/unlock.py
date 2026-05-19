@@ -1,12 +1,30 @@
 from __future__ import annotations
 
-from ..abstract.event import HAUIEvent
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import COLORS
+from ..mapping.descriptor import PageDescriptor
+from ..mapping.icons import ICO_LOCKED, ICO_PASSWORD
 from .alarm import AlarmPage
 
 
 class UnlockPage(AlarmPage):
+    DESCRIPTOR = PageDescriptor(
+        type_key="popup_unlock",
+        page_name="unlock",
+        label="Unlock",
+        description="PIN unlock overlay for locked panels.",
+        is_system=True,
+        sys_panel_default={
+            "key": "popup_unlock",
+            "show_in_navigation": False,
+        },
+        popup_alias_for="alarm",
+        can_show_popup=True,
+        icon="mdi:lock-outline",
+    )
+
     _input = ""
     _title = ""
     _unlock_panel: HAUIPanel | None = None
@@ -19,11 +37,11 @@ class UnlockPage(AlarmPage):
         self._title = panel.get("title", self.translate("Unlock Panel"))
         # lock right secondary function button
         lock_btn = {
-            "fnc_component": AlarmPage.BTN_FNC_RIGHT_SEC,
+            "fnc_component": AlarmPage.COMPONENTS.fnc_right_sec,
             "fnc_name": "unlock_indicator",
             "fnc_args": {
                 "locked": True,
-                "icon": self.ICO_LOCKED,
+                "icon": ICO_LOCKED,
                 "color": COLORS["component"],
                 "back_color_pressed": COLORS["background"],
             },
@@ -32,33 +50,33 @@ class UnlockPage(AlarmPage):
         with self.rec_cmd:
             # set function buttons
             self.set_function_buttons(
-                AlarmPage.BTN_FNC_LEFT_PRI,
-                AlarmPage.BTN_FNC_LEFT_SEC,
-                AlarmPage.BTN_FNC_RIGHT_PRI,
+                AlarmPage.COMPONENTS.fnc_left_pri,
+                AlarmPage.COMPONENTS.fnc_left_sec,
+                AlarmPage.COMPONENTS.fnc_right_pri,
                 lock_btn,
             )
 
             # set components
             for c in [
-                AlarmPage.BTN_KEY_0,
-                AlarmPage.BTN_KEY_1,
-                AlarmPage.BTN_KEY_2,
-                AlarmPage.BTN_KEY_3,
-                AlarmPage.BTN_KEY_4,
-                AlarmPage.BTN_KEY_5,
-                AlarmPage.BTN_KEY_6,
-                AlarmPage.BTN_KEY_7,
-                AlarmPage.BTN_KEY_8,
-                AlarmPage.BTN_KEY_9,
-                AlarmPage.BTN_KEY_CLR,
-                AlarmPage.BTN_KEY_DEL,
+                AlarmPage.COMPONENTS.btn_key_0,
+                AlarmPage.COMPONENTS.btn_key_1,
+                AlarmPage.COMPONENTS.btn_key_2,
+                AlarmPage.COMPONENTS.btn_key_3,
+                AlarmPage.COMPONENTS.btn_key_4,
+                AlarmPage.COMPONENTS.btn_key_5,
+                AlarmPage.COMPONENTS.btn_key_6,
+                AlarmPage.COMPONENTS.btn_key_7,
+                AlarmPage.COMPONENTS.btn_key_8,
+                AlarmPage.COMPONENTS.btn_key_9,
+                AlarmPage.COMPONENTS.btn_key_clr,
+                AlarmPage.COMPONENTS.btn_key_del,
             ]:
                 self.add_component_callback(c, self.callback_keypad)
-            self.add_component_callback(AlarmPage.B1_FNC, self.callback_unlock)
+            self.add_component_callback(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
             self.set_function_component(
-                component=AlarmPage.B1_FNC,
-                fnc_id=AlarmPage.B1_FNC[1],
-                fnc_name=AlarmPage.B1_FNC[1],
+                component=AlarmPage.COMPONENTS.b1_fnc,
+                fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
+                fnc_name=AlarmPage.COMPONENTS.b1_fnc.name,
                 color=COLORS["text_disabled"],
                 text=self.translate("Unlock"),
                 locked=getattr(panel, "locked", False),
@@ -92,10 +110,10 @@ class UnlockPage(AlarmPage):
     def update_components(self) -> None:
         # show either password stars or title
         if len(self._input):
-            passwd = f"{AlarmPage.ICO_PASSWORD}" * len(self._input)
-            self.set_component_text(AlarmPage.TXT_TITLE, passwd)
+            passwd = f"{ICO_PASSWORD}" * len(self._input)
+            self.set_component_text(AlarmPage.COMPONENTS.title, passwd)
         else:
-            self.set_component_text(AlarmPage.TXT_TITLE, self._title)
+            self.set_component_text(AlarmPage.COMPONENTS.title, self._title)
 
         # update unlock indicator in header
         color = COLORS["component"]
@@ -109,7 +127,7 @@ class UnlockPage(AlarmPage):
             unlock_btn_enabled = True
         if unlock_btn_enabled:
             self.update_function_component(
-                fnc_id=AlarmPage.B1_FNC[1],
+                fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
                 touch_events=True,
                 color=COLORS["component_active"],
                 color_pressed=COLORS["component"],
@@ -118,7 +136,7 @@ class UnlockPage(AlarmPage):
             )
         else:
             self.update_function_component(
-                fnc_id=AlarmPage.B1_FNC[1],
+                fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
                 touch_events=False,
                 color=COLORS["text_disabled"],
                 color_pressed=COLORS["text_disabled"],
@@ -128,14 +146,14 @@ class UnlockPage(AlarmPage):
 
     # callback
 
-    def callback_keypad(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+    def callback_keypad(self, event: HAUIEvent, component: Component, button_state: int) -> None:
         if button_state:
             return
         self.log(f"Got keypad press: {component}-{button_state}")
         with self.rec_cmd:
             # process keypad value
-            if component[1].startswith("bKey"):
-                bKeyVal = component[1][4:]
+            if component.name.startswith("bKey"):
+                bKeyVal = component.name[4:]
                 if bKeyVal not in ["Del", "Clr"]:
                     self._input += str(bKeyVal)
                 elif bKeyVal == "Clr":
@@ -145,8 +163,10 @@ class UnlockPage(AlarmPage):
 
             self.update_components()
 
-    def callback_unlock(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+    def callback_unlock(self, event: HAUIEvent, component: Component, button_state: int) -> None:
         if button_state:
+            return
+        if self._unlock_panel is None:
             return
         if str(self._input) != str(self._unlock_code):
             with self.rec_cmd:

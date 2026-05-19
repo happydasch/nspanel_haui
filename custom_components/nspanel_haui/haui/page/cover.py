@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..abstract.event import HAUIEvent
-from ..abstract.item import HAUIItem
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_item import HAUIItem
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..features import CoverFeatures
 from ..mapping.color import COLORS
 from ..mapping.const import ESPRequest, ESPResponse
 from ..mapping.descriptor import PageDescriptor, PageOption
-from . import HAUIPage
 
 
 class CoverPage(HAUIPage):
@@ -27,39 +28,40 @@ class CoverPage(HAUIPage):
                 section="Cover",
             ),
         ],
+        can_show_popup=True,
         icon="mdi:blinds",
     )
 
-    # https://developers.home-assistant.io/docs/core/item/cover
-
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-
-    # cover buttons
-    BTN_UP, BTN_STOP, BTN_DOWN = (7, "bUp"), (8, "bStop"), (9, "bDown")
-    H_VERT_POS = (10, "hVertPos")
-    # info
-    TXT_INFO = (11, "tInfo")
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        btn_up=Component(7, "bUp"),
+        btn_stop=Component(8, "bStop"),
+        btn_down=Component(9, "bDown"),
+        h_vert_pos=Component(10, "hVertPos"),
+        t_info=Component(11, "tInfo"),
+    )
 
     _title = ""
-    _cover_entity = None
+    _cover_entity: HAUIItem | None = None
 
     # panel
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set component callbacks
-        self.add_component_callback(self.H_VERT_POS, self.callback_cover_pos)
+        self.add_component_callback(self.COMPONENTS.h_vert_pos, self.callback_cover_pos)
         # set function buttons
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
-            self.BTN_FNC_RIGHT_PRI,
-            self.BTN_FNC_RIGHT_SEC,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
+            self.COMPONENTS.fnc_right_sec,
         )
         # set cover function button callbacks
-        for btn in [self.BTN_UP, self.BTN_STOP, self.BTN_DOWN]:
+        for btn in [self.COMPONENTS.btn_up, self.COMPONENTS.btn_stop, self.COMPONENTS.btn_down]:
             self.add_component_callback(btn, self.callback_cover_buttons)
         # set item
         item: HAUIItem | None = None
@@ -75,11 +77,8 @@ class CoverPage(HAUIPage):
         self._title = title
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.TXT_TITLE, self._title)
+        self.set_component_text(self.COMPONENTS.title, self._title)
         self.update_cover_entity()
-
-    def stop_panel(self, panel: HAUIPanel) -> None:
-        super().stop_panel(panel)
 
     # misc
 
@@ -101,8 +100,8 @@ class CoverPage(HAUIPage):
         if supported_features & CoverFeatures.OPEN:
             visible = True
         self.set_function_component(
-            self.BTN_UP,
-            self.BTN_UP[1],
+            self.COMPONENTS.btn_up,
+            self.COMPONENTS.btn_up.name,
             visible=visible,
             color=COLORS["component_active"],
         )
@@ -111,8 +110,8 @@ class CoverPage(HAUIPage):
         if supported_features & CoverFeatures.STOP:
             visible = True
         self.set_function_component(
-            self.BTN_STOP,
-            self.BTN_STOP[1],
+            self.COMPONENTS.btn_stop,
+            self.COMPONENTS.btn_stop.name,
             visible=visible,
             color=COLORS["component_active"],
         )
@@ -121,8 +120,8 @@ class CoverPage(HAUIPage):
         if supported_features & CoverFeatures.CLOSE:
             visible = True
         self.set_function_component(
-            self.BTN_DOWN,
-            self.BTN_DOWN[1],
+            self.COMPONENTS.btn_down,
+            self.COMPONENTS.btn_down.name,
             visible=visible,
             color=COLORS["component_active"],
         )
@@ -130,10 +129,12 @@ class CoverPage(HAUIPage):
         visible = False
         if supported_features & CoverFeatures.SET_POSITION:
             visible = True
-        self.set_function_component(self.H_VERT_POS, self.H_VERT_POS[1], visible=visible)
+        self.set_function_component(
+            self.COMPONENTS.h_vert_pos, self.COMPONENTS.h_vert_pos.name, visible=visible
+        )
 
     def update_cover_entity(self) -> None:
-        self.set_component_text(self.TXT_TITLE, self._title)
+        self.set_component_text(self.COMPONENTS.title, self._title)
         self.update_cover_controls()
         self.update_cover_info()
 
@@ -142,7 +143,7 @@ class CoverPage(HAUIPage):
             return
         item = self._cover_entity
         current_position = item.get_item_attr("current_position", 0)
-        self.set_component_text(self.TXT_INFO, f"{current_position}%")
+        self.set_component_text(self.COMPONENTS.t_info, f"{current_position}%")
 
     def update_cover_controls(self) -> None:
         if self._cover_entity is None:
@@ -162,7 +163,7 @@ class CoverPage(HAUIPage):
                 back_color_pressed,
             ) = self.get_button_colors(touch_enabled)
             self.update_function_component(
-                self.BTN_UP[1],
+                self.COMPONENTS.btn_up.name,
                 visible=True,
                 touch=touch_enabled,
                 color=color,
@@ -170,7 +171,7 @@ class CoverPage(HAUIPage):
                 back_color_pressed=back_color_pressed,
             )
         else:
-            self.update_function_component(self.BTN_UP[1], visible=False)
+            self.update_function_component(self.COMPONENTS.btn_up.name, visible=False)
         # stop button
         if supported_features & CoverFeatures.STOP:
             touch_enabled = state in ["opening", "closing"]
@@ -181,7 +182,7 @@ class CoverPage(HAUIPage):
                 back_color_pressed,
             ) = self.get_button_colors(touch_enabled)
             self.update_function_component(
-                self.BTN_STOP[1],
+                self.COMPONENTS.btn_stop.name,
                 visible=True,
                 touch=touch_enabled,
                 color=color,
@@ -189,7 +190,7 @@ class CoverPage(HAUIPage):
                 back_color_pressed=back_color_pressed,
             )
         else:
-            self.update_function_component(self.BTN_STOP[1], visible=False)
+            self.update_function_component(self.COMPONENTS.btn_stop.name, visible=False)
         # down button
         if supported_features & CoverFeatures.CLOSE:
             touch_enabled = current_position > 0
@@ -200,7 +201,7 @@ class CoverPage(HAUIPage):
                 back_color_pressed,
             ) = self.get_button_colors(touch_enabled)
             self.update_function_component(
-                self.BTN_DOWN[1],
+                self.COMPONENTS.btn_down.name,
                 visible=True,
                 touch=touch_enabled,
                 color=color,
@@ -208,13 +209,13 @@ class CoverPage(HAUIPage):
                 back_color_pressed=back_color_pressed,
             )
         else:
-            self.update_function_component(self.BTN_DOWN[1], visible=False)
+            self.update_function_component(self.COMPONENTS.btn_down.name, visible=False)
         # slider
         if supported_features & CoverFeatures.SET_POSITION:
-            self.set_component_value(self.H_VERT_POS, current_position)
-            self.update_function_component(self.H_VERT_POS[1], visible=True)
+            self.set_component_value(self.COMPONENTS.h_vert_pos, current_position)
+            self.update_function_component(self.COMPONENTS.h_vert_pos.name, visible=True)
         else:
-            self.update_function_component(self.H_VERT_POS[1], visible=False)
+            self.update_function_component(self.COMPONENTS.h_vert_pos.name, visible=False)
 
     # callback
 
@@ -231,14 +232,16 @@ class CoverPage(HAUIPage):
         if button_state:
             return
         self.log(f"Got cover pos press: {component}-{button_state}")
-        self.send_esphome(ESPRequest.REQ_VAL, self.H_VERT_POS[1], force=True)
+        self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.h_vert_pos.name, force=True)
 
     def callback_cover_buttons(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if component == self.BTN_UP:
+        if self._cover_entity is None:
+            return
+        if component == self.COMPONENTS.btn_up:
             self._cover_entity.call_item_service("open_cover")
-        elif component == self.BTN_STOP:
+        elif component == self.COMPONENTS.btn_stop:
             self._cover_entity.call_item_service("stop_cover")
-        elif component == self.BTN_DOWN:
+        elif component == self.COMPONENTS.btn_down:
             self._cover_entity.call_item_service("close_cover")
 
     # event
@@ -250,7 +253,7 @@ class CoverPage(HAUIPage):
             data = event.as_json()
             name = data.get("name", "")
             value = int(data.get("value", 0))
-            if name == self.H_VERT_POS[1]:
+            if name == self.COMPONENTS.h_vert_pos.name:
                 self.process_cover_pos(value)
 
     def process_cover_pos(self, pos: int) -> None:

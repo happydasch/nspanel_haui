@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
 
-from ..abstract.base import HAUIBase
-from ..abstract.event import HAUIEvent
+from ..abstract.haui_base import HAUIBase
+from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ESPAction, ESPRequest, ESPResponse, ServerRequest, ServerResponse
 from ..version import get_version
 
@@ -379,10 +379,18 @@ class HAUIConnectionController(HAUIBase):
         # --- Handshake step 2: device responds with capabilities ---
         if event.name == ServerRequest.RES_CONNECTION:
             if self._state != ConnectionState.HANDSHAKING:
-                self.log(
-                    f"Unexpected res_connection in state {self._state.value}",
-                    level="WARNING",
-                )
+                if self._state == ConnectionState.CONNECTED:
+                    # Duplicate/retry res_connection after handshake — device
+                    # is alive, treat as heartbeat refresh.
+                    self._update_last_time()
+                    self.debug_log(
+                        f"res_connection received in state {self._state.value} (ignored)"
+                    )
+                else:
+                    self.log(
+                        f"Unexpected res_connection in state {self._state.value}",
+                        level="WARNING",
+                    )
                 return
             if isinstance(event.value, str):
                 connection_response = json.loads(event.value)

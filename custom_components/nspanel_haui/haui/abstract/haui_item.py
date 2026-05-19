@@ -4,17 +4,18 @@ import re
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
-
 from ..mapping.color import COLORS
-from ..mapping.const import ITEM_CONFIG, InternalItemType
+from ..mapping.const import InternalItemType
+from ..mapping.item_options import ItemOptions
 from ..utils.color import rgb_to_rgb565
 from ..utils.item import execute_item, get_item_color, get_item_icon, get_item_name, get_item_value
 from ..utils.text import get_state_translation
 from ..utils.value import merge_dicts
-from .base import HAUIBase
-from .entity import HAUIEntity
+from .haui_base import HAUIBase
+from .haui_entity import HAUIEntity
+
+if TYPE_CHECKING:
+    from ...nspanel_haui import NSPanelHAUI
 
 
 class HAUIItem(HAUIBase):
@@ -28,7 +29,7 @@ class HAUIItem(HAUIBase):
             config (dict, optional): Config for item. Defaults to None.
         """
         # build merged config before passing to base - keeps config immutable after init
-        cfg = deepcopy(ITEM_CONFIG)
+        cfg = {opt.key: opt.default for opt in ItemOptions.STANDARD_OPTIONS}
         if config is not None:
             merge_dicts(cfg, deepcopy(config))
         # Strip empty value field so the runtime correctly falls through
@@ -58,7 +59,7 @@ class HAUIItem(HAUIBase):
         Args:
             item_id: The item id (string entity id, internal prefix, or None).
         """
-        if not isinstance(item_id, str):
+        if not isinstance(item_id, str) or not item_id:
             self._internal = True
             self._internal_type = "skip"
             return
@@ -79,7 +80,7 @@ class HAUIItem(HAUIBase):
         else:
             self._item_id = item_id
             self._item_type = item_id.split(".")[0]
-            self._entity = HAUIEntity(self.app, item_id)
+            self._entity = HAUIEntity(self.app, item_id, config=self.config)
             self._dbg(f"Item: {item_id} -> external type={self._item_type}")
 
     def execute(self) -> None:
@@ -95,9 +96,9 @@ class HAUIItem(HAUIBase):
                 navigation.open_panel(internal_data)
             elif internal_type == "action":
                 # internal action to run
-                action_data = self.get("action_data", {})
+                service_data = self.get("service_data", {})
                 action_call = internal_data.replace(".", "/", 1)
-                self.app.call_service(action_call, **action_data)
+                self.app.call_service(action_call, service_data=service_data)
 
         # external item
         else:
@@ -344,6 +345,9 @@ class HAUIItem(HAUIBase):
         """
         if self._entity is None:
             return ""
-        return get_state_translation(
-            self.get_item_type(), self.get_item_state() or "", self.get_locale()
+        return (
+            get_state_translation(
+                self.get_item_type(), self.get_item_state() or "", self.get_locale()
+            )
+            or ""
         )

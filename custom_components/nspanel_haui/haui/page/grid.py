@@ -4,14 +4,16 @@ import math
 import random
 from typing import Any
 
-from ..abstract.event import HAUIEvent
-from ..abstract.item import HAUIItem
-from ..abstract.panel import HAUIPanel
+from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
+from ..abstract.haui_item import HAUIItem
+from ..abstract.haui_page import HAUIPage
+from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.color import generate_color_palette, rgb565_to_rgb
 from ..utils.text import trim_text
-from . import HAUIPage
 
 
 class GridPage(HAUIPage):
@@ -117,60 +119,52 @@ class GridPage(HAUIPage):
         icon="mdi:grid",
     )
 
-    # common components
-    TXT_TITLE = (2, "tTitle")
-    BTN_FNC_LEFT_PRI, BTN_FNC_LEFT_SEC = (3, "bFncLPri"), (4, "bFncLSec")
-    BTN_FNC_RIGHT_PRI, BTN_FNC_RIGHT_SEC = (5, "bFncRPri"), (6, "bFncRSec")
-    # grid entities
-    G1_BTN, G1_ICO, G1_NAME, G1_OVL, G1_POWER = (
-        (7, "g1Btn"),
-        (8, "g1Icon"),
-        (9, "g1Name"),
-        (10, "g1Overlay"),
-        (11, "g1Power"),
+    COMPONENTS = ComponentRegistry(
+        fnc_left_pri=Component(3, "bFncLPri"),
+        fnc_left_sec=Component(4, "bFncLSec"),
+        fnc_right_pri=Component(5, "bFncRPri"),
+        fnc_right_sec=Component(6, "bFncRSec"),
+        title=Component(2, "tTitle"),
+        g1_btn=Component(7, "g1Btn"),
+        g1_ico=Component(8, "g1Icon"),
+        g1_name=Component(9, "g1Name"),
+        g1_ovl=Component(10, "g1Overlay"),
+        g1_power=Component(11, "g1Power"),
+        g2_btn=Component(12, "g2Btn"),
+        g2_ico=Component(13, "g2Icon"),
+        g2_name=Component(14, "g2Name"),
+        g2_ovl=Component(15, "g2Overlay"),
+        g2_power=Component(16, "g2Power"),
+        g3_btn=Component(17, "g3Btn"),
+        g3_ico=Component(18, "g3Icon"),
+        g3_name=Component(19, "g3Name"),
+        g3_ovl=Component(20, "g3Overlay"),
+        g3_power=Component(21, "g3Power"),
+        g4_btn=Component(22, "g4Btn"),
+        g4_ico=Component(23, "g4Icon"),
+        g4_name=Component(24, "g4Name"),
+        g4_ovl=Component(25, "g4Overlay"),
+        g4_power=Component(26, "g4Power"),
+        g5_btn=Component(27, "g5Btn"),
+        g5_ico=Component(28, "g5Icon"),
+        g5_name=Component(29, "g5Name"),
+        g5_ovl=Component(30, "g5Overlay"),
+        g5_power=Component(31, "g5Power"),
+        g6_btn=Component(32, "g6Btn"),
+        g6_ico=Component(33, "g6Icon"),
+        g6_name=Component(34, "g6Name"),
+        g6_ovl=Component(35, "g6Overlay"),
+        g6_power=Component(36, "g6Power"),
     )
-    G2_BTN, G2_ICO, G2_NAME, G2_OVL, G2_POWER = (
-        (12, "g2Btn"),
-        (13, "g2Icon"),
-        (14, "g2Name"),
-        (15, "g2Overlay"),
-        (16, "g2Power"),
-    )
-    G3_BTN, G3_ICO, G3_NAME, G3_OVL, G3_POWER = (
-        (17, "g3Btn"),
-        (18, "g3Icon"),
-        (19, "g3Name"),
-        (20, "g3Overlay"),
-        (21, "g3Power"),
-    )
-    G4_BTN, G4_ICO, G4_NAME, G4_OVL, G4_POWER = (
-        (22, "g4Btn"),
-        (23, "g4Icon"),
-        (24, "g4Name"),
-        (25, "g4Overlay"),
-        (26, "g4Power"),
-    )
-    G5_BTN, G5_ICO, G5_NAME, G5_OVL, G5_POWER = (
-        (27, "g5Btn"),
-        (28, "g5Icon"),
-        (29, "g5Name"),
-        (30, "g5Overlay"),
-        (31, "g5Power"),
-    )
-    G6_BTN, G6_ICO, G6_NAME, G6_OVL, G6_POWER = (
-        (32, "g6Btn"),
-        (33, "g6Icon"),
-        (34, "g6Name"),
-        (35, "g6Overlay"),
-        (36, "g6Power"),
-    )
+
     # definitions
     NUM_GRIDS = 6
     LEN_NAME = 15
 
     # panel
 
-    def start_page(self) -> None:
+    def prepare(self) -> None:
+
         self._items: list[HAUIItem] = []
         self._active_items: dict[tuple, HAUIItem | None] = {}
         self._active_handles: list = []
@@ -187,10 +181,12 @@ class GridPage(HAUIPage):
         # set function buttons
         show_in_nav = panel.show_in_navigation()
         nav_btn: dict = {
-            "fnc_component": (self.BTN_FNC_RIGHT_SEC if show_in_nav else self.BTN_FNC_RIGHT_PRI),
+            "fnc_component": (
+                self.COMPONENTS.fnc_right_sec if show_in_nav else self.COMPONENTS.fnc_right_pri
+            ),
             "fnc_name": "next_page",
             "fnc_args": {
-                "icon": self.ICO_NEXT_PAGE,
+                "icon": ICO_NEXT_PAGE,
                 "color": COLORS["component_accent"],
                 "visible": len(self._items) > self.NUM_GRIDS,
             },
@@ -198,24 +194,24 @@ class GridPage(HAUIPage):
         btn_right_1: tuple | dict
         btn_right_2: tuple | dict
         if show_in_nav:
-            btn_right_1 = self.BTN_FNC_RIGHT_PRI
+            btn_right_1 = self.COMPONENTS.fnc_right_pri
             btn_right_2 = nav_btn
         else:
             btn_right_1 = nav_btn
-            btn_right_2 = self.BTN_FNC_RIGHT_SEC
+            btn_right_2 = self.COMPONENTS.fnc_right_sec
         self.set_function_buttons(
-            self.BTN_FNC_LEFT_PRI,
-            self.BTN_FNC_LEFT_SEC,
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
             btn_right_1,
             btn_right_2,
         )
         # set power and grid button callbacks
         for i in range(self.NUM_GRIDS):
-            power = getattr(self, f"G{i + 1}_POWER")
-            ovl = getattr(self, f"G{i + 1}_OVL")
-            btn = getattr(self, f"G{i + 1}_BTN")
-            ico = getattr(self, f"G{i + 1}_ICO")
-            name = getattr(self, f"G{i + 1}_NAME")
+            power = getattr(self.COMPONENTS, f"g{i + 1}_power")
+            ovl = getattr(self.COMPONENTS, f"g{i + 1}_ovl")
+            btn = getattr(self.COMPONENTS, f"g{i + 1}_btn")
+            ico = getattr(self.COMPONENTS, f"g{i + 1}_ico")
+            name = getattr(self.COMPONENTS, f"g{i + 1}_name")
             self.add_component_callback(power, self.callback_power_buttons)
             self.add_component_callback(ovl, self.callback_grid_entries)
             self.set_function_component(power, power[1], row_index=i, visible=False)
@@ -224,7 +220,7 @@ class GridPage(HAUIPage):
             self.set_function_component(ico, ico[1], row_index=i, visible=False)
             self.set_function_component(name, name[1], row_index=i, visible=False)
 
-    def stop_panel(self, panel: HAUIPanel) -> None:
+    def _stop_panel(self, panel: HAUIPanel) -> None:
         # cancel any pending debounced item-state updates
         self.debouncer.cancel("grid_item_state")
         self._pending_item_updates.clear()
@@ -233,7 +229,7 @@ class GridPage(HAUIPage):
             self.remove_item_listener(handle)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.TXT_TITLE, panel.get_title())
+        self.set_component_text(self.COMPONENTS.title, panel.get_title())
         self.set_grid_entries(panel)
 
     # misc
@@ -274,8 +270,8 @@ class GridPage(HAUIPage):
             # click events are captured by overlay, assign
             # entities to button overlay
             idx = i + 1
-            ovl = getattr(self, f"G{idx}_OVL")
-            power = getattr(self, f"G{idx}_POWER")
+            ovl = getattr(self.COMPONENTS, f"g{idx}_ovl")
+            power = getattr(self.COMPONENTS, f"g{idx}_power")
             self._active_items[ovl] = item
             # visibility of grid button
             visible = False
@@ -348,11 +344,11 @@ class GridPage(HAUIPage):
 
     def set_grid_entry(self, idx: int, panel: HAUIPanel, visible: bool) -> None:
         # visibility of grid button components
-        btn = getattr(self, f"G{idx}_BTN")
-        ico = getattr(self, f"G{idx}_ICO")
-        name = getattr(self, f"G{idx}_NAME")
-        ovl = getattr(self, f"G{idx}_OVL")
-        power = getattr(self, f"G{idx}_POWER")
+        btn = getattr(self.COMPONENTS, f"g{idx}_btn")
+        ico = getattr(self.COMPONENTS, f"g{idx}_ico")
+        name = getattr(self.COMPONENTS, f"g{idx}_name")
+        ovl = getattr(self.COMPONENTS, f"g{idx}_ovl")
+        power = getattr(self.COMPONENTS, f"g{idx}_power")
         item = self._active_items[ovl]
         # power button, only show if requested and a item is set
         power_visible = self.is_power_visible(panel, item) if item else False
@@ -407,9 +403,9 @@ class GridPage(HAUIPage):
 
     def update_grid_entry(self, idx: int, panel: HAUIPanel) -> None:
         # update a single button
-        ovl = getattr(self, f"G{idx}_OVL")
-        ico = getattr(self, f"G{idx}_ICO")
-        name = getattr(self, f"G{idx}_NAME")
+        ovl = getattr(self.COMPONENTS, f"g{idx}_ovl")
+        ico = getattr(self.COMPONENTS, f"g{idx}_ico")
+        name = getattr(self.COMPONENTS, f"g{idx}_name")
         item = self._active_items[ovl]
         if item:
             self.set_component_text(name, trim_text(item.get_name(), self.LEN_NAME))
@@ -419,10 +415,12 @@ class GridPage(HAUIPage):
             if self.is_power_visible(panel, item):
                 _, _, _, _, power_color = self.get_grid_colors(panel, item)
                 self.update_function_component(
-                    getattr(self, f"G{idx}_POWER")[1], visible=True, color=power_color
+                    getattr(self.COMPONENTS, f"g{idx}_power").name, visible=True, color=power_color
                 )
             else:
-                self.update_function_component(getattr(self, f"G{idx}_POWER")[1], visible=False)
+                self.update_function_component(
+                    getattr(self.COMPONENTS, f"g{idx}_power").name, visible=False
+                )
         else:
             self.set_component_text(name, "")
             self.set_component_text_color(ico, COLORS["text"])

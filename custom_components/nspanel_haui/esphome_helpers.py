@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -110,11 +111,13 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
             if hasattr(runtime_data, "device_info"):
                 di = runtime_data.device_info
                 if di is not None:
-                    if (hasattr(di, "project_name") and di.project_name
-                            and _HAUI_MODEL in di.project_name):
+                    if (
+                        hasattr(di, "project_name")
+                        and di.project_name
+                        and _HAUI_MODEL in di.project_name
+                    ):
                         return True
-                    if (hasattr(di, "model") and di.model
-                            and _HAUI_MODEL in di.model):
+                    if hasattr(di, "model") and di.model and _HAUI_MODEL in di.model:
                         return True
         except (AttributeError, KeyError, TypeError):
             _LOGGER.debug("is_haui_device device_info check failed", exc_info=True)
@@ -141,6 +144,34 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
                     return True
     except (AttributeError, KeyError, TypeError):
         _LOGGER.debug("is_haui_device service registry check failed", exc_info=True)
+
+    # Strategy 5: entity registry — look up entities tied to this config
+    # entry and check if their device registry entry has HAUI identifiers.
+    # Entity + device registry entries persist across HA restarts (stored
+    # in the HA database), so this works for devices that have connected at
+    # least once in the past but are currently offline.
+    try:
+        from homeassistant.helpers import device_registry as dr
+        from homeassistant.helpers import entity_registry as er
+
+        ent_reg = er.async_get(hass)
+        entry_id = getattr(entry, "entry_id", None)
+        if entry_id:
+            dev_reg = dr.async_get(hass)
+            for ent in ent_reg.entities.values():
+                if ent.config_entry_id != entry_id:
+                    continue
+                if not ent.device_id:
+                    continue
+                dev = dev_reg.async_get(ent.device_id)
+                if not dev:
+                    continue
+                mfg = (dev.manufacturer or "").lower()
+                model = (dev.model or "").lower()
+                if mfg == _HAUI_MANUFACTURER and _HAUI_MODEL in model:
+                    return True
+    except (ImportError, AttributeError, KeyError, TypeError):
+        _LOGGER.debug("is_haui_device entity registry check failed", exc_info=True)
 
     return False
 
@@ -176,12 +207,15 @@ def resolve_ha_device_id(hass: Any, node_name: str) -> str | None:
     return None
 
 
-async def discover_esphome_devices(hass: Any) -> list[dict]:
+async def discover_esphome_devices(hass: Any, *, _is_retry: bool = False) -> list[dict]:
     """Discover NSPanel devices via ESPHome config entries.
 
     Only returns devices confirmed to have HAUI firmware installed.
     Iterates ESPHome config entries and returns a list of device dicts with
     ``name`` and ``esphome_device_id`` keys.
+
+    Retries once after a short delay if no devices are found and this is
+    the first call (services may not be registered yet at startup).
     """
     devices: list[dict] = []
     for entry in hass.config_entries.async_entries("esphome"):
@@ -198,5 +232,18 @@ async def discover_esphome_devices(hass: Any) -> list[dict]:
                 "esphome_device_id": entry.entry_id,
             }
         )
+
+    if not devices and not _is_retry:
+        # Only retry if there are ESPHome entries to scan — a retry when
+        # no entries exist at all is pointless and slow.
+        if hass.config_entries.async_entries("esphome"):
+            _LOGGER.debug(
+                "discover_esphome_devices: %d ESPHome entries but no HAUI matches "
+                "on first pass, retrying after 5s delay",
+                len(hass.config_entries.async_entries("esphome")),
+            )
+            await asyncio.sleep(5)
+        return await discover_esphome_devices(hass, _is_retry=True)
+
     _LOGGER.debug("discover_esphome_devices: %d HAUI device(s)", len(devices))
     return devices

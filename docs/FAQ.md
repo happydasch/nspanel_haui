@@ -116,3 +116,18 @@ action:
         - switch.nspanel_haui_use_auto_sleeping
 mode: single
 ```
+
+## My NSPanel devices are not discovered
+
+If you're running Home Assistant in Docker with **bridge networking** (the default), mDNS auto-discovery may not work.  This means the integration won't automatically find your NSPanel devices configured via ESPHome.
+
+To resolve this, ensure you have manually added your ESPHome devices in Home Assistant's ESPHome integration first.  Once the ESPHome entries exist, the HAUI integration will detect them:
+
+1. Go to **Settings → Devices & services → ESPHome**.
+2. Click **Add entry** and add each of your NSPanel devices by IP or hostname.
+3. After adding them, the HAUI hub will automatically pick up the devices within a few seconds.
+
+If you continue having discovery issues:
+
+- Use `--network=host` for your Home Assistant Docker container — this enables mDNS and ESPHome's native discovery.
+- Use the **"Scan for new devices"** button in the HAUI Editor's Device Manager to manually trigger discovery.

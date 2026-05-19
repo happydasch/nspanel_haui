@@ -3,12 +3,12 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
-if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
-
 from ..mapping.const import PANEL_CONFIG
 from ..utils.value import merge_dicts
-from .base import HAUIBase
+from .haui_base import HAUIBase
+
+if TYPE_CHECKING:
+    from ...nspanel_haui import NSPanelHAUI
 
 
 class HAUIPanel(HAUIBase):
@@ -43,30 +43,35 @@ class HAUIPanel(HAUIBase):
         """
         return self.get("type")
 
-    def get_mode(self) -> str:
-        """Returns the runtime panel mode. Internal use only.
+    def can_show_popup(self) -> bool:
+        """Returns True if this panel type supports popup overlay display.
 
-        Returns "popup" when set by open_popup(), "panel" otherwise.
-        Prefer show_in_navigation() for navigation decisions.
+        Single-entity panels (light, climate, media, cover, vacuum, timer)
+        and system popup panels return True. Multi-entity panels (grid, row,
+        clock, weather) and blank/system pages return False — they display
+        as full-page subpanels when show_in_navigation is False.
 
         Returns:
-            str: Panel mode
+            bool: True if the panel's page class has can_show_popup set
         """
-        return self.get_state("mode", self.get("mode", "panel"))
+        from ..mapping.panel import PANEL_MAPPING
+
+        entry = PANEL_MAPPING.get(self.get_type())
+        if entry is None:
+            return False
+        cls = entry[1]
+        d = getattr(cls, "DESCRIPTOR", None)
+        return d.can_show_popup if d is not None else False
 
     def show_in_navigation(self) -> bool:
         """Returns True if this panel should appear in the navigation cycle.
 
-        Popup panels are always excluded from navigation regardless of
-        the show_in_navigation config value. Checks runtime state override
-        first, then falls back to config.
+        Checks runtime state override first, then falls back to config.
+        Defaults to True.
 
         Returns:
             bool: True if the panel should appear in navigation
         """
-        # Popup panels are never part of the navigation cycle
-        if self.get_state("mode", self.get("mode", "panel")) == "popup":
-            return False
         return self.get_state("show_in_navigation", self.get("show_in_navigation", True))
 
     def get_title(self, default_title: str | None = None) -> str:

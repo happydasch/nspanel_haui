@@ -1,5 +1,5 @@
 import pytest
-from nspanel_haui.haui.abstract.event import HAUIEvent
+from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.controller.notification import HAUINotificationController
 from nspanel_haui.haui.device import HAUIDevice
 from nspanel_haui.haui.mapping.const import NotifEvent

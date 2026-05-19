@@ -9,7 +9,7 @@ directory = "apps/nspanel_haui"
 # Create a list to store the translated strings
 translations = {}
 # Iterate over all Python files in the directory and its subdirectories
-for root, dirs, files in os.walk(directory):
+for root, _dirs, files in os.walk(directory):
     for file in files:
         if file.endswith(".py"):
             # Read the contents of the file into a string
@@ -20,5 +20,5 @@ for root, dirs, files in os.walk(directory):
                 # Add the argument to the list of translations
                 translations[match.group(2)] = ""
 
-with open("scripts/translations/translate.json", "w") as file:
-    json.dump({"text": translations}, file, indent=2)
+with open("scripts/translations/translate.json", "w") as translation_file:
+    json.dump({"text": translations}, translation_file, indent=2)

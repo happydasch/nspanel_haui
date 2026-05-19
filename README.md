@@ -7,14 +7,23 @@ To install NSPanel HAUI you only need to install the firmware and the custom int
 
 For details about the configuration see [Configuration](docs/Config.md). Also take a look at [Panels](docs/panels/README.md) to get an overview of available panels.
 
-- [Features](#features)
-- [Installation](#installation)
-- [Next Steps](#next-steps)
-- [Development](#development)
-- [Roadmap](#roadmap)
-- [Resources](#resources)
+- [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
+  - [Features](#features)
+    - [Easy Installation](#easy-installation)
+    - [A variety of different panels](#a-variety-of-different-panels)
+    - [Device configuration in home-assistant](#device-configuration-in-home-assistant)
+    - [Many features](#many-features)
+  - [Installation](#installation)
+  - [Next Steps](#next-steps)
+  - [Development](#development)
+  - [Roadmap](#roadmap)
+  - [Resources](#resources)
 
 ## Features
+
+**The documentation and comments may be outdated, this will be fixed in the upcoming versions**
+
+the updated architecture was introduced just now, due to migration of old code there might be issues / non-working parts. It would be helpful to get such issues as bug reports.
 
 ### Easy Installation
 
@@ -30,7 +39,7 @@ Select from different [Panels](docs/panels/README.md) that can be displayed on t
 
 ![Config](docs/assets/feature_config.png)
 
-### A variaty of features
+### Many features
 
 NSPanel HAUI has a lot of features, here are some highlights:
 

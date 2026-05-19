@@ -100,7 +100,7 @@ These are read-only git checkouts of upstream dependencies. All are at recent de
 | `ref_src/home-assistant/core/` | `home-assistant/core` | `2026.6.0.dev0` | HA integration APIs, config flow patterns, entity platforms |
 | `ref_src/home-assistant/frontend/` | `home-assistant/frontend` | `20260429.0` | Lovelace UI patterns, card editor components, custom panel loading |
 | `ref_src/esphome/esphome/` | `esphome/esphome` | `2026.5.0-dev` | ESPHome component API, native API client, Nextion display driver |
-| `ref_src/custom_components/` | Various | — | Integration patterns from hacs, adaptive_lighting, frigate, localtuya, spook, etc. (snapshot copies, no git) |
+| `ref_src/custom_components/` | Various | — | Integration patterns from different custom components (snapshot copies, no git) |
 
 #### Frontend reference (`ref_src/home-assistant/frontend/`)
 
@@ -169,7 +169,7 @@ class HAUIPage:
 **Subclass pages extend via `.merge()`:**
 ```python
 class CoverPage(HAUIPage):
-    components = HAUIPage.components.merge(
+    components = HAUIPage.COMPONENTS.merge(
         title=Component(2, "tTitle"),
         btn_up=Component(7, "bUp"),
         btn_stop=Component(8, "bStop"),
@@ -198,7 +198,7 @@ component.id     # instead of component[0]
 ### Adding a new panel type
 
 1. Create a page class in `haui/page/yourpanel.py` that extends `HAUIBase` (or a relevant page base).
-2. Define a `components` class attribute using `ComponentRegistry` with `Component` entries for each Nextion widget on the page. Follow snake_case purpose-based naming.
+2. Define a `COMPONENTS` class attribute using `ComponentRegistry` with `Component` entries for each Nextion widget on the page. Follow snake_case purpose-based naming.
 3. Define a `DESCRIPTOR` class attribute of type `PageDescriptor` with at least `type_key`, `page_name`, `label`, and `description`.
 4. Import the class in `haui/mapping/panel.py` and add it to the `_page_classes` list inside `_build_panel_mapping()`.
 5. If the panel has configurable options, add `OptionDescriptor` entries to `DESCRIPTOR.options`.

@@ -8,6 +8,7 @@ from ..version import get_version
 
 
 class AboutPage(HAUIPage):
+    USE_SYSTEM_COLORS = False
     DESCRIPTOR = PageDescriptor(
         type_key="system_about",
         page_name="about",

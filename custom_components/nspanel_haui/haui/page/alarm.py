@@ -6,7 +6,6 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption
 
 
@@ -65,16 +64,16 @@ class AlarmPage(HAUIPage):
         "arming": "mdi:shield-sync-outline",
     }
 
-    _ALARM_COLORS = {
-        "disarmed": COLORS["alarm_disarmed"],
-        "armed_home": COLORS["alarm_armed"],
-        "armed_away": COLORS["alarm_armed"],
-        "armed_night": COLORS["alarm_armed"],
-        "armed_vacation": COLORS["alarm_armed"],
-        "armed_custom_bypass": COLORS["alarm_armed"],
-        "pending": COLORS["alarm_arming"],
-        "triggered": COLORS["alarm_armed"],
-        "arming": COLORS["alarm_arming"],
+    _ALARM_COLOR_KEYS = {
+        "disarmed": "alarm_disarmed",
+        "armed_home": "alarm_armed",
+        "armed_away": "alarm_armed",
+        "armed_night": "alarm_armed",
+        "armed_vacation": "alarm_armed",
+        "armed_custom_bypass": "alarm_armed",
+        "pending": "alarm_arming",
+        "triggered": "alarm_armed",
+        "arming": "alarm_arming",
     }
 
     # panel
@@ -109,14 +108,14 @@ class AlarmPage(HAUIPage):
             self.update_function_component(
                 self.FNC_BTN_R_SEC,
                 icon=self._ALARM_ICONS.get(new, ""),
-                color=self._ALARM_COLORS.get(new, COLORS["text"]),
+                color=self.get_color(self._ALARM_COLOR_KEYS.get(new, "text")),
                 visible=True,
             )
 
     def update_armed_indicator(self, item: HAUIItem) -> None:
         state = item.get_item_state() or ""
         icon = self._ALARM_ICONS.get(state, "")
-        color = self._ALARM_COLORS.get(state, COLORS["text"])
+        color = self.get_color(self._ALARM_COLOR_KEYS.get(state, "text"))
         self.update_function_component(
             self.FNC_BTN_R_SEC,
             icon=icon,

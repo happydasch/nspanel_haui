@@ -10,7 +10,6 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.background import BACKGROUNDS
-from ..mapping.color import COLORS
 from ..mapping.const import ESPResponse, NotifEvent, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_MESSAGE, ICO_SPECIAL
@@ -233,6 +232,8 @@ INDEX_SPECIAL_LENGTH = 4
 
 
 class ClockTwoPage(HAUIPage):
+    PICTURE_BACKGROUND = True
+    USE_SYSTEM_COLORS = False
     DESCRIPTOR = PageDescriptor(
         type_key="clocktwo",
         page_name="clocktwo",
@@ -324,6 +325,7 @@ class ClockTwoPage(HAUIPage):
             ),
         ],
         icon="mdi:clock-edit-outline",
+        has_header=False,
     )
 
     # components, skipping l1-110, s1-4
@@ -339,9 +341,9 @@ class ClockTwoPage(HAUIPage):
         # Initialize defaults used by create_panel() before start_page() runs.
         # Navigation calls create_panel() immediately after constructing the
         # page instance, which is before start_page() is invoked.
-        self._off_color = COLORS["component_background"]
-        self._letter_color = COLORS["component"]
-        self._special_color = COLORS["component_accent"]
+        self._off_color = self.get_color("component_background")
+        self._letter_color = self.get_color("component_text")
+        self._special_color = self.get_color("component_accent")
         self._clock_language = "en"
         self._show_ampm = False
         self._show_intro_text = True
@@ -540,10 +542,10 @@ class ClockTwoPage(HAUIPage):
             return
         notification = self.app.controller["notification"]
         if self._notif_blinker.new_notifications:
-            color = COLORS["component_accent"]
+            color = self.get_color("component_accent")
             visible = datetime.datetime.now().second % 2 == 0
         else:
-            color = COLORS["component"]
+            color = self.get_color("component_text")
             visible = notification.has_notifications()
         self.update_function_component(
             self.COMPONENTS.t_notif.name,

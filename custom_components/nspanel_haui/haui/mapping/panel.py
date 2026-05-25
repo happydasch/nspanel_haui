@@ -31,8 +31,8 @@ SYS_PANEL_MAPPING = {
     # sys pages
     SysPanelKey.SYS_BLANK: "blank",
     SysPanelKey.SYS_SYSTEM: "system",
-    SysPanelKey.SYS_SETTINGS: "system_settings",
     SysPanelKey.SYS_ABOUT: "system_about",
+    SysPanelKey.SYS_SETTINGS: "system_settings",
     # popups
     SysPanelKey.POPUP_UNLOCK: "popup_unlock",
     SysPanelKey.POPUP_NOTIFY: "popup_notify",
@@ -154,6 +154,8 @@ def get_user_panel_type_descriptors() -> list[dict]:
                     "label": d.label,
                     "description": d.description,
                     "icon": d.icon,
+                    "has_header": d.has_header,
+                    "can_show_popup": d.can_show_popup,
                     "item_options": d.item_options,
                     "options": [
                         {
@@ -189,6 +191,8 @@ def get_system_panel_entries() -> list[dict]:
                         "label": d.label,
                         "description": d.description,
                         "icon": d.icon,
+                        "has_header": d.has_header,
+                        "can_show_popup": d.can_show_popup,
                     }
                 )
     return result

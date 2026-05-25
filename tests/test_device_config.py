@@ -1,4 +1,4 @@
-"""Tests for haui/device_config.py - constants, helpers, and DeviceConfig class."""
+"""Tests for haui/device_config.py - constants, helpers, and config validation."""
 
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ from nspanel_haui.haui.device_config import (  # noqa: E402
     DEVICE_CONFIG,
     DEVICE_CONFIG_FIELDS,
     LOCALE_OPTIONS,
-    DeviceConfig,
     _apply_panel_store,
     _find_store_device,
     _merge_store_fields,
@@ -51,12 +50,14 @@ def test_device_config_has_all_required_keys() -> None:
         "home_on_first_touch",
         "home_only_when_on",
         "home_on_button_toggle",
+        "reset_interaction_on_button",
         "return_to_home_after_seconds",
         "always_return_to_home",
         "hub_idle_timeout",
         "use_relay_left",
         "use_relay_right",
         "sound_on_startup",
+        "color_overrides",
         "sound_on_notification",
     }
     assert set(DEVICE_CONFIG.keys()) == required
@@ -88,92 +89,6 @@ def test_locale_options_format() -> None:
         assert isinstance(code, str)
         assert isinstance(label, str)
         assert "_" in code  # e.g. "en_US"
-
-
-# ============================================================================
-# DeviceConfig accessor
-# ============================================================================
-
-
-def test_device_config_getters() -> None:
-    data = {
-        "name": "test-device",
-        "debug_level": 2,
-        "enabled": False,
-    }
-    dc = DeviceConfig(data)
-    assert dc.name == "test-device"
-    assert dc.debug_level == 2
-    assert dc.enabled is False
-
-
-def test_device_config_defaults() -> None:
-    """Missing keys return sensible defaults."""
-    dc = DeviceConfig({})
-    assert dc.name == ""
-    assert dc.locale == "en_US"
-    assert dc.enabled is True
-    assert dc.debug_level == 0
-    assert dc.log_items is False
-    assert dc.show_home_button is False
-    assert dc.show_notifications_button is True
-    assert dc.use_relay_left is True
-    assert dc.use_relay_right is True
-    assert dc.sound_on_startup is True
-    assert dc.sound_on_notification is True
-    assert dc.home_on_first_touch is True
-    assert dc.home_on_wakeup is False
-    assert dc.home_only_when_on is False
-    assert dc.home_on_button_toggle is False
-    assert dc.always_return_to_home is False
-    assert dc.return_to_home_after_seconds == 0
-    assert dc.home_panel == ""
-    assert dc.sleep_panel == ""
-    assert dc.wakeup_panel == ""
-    assert dc.button_left_entity == ""
-    assert dc.button_right_entity == ""
-    assert dc.esphome_device_id == ""
-    assert dc.panels == []
-
-
-def test_device_config_setters() -> None:
-    dc = DeviceConfig({})
-    dc.name = "new-name"
-    dc.debug_level = 3
-    dc.enabled = False
-    dc.show_home_button = True
-    assert dc.name == "new-name"
-    assert dc.debug_level == 3
-    assert dc.enabled is False
-    assert dc.show_home_button is True
-
-
-def test_device_config_setters_affect_underlying_dict() -> None:
-    data: dict[str, Any] = {}
-    dc = DeviceConfig(data)
-    dc.name = "mutated"
-    dc.log_items = True
-    assert data["name"] == "mutated"
-    assert data["log_items"] is True
-
-
-def test_device_config_as_dict() -> None:
-    data = {"name": "test", "log_items": True}
-    dc = DeviceConfig(data)
-    result = dc.as_dict()
-    assert result == data
-    # Shallow copy: mutate result, data unchanged
-    result["extra"] = 1
-    assert "extra" not in data
-
-
-def test_device_config_repr() -> None:
-    dc = DeviceConfig({"name": "my-device"})
-    assert "DeviceConfig" in repr(dc)
-    assert "my-device" in repr(dc)
-
-    dc2 = DeviceConfig({})
-    assert "?" in repr(dc2)  # fallback name
 
 
 # ============================================================================

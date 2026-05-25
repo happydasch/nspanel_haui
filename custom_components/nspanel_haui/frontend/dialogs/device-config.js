@@ -182,6 +182,10 @@ class DeviceConfigDialog extends LitElement {
                   this._deviceConfigForm = { ...this._deviceConfigForm, button_right_entity: v };
                 },
               }) : ""}
+            <div class="section-divider"></div>
+              ${checkbox(this, "dc-reset_interaction_on_button", "reset_interaction_on_button", cfg,
+                "Reset interaction on button press",
+                "When enabled (default), pressing a hardware button resets the inactivity timer and prevents the display from dimming or sleeping. Disable to allow buttons to work without delaying display sleep.")}
             </div>
           </details>
 

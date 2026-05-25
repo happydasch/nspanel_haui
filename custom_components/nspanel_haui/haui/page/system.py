@@ -18,6 +18,7 @@ class SystemPage(HAUIPage):
             "show_in_navigation": False,
         },
         icon="mdi:cog-outline",
+        has_header=False,
     )
 
     COMPONENTS = ComponentRegistry(

@@ -75,3 +75,10 @@ class PageDescriptor:
     for ``popup_unlock``).  Popup aliases are auto-registered and do
     **not** appear as user-selectable panel types.
     """
+    has_header: bool = True
+    """Whether this page type displays the header bar (function buttons).
+
+    Most panel pages show 4 function buttons at the top of the display.
+    Clock, weather, blank, and system pages may omit the header bar
+    and show content full-screen instead.
+    """

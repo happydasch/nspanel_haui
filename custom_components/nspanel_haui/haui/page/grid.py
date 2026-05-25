@@ -9,7 +9,6 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.color import generate_color_palette, rgb565_to_rgb
@@ -187,7 +186,7 @@ class GridPage(HAUIPage):
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": ICO_NEXT_PAGE,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": len(self._items) > self.NUM_GRIDS,
             },
         }
@@ -296,9 +295,9 @@ class GridPage(HAUIPage):
 
     def get_grid_colors(self, panel: HAUIPanel, item: HAUIItem | None, idx: int = 0) -> tuple:
         # colors for grid button
-        color_pressed = panel.get("color_pressed", COLORS["text"])
-        back_color_pressed = panel.get("back_color_pressed", COLORS["component_pressed"])
-        power_color = panel.get("power_color", COLORS["component_active"])
+        color_pressed = panel.get("color_pressed", self.get_color("text"))
+        back_color_pressed = panel.get("back_color_pressed", self.get_color("component_pressed"))
+        power_color = panel.get("power_color", self.get_color("component_active"))
         text_color = panel.get("text_color", None)
         back_color = panel.get("back_color", None)
         color_mode = panel.get("color_mode", None)
@@ -307,27 +306,27 @@ class GridPage(HAUIPage):
         if not back_color and color_mode:
             self.debug_log(f"Using seed for grid: {color_seed}")
             colors = generate_color_palette(
-                rgb565_to_rgb(COLORS["background"]), color_mode, color_seed, 6
+                rgb565_to_rgb(self.get_color("background")), color_mode, color_seed, 6
             )
             back_color = colors[idx - 1]
             back_color_pressed = [int(x * 0.5) for x in back_color]
             # for light back colors use dark text color
             if color_mode in ["pastel", "light", "lighten"]:
                 if not text_color:
-                    text_color = COLORS["background"]
-                color_pressed = COLORS["component_pressed"]
-                power_color = COLORS["background"]
+                    text_color = self.get_color("background")
+                color_pressed = self.get_color("component_pressed")
+                power_color = self.get_color("background")
             elif color_mode in ["vibrant", "dark", "darken"]:
                 if not text_color:
-                    text_color = COLORS["component"]
-                color_pressed = COLORS["component"]
-                power_color = COLORS["component"]
+                    text_color = self.get_color("component_text")
+                color_pressed = self.get_color("component_text")
+                power_color = self.get_color("component_text")
         # text color
         if not text_color:
-            text_color = COLORS["text"]
+            text_color = self.get_color("text")
         # back color
         if not back_color:
-            back_color = COLORS["background"]
+            back_color = self.get_color("background")
         # item overrides (beat everything)
         if item is not None:
             color_mode = item.get("color_mode", color_mode)
@@ -423,7 +422,7 @@ class GridPage(HAUIPage):
                 )
         else:
             self.set_component_text(name, "")
-            self.set_component_text_color(ico, COLORS["text"])
+            self.set_component_text_color(ico, self.get_color("text"))
             self.set_component_text(ico, "")
 
     # callback

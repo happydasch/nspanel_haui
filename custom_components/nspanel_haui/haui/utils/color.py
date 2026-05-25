@@ -3,6 +3,7 @@ from __future__ import annotations
 import colorsys
 import math
 import random
+import re
 
 from .value import scale
 
@@ -202,3 +203,64 @@ def rgb565_to_rgb(rgb565_color: int) -> tuple[int, int, int]:
     blue = (blue * 255) // 31
     # return the rgb values
     return (red, green, blue)
+
+
+def parse_color_value(value: int | str | list | tuple) -> int:
+    """Parse a color value in any supported format into an RGB565 int.
+
+    Handles:
+    - ``int``: passed through directly (assumed RGB565).
+    - ``[r, g, b]`` bracket string format (legacy configs).
+    - ``#rrggbb`` hex string format (from frontend color picker).
+    - ``list`` / ``tuple`` of 3 ints: converted via ``rgb_to_rgb565``.
+    - Integer string: converted to int directly.
+
+    Args:
+        value: A color in one of the supported formats.
+
+    Returns:
+        RGB565 integer color value. Returns 0 for empty/invalid strings.
+    """
+    if isinstance(value, int):
+        return value
+
+    if isinstance(value, (list, tuple)):
+        return rgb_to_rgb565(value)
+
+    if not isinstance(value, str):
+        return 0
+
+    stripped = value.strip()
+    if not stripped:
+        return 0
+
+    # Handle "[r,g,b]" string format (legacy configs)
+    rgb_match = re.match(
+        r"\[\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\]",
+        stripped,
+    )
+    if rgb_match:
+        return rgb_to_rgb565(
+            [
+                int(rgb_match.group(1)),
+                int(rgb_match.group(2)),
+                int(rgb_match.group(3)),
+            ]
+        )
+
+    # Handle "#rrggbb" hex format (from frontend color picker)
+    if re.match(r"^#([0-9a-fA-F]{6})$", stripped):
+        hex_str = stripped[1:]
+        return rgb_to_rgb565(
+            [
+                int(hex_str[0:2], 16),
+                int(hex_str[2:4], 16),
+                int(hex_str[4:6], 16),
+            ]
+        )
+
+    # Try direct integer parsing (e.g. "65535")
+    try:
+        return int(stripped)
+    except (ValueError, TypeError):
+        return 0

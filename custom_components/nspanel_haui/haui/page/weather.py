@@ -25,6 +25,8 @@ if TYPE_CHECKING:
 
 
 class WeatherPage(HAUIPage):
+    PICTURE_BACKGROUND = True
+    USE_SYSTEM_COLORS = False
     DESCRIPTOR = PageDescriptor(
         type_key="weather",
         page_name="weather",
@@ -45,14 +47,6 @@ class WeatherPage(HAUIPage):
                 description="Additional sensor entities to display as info panels (max 2).",
                 section="Items",
                 max_items=2,
-            ),
-            PageOption(
-                key="entity_buttons",
-                kind="item_list",
-                label="Entity buttons",
-                description="Quick-action buttons below the weather display (max 6).",
-                section="Items",
-                max_items=6,
             ),
             PageOption(
                 key="background",
@@ -131,6 +125,7 @@ class WeatherPage(HAUIPage):
             ),
         ],
         icon="mdi:weather-partly-cloudy",
+        has_header=False,
     )
 
     COMPONENTS = ComponentRegistry(
@@ -168,12 +163,6 @@ class WeatherPage(HAUIPage):
         f4_subval=Component(30, "f4SubVal"),
         f5_subval=Component(31, "f5SubVal"),
         t_notif=Component(32, "tNotif"),
-        btn_entity_1=Component(33, "bEntity1"),
-        btn_entity_2=Component(34, "bEntity2"),
-        btn_entity_3=Component(35, "bEntity3"),
-        btn_entity_4=Component(36, "bEntity4"),
-        btn_entity_5=Component(37, "bEntity5"),
-        btn_entity_6=Component(38, "bEntity6"),
     )
 
     NUM_ENTITIES = 6
@@ -247,13 +236,6 @@ class WeatherPage(HAUIPage):
             if entity_id:
                 self._info_items.append(HAUIItem(self.app, {"item": entity_id}))
 
-        # Entity buttons - explicit item_list key
-        self._entity_button_items.clear()
-        for entity_id in panel.get("entity_buttons", []):
-            entity_id = self._extract_entity_id(entity_id)
-            if entity_id:
-                self._entity_button_items.append(HAUIItem(self.app, {"item": entity_id}))
-
         # setting: temp_precision
         self._temp_precision = int(panel.get("temp_precision", 1))
         # setting: forecast_precision
@@ -287,12 +269,6 @@ class WeatherPage(HAUIPage):
         self.set_function_component(
             self.COMPONENTS.t_notif, self.COMPONENTS.t_notif[1], visible=self._show_notifications
         )
-        # Pre-register entity button components so config_panel registers
-        # touch callbacks.  No display kwargs here - render_entity_buttons()
-        # applies the correct state once entity data is available.
-        for i in range(self.NUM_ENTITIES):
-            component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
-            self.set_function_component(component, component.name, "item")
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # time display
@@ -303,8 +279,6 @@ class WeatherPage(HAUIPage):
         self.render_main_weather()
         # info panels (D1/D2)
         self.render_info_panels()
-        # entity buttons
-        self.render_entity_buttons()
         # forecast
         self.render_forecast()
         # notifications
@@ -366,30 +340,6 @@ class WeatherPage(HAUIPage):
         if self._weather_item is not None:
             self._temp_unit = self._weather_item.get_item_attr("temperature_unit", "°C")
         self.update_main_weather()
-
-    def render_entity_buttons(self) -> None:
-        for i in range(self.NUM_ENTITIES):
-            visible = False
-            icon = ""
-            color = COLORS["text"]
-            if i < len(self._entity_button_items):
-                item = self._entity_button_items[i]
-                icon = item.get_icon()
-                color = item.get_color()
-                visible = True
-            else:
-                item = None
-            component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
-            self.set_function_component(
-                component,
-                component.name,
-                "item",
-                item=item,
-                icon=icon,
-                color=color,
-                visible=visible,
-            )
-            self.update_function_component(component.name)
 
     def render_info_panels(self) -> None:
         for i, item in enumerate(self._info_items, start=1):
@@ -510,7 +460,11 @@ class WeatherPage(HAUIPage):
         icon = get_icon(icon) or ""
 
         color_name = f"weather_{condition.replace('-', '_')}"
-        color = COLORS.get(color_name, COLORS["weather_default"])
+        color = (
+            self.get_color(color_name)
+            if color_name in COLORS
+            else self.get_color("weather_default")
+        )
         self.set_component_text_color(forecast_icon, color)
         self.set_component_text(forecast_name, name)
         self.set_component_text(forecast_icon, icon)
@@ -550,10 +504,10 @@ class WeatherPage(HAUIPage):
             return
         notification = self.app.controller["notification"]
         if self._notif_blinker.new_notifications:
-            color = COLORS["component_accent"]
+            color = self.get_color("component_accent")
             visible = datetime.now().second % 2 == 0
         else:
-            color = COLORS["component"]
+            color = self.get_color("component_text")
             visible = notification.has_notifications()
         self.update_function_component(
             self.COMPONENTS.t_notif[1],

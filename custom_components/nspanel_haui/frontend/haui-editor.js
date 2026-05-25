@@ -12,7 +12,7 @@
 import './iconset.js';
 
 import { LitElement, html } from './lit-import.js';
-import { clone } from './constants.js';
+import { clone, DEVICE_CONFIG_DEFAULTS, POPUP_TO_USER_TYPE } from './constants.js';
 import { haStyle, haStyleDialog, editorStyles } from './styles.js';
 import * as Api from './api.js';
 import * as Crud from './crud.js';
@@ -26,6 +26,7 @@ import './dialogs/device-config.js';
 import './dialogs/device-info.js';
 import './dialogs/logs.js';
 import './dialogs/device-manager.js';
+import './dialogs/colors.js';
 
 import { renderOptionField } from './form-fields.js';
 import { encodeItemValue } from './haui-item.js';
@@ -33,7 +34,8 @@ import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
 import { formVal } from './dom-helpers.js';
 import { selectDevice } from './device-manager.js';
 import { renderPanelTable, renderSystemPanels, renderEmptyCard } from './panel-table.js';
-import { renderTitleHeader, renderActionBar } from './toolbar.js';
+import { renderPanelGrid } from './panel-grid.js';
+import { renderTitleHeader, renderDeviceInfoStrip, renderPanelToolbar, renderToolbarActions } from './toolbar.js';
 import { startStatusPolling, stopStatusPolling } from './device-info.js';
 
 /* ── component ───────────────────────────────────────────────────────────── */
@@ -64,12 +66,34 @@ class NSPanelEditor extends LitElement {
       _showDeviceInfo: { type: Boolean, state: true },
       _showLogs: { type: Boolean, state: true },
       _showDeviceManager: { type: Boolean, state: true },
+      _showColorsDialog: { type: Boolean, state: true },
+      _colorsDialog: { type: Object, state: true },
       _editingItem: { type: Object, state: true },
       _editingItemType: { type: String, state: true },
 
       _actionsMenuIndex: { type: Number, state: true },
+      _viewMode: { type: String, state: true },
+      _cardMenuKey: { type: String, state: true },
+      _dialogVersion: { type: Number, state: true },
 
     };
+  }
+
+  static _readStorage(key, fallback) {
+    try {
+      const v = localStorage.getItem(key);
+      return v === null ? fallback : v;
+    } catch (_e) {
+      return fallback;
+    }
+  }
+
+  static _writeStorage(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (_e) {
+      // ignore — Safari private mode / sandboxed iframe
+    }
   }
 
   static styles = [haStyle, haStyleDialog, editorStyles];
@@ -95,6 +119,12 @@ class NSPanelEditor extends LitElement {
     this._itemListData = {};
     this._editingItemType = null;
     this._actionsMenuIndex = null;
+    this._viewMode = NSPanelEditor._readStorage('haui_viewMode', 'grid');
+    this._cardMenuKey = null;
+    this._dialogVersion = 0;
+    this.__systemPanelsOpen = NSPanelEditor._readStorage('haui_systemPanelsOpen', '') === 'true';
+    this.__navPanelsOpen = NSPanelEditor._readStorage('haui_navPanelsOpen', '') !== 'false';
+    this.__hiddenPanelsOpen = NSPanelEditor._readStorage('haui_hiddenPanelsOpen', '') !== 'false';
 
     this._deviceStatus = null;
     this._deviceStatusError = null;
@@ -102,6 +132,8 @@ class NSPanelEditor extends LitElement {
     this._showLogs = false;
     this._showDeviceManager = false;
     this._statusTimer = null;
+    this._showColorsDialog = false;
+    this._colorsDialog = {};
     this._panelSaveTimer = null;
   }
 
@@ -117,6 +149,15 @@ class NSPanelEditor extends LitElement {
         wraps.forEach((w) => { if (path.includes(w)) inside = true; });
         if (!inside) {
           this._actionsMenuIndex = null;
+          this.requestUpdate();
+        }
+      }
+      if (this._cardMenuKey) {
+        const wraps = this.renderRoot.querySelectorAll('.pg-card-dropdown-wrap');
+        let inside = false;
+        wraps.forEach((w) => { if (path.includes(w)) inside = true; });
+        if (!inside) {
+          this._cardMenuKey = null;
           this.requestUpdate();
         }
       }
@@ -164,7 +205,9 @@ class NSPanelEditor extends LitElement {
 
   _openAdd()               { Crud.openAdd(this); }
   _openEdit(i)             { Crud.openEdit(this, i); }
-  _closeEdit()             { Crud.closeEdit(this); }
+  _closeEdit() {
+    Crud.closeEdit(this);
+  }
   _moveUp(key)             { Crud.moveUp(this, key); }
   _moveDown(key)           { Crud.moveDown(this, key); }
   _toggleNavVisibility(key) { Crud.toggleNavVisibility(this, key); }
@@ -181,19 +224,58 @@ class NSPanelEditor extends LitElement {
   _cancelDelete()          { Crud.cancelDelete(this); }
   async _doDelete()        { return Crud.doDelete(this); }
 
+  _openSysPanelEdit(sysPanel) {
+    this._dialogVersion++;
+    const panels = this._devicePanels();
+    const existingIdx = panels.findIndex(p => p.key === sysPanel.key);
+    const resolvedType = POPUP_TO_USER_TYPE[sysPanel.type] || sysPanel.type;
+
+    if (existingIdx >= 0) {
+      // Already overridden — resolve the stored panel's type to the user
+      // type so the editor's descriptor lookup works.
+      const existingData = clone(panels[existingIdx]);
+      existingData.type = resolvedType;
+      this._itemListData = {};
+      this._editingPanel = { index: existingIdx, data: existingData };
+      this._editingPanelType = resolvedType;
+      this._error = null;
+      this._deleteTarget = null;
+      this.requestUpdate();
+      return;
+    }
+
+    // Create new override panel from system panel defaults.
+    // Leave title empty — the display will fall back to the system panel's
+    // label at runtime. Only user-set titles should persist.
+    const data = {
+      type: resolvedType,
+      key: sysPanel.key,
+      show_in_navigation: false,
+    };
+    this._itemListData = {};
+    this._editingPanelType = resolvedType;
+    this._editingPanel = { index: -1, data };
+    this._error = null;
+    this._deleteTarget = null;
+    this.requestUpdate();
+  }
+
+  async _resetSysPanelOverride(key) {
+    const panels = this._devicePanels();
+    const newPanels = panels.filter(p => p.key !== key);
+    await this._savePanels(newPanels, 'Reset system panel "' + key + '" to defaults');
+  }
+
   /* ── save ─────────────────────────────────────────────────────────────── */
 
   async _save(e) {
     // Receive serialized form data from ha-dialog-edit-panel via event detail.
-    // Falls back to rendering-based Crud.save if called without event (legacy compat).
-    if (e?.detail?.panel) {
-      // Sync item list data from dialog so saveFromData can read it
-      if (e.detail.itemListData) {
-        this._itemListData = e.detail.itemListData;
-      }
-      return Crud.saveFromData(this, e.detail.panel, e.detail.index);
+    if (!e?.detail?.panel) return;
+    // Sync item list data from dialog so saveFromData can read it
+    if (e.detail.itemListData) {
+      this._itemListData = e.detail.itemListData;
     }
-    return Crud.save(this);
+    return Crud.saveFromData(this, e.detail.panel, e.detail.index);
   }
   async _savePanels(p, m)  { return Crud.savePanels(this, p, m); }
 
@@ -380,7 +462,6 @@ class NSPanelEditor extends LitElement {
     if (this._loading) {
       return html`<div class="container">
         ${renderTitleHeader(this)}
-        ${renderActionBar(this)}
         <div class="loading">Loading panels...</div>
       </div>`;
     }
@@ -388,19 +469,28 @@ class NSPanelEditor extends LitElement {
     return html`
       <div class="container">
         ${renderTitleHeader(this)}
-        ${renderActionBar(this)}
 
         <ha-card outlined class="content-card">
           <div class="card-content">
-            ${renderPanelTable(this)}
+            ${renderPanelToolbar(this)}
+            ${this._selectedDevice ? html`
+              <div class="card-toolbar-device-info">
+                ${renderDeviceInfoStrip(this)}
+              </div>` : ''}
           </div>
         </ha-card>
 
-        <ha-card outlined class="content-card">
-          <div class="card-content">
-            ${renderSystemPanels(this)}
-          </div>
-        </ha-card>
+        ${renderToolbarActions(this)}
+
+        ${this._viewMode === 'grid'
+          ? html`<div class="content-card">
+              ${renderPanelGrid(this)}
+              ${renderSystemPanels(this, this._viewMode)}
+            </div>`
+          : html`<div class="content-card">
+              ${renderPanelTable(this)}
+              ${renderSystemPanels(this, this._viewMode)}
+            </div>`}
 
         <ha-dialog-edit-panel
           .hass=${this.hass}
@@ -411,6 +501,7 @@ class NSPanelEditor extends LitElement {
           .saving=${this._saving}
           .error=${this._error}
           .entryId=${this.entryId}
+          .dialogVersion=${this._dialogVersion}
           @dialog-closed=${this._closeEdit}
           @dialog-save=${this._save}
         ></ha-dialog-edit-panel>
@@ -462,6 +553,13 @@ class NSPanelEditor extends LitElement {
           @move-device=${this._onDeviceManagerMoveDevice}
         ></ha-dialog-device-manager>
 
+        <ha-dialog-colors
+          .hass=${this.hass}
+          .open=${this._showColorsDialog}
+          .overrides=${this._colorsDialog}
+          @dialog-closed=${this._closeColorsDialog}
+          @dialog-save=${this._onColorsSave}
+        ></ha-dialog-colors>
         ${this._toast ? Toast.renderToast(this) : ""}
       </div>
     `;
@@ -548,17 +646,15 @@ class NSPanelEditor extends LitElement {
     const cfg = e.detail?.config;
     if (!cfg || !this._selectedDevice) return;
 
-    this._deviceConfigForm = { ...cfg };
+    // savePanels clones host._deviceConfig into the POST payload, so we
+    // only need to update _deviceConfig here — the _panels state will be
+    // synced from _deviceConfig by savePanels.
+    this._deviceConfig = clone(cfg);
+
     this._saving = true;
     this.requestUpdate();
 
     try {
-      const dc = clone(this._deviceConfigForm);
-      this._deviceConfig = clone(dc);
-      this._panels.devices[this._selectedDevice] = {
-        ...(this._panels.devices[this._selectedDevice] || {}),
-        config: dc,
-      };
       await this._savePanels(this._devicePanels(), "Device config saved");
       this._showToast("Device configuration saved", "success");
     } catch (e) {
@@ -567,6 +663,45 @@ class NSPanelEditor extends LitElement {
       this._saving = false;
       this._editingDeviceConfig = false;
       this._deviceConfigForm = null;
+      this.requestUpdate();
+    }
+  }
+
+  /* ── colors dialog ────────────────────────────────────────────────── */
+
+  _onHeaderColors() {
+    this._actionsMenuIndex = null;
+    if (!this._selectedDevice) return;
+    this._loadDeviceConfig(this._selectedDevice);
+    const overrides = this._deviceConfig?.color_overrides || {};
+    this._colorsDialog = clone(overrides);
+    this._showColorsDialog = true;
+    this.requestUpdate();
+  }
+
+  _closeColorsDialog() {
+    this._showColorsDialog = false;
+    this.requestUpdate();
+  }
+
+  async _onColorsSave(e) {
+    const overrides = e.detail?.overrides;
+    if (!overrides || !this._selectedDevice) return;
+
+    // Merge overrides into device config — DEVICE_CONFIG_DEFAULTS now includes
+    // color_overrides:{} so fallback is always safe.
+    this._deviceConfig = {
+      ...(this._deviceConfig || DEVICE_CONFIG_DEFAULTS),
+      color_overrides: overrides,
+    };
+
+    try {
+      await this._savePanels(this._devicePanels(), "Device colors saved");
+      this._showToast("Device colors saved", "success");
+    } catch (e) {
+      this._showToast(e.message || "Failed to save colors", "error");
+    } finally {
+      this._showColorsDialog = false;
       this.requestUpdate();
     }
   }

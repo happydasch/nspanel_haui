@@ -5,7 +5,9 @@
  * element instance (`host`) as its first parameter.
  */
 import { html } from './lit-import.js';
-import { renderDeviceSelector, renderDeviceInfoStrip } from './toolbar.js';
+import { renderBadges, computeFilteredPanels, getPanelMoveState, getSystemPanelKeys } from './panel-utils.js';
+import { renderSystemPanelCard } from './panel-sys-grid.js';
+import { POPUP_TO_USER_TYPE } from './constants.js';
 
 /**
  * Render a consistent empty-state card for use across the editor.
@@ -19,24 +21,19 @@ export function renderEmptyCard(message) {
 }
 
 /**
- * Build badge icons for home/sleep/wakeup panel designations.
- */
-function renderBadges(p, dc) {
-  const badges = [];
-  if (!p.key) return badges;
-  if (p.key === dc.home_panel) badges.push(html`<span class="pl-badge" title="Home panel"><ha-icon icon="mdi:home-outline"></ha-icon></span>`);
-  if (p.key === dc.sleep_panel) badges.push(html`<span class="pl-badge" title="Sleep panel"><ha-icon icon="mdi:weather-night"></ha-icon></span>`);
-  if (p.key === dc.wakeup_panel) badges.push(html`<span class="pl-badge" title="Wakeup panel"><ha-icon icon="mdi:weather-sunny"></ha-icon></span>`);
-  return badges;
-}
-
-/**
  * Build dropdown menu items for a panel row.
  * @returns {Array<{icon:string, label:string, action:Function, disabled?:boolean, danger?:boolean}|'divider'>}
  */
-function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
+export function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
   const dc = host._deviceConfig;
+  const isSysOverride = !!(p.key && host._panels?.system_panels?.some(sp => sp.key === p.key));
   const items = [];
+
+  items.push(
+    { icon: 'mdi:pencil', label: 'Edit', action: () => host._openEdit(pIdx) }
+  );
+
+  items.push('divider');
 
   items.push(
     { icon: 'mdi:arrow-up', label: 'Move Up', disabled: !canMoveUp, action: () => host._moveUp(p.key) },
@@ -66,7 +63,15 @@ function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
   }
 
   items.push('divider');
-  items.push({ icon: 'mdi:delete', label: 'Delete', danger: true, action: () => host._confirmDelete(pIdx) });
+  if (isSysOverride) {
+    items.push({
+      icon: 'mdi:restore',
+      label: 'Reset to Default',
+      action: () => host._resetSysPanelOverride(p.key),
+    });
+  } else {
+    items.push({ icon: 'mdi:delete', label: 'Delete', danger: true, action: () => host._confirmDelete(pIdx) });
+  }
 
   return items;
 }
@@ -75,39 +80,48 @@ function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
  * Render the dropdown menu for a panel row.
  * @param {import("lit").html} _html  (unused, for lit-html context)
  */
-function renderPanelDropdown(host, pIdx, items) {
+export function renderPanelDropdown(host, pIdx, items, onClose) {
   return html`
     <div class="pl-dropdown">
       ${items.map(item => item === 'divider'
         ? html`<div class="pl-dropdown-divider"></div>`
         : html`<button class="pl-dropdown-item${item.danger ? ' danger' : ''}"
                 ?disabled=${item.disabled}
-                @click=${() => { host._actionsMenuIndex = null; item.action(); }}>
+                @click=${() => { if (onClose) onClose(); item.action(); }}>
             <ha-icon icon=${item.icon}></ha-icon> ${item.label}
           </button>`
       )}
     </div>`;
 }
 
+/**
+ * Check if a system panel is editable (i.e. has a corresponding user-facing type).
+ * @param {object} sysPanel - system panel entry
+ * @returns {boolean}
+ */
+export function isSysPanelEditable(sysPanel) {
+  return !!POPUP_TO_USER_TYPE[sysPanel.type];
+}
+
 function renderPanelRow(host, p, panels, isNavPanel) {
-  const pIdx = panels.indexOf(p);
-  const navPanels = panels.filter(pp => pp.show_in_navigation !== false);
-  const hiddenPanels = panels.filter(pp => pp.show_in_navigation === false);
-  const navIdx = navPanels.indexOf(p);
-  const hiddenIdx = hiddenPanels.indexOf(p);
-  const canMoveUp = isNavPanel ? navIdx > 0 : hiddenIdx > 0;
-  const canMoveDown = isNavPanel ? (navIdx >= 0 && navIdx < navPanels.length - 1) : (hiddenIdx >= 0 && hiddenIdx < hiddenPanels.length - 1);
+  const { pIdx, canMoveUp, canMoveDown } = getPanelMoveState(p, panels, isNavPanel);
   const dc = host._deviceConfig || {};
   const pt = host._panelTypes.find(d => d.type_key === p.type);
-  const badges = renderBadges(p, dc);
+  // For override panels (user panels with a system panel key), don't fall
+  // back to the type label as title — the override has no title of its own
+  // and the runtime falls back to the system panel's label instead.
+  const isOverride = host._panels?.system_panels?.some(sp => sp.key === p.key);
+  const badges = renderBadges(p, dc, isOverride);
 
   return html`
     <div class="pl-row">
-      <span class="pl-type">${pt ? html`<ha-icon icon=${pt.icon}></ha-icon>` : ""}</span>
-      <span class="pl-title">${p.title || html`<span class="pl-unnamed">Unnamed</span>`}</span>
+      <span class="pl-card-type-icon">${pt ? html`<ha-icon icon=${pt.icon}></ha-icon>` : ""}</span>
+      <span class="pl-title">${p.title || (isOverride ? "" : html`<span class="pl-unnamed">${(pt && pt.label) || 'Unnamed'}</span>`)}</span>
+      <div class="pl-meta">
+        <span class="pl-key">${p.key || '-'}</span>
+        ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}
+      </div>
       <span class="pl-spacer"></span>
-      <span class="pl-key">${p.key || '-'}</span>
-      ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}
       <div class="pl-actions">
         <ha-icon-button title="Move Up" class="pl-move-btn" ?disabled=${!canMoveUp} @click=${() => host._moveUp(p.key)}>
           <ha-icon icon="mdi:arrow-up"></ha-icon>
@@ -131,7 +145,7 @@ function renderPanelRow(host, p, panels, isNavPanel) {
             <ha-icon icon="mdi:dots-vertical"></ha-icon>
           </ha-icon-button>
           ${host._actionsMenuIndex === pIdx
-            ? renderPanelDropdown(host, pIdx, buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown))
+            ? renderPanelDropdown(host, pIdx, buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown), () => { host._actionsMenuIndex = null; })
             : ''}
         </div>
       </div>
@@ -141,19 +155,38 @@ function renderPanelRow(host, p, panels, isNavPanel) {
 
 function renderSystemPanelRow(host, sp) {
   const dc = host._deviceConfig || {};
-  const badges = renderBadges(sp, dc);
+  const editable = isSysPanelEditable(sp);
+  const hasOverride = editable && host._devicePanels().some(p => p.key === sp.key);
+  const badges = renderBadges(sp, dc, hasOverride);
 
   return html`
     <div class="pl-row pl-sys-row">
-      <span class="pl-type"><ha-icon icon=${sp.icon}></ha-icon></span>
+      <span class="pl-card-type-icon"><ha-icon icon=${sp.icon}></ha-icon></span>
       <span class="pl-title">${sp.label}</span>
+      <div class="pl-meta">
+        <span class="pl-key">${sp.key || '-'}</span>
+        ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}
+      </div>
       <span class="pl-spacer"></span>
-      <span class="pl-key">${sp.key || '-'}</span>
-      ${html`<span class="pl-badges">${badges}</span>`}
-      <span class="pl-actions"></span>
+      <span class="pl-actions">
+        ${editable ? html`
+          <ha-icon-button title="Edit System Panel" @click=${() => host._openSysPanelEdit(sp)}>
+            <ha-icon icon="mdi:pencil"></ha-icon>
+          </ha-icon-button>
+          ${hasOverride ? html`
+            <ha-icon-button title="Reset to Default" @click=${() => host._resetSysPanelOverride(sp.key)}>
+              <ha-icon icon="mdi:restore"></ha-icon>
+            </ha-icon-button>
+          ` : ''}
+        ` : ''}
+      </span>
     </div>
   `;
 }
+
+/**
+ * Main entry point: render the panel list (table) view.
+ */
 
 export function renderPanelTable(host) {
   const devices = Object.keys(host._panels.devices || {});
@@ -167,103 +200,53 @@ export function renderPanelTable(host) {
       return renderEmptyCard("No devices found");
     }
     return html`
-      <div class="device-selector-bar">
-        ${renderDeviceSelector(host)}
-      </div>
-      <p style="padding:16px;">Select a device to edit its panels.</p>
+      <p class="no-device-selected">Select a device to edit its panels.</p>
     `;
   }
 
-  const navPanels = panels.filter(p => p.show_in_navigation !== false);
-  const hiddenPanels = panels.filter(p => p.show_in_navigation === false);
+  const sysPanelKeys = getSystemPanelKeys(host);
+  const { navPanels, hiddenPanels } = computeFilteredPanels(panels, sysPanelKeys);
+  const writeOpen = (key, v) => {
+    try { localStorage.setItem(key, v); } catch (_e) { /* ignore */ }
+  };
 
   return html`
-    <div class="panel-list-header">
-      <ha-icon-button
-        title="Add Panel"
-        label="Add Panel"
-        @click=${() => host._openAdd()}
-      >
-        <ha-icon icon="mdi:plus"></ha-icon>
-      </ha-icon-button>
-      <div class="device-selector-inline">
-        ${renderDeviceSelector(host)}
-      </div>
-      <div class="pl-more">
-        <ha-icon-button
-          title="Device actions"
-          label="Device actions"
-          @click=${() => host._toggleHeaderMenu()}
-        >
-          <ha-icon icon="mdi:dots-vertical"></ha-icon>
-        </ha-icon-button>
-        ${host._actionsMenuIndex === '__header__' ? html`
-          <div class="pl-dropdown">
-            <button class="pl-dropdown-item${host._selectedDevice ? '' : ' disabled'}"
-                    ?disabled=${!host._selectedDevice}
-                    @click=${() => { host._showDeviceInfo = true; host._actionsMenuIndex = null; host.requestUpdate(); }}>
-              <ha-icon icon="mdi:information-outline"></ha-icon>
-              Info
-            </button>
-            <button class="pl-dropdown-item${host._selectedDevice ? '' : ' disabled'}"
-                    ?disabled=${!host._selectedDevice}
-                    @click=${() => host._onHeaderSettings()}>
-              <ha-icon icon="mdi:cog-outline"></ha-icon>
-              Settings
-            </button>
-            <div class="pl-dropdown-divider"></div>
-            <button class="pl-dropdown-item${host._selectedDevice ? '' : ' disabled'}"
-                    ?disabled=${!host._selectedDevice}
-                    @click=${() => host._onHeaderImportYaml()}>
-              <ha-icon icon="mdi:file-import"></ha-icon>
-              Import YAML
-            </button>
-            <button class="pl-dropdown-item${host._selectedDevice ? '' : ' disabled'}"
-                    ?disabled=${!host._selectedDevice}
-                    @click=${() => host._onHeaderExportYaml()}>
-              <ha-icon icon="mdi:file-export"></ha-icon>
-              Export YAML
-            </button>
-            <div class="pl-dropdown-divider"></div>
-            <button class="pl-dropdown-item"
-                    @click=${() => { host._showLogs = true; host._actionsMenuIndex = null; host.requestUpdate(); }}>
-              <ha-icon icon="mdi:file-document-outline"></ha-icon>
-              Logs
-            </button>
-          </div>
-        ` : ""}
-      </div>
-    </div>
     ${panels.length === 0
       ? renderEmptyCard('No panels configured yet.')
       : html`
-        <div class="panel-group">
-          <div class="group-title">Navigation (${navPanels.length} panels)</div>
+        <details class="panel-group" ?open=${host.__navPanelsOpen}
+          @toggle=${(e) => { host.__navPanelsOpen = e.target.open; writeOpen('haui_navPanelsOpen', e.target.open); }}>
+          <summary class="group-title">Navigation (${navPanels.length} panels)</summary>
           ${navPanels.map(p => renderPanelRow(host, p, panels, true))}
-        </div>
-        <div class="panel-group">
-          <div class="group-title">Non-Navigation (${hiddenPanels.length} panels)</div>
+        </details>
+        <details class="panel-group" ?open=${host.__hiddenPanelsOpen}
+          @toggle=${(e) => { host.__hiddenPanelsOpen = e.target.open; writeOpen('haui_hiddenPanelsOpen', e.target.open); }}>
+          <summary class="group-title">Non-Navigation (${hiddenPanels.length} panels)</summary>
           ${hiddenPanels.map(p => renderPanelRow(host, p, panels, false))}
-        </div>
+        </details>
       `}
-    <div class="card-footer">
-      ${renderDeviceInfoStrip(host)}
-    </div>
   `;
 }
 
 /**
  * Render system panels section (outside the card, no borders).
+ * @param {string} [viewMode] - 'grid' or 'list' (defaults to 'list')
  */
-export function renderSystemPanels(host) {
+export function renderSystemPanels(host, viewMode) {
   if (!host._panels?.system_panels?.length) return "";
+  const isGrid = viewMode === 'grid';
+  const writeOpen = (v) => {
+    try { localStorage.setItem('haui_systemPanelsOpen', v); } catch (_e) { /* ignore */ }
+  };
   return html`
     <details class="panel-group" ?open=${host.__systemPanelsOpen}
-      @toggle=${(e) => { host.__systemPanelsOpen = e.target.open; }}>
-      <summary class="group-title" style="cursor:pointer;">
+      @toggle=${(e) => { host.__systemPanelsOpen = e.target.open; writeOpen(e.target.open); }}>
+      <summary class="group-title">
         System Panels (${host._panels.system_panels.length} panels)
       </summary>
-      ${host._panels.system_panels.map(sp => renderSystemPanelRow(host, sp))}
+      ${isGrid
+        ? html`<div class="pg-grid">${host._panels.system_panels.map(sp => renderSystemPanelCard(host, sp))}</div>`
+        : host._panels.system_panels.map(sp => renderSystemPanelRow(host, sp))}
     </details>
   `;
 }

@@ -121,7 +121,13 @@ script:
           int max_angle = 20;
           int border_margin = 40;
           // Display dimensions (Sonoff NSPanel landscape: 480x320)
+          // Total display/touch resolution is 480px wide, but only 450px
+          // are visible (the rightmost 30px fall outside the LCD bezel).
+          // Touch coordinates in the non-visible zone (x=450..479) are valid
+          // and must count as right-edge starts for swipe-left gestures.
           int screen_w = 480;
+          int visible_width = 450;
+          int non_visible_width = 30;  // right side, within the 480px range
           int screen_h = 320;
 
           // Determine the direction of the swipe
@@ -129,6 +135,10 @@ script:
           bool is_swipe_right = (x2 - x1) > 0;
           bool is_swipe_down = (y2 - y1) > 0;
           // Check if swipe starts near borders
+          // Note: only 450px of the 480px display is visible; the rightmost
+          // 30px are non-visible but still register touches. The right-edge
+          // check uses the full screen_w (480) so the non-visible zone is
+          // naturally included for swipe-left detection.
           bool is_near_border = false;
           if (x1 < border_margin || y1 < border_margin
               || x1 > (screen_w - border_margin)

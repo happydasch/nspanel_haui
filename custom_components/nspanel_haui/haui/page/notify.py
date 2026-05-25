@@ -6,7 +6,6 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.const import NotifEvent
 from ..mapping.descriptor import PageDescriptor
 from ..mapping.icons import ICO_NEXT_MESSAGE, ICO_PREV_MESSAGE
@@ -94,7 +93,9 @@ class NotifyPage(CommonNotifyPage):
             if icon_color:
                 self.set_component_text_color(self.COMPONENTS.t_icon, icon_color)
             else:
-                self.set_component_text_color(self.COMPONENTS.t_icon, COLORS["component"])
+                self.set_component_text_color(
+                    self.COMPONENTS.t_icon, self.get_color("component_text")
+                )
             self.set_component_text(self.COMPONENTS.t_icon, self._icon)
             self.set_component_text(self.COMPONENTS.t_text, self._notification)
             self.hide_component(self.COMPONENTS.t_text_full)
@@ -106,8 +107,8 @@ class NotifyPage(CommonNotifyPage):
             self.hide_component(self.COMPONENTS.t_icon)
             self.show_component(self.COMPONENTS.t_text_full)
         if self._btn_left:
-            btn_left_color = panel.get("btn_left_color", COLORS["component"])
-            btn_left_back_color = panel.get("btn_left_back_color", COLORS["background"])
+            btn_left_color = panel.get("btn_left_color", self.get_color("component_text"))
+            btn_left_back_color = panel.get("btn_left_back_color", self.get_color("background"))
             self.set_component_text_color(self.COMPONENTS.btn_left, btn_left_color)
             self.set_component_back_color(self.COMPONENTS.btn_left, btn_left_back_color)
             self.set_component_text(self.COMPONENTS.btn_left, self._btn_left)
@@ -115,8 +116,8 @@ class NotifyPage(CommonNotifyPage):
         else:
             self.hide_component(self.COMPONENTS.btn_left)
         if self._btn_right:
-            btn_right_color = panel.get("btn_right_color", COLORS["component"])
-            btn_right_back_color = panel.get("btn_right_back_color", COLORS["background"])
+            btn_right_color = panel.get("btn_right_color", self.get_color("component_text"))
+            btn_right_back_color = panel.get("btn_right_back_color", self.get_color("background"))
             self.set_component_text_color(self.COMPONENTS.btn_right, btn_right_color)
             self.set_component_back_color(self.COMPONENTS.btn_right, btn_right_back_color)
             self.set_component_text(self.COMPONENTS.btn_right, self._btn_right)
@@ -172,7 +173,7 @@ class NotifsPage(CommonNotifyPage):
             "fnc_name": "prev_notification",
             "fnc_args": {
                 "icon": ICO_PREV_MESSAGE,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": count > 1,
             },
         }
@@ -181,7 +182,7 @@ class NotifsPage(CommonNotifyPage):
             "fnc_name": "next_notification",
             "fnc_args": {
                 "icon": ICO_NEXT_MESSAGE,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": count > 1,
             },
         }
@@ -218,7 +219,7 @@ class NotifsPage(CommonNotifyPage):
         self.set_component_text(self.COMPONENTS.title, display_title)
 
         if icon:
-            self.set_component_text_color(self.COMPONENTS.t_icon, COLORS["component"])
+            self.set_component_text_color(self.COMPONENTS.t_icon, self.get_color("component_text"))
             self.set_component_text(self.COMPONENTS.t_icon, icon)
             self.set_component_text(self.COMPONENTS.t_text, message)
             self.hide_component(self.COMPONENTS.t_text_full)
@@ -232,9 +233,11 @@ class NotifsPage(CommonNotifyPage):
 
         # dismiss button - accent color signals persistent (sound loops until dismissed)
         dismiss_label = self.translate("Dismiss")
-        btn_color = COLORS["component_accent"] if persistent else COLORS["component"]
+        btn_color = (
+            self.get_color("component_accent") if persistent else self.get_color("component_text")
+        )
         self.set_component_text_color(self.COMPONENTS.btn_right, btn_color)
-        self.set_component_back_color(self.COMPONENTS.btn_right, COLORS["background"])
+        self.set_component_back_color(self.COMPONENTS.btn_right, self.get_color("background"))
         self.set_component_text(self.COMPONENTS.btn_right, dismiss_label)
         self.show_component(self.COMPONENTS.btn_right)
         self.hide_component(self.COMPONENTS.btn_left)

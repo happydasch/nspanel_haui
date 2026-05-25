@@ -9,7 +9,6 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import CoverFeatures
-from ..mapping.color import COLORS
 from ..mapping.const import ESPRequest, ESPResponse
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_NEXT_PAGE
@@ -125,7 +124,7 @@ class RowPage(HAUIPage):
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": ICO_NEXT_PAGE,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": len(self._items) > self.NUM_ROWS,
             },
         }
@@ -290,16 +289,16 @@ class RowPage(HAUIPage):
                         if n == "btn_txt":
                             show = True
                             readonly = False
-                            color = COLORS["component_active"]
-                            back_color = COLORS["component_background"]
-                            back_color_pressed = COLORS["component_pressed"]
+                            color = self.get_color("component_active")
+                            back_color = self.get_color("component_background")
+                            back_color_pressed = self.get_color("component_pressed")
                     # 'btn_txt' will be used as default, text as disabled btn
                     elif n == "btn_txt":
                         show = True
                         readonly = True
-                        color = COLORS["component"]
-                        back_color = COLORS["background"]
-                        back_color_pressed = COLORS["background"]
+                        color = self.get_color("component_text")
+                        back_color = self.get_color("background")
+                        back_color_pressed = self.get_color("background")
                 # update component
                 self.update_function_component(
                     item[1],

@@ -1087,9 +1087,11 @@ function renderItemListRow(host, item, actions, flags = {}) {
               @click=${actions.onMoveDown}
             ><ha-icon icon="mdi:arrow-down"></ha-icon></ha-icon-button>`
           : ''}
-        <ha-icon-button title="Edit" @click=${actions.onEdit}>
-          <ha-icon icon="mdi:pencil"></ha-icon>
-        </ha-icon-button>
+        ${actions.onEdit
+          ? html`<ha-icon-button title="Edit" @click=${actions.onEdit}>
+              <ha-icon icon="mdi:pencil"></ha-icon>
+            </ha-icon-button>`
+          : ''}
         ${actions.onRemove
           ? html`<ha-icon-button title="Remove" @click=${actions.onRemove}>
               <ha-icon icon="mdi:delete"></ha-icon>
@@ -1821,7 +1823,6 @@ export function renderItemEditFields(host, descriptor) {
           `;
           }
         )}
-                /* ── Service data (action items only) ────────────────────────────── */
         ${host._editingItemType === ITEM_TYPE.ACTION
           ? html`
             <div class="form-group">

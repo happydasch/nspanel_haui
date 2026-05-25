@@ -5,6 +5,7 @@
 - [Nextion Component](#nextion-component)
   - [Installation](#installation)
   - [How to edit the HMI file](#how-to-edit-the-hmi-file)
+  - [Display dimensions and non-visible area](#display-dimensions-and-non-visible-area)
   - [Scripts for display](#scripts-for-display)
 
 ## Installation
@@ -28,6 +29,18 @@ available.
     This will load the TFT from the URL provided to the service.
 
 ## Nextion display configuration used in this project
+
+### Display dimensions and non-visible area
+
+The Sonoff NSPanel Nextion display has the following physical touch characteristics:
+
+- **Total display/touch resolution:** 480 × 320 pixels
+- **Visible (effective) area:** 450 × 320 pixels
+- **Non-visible area:** 30 pixels on the right side (x = 450..479)
+
+The display is 480 pixels wide, but the LCD bezel hides the rightmost 30 pixels. Touch coordinates in that band (x = 450..479) are valid but no pixels are visible there.
+
+This is relevant for edge-based gesture detection — swipe-from-right gestures (swipe left) start in the non-visible zone. The ESPHome gesture logic in `scripts_interaction.yaml` uses the full `screen_w` (480) for its right-border check, which naturally includes the non-visible zone.
 
 This project uses the ESPHome `nextion` display component with a hardware UART and the following key options:
 

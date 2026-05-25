@@ -6,7 +6,6 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_KEY, ICO_WIFI, ICO_ZOOM
 
@@ -117,7 +116,7 @@ class QRPage(HAUIPage):
             "fnc_name": "zoom",
             "fnc_args": {
                 "icon": ICO_ZOOM,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": False,
             },
         }
@@ -180,7 +179,7 @@ class QRPage(HAUIPage):
             self.hide_component(self.COMPONENTS.qr_code)
             self.show_component(self.COMPONENTS.qr_code_big)
             self.update_function_component(
-                self.FNC_BTN_R_SEC, visible=True, color=COLORS["component_accent"]
+                self.FNC_BTN_R_SEC, visible=True, color=self.get_color("component_accent")
             )
             self.send_cmd("ref")
         else:
@@ -188,7 +187,7 @@ class QRPage(HAUIPage):
             self.hide_component(self.COMPONENTS.qr_code_big)
             self.show_component(self.COMPONENTS.qr_code)
             self.update_function_component(
-                self.FNC_BTN_R_SEC, visible=True, color=COLORS["component"]
+                self.FNC_BTN_R_SEC, visible=True, color=self.get_color("component_text")
             )
             for component in (
                 self.COMPONENTS.q1_icon,

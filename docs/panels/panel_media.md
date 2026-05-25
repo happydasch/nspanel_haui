@@ -16,6 +16,8 @@
 
 The media entity panel allows to control a media entity. It displays the currently playing song and allows to control the media player. It allows to group / ungroup configured media players and allows to select media to play from a list of defined entries.
 
+The album art, title, and artist info span the full panel width for a cleaner look. A vertical volume slider on the right replaces the previous bottom progress bar.
+
 ## Popup
 
 `type: popup_media_player`

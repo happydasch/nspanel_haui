@@ -7,7 +7,6 @@ from typing import Any
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import (
@@ -84,7 +83,7 @@ class TimerPage(HAUIPage):
             "fnc_name": "stop_timer",
             "fnc_args": {
                 "icon": ICO_TIMER_OFF,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": self.is_timer_active(),
             },
         }
@@ -111,7 +110,7 @@ class TimerPage(HAUIPage):
                 x,
                 x[1],
                 fnc_name=x[1],
-                color=COLORS["component_active"],
+                color=self.get_color("component_active"),
                 visible=visible,
             )
 
@@ -128,21 +127,21 @@ class TimerPage(HAUIPage):
             self.COMPONENTS.t_minutes.name,
             fnc_name=self.COMPONENTS.t_minutes.name,
             visible=True,
-            color=COLORS["component"],
+            color=self.get_color("component_text"),
         )
         self.set_function_component(
             self.COMPONENTS.t_space,
             self.COMPONENTS.t_space.name,
             fnc_name=self.COMPONENTS.t_space.name,
             visible=True,
-            color=COLORS["component"],
+            color=self.get_color("component_text"),
         )
         self.set_function_component(
             self.COMPONENTS.t_seconds,
             self.COMPONENTS.t_seconds.name,
             fnc_name=self.COMPONENTS.t_seconds.name,
             visible=True,
-            color=COLORS["component"],
+            color=self.get_color("component_text"),
         )
 
     def _stop_panel(self, panel: HAUIPanel) -> None:

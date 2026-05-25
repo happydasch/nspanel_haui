@@ -8,7 +8,6 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.descriptor import PageDescriptor
 from ..mapping.icons import ICO_NEXT_PAGE
 
@@ -79,7 +78,7 @@ class SelectPage(HAUIPage):
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": ICO_NEXT_PAGE,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": False,
             },
         }
@@ -108,14 +107,14 @@ class SelectPage(HAUIPage):
             idx = i + 1
             btn = getattr(self.COMPONENTS, "btn_sel_" + str(idx))
             self.set_function_component(
-                btn, btn[1], color=COLORS["component_active"], visible=False
+                btn, btn[1], color=self.get_color("component_active"), visible=False
             )
             self.add_component_callback(btn, self.callback_select)
         for i in range(self.ITEMS_PER_PAGE_FULL):
             idx = i + 1
             btn = getattr(self.COMPONENTS, "btn_sel_full_" + str(idx))
             self.set_function_component(
-                btn, btn[1], color=COLORS["component_active"], visible=False
+                btn, btn[1], color=self.get_color("component_active"), visible=False
             )
             self.add_component_callback(btn, self.callback_select)
         # check if selection is list if multiple or string if not
@@ -203,12 +202,12 @@ class SelectPage(HAUIPage):
                 self._active[btn] = selection[sel_i]
                 sel_value = self.get_value(btn)
                 sel_name = self.get_name(btn)
-                color = COLORS["component_active"]
+                color = self.get_color("component_active")
                 # selected can also be a list
                 if self._multiple and sel_value in self._selected:
-                    color = COLORS["component_accent"]
+                    color = self.get_color("component_accent")
                 elif not self._multiple and sel_value == self._selected:
-                    color = COLORS["component_accent"]
+                    color = self.get_color("component_accent")
                 self.update_function_component(btn[1], text=sel_name, color=color, visible=True)
             else:
                 self._active[btn] = None

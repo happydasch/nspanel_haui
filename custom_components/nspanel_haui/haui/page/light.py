@@ -8,7 +8,6 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_BRIGHTNESS, ICO_COLOR, ICO_COLOR_TEMP, ICO_EFFECT, ICO_POWER
@@ -94,7 +93,7 @@ class LightPage(HAUIPage):
             "fnc_name": "power_off",
             "fnc_args": {
                 "icon": ICO_POWER,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": False,
             },
         }
@@ -250,14 +249,14 @@ class LightPage(HAUIPage):
         self.set_component_text(btn, ico)
         if status is True:
             if self._current_light_function is not None:
-                color = COLORS["component"]
+                color = self.get_color("component_text")
             else:
-                color = COLORS["component_active"]
+                color = self.get_color("component_active")
             self.send_cmd(f"tsw {btn[1]},1")
             self.set_component_text_color(btn, color)
         else:
             self.send_cmd(f"tsw {btn[1]},0")
-            self.set_component_text_color(btn, COLORS["text_inactive"])
+            self.set_component_text_color(btn, self.get_color("text_inactive"))
         self.show_component(btn)
         return btn
 
@@ -314,9 +313,9 @@ class LightPage(HAUIPage):
             return
         btn = fnc["btn"]
         if value is not None and value != "None":
-            self.set_component_text_color(btn, COLORS["component_accent"])
+            self.set_component_text_color(btn, self.get_color("component_accent"))
         else:
-            self.set_component_text_color(btn, COLORS["component"])
+            self.set_component_text_color(btn, self.get_color("component_text"))
 
     def set_current_light_function(self, fnc: dict | None) -> None:
         functions = self.get_available_light_functions()
@@ -466,7 +465,7 @@ class LightPage(HAUIPage):
             pos_y += self.PIC_COLOR_WHEEL_Y + radius
             self.send_cmd("doevents")
             # draw circle
-            color = COLORS["component_pressed"]
+            color = self.get_color("component_pressed")
             self.send_cmd(f"cirs {pos_x},{pos_y},{radius},{color}")
 
     def update_power_button(self) -> None:
@@ -474,7 +473,7 @@ class LightPage(HAUIPage):
             return
         # update function button
         if self._light_item.get_item_state() == "on" and self._current_light_function is not None:
-            color = COLORS["component_accent"]
+            color = self.get_color("component_accent")
             self.update_function_component(self.FNC_BTN_R_SEC, visible=True, color=color)
         else:
             self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
@@ -484,7 +483,7 @@ class LightPage(HAUIPage):
             rgb_color = self._light_item.get_item_attr("rgb_color")
             color = self.parse_color(rgb_color)
         else:
-            color = COLORS["item_unavailable"]
+            color = self.get_color("entity_unavailable")
         if self._current_light_function is None:
             self.set_component_text_color(self.COMPONENTS.btn_power, color)
             self.show_component(self.COMPONENTS.btn_power)
@@ -493,7 +492,7 @@ class LightPage(HAUIPage):
 
     def update_not_available(self) -> None:
         self.log("update_not_available")
-        color = COLORS["item_unavailable"]
+        color = self.get_color("entity_unavailable")
         self.set_component_text_color(self.COMPONENTS.btn_power, color)
         self.show_component(self.COMPONENTS.btn_power)
 

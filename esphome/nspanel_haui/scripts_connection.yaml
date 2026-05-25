@@ -4,10 +4,19 @@ script:
   - id: set_hub_connected
     parameters:
       connected: int
+      force: int
     then:
       - lambda: |-
-          ESP_LOGV("haui", "Script: set_hub_connected: %i", connected);
+          ESP_LOGV("haui", "Script: set_hub_connected: %i (force=%i)", connected, force);
           bool hub_connection_state = bool(connected);
+          // Guard: when asked to disconnect, check if other API clients remain.
+          // EXCEPT when force=true (heartbeat timeout, explicit close, or
+          // reconnect request), because the hub app may be unresponsive even
+          // if the raw API connection is still alive.
+          if (!hub_connection_state && !bool(force) && global_api_server->is_connected()) {
+            ESP_LOGV("haui", "Skipping disconnect: other API clients remain");
+            return;
+          }
           auto haui_status_str = hub_connection_state ? "online" : "offline";
           id(hub_connection) = hub_connection_state;
           // On connect: anchor hub_heartbeat to millis()/1000 so
@@ -49,11 +58,11 @@ script:
               ESP_LOGD(
                 "haui", "Connection with Hub timed out %i %i %i",
                 time_now, time_max, $heartbeat_interval * overdue_factor);
-              id(set_hub_connected).execute(false);
+              id(set_hub_connected).execute(false, 1);
             } else if (!hub_available) {
               // check for hub app being not available
               ESP_LOGD("haui", "Connection with Hub but Hub not available");
-              id(set_hub_connected).execute(false);
+              id(set_hub_connected).execute(false, 1);
             }
           }
 

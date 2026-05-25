@@ -35,6 +35,7 @@ export const DEVICE_CONFIG_DEFAULTS = {
   home_on_first_touch: true,
   home_only_when_on: false,
   home_on_button_toggle: false,
+  reset_interaction_on_button: true,
   return_to_home_after_seconds: 0,
   always_return_to_home: false,
   sound_on_startup: true,
@@ -44,6 +45,7 @@ export const DEVICE_CONFIG_DEFAULTS = {
   home_panel: "",
   sleep_panel: "",
   wakeup_panel: "",
+  color_overrides: {},
 };
 
 /** Supported locale options for the device config locale dropdown. */
@@ -60,3 +62,16 @@ export const DEBUG_LEVELS = [
   { value: "1", label: "Basic" },
   { value: "2", label: "Verbose" },
 ];
+
+/**
+ * Map popup system type keys to their underlying user-facing type keys.
+ * Only panels in this map are editable via the Edit dropdown.
+ */
+export const POPUP_TO_USER_TYPE = {
+  popup_light: "light",
+  popup_climate: "climate",
+  popup_media_player: "media",
+  popup_cover: "cover",
+  popup_vacuum: "vacuum",
+  popup_timer: "timer",
+};

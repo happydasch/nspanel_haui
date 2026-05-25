@@ -11,8 +11,6 @@
  */
 import { clone, defaultPanel } from './constants.js';
 import { serializeItem } from './haui-item.js';
-import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
-import { formVal } from './dom-helpers.js';
 
 /* ── helpers ────────────────────────────────────────────────────────────────── */
 
@@ -30,6 +28,7 @@ export function generateAutoKey(host, panelType) {
 /* ── panel lifecycle ──────────────────────────────────────────────────────── */
 
 export function openAdd(host) {
+  host._dialogVersion = (host._dialogVersion || 0) + 1;
   host._itemListData = {};
   const firstType =
     host._panelTypes.length > 0 ? host._panelTypes[0].type_key : "clock";
@@ -44,6 +43,7 @@ export function openAdd(host) {
 }
 
 export function openEdit(host, index) {
+  host._dialogVersion = (host._dialogVersion || 0) + 1;
   host._itemListData = {};
   const panels = host._devicePanels();
   if (index < 0 || index >= panels.length) return;
@@ -119,142 +119,15 @@ export async function doDelete(host) {
 
 /* ── save ─────────────────────────────────────────────────────────────────── */
 
-export async function save(host) {
-  if (host._saving) return;
-  host._error = null;
-
-  const form = host.renderRoot ? host.renderRoot.querySelector("#panel-edit-form") : null;
-  if (!form) return;
-
-  const ep = host._editingPanel;
-  if (!ep) return;
-
-  // Read base fields from form (query custom elements directly - FormData
-  // only reads native inputs and won't see ha-input / ha-select).
-  const panelType = host._editingPanelType || formVal(form, "fld-type") || "clock";
-  const panel = clone(ep.data);
-  panel.type = panelType;
-  panel.key = formVal(form, "fld-key") || panel.key;
-  panel.title = formVal(form, "fld-title") || "";
-  // Read show_in_navigation checkbox
-  const showInNavEl = form.querySelector("#fld-show-in-nav");
-  if (showInNavEl) {
-    panel.show_in_navigation = showInNavEl.checked;
-  } else if (panel.show_in_navigation == null) {
-    panel.show_in_navigation = true;
-  }
-  // Defensive fallback: if key is still empty, auto-generate one
-  if (!panel.key) {
-    panel.key = generateAutoKey(host, panelType);
-  }
-
-  // Reject duplicate keys (case-insensitive comparison)
-  const panels = host._devicePanels();
-  const duplicateKey = panels.some(
-    (p, i) => i !== ep.index && p.key && p.key.toLowerCase() === panel.key.toLowerCase()
-  );
-  if (duplicateKey) {
-    host._error = `Key "${panel.key}" is already used by another panel`;
-    return;
-  }
-
-  // Read type-specific fields from descriptor (panelType already set above)
-  const descriptor = host._panelTypes.find(
-    (pt) => pt.type_key === panelType
-  );
-  if (descriptor && descriptor.options) {
-    for (const opt of descriptor.options) {
-      const el = form.querySelector(`#fld-${opt.key}`);
-      if (!el) continue;
-
-      if (opt.kind === "bool") {
-        panel[opt.key] = el.checked || false;
-      } else if (opt.kind === "int") {
-        const v = parseInt(el.value, 10);
-        panel[opt.key] = isNaN(v) ? (opt.default != null ? opt.default : 0) : v;
-      } else if (opt.kind === "color_seed") {
-        const v = parseInt(el.value, 10);
-        panel[opt.key] = isNaN(v) ? (opt.default != null ? opt.default : 0) : v;
-      } else if (opt.kind === "float") {
-        const v = parseFloat(el.value);
-        panel[opt.key] = isNaN(v) ? (opt.default != null ? opt.default : 0.0) : v;
-      } else if (opt.kind === "list_str") {
-        const raw = (el.value || "")
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean);
-        // Only store if the user actually typed something — empty list would
-        // override the entity's runtime default when the field was untouched.
-        if (raw.length > 0) {
-          panel[opt.key] = raw;
-        }
-      } else if (opt.kind === "item_list") {
-        const list = host._itemListData?.[opt.key] || [];
-        panel[opt.key] = list.map(serializeItem);
-        // Clean up after save
-        delete host._itemListData[opt.key];
-      } else if (opt.kind === "list_items" || opt.kind === "list_entities") {
-        // Value stored in host._editingPanel.data as an array of strings
-        // (from renderListItemsField). Strip empty rows; omit if all empty
-        // so the entity's runtime default is preserved.
-        const ep = host._editingPanel;
-        const val = ep?.data?.[opt.key];
-        if (Array.isArray(val)) {
-          const cleaned = val
-            .map((s) => (typeof s === "string" ? s.trim() : s?.item || ""))
-            .filter(Boolean);
-          if (cleaned.length > 0) panel[opt.key] = cleaned;
-        } else if (typeof val === "string") {
-          const lines = val.split("\n").map((s) => s.trim()).filter(Boolean);
-          if (lines.length > 0) panel[opt.key] = lines;
-        }
-      } else if (opt.kind === "item") {
-        // Read from shared _itemListData (single item stored at index 0).
-        const list = host._itemListData?.[opt.key] || [];
-        const itemConfig = list[0];
-        if (itemConfig) {
-          panel[opt.key] = serializeItem(itemConfig);
-        } else {
-          panel[opt.key] = null;
-        }
-        // Remove any legacy flat override fields from panel level
-        for (const f of ENTITY_OVERRIDE_FIELDS) {
-          delete panel[f];
-        }
-        delete host._itemListData[opt.key];
-      } else {
-        // str, color, select
-        panel[opt.key] = el.value || "";
-      }
-    }
-  }
-
-  // Merge existing data for any fields we might be missing
-  // (preserve fields not rendered in the form)
-  // Only do this for edit (not add)
-  if (ep.index >= 0) {
-    const existing = host._devicePanels()[ep.index];
-    if (existing) {
-      for (const k of Object.keys(existing)) {
-        if (!(k in panel)) panel[k] = existing[k];
-      }
-    }
-  }
-
-  const newPanels =
-    ep.index >= 0
-      ? panels.map((p, i) => (i === ep.index ? panel : p))
-      : [...panels, panel];
-
-  const action =
-    ep.index >= 0 ? `Saved "${panel.key || "panel"}"` : `Added "${panel.key || "panel"}"`;
-  await host._savePanels(newPanels, action);
-}
-
 /**
  * Save panel data that was serialized by ha-dialog-edit-panel.
  * Called when the edit dialog fires dialog-save with detail.panel.
  * Performs duplicate-key validation before saving.
+ *
+ * System panel overrides are saved with the resolved user type (e.g. "light"
+ * not "popup_light"). Backend resolves overrides by key, and popup aliases in
+ * PANEL_MAPPING share their page class with the user-facing type, so the
+ * runtime template stays correct.
  *
  * @param {HTMLElement} host - editor component
  * @param {Object} panel - serialized panel data
@@ -277,6 +150,7 @@ export async function saveFromData(host, panel, index) {
   }
 
   // Read type-specific fields from descriptor
+  // Use panel.type (resolved user type) for descriptor lookup
   const panelType = panel.type || "clock";
   const descriptor = host._panelTypes.find((pt) => pt.type_key === panelType);
 
@@ -294,7 +168,7 @@ export async function saveFromData(host, panel, index) {
   // Set the standard keys
   newPanel.type = panelType;
   newPanel.key = panel.key || "";
-  newPanel.title = panel.title || "";
+  if (panel.title) newPanel.title = panel.title;
   newPanel.show_in_navigation = panel.show_in_navigation !== false;
 
   // Handle item and item_list fields from _itemListData.
@@ -356,11 +230,19 @@ export async function saveFromData(host, panel, index) {
     }
   }
 
-  // Merge existing data for edits (preserve fields not in the current form)
+  // Merge existing data for edits, but only for fields the form does NOT own.
+  // Descriptor-declared options and standard fields (type/key/title/show_in_navigation/unlock_code)
+  // come from the form — if the user cleared them, that absence is intentional
+  // and must not be undone by merging stale values.
   if (index >= 0) {
     const existing = host._devicePanels()[index];
     if (existing) {
+      const formOwned = new Set(
+        ["type", "key", "title", "show_in_navigation", "unlock_code"]
+          .concat((descriptor?.options || []).map(o => o.key))
+      );
       for (const k of Object.keys(existing)) {
+        if (formOwned.has(k)) continue;
         if (!(k in newPanel)) newPanel[k] = existing[k];
       }
     }

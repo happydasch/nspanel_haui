@@ -72,11 +72,8 @@ export async function saveDeviceConfig(host) {
   host._editingDeviceConfig = false;
   host._deviceConfigForm = null;
 
-  // Persist through the normal save flow
+  // savePanels clones host._deviceConfig into the POST payload, so
+  // we don't need to manually update _panels.devices[].config.
   const panels = host._devicePanels();
-  if (!host._panels.devices[host._selectedDevice]) {
-    host._panels.devices[host._selectedDevice] = {};
-  }
-  host._panels.devices[host._selectedDevice].config = clone(cfg);
   await host._savePanels(panels, "Device settings saved");
 }

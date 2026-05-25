@@ -13,7 +13,7 @@ from aiohttp import web
 from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.helpers.storage import Store
 
-from .haui.config_models import validate_config, validate_panels
+from .haui.config_models import validate_panels
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -86,6 +86,20 @@ class PanelTypesView(HomeAssistantView):
         return self.json(get_user_panel_type_descriptors())
 
 
+class ColorDefaultsView(HomeAssistantView):
+    """REST API view returning built-in color defaults for the frontend editor."""
+
+    url = "/api/nspanel_haui/color_defaults"
+    name = "api:nspanel_haui:color_defaults"
+    requires_auth = True
+
+    async def get(self, request):
+        """Return the COLORS dict as JSON (single source of truth from color.py)."""
+        from .haui.mapping.color import COLORS
+
+        return self.json(COLORS)
+
+
 class PanelConfigView(HomeAssistantView):
     """REST API view for per-entry panel configuration."""
 
@@ -119,7 +133,6 @@ class PanelConfigView(HomeAssistantView):
         try:
             # Offload Pydantic model validation to executor thread to avoid
             # blocking the event loop (modelling triggers importlib.metadata I/O).
-            await hass.async_add_executor_job(validate_config, data)
             await hass.async_add_executor_job(validate_panels, data)
         except Exception as exc:
             _LOGGER.warning("Panel config validation failed: %s", exc)

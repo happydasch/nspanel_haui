@@ -8,7 +8,6 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import CoverFeatures
-from ..mapping.color import COLORS
 from ..mapping.const import ESPRequest, ESPResponse
 from ..mapping.descriptor import PageDescriptor, PageOption
 
@@ -103,7 +102,7 @@ class CoverPage(HAUIPage):
             self.COMPONENTS.btn_up,
             self.COMPONENTS.btn_up.name,
             visible=visible,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
         )
         # stop button
         visible = False
@@ -113,7 +112,7 @@ class CoverPage(HAUIPage):
             self.COMPONENTS.btn_stop,
             self.COMPONENTS.btn_stop.name,
             visible=visible,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
         )
         # down button
         visible = False
@@ -123,7 +122,7 @@ class CoverPage(HAUIPage):
             self.COMPONENTS.btn_down,
             self.COMPONENTS.btn_down.name,
             visible=visible,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
         )
         # slider
         visible = False

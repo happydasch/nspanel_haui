@@ -3,7 +3,6 @@ from __future__ import annotations
 from ..abstract.component import Component
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.descriptor import PageDescriptor
 from ..mapping.icons import ICO_LOCKED, ICO_PASSWORD
 from .alarm import AlarmPage
@@ -42,8 +41,8 @@ class UnlockPage(AlarmPage):
             "fnc_args": {
                 "locked": True,
                 "icon": ICO_LOCKED,
-                "color": COLORS["component"],
-                "back_color_pressed": COLORS["background"],
+                "color": self.get_color("component_text"),
+                "back_color_pressed": self.get_color("background"),
             },
         }
 
@@ -77,7 +76,7 @@ class UnlockPage(AlarmPage):
                 component=AlarmPage.COMPONENTS.b1_fnc,
                 fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
                 fnc_name=AlarmPage.COMPONENTS.b1_fnc.name,
-                color=COLORS["text_disabled"],
+                color=self.get_color("text_disabled"),
                 text=self.translate("Unlock"),
                 locked=getattr(panel, "locked", False),
             )
@@ -116,9 +115,9 @@ class UnlockPage(AlarmPage):
             self.set_component_text(AlarmPage.COMPONENTS.title, self._title)
 
         # update unlock indicator in header
-        color = COLORS["component"]
+        color = self.get_color("component_text")
         if len(self._input) > 0:
-            color = COLORS["component_accent"]
+            color = self.get_color("component_accent")
         self.update_function_component(AlarmPage.FNC_BTN_R_SEC, color=color)
 
         # update unlock button
@@ -129,19 +128,19 @@ class UnlockPage(AlarmPage):
             self.update_function_component(
                 fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
                 touch_events=True,
-                color=COLORS["component_active"],
-                color_pressed=COLORS["component"],
-                back_color=COLORS["background"],
-                back_color_pressed=COLORS["component_pressed"],
+                color=self.get_color("component_active"),
+                color_pressed=self.get_color("component_text"),
+                back_color=self.get_color("background"),
+                back_color_pressed=self.get_color("component_pressed"),
             )
         else:
             self.update_function_component(
                 fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
                 touch_events=False,
-                color=COLORS["text_disabled"],
-                color_pressed=COLORS["text_disabled"],
-                back_color=COLORS["background"],
-                back_color_pressed=COLORS["background"],
+                color=self.get_color("text_disabled"),
+                color_pressed=self.get_color("text_disabled"),
+                back_color=self.get_color("background"),
+                back_color_pressed=self.get_color("background"),
             )
 
     # callback

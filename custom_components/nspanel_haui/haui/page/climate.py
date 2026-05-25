@@ -96,7 +96,7 @@ class ClimatePage(HAUIPage):
             "fnc_name": "power_off",
             "fnc_args": {
                 "icon": ICO_POWER,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": False,
             },
         }
@@ -166,7 +166,7 @@ class ClimatePage(HAUIPage):
                     self.COMPONENTS.btn_up,
                     self.COMPONENTS.btn_up[1],
                     "temp_up",
-                    color=COLORS["component_active"],
+                    color=self.get_color("component_active"),
                     icon=ICO_UP,
                     visible=True,
                 )
@@ -174,7 +174,7 @@ class ClimatePage(HAUIPage):
                     self.COMPONENTS.btn_down,
                     self.COMPONENTS.btn_down[1],
                     "temp_down",
-                    color=COLORS["component_active"],
+                    color=self.get_color("component_active"),
                     icon=ICO_DOWN,
                     visible=True,
                 )
@@ -192,7 +192,7 @@ class ClimatePage(HAUIPage):
                     self.COMPONENTS.btn_up_1,
                     self.COMPONENTS.btn_up_1[1],
                     "temp_up_1",
-                    color=COLORS["component_active"],
+                    color=self.get_color("component_active"),
                     icon=ICO_UP,
                     visible=True,
                 )
@@ -200,7 +200,7 @@ class ClimatePage(HAUIPage):
                     self.COMPONENTS.btn_down_1,
                     self.COMPONENTS.btn_down_1[1],
                     "temp_down_1",
-                    color=COLORS["component_active"],
+                    color=self.get_color("component_active"),
                     icon=ICO_DOWN,
                     visible=True,
                 )
@@ -208,7 +208,7 @@ class ClimatePage(HAUIPage):
                     self.COMPONENTS.btn_up_2,
                     self.COMPONENTS.btn_up_2[1],
                     "temp_up_2",
-                    color=COLORS["component_active"],
+                    color=self.get_color("component_active"),
                     icon=ICO_UP,
                     visible=True,
                 )
@@ -216,7 +216,7 @@ class ClimatePage(HAUIPage):
                     self.COMPONENTS.btn_down_2,
                     self.COMPONENTS.btn_down_2[1],
                     "temp_down_2",
-                    color=COLORS["component_active"],
+                    color=self.get_color("component_active"),
                     icon=ICO_DOWN,
                     visible=True,
                 )
@@ -242,14 +242,14 @@ class ClimatePage(HAUIPage):
         for i in range(self.NUM_MODES):
             visible = False
             icon = ""
-            color_pressed = COLORS["component_active"]
+            color_pressed = self.get_color("component_active")
             if i < len(self._hvac_modes):
                 hvac_mode = self._hvac_modes[i]
                 visible = True
                 if hvac_mode in CLIMATE_MAPPING:
                     icon = CLIMATE_MAPPING[hvac_mode]
                 if f"climate_{hvac_mode}" in COLORS:
-                    color_pressed = COLORS[f"climate_{hvac_mode}"]
+                    color_pressed = self.get_color(f"climate_{hvac_mode}")
             component = getattr(self.COMPONENTS, f"bt_mode_{i + 1}")
             self.set_function_component(
                 component,
@@ -262,10 +262,10 @@ class ClimatePage(HAUIPage):
             )
         # fan button
         fan_mode = False
-        color = COLORS["text_inactive"]
+        color = self.get_color("text_inactive")
         if features & ClimateFeatures.FAN_MODE:
             fan_mode = True
-            color = COLORS["component_active"]
+            color = self.get_color("component_active")
         self.set_function_component(
             self.COMPONENTS.btn_fan,
             self.COMPONENTS.btn_fan[1],
@@ -277,10 +277,10 @@ class ClimatePage(HAUIPage):
         )
         # preset button
         preset_mode = False
-        color = COLORS["text_inactive"]
+        color = self.get_color("text_inactive")
         if features & ClimateFeatures.PRESET_MODE:
             preset_mode = True
-            color = COLORS["component_active"]
+            color = self.get_color("component_active")
         self.set_function_component(
             self.COMPONENTS.btn_preset,
             self.COMPONENTS.btn_preset[1],
@@ -292,10 +292,10 @@ class ClimatePage(HAUIPage):
         )
         # swing button
         swing_mode = False
-        color = COLORS["text_inactive"]
+        color = self.get_color("text_inactive")
         if features & ClimateFeatures.SWING_MODE:
             swing_mode = True
-            color = COLORS["component_active"]
+            color = self.get_color("component_active")
         self.set_function_component(
             self.COMPONENTS.btn_swing,
             self.COMPONENTS.btn_swing[1],
@@ -388,10 +388,10 @@ class ClimatePage(HAUIPage):
 
     def update_hvac_modes(self, item: HAUIItem) -> None:
         hvac_mode = item.get_item_state()
-        color_active = COLORS["component_active"]
-        color_inactive = COLORS["component"]
+        color_active = self.get_color("component_active")
+        color_inactive = self.get_color("component_text")
         if f"climate_{hvac_mode}" in COLORS:
-            color_active = COLORS[f"climate_{hvac_mode}"]
+            color_active = self.get_color(f"climate_{hvac_mode}")
         for i in range(self.NUM_MODES):
             component = getattr(self.COMPONENTS, f"bt_mode_{i + 1}")
             color = color_inactive

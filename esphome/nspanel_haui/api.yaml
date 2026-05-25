@@ -1,6 +1,11 @@
 ---
 # API Configuration
 api:
+  # Disable 15-minute default reboot timeout.
+  # The device's own connection recovery handles reconnection without a disruptive
+  # full ESP32 reboot, which would cause a ~1-minute display outage.
+  #
+  # reboot_timeout: 0s
 
   # API Password for HA
   encryption:
@@ -20,6 +25,7 @@ api:
       - script.execute:
           id: set_hub_connected
           connected: 0
+          force: 0
 
   # Available actions
   actions:
@@ -63,6 +69,7 @@ api:
         - script.execute:
             id: set_hub_connected
             connected: 1
+            force: 0
       # NOTE: set_hub_connected(1) already updates hub_connection internally.
       # Do NOT add an extra lambda setting id(hub_connection)=true here.
 
@@ -72,6 +79,7 @@ api:
         - script.execute:
             id: set_hub_connected
             connected: 0
+            force: 1
 
     # HA requests device info
     - action: req_device_info
@@ -125,6 +133,7 @@ api:
         - script.execute:
             id: set_hub_connected
             connected: 0
+            force: 1
 
     # Request a number value
     - action: req_val

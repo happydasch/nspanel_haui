@@ -14,6 +14,7 @@ from .haui.controller.notification import HAUINotificationController
 from .haui.controller.update import HAUIUpdateController
 from .haui.device import HAUIDevice
 from .haui.device_config import DEVICE_CONFIG_FIELDS
+from .haui.mapping.color import ColorTheme
 from .haui.mapping.page import PAGE_MAPPING
 
 
@@ -55,6 +56,12 @@ class NSPanelHAUI(HAAdapter):
     def initialize(self) -> None:
         self.device_config = HAUIConfig(self, self._config_args)
         self.device = HAUIDevice(self, self.device_config.get("device"))
+
+        # color overrides from device config
+        overrides: dict[str, int] = (
+            self.device_config.get("device", {}).get("color_overrides", {})
+        ) or {}
+        self._color_theme: ColorTheme = ColorTheme(overrides)
 
         """Called from async_setup via hass.async_add_executor_job."""
         # The runtime device name comes from the constructor (set by async_setup_entry).
@@ -207,6 +214,10 @@ class NSPanelHAUI(HAAdapter):
                 for field in DEVICE_CONFIG_FIELDS:
                     if field in store_dev["config"]:
                         self.device.config[field] = store_dev["config"][field]
+                # Propagate color overrides to the ColorTheme
+                co = store_dev["config"].get("color_overrides", {})
+                if co is not None:
+                    self._color_theme = ColorTheme(co if co else {})
 
         # Collect panels only for the runtime device. Each app instance drives
         # a single device; panel keys are unique per device but may collide

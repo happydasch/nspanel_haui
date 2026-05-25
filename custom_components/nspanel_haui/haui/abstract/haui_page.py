@@ -13,7 +13,6 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.const import ESPEvent, NotifEvent, SysPanelKey
 from ..mapping.page import PAGE_MAPPING
 from .mixins.button_state_mixin import ButtonStateMixin
@@ -38,6 +37,16 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         fnc_right_pri=Component(5, "bFncRPri"),
         fnc_right_sec=Component(6, "bFncRSec"),
     )
+
+    # Pages that use pre-rendered picture backgrounds (clock, clocktwo, weather)
+    # should set this to ``True`` so the base class skips the ``fill`` background
+    # command (picture-background pages handle their own background).
+    PICTURE_BACKGROUND: ClassVar[bool] = False
+
+    # Pages with non-standard color palettes (about, clock, clocktwo, weather)
+    # should set this to ``False`` so user-defined color overrides are bypassed
+    # and the page's built-in palette is used instead.
+    USE_SYSTEM_COLORS: ClassVar[bool] = True
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any] | None = None) -> None:
         super().__init__(app, config)
@@ -171,6 +180,13 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         Args:
             panel (HAUIPanel): Current panel
         """
+        # Apply background color for solid-color pages.
+        # Picture-background pages (clock, weather, clocktwo) handle their
+        # own background via pre-compiled picture assets in the TFT.
+        if not self.PICTURE_BACKGROUND:
+            with self.rec_cmd:
+                self.send_cmd(f"cls {self.get_color('background')}")
+
         with self.rec_cmd:
             # physical button state
             if self._btn_state_left is not None:
@@ -217,11 +233,15 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
     def start_panel(self, panel: HAUIPanel) -> None:
         """Called when a panel is started.
 
+        Sets ``_use_system_colors`` from the page's ``USE_SYSTEM_COLORS``
+        ClassVar so ``get_color()`` knows whether to respect user overrides.
+
         This method should be overwritten in the page.
 
         Args:
             panel (HAUIPanel): Current panel
         """
+        self._use_system_colors = type(self).USE_SYSTEM_COLORS
 
     def stop_panel(self, panel: HAUIPanel) -> None:
         """Called when a panel is stopped.
@@ -501,9 +521,9 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 NotifEvent.NOTIF_CLEAR,
             ]:
                 if event.name == NotifEvent.NOTIF_ADD:
-                    color = COLORS["component_accent"]
+                    color = self.get_color("component_accent")
                 else:
-                    color = COLORS["component"]
+                    color = self.get_color("component_text")
                 notification = self.app.controller["notification"]
                 visible = False
                 if notification.has_notifications():

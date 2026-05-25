@@ -470,6 +470,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     Registers the panel config REST API view and frontend static path.
     """
     from .api import (
+        ColorDefaultsView,
         DeviceConfigView,
         DeviceDiscoveryView,
         DeviceStatusView,
@@ -482,6 +483,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     hass.http.register_view(PanelConfigView())
     hass.http.register_view(PanelTypesView())
+    hass.http.register_view(ColorDefaultsView())
     hass.http.register_view(DeviceDiscoveryView())
     hass.http.register_view(DeviceConfigView())
     hass.http.register_view(DeviceStatusView())

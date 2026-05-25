@@ -7,7 +7,6 @@ state, and password mode.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -16,7 +15,7 @@ from ..component import Component
 if TYPE_CHECKING:
     from ....nspanel_haui import NSPanelHAUI
 
-from ...utils.color import rgb_to_rgb565
+from ...utils.color import parse_color_value
 
 
 class ComponentMixin:
@@ -45,48 +44,7 @@ class ComponentMixin:
         Returns:
             int: Color
         """
-        component_color = 0
-
-        if isinstance(color, (list, tuple)):
-            component_color = rgb_to_rgb565(color)
-        else:
-            if isinstance(color, str):
-                if not color.strip():
-                    return 0
-                # handle "[r,g,b]" string format (legacy configs)
-                rgb_match = re.match(
-                    r"\[\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\]",
-                    color.strip(),
-                )
-                if rgb_match:
-                    component_color = rgb_to_rgb565(
-                        [
-                            int(rgb_match.group(1)),
-                            int(rgb_match.group(2)),
-                            int(rgb_match.group(3)),
-                        ]
-                    )
-                # handle "#rrggbb" hex format (from frontend color picker)
-                elif re.match(r"^#([0-9a-fA-F]{6})$", color.strip()):
-                    hex_str = color.strip()[1:]
-                    component_color = rgb_to_rgb565(
-                        [
-                            int(hex_str[0:2], 16),
-                            int(hex_str[2:4], 16),
-                            int(hex_str[4:6], 16),
-                        ]
-                    )
-                else:
-                    try:
-                        component_color = int(self.app.render_template(color))
-                    except (ValueError, TypeError):
-                        self.log(f"Invalid color {color}")
-            else:
-                try:
-                    component_color = int(color)
-                except (ValueError, TypeError):
-                    self.log(f"Invalid color {color}")
-        return int(component_color)
+        return parse_color_value(color)
 
     def set_component_text_color(
         self, component: Component, color: int | str | list | tuple

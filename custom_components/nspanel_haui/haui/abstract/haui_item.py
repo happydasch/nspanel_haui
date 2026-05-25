@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import re
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
-from ..mapping.color import COLORS
 from ..mapping.const import InternalItemType
 from ..mapping.item_options import ItemOptions
-from ..utils.color import rgb_to_rgb565
+from ..utils.color import parse_color_value
 from ..utils.item import execute_item, get_item_color, get_item_icon, get_item_name, get_item_value
 from ..utils.text import get_state_translation
 from ..utils.value import merge_dicts
@@ -290,7 +288,7 @@ class HAUIItem(HAUIBase):
 
         return name or get_item_name(self, "")
 
-    def get_color(self) -> int:
+    def get_color(self) -> int:  # type: ignore[override]
         """Returns the color of the entity.
 
         Returns:
@@ -301,32 +299,18 @@ class HAUIItem(HAUIBase):
             color = color.get(self.get_item_state())
         if isinstance(color, str) and color:
             color = self.render_template(color)
-            # Parse bracket "[r,g,b]" and hex "#rrggbb" formats to RGB565 int
-            if isinstance(color, str) and color:
-                rgb_match = re.match(
-                    r"\[\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\]",
-                    color.strip(),
-                )
-                if rgb_match:
-                    color = rgb_to_rgb565(
-                        [
-                            int(rgb_match.group(1)),
-                            int(rgb_match.group(2)),
-                            int(rgb_match.group(3)),
-                        ]
-                    )
-                elif re.match(r"^#([0-9a-fA-F]{6})$", color.strip()):
-                    hex_str = color.strip()[1:]
-                    color = rgb_to_rgb565(
-                        [
-                            int(hex_str[0:2], 16),
-                            int(hex_str[2:4], 16),
-                            int(hex_str[4:6], 16),
-                        ]
-                    )
-        elif isinstance(color, list) and len(color) == 3:
-            color = rgb_to_rgb565(color)
-        return color if color is not None else get_item_color(self, COLORS["item_unavailable"])
+        # None means no explicit color config — fall through to
+        # get_item_color() for automatic condition-based color resolution.
+        if color is None:
+            return get_item_color(
+                self, super().get_color("entity_unavailable"), color_getter=super().get_color
+            )
+        # Parse any remaining string/list format to RGB565 int via the
+        # canonical parse_color_value utility (handles "[r,g,b]", "#rrggbb",
+        # plain int strings, and list/tuple of 3 ints).
+        if not isinstance(color, int):
+            color = parse_color_value(color)
+        return color
 
     def get_icon(self) -> str:
         """Returns the icon of the entry.

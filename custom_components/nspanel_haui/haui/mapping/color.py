@@ -1,10 +1,12 @@
 COLORS = {
     # default colors
+    "header_background": 6339,  # [24, 24, 24]
+    "header_text": 65535,  # [255, 255, 255]
     "background": 6339,  # [24, 24, 24]
     "text": 55002,  # [213, 218, 213]
     "text_inactive": 29582,  # [115, 115, 115] #737373
     "text_disabled": 12678,  # [49, 49, 49]
-    "component": 65535,  # [255, 255, 255]
+    "component_text": 65535,  # [255, 255, 255]
     "component_pressed": 12678,  # [49, 49, 49]
     "component_active": 19773,  # [74, 165, 238]
     "component_accent": 62694,  # [246, 157, 49]
@@ -23,10 +25,10 @@ COLORS = {
     "weather_hail": 65535,  # [255, 255, 255] white: hail
     "weather_snowy": 65535,  # [255, 255, 255] white: snowy
     "weather_snowy_rainy": 38079,  # [148, 148, 255] light-blue-grey: snowy-rainy
-    # item
-    "item_on": 65222,  # [253, 216, 53] #fdd835
-    "item_off": 17299,  # [68, 115, 158] #44739e
-    "item_unavailable": 29582,  # [115, 115, 115] #737373
+    # entity
+    "entity_on": 65222,  # [253, 216, 53] #fdd835
+    "entity_off": 17299,  # [68, 115, 158] #44739e
+    "entity_unavailable": 29582,  # [115, 115, 115] #737373
     # alarm
     "alarm_armed": 55907,  # [223, 76, 30] #df4c1e
     "alarm_disarmed": 3334,  # [8, 161, 49] #8a131
@@ -40,3 +42,41 @@ COLORS = {
     "climate_dry": 60897,  # [238, 190, 8] dry
     "climate_fan_only": 35921,  # [139, 139, 139] fan_only
 }
+
+
+class ColorTheme:
+    """Per-device color theme that merges user overrides with COLORS defaults.
+
+    Provides a single ``get(key)`` method so that callers always receive the
+    overridden value (if set) or the built-in COLORS default.
+    """
+
+    __slots__ = ("_overrides",)
+
+    def __init__(self, overrides: dict[str, int] | None = None) -> None:
+        self._overrides = overrides if overrides is not None else {}
+
+    def get(self, key: str) -> int:
+        """Return the overridden color for *key*, falling back to COLORS.
+
+        Args:
+            key: A key from the ``COLORS`` dict (e.g. ``"background"``).
+
+        Returns:
+            RGB565 integer color value.
+        """
+        return self._overrides.get(key, COLORS[key])
+
+    @property
+    def all(self) -> dict[str, int]:
+        """Return the complete merged palette (COLORS defaults + overrides)."""
+        return {**COLORS, **self._overrides}
+
+
+def make_color_theme(overrides: dict[str, int] | None = None) -> ColorTheme:
+    """Factory that creates a :class:`ColorTheme` from optional overrides.
+
+    Args:
+        overrides: A dict mapping color keys to RGB565 ints, or ``None``.
+    """
+    return ColorTheme(overrides)

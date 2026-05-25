@@ -10,7 +10,6 @@ if TYPE_CHECKING:
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
-from ..mapping.color import COLORS
 from ..mapping.const import ESPAction, ESPEvent, ESPRequest, ESPResponse, SysPanelKey
 from ..utils.text import trim_text
 
@@ -255,9 +254,9 @@ class HAUIUpdateController(HAUIBase):
             SysPanelKey.POPUP_NOTIFY,
             icon="mdi:message-question",
             title=self.translate("Outdated TFT-Version"),
-            btn_left_color=COLORS["component_active"],
-            btn_right_color=COLORS["component_active"],
-            btn_right_back_color=COLORS["component_pressed"],
+            btn_left_color=self.get_color("component_active"),
+            btn_right_color=self.get_color("component_active"),
+            btn_right_back_color=self.get_color("component_pressed"),
             btn_left=self.translate("Cancel"),
             btn_right=self.translate("Check"),
             close_on_button=False,
@@ -293,9 +292,9 @@ class HAUIUpdateController(HAUIBase):
                 SysPanelKey.POPUP_NOTIFY,
                 icon="mdi:message-question",
                 title=self.translate("Update available"),
-                btn_left_color=COLORS["component_active"],
-                btn_right_color=COLORS["component_active"],
-                btn_right_back_color=COLORS["component_pressed"],
+                btn_left_color=self.get_color("component_active"),
+                btn_right_color=self.get_color("component_active"),
+                btn_right_back_color=self.get_color("component_pressed"),
                 btn_left=self.translate("Cancel"),
                 btn_right=self.translate("Update"),
                 button_callback_fnc=self.callback_update_response,

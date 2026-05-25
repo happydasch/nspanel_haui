@@ -11,7 +11,6 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import MediaPlayerFeatures
-from ..mapping.color import COLORS
 from ..mapping.const import ESPRequest, ESPResponse, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import (
@@ -163,7 +162,7 @@ class MediaPage(HAUIPage):
             "fnc_name": "media_state",
             "fnc_args": {
                 "icon": ICO_STOP,
-                "color": COLORS["component_accent"],
+                "color": self.get_color("component_accent"),
                 "visible": False,
             },
         }
@@ -267,7 +266,7 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.btn_play[1],
             "media_play",
             icon=ICO_PLAY,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
             visible=play,
         )
         # volume buttons
@@ -279,7 +278,7 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.btn_vol_down[1],
             "volume_down",
             icon=ICO_VOLUME_DOWN,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
             visible=volume_visible,
         )
         self.set_function_component(
@@ -287,7 +286,7 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.btn_vol_up[1],
             "volume_up",
             icon=ICO_VOLUME_UP,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
             visible=volume_visible,
         )
         self.set_function_component(
@@ -305,7 +304,7 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.btn_prev[1],
             "media_prev",
             icon=ICO_PREV,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
             visible=prev_track,
         )
         # next button
@@ -317,7 +316,7 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.btn_next[1],
             "media_next",
             icon=ICO_NEXT,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
             visible=next_track,
         )
         # shuffle button
@@ -329,7 +328,7 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.btn_shuffle[1],
             "media_shuffle",
             icon=ICO_SHUFFLE_DISABLED,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
             visible=shuffle,
         )
         # repeat button
@@ -341,7 +340,7 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.btn_repeat[1],
             "media_repeat",
             icon=ICO_REPEAT_OFF,
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
             visible=repeat,
         )
         # progress bar
@@ -350,8 +349,8 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.j_progress,
             self.COMPONENTS.j_progress[1],
             "progress",
-            color=COLORS["text_inactive"],
-            back_color=COLORS["text_disabled"],
+            color=self.get_color("text_inactive"),
+            back_color=self.get_color("text_disabled"),
             value=0,
         )
         # source button

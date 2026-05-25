@@ -12,6 +12,12 @@
 
 import { css } from './lit-import.js';
 
+import { panelGridStyles } from './styles/panel-grid-styles.js';
+import { panelTableStyles } from './styles/panel-table-styles.js';
+import { panelCommonStyles } from './styles/panel-common-styles.js';
+import { panelPreviewStyles } from './styles/panel-preview-styles.js';
+
+
 /**
  * Base HA-style typography and layout utilities.
  * Subset of HA's `haStyle` — only what this editor needs.
@@ -72,6 +78,7 @@ export const haStyleDialog = css`
  * and ha-button provide those.
  */
 export const editorStyles = css`
+  ${panelGridStyles}${panelTableStyles}${panelCommonStyles}${panelPreviewStyles}
   .container {
     padding-bottom: var(--ha-space-6);
   }
@@ -87,8 +94,8 @@ export const editorStyles = css`
     color: var(--app-header-text-color, var(--sidebar-text-color, #333));
     border-bottom: 1px solid var(--divider-color, #e0e0e0);
   }
+
   .toolbar-title {
-    margin-inline-start: var(--ha-space-6);
     line-height: var(--ha-line-height-normal);
     flex-grow: 1;
     text-overflow: ellipsis;
@@ -97,6 +104,13 @@ export const editorStyles = css`
     min-width: 0;
     font-size: var(--ha-font-size-xl, 20px);
     font-weight: 400;
+    margin-inline-start: var(--ha-space-6);
+  }
+
+  .menu-toggle-btn {
+    --mdc-icon-button-size: 40px;
+    flex-shrink: 0;
+    color: var(--app-header-text-color, var(--sidebar-text-color, #333));
   }
 
   /* ── device manager button ────────── */
@@ -126,158 +140,14 @@ export const editorStyles = css`
     font-size: 0.85em;
   }
 
-  /* ── device selector bar (no-device state) ── */
-  .device-selector-bar {
-    padding: 16px;
-  }
-
-  /* ── panel list header (Add Panel + device info inside card) ── */
-  .panel-list-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-  }
-  .panel-list-header .device-selector-inline {
-    flex: 1;
-    min-width: 0;
-  }
-  .panel-list-header .device-selector-inline .toolbar-select {
-    width: 100%;
-  }
-  /* ── card footer (device info strip) ────────────────── */
-  .card-footer {
-    padding: 10px 16px;
-  }
-
   /* ── content card ────────────────── */
 
   .content-card {
-    margin: var(--ha-space-8);
+    margin: var(--ha-space-6);
   }
 
   .content-card .card-content {
     padding: 0;
-  }
-
-  /* ── panel groups ────────────────── */
-
-  .panel-group[open] {
-    padding-bottom: 4px;
-  }
-
-  .group-title {
-    left: 0;
-    z-index: 1;
-    padding: 12px;
-    font-weight: 600;
-    font-size: 1em;
-  }
-  .info-grid-2col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  details.panel-group .group-title {
-    user-select: none;
-  }
-  details.panel-group .collapse-indicator {
-    margin-left: 6px;
-    font-size: 0.85em;
-  }
-
-  /* ── panel list (flexbox) ──────────── */
-
-  .pl-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    min-height: 36px;
-    overflow: visible;
-  }
-  .pl-row + .pl-row {
-    border-top: 1px solid var(--divider-color, #e0e0e0);
-  }
-
-  .pl-type {
-    flex-shrink: 0;
-    color: var(--secondary-text-color, #666);
-    opacity: 0.55;
-    min-width: 0;
-    max-width: 40px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .pl-title {
-    flex-shrink: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--primary-text-color, #000);
-  }
-  .pl-title .pl-unnamed {
-    color: var(--secondary-text-color, #999);
-    font-style: italic;
-  }
-
-  .pl-key {
-    flex-shrink: 0;
-    font-family: var(--font-family-monospace, "SF Mono", Monaco, Consolas, monospace);
-    font-size: 0.82em;
-    color: var(--secondary-text-color, #666);
-    background: var(--secondary-background-color, #eee);
-    padding: 1px 6px;
-    border-radius: 4px;
-    white-space: nowrap;
-  }
-
-  .pl-badges {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-    flex-shrink: 0;
-  }
-  .pl-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--secondary-background-color, #e0e0e0);
-  }
-  .pl-badge ha-icon {
-    --mdc-icon-size: 14px;
-  }
-
-  .pl-spacer {
-    flex: 1;
-    min-width: 8px;
-  }
-
-  .pl-actions {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-
-  .pl-move-btn {
-    --mdc-icon-button-size: 32px;
-  }
-  .pl-move-btn ha-icon {
-    --mdc-icon-size: 18px;
-  }
-
-  /* Hide inline move buttons on small screens (they're in the dropdown) */
-  @media all and (max-width: 500px) {
-    .pl-move-btn {
-      display: none;
-    }
   }
 
   /* ── dialog body (inside ha-dialog) ── */
@@ -743,59 +613,6 @@ export const editorStyles = css`
     border-top: 1px solid var(--divider-color, #e0e0e0);
   }
 
-  /* ── dropdown menu ───────────────── */
-  .pl-more {
-    position: relative;
-    display: inline-block;
-  }
-  .pl-more ha-icon-button.active {
-    background: var(--secondary-background-color, #f5f5f5);
-    border-radius: 50%;
-  }
-  .pl-dropdown {
-    position: absolute;
-    right: 0;
-    top: 100%;
-    z-index: 300;
-    background: var(--card-background-color, #fff);
-    border: 1px solid var(--divider-color, #e0e0e0);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    min-width: 160px;
-    overflow: hidden;
-  }
-  .pl-dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    padding: 10px 16px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 0.9em;
-    color: var(--primary-text-color, #212121);
-  }
-  .pl-dropdown-item:hover {
-    background: var(--secondary-background-color, #f5f5f5);
-  }
-  .pl-dropdown-item:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-
-  .pl-dropdown-divider {
-    height: 1px;
-    background: var(--divider-color, #e0e0e0);
-    margin: 4px 0;
-  }
-  .pl-dropdown-item.danger {
-    color: var(--error-color, #db4437);
-  }
-  .pl-dropdown-item.danger:hover {
-    background: color-mix(in srgb, var(--error-color, #db4437) 10%, transparent);
-  }
-
   /* ── entity picker dropdown ────────── */
   .entity-dropdown-item:hover,
   .entity-dropdown-item.active {
@@ -850,7 +667,6 @@ export const editorStyles = css`
     display: flex;
     align-items: center;
     gap: 12px;
-    font-size: 0.82em;
     color: var(--secondary-text-color, #666);
     white-space: nowrap;
   }
@@ -858,6 +674,7 @@ export const editorStyles = css`
     display: inline-flex;
     align-items: center;
     gap: 5px;
+    font-size: 0.9em;
   }
 
   .connection-indicator-dot {
@@ -1162,18 +979,27 @@ export const editorStyles = css`
   }
 
   /* ── responsive: tablet (container) ─── */
+  @container haui-editor (max-width: 870px) {
+    .toolbar-title {
+      margin-inline-start: var(--ha-space-2);
+    }
+  }
+
   /* ── responsive: narrow container ─── */
   @container haui-editor (max-width: 600px) {
-    .content-card {
-      margin: var(--ha-space-2);
+    .toolbar-header {
+      padding: 0 4px;
     }
-    .panel-list-header {
-      padding: 8px 12px;
-      gap: 8px;
+    .content-card {
+      margin: var(--ha-space-4);
+    }
+    .panel-toolbar-row {
+      padding: 12px;
+      gap: 6px;
     }
   }
   @container haui-editor (max-width: 500px) {
     .pl-key { max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
-    .pl-type { max-width: 30px; }
+    .pl-card-type-icon { max-width: 30px; }
   }
   `;

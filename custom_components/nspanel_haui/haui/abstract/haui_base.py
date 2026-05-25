@@ -8,6 +8,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from ..mapping.color import COLORS, ColorTheme
 from .component import Component
 
 if TYPE_CHECKING:
@@ -437,6 +438,31 @@ class HAUIBase:
             parts.append(f"panel={panel_type}/{panel_key}")
 
         return " ".join(parts)
+
+    def get_color(self, key: str) -> int:
+        """Return an RGB565 color value for the given theme key.
+
+        Respects per-device overrides (set in the device config's
+        ``color_overrides`` dict) if configured; falls back to the
+        built-in ``COLORS`` defaults otherwise.
+
+        When called from a page instance with ``_use_system_colors``
+        set to ``False`` (e.g. picture-background pages like clock,
+        clocktwo, weather), user overrides are bypassed so the page
+        retains its hardcoded palette.
+
+        Args:
+            key: A key from the ``COLORS`` dict (e.g. ``"background"``).
+
+        Returns:
+            RGB565 integer color value.
+        """
+        if not getattr(self, "_use_system_colors", True):
+            return COLORS[key]
+        theme: ColorTheme | None = getattr(self.app, "_color_theme", None)
+        if theme is None:
+            return COLORS[key]
+        return theme.get(key)
 
     def send_cmd(self, cmd: str) -> None:
         """Sends a command to the display via the ESPHome transport.

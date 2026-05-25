@@ -142,7 +142,10 @@ class ConfigSchema:
                 "home_only_when_on", default=current.get("home_only_when_on", False)
             ): bool,
             vol.Required(
-                "home_on_button_toggle", default=current.get("home_on_button_toggle", False)
+                "home_on_button_toggle", default=current.get("home_on_button_toggle", False)): bool,
+            vol.Required(
+                "reset_interaction_on_button",
+                default=current.get("reset_interaction_on_button", True),
             ): bool,
             vol.Required(
                 "return_to_home_after_seconds",

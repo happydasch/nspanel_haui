@@ -745,7 +745,11 @@ class HAUINavigationController(HAUIBase):
             ESPEvent.BUTTON_RIGHT,
             ESPEvent.GESTURE,
         ):
-            self._start_idle_timer()
+            if event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT):
+                if device.get("reset_interaction_on_button", True):
+                    self._start_idle_timer()
+            else:
+                self._start_idle_timer()
 
         # check for page
         if event.name == ESPEvent.PAGE:

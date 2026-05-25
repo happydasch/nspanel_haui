@@ -9,7 +9,6 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.background import BACKGROUNDS
-from ..mapping.color import COLORS
 from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_MESSAGE
@@ -19,6 +18,8 @@ from ..utils.notification_blinker import NotificationBlinker
 
 
 class ClockPage(HAUIPage):
+    PICTURE_BACKGROUND = True
+    USE_SYSTEM_COLORS = False
     DESCRIPTOR = PageDescriptor(
         type_key="clock",
         page_name="clock",
@@ -92,6 +93,7 @@ class ClockPage(HAUIPage):
             ),
         ],
         icon="mdi:clock-outline",
+        has_header=False,
     )
 
     COMPONENTS = ComponentRegistry(
@@ -290,7 +292,7 @@ class ClockPage(HAUIPage):
         for i in range(self.NUM_ENTITIES):
             visible = False
             icon = ""
-            color = COLORS["text"]
+            color = self.get_color("text")
             if i < total_items:
                 item = self._items[i]
                 icon = item.get_icon()
@@ -315,10 +317,10 @@ class ClockPage(HAUIPage):
             return
         notification = self.app.controller["notification"]
         if self._notif_blinker.new_notifications:
-            color = COLORS["component_accent"]
+            color = self.get_color("component_accent")
             visible = datetime.now().second % 2 == 0
         else:
-            color = COLORS["component"]
+            color = self.get_color("component_text")
             visible = notification.has_notifications()
         self.update_function_component(
             self.COMPONENTS.t_notif[1],

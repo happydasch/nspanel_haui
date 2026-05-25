@@ -314,7 +314,7 @@ The ESP provides some interaction related events. See below for a overview of al
 
   Touch State, the state is being set based on the `touch_x` and `touch_y` values
 
-- `touch_x` (0 - 480=display width)
+- `touch_x` (0 - 480=display width, only 0..450 is visible; the rightmost 30px are behind the bezel)
 
   Current touch x coordinates (0 when released)
 

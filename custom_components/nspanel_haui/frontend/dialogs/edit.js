@@ -40,6 +40,7 @@ class EditPanelDialog extends LitElement {
       error: { type: String },
       entryId: { type: String },
       devicePanels: { type: Array },
+      dialogVersion: { type: Number },
     };
   }
 
@@ -58,11 +59,16 @@ class EditPanelDialog extends LitElement {
     this._editingPanel = null;
     this._itemListData = {};
     this._userSelectedType = false;
+    this._dialogVersion = 0;
   }
 
   willUpdate(changed) {
-    if (changed.has("open") && this.open) {
-      // Reset user type selection each time the dialog opens
+    if ((changed.has("open") && this.open) || changed.has("dialogVersion")) {
+      // Reset user type selection each time the dialog opens or a new panel
+      // session starts. The dialogVersion counter is incremented by the parent
+      // for every open/close/open cycle, ensuring the reset fires even when
+      // open doesn't change (e.g. close + reopen in separate microtasks
+      // before Lit renders the intermediate null state).
       this._userSelectedType = false;
     }
     if (changed.has("panel") && this.panel) {
@@ -289,7 +295,12 @@ class EditPanelDialog extends LitElement {
     const panel = clone(liveData);
     panel.type = panelType;
     panel.key = formVal(form, "fld-key") || panel.key || "";
-    panel.title = formVal(form, "fld-title") || "";
+    const titleVal = formVal(form, "fld-title");
+    if (titleVal) {
+      panel.title = titleVal;
+    } else {
+      delete panel.title;
+    }
 
     const showInNavEl = form.querySelector("#fld-show-in-nav");
     panel.show_in_navigation = showInNavEl ? showInNavEl.checked : true;

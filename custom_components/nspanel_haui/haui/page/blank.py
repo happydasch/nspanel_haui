@@ -19,6 +19,7 @@ class BlankPage(HAUIPage):
             "show_in_navigation": False,
         },
         icon="mdi:circle-outline",
+        has_header=False,
     )
 
     COMPONENTS = HAUIPage.COMPONENTS.merge(

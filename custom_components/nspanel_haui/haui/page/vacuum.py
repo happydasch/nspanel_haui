@@ -7,7 +7,6 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import VacuumFeatures
-from ..mapping.color import COLORS
 from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import (
@@ -129,7 +128,7 @@ class VacuumPage(HAUIPage):
             self.COMPONENTS.btn_fan,
             self.COMPONENTS.btn_fan.name,
             "fan",
-            color=COLORS["component_active"],
+            color=self.get_color("component_active"),
             icon=ICO_FAN,
             visible=fan,
         )
@@ -171,7 +170,7 @@ class VacuumPage(HAUIPage):
         for i in range(self.NUM_ENTITIES):
             visible = False
             icon = ""
-            color = COLORS["text"]
+            color = self.get_color("text")
             item = None
             if i < total_items:
                 item = self._items[i]
@@ -257,7 +256,7 @@ class VacuumPage(HAUIPage):
         self.update_function_component(
             self.COMPONENTS.btn_locate.name,
             touch=active,
-            color=COLORS["component_accent"],
+            color=self.get_color("component_accent"),
             color_pressed=color_pressed,
             back_color_pressed=back_color_pressed,
         )

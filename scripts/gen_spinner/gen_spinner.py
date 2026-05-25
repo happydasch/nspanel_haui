@@ -313,8 +313,8 @@ def update_segment_positions(frame):
 
 for i in range(num_frames):
     # open a background image and draw the arc on it (frame)
-    # im = Image.open('scripts/gen_spinner/bkg_img.png')
-    im = Image.open("scripts/gen_spinner/bkg_color.png")
+    im = Image.open("scripts/gen_spinner/bkg_img.png")
+    # im = Image.open("scripts/gen_spinner/bkg_color.png")
     update_segment_positions(i)
     draw_arc(im, segment_positions[0], segment_positions[1])
     posx = int(i % multx) * image_size[0]

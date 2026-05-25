@@ -40,6 +40,8 @@ DEVICE_CONFIG: dict[str, Any] = {
     "home_on_first_touch": True,
     "home_only_when_on": False,
     "home_on_button_toggle": False,
+    # interaction
+    "reset_interaction_on_button": True,
     "return_to_home_after_seconds": 0,
     "always_return_to_home": False,
     # hub-side idle timeout (seconds, 0 = disabled).
@@ -49,6 +51,8 @@ DEVICE_CONFIG: dict[str, Any] = {
     "use_relay_left": True,
     "use_relay_right": True,
     "sound_on_startup": True,
+    # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
+    "color_overrides": {},
     "sound_on_notification": True,
 }
 
@@ -75,6 +79,7 @@ DEVICE_CONFIG_FIELDS: list[str] = [
     "home_on_first_touch",
     "home_only_when_on",
     "home_on_button_toggle",
+    "reset_interaction_on_button",
     "return_to_home_after_seconds",
     "always_return_to_home",
     "hub_idle_timeout",
@@ -82,6 +87,7 @@ DEVICE_CONFIG_FIELDS: list[str] = [
     "use_relay_left",
     "use_relay_right",
     "sound_on_notification",
+    "color_overrides",
 ]
 
 # ---------------------------------------------------------------------------
@@ -201,257 +207,3 @@ def _apply_panel_store(cfg: dict, store: dict, fields: list) -> None:
         store_dev = _find_store_device(store, runtime_name)
         if store_dev and "config" in store_dev:
             _merge_store_fields(store_dev["config"], cfg["device"], fields)
-
-
-# ---------------------------------------------------------------------------
-# Typed accessor for a single device's config dict
-# ---------------------------------------------------------------------------
-
-
-class DeviceConfig:
-    """Typed, read-write wrapper around a single device config dict.
-
-    Provides attribute-style access to all DEVICE_CONFIG keys with
-    proper type conversions for booleans and integers.
-
-    Usage::
-
-        dc = DeviceConfig(dev_dict)
-        print(dc.name)
-        dc.debug_level = 1
-    """
-
-    __slots__ = ("_data",)
-
-    def __init__(self, data: dict[str, Any]) -> None:
-        self._data = data
-
-    # -- identity -----------------------------------------------------------
-
-    @property
-    def name(self) -> str:
-        return str(self._data.get("name", ""))
-
-    @name.setter
-    def name(self, value: str) -> None:
-        self._data["name"] = value
-
-    @property
-    def esphome_device_id(self) -> str:
-        return str(self._data.get("esphome_device_id", ""))
-
-    @esphome_device_id.setter
-    def esphome_device_id(self, value: str) -> None:
-        self._data["esphome_device_id"] = value
-
-    # -- panels -------------------------------------------------------------
-
-    @property
-    def panels(self) -> list[dict[str, Any]]:
-        return list(self._data.get("panels", []))
-
-    @panels.setter
-    def panels(self, value: list[dict[str, Any]]) -> None:
-        self._data["panels"] = value
-
-    # -- locale -------------------------------------------------------------
-
-    @property
-    def locale(self) -> str:
-        return str(self._data.get("locale", "en_US"))
-
-    @locale.setter
-    def locale(self, value: str) -> None:
-        self._data["locale"] = value
-
-    # -- hardware buttons ---------------------------------------------------
-
-    @property
-    def button_left_entity(self) -> str:
-        return str(self._data.get("button_left_entity", ""))
-
-    @button_left_entity.setter
-    def button_left_entity(self, value: str) -> None:
-        self._data["button_left_entity"] = value
-
-    @property
-    def button_right_entity(self) -> str:
-        return str(self._data.get("button_right_entity", ""))
-
-    @button_right_entity.setter
-    def button_right_entity(self, value: str) -> None:
-        self._data["button_right_entity"] = value
-
-    # -- navigation ---------------------------------------------------------
-
-    @property
-    def home_panel(self) -> str:
-        return str(self._data.get("home_panel", ""))
-
-    @home_panel.setter
-    def home_panel(self, value: str) -> None:
-        self._data["home_panel"] = value
-
-    @property
-    def sleep_panel(self) -> str:
-        return str(self._data.get("sleep_panel", ""))
-
-    @sleep_panel.setter
-    def sleep_panel(self, value: str) -> None:
-        self._data["sleep_panel"] = value
-
-    @property
-    def wakeup_panel(self) -> str:
-        return str(self._data.get("wakeup_panel", ""))
-
-    @wakeup_panel.setter
-    def wakeup_panel(self, value: str) -> None:
-        self._data["wakeup_panel"] = value
-
-    @property
-    def show_home_button(self) -> bool:
-        return bool(self._data.get("show_home_button", False))
-
-    @show_home_button.setter
-    def show_home_button(self, value: bool) -> None:
-        self._data["show_home_button"] = value
-
-    @property
-    def show_sleep_button(self) -> bool:
-        return bool(self._data.get("show_sleep_button", False))
-
-    @show_sleep_button.setter
-    def show_sleep_button(self, value: bool) -> None:
-        self._data["show_sleep_button"] = value
-
-    @property
-    def show_notifications_button(self) -> bool:
-        return bool(self._data.get("show_notifications_button", True))
-
-    @show_notifications_button.setter
-    def show_notifications_button(self, value: bool) -> None:
-        self._data["show_notifications_button"] = value
-
-    # -- logging ------------------------------------------------------------
-
-    @property
-    def log_items(self) -> bool:
-        return bool(self._data.get("log_items", False))
-
-    @log_items.setter
-    def log_items(self, value: bool) -> None:
-        self._data["log_items"] = value
-
-    @property
-    def debug_level(self) -> int:
-        return int(self._data.get("debug_level", 0))
-
-    @debug_level.setter
-    def debug_level(self, value: int) -> None:
-        self._data["debug_level"] = value
-
-    # -- sleep / wakeup -----------------------------------------------------
-
-    @property
-    def home_on_wakeup(self) -> bool:
-        return bool(self._data.get("home_on_wakeup", False))
-
-    @home_on_wakeup.setter
-    def home_on_wakeup(self, value: bool) -> None:
-        self._data["home_on_wakeup"] = value
-
-    @property
-    def home_on_first_touch(self) -> bool:
-        return bool(self._data.get("home_on_first_touch", True))
-
-    @home_on_first_touch.setter
-    def home_on_first_touch(self, value: bool) -> None:
-        self._data["home_on_first_touch"] = value
-
-    @property
-    def home_only_when_on(self) -> bool:
-        return bool(self._data.get("home_only_when_on", False))
-
-    @home_only_when_on.setter
-    def home_only_when_on(self, value: bool) -> None:
-        self._data["home_only_when_on"] = value
-
-    @property
-    def home_on_button_toggle(self) -> bool:
-        return bool(self._data.get("home_on_button_toggle", False))
-
-    @home_on_button_toggle.setter
-    def home_on_button_toggle(self, value: bool) -> None:
-        self._data["home_on_button_toggle"] = value
-
-    @property
-    def return_to_home_after_seconds(self) -> int:
-        return int(self._data.get("return_to_home_after_seconds", 0))
-
-    @return_to_home_after_seconds.setter
-    def return_to_home_after_seconds(self, value: int) -> None:
-        self._data["return_to_home_after_seconds"] = value
-
-    @property
-    def always_return_to_home(self) -> bool:
-        return bool(self._data.get("always_return_to_home", False))
-
-    @always_return_to_home.setter
-    def always_return_to_home(self, value: bool) -> None:
-        self._data["always_return_to_home"] = value
-
-    # -- relays -------------------------------------------------------------
-
-    @property
-    def use_relay_left(self) -> bool:
-        return bool(self._data.get("use_relay_left", True))
-
-    @use_relay_left.setter
-    def use_relay_left(self, value: bool) -> None:
-        self._data["use_relay_left"] = value
-
-    @property
-    def use_relay_right(self) -> bool:
-        return bool(self._data.get("use_relay_right", True))
-
-    @use_relay_right.setter
-    def use_relay_right(self, value: bool) -> None:
-        self._data["use_relay_right"] = value
-
-    # -- sounds -------------------------------------------------------------
-
-    @property
-    def sound_on_startup(self) -> bool:
-        return bool(self._data.get("sound_on_startup", True))
-
-    @sound_on_startup.setter
-    def sound_on_startup(self, value: bool) -> None:
-        self._data["sound_on_startup"] = value
-
-    @property
-    def sound_on_notification(self) -> bool:
-        return bool(self._data.get("sound_on_notification", True))
-
-    @sound_on_notification.setter
-    def sound_on_notification(self, value: bool) -> None:
-        self._data["sound_on_notification"] = value
-
-    # -- toggles ------------------------------------------------------------
-
-    @property
-    def enabled(self) -> bool:
-        return bool(self._data.get("enabled", True))
-
-    @enabled.setter
-    def enabled(self, value: bool) -> None:
-        self._data["enabled"] = value
-
-    # -- dict protocol ------------------------------------------------------
-
-    def as_dict(self) -> dict[str, Any]:
-        """Return a shallow copy of the underlying config dict."""
-        return dict(self._data)
-
-    def __repr__(self) -> str:
-        name = self._data.get("name", "?")
-        return f"DeviceConfig({name!r})"

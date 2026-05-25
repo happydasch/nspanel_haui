@@ -50,13 +50,22 @@ class ItemProxy:
         domain = self.entity_id.split(".")[0]
 
         async def _call() -> None:
-            await self._hass.services.async_call(
-                domain,
-                service,
-                service_data=kwargs or {},
-                target={"entity_id": self.entity_id},
-                blocking=False,
-            )
+            try:
+                await self._hass.services.async_call(
+                    domain,
+                    service,
+                    service_data=kwargs or {},
+                    target={"entity_id": self.entity_id},
+                    blocking=True,
+                )
+            except Exception as exc:  # noqa: BLE001
+                _LOGGER.warning(
+                    "ItemProxy.call_service %s.%s for %s failed: %s",
+                    domain,
+                    service,
+                    self.entity_id,
+                    exc,
+                )
 
         asyncio.run_coroutine_threadsafe(_call(), self._loop)
 
@@ -251,6 +260,11 @@ class ESPHomeProxy:
         """
 
         async def _call_service() -> None:
+            from homeassistant.exceptions import (  # noqa: PLC0415
+                HomeAssistantError,
+                ServiceNotFound,
+            )
+
             try:
                 try:
                     data = json.loads(payload)
@@ -274,34 +288,40 @@ class ESPHomeProxy:
 
                     try:
                         await self._hass.services.async_call(
-                            "esphome", service_name, service_data, blocking=False
+                            "esphome", service_name, service_data, blocking=True
                         )
-                    except Exception as e:
-                        msg = str(e)
-                        if "not ready" in msg or "ConnectionState" in msg:
-                            _LOGGER.debug(
-                                "ESPHome service %s deferred (device %s not ready): %s",
-                                service_name,
-                                device_name,
-                                msg,
-                            )
-                        else:
-                            _LOGGER.warning(
-                                "Failed to call ESPHome service %s for device %s: %s",
-                                service_name,
-                                device_name,
-                                msg,
-                            )
-            except Exception as exc:
+                    except ServiceNotFound as exc:
+                        # Device unloaded or service registry not yet populated —
+                        # transient on startup / reload.
+                        _LOGGER.debug(
+                            "ESPHome service %s missing (device %s): %s",
+                            service_name,
+                            device_name,
+                            exc,
+                        )
+                    except HomeAssistantError as exc:
+                        # ESPHome raises HomeAssistantError for "not ready" /
+                        # "Not connected" / closed connection states.
+                        _LOGGER.debug(
+                            "ESPHome service %s deferred (device %s not ready): %s",
+                            service_name,
+                            device_name,
+                            exc,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        _LOGGER.warning(
+                            "Failed to call ESPHome service %s for device %s: %s",
+                            service_name,
+                            device_name,
+                            exc,
+                        )
+            except Exception as exc:  # noqa: BLE001
                 _LOGGER.error("publish(%s) coroutine failed: %s", topic, exc)
 
-        # Non-blocking: schedule the service call without waiting.
-        # All ESPHome actions are fire-and-forget; blocking here would
-        # tie up executor threads and cause heartbeat timeouts on the device.
-        try:
-            asyncio.run_coroutine_threadsafe(_call_service(), self._loop)
-        except Exception as exc:  # noqa: BLE001
-            _LOGGER.warning("publish() failed: %s", exc)
+        # Fire-and-forget on event loop; does not block executor thread.
+        # Inner async_call uses blocking=True so service failures land in the
+        # try/except above instead of HA's default background-task ERROR handler.
+        asyncio.run_coroutine_threadsafe(_call_service(), self._loop)
 
     def _get_target_devices(self) -> list[str]:
         """Get list of target device service prefixes for ESPHome calls.

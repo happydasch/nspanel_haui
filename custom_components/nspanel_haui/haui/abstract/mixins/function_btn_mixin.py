@@ -14,10 +14,14 @@ from ..component import Component
 
 if TYPE_CHECKING:
     from ....nspanel_haui import NSPanelHAUI
+    from ..haui_base import HAUIBase
     from ..haui_event import HAUIEvent
     from ..haui_panel import HAUIPanel
 
-from ...mapping.color import COLORS
+    _FunctionButtonMixinBase = HAUIBase
+else:
+    _FunctionButtonMixinBase = object
+
 from ...mapping.const import SysPanelKey
 from ...mapping.icons import (
     ICO_ABOUT,
@@ -56,7 +60,7 @@ class FncType(StrEnum):
     UNLOCK = "unlock"
 
 
-class FunctionButtonMixin:
+class FunctionButtonMixin(_FunctionButtonMixinBase):
     """Mixin that manages function button registration, rendering, and dispatch.
 
     Depends on the host class providing:
@@ -66,6 +70,16 @@ class FunctionButtonMixin:
     * ``ICO_*`` icon constants (ClassVar)
     * :class:`~haui.page.component_mixin.ComponentMixin` methods
     """
+
+    # internal function button ids
+    def get_color(self, key: str) -> int:
+        """Provided by ``HAUIBase`` at runtime via MRO (mixin + base class).
+
+        This method delegates to ``super()`` for mypy satisfaction and runtime
+        forwarding — the downstream ``HAUIBase`` (or a subclass further right
+        in the MRO) provides the actual implementation.
+        """
+        return super().get_color(key)
 
     # internal function button ids
     FNC_BTN_L_PRI = FncButton.LEFT_PRI
@@ -161,14 +175,14 @@ class FunctionButtonMixin:
             tuple: (color, color_pressed, back_color, back_color_pressed)
         """
         if active:
-            color = COLORS["component_active"]
-            color_pressed = COLORS["component"]
-            back_color_pressed = COLORS["component_pressed"]
+            color = self.get_color("component_active")
+            color_pressed = self.get_color("component_text")
+            back_color_pressed = self.get_color("component_pressed")
         else:
-            color = COLORS["text_disabled"]
-            color_pressed = COLORS["text_disabled"]
-            back_color_pressed = COLORS["background"]
-        back_color = COLORS["background"]
+            color = self.get_color("text_disabled")
+            color_pressed = self.get_color("text_disabled")
+            back_color_pressed = self.get_color("background")
+        back_color = self.get_color("background")
         return color, color_pressed, back_color, back_color_pressed
 
     # ------------------------------------------------------------------
@@ -324,9 +338,13 @@ class FunctionButtonMixin:
             and fnc_name == self.FNC_TYPE_UNLOCK
             and not fnc_args.get("locked", False)
         ):
-            color = COLORS["component_accent"]
+            color = self.get_color("component_accent")
+        if color is None:
+            color = self.get_color("header_text")
         color_pressed = fnc_args.get("color_pressed")
         back_color = fnc_args.get("back_color")
+        if back_color is None:
+            back_color = self.get_color("header_background")
         back_color_pressed = fnc_args.get("back_color_pressed")
         if color is not None and fnc_item.get("current_color") != color:
             self.set_component_text_color(fnc_component, color)

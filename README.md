@@ -38,6 +38,17 @@ Select from different [Panels](docs/panels/README.md) that can be displayed on t
 ### Device configuration in home-assistant
 
 ![Config](docs/assets/feature_config.png)
+![Grid or List](docs/assets/screenshots/grid_or_list.png)
+![Grid View](docs/assets/screenshots/grid_view.png)
+![System Panels](docs/assets/screenshots/system_panels.png)
+![Add Panel](docs/assets/screenshots/add_panel.png)
+
+![Device Manager](docs/assets/screenshots/device_manager.png)
+![Device Settings](docs/assets/screenshots/device_settings.png)
+![Device Colors](docs/assets/screenshots/device_colors.png)
+
+![Device Info](docs/assets/screenshots/device_info.png)
+![Device Logs](docs/assets/screenshots/device_logs.png)
 
 ### Many features
 

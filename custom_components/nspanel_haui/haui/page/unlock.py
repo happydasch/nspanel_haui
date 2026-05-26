@@ -88,6 +88,9 @@ class UnlockPage(AlarmPage):
                 self._title = unlock_panel.get_title(self._title)
                 self._unlock_code = unlock_panel.get("unlock_code")
 
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
+
     def before_render_panel(self, panel: HAUIPanel) -> bool:
         # check if unlock panel is available
         navigation = self.app.controller["navigation"]

@@ -13,7 +13,6 @@ class PageOption:
 
       - bool         → toggle (ha-switch)
       - int / float  → number input
-      - color_seed  → number input with randomize button + palette preview
       - str          → text input
       - color        → text input with color picker button; primary format is RGB565 int,
                         also accepts "[r,g,b]" and "#rrggbb" strings

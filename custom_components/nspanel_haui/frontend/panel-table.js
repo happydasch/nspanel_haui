@@ -30,29 +30,29 @@ export function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
   const items = [];
 
   items.push(
-    { icon: 'mdi:pencil', label: 'Edit', action: () => host._openEdit(pIdx) }
+    { icon: 'mdi:pencil', label: host._t('Edit'), action: () => host._openEdit(pIdx) }
   );
 
   items.push('divider');
 
   items.push(
-    { icon: 'mdi:arrow-up', label: 'Move Up', disabled: !canMoveUp, action: () => host._moveUp(p.key) },
-    { icon: 'mdi:arrow-down', label: 'Move Down', disabled: !canMoveDown, action: () => host._moveDown(p.key) },
+    { icon: 'mdi:arrow-up', label: host._t('Move Up'), disabled: !canMoveUp, action: () => host._moveUp(p.key) },
+    { icon: 'mdi:arrow-down', label: host._t('Move Down'), disabled: !canMoveDown, action: () => host._moveDown(p.key) },
   );
   items.push('divider');
 
   items.push({
     icon: p.show_in_navigation !== false ? 'mdi:eye-off-outline' : 'mdi:eye-outline',
-    label: p.show_in_navigation !== false ? 'Non-Navigation' : 'Navigation',
+    label: p.show_in_navigation !== false ? host._t('Non-Navigation') : host._t('Navigation'),
     action: () => host._toggleNavVisibility(p.key),
   });
   items.push('divider');
 
   if (p.key && dc) {
     for (const [field, icon, labelSet, labelUnset] of [
-      ['home_panel', 'mdi:home-outline', 'Set Home', 'Unset Home'],
-      ['sleep_panel', 'mdi:weather-night', 'Set Sleep', 'Unset Sleep'],
-      ['wakeup_panel', 'mdi:weather-sunny', 'Set Wakeup', 'Unset Wakeup'],
+      ['home_panel', 'mdi:home-outline', host._t('Set Home'), host._t('Unset Home')],
+      ['sleep_panel', 'mdi:weather-night', host._t('Set Sleep'), host._t('Unset Sleep')],
+      ['wakeup_panel', 'mdi:weather-sunny', host._t('Set Wakeup'), host._t('Unset Wakeup')],
     ]) {
       if (dc[field] === p.key) {
         items.push({ icon: 'mdi:cancel', label: labelUnset, action: () => host._setSpecialPanel(field, '') });
@@ -66,11 +66,11 @@ export function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
   if (isSysOverride) {
     items.push({
       icon: 'mdi:restore',
-      label: 'Reset to Default',
+      label: host._t('Reset to Default'),
       action: () => host._resetSysPanelOverride(p.key),
     });
   } else {
-    items.push({ icon: 'mdi:delete', label: 'Delete', danger: true, action: () => host._confirmDelete(pIdx) });
+    items.push({ icon: 'mdi:delete', label: host._t('Delete'), danger: true, action: () => host._confirmDelete(pIdx) });
   }
 
   return items;
@@ -116,25 +116,25 @@ function renderPanelRow(host, p, panels, isNavPanel) {
   return html`
     <div class="pl-row">
       <span class="pl-card-type-icon">${pt ? html`<ha-icon icon=${pt.icon}></ha-icon>` : ""}</span>
-      <span class="pl-title">${p.title || (isOverride ? "" : html`<span class="pl-unnamed">${(pt && pt.label) || 'Unnamed'}</span>`)}</span>
+      <span class="pl-title">${p.title || (isOverride ? "" : html`<span class="pl-unnamed">${(pt && pt.label) || host._t('Unnamed')}</span>`)}</span>
       <div class="pl-meta">
         <span class="pl-key">${p.key || '-'}</span>
         ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}
       </div>
       <span class="pl-spacer"></span>
       <div class="pl-actions">
-        <ha-icon-button title="Move Up" class="pl-move-btn" ?disabled=${!canMoveUp} @click=${() => host._moveUp(p.key)}>
+        <ha-icon-button title=${host._t('Move Up')} class="pl-move-btn" ?disabled=${!canMoveUp} @click=${() => host._moveUp(p.key)}>
           <ha-icon icon="mdi:arrow-up"></ha-icon>
         </ha-icon-button>
-        <ha-icon-button title="Move Down" class="pl-move-btn" ?disabled=${!canMoveDown} @click=${() => host._moveDown(p.key)}>
+        <ha-icon-button title=${host._t('Move Down')} class="pl-move-btn" ?disabled=${!canMoveDown} @click=${() => host._moveDown(p.key)}>
           <ha-icon icon="mdi:arrow-down"></ha-icon>
         </ha-icon-button>
-        <ha-icon-button title="Edit" @click=${() => host._openEdit(pIdx)}>
+        <ha-icon-button title=${host._t('Edit')} @click=${() => host._openEdit(pIdx)}>
           <ha-icon icon="mdi:pencil"></ha-icon>
         </ha-icon-button>
         <div class="pl-more" data-pidx=${pIdx}>
           <ha-icon-button
-            title="More"
+            title=${host._t('More')}
             class=${host._actionsMenuIndex === pIdx ? 'active' : ''}
             @click=${(e) => {
               e.stopPropagation();
@@ -170,11 +170,11 @@ function renderSystemPanelRow(host, sp) {
       <span class="pl-spacer"></span>
       <span class="pl-actions">
         ${editable ? html`
-          <ha-icon-button title="Edit System Panel" @click=${() => host._openSysPanelEdit(sp)}>
+          <ha-icon-button title=${host._t('Edit System Panel')} @click=${() => host._openSysPanelEdit(sp)}>
             <ha-icon icon="mdi:pencil"></ha-icon>
           </ha-icon-button>
           ${hasOverride ? html`
-            <ha-icon-button title="Reset to Default" @click=${() => host._resetSysPanelOverride(sp.key)}>
+            <ha-icon-button title=${host._t('Reset to Default')} @click=${() => host._resetSysPanelOverride(sp.key)}>
               <ha-icon icon="mdi:restore"></ha-icon>
             </ha-icon-button>
           ` : ''}
@@ -197,10 +197,10 @@ export function renderPanelTable(host) {
   // No device selected
   if (!host._selectedDevice) {
     if (devices.length === 0) {
-      return renderEmptyCard("No devices found");
+      return renderEmptyCard(host._t('No devices found'));
     }
     return html`
-      <p class="no-device-selected">Select a device to edit its panels.</p>
+      <p class="no-device-selected">${host._t('Select a device to edit its panels.')}</p>
     `;
   }
 
@@ -212,16 +212,16 @@ export function renderPanelTable(host) {
 
   return html`
     ${panels.length === 0
-      ? renderEmptyCard('No panels configured yet.')
+      ? renderEmptyCard(host._t('No panels configured yet.'))
       : html`
         <details class="panel-group" ?open=${host.__navPanelsOpen}
           @toggle=${(e) => { host.__navPanelsOpen = e.target.open; writeOpen('haui_navPanelsOpen', e.target.open); }}>
-          <summary class="group-title">Navigation (${navPanels.length} panels)</summary>
+          <summary class="group-title">${host._t('Navigation')} (${navPanels.length} ${host._t('panels')})</summary>
           ${navPanels.map(p => renderPanelRow(host, p, panels, true))}
         </details>
         <details class="panel-group" ?open=${host.__hiddenPanelsOpen}
           @toggle=${(e) => { host.__hiddenPanelsOpen = e.target.open; writeOpen('haui_hiddenPanelsOpen', e.target.open); }}>
-          <summary class="group-title">Non-Navigation (${hiddenPanels.length} panels)</summary>
+          <summary class="group-title">${host._t('Non-Navigation')} (${hiddenPanels.length} ${host._t('panels')})</summary>
           ${hiddenPanels.map(p => renderPanelRow(host, p, panels, false))}
         </details>
       `}
@@ -242,7 +242,7 @@ export function renderSystemPanels(host, viewMode) {
     <details class="panel-group" ?open=${host.__systemPanelsOpen}
       @toggle=${(e) => { host.__systemPanelsOpen = e.target.open; writeOpen(e.target.open); }}>
       <summary class="group-title">
-        System Panels (${host._panels.system_panels.length} panels)
+        ${host._t('System Panels')} (${host._panels.system_panels.length} ${host._t('panels')})
       </summary>
       ${isGrid
         ? html`<div class="pg-grid">${host._panels.system_panels.map(sp => renderSystemPanelCard(host, sp))}</div>`

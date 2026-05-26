@@ -1,0 +1,14 @@
+/**
+ * NSPanel HAUI - Editor - Panel preview: System.
+ */
+import { html } from '../lit-import.js';
+
+export function renderSystemPreview(_host, _panel, _pIdx, _pt) {
+  return {
+    containerClass: 'pg-preview-bg-system',
+    content: html`
+      <div style="display:flex;width:100%;flex:1;align-items:center;justify-content:center;">
+        <ha-icon icon="mdi:connection" style="--mdc-icon-size:48px;color:var(--primary-color,#4fc3f7);"></ha-icon>
+      </div>`,
+  };
+}

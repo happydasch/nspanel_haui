@@ -35,6 +35,32 @@ def _lookup_esphome_friendly_name(hass: Any, node_name: str) -> str:
     return node_name
 
 
+class TranslationsView(HomeAssistantView):
+    """REST API view returning translation data for the frontend editor."""
+
+    url = "/api/nspanel_haui/translations/{language}"
+    name = "api:nspanel_haui:translations"
+    requires_auth = True
+
+    async def get(self, request, language: str):
+        """Return translation data for a language code.
+
+        Query param ``flat`` (optional, defaults to ``1``) controls whether the
+        response is a flat ``{text_key: translation}`` mapping.  When ``0`` the
+        full JSON structure (including ``component`` section) is returned.
+
+        Falls back to English when the requested language is not available.
+        """
+        from .haui.utils.text import get_translations
+
+        flat = request.query.get("flat", "1")
+        translations = get_translations(language)
+
+        if flat == "1" or flat is True:
+            return self.json(translations.get("text", {}))
+        return self.json(translations)
+
+
 class DeviceStatusView(HomeAssistantView):
     """REST API view returning live device status."""
 

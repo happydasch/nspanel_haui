@@ -48,22 +48,23 @@ class VacuumPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        btn_fan=Component(7, "bFan"),
-        btn_action=Component(8, "bAction"),
-        btn_home=Component(9, "bHome"),
-        btn_locate=Component(10, "bLocate"),
-        t_status=Component(11, "tStatus"),
-        btn_entity_1=Component(12, "bEntity1"),
-        btn_entity_2=Component(13, "bEntity2"),
-        btn_entity_3=Component(14, "bEntity3"),
-        btn_entity_4=Component(15, "bEntity4"),
-        btn_entity_5=Component(16, "bEntity5"),
-        btn_entity_6=Component(17, "bEntity6"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        btn_fan=Component(8, "bFan"),
+        btn_action=Component(9, "bAction"),
+        btn_home=Component(10, "bHome"),
+        btn_locate=Component(11, "bLocate"),
+        t_status=Component(12, "tStatus"),
+        btn_entity_1=Component(13, "bEntity1"),
+        btn_entity_2=Component(14, "bEntity2"),
+        btn_entity_3=Component(15, "bEntity3"),
+        btn_entity_4=Component(16, "bEntity4"),
+        btn_entity_5=Component(17, "bEntity5"),
+        btn_entity_6=Component(18, "bEntity6"),
     )
 
     NUM_ENTITIES = 6
@@ -105,6 +106,9 @@ class VacuumPage(HAUIPage):
         if item is not None:
             title = item.get_item_attr("friendly_name", title)
         self._title = title
+
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_vacuum_item()

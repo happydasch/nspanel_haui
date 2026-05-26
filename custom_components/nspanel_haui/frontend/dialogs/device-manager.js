@@ -6,6 +6,7 @@
  */
 import { LitElement, html } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { t } from '../localize.js';
 
 class DeviceManagerDialog extends LitElement {
   static get properties() {
@@ -46,7 +47,7 @@ class DeviceManagerDialog extends LitElement {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        header-title="Device Manager"
+        header-title=${t('Device Manager')}
         .preventScrimClose=${true}
       >
         <form @submit=${(e) => e.preventDefault()}>
@@ -55,19 +56,19 @@ class DeviceManagerDialog extends LitElement {
             ${this._showAddForm ? html`
               <div class="device-mgr-add-form">
                 <div class="form-group">
-                  <label>Device Name</label>
+                  <label>${t('Device Name')}</label>
                   <ha-input
                     .value=${this._newDeviceName}
                     @input=${(e) => this._newDeviceName = e.target.value}
-                    placeholder="my_nspanel"
+                    placeholder=${t('my_nspanel')}
                   ></ha-input>
                 </div>
                 <div class="device-mgr-add-actions">
                   <ha-button variant="neutral" appearance="plain" @click=${() => { this._showAddForm = false; this._newDeviceName = ""; this._addError = ""; }}>
-                    Cancel
+                    ${t('Cancel')}
                   </ha-button>
                   <ha-button @click=${this._onAddDevice}>
-                    Add
+                    ${t('Add')}
                   </ha-button>
                 </div>
                 ${this._addError ? html`<p class="device-mgr-error">${this._addError}</p>` : ""}
@@ -77,14 +78,14 @@ class DeviceManagerDialog extends LitElement {
             <!-- discovered devices -->
             ${this._discoveredDevices.length > 0 ? html`
               <div class="device-mgr-section">
-                <h3 class="device-mgr-section-title">Discovered Devices (${this._discoveredDevices.length})</h3>
+                <h3 class="device-mgr-section-title">${t('Discovered Devices')} (${this._discoveredDevices.length})</h3>
                 ${this._discoveredDevices.map(d => html`
                   <div class="device-mgr-row discovered-row">
                     <div class="device-mgr-row-info">
                       <span class="device-mgr-name"><strong>${d.name}</strong></span>
                     </div>
                     <ha-button variant="neutral" appearance="plain" @click=${() => this._onAddDiscovered(d)}>
-                      Add
+                      ${t('Add')}
                     </ha-button>
                   </div>
                 `)}
@@ -93,9 +94,9 @@ class DeviceManagerDialog extends LitElement {
 
             <!-- configured devices -->
             <div class="device-mgr-section">
-              <h3 class="device-mgr-section-title">Configured Devices (${deviceKeys.length})</h3>
+              <h3 class="device-mgr-section-title">${t('Configured Devices')} (${deviceKeys.length})</h3>
               ${deviceKeys.length === 0 ? html`
-                <p class="device-mgr-empty">No devices configured yet.</p>
+                <p class="device-mgr-empty">${t('No devices configured yet.')}</p>
               ` : deviceKeys.map(name => this._renderDeviceRow(name))}
             </div>
 
@@ -109,10 +110,10 @@ class DeviceManagerDialog extends LitElement {
             variant="neutral" appearance="plain"
           >
             <ha-icon icon="mdi:wifi" slot="icon"></ha-icon>
-            ${this._discovering ? "Discovering…" : "Discover"}
+            ${this._discovering ? t('Discovering…') : t('Discover')}
           </ha-button>
           <ha-button @click=${this._dispatchClose}>
-            Close
+            ${t('Close')}
           </ha-button>
         </div>
       </ha-dialog>
@@ -135,38 +136,38 @@ class DeviceManagerDialog extends LitElement {
       <div class="device-mgr-row ${isSelected ? 'selected' : ''}" @click=${() => this._dispatchSelectDevice(name)}>
         <div class="device-mgr-row-status">
           <span class="device-mgr-dot ${enabled ? 'dot-connected' : 'dot-disconnected'}"
-                title=${enabled ? "Enabled" : "Disabled"}></span>
+                title=${enabled ? t('Enabled') : t('Disabled')}></span>
         </div>
         <div class="device-mgr-row-info">
           <span class="device-mgr-name"><strong>${name}</strong></span>
           <span class="device-mgr-meta">
-            ${panelCount} panel${panelCount !== 1 ? 's' : ''}
-            ${!enabled ? '· (disabled)' : ''}
+            ${panelCount} ${t('panel')}${panelCount !== 1 ? 's' : ''}
+            ${!enabled ? '· ' + t('(disabled)') : ''}
           </span>
         </div>
         <div class="device-mgr-row-actions">
           <ha-icon-button
-            title="Move up"
+            title=${t('Move up')}
             ?disabled=${!canMoveUp}
             @click=${(e) => { e.stopPropagation(); this._dispatchMoveDevice(name, -1); }}
           >
             <ha-icon icon="mdi:arrow-up"></ha-icon>
           </ha-icon-button>
           <ha-icon-button
-            title="Move down"
+            title=${t('Move down')}
             ?disabled=${!canMoveDown}
             @click=${(e) => { e.stopPropagation(); this._dispatchMoveDevice(name, 1); }}
           >
             <ha-icon icon="mdi:arrow-down"></ha-icon>
           </ha-icon-button>
           <ha-icon-button
-            title="Device Settings"
+            title=${t('Device Settings')}
             @click=${(e) => { e.stopPropagation(); this._dispatchDeviceSettings(name); }}
           >
             <ha-icon icon="mdi:cog-outline"></ha-icon>
           </ha-icon-button>
           <ha-icon-button
-            title="Remove"
+            title=${t('Remove')}
             class="device-mgr-remove-btn"
             ?disabled=${isRemoving}
             @click=${(e) => { e.stopPropagation(); this._onRemoveDevice(name); }}
@@ -231,12 +232,12 @@ class DeviceManagerDialog extends LitElement {
   _onAddDevice() {
     const name = (this._newDeviceName || "").trim();
     if (!name) {
-      this._addError = "Device name is required";
+      this._addError = t('Device name is required');
       this.requestUpdate();
       return;
     }
     if (this.devices[name]) {
-      this._addError = `Device "${name}" already exists`;
+      this._addError = `${t('Device')} "${name}" ${t('already exists')}`;
       this.requestUpdate();
       return;
     }

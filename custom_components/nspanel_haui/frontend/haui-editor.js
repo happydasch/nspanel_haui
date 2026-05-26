@@ -13,6 +13,7 @@ import './iconset.js';
 
 import { LitElement, html } from './lit-import.js';
 import { clone, DEVICE_CONFIG_DEFAULTS, POPUP_TO_USER_TYPE } from './constants.js';
+import { fetchTranslations, t, getLanguage } from './localize.js';
 import { haStyle, haStyleDialog, editorStyles } from './styles.js';
 import * as Api from './api.js';
 import * as Crud from './crud.js';
@@ -141,6 +142,7 @@ class NSPanelEditor extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this._ensureTranslations();
     this.__onDocMouseDown = (e) => {
       const path = e.composedPath();
       if (this._actionsMenuIndex !== null && this._actionsMenuIndex !== undefined) {
@@ -438,6 +440,16 @@ class NSPanelEditor extends LitElement {
 
   _showToast(m, t)         { Toast.showToast(this, m, t); }
 
+  /* ── localization ─────────────────────────────────────────────────────── */
+
+  _t(text) { return t(text); }
+
+  async _ensureTranslations() {
+    if (this.hass) {
+      await fetchTranslations(this.hass, getLanguage(this.hass));
+    }
+  }
+
   /* ── render helpers ───────────────────────────────────────────────────── */
 
   _renderOptionField(o, v) { return renderOptionField(this, o, v); }
@@ -454,7 +466,7 @@ class NSPanelEditor extends LitElement {
       return html`<div class="container">
         ${renderTitleHeader(this)}
         <ha-card outlined class="content-card">
-          ${renderEmptyCard("No NSPanel HAUI integration configured. Add one via Settings → Devices and Services.")}
+          ${renderEmptyCard(this._t("No NSPanel HAUI integration configured. Add one via Settings → Devices and Services."))}
         </ha-card>
       </div>`;
     }
@@ -462,7 +474,7 @@ class NSPanelEditor extends LitElement {
     if (this._loading) {
       return html`<div class="container">
         ${renderTitleHeader(this)}
-        <div class="loading">Loading panels...</div>
+        <div class="loading">${this._t('Loading panels...')}</div>
       </div>`;
     }
 

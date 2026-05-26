@@ -29,12 +29,12 @@ def test_colors_has_expected_keys() -> None:
     assert "weather_sunny" in COLORS
     assert "alarm_armed" in COLORS
     assert "climate_heat" in COLORS
-    assert len(COLORS) >= 35
+    assert len(COLORS) >= 36
 
 
 def test_colors_distinct_groups() -> None:
     """Verify keys from each group are present."""
-    defaults = {"background", "header_background", "text", "text_inactive", "text_disabled",
+    defaults = {"background", "header_background", "header_text", "header_accent", "text", "text_inactive", "text_disabled",
                  "component_text", "component_pressed", "component_active",
                  "component_accent", "component_background"}
     weather = {"weather_default", "weather_clear_night", "weather_sunny",

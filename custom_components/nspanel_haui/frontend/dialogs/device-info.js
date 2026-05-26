@@ -5,6 +5,7 @@
  */
 import { LitElement, html } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { t } from '../localize.js';
 
 /* ── timestamp formatting ─────────────────────────────────────────── */
 
@@ -18,18 +19,18 @@ function fmtTimestamp(isoString) {
 
     if (diffSec < 0) return then.toLocaleString();
 
-    if (diffSec < 60) return "Just now";
+    if (diffSec < 60) return t('Just now');
     if (diffSec < 3600) {
       const m = Math.floor(diffSec / 60);
-      return `${m} minute${m === 1 ? "" : "s"} ago`;
+      return `${m} ${t('minute(s) ago')}`;
     }
     if (diffSec < 86400) {
       const h = Math.floor(diffSec / 3600);
-      return `${h} hour${h === 1 ? "" : "s"} ago`;
+      return `${h} ${t('hour(s) ago')}`;
     }
     if (diffSec < 604800) {
       const d = Math.floor(diffSec / 86400);
-      return `${d} day${d === 1 ? "" : "s"} ago`;
+      return `${d} ${t('day(s) ago')}`;
     }
     return then.toLocaleString();
   } catch {
@@ -52,19 +53,19 @@ function renderActiveTimers(ds) {
 
   if (!timers || timers.length === 0) {
     return html`<div class="active-timers-section">
-      <h4>Active Timers (${count})</h4>
-      <p class="empty-state-text">No active timers.</p>
+      <h4>${t('Active Timers')} (${count})</h4>
+      <p class="empty-state-text">${t('No active timers.')}</p>
     </div>`;
   }
 
   return html`
     <div class="active-timers-section">
-      <h4>Active Timers (${count})</h4>
+      <h4>${t('Active Timers')} (${count})</h4>
       <div class="timers-table">
         <div class="timers-header">
-          <span class="timers-col timers-col-cb">Callback</span>
-          <span class="timers-col timers-col-type">Type</span>
-          <span class="timers-col timers-col-int">Interval</span>
+          <span class="timers-col timers-col-cb">${t('Callback')}</span>
+          <span class="timers-col timers-col-type">${t('Type')}</span>
+          <span class="timers-col timers-col-int">${t('Interval')}</span>
         </div>
         ${timers.map(t => html`
           <div class="timers-row">
@@ -84,19 +85,19 @@ function renderActiveListeners(ds) {
 
   if (!listeners || listeners.length === 0) {
     return html`<div class="active-listeners-section">
-      <h4>Active Listeners (${count})</h4>
-      <p class="empty-state-text">No active listeners.</p>
+      <h4>${t('Active Listeners')} (${count})</h4>
+      <p class="empty-state-text">${t('No active listeners.')}</p>
     </div>`;
   }
 
   return html`
     <div class="active-listeners-section">
-      <h4>Active Listeners (${count})</h4>
+      <h4>${t('Active Listeners')} (${count})</h4>
       <div class="listeners-table">
         <div class="listeners-header">
-          <span class="listeners-col listeners-col-entity">Entity</span>
-          <span class="listeners-col listeners-col-attr">Attribute</span>
-          <span class="listeners-col listeners-col-cb">Callback</span>
+          <span class="listeners-col listeners-col-entity">${t('Entity')}</span>
+          <span class="listeners-col listeners-col-attr">${t('Attribute')}</span>
+          <span class="listeners-col listeners-col-cb">${t('Callback')}</span>
         </div>
         ${listeners.map(l => html`
           <div class="listeners-row">
@@ -140,33 +141,33 @@ class DeviceInfoDialog extends LitElement {
         .open=${this.open}
         @closed=${this._dispatchClose}
         .preventScrimClose=${true}
-        header-title="Device Info"
+        header-title=${t('Device Info')}
       >
 
         <div class="dialog-body">
           <div class="info-grid-2col">
             <div>
-              <strong>Device:</strong> ${di.name || "-"}
+              <strong>${t('Device:')}</strong> ${di.name || "-"}
             </div>
             <div>
-              <strong>Connection:</strong>
-              ${ds.connected ? "Connected" : "Disconnected"}
-              <span class="text-secondary">(${ds.connection_state || "unknown"})</span>
+              <strong>${t('Connection:')}</strong>
+              ${ds.connected ? t('Connected') : t('Disconnected')}
+              <span class="text-secondary">(${ds.connection_state || t('unknown')})</span>
             </div>
             <div>
-              <strong>Current Page:</strong> ${ds.current_page || "-"}
+              <strong>${t('Current Page:')}</strong> ${ds.current_page || "-"}
             </div>
             <div>
-              <strong>YAML Version:</strong> ${di.yaml_version || "-"}
+              <strong>${t('YAML Version:')}</strong> ${di.yaml_version || "-"}
             </div>
             <div>
-              <strong>TFT Version:</strong> ${di.tft_version || "-"}
+              <strong>${t('TFT Version:')}</strong> ${di.tft_version || "-"}
             </div>
             <div>
-              <strong>Last Connection:</strong> ${fmtTimestamp(di.last_connection)}
+              <strong>${t('Last Connection:')}</strong> ${fmtTimestamp(di.last_connection)}
             </div>
             <div>
-              <strong>Last Panel Update:</strong> ${fmtTimestamp(di.last_panel_update)}
+              <strong>${t('Last Panel Update:')}</strong> ${fmtTimestamp(di.last_panel_update)}
             </div>
           </div>
 
@@ -176,7 +177,7 @@ class DeviceInfoDialog extends LitElement {
 
         <ha-dialog-footer slot="footer">
           <ha-button slot="primaryAction" @click=${this._dispatchClose}>
-            Close
+            ${t('Close')}
           </ha-button>
         </ha-dialog-footer>
       </ha-dialog>

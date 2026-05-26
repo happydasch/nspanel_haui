@@ -2,6 +2,7 @@ COLORS = {
     # default colors
     "header_background": 6339,  # [24, 24, 24]
     "header_text": 65535,  # [255, 255, 255]
+    "header_accent": 62694,  # [246, 157, 49]
     "background": 6339,  # [24, 24, 24]
     "text": 55002,  # [213, 218, 213]
     "text_inactive": 29582,  # [115, 115, 115] #737373

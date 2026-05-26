@@ -27,11 +27,11 @@ class SettingsPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
+        title=Component(2, "tTitle"),
         fnc_left_pri=Component(3, "bFncLPri"),
         fnc_left_sec=Component(4, "bFncLSec"),
         fnc_right_pri=Component(5, "bFncRPri"),
         fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
         t_brght_title=Component(7, "tBrghtTitle"),
         t_brght_ico=Component(8, "tBrghtIco"),
         h_brght=Component(9, "hBrght"),
@@ -69,12 +69,15 @@ class SettingsPage(HAUIPage):
 
         # set function buttons
         with self.rec_cmd:
-            self.set_function_buttons(
-                self.COMPONENTS.fnc_left_pri,
-                self.COMPONENTS.fnc_left_sec,
-                self.COMPONENTS.fnc_right_pri,
-                self.COMPONENTS.fnc_right_sec,
+            self.set_function_component(
+                self.COMPONENTS.fnc_left_pri, self.FNC_BTN_L_PRI,
+                fnc_name=self.FNC_TYPE_NAV_UP,
             )
+            self.set_function_component(
+                self.COMPONENTS.fnc_right_pri, self.FNC_BTN_R_PRI,
+                fnc_name=self.FNC_TYPE_NAV_CLOSE,
+            )
+            # left and right secondary buttons are unused (hidden, no callback)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # remove existing handles

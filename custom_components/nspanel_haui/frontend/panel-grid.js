@@ -54,7 +54,7 @@ function renderPanelCard(host, p, panels, isNavPanel) {
   //   - nav + pagination → NEXT on right_pri, pagination on right_sec
   //   - nav + no pagination → NEXT on right_pri
   //   - non-nav + pagination → pagination on right_pri
-  //   - non-nav no pagination → no right buttons (hidden panel)
+  //   - non-nav + no pagination → CLOSE on right_pri (auto-assigned via _auto_assign_fncs)
   let rightPri, rightSec;
   if (showInNav) {
     rightPri = 'mdi:chevron-right';
@@ -63,7 +63,7 @@ function renderPanelCard(host, p, panels, isNavPanel) {
     rightPri = { icon: 'mdi:chevron-double-down', accent: true };
     rightSec = '';
   } else {
-    rightPri = '';
+    rightPri = 'mdi:close';
     rightSec = '';
   }
   // left_sec: not-home+home_btn → HOME, home+notif → NOTIF, home+sleep → SLEEP
@@ -76,6 +76,14 @@ function renderPanelCard(host, p, panels, isNavPanel) {
     leftSec = 'mdi:sleep';
   }
   const headerButtons = { left: [leftPri, leftSec], right: [rightSec, rightPri] };
+  // Preview renderers can override any of the 4 header button positions
+  if (previewResult.headerButtonOverrides) {
+    const o = previewResult.headerButtonOverrides;
+    if (o.leftPri !== undefined) headerButtons.left[0] = o.leftPri;
+    if (o.leftSec !== undefined) headerButtons.left[1] = o.leftSec;
+    if (o.rightPri !== undefined) headerButtons.right[1] = o.rightPri;
+    if (o.rightSec !== undefined) headerButtons.right[0] = o.rightSec;
+  }
 
   const actions = renderCardActions(host, p.key, (close) =>
     renderPanelDropdown(host, pIdx, buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown), close)
@@ -86,7 +94,7 @@ function renderPanelCard(host, p, panels, isNavPanel) {
       ${renderCardChrome({
         icon: pt?.icon,
         title: p.title,
-        titleFallback: isOverride ? '' : ((pt && pt.label) || 'Unnamed'),
+        titleFallback: isOverride ? '' : ((pt && pt.label) || host._t('Unnamed')),
         key: p.key,
         badges,
         hasHeader: pt ? pt.has_header !== false : true,
@@ -116,10 +124,10 @@ export function renderPanelGrid(host) {
   // No device selected
   if (!host._selectedDevice) {
     if (devices.length === 0) {
-      return renderEmptyCard("No devices found");
+      return renderEmptyCard(host._t('No devices found'));
     }
     return html`
-      <p class="no-device-selected">Select a device to edit its panels.</p>
+      <p class="no-device-selected">${host._t('Select a device to edit its panels.')}</p>
     `;
   }
 
@@ -131,18 +139,18 @@ export function renderPanelGrid(host) {
 
   return html`
     ${panels.length === 0
-      ? renderEmptyCard('No panels configured yet.')
+      ? renderEmptyCard(host._t('No panels configured yet.'))
       : html`
         <details class="panel-group" ?open=${host.__navPanelsOpen}
           @toggle=${(e) => { host.__navPanelsOpen = e.target.open; writeOpen('haui_navPanelsOpen', e.target.open); }}>
-          <summary class="group-title">Navigation (${navPanels.length} panels)</summary>
+          <summary class="group-title">${host._t('Navigation')} (${navPanels.length} ${host._t('panels')})</summary>
           <div class="pg-grid">
             ${navPanels.map(p => renderPanelCard(host, p, panels, true))}
           </div>
         </details>
         <details class="panel-group" ?open=${host.__hiddenPanelsOpen}
           @toggle=${(e) => { host.__hiddenPanelsOpen = e.target.open; writeOpen('haui_hiddenPanelsOpen', e.target.open); }}>
-          <summary class="group-title">Non-Navigation (${hiddenPanels.length} panels)</summary>
+          <summary class="group-title">${host._t('Non-Navigation')} (${hiddenPanels.length} ${host._t('panels')})</summary>
           <div class="pg-grid">
             ${hiddenPanels.map(p => renderPanelCard(host, p, panels, false))}
           </div>

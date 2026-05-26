@@ -9,6 +9,7 @@ from ..version import get_version
 
 class AboutPage(HAUIPage):
     USE_SYSTEM_COLORS = False
+    PICTURE_BACKGROUND = True
     DESCRIPTOR = PageDescriptor(
         type_key="system_about",
         page_name="about",
@@ -25,21 +26,22 @@ class AboutPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        t_about_1=Component(7, "tAbout1"),
-        t_about_2=Component(8, "tAbout2"),
-        t_device_name=Component(9, "tDeviceName"),
-        t_ip=Component(10, "tIP"),
-        t_tft_vers=Component(11, "tTftVers"),
-        t_tft_vers_val=Component(12, "tTftVersVal"),
-        t_yaml_vers=Component(13, "tYamlVers"),
-        t_yaml_vers_val=Component(14, "tYamlVersVal"),
-        t_ad_vers=Component(15, "tADVers"),
-        t_ad_vers_val=Component(16, "tADVersVal"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        t_about_1=Component(8, "tAbout1"),
+        t_about_2=Component(9, "tAbout2"),
+        t_device_name=Component(10, "tDeviceName"),
+        t_ip=Component(11, "tIP"),
+        t_tft_vers=Component(12, "tTftVers"),
+        t_tft_vers_val=Component(13, "tTftVersVal"),
+        t_yaml_vers=Component(14, "tYamlVers"),
+        t_yaml_vers_val=Component(15, "tYamlVersVal"),
+        t_ad_vers=Component(16, "tADVers"),
+        t_ad_vers_val=Component(17, "tADVersVal"),
     )
 
     _title = ""
@@ -49,12 +51,15 @@ class AboutPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         with self.rec_cmd:
             # set function buttons
-            self.set_function_buttons(
-                self.COMPONENTS.fnc_left_pri,
-                self.COMPONENTS.fnc_left_sec,
-                self.COMPONENTS.fnc_right_pri,
-                self.COMPONENTS.fnc_right_sec,
+            self.set_function_component(
+                self.COMPONENTS.fnc_left_pri, self.FNC_BTN_L_PRI,
+                fnc_name=self.FNC_TYPE_NAV_UP,
             )
+            self.set_function_component(
+                self.COMPONENTS.fnc_right_pri, self.FNC_BTN_R_PRI,
+                fnc_name=self.FNC_TYPE_NAV_CLOSE,
+            )
+            # left and right secondary buttons are unused (hidden, no callback)
 
             # title
             self._title = panel.get_title(self.translate("NSPanel HAUI"))

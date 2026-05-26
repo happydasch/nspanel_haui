@@ -5,6 +5,7 @@
  * move-state computation, and badge rendering.
  */
 import { html } from './lit-import.js';
+import { t } from './localize.js';
 
 /**
  * Collect system panel keys from the host's panels data.
@@ -62,9 +63,9 @@ export function getPanelMoveState(p, panels, isNavPanel) {
 export function renderBadges(p, dc, hasOverride = false) {
   const badges = [];
   if (!p.key) return badges;
-  if (p.key === dc.home_panel) badges.push(html`<span class="pl-badge pl-badge-home" title="Home panel"><ha-icon icon="mdi:home-outline"></ha-icon></span>`);
-  if (p.key === dc.sleep_panel) badges.push(html`<span class="pl-badge pl-badge-sleep" title="Sleep panel"><ha-icon icon="mdi:weather-night"></ha-icon></span>`);
-  if (p.key === dc.wakeup_panel) badges.push(html`<span class="pl-badge pl-badge-wakeup" title="Wakeup panel"><ha-icon icon="mdi:weather-sunny"></ha-icon></span>`);
-  if (hasOverride) badges.push(html`<span class="pl-badge pl-badge-edited" title="Edited (overrides system default)"><ha-icon icon="mdi:pencil"></ha-icon></span>`);
+  if (p.key === dc.home_panel) badges.push(html`<span class="pl-badge pl-badge-home" title=${t('Home panel')}><ha-icon icon="mdi:home-outline"></ha-icon></span>`);
+  if (p.key === dc.sleep_panel) badges.push(html`<span class="pl-badge pl-badge-sleep" title=${t('Sleep panel')}><ha-icon icon="mdi:weather-night"></ha-icon></span>`);
+  if (p.key === dc.wakeup_panel) badges.push(html`<span class="pl-badge pl-badge-wakeup" title=${t('Wakeup panel')}><ha-icon icon="mdi:weather-sunny"></ha-icon></span>`);
+  if (hasOverride) badges.push(html`<span class="pl-badge pl-badge-edited" title=${t('Edited (overrides system default)')}><ha-icon icon="mdi:pencil"></ha-icon></span>`);
   return badges;
 }

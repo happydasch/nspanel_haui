@@ -40,24 +40,25 @@ class TimerPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        t_minutes=Component(7, "tMin"),
-        t_space=Component(8, "tSpace"),
-        t_seconds=Component(9, "tSec"),
-        btn_up_1=Component(10, "bUp1"),
-        btn_up_2=Component(11, "bUp2"),
-        btn_up_3=Component(12, "bUp3"),
-        btn_up_4=Component(13, "bUp4"),
-        btn_down_1=Component(14, "bDown1"),
-        btn_down_2=Component(15, "bDown2"),
-        btn_down_3=Component(16, "bDown3"),
-        btn_down_4=Component(17, "bDown4"),
-        btn_start=Component(18, "bStart"),
-        btn_stop=Component(19, "bStop"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        t_minutes=Component(8, "tMin"),
+        t_space=Component(9, "tSpace"),
+        t_seconds=Component(10, "tSec"),
+        btn_up_1=Component(11, "bUp1"),
+        btn_up_2=Component(12, "bUp2"),
+        btn_up_3=Component(13, "bUp3"),
+        btn_up_4=Component(14, "bUp4"),
+        btn_down_1=Component(15, "bDown1"),
+        btn_down_2=Component(16, "bDown2"),
+        btn_down_3=Component(17, "bDown3"),
+        btn_down_4=Component(18, "bDown4"),
+        btn_start=Component(19, "bStart"),
+        btn_stop=Component(20, "bStop"),
     )
 
     DISPLAY_UPDATE_INTERVAL = 0.5
@@ -83,7 +84,7 @@ class TimerPage(HAUIPage):
             "fnc_name": "stop_timer",
             "fnc_args": {
                 "icon": ICO_TIMER_OFF,
-                "color": self.get_color("component_accent"),
+                "color": self.get_color("header_accent"),
                 "visible": self.is_timer_active(),
             },
         }
@@ -143,6 +144,9 @@ class TimerPage(HAUIPage):
             visible=True,
             color=self.get_color("component_text"),
         )
+
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._timer_update_display is not None:

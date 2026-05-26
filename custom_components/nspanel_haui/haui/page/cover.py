@@ -32,16 +32,17 @@ class CoverPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        btn_up=Component(7, "bUp"),
-        btn_stop=Component(8, "bStop"),
-        btn_down=Component(9, "bDown"),
-        h_vert_pos=Component(10, "hVertPos"),
-        t_info=Component(11, "tInfo"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        btn_up=Component(8, "bUp"),
+        btn_stop=Component(9, "bStop"),
+        btn_down=Component(10, "bDown"),
+        h_vert_pos=Component(11, "hVertPos"),
+        t_info=Component(12, "tInfo"),
     )
 
     _title = ""
@@ -74,6 +75,8 @@ class CoverPage(HAUIPage):
         if item is not None:
             title = item.get_item_attr("friendly_name", title)
         self._title = title
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.COMPONENTS.title, self._title)

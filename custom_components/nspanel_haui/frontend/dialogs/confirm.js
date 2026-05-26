@@ -6,6 +6,7 @@
  */
 import { LitElement, html } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { t } from '../localize.js';
 
 class ConfirmDialog extends LitElement {
   static get properties() {
@@ -34,7 +35,7 @@ class ConfirmDialog extends LitElement {
         @closed=${this._dispatchClose}
         type="alert"
         .preventScrimClose=${true}
-        header-title=${title || "Confirm"}
+        header-title=${title || t('Confirm')}
       >
         <div class="dialog-body">
           <p>${message || ""}</p>
@@ -46,14 +47,14 @@ class ConfirmDialog extends LitElement {
             appearance="plain"
             @click=${this._dispatchClose}
           >
-            ${cancelText || "Cancel"}
+            ${cancelText || t('Cancel')}
           </ha-button>
           <ha-button
             slot="primaryAction"
             variant="danger"
             @click=${this._dispatchConfirm}
           >
-            ${confirmText || "Delete"}
+            ${confirmText || t('Delete')}
           </ha-button>
         </ha-dialog-footer>
       </ha-dialog>

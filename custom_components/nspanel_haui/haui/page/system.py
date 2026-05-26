@@ -22,10 +22,6 @@ class SystemPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
         qr_url=Component(1, "qrUrl"),
         h_spinner=Component(2, "hSpinner"),
         title=Component(3, "tTitle"),

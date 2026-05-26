@@ -4,6 +4,7 @@
  */
 
 import { html } from './lit-import.js';
+import { t } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS, renderEntityPicker } from './haui-entity.js';
 import {
   hasOverrides,
@@ -179,63 +180,6 @@ const MDI_ICONS = [
 ];
 
 
-/**
- * Generate a palette of N colors from a seed + palette type.
- * JS port of haui/utils/color.py:generate_color_palette().
- * @param {number} seed - Integer seed for the PRNG
- * @param {string} paletteType - "vibrant" | "pastel" | "light" | "lighten" | "dark" | "darken" | ""
- * @param {number} numColors - Number of colors to generate
- * @returns {Array<[number, number, number]>} Array of [r, g, b] tuples (0-255)
- */
-function generatePalette(seed, paletteType, numColors) {
-  if (!paletteType || paletteType === "") paletteType = "vibrant";
-  // Simple seeded PRNG (mulberry32)
-  let s = seed | 0;
-  function next() { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
-
-  const bgV = 0.094;
-  const colors = [];
-  for (let i = 0; i < numColors; i++) {
-    let hue, sat, val;
-    if (paletteType === "vibrant") {
-      hue = next(); sat = 0.7 + next() * 0.3; val = 0.7 + next() * 0.3;
-    } else if (paletteType === "pastel") {
-      hue = next(); sat = 0.2 + next() * 0.3; val = 0.7 + next() * 0.3;
-    } else if (paletteType === "light") {
-      hue = 0; sat = 0; val = 0.7 + next() * 0.1;
-    } else if (paletteType === "lighten") {
-      hue = 0; sat = 0; val = 0.8;
-    } else if (paletteType === "dark") {
-      hue = 0; sat = 0; val = 0.2 + next() * 0.1;
-    } else if (paletteType === "darken") {
-      hue = 0; sat = 0; val = 0.2;
-    } else {
-      hue = next(); sat = 0.7 + next() * 0.3; val = 0.7 + next() * 0.3;
-    }
-    // HSV → RGB
-    const h = hue * 6;
-    const hi = Math.floor(h);
-    const f = h - hi;
-    const p = val * (1 - sat);
-    const q = val * (1 - sat * f);
-    const t2 = val * (1 - sat * (1 - f));
-    let r, g, b;
-    switch (hi % 6) {
-      case 0: r=val; g=t2; b=p; break;
-      case 1: r=q; g=val; b=p; break;
-      case 2: r=p; g=val; b=t2; break;
-      case 3: r=p; g=q; b=val; break;
-      case 4: r=t2; g=p; b=val; break;
-      case 5: r=val; g=p; b=q; break;
-    }
-    colors.push([
-      Math.round(r * 255),
-      Math.round(g * 255),
-      Math.round(b * 255),
-    ]);
-  }
-  return colors;
-}
 /** Cache of MDI icon names fetched from the backend. */
 let _iconCache = null;
 let _iconFetchPromise = null;
@@ -383,7 +327,7 @@ function scheduleTemplateRender(hass, value, previewId, contextEl) {
     } catch (e) {
       const el2 = _findPreviewEl(previewId, contextEl);
       if (el2) {
-        el2.textContent = "(template error)";
+        el2.textContent = t("(template error)");
         el2.style.color = "var(--error-color, red)";
       }
     }
@@ -418,7 +362,7 @@ function renderIconPicker(id, value, hass = null, onInput = null) {
         id=${id}
         class="icon-picker-input"
         .value=${currentVal}
-        placeholder="mdi:home"
+        placeholder=${t("mdi:home")}
         @input=${(e) => {
           const tf = e.target;
           const val = tf.value || "";
@@ -519,7 +463,7 @@ function renderIconPicker(id, value, hass = null, onInput = null) {
       </div>
       <div class="icon-preview-row">
         <ha-icon class="icon-preview" icon=${currentVal || "mdi:puzzle"}></ha-icon>
-        <span class="icon-preview-label">${currentVal || "no icon selected"}</span>
+        <span class="icon-preview-label">${currentVal || t("no icon selected")}</span>
       </div>
       <div class="template-preview" ?hidden=${!hasTpl}>
         <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
@@ -657,69 +601,6 @@ export function renderOptionField(host, opt, currentValue) {
         </div>
       `;
 
-    case "color_seed":
-      return html`
-        <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
-          <div class="field-row">
-            <ha-input
-              id=${id}
-              type="number"
-              .inputMode="numeric"
-              step="1"
-              class="field-row-grow"
-              .value=${String(val != null ? val : "0")}
-              @input=${(e) => {
-                const raw = e.target.value;
-                const num = parseInt(raw, 10);
-                host._editingPanel = {
-                  ...host._editingPanel,
-                  data: { ...host._editingPanel.data, [opt.key]: isNaN(num) ? 0 : num },
-                };
-                host.requestUpdate();
-              }}
-            ></ha-input>
-            <ha-icon-button
-              @click=${() => {
-                const tf = host.renderRoot?.querySelector("#" + id);
-                if (tf) {
-                  const newSeed = Math.floor(Math.random() * 100000);
-                  tf.value = String(newSeed);
-                  host._editingPanel = {
-                    ...host._editingPanel,
-                    data: { ...host._editingPanel.data, [opt.key]: newSeed },
-                  };
-                  host.requestUpdate();
-                }
-              }}
-              title="Randomize seed"
-            >
-              <ha-icon icon="mdi:dice-3"></ha-icon>
-            </ha-icon-button>
-          </div>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
-          ${(() => {
-            const mode = host._editingPanel?.data?.color_mode || "";
-            if (!mode) return "";
-            const seedVal = parseInt(String(val != null ? val : "0"), 10) || 0;
-            const colors = generatePalette(seedVal, mode, 6);
-            return html`
-              <div class="palette-preview-row">
-                ${colors.map(c => html`
-                  <div class="palette-swatch"
-                    style=${`background:rgb(${c[0]},${c[1]},${c[2]})`}
-                    title="rgb(${c[0]}, ${c[1]}, ${c[2]})">
-                  </div>
-                `)}
-              </div>
-              <span class="palette-caption">
-                Preview: ${mode || "vibrant"} palette · seed ${seedVal}
-              </span>
-            `;
-          })()}
-        </div>
-      `;
-
     case "float":
       return html`
         <div class="form-group">
@@ -773,7 +654,7 @@ export function renderOptionField(host, opt, currentValue) {
                 const input = wrap?.querySelector("input[type=color]");
                 if (input) input.click();
               }}
-              title="Pick color"
+              title=${t("Pick color")}
             >
               <ha-icon icon="mdi:palette"></ha-icon>
             </ha-icon-button>
@@ -801,7 +682,7 @@ export function renderOptionField(host, opt, currentValue) {
             ? html`
                 <div class="color-preview-row">
                   <div class="color-preview-swatch" style=${`background-color:${colorHex || "#888888"}`}></div>
-                  <span class="color-preview-label">${colorHex || "no color"}</span>
+                  <span class="color-preview-label">${colorHex || t("no color")}</span>
                 </div>`
             : ""}
           <div class="template-preview" ?hidden=${!hasTpl}>
@@ -1028,7 +909,7 @@ export function renderOptionField(host, opt, currentValue) {
 function renderItemListRow(host, item, actions, flags = {}) {
   const type = detectItemType(item?.item);
   const icon = (item && item.icon) || ITEM_TYPE_ICONS[type] || 'mdi:circle-outline';
-  const typeLabel = ITEM_TYPE_SHORT[type] || 'Item';
+  const typeLabel = ITEM_TYPE_SHORT[type] || t('Item');
   const primary = itemPrimaryText(item);
   const secondary = itemSecondaryText(item);
   const showTypeChip = !item?.name; // primary already is the type label when no name
@@ -1054,7 +935,7 @@ function renderItemListRow(host, item, actions, flags = {}) {
           ? html`<span
               class="item-row-color-dot"
               style="background-color:${itemColor}"
-              title="Color: ${itemColor}"
+              title=${`${t("Color")}: ${itemColor}`}
             ></span>`
           : ''}
       </span>
@@ -1065,7 +946,7 @@ function renderItemListRow(host, item, actions, flags = {}) {
             ? ''
             : html`<span class="item-row-chip">${typeLabel}</span>`}
           ${hasOverrides(item)
-            ? html`<span class="item-list-override-badge" title="Has override fields">⚙</span>`
+            ? html`<span class="item-list-override-badge" title=${t("Has override fields")}>⚙</span>`
             : ''}
         </div>
         ${secondary
@@ -1075,25 +956,25 @@ function renderItemListRow(host, item, actions, flags = {}) {
       <div class="item-row-actions">
         ${actions.onMoveUp
           ? html`<ha-icon-button
-              title="Move up"
+              title=${t("Move up")}
               ?disabled=${!flags.canMoveUp}
               @click=${actions.onMoveUp}
             ><ha-icon icon="mdi:arrow-up"></ha-icon></ha-icon-button>`
           : ''}
         ${actions.onMoveDown
           ? html`<ha-icon-button
-              title="Move down"
+              title=${t("Move down")}
               ?disabled=${!flags.canMoveDown}
               @click=${actions.onMoveDown}
             ><ha-icon icon="mdi:arrow-down"></ha-icon></ha-icon-button>`
           : ''}
         ${actions.onEdit
-          ? html`<ha-icon-button title="Edit" @click=${actions.onEdit}>
+          ? html`<ha-icon-button title=${t("Edit")} @click=${actions.onEdit}>
               <ha-icon icon="mdi:pencil"></ha-icon>
             </ha-icon-button>`
           : ''}
         ${actions.onRemove
-          ? html`<ha-icon-button title="Remove" @click=${actions.onRemove}>
+          ? html`<ha-icon-button title=${t("Remove")} @click=${actions.onRemove}>
               <ha-icon icon="mdi:delete"></ha-icon>
             </ha-icon-button>`
           : ''}
@@ -1196,13 +1077,13 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
       ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
       <div class="list-items">
         ${list.length === 0
-          ? html`<div class="item-list-empty">No items yet. Click "+ Add" below.</div>`
+          ? html`<div class="item-list-empty">${t("No items yet")}. ${t("Click")} "${t("+ Add")}" ${t("below")}.</div>`
           : list.map((item, i) => {
               return html`
                 <div class="list-items-row">
                   <div class="list-items-input">${renderRowInput(item, i)}</div>
                   <ha-icon-button
-                    title="Remove"
+                    title=${t("Remove")}
                     class="list-items-remove"
                     @click=${() => mutate((arr) => { arr.splice(i, 1); })}
                   >
@@ -1213,7 +1094,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
             })}
       </div>
       ${atMax
-        ? html`<div class="item-list-limit">Maximum ${max} items</div>`
+        ? html`<div class="item-list-limit">${t("Maximum")} ${max} ${t("items")}</div>`
         : html`
             <button
               class="add-item-btn"
@@ -1224,7 +1105,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
                   : "";
                 mutate((arr) => { arr.push(seed); });
               }}
-            >+ Add</button>
+            >${t("+ Add")}</button>
           `}
     </div>
   `;
@@ -1262,7 +1143,7 @@ export function renderItemListField(host, opt, currentValue) {
 
       <div class="item-list">
         ${entities.length === 0 && editingIndex !== -1
-          ? html`<div class="item-list-empty">No items yet. Click "+ Add Item" below.</div>`
+          ? html`<div class="item-list-empty">${t("No items yet")}. ${t("Click")} "${t("+ Add Item")}" ${t("below")}.</div>`
           : ''}
         ${entities.map((item, i) => {
           if (editingIndex === i) {
@@ -1316,7 +1197,7 @@ export function renderItemListField(host, opt, currentValue) {
         : (() => {
               const max = opt.max_items;
               if (max != null && entities.length >= max) {
-                return html`<div class="item-list-limit">Maximum ${max} items</div>`;
+                return html`<div class="item-list-limit">${t("Maximum")} ${max} ${t("items")}</div>`;
               }
               return html`
           <button
@@ -1332,7 +1213,7 @@ export function renderItemListField(host, opt, currentValue) {
               host.requestUpdate();
             }}
           >
-            + Add Item
+            ${t("+ Add Item")}
           </button>
         `;
             })()}
@@ -1402,61 +1283,6 @@ function renderItemOptionField(host, opt, currentValue) {
         </div>
       `;
 
-    case "color_seed": {
-      // For palette preview, resolve color_mode: item override → panel-level
-      const itemMode = host._editingItem?.config?.color_mode;
-      const panelMode = host._editingPanel?.data?.color_mode || "";
-      const mode = itemMode != null && itemMode !== "" ? itemMode : panelMode;
-      return html`
-        <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
-          <div class="field-row">
-            <ha-input
-              id=${id}
-              type="number"
-              .inputMode="numeric"
-              step="1"
-              class="field-row-grow"
-              .value=${String(val != null ? val : "0")}
-              @input=${(e) => {
-                const raw = e.target.value;
-                const num = parseInt(raw, 10);
-                setVal(isNaN(num) ? 0 : num);
-              }}
-            ></ha-input>
-            <ha-icon-button
-              @click=${() => {
-                const newSeed = Math.floor(Math.random() * 100000);
-                setVal(newSeed);
-              }}
-              title="Randomize seed"
-            >
-              <ha-icon icon="mdi:dice-3"></ha-icon>
-            </ha-icon-button>
-          </div>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
-          ${(() => {
-            if (!mode) return "";
-            const seedVal = parseInt(String(val != null ? val : "0"), 10) || 0;
-            const colors = generatePalette(seedVal, mode, 6);
-            return html`
-              <div class="palette-preview-row">
-                ${colors.map(c => html`
-                  <div class="palette-swatch"
-                    style=${`background:rgb(${c[0]},${c[1]},${c[2]})`}
-                    title="rgb(${c[0]}, ${c[1]}, ${c[2]})">
-                  </div>
-                `)}
-              </div>
-              <span class="palette-caption">
-                Preview: ${mode} palette · seed ${seedVal}
-              </span>
-            `;
-          })()}
-        </div>
-      `;
-    }
-
     case "color": {
       const colorHex = parseRgbListToHex(val);
       const displayStr = formatFieldValue(val);
@@ -1480,7 +1306,7 @@ function renderItemOptionField(host, opt, currentValue) {
                 const input = wrap?.querySelector("input[type=color]");
                 if (input) input.click();
               }}
-              title="Pick color"
+              title=${t("Pick color")}
             >
               <ha-icon icon="mdi:palette"></ha-icon>
             </ha-icon-button>
@@ -1501,7 +1327,7 @@ function renderItemOptionField(host, opt, currentValue) {
             ? html`
                 <div class="color-preview-row">
                   <div class="color-preview-swatch" style=${`background-color:${colorHex || "#888888"}`}></div>
-                  <span class="color-preview-label">${colorHex || "no color"}</span>
+                  <span class="color-preview-label">${colorHex || t("no color")}</span>
                 </div>`
             : ""}
           <div class="template-preview" ?hidden=${!hasTpl}>
@@ -1589,16 +1415,16 @@ export function renderItemEditFields(host, descriptor) {
   return html`
     <div class="item-edit-inline" id="${uid}">
       <div class="form-group">
-        <label for="item-type" title="Type of item this entity slot represents — Entity, Skip, Text, Navigate, or Action">Type</label>
+        <label for="item-type" title=${t("Type of item this entity slot represents")}>${t("Type")}</label>
         <ha-select
           id="item-type"
           .value=${itemType}
           .options=${[
-            { value: ITEM_TYPE.ENTITY_ID, label: "Entity" },
-            { value: ITEM_TYPE.SKIP, label: "Skip" },
-            { value: ITEM_TYPE.TEXT, label: "Text" },
-            { value: ITEM_TYPE.NAVIGATE, label: "Navigate" },
-            { value: ITEM_TYPE.ACTION, label: "Action" },
+            { value: ITEM_TYPE.ENTITY_ID, label: t("Entity") },
+            { value: ITEM_TYPE.SKIP, label: t("Skip") },
+            { value: ITEM_TYPE.TEXT, label: t("Text") },
+            { value: ITEM_TYPE.NAVIGATE, label: t("Navigate") },
+            { value: ITEM_TYPE.ACTION, label: t("Action") },
           ]}
           @selected=${(e) => {
             const v = e.detail.value;
@@ -1640,7 +1466,7 @@ export function renderItemEditFields(host, descriptor) {
             });
           }
           return html`
-            <label for="item-entity" title="${info.label} — enter an entity ID, panel key, service name, or custom text">${info.label}</label>
+            <label for="item-entity" title=${`${info.label} — ${t("enter an entity ID, panel key, service name, or custom text")}`}>${info.label}</label>
             <ha-input
               id="item-entity"
               class="w-full"
@@ -1681,26 +1507,26 @@ export function renderItemEditFields(host, descriptor) {
         }}
       >
         <ha-icon icon="mdi:chevron-right" class="toggle-arrow"></ha-icon>
-        Advanced
+        ${t("Advanced")}
       </div>
       <div class="item-advanced-section">
         ${ENTITY_OVERRIDE_FIELDS.map(
           (f) => {
             const fieldLabels = {
-              name: "Name",
-              icon: "Icon",
-              color: "Color",
-              value: "Value",
-              state: "State",
-              popup_key: "Popup key",
+              name: t("Name"),
+              icon: t("Icon"),
+              color: t("Color"),
+              value: t("Value"),
+              state: t("State"),
+              popup_key: t("Popup key"),
             };
             const hints = {
-              name: "Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel.",
-              icon: "An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon.",
-              color: "A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0\u201365535), or a Home Assistant template that overrides the default entity color.",
-              value: "A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects).",
-              state: "A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display.",
-              popup_key: "The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior.",
+              name: t("Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel."),
+              icon: t("An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon."),
+              color: t("A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0\u201365535), or a Home Assistant template that overrides the default entity color."),
+              value: t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
+              state: t("A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display."),
+              popup_key: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior."),
             };
             return html`
             <div class="form-group">
@@ -1734,7 +1560,7 @@ export function renderItemEditFields(host, descriptor) {
                           const input = wrap?.querySelector("input[type=color]");
                           if (input) input.click();
                         }}
-                        title="Pick color"
+                        title=${t("Pick color")}
                       >
                         <ha-icon icon="mdi:palette"></ha-icon>
                       </ha-icon-button>
@@ -1761,7 +1587,7 @@ export function renderItemEditFields(host, descriptor) {
                       ? html`
                           <div class="color-preview-row">
                             <div class="color-preview-swatch" style=${`background-color:${cHex || "#888888"}`}></div>
-                            <span class="color-preview-label">${cHex || "no color"}</span>
+                            <span class="color-preview-label">${cHex || t("no color")}</span>
                           </div>`
                       : ""}
                     <div class="template-preview" ?hidden=${!hasTpl}>
@@ -1826,7 +1652,7 @@ export function renderItemEditFields(host, descriptor) {
         ${host._editingItemType === ITEM_TYPE.ACTION
           ? html`
             <div class="form-group">
-              <label for="item-service_data" title="JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.">Service data</label>
+              <label for="item-service_data" title=${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.")}>${t("Service data")}</label>
               <textarea
                 id="item-service_data"
                 class="w-full"
@@ -1847,7 +1673,7 @@ export function renderItemEditFields(host, descriptor) {
                 }}
                 placeholder='{"vacuum_repeat": 1, "mode": "turbo"}'
               ></textarea>
-              <div class="field-hint">JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {"vacuum_repeat": 2}</div>
+              <div class="field-hint">${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\"vacuum_repeat\": 2}")}</div>
             </div>`
           : ""}
         ${descriptor?.item_options?.length
@@ -1865,10 +1691,10 @@ export function renderItemEditFields(host, descriptor) {
 
       <div class="item-edit-actions">
         <ha-button variant="neutral" appearance="plain" @click=${host._cancelItemEdit}>
-          Cancel
+          ${t("Cancel")}
         </ha-button>
         <ha-button variant="brand" @click=${host._saveItemEdit}>
-          ${isAdd ? "Add" : "Save"}
+          ${isAdd ? t("Add") : t("Save")}
         </ha-button>
       </div>
     </div>
@@ -1906,7 +1732,7 @@ export function renderTypeFields(host, panelType, currentData) {
   );
   if (!descriptor || !descriptor.options || descriptor.options.length === 0) {
     return html`<p style="color:var(--secondary-text-color,#666)">
-      No additional options for this panel type.
+      ${t("No additional options for this panel type.")}
     </p>`;
   }
 

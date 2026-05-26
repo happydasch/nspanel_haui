@@ -34,7 +34,7 @@ export function renderMenuButton(host) {
   return html`
     <ha-icon-button
       class="menu-toggle-btn"
-      label="Toggle sidebar"
+      label=${host._t('Toggle sidebar')}
       @click=${() => host.dispatchEvent(
         new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true })
       )}
@@ -51,7 +51,7 @@ export function renderTitleHeader(host) {
   return html`
     <div class="toolbar-header">
       ${renderMenuButton(host)}
-      <span class="toolbar-title">NSPanel HAUI - Editor</span>
+      <span class="toolbar-title">${host._t('NSPanel HAUI - Editor')}</span>
       ${renderDeviceManagerButton(host)}
     </div>
   `;
@@ -80,7 +80,7 @@ export function renderDeviceSelector(host) {
     const dev = (host._panels.devices || {})[devKey] || {};
     const config = dev.config || {};
     const enabled = config.enabled !== false;
-    const label = enabled ? `${name}` : `${name} (disabled)`;
+    const label = enabled ? `${name}` : `${name} (${host._t('disabled')})`;
     return {
       value: name,
       label,
@@ -112,63 +112,65 @@ export function renderDeviceInfoStrip(host) {
   let dotClass, label;
   if (connected === true) {
     dotClass = "dot-connected";
-    label = "Connected";
+    label = host._t('Connected');
   } else if (connState === "handshaking") {
     dotClass = "dot-handshaking";
-    label = "Handshaking\u2026";
+    label = host._t('Handshaking\u2026');
   } else if (connState === "disconnected") {
     dotClass = "dot-disconnected";
-    label = "Disconnected";
+    label = host._t('Disconnected');
   } else {
     dotClass = "dot-unknown";
-    label = "Unknown";
+    label = host._t('Unknown');
   }
 
   const currentPage = ds?.current_page || "-";
 
   return html`
     <div class="device-info-strip">
-      <span class="info-strip-item connection-indicator" title="Connection: ${connState}">
+      <span class="info-strip-item connection-indicator" title=${`${host._t('Connection')}: ${connState}`}>
         <span class="connection-indicator-dot ${dotClass}"></span>
         ${label}
       </span>
-      <span class="info-strip-item" title="Current page: ${currentPage}">
+      <span class="info-strip-item" title=${`${host._t('Current page')}: ${currentPage}`}>
         ${currentPage}
       </span>
       ${err ? html`<span class="info-strip-item" style="color:var(--error-color,#f44336);">${err}</span>` : ""}
       <span class="pl-spacer"></span>
+      ${!host.narrow ? html`
       <ha-icon-button
-        title="Colors"
-        label="Colors"
+        title=${host._t('Colors')}
+        label=${host._t('Colors')}
         @click=${() => host._onHeaderColors()}
       >
         <ha-icon icon="mdi:palette-outline"></ha-icon>
       </ha-icon-button>
       <ha-icon-button
-        title="Device settings"
-        label="Device settings"
+        title=${host._t('Device settings')}
+        label=${host._t('Device settings')}
         @click=${() => host._onHeaderSettings()}
       >
         <ha-icon icon="mdi:cog-outline"></ha-icon>
       </ha-icon-button>
+      ` : ""}
       <div class="pl-more">
         <ha-icon-button
-          title="Device actions"
-          label="Device actions"
+          title=${host._t('Device actions')}
+          label=${host._t('Device actions')}
           @click=${() => host._toggleHeaderMenu()}
         >
           <ha-icon icon="mdi:dots-vertical"></ha-icon>
         </ha-icon-button>
         ${host._actionsMenuIndex === '__header__'
           ? renderPanelDropdown(host, null, [
-              { icon: 'mdi:information-outline', label: 'Info', disabled: !host._selectedDevice, action: () => { host._showDeviceInfo = true; host.requestUpdate(); } },
-              { icon: 'mdi:palette-outline', label: 'Colors', disabled: !host._selectedDevice, action: () => host._onHeaderColors() },
-              { icon: 'mdi:cog-outline', label: 'Settings', disabled: !host._selectedDevice, action: () => host._onHeaderSettings() },
+              { icon: 'mdi:information-outline', label: host._t('Info'), disabled: !host._selectedDevice, action: () => { host._showDeviceInfo = true; host.requestUpdate(); } },
+              { icon: 'mdi:palette-outline', label: host._t('Colors'), disabled: !host._selectedDevice, action: () => host._onHeaderColors() },
+              { icon: 'mdi:cog-outline', label: host._t('Settings'), disabled: !host._selectedDevice, action: () => host._onHeaderSettings() },
               'divider',
-              { icon: 'mdi:file-import', label: 'Import YAML', disabled: !host._selectedDevice, action: () => host._onHeaderImportYaml() },
-              { icon: 'mdi:file-export', label: 'Export YAML', disabled: !host._selectedDevice, action: () => host._onHeaderExportYaml() },
+              { icon: 'mdi:file-import', label: host._t('Import YAML'), disabled: !host._selectedDevice, action: () => host._onHeaderImportYaml() },
+              { icon: 'mdi:file-export', label: host._t('Export YAML'), disabled: !host._selectedDevice, action: () => host._onHeaderExportYaml() },
               'divider',
-              { icon: 'mdi:file-document-outline', label: 'Logs', action: () => { host._showLogs = true; host.requestUpdate(); } },
+              { icon: 'mdi:file-document-outline', label: host._t('Logs'), action: () => { host._showLogs = true; host.requestUpdate(); } },
             ], () => { host._actionsMenuIndex = null; })
           : ""}
       </div>
@@ -207,17 +209,17 @@ export function renderToolbarActions(host) {
   return html`
     <div class="toolbar-actions-strip">
       <ha-button
-        label="Add Panel"
+        label=${host._t('Add Panel')}
         @click=${() => host._openAdd()}
       >
         <ha-icon icon="mdi:plus" slot="icon"></ha-icon>
-        Add Panel
+        ${host._t('Add Panel')}
       </ha-button>
       <span class="pl-spacer"></span>
       <div class="view-toggle-group">
         <button
           class="view-toggle-btn ${isGrid ? 'active' : ''}"
-          title="Grid view"
+          title=${host._t('Grid view')}
           @click=${() => {
             if (!isGrid) {
               host._viewMode = 'grid';
@@ -227,11 +229,11 @@ export function renderToolbarActions(host) {
           }}
         >
           <ha-icon icon="mdi:grid"></ha-icon>
-          <span>Grid</span>
+          <span>${host._t('Grid')}</span>
         </button>
         <button
           class="view-toggle-btn ${!isGrid ? 'active' : ''}"
-          title="List view"
+          title=${host._t('List view')}
           @click=${() => {
             if (isGrid) {
               host._viewMode = 'list';
@@ -241,7 +243,7 @@ export function renderToolbarActions(host) {
           }}
         >
           <ha-icon icon="mdi:view-list"></ha-icon>
-          <span>List</span>
+          <span>${host._t('List')}</span>
         </button>
       </div>
     </div>

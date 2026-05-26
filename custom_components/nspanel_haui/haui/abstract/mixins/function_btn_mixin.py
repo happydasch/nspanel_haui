@@ -338,7 +338,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             and fnc_name == self.FNC_TYPE_UNLOCK
             and not fnc_args.get("locked", False)
         ):
-            color = self.get_color("component_accent")
+            color = self.get_color("header_accent")
         if color is None:
             color = self.get_color("header_text")
         color_pressed = fnc_args.get("color_pressed")

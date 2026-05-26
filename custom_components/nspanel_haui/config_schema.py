@@ -242,10 +242,6 @@ class ConfigSchema:
                 default = int(cur) if cur is not None else 0
                 schema[vol.Optional(opt.key, default=default)] = vol.Coerce(int)
 
-            elif opt.kind == "color_seed":
-                default = int(cur) if cur is not None else 0
-                schema[vol.Optional(opt.key, default=default)] = vol.Coerce(int)
-
             elif opt.kind == "float":
                 default = float(cur) if cur is not None else 0.0
                 schema[vol.Optional(opt.key, default=default)] = vol.Coerce(float)

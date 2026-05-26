@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import colorsys
-import math
 import random
 import re
 
@@ -128,45 +127,43 @@ def hsv_to_rgb(h: float, s: float, v: float) -> tuple[int, int, int]:
     return (round(hsv[0] * 255), round(hsv[1] * 255), round(hsv[2] * 255))
 
 
-def color_to_pos(rgb: tuple[int, int, int], wh: int) -> tuple[int, int]:
-    """Converts a RGB color to 2d position data.
+def color_to_rect_pos(rgb: tuple[int, int, int], w: int, h: int) -> tuple[int, int]:
+    """Converts an RGB color to a 2D (x, y) position within a rectangle.
+
+    Maps: X = hue * w, Y = (1 - saturation) * h.
+    Value is ignored (always full, controlled separately via brightness slider).
 
     Args:
-        rgb (tuple): RGB value
-        wh (int): WH value
+        rgb: RGB color tuple (r, g, b) with values 0-255.
+        w: Width of the color rectangle in pixels.
+        h: Height of the color rectangle in pixels.
 
     Returns:
-        tuple[float, float]: XY pos
+        (x, y) position within the rectangle.
     """
-    r = wh / 2
     hsv = rgb_to_hsv(rgb[0], rgb[1], rgb[2])
-    sat = hsv[1]
-    angle = hsv[0] * 2 * math.pi
-    x = round(r * sat * math.cos(angle) + r)
-    y = round(r - r * sat * math.sin(angle))
+    x = round(hsv[0] * w)
+    y = round(h - hsv[1] * h)  # inverted: 0 sat at top, 1 sat at bottom
     return (x, y)
 
 
-def pos_to_color(x: float, y: float, wh: int) -> tuple[int, int, int]:
-    """Converts 2d position data to a RGB color.
+def rect_pos_to_color(x: float, y: float, w: int, h: int) -> tuple[int, int, int]:
+    """Converts a 2D (x, y) position within a rectangle to an RGB color.
+
+    Maps: hue = x / w, saturation = 1 - y / h.
 
     Args:
-        x (int): X Pos
-        y (int): Y Pos
-        wh (int): WH value
+        x: X position (0 = left edge).
+        y: Y position (0 = top edge).
+        w: Width of the color rectangle in pixels.
+        h: Height of the color rectangle in pixels.
 
     Returns:
-        tuple[float, float, float]: RGB Value
+        RGB color tuple (r, g, b) with values 0-255.
     """
-    r = wh / 2
-    x = round((x - r) / r * 100) / 100
-    y = round((r - y) / r * 100) / 100
-    #
-    r = math.sqrt(x * x + y * y)
-    sat = r = max(0, min(r, 1))
-    hsv = (math.degrees(math.atan2(y, x)) % 360 / 360, sat, 1)
-    rgb = hsv_to_rgb(hsv[0], hsv[1], hsv[2])
-    return rgb
+    hue = max(0.0, min(1.0, x / w))
+    sat = max(0.0, min(1.0, 1.0 - y / h))
+    return hsv_to_rgb(hue, sat, 1.0)
 
 
 def rgb_to_rgb565(rgb_color: list | tuple) -> int:

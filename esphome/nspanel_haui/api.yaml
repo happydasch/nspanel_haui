@@ -79,7 +79,7 @@ api:
         - script.execute:
             id: set_hub_connected
             connected: 0
-            force: 1
+            force: 0
 
     # HA requests device info
     - action: req_device_info
@@ -133,7 +133,7 @@ api:
         - script.execute:
             id: set_hub_connected
             connected: 0
-            force: 1
+            force: 0
 
     # Request a number value
     - action: req_val

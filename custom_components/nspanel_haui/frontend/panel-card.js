@@ -7,6 +7,7 @@
  * and system panel grid cards.
  */
 import { html } from './lit-import.js';
+import { t } from './localize.js';
 
 /**
  * @param {Object} opts
@@ -49,18 +50,19 @@ export function renderCardChrome(opts) {
 
   // When a panel provides its own background CSS class (containerClass — a
   // gradient, system, or blank background), it uses its OWN visual identity.
-  // Device theme colors do NOT apply to these panels — the CSS class handles
-  // everything.  Only panels WITHOUT a containerClass (i.e. plain dark
-  // background) get device theme colors applied inline.
+  // We still apply both a fixed background (lighter than the real device
+  // screen for preview readability) AND the device theme CSS variables so
+  // text/icons render with light-on-dark colours regardless of HA's light/
+  // dark mode.  Panels WITHOUT a containerClass get device theme colors
+  // applied inline with no background override.
   const ownBg = !!preview?.containerClass;
   const dc = preview?.deviceColors || {};
   const containerStyle = ownBg
-    ? ''
-    : ((dc.background ? 'background:' + dc.background + ';' : '')
-       + (preview?.deviceStyle || ''));
+    ? 'background:#4a4a65;' + (preview?.deviceStyle || '')
+    : (preview?.deviceStyle || '');
   const screenBg = ownBg
     ? ''
-    : 'background:' + (dc.component_background || 'rgba(0,0,0,0.12)') + ';';
+    : 'background:' + (dc.background || 'rgba(0,0,0,0.12)') + ';';
 
   return html`
     <div class="pg-card-top-row" @click=${onClick}>
@@ -93,7 +95,7 @@ export function renderCardChrome(opts) {
             <div class="pg-sim-btn">${_simBtn(lBtns[0])}</div>
             <div class="pg-sim-btn">${_simBtn(lBtns[1])}</div>
           </div>
-          <span class="pg-sim-title" style="color:${headerTextColor}">${title || titleFallback || 'Panel'}</span>
+          <span class="pg-sim-title" style="color:${headerTextColor}">${title || titleFallback || t('Panel')}</span>
           <div class="pg-sim-btn-group pg-sim-btn-group-right">
             <div class="pg-sim-btn">${_simBtn(rBtns[0])}</div>
             <div class="pg-sim-btn">${_simBtn(rBtns[1])}</div>
@@ -149,7 +151,7 @@ export function renderCardActions(host, menuKey, renderDropdown) {
   const close = () => { host._cardMenuKey = null; host.requestUpdate(); };
   return html`
     <span
-      title="More"
+      title=${host._t('More')}
       class="pg-card-more ${isOpen ? 'active' : ''}"
       role="button"
       tabindex="0"

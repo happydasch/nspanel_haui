@@ -52,33 +52,34 @@ class ClimatePage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        t_temp=Component(7, "tTemp"),
-        btn_up=Component(8, "bUp"),
-        btn_down=Component(9, "bDown"),
-        x_set=Component(10, "xSet"),
-        t_unit=Component(11, "tUnit"),
-        btn_up_1=Component(12, "bUp1"),
-        btn_down_1=Component(13, "bDown1"),
-        x_set_1=Component(14, "xSet1"),
-        t_unit_1=Component(15, "tUnit1"),
-        btn_up_2=Component(16, "bUp2"),
-        btn_down_2=Component(17, "bDown2"),
-        x_set_2=Component(18, "xSet2"),
-        t_unit_2=Component(19, "tUnit2"),
-        bt_mode_1=Component(20, "btMode1"),
-        bt_mode_2=Component(21, "btMode2"),
-        bt_mode_3=Component(22, "btMode3"),
-        bt_mode_4=Component(23, "btMode4"),
-        bt_mode_5=Component(24, "btMode5"),
-        bt_mode_6=Component(25, "btMode6"),
-        btn_fan=Component(26, "bFan"),
-        btn_preset=Component(27, "bPreset"),
-        btn_swing=Component(28, "bSwing"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        t_temp=Component(8, "tTemp"),
+        btn_up=Component(9, "bUp"),
+        btn_down=Component(10, "bDown"),
+        x_set=Component(11, "xSet"),
+        t_unit=Component(12, "tUnit"),
+        btn_up_1=Component(13, "bUp1"),
+        btn_down_1=Component(14, "bDown1"),
+        x_set_1=Component(15, "xSet1"),
+        t_unit_1=Component(16, "tUnit1"),
+        btn_up_2=Component(17, "bUp2"),
+        btn_down_2=Component(18, "bDown2"),
+        x_set_2=Component(19, "xSet2"),
+        t_unit_2=Component(20, "tUnit2"),
+        bt_mode_1=Component(21, "btMode1"),
+        bt_mode_2=Component(22, "btMode2"),
+        bt_mode_3=Component(23, "btMode3"),
+        bt_mode_4=Component(24, "btMode4"),
+        bt_mode_5=Component(25, "btMode5"),
+        bt_mode_6=Component(26, "btMode6"),
+        btn_fan=Component(27, "bFan"),
+        btn_preset=Component(28, "bPreset"),
+        btn_swing=Component(29, "bSwing"),
     )
 
     NUM_MODES = 6
@@ -96,7 +97,7 @@ class ClimatePage(HAUIPage):
             "fnc_name": "power_off",
             "fnc_args": {
                 "icon": ICO_POWER,
-                "color": self.get_color("component_accent"),
+                "color": self.get_color("header_accent"),
                 "visible": False,
             },
         }
@@ -117,6 +118,8 @@ class ClimatePage(HAUIPage):
         if item is not None:
             title = item.get_item_attr("friendly_name", title)
         self._title = title
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.COMPONENTS.title, self._title)

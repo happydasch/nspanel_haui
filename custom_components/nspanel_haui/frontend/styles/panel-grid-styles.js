@@ -39,6 +39,7 @@ export const panelGridStyles = css`
     width: 100%;
     cursor: pointer;
   }
+
   .pg-card-type-icon {
     --mdc-icon-size: 18px;
     color: var(--secondary-text-color, #666);
@@ -150,6 +151,7 @@ export const panelGridStyles = css`
     left: 50%;
     transform: translateX(-50%);
     font-size: 0.85em;
+    font-weight: 600;
     color: #fff;
     opacity: 0.85;
     text-align: center;

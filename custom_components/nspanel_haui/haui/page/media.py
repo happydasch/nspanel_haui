@@ -89,36 +89,37 @@ class MediaPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        t_icon=Component(7, "tIcon"),
-        t_m_title=Component(8, "tMTitle"),
-        t_m_interpret=Component(9, "tMInterpret"),
-        btn_shuffle=Component(10, "bShuffle"),
-        btn_prev=Component(11, "bPrev"),
-        btn_play=Component(12, "bPlay"),
-        btn_next=Component(13, "bNext"),
-        btn_repeat=Component(14, "bRepeat"),
-        btn_vol_down=Component(15, "bVolDown"),
-        btn_vol_up=Component(16, "bVolUp"),
-        h_volume=Component(17, "hVolume"),
-        m1_btn=Component(18, "m1Btn"),
-        m1_icon=Component(19, "m1Icon"),
-        m1_name=Component(20, "m1Name"),
-        m1_overlay=Component(21, "m1Overlay"),
-        m2_btn=Component(22, "m2Btn"),
-        m2_icon=Component(23, "m2Icon"),
-        m2_name=Component(24, "m2Name"),
-        m2_overlay=Component(25, "m2Overlay"),
-        m3_btn=Component(26, "m3Btn"),
-        m3_icon=Component(27, "m3Icon"),
-        m3_name=Component(28, "m3Name"),
-        m3_overlay=Component(29, "m3Overlay"),
-        btn_power=Component(30, "bPower"),
-        j_progress=Component(31, "jProgress"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        t_icon=Component(8, "tIcon"),
+        t_m_title=Component(9, "tMTitle"),
+        t_m_interpret=Component(10, "tMInterpret"),
+        btn_shuffle=Component(11, "bShuffle"),
+        btn_prev=Component(12, "bPrev"),
+        btn_play=Component(13, "bPlay"),
+        btn_next=Component(14, "bNext"),
+        btn_repeat=Component(15, "bRepeat"),
+        btn_vol_down=Component(16, "bVolDown"),
+        btn_vol_up=Component(17, "bVolUp"),
+        h_volume=Component(18, "hVolume"),
+        m1_btn=Component(19, "m1Btn"),
+        m1_icon=Component(20, "m1Icon"),
+        m1_name=Component(21, "m1Name"),
+        m1_overlay=Component(22, "m1Overlay"),
+        m2_btn=Component(23, "m2Btn"),
+        m2_icon=Component(24, "m2Icon"),
+        m2_name=Component(25, "m2Name"),
+        m2_overlay=Component(26, "m2Overlay"),
+        m3_btn=Component(27, "m3Btn"),
+        m3_icon=Component(28, "m3Icon"),
+        m3_name=Component(29, "m3Name"),
+        m3_overlay=Component(30, "m3Overlay"),
+        btn_power=Component(31, "bPower"),
+        j_progress=Component(32, "jProgress"),
     )
 
     SCROLLING_INTERVAL = 0.5
@@ -162,7 +163,7 @@ class MediaPage(HAUIPage):
             "fnc_name": "media_state",
             "fnc_args": {
                 "icon": ICO_STOP,
-                "color": self.get_color("component_accent"),
+                "color": self.get_color("header_accent"),
                 "visible": False,
             },
         }
@@ -211,6 +212,9 @@ class MediaPage(HAUIPage):
         if item is not None:
             title = item.get_item_attr("friendly_name", title)
         self._title = title
+
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_media_item()

@@ -66,21 +66,22 @@ class QRPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        qr_code_big=Component(7, "qrCodeBig"),
-        qr_code=Component(8, "qrCode"),
-        q1_icon=Component(9, "q1Icon"),
-        q1_title=Component(10, "q1Title"),
-        q1_text=Component(11, "q1Text"),
-        q1_text_add=Component(12, "q1TextAdd"),
-        q2_icon=Component(13, "q2Icon"),
-        q2_title=Component(14, "q2Title"),
-        q2_text=Component(15, "q2Text"),
-        q2_text_add=Component(16, "q2TextAdd"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        qr_code_big=Component(8, "qrCodeBig"),
+        qr_code=Component(9, "qrCode"),
+        q1_icon=Component(10, "q1Icon"),
+        q1_title=Component(11, "q1Title"),
+        q1_text=Component(12, "q1Text"),
+        q1_text_add=Component(13, "q1TextAdd"),
+        q2_icon=Component(14, "q2Icon"),
+        q2_title=Component(15, "q2Title"),
+        q2_text=Component(16, "q2Text"),
+        q2_text_add=Component(17, "q2TextAdd"),
     )
 
     # panel
@@ -116,7 +117,7 @@ class QRPage(HAUIPage):
             "fnc_name": "zoom",
             "fnc_args": {
                 "icon": ICO_ZOOM,
-                "color": self.get_color("component_accent"),
+                "color": self.get_color("header_accent"),
                 "visible": False,
             },
         }
@@ -139,6 +140,9 @@ class QRPage(HAUIPage):
             elif items:
                 self._render_items(items)
             self._apply_zoom_state()
+
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # restore old dimming values
@@ -179,7 +183,7 @@ class QRPage(HAUIPage):
             self.hide_component(self.COMPONENTS.qr_code)
             self.show_component(self.COMPONENTS.qr_code_big)
             self.update_function_component(
-                self.FNC_BTN_R_SEC, visible=True, color=self.get_color("component_accent")
+                self.FNC_BTN_R_SEC, visible=True, color=self.get_color("header_accent")
             )
             self.send_cmd("ref")
         else:

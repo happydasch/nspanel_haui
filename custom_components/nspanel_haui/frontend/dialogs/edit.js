@@ -15,6 +15,7 @@ import { formVal } from '../dom-helpers.js';
 import { encodeItemValue } from '../haui-item.js';
 import { ENTITY_OVERRIDE_FIELDS } from '../haui-entity.js';
 import { getPanelOptionGroups, renderOptionField } from '../form-fields.js';
+import { t } from '../localize.js';
 
 /**
  * Compute an auto-generated key for a new panel of the given type, based on
@@ -98,8 +99,8 @@ class EditPanelDialog extends LitElement {
     const panelType = this._editingPanelType || ep.data?.type || "clock";
     const descriptor = this.panelTypes.find((pt) => pt.type_key === panelType);
     const typeLabel = (descriptor ? descriptor.label : panelType);
-    const headerTitle = isAdd ? "Add Panel" : `Edit Panel — ${typeLabel}`;
-    const saveLabel = this.saving ? "Saving…" : isAdd ? "Add" : "Save";
+    const headerTitle = isAdd ? t('Add Panel') : `${t('Edit Panel')} — ${typeLabel}`;
+    const saveLabel = this.saving ? t('Saving…') : isAdd ? t('Add') : t('Save');
 
     return html`
       <ha-dialog
@@ -114,7 +115,7 @@ class EditPanelDialog extends LitElement {
 
           ${isAdd ? html`
             <div class="form-group">
-              <label for="fld-type">Panel type</label>
+              <label for="fld-type">${t('Panel type')}</label>
               <div style="display:flex;align-items:center;gap:8px;">
                 ${descriptor?.icon ? html`<ha-icon .icon=${descriptor.icon}></ha-icon>` : ""}
                 <ha-select
@@ -131,7 +132,7 @@ class EditPanelDialog extends LitElement {
           ` : ""}
 
           <div class="form-group">
-            <label for="fld-title">Panel title</label>
+            <label for="fld-title">${t('Panel title')}</label>
             <ha-input
               id="fld-title"
               name="title"
@@ -145,11 +146,11 @@ class EditPanelDialog extends LitElement {
                 this.requestUpdate();
               }}
             ></ha-input>
-            <span class="field-hint">Title shown on the panel header. Falls back to unnamed if left empty.</span>
+            <span class="field-hint">${t('Title shown on the panel header. Falls back to unnamed if left empty.')}</span>
           </div>
 
           ${getPanelOptionGroups(descriptor).map(group => {
-            const sectionLabel = group.section || "Configuration";
+            const sectionLabel = group.section || t('Configuration');
             return html`
               <details class="config-section">
                 <summary>${sectionLabel}</summary>
@@ -161,11 +162,11 @@ class EditPanelDialog extends LitElement {
           })}
 
           <details class="config-section">
-            <summary>Advanced</summary>
+            <summary>${t('Advanced')}</summary>
             <div class="config-section-body">
 
               <div class="form-group">
-                <label for="fld-key">Panel key</label>
+                <label for="fld-key">${t('Panel key')}</label>
                 <ha-input
                   id="fld-key"
                   name="key"
@@ -179,11 +180,11 @@ class EditPanelDialog extends LitElement {
                     this.requestUpdate();
                   }}
                 ></ha-input>
-                <span class="field-hint">Used to reference this panel in actions and gestures</span>
+                <span class="field-hint">${t('Used to reference this panel in actions and gestures')}</span>
               </div>
 
               <div class="form-group">
-                <label for="fld-unlock-code">Panel pin</label>
+                <label for="fld-unlock-code">${t('Panel pin')}</label>
                 <ha-input
                   id="fld-unlock-code"
                   name="unlock_code"
@@ -198,7 +199,7 @@ class EditPanelDialog extends LitElement {
                     this.requestUpdate();
                   }}
                 ></ha-input>
-                <span class="field-hint">Set a PIN code to lock this panel. Users must enter this code before accessing the panel.</span>
+                <span class="field-hint">${t('Set a PIN code to lock this panel. Users must enter this code before accessing the panel.')}</span>
               </div>
 
               <div class="form-group">
@@ -214,7 +215,7 @@ class EditPanelDialog extends LitElement {
                       this.requestUpdate();
                     }}
                   ></ha-switch>
-                  <label for="fld-show-in-nav">Show in navigation</label>
+                  <label for="fld-show-in-nav">${t('Show in navigation')}</label>
                 </div>
                 <span class="field-hint">When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)</span>
               </div>
@@ -235,7 +236,7 @@ class EditPanelDialog extends LitElement {
             appearance="plain"
             @click=${this._dispatchClose}
           >
-            Cancel
+            ${t('Cancel')}
           </ha-button>
           <ha-button
             slot="primaryAction"
@@ -288,7 +289,7 @@ class EditPanelDialog extends LitElement {
 
     // Use _editingPanel.data (the live version mutated by renderOptionField's
     // @input/@selected handlers) instead of ep.data (the original prop) so that
-    // all user edits (color_seed, color_mode, int, float, select, etc.) are captured.
+    // all user edits (int, float, select, etc.) are captured.
     const liveData = this._editingPanel?.data || ep.data;
 
     const panelType = this._editingPanelType || liveData?.type || "clock";

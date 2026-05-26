@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import random
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
@@ -11,7 +10,6 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_NEXT_PAGE
-from ..utils.color import generate_color_palette, rgb565_to_rgb
 from ..utils.text import trim_text
 
 
@@ -22,8 +20,6 @@ class GridPage(HAUIPage):
         label="Grid",
         description="Grid of up to 6 item tiles with pagination.",
         item_options=[
-            "color_mode",
-            "color_seed",
             "text_color",
             "back_color",
             "color_pressed",
@@ -37,31 +33,6 @@ class GridPage(HAUIPage):
                 kind="item_list",
                 description="Items to display as tiles on the grid page.",
                 section="Tiles",
-            ),
-            PageOption(
-                key="color_mode",
-                section="Color Palette",
-                kind="select",
-                default="",
-                label="Auto-color mode",
-                description="Automatic color scheme applied to all grid tiles.",
-                choices=[
-                    ("", "Off"),
-                    ("pastel", "Pastel"),
-                    ("light", "Light"),
-                    ("lighten", "Lighten"),
-                    ("vibrant", "Vibrant"),
-                    ("dark", "Dark"),
-                    ("darken", "Darken"),
-                ],
-            ),
-            PageOption(
-                key="color_seed",
-                kind="color_seed",
-                default=0,
-                label="Auto-color seed (0 = random)",
-                description="Seed for auto-color palette. 0 = random on each restart.",
-                section="Color Palette",
             ),
             PageOption(
                 key="text_color",
@@ -119,41 +90,42 @@ class GridPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        g1_btn=Component(7, "g1Btn"),
-        g1_ico=Component(8, "g1Icon"),
-        g1_name=Component(9, "g1Name"),
-        g1_ovl=Component(10, "g1Overlay"),
-        g1_power=Component(11, "g1Power"),
-        g2_btn=Component(12, "g2Btn"),
-        g2_ico=Component(13, "g2Icon"),
-        g2_name=Component(14, "g2Name"),
-        g2_ovl=Component(15, "g2Overlay"),
-        g2_power=Component(16, "g2Power"),
-        g3_btn=Component(17, "g3Btn"),
-        g3_ico=Component(18, "g3Icon"),
-        g3_name=Component(19, "g3Name"),
-        g3_ovl=Component(20, "g3Overlay"),
-        g3_power=Component(21, "g3Power"),
-        g4_btn=Component(22, "g4Btn"),
-        g4_ico=Component(23, "g4Icon"),
-        g4_name=Component(24, "g4Name"),
-        g4_ovl=Component(25, "g4Overlay"),
-        g4_power=Component(26, "g4Power"),
-        g5_btn=Component(27, "g5Btn"),
-        g5_ico=Component(28, "g5Icon"),
-        g5_name=Component(29, "g5Name"),
-        g5_ovl=Component(30, "g5Overlay"),
-        g5_power=Component(31, "g5Power"),
-        g6_btn=Component(32, "g6Btn"),
-        g6_ico=Component(33, "g6Icon"),
-        g6_name=Component(34, "g6Name"),
-        g6_ovl=Component(35, "g6Overlay"),
-        g6_power=Component(36, "g6Power"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        g1_btn=Component(8, "g1Btn"),
+        g1_ico=Component(9, "g1Icon"),
+        g1_name=Component(10, "g1Name"),
+        g1_ovl=Component(11, "g1Overlay"),
+        g1_power=Component(12, "g1Power"),
+        g2_btn=Component(13, "g2Btn"),
+        g2_ico=Component(14, "g2Icon"),
+        g2_name=Component(15, "g2Name"),
+        g2_ovl=Component(16, "g2Overlay"),
+        g2_power=Component(17, "g2Power"),
+        g3_btn=Component(18, "g3Btn"),
+        g3_ico=Component(19, "g3Icon"),
+        g3_name=Component(20, "g3Name"),
+        g3_ovl=Component(21, "g3Overlay"),
+        g3_power=Component(22, "g3Power"),
+        g4_btn=Component(23, "g4Btn"),
+        g4_ico=Component(24, "g4Icon"),
+        g4_name=Component(25, "g4Name"),
+        g4_ovl=Component(26, "g4Overlay"),
+        g4_power=Component(27, "g4Power"),
+        g5_btn=Component(28, "g5Btn"),
+        g5_ico=Component(29, "g5Icon"),
+        g5_name=Component(30, "g5Name"),
+        g5_ovl=Component(31, "g5Overlay"),
+        g5_power=Component(32, "g5Power"),
+        g6_btn=Component(33, "g6Btn"),
+        g6_ico=Component(34, "g6Icon"),
+        g6_name=Component(35, "g6Name"),
+        g6_ovl=Component(36, "g6Overlay"),
+        g6_power=Component(37, "g6Power"),
     )
 
     # definitions
@@ -169,14 +141,12 @@ class GridPage(HAUIPage):
         self._active_handles: list = []
         self._item_mapping: list = []
         self._current_page = 0
-        self._color_seed = random.randint(0, 1000)
         self._pending_item_updates: set[str] = set()
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
         self._items = self._build_items_from_panel(panel, "items")
         self._current_page = int(panel.get("initial_page", 0))
-        self._color_seed = panel.get("color_seed", 0)
         # set function buttons
         show_in_nav = panel.show_in_navigation()
         nav_btn: dict = {
@@ -186,7 +156,7 @@ class GridPage(HAUIPage):
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": ICO_NEXT_PAGE,
-                "color": self.get_color("component_accent"),
+                "color": self.get_color("header_accent"),
                 "visible": len(self._items) > self.NUM_GRIDS,
             },
         }
@@ -218,6 +188,9 @@ class GridPage(HAUIPage):
             self.set_function_component(btn, btn[1], row_index=i, visible=False)
             self.set_function_component(ico, ico[1], row_index=i, visible=False)
             self.set_function_component(name, name[1], row_index=i, visible=False)
+
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # cancel any pending debounced item-state updates
@@ -293,34 +266,13 @@ class GridPage(HAUIPage):
             handle = self.add_item_listener(item_id, self.callback_item_state, attribute="all")
             self._active_handles.append(handle)
 
-    def get_grid_colors(self, panel: HAUIPanel, item: HAUIItem | None, idx: int = 0) -> tuple:
+    def get_grid_colors(self, panel: HAUIPanel, item: HAUIItem | None) -> tuple:
         # colors for grid button
         color_pressed = panel.get("color_pressed", self.get_color("text"))
         back_color_pressed = panel.get("back_color_pressed", self.get_color("component_pressed"))
         power_color = panel.get("power_color", self.get_color("component_active"))
         text_color = panel.get("text_color", None)
         back_color = panel.get("back_color", None)
-        color_mode = panel.get("color_mode", None)
-        color_seed = panel.get("color_seed", self._color_seed)
-        # no background color check if color mode or set default
-        if not back_color and color_mode:
-            self.debug_log(f"Using seed for grid: {color_seed}")
-            colors = generate_color_palette(
-                rgb565_to_rgb(self.get_color("background")), color_mode, color_seed, 6
-            )
-            back_color = colors[idx - 1]
-            back_color_pressed = [int(x * 0.5) for x in back_color]
-            # for light back colors use dark text color
-            if color_mode in ["pastel", "light", "lighten"]:
-                if not text_color:
-                    text_color = self.get_color("background")
-                color_pressed = self.get_color("component_pressed")
-                power_color = self.get_color("background")
-            elif color_mode in ["vibrant", "dark", "darken"]:
-                if not text_color:
-                    text_color = self.get_color("component_text")
-                color_pressed = self.get_color("component_text")
-                power_color = self.get_color("component_text")
         # text color
         if not text_color:
             text_color = self.get_color("text")
@@ -329,12 +281,10 @@ class GridPage(HAUIPage):
             back_color = self.get_color("background")
         # item overrides (beat everything)
         if item is not None:
-            color_mode = item.get("color_mode", color_mode)
             text_color = item.get("text_color", text_color)
             back_color = item.get("back_color", back_color)
             color_pressed = item.get("color_pressed", color_pressed)
             back_color_pressed = item.get("back_color_pressed", back_color_pressed)
-            color_seed = item.get("color_seed", color_seed)
             power_color = item.get("power_color", power_color)
             if not self.is_item_active(item):
                 power_color = back_color_pressed
@@ -353,7 +303,7 @@ class GridPage(HAUIPage):
         power_visible = self.is_power_visible(panel, item) if item else False
 
         text_color, color_pressed, back_color, back_color_pressed, power_color = (
-            self.get_grid_colors(panel, item, idx)
+            self.get_grid_colors(panel, item)
         )
 
         # update grid button

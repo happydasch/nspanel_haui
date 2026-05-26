@@ -16,6 +16,7 @@
  */
 
 import { html } from './lit-import.js';
+import { t } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
 
 /** Item type constants (match Python INTERNAL_ITEM_TYPE). */
@@ -32,11 +33,11 @@ export const ALL_ITEM_TYPES = Object.values(ITEM_TYPE);
 
 /** Labels and placeholders for each item type (single source of truth). */
 export const ITEM_LABELS = {
-  entity_id: { label: "Entity", placeholder: "light.bedroom" },
-  skip:      { label: "", placeholder: "No value needed" },
-  text:      { label: "Display Text", placeholder: "Hello, World!" },
-  navigate:  { label: "Target Panel", placeholder: "grid_0" },
-  action:    { label: "Service", placeholder: "light/turn_on" },
+  entity_id: { label: t("Entity"), placeholder: t("light.bedroom") },
+  skip:      { label: "", placeholder: t("No value needed") },
+  text:      { label: t("Display Text"), placeholder: t("Hello, World!") },
+  navigate:  { label: t("Target Panel"), placeholder: t("grid_0") },
+  action:    { label: t("Service"), placeholder: t("light/turn_on") },
 };
 
 /** MDI icon per item type — used as fallback when no override icon set. */
@@ -50,11 +51,11 @@ export const ITEM_TYPE_ICONS = {
 
 /** Short type label shown in row header. */
 export const ITEM_TYPE_SHORT = {
-  entity_id: 'Entity',
-  skip:      'Skip',
-  text:      'Text',
-  navigate:  'Navigate',
-  action:    'Action',
+  entity_id: t('Entity'),
+  skip:      t('Skip'),
+  text:      t('Text'),
+  navigate:  t('Navigate'),
+  action:    t('Action'),
 };
 
 /** Prefix markers for each internal item type (for string encoding). */
@@ -139,18 +140,18 @@ export function encodeItemValue(value, type) {
  */
 export function itemSummary(config) {
   if (!config || config.item === null || config.item === undefined) {
-    return 'Skip';
+    return t('Skip');
   }
   // Empty string means entity type with no entity chosen yet
-  if (config.item === '') return 'Entity';
+  if (config.item === '') return t('Entity');
   const raw = config.item;
   if (typeof raw === 'string') {
-    if (raw.startsWith(INTERNAL_PREFIX.text))      return `Text: ${raw.slice(5)}`;
-    if (raw.startsWith(INTERNAL_PREFIX.navigate))  return `Navigate: ${raw.slice(9)}`;
-    if (raw.startsWith(INTERNAL_PREFIX.action))    return `Action: ${raw.slice(7)}`;
+    if (raw.startsWith(INTERNAL_PREFIX.text))      return `${t('Text')}: ${raw.slice(5)}`;
+    if (raw.startsWith(INTERNAL_PREFIX.navigate))  return `${t('Navigate')}: ${raw.slice(9)}`;
+    if (raw.startsWith(INTERNAL_PREFIX.action))    return `${t('Action')}: ${raw.slice(7)}`;
   }
   // Gracefully handle objects by extracting entity_id, falling back to unknown
-  return (raw && typeof raw === 'object') ? (raw.item || raw.entity_id || '(unknown)') : String(raw);
+  return (raw && typeof raw === 'object') ? (raw.item || raw.entity_id || t('(unknown)')) : String(raw);
 }
 
 /**
@@ -161,7 +162,7 @@ export function itemSummary(config) {
 export function itemPrimaryText(config) {
   if (config && config.name) return String(config.name);
   const t = detectItemType(config?.item);
-  return ITEM_TYPE_SHORT[t] || 'Item';
+  return ITEM_TYPE_SHORT[t] || t('Item');
 }
 
 /**

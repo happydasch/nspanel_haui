@@ -10,9 +10,9 @@ script:
           ESP_LOGV("haui", "Script: set_hub_connected: %i (force=%i)", connected, force);
           bool hub_connection_state = bool(connected);
           // Guard: when asked to disconnect, check if other API clients remain.
-          // EXCEPT when force=true (heartbeat timeout, explicit close, or
-          // reconnect request), because the hub app may be unresponsive even
-          // if the raw API connection is still alive.
+          // EXCEPT when force=true: the device independently detected the hub
+          // is unresponsive (heartbeat timeout), so it must disconnect even if
+          // the raw API connection is still alive.
           if (!hub_connection_state && !bool(force) && global_api_server->is_connected()) {
             ESP_LOGV("haui", "Skipping disconnect: other API clients remain");
             return;

@@ -77,7 +77,7 @@ export function moveUp(host, panelKey) {
   if (prevIdx < 0) return;
   const newPanels = [...panels];
   [newPanels[prevIdx], newPanels[idx]] = [newPanels[idx], newPanels[prevIdx]];
-  host._savePanels(newPanels, "Panel moved up");
+  host._savePanels(newPanels, host._t("Panel moved up"));
 }
 
 export function moveDown(host, panelKey) {
@@ -94,7 +94,7 @@ export function moveDown(host, panelKey) {
   if (nextIdx >= panels.length) return;
   const newPanels = [...panels];
   [newPanels[idx], newPanels[nextIdx]] = [newPanels[nextIdx], newPanels[idx]];
-  host._savePanels(newPanels, "Panel moved down");
+  host._savePanels(newPanels, host._t("Panel moved down"));
 }
 
 /* ── delete ───────────────────────────────────────────────────────────────── */
@@ -114,7 +114,7 @@ export async function doDelete(host) {
   const panels = host._devicePanels();
   if (index < 0 || index >= panels.length) return;
   const newPanels = panels.filter((_, i) => i !== index);
-  await host._savePanels(newPanels, "Panel deleted");
+  await host._savePanels(newPanels, host._t("Panel deleted"));
 }
 
 /* ── save ─────────────────────────────────────────────────────────────────── */
@@ -144,7 +144,7 @@ export async function saveFromData(host, panel, index) {
     (p, i) => i !== index && p.key && p.key.toLowerCase() === (panel.key || "").toLowerCase()
   );
   if (duplicateKey) {
-    host._error = `Key "${panel.key}" is already used by another panel`;
+    host._error = `${host._t('Key')} "${panel.key}" ${host._t('is already used by another panel')}`;
     host.requestUpdate();
     return;
   }
@@ -255,7 +255,7 @@ export async function saveFromData(host, panel, index) {
     newPanels.push(newPanel);
   }
 
-  const action = index >= 0 ? `Saved "${panel.key || "panel"}"` : `Added "${panel.key || "panel"}"`;
+  const action = index >= 0 ? `${host._t('Saved')} "${panel.key || host._t('panel')}"` : `${host._t('Added')} "${panel.key || host._t('panel')}"`;
   await host._savePanels(newPanels, action);
 }
 
@@ -269,8 +269,8 @@ export function toggleNavVisibility(host, panelKey) {
     i === idx ? { ...p, show_in_navigation: p.show_in_navigation === false } : p
   );
   const nowShown = newPanels[idx].show_in_navigation;
-  const label = nowShown ? "shown" : "hidden";
-  host._savePanels(newPanels, `Panel "${panelKey}" ${label} in navigation`);
+  const label = nowShown ? host._t('shown') : host._t('hidden');
+  host._savePanels(newPanels, `${host._t('Panel')} "${panelKey}" ${label} ${host._t('in navigation')}`);
 }
 
 /* ── persist ──────────────────────────────────────────────────────────────── */
@@ -307,12 +307,12 @@ export async function savePanels(host, newPanels, toastMessage) {
       host._showToast(toastMessage, "success");
     } else {
       const err = await resp.json().catch(() => ({}));
-      host._error = err.message || `Save failed (HTTP ${resp.status})`;
+      host._error = err.message || `${host._t('Save failed')} (HTTP ${resp.status})`;
       host._showToast(host._error, "error");
     }
   } catch (e) {
     console.error("Save failed:", e);
-    host._error = e.message || "Network error";
+    host._error = e.message || host._t("Network error");
     host._showToast(host._error, "error");
   }
   host._saving = false;

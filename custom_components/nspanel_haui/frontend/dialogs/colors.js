@@ -25,10 +25,21 @@ async function ensureColorDefaults(hass) {
 
 const COLOR_GROUPS = [
   {
-    name: "Default",
+    name: "Header",
     keys: [
-      "header_background", "header_text", "background", "text", "text_inactive",
-      "text_disabled", "component_text", "component_pressed", "component_active",
+      "header_background", "header_text", "header_accent",
+    ],
+  },
+  {
+    name: "Content",
+    keys: [
+      "background", "text", "text_inactive", "text_disabled",
+    ],
+  },
+  {
+    name: "Component",
+    keys: [
+      "component_text", "component_pressed", "component_active",
       "component_accent", "component_background",
     ],
   },
@@ -88,11 +99,12 @@ function hexToRgb565(hex) {
 /* ── human-friendly label for each key ────────────────────────────────── */
 
 const LABELS = {
-  background: "Background",
   // header
-  header_background: "Header background",
-  header_text: "Header text",
+  header_background: "Header (background)",
+  header_text: "Header (text)",
+  header_accent: "Header (accent)",
   // text
+  background: "Background",
   text: "Text",
   text_inactive: "Text (inactive)",
   text_disabled: "Text (disabled)",
@@ -101,7 +113,7 @@ const LABELS = {
   component_pressed: "Component (pressed)",
   component_active: "Component (active)",
   component_accent: "Component (accent)",
-  component_background: "Component background",
+  component_background: "Component (background)",
   // weather
   weather_default: "Default",
   weather_clear_night: "Clear night",
@@ -265,7 +277,11 @@ class ColorsDialog extends LitElement {
   }
 
   _resetAll() {
-    this._rebuildColors();
+    const cols = {};
+    for (const [k, v] of Object.entries(_colorDefaults)) {
+      cols[k] = v;
+    }
+    this._colors = cols;
     this.requestUpdate();
   }
 

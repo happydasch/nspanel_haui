@@ -185,8 +185,8 @@ class NSPanelHAUI(HAAdapter):
             key = panel.get("key", "")
             if key and key in panels_by_key:
                 self.log(
-                    f"Skipping duplicate panel key '{key}' (type={panel_config.get('type')})",
-                    level="WARNING",
+                    f"User panel overrides system panel '{key}' (type={panel_config.get('type')})",
+                    level="INFO",
                 )
                 continue
             new_panels.append(panel)

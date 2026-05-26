@@ -11,7 +11,7 @@ from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_BRIGHTNESS, ICO_COLOR, ICO_COLOR_TEMP, ICO_EFFECT, ICO_POWER
-from ..utils.color import color_to_pos, pos_to_color
+from ..utils.color import color_to_rect_pos, rect_pos_to_color
 from ..utils.value import scale
 
 
@@ -43,26 +43,28 @@ class LightPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        btn_light_fnc_1=Component(7, "btLightFnc1"),
-        btn_light_fnc_2=Component(8, "btLightFnc2"),
-        btn_light_fnc_3=Component(9, "btLightFnc3"),
-        btn_light_fnc_4=Component(10, "btLightFnc4"),
-        pic_color_wheel=Component(11, "pColorWheel"),
-        h_brightness=Component(12, "hBrightness"),
-        h_color_temp=Component(13, "hColorTemp"),
-        btn_power=Component(14, "bPower"),
-        t_info=Component(15, "tInfo"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        btn_light_fnc_1=Component(8, "btLightFnc1"),
+        btn_light_fnc_2=Component(9, "btLightFnc2"),
+        btn_light_fnc_3=Component(10, "btLightFnc3"),
+        btn_light_fnc_4=Component(11, "btLightFnc4"),
+        pic_color_rect=Component(12, "pColorWheel"),
+        h_brightness=Component(13, "hBrightness"),
+        h_color_temp=Component(14, "hColorTemp"),
+        btn_power=Component(15, "bPower"),
+        t_info=Component(16, "tInfo"),
     )
 
-    # hardcoded to not request too often, needed for color to pos
-    PIC_COLOR_WHEEL_WH = 200
-    PIC_COLOR_WHEEL_X = 125
-    PIC_COLOR_WHEEL_Y = 75
+    # hardcoded to not request too often, needed for color to rect pos
+    PIC_COLOR_RECT_W = 200
+    PIC_COLOR_RECT_H = 200
+    PIC_COLOR_RECT_X = 125
+    PIC_COLOR_RECT_Y = 75
 
     DEFAULT_FUNCTION = "brightness"
 
@@ -83,7 +85,7 @@ class LightPage(HAUIPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set component callbacks
-        self.add_component_callback(self.COMPONENTS.pic_color_wheel, self.callback_color_wheel)
+        self.add_component_callback(self.COMPONENTS.pic_color_rect, self.callback_color_rect)
         self.add_component_callback(self.COMPONENTS.h_brightness, self.callback_brightness)
         self.add_component_callback(self.COMPONENTS.h_color_temp, self.callback_color_temp)
         self.add_component_callback(self.COMPONENTS.btn_power, self.callback_power)
@@ -93,7 +95,7 @@ class LightPage(HAUIPage):
             "fnc_name": "power_off",
             "fnc_args": {
                 "icon": ICO_POWER,
-                "color": self.get_color("component_accent"),
+                "color": self.get_color("header_accent"),
                 "visible": False,
             },
         }
@@ -128,6 +130,9 @@ class LightPage(HAUIPage):
         if item is not None:
             title = item.get_name()
         self._title = title
+
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # set basic panel info
@@ -282,7 +287,7 @@ class LightPage(HAUIPage):
         if fnc is None:
             return
         self.set_component_text_color(self.COMPONENTS.btn_power, value)
-        self.update_color_wheel()
+        self.update_color_rect()
 
     def set_color_temp_info(self, value: int) -> None:
         fnc = self.get_light_function("color_temp")
@@ -369,7 +374,7 @@ class LightPage(HAUIPage):
             elif fnc["name"] == "color_temp":
                 self.set_component_value(self.COMPONENTS.h_color_temp, fnc["val"])
             elif fnc["name"] == "color":
-                self.update_color_wheel()
+                self.update_color_rect()
 
         # set light functions
         self._light_functions = functions
@@ -393,7 +398,7 @@ class LightPage(HAUIPage):
             if fnc["name"] == "brightness":
                 to_show = self.COMPONENTS.h_brightness
             elif fnc["name"] == "color":
-                to_show = self.COMPONENTS.pic_color_wheel
+                to_show = self.COMPONENTS.pic_color_rect
             elif fnc["name"] == "color_temp":
                 to_show = self.COMPONENTS.h_color_temp
             # function info
@@ -418,7 +423,7 @@ class LightPage(HAUIPage):
         # function components
         for x in [
             self.COMPONENTS.h_brightness,
-            self.COMPONENTS.pic_color_wheel,
+            self.COMPONENTS.pic_color_rect,
             self.COMPONENTS.h_color_temp,
         ]:
             if x == to_show:
@@ -443,7 +448,7 @@ class LightPage(HAUIPage):
         elif name == "effect":
             self.set_effect_info(val)
 
-    def update_color_wheel(self) -> None:
+    def update_color_rect(self) -> None:
         if self._current_light_function != "color":
             return
         if self._light_item is None:
@@ -451,22 +456,18 @@ class LightPage(HAUIPage):
         rgb_color = self._light_item.get_item_attr("rgb_color")
         if rgb_color is None:
             return
-        # reduce wh to match max circle pos at border
-        radius = 6
-        wh = self.PIC_COLOR_WHEEL_WH - (2 * radius)
-        # get pos xy based on smaller circle
-        pos_x, pos_y = color_to_pos(rgb_color, wh)
-        # refresh color wheel to remove circle
-        self.send_cmd(f"ref {self.COMPONENTS.pic_color_wheel[0]}")
+        # Map RGB to (x, y) position in the rectangle
+        pos_x, pos_y = color_to_rect_pos(rgb_color, self.PIC_COLOR_RECT_W, self.PIC_COLOR_RECT_H)
+        # refresh picture widget to clear marker
+        self.send_cmd(f"ref {self.COMPONENTS.pic_color_rect[0]}")
         if pos_x is not None and pos_y is not None and pos_x > 0 and pos_y > 0:
-            self.log(f"Set color wheel: {pos_x},{pos_y}")
-            # adjust pos based on radius of circle
-            pos_x += self.PIC_COLOR_WHEEL_X + radius
-            pos_y += self.PIC_COLOR_WHEEL_Y + radius
+            self.log(f"Set color rect: {pos_x},{pos_y}")
+            pos_x += self.PIC_COLOR_RECT_X
+            pos_y += self.PIC_COLOR_RECT_Y
             self.send_cmd("doevents")
             # draw circle
             color = self.get_color("component_pressed")
-            self.send_cmd(f"cirs {pos_x},{pos_y},{radius},{color}")
+            self.send_cmd(f"cirs {pos_x},{pos_y},{6},{color}")
 
     def update_power_button(self) -> None:
         if self._light_item is None:
@@ -573,12 +574,12 @@ class LightPage(HAUIPage):
             # make sure power button is visible if needed
             self.update_power_button()
             self.update_light_functions(fnc)
-            # make sure color is selected on color wheel
+            # make sure color indicator is shown
             if fnc and fnc["name"] == "color":
-                self.update_color_wheel()
+                self.update_color_rect()
 
-    def callback_color_wheel(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        self.log(f"Got color wheel press: {component}-{button_state}")
+    def callback_color_rect(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+        self.log(f"Got color rect press: {component}-{button_state}")
         if button_state:
             self._touch_track = True
             # will get set to false by touch end
@@ -611,16 +612,18 @@ class LightPage(HAUIPage):
 
     def process_event(self, event: HAUIEvent) -> None:
         super().process_event(event)
-        # touch end on color wheel
+        # touch end on color rect
         if event.name == ESPEvent.TOUCH_END:
             values = event.as_str().split(",")
             if self._touch_track:
                 self._touch_track = False
                 _, _, pos_x, pos_y = [int(val) if val.isdigit() else 0 for val in values]
                 if pos_x > 0 and pos_y > 0:
-                    pos_x -= self.PIC_COLOR_WHEEL_X
-                    pos_y -= self.PIC_COLOR_WHEEL_Y
-                    color = pos_to_color(pos_x, pos_y, self.PIC_COLOR_WHEEL_WH)
+                    pos_x -= self.PIC_COLOR_RECT_X
+                    pos_y -= self.PIC_COLOR_RECT_Y
+                    color = rect_pos_to_color(
+                        pos_x, pos_y, self.PIC_COLOR_RECT_W, self.PIC_COLOR_RECT_H
+                    )
                     self.process_color(color)
         # requested values
         if event.name == ESPResponse.RES_VAL:

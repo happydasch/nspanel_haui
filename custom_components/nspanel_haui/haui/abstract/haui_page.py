@@ -187,6 +187,25 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             with self.rec_cmd:
                 self.send_cmd(f"cls {self.get_color('background')}")
 
+        if not self.PICTURE_BACKGROUND:
+            with self.rec_cmd:
+                # apply header colors to the header background (if the page has one)
+                try:
+                    header_comp = self.COMPONENTS.header
+                except AttributeError:
+                    pass
+                else:
+                    self.set_component_back_color(header_comp, self.get_color("header_background"))
+
+                # apply header colors to the title component (if the page has one)
+                try:
+                    title_comp = self.COMPONENTS.title
+                except AttributeError:
+                    pass
+                else:
+                    self.set_component_text_color(title_comp, self.get_color("header_text"))
+                    self.set_component_back_color(title_comp, self.get_color("header_background"))
+
         with self.rec_cmd:
             # physical button state
             if self._btn_state_left is not None:
@@ -203,9 +222,6 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 self.set_component_value(
                     self._btn_state_right, self.app.device.get_right_button_state()
                 )
-
-            # auto-assign function types to header buttons that have no explicit assignment
-            self._auto_assign_fncs(panel)
 
             # special case, single nav panel
             # swap secondary buttons with primary buttons, since nav is not used
@@ -521,7 +537,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 NotifEvent.NOTIF_CLEAR,
             ]:
                 if event.name == NotifEvent.NOTIF_ADD:
-                    color = self.get_color("component_accent")
+                    color = self.get_color("header_accent")
                 else:
                     color = self.get_color("component_text")
                 notification = self.app.controller["notification"]

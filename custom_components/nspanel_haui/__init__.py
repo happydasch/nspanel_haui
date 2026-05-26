@@ -478,9 +478,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         IconSearchView,
         PanelConfigView,
         PanelTypesView,
+        TranslationsView,
     )
     from .frontend import async_register_frontend
 
+    hass.http.register_view(TranslationsView())
     hass.http.register_view(PanelConfigView())
     hass.http.register_view(PanelTypesView())
     hass.http.register_view(ColorDefaultsView())

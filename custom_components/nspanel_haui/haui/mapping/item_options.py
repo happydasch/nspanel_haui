@@ -67,7 +67,7 @@ class ItemOptions:
 
         Args:
             extra: Additional PageOption entries that a page type supports
-                   as per-item overrides (e.g. grid's color_mode, text_color).
+                   as per-item overrides (e.g. grid's text_color).
 
         Returns:
             Combined list of standard + extra options.

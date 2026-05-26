@@ -28,27 +28,28 @@ class SelectPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        btn_sel_full_1=Component(7, "bSelFull1"),
-        btn_sel_full_2=Component(8, "bSelFull2"),
-        btn_sel_full_3=Component(9, "bSelFull3"),
-        btn_sel_full_4=Component(10, "bSelFull4"),
-        btn_sel_1=Component(11, "bSel1"),
-        btn_sel_2=Component(12, "bSel2"),
-        btn_sel_3=Component(13, "bSel3"),
-        btn_sel_4=Component(14, "bSel4"),
-        btn_sel_5=Component(15, "bSel5"),
-        btn_sel_6=Component(16, "bSel6"),
-        btn_sel_7=Component(17, "bSel7"),
-        btn_sel_8=Component(18, "bSel8"),
-        btn_sel_9=Component(19, "bSel9"),
-        btn_sel_10=Component(20, "bSel10"),
-        btn_sel_11=Component(21, "bSel11"),
-        btn_sel_12=Component(22, "bSel12"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        btn_sel_full_1=Component(8, "bSelFull1"),
+        btn_sel_full_2=Component(9, "bSelFull2"),
+        btn_sel_full_3=Component(10, "bSelFull3"),
+        btn_sel_full_4=Component(11, "bSelFull4"),
+        btn_sel_1=Component(12, "bSel1"),
+        btn_sel_2=Component(13, "bSel2"),
+        btn_sel_3=Component(14, "bSel3"),
+        btn_sel_4=Component(15, "bSel4"),
+        btn_sel_5=Component(16, "bSel5"),
+        btn_sel_6=Component(17, "bSel6"),
+        btn_sel_7=Component(18, "bSel7"),
+        btn_sel_8=Component(19, "bSel8"),
+        btn_sel_9=Component(20, "bSel9"),
+        btn_sel_10=Component(21, "bSel10"),
+        btn_sel_11=Component(22, "bSel11"),
+        btn_sel_12=Component(23, "bSel12"),
     )
 
     ITEMS_PER_PAGE_DEFAULT = 12
@@ -129,6 +130,9 @@ class SelectPage(HAUIPage):
                 self._selected = self._selected[0]
             else:
                 self._selected = str(self._selected)
+
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._multiple_timer is not None:

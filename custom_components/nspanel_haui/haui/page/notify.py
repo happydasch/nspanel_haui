@@ -17,16 +17,17 @@ if TYPE_CHECKING:
 
 class CommonNotifyPage(HAUIPage):
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        title=Component(2, "tTitle"),
-        t_text_full=Component(7, "tTextFull"),
-        t_text=Component(8, "tText"),
-        t_icon=Component(9, "tIcon"),
-        btn_left=Component(10, "bBtnLeft"),
-        btn_right=Component(11, "bBtnRight"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        t_text_full=Component(8, "tTextFull"),
+        t_text=Component(9, "tText"),
+        t_icon=Component(10, "tIcon"),
+        btn_left=Component(11, "bBtnLeft"),
+        btn_right=Component(12, "bBtnRight"),
     )
 
 
@@ -77,6 +78,9 @@ class NotifyPage(CommonNotifyPage):
             self.COMPONENTS.fnc_right_pri,
             self.COMPONENTS.fnc_right_sec,
         )
+
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         self._restore_auto_state(self._saved_auto)
@@ -192,6 +196,9 @@ class NotifsPage(CommonNotifyPage):
             self.COMPONENTS.fnc_right_pri,
             next_btn,
         )
+
+        # auto-assign function types to header buttons
+        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         title = panel.get_title(self.translate("Notifications"))

@@ -29,9 +29,9 @@ from .descriptor import PageDescriptor
 # sys_panel_key -> panel_type
 SYS_PANEL_MAPPING = {
     # sys pages
-    SysPanelKey.SYS_BLANK: "blank",
     SysPanelKey.SYS_SYSTEM: "system",
     SysPanelKey.SYS_ABOUT: "system_about",
+    SysPanelKey.SYS_BLANK: "blank",
     SysPanelKey.SYS_SETTINGS: "system_settings",
     # popups
     SysPanelKey.POPUP_UNLOCK: "popup_unlock",

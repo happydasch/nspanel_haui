@@ -37,9 +37,8 @@ Select from different [Panels](docs/panels/README.md) that can be displayed on t
 
 ### Device configuration in home-assistant
 
-![Config](docs/assets/feature_config.png)
 ![Grid or List](docs/assets/screenshots/grid_or_list.png)
-![Grid View](docs/assets/screenshots/grid_view.png)
+![Grid View](docs/assets/screenshots/grid.png)
 ![System Panels](docs/assets/screenshots/system_panels.png)
 ![Add Panel](docs/assets/screenshots/add_panel.png)
 

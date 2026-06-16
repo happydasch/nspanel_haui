@@ -250,7 +250,6 @@ stateDiagram-v2
         Device→Hub: esphome.heartbeat event
         Timeout = interval × 2 (default 10s)
     end note
-
     note left of DISCONNECTED
         Livesign detection:
         Any non-handshake event
@@ -258,3 +257,128 @@ stateDiagram-v2
         immediate handshake restart
     end note
 ```
+
+## Reading Values from the Display
+
+The hub can request the current value (numeric) or text of any Nextion component
+or global variable.  This is used for slider controls (brightness, volume, cover
+position, etc.) and anywhere the hub needs to know the display's state without
+maintaining a mirror.
+
+### Round-Trip Flow
+
+```
+HA Page (Python)                       ESPHome Device                Nextion
+─────────────────                      ───────────────               ───────
+request_component_value(comp)
+  → _request_component_read()
+    → send_esphome(REQ_VAL, name)
+
+                                        req_val action
+                                          → request_number script
+                                            → req_val_component = name
+                                            → send: system.resVal=name.val
+                                            → res_val.update()
+
+                                                                     reads name.val
+                                                                     → system.resVal
+                                        res_val sensor on_value
+                                          → publish read_response
+                                            {name, type:"number", value}
+
+_process_read_response(e)
+  → callback(value)
+```
+
+The text path is identical but uses `REQ_TXT` → `request_text` script →
+`system.resTxt.txt=name.txt` → `res_txt` sensor → `read_response` with
+`type:"text"`.
+
+### Python API
+
+#### Requesting reads
+
+**`request_component_value(component: Component)`** — Request a numeric value.
+Used by slider pages.  Sends `REQ_VAL` to the device.
+
+**`request_component_text(component: Component)`** — Request a text value.
+Sends `REQ_TXT` to the device.
+
+Both accept the component by name via convenience wrappers:
+
+```python
+# Without a Component object
+self.request_component_value_by_name("hBrightness")
+self.request_component_text_by_name("tTitle")
+```
+
+#### Registering callbacks
+
+Read responses arrive asynchronously via `esphome.read_response` events.  You
+MUST register a callback **before** sending the request so the dispatcher knows
+where to route the response:
+
+```python
+self.add_read_callback(comp, self._on_value_read)
+self.request_component_value(comp)
+```
+
+The callback receives a single argument — an `int` for number reads or a `str`
+for text reads:
+
+```python
+def _on_value_read(self, value: int) -> None:
+    self.log(f"Got brightness: {value}")
+```
+
+**Without a Component:**
+
+```python
+self.add_read_callback_by_name("tTitle", self._on_title_read)
+self.request_component_text_by_name("tTitle")
+```
+
+#### Slider convenience — `bind_slider()`
+
+The most common pattern is a slider component: register the drag handler, read
+the value on release, and dispatch to a handler.  `bind_slider()` does all three:
+
+```python
+self.bind_slider(self.COMPONENTS.h_brightness, self._on_brightness)
+```
+
+This is equivalent to:
+
+```python
+self.on_release(self.COMPONENTS.h_brightness, self._callback_slider_release, drag=True)
+self.add_read_callback(self.COMPONENTS.h_brightness, self._on_brightness)
+```
+
+The release handler calls `request_component_value()` and the result goes to
+`_on_brightness`.
+
+### Single In-Flight Constraint
+
+Only **one** read can be in-flight at a time because the ESP32 has a single
+`req_val_component` / `req_txt_component` global pair.  If a second read is
+requested while one is pending, it is **silently skipped** with a log message.
+
+The guard expires after `READ_PENDING_TIMEOUT` (2 seconds by default) so a lost
+`read_response` event never wedges the system.  Responses that arrive after the
+timeout are dropped as stale.
+
+### Touch interaction clearing
+
+When a new touch (`TOUCH_START`) arrives, `_pending_read_request` is cleared
+(None).  Any `read_response` that arrives after that is treated as stale and
+dropped — the new touch is expected to trigger a fresh read request.
+
+### Pages using the read API
+
+| Page | File | Method |
+|------|------|--------|
+| Light | `haui/page/light.py` | `bind_slider()` for brightness + color temp |
+| Cover | `haui/page/cover.py` | `bind_slider()` for position |
+| Media | `haui/page/media.py` | `add_read_callback()` + `request_component_value()` |
+| Settings | `haui/page/settings.py` | `bind_slider()` for brightness full/dim |
+| Row | `haui/page/row.py` | `add_read_callback()` for row-based slider |

@@ -183,6 +183,11 @@ class NSPanelHAUI(HAAdapter):
         for panel_config in panel_configs:
             panel = HAUIPanel(self, panel_config)
             key = panel.get("key", "")
+            self.log(
+                f"Loading panel key={key!r} type={panel_config.get('type')!r} "
+                f"show_in_nav={panel_config.get('show_in_navigation', True)}",
+                level="DEBUG",
+            )
             if key and key in panels_by_key:
                 self.log(
                     f"User panel overrides system panel '{key}' (type={panel_config.get('type')})",
@@ -252,6 +257,19 @@ class NSPanelHAUI(HAAdapter):
             update_ctrl.stop_part()
             update_ctrl.start_part()
 
+    def update_display(self) -> None:
+        """Re-render the currently displayed panel on this device.
+
+        This triggers a full refresh of the current panel's display commands
+        without reloading config or re-registering callbacks.
+        """
+        nav_ctrl = self.controller.get("navigation")
+        if nav_ctrl is None:
+            self.log("Cannot update display: no navigation controller")
+            return
+        nav_ctrl.refresh_panel()
+        self.log("Display updated")
+
     # status endpoint support
 
     @staticmethod
@@ -272,7 +290,7 @@ class NSPanelHAUI(HAAdapter):
         page = nav.page if nav else None
 
         result: dict = {
-            "connected": conn.connected if conn else False,
+            "connected": conn.is_connected if conn else False,
             "connection_state": conn.connection_state.value if conn else "unknown",
             "current_page": self._format_current_page(page),
             "logs": self.get_status_logs()[-50:],
@@ -281,10 +299,18 @@ class NSPanelHAUI(HAAdapter):
         # Device info from the device config
         device_config = self.device_config.get("device", {}) if self.device_config else {}
         runtime_info = self.device.device_info if self.device else {}
+
+        # Read network info from HA entities only (no stale fallback).
+        from .api import _read_network_entities
+        nw = _read_network_entities(self.hass, self._runtime_device_name or "")
+
         result["device_info"] = {
             "name": self._runtime_device_name or device_config.get("name", self.name),
             "tft_version": runtime_info.get("tft_version") or "",
             "yaml_version": runtime_info.get("yaml_version") or "",
+            "ip": nw["ip"],
+            "ssid": nw["ssid"],
+            "rssi": nw["rssi"],
             "last_panel_update": self._last_panel_update,
             "last_connection": (
                 datetime.datetime.fromtimestamp(
@@ -345,6 +371,11 @@ class NSPanelHAUI(HAAdapter):
     def callback_event(self, event: Any) -> None:
         import traceback
 
+        self.log(
+            f"Event dispatch: name={event.name} value={str(event.value)[:120]}",
+            level="DEBUG",
+        )
+
         for controller in self.controller.values():
             if isinstance(controller, HAUIBase):
                 try:
@@ -365,4 +396,4 @@ class NSPanelHAUI(HAAdapter):
 
     def callback_connection(self, connected: bool) -> None:
         self.log(f"Device connection status: {connected}")
-        self.device.set_connected(connected)
+        self.device.on_connection_changed(connected)

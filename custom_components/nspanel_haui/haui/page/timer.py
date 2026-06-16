@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime
-import threading
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
@@ -69,7 +68,7 @@ class TimerPage(HAUIPage):
 
         self._show_notification = False
         self._timer: dict
-        self._timer_update_display: threading.Timer | None = None
+        self._handle_update_display: str | None = None
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # initialise (or restore) the timer dict from panel state
@@ -149,9 +148,9 @@ class TimerPage(HAUIPage):
         self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        if self._timer_update_display is not None:
-            self._timer_update_display.cancel()
-            self._timer_update_display = None
+        if self._handle_update_display is not None:
+            self.app.cancel_timer(self._handle_update_display)
+            self._handle_update_display = None
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.COMPONENTS.title, panel.get_title(self.translate("Timer")))
@@ -182,7 +181,7 @@ class TimerPage(HAUIPage):
         timer = self._timer
         # check if there is a active timer and cancel timer handle
         if timer["timer_handle"] is not None:
-            timer["timer_handle"].cancel()
+            self.app.cancel_timer(timer["timer_handle"])
             timer["timer_handle"] = None
         # get current timer values and set them in timer dict
         duration = self.get_timer_duration()
@@ -202,8 +201,12 @@ class TimerPage(HAUIPage):
             }
         )
         if duration > 0:
-            timer["timer_handle"] = threading.Timer(duration + 1, self.callback_timer_ended)
-            timer["timer_handle"].start()
+            timer["timer_handle"] = self.app.run_in(self.callback_timer_ended, duration + 1)
+        # Start the repeating display update timer (replaces threading.Timer)
+        if self._handle_update_display is None:
+            self._handle_update_display = self.app.run_every(
+                self.update_timer, 0, self.DISPLAY_UPDATE_INTERVAL
+            )
         # update display
         with self.rec_cmd:
             self.update_adjust_buttons(False)
@@ -213,8 +216,12 @@ class TimerPage(HAUIPage):
         timer = self._timer
         # handle can always be canceled
         if timer["timer_handle"] is not None:
-            timer["timer_handle"].cancel()
+            self.app.cancel_timer(timer["timer_handle"])
             timer["timer_handle"] = None
+        # Cancel the repeating display update timer
+        if self._handle_update_display is not None:
+            self.app.cancel_timer(self._handle_update_display)
+            self._handle_update_display = None
         # update timer dict
         timer.update(
             {
@@ -246,7 +253,7 @@ class TimerPage(HAUIPage):
         timer = self._timer
         return timer.get("timer_active", False)
 
-    def update_timer(self) -> None:
+    def update_timer(self, _data: dict | None = None) -> None:
         if self.is_timer_active():
             timer = self._timer
             # update timer components
@@ -278,17 +285,11 @@ class TimerPage(HAUIPage):
                 timer.update({"timer_time": now, "timer_switch": True})
                 if duration > 0:
                     if timer["timer_handle"] is not None:
-                        timer["timer_handle"].cancel()
-                    timer["timer_handle"] = threading.Timer(duration + 1, self.callback_timer_ended)
-                    timer["timer_handle"].start()
+                        self.app.cancel_timer(timer["timer_handle"])
+                    timer["timer_handle"] = self.app.run_in(self.callback_timer_ended, duration + 1)
         # update display
         with self.rec_cmd:
             self.update_timer_components()
-        # set next update using interval
-        self._timer_update_display = threading.Timer(
-            self.DISPLAY_UPDATE_INTERVAL, self.update_timer
-        )
-        self._timer_update_display.start()
 
     def update_timer_components(self) -> None:
         self.update_timer_display()

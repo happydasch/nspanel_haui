@@ -96,8 +96,8 @@ class QRPage(HAUIPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         name = self.app.device.get_name()
-        self.add_component_callback(self.COMPONENTS.qr_code, self.callback_qr_code)
-        self.add_component_callback(self.COMPONENTS.qr_code_big, self.callback_qr_code_big)
+        self.on_release(self.COMPONENTS.qr_code, self.callback_qr_code)
+        self.on_release(self.COMPONENTS.qr_code_big, self.callback_qr_code_big)
         self.auto_dimming = self.app.get_item(f"switch.{name}_use_auto_dimming")
         self.auto_page = self.app.get_item(f"switch.{name}_use_auto_page")
         self._use_auto_dimming = self.auto_dimming.get_state()
@@ -152,12 +152,18 @@ class QRPage(HAUIPage):
             self.auto_page.turn_on()
 
     def render_panel(self, panel: HAUIPanel) -> None:
+        essid = panel.get("essid", "")
+        password = panel.get("password", "")
+        qr_code = f"WIFI:S:{essid};T:WPA;P:{password};;" if essid else ""
+        self.set_component_text(self.COMPONENTS.qr_code, qr_code)
+        self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
         if panel.get("show_info", True):
             self._render_text(panel)
         else:
             items = self._build_items_from_panel(panel, "items")
             if items:
                 self._render_items(items)
+        self._apply_zoom_state()
 
     # Visibility
 
@@ -185,9 +191,10 @@ class QRPage(HAUIPage):
             self.update_function_component(
                 self.FNC_BTN_R_SEC, visible=True, color=self.get_color("header_accent")
             )
-            self.send_cmd("ref")
         else:
-            # Hide big QR first, then show normal QR + Q elements
+            # Hide big QR first, then show normal QR + Q elements.
+            # No send_cmd("ref") needed — the Nextion compositor handles
+            # visibility changes without a full repaint, avoiding flicker.
             self.hide_component(self.COMPONENTS.qr_code_big)
             self.show_component(self.COMPONENTS.qr_code)
             self.update_function_component(
@@ -207,15 +214,6 @@ class QRPage(HAUIPage):
                     self.show_component(component)
                 else:
                     self.hide_component(component)
-            # Re-push content — Nextion may have cleared hidden component buffers
-            if self._has_text and self.panel:
-                if self.panel.get("show_info", True):
-                    self._render_text(self.panel)
-                else:
-                    items = self._build_items_from_panel(self.panel, "items")
-                    if items:
-                        self._render_items(items)
-            self.send_cmd("ref")
 
     # Content rendering
 
@@ -268,20 +266,20 @@ class QRPage(HAUIPage):
             with self.rec_cmd:
                 self._apply_zoom_state()
 
-    def callback_qr_code(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if not self.panel or button_state:
+    def callback_qr_code(self, event: HAUIEvent, component: Component) -> None:
+        if not self.panel:
             return
         if not self.auto_page or not self.auto_dimming:
             return
-        self.log(f"Got qr code press: {component}-{button_state}")
+        self.log(f"Got qr code press: {component}")
         with self.rec_cmd:
             self._is_big = True
             self._apply_zoom_state()
             self.auto_dimming.turn_off()
             self.auto_page.turn_off()
 
-    def callback_qr_code_big(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if not self.panel or button_state:
+    def callback_qr_code_big(self, event: HAUIEvent, component: Component) -> None:
+        if not self.panel:
             return
         if not self.auto_page or not self.auto_dimming:
             return

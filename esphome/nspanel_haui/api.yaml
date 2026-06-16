@@ -1,11 +1,6 @@
 ---
 # API Configuration
 api:
-  # Disable 15-minute default reboot timeout.
-  # The device's own connection recovery handles reconnection without a disruptive
-  # full ESP32 reboot, which would cause a ~1-minute display outage.
-  #
-  # reboot_timeout: 0s
 
   # API Password for HA
   encryption:

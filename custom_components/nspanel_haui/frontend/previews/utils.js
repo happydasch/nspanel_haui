@@ -4,6 +4,7 @@
  * Shared utility functions for panel preview renderers.
  */
 import { t } from '../localize.js';
+import { colorToCss } from '../color-utils.js';
 
 /**
  * Pick a background class for the screen based on the panel's `background` option.
@@ -21,59 +22,6 @@ export function backgroundClass(panel) {
  */
 export function getItems(panel) {
   return (panel && panel.items) || [];
-}
-
-/**
- * Convert a color value to a CSS color string, using the same approach as the
- * panel edit dialog's color swatch (see form-fields.js parseRgbListToHex).
- * Accepts: number (RGB565), [r,g,b] array, "[r,g,b]" string, "#rrggbb" / "rrggbb",
- * numeric string like "63488", or CSS color names.
- *
- * Returns a CSS color string (rgb() or hex), or null if unparseable.
- */
-export function colorToCss(val) {
-  if (val == null || val === '') return null;
-  // Number → RGB565
-  if (typeof val === 'number') {
-    if (val <= 0) return null;
-    const r = Math.round(((val & 0xF800) >> 11) * 255 / 31);
-    const g = Math.round(((val & 0x07E0) >> 5) * 255 / 63);
-    const b = Math.round((val & 0x001F) * 255 / 31);
-    return `rgb(${r},${g},${b})`;
-  }
-  // [r, g, b] array
-  if (Array.isArray(val) && val.length === 3) {
-    const r = Math.min(255, Math.max(0, parseInt(val[0], 10)));
-    const g = Math.min(255, Math.max(0, parseInt(val[1], 10)));
-    const b = Math.min(255, Math.max(0, parseInt(val[2], 10)));
-    if ([r, g, b].every(Number.isFinite)) {
-      return `rgb(${r},${g},${b})`;
-    }
-    return null;
-  }
-  const s = String(val).trim();
-  // Template string — skip, no preview possible
-  if (s.includes('{{')) return null;
-  // Already a CSS color like "#rrggbb", "rgb(...)", "hsl(...)"
-  if (/^(#|rgb|hsl)/i.test(s)) return s;
-  // Hex without # prefix (rrggbb)
-  if (/^[0-9a-fA-F]{6}$/.test(s)) return '#' + s;
-  // "[r,g,b]" format
-  const rgbMatch = s.match(/^\s*\[\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\]\s*$/);
-  if (rgbMatch) {
-    return `rgb(${rgbMatch[1]},${rgbMatch[2]},${rgbMatch[3]})`;
-  }
-  // RGB565 integer string (e.g., "12345") — convert to CSS
-  if (/^\d{1,5}$/.test(s)) {
-    const n = parseInt(s, 10);
-    if (n > 0) {
-      const r = Math.round(((n & 0xF800) >> 11) * 255 / 31);
-      const g = Math.round(((n & 0x07E0) >> 5) * 255 / 63);
-      const b = Math.round((n & 0x001F) * 255 / 31);
-      return `rgb(${r},${g},${b})`;
-    }
-  }
-  return null;
 }
 
 /**
@@ -174,14 +122,145 @@ export function itemEntityId(item) {
 }
 
 /**
- * Normalise an item into { icon, name } for display in a tile.
+ * Domain→icon mapping for entities that don't have an explicit icon
+ * attribute. Covers the most common HA domains with their default icon.
  */
-export function itemDisplay(item) {
+const DOMAIN_DEFAULT_ICONS = {
+  alarm_control_panel: 'mdi:shield',
+  alert: 'mdi:alert',
+  automation: 'mdi:robot',
+  binary_sensor: 'mdi:radiobox-blank',
+  button: 'mdi:button-pointer',
+  calendar: 'mdi:calendar',
+  camera: 'mdi:video',
+  climate: 'mdi:thermostat',
+  conversation: 'mdi:forum-outline',
+  counter: 'mdi:counter',
+  date: 'mdi:calendar',
+  datetime: 'mdi:calendar-clock',
+  device_tracker: 'mdi:account',
+  fan: 'mdi:fan',
+  group: 'mdi:google-circles-communities',
+  humidifier: 'mdi:water-percent',
+  image: 'mdi:image',
+  input_boolean: 'mdi:toggle-switch',
+  input_button: 'mdi:button-pointer',
+  input_datetime: 'mdi:calendar-clock',
+  input_number: 'mdi:ray-vertex',
+  input_select: 'mdi:format-list-bulleted',
+  input_text: 'mdi:form-textbox',
+  lawn_mower: 'mdi:robot-mower',
+  light: 'mdi:lightbulb',
+  lock: 'mdi:lock',
+  media_player: 'mdi:cast',
+  notify: 'mdi:comment-alert',
+  number: 'mdi:ray-vertex',
+  persistent_notification: 'mdi:bell',
+  person: 'mdi:account',
+  plant: 'mdi:flower',
+  remote: 'mdi:remote',
+  scene: 'mdi:palette',
+  schedule: 'mdi:calendar-clock',
+  script: 'mdi:script-text',
+  select: 'mdi:format-list-bulleted',
+  sensor: 'mdi:eye',
+  siren: 'mdi:bullhorn',
+  stt: 'mdi:microphone-message',
+  switch: 'mdi:toggle-switch-variant',
+  text: 'mdi:form-textbox',
+  time: 'mdi:clock',
+  timer: 'mdi:timer-outline',
+  todo: 'mdi:clipboard-list',
+  tts: 'mdi:speaker-message',
+  update: 'mdi:package-up',
+  vacuum: 'mdi:robot-vacuum',
+  wake_word: 'mdi:chat-sleep',
+  water_heater: 'mdi:water-boiler',
+  weather: 'mdi:weather-partly-cloudy',
+};
+
+/**
+ * Device-class icons for domains that distinguish subtypes.
+ * Values are the default icon for each device_class.
+ */
+const DEVICE_CLASS_ICONS = {
+  cover: {
+    _: 'mdi:window-open',
+    awning: 'mdi:window-open',
+    blind: 'mdi:blinds-horizontal',
+    curtain: 'mdi:curtains',
+    damper: 'mdi:circle',
+    door: 'mdi:door-open',
+    garage: 'mdi:garage-open',
+    gate: 'mdi:gate-open',
+    shade: 'mdi:roller-shade',
+    shutter: 'mdi:window-shutter-open',
+    window: 'mdi:window-open',
+  },
+  media_player: {
+    _: 'mdi:cast',
+    receiver: 'mdi:audio-video',
+    speaker: 'mdi:speaker',
+    tv: 'mdi:television',
+  },
+};
+
+/**
+ * Resolve an entity icon from domain, device_class and state.
+ * Returns the icon string or null if unknown domain.
+ */
+function resolveDomainIcon(eid, stateObj) {
+  if (!eid || !stateObj) return null;
+  const dot = eid.indexOf('.');
+  if (dot <= 0) return null;
+  const domain = eid.slice(0, dot);
+  const deviceClass = stateObj.attributes?.device_class;
+
+  // Device-class-aware lookup
+  const dcMap = DEVICE_CLASS_ICONS[domain];
+  if (dcMap) {
+    return dcMap[deviceClass] || dcMap._;
+  }
+
+  // Simple domain → default icon
+  return DOMAIN_DEFAULT_ICONS[domain] || null;
+}
+
+/**
+ * Normalise an item into { icon, name } for display in a tile.
+ * When no icon override is set on the item, falls back to the real HA entity
+ * icon from the host's state registry (host.hass.states), then to a
+ * domain/device_class-based default icon.
+ *
+ * @param {object} item - item config with optional icon, name, entity_id
+ * @param {object} [host] - optional Lit host element carrying host.hass.states
+ * @returns {{ icon: string, name: string }}
+ */
+export function itemDisplay(item, host) {
   if (!item) return { icon: 'mdi:help-circle-outline', name: t('?') };
   const eid = itemEntityId(item);
-  const icon = (item.icon && typeof item.icon === 'string' && item.icon !== '')
-    ? item.icon : 'mdi:help-circle-outline';
-  const name = (item.name && typeof item.name === 'string' && item.name !== '')
-    ? item.name : eid;
+  let icon = (item.icon && typeof item.icon === 'string' && item.icon !== '')
+    ? item.icon : null;
+  if (!icon && host && eid) {
+    // Try the real HA entity icon (set via entity registry or attributes)
+    const state = host.hass?.states?.[eid];
+    if (state?.attributes?.icon) {
+      icon = state.attributes.icon;
+    }
+    // Fall back to domain/device_class default icon
+    if (!icon) {
+      icon = resolveDomainIcon(eid, state);
+    }
+  }
+  if (!icon) icon = 'mdi:help-circle-outline';
+  let name = (item.name && typeof item.name === 'string' && item.name !== '')
+    ? item.name : null;
+  if (!name && host && eid) {
+    const state = host.hass?.states?.[eid];
+    if (state?.attributes?.friendly_name) {
+      name = state.attributes.friendly_name;
+    }
+  }
+  if (!name) name = eid;
   return { icon, name };
 }

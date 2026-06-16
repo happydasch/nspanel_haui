@@ -30,17 +30,20 @@ export function simTile(opts = {}) {
  * @param {object} item - item config with entity_id, icon, name, back_color, text_color, etc.
  * @param {object} [opts]
  * @param {string} [opts.tileClass] - extra CSS class for the tile (e.g. 'pg-preview-grid-tile')
+ * @param {object} [host] - optional Lit host element for HA state lookups
  */
-export function simItemTile(item, opts = {}) {
-  const { icon, name } = itemDisplay(item);
+export function simItemTile(item, opts = {}, host) {
+  const { icon, name } = itemDisplay(item, host);
   const bg = tileBgColor(item);
   const ic = tileIconColor(item);
   const shortName = name.length > 7 ? name.slice(0, 6) + '\u2026' : name;
   const cls = 'pg-preview-tile' + (opts.tileClass ? ' ' + opts.tileClass : '');
   return html`
     <div class="${cls}" style="${bg ? `background:${bg};` : ''}">
-      <ha-icon icon="${icon}" style="${ic ? `color:${ic};` : ''}"></ha-icon>
-      ${name ? html`<span class="pg-preview-tile-label">${shortName}</span>` : ''}
+      <div class="pg-preview-tile-icon-wrap">
+        <ha-icon icon="${icon}" style="${ic ? `color:${ic};` : ''}"></ha-icon>
+      </div>
+      ${name ? html`<span class="pg-preview-tile-label" style="${ic ? `color:${ic};` : ''}">${shortName}</span>` : ''}
     </div>
   `;
 }
@@ -105,13 +108,13 @@ export function simButtonRow(buttons) {
  * @param {number} [opts.cols] - number of columns (default 2)
  * @param {number} [opts.max]  - max tiles to show (default 6)
  */
-export function simItemGrid(items, opts = {}) {
+export function simItemGrid(items, opts = {}, host) {
   const cols = opts.cols || 2;
   const max = opts.max || 6;
   const tiles = items.slice(0, max);
   return html`
     <div class="pg-preview-grid pg-preview-grid-${cols}cols">
-      ${tiles.map(item => simItemTile(item))}
+      ${tiles.map(item => simItemTile(item, {}, host))}
       ${tiles.length < max
         ? Array.from({ length: max - tiles.length }, (_, i) =>
             simTile({ icon: 'mdi:plus', label: '' })

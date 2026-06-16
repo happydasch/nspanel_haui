@@ -6,6 +6,23 @@ display:
     id: haui_disp
     wake_up_page: 0
     max_queue_age: 5000ms
+    # Cap queue entries to prevent heap fragmentation from accumulated
+    # commands when Nextion serial buffer overflows orphan pending entries.
+    # At ~2ms command spacing, ~300 entries = ~4.5s buffer — enough to absorb
+    # a full panel config+render burst (~120 commands) without drops.
+    max_queue_size: 300
+    # Limit commands processed per loop iteration to spread out
+    # allocation/deallocation and reduce heap fragmentation.
+    max_commands_per_loop: 50
+    # Minimum gap between commands sent to the Nextion display.  With spacing
+    # enabled, the ESPHome Nextion component sends at most 1 command per loop
+    # iteration (send_command_() uses App.get_loop_component_start_time() as
+    # the timestamp, which is constant within a single loop iteration, so the
+    # pacer check fails after the first send).  The loop typically runs at
+    # 3-5ms on ESP32 for this workload, yielding ~200-330 commands/sec.
+    # The 1KB Nextion RX buffer can hold ~78 commands, but spacing ensures
+    # only 1 command is in flight on UART at a time, preventing overflow.
+    command_spacing: 2ms
     # default url
     tft_url: $tft_update_url
 
@@ -41,6 +58,9 @@ display:
             std::string event = std::to_string(page_id) + "," + std::to_string(component_id);
             event += "," + std::to_string(touch_event);
             id(publish_event_native).execute("esphome.component", event);
+            if (touch_event == 1) {
+              id(publish_event_native).execute("esphome.touch_start", "1");
+            }
             id(update_last_interaction).execute(-1, 0);
 
     on_buffer_overflow:

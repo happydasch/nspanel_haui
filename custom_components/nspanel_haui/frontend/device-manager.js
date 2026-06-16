@@ -1,7 +1,7 @@
 /**
  * NSPanel HAUI - Editor - device management.
  *
- * Device map, selection, YAML import/export, and device manager button.
+ * Device list, selection, YAML import/export, and device manager button.
  * Every function takes the Lit element instance (`host`) as its first parameter.
  *
  * Device keys (ESPHome node names) are used as both the display name and
@@ -11,38 +11,22 @@ import { html } from './lit-import.js';
 import * as Api from './api.js';
 import * as DeviceConfig from './device-config.js';
 
-/* ── device name map ──────────────────────────────────────────────────────── */
+/* ── device keys ──────────────────────────────────────────────────────────── */
 
 /**
- * Build a map of display name → device key.
- *
- * Since we use the device key itself as the display name, the map is a simple
- * identity mapping over device keys.
+ * Return the list of device keys (sorted, stable).
+ * Each key is the ESPHome node name and serves as both ID and display name.
  */
-export function buildDeviceMap(host) {
-  const devices = host._panels.devices || {};
-  const nameToKey = {};
-  for (const key of Object.keys(devices)) {
-    nameToKey[key] = key;
-  }
-  return nameToKey;
-}
-
-/**
- * Return the display name for a given device key — the key itself.
- */
-export function getDeviceDisplayName(host, deviceKey) {
-  return deviceKey;
+export function getDeviceKeys(host) {
+  return Object.keys(host._panels.devices || {});
 }
 
 /* ── device selection ─────────────────────────────────────────────────────── */
 
-export function selectDevice(host, displayName) {
-  const deviceMap = buildDeviceMap(host);
-  const deviceKey = deviceMap[displayName];
-  if (!deviceKey) return;
-  host._selectedDevice = deviceKey;
-  DeviceConfig.loadDeviceConfig(host, deviceKey);
+export function selectDevice(host, name) {
+  if (!name || !host._panels.devices?.[name]) return;
+  host._selectedDevice = name;
+  DeviceConfig.loadDeviceConfig(host, name);
   host.requestUpdate();
 }
 
@@ -73,19 +57,12 @@ export async function importDeviceYaml(host) {
 /* ── device manager button ──────────────────────────────────────────────── */
 
 /**
- * Render a device manager button that opens the device manager overlay
- * showing all configured devices with add/discover/remove capabilities.
+ * Render a device manager button icon.
  */
 export function renderDeviceManagerButton(host) {
-  return html`
-    <ha-icon-button
-      title="Device Manager"
-      class="device-manager-btn"
-      @click=${() => {
-        host._openDeviceManager();
-      }}
-    >
-      <ha-icon icon="mdi:devices"></ha-icon>
-    </ha-icon-button>
-  `;
+  return html`<ha-icon-button
+    title="Device Manager"
+    class="device-manager-btn"
+    @click=${() => host._openDeviceManager()}
+  ><ha-icon icon="mdi:devices"></ha-icon></ha-icon-button>`;
 }

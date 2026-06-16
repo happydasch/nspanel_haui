@@ -5,10 +5,7 @@
 - [Panel Grid](#panel-grid)
   - [About](#about)
   - [Config](#config)
-    - [Text Color `text_color`](#text-color-text_color)
-    - [Power Color `power_color`](#power-color-power_color)
-    - [Background Color `back_color`](#background-color-back_color)
-    - [Show a Power Button `show_power_button`](#show-a-power-button-show_power_button)
+    - [Per-Item Color Overrides](#per-item-color-overrides)
     - [Initial Page `initial_page`](#initial-page-initial_page)
   - [Screens](#screens)
 
@@ -23,15 +20,9 @@ This panel can be also used to organize panels and subpanels. Colors can be set 
 ## Config
 
 ```yaml
-# Default config with default entity settings
+# Default config
 panels:
   - type: grid
-    text_color: null
-    power_color: null
-    back_color: null
-    back_color_pressed: null
-    color_pressed: null
-    show_power_button: false
     initial_page: 0
     entities:
       - entity: light.example_light
@@ -43,10 +34,9 @@ panels:
         show_power_button: null
 ```
 
-Example config with color backgrounds:
+Example config with 7 entities:
 
 ```yaml
-# grid panel with 7 entities
 panels:
   - type: grid
     entities:
@@ -59,70 +49,26 @@ panels:
       - entity: light.example_light6
 ```
 
-### Text Color `text_color`
+### Per-Item Color Overrides
 
-Set the text color of the grid button using `text_color`.
+Each entity in the grid can have optional color and appearance overrides.
+Set any of these on individual entities to override the default theme colors:
+
+- `text_color` — Text and icon color for the tile
+- `back_color` — Background color of the tile
+- `color_pressed` — Text/icon color when pressed
+- `back_color_pressed` — Background color when pressed
+- `power_color` — Color for the power toggle button
+- `show_power_button` — Set to `true` to show a power on/off toggle button
 
 ```yaml
 panels:
-
   - type: grid
-    text_color: 6339
-    # text_color: [49, 49, 49]
     entities:
       - entity: light.example_light
         text_color: 6339
-```
-
-### Power Color `power_color`
-
-Set the power button color of the grid button using `power_color`.
-
-```yaml
-panels:
-
-  - type: grid
-    power_color: 6339
-    # power_color: [49, 49, 49]
-    entities:
-      - entity: light.example_light
-        power_color: 6339
-```
-
-### Background Color `back_color`
-
-Set the background color of a grid button using `back_color`.
-
-```yaml
-panels:
-
-  - type: grid
-    back_color: 6339
-    # back_color: [49, 49, 49]
-    entities:
-      - entity: light.example_light
-        back_color: 6339
-```
-
-### Show a Power Button `show_power_button`
-
-The entities can show a power button by setting `show_power_button` to true.
-
-```yaml
-panels:
-
-  # for a single entity
-  - type: grid
-    entities:
-      - entity: light.example_light
+        back_color: 12678
         show_power_button: true
-      - entity: light.example_light1
-
-  # for all entities
-  - type: grid
-    show_power_button: true
-    entities:
-      - entity: light.example_light
       - entity: light.example_light1
 ```
 

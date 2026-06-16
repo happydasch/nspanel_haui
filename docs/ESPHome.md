@@ -129,8 +129,12 @@ These responses will be sent after a request.
   Will be published after sending request `req_device_info`
   Value: json encoded string
 
-- `res_val` Number Response
-- `res_txt` Text Response
+- `read_response` Component Read Response
+
+  Unified response for component reads (number or text).  Published after
+  sending `req_val` or `req_txt`.  Value: JSON encoded string with the
+  keys `name` (component name), `type` (`"number"` or `"text"`), and
+  `value` (the read value).
 
 ## Commands
 
@@ -452,11 +456,7 @@ Diagnostics related sensors.
 
 ## Other
 
-For number and text retrieval following sensors are being used internally:
-
-- `req_txt_component`
-- `req_val_component`
-- `res_txt`
-- `res_val`
-
-these sensors make it possible to get values from the display without adding sensors for every single value to retrieve.
+For number and text retrieval the internal sensors `req_txt_component`,
+`req_val_component`, `res_txt`, and `res_val` are used.  These feed the
+unified `esphome.read_response` event and make it possible to get values
+from the display without adding a sensor for every single value to retrieve.

@@ -30,14 +30,14 @@ script:
               id(set_brightness).execute(full_val);
               last_set_brightness = full_val;
             }
-            if (!id(hub_connection) && int(id(page).state) != 1) {
+            if (!id(hub_connection) && int(id(page).state) != 0) {
               // Throttle: only send goto_page once per second to
               // prevent flooding when page sensor is stale or
               // check_display_state is toggling the page back to 0.
               static uint32_t last_goto_page_millis = 0;
               uint32_t now_millis = millis();
               if (now_millis - last_goto_page_millis > 1000) {
-                id(goto_page).execute("1");  // system
+                id(goto_page).execute("0");  // system
                 last_goto_page_millis = now_millis;
               }
             }
@@ -60,13 +60,13 @@ script:
           static float last_diff_seconds = 0;
           if (last_interaction_val > 0) {
             // get timings for last interaction
-            unsigned long duration_now = millis() / 10; // use 0.01s as the lowest change
+            unsigned long duration_now = millis() / 100; // 0.1s units, matches last_interaction
             if (duration_now < last_interaction_val) {
               // overflow occurred, reset variables
               last_interaction_val = 0;
               duration_now = 0;
             }
-            diff_seconds = ((float)(duration_now/10) - last_interaction_val) / 10;
+            diff_seconds = ((float)duration_now - last_interaction_val) / 10;
           }
 
           // screen timeout means brightness goes off -> target 0
@@ -166,7 +166,7 @@ script:
           int new_state = current_state;
 
           // wakeup page (default system)
-          static std::string wakeup_page = "1"; // system
+          static std::string wakeup_page = "0"; // system
           // duration of dimming
           float duration_dim_val = id(duration_dim).state;
           // last interaction with device
@@ -177,13 +177,13 @@ script:
           // get timings for last interaction
           if (last_interaction_val > 0) {
             // get timings for last interaction
-            unsigned long duration_now = millis() / 10; // use 0.01s as the lowest change
+            unsigned long duration_now = millis() / 100; // 0.1s units, matches last_interaction
             if (duration_now < last_interaction_val) {
               // overflow occurred, reset variables
               last_interaction_val = 0;
               duration_now = 0;
             }
-            diff_seconds = ((float)(duration_now/10) - last_interaction_val) / 10;
+            diff_seconds = ((float)duration_now - last_interaction_val) / 10;
           }
 
           // update display state
@@ -224,25 +224,28 @@ script:
             if (id(hub_connection)) {
               // Hub is connected - let the hub navigate to the configured
               // sleep panel.  The hub receives esphome.timeout="sleep" and
-              // calls open_sleep_panel() which sends goto_page to the
-              // user's sleep panel page.  Display brightness is already 0
-              // (set by check_display), so the screen stays black.
-              // Skip goto_page("0") and display_sleep so the hub's
-              // goto_page command takes effect on the display.
+              // calls open_sleep_panel() which sends goto_page to the user's
+              // sleep panel page.  Display brightness is already 0 (set by
+              // check_display), so the screen stays black.
+              // Do NOT hardware-sleep here: keeping the Nextion awake (just at
+              // brightness 0) means a touch always reports coordinates, so the
+              // hub's touch-driven wake (single/double touch) works reliably.
+              // If the hub goes silent the heartbeat timeout disconnects it and
+              // the else-branch below hardware-sleeps the display anyway.
             } else {
               // No hub connected - navigate to page 0 and sleep directly
-              id(goto_page).execute("0");  // blank
+              id(goto_page).execute("1");  // blank
               id(display_sleep).execute();
             }
           } else if (new_state != 0 && (id(haui_disp).is_sleeping()
                   || (id(hub_connection) && current_state == 0))) {
             id(display_wakeup).execute();
             bool hub_connected = id(hub_connection);
-            if (hub_connected == true && wakeup_page != "" && wakeup_page != "0") {
+            if (hub_connected == true && wakeup_page != "" && wakeup_page != "1") {
               ESP_LOGD("haui", "Wakeup page: %s", wakeup_page.c_str());
               id(goto_page).execute(wakeup_page);
             } else {
-              id(goto_page).execute("1");  // system
+              id(goto_page).execute("0");  // system
             }
           }
 

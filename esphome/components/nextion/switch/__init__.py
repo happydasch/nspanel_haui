@@ -1,9 +1,8 @@
+from esphome import automation
 import esphome.codegen as cg
+from esphome.components import switch
 import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_STATE
-
-from esphome import automation
-from esphome.components import switch
 
 from .. import CONF_NEXTION_ID, CONF_PUBLISH_STATE, CONF_SEND_TO_NEXTION, nextion_ns
 from ..base_component import (
@@ -17,7 +16,9 @@ CODEOWNERS = ["@senexcrenshaw"]
 
 NextionSwitch = nextion_ns.class_("NextionSwitch", switch.Switch, cg.PollingComponent)
 
-NextionPublishBoolAction = nextion_ns.class_("NextionPublishBoolAction", automation.Action)
+NextionPublishBoolAction = nextion_ns.class_(
+    "NextionPublishBoolAction", automation.Action
+)
 
 CONFIG_SCHEMA = cv.All(
     switch.switch_schema(NextionSwitch)
@@ -46,7 +47,9 @@ async def to_code(config):
             cv.Required(CONF_ID): cv.use_id(NextionSwitch),
             cv.Required(CONF_STATE): cv.templatable(cv.boolean),
             cv.Optional(CONF_PUBLISH_STATE, default="true"): cv.templatable(cv.boolean),
-            cv.Optional(CONF_SEND_TO_NEXTION, default="true"): cv.templatable(cv.boolean),
+            cv.Optional(CONF_SEND_TO_NEXTION, default="true"): cv.templatable(
+                cv.boolean
+            ),
         }
     ),
     synchronous=True,

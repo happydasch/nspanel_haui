@@ -12,10 +12,10 @@ import { LitElement, html } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
 import { clone } from '../constants.js';
 import { formVal } from '../dom-helpers.js';
-import { encodeItemValue } from '../haui-item.js';
-import { ENTITY_OVERRIDE_FIELDS } from '../haui-entity.js';
 import { getPanelOptionGroups, renderOptionField } from '../form-fields.js';
+import { dialogHeader } from './dialog-header.js';
 import { t } from '../localize.js';
+import { saveItemEdit, cancelItemEdit } from '../item-editor.js';
 
 /**
  * Compute an auto-generated key for a new panel of the given type, based on
@@ -106,9 +106,9 @@ class EditPanelDialog extends LitElement {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        header-title=${headerTitle}
         .preventScrimClose=${true}
       >
+        ${dialogHeader(headerTitle, this._dispatchClose)}
 
         <form id="panel-edit-form" @submit=${(e) => e.preventDefault()}>
           <div class="dialog-body">
@@ -229,24 +229,26 @@ class EditPanelDialog extends LitElement {
           </div>
         </form>
 
-        <ha-dialog-footer slot="footer">
-          <ha-button
-            slot="secondaryAction"
-            variant="neutral"
-            appearance="plain"
-            @click=${this._dispatchClose}
-          >
-            ${t('Cancel')}
-          </ha-button>
-          <ha-button
-            slot="primaryAction"
-            variant="brand"
-            @click=${this._dispatchSave}
-            ?disabled=${this.saving}
-          >
-            ${saveLabel}
-          </ha-button>
-        </ha-dialog-footer>
+        <div slot="footer" class="footer-wrapper">
+          <ha-dialog-footer>
+            <ha-button
+              slot="secondaryAction"
+              variant="neutral"
+              appearance="plain"
+              @click=${this._dispatchClose}
+            >
+              ${t('Cancel')}
+            </ha-button>
+            <ha-button
+              slot="primaryAction"
+              variant="brand"
+              @click=${this._dispatchSave}
+              ?disabled=${this.saving}
+            >
+              ${saveLabel}
+            </ha-button>
+          </ha-dialog-footer>
+        </div>
       </ha-dialog>
     `;
   }
@@ -330,62 +332,11 @@ class EditPanelDialog extends LitElement {
   /* ── item inline editor (renderOptionField calls these on dialog host) ─ */
 
   _saveItemEdit() {
-    const ee = this._editingItem;
-    if (!ee) return;
-    const { optKey, index } = ee;
-
-    const uid = `item-edit-${optKey}-${index}`;
-    const inline = this.renderRoot.querySelector(`#${uid}`);
-    if (!inline) return;
-
-    const typeVal = this._editingItemType || inline.querySelector("#item-type")?.value || "entity_id";
-
-    // Encode item value based on type
-    const inputVal = formVal(inline, "item-entity");
-    const config = { item: encodeItemValue(inputVal, typeVal) };
-
-    // Read standard entity override fields from ee.config — the input handlers
-    // mutate ee.config with typed values (list/int/dict) where applicable, so
-    // reading the DOM string would discard those types (e.g., strip list brackets).
-    for (const f of ENTITY_OVERRIDE_FIELDS) {
-      const fv = ee.config?.[f];
-      if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
-    }
-
-    // Read per-item appearance overrides (declared by the panel type descriptor).
-    // Read from ee.config (not DOM) — renderItemOptionField mutates ee.config via
-    // setVal, which correctly handles bool checkboxes that formVal cannot.
-    const savePt = this._editingPanelType || this._editingPanel?.data?.type;
-    const descriptor = (savePt && this.panelTypes)
-      ? this.panelTypes.find(d => d.type_key === savePt) || null
-      : null;
-    if (descriptor?.item_options) {
-      for (const f of descriptor.item_options) {
-        const fv = ee.config?.[f];
-        if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
-      }
-    }
-
-    if (!this._itemListData) this._itemListData = {};
-    if (!this._itemListData[optKey]) this._itemListData[optKey] = [];
-
-    if (index >= 0) {
-      const updated = [...this._itemListData[optKey]];
-      updated[index] = config;
-      this._itemListData[optKey] = updated;
-    } else {
-      this._itemListData[optKey] = [...this._itemListData[optKey], config];
-    }
-
-    this._editingItem = null;
-    this._editingItemType = null;
-    this.requestUpdate();
+    saveItemEdit(this);
   }
 
   _cancelItemEdit() {
-    this._editingItem = null;
-    this._editingItemType = null;
-    this.requestUpdate();
+    cancelItemEdit(this);
   }
 }
 

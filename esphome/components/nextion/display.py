@@ -1,10 +1,9 @@
+from esphome import automation
 import esphome.codegen as cg
+from esphome.components import display, esp32, uart
 import esphome.config_validation as cv
 from esphome.const import CONF_BRIGHTNESS, CONF_ID, CONF_LAMBDA, CONF_ON_TOUCH
 from esphome.core import CORE, TimePeriod
-
-from esphome import automation
-from esphome.components import display, esp32, uart
 
 from . import (  # noqa: F401  pylint: disable=unused-import
     FILTER_SOURCE_FILES,
@@ -51,7 +50,9 @@ def AUTO_LOAD() -> list[str]:
     return base
 
 
-NextionSetBrightnessAction = nextion_ns.class_("NextionSetBrightnessAction", automation.Action)
+NextionSetBrightnessAction = nextion_ns.class_(
+    "NextionSetBrightnessAction", automation.Action
+)
 
 
 def _validate_tft_upload(config):
@@ -64,7 +65,9 @@ def _validate_tft_upload(config):
         if conf_key in config and not has_tft_url:
             raise cv.Invalid(f"{conf_key} requires {CONF_TFT_URL} to be set")
     if CONF_TFT_UPLOAD_WATCHDOG_TIMEOUT in config and not CORE.is_esp32:
-        raise cv.Invalid(f"{CONF_TFT_UPLOAD_WATCHDOG_TIMEOUT} is only available on ESP32")
+        raise cv.Invalid(
+            f"{CONF_TFT_UPLOAD_WATCHDOG_TIMEOUT} is only available on ESP32"
+        )
     return config
 
 
@@ -82,12 +85,16 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_EXIT_REPARSE_ON_START, default=False): cv.boolean,
             cv.Optional(CONF_MAX_QUEUE_AGE, default="8000ms"): cv.All(
                 cv.positive_time_period_milliseconds,
-                cv.Range(min=TimePeriod(milliseconds=0), max=TimePeriod(milliseconds=65535)),
+                cv.Range(
+                    min=TimePeriod(milliseconds=0), max=TimePeriod(milliseconds=65535)
+                ),
             ),
             cv.Optional(CONF_MAX_COMMANDS_PER_LOOP): cv.uint16_t,
             cv.Optional(CONF_MAX_QUEUE_SIZE): cv.positive_int,
             cv.Optional(CONF_ON_BUFFER_OVERFLOW): automation.validate_automation({}),
-            cv.Optional(CONF_ON_CUSTOM_BINARY_SENSOR): automation.validate_automation({}),
+            cv.Optional(CONF_ON_CUSTOM_BINARY_SENSOR): automation.validate_automation(
+                {}
+            ),
             cv.Optional(CONF_ON_CUSTOM_SENSOR): automation.validate_automation({}),
             cv.Optional(CONF_ON_CUSTOM_SWITCH): automation.validate_automation({}),
             cv.Optional(CONF_ON_CUSTOM_TEXT_SENSOR): automation.validate_automation({}),
@@ -99,7 +106,9 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_SKIP_CONNECTION_HANDSHAKE, default=False): cv.boolean,
             cv.Optional(CONF_STARTUP_OVERRIDE_MS, default="8000ms"): cv.All(
                 cv.positive_time_period_milliseconds,
-                cv.Range(min=TimePeriod(milliseconds=0), max=TimePeriod(milliseconds=65535)),
+                cv.Range(
+                    min=TimePeriod(milliseconds=0), max=TimePeriod(milliseconds=65535)
+                ),
             ),
             cv.Optional(CONF_START_UP_PAGE): cv.uint8_t,
             cv.Optional(CONF_TFT_UPLOAD_HTTP_RETRIES): cv.int_range(min=1, max=255),
@@ -107,9 +116,13 @@ CONFIG_SCHEMA = cv.All(
                 cv.positive_time_period_milliseconds,
                 cv.Range(max=TimePeriod(milliseconds=65535)),
             ),
-            cv.Optional(CONF_TFT_UPLOAD_WATCHDOG_TIMEOUT): cv.positive_time_period_milliseconds,
+            cv.Optional(
+                CONF_TFT_UPLOAD_WATCHDOG_TIMEOUT
+            ): cv.positive_time_period_milliseconds,
             cv.Optional(CONF_TFT_URL): cv.url,
-            cv.Optional(CONF_TOUCH_SLEEP_TIMEOUT): cv.Any(0, cv.int_range(min=3, max=65535)),
+            cv.Optional(CONF_TOUCH_SLEEP_TIMEOUT): cv.Any(
+                0, cv.int_range(min=3, max=65535)
+            ),
             cv.Optional(CONF_WAKE_UP_PAGE): cv.uint8_t,
         }
     )
@@ -145,7 +158,9 @@ _CALLBACK_AUTOMATIONS = (
     automation.CallbackAutomation(CONF_ON_SETUP, "add_setup_state_callback"),
     automation.CallbackAutomation(CONF_ON_SLEEP, "add_sleep_state_callback"),
     automation.CallbackAutomation(CONF_ON_WAKE, "add_wake_state_callback"),
-    automation.CallbackAutomation(CONF_ON_PAGE, "add_new_page_callback", [(cg.uint8, "x")]),
+    automation.CallbackAutomation(
+        CONF_ON_PAGE, "add_new_page_callback", [(cg.uint8, "x")]
+    ),
     automation.CallbackAutomation(
         CONF_ON_TOUCH,
         "add_touch_event_callback",
@@ -155,7 +170,9 @@ _CALLBACK_AUTOMATIONS = (
             (cg.bool_, "touch_event"),
         ],
     ),
-    automation.CallbackAutomation(CONF_ON_BUFFER_OVERFLOW, "add_buffer_overflow_event_callback"),
+    automation.CallbackAutomation(
+        CONF_ON_BUFFER_OVERFLOW, "add_buffer_overflow_event_callback"
+    ),
     automation.CallbackAutomation(
         CONF_ON_CUSTOM_BINARY_SENSOR,
         "add_custom_binary_sensor_callback",
@@ -226,7 +243,9 @@ async def to_code(config):
 
         # TFT upload HTTP retries (default: 5)
         if CONF_TFT_UPLOAD_HTTP_RETRIES in config:
-            cg.add(var.set_tft_upload_http_retries(config[CONF_TFT_UPLOAD_HTTP_RETRIES]))
+            cg.add(
+                var.set_tft_upload_http_retries(config[CONF_TFT_UPLOAD_HTTP_RETRIES])
+            )
 
         # TFT upload watchdog timeout (default: 0 = no adjustment)
         if CONF_TFT_UPLOAD_WATCHDOG_TIMEOUT in config:
@@ -240,7 +259,9 @@ async def to_code(config):
             # Re-enable ESP-IDF's HTTP client (excluded by default to save compile time)
             esp32.include_builtin_idf_component("esp_http_client")
             esp32.add_idf_sdkconfig_option("CONFIG_ESP_TLS_INSECURE", True)
-            esp32.add_idf_sdkconfig_option("CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY", True)
+            esp32.add_idf_sdkconfig_option(
+                "CONFIG_ESP_TLS_SKIP_SERVER_CERT_VERIFY", True
+            )
         elif CORE.is_esp8266:
             cg.add_library("ESP8266HTTPClient", None)
 

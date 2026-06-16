@@ -35,49 +35,6 @@ class GridPage(HAUIPage):
                 section="Tiles",
             ),
             PageOption(
-                key="text_color",
-                kind="color",
-                label="Text color",
-                description="Color for tile text and icons.",
-                section="Appearance",
-            ),
-            PageOption(
-                key="back_color",
-                kind="color",
-                label="Background color",
-                description="Background color for tiles.",
-                section="Appearance",
-            ),
-            PageOption(
-                key="color_pressed",
-                kind="color",
-                label="Pressed text color",
-                description="Text/icon color when pressed.",
-                section="Appearance",
-            ),
-            PageOption(
-                key="back_color_pressed",
-                kind="color",
-                label="Pressed background color",
-                description="Background color when pressed.",
-                section="Appearance",
-            ),
-            PageOption(
-                key="power_color",
-                kind="color",
-                label="Power button color",
-                description="Power toggle color on tiles.",
-                section="Appearance",
-            ),
-            PageOption(
-                key="show_power_button",
-                kind="bool",
-                default=False,
-                label="Show power button",
-                description="Show a power on/off toggle button on each grid tile.",
-                section="Appearance",
-            ),
-            PageOption(
                 key="initial_page",
                 kind="int",
                 default=0,
@@ -148,11 +105,10 @@ class GridPage(HAUIPage):
         self._items = self._build_items_from_panel(panel, "items")
         self._current_page = int(panel.get("initial_page", 0))
         # set function buttons
-        show_in_nav = panel.show_in_navigation()
+        # Pagination always sits on fnc_right_sec (inner, near title), leaving
+        # fnc_right_pri for auto-assignment (NEXT on nav, CLOSE otherwise).
         nav_btn: dict = {
-            "fnc_component": (
-                self.COMPONENTS.fnc_right_sec if show_in_nav else self.COMPONENTS.fnc_right_pri
-            ),
+            "fnc_component": self.COMPONENTS.fnc_right_sec,
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": ICO_NEXT_PAGE,
@@ -160,14 +116,8 @@ class GridPage(HAUIPage):
                 "visible": len(self._items) > self.NUM_GRIDS,
             },
         }
-        btn_right_1: tuple | dict
-        btn_right_2: tuple | dict
-        if show_in_nav:
-            btn_right_1 = self.COMPONENTS.fnc_right_pri
-            btn_right_2 = nav_btn
-        else:
-            btn_right_1 = nav_btn
-            btn_right_2 = self.COMPONENTS.fnc_right_sec
+        btn_right_1: tuple | dict = self.COMPONENTS.fnc_right_pri
+        btn_right_2: tuple | dict = nav_btn
         self.set_function_buttons(
             self.COMPONENTS.fnc_left_pri,
             self.COMPONENTS.fnc_left_sec,
@@ -175,19 +125,23 @@ class GridPage(HAUIPage):
             btn_right_2,
         )
         # set power and grid button callbacks
+        power_btn_callbacks: dict = {}
+        grid_ovl_callbacks: dict = {}
         for i in range(self.NUM_GRIDS):
             power = getattr(self.COMPONENTS, f"g{i + 1}_power")
             ovl = getattr(self.COMPONENTS, f"g{i + 1}_ovl")
             btn = getattr(self.COMPONENTS, f"g{i + 1}_btn")
             ico = getattr(self.COMPONENTS, f"g{i + 1}_ico")
             name = getattr(self.COMPONENTS, f"g{i + 1}_name")
-            self.add_component_callback(power, self.callback_power_buttons)
-            self.add_component_callback(ovl, self.callback_grid_entries)
+            power_btn_callbacks[power] = self.callback_power_buttons
+            grid_ovl_callbacks[ovl] = self.callback_grid_entries
             self.set_function_component(power, power[1], row_index=i, visible=False)
             self.set_function_component(ovl, ovl[1], row_index=i, visible=False)
             self.set_function_component(btn, btn[1], row_index=i, visible=False)
             self.set_function_component(ico, ico[1], row_index=i, visible=False)
             self.set_function_component(name, name[1], row_index=i, visible=False)
+        self.on_release(power_btn_callbacks)
+        self.on_release(grid_ovl_callbacks)
 
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
@@ -202,17 +156,14 @@ class GridPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.COMPONENTS.title, panel.get_title())
-        self.set_grid_entries(panel)
+        self.set_grid_entries()
 
     # misc
 
-    def is_power_visible(self, panel: HAUIPanel, item: HAUIItem) -> bool:
-        power_visible = False
-        if item is not None:
-            power_visible = panel.get("show_power_button", False)
-            if not item.is_internal():
-                power_visible = item.get("show_power_button", power_visible)
-        return power_visible
+    def is_power_visible(self, item: HAUIItem | None) -> bool:
+        if item is not None and not item.is_internal():
+            return bool(item.get("show_power_button", False))
+        return False
 
     def is_item_active(self, item: HAUIItem) -> bool:
         active = False
@@ -220,7 +171,7 @@ class GridPage(HAUIPage):
             active = item.get_item_state() in ["on", "playing"]
         return active
 
-    def set_grid_entries(self, panel: HAUIPanel) -> None:
+    def set_grid_entries(self) -> None:
         # check if there are any listener active and cancel them
         while self._active_handles:
             handle = self._active_handles.pop()
@@ -259,27 +210,22 @@ class GridPage(HAUIPage):
                     item_ids.add(item.get_item_id())
                 # add mapping to
                 mapping.append({"item": item, "ovl": ovl, "power": power})
-            self.set_grid_entry(idx, panel=panel, visible=visible)
+            self.set_grid_entry(idx, visible=visible)
         self._item_mapping = mapping
         # create listener for active entities
         for item_id in item_ids:
             handle = self.add_item_listener(item_id, self.callback_item_state, attribute="all")
             self._active_handles.append(handle)
 
-    def get_grid_colors(self, panel: HAUIPanel, item: HAUIItem | None) -> tuple:
-        # colors for grid button
-        color_pressed = panel.get("color_pressed", self.get_color("text"))
-        back_color_pressed = panel.get("back_color_pressed", self.get_color("component_pressed"))
-        power_color = panel.get("power_color", self.get_color("component_active"))
-        text_color = panel.get("text_color", None)
-        back_color = panel.get("back_color", None)
-        # text color
-        if not text_color:
-            text_color = self.get_color("text")
-        # back color
-        if not back_color:
-            back_color = self.get_color("background")
-        # item overrides (beat everything)
+    def get_grid_colors(self, item: HAUIItem | None) -> tuple:
+        # Default theme colors — no panel-level overrides.
+        text_color = self.get_color("text")
+        back_color = self.get_color("component_background")
+        color_pressed = self.get_color("component_text")
+        back_color_pressed = self.get_color("component_pressed")
+        power_color = self.get_color("component_active")
+
+        # Item-level overrides
         if item is not None:
             text_color = item.get("text_color", text_color)
             back_color = item.get("back_color", back_color)
@@ -291,7 +237,7 @@ class GridPage(HAUIPage):
 
         return text_color, color_pressed, back_color, back_color_pressed, power_color
 
-    def set_grid_entry(self, idx: int, panel: HAUIPanel, visible: bool) -> None:
+    def set_grid_entry(self, idx: int, visible: bool) -> None:
         # visibility of grid button components
         btn = getattr(self.COMPONENTS, f"g{idx}_btn")
         ico = getattr(self.COMPONENTS, f"g{idx}_ico")
@@ -300,10 +246,10 @@ class GridPage(HAUIPage):
         power = getattr(self.COMPONENTS, f"g{idx}_power")
         item = self._active_items[ovl]
         # power button, only show if requested and a item is set
-        power_visible = self.is_power_visible(panel, item) if item else False
+        power_visible = self.is_power_visible(item) if item else False
 
         text_color, color_pressed, back_color, back_color_pressed, power_color = (
-            self.get_grid_colors(panel, item)
+            self.get_grid_colors(item)
         )
 
         # update grid button
@@ -336,21 +282,13 @@ class GridPage(HAUIPage):
             self.update_function_component(name[1], None, **name_args)
             self.update_function_component(btn[1], None, **btn_args)
             self.update_function_component(ovl[1], None, **ovl_args)
-            self.update_grid_entry(idx, panel)
+            self.update_grid_entry(idx)
             self.update_function_component(power[1], None, **power_args)
         else:
             for x in [btn, ico, name, ovl, power]:
                 self.update_function_component(x[1], visible=False)
 
-    def update_grid_entries(self, panel: HAUIPanel) -> None:
-        items = self._active_items
-        # grid buttons
-        for idx in range(1, self.NUM_GRIDS + 1):
-            if idx > len(items):
-                break
-            self.update_grid_entry(idx, panel)
-
-    def update_grid_entry(self, idx: int, panel: HAUIPanel) -> None:
+    def update_grid_entry(self, idx: int) -> None:
         # update a single button
         ovl = getattr(self.COMPONENTS, f"g{idx}_ovl")
         ico = getattr(self.COMPONENTS, f"g{idx}_ico")
@@ -361,8 +299,8 @@ class GridPage(HAUIPage):
             self.set_component_text_color(ico, item.get_color())
             self.set_component_text(ico, item.get_icon())
             # make sure to redraw power if visible
-            if self.is_power_visible(panel, item):
-                _, _, _, _, power_color = self.get_grid_colors(panel, item)
+            if self.is_power_visible(item):
+                _, _, _, _, power_color = self.get_grid_colors(item)
                 self.update_function_component(
                     getattr(self.COMPONENTS, f"g{idx}_power").name, visible=True, color=power_color
                 )
@@ -405,8 +343,7 @@ class GridPage(HAUIPage):
                 if haui_item is None:
                     continue
                 if haui_item.get_item_id() in pending:
-                    if self.panel is not None:
-                        self.update_grid_entry(idx, self.panel)
+                    self.update_grid_entry(idx)
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_name == "next_page":
@@ -415,12 +352,9 @@ class GridPage(HAUIPage):
             if self._current_page >= count_pages:
                 self._current_page = 0
             with self.rec_cmd:
-                if self.panel is not None:
-                    self.set_grid_entries(self.panel)
+                self.set_grid_entries()
 
-    def callback_power_buttons(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if button_state:
-            return
+    def callback_power_buttons(self, event: HAUIEvent, component: Component) -> None:
         self.log(f"{self._item_mapping}")
         for mapping in self._item_mapping:
             haui_item = mapping["item"]
@@ -434,9 +368,7 @@ class GridPage(HAUIPage):
             else:
                 self.log(f"item {haui_item.get_item_id()} is not available")
 
-    def callback_grid_entries(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if button_state:
-            return
+    def callback_grid_entries(self, event: HAUIEvent, component: Component) -> None:
         if component not in self._active_items:
             return
         haui_item = self._active_items[component]

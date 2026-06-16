@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from nspanel_haui.haui.mapping.color import COLORS, ColorTheme, make_color_theme
+from nspanel_haui.haui.mapping.color import (
+    ALARM_COLORS,
+    CLIMATE_COLORS,
+    COLORS,
+    WEATHER_COLORS,
+    ColorTheme,
+    make_color_theme,
+)
 from nspanel_haui.haui.utils.color import parse_color_value, rgb565_to_rgb, rgb_to_rgb565
 
 # ============================================================================
@@ -18,39 +25,33 @@ def test_colors_all_values_in_rgb565_range() -> None:
         assert 0 <= value <= 65535, f"{key} value {value} is outside RGB565 range"
 
 
-def test_colors_has_expected_keys() -> None:
-    """Spot-check that expected color groups are present."""
-    assert "background" in COLORS
-    assert "text" in COLORS
-    assert "component_text" in COLORS
-    assert "entity_on" in COLORS
-    assert "entity_off" in COLORS
-    assert "entity_unavailable" in COLORS
-    assert "weather_sunny" in COLORS
-    assert "alarm_armed" in COLORS
-    assert "climate_heat" in COLORS
-    assert len(COLORS) >= 36
+def test_colors_only_global_keys() -> None:
+    """COLORS holds only the 15 global keys; domain colors live elsewhere."""
+    defaults = {"background", "header_background", "header_text", "header_accent",
+                "text", "text_inactive", "text_disabled",
+                "component_text", "component_pressed", "component_active",
+                "component_active_dark",
+                "component_accent", "component_background"}
+    entity = {"entity_on", "entity_off", "entity_unavailable"}
+    assert COLORS.keys() == defaults | entity
+    assert len(COLORS) == 16
+    # domain colors must NOT leak into the global palette
+    assert "weather_sunny" not in COLORS
+    assert "alarm_armed" not in COLORS
+    assert "climate_heat" not in COLORS
 
 
-def test_colors_distinct_groups() -> None:
-    """Verify keys from each group are present."""
-    defaults = {"background", "header_background", "header_text", "header_accent", "text", "text_inactive", "text_disabled",
-                 "component_text", "component_pressed", "component_active",
-                 "component_accent", "component_background"}
-    weather = {"weather_default", "weather_clear_night", "weather_sunny",
-               "weather_partlycloudy", "weather_windy", "weather_windy_variant",
-               "weather_rainy", "weather_pouring", "weather_lightning",
-               "weather_lightning_rainy", "weather_hail", "weather_snowy",
-               "weather_snowy_rainy"}
-    items = {"entity_on", "entity_off", "entity_unavailable"}
-    alarm = {"alarm_armed", "alarm_disarmed", "alarm_arming"}
-    climate = {"climate_auto", "climate_heat_cool", "climate_heat",
-               "climate_off", "climate_cool", "climate_dry", "climate_fan_only"}
-    assert defaults <= COLORS.keys()
-    assert weather <= COLORS.keys()
-    assert items <= COLORS.keys()
-    assert alarm <= COLORS.keys()
-    assert climate <= COLORS.keys()
+def test_domain_palettes_present_and_valid() -> None:
+    """Weather/alarm/climate palettes have expected keys and valid RGB565 values."""
+    assert len(WEATHER_COLORS) == 13
+    assert {"default", "sunny", "clear_night"} <= WEATHER_COLORS.keys()
+    assert ALARM_COLORS.keys() == {"armed", "disarmed", "arming"}
+    assert len(CLIMATE_COLORS) == 7
+    assert {"auto", "heat", "cool", "off", "heat_cool", "dry", "fan_only"} == CLIMATE_COLORS.keys()
+    for palette in (WEATHER_COLORS, ALARM_COLORS, CLIMATE_COLORS):
+        for key, value in palette.items():
+            assert isinstance(value, int), f"{key} value {value!r} must be int"
+            assert 0 <= value <= 65535, f"{key} value {value} outside RGB565 range"
 
 
 # ============================================================================
@@ -181,15 +182,15 @@ class TestColorOverridesValidation:
             overrides = getattr(result, "color_overrides", None)
             assert overrides == {}
 
-    def test_unknown_key_accepted(self) -> None:
-        """Unknown keys are passed through (validator warns but keeps them)."""
+    def test_non_global_keys_dropped(self) -> None:
+        """Unknown and domain-color keys are dropped; only global keys survive."""
         from nspanel_haui.haui.config_models import validate_device_config
 
-        cfg = {"color_overrides": {"nonexistent_key": 12345}}
+        cfg = {"color_overrides": {"nonexistent_key": 12345, "weather_sunny": 1, "text": 42}}
         result = validate_device_config(cfg)
         if result is not None:
             overrides = getattr(result, "color_overrides", None)
-            assert overrides == {"nonexistent_key": 12345}
+            assert overrides == {"text": 42}
 
     def test_out_of_range_clamped(self) -> None:
         from nspanel_haui.haui.config_models import validate_device_config
@@ -200,3 +201,5 @@ class TestColorOverridesValidation:
             overrides = getattr(result, "color_overrides", None)
             assert overrides["background"] == 0  # clamped
             assert overrides["text"] == 65535  # clamped
+
+

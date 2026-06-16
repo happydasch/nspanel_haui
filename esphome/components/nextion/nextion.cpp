@@ -264,7 +264,7 @@ bool Nextion::send_command(const char *command) {
   if ((!this->is_setup() && !this->connection_state_.ignore_is_setup_) || this->is_sleeping())
     return false;
 
-  this->add_no_result_to_queue_with_command_("command", command);
+  this->add_no_result_to_queue_with_command_(command, command);
   return true;
 }
 
@@ -282,7 +282,7 @@ bool Nextion::send_command_printf(const char *format, ...) {
     return false;
   }
 
-  this->add_no_result_to_queue_with_command_("command_printf", buffer);
+  this->add_no_result_to_queue_with_command_(buffer, buffer);
   return true;
 }
 
@@ -477,7 +477,7 @@ void Nextion::process_nextion_commands_() {
 
     switch (nextion_event) {
       case 0x00:  // instruction sent by user has failed
-        ESP_LOGW(TAG, "Invalid instruction");
+        ESP_LOGW(TAG, "Invalid instruction: %s", this->front_var_name_());
         this->remove_from_q_();
 
         break;
@@ -495,19 +495,19 @@ void Nextion::process_nextion_commands_() {
         }
         break;
       case 0x02:  // invalid Component ID or name was used
-        ESP_LOGW(TAG, "Invalid component ID/name");
+        ESP_LOGW(TAG, "Invalid component ID/name: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x03:  // invalid Page ID or name was used
-        ESP_LOGW(TAG, "Invalid page ID");
+        ESP_LOGW(TAG, "Invalid page ID: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x04:  // invalid Picture ID was used
-        ESP_LOGW(TAG, "Invalid picture ID");
+        ESP_LOGW(TAG, "Invalid picture ID: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x05:  // invalid Font ID was used
-        ESP_LOGW(TAG, "Invalid font ID");
+        ESP_LOGW(TAG, "Invalid font ID: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x06:  // File operation fails
@@ -537,33 +537,33 @@ void Nextion::process_nextion_commands_() {
 #endif  // USE_NEXTION_WAVEFORM
         break;
       case 0x1A:  // variable name invalid
-        ESP_LOGW(TAG, "Invalid variable name");
+        ESP_LOGW(TAG, "Invalid variable name: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x1B:  // variable operation invalid
-        ESP_LOGW(TAG, "Invalid variable operation");
+        ESP_LOGW(TAG, "Invalid variable operation: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x1C:  // failed to assign
-        ESP_LOGW(TAG, "Variable assign failed");
+        ESP_LOGW(TAG, "Variable assign failed: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x1D:  // operate EEPROM failed
         ESP_LOGW(TAG, "EEPROM operation failed");
         break;
       case 0x1E:  // parameter quantity invalid
-        ESP_LOGW(TAG, "Invalid parameter count");
+        ESP_LOGW(TAG, "Invalid parameter count: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x1F:  // IO operation failed
-        ESP_LOGW(TAG, "Invalid component I/O");
+        ESP_LOGW(TAG, "Invalid component I/O: %s", this->front_var_name_());
         break;
       case 0x20:  // undefined escape characters
-        ESP_LOGW(TAG, "Undefined escape chars");
+        ESP_LOGW(TAG, "Undefined escape chars: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x23:  // too long variable name
-        ESP_LOGW(TAG, "Variable name too long");
+        ESP_LOGW(TAG, "Variable name too long: %s", this->front_var_name_());
         this->remove_from_q_();
         break;
       case 0x24:  //  Serial Buffer overflow occurs

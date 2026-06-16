@@ -102,6 +102,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         # Provided by HAUIPage / HAUIBase / ComponentMixin at runtime via MRO.
         app: NSPanelHAUI
         _fnc_items: dict
+        _fnc_id_by_component: dict[int, str]
         panel: HAUIPanel | None
 
         # Methods from HAUIBase / ComponentMixin
@@ -253,6 +254,11 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                 "fnc_name": fnc_name,
                 "fnc_args": fnc_args,
             }
+            if not fnc_args.get("visible", True):
+                # Pre-set current_visible so the first
+                # update_function_component call skips the vis=0 command —
+                # the component already starts hidden in the TFT.
+                item["current_visible"] = False
             self._fnc_items[fnc_id] = item
         elif fnc_id in self._fnc_items:
             self.log(f"Removing function component {fnc_id}")
@@ -410,14 +416,20 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                         if not is_home and panel.show_home_button():
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
                         elif is_home:
+                            notif_visible = False
                             if panel.show_notifications_button():
                                 notification = self.app.controller["notification"]
+                                notif_visible = notification.has_notifications()
                                 fnc_item["fnc_name"] = self.FNC_TYPE_NAV_NOTIF
-                                fnc_item["fnc_args"]["visible"] = notification.has_notifications()
-                            if (
-                                fnc_item["fnc_args"].get("visible") is False
-                                and panel.show_sleep_button()
-                            ):
+                                fnc_item["fnc_args"]["visible"] = notif_visible
+                            # Sleep takes the slot whenever the notifications
+                            # button is not actively shown — whether because
+                            # notifications are disabled, or enabled with none
+                            # pending.  (Previously this required notifications
+                            # enabled-but-empty, so an explicit `visible=False`
+                            # existed; with them disabled `visible` was unset
+                            # and the sleep button silently never appeared.)
+                            if not notif_visible and panel.show_sleep_button():
                                 fnc_item["fnc_name"] = self.FNC_TYPE_NAV_SLEEP
                                 fnc_item["fnc_args"]["visible"] = True
                 # right primary: navigation => NEXT, otherwise => CLOSE
@@ -500,17 +512,13 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         if button_state != 0:
             return
 
-        # check what button was pressed
-        fnc_id = None
-        fnc_item = None
-        for _fnc_id, _fnc_cnt in self._fnc_items.items():
-            if _fnc_cnt["fnc_component"] == component:
-                fnc_id = _fnc_id
-                fnc_item = _fnc_cnt
-                break
-
-        # if unknown function do nothing
-        if fnc_id is None or fnc_item is None:
+        # O(1) lookup using inverse component map
+        fnc_id = self._fnc_id_by_component.get(component.id)
+        if fnc_id is None:
+            self.log(f"Unknown function component {component}")
+            return
+        fnc_item = self._fnc_items.get(fnc_id)
+        if fnc_item is None:
             self.log(f"Unknown function component {component}")
             return
         navigation = self.app.controller["navigation"]

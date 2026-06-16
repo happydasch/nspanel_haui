@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
@@ -9,7 +10,6 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import CoverFeatures
-from ..mapping.const import ESPRequest, ESPResponse
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.icon import get_icon, get_icon_name_by_action
@@ -181,6 +181,16 @@ class RowPage(HAUIPage):
             )
             self.set_function_component(
                 slider, slider[1], "slider", visible=False, value=0, row_index=i
+            )
+            # row sliders are drag controls: suppress the swipe gesture
+            # the drag produces, and register a read callback so the
+            # slider value is read via a read request on release
+            self.mark_drag_component(slider)
+            self.add_component_callback(
+                slider, self.process_row_slider, drag=True
+            )
+            self.add_read_callback(
+                slider, self._make_row_slider_handler(slider)
             )
             self.set_function_component(
                 slider_txt,
@@ -443,6 +453,7 @@ class RowPage(HAUIPage):
         self.send_cmd(f"{slider[1]}.minval={0}")
         self.send_cmd(f"{slider[1]}.maxval={i_maxval}")
         self.update_function_component(slider[1], value=i_value)
+        self.set_slider_color(slider)
         self.update_function_component(slider_txt[1], text=value)
 
     def update_item_cover(self, haui_item: HAUIItem, idx: int) -> None:
@@ -596,8 +607,6 @@ class RowPage(HAUIPage):
             item.execute()
         elif fnc_name == "toggle":
             item.call_item_service("toggle")
-        elif fnc_name == "slider":
-            self.send_esphome(ESPRequest.REQ_VAL, fnc_item["fnc_component"][1], force=True)
         elif fnc_name == "btn_up":
             item.call_item_service("open_cover")
         elif fnc_name == "btn_stop":
@@ -607,19 +616,35 @@ class RowPage(HAUIPage):
 
     # event
 
-    def process_event(self, event: HAUIEvent) -> None:
-        super().process_event(event)
-        # check for values for full and dimmed brightness
-        if event.name == ESPResponse.RES_VAL:
-            # parse json response, set brightness
-            data = event.as_json()
-            items = self.get_function_components()
-            item = items[data["name"]]
-            i = item["fnc_args"].get("row_index", -1)
+    def _make_row_slider_handler(self, component: Component) -> Callable[[int], None]:
+        """Create a value-callback handler bound to *component*."""
+        def handler(value: int) -> None:
+            self._handle_row_slider_value(component, value)
+        return handler
+
+    def _handle_row_slider_value(self, component: Component, value: int) -> None:
+        """Handle a row slider value from a read_response event.
+
+        Args:
+            component: The slider component whose value was read.
+            value: The slider value (0–100).
+        """
+        if not self._in_read_callback:
+            self.log(
+                f"_handle_row_slider_value ({component.name}): value={value} ignored "
+                f"(not from read_response — likely button_state leak)"
+            )
+            return
+        self.log(f"Row slider value {value} for {component.name}")
+        self.debug_log(f"Row slider value {value} from {component.name}")
+        for _item_id, fnc_item in self._fnc_items.items():
+            if fnc_item["fnc_component"] != component:
+                continue
+            i = fnc_item["fnc_args"].get("row_index", -1)
             if i < 0:
                 return
             ovl = getattr(self.COMPONENTS, f"r{i + 1}_ovl")
-            item = self._active_items[ovl]
+            item = self._active_items.get(ovl)
             if item is None:
                 return
             step = str(item.get_item_attr("step", "1"))
@@ -627,7 +652,15 @@ class RowPage(HAUIPage):
             scale_factor = int(10**dot_pos)
             minval = float(item.get_item_attr("min", 0))
             i_minval = int(minval * scale_factor)
-            n_value = (int(data["value"]) + i_minval) / scale_factor
+            n_value = (value + i_minval) / scale_factor
             entity_object = item.get_item()
             if entity_object:
                 entity_object.set_state(state=n_value)
+            return
+
+    def process_row_slider(self, event: HAUIEvent, component: Component, button_state: int) -> None:
+        """Legacy callback retained for _callbacks compatibility."""
+        self._handle_row_slider_value(component, button_state)
+
+    def process_event(self, event: HAUIEvent) -> None:
+        super().process_event(event)

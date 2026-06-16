@@ -12,9 +12,12 @@ from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Template for a single device entry (one physical NSPanel)
-# ---------------------------------------------------------------------------
+LOCALE_OPTIONS: list[tuple[str, str]] = [
+    ("en_US", "English"),
+    ("de_DE", "Deutsch"),
+    ("nl_NL", "Nederlands"),
+    ("pl_PL", "Polski"),
+]
 
 DEVICE_CONFIG: dict[str, Any] = {
     "name": "",
@@ -35,19 +38,21 @@ DEVICE_CONFIG: dict[str, Any] = {
     # logging
     "log_items": False,
     "debug_level": 0,
-    # exit sleep / wakeup
-    "home_on_wakeup": False,
-    "home_on_first_touch": True,
-    "home_only_when_on": False,
-    "home_on_button_toggle": False,
     # interaction
     "reset_interaction_on_button": True,
-    "return_to_home_after_seconds": 0,
-    "always_return_to_home": False,
+    "snapshot_max_age_seconds": -1,  # -1 = no limit, 0 = never restore, >0 = max age in seconds
+    # (legacy keys return_to_home_after_seconds, always_return_to_home are
+    #  still accepted for backward compat)
     # hub-side idle timeout (seconds, 0 = disabled).
     # Fallback when the device doesn't publish esphome.timeout events
     # (e.g., use_auto_sleeping is OFF on the device).
     "hub_idle_timeout": 0,
+    # auto-navigate-home timeout (seconds, 0 = disabled).
+    # When >0, after this many seconds of inactivity on any non-home panel,
+    # the hub navigates back to the home panel automatically. Should be set
+    # shorter than any sleep/dim timeout to take effect before the display
+    # sleeps.
+    "auto_navigate_home_timeout": 0,
     "use_relay_left": True,
     "use_relay_right": True,
     "sound_on_startup": True,
@@ -55,12 +60,6 @@ DEVICE_CONFIG: dict[str, Any] = {
     "color_overrides": {},
     "sound_on_notification": True,
 }
-
-# ---------------------------------------------------------------------------
-# Config fields that are editable per-device and stored in the panel store.
-# Excludes identity fields (name, esphome_device_id) and panels (stored
-# independently under the device entry).
-# ---------------------------------------------------------------------------
 
 DEVICE_CONFIG_FIELDS: list[str] = [
     "locale",
@@ -75,14 +74,10 @@ DEVICE_CONFIG_FIELDS: list[str] = [
     "enabled",
     "log_items",
     "debug_level",
-    "home_on_wakeup",
-    "home_on_first_touch",
-    "home_only_when_on",
-    "home_on_button_toggle",
     "reset_interaction_on_button",
-    "return_to_home_after_seconds",
-    "always_return_to_home",
+    "snapshot_max_age_seconds",
     "hub_idle_timeout",
+    "auto_navigate_home_timeout",
     "sound_on_startup",
     "use_relay_left",
     "use_relay_right",
@@ -90,23 +85,31 @@ DEVICE_CONFIG_FIELDS: list[str] = [
     "color_overrides",
 ]
 
-# ---------------------------------------------------------------------------
-# Locale options for device configuration
-# ---------------------------------------------------------------------------
+def resolve_snapshot_max_age(cfg: dict[str, Any]) -> int:
+    """Resolve ``snapshot_max_age_seconds`` from *cfg*, falling back to legacy keys.
 
-LOCALE_OPTIONS: list[tuple[str, str]] = [
-    ("en_US", "English"),
-    ("de_DE", "Deutsch"),
-    ("nl_NL", "Nederlands"),
-    ("pl_PL", "Polski"),
-]
+    Legacy mapping:
+      - ``return_to_home_after_seconds`` (old): 0 = no limit (always restore)
+      - ``snapshot_max_age_seconds`` (new): -1 = no limit, 0 = never restore, >0 = max age
 
-# ---------------------------------------------------------------------------
-# Config validation and merge helpers (moved from __init__.py)
-# ---------------------------------------------------------------------------
+    Convert: old_value 0 → new -1; old_value >0 stays the same.
+    Also merges in ``always_return_to_home``: when True, snapshot max age becomes 0.
+    """
+    if "snapshot_max_age_seconds" in cfg:
+        val = cfg["snapshot_max_age_seconds"]
+        if cfg.get("always_return_to_home", False):
+            return 0
+        return val
+    # Legacy path
+    if cfg.get("always_return_to_home", False):
+        return 0
+    legacy_val = cfg.get("return_to_home_after_seconds", 0)
+    if legacy_val == 0:
+        return -1  # no limit
+    return legacy_val
 
 
-def _validate_config(cfg: dict[str, Any]) -> None:
+def validate_config(cfg: dict[str, Any]) -> None:
     """Validate that all keys from DEFAULT_CONFIG and DEVICE_CONFIG are present.
 
     Raises ValueError with a list of missing keys if any are absent or None.
@@ -148,7 +151,7 @@ def _validate_config(cfg: dict[str, Any]) -> None:
         )
 
 
-def _find_store_device(store_devices: dict, dev_name: str) -> dict | None:
+def find_store_device(store_devices: dict, dev_name: str) -> dict | None:
     """Find a device in the store by exact or case-insensitive name match."""
     store_dev = store_devices.get(dev_name)
     if store_dev is not None:
@@ -165,14 +168,14 @@ def _find_store_device(store_devices: dict, dev_name: str) -> dict | None:
     return None
 
 
-def _merge_store_fields(source: dict, target: dict, fields: list) -> None:
+def merge_store_fields(source: dict, target: dict, fields: list) -> None:
     """Copy fields from *source* into *target* when they exist in *source*."""
     for field in fields:
         if field in source:
             target[field] = source[field]
 
 
-def _populate_devices_from_store(cfg: dict, store_devices: dict, fields: list) -> None:
+def populate_devices_from_store(cfg: dict, store_devices: dict, fields: list) -> None:
     """Build ``cfg['devices']`` list from store data when no devices exist in config."""
     if cfg.get("devices"):
         return
@@ -180,20 +183,20 @@ def _populate_devices_from_store(cfg: dict, store_devices: dict, fields: list) -
     for dev_name, store_dev in store_devices.items():
         entry = {"name": dev_name, "panels": store_dev.get("panels", [])}
         if "config" in store_dev:
-            _merge_store_fields(store_dev["config"], entry, fields)
+            merge_store_fields(store_dev["config"], entry, fields)
         cfg["devices"].append(entry)
 
 
-def _apply_panel_store(cfg: dict, store: dict, fields: list) -> None:
+def apply_panel_store(cfg: dict, store: dict, fields: list) -> None:
     """Apply per-device panel store data to the config."""
     for dev in cfg.get("devices", []):
         dev_name = dev.get("name", "")
-        store_dev = _find_store_device(store, dev_name)
+        store_dev = find_store_device(store, dev_name)
         if store_dev is None:
             continue
         dev["panels"] = store_dev.get("panels", [])
         if "config" in store_dev:
-            _merge_store_fields(store_dev["config"], dev, fields)
+            merge_store_fields(store_dev["config"], dev, fields)
 
     # Apply to cfg["device"] (HAUIDevice runtime config) from the runtime
     # device only. Runtime device = first entry in cfg["devices"] (matches
@@ -204,6 +207,6 @@ def _apply_panel_store(cfg: dict, store: dict, fields: list) -> None:
     if not runtime_name:
         runtime_name = cfg.get("device", {}).get("name", "")
     if runtime_name:
-        store_dev = _find_store_device(store, runtime_name)
+        store_dev = find_store_device(store, runtime_name)
         if store_dev and "config" in store_dev:
-            _merge_store_fields(store_dev["config"], cfg["device"], fields)
+            merge_store_fields(store_dev["config"], cfg["device"], fields)

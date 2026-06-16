@@ -15,6 +15,7 @@
  *   - ""                    → entity type, no entity chosen yet
  */
 
+import { positionPickerDropdown, createDropdownKeyboardController } from './dom-helpers.js';
 import { html } from './lit-import.js';
 import { t } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
@@ -231,6 +232,9 @@ function _openPanelKeyDropdown(wrap) {
   dropdown.style.display = items.length ? "" : "none";
   if (items.length === 0) return;
 
+  const input = wrap?.querySelector(".entity-picker-input");
+  if (dropdown && input) positionPickerDropdown(dropdown, input);
+
   // Close on click outside — install once on the document
   if (wrap._panelOutsideHandler) return;
   wrap._panelOutsideHandler = (ev) => {
@@ -298,45 +302,16 @@ export function renderPanelKeyPicker(host, { id, value, label, placeholder, pane
           const wrap = e.target?.closest(".entity-picker-wrap");
           setTimeout(() => { if (wrap) _hidePanelKeyDropdown(wrap); }, 80);
         }}
-        @keydown=${(e) => {
-          const wrap = e.target.closest(".entity-picker-wrap");
-          const dropdown = wrap?.querySelector(".entity-dropdown");
-          if (!dropdown || dropdown.style.display === "none") return;
-
-          const visibleItems = [...dropdown.querySelectorAll(".entity-dropdown-item")]
-            .filter((el) => el.style.display !== "none");
-          if (!visibleItems.length) return;
-
-          let idx = wrap._panelActiveIndex != null ? wrap._panelActiveIndex : -1;
-
-          if (e.key === "ArrowDown") {
-            e.preventDefault();
-            idx = Math.min(idx + 1, visibleItems.length - 1);
-          } else if (e.key === "ArrowUp") {
-            e.preventDefault();
-            idx = Math.max(idx - 1, 0);
-          } else if (e.key === "Enter") {
-            if (idx >= 0) {
-              e.preventDefault();
-              _selectPanelKey(wrap, visibleItems[idx]);
-            }
-            return;
-          } else if (e.key === "Escape") {
-            e.preventDefault();
-            _hidePanelKeyDropdown(wrap);
-            return;
-          } else {
-            return;
-          }
-
-          wrap._panelActiveIndex = idx;
-          dropdown.querySelectorAll(".entity-dropdown-item").forEach((item, i) => {
-            item.classList.toggle("active", i === idx);
-          });
-          if (visibleItems[idx]) {
-            visibleItems[idx].scrollIntoView({ block: "nearest" });
-          }
-        }}
+        @keydown=${createDropdownKeyboardController({
+          getWrap: (e) => e.target.closest('.entity-picker-wrap'),
+          dropdownSelector: '.entity-dropdown',
+          itemSelector: '.entity-dropdown-item',
+          indexField: '_panelActiveIndex',
+          onSelect: (visibleItems, idx) => {
+            _selectPanelKey(visibleItems[idx].closest('.entity-picker-wrap'), visibleItems[idx]);
+          },
+          onDismiss: (e) => _hidePanelKeyDropdown(e.target.closest('.entity-picker-wrap')),
+        })}
       ></ha-input>
 
       <div class="entity-dropdown"

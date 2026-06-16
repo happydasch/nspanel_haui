@@ -5,7 +5,7 @@ import { html } from '../lit-import.js';
 import { t } from '../localize.js';
 import { getItems, backgroundClass, itemDisplay } from './utils.js';
 
-export function renderRowPreview(_host, panel, _pIdx, _pt) {
+export function renderRowPreview(host, panel, _pIdx, _pt) {
   const items = getItems(panel);
   if (items.length === 0) {
     return { content: html``, containerClass: backgroundClass(panel) };
@@ -15,7 +15,7 @@ export function renderRowPreview(_host, panel, _pIdx, _pt) {
     content: html`
       <div class="pg-preview-row-stack" style="justify-content:flex-start;">
         ${shown.map(item => {
-          const { icon, name } = itemDisplay(item);
+          const { icon, name } = itemDisplay(item, host);
           const shortName = name.length > 16 ? name.slice(0, 14) + '\u2026' : name;
           return html`
             <div class="pg-preview-row-card">

@@ -1,11 +1,14 @@
 /**
  * NSPanel HAUI - Editor - Device Info dialog.
  *
- * Proper Lit custom element replacing the old renderDeviceInfoDialog() function.
+ * Proper Lit custom element. Shows device connection state, firmware info,
+ * WiFi signal, active listeners/timers, and ESPHome transport details.
  */
 import { LitElement, html } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { dialogHeader } from './dialog-header.js';
 import { t } from '../localize.js';
+import { readNetworkInfo, rssiStrengthClass, rssiBarCount, fmtRssi } from '../network-info.js';
 
 /* ── timestamp formatting ─────────────────────────────────────────── */
 
@@ -45,69 +48,228 @@ function fmtInterval(seconds) {
   return `${+(seconds / 3600).toFixed(1)}h`;
 }
 
-/* ── sub-sections ─────────────────────────────────────────────────── */
+/* ── connection status card ─────────────────────────────────────── */
 
-function renderActiveTimers(ds) {
-  const timers = ds.active_timers;
-  const count = ds.active_timer_count ?? 0;
-
-  if (!timers || timers.length === 0) {
-    return html`<div class="active-timers-section">
-      <h4>${t('Active Timers')} (${count})</h4>
-      <p class="empty-state-text">${t('No active timers.')}</p>
-    </div>`;
-  }
+function renderStatusCard(ds, di, nw) {
+  const connected = ds.connected === true;
+  const stateCls = connected ? "connected" : "disconnected";
+  const stateLabel = connected ? t('Connected') : t('Disconnected');
+  const connDetail = ds.connection_state || t('unknown');
+  const ip = (nw && nw.ip) ? nw.ip : null;
 
   return html`
-    <div class="active-timers-section">
-      <h4>${t('Active Timers')} (${count})</h4>
-      <div class="timers-table">
-        <div class="timers-header">
-          <span class="timers-col timers-col-cb">${t('Callback')}</span>
-          <span class="timers-col timers-col-type">${t('Type')}</span>
-          <span class="timers-col timers-col-int">${t('Interval')}</span>
+    <div class="di-status-card ${stateCls}">
+      <div class="di-status-left">
+        <div class="di-status-icon-wrapper">
+          <ha-icon
+            class="di-status-icon"
+            icon=${connected ? "mdi:check-circle" : "mdi:alert-circle-outline"}
+          ></ha-icon>
         </div>
-        ${timers.map(t => html`
-          <div class="timers-row">
-            <span class="timers-col timers-col-cb" title="${t.callback_name}">${t.callback_name}</span>
-            <span class="timers-col timers-col-type">${t.type}</span>
-            <span class="timers-col timers-col-int">${fmtInterval(t.interval)}</span>
-          </div>
-        `)}
+        <div class="di-status-text">
+          <span class="di-status-label">${stateLabel}</span>
+          <span class="di-status-detail">${connDetail}</span>
+        </div>
+      </div>
+      <div class="di-status-meta">
+        ${ip ? html`
+          <span class="di-status-meta-item" title=${ip}>
+            <ha-icon icon="mdi:ip-network" class="di-meta-icon"></ha-icon>
+            ${ip}
+          </span>
+        ` : ""}
+        ${di.last_connection ? html`
+          <span class="di-status-meta-item" title=${di.last_connection}>
+            <ha-icon icon="mdi:clock-outline" class="di-meta-icon"></ha-icon>
+            ${fmtTimestamp(di.last_connection)}
+          </span>
+        ` : ""}
+        ${di.last_panel_update ? html`
+          <span class="di-status-meta-item" title="${t('Last Panel Update')}: ${di.last_panel_update}">
+            <ha-icon icon="mdi:update" class="di-meta-icon"></ha-icon>
+            ${fmtTimestamp(di.last_panel_update)}
+          </span>
+        ` : ""}
       </div>
     </div>
   `;
 }
 
+/* ── device info section ────────────────────────────────────────── */
+
+function renderDeviceInfoSection(ds, di) {
+  return html`
+    <details class="config-section">
+      <summary>
+        <ha-icon icon="mdi:information-outline" class="di-section-icon"></ha-icon>
+        ${t('Device')}
+      </summary>
+      <div class="config-section-body">
+        <div class="di-info-grid">
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('Name')}</span>
+            <span class="di-info-value">${di.name || "-"}</span>
+          </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('Current Page')}</span>
+            <span class="di-info-value">${ds.current_page || "-"}</span>
+          </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('YAML Version')}</span>
+            <span class="di-info-value di-mono">${di.yaml_version || "-"}</span>
+          </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('TFT Version')}</span>
+            <span class="di-info-value di-mono">${di.tft_version || "-"}</span>
+          </div>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+/* ── WiFi section ──────────────────────────────────────────────── */
+
+function renderWifiSection(di, nw) {
+  const rssi = (nw && nw.rssi != null) ? nw.rssi : null;
+  const ssid = (nw && nw.ssid) ? nw.ssid : null;
+  const ip = (nw && nw.ip) ? nw.ip : null;
+  const cls = rssiStrengthClass(rssi);
+  const bars = rssiBarCount(rssi);
+
+  return html`
+    <details class="config-section">
+      <summary>
+        <ha-icon icon="mdi:wifi" class="di-section-icon ${cls}"></ha-icon>
+        ${t('WiFi')}
+      </summary>
+      <div class="config-section-body">
+        <div class="di-info-grid">
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('SSID')}</span>
+            <span class="di-info-value">${ssid || "—"}</span>
+          </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('IP Address')}</span>
+            <span class="di-info-value di-mono">${ip || "—"}</span>
+          </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('Signal')}</span>
+            <span class="di-info-value">
+              <span class="rssi-bars" title=${fmtRssi(rssi)}>
+                <span class="rssi-bar ${bars >= 1 ? cls : ''}"></span>
+                <span class="rssi-bar ${bars >= 2 ? cls : ''}"></span>
+                <span class="rssi-bar ${bars >= 3 ? cls : ''}"></span>
+                <span class="rssi-bar ${bars >= 4 ? cls : ''}"></span>
+              </span>
+              <span class="di-rssi-text">${fmtRssi(rssi)}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+/* ── ESPHome transport section ──────────────────────────────────── */
+
+function renderEsphomeSection(ds) {
+  const esph = ds.esphome;
+  if (!esph) return "";
+
+  return html`
+    <details class="config-section">
+      <summary>
+        <ha-icon icon="mdi:devices" class="di-section-icon"></ha-icon>
+        ${t('ESPHome')}
+      </summary>
+      <div class="config-section-body">
+        <div class="di-info-grid">
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('Transport')}</span>
+            <span class="di-info-value di-mono">${esph.transport || "-"}</span>
+          </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('Device Names')}</span>
+            <span class="di-info-value">
+              ${(esph.device_names || []).join(", ") || "-"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+/* ── active listeners table ─────────────────────────────────────── */
+
 function renderActiveListeners(ds) {
   const listeners = ds.active_listeners;
   const count = ds.active_listener_count ?? 0;
 
-  if (!listeners || listeners.length === 0) {
-    return html`<div class="active-listeners-section">
-      <h4>${t('Active Listeners')} (${count})</h4>
-      <p class="empty-state-text">${t('No active listeners.')}</p>
-    </div>`;
-  }
+  return html`
+    <details class="config-section">
+      <summary>
+        <ha-icon icon="mdi:ear-hearing" class="di-section-icon"></ha-icon>
+        ${t('Listeners')} (${count})
+      </summary>
+      <div class="config-section-body">
+        ${!listeners || listeners.length === 0 ? html`
+          <p class="empty-state-text">${t('No active listeners.')}</p>
+        ` : html`
+          <div class="di-table">
+            <div class="di-table-row di-table-header">
+              <span class="di-table-cell di-table-cell-entity">${t('Entity')}</span>
+              <span class="di-table-cell di-table-cell-attr">${t('Attribute')}</span>
+              <span class="di-table-cell di-table-cell-cb">${t('Callback')}</span>
+            </div>
+            ${listeners.map(l => html`
+              <div class="di-table-row">
+                <span class="di-table-cell di-table-cell-entity" title="${l.item_id}">${l.item_id}</span>
+                <span class="di-table-cell di-table-cell-attr">${l.attribute || "-"}</span>
+                <span class="di-table-cell di-table-cell-cb di-mono" title="${l.callback_name}">${l.callback_name}</span>
+              </div>
+            `)}
+          </div>
+        `}
+      </div>
+    </details>
+  `;
+}
+
+/* ── active timers table ──────────────────────────────────────── */
+
+function renderActiveTimers(ds) {
+  const timers = ds.active_timers;
+  const count = ds.active_timer_count ?? 0;
 
   return html`
-    <div class="active-listeners-section">
-      <h4>${t('Active Listeners')} (${count})</h4>
-      <div class="listeners-table">
-        <div class="listeners-header">
-          <span class="listeners-col listeners-col-entity">${t('Entity')}</span>
-          <span class="listeners-col listeners-col-attr">${t('Attribute')}</span>
-          <span class="listeners-col listeners-col-cb">${t('Callback')}</span>
-        </div>
-        ${listeners.map(l => html`
-          <div class="listeners-row">
-            <span class="listeners-col listeners-col-entity" title="${l.item_id}">${l.item_id}</span>
-            <span class="listeners-col listeners-col-attr">${l.attribute || "-"}</span>
-            <span class="listeners-col listeners-col-cb" title="${l.callback_name}">${l.callback_name}</span>
+    <details class="config-section">
+      <summary>
+        <ha-icon icon="mdi:timer-outline" class="di-section-icon"></ha-icon>
+        ${t('Timers')} (${count})
+      </summary>
+      <div class="config-section-body">
+        ${!timers || timers.length === 0 ? html`
+          <p class="empty-state-text">${t('No active timers.')}</p>
+        ` : html`
+          <div class="di-table">
+            <div class="di-table-row di-table-header">
+              <span class="di-table-cell di-table-cell-cb">${t('Callback')}</span>
+              <span class="di-table-cell di-table-cell-type">${t('Type')}</span>
+              <span class="di-table-cell di-table-cell-int">${t('Interval')}</span>
+            </div>
+            ${timers.map(t => html`
+              <div class="di-table-row">
+                <span class="di-table-cell di-table-cell-cb di-mono" title="${t.callback_name}">${t.callback_name}</span>
+                <span class="di-table-cell di-table-cell-type">${t.type}</span>
+                <span class="di-table-cell di-table-cell-int">${fmtInterval(t.interval)}</span>
+              </div>
+            `)}
           </div>
-        `)}
+        `}
       </div>
-    </div>
+    </details>
   `;
 }
 
@@ -130,56 +292,46 @@ class DeviceInfoDialog extends LitElement {
     this.deviceStatus = null;
   }
 
+  updated(changed) {
+    if (changed.has("open") && this.open) {
+      this.renderRoot.querySelectorAll("details.config-section").forEach((d) => {
+        d.removeAttribute("open");
+      });
+    }
+  }
+
   render() {
     const ds = this.deviceStatus;
     if (!ds) return "";
 
     const di = ds.device_info || {};
+    const deviceName = di.name || "";
+    const nw = readNetworkInfo(this.hass, deviceName);
 
     return html`
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
         .preventScrimClose=${true}
-        header-title=${t('Device Info')}
       >
+        ${dialogHeader(t('Device Info'), this._dispatchClose)}
 
         <div class="dialog-body">
-          <div class="info-grid-2col">
-            <div>
-              <strong>${t('Device:')}</strong> ${di.name || "-"}
-            </div>
-            <div>
-              <strong>${t('Connection:')}</strong>
-              ${ds.connected ? t('Connected') : t('Disconnected')}
-              <span class="text-secondary">(${ds.connection_state || t('unknown')})</span>
-            </div>
-            <div>
-              <strong>${t('Current Page:')}</strong> ${ds.current_page || "-"}
-            </div>
-            <div>
-              <strong>${t('YAML Version:')}</strong> ${di.yaml_version || "-"}
-            </div>
-            <div>
-              <strong>${t('TFT Version:')}</strong> ${di.tft_version || "-"}
-            </div>
-            <div>
-              <strong>${t('Last Connection:')}</strong> ${fmtTimestamp(di.last_connection)}
-            </div>
-            <div>
-              <strong>${t('Last Panel Update:')}</strong> ${fmtTimestamp(di.last_panel_update)}
-            </div>
-          </div>
-
+          ${renderStatusCard(ds, di, nw)}
+          ${renderDeviceInfoSection(ds, di)}
+          ${renderWifiSection(di, nw)}
+          ${renderEsphomeSection(ds)}
           ${renderActiveListeners(ds)}
           ${renderActiveTimers(ds)}
         </div>
 
-        <ha-dialog-footer slot="footer">
-          <ha-button slot="primaryAction" @click=${this._dispatchClose}>
-            ${t('Close')}
-          </ha-button>
-        </ha-dialog-footer>
+        <div slot="footer" class="footer-wrapper">
+          <ha-dialog-footer>
+            <ha-button slot="primaryAction" @click=${this._dispatchClose}>
+              ${t('Close')}
+            </ha-button>
+          </ha-dialog-footer>
+        </div>
       </ha-dialog>
     `;
   }

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from .abstract.haui_base import HAUIBase
 from .abstract.haui_event import HAUIEvent
-from .mapping.const import ESPEvent, NotifEvent
+from .mapping.const import ESPAction, ESPEvent, NotifEvent
 from .mapping.panel import PANEL_MAPPING, SYS_PANEL_MAPPING
 
 if TYPE_CHECKING:
@@ -30,12 +30,9 @@ class HAUIDevice(HAUIBase):
         """
         super().__init__(app, config)
         self.device_info: dict = {}
-        self.connected = False
         self.sleeping = False
         self.woke_up = False
         self._initial_connect_done = False
-        self.first_touch = False
-        self.is_on_check = False
         self._btn_left_info: dict[str, Any] = {
             "state": False,
             "item_id": None,
@@ -97,6 +94,67 @@ class HAUIDevice(HAUIBase):
             button["handle"] = None
             button["item_id"] = None
 
+    def _sync_config_switch(self, hub_key: str, switch_entity_id: str) -> None:
+        """Sync a hub config boolean with the device's corresponding ESPHome switch.
+
+        Ensures the hub config and ESPHome firmware switch are in agreement.
+        Sync is bidirectional: re-enabling the config after it was disabled turns
+        the firmware switch back on, otherwise ``RESTORE_DEFAULT_ON`` switches
+        would stay stuck in their restored state across reconnects.
+        """
+        if not self.app.item_exists(switch_entity_id):
+            return
+        hub_value = self.get(hub_key, True)
+        item = self.app.get_item(switch_entity_id)
+        is_on = bool(item.get_state())
+        if hub_value and not is_on:
+            self.log(f"Syncing {switch_entity_id} ON (hub config {hub_key}=True)")
+            item.turn_on()
+        elif not hub_value and is_on:
+            self.log(f"Syncing {switch_entity_id} OFF (hub config {hub_key}=False)")
+            item.turn_off()
+
+    def _sync_button_interaction(self) -> None:
+        """Sync the hub's ``reset_interaction_on_button`` with the device's switch.
+
+        ``reset_interaction_on_button`` controls whether button presses reset the
+        idle timer.  The device-side ``use_button_interaction`` switch must mirror
+        it so the ESPHome firmware (which gates its own ``update_last_interaction``
+        on that switch) stays in step.  Sync is bidirectional: re-enabling the
+        config after it was disabled turns the firmware switch back on, otherwise
+        the switch (``RESTORE_DEFAULT_ON``) would stay stuck off across reconnects.
+        """
+        reset = self.get("reset_interaction_on_button", True)
+        name = self.get_name()
+        slug = name.lower().replace('-', '_').replace(' ', '_')
+        entity_id = f"switch.{slug}_use_button_interaction"
+        if not self.app.item_exists(entity_id):
+            return
+        item = self.app.get_item(entity_id)
+        is_on = bool(item.get_state())
+        if reset and not is_on:
+            item.turn_on()
+        elif not reset and is_on:
+            item.turn_off()
+
+    def _sync_relay_config(self) -> None:
+        """Sync hub config ``use_relay_left``/``use_relay_right`` with ESPHome switches.
+
+        Prevents the double-toggle / no-toggle scenario where the hub expects
+        one behaviour but the ESPHome firmware (with its own
+        ``use_relay_left``/``use_relay_right`` switches using
+        ``RESTORE_DEFAULT_ON``) acts differently.
+        """
+        slug = self.get_name().lower().replace('-', '_').replace(' ', '_')
+        self._sync_config_switch(
+            "use_relay_left",
+            f"switch.{slug}_use_relay_left",
+        )
+        self._sync_config_switch(
+            "use_relay_right",
+            f"switch.{slug}_use_relay_right",
+        )
+
     # part
 
     def start_part(self) -> None:
@@ -104,6 +162,8 @@ class HAUIDevice(HAUIBase):
         self.log("Device is starting")
         self._check_config()
         self._register_callbacks()
+        self._sync_button_interaction()
+        self._sync_relay_config()
 
     def stop_part(self) -> None:
         """Stops the part."""
@@ -125,7 +185,21 @@ class HAUIDevice(HAUIBase):
         else:
             self.device_info = device_info
 
-    def set_connected(self, connected: bool) -> None:
+    # ------------------------------------------------------------------
+    # Connection state — delegates to connection controller
+    # ------------------------------------------------------------------
+
+    @property
+    def connected(self) -> bool:
+        """Return ``True`` iff the device connection is fully established.
+
+        Delegates to the connection controller so there is a single source
+        of truth for connection state.
+        """
+        conn = self.app.controller.get("connection")
+        return conn.is_connected if conn else False
+
+    def on_connection_changed(self, connected: bool) -> None:
         """Handle connection state change from the connection controller.
 
         On first connect: opens sys_system panel.
@@ -142,7 +216,6 @@ class HAUIDevice(HAUIBase):
             connected (bool): Connection state
         """
         self.log(f"Device connected: {connected}")
-        self.connected = connected
         navigation = self.app.controller.get("navigation")
         if navigation is None:
             return
@@ -254,22 +327,6 @@ class HAUIDevice(HAUIBase):
                 )
         return listeners
 
-    def _get_button_state(self, side: str) -> bool:
-        return getattr(self, f"_btn_{side}_info")["state"]
-
-    def _set_button_state(self, side: str, state: bool) -> None:
-        entity_id = getattr(self, f"_btn_{side}_info")["item_id"]
-        if not entity_id or not self.app.item_exists(entity_id):
-            return
-        self.app.get_item(entity_id).call_service("turn_on" if state else "turn_off")
-
-    def _toggle_button_state(self, side: str) -> None:
-        entity_id = getattr(self, f"_btn_{side}_info")["item_id"]
-        if not entity_id or not self.app.item_exists(entity_id):
-            return
-        if not self.get(f"use_relay_{side}", True):
-            self.app.get_item(entity_id).call_service("toggle")
-
     def get_left_button_state(self) -> bool:
         """Returns the left button state."""
         return self._get_button_state("left")
@@ -302,26 +359,6 @@ class HAUIDevice(HAUIBase):
         """
         self.app.controller["esphome"].esphome.publish("play_sound", name)
 
-    def _persistent_sound_callback(self, kwargs: Any) -> None:
-        if self.app.controller["notification"].has_persistent_notifications():
-            self.play_sound("notification")
-        else:
-            self._stop_persistent_sound()
-
-    def _start_persistent_sound(self) -> None:
-        if self._persistent_sound_handle is not None:
-            return
-        interval = self.get("persistent_sound_interval", 5)
-        self.play_sound("notification")
-        self._persistent_sound_handle = self.app.run_every(
-            self._persistent_sound_callback, f"now+{interval}", interval
-        )
-
-    def _stop_persistent_sound(self) -> None:
-        if self._persistent_sound_handle is not None:
-            self.app.cancel_timer(self._persistent_sound_handle)
-            self._persistent_sound_handle = None
-
     # callback
 
     def callback_button_state_entities(
@@ -341,12 +378,19 @@ class HAUIDevice(HAUIBase):
         if not navigation.page:
             return
         state = new == "on"
+        # Push relay state to the display when it changes — unless the user
+        # disabled button interaction (reset_interaction_on_button False), in
+        # which case the serial write is skipped so a button toggle cannot wake
+        # or alter the display.  Internal state is tracked regardless.
+        push = self._may_push_button_state()
         if entity == self._btn_left_info["item_id"]:
             self._btn_left_info["state"] = state
-            navigation.page.set_button_left_state(state)
+            if push:
+                navigation.page.set_button_left_state(state)
         elif entity == self._btn_right_info["item_id"]:
             self._btn_right_info["state"] = state
-            navigation.page.set_button_right_state(state)
+            if push:
+                navigation.page.set_button_right_state(state)
 
     # event
 
@@ -359,6 +403,11 @@ class HAUIDevice(HAUIBase):
         self.log(f"Got gesture: {event.as_str()}")
         navigation = self.app.controller["navigation"]
         if not navigation.page or not navigation.page.panel:
+            return
+        # a slider drag also produces a swipe gesture — ignore it so
+        # adjusting a slider doesn't navigate away
+        if navigation.page.is_gesture_suppressed():
+            self.log("Ignoring gesture during slider interaction")
             return
         # check event
         if event.as_str() == "swipe_left":
@@ -376,12 +425,15 @@ class HAUIDevice(HAUIBase):
         Args:
             event (HAUIEvent): Event
         """
-        # update device vars values
-        self.device_info[event.name] = event.value
+        # update device vars values. Store under the unprefixed key so the
+        # handshake-populated keys ("display_state", "page", ...) stay in sync
+        # with live events; all readers use the unprefixed names.
+        key = event.name.removeprefix("esphome.")
+        self.device_info[key] = event.value
         # process gesture event
         if event.name == ESPEvent.GESTURE:
             self.process_gesture(event)
-        # process sleeping state
+        # a touch is the sole driver of the sleep-screen exit decision
         elif event.name == ESPEvent.TOUCH_START:
             self.check_wakeup()
         elif event.name == ESPEvent.SLEEP:
@@ -390,34 +442,23 @@ class HAUIDevice(HAUIBase):
             self.set_sleeping(False)
             # set a flag as just woke up
             self.woke_up = True
-        elif event.name == ESPEvent.PAGE:
-            if self.device_info.get("page", 0) != event.value:
-                self.first_touch = True
-        elif event.name == ESPEvent.DISPLAY_STATE:
-            if event.value == "on":
-                self.is_on_check = True
-        elif event.name == ESPEvent.BUTTON_LEFT:
-            if event.value == "0":
-                if self.get("home_on_button_toggle"):
-                    self.check_wakeup()
-                self.toggle_left_button_state()
-        elif event.name == ESPEvent.BUTTON_RIGHT:
-            if event.value == "0":
-                if self.get("home_on_button_toggle"):
-                    self.check_wakeup()
-                self.toggle_right_button_state()
+        elif event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT):
+            side = "left" if event.name == ESPEvent.BUTTON_LEFT else "right"
+            if event.value == "1":  # pressed
+                # On press, immediately reset the interaction timer so the
+                # display wakes without waiting for release.  The entity toggle
+                # stays on release so a held button does not spam toggles.
+                if self.get("reset_interaction_on_button", True):
+                    self.app.controller["esphome"].esphome.publish(
+                        ESPAction.RESET_LAST_INTERACTION, "0"
+                    )
+                    self.check_wakeup(from_button=True)
+            elif event.value == "0":  # released
+                self._on_button_release(side)
+        elif event.name in (ESPEvent.RELAY_LEFT, ESPEvent.RELAY_RIGHT):
+            side = "left" if event.name == ESPEvent.RELAY_LEFT else "right"
+            self._on_relay_event(side, event.value == "1")
         # process notification events
-        elif event.name == ESPEvent.RELAY_LEFT:
-            state = event.value == "1"
-            self._btn_left_info["state"] = state
-            if self.app.controller["navigation"].page:
-                self.app.controller["navigation"].page.set_button_left_state(state)
-        elif event.name == ESPEvent.RELAY_RIGHT:
-            state = event.value == "1"
-            self._btn_right_info["state"] = state
-            if self.app.controller["navigation"].page:
-                self.app.controller["navigation"].page.set_button_right_state(state)
-
         elif event.name == NotifEvent.NOTIF_ADD:
             notification = event.value  # (title, message, icon, timeout, persistent)
             if isinstance(notification, (list, tuple)):
@@ -435,69 +476,104 @@ class HAUIDevice(HAUIBase):
         ):
             self._stop_persistent_sound()
 
-    def check_wakeup(self) -> None:
-        """Checks if the display just woke up to switch from wakeup page.
+    def check_wakeup(self, from_button: bool = False) -> None:
+        """Exit the sleep / wakeup screen on any touch or hardware-button press.
 
-        How to wake up from sleep:
-        - touch the display once, the sleep or wakeup panel will be opened
-        - touch again, the home panel will be opened
+        A single touch-down immediately wakes the display and exits the
+        sleep / wake panel, restoring the home or previous panel.
 
-        How exit sleep works by default:
-        - when display off:
-            - first touch wakes up the display
-            - second touch closes the panel
-        - when display dimmed/on:
-            - first touch closes the panel
-
-        How to modify this behaviour:
-        - use hardware buttons to exit panel:
-            - home_on_button_toggle: true
-        - when display is off:
-            - wake up on first touch:
-              - home_on_wakeup: true
-        - when display is dimmed/on:
-            - display will only exit panel if display is not dimmed:
-              - home_only_when_on: true
-            - exit display on second touch:
-              - home_on_first_touch: false
+        ``woke_up`` — set when the sleep panel opens — is cleared here so
+        the flag does not accumulate, but no longer gates the exit decision.
         """
         navigation = self.app.controller["navigation"]
         if not navigation.panel:
             return
-        has_wakeup_panel = (
+
+        on_wakeup_panel = (
             self.get("wakeup_panel")
             and navigation.panel.get("key") == self.get("wakeup_panel")
             and navigation.panel.get("key") != self.get("home_panel")
         )
-        has_sleep_panel = not self.get("wakeup_panel") and navigation._sleep_panel_active
-        if has_wakeup_panel or has_sleep_panel:
-            exit_sleep = True
-            display_state = self.device_info.get("display_state")
+        if not (on_wakeup_panel or navigation._sleep_panel_active):
+            return
 
-            if self.woke_up:
-                self.first_touch = True
+        self.woke_up = False
+        navigation.exit_sleep_to_prev_or_home(self.config)
 
-            if not self.get("home_on_wakeup") and self.woke_up:
-                self.log("not exiting sleep/wakeup screen, just woke up")
-                self.woke_up = False
-                exit_sleep = False
+    def _on_button_release(self, side: str) -> None:
+        """Handle a hardware button release (``side`` = "left" / "right").
 
-            if not self.get("home_on_first_touch") and self.first_touch:
-                self.log("not exiting sleep/wakeup screen, first touch")
-                self.first_touch = False
-                exit_sleep = False
+        With ``reset_interaction_on_button`` enabled the press also wakes the
+        display (resets the firmware idle timer — needed even when the ESPHome
+        ``use_button_interaction`` switch is OFF) and exits sleep/wakeup. With it
+        disabled the press only toggles the relay/entity and never touches the
+        display. The toggle runs before ``check_wakeup`` so it isn't delayed by
+        the blocking goto_page navigation inside it.
+        """
+        reset = self.get("reset_interaction_on_button", True)
+        if reset:
+            self.app.controller["esphome"].esphome.publish(ESPAction.RESET_LAST_INTERACTION, "0")
+        getattr(self, f"toggle_{side}_button_state")()
+        if reset:
+            self.check_wakeup(from_button=True)
 
-            if self.get("home_only_when_on") and (display_state != "on" or self.is_on_check):
-                self.log(f"not exiting sleep/wakeup screen, display state {display_state}")
-                self.is_on_check = False
-                exit_sleep = False
+    def _on_relay_event(self, side: str, state: bool) -> None:
+        """Handle a relay state change reported by the device.
 
-            if self.woke_up:
-                self.woke_up = False
+        Tracks the internal button state and reflects it on the display, unless
+        ``reset_interaction_on_button`` is disabled — then the relay only toggles
+        the device and the display is left untouched (no serial write that could
+        wake it).
+        """
+        getattr(self, f"_btn_{side}_info")["state"] = state
+        navigation = self.app.controller["navigation"]
+        if self._may_push_button_state() and navigation.page:
+            getattr(navigation.page, f"set_button_{side}_state")(state)
 
-            if exit_sleep:
-                return_to_home_after_seconds = self.get("return_to_home_after_seconds")
-                if self.get("always_return_to_home") or not navigation.restore_snapshot(
-                    return_to_home_after_seconds
-                ):
-                    navigation.open_home_panel()
+    def _may_push_button_state(self) -> bool:
+        """Whether a relay state change may write to the display.
+
+        With ``reset_interaction_on_button`` False the user opted out of any
+        button-driven display interaction: a relay change must only toggle the
+        device, never wake or alter the display.  In that case the internal
+        button state is still tracked, but the Nextion serial write (which can
+        activate the display) is skipped.  Default True keeps the previous
+        behaviour of reflecting relay changes on the display immediately.
+        """
+        return self.get("reset_interaction_on_button", True)
+
+    def _get_button_state(self, side: str) -> bool:
+        return getattr(self, f"_btn_{side}_info")["state"]
+
+    def _set_button_state(self, side: str, state: bool) -> None:
+        entity_id = getattr(self, f"_btn_{side}_info")["item_id"]
+        if not entity_id or not self.app.item_exists(entity_id):
+            return
+        self.app.get_item(entity_id).call_service("turn_on" if state else "turn_off")
+
+    def _toggle_button_state(self, side: str) -> None:
+        entity_id = getattr(self, f"_btn_{side}_info")["item_id"]
+        if not entity_id or not self.app.item_exists(entity_id):
+            return
+        if not self.get(f"use_relay_{side}", True):
+            self.app.get_item(entity_id).call_service("toggle")
+
+    def _persistent_sound_callback(self, kwargs: Any) -> None:
+        if self.app.controller["notification"].has_persistent_notifications():
+            self.play_sound("notification")
+        else:
+            self._stop_persistent_sound()
+
+    def _start_persistent_sound(self) -> None:
+        if self._persistent_sound_handle is not None:
+            return
+        interval = self.get("persistent_sound_interval", 5)
+        self.play_sound("notification")
+        self._persistent_sound_handle = self.app.run_every(
+            self._persistent_sound_callback, f"now+{interval}", interval
+        )
+
+    def _stop_persistent_sound(self) -> None:
+        if self._persistent_sound_handle is not None:
+            self.app.cancel_timer(self._persistent_sound_handle)
+            self._persistent_sound_handle = None

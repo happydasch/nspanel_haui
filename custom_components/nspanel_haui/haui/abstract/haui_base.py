@@ -394,16 +394,30 @@ class HAUIBase:
         # Collapse multiple writes to the same target within a batch so the
         # last write wins. Non-assignment commands (vis, ref, click, cirs, ...)
         # are preserved in place to keep their ordering relative to the writes.
+        # ``vis`` commands are also deduplicated by component name so that
+        # hide-then-show of the same component collapses to just the show.
         last_seen: dict[str, int] = {}
         for i, cmd in enumerate(commands):
             eq = cmd.find("=")
             if eq <= 0:
+                if cmd.startswith("vis "):
+                    comma = cmd.rfind(",")
+                    if comma > 0:
+                        last_seen[cmd[:comma]] = i
                 continue
             last_seen[cmd[:eq]] = i
         result: list[str] = []
         for i, cmd in enumerate(commands):
             eq = cmd.find("=")
-            if eq <= 0 or last_seen.get(cmd[:eq]) == i:
+            if eq <= 0:
+                if cmd.startswith("vis "):
+                    comma = cmd.rfind(",")
+                    if comma > 0 and last_seen.get(cmd[:comma]) == i:
+                        result.append(cmd)
+                else:
+                    result.append(cmd)
+                continue
+            if last_seen.get(cmd[:eq]) == i:
                 result.append(cmd)
         return result
 

@@ -5,6 +5,7 @@
  */
 import { LitElement, html } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { dialogHeader } from './dialog-header.js';
 
 class LogsDialog extends LitElement {
   static get properties() {
@@ -29,8 +30,8 @@ class LogsDialog extends LitElement {
         .open=${this.open}
         @closed=${this._dispatchClose}
         .preventScrimClose=${true}
-        header-title="Device Logs"
       >
+        ${dialogHeader("Device Logs", this._dispatchClose)}
 
         <div class="dialog-body">
           ${this.logs.length ? html`
@@ -40,11 +41,13 @@ class LogsDialog extends LitElement {
           `}
         </div>
 
-        <ha-dialog-footer slot="footer">
-          <ha-button slot="primaryAction" @click=${this._dispatchClose}>
-            Close
-          </ha-button>
-        </ha-dialog-footer>
+        <div slot="footer" class="footer-wrapper">
+          <ha-dialog-footer>
+            <ha-button slot="primaryAction" @click=${this._dispatchClose}>
+              Close
+            </ha-button>
+          </ha-dialog-footer>
+        </div>
       </ha-dialog>
     `;
   }

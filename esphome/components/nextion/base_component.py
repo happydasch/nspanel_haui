@@ -1,10 +1,9 @@
 from string import ascii_letters, digits
 
 import esphome.codegen as cg
+from esphome.components import color
 import esphome.config_validation as cv
 from esphome.const import CONF_BACKGROUND_COLOR, CONF_FOREGROUND_COLOR, CONF_VISIBLE
-
-from esphome.components import color
 
 from . import CONF_NEXTION_ID, Nextion
 
@@ -53,8 +52,7 @@ def NextionName(value):
     for char in value:
         if char not in valid_chars:
             raise cv.Invalid(
-                "Must only consist of upper/lowercase characters, numbers, the underscore '_',"
-                f" and the period '.'. The character '{char}' cannot be used."
+                f"Must only consist of upper/lowercase characters, numbers, the underscore '_', and the period '.'. The character '{char}' cannot be used."
             )
 
     return value

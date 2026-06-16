@@ -11,12 +11,13 @@
  */
 import { html } from './lit-import.js';
 import {
-  buildDeviceMap,
-  getDeviceDisplayName,
+  getDeviceKeys,
   selectDevice,
   renderDeviceManagerButton,
 } from './device-manager.js';
 import { renderPanelDropdown } from './panel-table.js';
+import { readNetworkInfo } from './network-info.js';
+import { getConnectionStateClass, getConnectionStateLabel } from './device-info.js';
 
 /* ── re-exports for haui-editor.js ─────────────────────────────────────────── */
 
@@ -69,28 +70,22 @@ export { renderDeviceManagerButton };
  */
 export function renderDeviceSelector(host) {
   if (!host._panels) return "";
-  const deviceMap = buildDeviceMap(host);
-  const displayNames = Object.keys(deviceMap);
+  const displayNames = getDeviceKeys(host);
   if (displayNames.length === 0) return "";
   const selected = host._selectedDevice;
-  const selectedDisplayName = getDeviceDisplayName(host, selected);
 
   const options = displayNames.map((name) => {
-    const devKey = deviceMap[name];
-    const dev = (host._panels.devices || {})[devKey] || {};
+    const dev = (host._panels.devices || {})[name] || {};
     const config = dev.config || {};
     const enabled = config.enabled !== false;
     const label = enabled ? `${name}` : `${name} (${host._t('disabled')})`;
-    return {
-      value: name,
-      label,
-    };
+    return { value: name, label };
   });
 
   return html`
     <ha-select
       class="toolbar-select"
-      .value=${selectedDisplayName || ""}
+      .value=${selected || ""}
       .options=${options}
       @selected=${(e) => selectDevice(host, e.detail.value)}
     ></ha-select>
@@ -101,6 +96,8 @@ export function renderDeviceSelector(host) {
 
 /**
  * Render the inline device status strip shown below the primary action row.
+ * Shows connection state with color-coded dot, current page, IP address,
+ * and quick-action buttons.
  */
 export function renderDeviceInfoStrip(host) {
   const ds = host._deviceStatus;
@@ -109,33 +106,37 @@ export function renderDeviceInfoStrip(host) {
   const connected = ds?.connected;
   const connState = ds?.connection_state || "unknown";
 
-  let dotClass, label;
-  if (connected === true) {
-    dotClass = "dot-connected";
-    label = host._t('Connected');
-  } else if (connState === "handshaking") {
-    dotClass = "dot-handshaking";
-    label = host._t('Handshaking\u2026');
-  } else if (connState === "disconnected") {
-    dotClass = "dot-disconnected";
-    label = host._t('Disconnected');
-  } else {
-    dotClass = "dot-unknown";
-    label = host._t('Unknown');
-  }
+  const dotClass = getConnectionStateClass(connected, connState);
+  const label = getConnectionStateLabel(host._t, connected, connState);
 
-  const currentPage = ds?.current_page || "-";
+  const currentPage = ds?.current_page || "—";
+  const nw = readNetworkInfo(host.hass, host._selectedDevice);
+  const ip = nw && nw.ip ? nw.ip : null;
 
   return html`
     <div class="device-info-strip">
       <span class="info-strip-item connection-indicator" title=${`${host._t('Connection')}: ${connState}`}>
         <span class="connection-indicator-dot ${dotClass}"></span>
-        ${label}
+        <span class="strip-label">${label}</span>
       </span>
-      <span class="info-strip-item" title=${`${host._t('Current page')}: ${currentPage}`}>
-        ${currentPage}
-      </span>
-      ${err ? html`<span class="info-strip-item" style="color:var(--error-color,#f44336);">${err}</span>` : ""}
+      ${ip && !host.narrow ? html`
+        <span class="info-strip-item" title="IP: ${ip}">
+          <ha-icon icon="mdi:ip-network-outline" class="strip-icon"></ha-icon>
+          <span class="strip-label strip-mono">${ip}</span>
+        </span>
+      ` : ""}
+      ${currentPage !== "-" && !host.narrow ? html`
+        <span class="info-strip-item" title=${`${host._t('Current page')}: ${currentPage}`}>
+          <ha-icon icon="mdi:application-brackets-outline" class="strip-icon"></ha-icon>
+          <span class="strip-label">${currentPage}</span>
+        </span>
+      ` : ""}
+      ${err ? html`
+        <span class="info-strip-item strip-error" title=${err}>
+          <ha-icon icon="mdi:alert-circle" class="strip-icon"></ha-icon>
+          <span class="strip-label">${err}</span>
+        </span>
+      ` : ""}
       <span class="pl-spacer"></span>
       ${!host.narrow ? html`
       <ha-icon-button
@@ -164,6 +165,7 @@ export function renderDeviceInfoStrip(host) {
         ${host._actionsMenuIndex === '__header__'
           ? renderPanelDropdown(host, null, [
               { icon: 'mdi:information-outline', label: host._t('Info'), disabled: !host._selectedDevice, action: () => { host._showDeviceInfo = true; host.requestUpdate(); } },
+              'divider',
               { icon: 'mdi:palette-outline', label: host._t('Colors'), disabled: !host._selectedDevice, action: () => host._onHeaderColors() },
               { icon: 'mdi:cog-outline', label: host._t('Settings'), disabled: !host._selectedDevice, action: () => host._onHeaderSettings() },
               'divider',

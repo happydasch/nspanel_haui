@@ -17,6 +17,9 @@ binary_sensor:
     pin:
       number: 14
       inverted: true
+    # Debounce both edges so on_press fires exactly once per physical press.
+    filters:
+      - delayed_on_off: 10ms
     on_press:
       then:
         - lambda: |-
@@ -24,17 +27,19 @@ binary_sensor:
             if (id(use_button_interaction).state) {
               id(update_last_interaction).execute(-1, 0);
             }
-
+        # Toggle the relay on the press (down) edge so the action always fires,
+        # regardless of how long the button is held. The previous on_click
+        # trigger only fired for 50-350ms presses, so a firm/long press - common
+        # when deliberately waking a sleeping panel - was silently dropped.
+        - if:
+            condition:
+              - switch.is_on: use_relay_left
+            then:
+              - switch.toggle: relay_left
     on_release:
       then:
         - lambda: |-
             id(publish_event_native).execute("esphome.button_left", "0");
-    on_click:
-      if:
-        condition:
-        - switch.is_on: use_relay_left
-        then:
-        - switch.toggle: relay_left
 
 
   # Physical hardware button below display to toggle relay
@@ -44,6 +49,9 @@ binary_sensor:
     pin:
       number: 27
       inverted: true
+    # Debounce both edges so on_press fires exactly once per physical press.
+    filters:
+      - delayed_on_off: 10ms
     on_press:
       then:
         - lambda: |-
@@ -51,16 +59,19 @@ binary_sensor:
             if (id(use_button_interaction).state) {
               id(update_last_interaction).execute(-1, 0);
             }
+        # Toggle the relay on the press (down) edge so the action always fires,
+        # regardless of how long the button is held. The previous on_click
+        # trigger only fired for 50-350ms presses, so a firm/long press - common
+        # when deliberately waking a sleeping panel - was silently dropped.
+        - if:
+            condition:
+              - switch.is_on: use_relay_right
+            then:
+              - switch.toggle: relay_right
     on_release:
       then:
         - lambda: |-
             id(publish_event_native).execute("esphome.button_right", "0");
-    on_click:
-      if:
-        condition:
-        - switch.is_on: use_relay_right
-        then:
-        - switch.toggle: relay_right
 
 
 # Text Sensor Configuration
@@ -103,24 +114,25 @@ text_sensor:
             auto name = id(req_txt_component).state;
             const json::json_build_t payload = [name, x](JsonObject root) {
               root["name"] = name;
+              root["type"] = "text";
               root["value"] = x;
             };
-            auto payload_str = build_json(payload);
-            id(publish_event_native).execute("esphome.res_txt", payload_str);
+            auto payload_str = json::build_json(payload);
+            id(publish_event_native).execute("esphome.read_response", payload_str);
           }
 
   # Wifi informations
   - platform: wifi_info
     ip_address:
       name: IP
-      disabled_by_default: true
       id: ip_address
     ssid:
       name: SSID
-      disabled_by_default: true
+      id: wifi_ssid
     bssid:
       name: BSSID
       disabled_by_default: true
+      id: wifi_bssid
 
   # Client Status (ESPHome)
   # Server status (hub_availability) is now set via native API
@@ -151,10 +163,11 @@ sensor:
             auto name = id(req_val_component).state;
             const json::json_build_t payload = [name, x](JsonObject root) {
               root["name"] = name;
+              root["type"] = "number";
               root["value"] = x;
             };
-            auto payload_str = build_json(payload);
-            id(publish_event_native).execute("esphome.res_val", payload_str);
+            auto payload_str = json::build_json(payload);
+            id(publish_event_native).execute("esphome.read_response", payload_str);
           }
   # Current page
   # this sensor will get updated when a page change event occured
@@ -231,6 +244,7 @@ sensor:
   # WIFI Signal stregth
   - platform: wifi_signal
     name: RSSI
+    id: wifi_rssi
     update_interval: 60s
 
   # Internal temperature sensor, ADC value

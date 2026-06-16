@@ -194,28 +194,6 @@ function pickYamlFile() {
 /* ── device management ─────────────────────────────────────────────────── */
 
 /**
- * Discover ESPHome devices available on the network.
- *
- * GET /api/nspanel_haui/discover/{entryId}
- *
- * @param {import('./haui-editor.js').NSPanelEditor} host
- * @returns {Promise<{ devices: Array<{ name: string, esphome_device_id: string|null, configured: boolean }> }>}
- */
-export async function discoverDevices(host) {
-  if (!host.entryId || !host.hass) {
-    throw new Error("No config entry selected");
-  }
-  const resp = await host.hass.fetchWithAuth(
-    `/api/nspanel_haui/discover/${host.entryId}`
-  );
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || "Discovery failed");
-  }
-  return resp.json();
-}
-
-/**
  * Add a new device to the config entry.
  *
  * POST /api/nspanel_haui/devices/{entryId}
@@ -268,6 +246,34 @@ export async function removeDevice(host, name, keepConfig = false) {
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
     throw new Error(err.message || "Failed to remove device");
+  }
+  return resp.json();
+}
+
+/**
+ * Trigger display refresh on one or all devices.
+ *
+ * POST /api/nspanel_haui/update_display/{entryId}
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} deviceName - device name, or "*" for all devices
+ * @returns {Promise<{ status: string, devices_updated: string[] }>}
+ */
+export async function updateDeviceDisplay(host, deviceName) {
+  if (!host.entryId || !host.hass) {
+    throw new Error("No config entry selected");
+  }
+  const resp = await host.hass.fetchWithAuth(
+    `/api/nspanel_haui/update_display/${host.entryId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device: deviceName }),
+    }
+  );
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
+    throw new Error(err.message || "Failed to update display");
   }
   return resp.json();
 }

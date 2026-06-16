@@ -1,24 +1,23 @@
 """Notification indicator blinking for HAUIPage subclasses.
 
-Manages the timer-driven blinking cycle and new-notification flag
-so pages don't duplicate the timer lifecycle boilerplate.
+Sits on the NotificationController so pages share a single blinker
+instead of each creating their own 1-second timer.
 
 Usage inside a page::
 
-    # In prepare()
-    self._notif_blinker = NotificationBlinker(self._refresh_notif)
-
-    # In process_event()
-    self._notif_blinker.handle_event(event)
+    # In start_panel()
+    self.app.controller["notification"].set_blinker_callback(
+        self._refresh_notif
+    )
 
     # In render_panel()
-    self._notif_blinker.refresh()
+    self.app.controller["notification"].blinker.refresh()
 
     # In _stop_panel()
-    self._notif_blinker.stop()
+    self.app.controller["notification"].clear_blinker_callback()
 
-where ``_refresh_notif(is_blinking)`` is a page method that renders
-the notification indicator (checking page config like
+where ``_refresh_notif`` is a page method that renders the
+notification indicator (checking page config like
 ``_show_notifications``, calling
 ``self.update_function_component(...)``, etc.).
 """
@@ -28,6 +27,10 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 from typing import Any
+
+
+def _noop() -> None:
+    """No-op sentinel for when no page has registered a callback."""
 
 
 class NotificationBlinker:
@@ -40,13 +43,14 @@ class NotificationBlinker:
         indicator.  Called on each blink tick and on ``refresh()``.
         The page should check :attr:`new_notifications` inside this
         callback to decide whether to show blinking or static state.
+        Defaults to a no-op.
     interval
         Blink interval in seconds (default 1.0).
     """
 
     def __init__(
         self,
-        refresh_fn: Callable[[], None],
+        refresh_fn: Callable[[], None] = _noop,
         interval: float = 1.0,
     ) -> None:
         self._refresh_fn = refresh_fn
@@ -62,6 +66,24 @@ class NotificationBlinker:
     def new_notifications(self) -> bool:
         """Whether new (unread) notifications are present."""
         return self._new_notifications
+
+    def set_callback(self, refresh_fn: Callable[[], None]) -> None:
+        """Set the refresh callback and start the blink cycle if needed.
+
+        Called when a page activates (start_panel) to register its
+        notification indicator renderer.
+        """
+        self._refresh_fn = refresh_fn
+        if self._new_notifications:
+            self._tick()
+
+    def clear_callback(self) -> None:
+        """Clear the refresh callback and stop the blink timer.
+
+        Called when a page deactivates (_stop_panel).
+        """
+        self._refresh_fn = _noop
+        self.stop()
 
     def stop(self) -> None:
         """Cancel the blinking timer, if active."""

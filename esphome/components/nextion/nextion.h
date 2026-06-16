@@ -1467,6 +1467,11 @@ class Nextion : public NextionBase, public PollingComponent, public uart::UARTDe
   void all_components_send_state_(bool force_update = false);
   uint32_t comok_sent_ = 0;
   bool remove_from_q_(bool report_empty = true);
+  const char *front_var_name_() const {
+    if (!this->nextion_queue_.empty() && this->nextion_queue_.front() && this->nextion_queue_.front()->component)
+      return this->nextion_queue_.front()->component->get_variable_name().c_str();
+    return "(none)";
+  }
 
   /**
    * @brief Status flags for Nextion display state management

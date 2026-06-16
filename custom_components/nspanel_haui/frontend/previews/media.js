@@ -17,11 +17,11 @@ export function renderMediaPreview(_host, _panel, _pIdx, _pt) {
         </div>
         <div style="display:flex;flex-direction:column;gap:2px;flex:1;justify-content:center;">
           <div class="pg-preview-btn-row" style="justify-content:space-evenly">
-            <div class="pg-preview-btn" style="flex:1;max-width:38px;min-width:18px;"><ha-icon icon="mdi:shuffle"></ha-icon></div>
-            <div class="pg-preview-btn" style="flex:1;max-width:38px;min-width:18px;"><ha-icon icon="mdi:skip-previous"></ha-icon></div>
+            <div class="pg-preview-btn active" style="flex:1;max-width:38px;min-width:18px;"><ha-icon icon="mdi:shuffle"></ha-icon></div>
+            <div class="pg-preview-btn active" style="flex:1;max-width:38px;min-width:18px;"><ha-icon icon="mdi:skip-previous"></ha-icon></div>
             <div class="pg-preview-btn active" style="flex:1;max-width:38px;min-width:18px;"><ha-icon icon="mdi:play"></ha-icon></div>
-            <div class="pg-preview-btn" style="flex:1;max-width:38px;min-width:18px;"><ha-icon icon="mdi:skip-next"></ha-icon></div>
-            <div class="pg-preview-btn" style="flex:1;max-width:38px;min-width:18px;"><ha-icon icon="mdi:repeat"></ha-icon></div>
+            <div class="pg-preview-btn active" style="flex:1;max-width:38px;min-width:18px;"><ha-icon icon="mdi:skip-next"></ha-icon></div>
+            <div class="pg-preview-btn active" style="flex:1;max-width:38px;min-width:18px;"><ha-icon icon="mdi:repeat"></ha-icon></div>
           </div>
           ${simSlider({ value: 45 })}
         </div>

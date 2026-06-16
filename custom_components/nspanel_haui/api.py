@@ -35,6 +35,48 @@ def _lookup_esphome_friendly_name(hass: Any, node_name: str) -> str:
     return node_name
 
 
+def _read_network_entities(hass: Any, device_name: str) -> dict:
+    """Read WiFi/network info from HA sensor entities for a device.
+
+    Returns {ip, ssid, rssi} from entity states only.
+    RSSI is float|None; IP and SSID are str, empty if unavailable.
+
+    ESPHome text_sensor entities (wifi_info ip_address, ssid) are
+    registered under the sensor domain in HA (Platform.SENSOR), so
+    lookup uses `sensor.{slug}_ip` etc.
+    """
+    from homeassistant.util import slugify
+
+    slug = slugify(device_name)
+
+    ip_state = hass.states.get(f"sensor.{slug}_ip")
+    ssid_state = hass.states.get(f"sensor.{slug}_ssid")
+    rssi_state = hass.states.get(f"sensor.{slug}_rssi")
+
+    def _val(state: Any) -> str | None:
+        if state is not None and state.state not in ("unknown", "unavailable", ""):
+            return state.state
+        return None
+
+    ip = _val(ip_state) or ""
+    ssid = _val(ssid_state) or ""
+    rssi_raw = _val(rssi_state)
+    rssi = float(rssi_raw) if rssi_raw else None
+
+    return {"ip": ip, "ssid": ssid, "rssi": rssi}
+
+
+def _strip_empty_configs(dev_data: dict) -> dict:
+    """Remove None-valued keys from config for a cleaner YAML export."""
+    config = dict(dev_data.get("config", {}))
+    cleaned = {k: v for k, v in config.items() if v is not None}
+    result: dict = {}
+    if cleaned:
+        result["config"] = cleaned
+    result["panels"] = list(dev_data.get("panels", []))
+    return result
+
+
 class TranslationsView(HomeAssistantView):
     """REST API view returning translation data for the frontend editor."""
 
@@ -53,8 +95,9 @@ class TranslationsView(HomeAssistantView):
         """
         from .haui.utils.text import get_translations
 
+        hass = request.app["hass"]
         flat = request.query.get("flat", "1")
-        translations = get_translations(language)
+        translations = await hass.async_add_executor_job(get_translations, language)
 
         if flat == "1" or flat is True:
             return self.json(translations.get("text", {}))
@@ -72,30 +115,92 @@ class DeviceStatusView(HomeAssistantView):
         """Return live device status for a config entry.
 
         Query param ``device`` (optional) restricts the response to a single
-        device.  When omitted an aggregate dict is returned.
+        device.  When omitted an aggregate dict is returned, including both
+        enabled and disabled devices (status for disabled devices is read
+        directly from HA entities).
         """
         hass = request.app["hass"]
         domain_data = hass.data.get("nspanel_haui", {})
         apps = domain_data.get(entry_id)
-        if not apps:
-            return self.json({"devices": {}})
 
         # Support old format (single NSPanelHAUI) for hot-reloads until
         # the next full HA restart picks up the new multi-device code.
-        if not isinstance(apps, dict):
+        if apps is not None and not isinstance(apps, dict):
             return self.json(apps.get_device_status())
+
+        if not isinstance(apps, dict):
+            apps = {}
 
         device_name = (request.query.get("device") or "").strip()
         if device_name:
             app = apps.get(device_name)
-            if app is None:
-                return self.json(
-                    {"error": f"device {device_name!r} not found"},
-                    status_code=404,
-                )
-            return self.json(app.get_device_status())
+            if app is not None:
+                return self.json(app.get_device_status())
+            # Device may be disabled or pending — read from HA entities
+            status = await self._build_entity_status(hass, entry_id, device_name)
+            if status is not None:
+                return self.json(status)
+            return self.json(
+                {"error": f"device {device_name!r} not found"},
+                status_code=404,
+            )
 
-        return self.json({"devices": {n: a.get_device_status() for n, a in apps.items()}})
+        # ── Build status for all known devices ──
+        # Enabled devices use their NSPanelHAUI instance.
+        # Disabled devices get a minimal status from HA entities.
+        entry = hass.config_entries.async_get_entry(entry_id)
+        all_devices = (entry.data.get("devices", []) if entry else [])
+        result: dict[str, dict] = {}
+
+        for dev in all_devices:
+            dev_name = dev.get("name", "")
+            if not dev_name:
+                continue
+            app = apps.get(dev_name)
+            if app is not None:
+                result[dev_name] = app.get_device_status()
+            else:
+                status = await self._build_entity_status(hass, entry_id, dev_name)
+                if status is not None:
+                    result[dev_name] = status
+
+        return self.json({"devices": result})
+
+    @staticmethod
+    def _build_minimal_device_info(
+        hass: Any, dev_name: str
+    ) -> dict | None:
+        """Build minimal status from HA entities for a device without a running app."""
+        nw = _read_network_entities(hass, dev_name)
+
+        # If none of the WiFi entities exist, the device may not be a real ESPHome device
+        if not nw["ip"] and not nw["ssid"] and nw["rssi"] is None:
+            return None
+
+        return {
+            "connected": False,
+            "connection_state": "disabled",
+            "current_page": "",
+            "device_info": {
+                "name": dev_name,
+                "tft_version": "",
+                "yaml_version": "",
+                "ip": nw["ip"],
+                "ssid": nw["ssid"],
+                "rssi": nw["rssi"],
+                "last_panel_update": None,
+                "last_connection": None,
+            },
+        }
+
+    @staticmethod
+    async def _build_entity_status(
+        hass: Any, entry_id: str, dev_name: str
+    ) -> dict | None:
+        """Build status for a device from HA entities, running in executor if needed."""
+        return await hass.async_add_executor_job(
+            DeviceStatusView._build_minimal_device_info, hass, dev_name
+        )
 
 
 class PanelTypesView(HomeAssistantView):
@@ -251,43 +356,6 @@ class PanelConfigView(HomeAssistantView):
                 await _stop_app(hass, app)
 
         return self.json({"status": "ok"})
-
-
-class DeviceDiscoveryView(HomeAssistantView):
-    """Read-only ESPHome device discovery - returns devices with configured status."""
-
-    url = "/api/nspanel_haui/discover/{entry_id}"
-    name = "api:nspanel_haui:discover"
-    requires_auth = True
-
-    async def get(self, request, entry_id: str):
-        """Return discovered ESPHome devices and whether they are configured."""
-        from .esphome_helpers import discover_esphome_devices
-
-        hass = request.app["hass"]
-
-        entry = hass.config_entries.async_get_entry(entry_id)
-        if not entry:
-            return self.json(
-                {"status": "error", "message": "Config entry not found"},
-                status_code=404,
-            )
-
-        discovered = await discover_esphome_devices(hass)
-        configured_names = {d["name"] for d in entry.data.get("devices", [])}
-
-        return self.json(
-            {
-                "devices": [
-                    {
-                        "name": d["name"],
-                        "esphome_device_id": d.get("esphome_device_id"),
-                        "configured": d["name"] in configured_names,
-                    }
-                    for d in discovered
-                ],
-            }
-        )
 
 
 class DeviceConfigView(HomeAssistantView):
@@ -534,17 +602,6 @@ class DeviceYamlView(HomeAssistantView):
         return self.json({"status": "ok", "device": device_name})
 
 
-def _strip_empty_configs(dev_data: dict) -> dict:
-    """Remove None-valued keys from config for a cleaner YAML export."""
-    config = dict(dev_data.get("config", {}))
-    cleaned = {k: v for k, v in config.items() if v is not None}
-    result: dict = {}
-    if cleaned:
-        result["config"] = cleaned
-    result["panels"] = list(dev_data.get("panels", []))
-    return result
-
-
 class IconSearchView(HomeAssistantView):
     """REST API view providing MDI icon names for the frontend icon picker."""
 
@@ -574,3 +631,53 @@ class IconSearchView(HomeAssistantView):
             results = IconSearchView._icons
 
         return self.json(results[:200])
+
+
+class DeviceUpdateDisplayView(HomeAssistantView):
+    """REST API endpoint to trigger display refresh on one or all devices."""
+
+    url = "/api/nspanel_haui/update_display/{entry_id}"
+    name = "api:nspanel_haui:update_display"
+    requires_auth = True
+
+    async def post(self, request, entry_id: str):
+        """Refresh the display for the specified device (or all devices).
+
+        JSON body may carry an optional ``device`` field (device name, or ``*``
+        for all devices).  When omitted defaults to ``*``.
+        """
+        hass = request.app["hass"]
+        body = await request.json() or {}
+        device_name = (body.get("device") or "*").strip()
+
+        domain_data = hass.data.get("nspanel_haui", {})
+        apps = domain_data.get(entry_id)
+
+        if not isinstance(apps, dict):
+            return self.json(
+                {"status": "error", "message": "No running devices"},
+                status_code=400,
+            )
+
+        if device_name and device_name != "*":
+            app = apps.get(device_name)
+            if app is None:
+                return self.json(
+                    {"status": "error", "message": f'Device "{device_name}" not found'},
+                    status_code=404,
+                )
+            await hass.async_add_executor_job(app.update_display)
+            return self.json({"status": "ok", "devices_updated": [device_name]})
+
+        # Update all devices
+        updated: list[str] = []
+        for dname, dapp in apps.items():
+            try:
+                await hass.async_add_executor_job(dapp.update_display)
+                updated.append(dname)
+            except Exception:
+                _LOGGER.exception(
+                    "Failed to update display for device '%s'", dname
+                )
+
+        return self.json({"status": "ok", "devices_updated": updated})

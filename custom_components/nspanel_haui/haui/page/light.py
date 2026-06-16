@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import threading
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
@@ -8,7 +7,7 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, SysPanelKey
+from ..mapping.const import ESPEvent, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_BRIGHTNESS, ICO_COLOR, ICO_COLOR_TEMP, ICO_EFFECT, ICO_POWER
 from ..utils.color import color_to_rect_pos, rect_pos_to_color
@@ -80,15 +79,14 @@ class LightPage(HAUIPage):
         self._light_functions: list[dict[str, Any]] = []
         self._current_light_function: str | None = None
         self._touch_track = False
-        self._touch_timer: threading.Timer | None = None
         self._touch_color: tuple[int, int, int] | None = None
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set component callbacks
         self.add_component_callback(self.COMPONENTS.pic_color_rect, self.callback_color_rect)
-        self.add_component_callback(self.COMPONENTS.h_brightness, self.callback_brightness)
-        self.add_component_callback(self.COMPONENTS.h_color_temp, self.callback_color_temp)
-        self.add_component_callback(self.COMPONENTS.btn_power, self.callback_power)
+        self.bind_slider(self.COMPONENTS.h_brightness, self.process_brightness)
+        self.bind_slider(self.COMPONENTS.h_color_temp, self.process_color_temp)
+        self.on_release(self.COMPONENTS.btn_power, self.callback_power)
         # set function buttons
         power_off_btn = {
             "fnc_component": self.COMPONENTS.fnc_right_sec,
@@ -106,13 +104,12 @@ class LightPage(HAUIPage):
             power_off_btn,
         )
         # set light function button callbacks
-        for btn in [
-            self.COMPONENTS.btn_light_fnc_1,
-            self.COMPONENTS.btn_light_fnc_2,
-            self.COMPONENTS.btn_light_fnc_3,
-            self.COMPONENTS.btn_light_fnc_4,
-        ]:
-            self.add_component_callback(btn, self.callback_light_function_button)
+        self.on_release({
+            self.COMPONENTS.btn_light_fnc_1: self.callback_light_function_button,
+            self.COMPONENTS.btn_light_fnc_2: self.callback_light_function_button,
+            self.COMPONENTS.btn_light_fnc_3: self.callback_light_function_button,
+            self.COMPONENTS.btn_light_fnc_4: self.callback_light_function_button,
+        })
         # if kelvin should be used instead of mired
         self._show_kelvin = panel.get("show_kelvin", self._show_kelvin)
         # set item
@@ -366,18 +363,22 @@ class LightPage(HAUIPage):
         if self._current_light_function is not None and self._current_light_function not in names:
             self._current_light_function = None
 
+        # set light functions before updating slider values — the set_*_info
+        # helpers look the function up in self._light_functions
+        self._light_functions = functions
         for fnc in functions:
             if fnc["status"] is False or fnc["val"] is None:
                 continue
+            # use the info setters so raw entity values (brightness 0-255,
+            # color temp in mireds/kelvin) are scaled to the 0-100 sliders
             if fnc["name"] == "brightness":
-                self.set_component_value(self.COMPONENTS.h_brightness, fnc["val"])
+                self.set_brightness_info(fnc["val"])
             elif fnc["name"] == "color_temp":
-                self.set_component_value(self.COMPONENTS.h_color_temp, fnc["val"])
+                self.set_color_temp_info(fnc["val"])
             elif fnc["name"] == "color":
                 self.update_color_rect()
 
-        # set light functions
-        self._light_functions = functions
+        # find current light function
         light_function = None
         for fnc in self._light_functions:
             if fnc["name"] == self._current_light_function:
@@ -430,6 +431,8 @@ class LightPage(HAUIPage):
                 self.show_component(x)
             else:
                 self.hide_component(x)
+        if to_show in (self.COMPONENTS.h_brightness, self.COMPONENTS.h_color_temp):
+            self.set_slider_color(to_show)
         if fnc is not None:
             if fnc["show_info"]:
                 self.show_component(self.COMPONENTS.t_info)
@@ -544,16 +547,15 @@ class LightPage(HAUIPage):
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_id != self.FNC_BTN_R_SEC:
             return
-        # turn of power on right secondary function button
-        self.process_power(False)
+        # The right-secondary header button is the power-off icon, shown only when
+        # the light is ON.  Always turn off — don't toggle.
+        if self._light_item is not None:
+            self._light_item.call_item_service("turn_off")
 
     def callback_light_function_button(
-        self, event: HAUIEvent, component: tuple, button_state: int
+        self, event: HAUIEvent, component: Component
     ) -> None:
-        if button_state:
-            # wait for release
-            return
-        self.log(f"Got light function press: {component}-{button_state}")
+        self.log(f"Got light function press: {component}")
         # check for current function
         matches = [f for f in self._light_functions if f["btn"] == component]
         fnc: dict | None = matches[0] if matches else None
@@ -584,23 +586,16 @@ class LightPage(HAUIPage):
             self._touch_track = True
             # will get set to false by touch end
 
-    def callback_brightness(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if button_state:
-            return
-        self.log(f"Got brightness press: {component}-{button_state}")
-        self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.h_brightness[1], force=True)
-
-    def callback_color_temp(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if button_state:
-            return
-        self.log(f"Got color temp press: {component}-{button_state}")
-        self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.h_color_temp[1], force=True)
-
-    def callback_power(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if button_state:
-            return
-        self.log(f"Got power press: {component}-{button_state}")
-        self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.btn_power[1], force=True)
+    def callback_power(self, event: HAUIEvent, component: Component) -> None:
+        self.log(f"Got power press: {component}")
+        # Toggle directly via HA state — no read request round-trip needed
+        # because the Nextion button .val is unused (process_power ignores it).
+        # The old REQ_VAL approach introduced a race: the ESP32's single
+        # request global was overwritten when brightness and power reads
+        # arrived in quick succession, causing read_response with the wrong
+        # component name (e.g. "bPower" for a brightness read) and an
+        # unintended toggle.
+        self.process_power(0)
 
     def callback_effect(self, selection: list) -> None:
         self.log(f"Got effect selection: {selection}")
@@ -614,10 +609,21 @@ class LightPage(HAUIPage):
         super().process_event(event)
         # touch end on color rect
         if event.name == ESPEvent.TOUCH_END:
-            values = event.as_str().split(",")
             if self._touch_track:
                 self._touch_track = False
-                _, _, pos_x, pos_y = [int(val) if val.isdigit() else 0 for val in values]
+                # Parse TOUCH_END position robustly. The Nextion sends
+                # comma-delimited "page_id,comp_id,pos_x,pos_y". Validate
+                # length so a format mismatch doesn't crash the page.
+                raw = event.as_str()
+                pos_x = pos_y = 0
+                if raw:
+                    parts = raw.split(",")
+                    if len(parts) >= 4:
+                        try:
+                            pos_x = int(parts[-2])
+                            pos_y = int(parts[-1])
+                        except (ValueError, TypeError):
+                            pass
                 if pos_x > 0 and pos_y > 0:
                     pos_x -= self.PIC_COLOR_RECT_X
                     pos_y -= self.PIC_COLOR_RECT_Y
@@ -625,17 +631,6 @@ class LightPage(HAUIPage):
                         pos_x, pos_y, self.PIC_COLOR_RECT_W, self.PIC_COLOR_RECT_H
                     )
                     self.process_color(color)
-        # requested values
-        if event.name == ESPResponse.RES_VAL:
-            data = event.as_json()
-            name = data.get("name", "")
-            value = int(data.get("value", 0))
-            if name == self.COMPONENTS.btn_power[1]:
-                self.process_power(value)
-            elif name == self.COMPONENTS.h_brightness[1]:
-                self.process_brightness(value)
-            elif name == self.COMPONENTS.h_color_temp[1]:
-                self.process_color_temp(value)
 
     def process_color(self, color: tuple[int, int, int]) -> None:
         if self._light_item is None:
@@ -643,29 +638,46 @@ class LightPage(HAUIPage):
         current_color = self._light_item.get_item_attr("rgb_color", None)
         if color is not None and self._touch_color != color and current_color != color:
             self.log(f"Processing color value {color}")
-            if self._touch_timer is not None:
-                self._touch_timer.cancel()
-            self._touch_timer = threading.Timer(
-                0.05,
-                self._light_item.call_item_service,
-                args=["turn_on"],
-                kwargs={"rgb_color": color},
-            )
-            self._touch_timer.start()
             self._touch_color = color
+            # Debounce: coalesce rapid color-drag events into one service call
+            # after the storm settles (50 ms).  Replaces a fragile threading.Timer
+            # whose cancel() could race with the timer firing.
+            item = self._light_item
+            self.debouncer.call(
+                "light_color",
+                lambda: item.call_item_service("turn_on", rgb_color=color)
+            )
 
     def process_brightness(self, brightness: int) -> None:
-        self.log(f"Processing brightness value {brightness}")
+        if not self._in_read_callback:
+            self.log(
+                f"process_brightness: value={brightness} ignored "
+                f"(not from read_response — likely button_state leak)"
+            )
+            return
+        self.log(
+            f"Slider brightness value {brightness}"
+            f" from component {self.COMPONENTS.h_brightness.name}"
+        )
         if self._light_item is None:
             return
-        # scale 0-100 to ha brightness range
-        brightness_ha = round(scale(brightness, (0, 100), (0, 255)))
+        # scale 0-100 to ha brightness range, min 1 to avoid turning off
+        brightness_ha = round(scale(brightness, (0, 100), (1, 255)))
         current_brightness = self._light_item.get_item_attr("brightness")
         if current_brightness != brightness_ha:
             self._light_item.call_item_service("turn_on", brightness=brightness_ha)
 
     def process_color_temp(self, color_temp: int) -> None:
-        self.log(f"Processing color temp {color_temp}")
+        if not self._in_read_callback:
+            self.log(
+                f"process_color_temp: value={color_temp} ignored "
+                f"(not from read_response — likely button_state leak)"
+            )
+            return
+        self.log(
+            f"Slider color_temp value {color_temp}"
+            f" from component {self.COMPONENTS.h_color_temp.name}"
+        )
         if self._light_item is None:
             return
         # scale 0-100 from slider to color range of lamp
@@ -690,6 +702,10 @@ class LightPage(HAUIPage):
         self.log(f"Processing power value {power}")
         if self._light_item is None:
             return
+        # Toggle based on current HA state.  The `power` parameter is unused
+        # (the Nextion button's .val is always 0) — the actual on/off state
+        # is read from the entity.  This avoids an unnecessary read request
+        # round-trip that created a race with brightness/color_temp reads.
         if self._light_item.get_item_state() == "on":
             self._light_item.call_item_service("turn_off")
         else:

@@ -21,9 +21,9 @@ CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 # Config helpers - moved to haui/device_config.py for single source of truth
 from .haui.device_config import (  # noqa: E402
-    _apply_panel_store,
-    _populate_devices_from_store,
-    _validate_config,
+    apply_panel_store,
+    populate_devices_from_store,
+    validate_config,
 )
 
 
@@ -66,9 +66,9 @@ def _build_config_dict(
 
     store_devices = panels.get("devices", {}) if panels else {}
     if store_devices:
-        _apply_panel_store(cfg, store_devices, DEVICE_CONFIG_FIELDS)
+        apply_panel_store(cfg, store_devices, DEVICE_CONFIG_FIELDS)
 
-    _populate_devices_from_store(cfg, store_devices, DEVICE_CONFIG_FIELDS)
+    populate_devices_from_store(cfg, store_devices, DEVICE_CONFIG_FIELDS)
 
     # Collect panels from the (now single) runtime device.
     cfg_devices = cfg.get("devices", [])
@@ -90,7 +90,7 @@ def _build_config_dict(
         _LOGGER.warning(
             "No enabled devices found in config; HAUI will skip all runtime device management"
         )
-    _validate_config(cfg)
+    validate_config(cfg)
     return cfg
 
 
@@ -472,8 +472,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     from .api import (
         ColorDefaultsView,
         DeviceConfigView,
-        DeviceDiscoveryView,
         DeviceStatusView,
+        DeviceUpdateDisplayView,
         DeviceYamlView,
         IconSearchView,
         PanelConfigView,
@@ -486,9 +486,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.http.register_view(PanelConfigView())
     hass.http.register_view(PanelTypesView())
     hass.http.register_view(ColorDefaultsView())
-    hass.http.register_view(DeviceDiscoveryView())
     hass.http.register_view(DeviceConfigView())
     hass.http.register_view(DeviceStatusView())
+    hass.http.register_view(DeviceUpdateDisplayView())
     hass.http.register_view(DeviceYamlView())
     hass.http.register_view(IconSearchView())
     await async_register_frontend(hass)

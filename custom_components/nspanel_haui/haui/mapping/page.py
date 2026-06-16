@@ -4,8 +4,8 @@
 # using the same page
 # page_id -> page_name
 PAGE_MAPPING = {
-    0: "blank",
-    1: "system",
+    0: "system",
+    1: "blank",
     2: "about",
     3: "settings",
     4: "notify",

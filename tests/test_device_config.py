@@ -16,11 +16,11 @@ from nspanel_haui.haui.device_config import (  # noqa: E402
     DEVICE_CONFIG,
     DEVICE_CONFIG_FIELDS,
     LOCALE_OPTIONS,
-    _apply_panel_store,
-    _find_store_device,
-    _merge_store_fields,
-    _populate_devices_from_store,
-    _validate_config,
+    apply_panel_store,
+    find_store_device,
+    merge_store_fields,
+    populate_devices_from_store,
+    validate_config,
 )
 
 # ============================================================================
@@ -46,14 +46,10 @@ def test_device_config_has_all_required_keys() -> None:
         "show_notifications_button",
         "log_items",
         "debug_level",
-        "home_on_wakeup",
-        "home_on_first_touch",
-        "home_only_when_on",
-        "home_on_button_toggle",
         "reset_interaction_on_button",
-        "return_to_home_after_seconds",
-        "always_return_to_home",
+        "snapshot_max_age_seconds",
         "hub_idle_timeout",
+        "auto_navigate_home_timeout",
         "use_relay_left",
         "use_relay_right",
         "sound_on_startup",
@@ -109,42 +105,42 @@ def _make_valid_config() -> dict[str, Any]:
 
 def test_validate_passes_on_valid_config() -> None:
     cfg = _make_valid_config()
-    _validate_config(cfg)  # should not raise
+    validate_config(cfg)  # should not raise
 
 
 def test_validate_catches_missing_top_level_key() -> None:
     cfg = _make_valid_config()
     del cfg["device"]
     with pytest.raises(ValueError, match="device"):
-        _validate_config(cfg)
+        validate_config(cfg)
 
 
 def test_validate_catches_none_value_in_device() -> None:
     cfg = _make_valid_config()
     cfg["device"]["name"] = None
     with pytest.raises(ValueError, match="device.name.*None"):
-        _validate_config(cfg)
+        validate_config(cfg)
 
 
 def test_validate_catches_missing_device_key() -> None:
     cfg = _make_valid_config()
     del cfg["devices"][0]["name"]
     with pytest.raises(ValueError, match="devices\\[0\\]\\.name"):
-        _validate_config(cfg)
+        validate_config(cfg)
 
 
 def test_validate_catches_none_value_in_device_entry() -> None:
     cfg = _make_valid_config()
     cfg["devices"][0]["name"] = None
     with pytest.raises(ValueError, match="devices\\[0\\]\\.name.*None"):
-        _validate_config(cfg)
+        validate_config(cfg)
 
 
 def test_validate_catches_wrong_type_for_dict_section() -> None:
     cfg = _make_valid_config()
     cfg["connection"] = "not-a-dict"
     with pytest.raises(ValueError, match="connection.*expected dict"):
-        _validate_config(cfg)
+        validate_config(cfg)
 
 
 def test_validate_reports_all_missing_keys() -> None:
@@ -152,96 +148,96 @@ def test_validate_reports_all_missing_keys() -> None:
     del cfg["device"]["name"]
     del cfg["devices"][0]["name"]
     with pytest.raises(ValueError) as exc_info:
-        _validate_config(cfg)
+        validate_config(cfg)
     msg = str(exc_info.value)
     assert "device.name" in msg
     assert "devices[0].name" in msg
 
 
 # ============================================================================
-# _find_store_device
+# find_store_device
 # ============================================================================
 
 
 def test_find_store_device_exact_match() -> None:
     store = {"dev-a": {"name": "dev-a"}}
-    assert _find_store_device(store, "dev-a") == {"name": "dev-a"}
+    assert find_store_device(store, "dev-a") == {"name": "dev-a"}
 
 
 def test_find_store_device_case_insensitive() -> None:
     store = {"Dev-A": {"name": "Dev-A"}}
-    assert _find_store_device(store, "dev-a") == {"name": "Dev-A"}
+    assert find_store_device(store, "dev-a") == {"name": "Dev-A"}
 
 
 def test_find_store_device_not_found() -> None:
     store = {"dev-a": {"name": "dev-a"}}
-    assert _find_store_device(store, "dev-b") is None
+    assert find_store_device(store, "dev-b") is None
 
 
 def test_find_store_device_empty_store() -> None:
-    assert _find_store_device({}, "anything") is None
+    assert find_store_device({}, "anything") is None
 
 
 # ============================================================================
-# _merge_store_fields
+# merge_store_fields
 # ============================================================================
 
 
 def test_merge_store_fields_copies_present() -> None:
     source = {"a": 1, "b": 2, "c": 3}
     target = {"a": 0}
-    _merge_store_fields(source, target, ["a", "b"])
+    merge_store_fields(source, target, ["a", "b"])
     assert target == {"a": 1, "b": 2}
 
 
 def test_merge_store_fields_skips_missing() -> None:
     source = {"a": 1}
     target = {"a": 0, "b": 0}
-    _merge_store_fields(source, target, ["a", "b", "c"])
+    merge_store_fields(source, target, ["a", "b", "c"])
     assert target == {"a": 1, "b": 0}  # b not in source, c not in source
 
 
 # ============================================================================
-# _populate_devices_from_store
+# populate_devices_from_store
 # ============================================================================
 
 
 def test_populate_when_empty() -> None:
     cfg: dict[str, Any] = {}
     store = {"dev-a": {"panels": [{"type": "grid"}], "config": {"log_items": True}}}
-    _populate_devices_from_store(cfg, store, ["log_items"])
+    populate_devices_from_store(cfg, store, ["log_items"])
     assert cfg["devices"] == [{"name": "dev-a", "panels": [{"type": "grid"}], "log_items": True}]
 
 
 def test_populate_skips_when_devices_exist() -> None:
     cfg = {"devices": [{"name": "existing"}]}
     store = {"dev-a": {"panels": [{"type": "grid"}]}}
-    _populate_devices_from_store(cfg, store, [])
+    populate_devices_from_store(cfg, store, [])
     assert cfg["devices"] == [{"name": "existing"}]  # unchanged
 
 
 def test_populate_empty_store() -> None:
     cfg: dict[str, Any] = {}
-    _populate_devices_from_store(cfg, {}, [])
+    populate_devices_from_store(cfg, {}, [])
     assert cfg["devices"] == []  # devices key created but empty
 
 
 # ============================================================================
-# _apply_panel_store
+# apply_panel_store
 # ============================================================================
 
 
 def test_apply_panel_store_merges_panels() -> None:
     cfg = {"devices": [{"name": "dev-a", "panels": [{"type": "old"}]}]}
     store = {"dev-a": {"panels": [{"type": "grid"}, {"type": "clock"}]}}
-    _apply_panel_store(cfg, store, [])
+    apply_panel_store(cfg, store, [])
     assert cfg["devices"][0]["panels"] == [{"type": "grid"}, {"type": "clock"}]
 
 
 def test_apply_panel_store_applies_config_fields() -> None:
     cfg = {"device": {}, "devices": [{"name": "dev-a"}]}
     store = {"dev-a": {"panels": [], "config": {"log_items": True, "debug_level": 3}}}
-    _apply_panel_store(cfg, store, ["log_items", "debug_level"])
+    apply_panel_store(cfg, store, ["log_items", "debug_level"])
     # Device entry gets the fields
     assert cfg["devices"][0]["log_items"] is True
     assert cfg["devices"][0]["debug_level"] == 3
@@ -253,6 +249,6 @@ def test_apply_panel_store_applies_config_fields() -> None:
 def test_apply_panel_store_skips_unknown_device() -> None:
     cfg = {"devices": [{"name": "dev-a"}]}
     store = {"dev-b": {"panels": [{"type": "grid"}]}}
-    _apply_panel_store(cfg, store, [])
+    apply_panel_store(cfg, store, [])
     panels = cfg["devices"][0].get("panels")
     assert "panels" not in cfg["devices"][0] or panels != [{"type": "grid"}]

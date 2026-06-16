@@ -12,29 +12,36 @@ _LOGGER = logging.getLogger(__name__)
 
 __all__ = ["validate_config", "validate_device_config", "validate_panels"]
 
-# Pydantic's BaseModel metaclass triggers blocking importlib.metadata I/O
-# (os.listdir, open, read_text) during class creation.  To avoid that on the
-# HA event loop, we defer class creation until the first validate_* call by
-# wrapping it in a lazy initializer function.  Callers on the event loop
-# (e.g. api.py) already dispatch validation via async_add_executor_job, so
-# the lazy init will run on a worker thread.
-try:
-    from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
-    _HAVE_PYDANTIC = True
-except ImportError:
-    _HAVE_PYDANTIC = False
-
+# Importing pydantic at module scope does blocking importlib I/O (import_module,
+# importlib.metadata reads), and its BaseModel metaclass triggers more blocking
+# I/O during class creation.  Both must stay off the HA event loop, so we defer
+# the pydantic import AND model creation until the first validate_* call.
+# Callers on the event loop (e.g. api.py) already dispatch validation via
+# async_add_executor_job, so this lazy init runs on a worker thread.
+_HAVE_PYDANTIC: bool | None = None  # None = not yet probed
 _CONFIG_MODEL: type | None = None
 _DEVICE_CONFIG_MODEL: type | None = None
 
 
 def _ensure_models() -> None:
-    """Create Pydantic model classes lazily, outside any import path."""
-    global _CONFIG_MODEL, _DEVICE_CONFIG_MODEL  # noqa: PLW0603
+    """Import pydantic and create model classes lazily, off the event loop."""
+    global _CONFIG_MODEL, _DEVICE_CONFIG_MODEL, _HAVE_PYDANTIC  # noqa: PLW0603
 
-    if not _HAVE_PYDANTIC or _CONFIG_MODEL is not None:
+    if _HAVE_PYDANTIC is False or _CONFIG_MODEL is not None:
         return
+
+    try:
+        from pydantic import (
+            BaseModel,
+            ConfigDict,
+            Field,
+            field_validator,
+            model_validator,
+        )
+    except ImportError:
+        _HAVE_PYDANTIC = False
+        return
+    _HAVE_PYDANTIC = True
 
     from .mapping.color import COLORS
 
@@ -56,13 +63,8 @@ def _ensure_models() -> None:
         show_home_button: bool = False
         show_sleep_button: bool = False
         show_notifications_button: bool = True
-        home_on_wakeup: bool = False
-        home_on_first_touch: bool = True
-        home_only_when_on: bool = False
-        home_on_button_toggle: bool = False
         reset_interaction_on_button: bool = True
-        return_to_home_after_seconds: int = 0
-        always_return_to_home: bool = False
+        snapshot_max_age_seconds: int = -1
         sound_on_startup: bool = True
         sound_on_notification: bool = True
         use_relay_left: bool = True
@@ -85,11 +87,13 @@ def _ensure_models() -> None:
                     _LOGGER.warning("Ignoring non-string key %r in color_overrides", key)
                     continue
                 if key not in COLORS:
-                    _LOGGER.warning(
-                        "Unknown color key %r in color_overrides (valid keys: %s)",
-                        key,
-                        ", ".join(sorted(COLORS)),
+                    # Only the global COLORS palette is overridable. Domain
+                    # colors (weather/alarm/climate) are fixed constants, so any
+                    # legacy/unknown key is dropped rather than stored.
+                    _LOGGER.debug(
+                        "Dropping non-overridable color key %r from color_overrides", key
                     )
+                    continue
                 try:
                     val = int(raw) if not isinstance(raw, int) else raw
                 except (ValueError, TypeError):

@@ -134,26 +134,14 @@ class ConfigSchema:
                 "show_notifications_button",
                 default=current.get("show_notifications_button", True),
             ): bool,
-            vol.Required("home_on_wakeup", default=current.get("home_on_wakeup", False)): bool,
-            vol.Required(
-                "home_on_first_touch", default=current.get("home_on_first_touch", True)
-            ): bool,
-            vol.Required(
-                "home_only_when_on", default=current.get("home_only_when_on", False)
-            ): bool,
-            vol.Required(
-                "home_on_button_toggle", default=current.get("home_on_button_toggle", False)): bool,
             vol.Required(
                 "reset_interaction_on_button",
                 default=current.get("reset_interaction_on_button", True),
             ): bool,
             vol.Required(
-                "return_to_home_after_seconds",
-                default=current.get("return_to_home_after_seconds", 0),
+                "snapshot_max_age_seconds",
+                default=current.get("snapshot_max_age_seconds", -1),
             ): vol.Coerce(int),
-            vol.Required(
-                "always_return_to_home", default=current.get("always_return_to_home", False)
-            ): bool,
             vol.Required("sound_on_startup", default=current.get("sound_on_startup", True)): bool,
             vol.Required(
                 "sound_on_notification", default=current.get("sound_on_notification", True)
@@ -162,6 +150,9 @@ class ConfigSchema:
             vol.Required("debug_level", default=current.get("debug_level", 0)): vol.Coerce(int),
             vol.Required(
                 "hub_idle_timeout", default=current.get("hub_idle_timeout", 0)
+            ): vol.Coerce(int),
+            vol.Required(
+                "auto_navigate_home_timeout", default=current.get("auto_navigate_home_timeout", 0)
             ): vol.Coerce(int),
             vol.Required("home_panel", default=current.get("home_panel", "")): str,
             vol.Required("sleep_panel", default=current.get("sleep_panel", "")): str,

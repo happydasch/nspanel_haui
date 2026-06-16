@@ -17,6 +17,10 @@ from .haui.mapping.const import ESPAction, NotificationAction
 _LOGGER = logging.getLogger(__name__)
 
 
+# HA target keys required for entity service calls.
+_TARGET_KEYS = frozenset({"entity_id", "device_id", "area_id", "floor_id", "label_id"})
+
+
 class ItemProxy:
     """Wraps a HA state entry to provide a simple synchronous entity interface."""
 
@@ -199,6 +203,9 @@ class ESPHomeProxy:
     def _build_service_data(self, name: str, value: Any) -> dict[str, Any]:
         """Build ESPHome service data from action name and value."""
         if isinstance(value, dict):
+            # Dict values are passed directly as top-level service data.
+            # This allows callers like hub_connection_response({"version": "..."})
+            # to work without adding every ServerResponse to the explicit branches.
             return dict(value)
 
         if name in self._PARAMETERLESS_ACTIONS:
@@ -214,8 +221,12 @@ class ESPHomeProxy:
             service_data["page"] = value
         elif name == ESPAction.SET_BRIGHTNESS:
             service_data["intensity"] = int(value) if value else 0
-        elif name in ("req_val", "req_txt"):
-            service_data["name"] = value
+        elif name.removeprefix("esphome.") in ("req_val", "req_txt"):
+            if isinstance(value, dict):
+                service_data["name"] = value.get("name", "")
+                service_data["source_type"] = value.get("source_type", "component")
+            else:
+                service_data["name"] = value
         elif name == ESPAction.UPLOAD_TFT_URL:
             service_data["url"] = value
         elif name == ESPAction.PLAY_RTTTL:
@@ -268,6 +279,8 @@ class ESPHomeProxy:
             try:
                 try:
                     data = json.loads(payload)
+                    if not isinstance(data, dict):
+                        raise TypeError("non-dict JSON value")
                 except (json.JSONDecodeError, TypeError):
                     data = {"name": topic, "value": payload}
 
@@ -437,12 +450,21 @@ class HAAdapter:
     def item_exists(self, entity_id: str) -> bool:
         return self.hass.states.get(entity_id) is not None
 
+    def get_entity_state(self, entity_id: str) -> str | None:
+        """Read the current state of a HA entity by entity_id.
+
+        Returns the state string (e.g. "-67") or None if the entity doesn't exist.
+        Thread-safe — ``hass.states.get`` is safe to call from executor threads.
+        """
+        s = self.hass.states.get(entity_id)
+        return s.state if s else None
+
     def get_item(self, entity_id: str) -> ItemProxy:
         return ItemProxy(self.hass, self._loop, entity_id, proxy=self)
 
     # services
 
-    def call_service(self, service: str, **kwargs: Any) -> Any:
+    def call_service(self, service: str, return_response: bool = False, **kwargs: Any) -> Any:
         if not isinstance(service, str) or "." not in service.replace("/", "."):
             raise ValueError(f"Invalid service: {service!r}")
         domain, svc = service.replace("/", ".").split(".", 1)
@@ -452,6 +474,35 @@ class HAAdapter:
         else:
             service_data = kwargs
 
+        # If target wasn't provided but service_data contains HA targeting keys,
+        # promote them so HA's async_call validation passes.
+        if target is None and isinstance(service_data, dict):
+            target_keys = _TARGET_KEYS & set(service_data)
+            if target_keys:
+                target = {k: service_data.pop(k) for k in target_keys}
+
+        # If service_data contains a nested "target" dict (e.g.
+        # {"target": {"entity_id": "..."}}), promote it to the top-level
+        # target parameter.
+        if target is None and isinstance(service_data, dict):
+            nested_target = service_data.get("target")
+            if isinstance(nested_target, dict) and _TARGET_KEYS & set(nested_target):
+                target = nested_target
+                del service_data["target"]
+
+        # If there's still no target or entity targeting keys in service_data,
+        # the call can't succeed on entity-registered services — HA validates
+        # that one must be present.
+        has_targeting = isinstance(service_data, dict) and bool(_TARGET_KEYS & set(service_data))
+        if (not target) and not has_targeting:
+            _LOGGER.warning(
+                "call_service %s/%s skipped: no target entity specified; "
+                "provide entity_id, device_id, area_id, floor_id, or label_id",
+                domain,
+                svc,
+            )
+            return None
+
         async def _call() -> Any:
             try:
                 response = await self.hass.services.async_call(
@@ -460,9 +511,9 @@ class HAAdapter:
                     service_data=service_data or {},
                     target=target,
                     blocking=True,
-                    return_response=True,
+                    return_response=return_response,
                 )
-                if response:
+                if return_response and response:
                     return {"result": {"response": response}}
             except Exception as exc:  # noqa: BLE001
                 _LOGGER.warning("call_service %s/%s error: %s", domain, svc, exc)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from threading import Timer
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
@@ -64,7 +63,7 @@ class SelectPage(HAUIPage):
         self._selected: Any = None
         self._multiple = False
         self._multiple_delay = 1.5
-        self._multiple_timer: Timer | None = None
+        self._handle_multiple_timer: str | None = None
         self._close_on_select = True
         self._current_page = 0
         self._active: dict = {}
@@ -104,20 +103,22 @@ class SelectPage(HAUIPage):
             items_per_page = self.ITEMS_PER_PAGE_FULL
         self._items_per_page = items_per_page
         # set function components
+        sel_buttons: dict = {}
         for i in range(self.ITEMS_PER_PAGE_DEFAULT):
             idx = i + 1
             btn = getattr(self.COMPONENTS, "btn_sel_" + str(idx))
             self.set_function_component(
                 btn, btn[1], color=self.get_color("component_active"), visible=False
             )
-            self.add_component_callback(btn, self.callback_select)
+            sel_buttons[btn] = self.callback_select
         for i in range(self.ITEMS_PER_PAGE_FULL):
             idx = i + 1
             btn = getattr(self.COMPONENTS, "btn_sel_full_" + str(idx))
             self.set_function_component(
                 btn, btn[1], color=self.get_color("component_active"), visible=False
             )
-            self.add_component_callback(btn, self.callback_select)
+            sel_buttons[btn] = self.callback_select
+        self.on_release(sel_buttons)
         # check if selection is list if multiple or string if not
         if self._multiple:
             if isinstance(self._selected, list):
@@ -135,8 +136,12 @@ class SelectPage(HAUIPage):
         self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        if self._multiple_timer is not None:
-            self._multiple_timer.run()
+        if self._handle_multiple_timer is not None:
+            # Fire the pending selection callback before closing so multi-select
+            # finalisation isn't lost when the panel is replaced.
+            self.app.cancel_timer(self._handle_multiple_timer)
+            self._handle_multiple_timer = None
+            self._finish_selection_multiple()
         if self._close_callback_fnc:
             self._close_callback_fnc()
 
@@ -169,14 +174,14 @@ class SelectPage(HAUIPage):
 
     def _start_selection_timer(self) -> None:
         self._stop_selection_timer()
-        self._multiple_timer = Timer(self._multiple_delay, self._finish_selection_multiple)
-        self._multiple_timer.daemon = True
-        self._multiple_timer.start()
+        self._handle_multiple_timer = self.app.run_in(
+            self._finish_selection_multiple, self._multiple_delay
+        )
 
     def _stop_selection_timer(self) -> None:
-        if self._multiple_timer is not None:
-            self._multiple_timer.cancel()
-            self._multiple_timer = None
+        if self._handle_multiple_timer is not None:
+            self.app.cancel_timer(self._handle_multiple_timer)
+            self._handle_multiple_timer = None
 
     def _finish_selection_multiple(self) -> None:
         self._stop_selection_timer()
@@ -200,7 +205,7 @@ class SelectPage(HAUIPage):
             sel_i = (self._current_page * self._items_per_page) + i
             btn_name = "btn_sel_full_" if self._select_mode == "full" else "btn_sel_"
             btn_name += str(idx)
-            btn = getattr(self, btn_name)
+            btn = getattr(self.COMPONENTS, btn_name)
             if sel_i < len(selection):
                 # check type of selection
                 self._active[btn] = selection[sel_i]
@@ -253,10 +258,7 @@ class SelectPage(HAUIPage):
         with self.rec_cmd:
             self.set_items()
 
-    def callback_select(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if button_state:
-            return
-
+    def callback_select(self, event: HAUIEvent, component: Component) -> None:
         # updated selected
         for x in self._active:
             if component == x:

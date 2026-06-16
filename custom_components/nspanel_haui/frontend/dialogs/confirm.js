@@ -6,6 +6,7 @@
  */
 import { LitElement, html } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { dialogHeader } from './dialog-header.js';
 import { t } from '../localize.js';
 
 class ConfirmDialog extends LitElement {
@@ -35,28 +36,30 @@ class ConfirmDialog extends LitElement {
         @closed=${this._dispatchClose}
         type="alert"
         .preventScrimClose=${true}
-        header-title=${title || t('Confirm')}
       >
+        ${dialogHeader(title || t('Confirm'), this._dispatchClose)}
         <div class="dialog-body">
           <p>${message || ""}</p>
         </div>
-        <ha-dialog-footer slot="footer">
-          <ha-button
-            slot="secondaryAction"
-            variant="neutral"
-            appearance="plain"
-            @click=${this._dispatchClose}
-          >
-            ${cancelText || t('Cancel')}
-          </ha-button>
-          <ha-button
-            slot="primaryAction"
-            variant="danger"
-            @click=${this._dispatchConfirm}
-          >
-            ${confirmText || t('Delete')}
-          </ha-button>
-        </ha-dialog-footer>
+        <div slot="footer" class="footer-wrapper">
+          <ha-dialog-footer>
+            <ha-button
+              slot="secondaryAction"
+              variant="neutral"
+              appearance="plain"
+              @click=${this._dispatchClose}
+            >
+              ${cancelText || t('Cancel')}
+            </ha-button>
+            <ha-button
+              slot="primaryAction"
+              variant="danger"
+              @click=${this._dispatchConfirm}
+            >
+              ${confirmText || t('Delete')}
+            </ha-button>
+          </ha-dialog-footer>
+        </div>
       </ha-dialog>
     `;
   }

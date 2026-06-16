@@ -4,7 +4,7 @@
 import { html } from '../lit-import.js';
 import { backgroundClass, itemDisplay, tileBgColor, tileIconColor } from './utils.js';
 
-export function renderClockPreview(_host, panel, _pIdx, _pt) {
+export function renderClockPreview(host, panel, _pIdx, _pt) {
   const showWeather = panel?.show_weather !== false;
   const showTemp = panel?.show_temp !== false;
   const showNotifs = panel?.show_notifications !== false;
@@ -15,7 +15,7 @@ export function renderClockPreview(_host, panel, _pIdx, _pt) {
   const entitySlots = [0, 1, 2, 3, 4, 5].map(i => {
     const item = items[i];
     if (item) {
-      const { icon, name } = itemDisplay(item);
+      const { icon, name } = itemDisplay(item, host);
       const shortName = name.length > 6 ? name.slice(0, 5) + '\u2026' : name;
       const tileBg = tileBgColor(item);
       const tileIc = tileIconColor(item);

@@ -23,9 +23,10 @@ script:
             root["timeout"] = timeout;
             root["persistent"] = persistent;
           };
-          std::string payload_str = build_json(payload);
+          std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.send_notification", payload_str);
 
+  # Script to request a number value from a component or global variable
   - id: request_number
     parameters:
       component: string
@@ -43,10 +44,6 @@ script:
     then:
       - lambda: |-
           id(req_txt_component).publish_state(component);
-          // For global text variables, assign directly (no .txt suffix).
-          // The .txt suffix is for components only; variables use the
-          // bare name.  covx was tried but returns "Invalid parameter
-          // count" on this Nextion firmware.
           if (id(haui_disp).is_sleeping()) { id(display_wakeup).execute(); }
           id(haui_disp).send_command_printf("system.resTxt.txt=%s", component.c_str());
           id(res_txt).update();

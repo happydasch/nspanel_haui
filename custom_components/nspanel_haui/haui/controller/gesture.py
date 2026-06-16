@@ -118,6 +118,12 @@ class HAUIGestureController(HAUIBase):
             return
         # check for gesture
         if event.name == ESPEvent.GESTURE:
+            # a slider drag also produces a swipe gesture — ignore it so
+            # adjusting a slider doesn't trigger a gesture sequence
+            navigation = self.app.controller.get("navigation")
+            page = navigation.page if navigation is not None else None
+            if page is not None and page.is_gesture_suppressed():
+                return
             # process gesture
             if isinstance(event.value, str):
                 self.process_gesture(event.value)

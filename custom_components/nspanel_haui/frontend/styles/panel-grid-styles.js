@@ -78,13 +78,11 @@ export const panelGridStyles = css`
   .pg-card-bottom-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     width: 100%;
-    gap: 6px;
     min-height: 24px;
   }
 
-  .pg-card-bottom-actions {
+  .pg-card-actions {
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -151,7 +149,7 @@ export const panelGridStyles = css`
     left: 50%;
     transform: translateX(-50%);
     font-size: 0.85em;
-    font-weight: 600;
+    font-weight: 500;
     color: #fff;
     opacity: 0.85;
     text-align: center;

@@ -70,8 +70,8 @@ class UnlockPage(AlarmPage):
                 AlarmPage.COMPONENTS.btn_key_clr,
                 AlarmPage.COMPONENTS.btn_key_del,
             ]:
-                self.add_component_callback(c, self.callback_keypad)
-            self.add_component_callback(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
+                self.on_release(c, self.callback_keypad)
+            self.on_release(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
             self.set_function_component(
                 component=AlarmPage.COMPONENTS.b1_fnc,
                 fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
@@ -148,10 +148,8 @@ class UnlockPage(AlarmPage):
 
     # callback
 
-    def callback_keypad(self, event: HAUIEvent, component: Component, button_state: int) -> None:
-        if button_state:
-            return
-        self.log(f"Got keypad press: {component}-{button_state}")
+    def callback_keypad(self, event: HAUIEvent, component: Component) -> None:
+        self.log(f"Got keypad press: {component}")
         with self.rec_cmd:
             # process keypad value
             if component.name.startswith("bKey"):
@@ -165,9 +163,7 @@ class UnlockPage(AlarmPage):
 
             self.update_components()
 
-    def callback_unlock(self, event: HAUIEvent, component: Component, button_state: int) -> None:
-        if button_state:
-            return
+    def callback_unlock(self, event: HAUIEvent, component: Component) -> None:
         if self._unlock_panel is None:
             return
         if str(self._input) != str(self._unlock_code):

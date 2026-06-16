@@ -84,7 +84,7 @@ class ESPResponse(StrEnum):
 
     RES_DEVICE_INFO = "esphome.res_device_info"
     RES_DEVICE_STATE = "esphome.res_device_state"
-    RES_VAL = "esphome.res_val"
+    READ_RESPONSE = "esphome.read_response"
     SEND_NOTIFICATION = "esphome.send_notification"
 
 
@@ -94,6 +94,7 @@ class ESPRequest(StrEnum):
     REQ_DEVICE_INFO = "esphome.req_device_info"
     REQ_DEVICE_STATE = "esphome.req_device_state"
     REQ_VAL = "esphome.req_val"
+    REQ_TXT = "esphome.req_txt"
 
 
 class ESPCommand(StrEnum):

@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from ..mapping.color import COLORS
+from ..mapping.color import ALARM_COLORS, CLIMATE_COLORS, COLORS, WEATHER_COLORS
 from ..mapping.icon_mapping import (
     INTERNAL_TYPE_MAPPING,
     MEDIA_CONTENT_TYPE_MAPPING,
@@ -82,16 +82,15 @@ def _color_weather(
     entity: Any, item_state: str | None, haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
 ) -> int:
-    color_name = f"weather_{(item_state or '').replace('-', '_')}"
-    return color_getter(color_name) if color_name in COLORS else color_getter("weather_default")
+    key = (item_state or "").replace("-", "_")
+    return WEATHER_COLORS.get(key, WEATHER_COLORS["default"])
 
 
 def _color_climate(
     entity: Any, item_state: str | None, haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
 ) -> int | None:
-    key = f"climate_{item_state}"
-    return color_getter(key) if key in COLORS else None
+    return CLIMATE_COLORS.get(item_state)
 
 
 def _color_alarm(
@@ -99,11 +98,11 @@ def _color_alarm(
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
 ) -> int | None:
     if item_state == "disarmed":
-        return color_getter("alarm_disarmed")
+        return ALARM_COLORS["disarmed"]
     if item_state == "arming":
-        return color_getter("alarm_arming")
+        return ALARM_COLORS["arming"]
     if item_state in _ALARM_ARMED_STATES:
-        return color_getter("alarm_armed")
+        return ALARM_COLORS["armed"]
     return None
 
 

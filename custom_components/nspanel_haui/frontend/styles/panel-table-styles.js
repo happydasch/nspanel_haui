@@ -32,9 +32,8 @@ export const panelTableStyles = css`
   }
 
   .pl-title {
-    flex: 0 1 auto;
+    flex: 1;
     min-width: 0;
-    max-width: 40%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -49,9 +48,9 @@ export const panelTableStyles = css`
     display: flex;
     flex-direction: row;
     align-items: center;
-    justify-content: flex-start;
     gap: 6px;
-    flex: 0 0 140px;
+    margin-left: auto;
+    flex-shrink: 0;
   }
 
   .pl-key {
@@ -93,12 +92,6 @@ export const panelTableStyles = css`
   .pl-badge-wakeup {
     background: var(--success-color, #43a047);
   }
-
-  .pl-spacer {
-    flex: 1;
-    min-width: 8px;
-  }
-
   .pl-actions {
     flex-shrink: 0;
     display: flex;
@@ -113,9 +106,12 @@ export const panelTableStyles = css`
     --mdc-icon-size: 18px;
   }
 
-  /* Hide inline move buttons on small screens (they're in the dropdown) */
+  /* Hide inline move & edit buttons on small screens (they're in the dropdown) */
   @media all and (max-width: 500px) {
     .pl-move-btn {
+      display: none;
+    }
+    .pl-edit-btn {
       display: none;
     }
   }

@@ -10,7 +10,7 @@ export function renderTimerPreview(_host, _panel, _pIdx, _pt) {
         <div class="pg-preview-temp-display">00:30</div>
         <div class="pg-preview-btn-row">
           <div class="pg-preview-btn"><ha-icon icon="mdi:play"></ha-icon></div>
-          <div class="pg-preview-btn"><ha-icon icon="mdi:pause"></ha-icon></div>
+          <div class="pg-preview-btn active"><ha-icon icon="mdi:pause"></ha-icon></div>
           <div class="pg-preview-btn"><ha-icon icon="mdi:cancel"></ha-icon></div>
         </div>
       </div>`,

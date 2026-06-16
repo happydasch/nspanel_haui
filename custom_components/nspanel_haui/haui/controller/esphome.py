@@ -104,6 +104,15 @@ class HAUIESPHomeController(HAUIBase):
 
         self.esphome.publish(bare_cmd, cmd_json)
         self.prev_cmd = cmd_json
+    def reset_prev_cmd(self) -> None:
+        """Clear the previous-command cache so the next render is never suppressed.
+
+        Call this when switching pages so the first render batch after a page
+        transition always reaches the display, even if it happens to be
+        identical to the last batch sent from the previous page.
+        """
+        self.prev_cmd = None
+
 
     def callback_event(self, event_name: str, data: dict[str, Any], kwargs: dict[str, Any]) -> None:
         """Callback for ESPHome events.

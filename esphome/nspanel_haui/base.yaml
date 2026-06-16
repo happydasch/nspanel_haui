@@ -20,6 +20,11 @@ esphome:
     name: happydasch.nspanel_haui
     version: $yaml_version
 
+# JSON Configuration
+# Required for json::build_json() used in event/sensor/notification scripts
+json:
+
+
 # Logger Configuration
 logger:
   # to get debug messages, set to DEBUG or VERBOSE,
@@ -52,8 +57,8 @@ captive_portal:
 
 
 # Web Server
-web_server:
-  port: 80
-  auth:
-    username: $web_username
-    password: $web_password
+# web_server:  # disabled by default
+#   port: 80
+#   auth:
+#     username: $web_username
+#     password: $web_password

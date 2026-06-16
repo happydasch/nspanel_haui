@@ -1,16 +1,21 @@
 /**
  * NSPanel HAUI - Editor - Colors dialog.
  *
- * Allows per-device color overrides. Users see a palette-style grid grouped
- * by category (Default, Weather, Item, Alarm, Climate). Each color is edited
- * with a native #rrggbb color picker; the RGB565 value is shown for reference.
+ * Lets users override the global color palette for a device. A live preview
+ * at the top mirrors how the colors look on the panel (header, content text,
+ * component buttons, entity dots) and updates as colors are picked. Below it,
+ * all colors are shown at once, grouped by role (Header, Content, Component,
+ * Entity). Groups are collapsible — click a group title to collapse/expand it.
+ * Domain colors (weather/alarm/climate) are fixed constants and not shown here.
  *
  * Communicates changes via CustomEvent:
  *   @dialog-save — detail: { overrides: { key: rgb565_int, ... } }
  *   @dialog-closed
  */
-import { LitElement, html, css } from '../lit-import.js';
+import { LitElement, html, nothing } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { dialogHeader } from './dialog-header.js';
+import { rgb565ToHex, hexToRgb565 } from '../color-utils.js';
 
 /* ── built-in COLORS palette (fetched from haui/mapping/color.py) ──────── */
 
@@ -23,128 +28,49 @@ async function ensureColorDefaults(hass) {
   _colorDefaults = await resp.json();
 }
 
+/* Groups: [key, friendly label]. All swatches use the same rounded-rectangle shape. */
 const COLOR_GROUPS = [
   {
     name: "Header",
+    description: "Colors for the top bar: background, title text, and accent icons.",
     keys: [
-      "header_background", "header_text", "header_accent",
+      ["header_background", "Background"],
+      ["header_text", "Text"],
+      ["header_accent", "Accent"],
     ],
   },
   {
     name: "Content",
+    description: "Colors for the main page area: background and text at various states.",
     keys: [
-      "background", "text", "text_inactive", "text_disabled",
+      ["background", "Background"],
+      ["text", "Text"],
+      ["text_inactive", "Text (inactive)"],
+      ["text_disabled", "Text (disabled)"],
     ],
   },
   {
     name: "Component",
+    description: "Colors for interactive buttons and controls.",
     keys: [
-      "component_text", "component_pressed", "component_active",
-      "component_accent", "component_background",
-    ],
-  },
-  {
-    name: "Weather",
-    keys: [
-      "weather_default", "weather_clear_night", "weather_sunny",
-      "weather_partlycloudy", "weather_windy", "weather_windy_variant",
-      "weather_rainy", "weather_pouring", "weather_lightning",
-      "weather_lightning_rainy", "weather_hail", "weather_snowy",
-      "weather_snowy_rainy",
+      ["component_background", "Background"],
+      ["component_text", "Text"],
+      ["component_active", "Active"],
+      ["component_active_dark", "Active (dark)"],
+      ["component_accent", "Accent"],
+      ["component_pressed", "Pressed"],
     ],
   },
   {
     name: "Entity",
-    keys: ["entity_on", "entity_off", "entity_unavailable"],
-  },
-  {
-    name: "Alarm",
-    keys: ["alarm_armed", "alarm_disarmed", "alarm_arming"],
-  },
-  {
-    name: "Climate",
+    description: "Colors for entity state indicators (on, off, unavailable).",
     keys: [
-      "climate_auto", "climate_heat_cool", "climate_heat",
-      "climate_off", "climate_cool", "climate_dry", "climate_fan_only",
+      ["entity_on", "On"],
+      ["entity_off", "Off"],
+      ["entity_unavailable", "Unavailable"],
     ],
   },
 ];
-
-/* ── color conversion helpers ────────────────────────────────────────── */
-
-function rgb565ToHex(v) {
-  const r = (v >> 11) & 0x1f;
-  const g = (v >> 5) & 0x3f;
-  const b = v & 0x1f;
-  const rr = Math.round((r * 255) / 31);
-  const gg = Math.round((g * 255) / 63);
-  const bb = Math.round((b * 255) / 31);
-  return "#"
-    + rr.toString(16).padStart(2, "0")
-    + gg.toString(16).padStart(2, "0")
-    + bb.toString(16).padStart(2, "0");
-}
-
-function hexToRgb565(hex) {
-  const raw = hex.replace("#", "");
-  const rr = parseInt(raw.slice(0, 2), 16);
-  const gg = parseInt(raw.slice(2, 4), 16);
-  const bb = parseInt(raw.slice(4, 6), 16);
-  const r = Math.round((rr * 31) / 255);
-  const g = Math.round((gg * 63) / 255);
-  const b = Math.round((bb * 31) / 255);
-  return (r << 11) | (g << 5) | b;
-}
-
-/* ── human-friendly label for each key ────────────────────────────────── */
-
-const LABELS = {
-  // header
-  header_background: "Header (background)",
-  header_text: "Header (text)",
-  header_accent: "Header (accent)",
-  // text
-  background: "Background",
-  text: "Text",
-  text_inactive: "Text (inactive)",
-  text_disabled: "Text (disabled)",
-  // component
-  component_text: "Component (text)",
-  component_pressed: "Component (pressed)",
-  component_active: "Component (active)",
-  component_accent: "Component (accent)",
-  component_background: "Component (background)",
-  // weather
-  weather_default: "Default",
-  weather_clear_night: "Clear night",
-  weather_sunny: "Sunny",
-  weather_partlycloudy: "Partly cloudy",
-  weather_windy: "Windy",
-  weather_windy_variant: "Windy variant",
-  weather_rainy: "Rainy",
-  weather_pouring: "Pouring",
-  weather_lightning: "Lightning",
-  weather_lightning_rainy: "Lightning rainy",
-  weather_hail: "Hail",
-  weather_snowy: "Snowy",
-  weather_snowy_rainy: "Snowy rainy",
-  // entity
-  entity_on: "On",
-  entity_off: "Off",
-  entity_unavailable: "Unavailable",
-  // alarm
-  alarm_armed: "Armed",
-  alarm_disarmed: "Disarmed",
-  alarm_arming: "Arming",
-  // climate
-  climate_auto: "Auto",
-  climate_heat_cool: "Heat / Cool",
-  climate_heat: "Heat",
-  climate_off: "Off",
-  climate_cool: "Cool",
-  climate_dry: "Dry",
-  climate_fan_only: "Fan only",
-};
 
 /* ── dialog component ────────────────────────────────────────────────── */
 
@@ -157,71 +83,7 @@ class ColorsDialog extends LitElement {
     };
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles, css`
-    .footer-wrapper {
-      display: flex;
-      align-items: center;
-      width: 100%;
-    }
-    .footer-toggle-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex: 1;
-    }
-    .color-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 6px;
-    }
-    .color-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 8px;
-      border: 1px solid var(--divider-color, #e0e0e0);
-      border-radius: 6px;
-      background: var(--card-background-color, #fff);
-    }
-    .color-swatch {
-      width: 28px;
-      height: 28px;
-      border-radius: 4px;
-      border: 1px solid var(--divider-color, #ccc);
-      flex-shrink: 0;
-    }
-    .color-label {
-      flex: 1;
-      min-width: 0;
-      font-size: 0.85em;
-      font-weight: 500;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .color-input-wrap {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-shrink: 0;
-    }
-    .color-input-wrap input[type="color"] {
-      width: 32px;
-      height: 28px;
-      padding: 0;
-      border: 1px solid var(--divider-color, #ccc);
-      border-radius: 4px;
-      cursor: pointer;
-      background: none;
-    }
-    .color-rgb565 {
-      font-size: 0.75em;
-      color: var(--secondary-text-color, #666);
-      min-width: 44px;
-      text-align: right;
-      font-family: monospace;
-    }
-  `];
+  static styles = [haStyle, haStyleDialog, editorStyles];
 
   constructor() {
     super();
@@ -247,6 +109,15 @@ class ColorsDialog extends LitElement {
     }
   }
 
+  updated(changed) {
+    if (changed.has("open") && this.open) {
+      // Close all sections — don't remember open state between dialog sessions.
+      this.renderRoot.querySelectorAll("details.config-section").forEach((d) => {
+        d.removeAttribute("open");
+      });
+    }
+  }
+
   _rebuildColors() {
     if (!_colorDefaults) {
       this._colors = {};
@@ -262,6 +133,19 @@ class ColorsDialog extends LitElement {
   _getHex(key) {
     const v = this._colors[key];
     return v !== undefined ? rgb565ToHex(v) : "#000000";
+  }
+
+  _isModified(key) {
+    return _colorDefaults && this._colors[key] !== _colorDefaults[key];
+  }
+
+  _changedCount() {
+    if (!_colorDefaults) return 0;
+    let n = 0;
+    for (const [k, v] of Object.entries(this._colors)) {
+      if (v !== _colorDefaults[k]) n++;
+    }
+    return n;
   }
 
   _onColorChange(key, e) {
@@ -302,6 +186,111 @@ class ColorsDialog extends LitElement {
     );
   }
 
+  _renderPreview() {
+    const c = (k) => this._getHex(k);
+    return html`
+      <div class="cp-preview">
+        <div class="cp-pv-card" style="background:${c("background")}">
+          <div
+            class="cp-pv-header"
+            style="background:${c("header_background")};color:${c("header_text")}"
+          >
+            <span class="cp-pv-title">Living Room</span>
+            <span class="cp-pv-hicons">
+              <ha-icon icon="mdi:home" style="color:${c("header_text")}"></ha-icon>
+              <ha-icon icon="mdi:bell" style="color:${c("header_accent")}"></ha-icon>
+            </span>
+          </div>
+          <div class="cp-pv-body">
+            <div class="cp-pv-texts">
+              <span style="color:${c("text")}">Text</span>
+              <span style="color:${c("text_inactive")}">Inactive</span>
+              <span style="color:${c("text_disabled")}">Disabled</span>
+            </div>
+            <div class="cp-pv-comps">
+              <span
+                class="cp-pv-btn"
+                style="background:${c("component_background")};color:${c("component_text")}"
+              >Component</span>
+              <span
+                class="cp-pv-btn"
+                style="background:${c("component_pressed")};color:${c("component_text")}"
+              >Pressed</span>
+              <span
+                class="cp-pv-btn"
+                style="background:${c("component_active")};color:${c("component_text")}"
+              >Active</span>
+              <div
+                class="cp-pv-slider"
+                style="background:${c("component_active")}"
+              >
+                <span
+                  class="cp-pv-slider-hdl"
+                  style="background:${c("component_active_dark")};border-color:${c("component_active_dark")}"
+                ></span>
+              </div>
+              <ha-icon
+                class="cp-pv-accent"
+                icon="mdi:star"
+                style="color:${c("component_accent")}"
+              ></ha-icon>
+            </div>
+            <div class="cp-pv-entities" style="color:${c("text")}">
+              <span class="cp-pv-ent"><i style="background:${c("entity_on")}"></i>On</span>
+              <span class="cp-pv-ent"><i style="background:${c("entity_off")}"></i>Off</span>
+              <span class="cp-pv-ent"><i style="background:${c("entity_unavailable")}"></i>Unavailable</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderGroup(group, idx) {
+    return html`
+      <details class="config-section">
+        <summary>${group.name}</summary>
+        <div class="config-section-body">
+          ${group.description
+            ? html`<p class="config-section-intro">${group.description}</p>`
+            : ""}
+          <div class="cp-items">
+            ${group.keys.map(([key, label]) => {
+              const mod = this._isModified(key);
+              return html`
+                <div class="cp-item ${mod ? "is-mod" : ""}">
+                  <label
+                    class="cp-sw"
+                    style="background:${this._getHex(key)}"
+                    title="${label} — ${this._getHex(key)}"
+                  >
+                    <input
+                      type="color"
+                      .value=${this._getHex(key)}
+                      @input=${(e) => this._onColorChange(key, e)}
+                    />
+                  </label>
+                  <span class="cp-name">${label}</span>
+                  ${mod
+                    ? html`
+                        <ha-icon-button
+                          class="cp-reset"
+                          title="Reset to default"
+                          @click=${() => this._resetColor(key)}
+                        >
+                          <ha-icon icon="mdi:undo-variant"></ha-icon>
+                        </ha-icon-button>
+                      `
+                    : nothing}
+                </div>
+              `;
+            })}
+          </div>
+        </div>
+      </details>
+    `;
+  }
+
   render() {
     if (!this.hass) return "";
     if (this._loading || !_colorDefaults) {
@@ -318,54 +307,20 @@ class ColorsDialog extends LitElement {
       `;
     }
 
+    const changed = this._changedCount();
     return html`
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        header-title="Device Colors"
         .preventScrimClose=${true}
       >
+        ${dialogHeader("Device Colors", this._dispatchClose, this._renderPreview())}
         <div class="dialog-body">
-          <p class="config-section-intro">
-            Customize the display color palette for this device. Changes are
-            sent to the device on the next panel render. Only colors that
-            differ from defaults are saved.
+          <p class="config-section-intro" style="margin: 0 0 4px;">
+            Tap a swatch to change a color — the preview above updates live.
+            Only changed colors are saved.
           </p>
-
-          ${COLOR_GROUPS.map((group) => html`
-            <details class="config-section">
-              <summary>${group.name} (${group.keys.length})</summary>
-              <div class="config-section-body">
-                <div class="color-grid">
-                  ${group.keys.map((key) => html`
-                    <div class="color-item">
-                      <div
-                        class="color-swatch"
-                        style="background:${this._getHex(key)}"
-                      ></div>
-                      <span class="color-label" title="${key}">${LABELS[key] || key}</span>
-                      <div class="color-input-wrap">
-                        <input
-                          type="color"
-                          .value=${this._getHex(key)}
-                          @input=${(e) => this._onColorChange(key, e)}
-                          title="${key}"
-                        />
-                        <span class="color-rgb565">${this._colors[key]}</span>
-                        <ha-icon-button
-                          title="Reset to default"
-                          @click=${() => this._resetColor(key)}
-                          style="--mdc-icon-button-size:24px;--mdc-icon-size:14px;"
-                        >
-                          <ha-icon icon="mdi:undo-variant"></ha-icon>
-                        </ha-icon-button>
-                      </div>
-                    </div>
-                  `)}
-                </div>
-              </div>
-            </details>
-          `)}
+          ${COLOR_GROUPS.map((group, idx) => this._renderGroup(group, idx))}
         </div>
 
         <div slot="footer" class="footer-wrapper">
@@ -373,10 +328,14 @@ class ColorsDialog extends LitElement {
             <ha-button
               variant="neutral"
               appearance="plain"
+              .disabled=${changed === 0}
               @click=${this._resetAll}
             >
               Reset all
             </ha-button>
+            ${changed > 0
+              ? html`<span class="footer-changed">${changed} changed</span>`
+              : nothing}
           </div>
           <ha-dialog-footer>
             <ha-button

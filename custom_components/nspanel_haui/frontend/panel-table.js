@@ -30,7 +30,7 @@ export function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
   const items = [];
 
   items.push(
-    { icon: 'mdi:pencil', label: host._t('Edit'), action: () => host._openEdit(pIdx) }
+    { icon: 'mdi:pencil-outline', label: host._t('Edit'), action: () => host._openEdit(pIdx) }
   );
 
   items.push('divider');
@@ -70,7 +70,7 @@ export function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
       action: () => host._resetSysPanelOverride(p.key),
     });
   } else {
-    items.push({ icon: 'mdi:delete', label: host._t('Delete'), danger: true, action: () => host._confirmDelete(pIdx) });
+    items.push({ icon: 'mdi:delete-outline', label: host._t('Delete'), danger: true, action: () => host._confirmDelete(pIdx) });
   }
 
   return items;
@@ -121,7 +121,6 @@ function renderPanelRow(host, p, panels, isNavPanel) {
         <span class="pl-key">${p.key || '-'}</span>
         ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}
       </div>
-      <span class="pl-spacer"></span>
       <div class="pl-actions">
         <ha-icon-button title=${host._t('Move Up')} class="pl-move-btn" ?disabled=${!canMoveUp} @click=${() => host._moveUp(p.key)}>
           <ha-icon icon="mdi:arrow-up"></ha-icon>
@@ -129,8 +128,8 @@ function renderPanelRow(host, p, panels, isNavPanel) {
         <ha-icon-button title=${host._t('Move Down')} class="pl-move-btn" ?disabled=${!canMoveDown} @click=${() => host._moveDown(p.key)}>
           <ha-icon icon="mdi:arrow-down"></ha-icon>
         </ha-icon-button>
-        <ha-icon-button title=${host._t('Edit')} @click=${() => host._openEdit(pIdx)}>
-          <ha-icon icon="mdi:pencil"></ha-icon>
+        <ha-icon-button title=${host._t('Edit')} class="pl-edit-btn" @click=${() => host._openEdit(pIdx)}>
+          <ha-icon icon="mdi:pencil-outline"></ha-icon>
         </ha-icon-button>
         <div class="pl-more" data-pidx=${pIdx}>
           <ha-icon-button
@@ -167,17 +166,16 @@ function renderSystemPanelRow(host, sp) {
         <span class="pl-key">${sp.key || '-'}</span>
         ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}
       </div>
-      <span class="pl-spacer"></span>
       <span class="pl-actions">
         ${editable ? html`
-          <ha-icon-button title=${host._t('Edit System Panel')} @click=${() => host._openSysPanelEdit(sp)}>
-            <ha-icon icon="mdi:pencil"></ha-icon>
-          </ha-icon-button>
           ${hasOverride ? html`
             <ha-icon-button title=${host._t('Reset to Default')} @click=${() => host._resetSysPanelOverride(sp.key)}>
               <ha-icon icon="mdi:restore"></ha-icon>
             </ha-icon-button>
           ` : ''}
+          <ha-icon-button title=${host._t('Edit System Panel')} @click=${() => host._openSysPanelEdit(sp)}>
+            <ha-icon icon="mdi:pencil-outline"></ha-icon>
+          </ha-icon-button>
         ` : ''}
       </span>
     </div>

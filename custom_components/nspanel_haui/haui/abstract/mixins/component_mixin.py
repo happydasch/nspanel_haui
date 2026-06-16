@@ -30,6 +30,8 @@ class ComponentMixin:
         # Provided by HAUIBase / HAUIPage at runtime via MRO.
         app: NSPanelHAUI
         _callbacks: list[tuple[Component, Callable]]
+        _callback_map: dict[int, tuple[Component, Callable, bool]]
+        _drag_components: set[int]
 
         def send_cmd(self, cmd: str) -> None: ...
         def log(self, msg: str, **kwargs: Any) -> None: ...
@@ -115,14 +117,44 @@ class ComponentMixin:
         """
         self.send_cmd(f"tsw {component.name},{int(state)}")
 
-    def add_component_callback(self, component: Component, callback: Callable) -> None:
-        """Adds a callback for the given component.
+    def add_component_callback(
+        self, component: Component, callback: Callable, drag: bool = False
+    ) -> None:
+        """Adds a callback for the given component (press events).
+
+        **Prefer** ``on_release()`` on :class:`~haui.page.HAUIPage` for
+        release-only callbacks.  This method is intended for rare press-event
+        handling where the ``button_state != 0`` is needed.
+
+        ``on_release()`` callbacks receive ``(event, component)`` without
+        ``button_state`` (always 0).  This method preserves the old
+        ``callback(event, component, button_state)`` signature.
 
         Args:
             component (tuple): Component
             callback (function): Callback
+            drag (bool): If True, treat the component as a drag control
+                (e.g. a slider).  The swipe gesture the drag produces is
+                suppressed (so dragging updates the value instead of
+                navigating), and the callback is deferred to TOUCH_END
+                because the Nextion only finalizes the slider's value once
+                the touch fully ends.
         """
         self._callbacks.append((component, callback))
+        if drag:
+            self.mark_drag_component(component)
+
+    def mark_drag_component(self, component: Component) -> None:
+        """Marks a component as a drag control (slider).
+
+        See ``add_component_callback`` for the behaviour this enables.  Use
+        this directly when the callback is registered elsewhere (e.g. a
+        slider exposed as a function component).
+
+        Args:
+            component (tuple): Component
+        """
+        self._drag_components.add(component.id)
 
     def show_component(self, component: Component) -> None:
         """Shows the component.

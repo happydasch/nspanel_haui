@@ -38,18 +38,26 @@ export const previewCommonStyles = css`
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 2px;
     padding: 4px 2px;
     min-height: 40px;
     overflow: hidden;
     background: rgba(255,255,255,0.08);
   }
-  .pg-preview-tile ha-icon {
+  .pg-preview-tile-icon-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+  }
+  .pg-preview-tile-icon-wrap ha-icon {
     --mdc-icon-size: clamp(16px, 5cqi, 28px);
     color: var(--primary-text-color, #ddd);
   }
   .pg-preview-tile-label {
+    flex-shrink: 0;
     font-size: 0.55em;
     color: var(--secondary-text-color, #bbb);
     white-space: nowrap;

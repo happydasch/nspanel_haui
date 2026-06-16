@@ -2,9 +2,9 @@
  * NSPanel HAUI - Editor - Shared panel card chrome.
  *
  * Renders the visual chrome of a panel grid card: top row (icon, title, key,
- * badges), simulated panel preview (with optional header bar), and bottom row
- * (description + caller-provided actions). Used by both user panel grid cards
- * and system panel grid cards.
+ * badges, actions), simulated panel preview (with optional header bar), and
+ * bottom row (description). Used by both user panel grid cards and system
+ * panel grid cards.
  */
 import { html } from './lit-import.js';
 import { t } from './localize.js';
@@ -20,7 +20,7 @@ import { t } from './localize.js';
  * @param {Object} opts.preview              - { content, contentClass?, containerClass? }
  * @param {string} [opts.description]        - Subtitle text under the preview
  * @param {Function} [opts.onClick]          - Click handler for top-row and preview (omit for read-only)
- * @param {*} opts.actions                   - TemplateResult rendered in bottom-right action area
+ * @param {*} opts.actions                   - TemplateResult rendered in top-right action area
  */
 export function renderCardChrome(opts) {
   const {
@@ -70,6 +70,7 @@ export function renderCardChrome(opts) {
       <span class="pg-card-title" title=${titleAttr}>${titleContent}</span>
       <span class="pg-card-key">${key || '-'}</span>
       ${badges.length ? html`<div class="pg-card-badges">${badges}</div>` : ''}
+      ${actions ? html`<div class="pg-card-actions">${actions}</div>` : ''}
     </div>
     <div class=${previewClass} style="${containerStyle}" @click=${onClick}>
       ${hasHeader ? (() => {
@@ -112,7 +113,6 @@ export function renderCardChrome(opts) {
       ${description
         ? html`<span class="pg-card-preview-desc">${description}</span>`
         : html`<span></span>`}
-      <div class="pg-card-bottom-actions">${actions}</div>
     </div>
   `;
 }

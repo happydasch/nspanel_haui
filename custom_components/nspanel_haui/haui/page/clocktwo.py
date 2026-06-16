@@ -10,10 +10,9 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.background import BACKGROUNDS
-from ..mapping.const import ESPResponse, NotifEvent, SysPanelKey
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_MESSAGE, ICO_SPECIAL
-from ..utils.notification_blinker import NotificationBlinker
 
 MATRIX = {
     "en": (
@@ -350,9 +349,6 @@ class ClockTwoPage(HAUIPage):
         self._show_intro_text_full_hour = False
 
         self._show_notifications = True
-        self._notif_blinker = NotificationBlinker(
-            self._refresh_notif, interval=self.DISPLAY_UPDATE_INTERVAL
-        )
 
         self._letter_current_state: list[bool] = []
         self._special_current_state: list[bool] = []
@@ -378,6 +374,8 @@ class ClockTwoPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # time update callback (shared device-wide tick)
         self.app.subscribe_tick("minute", self.callback_update_time)
+        # Register notification indicator with the shared blinker
+        self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # notification
         self._show_notifications = panel.get("show_notifications", True)
         self.set_function_component(
@@ -387,13 +385,13 @@ class ClockTwoPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_interface()
-        self._notif_blinker.refresh()
+        self.app.controller["notification"].blinker.refresh()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # cancel time tick subscription
         self.app.unsubscribe_tick("minute", self.callback_update_time)
-        # update display timer
-        self._notif_blinker.stop()
+        # unregister notification indicator from shared blinker
+        self.app.controller["notification"].clear_blinker_callback()
 
     # clock
 
@@ -541,7 +539,8 @@ class ClockTwoPage(HAUIPage):
         if not self._show_notifications:
             return
         notification = self.app.controller["notification"]
-        if self._notif_blinker.new_notifications:
+        notif_blinker = notification.blinker
+        if notif_blinker.new_notifications:
             color = self.get_color("component_accent")
             visible = datetime.datetime.now().second % 2 == 0
         else:
@@ -563,13 +562,6 @@ class ClockTwoPage(HAUIPage):
 
     def process_event(self, event: HAUIEvent) -> None:
         super().process_event(event)
-        if event.name in [
-            ESPResponse.SEND_NOTIFICATION,
-            NotifEvent.NOTIF_ADD,
-            NotifEvent.NOTIF_REMOVE,
-            NotifEvent.NOTIF_CLEAR,
-        ]:
-            self._notif_blinker.handle_event(event)
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_id == self.COMPONENTS.t_notif.name:

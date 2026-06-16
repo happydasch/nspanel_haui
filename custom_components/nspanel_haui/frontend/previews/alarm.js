@@ -32,11 +32,11 @@ export function renderUnlockPreview(_host, _panel, _pIdx, _pt) {
       <div class="pg-preview-full-flex" style="gap:8px;align-items:stretch;">
         <div class="pg-preview-keypad-grid">
           ${keys.map(k => html`
-            <div class="pg-preview-btn" style="width:100%;height:100%;"><span style="font-size:0.55em;color:var(--secondary-text-color,#999);">${k}</span></div>
+            <div class="pg-preview-btn" style="width:100%;height:100%;"><span style="font-size:0.55em;color:rgba(255,255,255,0.25);">${k}</span></div>
           `)}
         </div>
         <div class="pg-preview-action-col">
-          <div class="pg-preview-btn active" style="width:100%;flex:1;min-height:0;"><span class="pg-preview-btn-label">${t('UNLOCK')}</span></div>
+          <div class="pg-preview-btn active" style="width:100%;flex:1;min-height:0;"><span class="pg-preview-btn-label" style="color:var(--accent-color,#f69d31);">${t('UNLOCK')}</span></div>
           <div class="pg-preview-btn" style="width:100%;flex:1;min-height:0;"><span class="pg-preview-btn-label-sm">&nbsp;</span></div>
           <div class="pg-preview-btn" style="width:100%;flex:1;min-height:0;"><span class="pg-preview-btn-label-sm">&nbsp;</span></div>
           <div class="pg-preview-btn" style="width:100%;flex:1;min-height:0;"><span class="pg-preview-btn-label-sm">&nbsp;</span></div>

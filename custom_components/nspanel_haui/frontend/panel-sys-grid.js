@@ -19,19 +19,19 @@ import { renderCardChrome, renderCardActions } from './panel-card.js';
  */
 function buildSysPanelDropdownItems(host, sp, hasOverride) {
   const items = [];
-  items.push({
-    icon: 'mdi:pencil',
-    label: 'Edit',
-    action: () => host._openSysPanelEdit(sp),
-  });
   if (hasOverride) {
-    items.push('divider');
     items.push({
       icon: 'mdi:restore',
       label: 'Reset to Default',
       action: () => host._resetSysPanelOverride(sp.key),
     });
+    items.push('divider');
   }
+  items.push({
+    icon: 'mdi:pencil-outline',
+    label: 'Edit',
+    action: () => host._openSysPanelEdit(sp),
+  });
   return items;
 }
 

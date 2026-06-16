@@ -43,8 +43,7 @@ export async function saveDeviceConfig(host) {
   // Read booleans from checkboxes
   const boolKeys = [
     "show_home_button", "show_sleep_button", "show_notifications_button",
-    "home_on_wakeup", "home_on_first_touch", "home_only_when_on",
-    "home_on_button_toggle", "always_return_to_home", "sound_on_startup",
+    "sound_on_startup",
     "sound_on_notification", "use_relay_left", "use_relay_right",
     "enabled",
   ];
@@ -63,8 +62,8 @@ export async function saveDeviceConfig(host) {
 
   // Read number fields
   let numEl;
-  numEl = form.querySelector("#dc-return_to_home_after_seconds"); const rth = parseInt(numEl ? numEl.value : "0", 10);
-  cfg.return_to_home_after_seconds = rth;
+  numEl = form.querySelector("#dc-snapshot_max_age_seconds"); const snap = parseInt(numEl ? numEl.value : "-1", 10);
+  cfg.snapshot_max_age_seconds = isNaN(snap) ? -1 : snap;
   numEl = form.querySelector("#dc-debug_level"); const dbg = parseInt(numEl ? numEl.value : "0", 10);
   cfg.debug_level = isNaN(dbg) ? 0 : dbg;
 

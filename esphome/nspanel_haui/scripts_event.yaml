@@ -31,15 +31,20 @@ script:
           auto friendly_name = App.get_friendly_name();
           auto ip =  id(ip_address).state;
           auto yaml_version = "$yaml_version";
+          auto wifi_ssid_str = id(wifi_ssid).state;
+          float wifi_rssi_val = id(wifi_rssi).state;
           const json::json_build_t payload = [
-              yaml_version, name, friendly_name, ip
+              yaml_version, name, friendly_name, ip,
+              wifi_ssid_str, wifi_rssi_val
           ](JsonObject root) {
             root["yaml_version"] = yaml_version;
             root["name"] = name;
             root["friendly_name"] = friendly_name;
             root["ip"] = ip;
+            root["ssid"] = wifi_ssid_str;
+            root["rssi"] = wifi_rssi_val;
           };
-          std::string payload_str = build_json(payload);
+          std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.req_connection", payload_str);
 
 
@@ -53,16 +58,21 @@ script:
           auto ip = id(ip_address).state;
           auto yaml_version = "$yaml_version";
           auto device_version = std::string(ESPHOME_VERSION);
+          auto wifi_ssid_str = id(wifi_ssid).state;
+          float wifi_rssi_val = id(wifi_rssi).state;
           const json::json_build_t payload = [
-              name, friendly_name, ip, yaml_version, device_version
+              name, friendly_name, ip, yaml_version, device_version,
+              wifi_ssid_str, wifi_rssi_val
           ](JsonObject root) {
             root["name"] = name;
             root["friendly_name"] = friendly_name;
             root["ip"] = ip;
             root["yaml_version"] = yaml_version;
             root["device_version"] = device_version;
+            root["ssid"] = wifi_ssid_str;
+            root["rssi"] = wifi_rssi_val;
           };
-          std::string payload_str = build_json(payload);
+          std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.haui_discover", payload_str);
   # Script to publish a connection response
   - id: publish_connection_response
@@ -73,7 +83,7 @@ script:
           const json::json_build_t payload = [heartbeat_interval_str](JsonObject root) {
             root["heartbeat_interval"] = heartbeat_interval_str;
           };
-          std::string payload_str = build_json(payload);
+          std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.res_connection", payload_str);
 
   # Script to publish device details
@@ -89,7 +99,7 @@ script:
             root["device_version"] = device_version;
             root["yaml_version"] = yaml_version;
           };
-          std::string payload_str = build_json(payload);
+          std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.res_device_info", payload_str);
 
   # Script to publish device state
@@ -116,10 +126,13 @@ script:
               : display_state_int == 1 ? "dim" : "off";
           auto tft_version_str = id(tft_version).state;
           auto yaml_version = "$yaml_version";
+          auto wifi_ssid_str = id(wifi_ssid).state;
+          float wifi_rssi_val = id(wifi_rssi).state;
           const json::json_build_t payload = [
               page_val, brightness_val, button_left_val, button_right_val,
               relay_left_val, relay_right_val, use_relay_left_val, use_relay_right_val,
-              display_state_val, yaml_version, tft_version_str
+              display_state_val, yaml_version, tft_version_str,
+              wifi_ssid_str, wifi_rssi_val
           ](JsonObject root) {
             root["page"] = page_val;
             root["brightness"] = brightness_val;
@@ -132,6 +145,8 @@ script:
             root["display_state"] = display_state_val;
             root["yaml_version"] = yaml_version;
             root["tft_version"] = tft_version_str;
+            root["ssid"] = wifi_ssid_str;
+            root["rssi"] = wifi_rssi_val;
           };
-          std::string payload_str = build_json(payload);
+          std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.res_device_state", payload_str);

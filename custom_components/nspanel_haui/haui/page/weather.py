@@ -11,14 +11,13 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.background import BACKGROUNDS
-from ..mapping.color import COLORS
-from ..mapping.const import ESPResponse, NotifEvent, SysPanelKey
+from ..mapping.color import WEATHER_COLORS
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icon_mapping import WEATHER_MAPPING
 from ..mapping.icons import ICO_MESSAGE
 from ..utils.datetime import format_datetime, get_date_localized, get_time_localized
 from ..utils.icon import get_icon, parse_icon
-from ..utils.notification_blinker import NotificationBlinker
 
 if TYPE_CHECKING:
     pass
@@ -173,11 +172,7 @@ class WeatherPage(HAUIPage):
 
     def prepare(self) -> None:
 
-        self._timer_weather_refresh: str | None = None
         self._show_notifications = True
-        self._notif_blinker = NotificationBlinker(
-            self._refresh_notif, interval=self.DISPLAY_UPDATE_INTERVAL
-        )
         self._previous_forecast = None
         self._forecast_type = ""
         self._show_weather = True
@@ -213,12 +208,8 @@ class WeatherPage(HAUIPage):
         self.app.subscribe_tick("minute", self.callback_update_time)
         # setup date callback (shared device-wide tick)
         self.app.subscribe_tick("hour", self.callback_update_date)
-        # periodic weather refresh (re-fetches forecast & info panels)
-        # Uses a 15-minute interval so forecast data stays current even when
-        # the weather entity does not publish frequent state change events.
-        self._timer_weather_refresh = self.app.run_every(
-            self._callback_weather_refresh, "now+900", 900
-        )
+        # Register notification indicator with the shared blinker
+        self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # Weather entity - role-based creation from explicit config keys
         weather_entity_id = self._extract_entity_id(panel.get("item", None))
         if weather_entity_id:
@@ -257,9 +248,7 @@ class WeatherPage(HAUIPage):
         self._show_home_temp = panel.get("show_home_temp", False)
         # setting: forecast
         self._forecast_type = panel.get("forecast_type", "") or panel.get("show_forecast", "")
-        if not self._forecast_type:
-            self.hide_forecast()
-        else:
+        if self._forecast_type:
             self.show_forecast()
         # main components
         self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
@@ -282,17 +271,14 @@ class WeatherPage(HAUIPage):
         # forecast
         self.render_forecast()
         # notifications
-        self._notif_blinker.refresh()
+        self.app.controller["notification"].blinker.refresh()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # cancel time and date tick subscriptions
         self.app.unsubscribe_tick("minute", self.callback_update_time)
         self.app.unsubscribe_tick("hour", self.callback_update_date)
-        if self._timer_weather_refresh is not None:
-            self.app.cancel_timer(self._timer_weather_refresh)
-            self._timer_weather_refresh = None
-        # update display timer
-        self._notif_blinker.stop()
+        # unregister notification indicator from shared blinker
+        self.app.controller["notification"].clear_blinker_callback()
 
     # misc
 
@@ -307,18 +293,6 @@ class WeatherPage(HAUIPage):
             self.show_component(ico)
             self.show_component(val)
             self.show_component(subval)
-
-    def hide_forecast(self) -> None:
-        for i in range(self.NUM_FORECAST):
-            idx = i + 1
-            name = getattr(self.COMPONENTS, f"f{idx}_name")
-            ico = getattr(self.COMPONENTS, f"f{idx}_ico")
-            val = getattr(self.COMPONENTS, f"f{idx}_val")
-            subval = getattr(self.COMPONENTS, f"f{idx}_subval")
-            self.hide_component(name)
-            self.hide_component(ico)
-            self.hide_component(val)
-            self.hide_component(subval)
 
     def update_time(self) -> None:
         timeformat = self.app.device_config.get("time_format")
@@ -356,6 +330,7 @@ class WeatherPage(HAUIPage):
         try:
             result = self.app.call_service(
                 "weather/get_forecasts",
+                return_response=True,
                 target={"entity_id": weather_id},
                 service_data={"type": self._forecast_type},
             )
@@ -459,12 +434,7 @@ class WeatherPage(HAUIPage):
         icon = WEATHER_MAPPING.get(condition, "")
         icon = get_icon(icon) or ""
 
-        color_name = f"weather_{condition.replace('-', '_')}"
-        color = (
-            self.get_color(color_name)
-            if color_name in COLORS
-            else self.get_color("weather_default")
-        )
+        color = WEATHER_COLORS.get(condition.replace("-", "_"), WEATHER_COLORS["default"])
         self.set_component_text_color(forecast_icon, color)
         self.set_component_text(forecast_name, name)
         self.set_component_text(forecast_icon, icon)
@@ -503,7 +473,8 @@ class WeatherPage(HAUIPage):
         if not self._show_notifications:
             return
         notification = self.app.controller["notification"]
-        if self._notif_blinker.new_notifications:
+        notif_blinker = notification.blinker
+        if notif_blinker.new_notifications:
             color = self.get_color("component_accent")
             visible = datetime.now().second % 2 == 0
         else:
@@ -520,13 +491,6 @@ class WeatherPage(HAUIPage):
 
     def process_event(self, event: HAUIEvent) -> None:
         super().process_event(event)
-        if event.name in [
-            ESPResponse.SEND_NOTIFICATION,
-            NotifEvent.NOTIF_ADD,
-            NotifEvent.NOTIF_REMOVE,
-            NotifEvent.NOTIF_CLEAR,
-        ]:
-            self._notif_blinker.handle_event(event)
 
     # callback
 
@@ -551,17 +515,6 @@ class WeatherPage(HAUIPage):
         if self.app.device.device_info.get("display_state") == "off":
             return
         self.update_main_weather()
-        self._update_info_panels()
-        self._update_forecast_data()
-
-    def _callback_weather_refresh(self, cb_args: Any) -> None:
-        """Periodic weather refresh callback (15-minute timer).
-
-        Re-fetches forecast and info panel data to keep the display current
-        even when the weather entity does not publish state change events.
-        """
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         self._update_info_panels()
         self._update_forecast_data()
 

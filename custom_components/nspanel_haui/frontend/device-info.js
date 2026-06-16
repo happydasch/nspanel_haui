@@ -1,15 +1,14 @@
 /**
- * NSPanel HAUI - Editor - device info strip and polling.
+ * NSPanel HAUI - Editor - device polling and connection state helpers.
  *
  * Contains only:
  *   - startStatusPolling / stopStatusPolling
- *   - renderDeviceInfoStrip (always-visible inline strip)
+ *   - getConnectionStateClass / getConnectionStateLabel (shared helpers)
  *
  * Device Info dialog and Logs dialog are now separate custom elements:
  *   - ha-dialog-device-info  (in dialogs/device-info.js)
  *   - ha-dialog-logs         (in dialogs/logs.js)
  */
-import { html } from './lit-import.js';
 import * as Api from './api.js';
 
 /* ── status polling ──────────────────────────────────────────────────────── */
@@ -27,44 +26,31 @@ export function stopStatusPolling(host) {
   }
 }
 
-/* ── info strip ──────────────────────────────────────────────────────────── */
+/* ── connection state helpers ──────────────────────────────────────────── */
 
-export function renderDeviceInfoStrip(host) {
-  const ds = host._deviceStatus;
-  const err = host._deviceStatusError;
+/**
+ * Map (connected, connState) to a CSS dot class for the connection indicator.
+ * @param {boolean|undefined} connected
+ * @param {string} [connState="unknown"]
+ * @returns {string} CSS class name
+ */
+export function getConnectionStateClass(connected, connState) {
+  if (connected === true) return "dot-connected";
+  if (connState === "handshaking") return "dot-handshaking";
+  if (connState === "disconnected") return "dot-disconnected";
+  return "dot-unknown";
+}
 
-  // Connection indicator with color coding
-  const connected = ds?.connected;
-  const connState = ds?.connection_state || "unknown";
-
-  let dotClass, label;
-  if (connected === true) {
-    dotClass = "dot-connected";
-    label = "Connected";
-  } else if (connState === "handshaking") {
-    dotClass = "dot-handshaking";
-    label = "Handshaking…";
-  } else if (connState === "disconnected") {
-    dotClass = "dot-disconnected";
-    label = "Disconnected";
-  } else {
-    dotClass = "dot-unknown";
-    label = "Unknown";
-  }
-
-  // Current page
-  const currentPage = ds?.current_page || "-";
-
-  return html`
-    <div class="device-info-strip">
-      <span class="info-strip-item connection-indicator" title="Connection: ${connState}">
-        <span class="connection-indicator-dot ${dotClass}"></span>
-        ${label}
-      </span>
-      <span class="info-strip-item" title="Current page: ${currentPage}">
-        ${currentPage}
-      </span>
-      ${err ? html`<span class="info-strip-item" style="color:var(--error-color,#f44336);">${err}</span>` : ""}
-    </div>
-  `;
+/**
+ * Map (connected, connState) to a human-readable label.
+ * @param {function} t - translation function (host._t or imported t)
+ * @param {boolean|undefined} connected
+ * @param {string} [connState="unknown"]
+ * @returns {string} translated label
+ */
+export function getConnectionStateLabel(t, connected, connState) {
+  if (connected === true) return t('Connected');
+  if (connState === "handshaking") return t('Handshaking\u2026');
+  if (connState === "disconnected") return t('Disconnected');
+  return t('Unknown');
 }

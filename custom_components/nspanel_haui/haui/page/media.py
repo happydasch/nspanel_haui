@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime
-import threading
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
@@ -11,7 +10,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import MediaPlayerFeatures
-from ..mapping.const import ESPRequest, ESPResponse, SysPanelKey
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import (
     ICO_ENTITY_POWER,
@@ -153,10 +152,19 @@ class MediaPage(HAUIPage):
         self._media_title = ""
         self._media_interpret = ""
         self._media_channel = ""
-        self._timer_progress: threading.Timer | None = None
-        self._timer_scrolling: threading.Timer | None = None
+        self._handle_scrolling: str | None = None
+        self._handle_progress: str | None = None
 
     def start_panel(self, panel: HAUIPanel) -> None:
+        # debug: trace panel config for media/override debugging
+        self.log(
+            f"MediaPage.start_panel: key={panel.get('key', None)!r} type={panel.get_type()!r} "
+            f"sonos_favorites={panel.get('sonos_favorites', None)!r} "
+            f"media_favorites={panel.get('media_favorites', None)!r} "
+            f"sonos_favorites_in_source={panel.get('sonos_favorites_in_source', None)!r} "
+            f"item_id={panel.get('item_id', None)!r} item={panel.get('item', None)!r}",
+            level="DEBUG",
+        )
         # set function buttons
         media_state_btn = {
             "fnc_component": self.COMPONENTS.fnc_right_sec,
@@ -173,6 +181,9 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.fnc_right_pri,
             media_state_btn,
         )
+        # the volume slider is a function component; pressing the set_volume
+        # function button triggers the value read via a read request
+        self.add_read_callback(self.COMPONENTS.h_volume, self.process_volume)
         # sonos favorites item
         sonos_favorites = None
         sonos_favorites_value = panel.get("sonos_favorites", None)
@@ -220,27 +231,22 @@ class MediaPage(HAUIPage):
         self.update_media_item()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        if self._timer_progress is not None:
-            self._timer_progress.cancel()
-            self._timer_progress = None
-        if self._timer_scrolling is not None:
-            self._timer_scrolling.cancel()
-            self._timer_scrolling = None
+        if self._handle_progress is not None:
+            self.app.cancel_timer(self._handle_progress)
+            self._handle_progress = None
+        if self._handle_scrolling is not None:
+            self.app.cancel_timer(self._handle_scrolling)
+            self._handle_scrolling = None
 
     # misc
 
-    def _scrolling_text(self) -> None:
+    def _scrolling_text(self, _data: dict | None = None) -> None:
         if len(self._media_title) > 20:
             self._media_title = self._media_title[1:] + self._media_title[0]
             self.set_component_text(self.COMPONENTS.t_m_title, self._media_title)
         if len(self._media_interpret) > 30:
             self._media_interpret = self._media_interpret[1:] + self._media_interpret[0]
             self.set_component_text(self.COMPONENTS.t_m_interpret, self._media_interpret)
-        if self.is_started():
-            if self._timer_scrolling:
-                self._timer_scrolling.cancel()
-            self._timer_scrolling = threading.Timer(self.SCROLLING_INTERVAL, self._scrolling_text)
-            self._timer_scrolling.start()
 
     def set_media_item(self, item: HAUIItem | None) -> None:
         self._media_item = item
@@ -257,7 +263,7 @@ class MediaPage(HAUIPage):
         if supported_features & MediaPlayerFeatures.SELECT_SOURCE:
             source = True
         if source:
-            self.add_component_callback(self.COMPONENTS.t_icon, self.callback_select_source)
+            self.on_release(self.COMPONENTS.t_icon, self.callback_select_source)
         # play button
         play = False
         if (
@@ -367,14 +373,14 @@ class MediaPage(HAUIPage):
         ):
             source = True
         self.set_media_button(1, ICO_SELECT_SOURCE, self.translate("Source"), source)
-        self.add_component_callback(self.COMPONENTS.m1_overlay, self.callback_select_source)
+        self.on_release(self.COMPONENTS.m1_overlay, self.callback_select_source)
         # group button
         group = False
         group_list = item.get_item_attr("group_list", [])
         if supported_features & MediaPlayerFeatures.GROUPING and len(group_list) > 0:
             group = True
         self.set_media_button(2, ICO_SELECT_GROUP, self.translate("Group"), group)
-        self.add_component_callback(self.COMPONENTS.m2_overlay, self.callback_select_group)
+        self.on_release(self.COMPONENTS.m2_overlay, self.callback_select_group)
         # media button
         media = False
         if len(self._media_favorites) > 0 or (
@@ -382,7 +388,7 @@ class MediaPage(HAUIPage):
         ):
             media = True
         self.set_media_button(3, ICO_SELECT_MEDIA, self.translate("Media"), media)
-        self.add_component_callback(self.COMPONENTS.m3_overlay, self.callback_select_media)
+        self.on_release(self.COMPONENTS.m3_overlay, self.callback_select_media)
 
     def set_media_button(self, idx: int, icon: str, name: str, visible: bool = True) -> None:
         m_btn = getattr(self.COMPONENTS, f"m{idx}_btn")
@@ -390,7 +396,8 @@ class MediaPage(HAUIPage):
         m_name = getattr(self.COMPONENTS, f"m{idx}_name")
         m_ovl = getattr(self.COMPONENTS, f"m{idx}_overlay")
         for x in [m_btn, m_ico, m_name, m_ovl]:
-            self.show_component(x) if visible else self.hide_component(x)
+            if visible:
+                self.show_component(x)
         self.set_component_text(m_ico, icon)
         self.set_component_text(m_name, name)
 
@@ -441,8 +448,11 @@ class MediaPage(HAUIPage):
         self.set_component_text_color(self.COMPONENTS.t_icon, item.get_color())
         self.set_component_text(self.COMPONENTS.t_m_title, media_title)
         self.set_component_text(self.COMPONENTS.t_m_interpret, media_interpret)
-        if self._timer_scrolling is None:
-            self._scrolling_text()
+        if self._handle_scrolling is None:
+            # Start repeating scrolling timer (replaces threading.Timer)
+            self._handle_scrolling = self.app.run_every(
+                self._scrolling_text, 0, self.SCROLLING_INTERVAL
+            )
 
     def update_media_controls(self) -> None:
         if self._media_item is None:
@@ -580,13 +590,14 @@ class MediaPage(HAUIPage):
         volume_visible = False
         if supported_features & MediaPlayerFeatures.VOLUME_SET:
             volume_visible = True
+        self.set_slider_color(self.COMPONENTS.h_volume)
         self.update_function_component(
             self.COMPONENTS.h_volume[1], value=volume, visible=volume_visible
         )
         self.update_function_component(self.COMPONENTS.btn_vol_down[1], visible=volume_visible)
         self.update_function_component(self.COMPONENTS.btn_vol_up[1], visible=volume_visible)
 
-    def update_progress(self) -> None:
+    def update_progress(self, _data: dict | None = None) -> None:
         if self._media_item is None:
             return
         item = self._media_item
@@ -611,11 +622,13 @@ class MediaPage(HAUIPage):
             )
         else:
             self.update_function_component(self.COMPONENTS.j_progress[1], visible=False)
-        if self.is_started():
-            if self._timer_progress:
-                self._timer_progress.cancel()
-            self._timer_progress = threading.Timer(self.PROGRESS_INTERVAL, self.update_progress)
-            self._timer_progress.start()
+        # Start the repeating progress timer (replaces threading.Timer) if not
+        # already running.  Started lazily here so the timer only ticks when
+        # there is an active media panel.
+        if self.is_started() and self._handle_progress is None:
+            self._handle_progress = self.app.run_every(
+                self.update_progress, 0, self.PROGRESS_INTERVAL
+            )
 
     def update_power_button(self) -> None:
         if self._media_item is None:
@@ -675,9 +688,9 @@ class MediaPage(HAUIPage):
         elif fnc_name == "volume_up":
             item.call_item_service("volume_up")
         elif fnc_name == "set_volume":
-            self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.h_volume[1], force=True)
+            self.request_component_value(self.COMPONENTS.h_volume)
 
-    def callback_select_source(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+    def callback_select_source(self, event: HAUIEvent, component: Component) -> None:
         if self._media_item is None:
             return
         navigation = self.app.controller["navigation"]
@@ -706,7 +719,7 @@ class MediaPage(HAUIPage):
         else:
             self.log("Skipping popup, no source items found")
 
-    def callback_select_media(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
+    def callback_select_media(self, event: HAUIEvent, component: Component) -> None:
         navigation = self.app.controller["navigation"]
         selection = []
         # add sonos favorites
@@ -748,8 +761,8 @@ class MediaPage(HAUIPage):
                 f" panel_type={self.panel.get_type() if self.panel is not None else 'unknown'}"
             )
 
-    def callback_select_group(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        self.log(f"Got group callback: {component}-{button_state}")
+    def callback_select_group(self, event: HAUIEvent, component: Component) -> None:
+        self.log(f"Got group callback: {component}")
         if self._media_item is None:
             return
         group_members = self._media_item.get_item_attr("group_members", [])
@@ -840,17 +853,14 @@ class MediaPage(HAUIPage):
 
     # event
 
-    def process_event(self, event: HAUIEvent) -> None:
-        super().process_event(event)
-        # requested values
-        if event.name == ESPResponse.RES_VAL:
-            data = event.as_json()
-            name = data.get("name", "")
-            value = int(data.get("value", 0))
-            if name == self.COMPONENTS.h_volume[1]:
-                self.process_volume(value)
-
     def process_volume(self, volume: int) -> None:
+        if not self._in_read_callback:
+            self.log(
+                f"process_volume: value={volume} ignored "
+                f"(not from read_response — likely button_state leak)"
+            )
+            return
+        self.log(f"Slider volume value {volume}")
         if self._media_item is None:
             return
         # value between 0 and 1 as float

@@ -38,17 +38,17 @@ The sleep panel will be started after a timeout.
 
 The wakeup of the display can happen from different states: dimmed or sleep.
 
-The sleep panel will be exited if:
+When the user touches the display **anywhere** the display wakes and the sleep/wake
+panel is exited immediately — restoring the home or previously viewed panel in a
+single touch. The same applies to hardware button presses.
 
 Dimmed:
-    - touch: first touch exits panel
-    - button: sets display state to on
+    - touch: exits to home / previous panel
+    - button: sets display state to on and exits
 
 Sleep:
-    - touch: first touch wakes up, second touch exits panel
-    - button: wakes up and sets display state to on
-
-The exact behaviour is configurable.
+    - touch: wakes and exits to home / previous panel
+    - button: wakes and exits to home / previous panel
 
 ### Return Panel after Wakeup
 
@@ -56,14 +56,14 @@ The display will return to:
 
 Dimmed:
     - previously open panel
-    - if `return_to_home_after_seconds` is bigger than 0 then
+    - if `snapshot_max_age_seconds` is bigger than 0 then
       the display will return to home panel if more than the given
       seconds passed
 
 Sleep:
     - home panel
 
-The opening of the previous panel can be disabled. See the config value `always_return_to_home` to configure this.
+The opening of the previous panel can be disabled. Set `snapshot_max_age_seconds` to `0` to always go to the home panel.
 
 ### Hardware Buttons
 
@@ -73,9 +73,9 @@ button toggles its internal relay (default `true`) or a configured entity.
 
 It is also possible to completely disable the hardware buttons to be used for checking interactions and change the display state and / or to prevent the display from waking up.
 
-See `switch.nspanel_haui_use_button_interaction` in HA to switch on / off the button interaction.
+When `reset_interaction_on_button` is enabled (the default), the display wakes immediately on button **press** — there is no need to hold the button until release. The relay/entity toggle still happens on release so a held button does not spam toggles.
 
-See the config value `home_on_button_toggle` to go to the home panel after button was pressed.
+See `switch.nspanel_haui_use_button_interaction` in HA to switch on / off the button interaction.
 
 ### Sounds
 

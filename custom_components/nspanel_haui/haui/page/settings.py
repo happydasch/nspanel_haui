@@ -3,10 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
-from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import ESPRequest, ESPResponse
 from ..mapping.descriptor import PageDescriptor
 
 
@@ -64,8 +62,12 @@ class SettingsPage(HAUIPage):
         self._dimmed_brightness = self.brightness_dimmed_entity.get_state()
 
         # display components
-        self.add_component_callback(self.COMPONENTS.h_brght, self.callback_slider_brightness)
-        self.add_component_callback(self.COMPONENTS.h_brght_dim, self.callback_slider_brightness)
+        self.bind_slider(
+            self.COMPONENTS.h_brght, self.process_brightness_full
+        )
+        self.bind_slider(
+            self.COMPONENTS.h_brght_dim, self.process_brightness_dim
+        )
 
         # set function buttons
         with self.rec_cmd:
@@ -77,7 +79,17 @@ class SettingsPage(HAUIPage):
                 self.COMPONENTS.fnc_right_pri, self.FNC_BTN_R_PRI,
                 fnc_name=self.FNC_TYPE_NAV_CLOSE,
             )
-            # left and right secondary buttons are unused (hidden, no callback)
+            # register secondary buttons (unused — _auto_assign_fncs will hide them)
+            self.set_function_component(
+                self.COMPONENTS.fnc_left_sec, self.FNC_BTN_L_SEC,
+                fnc_name=None,
+            )
+            self.set_function_component(
+                self.COMPONENTS.fnc_right_sec, self.FNC_BTN_R_SEC,
+                fnc_name=None,
+            )
+            # auto-assign defaults to all header button slots
+            self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # remove existing handles
@@ -107,22 +119,16 @@ class SettingsPage(HAUIPage):
     # misc
 
     def set_brightness_full_slider(self, value: int) -> None:
+        self.set_slider_color(self.COMPONENTS.h_brght)
         self.set_component_value(self.COMPONENTS.h_brght, value)
         self.send_cmd(f"click {self.COMPONENTS.t_brght_pct[1]},0")
 
     def set_brightness_dim_slider(self, value: int) -> None:
+        self.set_slider_color(self.COMPONENTS.h_brght_dim)
         self.set_component_value(self.COMPONENTS.h_brght_dim, value)
         self.send_cmd(f"click {self.COMPONENTS.t_brght_dim_pct[1]},0")
 
     # callback
-
-    def callback_slider_brightness(
-        self, event: HAUIEvent, component: tuple, button_state: int
-    ) -> None:
-        self.log(f"Got slider brightness press: {component}-{button_state}")
-        if button_state:
-            return
-        self.send_esphome(ESPRequest.REQ_VAL, component[1], force=True)
 
     def callback_brightness(
         self, item: str, attribute: str, old: Any, new: Any, **cb_args: Any
@@ -142,17 +148,26 @@ class SettingsPage(HAUIPage):
 
     # event
 
-    def process_event(self, event: HAUIEvent) -> None:
-        super().process_event(event)
-        # check for values for full and dimmed brightness
-        if event.name == ESPResponse.RES_VAL:
-            # parse json response, set brightness
-            data = event.as_json()
-            if data.get("name", "") == self.COMPONENTS.h_brght[1]:
-                if self._full_brightness != data["value"]:
-                    self._full_brightness = data["value"]
-                    self.brightness_full_entity.set_state(state=data["value"])
-            elif data.get("name", "") == self.COMPONENTS.h_brght_dim[1]:
-                if self._dimmed_brightness != data["value"]:
-                    self._dimmed_brightness = data["value"]
-                    self.brightness_dimmed_entity.set_state(state=data["value"])
+    def process_brightness_full(self, value: int) -> None:
+        if not self._in_read_callback:
+            self.log(
+                f"process_brightness_full: value={value} ignored "
+                f"(not from read_response — likely button_state leak)"
+            )
+            return
+        self.log(f"Slider full brightness value {value}")
+        if self._full_brightness != value:
+            self._full_brightness = value
+            self.brightness_full_entity.set_state(state=value)
+
+    def process_brightness_dim(self, value: int) -> None:
+        if not self._in_read_callback:
+            self.log(
+                f"process_brightness_dim: value={value} ignored "
+                f"(not from read_response — likely button_state leak)"
+            )
+            return
+        self.log(f"Slider dimmed brightness value {value}")
+        if self._dimmed_brightness != value:
+            self._dimmed_brightness = value
+            self.brightness_dimmed_entity.set_state(state=value)

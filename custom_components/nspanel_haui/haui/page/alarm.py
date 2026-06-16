@@ -6,6 +6,7 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.color import ALARM_COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption
 
 
@@ -65,17 +66,26 @@ class AlarmPage(HAUIPage):
         "arming": "mdi:shield-sync-outline",
     }
 
+    # alarm state -> ALARM_COLORS palette key
     _ALARM_COLOR_KEYS = {
-        "disarmed": "alarm_disarmed",
-        "armed_home": "alarm_armed",
-        "armed_away": "alarm_armed",
-        "armed_night": "alarm_armed",
-        "armed_vacation": "alarm_armed",
-        "armed_custom_bypass": "alarm_armed",
-        "pending": "alarm_arming",
-        "triggered": "alarm_armed",
-        "arming": "alarm_arming",
+        "disarmed": "disarmed",
+        "armed_home": "armed",
+        "armed_away": "armed",
+        "armed_night": "armed",
+        "armed_vacation": "armed",
+        "armed_custom_bypass": "armed",
+        "pending": "arming",
+        "triggered": "armed",
+        "arming": "arming",
     }
+
+    def _alarm_color(self, state: str) -> int:
+        """Resolve the icon color for an alarm *state* from ALARM_COLORS.
+
+        Falls back to the global ``text`` color for unmapped states.
+        """
+        key = self._ALARM_COLOR_KEYS.get(state)
+        return ALARM_COLORS[key] if key is not None else self.get_color("text")
 
     # panel
 
@@ -111,14 +121,14 @@ class AlarmPage(HAUIPage):
             self.update_function_component(
                 self.FNC_BTN_R_SEC,
                 icon=self._ALARM_ICONS.get(new, ""),
-                color=self.get_color(self._ALARM_COLOR_KEYS.get(new, "text")),
+                color=self._alarm_color(new),
                 visible=True,
             )
 
     def update_armed_indicator(self, item: HAUIItem) -> None:
         state = item.get_item_state() or ""
         icon = self._ALARM_ICONS.get(state, "")
-        color = self.get_color(self._ALARM_COLOR_KEYS.get(state, "text"))
+        color = self._alarm_color(state)
         self.update_function_component(
             self.FNC_BTN_R_SEC,
             icon=icon,

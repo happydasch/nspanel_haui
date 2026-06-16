@@ -5,12 +5,6 @@
 # The substituions will be defined in the install.yaml.
 # this file should not be directly edited.
 
-# Use patched Nextion component with 0x70 text sensor fix
-external_components:
-  - source:
-      type: local
-      path: components
-
 substitutions:
   # General config
   heartbeat_interval: $heartbeat_interval
@@ -34,11 +28,11 @@ packages:
   hardware: !include nspanel_haui/hardware.yaml
   display: !include nspanel_haui/display.yaml
   interval: !include nspanel_haui/interval.yaml
-  scripts_event: !include nspanel_haui/scripts_event.yaml
+  scripts_common: !include nspanel_haui/scripts_common.yaml
   scripts_connection: !include nspanel_haui/scripts_connection.yaml
-  scripts_display: !include nspanel_haui/scripts_display.yaml
   scripts_interaction: !include nspanel_haui/scripts_interaction.yaml
-  scripts_notification: !include nspanel_haui/scripts_notification.yaml
+  scripts_display: !include nspanel_haui/scripts_display.yaml
+  scripts_event: !include nspanel_haui/scripts_event.yaml
   api: !include nspanel_haui/api.yaml
   button: !include nspanel_haui/button.yaml
   number: !include nspanel_haui/number.yaml

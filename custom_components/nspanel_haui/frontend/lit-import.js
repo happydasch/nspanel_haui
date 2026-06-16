@@ -5,4 +5,4 @@
  * Lit is vendored locally so the panel works without internet access to
  * unpkg / jsdelivr.  The bundle was created with esbuild from lit@3.
  */
-export { LitElement, html, css } from "./vendor/lit/index.js";
+export { LitElement, html, css, nothing } from "./vendor/lit/index.js";

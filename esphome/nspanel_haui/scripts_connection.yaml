@@ -28,10 +28,12 @@ script:
             // notify display that connection is established
             id(haui_disp).send_command("system.firstRun.txt=\"0\"");
           } else {
-            // On disconnect: navigate to system page (page 1) unless already there
-            if (int(id(page).state) != 1) {
+            // On disconnect: wake the screen immediately. Navigation to the
+            // system page (page 0) is owned by check_display, which pins the
+            // device to page 0 continuously while the hub is disconnected -
+            // so we don't duplicate the goto_page here.
+            if (int(id(page).state) != 0) {
               id(display_wakeup).execute();
-              id(goto_page).execute("1");  // system
             }
           }
           if (id(client_status).state != haui_status_str) {
@@ -49,6 +51,13 @@ script:
           uint32_t time_now = millis() / 1000;
           uint32_t time_max = id(hub_heartbeat);
           int overdue_factor = 2;
+          // millis() wraps ~every 49.7 days. After a wrap time_now resets to a
+          // small value while hub_heartbeat still holds the large pre-wrap
+          // timestamp -> re-anchor so we neither false-timeout nor stay stuck.
+          if (time_max > 0 && time_now < time_max) {
+            id(hub_heartbeat) = time_now;
+            time_max = time_now;
+          }
           time_max = time_max > 0 ? time_max : time_now;
           time_max += $heartbeat_interval * overdue_factor;
           // check if hub connection state changed

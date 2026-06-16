@@ -14,7 +14,6 @@ from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icons import ICO_MESSAGE
 from ..utils.datetime import get_date_localized, get_time_localized
 from ..utils.icon import parse_icon
-from ..utils.notification_blinker import NotificationBlinker
 
 
 class ClockPage(HAUIPage):
@@ -121,11 +120,7 @@ class ClockPage(HAUIPage):
     # panel
     def prepare(self) -> None:
 
-        self._timer_weather_refresh: str | None = None
         self._show_notifications = True
-        self._notif_blinker = NotificationBlinker(
-            self._refresh_notif, interval=self.DISPLAY_UPDATE_INTERVAL
-        )
         self._show_weather = True
         self._show_temp = True
         self._show_home_temp = False
@@ -153,12 +148,8 @@ class ClockPage(HAUIPage):
                 self.add_item_listener(item.get_item_id(), self.callback_weather, "temperature")
                 self.add_item_listener(item.get_item_id(), self.callback_weather, "pressure")
                 break
-        # periodic weather re-read (5-minute interval)
-        # Reads the weather entity's current state even when no state change
-        # event fires, keeping the displayed temperature/pressure current.
-        self._timer_weather_refresh = self.app.run_every(
-            self._callback_weather_refresh, "now+300", 300
-        )
+        # Register notification indicator with the shared blinker
+        self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # setting: temp_precision
         self._temp_precision = int(panel.get("temp_precision", 1))
         # setting: show_weather
@@ -185,11 +176,13 @@ class ClockPage(HAUIPage):
             self.COMPONENTS.t_notif, self.COMPONENTS.t_notif[1], visible=self._show_notifications
         )
         # Pre-register entity button components so config_panel registers
-        # touch callbacks.  No display kwargs here - update_items()
-        # applies the correct state once entity data is available.
+        # touch callbacks.  Start hidden — update_items() applies the
+        # correct visible/icon/color state once entity data is available.
         for i in range(self.NUM_ENTITIES):
             component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
-            self.set_function_component(component, component.name, "item")
+            self.set_function_component(
+                component, component.name, "item", visible=False
+            )
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # time display
@@ -199,17 +192,14 @@ class ClockPage(HAUIPage):
         # entities
         self.update_items(self._build_items_from_panel(panel, "item", "items"))
         # notifications
-        self._notif_blinker.refresh()
+        self.app.controller["notification"].blinker.refresh()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # cancel time and date tick subscriptions
         self.app.unsubscribe_tick("minute", self.callback_update_time)
         self.app.unsubscribe_tick("hour", self.callback_update_date)
-        if self._timer_weather_refresh is not None:
-            self.app.cancel_timer(self._timer_weather_refresh)
-            self._timer_weather_refresh = None
-        # update display timer
-        self._notif_blinker.stop()
+        # unregister notification indicator from shared blinker
+        self.app.controller["notification"].clear_blinker_callback()
 
     # misc
 
@@ -316,7 +306,8 @@ class ClockPage(HAUIPage):
         if not self._show_notifications:
             return
         notification = self.app.controller["notification"]
-        if self._notif_blinker.new_notifications:
+        notif_blinker = notification.blinker
+        if notif_blinker.new_notifications:
             color = self.get_color("component_accent")
             visible = datetime.now().second % 2 == 0
         else:
@@ -333,7 +324,6 @@ class ClockPage(HAUIPage):
 
     def process_event(self, event: HAUIEvent) -> None:
         super().process_event(event)
-        self._notif_blinker.handle_event(event)
 
     # callback
 
@@ -350,17 +340,6 @@ class ClockPage(HAUIPage):
     def callback_weather(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
     ) -> None:
-        if self.app.device.device_info.get("display_state") == "off":
-            return
-        self.update_main_weather()
-
-    def _callback_weather_refresh(self, cb_args: Any) -> None:
-        """Periodic weather re-read callback (5-minute timer).
-
-        Re-reads the weather entity's current state so the displayed
-        temperature/pressure stays current even when the weather entity
-        does not publish frequent state change events.
-        """
         if self.app.device.device_info.get("display_state") == "off":
             return
         self.update_main_weather()

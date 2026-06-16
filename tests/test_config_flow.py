@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import copy
 import sys
 import types
@@ -132,6 +133,45 @@ from nspanel_haui.esphome_helpers import (  # noqa: E402
     normalize_device_name as _normalize_device_name,
 )
 
+
+@contextlib.contextmanager
+def _patch_device_registry(entries: list):
+    """Patch ``homeassistant.helpers.device_registry`` for ``is_haui_device``.
+
+    The product code resolves the registry via
+    ``from homeassistant.helpers import device_registry`` — a binding on the
+    ``homeassistant.helpers`` package object. Replacing only the ``sys.modules``
+    entry (the old approach) is silently shadowed once real Home Assistant has
+    bound that attribute (which happens whenever another test imports the
+    package, since ``_make_ha_stubs`` only stubs via ``setdefault`` when HA is
+    absent). Patching the attribute itself works in both the stubbed and the
+    real-HA world. ``entity_registry`` (strategy 5) is neutralised so it can
+    never produce a false match.
+    """
+    import homeassistant.helpers as ha_helpers
+
+    fake_dr = types.ModuleType("homeassistant.helpers.device_registry")
+    fake_dr.async_get = MagicMock(return_value=MagicMock())
+    fake_dr.async_entries_for_config_entry = MagicMock(return_value=list(entries))
+
+    empty_ent_reg = MagicMock()
+    empty_ent_reg.entities = {}
+    fake_er = MagicMock()
+    fake_er.async_get = MagicMock(return_value=empty_ent_reg)
+
+    with (
+        patch.object(ha_helpers, "device_registry", fake_dr, create=True),
+        patch.object(ha_helpers, "entity_registry", fake_er, create=True),
+        patch.dict(
+            sys.modules,
+            {
+                "homeassistant.helpers.device_registry": fake_dr,
+                "homeassistant.helpers.entity_registry": fake_er,
+            },
+        ),
+    ):
+        yield
+
 # ---------------------------------------------------------------------------
 # _build_config_dict  -  three-layer model (data, options, panels)
 # ---------------------------------------------------------------------------
@@ -213,8 +253,8 @@ class TestOptionsToConfigDict:
                     "config": {
                         "locale": "de_DE",
                         "show_home_button": True,
-                        "home_on_wakeup": True,
-                        "return_to_home_after_seconds": 30,
+                        "sleep_exit_behavior": "one_touch",
+                        "snapshot_max_age_seconds": 30,
                     },
                     "panels": [{"type": "clock"}],
                 },
@@ -229,8 +269,7 @@ class TestOptionsToConfigDict:
         # cfg["device"] picks up store config
         assert result["device"]["locale"] == "de_DE"
         assert result["device"]["show_home_button"] is True
-        assert result["device"]["home_on_wakeup"] is True
-        assert result["device"]["return_to_home_after_seconds"] == 30
+        assert result["device"]["snapshot_max_age_seconds"] == 30
 
         # fields NOT in store config keep DEFAULT_CONFIG values
         assert result["device"]["button_left_entity"] == ""
@@ -272,7 +311,6 @@ class TestOptionsToConfigDict:
         assert result["device"]["locale"] == "en_US"
         assert result["device"]["show_home_button"] is False
         assert result["device"]["show_notifications_button"] is True
-        assert result["device"]["home_on_wakeup"] is False
 
     def test_panels_store_no_config_block_leaves_device_defaults(self):
         """With panels arg but no config block, cfg["device"] stays at defaults."""
@@ -706,18 +744,9 @@ class TestDiscoverEspHomeDevices:
         """
         from nspanel_haui.esphome_helpers import discover_esphome_devices
 
-        # Build a fake device_registry module exposing
-        # async_get(hass) -> registry, plus async_entries_for_config_entry.
-        dev_reg_mod = types.ModuleType("homeassistant.helpers.device_registry")
-
         dev_entry = MagicMock()
         dev_entry.manufacturer = "happydasch"
         dev_entry.model = "nspanel_haui"
-
-        registry = MagicMock()
-        dev_reg_mod.async_get = MagicMock(return_value=registry)
-        dev_reg_mod.async_entries_for_config_entry = MagicMock(return_value=[dev_entry])
-        sys.modules["homeassistant.helpers.device_registry"] = dev_reg_mod
 
         # Offline ESPHome entry: no runtime_data services, no project_name.
         entry1 = MagicMock()
@@ -731,7 +760,8 @@ class TestDiscoverEspHomeDevices:
         hass.config_entries.async_entries = MagicMock(return_value=[entry1])
         hass.services.async_services = MagicMock(return_value={"esphome": {}})
 
-        result = asyncio.run(discover_esphome_devices(hass))
+        with _patch_device_registry(entries=[dev_entry]):
+            result = asyncio.run(discover_esphome_devices(hass))
         assert len(result) == 1
         assert result[0]["name"] == "nspanel-bedroom"
         assert result[0]["esphome_device_id"] == "offline-entry"
@@ -740,14 +770,9 @@ class TestDiscoverEspHomeDevices:
         """Non-HAUI ESPHome entry (different manufacturer/model) is skipped."""
         from nspanel_haui.esphome_helpers import discover_esphome_devices
 
-        dev_reg_mod = types.ModuleType("homeassistant.helpers.device_registry")
         dev_entry = MagicMock()
         dev_entry.manufacturer = "espressif"
         dev_entry.model = "esp32dev"
-        registry = MagicMock()
-        dev_reg_mod.async_get = MagicMock(return_value=registry)
-        dev_reg_mod.async_entries_for_config_entry = MagicMock(return_value=[dev_entry])
-        sys.modules["homeassistant.helpers.device_registry"] = dev_reg_mod
 
         entry1 = MagicMock()
         entry1.entry_id = "non-haui"
@@ -759,7 +784,8 @@ class TestDiscoverEspHomeDevices:
         hass.config_entries.async_entries = MagicMock(return_value=[entry1])
         hass.services.async_services = MagicMock(return_value={"esphome": {}})
 
-        result = asyncio.run(discover_esphome_devices(hass))
+        with _patch_device_registry(entries=[dev_entry]):
+            result = asyncio.run(discover_esphome_devices(hass))
         assert result == []
 
 

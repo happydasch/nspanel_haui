@@ -140,26 +140,32 @@ date_format_locale: "full"
 
   Should display items/commands be logged. Default False.
 
-- `home_on_wakeup` bool
+- `reset_interaction_on_button` bool
 
-  Should the display exit the sleep/wakeup panel and return home directly after wakeup. Default False.
+  Whether hardware button presses reset the idle/interaction timer (and wake the
+  display). When ``False``, button presses only toggle the relay and do not count
+  as user interaction. The device-side ``use_button_interaction`` switch is kept
+  in sync with this value. Default ``True``.
 
-- `home_on_first_touch` bool
+- `hub_idle_timeout` int
 
-  Should the display exit the sleep/wakeup panel and return home on first iteraction event or wait
-  until touched again. Default True.
+  Hub-side idle timeout in seconds (``0`` = disabled). Fallback that triggers
+  sleep after this many seconds of inactivity when the device doesn't publish
+  ``esphome.timeout`` events (e.g. when auto-sleeping is off on the device).
+  Default ``0``.
 
-- `home_only_when_on` bool
+- `auto_navigate_home_timeout` int
 
-  Should the display exit the sleep/wakeup panel and return home only when the display state is on. Default False.
+  Auto-navigate-home timeout in seconds (``0`` = disabled). When ``>0``, after
+  this many seconds of inactivity on any non-home panel the hub navigates back
+  to the home panel automatically. Should be set shorter than any sleep/dim
+  timeout to take effect before the display sleeps. Default ``0``.
 
-- `home_on_button_toggle` bool
+- `color_overrides` dict
 
-  Should the display exit the sleep/wakeup panel and return home when a button is toggled. Default False.
-
-- `always_return_to_home` bool
-
-  Should the display always return to the home panel or should it restore the previous panel. Default False.
+  RGB565 color values overriding the built-in ``COLORS`` defaults, keyed by
+  color name. Unknown keys are ignored (logged) and values are clamped to
+  ``0``–``65535``. Default ``{}`` (empty).
 
 - `sound_on_startup` bool
 
@@ -169,10 +175,13 @@ date_format_locale: "full"
 
   Should a sound be played when the display receives a non-persistent notification. Default True.
 
-- `return_to_home_after_seconds` int
+- `snapshot_max_age_seconds` int
 
-  Number of seconds of inactivity on the home panel before auto-navigating
-  back to the home panel.  Default ``0`` (disabled).
+  Maximum age in seconds of a navigation snapshot before it's considered stale
+  and the display falls back to the home panel instead.
+  - `-1` (default): No limit - always restore the snapshot.
+  - `0`: Never restore the snapshot - always go to the home panel.
+  - `>0`: Only restore if the snapshot is newer than this many seconds.
 
 - `debug_level` int
 
@@ -195,16 +204,15 @@ device:
   show_notifications_button: true
   log_items: false
   debug_level: 0
-  home_on_wakeup: false
-  home_on_first_touch: true
-  home_only_when_on: false
-  home_on_button_toggle: false
-  return_to_home_after_seconds: 0
-  always_return_to_home: false
+  reset_interaction_on_button: true
+  snapshot_max_age_seconds: -1
+  hub_idle_timeout: 0
+  auto_navigate_home_timeout: 0
   use_relay_left: true
   use_relay_right: true
   sound_on_startup: true
   sound_on_notification: true
+  color_overrides: {}
 ```
 
 ## Navigation Configuration

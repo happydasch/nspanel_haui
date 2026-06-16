@@ -8,7 +8,6 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import CoverFeatures
-from ..mapping.const import ESPRequest, ESPResponse
 from ..mapping.descriptor import PageDescriptor, PageOption
 
 
@@ -52,7 +51,9 @@ class CoverPage(HAUIPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set component callbacks
-        self.add_component_callback(self.COMPONENTS.h_vert_pos, self.callback_cover_pos)
+        self.bind_slider(
+            self.COMPONENTS.h_vert_pos, self.process_cover_pos
+        )
         # set function buttons
         self.set_function_buttons(
             self.COMPONENTS.fnc_left_pri,
@@ -60,9 +61,12 @@ class CoverPage(HAUIPage):
             self.COMPONENTS.fnc_right_pri,
             self.COMPONENTS.fnc_right_sec,
         )
-        # set cover function button callbacks
-        for btn in [self.COMPONENTS.btn_up, self.COMPONENTS.btn_stop, self.COMPONENTS.btn_down]:
-            self.add_component_callback(btn, self.callback_cover_buttons)
+        # set cover button callbacks
+        self.on_release({
+            self.COMPONENTS.btn_up: self.callback_cover_up,
+            self.COMPONENTS.btn_stop: self.callback_cover_stop,
+            self.COMPONENTS.btn_down: self.callback_cover_down,
+        })
         # set item
         item: HAUIItem | None = None
         entity_id = panel.get("item_id")
@@ -214,6 +218,7 @@ class CoverPage(HAUIPage):
             self.update_function_component(self.COMPONENTS.btn_down.name, visible=False)
         # slider
         if supported_features & CoverFeatures.SET_POSITION:
+            self.set_slider_color(self.COMPONENTS.h_vert_pos)
             self.set_component_value(self.COMPONENTS.h_vert_pos, current_position)
             self.update_function_component(self.COMPONENTS.h_vert_pos.name, visible=True)
         else:
@@ -230,34 +235,27 @@ class CoverPage(HAUIPage):
         else:
             self.log(f"Unknown cover item attribute: {attribute}")
 
-    def callback_cover_pos(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if button_state:
-            return
-        self.log(f"Got cover pos press: {component}-{button_state}")
-        self.send_esphome(ESPRequest.REQ_VAL, self.COMPONENTS.h_vert_pos.name, force=True)
-
-    def callback_cover_buttons(self, event: HAUIEvent, component: tuple, button_state: int) -> None:
-        if self._cover_entity is None:
-            return
-        if component == self.COMPONENTS.btn_up:
+    def callback_cover_up(self, event: HAUIEvent, component: Component) -> None:
+        if self._cover_entity is not None:
             self._cover_entity.call_item_service("open_cover")
-        elif component == self.COMPONENTS.btn_stop:
+
+    def callback_cover_stop(self, event: HAUIEvent, component: Component) -> None:
+        if self._cover_entity is not None:
             self._cover_entity.call_item_service("stop_cover")
-        elif component == self.COMPONENTS.btn_down:
+
+    def callback_cover_down(self, event: HAUIEvent, component: Component) -> None:
+        if self._cover_entity is not None:
             self._cover_entity.call_item_service("close_cover")
 
     # event
 
-    def process_event(self, event: HAUIEvent) -> None:
-        super().process_event(event)
-        # requested values
-        if event.name == ESPResponse.RES_VAL:
-            data = event.as_json()
-            name = data.get("name", "")
-            value = int(data.get("value", 0))
-            if name == self.COMPONENTS.h_vert_pos.name:
-                self.process_cover_pos(value)
-
     def process_cover_pos(self, pos: int) -> None:
+        if not self._in_read_callback:
+            self.log(
+                f"process_cover_pos: value={pos} ignored "
+                f"(not from read_response — likely button_state leak)"
+            )
+            return
+        self.log(f"Slider cover position value {pos}")
         if self._cover_entity is not None:
             self._cover_entity.call_item_service("set_cover_position", position=pos)

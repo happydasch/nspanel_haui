@@ -42,6 +42,8 @@ class AboutPage(HAUIPage):
         t_yaml_vers_val=Component(15, "tYamlVersVal"),
         t_ad_vers=Component(16, "tADVers"),
         t_ad_vers_val=Component(17, "tADVersVal"),
+        p_0=Component(18, "p0"),
+        p_1=Component(19, "p1"),
     )
 
     _title = ""
@@ -59,7 +61,21 @@ class AboutPage(HAUIPage):
                 self.COMPONENTS.fnc_right_pri, self.FNC_BTN_R_PRI,
                 fnc_name=self.FNC_TYPE_NAV_CLOSE,
             )
-            # left and right secondary buttons are unused (hidden, no callback)
+            # register secondary buttons (unused — _auto_assign_fncs will hide them)
+            self.set_function_component(
+                self.COMPONENTS.fnc_left_sec, self.FNC_BTN_L_SEC,
+                fnc_name=None,
+            )
+            self.set_function_component(
+                self.COMPONENTS.fnc_right_sec, self.FNC_BTN_R_SEC,
+                fnc_name=None,
+            )
+            # auto-assign defaults to all header button slots
+            self._auto_assign_fncs(panel)
+
+            # show picture icons
+            self.show_component(self.COMPONENTS.p0)
+            self.show_component(self.COMPONENTS.p1)
 
             # title
             self._title = panel.get_title(self.translate("NSPanel HAUI"))
@@ -67,7 +83,7 @@ class AboutPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         name = self.app.device.get_name()
-        ip_address = self.app.device.device_info.get("ip", "127.0.0.1")
+        ip_address = self.app.device.device_info.get("ip", "")
         tft_version = self.app.device.device_info.get("tft_version", "0.0.0")
         yaml_version = self.app.device.device_info.get("yaml_version", "0.0.0")
         ad_version = get_version()

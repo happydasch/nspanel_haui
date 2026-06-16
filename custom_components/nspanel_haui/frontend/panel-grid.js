@@ -53,15 +53,15 @@ function renderPanelCard(host, p, panels, isNavPanel) {
   // overrides for pagination):
   //   - nav + pagination → NEXT on right_pri, pagination on right_sec
   //   - nav + no pagination → NEXT on right_pri
-  //   - non-nav + pagination → pagination on right_pri
+  //   - non-nav + pagination → CLOSE on right_pri, pagination on right_sec
   //   - non-nav + no pagination → CLOSE on right_pri (auto-assigned via _auto_assign_fncs)
   let rightPri, rightSec;
   if (showInNav) {
     rightPri = 'mdi:chevron-right';
     rightSec = hasPagination ? { icon: 'mdi:chevron-double-down', accent: true } : '';
   } else if (hasPagination) {
-    rightPri = { icon: 'mdi:chevron-double-down', accent: true };
-    rightSec = '';
+    rightPri = 'mdi:close';
+    rightSec = { icon: 'mdi:chevron-double-down', accent: true };
   } else {
     rightPri = 'mdi:close';
     rightSec = '';

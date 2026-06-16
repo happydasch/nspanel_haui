@@ -9,6 +9,7 @@ import { LitElement, html, css } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
 import { LOCALE_OPTIONS, DEBUG_LEVELS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
+import { dialogHeader } from './dialog-header.js';
 import { t } from '../localize.js';
 
 /**
@@ -68,17 +69,6 @@ class DeviceConfigDialog extends LitElement {
   }
 
   static styles = [haStyle, haStyleDialog, editorStyles, css`
-    .footer-wrapper {
-      display: flex;
-      align-items: center;
-      width: 100%;
-    }
-    .footer-toggle-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex: 1;
-    }
     .footer-toggle-wrapper label {
       margin: 0;
       font-weight: 500;
@@ -105,6 +95,11 @@ class DeviceConfigDialog extends LitElement {
     const cfg = this._deviceConfigForm || this.config;
     if (!this.config || !cfg) return "";
 
+    // Snapshot max age: map -1/0/>0 to user-friendly mode labels
+    const snapValue = cfg.snapshot_max_age_seconds ?? -1;
+    const snapMode = snapValue === -1 ? "-1" : snapValue === 0 ? "0" : "custom";
+    const snapCustomVal = snapMode === "custom" && snapValue > 0 ? snapValue : 60;
+
     const panelOptions = [
       { value: "", label: t("- None -") },
       ...this.devicePanels.filter(p => p.key).map(p => ({ value: p.key, label: p.key })),
@@ -114,9 +109,9 @@ class DeviceConfigDialog extends LitElement {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        header-title=${t("Device Settings")}
         .preventScrimClose=${true}
       >
+        ${dialogHeader(t("Device Settings"), this._dispatchClose)}
 
         <form id="device-config-form" @submit=${(e) => e.preventDefault()}>
           <div class="dialog-body">
@@ -126,10 +121,10 @@ class DeviceConfigDialog extends LitElement {
           </p>
 
           <details class="config-section">
-            <summary>${t("Common Settings")}</summary>
+            <summary>${t("General Settings")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">
-                ${t("Generic device behavior: display language, diagnostic logging verbosity, and audible alerts for startup and notifications.")}
+                ${t("General device behavior: display language, diagnostic logging verbosity, and audible alerts for startup and notifications.")}
               </p>
               ${selectField(this, "dc-locale", "locale", cfg, t("Language"), LOCALE_OPTIONS, (v) => v,
                 t("The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels"))}
@@ -139,6 +134,36 @@ class DeviceConfigDialog extends LitElement {
                 t("Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle"))}
               ${checkbox(this, "dc-sound_on_notification", "sound_on_notification", cfg, t("Sound on notification"),
                 t("Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display"))}
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>${t("Display Buttons")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("Toggle visibility of on-screen navigation buttons on panels.")}
+              </p>
+              ${checkbox(this, "dc-show_home_button", "show_home_button", cfg, t("Show home button"),
+                t("Show a home navigation button on panels so users can tap to return to the configured home panel from any page"))}
+              ${checkbox(this, "dc-show_sleep_button", "show_sleep_button", cfg, t("Show sleep button"),
+                t("Show a sleep button on the home panel that lets users manually put the display into sleep mode"))}
+              ${checkbox(this, "dc-show_notifications_button", "show_notifications_button", cfg, t("Show notifications button"),
+                t("Show a notifications button on supported panels that indicates and provides access to any pending notifications"))}
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>${t("Panel Assignments")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("Choose which panels appear in specific display states. Leave unset to keep the current panel.")}
+              </p>
+              ${selectField(this, "dc-home_panel", "home_panel", cfg, t("Home Panel"), panelOptions, (v) => v,
+                t("The panel shown when the user navigates home or after dim/sleep returns"))}
+              ${selectField(this, "dc-sleep_panel", "sleep_panel", cfg, t("Sleep Panel"), panelOptions, (v) => v,
+                t("The panel shown when the display enters sleep mode"))}
+              ${selectField(this, "dc-wakeup_panel", "wakeup_panel", cfg, t("Wakeup Panel"), panelOptions, (v) => v,
+                t("The panel shown briefly when the display wakes from sleep"))}
             </div>
           </details>
 
@@ -185,81 +210,64 @@ class DeviceConfigDialog extends LitElement {
               }) : ""}
             <div class="section-divider"></div>
               ${checkbox(this, "dc-reset_interaction_on_button", "reset_interaction_on_button", cfg,
-                t("Reset interaction on button press"),
-                t("When enabled (default), pressing a hardware button resets the inactivity timer and prevents the display from dimming or sleeping. Disable to allow buttons to work without delaying display sleep."))}
+                t("Interact on button press"),
+                t("When enabled, pressing a hardware button resets the inactivity timer and prevents the display from dimming or sleeping. Disable to allow buttons to work without delaying display sleep."))}
             </div>
           </details>
 
           <details class="config-section">
-            <summary>${t("Navigation Buttons")}</summary>
+            <summary>${t("Sleep and Wakeup")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">
-                ${t("Toggle visibility of on-screen navigation buttons on panels.")}
+                ${t("Controls how the display behaves when waking from dimmed or sleep state.")}
               </p>
-              ${checkbox(this, "dc-show_home_button", "show_home_button", cfg, t("Show home button"),
-                t("Show a home navigation button on panels so users can tap to return to the configured home panel from any page"))}
-              ${checkbox(this, "dc-show_sleep_button", "show_sleep_button", cfg, t("Show sleep button"),
-                t("Show a sleep button on the home panel that lets users manually put the display into sleep mode"))}
-              ${checkbox(this, "dc-show_notifications_button", "show_notifications_button", cfg, t("Show notifications button"),
-                t("Show a notifications button on supported panels that indicates and provides access to any pending notifications"))}
+              <div class="form-group">
+                <label>${t("Snapshot max age")}</label>
+                <ha-select
+                  id="dc-snapshot_max_age_mode"
+                  .value=${snapMode}
+                  .options=${[
+                    { value: "-1", label: t("Always restore") },
+                    { value: "0", label: t("Never restore") },
+                    { value: "custom", label: t("Custom time limit...") },
+                  ]}
+                  @selected=${(e) => {
+                    const mode = e.detail.value;
+                    let v;
+                    if (mode === "-1") v = -1;
+                    else if (mode === "0") v = 0;
+                    else v = (this._deviceConfigForm?.snapshot_max_age_seconds > 0)
+                      ? this._deviceConfigForm.snapshot_max_age_seconds
+                      : 60;
+                    this._deviceConfigForm = { ...this._deviceConfigForm, snapshot_max_age_seconds: v };
+                    this.requestUpdate();
+                  }}
+                ></ha-select>
+                <div class="field-hint">${t("Controls whether the last viewed panel is restored when waking from sleep or dimmed state.")}</div>
+                ${snapMode === "custom" ? html`
+                  <div style="margin-top: 8px;">
+                    <ha-input
+                      id="dc-snapshot_max_age_custom"
+                      type="number"
+                      .inputMode="numeric"
+                      .value=${String(snapCustomVal)}
+                      @input=${(e) => {
+                        const v = parseInt(e.target.value, 10);
+                        this._deviceConfigForm = {
+                          ...this._deviceConfigForm,
+                          snapshot_max_age_seconds: isNaN(v) || v < 1 ? 60 : v,
+                        };
+                        this.requestUpdate();
+                      }}
+                    ></ha-input>
+                    <div class="field-hint">${t("Maximum age in seconds before falling back to the home panel.")}</div>
+                  </div>
+                ` : ""}
+              </div>
             </div>
           </details>
 
-            <details class="config-section">
-              <summary>${t("Sleep and Wakeup")}</summary>
-              <div class="config-section-body">
-                <p class="config-section-intro">
-                  ${t("Controls how the display behaves when waking from dimmed or sleep state.")}
-                </p>
-                ${checkbox(this, "dc-home_on_wakeup", "home_on_wakeup", cfg, t("Home on wakeup"),
-                  t("Navigate to the home panel immediately when the display wakes from sleep or dim state, instead of showing the last viewed panel"))}
-                ${checkbox(this, "dc-home_on_first_touch", "home_on_first_touch", cfg, t("Home on first touch"),
-                  t("Go home on the first touch after wakeup. When disabled, the first touch only wakes the display and a second touch is needed to navigate"))}
-                ${checkbox(this, "dc-home_only_when_on", "home_only_when_on", cfg, t("Home only when on"),
-                  t("Only navigate home when the display power state is 'on'. When disabled, home navigation works regardless of power state"))}
-                ${checkbox(this, "dc-home_on_button_toggle", "home_on_button_toggle", cfg, t("Home on button toggle"),
-                  t("Navigate to the home panel whenever a physical hardware button is pressed, even if the button is configured to toggle a relay or entity"))}
-                ${checkbox(this, "dc-always_return_to_home", "always_return_to_home", cfg, t("Always return to home"),
-                  t("Always navigate to the home panel instead of restoring the previously viewed panel when conditions are met"))}
-                <div class="form-group">
-                  <label for="dc-return_to_home_after_seconds">
-                    ${t("Return to home after (seconds)")}
-                  </label>
-                  <ha-input
-                    id="dc-return_to_home_after_seconds"
-                    type="number"
-                    .inputMode="numeric"
-                    .value=${String(cfg.return_to_home_after_seconds || 0)}
-                    @input=${(e) => {
-                      const v = parseInt(e.target.value, 10);
-                      this._deviceConfigForm = {
-                        ...this._deviceConfigForm,
-                        return_to_home_after_seconds: isNaN(v) ? 0 : v,
-                      };
-                      this.requestUpdate();
-                    }}
-                  ></ha-input>
-                  <div class="field-hint">${t("Auto-return to the home panel after this many seconds of inactivity. Set to 0 to disable auto-return.")}</div>
-                </div>
-              </div>
-            </details>
-
-            <details class="config-section">
-              <summary>${t("Panel Assignments")}</summary>
-              <div class="config-section-body">
-                <p class="config-section-intro">
-                  ${t("Choose which panels appear in specific display states. Leave unset to keep the current panel.")}
-                </p>
-                ${selectField(this, "dc-home_panel", "home_panel", cfg, t("Home Panel"), panelOptions, (v) => v,
-                  t("The panel shown when the user navigates home or after dim/sleep returns"))}
-                ${selectField(this, "dc-sleep_panel", "sleep_panel", cfg, t("Sleep Panel"), panelOptions, (v) => v,
-                  t("The panel shown when the display enters sleep mode"))}
-                ${selectField(this, "dc-wakeup_panel", "wakeup_panel", cfg, t("Wakeup Panel"), panelOptions, (v) => v,
-                  t("The panel shown briefly when the display wakes from sleep"))}
-              </div>
-            </details>
-
-            </div>
+          </div>
         </form>
 
         <div slot="footer" class="footer-wrapper">
@@ -274,6 +282,11 @@ class DeviceConfigDialog extends LitElement {
             ></ha-switch>
             <label for="dc-enabled" style="margin-inline-start:8px;">${t("Device Enabled")}</label>
           </div>
+          ${this._validationError ? html`
+            <div class="config-validation-error" role="alert" style="color:var(--error-color,#db4437);margin:8px 0;">
+              ${this._validationError}
+            </div>
+          ` : ""}
           <ha-dialog-footer>
             <ha-button slot="secondaryAction" variant="neutral" appearance="plain" @click=${this._dispatchClose}>
               ${t("Cancel")}
@@ -297,6 +310,13 @@ class DeviceConfigDialog extends LitElement {
   }
 
   _dispatchSave() {
+    const cfg = this._deviceConfigForm || {};
+
+    // check validity of values to store if needed here, on error
+    // this.requestUpdate() to show error message in the dialog
+    // and return early without dispatching save event
+
+    this._validationError = "";
     this.dispatchEvent(new CustomEvent("dialog-save", {
       detail: { config: this._deviceConfigForm },
     }));

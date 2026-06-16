@@ -8,16 +8,16 @@ import { css } from '../../lit-import.js';
 export const previewGridStyles = css`
   /* --- Bigger tiles for grid preview --- */
   .pg-preview-grid-tile {
-    min-height: 65px;
-    font-size: 0.95em;
+    min-height: 75px;
+    font-size: 1em;
     padding: 4px 6px;
-    gap: 1px;
+    gap: 2px;
   }
-  .pg-preview-grid-tile ha-icon {
-    --mdc-icon-size: clamp(18px, 6cqi, 32px);
+  .pg-preview-grid-tile .pg-preview-tile-icon-wrap ha-icon {
+    --mdc-icon-size: clamp(24px, 8cqi, 40px);
   }
   .pg-preview-grid-tile .pg-preview-tile-label {
-    font-size: 0.6em;
+    font-size: 0.7em;
   }
   .pg-preview-grid-tile.fill {
     box-sizing: border-box;

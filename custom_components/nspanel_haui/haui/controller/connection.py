@@ -77,21 +77,6 @@ class HAUIConnectionController(HAUIBase):
         # Callback
         self._connection_callback = connection_callback
 
-    # ------------------------------------------------------------------
-    # Backward-compatible ``.connected`` property
-    # ------------------------------------------------------------------
-
-    @property
-    def connected(self) -> bool:
-        """Return ``True`` iff the connection is fully established.
-
-        Kept for backward compatibility with ``nspanel_haui.py:175``.
-        """
-        return self._state == ConnectionState.CONNECTED
-
-    # NOTE: .connected setter was removed - use _set_state() directly.
-    # All external callers were migrated to the state machine.
-
     @property
     def connection_state(self) -> ConnectionState:
         """Expose the raw connection state enum for debug/monitoring."""
@@ -120,35 +105,51 @@ class HAUIConnectionController(HAUIBase):
         self.log(f"Connection state: {old.value} → {new_state.value}")
 
         if new_state == ConnectionState.CONNECTED:
-            self._update_last_time()
-            self._last_connection_time = time.time()
-
-            self._stop_handshake_timer()
-            self.send_esphome(ServerResponse.HUB_CONNECTION_INITIALIZED, "", True)
-            # Explicitly reset the device's inactivity timer so that display
-            # timeouts (dim/sleep/page) start fresh after every connection
-            # (including reconnections during a fast hub restart).
-            self.send_esphome(ESPAction.RESET_LAST_INTERACTION, "0", True)
-            self._start_heartbeat_timer()
-            self._start_timer()
-            self._disconnected_since = None
-            self._connection_callback(True)
-
+            self._on_entering_connected()
         elif new_state == ConnectionState.DISCONNECTED:
-            if old == ConnectionState.CONNECTED:
-                self.send_esphome(ServerResponse.HUB_CONNECTION_CLOSED, "", True)
-                self._connection_callback(False)
-            self._stop_heartbeat_timer()
-            self._stop_handshake_timer()
-            if self._disconnected_since is None:
-                self._disconnected_since = time.monotonic()
-
+            self._on_entering_disconnected(old)
         elif new_state == ConnectionState.HANDSHAKING:
-            # Start a timer so a stalled handshake (e.g. service calls
-            # failing silently) does not leave us in HANDSHAKING forever.
-            # The device retries req_connection every ~10 s, so 15 s gives
-            # one full retry cycle.
-            self._start_handshake_timer()
+            self._on_entering_handshaking()
+
+    # ------------------------------------------------------------------
+    # State-transition side-effects
+    # ------------------------------------------------------------------
+
+    def _on_entering_connected(self) -> None:
+        """Run side-effects when transitioning to CONNECTED."""
+        self._update_last_time()
+        self._last_connection_time = time.time()
+
+        self._stop_handshake_timer()
+        self.send_esphome(ServerResponse.HUB_CONNECTION_INITIALIZED, "", True)
+        # Explicitly reset the device's inactivity timer so that display
+        # timeouts (dim/sleep/page) start fresh after every connection
+        # (including reconnections during a fast hub restart).
+        self.send_esphome(ESPAction.RESET_LAST_INTERACTION, "0", True)
+        self._start_heartbeat_timer()
+        self._start_timer()
+        self._disconnected_since = None
+        self._connection_callback(True)
+
+    def _on_entering_disconnected(self, old: ConnectionState) -> None:
+        """Run side-effects when transitioning to DISCONNECTED."""
+        if old == ConnectionState.CONNECTED:
+            self.send_esphome(ServerResponse.HUB_CONNECTION_CLOSED, "", True)
+            self._connection_callback(False)
+        self._stop_heartbeat_timer()
+        self._stop_handshake_timer()
+        if self._disconnected_since is None:
+            self._disconnected_since = time.monotonic()
+
+    def _on_entering_handshaking(self) -> None:
+        """Run side-effects when transitioning to HANDSHAKING.
+
+        Start a timer so a stalled handshake (e.g. service calls failing
+        silently) does not leave us in HANDSHAKING forever.
+        The device retries req_connection every ~10 s, so 15 s gives
+        one full retry cycle.
+        """
+        self._start_handshake_timer()
 
     # ------------------------------------------------------------------
     # Hub→Device heartbeat timer
@@ -315,6 +316,14 @@ class HAUIConnectionController(HAUIBase):
     # Event handling - 3-step handshake + heartbeat
     # ------------------------------------------------------------------
 
+    # Events that are excluded from livesign detection (they are part of
+    # the handshake protocol itself, not external signs of life).
+    _LIVESIGN_EXCLUDED: frozenset = frozenset({
+        ServerRequest.REQ_CONNECTION,
+        ServerRequest.RES_CONNECTION,
+        ESPResponse.RES_DEVICE_STATE,
+    })
+
     def process_event(self, event: HAUIEvent) -> None:
         """Process a single event.
 
@@ -330,7 +339,7 @@ class HAUIConnectionController(HAUIBase):
             3. ``res_device_state`` - hub sends ``hub_connection_initialized``
                and marks the connection as CONNECTED
         """
-        device = self.app.device
+        name = event.name
 
         # --- Livesign detection: any event when disconnected → handshake ---
         # Heartbeats that arrive while DISCONNECTED are NOT filtered out -
@@ -339,104 +348,112 @@ class HAUIConnectionController(HAUIBase):
         # messages (res_connection, res_device_state) are excluded since
         # they are part of the handshake itself.
         if self._state == ConnectionState.DISCONNECTED:
-            if event.name not in (
-                ServerRequest.REQ_CONNECTION,
-                ServerRequest.RES_CONNECTION,
-                ESPResponse.RES_DEVICE_STATE,
-            ):
-                self.log(
-                    f"Livesign received while disconnected: {event.name}, initiating handshake"
+            if name not in self._LIVESIGN_EXCLUDED:
+                self._handle_livesign(event)
+                return
+
+        if name == ServerRequest.HEARTBEAT:
+            self._handle_heartbeat(event)
+        elif name == ServerRequest.REQ_CONNECTION:
+            self._handle_req_connection(event)
+        elif name == ServerRequest.RES_CONNECTION:
+            self._handle_res_connection(event)
+        elif name == ESPResponse.RES_DEVICE_STATE:
+            self._handle_res_device_state(event)
+
+    def _handle_livesign(self, event: HAUIEvent) -> None:
+        """Handle any event while DISCONNECTED — treat as livesign → handshake."""
+        self.log(
+            f"Livesign received while disconnected: {event.name}, initiating handshake"
+        )
+        self._initiate_handshake("livesign")
+
+    def _handle_heartbeat(self, event: HAUIEvent) -> None:
+        """Handle device→hub heartbeat.
+
+        Updates ``_last_time`` and responds so the device's hub_heartbeat
+        timestamp stays fresh.
+        """
+        self._update_last_time()
+        # Bidirectional heartbeat: respond so the device's hub_heartbeat
+        # timestamp stays fresh.  The periodic timer (run_every) is a
+        # fallback; this event-driven response ensures the device never
+        # times out even if the timer callback fails silently.
+        self._send_hub_heartbeat({})
+
+    def _handle_req_connection(self, event: HAUIEvent) -> None:
+        """Handle handshake step 1: device requests connection."""
+        device = self.app.device
+        if self._state == ConnectionState.HANDSHAKING:
+            # Device is retrying while we wait for res_connection --
+            # our response is already in-flight, so just ignore.
+            return
+        if isinstance(event.value, str):
+            connection_request = json.loads(event.value)
+            device.set_device_info(connection_request, append=False)
+            self.debug_log(f"Connection request from device: {connection_request}")
+        self._initiate_handshake("req_connection")
+
+    def _handle_res_connection(self, event: HAUIEvent) -> None:
+        """Handle handshake step 2: device responds with capabilities."""
+        device = self.app.device
+        if self._state != ConnectionState.HANDSHAKING:
+            if self._state == ConnectionState.CONNECTED:
+                # Duplicate/retry res_connection after handshake — device
+                # is alive, treat as heartbeat refresh.
+                self._update_last_time()
+                self.debug_log(
+                    f"res_connection received in state {self._state.value} (ignored)"
                 )
-                self._initiate_handshake("livesign")
-                return  # Do NOT fall through - the next event drives the handshake
-
-        # --- Device→Hub heartbeat ---
-        # Runs AFTER livesign because a heartbeat while DISCONNECTED is
-        # caught above and returns early.  Here we only see heartbeats
-        # in HANDSHAKING or CONNECTED states.
-        if event.name == ServerRequest.HEARTBEAT:
-            self._update_last_time()
-            # Bidirectional heartbeat: respond so the device's hub_heartbeat
-            # timestamp stays fresh.  The periodic timer (run_every) is a
-            # fallback; this event-driven response ensures the device never
-            # times out even if the timer callback fails silently.
-            self._send_hub_heartbeat({})
-            return
-
-        # --- Handshake step 1: device requests connection ---
-        if event.name == ServerRequest.REQ_CONNECTION:
-            if self._state == ConnectionState.HANDSHAKING:
-                # Device is retrying while we wait for res_connection --
-                # our response is already in-flight, so just ignore.
-                return
-            if isinstance(event.value, str):
-                connection_request = json.loads(event.value)
-                device.set_device_info(connection_request, append=False)
-                self.debug_log(f"Connection request from device: {connection_request}")
-            self._initiate_handshake("req_connection")
-            return
-
-        # --- Handshake step 2: device responds with capabilities ---
-        if event.name == ServerRequest.RES_CONNECTION:
-            if self._state != ConnectionState.HANDSHAKING:
-                if self._state == ConnectionState.CONNECTED:
-                    # Duplicate/retry res_connection after handshake — device
-                    # is alive, treat as heartbeat refresh.
-                    self._update_last_time()
-                    self.debug_log(
-                        f"res_connection received in state {self._state.value} (ignored)"
-                    )
-                else:
-                    self.log(
-                        f"Unexpected res_connection in state {self._state.value}",
-                        level="WARNING",
-                    )
-                return
-            if isinstance(event.value, str):
-                connection_response = json.loads(event.value)
-                # Adopt the device's heartbeat_interval if declared
-                try:
-                    dev_interval = float(connection_response.get("heartbeat_interval", 5.0))
-                    if dev_interval > 0.5:
-                        self._heartbeat_interval = dev_interval
-                        self.log(f"Device heartbeat interval: {self._heartbeat_interval}s")
-                except (TypeError, ValueError):
-                    self.log(
-                        "Invalid heartbeat_interval from device, using default",
-                        level="WARNING",
-                    )
-                device.set_device_info(connection_response, append=True)
-                self.debug_log(f"Connection response from device: {connection_response}")
-            self.send_esphome(ESPRequest.REQ_DEVICE_STATE)
-            return
-
-        # --- Device state response (handshake step 3 or reconnect replay) ---
-        if event.name == ESPResponse.RES_DEVICE_STATE:
-            device = self.app.device
-            if isinstance(event.value, str):
-                try:
-                    device_state = json.loads(event.value)
-                    device.set_device_info(device_state, append=True)
-                except json.JSONDecodeError:
-                    self.log("Invalid device state JSON", level="WARNING")
-            if self._state == ConnectionState.HANDSHAKING:
-                self.debug_log(f"Device state received {event.value}")
-                self._set_state(ConnectionState.CONNECTED)
-                # Emit a compact INFO summary of key device info
-                info = device.device_info
-                parts = [f"name={info.get('name', '?')}"]
-                if info.get("ip"):
-                    parts.append(f"ip={info['ip']}")
-                if info.get("tft_version"):
-                    parts.append(f"tft={info['tft_version']}")
-                if info.get("page"):
-                    parts.append(f"page={info['page']}")
-                self.log(f"Device connected | {' | '.join(parts)}")
-            elif self._state == ConnectionState.CONNECTED:
-                self.debug_log(f"Device state received (replay) {event.value}")
             else:
                 self.log(
-                    f"Unexpected res_device_state in state {self._state.value}",
+                    f"Unexpected res_connection in state {self._state.value}",
                     level="WARNING",
                 )
             return
+        if isinstance(event.value, str):
+            connection_response = json.loads(event.value)
+            # Adopt the device's heartbeat_interval if declared
+            try:
+                dev_interval = float(connection_response.get("heartbeat_interval", 5.0))
+                if dev_interval > 0.5:
+                    self._heartbeat_interval = dev_interval
+                    self.log(f"Device heartbeat interval: {self._heartbeat_interval}s")
+            except (TypeError, ValueError):
+                self.log(
+                    "Invalid heartbeat_interval from device, using default",
+                    level="WARNING",
+                )
+            device.set_device_info(connection_response, append=True)
+            self.debug_log(f"Connection response from device: {connection_response}")
+        self.send_esphome(ESPRequest.REQ_DEVICE_STATE)
+
+    def _handle_res_device_state(self, event: HAUIEvent) -> None:
+        """Handle handshake step 3 or reconnect replay: device state."""
+        device = self.app.device
+        if isinstance(event.value, str):
+            try:
+                device_state = json.loads(event.value)
+                device.set_device_info(device_state, append=True)
+            except json.JSONDecodeError:
+                self.log("Invalid device state JSON", level="WARNING")
+        if self._state == ConnectionState.HANDSHAKING:
+            self.debug_log(f"Device state received {event.value}")
+            self._set_state(ConnectionState.CONNECTED)
+            # Emit a compact INFO summary of key device info
+            info = device.device_info
+            parts = [f"name={info.get('name', '?')}"]
+            if info.get("ip"):
+                parts.append(f"ip={info['ip']}")
+            if info.get("tft_version"):
+                parts.append(f"tft={info['tft_version']}")
+            if info.get("page"):
+                parts.append(f"page={info['page']}")
+            self.log(f"Device connected | {' | '.join(parts)}")
+        elif self._state == ConnectionState.CONNECTED:
+            self.debug_log(f"Device state received (replay) {event.value}")
+        else:
+            self.log(
+                f"Unexpected res_device_state in state {self._state.value}",
+                level="WARNING",
+            )

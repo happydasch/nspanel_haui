@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -8,12 +9,15 @@ if TYPE_CHECKING:
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ESPResponse, NotifEvent
+from ..utils.notification_blinker import NotificationBlinker
 
 
 class HAUINotificationController(HAUIBase):
     """Notification Controller
 
     Provides functionality for notifications.
+    Also hosts a shared NotificationBlinker so every page does not
+    need its own 1-second timer.
     """
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any]):
@@ -26,6 +30,8 @@ class HAUINotificationController(HAUIBase):
         super().__init__(app, config)
         self.debug_log(f"Creating Notification Controller with config: {config}")
         self._notifications: list[tuple] = []  # list for notifications
+        self._blinker = NotificationBlinker()
+        self._blinker_refresh_fn: Callable[[], None] | None = None
 
     def send_notification(
         self,
@@ -92,6 +98,37 @@ class HAUINotificationController(HAUIBase):
     def has_persistent_notifications(self) -> bool:
         return any(n[4] for n in self._notifications)
 
+    # ------------------------------------------------------------------
+    # Shared notification blinker
+    # ------------------------------------------------------------------
+
+    @property
+    def blinker(self) -> NotificationBlinker:
+        """The shared notification blinker instance."""
+        return self._blinker
+
+    def set_blinker_callback(self, refresh_fn: Callable[[], None]) -> None:
+        """Register a page's notification indicator renderer.
+
+        Called by a page in *start_panel* so the shared blinker
+        updates that page's ``t_notif`` component on each blink tick.
+        """
+        self._blinker_refresh_fn = refresh_fn
+        self._blinker.set_callback(self._on_blinker_tick)
+
+    def clear_blinker_callback(self) -> None:
+        """Unregister the current page's notification indicator.
+
+        Called by a page in *_stop_panel* so the blinker stops firing.
+        """
+        self._blinker_refresh_fn = None
+        self._blinker.clear_callback()
+
+    def _on_blinker_tick(self) -> None:
+        """Dispatch the blink tick to whichever page registered a callback."""
+        if self._blinker_refresh_fn is not None:
+            self._blinker_refresh_fn()
+
     # event
 
     def process_event(self, event: HAUIEvent) -> None:
@@ -104,3 +141,6 @@ class HAUINotificationController(HAUIBase):
             self.log(f"Send notification: {event.as_str()}")
             notification = event.as_json()
             self.add_notification(**notification)
+        # Also forward notification lifecycle events to the shared blinker
+        # so pages don't need to handle them individually.
+        self._blinker.handle_event(event)

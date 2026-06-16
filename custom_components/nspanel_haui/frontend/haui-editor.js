@@ -12,9 +12,9 @@
 import './iconset.js';
 
 import { LitElement, html } from './lit-import.js';
-import { clone, DEVICE_CONFIG_DEFAULTS, POPUP_TO_USER_TYPE } from './constants.js';
+import { clone } from './constants.js';
 import { fetchTranslations, t, getLanguage } from './localize.js';
-import { haStyle, haStyleDialog, editorStyles } from './styles.js';
+import { haStyle, haStyleDialog, editorContainerStyles, editorStyles } from './styles.js';
 import * as Api from './api.js';
 import * as Crud from './crud.js';
 import * as DeviceConfig from './device-config.js';
@@ -30,14 +30,17 @@ import './dialogs/device-manager.js';
 import './dialogs/colors.js';
 
 import { renderOptionField } from './form-fields.js';
-import { encodeItemValue } from './haui-item.js';
-import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
-import { formVal } from './dom-helpers.js';
+import { positionContextMenu } from './dom-helpers.js';
 import { selectDevice } from './device-manager.js';
 import { renderPanelTable, renderSystemPanels, renderEmptyCard } from './panel-table.js';
 import { renderPanelGrid } from './panel-grid.js';
 import { renderTitleHeader, renderDeviceInfoStrip, renderPanelToolbar, renderToolbarActions } from './toolbar.js';
 import { startStatusPolling, stopStatusPolling } from './device-info.js';
+
+import * as SystemPanels from './system-panels.js';
+import * as ItemEditor from './item-editor.js';
+import * as ColorsEditor from './colors-editor.js';
+import * as DeviceEvents from './device-events.js';
 
 /* ── component ───────────────────────────────────────────────────────────── */
 
@@ -97,7 +100,7 @@ class NSPanelEditor extends LitElement {
     }
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles];
+  static styles = [haStyle, haStyleDialog, editorContainerStyles, editorStyles];
 
   constructor() {
     super();
@@ -188,6 +191,23 @@ class NSPanelEditor extends LitElement {
     if (changed.has("_selectedDevice") && this._selectedDevice) {
       startStatusPolling(this);
     }
+    if ((changed.has("_actionsMenuIndex") && this._actionsMenuIndex !== null && this._actionsMenuIndex !== undefined) ||
+        (changed.has("_cardMenuKey") && this._cardMenuKey)) {
+      this.updateComplete.then(() => {
+        // Reposition panel table context menu
+        const plDropdown = this.renderRoot.querySelector(".pl-more ha-icon-button.active ~ .pl-dropdown, .pl-dropdown");
+        if (plDropdown) {
+          const activeBtn = this.renderRoot.querySelector(".pl-more ha-icon-button.active");
+          if (activeBtn) positionContextMenu(plDropdown, activeBtn);
+        }
+        // Reposition grid card context menu
+        const cardDropdown = this.renderRoot.querySelector(".pg-card-dropdown-wrap .pl-dropdown");
+        if (cardDropdown) {
+          const cardMore = this.renderRoot.querySelector(".pg-card-more.active");
+          if (cardMore) positionContextMenu(cardDropdown, cardMore);
+        }
+      });
+    }
   }
 
   /* ── data loading ─────────────────────────────────────────────────────── */
@@ -195,10 +215,6 @@ class NSPanelEditor extends LitElement {
   async _loadEntries()     { return Api.loadEntries(this); }
   async _load() {
     await Api.loadPanels(this);
-    if (!this._autoDiscovered && this.entryId) {
-      this._autoDiscovered = true;
-      await this._autoDiscoverAndAdd();
-    }
   }
   async _loadPanelTypes()  { return Api.loadPanelTypes(this); }
   _loadDeviceConfig(name)  { DeviceConfig.loadDeviceConfig(this, name); }
@@ -226,47 +242,8 @@ class NSPanelEditor extends LitElement {
   _cancelDelete()          { Crud.cancelDelete(this); }
   async _doDelete()        { return Crud.doDelete(this); }
 
-  _openSysPanelEdit(sysPanel) {
-    this._dialogVersion++;
-    const panels = this._devicePanels();
-    const existingIdx = panels.findIndex(p => p.key === sysPanel.key);
-    const resolvedType = POPUP_TO_USER_TYPE[sysPanel.type] || sysPanel.type;
-
-    if (existingIdx >= 0) {
-      // Already overridden — resolve the stored panel's type to the user
-      // type so the editor's descriptor lookup works.
-      const existingData = clone(panels[existingIdx]);
-      existingData.type = resolvedType;
-      this._itemListData = {};
-      this._editingPanel = { index: existingIdx, data: existingData };
-      this._editingPanelType = resolvedType;
-      this._error = null;
-      this._deleteTarget = null;
-      this.requestUpdate();
-      return;
-    }
-
-    // Create new override panel from system panel defaults.
-    // Leave title empty — the display will fall back to the system panel's
-    // label at runtime. Only user-set titles should persist.
-    const data = {
-      type: resolvedType,
-      key: sysPanel.key,
-      show_in_navigation: false,
-    };
-    this._itemListData = {};
-    this._editingPanelType = resolvedType;
-    this._editingPanel = { index: -1, data };
-    this._error = null;
-    this._deleteTarget = null;
-    this.requestUpdate();
-  }
-
-  async _resetSysPanelOverride(key) {
-    const panels = this._devicePanels();
-    const newPanels = panels.filter(p => p.key !== key);
-    await this._savePanels(newPanels, 'Reset system panel "' + key + '" to defaults');
-  }
+  _openSysPanelEdit(sysPanel)             { return SystemPanels.openSysPanelEdit(this, sysPanel); }
+  _resetSysPanelOverride(key)             { return SystemPanels.resetSysPanelOverride(this, key); }
 
   /* ── save ─────────────────────────────────────────────────────────────── */
 
@@ -326,115 +303,19 @@ class NSPanelEditor extends LitElement {
     this._onDeviceManagerExportYaml();
   }
 
-  async _onDeviceManagerMoveDevice(e) {
-    const { name, direction } = e.detail || {};
-    if (!name || !direction) return;
-    const devices = this._panels.devices || {};
-    const deviceKeys = Object.keys(devices);
-    const idx = deviceKeys.indexOf(name);
-    if (idx < 0) return;
-    const swapIdx = idx + direction;
-    if (swapIdx < 0 || swapIdx >= deviceKeys.length) return;
+  async _onDeviceManagerMoveDevice(e)     { return DeviceEvents.onDeviceManagerMoveDevice(this, e); }
+  async _onDeviceManagerToggleDevice(e)  { return DeviceEvents.onDeviceManagerToggleDevice(this, e); }
+  _onDeviceManagerSelect(e)              { return DeviceEvents.onDeviceManagerSelect(this, e); }
+  _onDeviceManagerSettings(e)            { return DeviceEvents.onDeviceManagerSettings(this, e); }
+  async _onDeviceManagerRemove(e)        { return DeviceEvents.onDeviceManagerRemove(this, e); }
+  async _onDeviceManagerAdd(e)           { return DeviceEvents.onDeviceManagerAdd(this, e); }
 
-    const newKeys = [...deviceKeys];
-    [newKeys[idx], newKeys[swapIdx]] = [newKeys[swapIdx], newKeys[idx]];
+  /* ── device manager import/export ───────────────────────────────── */
 
-    const newDevices = {};
-    for (const key of newKeys) {
-      newDevices[key] = devices[key];
-    }
-    this._panels = { ...this._panels, devices: newDevices };
-    const label = direction < 0 ? "up" : "down";
-    await this._savePanels(this._devicePanels(), `Device "${name}" moved ${label}`);
-  }
+  async _onDeviceManagerImportYaml()     { return DeviceEvents.onDeviceManagerImportYaml(this); }
+  async _onDeviceManagerExportYaml()     { return DeviceEvents.onDeviceManagerExportYaml(this); }
 
-  _onDeviceManagerSelect(e) {
-    const name = e.detail?.name;
-    if (!name) return;
-    this._selectDevice(name);
-  }
-
-  _onDeviceManagerSettings(e) {
-    const name = e.detail?.name;
-    if (!name) return;
-    this._showDeviceManager = false;
-    this._selectedDevice = name;
-    this._loadDeviceConfig(name);
-    this._openDeviceConfig();
-    this.requestUpdate();
-  }
-
-  async _onDeviceManagerRemove(e) {
-    const name = e.detail?.name;
-    if (!name) return;
-    try {
-      await Api.removeDevice(this, name);
-      await Api.loadPanels(this);
-      this._showToast(`Removed "${name}"`, "success");
-    } catch (err) {
-      this._showToast(err.message || "Failed to remove device", "error");
-    }
-    this.requestUpdate();
-  }
-
-  async _onDeviceManagerAdd(e) {
-    const device = e.detail?.device;
-    if (!device) return;
-    try {
-      await Api.addDevice(this, device);
-      await Api.loadPanels(this);
-      this._showToast(`Added "${device.name}"`, "success");
-    } catch (err) {
-      this._showToast(err.message || "Failed to add device", "error");
-    }
-    this.requestUpdate();
-  }
-
-  /* ── device manager action events ─────────────────────────────── */
-
-  async _onDeviceManagerImportYaml() {
-    const { importDeviceYaml } = await import('./device-manager.js');
-    this._showDeviceManager = false;
-    importDeviceYaml(this);
-    this.requestUpdate();
-  }
-
-  async _onDeviceManagerExportYaml() {
-    const { exportDeviceYaml } = await import('./device-manager.js');
-    this._showDeviceManager = false;
-    exportDeviceYaml(this);
-    this.requestUpdate();
-  }
-
-  /* ── auto device discovery ──────────────────────────────────────────── */
-
-  _autoDiscovered = false;
-
-  async _autoDiscoverAndAdd() {
-    let added = 0;
-    try {
-      const result = await Api.discoverDevices(this);
-      const unconfigured = (result.devices || []).filter((d) => !d.configured);
-      for (const device of unconfigured) {
-        try {
-          await Api.addDevice(this, {
-            name: device.name,
-            esphome_device_id: device.esphome_device_id || "",
-          });
-          added++;
-        } catch (_e) {
-          // skip devices that fail to add (duplicate, etc.)
-        }
-      }
-    } catch (_e) {
-      // discovery not available — not critical on load
-      return;
-    }
-    if (added > 0) {
-      await Api.loadPanels(this);
-      this._showToast(`Added ${added} device(s)`, "success");
-    }
-  }
+  async _onDeviceManagerUpdateDisplay(e) { return DeviceEvents.onDeviceManagerUpdateDisplay(this, e); }
 
   /* ── toast ────────────────────────────────────────────────────────────── */
 
@@ -563,6 +444,8 @@ class NSPanelEditor extends LitElement {
           @import-yaml=${this._onDeviceManagerImportYaml}
           @export-yaml=${this._onDeviceManagerExportYaml}
           @move-device=${this._onDeviceManagerMoveDevice}
+          @toggle-device=${this._onDeviceManagerToggleDevice}
+          @update-display=${this._onDeviceManagerUpdateDisplay}
         ></ha-dialog-device-manager>
 
         <ha-dialog-colors
@@ -579,62 +462,8 @@ class NSPanelEditor extends LitElement {
 
   /* ── item config dialog ─────────────────────────────────────────────── */
 
-  _saveItemEdit() {
-    const ee = this._editingItem;
-    if (!ee) return;
-    const { optKey, index } = ee;
-
-    const uid = `item-edit-${optKey}-${index}`;
-    const inline = this.renderRoot.querySelector(`#${uid}`);
-    if (!inline) return;
-
-    const typeVal = this._editingItemType || inline.querySelector("#item-type")?.value || "entity_id";
-
-    // Encode item value based on type
-    const inputVal = formVal(inline, "item-entity");
-    const config = { item: encodeItemValue(inputVal, typeVal) };
-
-    // Read standard entity override fields from ee.config — the input handlers
-    // mutate ee.config with typed values (list/int/dict) where applicable, so
-    // reading the DOM string would discard those types (e.g., strip list brackets).
-    for (const f of ENTITY_OVERRIDE_FIELDS) {
-      const fv = ee.config?.[f];
-      if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
-    }
-
-    // Read per-item appearance overrides (declared by the panel type descriptor).
-    const savePt = this._editingPanelType || this._editingPanel?.data?.type;
-    const descriptor = (savePt && this._panelTypes)
-      ? this._panelTypes.find(d => d.type_key === savePt) || null
-      : null;
-    if (descriptor?.item_options) {
-      for (const f of descriptor.item_options) {
-        const fv = ee.config?.[f];
-        if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
-      }
-    }
-
-    if (!this._itemListData) this._itemListData = {};
-    if (!this._itemListData[optKey]) this._itemListData[optKey] = [];
-
-    if (index >= 0) {
-      const updated = [...this._itemListData[optKey]];
-      updated[index] = config;
-      this._itemListData[optKey] = updated;
-    } else {
-      this._itemListData[optKey] = [...this._itemListData[optKey], config];
-    }
-
-    this._editingItem = null;
-    this._editingItemType = null;
-    this.requestUpdate();
-  }
-
-  _cancelItemEdit() {
-    this._editingItem = null;
-    this._editingItemType = null;
-    this.requestUpdate();
-  }
+  _saveItemEdit()                        { return ItemEditor.saveItemEdit(this); }
+  _cancelItemEdit()                      { return ItemEditor.cancelItemEdit(this); }
 
   /* ── confirm dialog helper ─────────────────────────────────────────────── */
 
@@ -681,42 +510,9 @@ class NSPanelEditor extends LitElement {
 
   /* ── colors dialog ────────────────────────────────────────────────── */
 
-  _onHeaderColors() {
-    this._actionsMenuIndex = null;
-    if (!this._selectedDevice) return;
-    this._loadDeviceConfig(this._selectedDevice);
-    const overrides = this._deviceConfig?.color_overrides || {};
-    this._colorsDialog = clone(overrides);
-    this._showColorsDialog = true;
-    this.requestUpdate();
-  }
-
-  _closeColorsDialog() {
-    this._showColorsDialog = false;
-    this.requestUpdate();
-  }
-
-  async _onColorsSave(e) {
-    const overrides = e.detail?.overrides;
-    if (!overrides || !this._selectedDevice) return;
-
-    // Merge overrides into device config — DEVICE_CONFIG_DEFAULTS now includes
-    // color_overrides:{} so fallback is always safe.
-    this._deviceConfig = {
-      ...(this._deviceConfig || DEVICE_CONFIG_DEFAULTS),
-      color_overrides: overrides,
-    };
-
-    try {
-      await this._savePanels(this._devicePanels(), "Device colors saved");
-      this._showToast("Device colors saved", "success");
-    } catch (e) {
-      this._showToast(e.message || "Failed to save colors", "error");
-    } finally {
-      this._showColorsDialog = false;
-      this.requestUpdate();
-    }
-  }
+  _onHeaderColors()                      { return ColorsEditor.openColorsDialog(this); }
+  _closeColorsDialog()                   { return ColorsEditor.closeColorsDialog(this); }
+  async _onColorsSave(e)                 { return ColorsEditor.saveColors(this, e.detail?.overrides); }
 }
 
 customElements.define("nspanel-haui-editor", NSPanelEditor);

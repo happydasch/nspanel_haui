@@ -7,7 +7,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import ClimateFeatures
-from ..mapping.color import COLORS
+from ..mapping.color import CLIMATE_COLORS
 from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption
 from ..mapping.icon_mapping import CLIMATE_MAPPING
@@ -154,15 +154,6 @@ class ClimatePage(HAUIPage):
         if temp_setting is not None:
             # set temperature if False, set temperature_range if True
             if not temp_setting:
-                self.hide_component(self.COMPONENTS.btn_up_1)
-                self.hide_component(self.COMPONENTS.btn_down_1)
-                self.hide_component(self.COMPONENTS.x_set_1)
-                self.hide_component(self.COMPONENTS.t_unit_1)
-                self.hide_component(self.COMPONENTS.btn_up_2)
-                self.hide_component(self.COMPONENTS.btn_down_2)
-                self.hide_component(self.COMPONENTS.x_set_2)
-                self.hide_component(self.COMPONENTS.t_unit_2)
-                #
                 self.show_component(self.COMPONENTS.x_set)
                 self.show_component(self.COMPONENTS.t_unit)
                 self.set_function_component(
@@ -182,11 +173,6 @@ class ClimatePage(HAUIPage):
                     visible=True,
                 )
             else:
-                self.hide_component(self.COMPONENTS.btn_up)
-                self.hide_component(self.COMPONENTS.btn_down)
-                self.hide_component(self.COMPONENTS.x_set)
-                self.hide_component(self.COMPONENTS.t_unit)
-                #
                 self.show_component(self.COMPONENTS.x_set_1)
                 self.show_component(self.COMPONENTS.t_unit_1)
                 self.show_component(self.COMPONENTS.x_set_2)
@@ -223,22 +209,6 @@ class ClimatePage(HAUIPage):
                     icon=ICO_DOWN,
                     visible=True,
                 )
-        else:
-            for x in [
-                self.COMPONENTS.btn_up,
-                self.COMPONENTS.btn_down,
-                self.COMPONENTS.btn_up_1,
-                self.COMPONENTS.btn_down_1,
-                self.COMPONENTS.btn_up_2,
-                self.COMPONENTS.btn_down_2,
-                self.COMPONENTS.x_set,
-                self.COMPONENTS.x_set_1,
-                self.COMPONENTS.x_set_2,
-                self.COMPONENTS.t_unit,
-                self.COMPONENTS.t_unit_1,
-                self.COMPONENTS.t_unit_2,
-            ]:
-                self.hide_component(x)
         # hvac mode buttons
         self._hvac_modes = item.get_item_attr("hvac_modes", [])
         self._hvac_modes = self.get("hvac_modes", self._hvac_modes)
@@ -251,8 +221,8 @@ class ClimatePage(HAUIPage):
                 visible = True
                 if hvac_mode in CLIMATE_MAPPING:
                     icon = CLIMATE_MAPPING[hvac_mode]
-                if f"climate_{hvac_mode}" in COLORS:
-                    color_pressed = self.get_color(f"climate_{hvac_mode}")
+                if hvac_mode in CLIMATE_COLORS:
+                    color_pressed = CLIMATE_COLORS[hvac_mode]
             component = getattr(self.COMPONENTS, f"bt_mode_{i + 1}")
             self.set_function_component(
                 component,
@@ -393,8 +363,8 @@ class ClimatePage(HAUIPage):
         hvac_mode = item.get_item_state()
         color_active = self.get_color("component_active")
         color_inactive = self.get_color("component_text")
-        if f"climate_{hvac_mode}" in COLORS:
-            color_active = self.get_color(f"climate_{hvac_mode}")
+        if hvac_mode in CLIMATE_COLORS:
+            color_active = CLIMATE_COLORS[hvac_mode]
         for i in range(self.NUM_MODES):
             component = getattr(self.COMPONENTS, f"bt_mode_{i + 1}")
             color = color_inactive

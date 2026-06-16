@@ -102,7 +102,6 @@ class TestConnectionStateMachine:
         _, _, ctrl = make_controller()
         assert ctrl._state == ConnectionState.DISCONNECTED
         assert ctrl.is_connected is False
-        assert ctrl.connected is False
         assert ctrl.connection_state == ConnectionState.DISCONNECTED
 
     def test_req_connection_transitions_to_handshaking(self):
@@ -304,13 +303,10 @@ class TestConnectionStateMachine:
     def test_connected_property_returns_expected_values(self):
         _, _, ctrl = make_controller()
 
-        assert ctrl.connected is False
         assert ctrl.is_connected is False
 
         ctrl._set_state(ConnectionState.CONNECTED)
-        assert ctrl.connected is True
         assert ctrl.is_connected is True
 
         ctrl._set_state(ConnectionState.DISCONNECTED)
-        assert ctrl.connected is False
         assert ctrl.is_connected is False

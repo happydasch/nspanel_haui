@@ -158,7 +158,7 @@ class DeviceConfigDialog extends LitElement {
               <p class="config-section-intro">
                 ${t("Choose which panels appear in specific display states. Leave unset to keep the current panel.")}
               </p>
-              ${selectField(this, "dc-home_panel", "home_panel", cfg, t("Home Panel"), panelOptions, (v) => v,
+              ${selectField(this, "dc-home_panel", "home_panel", cfg, t("Home panel"), panelOptions, (v) => v,
                 t("The panel shown when the user navigates home or after dim/sleep returns"))}
               ${selectField(this, "dc-sleep_panel", "sleep_panel", cfg, t("Sleep Panel"), panelOptions, (v) => v,
                 t("The panel shown when the display enters sleep mode"))}

@@ -222,7 +222,7 @@ class DeviceManagerDialog extends LitElement {
         label: enabled ? t('Disable') : t('Enable'), action: () => { this._dispatchToggleDevice(name); this._closeDeviceMenu(); }
       },
       'divider',
-      { icon: 'mdi:refresh', label: t('Update Display'), action: () => { this._dispatchUpdateDisplay(name); this._closeDeviceMenu(); } },
+      { icon: 'mdi:refresh', label: t('Update'), action: () => { this._dispatchUpdateDisplay(name); this._closeDeviceMenu(); } },
       'divider',
       { icon: 'mdi:arrow-up', label: t('Move Up'), disabled: !canMoveUp, action: () => { this._dispatchMoveDevice(name, -1); this._closeDeviceMenu(); } },
       { icon: 'mdi:arrow-down', label: t('Move Down'), disabled: !canMoveDown, action: () => { this._dispatchMoveDevice(name, 1); this._closeDeviceMenu(); } },

@@ -162,7 +162,7 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
               class="domain-filter-chip active"
               data-domain="__all"
               @mousedown=${(e) => { e.preventDefault(); setActiveDomain(e.target.closest(".entity-picker-wrap"), "__all"); }}
-            >${domains.length > 3 ? "All" : t("All")}</button>
+            >${t("All")}</button>
             ${domains.slice(0, 10).map(d => html`
               <button
                 class="domain-filter-chip"

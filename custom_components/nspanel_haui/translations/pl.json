@@ -3,8 +3,8 @@
     "sensor": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         }
       }
     },
@@ -13,7 +13,7 @@
         "_": {
           "initializing": "inicjalizacja",
           "dead": "martwy",
-          "sleeping": "uśpiony",
+          "sleeping": "u\u015bpiony",
           "ready": "gotowy"
         },
         "query_stage": {
@@ -24,35 +24,35 @@
     },
     "ebusd": {
       "state": {
-        "day": "Dzień",
+        "day": "Dzie\u0144",
         "night": "Noc"
       }
     },
     "light": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         }
       }
     },
     "switch": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         }
       }
     },
     "binary_sensor": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         },
         "battery": {
-          "off": "naładowana",
-          "on": "rozładowana"
+          "off": "na\u0142adowana",
+          "on": "roz\u0142adowana"
         },
         "cold": {
           "off": "normalnie",
@@ -63,11 +63,11 @@
           "on": "online"
         },
         "door": {
-          "off": "zamknięte",
+          "off": "zamkni\u0119te",
           "on": "otwarte"
         },
         "garage_door": {
-          "off": "zamknięta",
+          "off": "zamkni\u0119ta",
           "on": "otwarta"
         },
         "gas": {
@@ -76,15 +76,15 @@
         },
         "heat": {
           "off": "normalnie",
-          "on": "gorąco"
+          "on": "gor\u0105co"
         },
         "lock": {
-          "off": "zamknięty",
+          "off": "zamkni\u0119ty",
           "on": "otwarty"
         },
         "moisture": {
           "off": "brak wilgoci",
-          "on": "wilgoć"
+          "on": "wilgo\u0107"
         },
         "motion": {
           "off": "brak",
@@ -95,7 +95,7 @@
           "on": "wykryto"
         },
         "opening": {
-          "off": "zamknięte",
+          "off": "zamkni\u0119te",
           "on": "otwarte"
         },
         "presence": {
@@ -107,8 +107,8 @@
           "on": "problem"
         },
         "safety": {
-          "off": "brak zagrożenia",
-          "on": "zagrożenie"
+          "off": "brak zagro\u017cenia",
+          "on": "zagro\u017cenie"
         },
         "smoke": {
           "off": "brak",
@@ -123,7 +123,7 @@
           "on": "wykryto"
         },
         "window": {
-          "off": "zamknięte",
+          "off": "zamkni\u0119te",
           "on": "otwarte"
         }
       }
@@ -131,7 +131,7 @@
     "lock": {
       "state": {
         "_": {
-          "locked": "zamknięty",
+          "locked": "zamkni\u0119ty",
           "unlocked": "otwarty"
         }
       }
@@ -141,7 +141,7 @@
         "_": {
           "open": "otwarta",
           "opening": "otwieranie",
-          "closed": "zamknięta",
+          "closed": "zamkni\u0119ta",
           "closing": "zamykanie",
           "stopped": "zatrzymany"
         }
@@ -155,7 +155,7 @@
           "armed_home": "uzbrojony (w domu)",
           "armed_away": "uzbrojony (poza domem)",
           "armed_night": "uzbrojony (noc)",
-          "armed_custom_bypass": "uzbrojony (częściowo)",
+          "armed_custom_bypass": "uzbrojony (cz\u0119\u015bciowo)",
           "pending": "oczekuje",
           "arming": "uzbrajanie",
           "disarming": "rozbrajanie",
@@ -166,8 +166,8 @@
     "media_player": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony",
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony",
           "playing": "odtwarzanie",
           "paused": "wstrzymany",
           "idle": "nieaktywny",
@@ -186,25 +186,25 @@
     "vacuum": {
       "state": {
         "_": {
-          "cleaning": "sprzątanie",
-          "docked": "w stacji dokującej",
-          "error": "błąd",
+          "cleaning": "sprz\u0105tanie",
+          "docked": "w stacji dokuj\u0105cej",
+          "error": "b\u0142\u0105d",
           "idle": "nieaktywny",
-          "off": "wyłączony",
-          "on": "włączony",
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony",
           "paused": "wstrzymany",
-          "returning": "powrót do stacji dokującej"
+          "returning": "powr\u00f3t do stacji dokuj\u0105cej"
         }
       },
       "fan_speed": {
         "_": {
           "low": "Niski",
-          "medium": "Średni",
+          "medium": "\u015aredni",
           "high": "Wysoki",
           "max": "Maksymalny",
-          "off": "Wyłączony",
-          "gentle": "Łagodny",
-          "balanced": "Zrównoważony",
+          "off": "Wy\u0142\u0105czony",
+          "gentle": "\u0141agodny",
+          "balanced": "Zr\u00f3wnowa\u017cony",
           "turbo": "Turbo",
           "quiet": "Cichy",
           "custom": "Niestandardowy",
@@ -215,18 +215,18 @@
     "fan": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         }
       }
     },
     "climate": {
       "state": {
         "_": {
-          "off": "wyłączony",
+          "off": "wy\u0142\u0105czony",
           "heat": "grzanie",
-          "cool": "chłodzenie",
-          "heat_cool": "grzanie/chłodzenie",
+          "cool": "ch\u0142odzenie",
+          "heat_cool": "grzanie/ch\u0142odzenie",
           "auto": "automatyczny",
           "dry": "osuszanie",
           "fan_only": "tylko wentylator"
@@ -236,7 +236,7 @@
         "_": {
           "auto": "Auto",
           "low": "Niski",
-          "medium": "Średni",
+          "medium": "\u015aredni",
           "high": "Wysoki",
           "mute": "Wyciszony",
           "turbo": "Turbo"
@@ -253,7 +253,7 @@
       },
       "swing_mode": {
         "_": {
-          "off": "Wył.",
+          "off": "Wy\u0142.",
           "both": "Obie",
           "vertical": "Pionowo",
           "horizontal": "Poziomowo"
@@ -263,16 +263,16 @@
     "automation": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         }
       }
     },
     "calendar": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         }
       }
     },
@@ -296,13 +296,13 @@
     "group": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony",
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony",
           "home": "w domu",
           "not_home": "poza domem",
           "open": "otwarte",
-          "closed": "zamknięte",
-          "locked": "zamknięty",
+          "closed": "zamkni\u0119te",
+          "locked": "zamkni\u0119ty",
           "unlocked": "otwarty",
           "ok": "ok",
           "problem": "problem"
@@ -312,8 +312,8 @@
     "input_boolean": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         }
       }
     },
@@ -336,24 +336,24 @@
     "remote": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         }
       }
     },
     "script": {
       "state": {
         "_": {
-          "off": "wyłączony",
-          "on": "włączony"
+          "off": "wy\u0142\u0105czony",
+          "on": "w\u0142\u0105czony"
         }
       }
     },
     "sun": {
       "state": {
         "_": {
-          "above_horizon": "powyżej horyzontu",
-          "below_horizon": "poniżej horyzontu"
+          "above_horizon": "powy\u017cej horyzontu",
+          "below_horizon": "poni\u017cej horyzontu"
         }
       }
     },
@@ -371,17 +371,17 @@
         "_": {
           "clear-night": "pogodnie, noc",
           "cloudy": "pochmurno",
-          "exceptional": "wyjątkowy",
-          "fog": "mgła",
+          "exceptional": "wyj\u0105tkowy",
+          "fog": "mg\u0142a",
           "hail": "grad",
-          "lightning": "błyskawice",
+          "lightning": "b\u0142yskawice",
           "lightning-rainy": "burza",
-          "partlycloudy": "częściowe zachmurzenie",
+          "partlycloudy": "cz\u0119\u015bciowe zachmurzenie",
           "pouring": "ulewa",
           "rainy": "deszczowo",
-          "snowy": "śnieżnie",
-          "snowy-rainy": "śnieżnie, deszczowo",
-          "sunny": "słonecznie",
+          "snowy": "\u015bnie\u017cnie",
+          "snowy-rainy": "\u015bnie\u017cnie, deszczowo",
+          "sunny": "s\u0142onecznie",
           "windy": "wietrznie",
           "windy-variant": "wietrznie"
         }
@@ -389,15 +389,15 @@
     }
   },
   "text": {
-    "(template error)": "(błąd szablonu)",
+    "(template error)": "(b\u0142\u0105d szablonu)",
     "(unknown)": "(nieznany)",
     "+ Add": "+ Dodaj",
     "+ Add Item": "+ Dodaj element",
     "- None -": "- Brak -",
     "?": "?",
-    "A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0–65535), or a Home Assistant template that overrides the default entity color.": "Kolor CSS hex (#rrggbb), trójka RGB ([r,g,b]), liczba całkowita RGB565 (0–65535) lub szablon Home Assistant zastępujący domyślny kolor encji.",
-    "A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display.": "Słownik stanu JSON lub szablon Home Assistant zastępujący stan encji używany w logice wyświetlania. Przydatne do testowania lub warunkowego wyświetlania.",
-    "A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects).": "Wartość wyświetlania lub szablon Home Assistant zastępujący to, co jest wyświetlane dla tego elementu na panelu. Obsługuje typowane wartości (liczby całkowite, zmiennoprzecinkowe, tablice/obiekty JSON).",
+    "A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0\u201365535), or a Home Assistant template that overrides the default entity color.": "Kolor CSS hex (#rrggbb), tr\u00f3jka RGB ([r,g,b]), liczba ca\u0142kowita RGB565 (0\u201365535) lub szablon Home Assistant zast\u0119puj\u0105cy domy\u015blny kolor encji.",
+    "A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display.": "S\u0142ownik stanu JSON lub szablon Home Assistant zast\u0119puj\u0105cy stan encji u\u017cywany w logice wy\u015bwietlania. Przydatne do testowania lub warunkowego wy\u015bwietlania.",
+    "A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects).": "Warto\u015b\u0107 wy\u015bwietlania lub szablon Home Assistant zast\u0119puj\u0105cy to, co jest wy\u015bwietlane dla tego elementu na panelu. Obs\u0142uguje typowane warto\u015bci (liczby ca\u0142kowite, zmiennoprzecinkowe, tablice/obiekty JSON).",
     "ACTION": "AKCJA",
     "AD-Version:": "AD-Version:",
     "AWAY": "NIEOBECNY",
@@ -413,18 +413,18 @@
     "Advanced": "Zaawansowane",
     "All": "Wszystko",
     "Always restore": "Zawsze przywracaj",
-    "An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon.": "Nazwa ikony MDI (np. mdi:lightbulb) lub szablon Home Assistant zastępujący domyślną ikonę encji.",
+    "An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon.": "Nazwa ikony MDI (np. mdi:lightbulb) lub szablon Home Assistant zast\u0119puj\u0105cy domy\u015bln\u0105 ikon\u0119 encji.",
     "Armed": "Uzbrojony",
     "Arming": "Uzbrojenie",
     "Attribute": "Atrybut",
     "Background": "Background",
-    "Brightness": "Jasność",
+    "Brightness": "Jasno\u015b\u0107",
     "CLR": "CLR",
-    "Callback": "Wywołanie zwrotne",
+    "Callback": "Wywo\u0142anie zwrotne",
     "Cancel": "Anuluj",
-    "Check": "Sprawdź",
-    "Choose which panels appear in specific display states. Leave unset to keep the current panel.": "Wybierz, które panele pojawiają się w określonych stanach wyświetlania. Pozostaw puste, aby zachować bieżący panel.",
-    "Clean": "Sprzątaj",
+    "Check": "Sprawd\u017a",
+    "Choose which panels appear in specific display states. Leave unset to keep the current panel.": "Wybierz, kt\u00f3re panele pojawiaj\u0105 si\u0119 w okre\u015blonych stanach wy\u015bwietlania. Pozostaw puste, aby zachowa\u0107 bie\u017c\u0105cy panel.",
+    "Clean": "Sprz\u0105taj",
     "Click": "Kliknij",
     "Climate": "Klimat",
     "Close": "Zamknij",
@@ -434,89 +434,89 @@
     "Colors for interactive buttons and controls.": "Colors for interactive buttons and controls.",
     "Colors for the main page area: background and text at various states.": "Colors for the main page area: background and text at various states.",
     "Colors for the top bar: background, title text, and accent icons.": "Colors for the top bar: background, title text, and accent icons.",
-    "Component": "Component",
+    "Component": "Komponent",
     "Configuration": "Konfiguracja",
-    "Configure how this device behaves: language and diagnostics, audible alerts, hardware buttons, navigation, sleep/wakeup, and which panels appear in each display state.": "Skonfiguruj zachowanie urządzenia: język i diagnostyka, sygnały dźwiękowe, przyciski sprzętowe, nawigacja, sen/wybudzenie i które panele pojawiają się w każdym stanie wyświetlania.",
-    "Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.": "Skonfiguruj fizyczne lewy/prawy przyciski sprzętowe NSPanel. Każdy przycisk może przełączać wewnętrzny przekaźnik lub encję Home Assistant.",
-    "Confirm": "Potwierdź",
-    "Connected": "Połączono",
-    "Connection": "Połączenie",
-    "Content": "Content",
-    "Controls how the display behaves when waking from dimmed or sleep state.": "Kontroluje zachowanie wyświetlacza przy budzeniu z przyciemnienia lub stanu uśpienia.",
-    "Controls the verbosity of diagnostic logging sent to the Home Assistant logs: Off = no debug output, Basic = key lifecycle events, Verbose = all commands and data exchanged with the display": "Kontroluje szczegółowość rejestrowania diagnostycznego: Wyłączone = brak debugowania, Podstawowe = kluczowe zdarzenia, Szczegółowe = wszystkie polecenia i dane",
-    "Controls whether the last viewed panel is restored when waking from sleep or dimmed state.": "Kontroluje, czy ostatnio wyświetlany panel jest przywracany przy budzeniu.",
+    "Configure how this device behaves: language and diagnostics, audible alerts, hardware buttons, navigation, sleep/wakeup, and which panels appear in each display state.": "Skonfiguruj zachowanie urz\u0105dzenia: j\u0119zyk i diagnostyka, sygna\u0142y d\u017awi\u0119kowe, przyciski sprz\u0119towe, nawigacja, sen/wybudzenie i kt\u00f3re panele pojawiaj\u0105 si\u0119 w ka\u017cdym stanie wy\u015bwietlania.",
+    "Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.": "Skonfiguruj fizyczne lewy/prawy przyciski sprz\u0119towe NSPanel. Ka\u017cdy przycisk mo\u017ce prze\u0142\u0105cza\u0107 wewn\u0119trzny przeka\u017anik lub encj\u0119 Home Assistant.",
+    "Confirm": "Potwierd\u017a",
+    "Connected": "Po\u0142\u0105czono",
+    "Connection": "Po\u0142\u0105czenie",
+    "Content": "Zawarto\u015b\u0107",
+    "Controls how the display behaves when waking from dimmed or sleep state.": "Kontroluje zachowanie wy\u015bwietlacza przy budzeniu z przyciemnienia lub stanu u\u015bpienia.",
+    "Controls the verbosity of diagnostic logging sent to the Home Assistant logs: Off = no debug output, Basic = key lifecycle events, Verbose = all commands and data exchanged with the display": "Kontroluje szczeg\u00f3\u0142owo\u015b\u0107 rejestrowania diagnostycznego: Wy\u0142\u0105czone = brak debugowania, Podstawowe = kluczowe zdarzenia, Szczeg\u00f3\u0142owe = wszystkie polecenia i dane",
+    "Controls whether the last viewed panel is restored when waking from sleep or dimmed state.": "Kontroluje, czy ostatnio wy\u015bwietlany panel jest przywracany przy budzeniu.",
     "Cover": "Roleta",
-    "Current Page": "Bieżąca strona",
-    "Current page": "Bieżąca strona",
-    "Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel.": "Niestandardowa nazwa wyświetlania lub szablon Home Assistant ({{ ... }}) zastępujący domyślną nazwę encji na panelu.",
+    "Current Page": "Bie\u017c\u0105ca strona",
+    "Current page": "Bie\u017c\u0105ca strona",
+    "Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel.": "Niestandardowa nazwa wy\u015bwietlania lub szablon Home Assistant ({{ ... }}) zast\u0119puj\u0105cy domy\u015bln\u0105 nazw\u0119 encji na panelu.",
     "Custom time limit...": "Niestandardowy limit czasu...",
     "DEL": "DEL",
-    "DISARM": "ROZBRÓJ",
-    "DISMISS": "ODRZUĆ",
+    "DISARM": "ROZBR\u00d3J",
+    "DISMISS": "ODRZU\u0106",
     "Debug Level": "Poziom debugowania",
-    "Delete": "Usuń",
-    "Delete panel?": "Usunąć panel?",
-    "Delete {name}? This cannot be undone.": "Usunąć {name}? Tej operacji nie można cofnąć.",
-    "Device": "Urządzenie",
-    "Device Colors": "Device Colors",
-    "Device Enabled": "Urządzenie włączone",
-    "Device Info": "Informacje o urządzeniu",
-    "Device Logs": "Device Logs",
-    "Device Manager": "Menedżer urządzeń",
-    "Device Name": "Nazwa urządzenia",
-    "Device Names": "Nazwy urządzeń",
-    "Device Settings": "Ustawienia urządzenia",
-    "Device actions": "Akcje urządzenia",
-    "Device colors saved": "Kolory urządzenia zapisane",
-    "Device config save failed": "Błąd zapisu konfiguracji urządzenia",
-    "Device configuration saved": "Konfiguracja urządzenia zapisana",
-    "Device name is required": "Nazwa urządzenia jest wymagana",
-    "Device settings": "Ustawienia urządzenia",
-    "Device settings saved": "Ustawienia urządzenia zapisane",
-    "Devices": "Urządzenia",
+    "Delete": "Usu\u0144",
+    "Delete panel?": "Usun\u0105\u0107 panel?",
+    "Delete {name}? This cannot be undone.": "Usun\u0105\u0107 {name}? Tej operacji nie mo\u017cna cofn\u0105\u0107.",
+    "Device": "Urz\u0105dzenie",
+    "Device Colors": "Kolory urz\u0105dzenia",
+    "Device Enabled": "Urz\u0105dzenie w\u0142\u0105czone",
+    "Device Info": "Informacje o urz\u0105dzeniu",
+    "Device Logs": "Logi urz\u0105dzenia",
+    "Device Manager": "Mened\u017cer urz\u0105dze\u0144",
+    "Device Name": "Nazwa urz\u0105dzenia",
+    "Device Names": "Nazwy urz\u0105dze\u0144",
+    "Device Settings": "Ustawienia urz\u0105dzenia",
+    "Device actions": "Akcje urz\u0105dzenia",
+    "Device colors saved": "Kolory urz\u0105dzenia zapisane",
+    "Device config save failed": "B\u0142\u0105d zapisu konfiguracji urz\u0105dzenia",
+    "Device configuration saved": "Konfiguracja urz\u0105dzenia zapisana",
+    "Device name is required": "Nazwa urz\u0105dzenia jest wymagana",
+    "Device settings": "Ustawienia urz\u0105dzenia",
+    "Device settings saved": "Ustawienia urz\u0105dzenia zapisane",
+    "Devices": "Urz\u0105dzenia",
     "Dimmed": "Przyciemniony",
-    "Disable": "Wyłącz",
-    "Disabled": "Wyłączony",
+    "Disable": "Wy\u0142\u0105cz",
+    "Disabled": "Wy\u0142\u0105czony",
     "Disarmed": "Rozbrojony",
     "Disarming": "Rozbrojenie",
-    "Disconnected": "Rozłączono",
-    "Dismiss": "Odrzuć",
-    "Display Buttons": "Przyciski wyświetlacza",
-    "Display Text": "Tekst wyświetlacza",
-    "Display updated for \"{name}\"": "Wyświetlacz zaktualizowany dla \"{name}\"",
-    "Do you want to check for a update?": "Czy chcesz sprawdzić aktualizację?",
-    "Do you want to update?": "Czy chcesz zaktualizować?",
+    "Disconnected": "Roz\u0142\u0105czono",
+    "Dismiss": "Odrzu\u0107",
+    "Display Buttons": "Przyciski wy\u015bwietlacza",
+    "Display Text": "Tekst wy\u015bwietlacza",
+    "Display updated for \"{name}\"": "Wy\u015bwietlacz zaktualizowany dla \"{name}\"",
+    "Do you want to check for a update?": "Czy chcesz sprawdzi\u0107 aktualizacj\u0119?",
+    "Do you want to update?": "Czy chcesz zaktualizowa\u0107?",
     "ESPHome": "ESPHome",
     "Edit": "Edytuj",
     "Edit Panel": "Edytuj panel",
     "Edit System Panel": "Edytuj panel systemowy",
-    "Edited (overrides system default)": "Edytowany (zastępuje domyślne ustawienia systemowe)",
-    "Enable": "Włącz",
-    "Enabled": "Włączony",
+    "Edited (overrides system default)": "Edytowany (zast\u0119puje domy\u015blne ustawienia systemowe)",
+    "Enable": "W\u0142\u0105cz",
+    "Enabled": "W\u0142\u0105czony",
     "Entity": "Encja",
-    "Entity unavailable": "Encja niedostępna",
+    "Entity unavailable": "Encja niedost\u0119pna",
     "Entity:": "Encja:",
     "Export YAML": "Eksportuj YAML",
     "Export failed": "Eksport nieudany",
     "Exported \"{name}\" as YAML": "\"{name}\" wyeksportowano jako YAML",
-    "Failed to add device": "Nie można dodać urządzenia",
-    "Failed to remove device": "Nie można usunąć urządzenia",
-    "Failed to save colors": "Nie można zapisać kolorów",
-    "Failed to update display": "Nie można zaktualizować wyświetlacza",
+    "Failed to add device": "Nie mo\u017cna doda\u0107 urz\u0105dzenia",
+    "Failed to remove device": "Nie mo\u017cna usun\u0105\u0107 urz\u0105dzenia",
+    "Failed to save colors": "Nie mo\u017cna zapisa\u0107 kolor\u00f3w",
+    "Failed to update display": "Nie mo\u017cna zaktualizowa\u0107 wy\u015bwietlacza",
     "Fri": "Pt",
-    "Full and Dimmed Brightness:": "Pełna i przyciemniona jasność:",
-    "General Settings": "Ogólne ustawienia",
-    "General device behavior: display language, diagnostic logging verbosity, and audible alerts for startup and notifications.": "Ogólne zachowanie urządzenia: język wyświetlacza, szczegółowość rejestrowania diagnostycznego i sygnały dźwiękowe dla uruchamiania i powiadomień.",
+    "Full and Dimmed Brightness:": "Pe\u0142na i przyciemniona jasno\u015b\u0107:",
+    "General Settings": "Og\u00f3lne ustawienia",
+    "General device behavior: display language, diagnostic logging verbosity, and audible alerts for startup and notifications.": "Og\u00f3lne zachowanie urz\u0105dzenia: j\u0119zyk wy\u015bwietlacza, szczeg\u00f3\u0142owo\u015b\u0107 rejestrowania diagnostycznego i sygna\u0142y d\u017awi\u0119kowe dla uruchamiania i powiadomie\u0144.",
     "Got unknown TFT-Version information.": "Otrzymano nieznane informacje o wersji TFT.",
     "Grid": "Siatka",
     "Grid view": "Widok siatki",
     "Group": "Grupa",
     "HOME": "DOM",
-    "Handshaking…": "Nawiązywanie połączenia…",
-    "Hardware Buttons": "Przyciski sprzętowe",
+    "Handshaking\u2026": "Nawi\u0105zywanie po\u0142\u0105czenia\u2026",
+    "Hardware Buttons": "Przyciski sprz\u0119towe",
     "Has override fields": "Ma pola nadpisywania",
     "Header": "Header",
-    "Hello, World!": "Witaj, Świecie!",
+    "Hello, World!": "Witaj, \u015awiecie!",
     "Home Panel": "Panel domowy",
     "Home panel": "Panel domowy",
     "IP Address": "Adres IP",
@@ -525,58 +525,58 @@
     "Import failed": "Import nieudany",
     "Inactive": "Inactive",
     "Info": "Info",
-    "Interact on button press": "Interakcja przy naciśnięciu przycisku",
-    "Interval": "Interwał",
+    "Interact on button press": "Interakcja przy naci\u015bni\u0119ciu przycisku",
+    "Interval": "Interwa\u0142",
     "Item": "Element",
-    "JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.": "Obiekt JSON przekazywany jako service_data dla akcji. Klucze dostępne jako zmienne szablonu w skryptach.",
-    "JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}": "Obiekt JSON jako service_data dla akcji. Klucze jako zmienne szablonu. Przykład: {\\\"vacuum_repeat\\\": 2}",
-    "Just now": "Właśnie teraz",
+    "JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.": "Obiekt JSON przekazywany jako service_data dla akcji. Klucze dost\u0119pne jako zmienne szablonu w skryptach.",
+    "JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}": "Obiekt JSON jako service_data dla akcji. Klucze jako zmienne szablonu. Przyk\u0142ad: {\\\"vacuum_repeat\\\": 2}",
+    "Just now": "W\u0142a\u015bnie teraz",
     "Key": "Klucz",
-    "Language": "Język",
+    "Language": "J\u0119zyk",
     "Last Panel Update": "Ostatnia aktualizacja panelu",
-    "Left Button - Use Relay": "Lewy przycisk - użyj przekaźnika",
+    "Left Button - Use Relay": "Lewy przycisk - u\u017cyj przeka\u017anika",
     "Left Button Entity": "Encja lewego przycisku",
-    "Light": "Światło",
+    "Light": "\u015awiat\u0142o",
     "List": "Lista",
     "List view": "Widok listy",
-    "Listeners": "Nasłuchiwacze",
+    "Listeners": "Nas\u0142uchiwacze",
     "Living Room": "Living Room",
-    "Loading default colors…": "Loading default colors…",
-    "Loading panels...": "Ładowanie paneli...",
+    "Loading default colors\u2026": "Loading default colors\u2026",
+    "Loading panels...": "\u0141adowanie paneli...",
     "Lock": "Zablokuj",
-    "Logs": "Dzienniki",
+    "Logs": "Logi",
     "Maximum": "Maksimum",
     "Maximum age in seconds before falling back to the home panel.": "Maksymalny wiek w sekundach przed powrotem do panelu domowego.",
     "Media": "Media",
     "Mon": "Pon",
-    "More": "Więcej",
-    "Move Down": "W dół",
-    "Move Up": "W górę",
-    "Move down": "Przesuń w dół",
-    "Move up": "Przesuń w górę",
+    "More": "Wi\u0119cej",
+    "Move Down": "W d\u00f3\u0142",
+    "Move Up": "W g\u00f3r\u0119",
+    "Move down": "Przesu\u0144 w d\u00f3\u0142",
+    "Move up": "Przesu\u0144 w g\u00f3r\u0119",
     "NSPanel HAUI": "NSPanel HAUI",
     "NSPanel HAUI - Editor": "NSPanel HAUI - Edytor",
     "Name": "Nazwa",
     "Navigate": "Nawiguj",
     "Navigation": "Nawigacja",
-    "Network error": "Błąd sieci",
+    "Network error": "B\u0142\u0105d sieci",
     "Never restore": "Nigdy nie przywracaj",
-    "No NSPanel HAUI integration configured. Add one via Settings → Devices and Services.": "Brak skonfigurowanej integracji NSPanel HAUI. Dodaj ją przez Ustawienia → Urządzenia i usługi.",
-    "No active listeners.": "Brak aktywnych nasłuchiwaczy.",
-    "No active timers.": "Brak aktywnych timerów.",
+    "No NSPanel HAUI integration configured. Add one via Settings \u2192 Devices and Services.": "Brak skonfigurowanej integracji NSPanel HAUI. Dodaj j\u0105 przez Ustawienia \u2192 Urz\u0105dzenia i us\u0142ugi.",
+    "No active listeners.": "Brak aktywnych nas\u0142uchiwaczy.",
+    "No active timers.": "Brak aktywnych timer\u00f3w.",
     "No additional options for this panel type.": "Brak dodatkowych opcji dla tego typu panelu.",
-    "No devices configured yet.": "Brak skonfigurowanych urządzeń.",
-    "No devices found": "Nie znaleziono urządzeń",
+    "No devices configured yet.": "Brak skonfigurowanych urz\u0105dze\u0144.",
+    "No devices found": "Nie znaleziono urz\u0105dze\u0144",
     "No effect": "Bez efektu",
-    "No items yet": "Brak elementów",
+    "No items yet": "Brak element\u00f3w",
     "No log entries yet.": "No log entries yet.",
-    "No notifications": "Brak powiadomień",
+    "No notifications": "Brak powiadomie\u0144",
     "No panels configured yet.": "Brak skonfigurowanych paneli.",
     "No signal": "No signal",
-    "No value needed": "Wartość nie jest potrzebna",
+    "No value needed": "Warto\u015b\u0107 nie jest potrzebna",
     "Non-Navigation": "Bez nawigacji",
     "Notifications": "Powiadomienia",
-    "Off": "Wył.",
+    "Off": "Wy\u0142.",
     "Offline": "Offline",
     "On": "On",
     "Option A": "Opcja A",
@@ -587,98 +587,98 @@
     "PANIC": "PANIKA",
     "Panel": "Panel",
     "Panel Assignments": "Przypisania paneli",
-    "Panel deleted": "Panel usunięty",
+    "Panel deleted": "Panel usuni\u0119ty",
     "Panel key": "Klucz panelu",
-    "Panel moved down": "Panel przesunięty w dół",
-    "Panel moved up": "Panel przesunięty w górę",
+    "Panel moved down": "Panel przesuni\u0119ty w d\u00f3\u0142",
+    "Panel moved up": "Panel przesuni\u0119ty w g\u00f3r\u0119",
     "Panel pin": "PIN panelu",
-    "Panel title": "Tytuł panelu",
+    "Panel title": "Tytu\u0142 panelu",
     "Panel type": "Typ panelu",
     "Pending": "W trakcie",
     "Pick color": "Wybierz kolor",
-    "Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle": "Odtwórz krótki sygnał dźwiękowy, gdy wyświetlacz pomyślnie połączy się z Home Assistant po restarcie",
-    "Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display": "Odtwórz sygnał dźwiękowy po otrzymaniu nowego powiadomienia z Home Assistant",
-    "Please wait while the update is starting": "Poczekaj na rozpoczęcie aktualizacji",
+    "Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle": "Odtw\u00f3rz kr\u00f3tki sygna\u0142 d\u017awi\u0119kowy, gdy wy\u015bwietlacz pomy\u015blnie po\u0142\u0105czy si\u0119 z Home Assistant po restarcie",
+    "Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display": "Odtw\u00f3rz sygna\u0142 d\u017awi\u0119kowy po otrzymaniu nowego powiadomienia z Home Assistant",
+    "Please wait while the update is starting": "Poczekaj na rozpocz\u0119cie aktualizacji",
     "Popup key": "Klucz popup",
-    "Presets": "Ustawienia wstępne",
-    "Press": "Naciśnij",
+    "Presets": "Ustawienia wst\u0119pne",
+    "Press": "Naci\u015bnij",
     "Pressed": "Pressed",
     "Recent": "Ostatnie",
-    "Remove": "Usuń",
-    "Removed \"{name}\"": "\"{name}\" usunięto",
+    "Remove": "Usu\u0144",
+    "Removed \"{name}\"": "\"{name}\" usuni\u0119to",
     "Reset all": "Reset all",
-    "Reset to Default": "Przywróć domyślne",
+    "Reset to Default": "Przywr\u00f3\u0107 domy\u015blne",
     "Reset to default": "Reset to default",
-    "Right Button - Use Relay": "Prawy przycisk - użyj przekaźnika",
+    "Right Button - Use Relay": "Prawy przycisk - u\u017cyj przeka\u017anika",
     "Right Button Entity": "Encja prawego przycisku",
     "Run": "Uruchom",
     "SSID": "SSID",
     "Save": "Zapisz",
     "Save failed": "Zapisywanie nieudane",
     "Saved": "Zapisano",
-    "Saving…": "Zapisywanie…",
-    "Select Fan Speed": "Prędkość wentylatora",
-    "Select a device to edit its panels.": "Wybierz urządzenie, aby edytować jego panele.",
+    "Saving\u2026": "Zapisywanie\u2026",
+    "Select Fan Speed": "Pr\u0119dko\u015b\u0107 wentylatora",
+    "Select a device to edit its panels.": "Wybierz urz\u0105dzenie, aby edytowa\u0107 jego panele.",
     "Select effect": "Wybierz efekt",
     "Select fan mode": "Wybierz tryb wentylatora",
-    "Select group members": "Wybierz członków grupy",
+    "Select group members": "Wybierz cz\u0142onk\u00f3w grupy",
     "Select media": "Wybierz media",
     "Select preset mode": "Wybierz tryb zaprogramowany",
-    "Select source": "Wybierz źródło",
-    "Select swing mode": "Wybierz tryb wahadłowy",
-    "Service": "Usługa",
-    "Service data": "Dane usługi",
+    "Select source": "Wybierz \u017ar\u00f3d\u0142o",
+    "Select swing mode": "Wybierz tryb wahad\u0142owy",
+    "Service": "Us\u0142uga",
+    "Service data": "Dane us\u0142ugi",
     "Set Home": "Ustaw jako domowy",
-    "Set Sleep": "Ustaw uśpienie",
+    "Set Sleep": "Ustaw u\u015bpienie",
     "Set Wakeup": "Ustaw wybudzenie",
-    "Set a PIN code to lock this panel. Users must enter this code before accessing the panel.": "Ustaw kod PIN, aby zablokować ten panel. Użytkownicy muszą wprowadzić ten kod, aby uzyskać dostęp do panelu.",
+    "Set a PIN code to lock this panel. Users must enter this code before accessing the panel.": "Ustaw kod PIN, aby zablokowa\u0107 ten panel. U\u017cytkownicy musz\u0105 wprowadzi\u0107 ten kod, aby uzyska\u0107 dost\u0119p do panelu.",
     "Settings": "Ustawienia",
-    "Show a home navigation button on panels so users can tap to return to the configured home panel from any page": "Pokaż przycisk nawigacji domowej na panelach, aby użytkownicy mogli wrócić do skonfigurowanego panelu domowego z dowolnej strony",
-    "Show a notifications button on supported panels that indicates and provides access to any pending notifications": "Pokaż przycisk powiadomień na obsługiwanych panelach wskazujący oczekujące powiadomienia",
-    "Show a sleep button on the home panel that lets users manually put the display into sleep mode": "Pokaż przycisk uśpienia na panelu domowym, aby użytkownicy mogli ręcznie wprowadzić wyświetlacz w tryb uśpienia",
-    "Show home button": "Pokaż przycisk domowy",
-    "Show in navigation": "Pokaż w nawigacji",
-    "Show notifications button": "Pokaż przycisk powiadomień",
-    "Show sleep button": "Pokaż przycisk uśpienia",
-    "Signal": "Sygnał",
-    "Skip": "Pomiń",
-    "Sleep Panel": "Panel uśpienia",
-    "Sleep and Wakeup": "Uśpienie i wybudzenie",
-    "Sleep panel": "Panel uśpienia",
+    "Show a home navigation button on panels so users can tap to return to the configured home panel from any page": "Poka\u017c przycisk nawigacji domowej na panelach, aby u\u017cytkownicy mogli wr\u00f3ci\u0107 do skonfigurowanego panelu domowego z dowolnej strony",
+    "Show a notifications button on supported panels that indicates and provides access to any pending notifications": "Poka\u017c przycisk powiadomie\u0144 na obs\u0142ugiwanych panelach wskazuj\u0105cy oczekuj\u0105ce powiadomienia",
+    "Show a sleep button on the home panel that lets users manually put the display into sleep mode": "Poka\u017c przycisk u\u015bpienia na panelu domowym, aby u\u017cytkownicy mogli r\u0119cznie wprowadzi\u0107 wy\u015bwietlacz w tryb u\u015bpienia",
+    "Show home button": "Poka\u017c przycisk domowy",
+    "Show in navigation": "Poka\u017c w nawigacji",
+    "Show notifications button": "Poka\u017c przycisk powiadomie\u0144",
+    "Show sleep button": "Poka\u017c przycisk u\u015bpienia",
+    "Signal": "Sygna\u0142",
+    "Skip": "Pomi\u0144",
+    "Sleep Panel": "Panel u\u015bpienia",
+    "Sleep and Wakeup": "U\u015bpienie i wybudzenie",
+    "Sleep panel": "Panel u\u015bpienia",
     "Snapshot max age": "Maksymalny wiek migawki",
-    "Sound on notification": "Dźwięk przy powiadomieniu",
-    "Sound on startup": "Dźwięk przy uruchomieniu",
-    "Source": "Źródło",
-    "Starting Update": "Rozpoczęcie aktualizacji",
+    "Sound on notification": "D\u017awi\u0119k przy powiadomieniu",
+    "Sound on startup": "D\u017awi\u0119k przy uruchomieniu",
+    "Source": "\u0179r\u00f3d\u0142o",
+    "Starting Update": "Rozpocz\u0119cie aktualizacji",
     "State": "Stan",
     "Stop": "Zatrzymaj",
     "System Panels": "Panele systemowe",
     "System panel reset to default": "System panel reset to default",
     "TFT Version": "Wersja TFT",
     "TFT-Version:": "TFT-Version:",
-    "Tap a swatch to change a color — the preview above updates live. Only changed colors are saved.": "Tap a swatch to change a color — the preview above updates live. Only changed colors are saved.",
+    "Tap a swatch to change a color \u2014 the preview above updates live. Only changed colors are saved.": "Tap a swatch to change a color \u2014 the preview above updates live. Only changed colors are saved.",
     "Target Panel": "Panel docelowy",
     "Text": "Tekst",
     "Text (disabled)": "Text (disabled)",
     "Text (inactive)": "Text (inactive)",
-    "The entity {} is currently unavailable.": "Encja {} jest obecnie niedostępna.",
-    "The item {} is currently unavailable.": "Element {} jest obecnie niedostępny.",
-    "The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior.": "Klucz konfiguracji panelu popup otwieranego po dotknięciu tego elementu. Pozostaw puste dla domyślnego zachowania popup.",
-    "The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels": "Ustawienia regionalne określają sposób formatowania dat, czasów i liczb na wyświetlaczu oraz język używanych etykiet",
-    "The panel shown briefly when the display wakes from sleep": "Panel wyświetlany krótko po wybudzeniu wyświetlacza",
-    "The panel shown when the display enters sleep mode": "Panel wyświetlany po przejściu wyświetlacza w tryb uśpienia",
-    "The panel shown when the user navigates home or after dim/sleep returns": "Panel wyświetlany po nawigacji do domu lub po powrocie z przyciemnienia/uśpienia",
-    "This is taking longer than usual,": "To trwa dłużej niż zwykle,",
+    "The entity {} is currently unavailable.": "Encja {} jest obecnie niedost\u0119pna.",
+    "The item {} is currently unavailable.": "Element {} jest obecnie niedost\u0119pny.",
+    "The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior.": "Klucz konfiguracji panelu popup otwieranego po dotkni\u0119ciu tego elementu. Pozostaw puste dla domy\u015blnego zachowania popup.",
+    "The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels": "Ustawienia regionalne okre\u015blaj\u0105 spos\u00f3b formatowania dat, czas\u00f3w i liczb na wy\u015bwietlaczu oraz j\u0119zyk u\u017cywanych etykiet",
+    "The panel shown briefly when the display wakes from sleep": "Panel wy\u015bwietlany kr\u00f3tko po wybudzeniu wy\u015bwietlacza",
+    "The panel shown when the display enters sleep mode": "Panel wy\u015bwietlany po przej\u015bciu wy\u015bwietlacza w tryb u\u015bpienia",
+    "The panel shown when the user navigates home or after dim/sleep returns": "Panel wy\u015bwietlany po nawigacji do domu lub po powrocie z przyciemnienia/u\u015bpienia",
+    "This is taking longer than usual,": "To trwa d\u0142u\u017cej ni\u017c zwykle,",
     "Thu": "Czw",
     "Timer": "Timer",
-    "Timer finished": "Timer zakończył",
-    "Timer has finished.": "Timer zakończył działanie.",
+    "Timer finished": "Timer zako\u0144czy\u0142",
+    "Timer has finished.": "Timer zako\u0144czy\u0142 dzia\u0142anie.",
     "Timers": "Timery",
-    "Title shown on the panel header. Falls back to unnamed if left empty.": "Tytuł wyświetlany w nagłówku panelu. Jeśli puste, wyświetla 'Nienazwany'.",
-    "Toggle sidebar": "Przełącz pasek boczny",
-    "Toggle this Home Assistant entity (light, switch, scene, etc.) when the left hardware button is pressed. Only available when the left relay is disabled.": "Przełącz tę encję Home Assistant po naciśnięciu lewego przycisku sprzętowego. Dostępne tylko gdy lewy przekaźnik jest wyłączony.",
-    "Toggle this Home Assistant entity (light, switch, scene, etc.) when the right hardware button is pressed. Only available when the right relay is disabled.": "Przełącz tę encję Home Assistant po naciśnięciu prawego przycisku sprzętowego. Dostępne tylko gdy prawy przekaźnik jest wyłączony.",
-    "Toggle visibility of on-screen navigation buttons on panels.": "Przełącz widoczność przycisków nawigacyjnych na panelach.",
+    "Title shown on the panel header. Falls back to unnamed if left empty.": "Tytu\u0142 wy\u015bwietlany w nag\u0142\u00f3wku panelu. Je\u015bli puste, wy\u015bwietla 'Nienazwany'.",
+    "Toggle sidebar": "Prze\u0142\u0105cz pasek boczny",
+    "Toggle this Home Assistant entity (light, switch, scene, etc.) when the left hardware button is pressed. Only available when the left relay is disabled.": "Prze\u0142\u0105cz t\u0119 encj\u0119 Home Assistant po naci\u015bni\u0119ciu lewego przycisku sprz\u0119towego. Dost\u0119pne tylko gdy lewy przeka\u017anik jest wy\u0142\u0105czony.",
+    "Toggle this Home Assistant entity (light, switch, scene, etc.) when the right hardware button is pressed. Only available when the right relay is disabled.": "Prze\u0142\u0105cz t\u0119 encj\u0119 Home Assistant po naci\u015bni\u0119ciu prawego przycisku sprz\u0119towego. Dost\u0119pne tylko gdy prawy przeka\u017anik jest wy\u0142\u0105czony.",
+    "Toggle visibility of on-screen navigation buttons on panels.": "Prze\u0142\u0105cz widoczno\u015b\u0107 przycisk\u00f3w nawigacyjnych na panelach.",
     "Transport": "Transport",
     "Triggered": "Wyzwolony",
     "Tue": "Wt",
@@ -688,47 +688,46 @@
     "Unavailable": "Unavailable",
     "Unknown": "Nieznany",
     "Unknown Interpret": "Nieznany interpret",
-    "Unknown Title": "Nieznany tytuł",
+    "Unknown Title": "Nieznany tytu\u0142",
     "Unlock": "Odblokuj",
     "Unlock Panel": "Odblokuj Panel",
     "Unnamed": "Nienazwany",
-    "Unset Home": "Usuń panel domowy",
-    "Unset Sleep": "Usuń panel uśpienia",
-    "Unset Wakeup": "Usuń panel wybudzenia",
+    "Unset Home": "Usu\u0144 panel domowy",
+    "Unset Sleep": "Usu\u0144 panel u\u015bpienia",
+    "Unset Wakeup": "Usu\u0144 panel wybudzenia",
     "Update": "Aktualizuj",
     "Update All": "Aktualizuj wszystko",
-    "Update Display": "Aktualizuj wyświetlacz",
-    "Update available": "Aktualizacja dostępna",
+    "Update available": "Aktualizacja dost\u0119pna",
     "Updated display for {count} device(s)": "Updated display for {count} device(s)",
-    "Used to reference this panel in actions and gestures": "Używany do odwoływania się do tego panelu w akcjach i gestach",
+    "Used to reference this panel in actions and gestures": "U\u017cywany do odwo\u0142ywania si\u0119 do tego panelu w akcjach i gestach",
     "Vacuum": "Odkurzacz",
-    "Value": "Wartość",
-    "Versatile wall panel for HomeAssistant based": "Wszechstronny panel ścienny dla inteligentnych domów",
+    "Value": "Warto\u015b\u0107",
+    "Versatile wall panel for HomeAssistant based": "Wszechstronny panel \u015bcienny dla inteligentnych dom\u00f3w",
     "Version:": "Wersja",
-    "Waiting for Connection": "Czekanie na połączenie",
+    "Waiting for Connection": "Czekanie na po\u0142\u0105czenie",
     "Wakeup Panel": "Panel wybudzenia",
     "Wakeup panel": "Panel wybudzenia",
-    "Wed": "Śr",
-    "When enabled, pressing a hardware button resets the inactivity timer and prevents the display from dimming or sleeping. Disable to allow buttons to work without delaying display sleep.": "Gdy włączone, naciśnięcie przycisku sprzętowego resetuje timer nieaktywności i zapobiega przyciemnianiu lub uśpieniu wyświetlacza.",
-    "When enabled, the left hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead.": "Gdy włączone, lewy przycisk sprzętowy przełącza wbudowany fizyczny przekaźnik. Wyłącz, aby przypisać encję Home Assistant.",
-    "When enabled, the right hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead.": "Gdy włączone, prawy przycisk sprzętowy przełącza wbudowany fizyczny przekaźnik. Wyłącz, aby przypisać encję Home Assistant.",
+    "Wed": "\u015ar",
+    "When enabled, pressing a hardware button resets the inactivity timer and prevents the display from dimming or sleeping. Disable to allow buttons to work without delaying display sleep.": "Gdy w\u0142\u0105czone, naci\u015bni\u0119cie przycisku sprz\u0119towego resetuje timer nieaktywno\u015bci i zapobiega przyciemnianiu lub u\u015bpieniu wy\u015bwietlacza.",
+    "When enabled, the left hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead.": "Gdy w\u0142\u0105czone, lewy przycisk sprz\u0119towy prze\u0142\u0105cza wbudowany fizyczny przeka\u017anik. Wy\u0142\u0105cz, aby przypisa\u0107 encj\u0119 Home Assistant.",
+    "When enabled, the right hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead.": "Gdy w\u0142\u0105czone, prawy przycisk sprz\u0119towy prze\u0142\u0105cza wbudowany fizyczny przeka\u017anik. Wy\u0142\u0105cz, aby przypisa\u0107 encj\u0119 Home Assistant.",
     "When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)": "When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)",
     "WiFi": "WiFi",
     "YAML Version": "Wersja YAML",
     "YAML-Version:": "YAML-Version:",
     "Your TFT-version is outdated.": "Twoja wersja TFT jest nieaktualna.",
-    "already exists": "już istnieje",
-    "below": "poniżej",
+    "already exists": "ju\u017c istnieje",
+    "below": "poni\u017cej",
     "changed": "changed",
-    "day(s) ago": "dzień/dni temu",
-    "disabled": "wyłączony",
-    "enabled": "włączono",
-    "enter an entity ID, panel key, service name, or custom text": "wprowadź ID encji, klucz panelu, nazwę usługi lub własny tekst",
+    "day(s) ago": "dzie\u0144/dni temu",
+    "disabled": "wy\u0142\u0105czony",
+    "enabled": "w\u0142\u0105czono",
+    "enter an entity ID, panel key, service name, or custom text": "wprowad\u017a ID encji, klucz panelu, nazw\u0119 us\u0142ugi lub w\u0142asny tekst",
     "grid_0": "grid_0",
     "hidden": "ukryty",
     "hour(s) ago": "godzina/godzin temu",
     "in navigation": "w nawigacji",
-    "is already used by another panel": "jest już używany przez inny panel",
+    "is already used by another panel": "jest ju\u017c u\u017cywany przez inny panel",
     "items": "elementy",
     "light.bedroom": "light.bedroom",
     "light/turn_on": "light/turn_on",
@@ -739,9 +738,14 @@
     "no icon selected": "brak wybranej ikony",
     "panel": "panel",
     "panels": "panele",
-    "please check your configuration": "sprawdź swoją konfigurację",
-    "shown": "wyświetlany",
-    "smart homes with a custom UI Design.": "opartych na HomeAssistant z indywidualnym wyglądem.",
-    "unknown": "nieznany"
+    "please check your configuration": "sprawd\u017a swoj\u0105 konfiguracj\u0119",
+    "shown": "wy\u015bwietlany",
+    "smart homes with a custom UI Design.": "opartych na HomeAssistant z indywidualnym wygl\u0105dem.",
+    "unknown": "nieznany",
+    "Device \"{name}\" moved {direction}": "",
+    "Fetch failed": "",
+    "Imported YAML for \"{name}\"": "",
+    "No config entry selected": "",
+    "No device selected": ""
   }
 }

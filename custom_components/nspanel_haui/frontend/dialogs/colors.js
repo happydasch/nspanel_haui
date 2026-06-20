@@ -30,48 +30,50 @@ async function ensureColorDefaults(hass) {
 }
 
 /* Groups: [key, friendly label]. All swatches use the same rounded-rectangle shape. */
-const COLOR_GROUPS = [
-  {
-    name: "Header",
-    description: "Colors for the top bar: background, title text, and accent icons.",
-    keys: [
-      ["header_background", "Background"],
-      ["header_text", "Text"],
-      ["header_accent", "Accent"],
-    ],
-  },
-  {
-    name: "Content",
-    description: "Colors for the main page area: background and text at various states.",
-    keys: [
-      ["background", "Background"],
-      ["text", "Text"],
-      ["text_inactive", "Text (inactive)"],
-      ["text_disabled", "Text (disabled)"],
-    ],
-  },
-  {
-    name: "Component",
-    description: "Colors for interactive buttons and controls.",
-    keys: [
-      ["component_background", "Background"],
-      ["component_text", "Text"],
-      ["component_active", "Active"],
-      ["component_active_dark", "Active (dark)"],
-      ["component_accent", "Accent"],
-      ["component_pressed", "Pressed"],
-    ],
-  },
-  {
-    name: "Entity",
-    description: "Colors for entity state indicators (on, off, unavailable).",
-    keys: [
-      ["entity_on", "On"],
-      ["entity_off", "Off"],
-      ["entity_unavailable", "Unavailable"],
-    ],
-  },
-];
+function getColorGroups() {
+  return [
+    {
+      name: t("Header"),
+      description: t("Colors for the top bar: background, title text, and accent icons."),
+      keys: [
+        ["header_background", t("Background")],
+        ["header_text", t("Text")],
+        ["header_accent", t("Accent")],
+      ],
+    },
+    {
+      name: t("Content"),
+      description: t("Colors for the main page area: background and text at various states."),
+      keys: [
+        ["background", t("Background")],
+        ["text", t("Text")],
+        ["text_inactive", t("Text (inactive)")],
+        ["text_disabled", t("Text (disabled)")],
+      ],
+    },
+    {
+      name: t("Component"),
+      description: t("Colors for interactive buttons and controls."),
+      keys: [
+        ["component_background", t("Background")],
+        ["component_text", t("Text")],
+        ["component_active", t("Active")],
+        ["component_active_dark", t("Active (dark)")],
+        ["component_accent", t("Accent")],
+        ["component_pressed", t("Pressed")],
+      ],
+    },
+    {
+      name: t("Entity"),
+      description: t("Colors for entity state indicators (on, off, unavailable)."),
+      keys: [
+        ["entity_on", t("On")],
+        ["entity_off", t("Off")],
+        ["entity_unavailable", t("Unavailable")],
+      ],
+    },
+  ];
+}
 
 /* ── dialog component ────────────────────────────────────────────────── */
 
@@ -250,10 +252,10 @@ class ColorsDialog extends LitElement {
   _renderGroup(group, idx) {
     return html`
       <details class="config-section">
-        <summary>${t(group.name)}</summary>
+        <summary>${group.name}</summary>
         <div class="config-section-body">
           ${group.description
-            ? html`<p class="config-section-intro">${t(group.description)}</p>`
+            ? html`<p class="config-section-intro">${group.description}</p>`
             : ""}
           <div class="cp-items">
             ${group.keys.map(([key, label]) => {
@@ -263,7 +265,7 @@ class ColorsDialog extends LitElement {
                   <label
                     class="cp-sw"
                     style="background:${this._getHex(key)}"
-                    title="${t(label)} — ${this._getHex(key)}"
+                    title="${label} — ${this._getHex(key)}"
                   >
                     <input
                       type="color"
@@ -271,7 +273,7 @@ class ColorsDialog extends LitElement {
                       @input=${(e) => this._onColorChange(key, e)}
                     />
                   </label>
-                  <span class="cp-name">${t(label)}</span>
+                  <span class="cp-name">${label}</span>
                   ${mod
                     ? html`
                         <ha-icon-button
@@ -320,7 +322,7 @@ class ColorsDialog extends LitElement {
           <p class="config-section-intro" style="margin: 0 0 4px;">
             ${t("Tap a swatch to change a color — the preview above updates live. Only changed colors are saved.")}
           </p>
-          ${COLOR_GROUPS.map((group, idx) => this._renderGroup(group, idx))}
+          ${getColorGroups().map((group, idx) => this._renderGroup(group, idx))}
         </div>
 
         <div slot="footer" class="footer-wrapper">

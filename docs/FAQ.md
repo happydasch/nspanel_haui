@@ -8,6 +8,7 @@
   - [Update is not possible](#update-is-not-possible)
   - [Error on sleep](#error-on-sleep)
   - [The display should change its brightness and sleep state over the day](#the-display-should-change-its-brightness-and-sleep-state-over-the-day)
+  - [My NSPanel devices are not discovered](#my-nspanel-devices-are-not-discovered)
 
 ## I don't know how to start
 

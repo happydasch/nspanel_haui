@@ -66,7 +66,7 @@ export function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
   if (isSysOverride) {
     items.push({
       icon: 'mdi:restore',
-      label: host._t('Reset to Default'),
+      label: host._t('Reset to default'),
       action: () => host._resetSysPanelOverride(p.key),
     });
   } else {
@@ -169,7 +169,7 @@ function renderSystemPanelRow(host, sp) {
       <span class="pl-actions">
         ${editable ? html`
           ${hasOverride ? html`
-            <ha-icon-button title=${host._t('Reset to Default')} @click=${() => host._resetSysPanelOverride(sp.key)}>
+            <ha-icon-button title=${host._t('Reset to default')} @click=${() => host._resetSysPanelOverride(sp.key)}>
               <ha-icon icon="mdi:restore"></ha-icon>
             </ha-icon-button>
           ` : ''}

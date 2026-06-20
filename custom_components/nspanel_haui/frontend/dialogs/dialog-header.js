@@ -11,6 +11,8 @@
  * every dialog already imports.
  */
 import { html, nothing } from '../lit-import.js';
+import { t } from '../localize.js';
+
 
 export function dialogHeader(title, onClose, extra) {
   const cls = extra
@@ -22,7 +24,7 @@ export function dialogHeader(title, onClose, extra) {
         <span class="dialog-header-title">${title}</span>
         <ha-icon-button
           class="dialog-header-close"
-          title="Close"
+          title=${t('Close')}
           @click=${onClose}
         >
           <ha-icon icon="mdi:close"></ha-icon>

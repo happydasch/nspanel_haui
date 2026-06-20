@@ -286,6 +286,8 @@ The project uses hardcoded CLDR locale data (see `haui/utils/locale_data.py`) in
 - **Don't commit to `ref_src/`** - `ref_src/home-assistant/core/`, `ref_src/home-assistant/frontend/`, `ref_src/esphome/esphome/`, and `ref_src/custom_components/` are read-only reference checkouts. Use them only for discovering HA / ESPHome API signatures and studying integration patterns.
 - **Don't add comments that restate the code** - comments should explain _why_, not _what_. See the core AGENTS.md guideline.
 - **Don't use silent fallbacks or defaults** - prefer failing loudly over swallowing errors or guessing a fallback value. A crash or exception is easier to debug than a silently wrong behavior caused by a default. Only use fallbacks when the call site explicitly chooses to handle the failure gracefully, and even then, log at warning level.
+- **Don't pass non-literal expressions to `t()` or `host._t()`** - translation extraction tools parse source code for `t('literal string')`. If `t()` receives a variable, template literal, or conditional expression instead of a string literal, the string will never be found by extraction and won't be translated. For dynamic values, use the `.replace('{placeholder}', value)` pattern: `t('Hello {name}').replace('{name}', userName)`.
+- **Don't hardcode user-facing strings** - any string visible in the UI must go through `t()` (from `localize.js`) or `host._t()`. This includes `title` attributes on buttons, toast messages, status messages, and Error fallback strings.
 
 ## Commit and Pull Request Guidelines
 

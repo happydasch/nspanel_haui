@@ -22,7 +22,7 @@ function buildSysPanelDropdownItems(host, sp, hasOverride) {
   if (hasOverride) {
     items.push({
       icon: 'mdi:restore',
-      label: host._t('Reset to Default'),
+      label: host._t('Reset to default'),
       action: () => host._resetSysPanelOverride(sp.key),
     });
     items.push('divider');

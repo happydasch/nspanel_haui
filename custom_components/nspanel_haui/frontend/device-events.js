@@ -26,7 +26,7 @@ export async function onDeviceManagerMoveDevice(host, e) {
   }
   host._panels = { ...host._panels, devices: newDevices };
   const label = direction < 0 ? "up" : "down";
-  await host._savePanels(host._devicePanels(), `Device "${name}" moved ${label}`);
+  await host._savePanels(host._devicePanels(), host._t('Device "{name}" moved {direction}').replace('{name}', name).replace('{direction}', label));
 }
 
 export async function onDeviceManagerToggleDevice(host, e) {

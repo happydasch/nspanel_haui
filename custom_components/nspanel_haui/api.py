@@ -149,7 +149,7 @@ class DeviceStatusView(HomeAssistantView):
         # Enabled devices use their NSPanelHAUI instance.
         # Disabled devices get a minimal status from HA entities.
         entry = hass.config_entries.async_get_entry(entry_id)
-        all_devices = (entry.data.get("devices", []) if entry else [])
+        all_devices = entry.data.get("devices", []) if entry else []
         result: dict[str, dict] = {}
 
         for dev in all_devices:
@@ -167,9 +167,7 @@ class DeviceStatusView(HomeAssistantView):
         return self.json({"devices": result})
 
     @staticmethod
-    def _build_minimal_device_info(
-        hass: Any, dev_name: str
-    ) -> dict | None:
+    def _build_minimal_device_info(hass: Any, dev_name: str) -> dict | None:
         """Build minimal status from HA entities for a device without a running app."""
         nw = _read_network_entities(hass, dev_name)
 
@@ -194,9 +192,7 @@ class DeviceStatusView(HomeAssistantView):
         }
 
     @staticmethod
-    async def _build_entity_status(
-        hass: Any, entry_id: str, dev_name: str
-    ) -> dict | None:
+    async def _build_entity_status(hass: Any, entry_id: str, dev_name: str) -> dict | None:
         """Build status for a device from HA entities, running in executor if needed."""
         return await hass.async_add_executor_job(
             DeviceStatusView._build_minimal_device_info, hass, dev_name
@@ -676,8 +672,6 @@ class DeviceUpdateDisplayView(HomeAssistantView):
                 await hass.async_add_executor_job(dapp.update_display)
                 updated.append(dname)
             except Exception:
-                _LOGGER.exception(
-                    "Failed to update display for device '%s'", dname
-                )
+                _LOGGER.exception("Failed to update display for device '%s'", dname)
 
         return self.json({"status": "ok", "devices_updated": updated})

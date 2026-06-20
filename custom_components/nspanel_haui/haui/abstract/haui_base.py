@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import threading
 import uuid
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
@@ -58,7 +59,9 @@ class HAUIBase:
         self.state: dict[str, Any] = {}
         self.started: bool = False
         self._recording: bool = False
+        self._rec_cmd_depth: int = 0
         self._rec_cmd: list[str] = []
+        self._rec_cmd_lock = threading.RLock()
 
     def get_id(self) -> uuid.UUID:
         """Returns the id of the config.
@@ -354,40 +357,79 @@ class HAUIBase:
     @contextmanager
     def _rec_cmd_cm(self) -> Generator[None, None, None]:
         self.start_rec_cmd()
+        exc_occurred = False
         try:
             yield
+        except Exception:
+            exc_occurred = True
+            raise
         finally:
-            self.stop_rec_cmd()
+            if exc_occurred:
+                if self._rec_cmd_depth <= 1:
+                    self.log(
+                        f"Render aborted with exception; discarding "
+                        f"{len(self._rec_cmd)} partial commands",
+                        level="ERROR",
+                    )
+                self.stop_rec_cmd(send_commands=False)
+            else:
+                self.stop_rec_cmd(send_commands=True)
 
     def start_rec_cmd(self) -> None:
-        """Starts recording commands."""
+        """Starts recording commands.
 
-        self._recording = True
+        Re-entrant: nested calls increment a depth counter without resetting
+        the buffer.  Only the outermost ``stop_rec_cmd`` sends the batch.
+        """
+        with self._rec_cmd_lock:
+            self._rec_cmd_depth += 1
+            self._recording = True
 
     def stop_rec_cmd(self, send_commands: bool = True) -> list[str]:
         """Stops the recording of commands.
+
+        Re-entrant: decrements the depth counter.  Only when the outermost
+        context exits (depth reaches 0) are the recorded commands deduplicated
+        and sent.  Inner exits are no-ops.
+
+        The lock is held for the entire method including ``send_cmds`` so that
+        a concurrent caller on another executor thread cannot interleave its
+        commands between chunks of this batch or corrupt the buffer while it
+        is being drained.
 
         Args:
             send_commands (bool, optional): Should commands be sent after
                 stopping recording. Defaults to True.
 
         Returns:
-            list: Recorded commands (after per-batch dedup)
+            list: Recorded commands (after per-batch dedup), empty for inner exits.
         """
-        self._recording = False
-        commands = self._dedup_commands(self._rec_cmd)
-        self._rec_cmd = []
-        if send_commands and len(commands) > 0:
-            if self.app.device.get("debug_level") >= 2:
+        with self._rec_cmd_lock:
+            if self._rec_cmd_depth > 0:
+                self._rec_cmd_depth -= 1
+            if self._rec_cmd_depth > 0:
+                return []
+            self._recording = False
+            commands = self._dedup_commands(self._rec_cmd)
+            self._rec_cmd = []
+            if send_commands and len(commands) > 0:
                 ctx = self._cmd_context()
                 prefix = f"[{ctx}] " if ctx else ""
-                commands_str = "\n".join(commands)
-                self.log(
-                    f"{prefix}Commands ({len(commands)}):\n{commands_str}",
-                    level="DEBUG",
-                )
-            self.send_cmds(commands)
-        return commands
+                # Level 1: one-line summary for diagnosing partial updates
+                if self.app.device.get("debug_level") >= 1:
+                    self.log(
+                        f"{prefix}Sending {len(commands)} command(s)",
+                        level="DEBUG",
+                    )
+                # Level 2: full command dump
+                if self.app.device.get("debug_level") >= 2:
+                    commands_str = "\n".join(commands)
+                    self.log(
+                        f"{prefix}Commands ({len(commands)}):\n{commands_str}",
+                        level="DEBUG",
+                    )
+                self.send_cmds(commands)
+            return commands
 
     @staticmethod
     def _dedup_commands(commands: list[str]) -> list[str]:
@@ -487,15 +529,16 @@ class HAUIBase:
         if not isinstance(cmd, str):
             self.log(f"send_cmd: expected str, got {type(cmd).__name__}", level="ERROR")
             return
-        if self._recording:
-            self._rec_cmd.append(cmd)
-            return
-        if self.app.device.get("debug_level") >= 2:
-            ctx = self._cmd_context()
-            prefix = f"[{ctx}] " if ctx else ""
-            self.log(f"{prefix}Command: {cmd}", level="DEBUG")
-        self.app._last_panel_update = datetime.now(UTC).isoformat()
-        self.display.send_cmd(cmd)
+        with self._rec_cmd_lock:
+            if self._recording:
+                self._rec_cmd.append(cmd)
+                return
+            if self.app.device.get("debug_level") >= 2:
+                ctx = self._cmd_context()
+                prefix = f"[{ctx}] " if ctx else ""
+                self.log(f"{prefix}Command: {cmd}", level="DEBUG")
+            self.app._last_panel_update = datetime.now(UTC).isoformat()
+            self.display.send_cmd(cmd)
 
     def send_cmds(self, cmds: list[str]) -> None:
         """Sends a list of commands to the display via the ESPHome transport.
@@ -505,6 +548,8 @@ class HAUIBase:
         Args:
             cmds: The commands to send.
         """
+        if self.app.device.get("debug_level") >= 1:
+            self.log(f"send_cmds: {len(cmds)} command(s)", level="DEBUG")
         self.app._last_panel_update = datetime.now(UTC).isoformat()
         self.display.send_cmds(cmds)
 

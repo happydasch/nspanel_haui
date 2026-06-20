@@ -181,16 +181,14 @@ class WeatherPage(HAUIPage):
         self._temp_unit = "°C"
         self._temp_precision = 1
         self._forecast_precision = 0
+        self._background = "default"
         self._weather_item: HAUIItem | None = None
         self._info_items: list[HAUIItem] = []
         self._entity_button_items: list[HAUIItem] = []
 
     def create_panel(self, panel: HAUIPanel) -> None:
-        # setting: background
-        background = panel.get("background", "default")
-        background = self.render_template(background, False)
-        if background in BACKGROUNDS:
-            self.send_cmd(f"weather.background.val={BACKGROUNDS[background]}")
+        # setting: background (rendered in start_panel after page is confirmed)
+        self._background = self.render_template(panel.get("background", "default"), False)
 
     @staticmethod
     def _extract_entity_id(value: Any) -> str | None:
@@ -204,6 +202,9 @@ class WeatherPage(HAUIPage):
         return value
 
     def start_panel(self, panel: HAUIPanel) -> None:
+        # setting: background — set before rendering content
+        if self._background in BACKGROUNDS:
+            self.send_cmd(f"weather.background.val={BACKGROUNDS[self._background]}")
         # time update callback (shared device-wide tick)
         self.app.subscribe_tick("minute", self.callback_update_time)
         # setup date callback (shared device-wide tick)

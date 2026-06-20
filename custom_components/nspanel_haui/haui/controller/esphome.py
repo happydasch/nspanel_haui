@@ -91,19 +91,29 @@ class HAUIESPHomeController(HAUIBase):
         bare_cmd = cmd.removeprefix("esphome.")
 
         if f"esphome.{bare_cmd}" not in ALL_CMD:
-            self.log(f"Unknown command {cmd} received. content: {value}")
+            self.log(f"Unknown command {cmd} received. content: {value}", level="WARNING")
 
         if value is None:
             value = ""
         elif not isinstance(value, (dict, list)):
             value = str(value)
         cmd_json = json.dumps({"name": bare_cmd, "value": value})
-        if not force and self.prev_cmd == cmd_json:
-            self.log(f"Dropping identical consecutive message: {cmd_json}")
+
+        # Dedup only applies to single-command sends. Batch sends
+        # (send_commands) are already deduplicated at the _dedup_commands
+        # level in haui_base.py; transport-level dedup of batches can drop
+        # an entire chunk of a multi-chunk send, causing partial updates.
+        if bare_cmd != "send_commands" and not force and self.prev_cmd == cmd_json:
+            self.log(
+                f"Dropping identical consecutive message: {cmd_json}",
+                level="WARNING",
+            )
             return
 
+        self.debug_log(f"Publishing command: {bare_cmd}")
         self.esphome.publish(bare_cmd, cmd_json)
         self.prev_cmd = cmd_json
+
     def reset_prev_cmd(self) -> None:
         """Clear the previous-command cache so the next render is never suppressed.
 
@@ -112,7 +122,6 @@ class HAUIESPHomeController(HAUIBase):
         identical to the last batch sent from the previous page.
         """
         self.prev_cmd = None
-
 
     def callback_event(self, event_name: str, data: dict[str, Any], kwargs: dict[str, Any]) -> None:
         """Callback for ESPHome events.

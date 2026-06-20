@@ -5,6 +5,7 @@
  * instead of relying on JSON payload from the backend status endpoint.
  * This data persists in HA state even after brief disconnections.
  */
+import { t } from './localize.js';
 
 /**
  * Simple slugify matching Python's homeassistant.util.slugify.
@@ -89,6 +90,6 @@ export function rssiBarCount(rssi) {
  * Format RSSI value for display (e.g. "-65 dBm").
  */
 export function fmtRssi(rssi) {
-  if (rssi == null || rssi === "") return "No signal";
+  if (rssi == null || rssi === "") return t("No signal");
   return `${rssi} dBm`;
 }

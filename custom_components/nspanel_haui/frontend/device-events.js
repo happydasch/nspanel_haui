@@ -62,7 +62,7 @@ export async function onDeviceManagerToggleDevice(host, e) {
 
     if (resp.ok) {
       host._panels = payload;
-      host._showToast(`"${name}" ${newEnabled ? "enabled" : "disabled"}`, "success");
+      host._showToast(`"${name}" ${host._t(newEnabled ? "enabled" : "disabled")}`, "success");
     } else {
       const err = await resp.json().catch(() => ({}));
       host._panels = {
@@ -72,7 +72,7 @@ export async function onDeviceManagerToggleDevice(host, e) {
           [name]: dev,
         },
       };
-      host._showToast(err.message || "Save failed", "error");
+      host._showToast(err.message || host._t("Save failed"), "error");
     }
   } catch (e) {
     host._panels = {
@@ -82,7 +82,7 @@ export async function onDeviceManagerToggleDevice(host, e) {
         [name]: dev,
       },
     };
-    host._showToast(e.message || "Network error", "error");
+    host._showToast(e.message || host._t("Network error"), "error");
   }
   host.requestUpdate();
 }
@@ -109,9 +109,9 @@ export async function onDeviceManagerRemove(host, e) {
   try {
     await Api.removeDevice(host, name);
     await Api.loadPanels(host);
-    host._showToast(`Removed "${name}"`, "success");
+    host._showToast(host._t('Removed "{name}"').replace('{name}', name), "success");
   } catch (err) {
-    host._showToast(err.message || "Failed to remove device", "error");
+    host._showToast(err.message || host._t("Failed to remove device"), "error");
   }
   host.requestUpdate();
 }
@@ -122,9 +122,9 @@ export async function onDeviceManagerAdd(host, e) {
   try {
     await Api.addDevice(host, device);
     await Api.loadPanels(host);
-    host._showToast(`Added "${device.name}"`, "success");
+    host._showToast(host._t('Added "{name}"').replace('{name}', device.name), "success");
   } catch (err) {
-    host._showToast(err.message || "Failed to add device", "error");
+    host._showToast(err.message || host._t("Failed to add device"), "error");
   }
   host.requestUpdate();
 }
@@ -150,11 +150,11 @@ export async function onDeviceManagerUpdateDisplay(host, e) {
     const result = await Api.updateDeviceDisplay(host, name);
     const count = result.devices_updated?.length || 0;
     if (name === "*") {
-      host._showToast(`Updated display for ${count} device${count !== 1 ? 's' : ''}`, "success");
+      host._showToast(host._t('Updated display for {count} device(s)').replace('{count}', count), "success");
     } else {
-      host._showToast(`Display updated for "${name}"`, "success");
+      host._showToast(host._t('Display updated for "{name}"').replace('{name}', name), "success");
     }
   } catch (err) {
-    host._showToast(err.message || "Failed to update display", "error");
+    host._showToast(err.message || host._t("Failed to update display"), "error");
   }
 }

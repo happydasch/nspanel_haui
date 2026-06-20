@@ -126,18 +126,18 @@ class ClockPage(HAUIPage):
         self._show_home_temp = False
         self._temp_unit = "°C"
         self._temp_precision = 1
+        self._background = "default"
         self._weather_item: HAUIItem | None = None
         self._items: list[HAUIItem] = []
 
     def create_panel(self, panel: HAUIPanel) -> None:
-        # setting: background
-        # set before showing panel
-        background = panel.get("background", "default")
-        background = self.render_template(background, False)
-        if background in BACKGROUNDS:
-            self.send_cmd(f"clock.background.val={BACKGROUNDS[background]}")
+        # setting: background (rendered in start_panel after page is confirmed)
+        self._background = self.render_template(panel.get("background", "default"), False)
 
     def start_panel(self, panel: HAUIPanel) -> None:
+        # setting: background — set before rendering content
+        if self._background in BACKGROUNDS:
+            self.send_cmd(f"clock.background.val={BACKGROUNDS[self._background]}")
         # time update callback (shared device-wide tick)
         self.app.subscribe_tick("minute", self.callback_update_time)
         # date update callback (shared device-wide tick)
@@ -180,9 +180,7 @@ class ClockPage(HAUIPage):
         # correct visible/icon/color state once entity data is available.
         for i in range(self.NUM_ENTITIES):
             component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
-            self.set_function_component(
-                component, component.name, "item", visible=False
-            )
+            self.set_function_component(component, component.name, "item", visible=False)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # time display
@@ -313,12 +311,15 @@ class ClockPage(HAUIPage):
         else:
             color = self.get_color("component_text")
             visible = notification.has_notifications()
-        self.update_function_component(
-            self.COMPONENTS.t_notif[1],
-            icon=ICO_MESSAGE,
-            visible=visible,
-            color=color,
-        )
+        # Batch the single notification-icon update so it doesn't interleave
+        # with a panel render in progress.
+        with self.rec_cmd:
+            self.update_function_component(
+                self.COMPONENTS.t_notif[1],
+                icon=ICO_MESSAGE,
+                visible=visible,
+                color=color,
+            )
 
     # event
 
@@ -330,19 +331,24 @@ class ClockPage(HAUIPage):
     def callback_update_time(self, cb_args: dict[str, Any]) -> None:
         if self.app.device.device_info.get("display_state") == "off":
             return
-        self.update_time()
+        # Batch time update commands so they don't interleave with a panel
+        # render in progress on another executor thread.
+        with self.rec_cmd:
+            self.update_time()
 
     def callback_update_date(self, cb_args: dict[str, Any]) -> None:
         if self.app.device.device_info.get("display_state") == "off":
             return
-        self.update_date()
+        with self.rec_cmd:
+            self.update_date()
 
     def callback_weather(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
     ) -> None:
         if self.app.device.device_info.get("display_state") == "off":
             return
-        self.update_main_weather()
+        with self.rec_cmd:
+            self.update_main_weather()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_id == self.COMPONENTS.t_notif[1]:

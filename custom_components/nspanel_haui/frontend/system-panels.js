@@ -40,5 +40,5 @@ export function openSysPanelEdit(host, sysPanel) {
 export async function resetSysPanelOverride(host, key) {
   const panels = host._devicePanels();
   const newPanels = panels.filter(p => p.key !== key);
-  await host._savePanels(newPanels, 'Reset system panel "' + key + '" to defaults');
+  await host._savePanels(newPanels, host._t('System panel reset to default'));
 }

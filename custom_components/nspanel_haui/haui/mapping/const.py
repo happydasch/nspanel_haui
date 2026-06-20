@@ -29,6 +29,7 @@ class ESPEvent(StrEnum):
     RELAY_RIGHT = "esphome.relay_right"
     TIMEOUT = "esphome.timeout"
     DISPLAY_STATE = "esphome.display_state"
+    BUFFER_OVERFLOW = "esphome.buffer_overflow"
 
 
 class ESPAction(StrEnum):

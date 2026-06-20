@@ -6,6 +6,7 @@
 import { LitElement, html } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
 import { dialogHeader } from './dialog-header.js';
+import { t } from '../localize.js';
 
 class LogsDialog extends LitElement {
   static get properties() {
@@ -31,20 +32,20 @@ class LogsDialog extends LitElement {
         @closed=${this._dispatchClose}
         .preventScrimClose=${true}
       >
-        ${dialogHeader("Device Logs", this._dispatchClose)}
+        ${dialogHeader(t("Device Logs"), this._dispatchClose)}
 
         <div class="dialog-body">
           ${this.logs.length ? html`
             <pre class="logs-content">${this.logs.join("\n")}</pre>
           ` : html`
-            <p class="text-secondary">No log entries yet.</p>
+            <p class="text-secondary">${t("No log entries yet.")}</p>
           `}
         </div>
 
         <div slot="footer" class="footer-wrapper">
           <ha-dialog-footer>
             <ha-button slot="primaryAction" @click=${this._dispatchClose}>
-              Close
+              ${t("Close")}
             </ha-button>
           </ha-dialog-footer>
         </div>

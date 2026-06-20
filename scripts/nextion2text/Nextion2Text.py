@@ -6,14 +6,13 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
-from string import whitespace
-import sys
-from pathlib import Path
-import struct
-from typing import List
 import argparse
 import copy
 import json
+import struct
+import sys
+from pathlib import Path
+from string import whitespace
 
 
 class IndentList(list):
@@ -54,13 +53,14 @@ class Component:
                 mapping: optional: replace the values by a string
             12: Optional interpretation if attribute is part of a component of type 12
     """
+
     codeEvents = {
-        "codesload":    "Preinitialize Event",
+        "codesload": "Preinitialize Event",
         "codesloadend": "Postinitialize Event",
-        "codesdown":    "Touch Press Event",
-        "codesup":      "Touch Release Event",
-        "codesunload":  "Page Exit Event",
-        "codestimer":   "Timer Event",
+        "codesdown": "Touch Press Event",
+        "codesup": "Touch Release Event",
+        "codesunload": "Page Exit Event",
+        "codestimer": "Timer Event",
         "codesplayend": "Play Complete Event",
     }
     attributes = {
@@ -68,38 +68,39 @@ class Component:
             "name": "Type",
             "struct": "i",
             "mapping": {
-                #Needs to contain all types, even if some get overridden afterwards. Order here is used for sorting later
+                # Needs to contain all types, even if some get overridden afterwards.
+                # Order here is used for sorting later.
                 121: "Page",
-                52:  "Variable",
-                54:  "Number",
-                59:  "XFloat",
+                52: "Variable",
+                54: "Number",
+                59: "XFloat",
                 116: "Text",
-                55:  "Scrolling Text",
+                55: "Scrolling Text",
                 112: "Picture",
                 113: "Crop Picture",
-                58:  "QR Code",
+                58: "QR Code",
                 106: "Progress Bar",
                 122: "Gauge",
-                0:   "Waveform",
-                1:   "Slider",
-                98:  "Button",
-                53:  "Dual-state Button",
-                56:  "Checkbox",
-                57:  "Radio",
-                67:  "Switch",
-                61:  "Combo Box",
-                68:  "Text Select",
-                62:  "SLText",
-                4:   "Audio",
-                60:  "External Picture",
-                2:   "Gmov",
-                3:   "Video",
-                66:  "Data Record",
-                63:  "File Stream",
-                65:  "File Browser",
+                0: "Waveform",
+                1: "Slider",
+                98: "Button",
+                53: "Dual-state Button",
+                56: "Checkbox",
+                57: "Radio",
+                67: "Switch",
+                61: "Combo Box",
+                68: "Text Select",
+                62: "SLText",
+                4: "Audio",
+                60: "External Picture",
+                2: "Gmov",
+                3: "Video",
+                66: "Data Record",
+                63: "File Stream",
+                65: "File Browser",
                 109: "Hotspot",
-                51:  "Timer",
-		5:   "TouchCap",
+                51: "Timer",
+                5: "TouchCap",
                 -1: "Unknown",
             },
             "type": {
@@ -118,7 +119,6 @@ class Component:
                     },
                 },
             },
-
         },
         "id": {
             "name": "ID",
@@ -146,7 +146,7 @@ class Component:
                 2: "image",
             },
             "type": {
-                52: {#Variable
+                52: {  # Variable
                     "vis": False,
                     "ignore": True,
                     "mapping": {
@@ -154,21 +154,21 @@ class Component:
                         1: "string",
                     },
                 },
-                58: {#QR Code
+                58: {  # QR Code
                     "name": "Logo overlay",
                     "mapping": {
                         0: "no",
                         1: "yes",
                     },
                 },
-                121: {#Page
+                121: {  # Page
                     "mapping": {
                         0: "no background (white)",
                         1: "solid color",
                         2: "picture",
                     },
                 },
-                106: {#Progress Bar
+                106: {  # Progress Bar
                     "mapping": {
                         0: "solid color",
                         1: "image",
@@ -184,7 +184,7 @@ class Component:
                         3: "transparent",
                     },
                     "type": {
-                        121: {# Page
+                        121: {  # Page
                             "mapping": {
                                 0: "no background (transparent)",
                                 1: "solid color",
@@ -230,8 +230,8 @@ class Component:
                 },
                 1: {
                     "ignore": False,
-                }
-            }
+                },
+            },
         },
         "key": {
             "struct": "i",
@@ -263,7 +263,7 @@ class Component:
                 },
                 52: {
                     "sta": {
-                        1 : {
+                        1: {
                             "ignore": True,
                         },
                     },
@@ -286,7 +286,7 @@ class Component:
                 57: 56,
                 122: {
                     "name": "Angle (deg)",
-                }
+                },
             },
         },
         "txt": {
@@ -295,20 +295,20 @@ class Component:
             "type": {
                 52: {
                     "sta": {
-                        0 : {
+                        0: {
                             "ignore": True,
                         },
                     },
                 },
             },
         },
-        "txt_maxl":{
+        "txt_maxl": {
             "name": "Max. Text Size",
             "struct": "i",
             "type": {
                 52: {
                     "sta": {
-                        0 : {
+                        0: {
                             "ignore": True,
                         },
                     },
@@ -329,17 +329,15 @@ class Component:
             "name": "Significant digits left",
             "vis": True,
             "type": {
-                55: {# Scrolling Text
+                55: {  # Scrolling Text
                     "ignore": True,
                 },
-                122: {# Gauge
+                122: {  # Gauge
                     "model": {
                         -1: {
                             "ignore": True,
                         },
-                        "P": {
-                            "name": "Head width"
-                        },
+                        "P": {"name": "Head width"},
                     },
                 },
             },
@@ -349,7 +347,7 @@ class Component:
             "name": "Significant digits right",
             "vis": True,
             "type": {
-                55: {# Scrolling Text
+                55: {  # Scrolling Text
                     "ignore": True,
                 },
                 122: {  # Gauge
@@ -357,9 +355,7 @@ class Component:
                         -1: {
                             "ignore": True,
                         },
-                        "P": {
-                            "name": "Center width"
-                        },
+                        "P": {"name": "Center width"},
                     },
                 },
             },
@@ -368,7 +364,7 @@ class Component:
             "struct": "i",
             "vis": True,
             "type": {
-                55: {# Scrolling Text
+                55: {  # Scrolling Text
                     "ignore": True,
                 },
                 122: {  # Gauge
@@ -376,9 +372,7 @@ class Component:
                         -1: {
                             "ignore": True,
                         },
-                        "P": {
-                            "name": "Foot width"
-                        },
+                        "P": {"name": "Foot width"},
                     },
                 },
             },
@@ -387,7 +381,7 @@ class Component:
             "struct": "i",
             "vis": True,
             "type": {
-                55: {# Scrolling Text
+                55: {  # Scrolling Text
                     "ignore": True,
                 },
             },
@@ -404,15 +398,11 @@ class Component:
             "struct": "i",
             "name": "Format",
             "vis": True,
-            "mapping": {
-                0: "decimal",
-                1: "hexadecimal",
-                2: "decimal with digit grouping"
-            },
+            "mapping": {0: "decimal", 1: "hexadecimal", 2: "decimal with digit grouping"},
             "type": {
-                122: {# Gauge
+                122: {  # Gauge
                     "name": "Angle offset",
-                    "mapping": dict(), #disable default mapping
+                    "mapping": dict(),  # disable default mapping
                 },
             },
         },
@@ -423,7 +413,7 @@ class Component:
                 -1: {
                     "vis": True,
                 },
-                51: {# Timer
+                51: {  # Timer
                     "vis": False,
                 },
             },
@@ -439,7 +429,7 @@ class Component:
                 -1: {
                     "vis": True,
                 },
-                51: {# Timer
+                51: {  # Timer
                     "vis": False,
                 },
             },
@@ -500,11 +490,11 @@ class Component:
             "struct": "i",
             "vis": True,
             "type": {
-                121: {# Page
+                121: {  # Page
                     "ignore": True,
                 },
             },
-            #"model": {
+            # "model": {
             #    "P": {
             #        "drag": {
             #            1: {
@@ -512,18 +502,18 @@ class Component:
             #            },
             #        },
             #    },
-            #},
+            # },
         },
         "y": {
             "name": "y coordinate",
             "struct": "i",
             "vis": True,
             "type": {
-                121: {# Page
+                121: {  # Page
                     "ignore": True,
                 },
             },
-            #"model": {
+            # "model": {
             #    "P": {
             #        "drag": {
             #            1: {
@@ -531,14 +521,14 @@ class Component:
             #            },
             #        },
             #    },
-            #},
+            # },
         },
         "w": {
             "name": "Width",
             "struct": "i",
             "vis": True,
             type: {
-                121: {# Page
+                121: {  # Page
                     "ignore": True,
                 },
             },
@@ -548,7 +538,7 @@ class Component:
             "struct": "i",
             "vis": True,
             "type": {
-                121: {# Page
+                121: {  # Page
                     "ignore": True,
                 },
             },
@@ -564,10 +554,10 @@ class Component:
                 2: 0,
             },
             "type": {
-                53: {# Button
+                53: {  # Button
                     "name": "Back. Color (Unpressed)",
                 }
-            }
+            },
         },
         "bco1": {
             "name": "Slided Back. Color",
@@ -602,12 +592,8 @@ class Component:
                 2: 0,
             },
             "type": {
-                58: {
-                    "name": "Foreground Color"
-                },
-                53: {
-                    "name": "Font Color (Unpressed)"
-                },
+                58: {"name": "Foreground Color"},
+                53: {"name": "Font Color (Unpressed)"},
                 98: 53,
             },
         },
@@ -640,7 +626,7 @@ class Component:
                     },
                 },
                 98: 53,
-                0: {# Waveform
+                0: {  # Waveform
                     "name": "Channel 2 Color",
                     "ch": {
                         3: {
@@ -675,14 +661,14 @@ class Component:
                 1: 0,
             },
             "type": {
-                112: {#Picture
+                112: {  # Picture
                     "name": "Picture ID",
                 },
-                53: {#Button
+                53: {  # Button
                     "name": "Background Picture ID (Unpressed)"
                 },
-                98: 53, #Dual-State Button
-                58: {#QR Code
+                98: 53,  # Dual-State Button
+                58: {  # QR Code
                     "sta": {
                         0: {
                             "ignore": True,
@@ -717,7 +703,7 @@ class Component:
                 1: 0,
             },
             "type": {
-                53: {#Button
+                53: {  # Button
                     "ignore": False,
                 },
                 98: 53,
@@ -734,9 +720,7 @@ class Component:
                 2: 1,
             },
             "type": {
-                53: {
-                    "name": "Cropped Back. Picture ID (Unpressed)"
-                },
+                53: {"name": "Cropped Back. Picture ID (Unpressed)"},
                 98: 53,
             },
         },
@@ -772,7 +756,6 @@ class Component:
             "name": "Foreground Picture ID",
             "vis": True,
         },
-
         "dez": {
             "name": "Direction",
             "struct": "i",
@@ -787,7 +770,7 @@ class Component:
             "name": "Direction",
             "vis": True,
             "type": {
-                55: {# Scrolling Text
+                55: {  # Scrolling Text
                     "mapping": {
                         0: "left->right",
                         1: "right->left",
@@ -795,7 +778,7 @@ class Component:
                         3: "bottom->top",
                     },
                 },
-                0: {# Waveform
+                0: {  # Waveform
                     "name": "Flow Direction",
                     "mapping": {
                         0: "left->right",
@@ -882,7 +865,7 @@ class Component:
                 "K": "T",
                 "P": {
                     "type": {
-                        121: {# Page
+                        121: {  # Page
                             "ignore": True
                         },
                     },
@@ -893,21 +876,15 @@ class Component:
             "name": "Disable release event after dragging",
             "struct": "i",
             "model": {
-                "T": {
-                    "ignore": True
-                },
+                "T": {"ignore": True},
                 "K": "T",
                 "P": {
                     "type": {
-                        121: {# Page
+                        121: {  # Page
                             "ignore": True
                         },
                     },
-                    "drag": {
-                        0: {
-                            "ignore": True
-                        }
-                    }
+                    "drag": {0: {"ignore": True}},
                 },
             },
         },
@@ -968,30 +945,10 @@ class Component:
                 3: "on press and release",
             },
         },
-        "movex": {
-            "name": "",
-            "struct": "i",
-            "vis": True,
-            "ignore": True
-        },
-        "movey": {
-            "name": "",
-            "struct": "i",
-            "vis": True,
-            "ignore": True
-        },
-        "endx": {
-            "name": "",
-            "struct": "i",
-            "vis": True,
-            "ignore": True
-        },
-        "endy": {
-            "name": "",
-            "struct": "i",
-            "vis": True,
-            "ignore": True
-        },
+        "movex": {"name": "", "struct": "i", "vis": True, "ignore": True},
+        "movey": {"name": "", "struct": "i", "vis": True, "ignore": True},
+        "endx": {"name": "", "struct": "i", "vis": True, "ignore": True},
+        "endy": {"name": "", "struct": "i", "vis": True, "ignore": True},
         "effect": {
             "name": "Effect",
             "struct": "i",
@@ -1032,22 +989,16 @@ class Component:
                 },
             },
         },
-        "groupid0": {
-            "struct": "i",
-            "ignore": True
-        },
-        "groupid1": {
-            "struct": "i",
-            "ignore": True
-        },
+        "groupid0": {"struct": "i", "ignore": True},
+        "groupid1": {"struct": "i", "ignore": True},
         "ch": {
             "struct": "i",
-			"ignore": True,
-			"type":	{
-				0: {# Waveform
-					"ignore": False,
-				},
-			},
+            "ignore": True,
+            "type": {
+                0: {  # Waveform
+                    "ignore": False,
+                },
+            },
             "name": "Channel count",
         },
         "gdc": {
@@ -1069,13 +1020,13 @@ class Component:
             "struct": "i",
             "vis": True,
             "type": {
-                1: {# Slider
+                1: {  # Slider
                     "name": "Cursor width",
                     "mapping": {
                         255: "auto",
                     },
                 },
-                122: {# Gauge
+                122: {  # Gauge
                     "model": {
                         -1: {
                             "ignore": True,
@@ -1092,10 +1043,10 @@ class Component:
             "struct": "i",
             "vis": True,
             "type": {
-                1: {# Slider
+                1: {  # Slider
                     "name": "Cursor height",
                 },
-                122: {# Gauge
+                122: {  # Gauge
                     "model": {
                         -1: {
                             "ignore": True,
@@ -1139,7 +1090,7 @@ class Component:
             "type": {
                 122: {  # Gauge
                     "vis": True,
-                    "name": "Foot Length"
+                    "name": "Foot Length",
                 },
             },
             "model": {
@@ -1158,7 +1109,7 @@ class Component:
             "type": {
                 122: {  # Gauge
                     "vis": True,
-                    "name": "Head off-center"
+                    "name": "Head off-center",
                 },
             },
             "model": {
@@ -1177,7 +1128,7 @@ class Component:
             "type": {
                 122: {  # Gauge
                     "vis": True,
-                    "name": "Gauge Head Length"
+                    "name": "Gauge Head Length",
                 },
             },
             "model": {
@@ -1223,15 +1174,25 @@ class Component:
     def __repr__(self):
         repr = self.rawData["att"]["objname"]
         data = self.parseRawProperties(customInclude=("type",), inplace=False)
-        if data and "Attributes" in data and Component.attributes["type"]["name"] in data["Attributes"]:
+        if (
+            data
+            and "Attributes" in data
+            and Component.attributes["type"]["name"] in data["Attributes"]
+        ):
             repr = data["Attributes"][Component.attributes["type"]["name"]] + " " + repr
         return repr
 
     def getText(self, *args, **kwargs):
         return "".join(self.getTextLines(*args, **kwargs))
 
-    def getTextLines(self, indentLevel=0, indent=4, emptyLinesLimit=1,
-                     customExclude=("type", "objname"), **kwargs):
+    def getTextLines(
+        self,
+        indentLevel=0,
+        indent=4,
+        emptyLinesLimit=1,
+        customExclude=("type", "objname"),
+        **kwargs,
+    ):
         # Initialize resulting IndentList
         result = IndentList()
         result.indentStr = " "
@@ -1250,7 +1211,7 @@ class Component:
             for prop, val in self.data["Attributes"].items():
                 try:
                     val = val.replace("\r\n", "\\r\\n")
-                except:
+                except AttributeError:
                     pass
                 line = prop.ljust(propNameMaxLength, " ") + ": " + str(val)
                 result.appendIndentLine(line)
@@ -1272,17 +1233,26 @@ class Component:
                     result.appendIndentLine(clStripped)
                 result.indentLevel -= 1
                 result.appendIndentLine("")
-            result.indentLevel -=1
+            result.indentLevel -= 1
             result.appendIndentLine("")
         return result
 
-    def parseRawProperties(self, customInclude=tuple(), customExclude=tuple(),
-                           includeVisual:bool=False, includeUnknown:int=0,
-                           inplace=True, emptyEvents=False,
-                           keepNames=False, keepValues=False, **kwargs):
+    def parseRawProperties(
+        self,
+        customInclude=tuple(),
+        customExclude=tuple(),
+        includeVisual: bool = False,
+        includeUnknown: int = 0,
+        inplace=True,
+        emptyEvents=False,
+        keepNames=False,
+        keepValues=False,
+        **kwargs,
+    ):
 
         data = dict()
-        # Model name is considered as an "attribute", too. (needed to know the right interpretation; see below)
+        # Model name is considered as an "attribute", too.
+        # (needed to know the right interpretation; see below)
         self.rawData["att"]["model"] = self.modelSeries
         attributes = dict()
         # The interpretation of any attribute can depend on other attributes. (see code below)
@@ -1309,22 +1279,22 @@ class Component:
                                 foundVal = True
                                 if val in attProperties[d]:
                                     i = val
-                                elif  -1 in attProperties[d]:
+                                elif -1 in attProperties[d]:
                                     i = -1
                                 else:
                                     foundVal = False
                                 if foundVal:
-                                    while not type(attProperties[d][i]) is dict:
+                                    while type(attProperties[d][i]) is not dict:
                                         vOld = i
                                         i = attProperties[d][i]
                                         attProperties[d].pop(vOld)
                                     attProperties.update(attProperties[d][i])
                             attProperties.pop(d)
-                if  customInclude and attName not in customInclude:
+                if customInclude and attName not in customInclude:
                     attProperties["ignore"] = True
                 if ("vis" in attProperties and attProperties["vis"]) and not includeVisual:
                     attProperties["ignore"] = True
-                if (not "ignore" in attProperties or not attProperties["ignore"]):
+                if "ignore" not in attProperties or not attProperties["ignore"]:
                     if "name" in attProperties and not keepNames:
                         attName = attProperties["name"]
                     if "mapping" in attProperties and not keepValues:
@@ -1332,11 +1302,11 @@ class Component:
                             attData = attProperties["mapping"][attData]
                     attributes[attName] = attData
             elif attName != "model" and (includeUnknown or attName in customInclude):
-                if not attName in customInclude:
+                if attName not in customInclude:
                     attName = "UNKNOWN " + attName
-                if len(attData) > 4 or includeUnknown == 2:#raw
+                if len(attData) > 4 or includeUnknown == 2:  # raw
                     attData = attData.decode("iso_8859_1")
-                elif includeUnknown == 3:#hex
+                elif includeUnknown == 3:  # hex
                     attData = " ".join([hex(d)[2:] for d in attData])
                 elif len(attData) <= 4:
                     val = 0
@@ -1348,11 +1318,13 @@ class Component:
         # model "attribute" is no longer needed and doesnt belong here anymore
         self.rawData["att"].pop("model")
         for attName, attData in self.rawData.items():
-            if not attName.startswith("codes") or (not includeUnknown and attName not in Component.codeEvents):
+            if not attName.startswith("codes") or (
+                not includeUnknown and attName not in Component.codeEvents
+            ):
                 continue
             if not emptyEvents and not attData:
                 continue
-            if not "Events" in data:
+            if "Events" not in data:
                 data["Events"] = dict()
             if attName in Component.codeEvents:
                 attName = Component.codeEvents[attName]
@@ -1379,7 +1351,6 @@ class Component:
         # is encoded as "att-29". After those 29 entries the next group follows.
         index = 0
         self.rawData = dict()
-        newData = dict()
         while index < len(properties):
             name, length = properties[index].rsplit(b"-", 1)
             length = int(length)
@@ -1410,58 +1381,64 @@ class Component:
                 eventCode = (b"\n".join(v)).decode("iso_8859_1")
                 self.rawData[k] = eventCode
 
+
 class Header:
     _headerFormat = ""
 
-    def __init__(self, raw, start = 0):
+    def __init__(self, raw, start=0):
         self._raw = raw
         self._headerStart = start
         self.headerSize = self.__getHeaderSize()
         self._processData(self.__getHeaderData())
 
     def __getHeaderData(self):
-        return struct.unpack(self._headerFormat, self._raw[self._headerStart:self._headerStart+self.headerSize])
+        return struct.unpack(
+            self._headerFormat, self._raw[self._headerStart : self._headerStart + self.headerSize]
+        )
 
     def __getHeaderSize(self):
         return struct.calcsize(self._headerFormat)
+
 
 class PageContentHeader(Header):
     _headerFormat = "<III"
 
     def _processData(self, data):
-        self.startOffset : int
-        self.size  : int
+        self.startOffset: int
+        self.size: int
         self.startOffset = data[0]
-        self.size  = data[1]
+        self.size = data[1]
 
     def __repr__(self):
         return "Header of " + self.name
 
+
 class PageHeader(Header):
     _headerFormat = "<IIIII?bbb16s16b"
 
-    #crc[4], datasize[4], datainfoaddr[4], numberobj[4], password[4], locked[1], ?[1], version[1], ?[1], name[16], reserved[16]
+    # crc[4], datasize[4], datainfoaddr[4], numberobj[4], password[4],
+    # locked[1], ?[1], version[1], ?[1], name[16], reserved[16]
     def _processData(self, data):
-        self.crc          : int
-        self.size         : int
-        self.start        : int
-        self.count        : int
-        self.password     : int
-        self.locked       : bool
-        self.fileVersion  : int
-        self.name         : str
-        self.components   : List[PageContentHeader] = list()
-        self.crc          = data[0]
-        self.size        = data[1]
+        self.crc: int
+        self.size: int
+        self.start: int
+        self.count: int
+        self.password: int
+        self.locked: bool
+        self.fileVersion: int
+        self.name: str
+        self.components: list[PageContentHeader] = list()
+        self.crc = data[0]
+        self.size = data[1]
         if data[2] != self.headerSize:
-            ValueError("Header Size Mismatch. Expected: {0}, got: {1}".format(self.headerSize, data[2]))
-        self.count        = data[3]
-        self.password     = data[4]
-        self.locked       = data[5]
-        self.fileVersion  = data[7]
-        self.name         = data[9].decode("iso_8859_1").rstrip("\x00")
+            ValueError(f"Header Size Mismatch. Expected: {self.headerSize}, got: {data[2]}")
+        self.count = data[3]
+        self.password = data[4]
+        self.locked = data[5]
+        self.fileVersion = data[7]
+        self.name = data[9].decode("iso_8859_1").rstrip("\x00")
         index = self._headerStart + self.headerSize
-        for i in range(self.count):
+        for _i in range(self.count):
             obj = PageContentHeader(self._raw, index)
             self.components.append(obj)
             index += obj.headerSize
@@ -1471,13 +1448,13 @@ class HMIContentHeader(Header):
     _headerFormat = "<16sII?bbb"
 
     def _processData(self, data):
-        self.name    : str
-        self.start   : int
-        self.size    : int
-        self.deleted : bool
-        self.name    = data[0].decode("iso_8859_1").rstrip("\x00")
-        self.start   = data[1]
-        self.size    = data[2]
+        self.name: str
+        self.start: int
+        self.size: int
+        self.deleted: bool
+        self.name = data[0].decode("iso_8859_1").rstrip("\x00")
+        self.start = data[1]
+        self.size = data[2]
         self.deleted = data[3]
 
     def isPage(self):
@@ -1495,30 +1472,35 @@ class HMIContentHeader(Header):
     def __repr__(self):
         return "Header of " + self.name
 
+
 class HMIHeader(Header):
     _headerFormat = "<I"
 
     def _processData(self, data):
-        self.count   : int
-        self.content : List[HMIContentHeader] = list()
+        self.count: int
+        self.content: list[HMIContentHeader] = list()
         self.count = data[0]
         index = self._headerStart + self.headerSize
-        for i in range(self.count):
+        for _i in range(self.count):
             obj = HMIContentHeader(self._raw, index)
             if obj:
                 self.content.append(obj)
             index += obj.headerSize
         self.count = len(self.content)
 
+
 class Page:
     _defaultSortList = list(Component.attributes["type"]["mapping"].keys())
-    defaultTextSort = lambda c: Page._defaultSortList.index(c.rawData["att"]["type"])
+
+    @staticmethod
+    def defaultTextSort(c):
+        return Page._defaultSortList.index(c.rawData["att"]["type"])
 
     def __init__(self, raw, start: int, size: int, modelSeries: str):
         self.__raw = raw
         self.start = start
         self.size = size
-        self.components : List[Component] = list()
+        self.components: list[Component] = list()
 
         self.header = PageHeader(self.__raw, self.start)
 
@@ -1537,19 +1519,19 @@ class Page:
                 self.commonAttributes &= attributes
 
         self.components.sort(key=lambda c: c.rawData["att"]["objname"])
-        #self.components.sort(key=lambda c: c.rawData["att"]["id"])
+        # self.components.sort(key=lambda c: c.rawData["att"]["id"])
 
     def __repr__(self):
         for c in self.components:
             if c.rawData["att"]["id"] == 0:
                 return c.__repr__()
-        #return self.components[0].__repr__()
+        # return self.components[0].__repr__()
 
     def getTextLines(self, *args, **kwargs):
         if "key" not in kwargs:
-            key=Page.defaultTextSort
+            key = Page.defaultTextSort
         else:
-            key=kwargs.pop("key")
+            key = kwargs.pop("key")
         comps = sorted(self.components, key=key)
 
         textLines = IndentList()
@@ -1563,57 +1545,197 @@ class Page:
 
 class HMI:
     _models = {
-        0x9aa696a7: {"short": "TJC3224T022_011", "long": "TJC 2.2\" Basic 320x240",},
-        0xea4c3169: {"short": "TJC3224T024_011", "long": "TJC 2.4\" Basic 320x240",},
-        0x0b997ef5: {"short": "TJC3224T028_011", "long": "TJC 2.8\" Basic 320x240",},
-        0x72930b67: {"short": "TJC4024T032_011", "long": "TJC 3.2\" Basic 400x240",},
-        0xade186d6: {"short": "TJC4832T035_011", "long": "TJC 3.5\" Basic 480x240",},
-        0xd5f3287f: {"short": "TJC4827T043_011", "long": "TJC 4.3\" Basic 480x270",},
-        0x98777c2d: {"short": "TJC8048T050_011", "long": "TJC 5.0\" Basic 800x480",},
-        0x17c5fb02: {"short": "TJC8048T070_011", "long": "TJC 7.0\" Basic 800x480",},
-        0x334e7201: {"short": "TJC3224K022_011", "long": "TJC 2.2\" Enhanced 320x240",},
-        0x43a4d5cf: {"short": "TJC3224K024_011", "long": "TJC 2.4\" Enhanced 320x240",},
-        0xa2719a53: {"short": "TJC3224K028_011", "long": "TJC 2.8\" Enhanced 320x240",},
-        0xdb7befc1: {"short": "TJC4024K032_011", "long": "TJC 3.2\" Enhanced 400x240",},
-        0x04096270: {"short": "TJC4832K035_011", "long": "TJC 3.5\" Enhanced 480x240",},
-        0x7c1bccd9: {"short": "TJC4827K043_011", "long": "TJC 4.3\" Enhanced 480x270",},
-        0x319f988b: {"short": "TJC8048K050_011", "long": "TJC 5.0\" Enhanced 800x480",},
-        0xbe2d1fa4: {"short": "TJC8048K070_011", "long": "TJC 7.0\" Enhanced 800x480",},
-        0xf52fdc1d: {"short": "TJC4827X343_011", "long": "TJC 4.3\" X3-Series 480x270",},
-        0xb8ab884f: {"short": "TJC8048X350_011", "long": "TJC 5.0\" X3-Series 800x480",},
-        0x37190f60: {"short": "TJC8048X370_011", "long": "TJC 7.0\" X3-Series 800x480",},
-        0xa7ff9055: {"short": "TJC1060X3A1_011", "long": "TJC 10.0\" X3-Series 1024x600",},
-        0x51841ccd: {"short": "TJC4827X543_011", "long": "TJC 4.3\" X5-Series 480x270",},
-        0x1c00489f: {"short": "TJC8048X550_011", "long": "TJC 5.0\" X5-Series 800x480",},
-        0x93b2cfb0: {"short": "TJC8048X570_011", "long": "TJC 7.0\" X5-Series 800x480",},
-        0x8da106d5: {"short": "TJC1060X570_011", "long": "TJC 7.0\" X5-Series 1024x600",},
-        0x03545085: {"short": "TJC1060X5A1_011", "long": "TJC 10.0\" X5-Series 1024x600",},
-        0xf59677a7: {"short":  "NX3224T024_011", "long": "Nextion 2.4\" Basic 320x240",},
-        0x1443383b: {"short":  "NX3224T028_011", "long": "Nextion 2.8\" Basic 320x240",},
-        0x6d494da9: {"short":  "NX4024T032_011", "long": "Nextion 3.2\" Basic 400x240",},
-        0xb23bc018: {"short":  "NX4832T035_011", "long": "Nextion 3.5\" Basic 480x240",},
-        0xca296eb1: {"short":  "NX4827T043_011", "long": "Nextion 4.3\" Basic 480x270",},
-        0x87ad3ae3: {"short":  "NX8048T050_011", "long": "Nextion 5.0\" Basic 800x480",},
-        0x081fbdcc: {"short":  "NX8048T070_011", "long": "Nextion 7.0\" Basic 480x270",},
-        0x5b49c1bc: {"short":  "NX3224F024_011", "long": "Nextion 2.4\" Discovery 240x320",},
-        0xba9c8e20: {"short":  "NX3224F028_011", "long": "Nextion 2.8\" Discovery 240x320",},
-        0x1ce47603: {"short":  "NX4832F035_011", "long": "Nextion 3.5\" Discovery 320x480",},
-        0x5c7e9301: {"short":  "NX3224K024_011", "long": "Nextion 2.4\" Enhanced 320x240",},
-        0xbdabdc9d: {"short":  "NX3224K028_011", "long": "Nextion 2.8\" Enhanced 320x240",},
-        0xc4a1a90f: {"short":  "NX4024K032_011", "long": "Nextion 3.2\" Enhanced 400x240",},
-        0x1bd324be: {"short":  "NX4832K035_011", "long": "Nextion 3.5\" Enhanced 480x240",},
-        0x63c18a17: {"short":  "NX4827K043_011", "long": "Nextion 4.3\" Enhanced 480x270",},
-        0x2e45de45: {"short":  "NX8048K050_011", "long": "Nextion 5.0\" Enhanced 800x480",},
-        0xa1f7596a: {"short":  "NX8048K070_011", "long": "Nextion 7.0\" Enhanced 800x480",},
-        0x181169da: {"short":  "NX4827P043_011", "long": "Nextion 4.3\" Intelligent 480x270",},
-        0x55953d88: {"short":  "NX8048P050_011", "long": "Nextion 5.0\" Intelligent 800x480",},
-        0xda27baa7: {"short":  "NX8048P070_011", "long": "Nextion 7.0\" Intelligent 800x480",},
-        0xc43473c2: {"short":  "NX1060P070_011", "long": "Nextion 7.0\" Intelligent 1024x600",},
-        0x4fc44fa0: {"short":  "NX1060P101_011", "long": "Nextion 10.0\" Intelligent 1024x600",},
+        0x9AA696A7: {
+            "short": "TJC3224T022_011",
+            "long": 'TJC 2.2" Basic 320x240',
+        },
+        0xEA4C3169: {
+            "short": "TJC3224T024_011",
+            "long": 'TJC 2.4" Basic 320x240',
+        },
+        0x0B997EF5: {
+            "short": "TJC3224T028_011",
+            "long": 'TJC 2.8" Basic 320x240',
+        },
+        0x72930B67: {
+            "short": "TJC4024T032_011",
+            "long": 'TJC 3.2" Basic 400x240',
+        },
+        0xADE186D6: {
+            "short": "TJC4832T035_011",
+            "long": 'TJC 3.5" Basic 480x240',
+        },
+        0xD5F3287F: {
+            "short": "TJC4827T043_011",
+            "long": 'TJC 4.3" Basic 480x270',
+        },
+        0x98777C2D: {
+            "short": "TJC8048T050_011",
+            "long": 'TJC 5.0" Basic 800x480',
+        },
+        0x17C5FB02: {
+            "short": "TJC8048T070_011",
+            "long": 'TJC 7.0" Basic 800x480',
+        },
+        0x334E7201: {
+            "short": "TJC3224K022_011",
+            "long": 'TJC 2.2" Enhanced 320x240',
+        },
+        0x43A4D5CF: {
+            "short": "TJC3224K024_011",
+            "long": 'TJC 2.4" Enhanced 320x240',
+        },
+        0xA2719A53: {
+            "short": "TJC3224K028_011",
+            "long": 'TJC 2.8" Enhanced 320x240',
+        },
+        0xDB7BEFC1: {
+            "short": "TJC4024K032_011",
+            "long": 'TJC 3.2" Enhanced 400x240',
+        },
+        0x04096270: {
+            "short": "TJC4832K035_011",
+            "long": 'TJC 3.5" Enhanced 480x240',
+        },
+        0x7C1BCCD9: {
+            "short": "TJC4827K043_011",
+            "long": 'TJC 4.3" Enhanced 480x270',
+        },
+        0x319F988B: {
+            "short": "TJC8048K050_011",
+            "long": 'TJC 5.0" Enhanced 800x480',
+        },
+        0xBE2D1FA4: {
+            "short": "TJC8048K070_011",
+            "long": 'TJC 7.0" Enhanced 800x480',
+        },
+        0xF52FDC1D: {
+            "short": "TJC4827X343_011",
+            "long": 'TJC 4.3" X3-Series 480x270',
+        },
+        0xB8AB884F: {
+            "short": "TJC8048X350_011",
+            "long": 'TJC 5.0" X3-Series 800x480',
+        },
+        0x37190F60: {
+            "short": "TJC8048X370_011",
+            "long": 'TJC 7.0" X3-Series 800x480',
+        },
+        0xA7FF9055: {
+            "short": "TJC1060X3A1_011",
+            "long": 'TJC 10.0" X3-Series 1024x600',
+        },
+        0x51841CCD: {
+            "short": "TJC4827X543_011",
+            "long": 'TJC 4.3" X5-Series 480x270',
+        },
+        0x1C00489F: {
+            "short": "TJC8048X550_011",
+            "long": 'TJC 5.0" X5-Series 800x480',
+        },
+        0x93B2CFB0: {
+            "short": "TJC8048X570_011",
+            "long": 'TJC 7.0" X5-Series 800x480',
+        },
+        0x8DA106D5: {
+            "short": "TJC1060X570_011",
+            "long": 'TJC 7.0" X5-Series 1024x600',
+        },
+        0x03545085: {
+            "short": "TJC1060X5A1_011",
+            "long": 'TJC 10.0" X5-Series 1024x600',
+        },
+        0xF59677A7: {
+            "short": "NX3224T024_011",
+            "long": 'Nextion 2.4" Basic 320x240',
+        },
+        0x1443383B: {
+            "short": "NX3224T028_011",
+            "long": 'Nextion 2.8" Basic 320x240',
+        },
+        0x6D494DA9: {
+            "short": "NX4024T032_011",
+            "long": 'Nextion 3.2" Basic 400x240',
+        },
+        0xB23BC018: {
+            "short": "NX4832T035_011",
+            "long": 'Nextion 3.5" Basic 480x240',
+        },
+        0xCA296EB1: {
+            "short": "NX4827T043_011",
+            "long": 'Nextion 4.3" Basic 480x270',
+        },
+        0x87AD3AE3: {
+            "short": "NX8048T050_011",
+            "long": 'Nextion 5.0" Basic 800x480',
+        },
+        0x081FBDCC: {
+            "short": "NX8048T070_011",
+            "long": 'Nextion 7.0" Basic 480x270',
+        },
+        0x5B49C1BC: {
+            "short": "NX3224F024_011",
+            "long": 'Nextion 2.4" Discovery 240x320',
+        },
+        0xBA9C8E20: {
+            "short": "NX3224F028_011",
+            "long": 'Nextion 2.8" Discovery 240x320',
+        },
+        0x1CE47603: {
+            "short": "NX4832F035_011",
+            "long": 'Nextion 3.5" Discovery 320x480',
+        },
+        0x5C7E9301: {
+            "short": "NX3224K024_011",
+            "long": 'Nextion 2.4" Enhanced 320x240',
+        },
+        0xBDABDC9D: {
+            "short": "NX3224K028_011",
+            "long": 'Nextion 2.8" Enhanced 320x240',
+        },
+        0xC4A1A90F: {
+            "short": "NX4024K032_011",
+            "long": 'Nextion 3.2" Enhanced 400x240',
+        },
+        0x1BD324BE: {
+            "short": "NX4832K035_011",
+            "long": 'Nextion 3.5" Enhanced 480x240',
+        },
+        0x63C18A17: {
+            "short": "NX4827K043_011",
+            "long": 'Nextion 4.3" Enhanced 480x270',
+        },
+        0x2E45DE45: {
+            "short": "NX8048K050_011",
+            "long": 'Nextion 5.0" Enhanced 800x480',
+        },
+        0xA1F7596A: {
+            "short": "NX8048K070_011",
+            "long": 'Nextion 7.0" Enhanced 800x480',
+        },
+        0x181169DA: {
+            "short": "NX4827P043_011",
+            "long": 'Nextion 4.3" Intelligent 480x270',
+        },
+        0x55953D88: {
+            "short": "NX8048P050_011",
+            "long": 'Nextion 5.0" Intelligent 800x480',
+        },
+        0xDA27BAA7: {
+            "short": "NX8048P070_011",
+            "long": 'Nextion 7.0" Intelligent 800x480',
+        },
+        0xC43473C2: {
+            "short": "NX1060P070_011",
+            "long": 'Nextion 7.0" Intelligent 1024x600',
+        },
+        0x4FC44FA0: {
+            "short": "NX1060P101_011",
+            "long": 'Nextion 10.0" Intelligent 1024x600',
+        },
     }
 
     def __init__(self, HMIFilePath):
-        objectList = list()
         with open(HMIFilePath, "rb") as HMIFile:
             self.raw = HMIFile.read()
         self.header = HMIHeader(self.raw)
@@ -1627,8 +1749,10 @@ class HMI:
                     raise Exception("Unknown model ID: " + hex(self.modelCRC))
                 self.modelName = self._models[self.modelCRC]["short"]
                 self.modelDesc = self._models[self.modelCRC]["long"]
-                # Strip the NX/TJC prefix, take the T/K/P/X letter at the 4th place and unify P/X to P.
-                self.modelSeries = self.modelName.replace("NX", "").replace("TJC", "")[4].replace("X", "P")
+                # Strip NX/TJC prefix, take T/K/P/X letter at 4th place, unify P/X to P.
+                self.modelSeries = (
+                    self.modelName.replace("NX", "").replace("TJC", "")[4].replace("X", "P")
+                )
         for obj in self.header.content:
             if obj.isPage():
                 self.pages.append(Page(self.raw, obj.start, obj.size, self.modelSeries))
@@ -1648,71 +1772,133 @@ class HMI:
 ### Here starts the script part.
 def getCodeLines(rawLines, removeIndent=False, removeComments=True):
     eventLines = list()
-    if type(rawLines) == dict:
+    if isinstance(rawLines, dict):
         for k, v in rawLines.items():
             if k.startswith("code"):
                 eventLines.extend(v.splitlines())
-    elif type(rawLines) == list:
+    elif isinstance(rawLines, list):
         eventLines.extend(rawLines)
-    elif type(rawLines) == str:
+    elif isinstance(rawLines, str):
         eventLines.extend(rawLines.splitlines())
     if removeIndent:
-        eventLines = [l.lstrip(" ") for l in eventLines]
+        eventLines = [line.lstrip(" ") for line in eventLines]
     if removeComments:
-        eventLines = [l for l in eventLines if not l.lstrip(" ").startswith("//")]
+        eventLines = [line for line in eventLines if not line.lstrip(" ").startswith("//")]
     return eventLines
 
-if __name__ == '__main__':
-    desc = """Get a readable text version of a Nextion HMI file. 
+
+if __name__ == "__main__":
+    desc = """Get a readable text version of a Nextion HMI file.
               Developped by Max Zuidberg, licensed under MPL-2.0"""
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument("-i", "--input_hmi", metavar="HMI_FILE", type=str, required=True,
-                        help="Path to the HMI source file")
-    parser.add_argument("-o", "--output_dir", metavar="TEXT_FOLDER", type=str, required=True,
-                        help="Path to the folder for the generated text files.")
-    parser.add_argument("-d", "--del_out", action="store_true",
-                        help="Optional flag to delete the content of the output folder before creating the new files.")
-    parser.add_argument("-f", "--file_ext", metavar="EXTENSION", type=str, required=False, default=".txt",
-                        help="Optional Extension that is added to the text files (default: \".txt\")")
-    parser.add_argument("-e", "--empty_events", action="store_true",
-                        help="Optional flag to include empty events in the output (Excluded by default).")
-    parser.add_argument("-n", "--keep_names", action="store_true",
-                        help="Optional flag to preserve the original names (f.ex. \"bco\" instead of \"Background "
-                             "color\").")
-    parser.add_argument("-v", "--keep_values", action="store_true",
-                        help="Optional flag to preserve the original values (f.ex. \"sta: 0\" instead of \"sta: "
-                             "cropped image\").")
-    parser.add_argument("-s", "--stats", action="store_true",
-                        help="Optional flag to create a file in the output folder that will include all the statistics "
-                             "you see in the command line output.")
-    parser.add_argument("-j", "--json", action="store_true",
-                        help="Optional flag to create a JSON subfolder in the output folder, that contains the "
-                             "parsed data of each page as more or less nicely formatted json. Note: if you want the "
-                             "\"raw\" data as json, specify an empty custom attributes dictionary.")
-    parser.add_argument("-p", "--properties", required=False, nargs="*", default=[],
-                        help="Specify the (list of) properties that shall be included in the parsing. "
-                             "By default, only known, non-visual properties are included. If you want to include "
-                             "visual properties and/or unknown properties, too, specify \"visual\" and/or "
-                             "\"unknown\". By default, unknown attributes up to 4 bytes length are interpreted as "
-                             "integer while longer attribute values are interpreted as string. Alternatively you can "
-                             "use \"unknown_hex\" to get all unknown values as hex, or \"unknown_raw\" to get all of "
-                             "them as characters (including NUL characters and other unprintable ones).")
-    parser.add_argument("-c", "--custom_dict", metavar="PY_FILE", required=False, type=str, default="",
-                        help="Optional. You can create your own attributes and codeEvents dictionaries instead or in "
-                             "addition to the build-in dictionaries (see -x). Specify the Python file with your "
-                             "dictionaries here. CAREFUL! ONLY SPECIFY FILES YOU TRUST! If they contain malicious code "
-                             "it will be executed (imported as Python module).")
-    parser.add_argument("-x", "--custom_exclusive", action="store_true",
-                        help="Optional Flag. Requires -c. By default the build-in dictionaries are _updated_ with the "
-                             "key/value pairs from the custom dictionaries. This means that keys that are only present "
-                             "in the build-in dictionaries _remain_. By adding this flag, the script will _only_ use "
-                             "the custom dictionaries. Note: If you only want to replace one of both build-in "
-                             "dictionaries, you can do so by only including that one in your file. You do not need to "
-                             "include both.")
+    parser.add_argument(
+        "-i",
+        "--input_hmi",
+        metavar="HMI_FILE",
+        type=str,
+        required=True,
+        help="Path to the HMI source file",
+    )
+    parser.add_argument(
+        "-o",
+        "--output_dir",
+        metavar="TEXT_FOLDER",
+        type=str,
+        required=True,
+        help="Path to the folder for the generated text files.",
+    )
+    parser.add_argument(
+        "-d",
+        "--del_out",
+        action="store_true",
+        help="Optional flag to delete the content of the output folder before creating the new "
+        "files.",
+    )
+    parser.add_argument(
+        "-f",
+        "--file_ext",
+        metavar="EXTENSION",
+        type=str,
+        required=False,
+        default=".txt",
+        help='Optional Extension that is added to the text files (default: ".txt")',
+    )
+    parser.add_argument(
+        "-e",
+        "--empty_events",
+        action="store_true",
+        help="Optional flag to include empty events in the output (Excluded by default).",
+    )
+    parser.add_argument(
+        "-n",
+        "--keep_names",
+        action="store_true",
+        help='Optional flag to preserve the original names (f.ex. "bco" instead of "Background '
+        'color").',
+    )
+    parser.add_argument(
+        "-v",
+        "--keep_values",
+        action="store_true",
+        help='Optional flag to preserve the original values (f.ex. "sta: 0" instead of "sta: '
+        'cropped image").',
+    )
+    parser.add_argument(
+        "-s",
+        "--stats",
+        action="store_true",
+        help="Optional flag to create a file in the output folder that will include all the "
+        "statistics you see in the command line output.",
+    )
+    parser.add_argument(
+        "-j",
+        "--json",
+        action="store_true",
+        help="Optional flag to create a JSON subfolder in the output folder, that contains the "
+        "parsed data of each page as more or less nicely formatted json. Note: if you want the "
+        '"raw" data as json, specify an empty custom attributes dictionary.',
+    )
+    parser.add_argument(
+        "-p",
+        "--properties",
+        required=False,
+        nargs="*",
+        default=[],
+        help="Specify the (list of) properties that shall be included in the parsing. "
+        "By default, only known, non-visual properties are included. If you want to include "
+        'visual properties and/or unknown properties, too, specify "visual" and/or '
+        '"unknown". By default, unknown attributes up to 4 bytes length are interpreted as '
+        "integer while longer attribute values are interpreted as string. Alternatively you can "
+        'use "unknown_hex" to get all unknown values as hex, or "unknown_raw" to get all of '
+        "them as characters (including NUL characters and other unprintable ones).",
+    )
+    parser.add_argument(
+        "-c",
+        "--custom_dict",
+        metavar="PY_FILE",
+        required=False,
+        type=str,
+        default="",
+        help="Optional. You can create your own attributes and codeEvents dictionaries instead "
+        "or in addition to the build-in dictionaries (see -x). Specify the Python file with your "
+        "dictionaries here. CAREFUL! ONLY SPECIFY FILES YOU TRUST! If they contain malicious "
+        "code it will be executed (imported as Python module).",
+    )
+    parser.add_argument(
+        "-x",
+        "--custom_exclusive",
+        action="store_true",
+        help="Optional Flag. Requires -c. By default the build-in dictionaries are _updated_ "
+        "with the key/value pairs from the custom dictionaries. This means that keys that are "
+        "only present in the build-in dictionaries _remain_. By adding this flag, the script "
+        "will _only_ use the custom dictionaries. Note: If you only want to replace one of both "
+        "build-in dictionaries, you can do so by only including that one in your file. You do "
+        "not need to include both.",
+    )
     args = parser.parse_args()
 
     hmiFile = Path(args.input_hmi)
-    hmiTextFolder  = Path(args.output_dir)
+    hmiTextFolder = Path(args.output_dir)
     hmiTextFileExt = args.file_ext
 
     if not hmiFile.exists():
@@ -1743,17 +1929,17 @@ if __name__ == '__main__':
                     Component.attributes = custom.attributes
                 else:
                     Component.attributes.update(custom.attributes)
-            except:
-                print("No attributes dictionary in specified Python module.")
+            except Exception as e:
+                print(f"Error occurred while updating attributes: {e}")
             try:
                 if args.custom_exclusive:
                     Component.codeEvents = custom.codeEvents
                 else:
                     Component.codeEvents.update(custom.codeEvents)
-            except:
-                print("No codeEvents dictionary in specified Python module.")
-        except:
-            parser.error("Could not import custom dictionaries from specified Python module.")
+            except Exception as e:
+                print(f"Error occurred while updating codeEvents: {e}")
+        except Exception as e:
+            parser.error(f"Could not import custom dictionaries from specified Python module: {e}")
 
     hmi = HMI(hmiFile)
 
@@ -1772,7 +1958,7 @@ if __name__ == '__main__':
                 if f.is_file():
                     f.unlink()
                 elif f.is_dir():
-                    cwd =  f
+                    cwd = f
             if empty:
                 if cwd == hmiTextFolder:
                     done = True
@@ -1780,8 +1966,10 @@ if __name__ == '__main__':
                     cwd.rmdir()
                     cwd = cwd.parent
                 else:
-                    print("Something went wrong while recursively deleting all content of the output folder. "
-                          "Please reduce your file system voodoo.")
+                    print(
+                        "Something went wrong while recursively deleting all content of the "
+                        "output folder. Please reduce your file system voodoo."
+                    )
     hmiTextFolder.mkdir(exist_ok=True)
 
     if args.json:
@@ -1804,10 +1992,15 @@ if __name__ == '__main__':
         for c in page.components:
             if c.rawData["att"]["id"] == 0:
                 name = c.rawData["att"]["objname"]
-        #name = page.components[0].rawData["att"]["objname"]#str(page)
-        text = page.getText(emptyLinesLimit=1, includeUnknown=includeUnknown,
-                            includeVisual=includeVisual, emptyEvents=args.empty_events,
-                            keepNames=args.keep_names, keepValues=args.keep_values)
+        # name = page.components[0].rawData["att"]["objname"]#str(page)
+        text = page.getText(
+            emptyLinesLimit=1,
+            includeUnknown=includeUnknown,
+            includeVisual=includeVisual,
+            emptyEvents=args.empty_events,
+            keepNames=args.keep_names,
+            keepValues=args.keep_values,
+        )
         texts[name] = text
         compCount[name] = len(page.components)
         codeLines[name] = []
@@ -1830,7 +2023,7 @@ if __name__ == '__main__':
             stats.append("\t" + str(compCount[name]).ljust(4) + " Component(s)")
             stats.append("\t" + str(sloc).ljust(4) + " Line(s) of event code")
             stats.append("\t" + str(len(usloc)).ljust(4) + " Unique line(s) of event code")
-            for i,stat in enumerate(stats):
+            for i, stat in enumerate(stats):
                 print(stat.replace("\t", "     "))
                 stats[i] = stat + "\n"
             if args.stats:

@@ -29,6 +29,9 @@ class FakePage:
     def is_started(self):
         return self._started
 
+    def stop(self):
+        self._started = False
+
     def process_event(self, event):
         self.events.append(event)
 
@@ -63,6 +66,8 @@ class FakeApp:
         self.cancel_calls.append(handle)
 
     def run_in(self, cb, delay, **kwargs):
+        if delay == 0:
+            cb(kwargs)
         return "handle"
 
 
@@ -82,9 +87,7 @@ def _make_nav(**device_cfg):
         "unset_page": 0,
     }
     nav._start_idle_timer = lambda: nav.calls.__setitem__("idle", nav.calls["idle"] + 1)
-    nav._start_nav_home_timer = lambda: nav.calls.__setitem__(
-        "nav_home", nav.calls["nav_home"] + 1
-    )
+    nav._start_nav_home_timer = lambda: nav.calls.__setitem__("nav_home", nav.calls["nav_home"] + 1)
     nav.open_sleep_panel = lambda **kw: nav.calls["open_sleep"].append(kw)
     nav.open_wakeup_panel = lambda **kw: nav.calls.__setitem__(
         "open_wakeup", nav.calls["open_wakeup"] + 1
@@ -140,7 +143,7 @@ def test_page_event_cancels_pending_timeout():
 
 
 def test_page_event_displays_panel_when_match_and_not_started():
-    nav = _make_nav()
+    nav = _make_nav(page_settle_delay=0)
     panel = DummyPanel("p1")
     nav.panel = panel
     nav.page = FakePage(page_id=3, started=False)
@@ -276,3 +279,179 @@ def test_event_forwarded_to_active_page():
     event = HAUIEvent(ESPEvent.GESTURE, "swipe_up")
     nav.process_event(event)
     assert event in page.events
+
+
+# --- _open_panel_impl: same-page vs different-page rendering ---------------
+
+
+from unittest.mock import patch  # noqa: E402
+
+import nspanel_haui.haui.controller.navigation as nav_module  # noqa: E402
+
+
+class OpenPanel:
+    """Fake panel with enough surface for _open_panel_impl."""
+
+    def __init__(self, panel_id, panel_type="grid", nav_panel=True):
+        self.id = panel_id
+        self._type = panel_type
+        self._nav = nav_panel
+        self._state = {}
+        self._cfg = {"unlock_code": "", "close_timeout": 0, "key": "test"}
+
+    def get_type(self):
+        return self._type
+
+    def show_in_navigation(self):
+        return self._nav
+
+    def apply_kwargs(self, kwargs):
+        pass
+
+    def get(self, key, default=None):
+        return self._cfg.get(key, default)
+
+    def get_state(self, key, default=None):
+        return self._state.get(key, default)
+
+    def set_state(self, key, value):
+        self._state[key] = value
+
+
+class OpenPage:
+    """Fake page created by the patched page_class."""
+
+    def __init__(self, app, config):
+        self.page_id = config.get("page_id")
+        self.page_id_recv = None
+        self._started = False
+        self.create_called = False
+
+    def create_panel(self, panel):
+        self.create_called = True
+
+    def stop(self):
+        self._started = False
+
+    def is_started(self):
+        return self._started
+
+
+class FakeDeviceConfig:
+    def __init__(self, panel):
+        self._panel = panel
+
+    def get_panel(self, panel_id):
+        return self._panel
+
+
+def _make_nav_for_open(panel, page_id):
+    """Build a nav controller wired for _open_panel_impl tests."""
+    device = FakeDevice()
+    app = FakeApp(device)
+    app.device_config = FakeDeviceConfig(panel)
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav.calls = {"display_panel": [], "goto_page": []}
+    nav.display_panel = lambda p: nav.calls["display_panel"].append(p)
+    nav.goto_page = lambda pid, force=False: nav.calls["goto_page"].append(
+        {"page_id": pid, "force": force}
+    )
+    return nav
+
+
+def test_open_panel_same_page_waits_for_event():
+    """Same page_id: display_panel NOT called, _page_timeout is set.
+
+    The Nextion fires 0x66 even for same-page ``page N`` (full refresh),
+    so we always wait for the page event before rendering.
+    """
+    panel = OpenPanel("p1", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=3)
+    # current page is already on page_id 3
+    nav.page = FakePage(page_id=3, started=True)
+    nav.panel = OpenPanel("old")
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=3),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._open_panel_impl("p1")
+
+    assert nav.calls["display_panel"] == []
+    assert nav._page_timeout is not None  # run_in returns "handle"
+
+
+def test_open_panel_different_page_waits_for_event():
+    """Different page_id: display_panel NOT called, _page_timeout is set."""
+    panel = OpenPanel("p1", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=5)
+    # current page is on page_id 3, new page is 5
+    nav.page = FakePage(page_id=3, started=True)
+    nav.panel = OpenPanel("old")
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=5),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._open_panel_impl("p1")
+
+    assert nav.calls["display_panel"] == []
+    assert nav._page_timeout is not None  # run_in returns "handle"
+
+
+def test_page_timeout_callback_forces_goto_and_displays():
+    """_page_timeout_callback re-sends goto_page (force=True) and displays."""
+    panel = OpenPanel("p1", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=5)
+    nav.page = FakePage(page_id=5, started=False)
+    nav.panel = panel
+
+    nav._page_timeout_callback({})
+
+    assert nav.calls["goto_page"] == [{"page_id": 5, "force": True}]
+    assert len(nav.calls["display_panel"]) == 1
+
+
+# --- BUFFER_OVERFLOW -------------------------------------------------------
+
+
+def test_buffer_overflow_schedules_re_render():
+    """Buffer overflow event schedules a debounced re-render timer."""
+    nav = _make_nav()
+    nav.panel = DummyPanel("p1")
+    nav.page = FakePage(page_id=3, started=True)
+    nav.process_event(HAUIEvent(ESPEvent.BUFFER_OVERFLOW, "1"))
+    assert nav._buffer_overflow_timer is not None  # run_in returns "handle"
+
+
+def test_buffer_overflow_recover_renders_panel():
+    """_buffer_overflow_recover calls display_panel with the current panel."""
+    nav = _make_nav()
+    panel = DummyPanel("p1")
+    nav.panel = panel
+    nav.page = FakePage(page_id=3, started=True)
+    nav._buffer_overflow_recover({})
+    assert nav.calls["display_panel"] == [panel]
+    assert nav._buffer_overflow_timer is None
+
+
+def test_buffer_overflow_recover_skips_when_no_panel():
+    """_buffer_overflow_recover does nothing when no panel/page is active."""
+    nav = _make_nav()
+    nav.panel = None
+    nav.page = None
+    nav._buffer_overflow_recover({})
+    assert nav.calls["display_panel"] == []
+
+
+def test_buffer_overflow_debounces_repeated_events():
+    """Repeated overflow events cancel the previous timer before scheduling."""
+    nav = _make_nav()
+    nav.panel = DummyPanel("p1")
+    nav.page = FakePage(page_id=3, started=True)
+    nav.process_event(HAUIEvent(ESPEvent.BUFFER_OVERFLOW, "1"))
+    first_timer = nav._buffer_overflow_timer
+    nav.process_event(HAUIEvent(ESPEvent.BUFFER_OVERFLOW, "1"))
+    # First timer was cancelled
+    assert first_timer in nav.app.cancel_calls

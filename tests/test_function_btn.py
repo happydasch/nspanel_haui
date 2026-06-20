@@ -108,9 +108,7 @@ HOME = {"home_panel": "home", "show_home_button": False}
 
 def test_sleep_button_shows_when_notifications_disabled():
     """Regression: notifications off + sleep on => sleep button on home."""
-    page, panel = _build(
-        {**HOME, "show_sleep_button": True, "show_notifications_button": False}
-    )
+    page, panel = _build({**HOME, "show_sleep_button": True, "show_notifications_button": False})
     page._auto_assign_fncs(panel)
     assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_SLEEP, True)
 
@@ -137,9 +135,7 @@ def test_notifications_button_wins_when_pending():
 
 def test_no_sleep_button_when_disabled():
     """Sleep off + notifications off => left-secondary slot is hidden."""
-    page, panel = _build(
-        {**HOME, "show_sleep_button": False, "show_notifications_button": False}
-    )
+    page, panel = _build({**HOME, "show_sleep_button": False, "show_notifications_button": False})
     page._auto_assign_fncs(panel)
     assert _slot(page, page.FNC_BTN_L_SEC) == (None, False)
 

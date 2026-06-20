@@ -252,6 +252,10 @@ class ESPHomeProxy:
             try:
                 cmds = json.loads(value)
             except json.JSONDecodeError:
+                _LOGGER.warning(
+                    "Failed to JSON-decode commands payload, wrapping as single command: %s",
+                    value[:200],
+                )
                 return [value]
         else:
             cmds = value
@@ -289,6 +293,12 @@ class ESPHomeProxy:
                 service_data = self._build_service_data(name, value)
                 devices = self._get_target_devices()
 
+                if not devices:
+                    _LOGGER.warning(
+                        "ESPHome publish('%s') has no target devices — command will be lost",
+                        name,
+                    )
+
                 for device_name in devices:
                     service_name = f"{device_name}_{name}"
 
@@ -306,7 +316,7 @@ class ESPHomeProxy:
                     except ServiceNotFound as exc:
                         # Device unloaded or service registry not yet populated —
                         # transient on startup / reload.
-                        _LOGGER.debug(
+                        _LOGGER.warning(
                             "ESPHome service %s missing (device %s): %s",
                             service_name,
                             device_name,
@@ -315,7 +325,7 @@ class ESPHomeProxy:
                     except HomeAssistantError as exc:
                         # ESPHome raises HomeAssistantError for "not ready" /
                         # "Not connected" / closed connection states.
-                        _LOGGER.debug(
+                        _LOGGER.warning(
                             "ESPHome service %s deferred (device %s not ready): %s",
                             service_name,
                             device_name,
@@ -331,10 +341,20 @@ class ESPHomeProxy:
             except Exception as exc:  # noqa: BLE001
                 _LOGGER.error("publish(%s) coroutine failed: %s", topic, exc)
 
-        # Fire-and-forget on event loop; does not block executor thread.
-        # Inner async_call uses blocking=True so service failures land in the
-        # try/except above instead of HA's default background-task ERROR handler.
-        asyncio.run_coroutine_threadsafe(_call_service(), self._loop)
+        # Block until the service call completes so that multiple chunks
+        # from a single send_cmds batch are delivered to the ESP32
+        # sequentially, not concurrently.  Fire-and-forget scheduling caused
+        # all chunks to pile up in the Nextion's command queue at once,
+        # overflowing max_queue_size and losing commands.
+        future = asyncio.run_coroutine_threadsafe(_call_service(), self._loop)
+        try:
+            future.result(timeout=10)
+        except TimeoutError:
+            _LOGGER.warning("ESPHome publish('%s') timed out after 10s", topic)
+        except Exception as exc:  # noqa: BLE001
+            # Exception already logged inside _call_service; swallow the
+            # propagated copy so the executor thread is not disrupted.
+            _LOGGER.debug("publish('%s') future raised: %s", topic, exc)
 
     def _get_target_devices(self) -> list[str]:
         """Get list of target device service prefixes for ESPHome calls.

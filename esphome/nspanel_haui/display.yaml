@@ -5,14 +5,15 @@ display:
     uart_id: haui_uart
     id: haui_disp
     wake_up_page: 0
-    max_queue_age: 5000ms
     # Cap queue entries to prevent heap fragmentation from accumulated
     # commands when Nextion serial buffer overflows orphan pending entries.
-    # At ~2ms command spacing, ~300 entries = ~4.5s buffer — enough to absorb
-    # a full panel config+render burst (~120 commands) without drops.
-    max_queue_size: 300
+    # 800 entries = enough to absorb a full panel config+render burst
+    # plus concurrent state updates without drops.
+    max_queue_size: 800
     # Limit commands processed per loop iteration to spread out
     # allocation/deallocation and reduce heap fragmentation.
+    # Note: with command_spacing > 0 the pacer caps at 1 cmd/loop,
+    # so only activate command_spacing to throttle cmd rate.
     max_commands_per_loop: 50
     # Minimum gap between commands sent to the Nextion display.  With spacing
     # enabled, the ESPHome Nextion component sends at most 1 command per loop
@@ -20,9 +21,12 @@ display:
     # the timestamp, which is constant within a single loop iteration, so the
     # pacer check fails after the first send).  The loop typically runs at
     # 3-5ms on ESP32 for this workload, yielding ~200-330 commands/sec.
-    # The 1KB Nextion RX buffer can hold ~78 commands, but spacing ensures
-    # only 1 command is in flight on UART at a time, preventing overflow.
-    command_spacing: 2ms
+    # The 1KB Nextion RX buffer can hold ~78 comemands.
+    # Set to e.g. 2ms to throttle to 1 cmd/loop and prevent UART overflow;
+    # disabled by default for maximum throughput. uncomment and adjust as
+    # needed based on observed overflow events and command rates.
+    #
+    #command_spacing: 2s
     # default url
     tft_url: $tft_update_url
 

@@ -172,6 +172,7 @@ def _patch_device_registry(entries: list):
     ):
         yield
 
+
 # ---------------------------------------------------------------------------
 # _build_config_dict  -  three-layer model (data, options, panels)
 # ---------------------------------------------------------------------------

@@ -163,7 +163,7 @@ class RowPage(HAUIPage):
             slider_txt = getattr(self.COMPONENTS, f"r{idx}_slider_txt")
             self.set_function_component(ico, ico[1], "icon", row_index=i)
             self.set_function_component(name, name[1], "name", row_index=i)
-            self.set_function_component(ovl, ovl[1], "overlay", row_index=i)
+            self.set_function_component(ovl, ovl[1], "overlay", row_index=i, no_color=True)
             self.set_function_component(
                 btn_text, btn_text[1], "btn_text", visible=False, text="", row_index=i
             )
@@ -186,12 +186,8 @@ class RowPage(HAUIPage):
             # the drag produces, and register a read callback so the
             # slider value is read via a read request on release
             self.mark_drag_component(slider)
-            self.add_component_callback(
-                slider, self.process_row_slider, drag=True
-            )
-            self.add_read_callback(
-                slider, self._make_row_slider_handler(slider)
-            )
+            self.add_component_callback(slider, self.process_row_slider, drag=True)
+            self.add_read_callback(slider, self._make_row_slider_handler(slider))
             self.set_function_component(
                 slider_txt,
                 slider_txt[1],
@@ -618,8 +614,10 @@ class RowPage(HAUIPage):
 
     def _make_row_slider_handler(self, component: Component) -> Callable[[int], None]:
         """Create a value-callback handler bound to *component*."""
+
         def handler(value: int) -> None:
             self._handle_row_slider_value(component, value)
+
         return handler
 
     def _handle_row_slider_value(self, component: Component, value: int) -> None:

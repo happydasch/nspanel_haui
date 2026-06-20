@@ -47,7 +47,8 @@ class HAUINavigationController(HAUIBase):
         self._sleep_panel_active = False  # sleep panel state
         self._wakeup_panel: HAUIPanel | None = None  # wakeup panel config
         self._page_timeout: str | None = None  # Timer for switching pages
-        self._render_delay: str | None = None  # Timer for post-goto_page render delay
+        self._buffer_overflow_timer: str | None = None  # Debounced re-render after overflow
+        self._page_settle_timer: str | None = None  # Delayed re-render after page event settle
         self._close_timeout: str | None = None  # Timer for panel auto close
         self._idle_timer: str | None = None  # Timer for hub-side idle timeout
         self._nav_home_timer: str | None = None  # Timer for auto-navigate-home
@@ -257,7 +258,6 @@ class HAUINavigationController(HAUIBase):
         if self.panel is None:
             return
         self.log(f"Reloading panel: {self.panel.id}")
-        self.unset_page()
         if len(self._stack) > 0:
             self._stack.pop()
         self._open_panel_impl(self.panel.id, **self.panel_kwargs)
@@ -392,12 +392,6 @@ class HAUINavigationController(HAUIBase):
             self.page.stop()
             self.page = None
 
-        # Cancel any pending render delay from a previous navigation so the
-        # stale timer never renders the old panel onto a page it does not belong to.
-        if self._render_delay is not None:
-            self.app.cancel_timer(self._render_delay)
-            self._render_delay = None
-
         # set new current page and panel
         self.log(
             f"Switching to page {PAGE_MAPPING.get(page_id)}"
@@ -411,33 +405,21 @@ class HAUINavigationController(HAUIBase):
         # set new page for panel
         self.goto_page(page_id, force=force)
 
-        # page autostart
-        #
-        # at this point, it is possible to return
-        # and let the page event handle the page switch but this will add a big delay, since
-        # it will be needed to wait until an ESPHome event is received so just assume the
-        # correct page is set already here and continue without return
-        #
-        # If autostart then it is assumed that the new page is available when called
-        # goto_page. If autostart is false, the page will get started when it is
-        # active (when a page event is received)
-        if kwargs.get("autostart", False) or curr_page_id == page_id:
-            # Schedule display_panel after a short delay so the Nextion display
-            # finishes initialising the new page's widgets before rendering
-            # commands arrive.  Without this delay, widget commands sent right
-            # after goto_page are rejected as "Invalid variable name" (0x1A).
-            self._render_delay = self.app.run_in(self._render_delay_callback, 0.15)
-        else:
-            self.log("No autostart, waiting for page event")
-            timeout = self.get("page_timeout", 10.0)
-            if self._page_timeout is not None:
-                self.app.cancel_timer(self._page_timeout)
-                self._page_timeout = None
-            self._page_timeout = self.app.run_in(
-                self._page_timeout_callback,
-                timeout,
-                call_kwargs={**kwargs, "panel_id": panel_id, "autostart": True},
-            )
+        # Wait for the esphome.page event confirming the page changed before
+        # rendering.  The Nextion sends a 0x66 postulate after every page
+        # command — even when the target page is the same as the current one
+        # (page N causes a full page refresh).  Rendering before the 0x66
+        # arrives means widget commands hit a page that hasn't finished
+        # initialising and are rejected as "Invalid variable name" (0x1A).
+        # _handle_page_event calls display_panel() when the ack arrives.
+        # If the ack never comes, the page_timeout fires as a last-resort
+        # fallback.
+        self.log("Waiting for page event before rendering")
+        timeout = self.get("page_timeout", 10.0)
+        if self._page_timeout is not None:
+            self.app.cancel_timer(self._page_timeout)
+            self._page_timeout = None
+        self._page_timeout = self.app.run_in(self._page_timeout_callback, timeout)
 
         # check for close timeout in panel config (contains also kwargs)
         timeout = panel.get("close_timeout", 0)
@@ -447,20 +429,18 @@ class HAUINavigationController(HAUIBase):
             self._close_timeout = self.app.run_in(self._close_timeout_callback, timeout)
 
     def _page_timeout_callback(self, _kwargs: dict[str, Any]) -> None:
-        """Scheduler callback for page timeout."""
+        """Last-resort fallback: page event never arrived within timeout."""
         self._page_timeout = None
-        # Retry without re-creating the page - just re-send goto_page and
-        # display the current panel. This avoids pushing a duplicate onto the
-        # navigation stack when the ESPHome page ack doesn't arrive in time.
+        # Force re-send goto_page and render the current panel. This avoids
+        # pushing a duplicate onto the navigation stack when the ESPHome page
+        # ack doesn't arrive in time.
         if self.page is not None and self.panel is not None:
             page_id = self.page.page_id
+            self.log(
+                f"Page event not received within timeout, "
+                f"force re-sending goto_page for {PAGE_MAPPING.get(page_id)}"
+            )
             self.goto_page(page_id, force=True)
-            self.display_panel(self.panel)
-
-    def _render_delay_callback(self, _kwargs: dict | None = None) -> None:
-        """Scheduler callback: render the panel after the page-switch delay."""
-        self._render_delay = None
-        if self.page is not None and self.panel is not None:
             self.display_panel(self.panel)
 
     def _close_timeout_callback(self, kwargs: dict[str, Any]) -> None:
@@ -477,9 +457,12 @@ class HAUINavigationController(HAUIBase):
         if self._page_timeout is not None:
             self.app.cancel_timer(self._page_timeout)
             self._page_timeout = None
-        if self._render_delay is not None:
-            self.app.cancel_timer(self._render_delay)
-            self._render_delay = None
+        if self._page_settle_timer is not None:
+            self.app.cancel_timer(self._page_settle_timer)
+            self._page_settle_timer = None
+        if self._buffer_overflow_timer is not None:
+            self.app.cancel_timer(self._buffer_overflow_timer)
+            self._buffer_overflow_timer = None
         if self._close_timeout is not None:
             self.app.cancel_timer(self._close_timeout)
             self._close_timeout = None
@@ -569,9 +552,7 @@ class HAUINavigationController(HAUIBase):
         if self._home_panel is None:
             return
         if self.panel and self._home_panel.id != self.panel.id:
-            self.log(
-                "Auto-navigate-home timeout reached, navigating to home panel"
-            )
+            self.log("Auto-navigate-home timeout reached, navigating to home panel")
             self.open_home_panel()
 
     def close_panel(self) -> None:
@@ -834,9 +815,7 @@ class HAUINavigationController(HAUIBase):
         interaction-timer reset runs first because it applies across several
         event types (touch/button/gesture).
         """
-        self.debug_log(
-            f"Navigation process_event: {event.name} value={str(event.value)[:100]}"
-        )
+        self.debug_log(f"Navigation process_event: {event.name} value={str(event.value)[:100]}")
         self._reset_hub_timers_on_interaction(event)
 
         handlers: dict[str, Any] = {
@@ -845,6 +824,7 @@ class HAUINavigationController(HAUIBase):
             ESPEvent.DISPLAY_STATE: self._handle_display_state_event,
             ESPEvent.WAKEUP: self._handle_wakeup_event,
             ESPEvent.SLEEP: self._handle_sleep_event,
+            ESPEvent.BUFFER_OVERFLOW: self._handle_buffer_overflow_event,
         }
         handler = handlers.get(event.name)
         if handler is not None:
@@ -892,8 +872,19 @@ class HAUINavigationController(HAUIBase):
             return
         if self.page.page_id_recv is None:
             self.page.page_id_recv = event.as_int()
-        # page not started yet - display it now
+        # page not started yet - schedule display_panel after settle delay
+        # to let the Nextion finish initialising all page components before
+        # render commands arrive.
         if not self.page.is_started() and self.panel is not None:
+            delay = self.app.device.get("page_settle_delay", 0.1)
+            if self._page_settle_timer is not None:
+                self.app.cancel_timer(self._page_settle_timer)
+            self._page_settle_timer = self.app.run_in(self._page_settle_callback, delay)
+
+    def _page_settle_callback(self, _kwargs: dict[str, Any]) -> None:
+        """Timer callback: render the panel after the page settle delay."""
+        self._page_settle_timer = None
+        if self.panel is not None:
             self.display_panel(self.panel)
 
     def _handle_timeout_event(self, event: HAUIEvent) -> None:
@@ -940,3 +931,29 @@ class HAUINavigationController(HAUIBase):
         """esphome.sleep -> drop the active page."""
         if self.page:
             self.unset_page()
+
+    def _handle_buffer_overflow_event(self, _event: HAUIEvent) -> None:
+        """esphome.buffer_overflow — Nextion RX buffer overflowed, commands lost.
+
+        The Nextion reports 0x24 when its internal serial buffer overflows.
+        All instructions that were in-flight at that moment are permanently
+        lost — the display shows a mix of stale and updated widgets.
+
+        We schedule a debounced re-render of the current panel so the display
+        recovers automatically.  The 500ms delay lets the ESPHome queue drain
+        any remaining commands before we re-send the full panel state.
+        """
+        self.log(
+            "Nextion buffer overflow detected — scheduling panel re-render",
+            level="WARNING",
+        )
+        if self._buffer_overflow_timer is not None:
+            self.app.cancel_timer(self._buffer_overflow_timer)
+        self._buffer_overflow_timer = self.app.run_in(self._buffer_overflow_recover, 0.5)
+
+    def _buffer_overflow_recover(self, _kwargs: dict[str, Any]) -> None:
+        """Re-render the current panel after a buffer overflow."""
+        self._buffer_overflow_timer = None
+        if self.panel is not None and self.page is not None:
+            self.log("Re-rendering panel after buffer overflow")
+            self.display_panel(self.panel)

@@ -35,6 +35,13 @@ DEVICE_CONFIG: dict[str, Any] = {
     "show_home_button": False,
     "show_sleep_button": False,
     "show_notifications_button": True,
+    # page settle delay (seconds)
+    # After receiving the page-change confirmation (esphome.page event), wait
+    # this long before sending render commands.  This gives the Nextion display
+    # extra time to fully initialise all page components, reducing the risk of
+    # "Invalid variable name" errors when render commands arrive before the page
+    # is ready.
+    "page_settle_delay": 0.1,
     # logging
     "log_items": False,
     "debug_level": 0,
@@ -71,6 +78,7 @@ DEVICE_CONFIG_FIELDS: list[str] = [
     "show_home_button",
     "show_sleep_button",
     "show_notifications_button",
+    "page_settle_delay",
     "enabled",
     "log_items",
     "debug_level",
@@ -84,6 +92,7 @@ DEVICE_CONFIG_FIELDS: list[str] = [
     "sound_on_notification",
     "color_overrides",
 ]
+
 
 def resolve_snapshot_max_age(cfg: dict[str, Any]) -> int:
     """Resolve ``snapshot_max_age_seconds`` from *cfg*, falling back to legacy keys.

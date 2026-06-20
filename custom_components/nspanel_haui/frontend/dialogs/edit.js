@@ -217,7 +217,7 @@ class EditPanelDialog extends LitElement {
                   ></ha-switch>
                   <label for="fld-show-in-nav">${t('Show in navigation')}</label>
                 </div>
-                <span class="field-hint">When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)</span>
+                <span class="field-hint">${t("When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)")}</span>
               </div>
             </div>
           </details>

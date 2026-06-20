@@ -51,9 +51,7 @@ class CoverPage(HAUIPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set component callbacks
-        self.bind_slider(
-            self.COMPONENTS.h_vert_pos, self.process_cover_pos
-        )
+        self.bind_slider(self.COMPONENTS.h_vert_pos, self.process_cover_pos)
         # set function buttons
         self.set_function_buttons(
             self.COMPONENTS.fnc_left_pri,
@@ -62,11 +60,13 @@ class CoverPage(HAUIPage):
             self.COMPONENTS.fnc_right_sec,
         )
         # set cover button callbacks
-        self.on_release({
-            self.COMPONENTS.btn_up: self.callback_cover_up,
-            self.COMPONENTS.btn_stop: self.callback_cover_stop,
-            self.COMPONENTS.btn_down: self.callback_cover_down,
-        })
+        self.on_release(
+            {
+                self.COMPONENTS.btn_up: self.callback_cover_up,
+                self.COMPONENTS.btn_stop: self.callback_cover_stop,
+                self.COMPONENTS.btn_down: self.callback_cover_down,
+            }
+        )
         # set item
         item: HAUIItem | None = None
         entity_id = panel.get("item_id")
@@ -218,8 +218,8 @@ class CoverPage(HAUIPage):
             self.update_function_component(self.COMPONENTS.btn_down.name, visible=False)
         # slider
         if supported_features & CoverFeatures.SET_POSITION:
-            self.set_slider_color(self.COMPONENTS.h_vert_pos)
-            self.set_component_value(self.COMPONENTS.h_vert_pos, current_position)
+            self.set_slider_color(self.COMPONENTS.h_vert_pos, show_toggle=False)
+            self.set_component_value(self.COMPONENTS.h_vert_pos, value=current_position)
             self.update_function_component(self.COMPONENTS.h_vert_pos.name, visible=True)
         else:
             self.update_function_component(self.COMPONENTS.h_vert_pos.name, visible=False)

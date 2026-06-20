@@ -44,6 +44,7 @@ def test_device_config_has_all_required_keys() -> None:
         "show_home_button",
         "show_sleep_button",
         "show_notifications_button",
+        "page_settle_delay",
         "log_items",
         "debug_level",
         "reset_interaction_on_button",

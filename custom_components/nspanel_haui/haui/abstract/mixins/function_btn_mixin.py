@@ -254,11 +254,6 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                 "fnc_name": fnc_name,
                 "fnc_args": fnc_args,
             }
-            if not fnc_args.get("visible", True):
-                # Pre-set current_visible so the first
-                # update_function_component call skips the vis=0 command —
-                # the component already starts hidden in the TFT.
-                item["current_visible"] = False
             self._fnc_items[fnc_id] = item
         elif fnc_id in self._fnc_items:
             self.log(f"Removing function component {fnc_id}")
@@ -293,6 +288,16 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         touch = fnc_args.get("touch_events", None)
         color = fnc_args.get("color", None)
         visible = fnc_args.get("visible", True)
+
+        # Hidden components: only send vis=0 (if not already cached) then stop.
+        # Sending color/icon/text for hidden components wastes queue slots — they
+        # get overridden by render_panel when the component is made visible, and
+        # the extra commands extend the drain delay without any visual benefit.
+        if visible is False:
+            if fnc_item.get("current_visible", None) is not False:
+                self.hide_component(fnc_component)
+                fnc_item["current_visible"] = False
+            return
 
         # set value
         if value is not None and fnc_item.get("current_value") != value:
@@ -338,35 +343,34 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             fnc_item["current_touch_events"] = touch
 
         # set colors
-        if (
-            color is None
-            and fnc_args.get("locked", None) is not None
-            and fnc_name == self.FNC_TYPE_UNLOCK
-            and not fnc_args.get("locked", False)
-        ):
-            color = self.get_color("header_accent")
-        if color is None:
-            color = self.get_color("header_text")
-        color_pressed = fnc_args.get("color_pressed")
-        back_color = fnc_args.get("back_color")
-        if back_color is None:
-            back_color = self.get_color("header_background")
-        back_color_pressed = fnc_args.get("back_color_pressed")
-        if color is not None and fnc_item.get("current_color") != color:
-            self.set_component_text_color(fnc_component, color)
-            fnc_item["current_color"] = color
-        if color_pressed is not None and fnc_item.get("current_color_pressed") != color_pressed:
-            self.set_component_text_color_pressed(fnc_component, color_pressed)
-            fnc_item["current_color_pressed"] = color_pressed
-        if back_color is not None and fnc_item.get("current_back_color") != back_color:
-            self.set_component_back_color(fnc_component, back_color)
-            fnc_item["current_back_color"] = back_color
-        if (
-            back_color_pressed is not None
-            and fnc_item.get("current_back_color_pressed") != back_color_pressed
-        ):
-            self.set_component_back_color_pressed(fnc_component, back_color_pressed)
-            fnc_item["current_back_color_pressed"] = back_color_pressed
+        if not fnc_args.get("no_color", False):
+            if (
+                color is None
+                and fnc_args.get("locked", None) is not None
+                and fnc_name == self.FNC_TYPE_UNLOCK
+                and not fnc_args.get("locked", False)
+            ):
+                color = self.get_color("header_accent")
+            if color is None:
+                color = self.get_color("header_text")
+            color_pressed = fnc_args.get("color_pressed")
+            back_color = fnc_args.get("back_color")
+            back_color_pressed = fnc_args.get("back_color_pressed")
+            if color is not None and fnc_item.get("current_color") != color:
+                self.set_component_text_color(fnc_component, color)
+                fnc_item["current_color"] = color
+            if color_pressed is not None and fnc_item.get("current_color_pressed") != color_pressed:
+                self.set_component_text_color_pressed(fnc_component, color_pressed)
+                fnc_item["current_color_pressed"] = color_pressed
+            if back_color is not None and fnc_item.get("current_back_color") != back_color:
+                self.set_component_back_color(fnc_component, back_color)
+                fnc_item["current_back_color"] = back_color
+            if (
+                back_color_pressed is not None
+                and fnc_item.get("current_back_color_pressed") != back_color_pressed
+            ):
+                self.set_component_back_color_pressed(fnc_component, back_color_pressed)
+                fnc_item["current_back_color_pressed"] = back_color_pressed
 
         # set visibility
         if visible is not None and fnc_item.get("current_visible", None) is not visible:
@@ -450,6 +454,17 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                     fnc_item["fnc_args"]["visible"] = False
                 else:
                     fnc_item["fnc_args"]["visible"] = True
+            # Set background color for header buttons (visible, non-content slots)
+            # so they retain their header bar background even after removing the
+            # universal default in update_function_component.
+            fnc_ids_header = (
+                self.FNC_BTN_L_PRI,
+                self.FNC_BTN_L_SEC,
+                self.FNC_BTN_R_PRI,
+                self.FNC_BTN_R_SEC,
+            )
+            if fnc_id in fnc_ids_header and fnc_item["fnc_args"].get("back_color") is None:
+                fnc_item["fnc_args"]["back_color"] = self.get_color("header_background")
 
     def _swap_slots_if_single_nav(self, pri_key: str, sec_key: str) -> None:
         """Swap secondary button slot with primary when both exist and primary is nav-unused.

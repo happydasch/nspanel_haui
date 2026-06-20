@@ -54,20 +54,24 @@ class AboutPage(HAUIPage):
         with self.rec_cmd:
             # set function buttons
             self.set_function_component(
-                self.COMPONENTS.fnc_left_pri, self.FNC_BTN_L_PRI,
+                self.COMPONENTS.fnc_left_pri,
+                self.FNC_BTN_L_PRI,
                 fnc_name=self.FNC_TYPE_NAV_UP,
             )
             self.set_function_component(
-                self.COMPONENTS.fnc_right_pri, self.FNC_BTN_R_PRI,
+                self.COMPONENTS.fnc_right_pri,
+                self.FNC_BTN_R_PRI,
                 fnc_name=self.FNC_TYPE_NAV_CLOSE,
             )
             # register secondary buttons (unused — _auto_assign_fncs will hide them)
             self.set_function_component(
-                self.COMPONENTS.fnc_left_sec, self.FNC_BTN_L_SEC,
+                self.COMPONENTS.fnc_left_sec,
+                self.FNC_BTN_L_SEC,
                 fnc_name=None,
             )
             self.set_function_component(
-                self.COMPONENTS.fnc_right_sec, self.FNC_BTN_R_SEC,
+                self.COMPONENTS.fnc_right_sec,
+                self.FNC_BTN_R_SEC,
                 fnc_name=None,
             )
             # auto-assign defaults to all header button slots

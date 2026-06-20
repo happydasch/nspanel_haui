@@ -37,9 +37,9 @@ export async function exportDeviceYaml(host) {
   if (!deviceKey) return;
   try {
     await Api.exportDeviceYaml(host, deviceKey);
-    host._showToast(`Exported "${deviceKey}" as YAML`, "success");
+    host._showToast(host._t('Exported "{name}" as YAML').replace('{name}', deviceKey), "success");
   } catch (e) {
-    host._showToast(e.message || "Export failed", "error");
+    host._showToast(e.message || host._t("Export failed"), "error");
   }
 }
 
@@ -50,7 +50,7 @@ export async function importDeviceYaml(host) {
     const msg = await Api.importDeviceYaml(host, deviceKey);
     if (msg) host._showToast(msg, "success");
   } catch (e) {
-    host._showToast(e.message || "Import failed", "error");
+    host._showToast(e.message || host._t("Import failed"), "error");
   }
 }
 
@@ -61,7 +61,7 @@ export async function importDeviceYaml(host) {
  */
 export function renderDeviceManagerButton(host) {
   return html`<ha-icon-button
-    title="Device Manager"
+    title=${host._t('Device Manager')}
     class="device-manager-btn"
     @click=${() => host._openDeviceManager()}
   ><ha-icon icon="mdi:devices"></ha-icon></ha-icon-button>`;

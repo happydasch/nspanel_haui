@@ -68,10 +68,12 @@ class NotifyPage(CommonNotifyPage):
         self._close_callback_fnc = panel.get("close_callback_fnc", None)
 
         # set button callbacks
-        self.on_release({
-            self.COMPONENTS.btn_left: self.callback_button,
-            self.COMPONENTS.btn_right: self.callback_button,
-        })
+        self.on_release(
+            {
+                self.COMPONENTS.btn_left: self.callback_button,
+                self.COMPONENTS.btn_right: self.callback_button,
+            }
+        )
 
         # set function buttons
         self.set_function_buttons(
@@ -161,10 +163,12 @@ class NotifsPage(CommonNotifyPage):
         self._index = 0
 
         # set button callbacks
-        self.on_release({
-            self.COMPONENTS.btn_left: self.callback_button,
-            self.COMPONENTS.btn_right: self.callback_button,
-        })
+        self.on_release(
+            {
+                self.COMPONENTS.btn_left: self.callback_button,
+                self.COMPONENTS.btn_right: self.callback_button,
+            }
+        )
 
         notifications = self.app.controller["notification"].get_notifications()
         count = len(notifications)

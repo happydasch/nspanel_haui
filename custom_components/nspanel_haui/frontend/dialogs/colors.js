@@ -16,6 +16,7 @@ import { LitElement, html, nothing } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
 import { dialogHeader } from './dialog-header.js';
 import { rgb565ToHex, hexToRgb565 } from '../color-utils.js';
+import { t } from '../localize.js';
 
 /* ── built-in COLORS palette (fetched from haui/mapping/color.py) ──────── */
 
@@ -195,7 +196,7 @@ class ColorsDialog extends LitElement {
             class="cp-pv-header"
             style="background:${c("header_background")};color:${c("header_text")}"
           >
-            <span class="cp-pv-title">Living Room</span>
+            <span class="cp-pv-title">${t("Living Room")}</span>
             <span class="cp-pv-hicons">
               <ha-icon icon="mdi:home" style="color:${c("header_text")}"></ha-icon>
               <ha-icon icon="mdi:bell" style="color:${c("header_accent")}"></ha-icon>
@@ -203,23 +204,23 @@ class ColorsDialog extends LitElement {
           </div>
           <div class="cp-pv-body">
             <div class="cp-pv-texts">
-              <span style="color:${c("text")}">Text</span>
-              <span style="color:${c("text_inactive")}">Inactive</span>
-              <span style="color:${c("text_disabled")}">Disabled</span>
+              <span style="color:${c("text")}">${t("Text")}</span>
+              <span style="color:${c("text_inactive")}">${t("Inactive")}</span>
+              <span style="color:${c("text_disabled")}">${t("Disabled")}</span>
             </div>
             <div class="cp-pv-comps">
               <span
                 class="cp-pv-btn"
                 style="background:${c("component_background")};color:${c("component_text")}"
-              >Component</span>
+              >${t("Component")}</span>
               <span
                 class="cp-pv-btn"
                 style="background:${c("component_pressed")};color:${c("component_text")}"
-              >Pressed</span>
+              >${t("Pressed")}</span>
               <span
                 class="cp-pv-btn"
                 style="background:${c("component_active")};color:${c("component_text")}"
-              >Active</span>
+              >${t("Active")}</span>
               <div
                 class="cp-pv-slider"
                 style="background:${c("component_active")}"
@@ -236,9 +237,9 @@ class ColorsDialog extends LitElement {
               ></ha-icon>
             </div>
             <div class="cp-pv-entities" style="color:${c("text")}">
-              <span class="cp-pv-ent"><i style="background:${c("entity_on")}"></i>On</span>
-              <span class="cp-pv-ent"><i style="background:${c("entity_off")}"></i>Off</span>
-              <span class="cp-pv-ent"><i style="background:${c("entity_unavailable")}"></i>Unavailable</span>
+              <span class="cp-pv-ent"><i style="background:${c("entity_on")}"></i>${t("On")}</span>
+              <span class="cp-pv-ent"><i style="background:${c("entity_off")}"></i>${t("Off")}</span>
+              <span class="cp-pv-ent"><i style="background:${c("entity_unavailable")}"></i>${t("Unavailable")}</span>
             </div>
           </div>
         </div>
@@ -249,10 +250,10 @@ class ColorsDialog extends LitElement {
   _renderGroup(group, idx) {
     return html`
       <details class="config-section">
-        <summary>${group.name}</summary>
+        <summary>${t(group.name)}</summary>
         <div class="config-section-body">
           ${group.description
-            ? html`<p class="config-section-intro">${group.description}</p>`
+            ? html`<p class="config-section-intro">${t(group.description)}</p>`
             : ""}
           <div class="cp-items">
             ${group.keys.map(([key, label]) => {
@@ -262,7 +263,7 @@ class ColorsDialog extends LitElement {
                   <label
                     class="cp-sw"
                     style="background:${this._getHex(key)}"
-                    title="${label} — ${this._getHex(key)}"
+                    title="${t(label)} — ${this._getHex(key)}"
                   >
                     <input
                       type="color"
@@ -270,12 +271,12 @@ class ColorsDialog extends LitElement {
                       @input=${(e) => this._onColorChange(key, e)}
                     />
                   </label>
-                  <span class="cp-name">${label}</span>
+                  <span class="cp-name">${t(label)}</span>
                   ${mod
                     ? html`
                         <ha-icon-button
                           class="cp-reset"
-                          title="Reset to default"
+                          title="${t("Reset to default")}"
                           @click=${() => this._resetColor(key)}
                         >
                           <ha-icon icon="mdi:undo-variant"></ha-icon>
@@ -298,10 +299,10 @@ class ColorsDialog extends LitElement {
         <ha-dialog
           .open=${this.open}
           @closed=${this._dispatchClose}
-          header-title="Device Colors"
+          header-title="${t("Device Colors")}"
         >
           <div class="dialog-body" style="padding: 32px; text-align: center;">
-            Loading default colors…
+            ${t("Loading default colors…")}
           </div>
         </ha-dialog>
       `;
@@ -314,11 +315,10 @@ class ColorsDialog extends LitElement {
         @closed=${this._dispatchClose}
         .preventScrimClose=${true}
       >
-        ${dialogHeader("Device Colors", this._dispatchClose, this._renderPreview())}
+        ${dialogHeader(t("Device Colors"), this._dispatchClose, this._renderPreview())}
         <div class="dialog-body">
           <p class="config-section-intro" style="margin: 0 0 4px;">
-            Tap a swatch to change a color — the preview above updates live.
-            Only changed colors are saved.
+            ${t("Tap a swatch to change a color — the preview above updates live. Only changed colors are saved.")}
           </p>
           ${COLOR_GROUPS.map((group, idx) => this._renderGroup(group, idx))}
         </div>
@@ -331,10 +331,10 @@ class ColorsDialog extends LitElement {
               .disabled=${changed === 0}
               @click=${this._resetAll}
             >
-              Reset all
+              ${t("Reset all")}
             </ha-button>
             ${changed > 0
-              ? html`<span class="footer-changed">${changed} changed</span>`
+              ? html`<span class="footer-changed">${changed} ${t("changed")}</span>`
               : nothing}
           </div>
           <ha-dialog-footer>
@@ -344,14 +344,14 @@ class ColorsDialog extends LitElement {
               appearance="plain"
               @click=${this._dispatchClose}
             >
-              Cancel
+              ${t("Cancel")}
             </ha-button>
             <ha-button
               slot="primaryAction"
               variant="brand"
               @click=${this._dispatchSave}
             >
-              Save
+              ${t("Save")}
             </ha-button>
           </ha-dialog-footer>
         </div>

@@ -136,7 +136,7 @@ class GridPage(HAUIPage):
             power_btn_callbacks[power] = self.callback_power_buttons
             grid_ovl_callbacks[ovl] = self.callback_grid_entries
             self.set_function_component(power, power[1], row_index=i, visible=False)
-            self.set_function_component(ovl, ovl[1], row_index=i, visible=False)
+            self.set_function_component(ovl, ovl[1], row_index=i, visible=False, no_color=True)
             self.set_function_component(btn, btn[1], row_index=i, visible=False)
             self.set_function_component(ico, ico[1], row_index=i, visible=False)
             self.set_function_component(name, name[1], row_index=i, visible=False)

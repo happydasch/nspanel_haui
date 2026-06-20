@@ -473,10 +473,10 @@ class NSPanelEditor extends LitElement {
     const panel = this._devicePanels()[idx];
     const name = panel ? panel.title || `panel #${idx}` : "this panel";
     return {
-      title: "Delete panel?",
-      message: `Delete ${name}? This cannot be undone.`,
-      confirmText: "Delete",
-      cancelText: "Cancel",
+      title: this._t("Delete panel?"),
+      message: this._t("Delete {name}? This cannot be undone.").replace("{name}", name),
+      confirmText: this._t("Delete"),
+      cancelText: this._t("Cancel"),
     };
   }
 
@@ -496,10 +496,10 @@ class NSPanelEditor extends LitElement {
     this.requestUpdate();
 
     try {
-      await this._savePanels(this._devicePanels(), "Device config saved");
-      this._showToast("Device configuration saved", "success");
+      await this._savePanels(this._devicePanels(), this._t("Device configuration saved"));
+      this._showToast(this._t("Device configuration saved"), "success");
     } catch (e) {
-      this._showToast(e.message || "Device config save failed", "error");
+      this._showToast(e.message || this._t("Device config save failed"), "error");
     } finally {
       this._saving = false;
       this._editingDeviceConfig = false;

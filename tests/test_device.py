@@ -1,3 +1,5 @@
+from contextlib import nullcontext
+
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.device import HAUIDevice
 from nspanel_haui.haui.mapping.const import ESPAction, ESPEvent
@@ -24,6 +26,11 @@ class DummyPage:
 
     def set_button_right_state(self, state):
         self.right_calls.append(state)
+
+    @property
+    def rec_cmd(self):
+        """Re-entrant command batch context manager for test page."""
+        return nullcontext()
 
 
 class DummyNavigation:
@@ -223,9 +230,7 @@ def test_relay_event_skips_display_when_interaction_disabled():
 def _spy_button_press(device):
     """Replace check_wakeup/toggle_* with recorders, return the call log."""
     calls = {"wakeup": 0, "toggle_left": 0, "toggle_right": 0}
-    device.check_wakeup = lambda from_button=False: calls.__setitem__(
-        "wakeup", calls["wakeup"] + 1
-    )
+    device.check_wakeup = lambda from_button=False: calls.__setitem__("wakeup", calls["wakeup"] + 1)
     device.toggle_left_button_state = lambda: calls.__setitem__(
         "toggle_left", calls["toggle_left"] + 1
     )

@@ -27,11 +27,21 @@ def test_colors_all_values_in_rgb565_range() -> None:
 
 def test_colors_only_global_keys() -> None:
     """COLORS holds only the 15 global keys; domain colors live elsewhere."""
-    defaults = {"background", "header_background", "header_text", "header_accent",
-                "text", "text_inactive", "text_disabled",
-                "component_text", "component_pressed", "component_active",
-                "component_active_dark",
-                "component_accent", "component_background"}
+    defaults = {
+        "background",
+        "header_background",
+        "header_text",
+        "header_accent",
+        "text",
+        "text_inactive",
+        "text_disabled",
+        "component_text",
+        "component_pressed",
+        "component_active",
+        "component_active_dark",
+        "component_accent",
+        "component_background",
+    }
     entity = {"entity_on", "entity_off", "entity_unavailable"}
     assert COLORS.keys() == defaults | entity
     assert len(COLORS) == 16
@@ -201,5 +211,3 @@ class TestColorOverridesValidation:
             overrides = getattr(result, "color_overrides", None)
             assert overrides["background"] == 0  # clamped
             assert overrides["text"] == 65535  # clamped
-
-

@@ -79,7 +79,9 @@ _ALARM_ARMED_STATES = frozenset(
 
 
 def _color_weather(
-    entity: Any, item_state: str | None, haui_item: HAUIItem,
+    entity: Any,
+    item_state: str | None,
+    haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
 ) -> int:
     key = (item_state or "").replace("-", "_")
@@ -87,14 +89,18 @@ def _color_weather(
 
 
 def _color_climate(
-    entity: Any, item_state: str | None, haui_item: HAUIItem,
+    entity: Any,
+    item_state: str | None,
+    haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
 ) -> int | None:
-    return CLIMATE_COLORS.get(item_state)
+    return CLIMATE_COLORS.get(item_state) if item_state is not None else None
 
 
 def _color_alarm(
-    entity: Any, item_state: str | None, haui_item: HAUIItem,
+    entity: Any,
+    item_state: str | None,
+    haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
 ) -> int | None:
     if item_state == "disarmed":
@@ -107,7 +113,9 @@ def _color_alarm(
 
 
 def _color_media_player(
-    entity: Any, item_state: str | None, haui_item: HAUIItem,
+    entity: Any,
+    item_state: str | None,
+    haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
 ) -> int:
     if item_state == "playing":
@@ -118,14 +126,18 @@ def _color_media_player(
 
 
 def _color_group(
-    entity: Any, item_state: str | None, haui_item: HAUIItem,
+    entity: Any,
+    item_state: str | None,
+    haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
 ) -> int:
     return color_getter("entity_on") if item_state == "on" else color_getter("entity_off")
 
 
 def _color_light(
-    entity: Any, item_state: str | None, haui_item: HAUIItem,
+    entity: Any,
+    item_state: str | None,
+    haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
 ) -> int | None:
     if item_state != "on":

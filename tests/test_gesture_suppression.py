@@ -344,4 +344,3 @@ def test_touch_start_clears_pending_read():
         HAUIEvent(ESPResponse.READ_RESPONSE, '{"name":"hBrightness","type":"number","value":75}')
     )
     assert calls == [("handler", 75)]
-

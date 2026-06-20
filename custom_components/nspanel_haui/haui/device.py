@@ -126,7 +126,7 @@ class HAUIDevice(HAUIBase):
         """
         reset = self.get("reset_interaction_on_button", True)
         name = self.get_name()
-        slug = name.lower().replace('-', '_').replace(' ', '_')
+        slug = name.lower().replace("-", "_").replace(" ", "_")
         entity_id = f"switch.{slug}_use_button_interaction"
         if not self.app.item_exists(entity_id):
             return
@@ -145,7 +145,7 @@ class HAUIDevice(HAUIBase):
         ``use_relay_left``/``use_relay_right`` switches using
         ``RESTORE_DEFAULT_ON``) acts differently.
         """
-        slug = self.get_name().lower().replace('-', '_').replace(' ', '_')
+        slug = self.get_name().lower().replace("-", "_").replace(" ", "_")
         self._sync_config_switch(
             "use_relay_left",
             f"switch.{slug}_use_relay_left",
@@ -528,7 +528,8 @@ class HAUIDevice(HAUIBase):
         getattr(self, f"_btn_{side}_info")["state"] = state
         navigation = self.app.controller["navigation"]
         if self._may_push_button_state() and navigation.page:
-            getattr(navigation.page, f"set_button_{side}_state")(state)
+            with navigation.page.rec_cmd:
+                getattr(navigation.page, f"set_button_{side}_state")(state)
 
     def _may_push_button_state(self) -> bool:
         """Whether a relay state change may write to the display.

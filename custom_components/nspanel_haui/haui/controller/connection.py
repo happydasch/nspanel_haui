@@ -318,11 +318,13 @@ class HAUIConnectionController(HAUIBase):
 
     # Events that are excluded from livesign detection (they are part of
     # the handshake protocol itself, not external signs of life).
-    _LIVESIGN_EXCLUDED: frozenset = frozenset({
-        ServerRequest.REQ_CONNECTION,
-        ServerRequest.RES_CONNECTION,
-        ESPResponse.RES_DEVICE_STATE,
-    })
+    _LIVESIGN_EXCLUDED: frozenset = frozenset(
+        {
+            ServerRequest.REQ_CONNECTION,
+            ServerRequest.RES_CONNECTION,
+            ESPResponse.RES_DEVICE_STATE,
+        }
+    )
 
     def process_event(self, event: HAUIEvent) -> None:
         """Process a single event.
@@ -363,9 +365,7 @@ class HAUIConnectionController(HAUIBase):
 
     def _handle_livesign(self, event: HAUIEvent) -> None:
         """Handle any event while DISCONNECTED — treat as livesign → handshake."""
-        self.log(
-            f"Livesign received while disconnected: {event.name}, initiating handshake"
-        )
+        self.log(f"Livesign received while disconnected: {event.name}, initiating handshake")
         self._initiate_handshake("livesign")
 
     def _handle_heartbeat(self, event: HAUIEvent) -> None:
@@ -402,9 +402,7 @@ class HAUIConnectionController(HAUIBase):
                 # Duplicate/retry res_connection after handshake — device
                 # is alive, treat as heartbeat refresh.
                 self._update_last_time()
-                self.debug_log(
-                    f"res_connection received in state {self._state.value} (ignored)"
-                )
+                self.debug_log(f"res_connection received in state {self._state.value} (ignored)")
             else:
                 self.log(
                     f"Unexpected res_connection in state {self._state.value}",

@@ -398,7 +398,9 @@ void Nextion::process_pending_in_queue_() {
 bool Nextion::remove_from_q_(bool report_empty) {
   if (this->nextion_queue_.empty()) {
     if (report_empty) {
-      ESP_LOGE(TAG, "Queue empty");
+      ESP_LOGE(TAG, "Queue empty - response received but no pending command (sleeping=%s, connected=%s)",
+               this->is_sleeping_ ? "true" : "false",
+               this->connection_state_.is_connected_ ? "true" : "false");
     }
     return false;
   }
@@ -668,48 +670,42 @@ void Nextion::process_nextion_commands_() {
 
         int value = static_cast<int>(encode_uint32(to_process[3], to_process[2], to_process[1], to_process[0]));
 
-        // Skip past any NO_RESULT entries (e.g. "dim", "command") that may have
-        // accumulated at the front of the queue ahead of the SENSOR/BINARY_SENSOR/
-        // SWITCH entry that actually triggered this numeric response.  NO_RESULT
-        // entries are write-only commands whose 0x01 ACK hasn't arrived yet;
-        // they don't expect numeric data.
-        for (;;) {
-          if (this->nextion_queue_.empty()) {
-            ESP_LOGE(TAG, "Numeric return but queue empty after skipping NO_RESULT");
-            break;
+        // Scan forward for the SENSOR/BINARY_SENSOR/SWITCH entry that owns this
+        // 0x71 response.  NO_RESULT entries ahead of it must NOT be removed here:
+        // each has a 0x01 ACK in flight that will call remove_from_q_() to consume
+        // it.  Deleting them now orphans those ACKs, causing "Queue empty" errors
+        // and halting the render pipeline for every remaining pending command.
+        {
+          bool found = false;
+          for (auto it = this->nextion_queue_.begin(); it != this->nextion_queue_.end(); ++it) {
+            NextionQueue *nb = *it;
+            if (!nb || !nb->component) {
+              continue;
+            }
+            NextionComponentBase *component = nb->component;
+            NextionQueueType type = component->get_queue_type();
+
+            if (type == NextionQueueType::SENSOR || type == NextionQueueType::BINARY_SENSOR ||
+                type == NextionQueueType::SWITCH) {
+              ESP_LOGN(TAG, "Numeric: %s type %d:%s val %d", component->get_variable_name().c_str(),
+                       type, component->get_queue_type_string(), value);
+              component->set_state_from_int(value, true, false);
+              delete nb;  // NOLINT(cppcoreguidelines-owning-memory)
+              this->nextion_queue_.erase(it);
+              found = true;
+              break;
+
+            } else if (type == NextionQueueType::NO_RESULT) {
+              // Leave in queue — its 0x01 ACK will remove it via remove_from_q_().
+              ESP_LOGD(TAG, "Numeric return: skipping NO_RESULT '%s'", component->get_variable_name().c_str());
+
+            } else {
+              ESP_LOGE(TAG, "Numeric return but '%s' invalid type %d", component->get_variable_name().c_str(), type);
+              break;
+            }
           }
-
-          NextionQueue *nb = this->nextion_queue_.front();
-          if (!nb || !nb->component) {
-            ESP_LOGE(TAG, "Invalid queue");
-            this->nextion_queue_.pop_front();
-            continue;
-          }
-          NextionComponentBase *component = nb->component;
-
-          if (component->get_queue_type() == NextionQueueType::SENSOR ||
-              component->get_queue_type() == NextionQueueType::BINARY_SENSOR ||
-              component->get_queue_type() == NextionQueueType::SWITCH) {
-            ESP_LOGN(TAG, "Numeric: %s type %d:%s val %d", component->get_variable_name().c_str(),
-                     component->get_queue_type(), component->get_queue_type_string(), value);
-            component->set_state_from_int(value, true, false);
-            delete nb;  // NOLINT(cppcoreguidelines-owning-memory)
-            this->nextion_queue_.pop_front();
-            break;  // entry consumed
-
-          } else if (component->get_queue_type() == NextionQueueType::NO_RESULT) {
-            ESP_LOGD(TAG, "Numeric return: skipping NO_RESULT '%s'", component->get_variable_name().c_str());
-            delete component;  // NOLINT(cppcoreguidelines-owning-memory)
-            delete nb;  // NOLINT(cppcoreguidelines-owning-memory)
-            this->nextion_queue_.pop_front();
-            continue;  // try next entry
-
-          } else {
-            ESP_LOGE(TAG, "Numeric return but '%s' invalid type %d", component->get_variable_name().c_str(),
-                     component->get_queue_type());
-            delete nb;  // NOLINT(cppcoreguidelines-owning-memory)
-            this->nextion_queue_.pop_front();
-            break;  // give up
+          if (!found) {
+            ESP_LOGE(TAG, "Numeric return but no SENSOR entry found after skipping NO_RESULT");
           }
         }
         break;  // switch

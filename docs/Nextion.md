@@ -6,6 +6,8 @@
   - [Installation](#installation)
   - [How to edit the HMI file](#how-to-edit-the-hmi-file)
   - [Display dimensions and non-visible area](#display-dimensions-and-non-visible-area)
+  - [Panel rendering and refresh](#panel-rendering-and-refresh)
+  - [Advanced queue tuning options](#advanced-queue-tuning-options)
   - [Scripts for display](#scripts-for-display)
 
 ## Installation
@@ -52,6 +54,16 @@ This project uses the ESPHome `nextion` display component with a hardware UART a
 - `on_touch`: triggered when a touch event happens.
 - `on_sleep` / `on_wake`: triggered when the display sleeps or wakes.
 
+### Advanced queue tuning options
+
+These options are set in `esphome/nspanel_haui/display.yaml` and are not needed for normal use.
+
+- `max_queue_size` (default: 800): caps the command queue to prevent heap fragmentation when the Nextion serial buffer overflows and orphans pending entries. 800 entries is enough to absorb a full panel render burst plus concurrent state updates.
+
+- `max_commands_per_loop` (default: 50): limits commands processed per loop iteration to spread out allocation/deallocation. When `command_spacing` is active this cap is redundant (pacer already limits to 1 cmd/loop), so it only matters with spacing disabled.
+
+- `command_spacing` (default: `0`, disabled): minimum gap between commands sent to the Nextion display. When set to a non-zero duration (e.g. `2ms`), the pacer sends at most 1 command per loop iteration, keeping only 1 command in flight on UART at a time and preventing RX buffer overflow on slower Nextion panels. The ESP32 loop runs at ~3–5ms under this workload, giving ~200–330 commands/sec at `2ms` spacing. Leave at `0` for maximum throughput. Enable only if you observe buffer overflows or display glitches under heavy load.
+
 The repo also exposes these actions via API:
 
 - `upload_tft`
@@ -64,6 +76,25 @@ This project also handles Nextion runtime issues such as buffer overflow using t
 When a buffer overflow is detected, the display logs the warning and publishes a `buffer_overflow` event so the app can react or retry safely.
 
 These match the official ESPHome Nextion component behavior used by the project.
+
+### Panel rendering and refresh
+
+Commands are batched at the HA layer and sent as a single `send_commands` service call, keeping only one in-flight payload on the UART at a time and preventing the Nextion's 1 KB RX buffer from overflowing. This is the primary protection against display corruption under heavy load.
+
+The rendering cycle has two paths:
+
+- **Full render** (`display_panel`): used for initial page display, panel switches, and overflow recovery. Resets the command-dedup cache so the first batch is never suppressed as a duplicate of the previous page.
+- **Refresh** (`refresh_panel`): used for incremental updates (entity state changes, clock ticks, etc.). Re-runs `render_panel` on the already-active panel without a page transition.
+
+#### Page settle delay
+
+After a page-change command the Nextion sends a 0x66 ack once the new page is active. The hub waits for this ack before sending render commands — commands arriving before the ack are rejected with "Invalid variable name" (0x1A) because page components are not yet initialised.
+
+After the ack the hub waits an additional settle delay (default `0.1s`, configurable via `page_settle_delay`) before calling `display_panel`. If the ack never arrives within `page_timeout` (default 10s), the hub force-resends the page command and renders anyway as a fallback.
+
+#### Buffer overflow recovery
+
+If the Nextion reports a buffer overflow (0x24), the hub debounces a full `display_panel` re-render with a 500ms delay to let the ESPHome queue drain any remaining commands before re-sending the complete panel state. This is a safety net — normal operation should not trigger overflows given the HA-layer batching.
 
 ## How to edit the HMI file
 

@@ -30,6 +30,7 @@ class _PendingReadRequest:
     ``req_val_component``/``req_txt_component`` global.  Expires so a lost
     response doesn't wedge future reads.
     """
+
     component_name: str
     expiry: float
 
@@ -204,9 +205,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         self.on_release(component, self._callback_slider_release, drag=True)
         self.add_read_callback(component, handler)
 
-    def add_read_callback(
-        self, component: Component, handler: Callable[[Any], None]
-    ) -> None:
+    def add_read_callback(self, component: Component, handler: Callable[[Any], None]) -> None:
         """Route ``read_response`` events for ``component`` to ``handler``.
 
         Use this directly when the read request is sent from elsewhere
@@ -221,9 +220,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         """
         self._read_callbacks[component.name] = (component, handler)
 
-    def add_read_callback_by_name(
-        self, name: str, handler: Callable[[Any], None]
-    ) -> None:
+    def add_read_callback_by_name(self, name: str, handler: Callable[[Any], None]) -> None:
         """Route ``read_response`` events for a named component to ``handler``.
 
         Convenience wrapper around :meth:`add_read_callback` for wiring
@@ -271,10 +268,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         """
         name = self._extract_component_name(component)
         now = time.monotonic()
-        if (
-            self._pending_read_request is not None
-            and now < self._pending_read_request.expiry
-        ):
+        if self._pending_read_request is not None and now < self._pending_read_request.expiry:
             self.log(f"{log_label} for {name}: skipped (request pending)")
             return
         self._pending_read_request = _PendingReadRequest(
@@ -467,18 +461,26 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         panel_key = panel.get("key", "")
         panel_type = panel.get_type()
         self.log(f"Page {PAGE_MAPPING.get(self.page_id)} | Panel: {panel_key} ({panel_type})")
-        self.start_panel(panel)
 
-        # 1. call config for panel
-        self.config_panel(panel)
-        # 2. call before render for panel
+        # Batch ALL commands from start_panel, config_panel, and render_panel
+        # into a single send_commands call so the ESP32 receives them as one
+        # ESPHome service call.  Multiple rapid-fire service calls can overflow
+        # the Nextion's serial buffer before the display finishes processing.
+        # rec_cmd is re-entrant, so inner rec_cmd blocks in config_panel and
+        # render_panel are absorbed into this outer batch.
         rendered = False
-        if self.before_render_panel(panel):
-            self.debug_log(
-                f"Rendering panel {panel.id}",
-                min_level=2,
-            )
-            with self.rec_cmd:
+        self._fnc_items = {}
+        with self.rec_cmd:
+            self.start_panel(panel)
+
+            # 1. call config for panel
+            self.config_panel(panel)
+            # 2. call before render for panel
+            if self.before_render_panel(panel):
+                self.debug_log(
+                    f"Rendering panel {panel.id}",
+                    min_level=2,
+                )
                 # Render function components (init vis/color/text) and the
                 # panel's display content in one batch so the dedup logic
                 # collapses redundant writes — e.g. ``vis x,0`` from an
@@ -486,20 +488,18 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 # from ``render_panel`` becomes a single ``vis x,1``.
                 self._render_function_components()
                 self.render_panel(panel)
-            rendered = True
+                rendered = True
         # 4. call after render for panel
         self.after_render_panel(panel, rendered)
 
     def _render_function_components(self) -> None:
-        """Send the current state of all visible registered function components.
+        """Send the current state of all registered function components.
 
-        Components set to ``visible=False`` are skipped — they start hidden
-        in the TFT and don't need ``vis name,0`` or any color/text commands
-        until a state change makes them visible later.
+        All components are rendered (including hidden ones) so that same-page
+        panel transitions correctly hide components that were visible in the
+        previous panel. Batch dedup collapses hide-then-show sequences to show.
         """
-        for fnc_id, fnc_item in self._fnc_items.items():
-            if not fnc_item["fnc_args"].get("visible", True):
-                continue
+        for fnc_id in self._fnc_items:
             self.update_function_component(fnc_id)
 
     def config_panel(self, panel: HAUIPanel) -> None:
@@ -686,9 +686,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         """
         self._cancel_suppress_gesture_timer()
         self._suppress_gesture = True
-        self._suppress_gesture_timer = self.app.run_in(
-            self._clear_suppress_gesture, duration
-        )
+        self._suppress_gesture_timer = self.app.run_in(self._clear_suppress_gesture, duration)
 
     def _cancel_suppress_gesture_timer(self) -> None:
         """Cancels the gesture-suppression timer, if active."""
@@ -946,10 +944,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         # (from the touch poll cycle) is not wrongly dropped.
         elif event.name == ESPEvent.TOUCH_START:
             now = time.monotonic()
-            if (
-                self._pending_read_request is not None
-                and now >= self._pending_read_request.expiry
-            ):
+            if self._pending_read_request is not None and now >= self._pending_read_request.expiry:
                 self._pending_read_request = None
         # touch end — flush any deferred slider-release callback
         elif event.name == ESPEvent.TOUCH_END:
@@ -976,7 +971,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                     visible = True
                 self.update_function_component(self.FNC_BTN_L_SEC, color=color, visible=visible)
 
-    def set_slider_color(self, slider: Component) -> None:
+    def set_slider_color(self, slider: Component, show_toggle: bool = True) -> None:
         """Set the slider handle color to ``component_active_dark``.
 
         Sliders on NSPanel displays use ``.pco`` for the handle/foreground
@@ -985,8 +980,12 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
 
         Args:
             slider: The slider ``Component`` to colour.
+            show_toggle: Whether to show the toggle switch.
         """
-        self.set_component_text_color(slider, self.get_color("component_active_dark"))
+        if show_toggle:
+            self.set_component_text_color(slider, self.get_color("component_active_dark"))
+        else:
+            self.set_component_text_color(slider, self.get_color("component_pressed"))
 
     def process_component_event(self, event: HAUIEvent) -> None:
         """Processes component events from component callback.
@@ -1018,8 +1017,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             # navigate away mid-interaction
             if comp_id in self._drag_components:
                 self.log(
-                    f"Drag-ctrl press (comp {comp_id}) "
-                    f"— early return (button_state={button_state})"
+                    f"Drag-ctrl press (comp {comp_id}) — early return (button_state={button_state})"
                 )
                 self.suppress_gesture(self.DRAG_SUPPRESS_DURATION)
                 return
@@ -1036,10 +1034,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         # miss it entirely) and waiting up to ~1 s lets entity-state updates
         # overwrite the slider value before it is read.
         if comp_id in self._drag_components:
-            self.log(
-                f"Drag-ctrl release (comp {comp_id}) "
-                f"— queued deferred value read"
-            )
+            self.log(f"Drag-ctrl release (comp {comp_id}) — queued deferred value read")
             self.suppress_gesture(self.DRAG_SUPPRESS_DURATION)
             self._pending_drag_callback = (comp_id, button_state, event)
             self._cancel_drag_flush_timer()

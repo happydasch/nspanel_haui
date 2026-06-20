@@ -6,7 +6,10 @@ Gracefully degrades to a no-op when pydantic is not installed.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,9 +93,7 @@ def _ensure_models() -> None:
                     # Only the global COLORS palette is overridable. Domain
                     # colors (weather/alarm/climate) are fixed constants, so any
                     # legacy/unknown key is dropped rather than stored.
-                    _LOGGER.debug(
-                        "Dropping non-overridable color key %r from color_overrides", key
-                    )
+                    _LOGGER.debug("Dropping non-overridable color key %r from color_overrides", key)
                     continue
                 try:
                     val = int(raw) if not isinstance(raw, int) else raw

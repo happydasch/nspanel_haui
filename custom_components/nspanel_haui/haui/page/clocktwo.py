@@ -350,15 +350,14 @@ class ClockTwoPage(HAUIPage):
 
         self._show_notifications = True
 
+        self._background = "default"
         self._letter_current_state: list[bool] = []
         self._special_current_state: list[bool] = []
         self._clock_letters: list[str] = []
 
     def create_panel(self, panel: HAUIPanel) -> None:
-        # setting: background
-        # set before showing panel
-        background = panel.get("background", "default")
-        background = self.render_template(background, False)
+        # setting: background (rendered in start_panel after page is confirmed)
+        self._background = self.render_template(panel.get("background", "default"), False)
         self._off_color = panel.get("off_color", self._off_color)
         self._letter_color = panel.get("letter_color", self._letter_color)
         self._special_color = panel.get("special_color", self._special_color)
@@ -368,23 +367,29 @@ class ClockTwoPage(HAUIPage):
         self._show_intro_text_full_hour = panel.get(
             "show_intro_text_full_hour", self._show_intro_text_full_hour
         )
-        if background in BACKGROUNDS:
-            self.send_cmd(f"clocktwo.background.val={BACKGROUNDS[background]}")
 
     def start_panel(self, panel: HAUIPanel) -> None:
+        # setting: background — set before rendering content
+        with self.rec_cmd:
+            if self._background in BACKGROUNDS:
+                self.send_cmd(f"clocktwo.background.val={BACKGROUNDS[self._background]}")
         # time update callback (shared device-wide tick)
         self.app.subscribe_tick("minute", self.callback_update_time)
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # notification
         self._show_notifications = panel.get("show_notifications", True)
-        self.set_function_component(
-            self.COMPONENTS.t_notif, self.COMPONENTS.t_notif.name, visible=self._show_notifications
-        )
+        with self.rec_cmd:
+            self.set_function_component(
+                self.COMPONENTS.t_notif,
+                self.COMPONENTS.t_notif.name,
+                visible=self._show_notifications,
+            )
         self.init_interface(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.update_interface()
+        with self.rec_cmd:
+            self.update_interface()
         self.app.controller["notification"].blinker.refresh()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
@@ -546,19 +551,25 @@ class ClockTwoPage(HAUIPage):
         else:
             color = self.get_color("component_text")
             visible = notification.has_notifications()
-        self.update_function_component(
-            self.COMPONENTS.t_notif.name,
-            icon=ICO_MESSAGE,
-            visible=visible,
-            color=color,
-        )
+        # Batch the single notification-icon update so it doesn't interleave
+        # with a panel render in progress.
+        with self.rec_cmd:
+            self.update_function_component(
+                self.COMPONENTS.t_notif.name,
+                icon=ICO_MESSAGE,
+                visible=visible,
+                color=color,
+            )
 
     # callback
 
     def callback_update_time(self, cb_args: dict[str, Any]) -> None:
         if self.app.device.device_info.get("display_state") == "off":
             return
-        self.update_interface()
+        # Batch matrix update commands so they don't interleave with a panel
+        # render in progress on another executor thread.
+        with self.rec_cmd:
+            self.update_interface()
 
     def process_event(self, event: HAUIEvent) -> None:
         super().process_event(event)

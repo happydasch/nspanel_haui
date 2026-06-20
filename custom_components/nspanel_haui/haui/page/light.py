@@ -104,12 +104,14 @@ class LightPage(HAUIPage):
             power_off_btn,
         )
         # set light function button callbacks
-        self.on_release({
-            self.COMPONENTS.btn_light_fnc_1: self.callback_light_function_button,
-            self.COMPONENTS.btn_light_fnc_2: self.callback_light_function_button,
-            self.COMPONENTS.btn_light_fnc_3: self.callback_light_function_button,
-            self.COMPONENTS.btn_light_fnc_4: self.callback_light_function_button,
-        })
+        self.on_release(
+            {
+                self.COMPONENTS.btn_light_fnc_1: self.callback_light_function_button,
+                self.COMPONENTS.btn_light_fnc_2: self.callback_light_function_button,
+                self.COMPONENTS.btn_light_fnc_3: self.callback_light_function_button,
+                self.COMPONENTS.btn_light_fnc_4: self.callback_light_function_button,
+            }
+        )
         # if kelvin should be used instead of mired
         self._show_kelvin = panel.get("show_kelvin", self._show_kelvin)
         # set item
@@ -432,7 +434,7 @@ class LightPage(HAUIPage):
             else:
                 self.hide_component(x)
         if to_show in (self.COMPONENTS.h_brightness, self.COMPONENTS.h_color_temp):
-            self.set_slider_color(to_show)
+            self.set_slider_color(slider=to_show, show_toggle=False)
         if fnc is not None:
             if fnc["show_info"]:
                 self.show_component(self.COMPONENTS.t_info)
@@ -552,9 +554,7 @@ class LightPage(HAUIPage):
         if self._light_item is not None:
             self._light_item.call_item_service("turn_off")
 
-    def callback_light_function_button(
-        self, event: HAUIEvent, component: Component
-    ) -> None:
+    def callback_light_function_button(self, event: HAUIEvent, component: Component) -> None:
         self.log(f"Got light function press: {component}")
         # check for current function
         matches = [f for f in self._light_functions if f["btn"] == component]
@@ -644,8 +644,7 @@ class LightPage(HAUIPage):
             # whose cancel() could race with the timer firing.
             item = self._light_item
             self.debouncer.call(
-                "light_color",
-                lambda: item.call_item_service("turn_on", rgb_color=color)
+                "light_color", lambda: item.call_item_service("turn_on", rgb_color=color)
             )
 
     def process_brightness(self, brightness: int) -> None:

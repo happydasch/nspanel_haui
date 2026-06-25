@@ -8,6 +8,7 @@ import { html } from './lit-import.js';
 import { renderBadges, computeFilteredPanels, getPanelMoveState, getSystemPanelKeys } from './panel-utils.js';
 import { renderSystemPanelCard } from './panel-sys-grid.js';
 import { POPUP_TO_USER_TYPE } from './constants.js';
+import { tDesc } from './localize.js';
 
 /**
  * Render a consistent empty-state card for use across the editor.
@@ -116,10 +117,12 @@ function renderPanelRow(host, p, panels, isNavPanel) {
   return html`
     <div class="pl-row">
       <span class="pl-card-type-icon">${pt ? html`<ha-icon icon=${pt.icon}></ha-icon>` : ""}</span>
-      <span class="pl-title">${p.title || (isOverride ? "" : html`<span class="pl-unnamed">${(pt && pt.label) || host._t('Unnamed')}</span>`)}</span>
+      <span class="pl-title">
+      ${badges.length ? html`<span class="pl-badges">${badges}</span> ` : ' '}
+      ${p.title || (isOverride ? "" : html`<span class="pl-unnamed">${(pt ? tDesc(pt, 'label') : host._t('Unnamed'))}</span>`)}
+      </span>
       <div class="pl-meta">
         <span class="pl-key">${p.key || '-'}</span>
-        ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}
       </div>
       <div class="pl-actions">
         <ha-icon-button title=${host._t('Move Up')} class="pl-move-btn" ?disabled=${!canMoveUp} @click=${() => host._moveUp(p.key)}>
@@ -161,7 +164,7 @@ function renderSystemPanelRow(host, sp) {
   return html`
     <div class="pl-row pl-sys-row">
       <span class="pl-card-type-icon"><ha-icon icon=${sp.icon}></ha-icon></span>
-      <span class="pl-title">${sp.label}</span>
+      <span class="pl-title">${tDesc(sp, 'label')}</span>
       <div class="pl-meta">
         <span class="pl-key">${sp.key || '-'}</span>
         ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}

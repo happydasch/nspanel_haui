@@ -38,3 +38,4 @@ packages:
   number: !include nspanel_haui/number.yaml
   switch: !include nspanel_haui/switch.yaml
   sensor: !include nspanel_haui/sensor.yaml
+  # debug: !include nspanel_haui/debug.yaml

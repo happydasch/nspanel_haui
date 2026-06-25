@@ -58,7 +58,7 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
           ` : ''}
           ${showWeather ? html`
             <div style="display:flex;flex-shrink:0;align-items:center;">
-              <ha-icon icon="mdi:weather-partly-cloudy" style="--mdc-icon-size:clamp(28px,8cqi,52px);color:var(--primary-color,#4fc3f7);"></ha-icon>
+              <ha-icon icon="mdi:weather-partly-cloudy" style="--mdc-icon-size:clamp(28px,8cqi,52px);color:${panel?.weather_icons === 'monochrome' ? 'var(--primary-text-color,#ddd)' : 'var(--primary-color,#4fc3f7)'};"></ha-icon>
             </div>
           ` : ''}
         </div>

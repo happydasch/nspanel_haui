@@ -304,7 +304,7 @@ class ColorsDialog extends LitElement {
           header-title="${t("Device Colors")}"
         >
           <div class="dialog-body" style="padding: 32px; text-align: center;">
-            ${t("Loading default colors…")}
+            ${t("Loading default colors...")}
           </div>
         </ha-dialog>
       `;
@@ -320,7 +320,7 @@ class ColorsDialog extends LitElement {
         ${dialogHeader(t("Device Colors"), this._dispatchClose, this._renderPreview())}
         <div class="dialog-body">
           <p class="config-section-intro" style="margin: 0 0 4px;">
-            ${t("Tap a swatch to change a color — the preview above updates live. Only changed colors are saved.")}
+            ${t("Tap a swatch to change a color - the preview above updates live. Only changed colors are saved.")}
           </p>
           ${getColorGroups().map((group, idx) => this._renderGroup(group, idx))}
         </div>

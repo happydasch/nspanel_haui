@@ -30,7 +30,7 @@ export function renderWeatherPreview(_host, panel, _pIdx, _pt) {
         </div>
         <div class="pg-preview-full-flex" style="gap:4px;flex:1;min-height:0;">
           <div style="display:flex;gap:4px;flex:1;min-width:0;align-items:flex-start;">
-            <ha-icon icon="mdi:weather-partly-cloudy" style="--mdc-icon-size:clamp(38px,11cqi,70px);color:var(--primary-color,#4fc3f7);flex-shrink:0;"></ha-icon>
+            <ha-icon icon="mdi:weather-partly-cloudy" style="--mdc-icon-size:clamp(38px,11cqi,70px);color:${panel?.weather_icons === 'monochrome' ? 'var(--primary-text-color,#ddd)' : 'var(--primary-color,#4fc3f7)'};flex-shrink:0;"></ha-icon>
             <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
               <div class="pg-preview-weather-info-row">
                 <ha-icon icon="mdi:water-percent" style="--mdc-icon-size:clamp(12px,2.8cqi,20px);color:var(--secondary-text-color,#aaa);flex-shrink:0;"></ha-icon>
@@ -50,7 +50,7 @@ export function renderWeatherPreview(_host, panel, _pIdx, _pt) {
           ${[t('Mon'),t('Tue'),t('Wed'),t('Thu'),t('Fri')].map((day, i) => html`
             <div class="pg-preview-forecast-day">
               <span class="pg-preview-forecast-dayname">${day}</span>
-              <ha-icon icon="${['mdi:weather-sunny','mdi:weather-cloudy','mdi:weather-rainy','mdi:weather-partly-cloudy','mdi:weather-sunny'][i]}"></ha-icon>
+              <ha-icon icon="${['mdi:weather-sunny','mdi:weather-cloudy','mdi:weather-rainy','mdi:weather-partly-cloudy','mdi:weather-sunny'][i]}" style="${panel?.weather_icons !== 'monochrome' ? 'color:var(--primary-color,#4fc3f7);' : ''}"></ha-icon>
               <span class="pg-preview-forecast-hightemp">${['22','18','15','20','25'][i]}&deg;</span>
               <span class="pg-preview-forecast-lowtemp">${['12','10','8','11','14'][i]}&deg;</span>
             </div>

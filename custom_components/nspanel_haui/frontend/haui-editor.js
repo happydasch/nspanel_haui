@@ -347,7 +347,7 @@ class NSPanelEditor extends LitElement {
       return html`<div class="container">
         ${renderTitleHeader(this)}
         <ha-card outlined class="content-card">
-          ${renderEmptyCard(this._t("No NSPanel HAUI integration configured. Add one via Settings → Devices and Services."))}
+          ${renderEmptyCard(this._t("No NSPanel HAUI integration configured. Add one via Settings \u2192 Devices and Services."))}
         </ha-card>
       </div>`;
     }

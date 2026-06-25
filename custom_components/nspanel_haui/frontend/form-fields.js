@@ -6,7 +6,7 @@
 import { positionPickerDropdown, createDropdownKeyboardController } from './dom-helpers.js';
 import { renderListItemsField, renderItemListField, renderItemListRow, renderItemEditFields } from './item-renderers.js';
 import { html } from './lit-import.js';
-import { t } from './localize.js';
+import { t, tDesc, choiceLabel } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS, renderEntityPicker } from './haui-entity.js';
 import {
   hexToRgb565,
@@ -497,12 +497,16 @@ function templatePreview(id, value) {
 }
 
 /** Render a form control for a single PageOption. */
-export function renderOptionField(host, opt, currentValue) {
+export function renderOptionField(host, opt, currentValue, descriptor) {
   const id = `fld-${opt.key}`;
   const val =
     currentValue !== undefined && currentValue !== null
       ? currentValue
       : opt.default;
+
+  // Resolve translated label and description for this option.
+  const optLabel = descriptor ? tDesc(descriptor, "label", opt.key) : (opt.label || "");
+  const optDesc = descriptor ? tDesc(descriptor, "description", opt.key) : (opt.description || "");
 
   switch (opt.kind) {
     case "bool":
@@ -520,16 +524,16 @@ export function renderOptionField(host, opt, currentValue) {
                 host.requestUpdate();
               }}
             ></ha-switch>
-            <label for=${id} title=${opt.description}>${opt.label}</label>
+            <label for=${id} title=${optDesc}>${optLabel}</label>
           </div>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
         </div>
       `;
 
     case "int":
       return html`
         <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
+          <label for=${id} title=${optDesc}>${optLabel}</label>
           <ha-input
             id=${id}
             type="number"
@@ -548,14 +552,14 @@ export function renderOptionField(host, opt, currentValue) {
               host.requestUpdate();
             }}
           ></ha-input>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
         </div>
       `;
 
     case "float":
       return html`
         <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
+          <label for=${id} title=${optDesc}>${optLabel}</label>
           <ha-input
             id=${id}
             type="number"
@@ -574,7 +578,7 @@ export function renderOptionField(host, opt, currentValue) {
               host.requestUpdate();
             }}
           ></ha-input>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
         </div>
       `;
 
@@ -594,7 +598,7 @@ export function renderOptionField(host, opt, currentValue) {
       };
       return html`
         <div class="form-group color-form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
+          <label for=${id} title=${optDesc}>${optLabel}</label>
           <div class="color-picker-wrap">
             <ha-input id=${id} .value=${displayStr}
               @input=${(e) => {
@@ -647,7 +651,7 @@ export function renderOptionField(host, opt, currentValue) {
                 </div>`
             : ""}
           ${!hasTpl ? renderColorPresets(colorHex, handlePresetPick) : ""}
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
           <div class="template-preview" ?hidden=${!hasTpl}>
             <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
           </div>
@@ -687,8 +691,8 @@ export function renderOptionField(host, opt, currentValue) {
 
       return html`
         <div class="form-group" id="fld-${opt.key}">
-          <label title=${opt.description}>${opt.label}</label>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          <label title=${optDesc}>${optLabel}</label>
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
 
           ${isEditing
             ? renderItemEditFields(host)
@@ -710,13 +714,14 @@ export function renderOptionField(host, opt, currentValue) {
     case "select":
       return html`
         <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
+          <label for=${id} title=${optDesc}>${optLabel}</label>
           <ha-select
             id=${id}
             .value=${String(val != null ? val : "")}
-            .options=${(opt.choices || []).map((c) =>
-              Array.isArray(c) ? { value: c[0], label: c[1] } : c
-            )}
+            .options=${(opt.choices || []).map((c) => {
+              const label = choiceLabel(descriptor, opt.key, c);
+              return Array.isArray(c) ? { value: c[0], label } : { ...c, label };
+            })}
             @selected=${(e) => {
               host._editingPanel = {
                 ...host._editingPanel,
@@ -729,7 +734,7 @@ export function renderOptionField(host, opt, currentValue) {
             }}
           >
           </ha-select>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
         </div>
       `;
 
@@ -744,7 +749,7 @@ export function renderOptionField(host, opt, currentValue) {
       // Normalize to a newline-separated list of HA entity IDs for the textarea.
       return html`
         <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
+          <label for=${id} title=${optDesc}>${optLabel}</label>
           <textarea
             id=${id}
             class="w-full"
@@ -764,7 +769,7 @@ export function renderOptionField(host, opt, currentValue) {
               host.requestUpdate();
             }}
           ></textarea>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
         </div>
       `;
 
@@ -774,7 +779,7 @@ export function renderOptionField(host, opt, currentValue) {
     case "icon":
       return html`
         <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
+          <label for=${id} title=${optDesc}>${optLabel}</label>
           ${renderIconPicker(id, val, host.hass, (newVal) => {
             host._editingPanel = {
               ...host._editingPanel,
@@ -785,7 +790,7 @@ export function renderOptionField(host, opt, currentValue) {
             };
             host.requestUpdate();
           })}
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
         </div>
       `;
 
@@ -793,7 +798,7 @@ export function renderOptionField(host, opt, currentValue) {
       const displayStr = formatFieldValue(val);
       return html`
         <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
+          <label for=${id} title=${optDesc}>${optLabel}</label>
           <ha-input
             id=${id}
             .value=${displayStr}
@@ -812,7 +817,7 @@ export function renderOptionField(host, opt, currentValue) {
             }}
             @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
           ></ha-input>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
           ${host.hass
             ? html`
                 <div class="template-preview" ?hidden=${!(String(val).includes("{{"))}>
@@ -828,7 +833,7 @@ export function renderOptionField(host, opt, currentValue) {
       // str or unknown → text field
       return html`
         <div class="form-group">
-          <label for=${id} title=${opt.description}>${opt.label}</label>
+          <label for=${id} title=${optDesc}>${optLabel}</label>
           <ha-input
             id=${id}
             .value=${String(val != null ? val : "")}
@@ -846,7 +851,7 @@ export function renderOptionField(host, opt, currentValue) {
             }}
             @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
           ></ha-input>
-          ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
+          ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
           ${host.hass
             ? html`
                 <div class="template-preview" ?hidden=${!(String(val).includes("{{"))}>
@@ -899,9 +904,9 @@ export function renderTypeFields(host, panelType, currentData) {
     ${groups.map(
       (group) => html`
         ${group.section
-          ? html`<h3 class="section-header">${group.section}</h3>`
+          ? html`<h3 class="section-header">${t(group.section)}</h3>`
           : ""}
-        ${group.options.map((opt) => renderOptionField(host, opt, currentData[opt.key]))}
+        ${group.options.map((opt) => renderOptionField(host, opt, currentData[opt.key], descriptor))}
       `
     )}
   `;

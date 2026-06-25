@@ -53,6 +53,47 @@ export function t(key) {
 }
 
 /**
+ * Translate a descriptor field (label or description) using structured keys,
+ * falling back to the raw English API value when no translation is available.
+ *
+ * @param {Object} descriptor - Panel type descriptor { type_key, label, description, options }
+ * @param {string} field - 'label' or 'description'
+ * @param {string|null} [optionKey] - When set, translates an option field instead of the top-level descriptor
+ * @returns {string}
+ */
+export function tDesc(descriptor, field, optionKey = null) {
+  const typeKey = descriptor.type_key || descriptor.type;
+  const key = optionKey
+    ? `panel.${typeKey}.option.${optionKey}.${field}`
+    : `panel.${typeKey}.${field}`;
+  const result = t(key);
+  if (result !== key) return result;
+  if (optionKey && descriptor.options) {
+    const opt = descriptor.options.find((o) => o.key === optionKey);
+    if (opt && opt[field]) return opt[field];
+  }
+  return descriptor[field] ?? "";
+}
+
+/**
+ * Translate a choice label using structured keys.
+ * Falls back to the raw choice label from the API when no translation exists.
+ *
+ * @param {Object} descriptor - Panel type descriptor
+ * @param {string} optKey - Option key (e.g. 'background', 'hvac_modes')
+ * @param {Array|Object} choice - Choice entry, either [value, label] or {value, label}
+ * @returns {string}
+ */
+export function choiceLabel(descriptor, optKey, choice) {
+  const val = Array.isArray(choice) ? choice[0] : choice.value;
+  const typeKey = descriptor.type_key || descriptor.type;
+  const key = `panel.${typeKey}.choice.${optKey}.${val}`;
+  const result = t(key);
+  if (result !== key) return result;
+  return Array.isArray(choice) ? choice[1] : choice.label;
+}
+
+/**
  * Extract the HAUI-supported language code from the hass object.
  * Handles full locale strings like "de-DE", "de_DE" → "de".
  * Defaults to "en" when the language is not one of our supported locales.

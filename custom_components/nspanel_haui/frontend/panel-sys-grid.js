@@ -9,6 +9,7 @@ import { renderBadges } from './panel-utils.js';
 import { renderPanelPreview } from './panel-previews.js';
 import { isSysPanelEditable, renderPanelDropdown } from './panel-table.js';
 import { renderCardChrome, renderCardActions } from './panel-card.js';
+import { tDesc } from './localize.js';
 
 /**
  * Build the dropdown items for a system panel card.
@@ -71,13 +72,13 @@ export function renderSystemPanelCard(host, sp) {
     <div class="pg-card pg-sys-card">
       ${renderCardChrome({
         icon: sp.icon,
-        title: sp.label,
+        title: tDesc(sp, 'label'),
         key: sp.key,
         badges,
         hasHeader: sp.has_header !== false,
         headerButtons,
         preview: previewResult,
-        description: sp.description,
+        description: tDesc(sp, 'description'),
         onClick: onClickSysCard,
         actions,
       })}

@@ -57,8 +57,8 @@ captive_portal:
 
 
 # Web Server
-# web_server:  # disabled by default
-#   port: 80
-#   auth:
-#     username: $web_username
-#     password: $web_password
+web_server:
+  port: 80
+  auth:
+    username: $web_username
+    password: $web_password

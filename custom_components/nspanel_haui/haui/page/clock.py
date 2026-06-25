@@ -75,6 +75,16 @@ class ClockPage(HAUIPage):
                 section="Weather",
             ),
             PageOption(
+                key="weather_icons",
+                kind="select",
+                default="color",
+                label="Weather icon color",
+                description="Use condition-based colors or monochrome"
+                " for the weather icon.",
+                choices=[("color", "Color"), ("monochrome", "Monochrome")],
+                section="Weather",
+            ),
+            PageOption(
                 key="temp_precision",
                 kind="int",
                 default=1,
@@ -127,6 +137,7 @@ class ClockPage(HAUIPage):
         self._temp_unit = "°C"
         self._temp_precision = 1
         self._background = "default"
+        self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
         self._items: list[HAUIItem] = []
 
@@ -167,6 +178,8 @@ class ClockPage(HAUIPage):
         )
         # setting: show_home_temp
         self._show_home_temp = panel.get("show_home_temp", False)
+        # setting: weather_icons
+        self._weather_icons_mode = panel.get("weather_icons", "color")
         # main components
         self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
         self.set_function_component(self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True)
@@ -261,7 +274,10 @@ class ClockPage(HAUIPage):
             self.COMPONENTS.t_sub_text[1], text=msg_sub, visible=self._show_temp
         )
         self.update_function_component(
-            self.COMPONENTS.t_main_icon[1], icon=icon, color=color, visible=self._show_weather
+            self.COMPONENTS.t_main_icon[1],
+            icon=icon,
+            color=None if self._weather_icons_mode == "monochrome" else color,
+            visible=self._show_weather,
         )
 
     def update_items(self, items: list[HAUIItem]) -> None:

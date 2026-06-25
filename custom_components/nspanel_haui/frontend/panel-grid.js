@@ -11,6 +11,7 @@ import { renderPanelDropdown, buildPanelDropdownItems } from './panel-table.js';
 import { renderPanelPreview } from './panel-previews.js';
 import { renderBadges, getPanelMoveState, computeFilteredPanels, getSystemPanelKeys } from './panel-utils.js';
 import { renderCardChrome, renderCardActions } from './panel-card.js';
+import { tDesc } from './localize.js';
 
 /**
  * Render a single panel card for the grid view.
@@ -94,13 +95,13 @@ function renderPanelCard(host, p, panels, isNavPanel) {
       ${renderCardChrome({
         icon: pt?.icon,
         title: p.title,
-        titleFallback: isOverride ? '' : ((pt && pt.label) || host._t('Unnamed')),
+        titleFallback: isOverride ? '' : (pt ? tDesc(pt, 'label') : host._t('Unnamed')),
         key: p.key,
         badges,
         hasHeader: pt ? pt.has_header !== false : true,
         headerButtons,
         preview: previewResult,
-        description: pt?.description || '',
+        description: pt ? tDesc(pt, 'description') : '',
         onClick,
         actions,
       })}

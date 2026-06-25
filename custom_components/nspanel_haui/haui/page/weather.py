@@ -83,6 +83,16 @@ class WeatherPage(HAUIPage):
                 section="Appearance",
             ),
             PageOption(
+                key="weather_icons",
+                kind="select",
+                default="color",
+                label="Weather icon color",
+                description="Use condition-based colors or monochrome"
+                " (text color) for weather icons.",
+                choices=[("color", "Color"), ("monochrome", "Monochrome")],
+                section="Appearance",
+            ),
+            PageOption(
                 key="show_temp",
                 kind="bool",
                 default=True,
@@ -182,6 +192,7 @@ class WeatherPage(HAUIPage):
         self._temp_precision = 1
         self._forecast_precision = 0
         self._background = "default"
+        self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
         self._info_items: list[HAUIItem] = []
         self._entity_button_items: list[HAUIItem] = []
@@ -237,6 +248,8 @@ class WeatherPage(HAUIPage):
         self.set_function_component(
             self.COMPONENTS.t_main_icon, self.COMPONENTS.t_main_icon[1], visible=self._show_weather
         )
+        # setting: weather_icons
+        self._weather_icons_mode = panel.get("weather_icons", "color")
         # setting: show_temp
         self._show_temp = panel.get("show_temp", True)
         self.set_function_component(
@@ -377,7 +390,10 @@ class WeatherPage(HAUIPage):
         temp_outside_str = self._weather_item.get_item_attr("temperature", "")
         if not temp_outside_str:
             self.update_function_component(
-                self.COMPONENTS.t_main_icon[1], icon=icon, color=color, visible=self._show_weather
+                self.COMPONENTS.t_main_icon[1],
+                icon=icon,
+                color=None if self._weather_icons_mode == "monochrome" else color,
+                visible=self._show_weather,
             )
             self.update_function_component(self.COMPONENTS.t_main_text[1], visible=False)
             self.update_function_component(self.COMPONENTS.t_sub_text[1], visible=False)
@@ -402,7 +418,10 @@ class WeatherPage(HAUIPage):
             pressure_unit = self._weather_item.get_item_attr("pressure_unit")
             msg_sub = f"{msg_sub}{pressure_unit}"
         self.update_function_component(
-            self.COMPONENTS.t_main_icon[1], icon=icon, color=color, visible=self._show_weather
+            self.COMPONENTS.t_main_icon[1],
+            icon=icon,
+            color=None if self._weather_icons_mode == "monochrome" else color,
+            visible=self._show_weather,
         )
         self.update_function_component(
             self.COMPONENTS.t_main_text[1], text=msg, visible=self._show_temp
@@ -436,7 +455,8 @@ class WeatherPage(HAUIPage):
         icon = get_icon(icon) or ""
 
         color = WEATHER_COLORS.get(condition.replace("-", "_"), WEATHER_COLORS["default"])
-        self.set_component_text_color(forecast_icon, color)
+        if self._weather_icons_mode != "monochrome":
+            self.set_component_text_color(forecast_icon, color)
         self.set_component_text(forecast_name, name)
         self.set_component_text(forecast_icon, icon)
         self.set_component_text(forecast_val, f"{forecast_temp}{self._temp_unit}")

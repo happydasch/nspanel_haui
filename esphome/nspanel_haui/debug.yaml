@@ -1,0 +1,16 @@
+debug:
+  update_interval: 30s          # logs free heap + loop time periodically
+
+sensor:
+  - platform: debug
+    free:
+      name: "Heap Free"         # watch this decline = leak confirmed
+    block:
+      name: "Heap Max Block"    # largest contiguous = fragmentation
+    loop_time:
+      name: "Loop Time"
+
+text_sensor:
+  - platform: debug
+    reset_reason:
+      name: "Reset Reason"      # <-- decisive after a reboot

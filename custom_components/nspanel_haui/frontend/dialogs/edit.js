@@ -14,7 +14,7 @@ import { clone } from '../constants.js';
 import { formVal } from '../dom-helpers.js';
 import { getPanelOptionGroups, renderOptionField } from '../form-fields.js';
 import { dialogHeader } from './dialog-header.js';
-import { t } from '../localize.js';
+import { t, tDesc } from '../localize.js';
 import { saveItemEdit, cancelItemEdit } from '../item-editor.js';
 
 /**
@@ -98,9 +98,9 @@ class EditPanelDialog extends LitElement {
     const isAdd = ep.index < 0;
     const panelType = this._editingPanelType || ep.data?.type || "clock";
     const descriptor = this.panelTypes.find((pt) => pt.type_key === panelType);
-    const typeLabel = (descriptor ? descriptor.label : panelType);
+    const typeLabel = descriptor ? tDesc(descriptor, 'label') : panelType;
     const headerTitle = isAdd ? t('Add Panel') : `${t('Edit Panel')} — ${typeLabel}`;
-    const saveLabel = this.saving ? t('Saving…') : isAdd ? t('Add') : t('Save');
+    const saveLabel = this.saving ? t('Saving...') : isAdd ? t('Add') : t('Save');
 
     return html`
       <ha-dialog
@@ -123,11 +123,11 @@ class EditPanelDialog extends LitElement {
                   name="type"
                   style="flex:1"
                   .value=${panelType}
-                  .options=${this.panelTypes.map((pt) => ({ value: pt.type_key, label: pt.label }))}
+                  .options=${this.panelTypes.map((pt) => ({ value: pt.type_key, label: tDesc(pt, 'label') }))}
                   @selected=${this._onTypeChange}
                 ></ha-select>
               </div>
-              ${descriptor ? html`<span class="field-hint">${descriptor.description}</span>` : ""}
+              ${descriptor ? html`<span class="field-hint">${tDesc(descriptor, 'description')}</span>` : ""}
             </div>
           ` : ""}
 
@@ -150,12 +150,12 @@ class EditPanelDialog extends LitElement {
           </div>
 
           ${getPanelOptionGroups(descriptor).map(group => {
-            const sectionLabel = group.section || t('Configuration');
+            const sectionLabel = group.section ? t(group.section) : t('Configuration');
             return html`
               <details class="config-section">
                 <summary>${sectionLabel}</summary>
                 <div class="config-section-body">
-                  ${group.options.map(opt => renderOptionField(this, opt, ep.data[opt.key]))}
+                  ${group.options.map(opt => renderOptionField(this, opt, ep.data[opt.key], descriptor))}
                 </div>
               </details>
             `;

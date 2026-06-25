@@ -297,7 +297,7 @@ class DeviceConfigDialog extends LitElement {
               @click=${this._dispatchSave}
               ?disabled=${this.saving}
             >
-              ${this.saving ? t("Saving…") : t("Save")}
+              ${this.saving ? t("Saving...") : t("Save")}
             </ha-button>
           </ha-dialog-footer>
         </div>

@@ -67,9 +67,9 @@ export function renderCardChrome(opts) {
   return html`
     <div class="pg-card-top-row" @click=${onClick}>
       ${icon ? html`<ha-icon class="pg-card-type-icon" icon="${icon}"></ha-icon>` : ''}
+      ${badges.length ? html`<div class="pg-card-badges">${badges}</div>` : ''}
       <span class="pg-card-title" title=${titleAttr}>${titleContent}</span>
       <span class="pg-card-key">${key || '-'}</span>
-      ${badges.length ? html`<div class="pg-card-badges">${badges}</div>` : ''}
       ${actions ? html`<div class="pg-card-actions">${actions}</div>` : ''}
     </div>
     <div class=${previewClass} style="${containerStyle}" @click=${onClick}>

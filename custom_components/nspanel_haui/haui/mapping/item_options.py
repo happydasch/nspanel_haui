@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .descriptor import PageOption
+from .descriptor import PageOption, _
 
 
 class ItemOptions:
@@ -17,47 +17,44 @@ class ItemOptions:
         PageOption(
             key="item",
             kind="item",
-            label="Entity",
-            description="Entity to display and control.",
+            label=_("Entity"),
+            description=_("Entity to display and control."),
         ),
         PageOption(
             key="popup_key",
             kind="generic",
-            label="Popup override",
-            description="Override the default popup panel type for this item.",
+            label=_("Popup override"),
+            description=_("Override the default popup panel type for this item."),
         ),
         PageOption(
             key="state",
             kind="generic",
-            label="State override",
-            description=(
-                "Override the entity state. "
-                "Use an attribute key to read state from an entity attribute."
-            ),
+            label=_("State override"),
+            description=_("Override the entity state. Use an attribute key to read state from an entity attribute."),
         ),
         PageOption(
             key="value",
             kind="generic",
-            label="Value override",
-            description="Override the displayed value of this item.",
+            label=_("Value override"),
+            description=_("Override the displayed value of this item."),
         ),
         PageOption(
             key="name",
             kind="generic",
-            label="Name override",
-            description="Override the displayed name of this item.",
+            label=_("Name override"),
+            description=_("Override the displayed name of this item."),
         ),
         PageOption(
             key="icon",
             kind="icon",
-            label="Icon override",
-            description="Override the icon of this item.",
+            label=_("Icon override"),
+            description=_("Override the icon of this item."),
         ),
         PageOption(
             key="color",
             kind="color",
-            label="Color override",
-            description="Override the color of this item.",
+            label=_("Color override"),
+            description=_("Override the color of this item."),
         ),
     ]
 

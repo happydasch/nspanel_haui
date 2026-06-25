@@ -4,6 +4,7 @@
  */
 
 import { html } from './lit-import.js';
+import { t } from './localize.js';
 
 export function showToast(host, message, type = "success") {
   host._toast = { message, type };

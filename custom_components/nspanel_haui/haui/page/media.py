@@ -11,7 +11,7 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import MediaPlayerFeatures
 from ..mapping.const import SysPanelKey
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_ENTITY_POWER,
     ICO_NEXT,
@@ -38,49 +38,49 @@ class MediaPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="media",
         page_name="media",
-        label="Media Player",
-        description="Media player controls with track info and volume.",
+        label=_("Media Player"),
+        description=_("Media player controls with track info and volume."),
         options=[
             PageOption(
                 key="item",
                 kind="item",
                 domain="media_player",
-                description="Media player entity to control playback and volume.",
-                section="Media Player",
+                description=_("Media player entity to control playback and volume."),
+                section=_("Media Player"),
             ),
             PageOption(
                 key="sonos_favorites",
                 kind="item",
                 domain="sensor",
-                description="Sensor entity containing Sonos favorites data.",
-                section="Media Player",
+                description=_("Sensor entity containing Sonos favorites data."),
+                section=_("Media Player"),
             ),
             PageOption(
                 key="group_items",
                 kind="list_entities",
                 domain="media_player",
                 default=[],
-                label="Group media player entities",
+                label=_("Group media player entities"),
                 description=(
                     "Additional media player entity IDs to group as a multi-room speaker set."
                 ),
-                section="Groups",
+                section=_("Groups"),
             ),
             PageOption(
                 key="media_favorites",
                 kind="list_items",
                 default=[],
-                label="Media favorites",
-                description="Media content IDs shown in the media selector.",
-                section="Favorites",
+                label=_("Media favorites"),
+                description=_("Media content IDs shown in the media selector."),
+                section=_("Favorites"),
             ),
             PageOption(
                 key="sonos_favorites_in_source",
                 kind="bool",
                 default=False,
-                label="Sonos favorites in source list",
+                label=_("Sonos favorites in source list"),
                 description=("Iterpret favorites as sonos favorites."),
-                section="Favorites",
+                section=_("Favorites"),
             ),
         ],
         can_show_popup=True,

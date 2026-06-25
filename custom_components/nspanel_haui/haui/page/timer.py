@@ -7,7 +7,7 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import SysPanelKey
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_PAUSE,
     ICO_RESET,
@@ -22,16 +22,16 @@ class TimerPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="timer",
         page_name="timer",
-        label="Timer",
-        description="Timer item with start, pause and stop controls.",
+        label=_("Timer"),
+        description=_("Timer item with start, pause and stop controls."),
         options=[
             PageOption(
                 key="show_notification",
                 kind="bool",
                 default=True,
-                label="Show notification on finish",
-                description="Show a notification on the display when the timer completes.",
-                section="Timer",
+                label=_("Show notification on finish"),
+                description=_("Show a notification on the display when the timer completes."),
+                section=_("Timer"),
             ),
         ],
         can_show_popup=True,

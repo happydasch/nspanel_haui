@@ -10,7 +10,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import CoverFeatures
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.icon import get_icon, get_icon_name_by_action
 from ..utils.text import trim_text
@@ -20,22 +20,22 @@ class RowPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="row",
         page_name="row",
-        label="Row",
-        description="Row of entities with cover/action controls.",
+        label=_("Row"),
+        description=_("Row of entities with cover/action controls."),
         options=[
             PageOption(
                 key="items",
                 kind="item_list",
-                description="Items displayed as a row with cover/action controls.",
-                section="Rows",
+                description=_("Items displayed as a row with cover/action controls."),
+                section=_("Rows"),
             ),
             PageOption(
                 key="initial_page",
                 kind="int",
                 default=0,
-                label="Initial page",
-                description="Starting page index (0-based) when the row is first displayed.",
-                section="Pagination",
+                label=_("Initial page"),
+                description=_("Starting page index (0-based) when the row is first displayed."),
+                section=_("Pagination"),
             ),
         ],
         icon="mdi:view-list-outline",

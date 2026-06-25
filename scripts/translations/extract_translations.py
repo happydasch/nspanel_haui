@@ -2,6 +2,7 @@
 
 Scans:
   - Python `.translate("...")` calls in the haui core package
+  - Python `_("...")` calls in descriptor definitions (page label/description/section/choice)
   - Frontend `host._t("...")` / `t("...")` calls in the editor JS
 Outputs:
   - ``scripts/translations/translate.json`` — flat text template for merge pipeline
@@ -26,8 +27,11 @@ OUTPUT_TRANSLATE = "scripts/translations/translate.json"
 # Match self.translate("...") or self.translate('...') in Python
 PY_PATTERN = re.compile(r"\.translate\((['\"])(.*?)\1\)")
 
-# Match host._t("..."), this._t("..."), _t("..."), or bare t("...") in JS
-JS_PATTERN = re.compile(r"(?:(?:host|this)\._t|_t|(?<![.\w])t)\((['\"])(.*?)\1\)")
+# Match _("...") or _('...') — descriptor string marker
+PY_DESCRIPTOR_PATTERN = re.compile(r"(?<![.\w])_\((['\"])(.*?)\1\)")
+
+# Match bare t("...") calls in JS (host._t / this._t have been removed)
+JS_PATTERN = re.compile(r"(?<![.\w])t\((['\"])(.*?)\1\)")
 
 
 def extract_python_strings() -> set[str]:
@@ -43,6 +47,8 @@ def extract_python_strings() -> set[str]:
             except OSError:
                 continue
             for match in PY_PATTERN.finditer(contents):
+                strings.add(match.group(2))
+            for match in PY_DESCRIPTOR_PATTERN.finditer(contents):
                 strings.add(match.group(2))
     return strings
 
@@ -75,25 +81,31 @@ def read_json_or_empty(path: str) -> dict:
         return {}
 
 
-def update_lang_file(path: str, text_keys: list[str]) -> int:
-    """Add missing text keys (as empty strings) to a language file.
+def update_lang_file(path: str, text_keys: list[str]) -> tuple[int, int]:
+    """Sync text keys in a language file: add missing, remove unused.
 
-    Returns number of keys added.
+    Returns (added, removed).
     """
     existing = read_json_or_empty(path)
     existing_text = existing.get("text", {})
+    key_set = set(text_keys)
     added = 0
+    removed = len([k for k in existing_text if k not in key_set])
+    new_text: dict[str, str] = {}
     for key in text_keys:
-        if key not in existing_text:
-            existing_text[key] = ""
+        if key in existing_text:
+            new_text[key] = existing_text[key]
+        else:
+            new_text[key] = ""
             added += 1
     output = {
         "component": existing.get("component", {}),
-        "text": existing_text,
+        "text": new_text,
     }
     with open(path, "w") as f:
-        json.dump(output, f, indent=2)
-    return added
+        json.dump(output, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    return added, removed
 
 
 def main() -> None:
@@ -113,7 +125,8 @@ def main() -> None:
     # --- Write legacy translate.json (flat template for merge pipeline) ---
     os.makedirs(os.path.dirname(OUTPUT_TRANSLATE), exist_ok=True)
     with open(OUTPUT_TRANSLATE, "w") as f:
-        json.dump({"text": {k: "" for k in text_keys}}, f, indent=2)
+        json.dump({"text": {k: "" for k in text_keys}}, f, indent=2, ensure_ascii=False)
+        f.write("\n")
 
     # --- Write en.json ---
     en_output = {
@@ -121,16 +134,22 @@ def main() -> None:
         "text": new_en_text,
     }
     with open(EN_JSON, "w") as f:
-        json.dump(en_output, f, indent=2)
+        json.dump(en_output, f, indent=2, ensure_ascii=False)
+        f.write("\n")
 
     # --- Update all other language files ---
     for fname in os.listdir(TRANSLATIONS_DIR):
         if not fname.endswith(".json") or fname == "en.json":
             continue
         lang_path = os.path.join(TRANSLATIONS_DIR, fname)
-        added = update_lang_file(lang_path, text_keys)
+        added, removed = update_lang_file(lang_path, text_keys)
+        parts = []
         if added:
-            print(f"{fname}: added {added} missing key(s)")
+            parts.append(f"added {added}")
+        if removed:
+            parts.append(f"removed {removed}")
+        if parts:
+            print(f"{fname}: {', '.join(parts)} key(s)")
 
 
 if __name__ == "__main__":

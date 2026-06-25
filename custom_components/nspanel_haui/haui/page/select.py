@@ -7,7 +7,7 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.descriptor import PageDescriptor
+from ..mapping.descriptor import PageDescriptor, _
 from ..mapping.icons import ICO_NEXT_PAGE
 
 
@@ -15,8 +15,8 @@ class SelectPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="select",
         page_name="select",
-        label="Selection List",
-        description="Item selection panel with multi-page support.",
+        label=_("Selection List"),
+        description=_("Item selection panel with multi-page support."),
         is_system=True,
         sys_panel_default={
             "key": "popup_select",

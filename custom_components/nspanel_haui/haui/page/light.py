@@ -8,7 +8,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import ESPEvent, SysPanelKey
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_BRIGHTNESS, ICO_COLOR, ICO_COLOR_TEMP, ICO_EFFECT, ICO_POWER
 from ..utils.color import color_to_rect_pos, rect_pos_to_color
 from ..utils.value import scale
@@ -18,23 +18,23 @@ class LightPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="light",
         page_name="light",
-        label="Light",
-        description="Single light with brightness, color temperature and effects.",
+        label=_("Light"),
+        description=_("Single light with brightness, color temperature and effects."),
         options=[
             PageOption(
                 key="item",
                 kind="item",
                 domain="light",
-                description="Light entity to control brightness, color and temperature.",
-                section="Light",
+                description=_("Light entity to control brightness, color and temperature."),
+                section=_("Light"),
             ),
             PageOption(
                 key="show_kelvin",
                 kind="bool",
                 default=False,
-                label="Show color temperature in Kelvin",
-                description="Show Kelvin instead of Mireds (Mired is default).",
-                section="Light",
+                label=_("Show color temperature in Kelvin"),
+                description=_("Show Kelvin instead of Mireds (Mired is default)."),
+                section=_("Light"),
             ),
         ],
         can_show_popup=True,

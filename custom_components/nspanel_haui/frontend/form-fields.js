@@ -6,7 +6,7 @@
 import { positionPickerDropdown, createDropdownKeyboardController } from './dom-helpers.js';
 import { renderListItemsField, renderItemListField, renderItemListRow, renderItemEditFields } from './item-renderers.js';
 import { html } from './lit-import.js';
-import { t, tDesc, choiceLabel } from './localize.js';
+import { t } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS, renderEntityPicker } from './haui-entity.js';
 import {
   hexToRgb565,
@@ -505,8 +505,8 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
       : opt.default;
 
   // Resolve translated label and description for this option.
-  const optLabel = descriptor ? tDesc(descriptor, "label", opt.key) : (opt.label || "");
-  const optDesc = descriptor ? tDesc(descriptor, "description", opt.key) : (opt.description || "");
+  const optLabel = opt.label || "";
+  const optDesc = opt.description || "";
 
   switch (opt.kind) {
     case "bool":
@@ -719,7 +719,7 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
             id=${id}
             .value=${String(val != null ? val : "")}
             .options=${(opt.choices || []).map((c) => {
-              const label = choiceLabel(descriptor, opt.key, c);
+              const label = Array.isArray(c) ? c[1] : c.label;
               return Array.isArray(c) ? { value: c[0], label } : { ...c, label };
             })}
             @selected=${(e) => {
@@ -904,7 +904,7 @@ export function renderTypeFields(host, panelType, currentData) {
     ${groups.map(
       (group) => html`
         ${group.section
-          ? html`<h3 class="section-header">${t(group.section)}</h3>`
+          ? html`<h3 class="section-header">${group.section}</h3>`
           : ""}
         ${group.options.map((opt) => renderOptionField(host, opt, currentData[opt.key], descriptor))}
       `

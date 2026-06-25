@@ -8,7 +8,7 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.text import trim_text
 
@@ -17,8 +17,8 @@ class GridPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="grid",
         page_name="grid",
-        label="Grid",
-        description="Grid of up to 6 item tiles with pagination.",
+        label=_("Grid"),
+        description=_("Grid of up to 6 item tiles with pagination."),
         item_options=[
             "text_color",
             "back_color",
@@ -31,16 +31,16 @@ class GridPage(HAUIPage):
             PageOption(
                 key="items",
                 kind="item_list",
-                description="Items to display as tiles on the grid page.",
-                section="Tiles",
+                description=_("Items to display as tiles on the grid page."),
+                section=_("Tiles"),
             ),
             PageOption(
                 key="initial_page",
                 kind="int",
                 default=0,
-                label="Initial page",
-                description="Starting page index (0-based) when the grid is first displayed.",
-                section="Pagination",
+                label=_("Initial page"),
+                description=_("Starting page index (0-based) when the grid is first displayed."),
+                section=_("Pagination"),
             ),
         ],
         icon="mdi:grid",

@@ -4,6 +4,16 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+def _(text: str) -> str:
+    """Mark a string as translatable.
+
+    At class-definition time this is a no-op identity so descriptors continue
+    to hold their raw English strings (which the frontend t() then translates).
+    Used purely as a signal to the extraction script.
+    """
+    return text
+
+
 @dataclass
 class PageOption:
     """Describes one configurable option that a page accepts in its panel config.

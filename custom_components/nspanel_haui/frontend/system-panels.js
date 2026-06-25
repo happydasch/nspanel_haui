@@ -5,6 +5,7 @@
  * parameter.
  */
 import { clone, POPUP_TO_USER_TYPE } from './constants.js';
+import { t } from './localize.js';
 
 export function openSysPanelEdit(host, sysPanel) {
   host._dialogVersion = (host._dialogVersion || 0) + 1;
@@ -40,5 +41,5 @@ export function openSysPanelEdit(host, sysPanel) {
 export async function resetSysPanelOverride(host, key) {
   const panels = host._devicePanels();
   const newPanels = panels.filter(p => p.key !== key);
-  await host._savePanels(newPanels, host._t('System panel reset to default'));
+  await host._savePanels(newPanels, t('System panel reset to default'));
 }

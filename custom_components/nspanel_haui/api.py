@@ -207,10 +207,19 @@ class PanelTypesView(HomeAssistantView):
     requires_auth = True
 
     async def get(self, request):
-        """Return JSON descriptors for all user-visible panel types."""
+        """Return JSON descriptors for all user-visible panel types.
+
+        Query param ``language`` (optional, defaults to ``"en"``) controls the
+        locale for pre-translating string fields.
+        """
         from .haui.mapping.panel import get_user_panel_type_descriptors
 
-        return self.json(get_user_panel_type_descriptors())
+        lang = request.query.get("language", "en")
+        hass = request.app["hass"]
+        descriptors = await hass.async_add_executor_job(
+            get_user_panel_type_descriptors, lang
+        )
+        return self.json(descriptors)
 
 
 class ColorDefaultsView(HomeAssistantView):
@@ -235,14 +244,21 @@ class PanelConfigView(HomeAssistantView):
     requires_auth = True
 
     async def get(self, request, entry_id: str):
-        """Return the panel store data for a config entry."""
+        """Return the panel store data for a config entry.
+
+        Query param ``language`` (optional, defaults to ``"en"``) controls the
+        locale for pre-translating system panel string fields.
+        """
         hass = request.app["hass"]
+        lang = request.query.get("language", "en")
         store: Store = Store(hass, PANEL_STORE_VERSION, f"nspanel_haui.{entry_id}_panels")
         data = await store.async_load()
         result = data or {"version": 1, "devices": {}}
         from .haui.mapping.panel import get_system_panel_entries
 
-        result["system_panels"] = get_system_panel_entries()
+        result["system_panels"] = await hass.async_add_executor_job(
+            get_system_panel_entries, lang
+        )
 
         # Enrich each device with friendly_name from ESPHome config entries
         for dev_key, dev_data in result.get("devices", {}).items():

@@ -6,7 +6,7 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_KEY, ICO_WIFI, ICO_ZOOM
 
 if TYPE_CHECKING:
@@ -17,48 +17,47 @@ class QRPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="qr",
         page_name="qr",
-        label="QR Code",
-        description="Display a QR code alongside item info.",
+        label=_("QR Code"),
+        description=_("Display a QR code alongside item info."),
         options=[
             PageOption(
                 key="essid",
                 kind="str",
                 default="",
-                label="WiFi SSID",
-                description="WiFi network name (SSID).",
-                section="Network",
+                label=_("WiFi SSID"),
+                description=_("WiFi network name (SSID)."),
+                section=_("Network"),
             ),
             PageOption(
                 key="password",
                 kind="str",
                 default="",
-                label="WiFi password",
-                description="WiFi network password.",
-                section="Network",
+                label=_("WiFi password"),
+                description=_("WiFi network password."),
+                section=_("Network"),
             ),
             PageOption(
                 key="start_big_qr",
                 kind="bool",
                 default=False,
-                label="Show big code",
-                description="Start with a big QR code.",
-                section="Display",
+                label=_("Show big code"),
+                description=_("Start with a big QR code."),
+                section=_("Display"),
             ),
             PageOption(
                 key="show_info",
                 kind="bool",
                 default=True,
-                label="Show network info",
-                description="When no custom items are configured, show SSID/password"
-                " as text alongside the QR code.",
-                section="Display",
+                label=_("Show network info"),
+                description=_("When no custom items are configured, show SSID/password as text alongside the QR code."),
+                section=_("Display"),
             ),
             PageOption(
                 key="items",
                 kind="item_list",
-                label="Text items",
-                description="Custom items shown beside the QR code (max 2).",
-                section="Items",
+                label=_("Text items"),
+                description=_("Custom items shown beside the QR code (max 2)."),
+                section=_("Items"),
                 max_items=2,
             ),
         ],

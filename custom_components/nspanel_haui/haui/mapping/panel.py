@@ -23,6 +23,7 @@ from ..page.timer import TimerPage
 from ..page.unlock import UnlockPage
 from ..page.vacuum import VacuumPage
 from ..page.weather import WeatherPage
+from ..utils.text import get_translation
 from .descriptor import PageDescriptor
 
 # system panel mapping
@@ -142,8 +143,12 @@ def build_sys_panels_defaults() -> list[dict]:
     return defaults
 
 
-def get_user_panel_type_descriptors() -> list[dict]:
-    """Return serialized descriptors for user-visible (non-system, non-popup) panel types."""
+def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
+    """Return serialized descriptors for user-visible (non-system, non-popup) panel types.
+
+    When ``language`` is provided, string fields (label, description, option labels,
+    etc.) are translated before being returned.
+    """
     result: list[dict] = []
     for type_key, (_, cls) in PANEL_MAPPING.items():
         d = getattr(cls, "DESCRIPTOR", None)
@@ -151,8 +156,8 @@ def get_user_panel_type_descriptors() -> list[dict]:
             result.append(
                 {
                     "type_key": d.type_key,
-                    "label": d.label,
-                    "description": d.description,
+                    "label": get_translation(d.label, language),
+                    "description": get_translation(d.description, language),
                     "icon": d.icon,
                     "has_header": d.has_header,
                     "can_show_popup": d.can_show_popup,
@@ -162,12 +167,17 @@ def get_user_panel_type_descriptors() -> list[dict]:
                             "key": o.key,
                             "kind": o.kind,
                             "default": o.default,
-                            "label": o.label,
-                            "description": o.description,
+                            "label": get_translation(o.label, language)
+                                if o.label else None,
+                            "description": get_translation(o.description, language)
+                                if o.description else None,
                             "domain": o.domain,
-                            "section": o.section,
+                            "section": get_translation(o.section, language) if o.section else None,
                             "max_items": o.max_items,
-                            "choices": [{"value": k, "label": lbl} for k, lbl in (o.choices or [])],
+                            "choices": [
+                                {"value": k, "label": get_translation(lbl, language)}
+                                for k, lbl in (o.choices or [])
+                            ],
                         }
                         for o in d.options
                     ],
@@ -176,8 +186,12 @@ def get_user_panel_type_descriptors() -> list[dict]:
     return sorted(result, key=lambda x: x["label"])
 
 
-def get_system_panel_entries() -> list[dict]:
-    """Return all system panel entries (sys pages + popups) keyed by SYS_PANEL_MAPPING."""
+def get_system_panel_entries(language: str = "en") -> list[dict]:
+    """Return all system panel entries (sys pages + popups) keyed by SYS_PANEL_MAPPING.
+
+    When ``language`` is provided, string fields (label, description) are translated
+    before being returned.
+    """
     result: list[dict] = []
     for sys_key, type_key in SYS_PANEL_MAPPING.items():
         if type_key in PANEL_MAPPING:
@@ -188,8 +202,8 @@ def get_system_panel_entries() -> list[dict]:
                     {
                         "type": type_key,
                         "key": sys_key,
-                        "label": d.label,
-                        "description": d.description,
+                        "label": get_translation(d.label, language),
+                        "description": get_translation(d.description, language),
                         "icon": d.icon,
                         "has_header": d.has_header,
                         "can_show_popup": d.can_show_popup,

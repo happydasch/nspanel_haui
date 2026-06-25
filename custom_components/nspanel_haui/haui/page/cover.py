@@ -8,22 +8,22 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import CoverFeatures
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 
 
 class CoverPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="cover",
         page_name="cover",
-        label="Cover",
-        description="Cover item with open, close and position controls.",
+        label=_("Cover"),
+        description=_("Cover item with open, close and position controls."),
         options=[
             PageOption(
                 key="item",
                 kind="item",
                 domain="cover",
-                description="Cover entity for opening, closing and positioning window coverings.",
-                section="Cover",
+                description=_("Cover entity for opening, closing and positioning window coverings."),
+                section=_("Cover"),
             ),
         ],
         can_show_popup=True,

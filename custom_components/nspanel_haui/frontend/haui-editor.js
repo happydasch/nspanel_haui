@@ -323,7 +323,6 @@ class NSPanelEditor extends LitElement {
 
   /* ── localization ─────────────────────────────────────────────────────── */
 
-  _t(text) { return t(text); }
 
   async _ensureTranslations() {
     if (this.hass) {
@@ -347,7 +346,7 @@ class NSPanelEditor extends LitElement {
       return html`<div class="container">
         ${renderTitleHeader(this)}
         <ha-card outlined class="content-card">
-          ${renderEmptyCard(this._t("No NSPanel HAUI integration configured. Add one via Settings \u2192 Devices and Services."))}
+          ${renderEmptyCard(t("No NSPanel HAUI integration configured. Add one via Settings \u2192 Devices and Services."))}
         </ha-card>
       </div>`;
     }
@@ -355,7 +354,7 @@ class NSPanelEditor extends LitElement {
     if (this._loading) {
       return html`<div class="container">
         ${renderTitleHeader(this)}
-        <div class="loading">${this._t('Loading panels...')}</div>
+        <div class="loading">${t('Loading panels...')}</div>
       </div>`;
     }
 
@@ -473,10 +472,10 @@ class NSPanelEditor extends LitElement {
     const panel = this._devicePanels()[idx];
     const name = panel ? panel.title || `panel #${idx}` : "this panel";
     return {
-      title: this._t("Delete panel?"),
-      message: this._t("Delete {name}? This cannot be undone.").replace("{name}", name),
-      confirmText: this._t("Delete"),
-      cancelText: this._t("Cancel"),
+      title: t("Delete panel?"),
+      message: t("Delete {name}? This cannot be undone.").replace("{name}", name),
+      confirmText: t("Delete"),
+      cancelText: t("Cancel"),
     };
   }
 
@@ -496,10 +495,10 @@ class NSPanelEditor extends LitElement {
     this.requestUpdate();
 
     try {
-      await this._savePanels(this._devicePanels(), this._t("Device configuration saved"));
-      this._showToast(this._t("Device configuration saved"), "success");
+      await this._savePanels(this._devicePanels(), t("Device configuration saved"));
+      this._showToast(t("Device configuration saved"), "success");
     } catch (e) {
-      this._showToast(e.message || this._t("Device config save failed"), "error");
+      this._showToast(e.message || t("Device config save failed"), "error");
     } finally {
       this._saving = false;
       this._editingDeviceConfig = false;

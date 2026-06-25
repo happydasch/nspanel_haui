@@ -10,6 +10,7 @@
  *   - ha-dialog-logs         (in dialogs/logs.js)
  */
 import * as Api from './api.js';
+import { t } from './localize.js';
 
 /* ── status polling ──────────────────────────────────────────────────────── */
 
@@ -43,7 +44,7 @@ export function getConnectionStateClass(connected, connState) {
 
 /**
  * Map (connected, connState) to a human-readable label.
- * @param {function} t - translation function (host._t or imported t)
+ * @param {function} t - translation function
  * @param {boolean|undefined} connected
  * @param {string} [connState="unknown"]
  * @returns {string} translated label

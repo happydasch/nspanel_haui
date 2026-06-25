@@ -9,7 +9,7 @@ from ..abstract.haui_panel import HAUIPanel
 from ..features import ClimateFeatures
 from ..mapping.color import CLIMATE_COLORS
 from ..mapping.const import SysPanelKey
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icon_mapping import CLIMATE_MAPPING
 from ..mapping.icons import ICO_DOWN, ICO_FAN, ICO_POWER, ICO_PRESET, ICO_SWING, ICO_UP
 from ..utils.icon import get_icon
@@ -19,32 +19,32 @@ class ClimatePage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="climate",
         page_name="climate",
-        label="Climate",
-        description="Climate item with temperature and mode controls.",
+        label=_("Climate"),
+        description=_("Climate item with temperature and mode controls."),
         options=[
             PageOption(
                 key="item",
                 kind="item",
                 domain="climate",
-                description="Climate/HVAC entity for temperature control and mode switching.",
-                section="Climate",
+                description=_("Climate/HVAC entity for temperature control and mode switching."),
+                section=_("Climate"),
             ),
             PageOption(
                 key="hvac_modes",
                 kind="list_items",
                 default=[],
                 choices=[
-                    ("off", "Off"),
-                    ("heat", "Heat"),
-                    ("cool", "Cool"),
-                    ("heat_cool", "Heat/Cool"),
-                    ("auto", "Auto"),
-                    ("dry", "Dry"),
-                    ("fan_only", "Fan Only"),
+                    ("off", _("Off")),
+                    ("heat", _("Heat")),
+                    ("cool", _("Cool")),
+                    ("heat_cool", _("Heat/Cool")),
+                    ("auto", _("Auto")),
+                    ("dry", _("Dry")),
+                    ("fan_only", _("Fan Only")),
                 ],
-                label="HVAC modes override",
-                description="Override HVAC modes shown on this panel.",
-                section="Climate",
+                label=_("HVAC modes override"),
+                description=_("Override HVAC modes shown on this panel."),
+                section=_("Climate"),
             ),
         ],
         can_show_popup=True,

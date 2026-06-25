@@ -7,22 +7,22 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import ALARM_COLORS
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 
 
 class AlarmPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="alarm",
         page_name="alarm",
-        label="Alarm",
-        description="Alarm control panel with numeric keypad.",
+        label=_("Alarm"),
+        description=_("Alarm control panel with numeric keypad."),
         options=[
             PageOption(
                 key="item",
                 kind="item",
                 domain="alarm_control_panel",
-                description="Alarm control panel item for arming/disarming the security system.",
-                section="Alarm",
+                description=_("Alarm control panel item for arming/disarming the security system."),
+                section=_("Alarm"),
             ),
         ],
         icon="mdi:shield-lock-outline",

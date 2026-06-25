@@ -9,7 +9,7 @@ import { renderBadges } from './panel-utils.js';
 import { renderPanelPreview } from './panel-previews.js';
 import { isSysPanelEditable, renderPanelDropdown } from './panel-table.js';
 import { renderCardChrome, renderCardActions } from './panel-card.js';
-import { tDesc } from './localize.js';
+import { t } from './localize.js';
 
 /**
  * Build the dropdown items for a system panel card.
@@ -23,14 +23,14 @@ function buildSysPanelDropdownItems(host, sp, hasOverride) {
   if (hasOverride) {
     items.push({
       icon: 'mdi:restore',
-      label: host._t('Reset to default'),
+      label: t('Reset to default'),
       action: () => host._resetSysPanelOverride(sp.key),
     });
     items.push('divider');
   }
   items.push({
     icon: 'mdi:pencil-outline',
-    label: host._t('Edit'),
+    label: t('Edit'),
     action: () => host._openSysPanelEdit(sp),
   });
   return items;
@@ -72,13 +72,13 @@ export function renderSystemPanelCard(host, sp) {
     <div class="pg-card pg-sys-card">
       ${renderCardChrome({
         icon: sp.icon,
-        title: tDesc(sp, 'label'),
+        title: sp.label,
         key: sp.key,
         badges,
         hasHeader: sp.has_header !== false,
         headerButtons,
         preview: previewResult,
-        description: tDesc(sp, 'description'),
+        description: sp.description,
         onClick: onClickSysCard,
         actions,
       })}

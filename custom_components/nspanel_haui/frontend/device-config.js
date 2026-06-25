@@ -11,6 +11,7 @@
  *   _saveDeviceConfig()       { return DeviceConfig.saveDeviceConfig(this); }
  */
 import { clone, DEVICE_CONFIG_DEFAULTS } from './constants.js';
+import { t } from './localize.js';
 
 /* ── load ─────────────────────────────────────────────────────────────────── */
 
@@ -74,5 +75,5 @@ export async function saveDeviceConfig(host) {
   // savePanels clones host._deviceConfig into the POST payload, so
   // we don't need to manually update _panels.devices[].config.
   const panels = host._devicePanels();
-  await host._savePanels(panels, host._t("Device settings saved"));
+  await host._savePanels(panels, t("Device settings saved"));
 }

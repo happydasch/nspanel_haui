@@ -11,7 +11,7 @@ import { renderPanelDropdown, buildPanelDropdownItems } from './panel-table.js';
 import { renderPanelPreview } from './panel-previews.js';
 import { renderBadges, getPanelMoveState, computeFilteredPanels, getSystemPanelKeys } from './panel-utils.js';
 import { renderCardChrome, renderCardActions } from './panel-card.js';
-import { tDesc } from './localize.js';
+import { t } from './localize.js';
 
 /**
  * Render a single panel card for the grid view.
@@ -95,13 +95,13 @@ function renderPanelCard(host, p, panels, isNavPanel) {
       ${renderCardChrome({
         icon: pt?.icon,
         title: p.title,
-        titleFallback: isOverride ? '' : (pt ? tDesc(pt, 'label') : host._t('Unnamed')),
+        titleFallback: isOverride ? '' : (pt ? pt.label : t('Unnamed')),
         key: p.key,
         badges,
         hasHeader: pt ? pt.has_header !== false : true,
         headerButtons,
         preview: previewResult,
-        description: pt ? tDesc(pt, 'description') : '',
+        description: pt ? pt.description : '',
         onClick,
         actions,
       })}
@@ -125,10 +125,10 @@ export function renderPanelGrid(host) {
   // No device selected
   if (!host._selectedDevice) {
     if (devices.length === 0) {
-      return renderEmptyCard(host._t('No devices found'));
+      return renderEmptyCard(t('No devices found'));
     }
     return html`
-      <p class="no-device-selected">${host._t('Select a device to edit its panels.')}</p>
+      <p class="no-device-selected">${t('Select a device to edit its panels.')}</p>
     `;
   }
 
@@ -140,18 +140,18 @@ export function renderPanelGrid(host) {
 
   return html`
     ${panels.length === 0
-      ? renderEmptyCard(host._t('No panels configured yet.'))
+      ? renderEmptyCard(t('No panels configured yet.'))
       : html`
         <details class="panel-group" ?open=${host.__navPanelsOpen}
           @toggle=${(e) => { host.__navPanelsOpen = e.target.open; writeOpen('haui_navPanelsOpen', e.target.open); }}>
-          <summary class="group-title">${host._t('Navigation')} (${navPanels.length} ${host._t('panels')})</summary>
+          <summary class="group-title">${t('Navigation')} (${navPanels.length} ${t('panels')})</summary>
           <div class="pg-grid">
             ${navPanels.map(p => renderPanelCard(host, p, panels, true))}
           </div>
         </details>
         <details class="panel-group" ?open=${host.__hiddenPanelsOpen}
           @toggle=${(e) => { host.__hiddenPanelsOpen = e.target.open; writeOpen('haui_hiddenPanelsOpen', e.target.open); }}>
-          <summary class="group-title">${host._t('Non-Navigation')} (${hiddenPanels.length} ${host._t('panels')})</summary>
+          <summary class="group-title">${t('Non-Navigation')} (${hiddenPanels.length} ${t('panels')})</summary>
           <div class="pg-grid">
             ${hiddenPanels.map(p => renderPanelCard(host, p, panels, false))}
           </div>

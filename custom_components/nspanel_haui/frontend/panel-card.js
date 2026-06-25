@@ -151,7 +151,7 @@ export function renderCardActions(host, menuKey, renderDropdown) {
   const close = () => { host._cardMenuKey = null; host.requestUpdate(); };
   return html`
     <span
-      title=${host._t('More')}
+      title=${t('More')}
       class="pg-card-more ${isOpen ? 'active' : ''}"
       role="button"
       tabindex="0"

@@ -1,3 +1,4 @@
+import { getLanguage, t } from './localize.js';
 /**
  * NSPanel HAUI - Editor - data loading helpers.
  * Extracted from panel-editor.js _loadEntries, _load, _loadPanelTypes methods.
@@ -30,8 +31,9 @@ export async function loadPanels(host) {
   }
   host._loading = true;
   try {
+    const lang = getLanguage(host.hass);
     const resp = await host.hass.fetchWithAuth(
-      `/api/nspanel_haui/panels/${host.entryId}`
+      `/api/nspanel_haui/panels/${host.entryId}?language=${encodeURIComponent(lang)}`
     );
     if (resp.ok) {
       host._panels = await resp.json();
@@ -53,8 +55,9 @@ export async function loadPanels(host) {
 export async function loadPanelTypes(host) {
   if (!host.hass) return;
   try {
+    const lang = getLanguage(host.hass);
     const resp = await host.hass.fetchWithAuth(
-      "/api/nspanel_haui/panel_types"
+      `/api/nspanel_haui/panel_types?language=${encodeURIComponent(lang)}`
     );
     if (resp.ok) {
       host._panelTypes = await resp.json();
@@ -66,7 +69,7 @@ export async function loadPanelTypes(host) {
 export async function loadStatus(host) {
   if (!host.entryId || !host.hass) {
     host._deviceStatus = null;
-    host._deviceStatusError = host._t("No device selected");
+    host._deviceStatusError = t("No device selected");
     return;
   }
   try {
@@ -93,7 +96,7 @@ export async function loadStatus(host) {
     }
   } catch (e) {
     host._deviceStatus = null;
-    host._deviceStatusError = e.message || host._t("Fetch failed");
+    host._deviceStatusError = e.message || t("Fetch failed");
   }
 }
 
@@ -111,7 +114,7 @@ export async function exportDeviceYaml(host, deviceKey) {
     );
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-      throw new Error(err.message || host._t("Export failed"));
+      throw new Error(err.message || t("Export failed"));
     }
     const yamlText = await resp.text();
     downloadBlob(yamlText, `${deviceKey}.yaml`, "application/x-yaml");
@@ -148,13 +151,13 @@ export async function importDeviceYaml(host, deviceKey) {
 
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || host._t("Import failed"));
+    throw new Error(err.message || t("Import failed"));
   }
 
   const result = await resp.json();
   // Reload panels to reflect imported data
   await loadPanels(host);
-  return host._t('Imported YAML for "{name}"').replace('{name}', result.device);
+  return t('Imported YAML for "{name}"').replace('{name}', result.device);
 }
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
@@ -204,7 +207,7 @@ function pickYamlFile() {
  */
 export async function addDevice(host, device) {
   if (!host.entryId || !host.hass) {
-    throw new Error(host._t("No config entry selected"));
+    throw new Error(t("No config entry selected"));
   }
   const resp = await host.hass.fetchWithAuth(
     `/api/nspanel_haui/devices/${host.entryId}`,
@@ -216,7 +219,7 @@ export async function addDevice(host, device) {
   );
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || host._t("Failed to add device"));
+    throw new Error(err.message || t("Failed to add device"));
   }
   return resp.json();
 }
@@ -233,7 +236,7 @@ export async function addDevice(host, device) {
  */
 export async function removeDevice(host, name, keepConfig = false) {
   if (!host.entryId || !host.hass) {
-    throw new Error(host._t("No config entry selected"));
+    throw new Error(t("No config entry selected"));
   }
   const resp = await host.hass.fetchWithAuth(
     `/api/nspanel_haui/devices/${host.entryId}?name=${encodeURIComponent(name)}`,
@@ -245,7 +248,7 @@ export async function removeDevice(host, name, keepConfig = false) {
   );
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || host._t("Failed to remove device"));
+    throw new Error(err.message || t("Failed to remove device"));
   }
   return resp.json();
 }
@@ -261,7 +264,7 @@ export async function removeDevice(host, name, keepConfig = false) {
  */
 export async function updateDeviceDisplay(host, deviceName) {
   if (!host.entryId || !host.hass) {
-    throw new Error(host._t("No config entry selected"));
+    throw new Error(t("No config entry selected"));
   }
   const resp = await host.hass.fetchWithAuth(
     `/api/nspanel_haui/update_display/${host.entryId}`,
@@ -273,7 +276,7 @@ export async function updateDeviceDisplay(host, deviceName) {
   );
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || host._t("Failed to update display"));
+    throw new Error(err.message || t("Failed to update display"));
   }
   return resp.json();
 }

@@ -5,6 +5,7 @@
  * parameter.
  */
 import { clone, DEVICE_CONFIG_DEFAULTS } from './constants.js';
+import { t } from './localize.js';
 
 export function openColorsDialog(host) {
   host._actionsMenuIndex = null;
@@ -30,10 +31,10 @@ export async function saveColors(host, overrides) {
   };
 
   try {
-    await host._savePanels(host._devicePanels(), host._t("Device colors saved"));
-    host._showToast(host._t("Device colors saved"), "success");
+    await host._savePanels(host._devicePanels(), t("Device colors saved"));
+    host._showToast(t("Device colors saved"), "success");
   } catch (e) {
-    host._showToast(e.message || host._t("Failed to save colors"), "error");
+    host._showToast(e.message || t("Failed to save colors"), "error");
   } finally {
     host._showColorsDialog = false;
     host.requestUpdate();

@@ -8,7 +8,7 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import VacuumFeatures
 from ..mapping.const import SysPanelKey
-from ..mapping.descriptor import PageDescriptor, PageOption
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_BATTERY,
     ICO_FAN,
@@ -25,21 +25,21 @@ class VacuumPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="vacuum",
         page_name="vacuum",
-        label="Vacuum",
-        description="Vacuum robot controls and status.",
+        label=_("Vacuum"),
+        description=_("Vacuum robot controls and status."),
         options=[
             PageOption(
                 key="item",
                 kind="item",
                 domain="vacuum",
-                description="Vacuum robot entity for starting, stopping and returning to dock.",
-                section="Vacuum",
+                description=_("Vacuum robot entity for starting, stopping and returning to dock."),
+                section=_("Vacuum"),
             ),
             PageOption(
                 key="items",
                 kind="item_list",
-                section="Secondary Items",
-                description="Additional items to display below the vacuum controls (up to 6).",
+                section=_("Secondary Items"),
+                description=_("Additional items to display below the vacuum controls (up to 6)."),
                 max_items=6,
             ),
         ],

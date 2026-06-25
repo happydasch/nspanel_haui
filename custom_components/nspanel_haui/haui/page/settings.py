@@ -5,15 +5,15 @@ from typing import Any
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.descriptor import PageDescriptor
+from ..mapping.descriptor import PageDescriptor, _
 
 
 class SettingsPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="system_settings",
         page_name="settings",
-        label="Settings",
-        description="Display brightness and system settings.",
+        label=_("Settings"),
+        description=_("Display brightness and system settings."),
         is_system=True,
         sys_panel_default={
             "key": "sys_settings",

@@ -3,15 +3,15 @@ from __future__ import annotations
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.descriptor import PageDescriptor
+from ..mapping.descriptor import PageDescriptor, _
 
 
 class SystemPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="system",
         page_name="system",
-        label="System",
-        description="System status and connection screen.",
+        label=_("System"),
+        description=_("System status and connection screen."),
         is_system=True,
         sys_panel_default={
             "key": "sys_system",

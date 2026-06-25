@@ -4,15 +4,15 @@ from ..abstract.component import Component
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.descriptor import PageDescriptor
+from ..mapping.descriptor import PageDescriptor, _
 
 
 class BlankPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="blank",
         page_name="blank",
-        label="Blank",
-        description="Blank/idle page used for sleep state.",
+        label=_("Blank"),
+        description=_("Blank/idle page used for sleep state."),
         is_system=True,
         sys_panel_default={
             "key": "sys_blank",

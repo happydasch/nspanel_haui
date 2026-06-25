@@ -7,7 +7,7 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import NotifEvent
-from ..mapping.descriptor import PageDescriptor
+from ..mapping.descriptor import PageDescriptor, _
 from ..mapping.icons import ICO_NEXT_MESSAGE, ICO_PREV_MESSAGE
 from ..utils.icon import parse_icon
 
@@ -35,8 +35,8 @@ class NotifyPage(CommonNotifyPage):
     DESCRIPTOR = PageDescriptor(
         type_key="notify",
         page_name="notify",
-        label="Notification",
-        description="Pop-up notification panel with icon and optional buttons.",
+        label=_("Notification"),
+        description=_("Pop-up notification panel with icon and optional buttons."),
         is_system=True,
         sys_panel_default={
             "key": "popup_notify",
@@ -146,8 +146,8 @@ class NotifsPage(CommonNotifyPage):
     DESCRIPTOR = PageDescriptor(
         type_key="notifs",
         page_name="notifs",
-        label="Notifications",
-        description="Notification list with prev/next navigation.",
+        label=_("Notifications"),
+        description=_("Notification list with prev/next navigation."),
         is_system=True,
         sys_panel_default={
             "key": "popup_notifs",

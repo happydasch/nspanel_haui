@@ -1,21 +1,21 @@
 {
   "domain": "nspanel_haui",
   "name": "NSPanel HAUI",
-  "version": "0.3.0",
+  "after_dependencies": ["zeroconf", "dhcp", "http"],
+  "codeowners": ["@happydasch"],
+  "config_flow": true,
+  "dhcp": [{"registered_devices": true}],
   "documentation": "https://github.com/happydasch/nspanel_haui",
+  "integration_type": "hub",
+  "iot_class": "local_push",
   "issue_tracker": "https://github.com/happydasch/nspanel_haui/issues",
+  "loggers": ["custom_components.nspanel_haui"],
+  "requirements": ["pydantic>=2.0", "python-dateutil>=2.8.0", "requests>=2.31.0", "packaging>=23.0"],
+  "version": "0.3.0",
   "zeroconf": [
     {
       "type": "_esphomelib._tcp.local.",
       "properties": {"project_name": "happydasch.nspanel_haui*"}
     }
-  ],
-  "dhcp": [{"registered_devices": true}],
-  "after_dependencies": ["zeroconf", "dhcp", "http"],
-  "integration_type": "hub",
-  "requirements": ["pydantic>=2.0", "python-dateutil>=2.8.0", "requests>=2.31.0", "packaging>=23.0"],
-  "codeowners": ["@happydasch"],
-  "config_flow": true,
-  "iot_class": "local_push",
-  "loggers": ["custom_components.nspanel_haui"]
+  ]
 }

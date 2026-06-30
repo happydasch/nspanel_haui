@@ -22,7 +22,9 @@ class CoverPage(HAUIPage):
                 key="item",
                 kind="item",
                 domain="cover",
-                description=_("Cover entity for opening, closing and positioning window coverings."),
+                description=_(
+                    "Cover entity for opening, closing and positioning window coverings."
+                ),
                 section=_("Cover"),
             ),
         ],

@@ -87,7 +87,9 @@ class WeatherPage(HAUIPage):
                 kind="select",
                 default="color",
                 label=_("Weather icon color"),
-                description=_("Use condition-based colors or monochrome (text color) for weather icons."),
+                description=_(
+                    "Use condition-based colors or monochrome (text color) for weather icons."
+                ),
                 choices=[("color", _("Color")), ("monochrome", _("Monochrome"))],
                 section=_("Appearance"),
             ),
@@ -112,7 +114,9 @@ class WeatherPage(HAUIPage):
                 kind="int",
                 default=1,
                 label=_("Temperature precision"),
-                description=_("Number of decimal places for temperature values (0 = whole number)."),
+                description=_(
+                    "Number of decimal places for temperature values (0 = whole number)."
+                ),
                 section=_("Precision"),
             ),
             PageOption(

@@ -49,7 +49,9 @@ class QRPage(HAUIPage):
                 kind="bool",
                 default=True,
                 label=_("Show network info"),
-                description=_("When no custom items are configured, show SSID/password as text alongside the QR code."),
+                description=_(
+                    "When no custom items are configured, show SSID/password as text alongside the QR code."  # noqa: E501
+                ),
                 section=_("Display"),
             ),
             PageOption(

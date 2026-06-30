@@ -216,9 +216,7 @@ class PanelTypesView(HomeAssistantView):
 
         lang = request.query.get("language", "en")
         hass = request.app["hass"]
-        descriptors = await hass.async_add_executor_job(
-            get_user_panel_type_descriptors, lang
-        )
+        descriptors = await hass.async_add_executor_job(get_user_panel_type_descriptors, lang)
         return self.json(descriptors)
 
 
@@ -256,9 +254,7 @@ class PanelConfigView(HomeAssistantView):
         result = data or {"version": 1, "devices": {}}
         from .haui.mapping.panel import get_system_panel_entries
 
-        result["system_panels"] = await hass.async_add_executor_job(
-            get_system_panel_entries, lang
-        )
+        result["system_panels"] = await hass.async_add_executor_job(get_system_panel_entries, lang)
 
         # Enrich each device with friendly_name from ESPHome config entries
         for dev_key, dev_data in result.get("devices", {}).items():

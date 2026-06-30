@@ -1,181 +1,171 @@
-
 # NSPanel HAUI (HomeAssistant UI)
 
-NSPanel HAUI is a home-assistant custom integration for Sonoff NSPanel devices. The integration provides multiple configurable panels and a simple editor.
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/happydasch/nspanel_haui)
+[![GitHub release](https://img.shields.io/github/v/release/happydasch/nspanel_haui?style=for-the-badge)](https://github.com/happydasch/nspanel_haui/releases)
+[![HA Community](https://img.shields.io/badge/HA%20Community-Thread-03a87c?style=for-the-badge)](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
+[![License](https://img.shields.io/github/license/happydasch/nspanel_haui?style=for-the-badge)](LICENSE)
 
-To install NSPanel HAUI you only need to install the firmware and the custom integration.
+A Home Assistant custom integration that replaces the stock Sonoff NSPanel firmware with a flexible, configurable touchscreen display system built on ESPHome. Configure everything from the HA interface — panels, entities, gestures, and dimming — without editing YAML.
 
-For details about the configuration see [Configuration](docs/Config.md). Also take a look at [Panels](docs/panels/README.md) to get an overview of available panels.
-
-- [NSPanel HAUI (HomeAssistant UI)](#nspanel-haui-homeassistant-ui)
-  - [Features](#features)
-    - [Easy Installation](#easy-installation)
-    - [A variety of different panels](#a-variety-of-different-panels)
-    - [Device configuration in home-assistant](#device-configuration-in-home-assistant)
-    - [Many features](#many-features)
-  - [Installation](#installation)
-  - [Next Steps](#next-steps)
-  - [Development](#development)
-  - [Roadmap](#roadmap)
-  - [Resources](#resources)
-
-## Features
-
-**The documentation and comments may be outdated, this will be fixed in the upcoming versions**
-
-the updated architecture was introduced just now, due to migration of old code there might be issues / non-working parts. It would be helpful to get such issues as bug reports.
-
-### Easy Installation
-
-NSPanel HAUI will load most parts of the required files automatically. Only the initial ESPHome flashing process is needed. After this all parts will be updated by the Hub app.
-
-### A variety of different panels
-
-Select from different [Panels](docs/panels/README.md) that can be displayed on the panel.
+[Documentation](docs/README.md) &middot; [Panels Overview](docs/panels/README.md) &middot; [Installation Guide](docs/Install.md) &middot; [Configuration](docs/Config.md) &middot; [FAQ](docs/FAQ.md) &middot; [Example Configs](docs/Example_Config.md) &middot; [HA Community Thread](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
 
 ![Panels](docs/assets/feature_panels.png)
 
-### Device configuration in home-assistant
+---
 
-![Grid or List](docs/assets/screenshots/grid_or_list.png)
-![Grid View](docs/assets/screenshots/grid.png)
-![System Panels](docs/assets/screenshots/system_panels.png)
-![Add Panel](docs/assets/screenshots/add_panel.png)
+## Features
 
-![Device Manager](docs/assets/screenshots/device_manager.png)
-![Device Settings](docs/assets/screenshots/device_settings.png)
-![Device Colors](docs/assets/screenshots/device_colors.png)
+| | |
+|---|---|
+| **Configurable panels** | Grid, row, light, climate, cover, media, vacuum, timer, alarm, QR code, weather, clock, and more |
+| **In-UI editor** | Add, remove, and configure panels directly from the Home Assistant interface — no YAML editing required |
+| **Touch gestures** | Swipe left/right for navigation, gesture sequences for advanced controls |
+| **Live state updates** | Display refreshes instantly when an entity state changes |
+| **Display dimming** | Auto-dim brightness after a configurable timeout |
+| **Sleep/wake panels** | Switch to a designated page after inactivity; fully configurable sleep and wakeup panels |
+| **Panel locking** | Lock any panel with a PIN code; unlock via on-screen keypad |
+| **Physical buttons** | Coupled or uncoupled relay modes — use hardware buttons as software inputs |
+| **Notifications** | Receive and display notifications with optional looping sounds |
+| **Auto-update** | Firmware and TFT updates delivered through the Hub app after initial flash |
 
-![Device Info](docs/assets/screenshots/device_info.png)
-![Device Logs](docs/assets/screenshots/device_logs.png)
-
-### Many features
-
-NSPanel HAUI has a lot of features, here are some highlights:
-
-- **Touch gestures and sequences**
-
-  Different touch gestures as swipe left or right are supported. There is also support for gesture sequences.
-
-- **Live state updates**
-
-  The display will update when a entity state changes. All entities being displayed will notify about changes and the display will update.
-
-- **Button and relay states, coupled and uncoupled relays**
-
-  The buttons can be used in a couped state, so that by button presses, the relay will get activated. It is also possible to disable the relay and use the physical buttons as software buttonms.
-
-- **Dimming of the display after a timeout**
-
-  The display will automatically dim its brightness after a timeout.
-
-- **Sleep display change after a timeout**
-
-  The display can switch to a page after a timeout. There are sleep and wakeup panels possible.
-
-- **Locking/Unlocking mechanism for panels**
-
-  All panels can be locked by a pin code. The panel can be accessed after entering the pin code.
-
-- **Device settings in HomeAssistant**
-
-  The whole device configuration can be done in HomeAssistant.
+---
 
 ## Installation
 
-In order to install NSPanel HAUI it is neccessary to flash the Panel with ESPHome.
+### Prerequisites
 
-The simplified process is as followed:
+- A **Sonoff NSPanel** (original or Pro) connected to your network
+- **Home Assistant** 2024.x or newer with **ESPHome** add-on installed
+- An **ESPHome dashboard** to manage device firmware
 
-1. Flash Panel with [ESPHome](docs/ESPHome.md)
-2. Update [Display TFT](docs/Nextion.md)
-3. Install [Hub App](docs/Hub.md)
-4. Add [Configuration](docs/Config.md)
+### Step 1: Install via HACS (recommended)
 
-Take a look at the more detailed [Installation Guide](docs/Install.md). Have also a look at the [FAQ](docs/FAQ.md).
-For a more detailed overview of available functionality see the [Device Description](docs/Device.md).
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=happydasch&repository=nspanel_haui&category=integration)
 
-## Next Steps
+If the button above does not work:
 
-- [Documentation](docs/README.md)
-- [Panels Overview](docs/panels/README.md)
-- [Example Configurations](docs/Example_Config.md)
-- [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)
-- [Thread in HomeAssistant Community](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
+1. Open **HACS** in your Home Assistant sidebar
+2. Go to **Integrations**
+3. Click the three-dot menu and select **Custom repositories**
+4. Add `https://github.com/happydasch/nspanel_haui` with category **Integration**
+5. Click **Install** on the **NSPanel HAUI** entry
+6. **Restart Home Assistant**
 
-## Development
+### Step 2: Flash ESPHome firmware
 
-For details about how the parts of the whole system communicate together see [NS
-Panel HomeAssistant UI Docs](docs/README.md).
+<details>
+<summary>Expand for ESPHome flashing steps</summary>
 
-- [Design Guidelines](docs/Design.md)
-- [Communication Description](docs/Communication.md)
-- [ESPHome Component](docs/ESPHome.md)
-- [Hub Component](docs/Hub.md)
-- [Nextion Component](docs/Nextion.md)
+1. In the ESPHome dashboard, create a new device using the provided [install.yaml](esphome/install.yaml) as a starting point
+2. Configure your Wi-Fi credentials and device name
+3. Flash the firmware to your NSPanel via USB or OTA
+4. After flashing, the TFT display firmware is updated automatically by the Hub app
 
-## Roadmap
+See the [ESPHome guide](docs/ESPHome.md) and [Nextion guide](docs/Nextion.md) for details.
+</details>
 
-- **Versions 0.1.x**: Into the wild - basic functionality, auto updates, cleanups
+### Step 3: Add the integration in Home Assistant
 
-  First versions, get basic functionality running
+1. Go to **Settings** → **Devices & Services** → **Add Integration**
+2. Search for **NSPanel HAUI** and select it
+3. The integration will auto-discover your NSPanel on the network
+4. Follow the config flow to set up your device name and ESPHome API credentials
 
-  - stable core, basic functionality and panels are available
-  - available panels:
-    - screensaver: weather, clock
-    - overview: grid, row
-    - panels: light, media, vacuum, qr code, cover, climate, timer
-  - functionality:
-    - locking panels
-    - popups
+### Step 4: Configure panels
 
-- **Versions 0.2.x**: Sort it out - configuration and entity handling
+Once the integration is running, each NSPanel appears as a device in Home Assistant. Open the device page to:
 
-  Configuration and entity handling, more definitions, better code, sort out issues
+- Add, remove, and reorder panels
+- Assign entities to each panel
+- Configure panel-specific options (display mode, colors, icons, etc.)
+- Set up navigation, gestures, dimming, and sleep/wake behaviour
 
-  Things done for this cycle:
+See the [Configuration guide](docs/Config.md) for detailed instructions.
 
-  - clock: restyle clock, only 3 days forecast, show notifications icon.
-  - weather: show notifications icon.
-  - clocktwo: new sleep screen with time as written text.
-  - light: various updates
-  - music: fix media lists
-  - wakeup: make the wakeup process more configureable. add default wakeup behaviour.
-  - wakeup: open previous panel if display was not off, open home panel if display was off after wakeup.
-  - eye-candy:
-    - wider sliders in different screens
-  - sounds: play sounds on startup and on notifications.
-  - notifications: receive and show notifications
-  - simplify config, internal handling
+---
 
-- **Versions 0.3.x**: A new start - custom integration
+### Manual Installation
 
-  Replaces AppDaemon with native Home Assistant Integration
+If you do not use HACS, copy the `custom_components/nspanel_haui/` directory into your Home Assistant `custom_components/` folder and restart. Then follow steps 2-4 above.
 
-  Things done for this cycle:
+---
 
-  - switch to a custom integration
-  - remove AppDaemon and MQTT dependancy. Only esphome and home-assistant is used.
-  - add a editor to home-assistant.
+## Available Panels
 
-  **Future**:
+| Type | Page | Description |
+|------|------|-------------|
+| `grid` | [Panel Grid](docs/panels/panel_grid.md) | Up to 6 entities arranged in a grid |
+| `row` | [Panel Row](docs/panels/panel_row.md) | Up to 5 entities in a horizontal row |
+| `light` | [Panel Light](docs/panels/panel_light.md) | Full light control (brightness, color temp, RGB) |
+| `climate` | [Panel Climate](docs/panels/panel_climate.md) | Thermostat / HVAC control panel |
+| `cover` | [Panel Cover](docs/panels/panel_cover.md) | Cover / blind position control |
+| `media` | [Panel Media](docs/panels/panel_media.md) | Media player controls and queue |
+| `vacuum` | [Panel Vacuum](docs/panels/panel_vacuum.md) | Vacuum cleaner controls |
+| `timer` | [Panel Timer](docs/panels/panel_timer.md) | Countdown timer with start/stop |
+| `alarm` | [Panel Alarm](docs/panels/panel_alarm.md) | Alarm control panel (arm/disarm) |
+| `qr` | [Panel QR Code](docs/panels/panel_qr.md) | QR code display (Wi-Fi details, URLs) |
+| `weather` | [Panel Weather](docs/panels/panel_weather.md) | Weather forecast + time/date (screensaver) |
+| `clock` | [Panel Clock](docs/panels/panel_clock.md) | Time/date + weather (screensaver) |
+| `clocktwo` | [Panel ClockTwo](docs/panels/panel_clocktwo.md) | Time as written text (screensaver) |
 
-  - custom integration and hacs
-  - frontend editor visuals, declutter and simplify configuration
-  - clean up code for frontend and backend
-  - new panels and update existing panels
-  - documentation
+System panels (blank, settings, about, loading) and popups (unlock, notify, select) are built-in and require no configuration.
+
+---
+
+## Configuration
+
+All device settings — panels, entities, gestures, dimming, sleep, and colours — are managed through the Home Assistant interface.
+
+| Editor views | Device settings |
+|---|---|
+| ![Grid or List](docs/assets/screenshots/grid_or_list.png) | ![Device Manager](docs/assets/screenshots/device_manager.png) |
+| ![Grid View](docs/assets/screenshots/grid.png) | ![Device Settings](docs/assets/screenshots/device_settings.png) |
+| ![System Panels](docs/assets/screenshots/system_panels.png) | ![Device Colors](docs/assets/screenshots/device_colors.png) |
+| ![Add Panel](docs/assets/screenshots/add_panel.png) | ![Device Info](docs/assets/screenshots/device_info.png) |
+
+See the [Configuration guide](docs/Config.md) for all available options and the [Device description](docs/Device.md) for a full feature overview.
+
+---
+
+## Documentation
+
+### End User
+
+| Document | Description |
+|----------|-------------|
+| [Installation Guide](docs/Install.md) | Step-by-step installation instructions |
+| [Configuration](docs/Config.md) | Panel and device configuration reference |
+| [Panels Overview](docs/panels/README.md) | All available panel types and their options |
+| [Device Description](docs/Device.md) | Device behaviour, gestures, dimming, and features |
+| [FAQ](docs/FAQ.md) | Frequently asked questions and troubleshooting |
+| [Example Configs](docs/Example_Config.md) | Example panel configurations |
+| [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html) | Available icon codes |
+
+### Development
+
+| Document | Description |
+|----------|-------------|
+| [Design Guidelines](docs/Design.md) | Styling and panel design principles |
+| [Communication Overview](docs/Communication.md) | How Hub, ESPHome, and Nextion communicate |
+| [ESPHome Component](docs/ESPHome.md) | ESP32 firmware details and serial protocol |
+| [Hub Component](docs/Hub.md) | The core integration logic |
+| [Nextion Component](docs/Nextion.md) | Display firmware and TFT details |
+
+---
 
 ## Resources
 
-The project is based on the ideas of [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) and [NSPanel Custom with HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint).
+This project builds on the ideas of:
 
-- https://esphome.io
-- https://nextion.tech/instruction-set/
-- https://docs.nspanel.pky.eu/
-- https://github.com/joBr99/nspanel-lovelace-ui
-- https://github.com/joBr99/Generate-HASP-Fonts
-- https://github.com/Blackymas/NSPanel_HA_Blueprint
-- https://github.com/masto/NSPanel-Demo-Files
-- https://github.com/marcfager/nspanel-mf
-- https://github.com/krizkontrolz/Home-Assistant-nextion_handler
+- [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) by joBr99
+- [NSPanel HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint) by Blackymas
+
+### Links
+
+- [ESPHome](https://esphome.io)
+- [Nextion Instruction Set](https://nextion.tech/instruction-set/)
+- [NSPanel Docs (pky.eu)](https://docs.nspanel.pky.eu/)
+- [Generate-HASP-Fonts](https://github.com/joBr99/Generate-HASP-Fonts)
+- [NSPanel Demo Files](https://github.com/masto/NSPanel-Demo-Files)
+- [nspanel-mf](https://github.com/marcfager/nspanel-mf)
+- [HA nextion_handler](https://github.com/krizkontrolz/Home-Assistant-nextion_handler)

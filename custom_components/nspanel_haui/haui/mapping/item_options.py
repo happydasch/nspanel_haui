@@ -30,7 +30,9 @@ class ItemOptions:
             key="state",
             kind="generic",
             label=_("State override"),
-            description=_("Override the entity state. Use an attribute key to read state from an entity attribute."),
+            description=_(
+                "Override the entity state. Use an attribute key to read state from an entity attribute."  # noqa: E501
+            ),
         ),
         PageOption(
             key="value",

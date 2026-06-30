@@ -88,7 +88,9 @@ class ClockPage(HAUIPage):
                 kind="int",
                 default=1,
                 label=_("Temperature precision"),
-                description=_("Number of decimal places for temperature display (0 = whole number)."),
+                description=_(
+                    "Number of decimal places for temperature display (0 = whole number)."
+                ),
                 section=_("Precision"),
             ),
             PageOption(

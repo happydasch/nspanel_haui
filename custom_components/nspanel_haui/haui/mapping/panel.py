@@ -167,10 +167,10 @@ def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
                             "key": o.key,
                             "kind": o.kind,
                             "default": o.default,
-                            "label": get_translation(o.label, language)
-                                if o.label else None,
+                            "label": get_translation(o.label, language) if o.label else None,
                             "description": get_translation(o.description, language)
-                                if o.description else None,
+                            if o.description
+                            else None,
                             "domain": o.domain,
                             "section": get_translation(o.section, language) if o.section else None,
                             "max_items": o.max_items,

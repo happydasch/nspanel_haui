@@ -35,16 +35,16 @@ def get_state_translation(item_type: str, state: str, locale: str, attr: str = "
 
 
 def _translations_root() -> str:
-    """Resolve the absolute path to the translations/ directory.
+    """Resolve the absolute path to the haui/locale/ directory.
 
     ``text.py`` lives at ``custom_components/nspanel_haui/haui/utils/`` and
-    the JSON files live at ``custom_components/nspanel_haui/translations/``.
+    the JSON files live at ``custom_components/nspanel_haui/haui/locale/``.
     ``os.path.realpath`` collapses the ``..`` segments so the path that
     reaches ``open()`` is canonical — some HA installs (notably under
     s6/Supervisor) reject the un-normalized form.
     """
     here = os.path.dirname(os.path.realpath(__file__))
-    return os.path.realpath(os.path.join(here, "..", "..", "translations"))
+    return os.path.realpath(os.path.join(here, "..", "locale"))
 
 
 def get_translations(locale: str) -> dict:

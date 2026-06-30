@@ -1,51 +1,44 @@
 """pytest configuration and shared fixtures."""
 
+from __future__ import annotations
+
 import sys
 import types
 from pathlib import Path
 from unittest.mock import MagicMock
 
 # ---------------------------------------------------------------------------
-# Stub out homeassistant before any test imports trigger __init__.py.
+# Stub out ONLY what __init__.py needs (from homeassistant.helpers import
+# config_validation as cv) so that other tests can import nspanel_haui
+# without HA installed.  Keep it minimal — individual test files that need
+# more detailed stubs (e.g. test_config_flow.py) install their own on top
+# via setdefault.
 # ---------------------------------------------------------------------------
 
 
 def _install_ha_stubs() -> None:
-    """Insert minimal homeassistant stubs into sys.modules so tests run without HA."""
+    """Minimal homeassistant stubs so __init__.py can import."""
 
-    # Minimal config_validation with empty_config_schema
     config_validation = MagicMock()
     config_validation.empty_config_schema = MagicMock(
         return_value=MagicMock(spec_set=dict)
     )
 
     helpers = types.ModuleType("homeassistant.helpers")
-    helpers.__path__ = ["homeassistant.helpers"]  # marks as package for sub-imports
+    helpers.__path__ = ["homeassistant.helpers"]
     helpers.config_validation = config_validation
 
-    ha = MagicMock()
+    ha = types.ModuleType("homeassistant")
     ha.helpers = helpers
-
-    loader_mod = types.ModuleType("homeassistant.loader")
-    loader_mod.Integration = MagicMock()
-    loader_mod.async_get_integration = MagicMock()
 
     stubs: dict[str, object] = {
         "homeassistant": ha,
         "homeassistant.helpers": helpers,
         "homeassistant.helpers.config_validation": config_validation,
-        "homeassistant.helpers.entity_registry": MagicMock(),
-        "homeassistant.helpers.storage": MagicMock(),
-        "homeassistant.helpers.selector": MagicMock(),
-        "homeassistant.helpers.device_registry": MagicMock(),
-        "homeassistant.config_entries": MagicMock(),
         "homeassistant.const": MagicMock(),
         "homeassistant.core": MagicMock(),
         "homeassistant.components": MagicMock(),
-        "homeassistant.components.http": MagicMock(),
-        "homeassistant.components.frontend": MagicMock(),
-        "homeassistant.components.panel_custom": MagicMock(),
-        "homeassistant.loader": loader_mod,
+        "homeassistant.loader": MagicMock(),
     }
     for name, stub in stubs.items():
         sys.modules.setdefault(name, stub)

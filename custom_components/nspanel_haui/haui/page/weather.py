@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import dateutil.parser as dp
 
@@ -18,9 +18,6 @@ from ..mapping.icon_mapping import WEATHER_MAPPING
 from ..mapping.icons import ICO_MESSAGE
 from ..utils.datetime import format_datetime, get_date_localized, get_time_localized
 from ..utils.icon import get_icon, parse_icon
-
-if TYPE_CHECKING:
-    pass
 
 
 class WeatherPage(HAUIPage):
@@ -159,7 +156,6 @@ class WeatherPage(HAUIPage):
         f5_subval=Component(31, "f5SubVal"),
     )
 
-    NUM_ENTITIES = 6
     NUM_FORECAST = 5
     DISPLAY_UPDATE_INTERVAL = 1.0
     TEMP_PRECISION = 0
@@ -180,7 +176,6 @@ class WeatherPage(HAUIPage):
         self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
         self._info_items: list[HAUIItem] = []
-        self._entity_button_items: list[HAUIItem] = []
 
     def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background (rendered in start_panel after page is confirmed)

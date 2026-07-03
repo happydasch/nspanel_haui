@@ -14,6 +14,7 @@ from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE
 from ..utils.datetime import get_date_localized, get_time_localized
+from ..utils.icon import parse_icon
 
 
 class ClockPage(HAUIPage):
@@ -168,7 +169,6 @@ class ClockPage(HAUIPage):
         self._show_notifications = True
         self._show_time_time = True
         self._show_time_date = True
-        self._show_time_temp = True
         self._show_time_inside_temp = False
         self._show_weather = True
         self._show_temp = True
@@ -390,27 +390,6 @@ class ClockPage(HAUIPage):
 
     # misc
 
-    def update_time(self) -> None:
-        # Only update tTime if the current cycle card is "time"
-        if not self._cycle_cards or self._cycle_cards[self._current_card_index] != "time":
-            return
-        timeformat = self.app.device_config.get("time_format")
-        timezone = self.app.hass.config.time_zone
-        time = get_time_localized(timeformat, timezone)
-        self.update_function_component(self.COMPONENTS.t_time[1], text=time)
-        self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
-
-    def update_date(self) -> None:
-        # Only update tDate if the current cycle card is "time" and
-        # date visibility is enabled
-        if not self._cycle_cards or self._cycle_cards[self._current_card_index] != "time":
-            return
-        if not self._show_time_date:
-            return
-        self.update_function_component(
-            self.COMPONENTS.t_date[1], text=self._get_date_text(self.app.hass.config.time_zone)
-        )
-
     def update_main_weather(self) -> None:
         if self._weather_item is None:
             return
@@ -439,10 +418,10 @@ class ClockPage(HAUIPage):
             if temp_inside is not None:
                 if not self.TEMP_PRECISION:
                     temp_inside = int(temp_inside)
-                msg = f"{self.translate('IN')} {temp_inside}{self._temp_unit}  "
+                msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
         if not self.TEMP_PRECISION:
             temp_outside = int(temp_outside)
-        msg = f"{msg}{self.translate('OUT')} {temp_outside}{self._temp_unit}"
+        msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
         msg_sub = self._weather_item.get_item_attr("pressure", "")
         if msg_sub:
             pressure_unit = self._weather_item.get_item_attr("pressure_unit")

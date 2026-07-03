@@ -11,17 +11,18 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
   const hasWeatherEntity = !!(panel?.item);
   const showTimeTime = panel?.show_time_time !== false;
   const showTimeDate = panel?.show_time_date !== false;
-  const showTimeTemp = panel?.show_time_temp !== false;
+  const showTimeOutsideTemp = panel?.show_time_outside_temp !== false;
+  const showTimeInsideTemp = panel?.show_time_inside_temp === true;
   const bg = backgroundClass(panel);
   const items = (panel && panel.items) || [];
 
   const cycleCards = [];
   if (showTimeTime) cycleCards.push('time');
   if (showTimeDate) cycleCards.push('date');
-  if (showTimeTemp) cycleCards.push('temperature');
+  if (showTimeOutsideTemp) cycleCards.push('outside_temperature');
+  if (showTimeInsideTemp) cycleCards.push('inside_temperature');
   if (!cycleCards.length) cycleCards.push('time');
   const card = cycleCards[0];
-  const singleCard = cycleCards.length === 1;
 
   const entitySlots = [0, 1, 2, 3, 4, 5].map(i => {
     const item = items[i];
@@ -72,15 +73,19 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:0;gap:1px;">
           ${card === 'time' ? html`
             <span style="font-size:clamp(50px,14cqi,88px);font-weight:700;color:var(--primary-text-color,#fff);letter-spacing:5px;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,0.3);">12:34</span>
-            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">${singleCard ? 'Mon, Jun 16' : 'TIME'}</div>
+            ${showTimeDate ? html`
+              <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">Mon, Jun 16</div>
+            ` : ''}
           ` : card === 'date' ? html`
-            <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">Mon, Jun 16</span>
-            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">DATE</div>
-          ` : html`
+            <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">Mon 16</span>
+            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">Mon, Jun 16</div>
+          ` : card === 'outside_temperature' ? html`
             <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">21&deg;C</span>
-            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">TEMP</div>
+            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">OUTSIDE</div>
+          ` : html`
+            <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">24&deg;C</span>
+            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">INSIDE</div>
           `}
-        </div>
 
         <div class="pg-preview-clock-entity-row">
           ${entitySlots}

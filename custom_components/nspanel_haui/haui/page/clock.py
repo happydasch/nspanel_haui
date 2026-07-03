@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import zoneinfo
 from datetime import datetime
 from typing import Any
 
@@ -13,7 +14,6 @@ from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE
 from ..utils.datetime import get_date_localized, get_time_localized
-from ..utils.icon import parse_icon
 
 
 class ClockPage(HAUIPage):
@@ -28,11 +28,11 @@ class ClockPage(HAUIPage):
             PageOption(
                 key="background",
                 kind="select",
-                default="default",
+                default="dark",
                 label=_("Background"),
                 description=_("Background image theme for the clock display."),
                 choices=[
-                    ("default", _("Default")),
+                    ("dark", _("Dark")),
                     ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),
@@ -49,7 +49,7 @@ class ClockPage(HAUIPage):
                 kind="bool",
                 default=True,
                 label=_("Show time"),
-                description=_("Show current time."),
+                description=_("Show current time as a cycle card."),
                 section=_("Time"),
             ),
             PageOption(
@@ -57,15 +57,23 @@ class ClockPage(HAUIPage):
                 kind="bool",
                 default=True,
                 label=_("Show date"),
-                description=_("Show current date."),
+                description=_("Show current date as a cycle card."),
                 section=_("Time"),
             ),
             PageOption(
-                key="show_time_temp",
+                key="show_time_outside_temp",
                 kind="bool",
                 default=True,
-                label=_("Show temperature"),
-                description=_("Show the temperature."),
+                label=_("Show outside temperature"),
+                description=_("Show outside temperature as a cycle card."),
+                section=_("Time"),
+            ),
+            PageOption(
+                key="show_time_inside_temp",
+                kind="bool",
+                default=False,
+                label=_("Show inside temperature"),
+                description=_("Show inside (NSPanel) temperature as a cycle card."),
                 section=_("Time"),
             ),
             PageOption(
@@ -161,11 +169,12 @@ class ClockPage(HAUIPage):
         self._show_time_time = True
         self._show_time_date = True
         self._show_time_temp = True
+        self._show_time_inside_temp = False
         self._show_weather = True
         self._show_temp = True
         self._show_home_temp = False
         self._temp_unit = "°C"
-        self._background = "default"
+        self._background = "dark"
         self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
         self._items: list[HAUIItem] = []
@@ -177,7 +186,7 @@ class ClockPage(HAUIPage):
 
     def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background (rendered in start_panel after page is confirmed)
-        self._background = self.render_template(panel.get("background", "default"), False)
+        self._background = self.render_template(panel.get("background", "dark"), False)
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # setting: background — set before rendering content
@@ -209,15 +218,18 @@ class ClockPage(HAUIPage):
         # Read card enable flags from panel config
         self._show_time_time = panel.get("show_time_time", True)
         self._show_time_date = panel.get("show_time_date", True)
-        self._show_time_temp = panel.get("show_time_temp", True)
+        self._show_time_outside_temp = panel.get("show_time_outside_temp", True)
+        self._show_time_inside_temp = panel.get("show_time_inside_temp", False)
         # Build cycle list from enabled cards
         self._cycle_cards = []
         if self._show_time_time:
             self._cycle_cards.append("time")
         if self._show_time_date:
             self._cycle_cards.append("date")
-        if self._show_time_temp:
-            self._cycle_cards.append("temperature")
+        if self._show_time_outside_temp:
+            self._cycle_cards.append("outside_temperature")
+        if self._show_time_inside_temp:
+            self._cycle_cards.append("inside_temperature")
         if not self._cycle_cards:
             self._cycle_cards = ["time"]
         # Reset card position
@@ -268,6 +280,12 @@ class ClockPage(HAUIPage):
         locale = self.app.device.get_locale()
         return get_date_localized(strftime_format, babel_format, locale, timezone)
 
+    def _get_short_date_text(self, timezone: str) -> str:
+        """Short date that fits in tTime (max 10 chars)."""
+        now = datetime.now(zoneinfo.ZoneInfo(timezone))
+        # "Mon 16" or "Mon 16/6" style — ~7 chars
+        return now.strftime("%a %-d")
+
     def _render_cycle_card(self) -> None:
         """Render the current cycle card in the big text area."""
         if not self._cycle_cards or self._current_card_index >= len(self._cycle_cards):
@@ -275,31 +293,33 @@ class ClockPage(HAUIPage):
         card = self._cycle_cards[self._current_card_index]
         # Always show tTime
         self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
-        # Render card content in tTime + label in tDate
+        # Render card content in tTime + subtext in tDate
         timeformat = self.app.device_config.get("time_format")
         timezone = self.app.hass.config.time_zone
         if card == "time":
             time = get_time_localized(timeformat, timezone)
             self.update_function_component(self.COMPONENTS.t_time[1], text=time)
-            # Not cycling: no other card's label to distinguish "TIME" from, so
-            # show the written-out date as subtext instead of the bare label.
-            if len(self._cycle_cards) == 1:
+            # Show date in tDate when show_time_date is on
+            if self._show_time_date:
                 subtext = self._get_date_text(timezone)
+                self.update_function_component(self.COMPONENTS.t_date[1], text=subtext)
+                self.set_function_component(
+                    self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
+                )
             else:
-                subtext = "TIME"
+                self.set_function_component(
+                    self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=False
+                )
+        elif card == "date":
+            short_date = self._get_short_date_text(timezone)
+            self.update_function_component(self.COMPONENTS.t_time[1], text=short_date)
+            subtext = self._get_date_text(timezone)
             self.update_function_component(self.COMPONENTS.t_date[1], text=subtext)
             self.set_function_component(
                 self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
             )
-        elif card == "date":
-            date = self._get_date_text(timezone)
-            self.update_function_component(self.COMPONENTS.t_time[1], text=date)
-            self.update_function_component(self.COMPONENTS.t_date[1], text="DATE")
-            self.set_function_component(
-                self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
-            )
-        elif card == "temperature":
-            # Show temperature in the big text area
+        elif card == "outside_temperature":
+            # Show outside temperature
             if self._weather_item is not None:
                 try:
                     temp = round(
@@ -311,9 +331,32 @@ class ClockPage(HAUIPage):
                     return
                 unit = self._temp_unit
                 self.update_function_component(self.COMPONENTS.t_time[1], text=f"{temp}{unit}")
+                self.update_function_component(
+                    self.COMPONENTS.t_date[1], text=self.translate("OUTSIDE")
+                )
             else:
                 self.update_function_component(self.COMPONENTS.t_time[1], text="--°C")
-            self.update_function_component(self.COMPONENTS.t_date[1], text="TEMP")
+                self.update_function_component(
+                    self.COMPONENTS.t_date[1], text=self.translate("OUTSIDE")
+                )
+            self.set_function_component(
+                self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
+            )
+        elif card == "inside_temperature":
+            # Show inside (NSPanel) temperature
+            name = self.app.device.get_name()
+            name_slug = name.lower().replace("-", "_").replace(" ", "_")
+            temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
+            try:
+                temp_inside = round(float(temp_inside_entity.get_state()), self.TEMP_PRECISION)
+            except (ValueError, TypeError):
+                self.update_function_component(self.COMPONENTS.t_time[1], text="---°C")
+                return
+            unit = self._temp_unit if self._weather_item is not None else "°C"
+            if not self.TEMP_PRECISION:
+                temp_inside = int(temp_inside)
+            self.update_function_component(self.COMPONENTS.t_time[1], text=f"{temp_inside}{unit}")
+            self.update_function_component(self.COMPONENTS.t_date[1], text=self.translate("INSIDE"))
             self.set_function_component(
                 self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
             )
@@ -348,6 +391,9 @@ class ClockPage(HAUIPage):
     # misc
 
     def update_time(self) -> None:
+        # Only update tTime if the current cycle card is "time"
+        if not self._cycle_cards or self._cycle_cards[self._current_card_index] != "time":
+            return
         timeformat = self.app.device_config.get("time_format")
         timezone = self.app.hass.config.time_zone
         time = get_time_localized(timeformat, timezone)
@@ -355,14 +401,15 @@ class ClockPage(HAUIPage):
         self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
 
     def update_date(self) -> None:
-        strftime_format = self.app.device_config.get("date_format")
-        babel_format = self.app.device_config.get(
-            "date_format_locale"
-        ) or self.app.device_config.get("date_format_babel")
-        locale = self.app.device.get_locale()
-        timezone = self.app.hass.config.time_zone
-        date = get_date_localized(strftime_format, babel_format, locale, timezone)
-        self.update_function_component(self.COMPONENTS.t_date[1], text=date)
+        # Only update tDate if the current cycle card is "time" and
+        # date visibility is enabled
+        if not self._cycle_cards or self._cycle_cards[self._current_card_index] != "time":
+            return
+        if not self._show_time_date:
+            return
+        self.update_function_component(
+            self.COMPONENTS.t_date[1], text=self._get_date_text(self.app.hass.config.time_zone)
+        )
 
     def update_main_weather(self) -> None:
         if self._weather_item is None:
@@ -392,10 +439,10 @@ class ClockPage(HAUIPage):
             if temp_inside is not None:
                 if not self.TEMP_PRECISION:
                     temp_inside = int(temp_inside)
-                msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
+                msg = f"{self.translate('IN')} {temp_inside}{self._temp_unit}  "
         if not self.TEMP_PRECISION:
             temp_outside = int(temp_outside)
-        msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
+        msg = f"{msg}{self.translate('OUT')} {temp_outside}{self._temp_unit}"
         msg_sub = self._weather_item.get_item_attr("pressure", "")
         if msg_sub:
             pressure_unit = self._weather_item.get_item_attr("pressure_unit")

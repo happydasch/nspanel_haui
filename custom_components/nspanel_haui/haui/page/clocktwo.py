@@ -242,12 +242,12 @@ class ClockTwoPage(HAUIPage):
             PageOption(
                 key="background",
                 kind="select",
-                default="default",
+                default="dark",
                 label=_("Background"),
                 description=_("Background image theme for the word clock display."),
                 section=_("Appearance"),
                 choices=[
-                    ("default", _("Default")),
+                    ("dark", _("Dark")),
                     ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),
@@ -351,14 +351,14 @@ class ClockTwoPage(HAUIPage):
 
         self._show_notifications = True
 
-        self._background = "default"
+        self._background = "dark"
         self._letter_current_state: list[bool] = []
         self._special_current_state: list[bool] = []
         self._clock_letters: list[str] = []
 
     def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background (rendered in start_panel after page is confirmed)
-        self._background = self.render_template(panel.get("background", "default"), False)
+        self._background = self.render_template(panel.get("background", "dark"), False)
         self._off_color = panel.get("off_color", self._off_color)
         self._letter_color = panel.get("letter_color", self._letter_color)
         self._special_color = panel.get("special_color", self._special_color)

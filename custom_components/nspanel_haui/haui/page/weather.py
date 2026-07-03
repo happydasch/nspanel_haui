@@ -35,12 +35,12 @@ class WeatherPage(HAUIPage):
             PageOption(
                 key="background",
                 kind="select",
-                default="default",
+                default="dark",
                 label=_("Background"),
                 description=_("Background image theme for the weather display."),
                 section=_("Appearance"),
                 choices=[
-                    ("default", _("Default")),
+                    ("dark", _("Dark")),
                     ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),
@@ -176,7 +176,7 @@ class WeatherPage(HAUIPage):
         self._show_temp = True
         self._show_home_temp = False
         self._temp_unit = "°C"
-        self._background = "default"
+        self._background = "dark"
         self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
         self._info_items: list[HAUIItem] = []
@@ -184,7 +184,7 @@ class WeatherPage(HAUIPage):
 
     def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background (rendered in start_panel after page is confirmed)
-        self._background = self.render_template(panel.get("background", "default"), False)
+        self._background = self.render_template(panel.get("background", "dark"), False)
 
     @staticmethod
     def _extract_entity_id(value: Any) -> str | None:

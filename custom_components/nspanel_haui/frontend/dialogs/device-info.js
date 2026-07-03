@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Device Info dialog.
+ * NSPanel HAUI - Device Info dialog.
  *
  * Proper Lit custom element. Shows device connection state, firmware info,
  * WiFi signal, active listeners/timers, and ESPHome transport details.

@@ -33,21 +33,6 @@ class WeatherPage(HAUIPage):
         description=_("Weather display with time, date and forecast."),
         options=[
             PageOption(
-                key="item",
-                kind="item",
-                domain="weather",
-                description=_("Weather entity to display conditions, temperature and forecast."),
-                section=_("Items"),
-            ),
-            PageOption(
-                key="info_items",
-                kind="item_list",
-                label=_("Info Items"),
-                description=_("Additional sensor entities to display as info panels (max 2)."),
-                section=_("Items"),
-                max_items=2,
-            ),
-            PageOption(
                 key="background",
                 kind="select",
                 default="default",
@@ -56,6 +41,7 @@ class WeatherPage(HAUIPage):
                 section=_("Appearance"),
                 choices=[
                     ("default", _("Default")),
+                    ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),
                     ("autumn", _("Autumn")),
@@ -66,13 +52,11 @@ class WeatherPage(HAUIPage):
                 ],
             ),
             PageOption(
-                key="forecast_type",
-                kind="select",
-                default="",
-                label=_("Forecast type"),
-                description=_("Show daily or hourly weather forecast on the bottom row."),
-                section=_("Appearance"),
-                choices=[("", _("Off")), ("daily", _("Daily")), ("hourly", _("Hourly"))],
+                key="item",
+                kind="item",
+                domain="weather",
+                description=_("Weather entity to display conditions, temperature and forecast."),
+                section=_("Weather"),
             ),
             PageOption(
                 key="show_weather",
@@ -80,7 +64,32 @@ class WeatherPage(HAUIPage):
                 default=True,
                 label=_("Show weather"),
                 description=_("Show the main weather icon and condition text."),
-                section=_("Appearance"),
+                section=_("Weather"),
+            ),
+            PageOption(
+                key="show_temp",
+                kind="bool",
+                default=True,
+                label=_("Show temperature"),
+                description=_("Show the current temperature value."),
+                section=_("Weather"),
+            ),
+            PageOption(
+                key="show_home_temp",
+                kind="bool",
+                default=False,
+                label=_("Show home temperature"),
+                description=_("Show internal NSPanel temperature sensor alongside weather data."),
+                section=_("Weather"),
+            ),
+            PageOption(
+                key="forecast_type",
+                kind="select",
+                default="",
+                label=_("Forecast type"),
+                description=_("Show daily or hourly weather forecast on the bottom row."),
+                section=_("Weather"),
+                choices=[("", _("Off")), ("daily", _("Daily")), ("hourly", _("Hourly"))],
             ),
             PageOption(
                 key="weather_icons",
@@ -91,41 +100,15 @@ class WeatherPage(HAUIPage):
                     "Use condition-based colors or monochrome (text color) for weather icons."
                 ),
                 choices=[("color", _("Color")), ("monochrome", _("Monochrome"))],
-                section=_("Appearance"),
+                section=_("Weather"),
             ),
             PageOption(
-                key="show_temp",
-                kind="bool",
-                default=True,
-                label=_("Show temperature"),
-                description=_("Show the current temperature value."),
-                section=_("Appearance"),
-            ),
-            PageOption(
-                key="show_home_temp",
-                kind="bool",
-                default=False,
-                label=_("Show home temperature"),
-                description=_("Show internal NSPanel temperature sensor alongside weather data."),
-                section=_("Appearance"),
-            ),
-            PageOption(
-                key="temp_precision",
-                kind="int",
-                default=1,
-                label=_("Temperature precision"),
-                description=_(
-                    "Number of decimal places for temperature values (0 = whole number)."
-                ),
-                section=_("Precision"),
-            ),
-            PageOption(
-                key="forecast_precision",
-                kind="int",
-                default=0,
-                label=_("Forecast precision"),
-                description=_("Decimal places for forecast temperature values (0 = whole number)."),
-                section=_("Precision"),
+                key="info_items",
+                kind="item_list",
+                label=_("Info Items"),
+                description=_("Additional sensor entities to display as info panels (max 2)."),
+                section=_("Items"),
+                max_items=2,
             ),
             PageOption(
                 key="show_notifications",
@@ -174,12 +157,13 @@ class WeatherPage(HAUIPage):
         f3_subval=Component(29, "f3SubVal"),
         f4_subval=Component(30, "f4SubVal"),
         f5_subval=Component(31, "f5SubVal"),
-        t_notif=Component(32, "tNotif"),
     )
 
     NUM_ENTITIES = 6
     NUM_FORECAST = 5
     DISPLAY_UPDATE_INTERVAL = 1.0
+    TEMP_PRECISION = 0
+    FORECAST_PRECISION = 0
 
     # panel
 
@@ -192,8 +176,6 @@ class WeatherPage(HAUIPage):
         self._show_temp = True
         self._show_home_temp = False
         self._temp_unit = "°C"
-        self._temp_precision = 1
-        self._forecast_precision = 0
         self._background = "default"
         self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
@@ -242,10 +224,6 @@ class WeatherPage(HAUIPage):
             if entity_id:
                 self._info_items.append(HAUIItem(self.app, {"item": entity_id}))
 
-        # setting: temp_precision
-        self._temp_precision = int(panel.get("temp_precision", 1))
-        # setting: forecast_precision
-        self._forecast_precision = int(panel.get("forecast_precision", 0))
         # setting: show_weather
         self._show_weather = panel.get("show_weather", True)
         self.set_function_component(
@@ -270,11 +248,8 @@ class WeatherPage(HAUIPage):
         # main components
         self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
         self.set_function_component(self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True)
-        # notification
+        # notification (reuses t_main_icon widget — no dedicated notif component)
         self._show_notifications = panel.get("show_notifications", True)
-        self.set_function_component(
-            self.COMPONENTS.t_notif, self.COMPONENTS.t_notif[1], visible=self._show_notifications
-        )
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # time display
@@ -403,17 +378,17 @@ class WeatherPage(HAUIPage):
             return
         temp_outside = round(
             float(temp_outside_str),
-            self._temp_precision,
+            self.TEMP_PRECISION,
         )
         msg = ""
         if self._show_home_temp:
             temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
             if (temp_inside_state := temp_inside_entity.get_state()) is not None:
-                temp_inside: float | int = round(float(temp_inside_state), self._temp_precision)
-                if not self._temp_precision:
+                temp_inside: float | int = round(float(temp_inside_state), self.TEMP_PRECISION)
+                if not self.TEMP_PRECISION:
                     temp_inside = int(temp_inside)
                 msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
-        if not self._temp_precision:
+        if not self.TEMP_PRECISION:
             temp_outside = int(temp_outside)
         msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
         msg_sub = self._weather_item.get_item_attr("pressure", "")
@@ -441,9 +416,9 @@ class WeatherPage(HAUIPage):
             self.log(f"No weather forecast for index {idx}")
             return
         forecast_idx = idx + 1
-        forecast_temp = round(float(data.get("temperature", 20)), self._forecast_precision)
-        forecast_mintemp = round(float(data.get("templow", 0)), self._forecast_precision)
-        if not self._forecast_precision:
+        forecast_temp = round(float(data.get("temperature", 20)), self.FORECAST_PRECISION)
+        forecast_mintemp = round(float(data.get("templow", 0)), self.FORECAST_PRECISION)
+        if not self.FORECAST_PRECISION:
             forecast_temp = int(forecast_temp)
             forecast_mintemp = int(forecast_mintemp)
 
@@ -498,18 +473,17 @@ class WeatherPage(HAUIPage):
             return
         notification = self.app.controller["notification"]
         notif_blinker = notification.blinker
-        if notif_blinker.new_notifications:
-            color = self.get_color("component_accent")
-            visible = datetime.now().second % 2 == 0
+        if notif_blinker.new_notifications and datetime.now().second % 2 == 0:
+            # Blink: briefly replace the main icon with the notification bell
+            self.update_function_component(
+                self.COMPONENTS.t_main_icon[1],
+                icon=ICO_MESSAGE,
+                color=self.get_color("component_accent"),
+                visible=True,
+            )
         else:
-            color = self.get_color("component_text")
-            visible = notification.has_notifications()
-        self.update_function_component(
-            self.COMPONENTS.t_notif[1],
-            icon=ICO_MESSAGE,
-            visible=visible,
-            color=color,
-        )
+            # Off-beat / no new notifications: restore the weather icon
+            self.update_main_weather()
 
     # event
 
@@ -543,7 +517,10 @@ class WeatherPage(HAUIPage):
         self._update_forecast_data()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        if fnc_id == self.COMPONENTS.t_notif[1]:
+        if (
+            fnc_id == self.COMPONENTS.t_main_icon[1]
+            and self.app.controller["notification"].has_notifications()
+        ):
             navigation = self.app.controller["navigation"]
             navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
         elif fnc_name == "item":

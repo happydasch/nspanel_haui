@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - device polling and connection state helpers.
+ * NSPanel HAUI - device polling and connection state helpers.
  *
  * Contains only:
  *   - startStatusPolling / stopStatusPolling

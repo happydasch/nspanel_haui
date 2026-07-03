@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Confirm/delete dialog.
+ * NSPanel HAUI - Confirm/delete dialog.
  *
  * Proper Lit custom element following HA's dialog-box pattern.
  * Replaces the old renderConfirmDialog() function.

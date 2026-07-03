@@ -1,7 +1,8 @@
 # backgrounds
 # name -> picture_id
 BACKGROUNDS = {
-    "default": 2,
+    "default": 1,
+    "modern": 2,
     "spring": 3,
     "summer": 4,
     "autumn": 5,

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Shared common CSS.
+ * NSPanel HAUI - Shared common CSS.
  *
  * Styles shared between grid view (panel-grid.js) and list view (panel-table.js):
  * panel groups, headers, device selector, dropdown menus.

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Common form field CSS.
+ * NSPanel HAUI - Common form field CSS.
  *
  * Reusable styles for form groups, labels, hints, checkboxes, textareas,
  * and field layouts. Extracted from editorStyles in styles.js.

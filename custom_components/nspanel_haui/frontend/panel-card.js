@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Shared panel card chrome.
+ * NSPanel HAUI - Shared panel card chrome.
  *
  * Renders the visual chrome of a panel grid card: top row (icon, title, key,
  * badges, actions), simulated panel preview (with optional header bar), and

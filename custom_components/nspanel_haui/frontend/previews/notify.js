@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Notify.
+ * NSPanel HAUI - Panel preview: Notify.
  */
 import { html } from '../lit-import.js';
 import { t } from '../localize.js';

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Vacuum.
+ * NSPanel HAUI - Panel preview: Vacuum.
  */
 import { html } from '../lit-import.js';
 import { itemDisplay } from './utils.js';

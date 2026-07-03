@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Item field renderers.
+ * NSPanel HAUI - Item field renderers.
  *
  * Item editing helpers extracted from form-fields.js: item list row, item list
  * field, single item field, item option fields, and item edit inline form.
@@ -552,6 +552,7 @@ export function renderItemEditFields(host, descriptor) {
               label: info.label,
               placeholder: info.placeholder,
               hass: host.hass,
+              domain: ee.domain,
               onSelect: (eid) => {
                 if (!host._editingItem) return;
                 host._editingItem.config = host._editingItem.config || {};

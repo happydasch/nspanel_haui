@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Inline item (entity) editing.
+ * NSPanel HAUI - Inline item (entity) editing.
  *
  * Each exported function takes the component instance (`host`) as its first
  * parameter.

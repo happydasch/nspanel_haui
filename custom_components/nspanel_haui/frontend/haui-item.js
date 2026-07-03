@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - HAUIItem JS representation.
+ * NSPanel HAUI - HAUIItem JS representation.
  *
  * Clean, reusable helpers for item configs in the frontend.
  * Mirrors the Python ``HAUIItem`` class (haui/abstract/item.py) but

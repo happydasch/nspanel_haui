@@ -529,11 +529,16 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
 
         # O(1) lookup using inverse component map
         fnc_id = self._fnc_id_by_component.get(component.id)
-        if fnc_id is None:
-            self.log(f"Unknown function component {component}")
-            return
-        fnc_item = self._fnc_items.get(fnc_id)
-        if fnc_item is None:
+        fnc_item = self._fnc_items.get(fnc_id) if fnc_id else None
+        if fnc_id is None or fnc_item is None:
+            # Fallback: iterate _fnc_items and compare Component objects
+            # (handles edge cases where _fnc_id_by_component is stale/missing).
+            for _fnc_id, _fnc_cnt in self._fnc_items.items():
+                if _fnc_cnt["fnc_component"] == component:
+                    fnc_id = _fnc_id
+                    fnc_item = _fnc_cnt
+                    break
+        if fnc_id is None or fnc_item is None:
             self.log(f"Unknown function component {component}")
             return
         navigation = self.app.controller["navigation"]

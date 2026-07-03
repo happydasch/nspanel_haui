@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Colors override dialog management.
+ * NSPanel HAUI - Colors override dialog management.
  *
  * Each exported function takes the component instance (`host`) as its first
  * parameter.

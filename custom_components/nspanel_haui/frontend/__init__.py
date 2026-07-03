@@ -1,4 +1,4 @@
-"""Frontend resources for NSPanel HAUI - Editor."""
+"""Frontend resources for NSPanel HAUI."""
 
 import logging
 from pathlib import Path

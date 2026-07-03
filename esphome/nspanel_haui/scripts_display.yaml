@@ -240,13 +240,17 @@ script:
           } else if (new_state != 0 && (id(haui_disp).is_sleeping()
                   || (id(hub_connection) && current_state == 0))) {
             id(display_wakeup).execute();
-            bool hub_connected = id(hub_connection);
-            if (hub_connected == true && wakeup_page != "" && wakeup_page != "1") {
-              ESP_LOGD("haui", "Wakeup page: %s", wakeup_page.c_str());
-              id(goto_page).execute(wakeup_page);
-            } else {
-              id(goto_page).execute("0");  // system
+            if (!id(hub_connection)) {
+              // No hub connected - restore the wakeup page ourselves.
+              if (wakeup_page != "" && wakeup_page != "1") {
+                ESP_LOGD("haui", "Wakeup page: %s", wakeup_page.c_str());
+                id(goto_page).execute(wakeup_page);
+              } else {
+                id(goto_page).execute("0");  // system
+              }
             }
+            // When hub is connected, the HAUI-side check_wakeup() handles
+            // the goto_page — it restores the full panel snapshot.
           }
 
           // the state changed

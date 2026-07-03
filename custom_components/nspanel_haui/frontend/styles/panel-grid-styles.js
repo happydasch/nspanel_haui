@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Grid view CSS.
+ * NSPanel HAUI - Grid view CSS.
  *
  * Styles for `.pg-*` classes used by panel-grid.js.
  */

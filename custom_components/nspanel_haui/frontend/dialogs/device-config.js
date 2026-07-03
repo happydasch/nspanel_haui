@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Device Config dialog.
+ * NSPanel HAUI - Device Config dialog.
  *
  * Proper Lit custom element replacing the old renderDeviceConfigDialog() function.
  * Uses ha-dialog / ha-dialog-header / ha-dialog-footer with ha-button.

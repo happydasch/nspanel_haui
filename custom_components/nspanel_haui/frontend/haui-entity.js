@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - HAUIEntity JS representation.
+ * NSPanel HAUI - HAUIEntity JS representation.
  *
  * Clean, reusable helpers for Home Assistant entity IDs in the frontend.
  * Mirrors the Python ``HAUIEntity`` class (haui/abstract/entity.py) but

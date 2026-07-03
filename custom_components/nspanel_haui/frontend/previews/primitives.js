@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview primitives.
+ * NSPanel HAUI - Panel preview primitives.
  *
  * Reusable visual primitives for building panel preview renderers.
  */

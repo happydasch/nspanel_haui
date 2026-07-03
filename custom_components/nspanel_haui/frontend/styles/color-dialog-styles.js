@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Color dialog CSS.
+ * NSPanel HAUI - Color dialog CSS.
  *
  * Reusable styles for the color-override dialog: live preview card
  * (.cp-pv-*), grouped swatch grid (.cp-group / .cp-item), and the footer

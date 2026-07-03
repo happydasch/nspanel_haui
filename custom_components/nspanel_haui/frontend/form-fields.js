@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - form field render helpers.
+ * NSPanel HAUI - form field render helpers.
  * Extracted from panel-editor.js _renderOptionField and _renderTypeFields methods.
  */
 

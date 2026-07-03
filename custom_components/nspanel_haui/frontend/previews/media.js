@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Media Player.
+ * NSPanel HAUI - Panel preview: Media Player.
  */
 import { html } from '../lit-import.js';
 import { simSlider } from './primitives.js';

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - styles.
+ * NSPanel HAUI - styles.
  *
  * Split into modular exports:
  *   haStyle         — typography, layout utilities, link styles

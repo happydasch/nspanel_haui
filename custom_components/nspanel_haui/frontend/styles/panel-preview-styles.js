@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Preview simulation CSS.
+ * NSPanel HAUI - Preview simulation CSS.
  *
  * Styles for simulated preview renderers shown inside grid card bodies.
  * Extracted from panel-grid-styles.js to separate card-layout CSS from

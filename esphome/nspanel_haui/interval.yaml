@@ -24,11 +24,11 @@ interval:
           }
 
   # Interaction timeout check
-  # 500ms interval balances responsiveness with queue pressure:
+  # 200ms interval balances responsiveness with queue pressure:
   # touch_x.update() / touch_y.update() create Nextion commands
   # every tick, so 200ms = 10 enc/sec, 500ms = 2 enc/sec.
   # Touch-start is still instant (Nextion on_touch callback).
-  - interval: 500ms
+  - interval: 200ms
     then:
       - lambda: |-
           id(check_interaction).execute();

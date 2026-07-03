@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - panel grid view rendering.
+ * NSPanel HAUI - panel grid view rendering.
  *
  * An alternative to panel-table.js that displays panels as visual cards
  * in a CSS Grid layout.  Every function takes the Lit element instance

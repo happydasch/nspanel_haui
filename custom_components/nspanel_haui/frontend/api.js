@@ -1,6 +1,6 @@
 import { getLanguage, t } from './localize.js';
 /**
- * NSPanel HAUI - Editor - data loading helpers.
+ * NSPanel HAUI - data loading helpers.
  * Extracted from panel-editor.js _loadEntries, _load, _loadPanelTypes methods.
  *
  * Simplified to single-hub: loadEntries picks the first nspanel_haui entry

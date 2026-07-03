@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - shared dialog header.
+ * NSPanel HAUI - shared dialog header.
  *
  * Renders a custom `slot="header"` for ha-dialog with the title on the left and
  * the close button on the right. Accepts optional extra content (e.g. a live

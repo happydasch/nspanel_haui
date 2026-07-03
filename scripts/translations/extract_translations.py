@@ -6,10 +6,10 @@ Scans:
   - Frontend `host._t("...")` / `t("...")` calls in the editor JS
 Outputs:
   - ``scripts/translations/translate.json`` — flat text template for merge pipeline
-  - ``custom_components/nspanel_haui/translations/*.json`` — HA
+  - ``custom_components/nspanel_haui/haui/locale/*.json`` — HA
     custom_components translation format (component + text sections only)
-    All language files are updated with missing keys; non-en files use the
-    English value as a fallback placeholder.
+    All language files are updated with missing keys; non-en files use an
+    empty placeholder for new keys.
 """
 
 from __future__ import annotations
@@ -18,11 +18,13 @@ import json
 import os
 import re
 
-PYTHON_DIR = "custom_components/nspanel_haui"
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+REPO_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
+PYTHON_DIR = os.path.join(REPO_ROOT, "custom_components", "nspanel_haui")
 FRONTEND_DIR = os.path.join(PYTHON_DIR, "frontend")
-TRANSLATIONS_DIR = os.path.join(PYTHON_DIR, "translations")
+TRANSLATIONS_DIR = os.path.join(PYTHON_DIR, "haui", "locale")
 EN_JSON = os.path.join(TRANSLATIONS_DIR, "en.json")
-OUTPUT_TRANSLATE = "scripts/translations/translate.json"
+OUTPUT_TRANSLATE = os.path.join(SCRIPT_DIR, "translate.json")
 
 # Match self.translate("...") or self.translate('...') in Python
 PY_PATTERN = re.compile(r"\.translate\((['\"])(.*?)\1\)")

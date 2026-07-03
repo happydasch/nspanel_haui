@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Grid.
+ * NSPanel HAUI - Panel preview: Grid.
  */
 import { html } from '../lit-import.js';
 import { getItems, backgroundClass } from './utils.js';

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - System panel grid card rendering.
+ * NSPanel HAUI - System panel grid card rendering.
  *
  * Renders system panels as grid cards (read-only, no edit/actions).
  * Uses the registered panel preview renderers by type, same as user panels.

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Device Manager dialog.
+ * NSPanel HAUI - Device Manager dialog.
  *
  * Proper Lit custom element showing all configured devices with
  * add, select, settings, and remove capabilities.

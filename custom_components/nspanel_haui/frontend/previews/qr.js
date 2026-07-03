@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: QR.
+ * NSPanel HAUI - Panel preview: QR.
  */
 import { html } from '../lit-import.js';
 

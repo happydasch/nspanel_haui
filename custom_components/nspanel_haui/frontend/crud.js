@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - CRUD operations.
+ * NSPanel HAUI - CRUD operations.
  * Extracted from panel-editor.js; see that file for the class that delegates to these helpers.
  *
  * Each exported function takes the component instance (`host`) as its first

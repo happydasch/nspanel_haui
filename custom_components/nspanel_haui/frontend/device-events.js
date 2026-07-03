@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Device manager event handlers.
+ * NSPanel HAUI - Device manager event handlers.
  *
  * Extracted from haui-editor.js; each function takes the component instance
  * (`host`) as its first parameter.

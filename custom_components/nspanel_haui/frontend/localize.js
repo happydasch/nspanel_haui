@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Localization helper.
+ * NSPanel HAUI - Localization helper.
  *
  * Fetches UI text translations from the backend and provides a simple
  * lookup function that falls back to the English key when no translation

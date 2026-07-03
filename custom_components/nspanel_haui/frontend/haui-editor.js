@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Lit-based custom element.
+ * NSPanel HAUI - Lit-based custom element.
  *
  * Simplified single-hub editor.  Panel management is delegated to CRUD helpers
  * and rendering is composed from focused modules: device-manager, panel-table,

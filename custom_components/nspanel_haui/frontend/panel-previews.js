@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview renderers.
+ * NSPanel HAUI - Panel preview renderers.
  *
  * Registry for custom panel previews shown in the grid view card body.
  * Each panel type can register a renderer; if none is registered the

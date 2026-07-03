@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import types
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -20,9 +21,7 @@ def _install_ha_stubs() -> None:
     """Minimal homeassistant stubs so __init__.py can import."""
 
     config_validation = MagicMock()
-    config_validation.empty_config_schema = MagicMock(
-        return_value=MagicMock(spec_set=dict)
-    )
+    config_validation.empty_config_schema = MagicMock(return_value=MagicMock(spec_set=dict))
 
     helpers = types.ModuleType("homeassistant.helpers")
     helpers.__path__ = ["homeassistant.helpers"]
@@ -52,13 +51,12 @@ def _install_ha_stubs() -> None:
 
 def _install_dateutil_stubs() -> None:
     """Insert dateutil stub so tests don't need the real package."""
-    from datetime import datetime, timezone
 
     dt_mod = types.ModuleType("dateutil")
     dt_mod.__path__ = ["dateutil"]
 
     def _dummy_parse(timestr: str, **kwargs: object) -> datetime:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
     parser_mod = types.ModuleType("dateutil.parser")
     parser_mod.parse = _dummy_parse

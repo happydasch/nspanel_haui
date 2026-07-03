@@ -26,13 +26,6 @@ class ClockPage(HAUIPage):
         description=_("Digital clock with date and notification indicator."),
         options=[
             PageOption(
-                key="item",
-                kind="item",
-                domain="weather",
-                description=_("Weather entity to display temperature, pressure and weather icon."),
-                section=_("Weather"),
-            ),
-            PageOption(
                 key="background",
                 kind="select",
                 default="default",
@@ -40,6 +33,7 @@ class ClockPage(HAUIPage):
                 description=_("Background image theme for the clock display."),
                 choices=[
                     ("default", _("Default")),
+                    ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),
                     ("autumn", _("Autumn")),
@@ -49,6 +43,37 @@ class ClockPage(HAUIPage):
                     ("cat", _("Cat")),
                 ],
                 section=_("Appearance"),
+            ),
+            PageOption(
+                key="show_time_time",
+                kind="bool",
+                default=True,
+                label=_("Show time"),
+                description=_("Show current time."),
+                section=_("Time"),
+            ),
+            PageOption(
+                key="show_time_date",
+                kind="bool",
+                default=True,
+                label=_("Show date"),
+                description=_("Show current date."),
+                section=_("Time"),
+            ),
+            PageOption(
+                key="show_time_temp",
+                kind="bool",
+                default=True,
+                label=_("Show temperature"),
+                description=_("Show the temperature."),
+                section=_("Time"),
+            ),
+            PageOption(
+                key="item",
+                kind="item",
+                domain="weather",
+                description=_("Weather entity to display temperature, pressure and weather icon."),
+                section=_("Weather"),
             ),
             PageOption(
                 key="show_weather",
@@ -84,14 +109,12 @@ class ClockPage(HAUIPage):
                 section=_("Weather"),
             ),
             PageOption(
-                key="temp_precision",
-                kind="int",
-                default=1,
-                label=_("Temperature precision"),
-                description=_(
-                    "Number of decimal places for temperature display (0 = whole number)."
-                ),
-                section=_("Precision"),
+                key="items",
+                kind="item_list",
+                max_items=6,
+                label=_("Items"),
+                description=_("Items to display at the bottom (6 max)."),
+                section=_("Items"),
             ),
             PageOption(
                 key="show_notifications",
@@ -116,31 +139,41 @@ class ClockPage(HAUIPage):
         t_main_icon=Component(5, "tMainIcon"),
         t_main_text=Component(6, "tMainText"),
         t_sub_text=Component(7, "tSubText"),
-        t_notif=Component(8, "tNotif"),
-        btn_entity_1=Component(9, "bEntity1"),
-        btn_entity_2=Component(10, "bEntity2"),
-        btn_entity_3=Component(11, "bEntity3"),
-        btn_entity_4=Component(12, "bEntity4"),
-        btn_entity_5=Component(13, "bEntity5"),
-        btn_entity_6=Component(14, "bEntity6"),
+        btn_entity_1=Component(8, "bEntity1"),
+        btn_entity_2=Component(9, "bEntity2"),
+        btn_entity_3=Component(10, "bEntity3"),
+        btn_entity_4=Component(11, "bEntity4"),
+        btn_entity_5=Component(12, "bEntity5"),
+        btn_entity_6=Component(13, "bEntity6"),
     )
 
     NUM_ENTITIES = 6
     DISPLAY_UPDATE_INTERVAL = 1.0
+    TEMP_PRECISION = 0
+
+    # Card cycle constants
+    _CARD_INTERVAL = 5  # seconds between card advances
 
     # panel
     def prepare(self) -> None:
 
         self._show_notifications = True
+        self._show_time_time = True
+        self._show_time_date = True
+        self._show_time_temp = True
         self._show_weather = True
         self._show_temp = True
         self._show_home_temp = False
         self._temp_unit = "°C"
-        self._temp_precision = 1
         self._background = "default"
         self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
         self._items: list[HAUIItem] = []
+        # Card cycling state
+        self._cycle_cards: list[str] = ["time"]
+        self._current_card_index: int = 0
+        self._card_timer: int = 0
+        self._tick_handle: Any = None
 
     def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background (rendered in start_panel after page is confirmed)
@@ -162,8 +195,6 @@ class ClockPage(HAUIPage):
                 break
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
-        # setting: temp_precision
-        self._temp_precision = int(panel.get("temp_precision", 1))
         # setting: show_weather
         self._show_weather = panel.get("show_weather", True)
         self.set_function_component(
@@ -171,24 +202,47 @@ class ClockPage(HAUIPage):
         )
         # setting: show_temp
         self._show_temp = panel.get("show_temp", True)
-        self.set_function_component(
-            self.COMPONENTS.t_main_text, self.COMPONENTS.t_main_text[1], visible=self._show_temp
-        )
-        self.set_function_component(
-            self.COMPONENTS.t_sub_text, self.COMPONENTS.t_sub_text[1], visible=self._show_temp
-        )
         # setting: show_home_temp
         self._show_home_temp = panel.get("show_home_temp", False)
         # setting: weather_icons
         self._weather_icons_mode = panel.get("weather_icons", "color")
-        # main components
-        self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
-        self.set_function_component(self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True)
-        # notification
-        self._show_notifications = panel.get("show_notifications", True)
-        self.set_function_component(
-            self.COMPONENTS.t_notif, self.COMPONENTS.t_notif[1], visible=self._show_notifications
+        # Read card enable flags from panel config
+        self._show_time_time = panel.get("show_time_time", True)
+        self._show_time_date = panel.get("show_time_date", True)
+        self._show_time_temp = panel.get("show_time_temp", True)
+        # Build cycle list from enabled cards
+        self._cycle_cards = []
+        if self._show_time_time:
+            self._cycle_cards.append("time")
+        if self._show_time_date:
+            self._cycle_cards.append("date")
+        if self._show_time_temp:
+            self._cycle_cards.append("temperature")
+        if not self._cycle_cards:
+            self._cycle_cards = ["time"]
+        # Reset card position
+        self._current_card_index = 0
+        self._card_timer = 0
+        # Start cycle timer if multiple cards enabled
+        if self._tick_handle is None and len(self._cycle_cards) > 1:
+            self._tick_handle = self.app.run_every(self._tick, 0, 1.0)
+        # Tap-to-advance on the big time area
+        self.on_release(
+            {self.COMPONENTS.t_time: self._advance_card},
         )
+        # setting: show_temp (header temp/pressure text only, independent of the Time cards)
+        self.set_function_component(
+            self.COMPONENTS.t_main_text,
+            self.COMPONENTS.t_main_text[1],
+            visible=self._show_temp,
+        )
+        self.set_function_component(
+            self.COMPONENTS.t_sub_text,
+            self.COMPONENTS.t_sub_text[1],
+            visible=self._show_temp,
+        )
+        # notification (shares t_main_icon with the weather icon)
+        self._show_notifications = panel.get("show_notifications", True)
         # Pre-register entity button components so config_panel registers
         # touch callbacks.  Start hidden — update_items() applies the
         # correct visible/icon/color state once entity data is available.
@@ -197,16 +251,94 @@ class ClockPage(HAUIPage):
             self.set_function_component(component, component.name, "item", visible=False)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        # time display
-        self.update_time()
-        # date display
-        self.update_date()
-        # entities
+        # Reset and render current card
+        self._current_card_index = 0
+        self._card_timer = 0
+        self._render_cycle_card()
+        # weather header
         self.update_items(self._build_items_from_panel(panel, "item", "items"))
         # notifications
         self.app.controller["notification"].blinker.refresh()
 
+    def _get_date_text(self, timezone: str) -> str:
+        strftime_format = self.app.device_config.get("date_format")
+        babel_format = self.app.device_config.get(
+            "date_format_locale"
+        ) or self.app.device_config.get("date_format_babel")
+        locale = self.app.device.get_locale()
+        return get_date_localized(strftime_format, babel_format, locale, timezone)
+
+    def _render_cycle_card(self) -> None:
+        """Render the current cycle card in the big text area."""
+        if not self._cycle_cards or self._current_card_index >= len(self._cycle_cards):
+            return
+        card = self._cycle_cards[self._current_card_index]
+        # Always show tTime
+        self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
+        # Render card content in tTime + label in tDate
+        timeformat = self.app.device_config.get("time_format")
+        timezone = self.app.hass.config.time_zone
+        if card == "time":
+            time = get_time_localized(timeformat, timezone)
+            self.update_function_component(self.COMPONENTS.t_time[1], text=time)
+            # Not cycling: no other card's label to distinguish "TIME" from, so
+            # show the written-out date as subtext instead of the bare label.
+            if len(self._cycle_cards) == 1:
+                subtext = self._get_date_text(timezone)
+            else:
+                subtext = "TIME"
+            self.update_function_component(self.COMPONENTS.t_date[1], text=subtext)
+            self.set_function_component(
+                self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
+            )
+        elif card == "date":
+            date = self._get_date_text(timezone)
+            self.update_function_component(self.COMPONENTS.t_time[1], text=date)
+            self.update_function_component(self.COMPONENTS.t_date[1], text="DATE")
+            self.set_function_component(
+                self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
+            )
+        elif card == "temperature":
+            # Show temperature in the big text area
+            if self._weather_item is not None:
+                try:
+                    temp = round(
+                        float(self._weather_item.get_item_attr("temperature", "")),
+                        self.TEMP_PRECISION,
+                    )
+                except (ValueError, TypeError):
+                    self.update_function_component(self.COMPONENTS.t_time[1], text="---°C")
+                    return
+                unit = self._temp_unit
+                self.update_function_component(self.COMPONENTS.t_time[1], text=f"{temp}{unit}")
+            else:
+                self.update_function_component(self.COMPONENTS.t_time[1], text="--°C")
+            self.update_function_component(self.COMPONENTS.t_date[1], text="TEMP")
+            self.set_function_component(
+                self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
+            )
+        self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
+
+    def _tick(self, _data: dict | None = None) -> None:
+        """Called every second. Advance cycle card when interval elapses."""
+        if self.app.device.device_info.get("display_state") == "off":
+            return
+        self._card_timer += 1
+        if self._card_timer >= self._CARD_INTERVAL:
+            with self.rec_cmd:
+                self._advance_card()
+
+    def _advance_card(self, _event: HAUIEvent | None = None) -> None:
+        """Advance to the next cycle card and render it."""
+        self._current_card_index = (self._current_card_index + 1) % len(self._cycle_cards)
+        self._card_timer = 0
+        self._render_cycle_card()
+
     def _stop_panel(self, panel: HAUIPanel) -> None:
+        # cancel cycle timer
+        if self._tick_handle is not None:
+            self.app.cancel_timer(self._tick_handle)
+            self._tick_handle = None
         # cancel time and date tick subscriptions
         self.app.unsubscribe_tick("minute", self.callback_update_time)
         self.app.unsubscribe_tick("hour", self.callback_update_date)
@@ -244,7 +376,7 @@ class ClockPage(HAUIPage):
         try:
             temp_outside = round(
                 float(self._weather_item.get_item_attr("temperature", "")),
-                self._temp_precision,
+                self.TEMP_PRECISION,
             )
         except (ValueError, TypeError):
             return
@@ -253,15 +385,15 @@ class ClockPage(HAUIPage):
             temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
             try:
                 temp_inside: float | int | None = round(
-                    float(temp_inside_entity.get_state()), self._temp_precision
+                    float(temp_inside_entity.get_state()), self.TEMP_PRECISION
                 )
             except (ValueError, TypeError):
                 temp_inside = None
             if temp_inside is not None:
-                if not self._temp_precision:
+                if not self.TEMP_PRECISION:
                     temp_inside = int(temp_inside)
                 msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
-        if not self._temp_precision:
+        if not self.TEMP_PRECISION:
             temp_outside = int(temp_outside)
         msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
         msg_sub = self._weather_item.get_item_attr("pressure", "")
@@ -318,25 +450,29 @@ class ClockPage(HAUIPage):
             self.update_function_component(component.name)
 
     def _refresh_notif(self) -> None:
+        """Show the notification bell on t_main_icon, or fall back to the weather icon."""
         if not self._show_notifications:
             return
         notification = self.app.controller["notification"]
         notif_blinker = notification.blinker
         if notif_blinker.new_notifications:
+            show_bell = datetime.now().second % 2 == 0
             color = self.get_color("component_accent")
-            visible = datetime.now().second % 2 == 0
         else:
+            show_bell = notification.has_notifications()
             color = self.get_color("component_text")
-            visible = notification.has_notifications()
-        # Batch the single notification-icon update so it doesn't interleave
-        # with a panel render in progress.
+        # Batch the single icon update so it doesn't interleave with a panel
+        # render in progress.
         with self.rec_cmd:
-            self.update_function_component(
-                self.COMPONENTS.t_notif[1],
-                icon=ICO_MESSAGE,
-                visible=visible,
-                color=color,
-            )
+            if show_bell:
+                self.update_function_component(
+                    self.COMPONENTS.t_main_icon[1],
+                    icon=ICO_MESSAGE,
+                    visible=True,
+                    color=color,
+                )
+            else:
+                self.update_main_weather()
 
     # event
 
@@ -348,16 +484,14 @@ class ClockPage(HAUIPage):
     def callback_update_time(self, cb_args: dict[str, Any]) -> None:
         if self.app.device.device_info.get("display_state") == "off":
             return
-        # Batch time update commands so they don't interleave with a panel
-        # render in progress on another executor thread.
         with self.rec_cmd:
-            self.update_time()
+            self._render_cycle_card()
 
     def callback_update_date(self, cb_args: dict[str, Any]) -> None:
         if self.app.device.device_info.get("display_state") == "off":
             return
         with self.rec_cmd:
-            self.update_date()
+            self._render_cycle_card()
 
     def callback_weather(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
@@ -368,7 +502,10 @@ class ClockPage(HAUIPage):
             self.update_main_weather()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        if fnc_id == self.COMPONENTS.t_notif[1]:
+        if (
+            fnc_id == self.COMPONENTS.t_main_icon[1]
+            and self.app.controller["notification"].has_notifications()
+        ):
             navigation = self.app.controller["navigation"]
             navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
         elif fnc_name == "item":

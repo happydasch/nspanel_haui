@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Select.
+ * NSPanel HAUI - Panel preview: Select.
  */
 import { html } from '../lit-import.js';
 import { t } from '../localize.js';

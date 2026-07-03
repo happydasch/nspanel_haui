@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Shared panel utilities.
+ * NSPanel HAUI - Shared panel utilities.
  *
  * Common helpers for both grid and list views: panel filtering,
  * move-state computation, and badge rendering.

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - device management.
+ * NSPanel HAUI - device management.
  *
  * Device list, selection, YAML import/export, and device manager button.
  * Every function takes the Lit element instance (`host`) as its first parameter.

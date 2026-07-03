@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Logs dialog.
+ * NSPanel HAUI - Logs dialog.
  *
  * Proper Lit custom element replacing the old renderLogsDialog() function.
  */

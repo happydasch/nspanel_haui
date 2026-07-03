@@ -20,8 +20,10 @@ def update_json_file(original_file_path, source_file_path):
     # print(json.dumps(original_json, indent=2))
 
 
-dir_path = "apps/nspanel_haui/haui/translations"
-source_file_path = "scripts/translations/translate.json"
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+REPO_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
+dir_path = os.path.join(REPO_ROOT, "custom_components", "nspanel_haui", "haui", "locale")
+source_file_path = os.path.join(SCRIPT_DIR, "translate.json")
 
 for file_name in os.listdir(dir_path):
     if file_name.endswith(".json"):

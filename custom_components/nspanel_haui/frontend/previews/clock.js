@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Clock / ClockTwo.
+ * NSPanel HAUI - Panel preview: Clock / ClockTwo.
  */
 import { html } from '../lit-import.js';
 import { backgroundClass, itemDisplay, tileBgColor, tileIconColor } from './utils.js';
@@ -7,10 +7,21 @@ import { backgroundClass, itemDisplay, tileBgColor, tileIconColor } from './util
 export function renderClockPreview(host, panel, _pIdx, _pt) {
   const showWeather = panel?.show_weather !== false;
   const showTemp = panel?.show_temp !== false;
-  const showNotifs = panel?.show_notifications !== false;
   const showHomeTemp = panel?.show_home_temp === true;
+  const hasWeatherEntity = !!(panel?.item);
+  const showTimeTime = panel?.show_time_time !== false;
+  const showTimeDate = panel?.show_time_date !== false;
+  const showTimeTemp = panel?.show_time_temp !== false;
   const bg = backgroundClass(panel);
   const items = (panel && panel.items) || [];
+
+  const cycleCards = [];
+  if (showTimeTime) cycleCards.push('time');
+  if (showTimeDate) cycleCards.push('date');
+  if (showTimeTemp) cycleCards.push('temperature');
+  if (!cycleCards.length) cycleCards.push('time');
+  const card = cycleCards[0];
+  const singleCard = cycleCards.length === 1;
 
   const entitySlots = [0, 1, 2, 3, 4, 5].map(i => {
     const item = items[i];
@@ -48,24 +59,27 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
                 <ha-icon icon="mdi:thermometer" style="--mdc-icon-size:clamp(9px,2cqi,13px);color:var(--secondary-text-color,#aaa);vertical-align:middle;"></ha-icon>
                 21<small style="font-size:0.7em;color:var(--secondary-text-color,#ccc);">&deg;</small>
               </div>
-              <div style="font-size:clamp(7px,1.6cqi,11px);color:var(--secondary-text-color,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">1023 hPa</div>
+              <div style="font-size:clamp(7px,1.6cqi,11px);color:var(--secondary-text-color,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${hasWeatherEntity ? '1023 hPa' : ''}</div>
             ` : ''}
           </div>
-          ${showNotifs ? html`
-            <div style="display:flex;flex:1;min-width:0;">
-              <ha-icon icon="mdi:bell-ring-outline" style="--mdc-icon-size:clamp(14px,3cqi,26px);color:var(--accent-color,#ffab40);"></ha-icon>
-            </div>
-          ` : ''}
           ${showWeather ? html`
             <div style="display:flex;flex-shrink:0;align-items:center;">
-              <ha-icon icon="mdi:weather-partly-cloudy" style="--mdc-icon-size:clamp(28px,8cqi,52px);color:${panel?.weather_icons === 'monochrome' ? 'var(--primary-text-color,#ddd)' : 'var(--primary-color,#4fc3f7)'};"></ha-icon>
+              <ha-icon icon="mdi:weather-partly-cloudy" style="--mdc-icon-size:clamp(34px,9cqi,58px);color:${panel?.weather_icons === 'monochrome' ? 'var(--primary-text-color,#ddd)' : 'var(--primary-color,#4fc3f7)'};"></ha-icon>
             </div>
           ` : ''}
         </div>
 
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:0;gap:1px;">
-          <span class="pg-preview-weather-clock">12:34</span>
-          <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">Mon, Jun 16</div>
+          ${card === 'time' ? html`
+            <span style="font-size:clamp(50px,14cqi,88px);font-weight:700;color:var(--primary-text-color,#fff);letter-spacing:5px;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,0.3);">12:34</span>
+            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">${singleCard ? 'Mon, Jun 16' : 'TIME'}</div>
+          ` : card === 'date' ? html`
+            <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">Mon, Jun 16</span>
+            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">DATE</div>
+          ` : html`
+            <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">21&deg;C</span>
+            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">TEMP</div>
+          `}
         </div>
 
         <div class="pg-preview-clock-entity-row">
@@ -77,22 +91,71 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
 }
 
 export function renderClockTwoPreview(_host, panel, _pIdx, _pt) {
-  const letters = 'ITLISASAMPMACKWADTENFIFTYFOURHALFBTWOTHR'.split('');
-  const rows = [];
-  for (let r = 0; r < 5; r++) {
-    const cells = [];
-    for (let c = 0; c < 7; c++) {
-      const idx = r * 7 + c;
-      if (idx < letters.length) {
-        cells.push(html`<div style="height:100%;background:rgba(255,255,255,0.10);border-radius:3px;display:flex;align-items:center;justify-content:center;"><span style="font-size:0.55em;color:var(--secondary-text-color,#888);font-weight:500;">${letters[idx]}</span></div>`);
-      }
-    }
-    rows.push(html`<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;height:100%;">${cells}</div>`);
-  }
+  // The English word-clock matrix (10 rows x 11 columns = 110 letters),
+  // matching the MATRIX layout in clocktwo.py for the 'en' locale.
+  const MATRIX_ROWS = [
+    'ITLISBFAMPM',
+    'ACQUARTERDC',
+    'TWENTYFIVEX',
+    'HALFBTENFTO',
+    'PASTERUNINE',
+    'ONESIXTHREE',
+    'FOURFIVETWO',
+    'EIGHTELEVEN',
+    'SEVENTWELVE',
+    'TENSEOCLOCK',
+  ];
+  // Active letter indices — simulate "IT IS FIVE OCLOCK"
+  const active = new Set([0,1,3,4, 28,29,30,31, 104,105,106,107,108,109]);
+  let idx = 0;
+  const rows = MATRIX_ROWS.map((row) => {
+    const cells = row.split('').map((ch) => {
+      const cur = idx++;
+      const isActive = active.has(cur);
+      return html`
+        <div class="pg-preview-clocktwo-letter${isActive ? ' active' : ''}">
+          <span>${ch}</span>
+        </div>`;
+    });
+    return html`<div class="pg-preview-clocktwo-row">${cells}</div>`;
+  });
+
+  // Dots near top and bottom of grid (from HMI: s1+s3 left, s2+s4 right, tNotif between right dots)
+  const leftDots = [true, true].map((isActive) => html`
+    <div class="pg-preview-clocktwo-special${isActive ? ' active' : ''}">
+      <span>●</span>
+    </div>
+  `);
+  const rightTop = html`
+    <div class="pg-preview-clocktwo-special active">
+      <span>●</span>
+    </div>`;
+  const rightBottom = html`
+    <div class="pg-preview-clocktwo-special">
+      <span>●</span>
+    </div>`;
+  const showNotifs = panel?.show_notifications !== false;
+
   return {
     content: html`
-      <div style="display:grid;grid-template-rows:repeat(5,1fr);gap:3px;width:100%;flex:1;">
-        ${rows}
+      <div class="pg-preview-clocktwo">
+        <div style="display:flex;flex:1;min-height:0;gap:3px;">
+          <div class="pg-preview-clocktwo-side-dots">
+            ${leftDots}
+          </div>
+          <div class="pg-preview-clocktwo-grid">
+            ${rows}
+          </div>
+          <div class="pg-preview-clocktwo-side-dots">
+            ${rightTop}
+            ${showNotifs ? html`
+              <div class="pg-preview-clocktwo-notif">
+                <ha-icon icon="mdi:bell-ring-outline" style="--mdc-icon-size:clamp(14px,3cqi,24px);color:var(--accent-color,#ffab40);"></ha-icon>
+              </div>
+            ` : html`<div style="flex:1;"></div>`}
+            ${rightBottom}
+          </div>
+        </div>
       </div>`,
     containerClass: backgroundClass(panel),
   };

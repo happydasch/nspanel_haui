@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Climate.
+ * NSPanel HAUI - Panel preview: Climate.
  */
 import { html } from '../lit-import.js';
 

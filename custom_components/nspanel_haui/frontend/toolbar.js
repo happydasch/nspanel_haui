@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - toolbar rendering.
+ * NSPanel HAUI - toolbar rendering.
  *
  * Renders the top toolbar with:
  *   - Title bar (separate from action bar)
@@ -53,7 +53,7 @@ export function renderTitleHeader(host) {
   return html`
     <div class="toolbar-header">
       ${renderMenuButton(host)}
-      <span class="toolbar-title">${t('NSPanel HAUI - Editor')}</span>
+      <span class="toolbar-title">${t('NSPanel HAUI')}</span>
       ${renderDeviceManagerButton(host)}
     </div>
   `;

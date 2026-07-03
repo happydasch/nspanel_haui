@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Preview simulation CSS.
+ * NSPanel HAUI - Preview simulation CSS.
  *
  * Weather page preview styles.
  */
@@ -71,7 +71,7 @@ export const previewWeatherStyles = css`
 
   /* Giant clock (tTime replacement) */
   .pg-preview-weather-clock {
-    font-size: clamp(42px, 12cqi, 82px);
+    font-size: clamp(36px, 10cqi, 72px);
     font-weight: 600;
     color: var(--primary-text-color, #fff);
     letter-spacing: 5px;

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - toast helpers.
+ * NSPanel HAUI - toast helpers.
  * Extracted from panel-editor.js _showToast and _renderToast methods.
  */
 

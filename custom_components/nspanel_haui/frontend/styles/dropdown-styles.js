@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Shared dropdown CSS.
+ * NSPanel HAUI - Shared dropdown CSS.
  *
  * Reusable styles for autocomplete dropdowns used in entity, icon, and
  * panel-key pickers. Provides consistent positioning, scrolling, item

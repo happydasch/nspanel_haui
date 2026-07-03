@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview utilities.
+ * NSPanel HAUI - Panel preview utilities.
  *
  * Shared utility functions for panel preview renderers.
  */

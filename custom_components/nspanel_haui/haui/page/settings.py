@@ -58,8 +58,8 @@ class SettingsPage(HAUIPage):
         self._handle_brightness_dimmed = self.brightness_dimmed_entity.listen_state(
             self.callback_brightness
         )
-        self._full_brightness = self.brightness_full_entity.get_state()
-        self._dimmed_brightness = self.brightness_dimmed_entity.get_state()
+        self._full_brightness = self._parse_brightness(self.brightness_full_entity.get_state())
+        self._dimmed_brightness = self._parse_brightness(self.brightness_dimmed_entity.get_state())
 
         # display components
         self.bind_slider(self.COMPONENTS.h_brght, self.process_brightness_full)
@@ -118,6 +118,11 @@ class SettingsPage(HAUIPage):
 
     # misc
 
+    def _parse_brightness(self, state: Any) -> int | None:
+        if state is None or state == "unavailable":
+            return None
+        return int(float(state))
+
     def set_brightness_full_slider(self, value: int) -> None:
         self.set_slider_color(self.COMPONENTS.h_brght)
         self.set_component_value(self.COMPONENTS.h_brght, value)
@@ -136,15 +141,17 @@ class SettingsPage(HAUIPage):
         self.log(f"Got brightness callback: {item}.{attribute}:{new}")
         # callback from ha
         if self.brightness_full_entity and item == self.brightness_full_entity.entity_id:
-            if new.isnumeric():
-                if self._full_brightness != new:
-                    self._full_brightness = new
-                self.set_brightness_full_slider(new)
+            value = self._parse_brightness(new)
+            if value is not None:
+                if self._full_brightness != value:
+                    self._full_brightness = value
+                self.set_brightness_full_slider(value)
         elif self.brightness_dimmed_entity and item == self.brightness_dimmed_entity.entity_id:
-            if new.isnumeric():
-                if self._dimmed_brightness != new:
-                    self._dimmed_brightness = new
-                self.set_brightness_dim_slider(new)
+            value = self._parse_brightness(new)
+            if value is not None:
+                if self._dimmed_brightness != value:
+                    self._dimmed_brightness = value
+                self.set_brightness_dim_slider(value)
 
     # event
 

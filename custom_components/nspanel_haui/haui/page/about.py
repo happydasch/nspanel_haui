@@ -42,8 +42,8 @@ class AboutPage(HAUIPage):
         t_yaml_vers_val=Component(15, "tYamlVersVal"),
         t_ad_vers=Component(16, "tADVers"),
         t_ad_vers_val=Component(17, "tADVersVal"),
-        p_0=Component(18, "p0"),
-        p_1=Component(19, "p1"),
+        p0=Component(18, "p0"),
+        p1=Component(19, "p1"),
     )
 
     _title = ""

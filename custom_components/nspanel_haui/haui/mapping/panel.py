@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ..abstract.component import ComponentRegistry
 from ..mapping.const import SysPanelKey
 
 # system panels
@@ -143,6 +144,14 @@ def build_sys_panels_defaults() -> list[dict]:
     return defaults
 
 
+def _serialize_components(cls: type) -> list[dict]:
+    """Serialize a page class's ComponentRegistry to a list of {id, name} dicts."""
+    reg: ComponentRegistry | None = getattr(cls, "COMPONENTS", None)
+    if reg is None:
+        return []
+    return [{"id": c.id, "name": c.name} for c in reg.values()]
+
+
 def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
     """Return serialized descriptors for user-visible (non-system, non-popup) panel types.
 
@@ -162,6 +171,7 @@ def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
                     "has_header": d.has_header,
                     "can_show_popup": d.can_show_popup,
                     "item_options": d.item_options,
+                    "components": _serialize_components(cls),
                     "options": [
                         {
                             "key": o.key,
@@ -207,6 +217,7 @@ def get_system_panel_entries(language: str = "en") -> list[dict]:
                         "icon": d.icon,
                         "has_header": d.has_header,
                         "can_show_popup": d.can_show_popup,
+                        "components": _serialize_components(cls),
                     }
                 )
     return result

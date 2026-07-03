@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel list (table) CSS.
+ * NSPanel HAUI - Panel list (table) CSS.
  *
  * Styles for `.pl-*` classes used by panel-table.js.
  */

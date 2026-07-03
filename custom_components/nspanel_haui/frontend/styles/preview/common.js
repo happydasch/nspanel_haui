@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Preview simulation CSS.
+ * NSPanel HAUI - Preview simulation CSS.
  *
  * Common preview styles shared across all panel types.
  * Extracted from panel-preview-styles.js.

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Item list CSS.
+ * NSPanel HAUI - Item list CSS.
  *
  * Reusable styles for item list rows, editing panels, and action buttons.
  * Extracted from editorStyles in styles.js.

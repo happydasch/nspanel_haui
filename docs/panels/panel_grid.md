@@ -6,7 +6,6 @@
   - [About](#about)
   - [Config](#config)
     - [Per-Item Color Overrides](#per-item-color-overrides)
-    - [Initial Page `initial_page`](#initial-page-initial_page)
   - [Screens](#screens)
 
 ## About
@@ -23,7 +22,6 @@ This panel can be also used to organize panels and subpanels. Colors can be set 
 # Default config
 panels:
   - type: grid
-    initial_page: 0
     entities:
       - entity: light.example_light
         text_color: null
@@ -72,24 +70,9 @@ panels:
       - entity: light.example_light1
 ```
 
-### Initial Page `initial_page`
-
-The page to start the üanel with can be set with  `initial_page`.
-
-```yaml
-# grid panel with 7 entities and a inital page
-panels:
-  - type: grid
-    initial_page: 1
-    entities:
-      - entity: light.example_light
-      - entity: light.example_light1
-      - entity: light.example_light2
-      - entity: light.example_light3
-      - entity: light.example_light4
-      - entity: light.example_light5
-      - entity: light.example_light6
-```
+If more than 6 entities are configured, a next-page button appears. The panel
+remembers which page you last viewed and returns to it on revisit — this is
+automatic, not configurable.
 
 ## Screens
 

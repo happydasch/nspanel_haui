@@ -197,13 +197,75 @@ component.id     # instead of component[0]
 
 ### Adding a new panel type
 
-1. Create a page class in `haui/page/yourpanel.py` that extends `HAUIBase` (or a relevant page base).
-2. Define a `COMPONENTS` class attribute using `ComponentRegistry` with `Component` entries for each Nextion widget on the page. Follow snake_case purpose-based naming.
-3. Define a `DESCRIPTOR` class attribute of type `PageDescriptor` with at least `type_key`, `page_name`, `label`, and `description`.
-4. Import the class in `haui/mapping/panel.py` and add it to the `_page_classes` list inside `_build_panel_mapping()`.
-5. If the panel has configurable options, add `OptionDescriptor` entries to `DESCRIPTOR.options`.
-6. If it needs a popup variant, add a `popup_<SOMETHING>` alias in the `popup_aliases` dict.
-7. Document the panel in `docs/panels/panel_yourpanel.md`.
+1. **Inspect the page's widgets** in the Nextion HMI file to find each widget's ID and name (see *Nextion HMI inspection* below).
+2. Create a page class in `haui/page/yourpanel.py` that extends `HAUIBase` (or a relevant page base).
+3. Define a `COMPONENTS` class attribute using `ComponentRegistry` with `Component` entries for each Nextion widget on the page. Follow snake_case purpose-based naming.
+4. Define a `DESCRIPTOR` class attribute of type `PageDescriptor` with at least `type_key`, `page_name`, `label`, and `description`.
+5. Import the class in `haui/mapping/panel.py` and add it to the `_page_classes` list inside `_build_panel_mapping()`.
+6. If the panel has configurable options, add `OptionDescriptor` entries to `DESCRIPTOR.options`.
+7. If it needs a popup variant, add a `popup_<SOMETHING>` alias in the `popup_aliases` dict.
+8. Document the panel in `docs/panels/panel_yourpanel.md`.
+9. **Add a preview renderer** for the editor grid view (see *Preview renderer workflow* below).
+
+### Nextion HMI inspection
+
+The display UI is compiled from `nextion/nspanel_haui.HMI` (edited in the Nextion IDE). To see a page's widget IDs, names, attributes, and event code (touch scripts) before writing its Python `ComponentRegistry`, generate a readable text dump with [Nextion2Text](scripts/nextion2text/Nextion2Text.py):
+
+```bash
+python scripts/nextion2text/Nextion2Text.py -i nextion/nspanel_haui.HMI -o ref_src/nextion-out-visual -d -s -p visual
+```
+
+- `-i` — path to the compiled `.HMI` file
+- `-o` — output folder, one `.txt` file per Nextion page named after the page; `ref_src/` is git-ignored, safe to regenerate here
+- `-d` — clear the output folder first, so stale files from a previous run don't linger
+- `-s` — also write a stats summary file (component/event counts)
+- `-p visual` — include visual properties (position, size, colors), not just the default non-visual ones; needed to read widget coordinates for preview renderers
+
+Each generated file lists the page's widgets (ID, Nextion name, attributes) and event code (`Preinitialize Event`, `Touch Press Event`, etc.) — use it to map Nextion widget IDs/names to `Component(id, "name")` entries and to see what a button's touch script already does on the device side. Run `python scripts/nextion2text/Nextion2Text.py --help` for the full flag reference.
+
+### Preview renderer workflow
+
+The editor shows a visual preview of each panel in the grid view. Each panel type can register a custom preview renderer; if none is registered, a fallback (icon only) is used.
+
+**Existing renderers** live in `frontend/previews/*.js`, registered in `frontend/panel-previews.js`. Common visual primitives (`simTile`, `simItemTile`, `simSlider`, `simTimeDisplay`, etc.) are available in `frontend/previews/primitives.js`.
+
+**To add a preview renderer for a new panel type:**
+
+1. **Generate a stub** using the generator script:
+   ```bash
+   python scripts/gen_preview/gen_preview.py --type <type_key>
+   ```
+   This creates `frontend/previews/<type_key>.js` with a placeholder renderer that lists all Nextion components and panel options as comments.
+
+2. **Fill in the visual layout** — edit `frontend/previews/<type_key>.js` to replace the placeholder with actual visual content using primitives from `primitives.js` and classes from `styles/preview/common.js`. Use existing renderers (e.g. `grid.js`, `clock.js`) as reference.
+
+3. **Add preview CSS** if the renderer needs styles beyond what `common.js` provides: create `frontend/styles/preview/<type_key>.js` exporting a Lit `css` tagged template, then import and reference it in `frontend/styles/panel-preview-styles.js`.
+
+4. **Register the renderer** — the generator already added the import and registration line in `frontend/panel-previews.js`. If creating manually, add:
+   ```javascript
+   import { render<TypeName>Preview } from './previews/<type_key>.js';
+   // ... then in the registration block:
+   registerPanelPreview('<type_key>', render<TypeName>Preview);
+   ```
+
+5. **Verify coverage** — run the generator's check mode to confirm no types are missing:
+   ```bash
+   python scripts/gen_preview/gen_preview.py --check-missing
+   ```
+
+**Generator reference:**
+```bash
+# Generate stubs for all missing types
+python scripts/gen_preview/gen_preview.py --all
+
+# Check which types are missing renderers
+python scripts/gen_preview/gen_preview.py --check-missing
+
+# Dry-run (print to stdout instead of writing files)
+python scripts/gen_preview/gen_preview.py --type <type_key> --dry-run
+```
+
+**How it works:** The generator reads each page class's `COMPONENTS` (ComponentRegistry) and `DESCRIPTOR` metadata from Python, then produces a JS stub file with documented widget IDs and option keys for the developer to fill in manually (visual layout is an HTML/CSS design task that cannot be inferred from widget tuples alone).
 
 ### Page lifecycle hook ordering
 
@@ -266,7 +328,21 @@ The merged dict is passed to `HAUIConfig` which provides typed access. Store (pa
 
 ### Locale/translations
 
-The project uses hardcoded CLDR locale data (see `haui/utils/locale_data.py`) instead of depending on Babel. Date formatting uses inline locale data in `haui/utils/datetime.py`. Display text translations use lookup tables in `haui/utils/text.py`.
+The project uses hardcoded CLDR locale data (see `haui/utils/locale_data.py`) instead of depending on Babel. Date formatting uses inline locale data in `haui/utils/datetime.py`. Display text translations use lookup tables in `haui/utils/text.py`, backed by JSON files in `haui/locale/*.json` (component + text sections).
+
+**Translation extraction workflow:**
+
+1. After adding, removing, or changing any `t()` / `host._t()` (frontend JS), `self.translate()` (Python), or `_()` (descriptor) call, run:
+
+   ```bash
+   python scripts/translations/extract_translations.py
+   ```
+
+   This scans `custom_components/nspanel_haui/` (Python) and `frontend/` (JS) for string-literal calls, then syncs `haui/locale/*.json`: adds new keys (English text as the value in `en.json`, empty string in other languages), removes keys no longer referenced anywhere, and prints an added/removed count per language file.
+2. Fill in the empty values the run added to non-`en` locale files (or hand the new `en.json` keys to a translator).
+3. Commit the updated `haui/locale/*.json` files together with the code change that introduced the strings.
+
+`scripts/translations/merge_translations.py` is a secondary helper for merging a completed `scripts/translations/translate.json` batch back into `haui/locale/*.json` without clobbering existing entries — for external translation-service round trips, not needed for routine local development.
 
 ## Code Style
 

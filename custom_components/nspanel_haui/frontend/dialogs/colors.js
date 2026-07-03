@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Colors dialog.
+ * NSPanel HAUI - Colors dialog.
  *
  * Lets users override the global color palette for a device. A live preview
  * at the top mirrors how the colors look on the panel (header, content text,

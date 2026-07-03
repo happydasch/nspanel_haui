@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Color picker CSS.
+ * NSPanel HAUI - Color picker CSS.
  *
  * Reusable styles for color inputs, swatches, presets, and preview rows.
  * Shared by form-fields.js (inline color pickers) and dialogs/colors.js.

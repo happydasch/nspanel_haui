@@ -34,14 +34,6 @@ class GridPage(HAUIPage):
                 description=_("Items to display as tiles on the grid page."),
                 section=_("Tiles"),
             ),
-            PageOption(
-                key="initial_page",
-                kind="int",
-                default=0,
-                label=_("Initial page"),
-                description=_("Starting page index (0-based) when the grid is first displayed."),
-                section=_("Pagination"),
-            ),
         ],
         icon="mdi:grid",
     )
@@ -103,7 +95,10 @@ class GridPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
         self._items = self._build_items_from_panel(panel, "items")
-        self._current_page = int(panel.get("initial_page", 0))
+        # page position is navigation state, not a user option: it lives on
+        # the panel (persists across visits) rather than being reset to a
+        # configured initial page every time the panel opens.
+        self._current_page = panel.get_state("current_page", 0)
         # set function buttons
         # Pagination always sits on fnc_right_sec (inner, near title), leaving
         # fnc_right_pri for auto-assignment (NEXT on nav, CLOSE otherwise).
@@ -351,6 +346,8 @@ class GridPage(HAUIPage):
             self._current_page += 1
             if self._current_page >= count_pages:
                 self._current_page = 0
+            if self.panel is not None:
+                self.panel.set_state("current_page", self._current_page)
             with self.rec_cmd:
                 self.set_grid_entries()
 

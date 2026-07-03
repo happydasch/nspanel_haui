@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview registry.
+ * NSPanel HAUI - Panel preview registry.
  *
  * Central registry for panel preview renderers and main entry point.
  */

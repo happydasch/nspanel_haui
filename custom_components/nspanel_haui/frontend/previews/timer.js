@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Timer.
+ * NSPanel HAUI - Panel preview: Timer.
  */
 import { html } from '../lit-import.js';
 

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Alarm / Unlock.
+ * NSPanel HAUI - Panel preview: Alarm / Unlock.
  */
 import { html } from '../lit-import.js';
 import { t } from '../localize.js';

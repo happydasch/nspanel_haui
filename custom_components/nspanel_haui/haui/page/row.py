@@ -29,14 +29,6 @@ class RowPage(HAUIPage):
                 description=_("Items displayed as a row with cover/action controls."),
                 section=_("Rows"),
             ),
-            PageOption(
-                key="initial_page",
-                kind="int",
-                default=0,
-                label=_("Initial page"),
-                description=_("Starting page index (0-based) when the row is first displayed."),
-                section=_("Pagination"),
-            ),
         ],
         icon="mdi:view-list-outline",
     )
@@ -120,7 +112,10 @@ class RowPage(HAUIPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
         self._items = self._build_items_from_panel(panel, "items")
-        self._current_page = panel.get("initial_page", 0)
+        # page position is navigation state, not a user option: it lives on
+        # the panel (persists across visits) rather than being reset to a
+        # configured initial page every time the panel opens.
+        self._current_page = panel.get_state("current_page", 0)
         # set function buttons
         show_in_nav = panel.show_in_navigation()
         nav_btn: dict = {
@@ -584,6 +579,8 @@ class RowPage(HAUIPage):
             self._current_page += 1
             if self._current_page >= count_pages:
                 self._current_page = 0
+            if self.panel is not None:
+                self.panel.set_state("current_page", self._current_page)
             with self.rec_cmd:
                 self.set_row_entries()
 

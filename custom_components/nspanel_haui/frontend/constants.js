@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - constants & helpers.
+ * NSPanel HAUI - constants & helpers.
  * Extracted from panel-editor.js; see that file for the class that delegates to these helpers.
  */
 

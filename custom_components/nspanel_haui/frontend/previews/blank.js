@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Blank.
+ * NSPanel HAUI - Panel preview: Blank.
  */
 import { html } from '../lit-import.js';
 

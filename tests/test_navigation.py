@@ -211,6 +211,7 @@ def test_timeout_other_value_ignored():
 def test_display_state_prev_off_opens_wakeup_panel():
     nav = _make_nav()
     nav.app.device.connected = True
+    nav.app.device.sleeping = True
     nav.app.device.device_info = {"display_state": "off"}
     nav._sleep_panel_active = False
     nav.process_event(HAUIEvent(ESPEvent.DISPLAY_STATE, "on"))

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: System About.
+ * NSPanel HAUI - Panel preview: System About.
  */
 import { html } from '../lit-import.js';
 

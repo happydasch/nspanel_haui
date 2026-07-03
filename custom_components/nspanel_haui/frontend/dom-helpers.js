@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - DOM helper utilities.
+ * NSPanel HAUI - DOM helper utilities.
  *
  * Tiny helpers used across the editor to reduce repeated querySelector patterns.
  */

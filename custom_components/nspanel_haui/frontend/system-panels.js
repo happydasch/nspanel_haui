@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - System panel override editing.
+ * NSPanel HAUI - System panel override editing.
  *
  * Each exported function takes the component instance (`host`) as its first
  * parameter.

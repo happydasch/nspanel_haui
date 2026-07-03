@@ -876,7 +876,7 @@ class HAUINavigationController(HAUIBase):
         # to let the Nextion finish initialising all page components before
         # render commands arrive.
         if not self.page.is_started() and self.panel is not None:
-            delay = self.app.device.get("page_settle_delay", 0.1)
+            delay = self.app.device.get("page_settle_delay", 0.05)
             if self._page_settle_timer is not None:
                 self.app.cancel_timer(self._page_settle_timer)
             self._page_settle_timer = self.app.run_in(self._page_settle_callback, delay)
@@ -911,6 +911,8 @@ class HAUINavigationController(HAUIBase):
         # display_state events can't cause a double / premature exit.
         prev_state = device.device_info.get("display_state")
         if prev_state == "off" and not self._sleep_panel_active:
+            if not self.app.device.sleeping:
+                return  # check_wakeup already exited sleep
             self.log(f"Display state changed from sleep to {event.as_str()}")
             self.open_wakeup_panel()
 

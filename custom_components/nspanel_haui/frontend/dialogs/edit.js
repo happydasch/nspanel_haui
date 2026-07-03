@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Edit Panel dialog.
+ * NSPanel HAUI - Edit Panel dialog.
  *
  * Replaces the old renderEditDialog() function with a proper Lit custom element
  * that uses ha-dialog / ha-dialog-header / ha-dialog-footer and communicates

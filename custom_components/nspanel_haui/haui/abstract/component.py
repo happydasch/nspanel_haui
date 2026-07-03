@@ -47,6 +47,10 @@ class ComponentRegistry:
     def __init__(self, **kwargs: Component) -> None:
         self._components: dict[str, Component] = kwargs
 
+    def values(self) -> list[Component]:
+        """Return all Component values in insertion order."""
+        return list(self._components.values())
+
     def __getattr__(self, name: str) -> Component:
         try:
             return self._components[name]

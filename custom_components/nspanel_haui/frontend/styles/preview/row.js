@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Preview simulation CSS.
+ * NSPanel HAUI - Preview simulation CSS.
  *
  * Row page preview styles.
  */

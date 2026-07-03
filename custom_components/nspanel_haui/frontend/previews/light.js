@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - Panel preview: Light.
+ * NSPanel HAUI - Panel preview: Light.
  */
 import { html } from '../lit-import.js';
 import { simSliderVertical } from './primitives.js';

@@ -1,5 +1,5 @@
 /**
- * NSPanel HAUI - Editor - panel list rendering.
+ * NSPanel HAUI - panel list rendering.
  *
  * Extracted from haui-editor.js render() method.  Every function takes the Lit
  * element instance (`host`) as its first parameter.

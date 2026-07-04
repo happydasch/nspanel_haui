@@ -1,3 +1,8 @@
+---
+title: Panel About
+description: About panel configuration and options
+---
+
 # Panel About
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

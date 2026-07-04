@@ -1,3 +1,8 @@
+---
+title: Frequently Asked Questions
+description: Common issues, troubleshooting, and tips for NSPanel HAUI
+---
+
 # FAQ
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)

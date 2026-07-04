@@ -1,3 +1,8 @@
+---
+title: Hub Component
+description: NSPanelHAUI hub app architecture, structure, and internal components
+---
+
 # Hub Component
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)

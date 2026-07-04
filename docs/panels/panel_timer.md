@@ -1,3 +1,8 @@
+---
+title: Panel Timer
+description: Timer panel configuration and options
+---
+
 # Panel Timer
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

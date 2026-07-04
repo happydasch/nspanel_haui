@@ -1,3 +1,8 @@
+---
+title: Panel Grid
+description: Grid panel configuration and options
+---
+
 # Panel Grid
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

@@ -1,3 +1,8 @@
+---
+title: Popup Notify
+description: Notify popup panel configuration and usage
+---
+
 # Popup Notify
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

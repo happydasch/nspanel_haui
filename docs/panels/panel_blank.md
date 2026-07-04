@@ -1,3 +1,8 @@
+---
+title: Panel Blank
+description: Blank panel used for sleep/idle state
+---
+
 # Panel Blank
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

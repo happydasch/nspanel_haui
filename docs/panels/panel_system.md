@@ -1,3 +1,8 @@
+---
+title: Panel System
+description: System panel configuration and options
+---
+
 # Panel System
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

@@ -1,3 +1,8 @@
+---
+title: Panel Cover
+description: Cover panel configuration and options
+---
+
 # Panel Cover
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

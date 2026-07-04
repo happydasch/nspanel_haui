@@ -1,3 +1,8 @@
+---
+title: Panel Vacuum
+description: Vacuum panel configuration and options
+---
+
 # Panel Vacuum
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

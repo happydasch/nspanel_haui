@@ -1,3 +1,8 @@
+---
+title: Panel Alarm
+description: Alarm panel configuration and options
+---
+
 # Panel Alarm
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

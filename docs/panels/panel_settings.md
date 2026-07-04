@@ -1,3 +1,8 @@
+---
+title: Panel Settings
+description: Settings panel configuration and options
+---
+
 # Panel Settings
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

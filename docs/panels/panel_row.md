@@ -1,3 +1,8 @@
+---
+title: Panel Row
+description: Row panel configuration and options
+---
+
 # Panel Row
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

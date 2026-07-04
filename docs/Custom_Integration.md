@@ -1,3 +1,8 @@
+---
+title: Custom Integration Development
+description: Guide for developing custom integrations with NSPanel HAUI
+---
+
 # Custom Integration
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)

@@ -1,0 +1,111 @@
+site_name: NSPanel HAUI
+site_url: https://happydasch.github.io/nspanel_haui/
+repo_url: https://github.com/happydasch/nspanel_haui
+repo_name: nspanel_haui
+edit_uri: edit/master/docs/
+site_description: HomeAssistant UI for the Sonoff NSPanel — a flexible, configurable display system built on ESPHome.
+site_author: happydasch
+copyright: Copyright &copy; 2024-2026 happydasch
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+  - mike:
+      version_selector: true
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true
+
+extra:
+  version:
+    provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/happydasch/nspanel_haui
+
+nav:
+  - Home: README.md
+  - Installation: Install.md
+  - Configuration:
+    - Overview: Config.md
+    - Device Configuration: config/device.md
+    - Panel Configuration: config/panels.md
+    - Item Configuration: config/items.md
+  - Panels:
+    - Overview: panels/README.md
+    - Weather: panels/panel_weather.md
+    - Clock: panels/panel_clock.md
+    - ClockTwo: panels/panel_clocktwo.md
+    - Grid: panels/panel_grid.md
+    - Row: panels/panel_row.md
+    - Light: panels/panel_light.md
+    - Media: panels/panel_media.md
+    - Vacuum: panels/panel_vacuum.md
+    - QR Code: panels/panel_qr.md
+    - Cover: panels/panel_cover.md
+    - Climate: panels/panel_climate.md
+    - Timer: panels/panel_timer.md
+    - Alarm: panels/panel_alarm.md
+    - About: panels/panel_about.md
+    - Blank: panels/panel_blank.md
+    - System: panels/panel_system.md
+    - Settings: panels/panel_settings.md
+    - Popup Notifications: panels/popup_notifs.md
+    - Popup Notify: panels/popup_notify.md
+    - Popup Select: panels/popup_select.md
+    - Popup Unlock: panels/popup_unlock.md
+  - Device: Device.md
+  - Communication: Communication.md
+  - ESPHome: ESPHome.md
+  - Hub: Hub.md
+  - Nextion: Nextion.md
+  - Design: Design.md
+  - Examples: Example_Config.md
+  - FAQ: FAQ.md
+  - Troubleshooting: troubleshooting.md

@@ -8,6 +8,9 @@ export function clone(v) {
   return JSON.parse(JSON.stringify(v));
 }
 
+/** Base URL for the project documentation (MkDocs site). */
+export const DOCS_BASE_URL = "https://happydasch.github.io/nspanel_haui/";
+
 /** Default panel template for a given type. */
 export function defaultPanel(type = "clock") {
   return {

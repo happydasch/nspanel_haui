@@ -1,3 +1,8 @@
+---
+title: Panel Media
+description: Media panel configuration and options
+---
+
 # Panel Media
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

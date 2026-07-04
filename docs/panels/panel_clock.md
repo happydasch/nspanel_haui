@@ -1,3 +1,8 @@
+---
+title: Panel Clock
+description: Clock panel configuration and options
+---
+
 # Panel Clock
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

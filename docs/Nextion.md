@@ -1,3 +1,8 @@
+---
+title: Nextion Component
+description: Nextion display configuration, HMI editing, and display rendering
+---
+
 # Nextion Component
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)

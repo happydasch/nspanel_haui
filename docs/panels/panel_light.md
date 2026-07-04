@@ -1,3 +1,8 @@
+---
+title: Panel Light
+description: Light panel configuration and options
+---
+
 # Panel Light
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

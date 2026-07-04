@@ -1,4 +1,5 @@
 {
   "name": "NSPanel HomeAssistant UI",
-  "homeassistant": "2026.5"
+  "homeassistant": "2026.5",
+  "documentation": "https://happydasch.github.io/nspanel_haui/"
 }

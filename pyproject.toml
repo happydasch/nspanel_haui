@@ -9,6 +9,12 @@ version = "0.3.0"
 description = "NSPanel HAUI custom integration for Home Assistant"
 requires-python = ">=3.12"
 
+[project.urls]
+Homepage = "https://github.com/happydasch/nspanel_haui"
+Documentation = "https://happydasch.github.io/nspanel_haui/"
+Repository = "https://github.com/happydasch/nspanel_haui"
+Issues = "https://github.com/happydasch/nspanel_haui/issues"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

@@ -174,6 +174,8 @@ export function renderDeviceInfoStrip(host) {
               { icon: 'mdi:file-export', label: t('Export YAML'), disabled: !host._selectedDevice, action: () => host._onHeaderExportYaml() },
               'divider',
               { icon: 'mdi:file-document-outline', label: t('Logs'), action: () => { host._showLogs = true; host.requestUpdate(); } },
+              'divider',
+              { icon: 'mdi:help-circle-outline', label: t('Documentation'), action: () => { window.open('https://happydasch.github.io/nspanel_haui/', '_blank'); } },
             ], () => { host._actionsMenuIndex = null; })
           : ""}
       </div>

@@ -1,3 +1,8 @@
+---
+title: Panel ClockTwo
+description: ClockTwo panel configuration and options
+---
+
 # Panel ClockTwo
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

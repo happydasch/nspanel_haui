@@ -1,3 +1,8 @@
+---
+title: Panel Climate
+description: Climate panel configuration and options
+---
+
 # Panel Climate
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

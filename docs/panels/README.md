@@ -1,3 +1,8 @@
+---
+title: Panel Overview
+description: Overview of all available panel types for NSPanel HAUI
+---
+
 # Panel Overview
 
 [README](../../README.md) | [Documentation](../README.md) | [Installation](../Install.md) | [Configuration](../Config.md) | [Panels](README.md) | [FAQ](../FAQ.md)

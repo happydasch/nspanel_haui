@@ -1,6 +1,6 @@
 ---
 substitutions:
   # Version of this yaml config file (source of truth: manifest.json)
-  yaml_version: '0.3.0'
+  yaml_version: '0.3.1'
   # Required version of the display tft file (manually maintained)
-  required_tft_version: '0.3.0'
+  required_tft_version: '0.3.1'

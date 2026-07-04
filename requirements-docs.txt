@@ -1,0 +1,5 @@
+# Dependencies for building documentation with MkDocs
+# Install: pip install -r requirements-docs.txt
+mkdocs-material>=9.5,<10.0
+mkdocs-git-revision-date-localized>=1.2,<2.0
+mike>=2.1,<3.0

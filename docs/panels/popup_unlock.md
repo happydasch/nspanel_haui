@@ -1,3 +1,8 @@
+---
+title: Popup Unlock
+description: Unlock popup panel configuration and usage
+---
+
 # Popup Unlock
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

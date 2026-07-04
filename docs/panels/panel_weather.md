@@ -1,3 +1,8 @@
+---
+title: Panel Weather
+description: Weather panel configuration and options
+---
+
 # Panel Weather
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

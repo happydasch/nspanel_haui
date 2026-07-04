@@ -1,3 +1,8 @@
+---
+title: Panel QR Code
+description: QR Code panel configuration and options
+---
+
 # Panel QR-Code
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

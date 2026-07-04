@@ -1,3 +1,8 @@
+---
+title: Popup Select
+description: Select popup panel configuration and usage
+---
+
 # Popup Select
 
 [< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)

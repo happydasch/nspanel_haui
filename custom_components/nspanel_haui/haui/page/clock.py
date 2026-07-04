@@ -161,7 +161,8 @@ class ClockPage(HAUIPage):
     TEMP_PRECISION = 0
 
     # Card cycle constants
-    _CARD_INTERVAL = 5  # seconds between card advances
+    _CARD_INTERVAL = 5  # seconds between card advances during cycling
+    _CARD_PAUSE_DURATION = 10  # seconds to pause on the first card after a full cycle
 
     # panel
     def prepare(self) -> None:
@@ -181,6 +182,7 @@ class ClockPage(HAUIPage):
         self._cycle_cards: list[str] = ["time"]
         self._current_card_index: int = 0
         self._card_timer: int = 0
+        self._cycle_state: str = "cycling"  # "cycling" or "paused"
         self._tick_handle: Any = None
 
     def create_panel(self, panel: HAUIPanel) -> None:
@@ -234,6 +236,7 @@ class ClockPage(HAUIPage):
         # Reset card position
         self._current_card_index = 0
         self._card_timer = 0
+        self._cycle_state = "cycling"
         # Start cycle timer if multiple cards enabled
         if self._tick_handle is None and len(self._cycle_cards) > 1:
             self._tick_handle = self.app.run_every(self._tick, 0, 1.0)
@@ -265,6 +268,7 @@ class ClockPage(HAUIPage):
         # Reset and render current card
         self._current_card_index = 0
         self._card_timer = 0
+        self._cycle_state = "cycling"
         self._render_cycle_card()
         # weather header
         self.update_items(self._build_items_from_panel(panel, "item", "items"))
@@ -347,13 +351,33 @@ class ClockPage(HAUIPage):
         if self.app.device.device_info.get("display_state") == "off":
             return
         self._card_timer += 1
-        if self._card_timer >= self._CARD_INTERVAL:
+        threshold = (
+            self._CARD_PAUSE_DURATION if self._cycle_state == "paused" else self._CARD_INTERVAL
+        )
+        if self._card_timer >= threshold:
             with self.rec_cmd:
                 self._advance_card()
 
     def _advance_card(self, _event: HAUIEvent | None = None) -> None:
-        """Advance to the next cycle card and render it."""
-        self._current_card_index = (self._current_card_index + 1) % len(self._cycle_cards)
+        """Advance to the next cycle card or enter/exit pause state."""
+        if self._cycle_state == "paused":
+            # Pause period over — start a new cycle from the beginning
+            self._cycle_state = "cycling"
+            self._current_card_index = 0
+            self._card_timer = 0
+            self._render_cycle_card()
+            return
+
+        next_index = self._current_card_index + 1
+        if next_index >= len(self._cycle_cards):
+            # Last card shown — enter pause on the first card
+            self._cycle_state = "paused"
+            self._current_card_index = 0
+            self._card_timer = 0
+            self._render_cycle_card()
+            return
+
+        self._current_card_index = next_index
         self._card_timer = 0
         self._render_cycle_card()
 

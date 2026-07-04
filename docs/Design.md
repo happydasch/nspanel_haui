@@ -1,3 +1,8 @@
+---
+title: Design Guidelines
+description: Visual design guidelines for Nextion display panels
+---
+
 # Design Guidelines
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)

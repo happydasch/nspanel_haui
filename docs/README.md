@@ -1,3 +1,8 @@
+---
+title: NSPanel HAUI Documentation
+description: HomeAssistant UI for the Sonoff NSPanel — documentation index
+---
+
 # NSPanel HomeAssistant UI Docs
 
 [README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)

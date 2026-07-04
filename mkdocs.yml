@@ -107,5 +107,6 @@ nav:
   - Nextion: Nextion.md
   - Design: Design.md
   - Examples: Example_Config.md
+  - Custom Integration: Custom_Integration.md
   - FAQ: FAQ.md
   - Troubleshooting: troubleshooting.md

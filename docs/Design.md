@@ -5,9 +5,9 @@ description: Visual design guidelines for Nextion display panels
 
 # Design Guidelines
 
-[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
-![Grid](../nextion/images/grid.png)
+![Grid](assets/nextion_images/grid.png)
 
 - [Design Guidelines](#design-guidelines)
   - [Overview](#overview)

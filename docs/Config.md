@@ -5,7 +5,7 @@ description: Overview of the NSPanel HAUI configuration system
 
 # Configuration
 
-[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
 - [Configuration](#configuration)
   - [Example Configuration](#example-configuration)

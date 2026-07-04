@@ -5,7 +5,7 @@ description: Sample YAML configurations for NSPanel HAUI panels
 
 # Example Configurations
 
-[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
 - [Example Configurations](#example-configurations)
   - [Simple config](#simple-config)

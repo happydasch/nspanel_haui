@@ -5,7 +5,7 @@ description: Device behavior, gestures, display states, hardware buttons, and so
 
 # Device Description
 
-[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
 - [Device Description](#device-description)
   - [Device](#device)

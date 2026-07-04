@@ -5,7 +5,7 @@ description: Step-by-step installation guide for NSPanel HAUI
 
 # Installation Guide
 
-[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
 - [Installation Guide](#installation-guide)
   - [Requirements](#requirements)

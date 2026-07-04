@@ -5,7 +5,7 @@ description: Architecture, handshake protocol, heartbeats, and connection state 
 
 # Communication Overview
 
-[README](../README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
+[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
 
 - [Communication Overview](#communication-overview)
   - [Architecture](#architecture)

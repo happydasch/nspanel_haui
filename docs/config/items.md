@@ -5,7 +5,7 @@ description: Item configuration — entities, state, name, value, icon, color, i
 
 # Item Configuration
 
-[README](../../README.md) | [Documentation](../README.md) | [Installation](../Install.md) | [Configuration](../Config.md) | [Panels](../panels/README.md) | [FAQ](../FAQ.md)
+[README](https://github.com/happydasch/nspanel_haui) | [Documentation](../README.md) | [Installation](../Install.md) | [Configuration](../Config.md) | [Panels](../panels/README.md) | [FAQ](../FAQ.md)
 
 [< Configuration](../Config.md)
 

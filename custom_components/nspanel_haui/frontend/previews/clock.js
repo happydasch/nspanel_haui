@@ -73,9 +73,7 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:0;gap:1px;">
           ${card === 'time' ? html`
             <span style="font-size:clamp(50px,14cqi,88px);font-weight:700;color:var(--primary-text-color,#fff);letter-spacing:5px;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,0.3);">12:34</span>
-            ${showTimeDate ? html`
-              <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">Mon, Jun 16</div>
-            ` : ''}
+            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">Mon, Jun 16</div>
           ` : card === 'date' ? html`
             <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">Mon 16</span>
             <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">Mon, Jun 16</div>
@@ -86,8 +84,9 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
             <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">24&deg;C</span>
             <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">INSIDE</div>
           `}
+        </div>
 
-        <div class="pg-preview-clock-entity-row">
+        <div class="pg-preview-clock-entity-row" style="flex-shrink:0;">
           ${entitySlots}
         </div>
       </div>`,

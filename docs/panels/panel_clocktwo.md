@@ -46,7 +46,8 @@ The clocktwo panel can have different background images. To set a background use
 
 Possible values:
 
-- default
+- dark
+- modern
 - spring
 - summer
 - autumn
@@ -87,12 +88,10 @@ AM/PM can be enabled by setting `show_ampm` to `True`
 
 ### Show Intro Text
 
-The intro text can be omitted by setting `show_intro_text` and `show_intro_text_full_hour` to `False`
+The intro text can be omitted by setting `show_intro_text` and `show_intro_text_full_hour` to `False`.
 
 - `show_intro_text` Show intro text always (Default: True)
-- `show_intro_text_full_hour` Show intro text on full hours (Default: False)
-
-setting `show_ampm` to `True`
+- `show_intro_text_full_hour` Show intro text on full hours (Default: True)
 
 ### Show Notifications
 

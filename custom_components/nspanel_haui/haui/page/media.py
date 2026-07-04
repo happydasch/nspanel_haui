@@ -213,7 +213,7 @@ class MediaPage(HAUIPage):
                     self._group_items.append(entity_id)
         # set item
         item = None
-        entity_id = panel.get("item_id") or self._extract_entity_id(panel.get("item"))
+        entity_id = panel.get("item_id", None) or self._extract_entity_id(panel.get("item", None))
         if entity_id:
             item = HAUIItem(self.app, {"item": entity_id})
         self._items = []

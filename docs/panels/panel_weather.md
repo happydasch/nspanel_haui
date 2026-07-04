@@ -6,8 +6,6 @@
   - [About](#about)
   - [Config](#config)
     - [Background](#background)
-    - [Temperature Precision](#temperature-precision)
-    - [Forecast Precision](#forecast-precision)
     - [Show forecast](#show-forecast)
     - [Show weather](#show-weather)
     - [Show temperature](#show-temperature)
@@ -34,14 +32,11 @@ panels:
     entity: weather.home
     forecast_type: hourly
 
-  # weather panel with a background and forecast
+  # weather panel with a background, forecast, and home temp
   - type: weather
     entity: weather.home
     forecast_type: daily
     background: dog_1
-    temp_precision: 1
-    forecast_precision: 0
-    show_temp: True
     show_home_temp: True
     show_notifications: false
 ```
@@ -79,7 +74,8 @@ The weather panel can have different background images. To set a background use 
 
 Possible values:
 
-- default
+- dark
+- modern
 - spring
 - summer
 - autumn
@@ -94,30 +90,22 @@ Dynamic background values are possible using HomeAssistant templates.
 
 The return value should match a background name.
 
-### Temperature Precision
-
-The precision of the temperature can be set using `temp_precision`. Defaults to 1.
-
-### Forecast Precision
-
-The precision of the forecast can be set using `forecast_precision`. Defaults to 0.
-
 ### Show forecast
 
 To get weather forecasts on the panel set `forecast_type` to `daily` or `hourly`.
 
 ### Show weather
 
-The main weather icon can be hidden by setting `show_weather` to `False`
+The main weather icon can be hidden by setting `show_weather` to `False`.
 
 ### Show temperature
 
-The main temperature text can be hidden by setting `show_temp` to `False`
-To add the home temperature `show_temp` and `show_home_temp` needs to be `True`
+The main temperature text can be hidden by setting `show_temp` to `False`.
+To add the home temperature `show_temp` and `show_home_temp` needs to be `True`.
 
 ### Show Notifications
 
-The notifications icon can be hidden by setting `show_notifications` to `False`
+The notifications icon can be hidden by setting `show_notifications` to `False`.
 
 ## Screens
 

@@ -6,8 +6,9 @@
   - [About](#about)
   - [Config](#config)
     - [Background](#background)
-    - [Show weather](#show-weather)
-    - [Show temperature](#show-temperature)
+    - [Cycle Cards](#cycle-cards)
+    - [Weather](#weather)
+    - [Item Buttons](#item-buttons)
     - [Show Notifications](#show-notifications)
   - [Screens](#screens)
 
@@ -15,30 +16,45 @@
 
 `type: clock`
 
-The clock panel shows a big clock and uses 4 entities for the weather conditions display.
+The clock panel displays a large digital time with optional date, outside/inside temperature, and weather information. The center display area cycles through up to 4 configurable cards every 5 seconds, and can be tapped to manually advance.
+
+Up to 6 entity buttons can be shown at the bottom for quick action access.
 
 ## Config
 
 ```yaml
 panels:
 
-  # clock panel
+  # simple clock
   - type: clock
     entity: weather.home
 
-  # clock panel with a different background
+  # clock with a different background, weather icon color, and home temp
   - type: clock
     entity: weather.home
-    background: dog_1
+    background: modern
+    weather_icons: monochrome
+    show_home_temp: True
 
-  # clock panel without current weather, temperature, no notifications icon
+  # clock with only time and entity buttons, no weather
   - type: clock
-    entity: weather.home
-    temp_precision: 1
     show_weather: False
     show_temp: False
-    show_home_temp: False
     show_notifications: False
+    items:
+      - entity: light.living_room
+      - entity: switch.coffee_maker
+      - entity: fan.ceiling
+
+  # clock with custom cycle cards
+  - type: clock
+    entity: weather.home
+    show_time_date: True
+    show_time_outside_temp: True
+    show_time_inside_temp: False
+    items:
+      - entity: light.kitchen
+      - entity: sensor.outside_humidity
 ```
 
 ### Background
@@ -47,7 +63,8 @@ The clock panel can have different background images. To set a background use th
 
 Possible values:
 
-- default
+- dark
+- modern
 - spring
 - summer
 - autumn
@@ -62,18 +79,48 @@ Dynamic background values are possible using HomeAssistant templates.
 
 The return value should match a background name.
 
-### Show weather
+### Cycle Cards
 
-The main weather icon can be hidden by setting `show_weather` to `False`
+The center area cycles through enabled cards every 5 seconds. Tap the time area to advance to the next card immediately.
 
-### Show temperature
+| Option | Default | Description |
+|--------|---------|-------------|
+| `show_time_time` | `True` | Show current time (HH:MM) with the date below it |
+| `show_time_date` | `True` | Show a separate date card (e.g. "Mon 16") |
+| `show_time_outside_temp` | `True` | Show outside temperature from the weather entity |
+| `show_time_inside_temp` | `False` | Show NSPanel internal temperature |
 
-The main temperature text can be hidden by setting `show_temp` to `False`
-To add the home temperature `show_temp` and `show_home_temp` needs to be `True`
+The date is always shown below the time when the time card is active, regardless of `show_time_date`. The `show_time_date` option only controls whether a separate dedicated date card is added to the rotation.
+
+If no cards are enabled, the time card is shown as a fallback.
+
+### Weather
+
+To display weather information, set a weather entity using the `entity` option.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `entity` | — | Weather entity (e.g. `weather.home`) |
+| `show_weather` | `True` | Show the weather condition icon |
+| `show_temp` | `True` | Show temperature and pressure text |
+| `show_home_temp` | `False` | Show NSPanel internal temperature alongside the weather |
+| `weather_icons` | `color` | Icon style: `color` (condition-based) or `monochrome` |
+| `items` | — | Up to 6 entity buttons for quick actions (see below) |
+
+### Item Buttons
+
+Up to 6 quick-action buttons can be placed at the bottom of the clock using the `items` list:
+
+```yaml
+items:
+  - entity: light.living_room
+  - entity: switch.coffee_maker
+  - entity: fan.ceiling
+```
 
 ### Show Notifications
 
-The notifications icon can be hidden by setting `show_notifications` to `False`
+The notifications icon can be hidden by setting `show_notifications` to `False`.
 
 ## Screens
 

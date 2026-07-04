@@ -13,7 +13,7 @@ from ..mapping.background import BACKGROUNDS
 from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE
-from ..utils.datetime import get_date_localized, get_time_localized
+from ..utils.datetime import format_datetime, get_date_localized, get_time_localized
 from ..utils.icon import parse_icon
 
 
@@ -165,7 +165,6 @@ class ClockPage(HAUIPage):
 
     # panel
     def prepare(self) -> None:
-
         self._show_notifications = True
         self._show_time_time = True
         self._show_time_date = True
@@ -283,83 +282,64 @@ class ClockPage(HAUIPage):
     def _get_short_date_text(self, timezone: str) -> str:
         """Short date that fits in tTime (max 10 chars)."""
         now = datetime.now(zoneinfo.ZoneInfo(timezone))
-        # "Mon 16" or "Mon 16/6" style — ~7 chars
-        return now.strftime("%a %-d")
+        # "Mon 16" style — ~7 chars, localized weekday abbreviation
+        dow = format_datetime(now, "%a", "E", self.get_locale())
+        return f"{dow} {now.day}"
+
+    def _card_text_time(self, timeformat: str, timezone: str) -> tuple[str, str]:
+        return get_time_localized(timeformat, timezone), self._get_date_text(timezone)
+
+    def _card_text_date(self, timezone: str) -> tuple[str, str]:
+        return self._get_short_date_text(timezone), self._get_date_text(timezone)
+
+    def _card_text_outside_temperature(self) -> tuple[str, str]:
+        label = self.translate("OUTSIDE")
+        if self._weather_item is None:
+            return "--°C", label
+        try:
+            temp = round(
+                float(self._weather_item.get_item_attr("temperature", "")), self.TEMP_PRECISION
+            )
+        except (ValueError, TypeError):
+            return "--°C", label
+        if not self.TEMP_PRECISION:
+            temp = int(temp)
+        return f"{temp}{self._temp_unit}", label
+
+    def _card_text_inside_temperature(self) -> tuple[str, str]:
+        label = self.translate("INSIDE")
+        name_slug = self.app.device.get_name().lower().replace("-", "_").replace(" ", "_")
+        temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
+        try:
+            temp = round(float(temp_inside_entity.get_state()), self.TEMP_PRECISION)
+        except (ValueError, TypeError):
+            return "--°C", label
+        unit = self._temp_unit if self._weather_item is not None else "°C"
+        if not self.TEMP_PRECISION:
+            temp = int(temp)
+        return f"{temp}{unit}", label
 
     def _render_cycle_card(self) -> None:
         """Render the current cycle card in the big text area."""
         if not self._cycle_cards or self._current_card_index >= len(self._cycle_cards):
             return
         card = self._cycle_cards[self._current_card_index]
-        # Always show tTime
-        self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
-        # Render card content in tTime + subtext in tDate
-        timeformat = self.app.device_config.get("time_format")
         timezone = self.app.hass.config.time_zone
         if card == "time":
-            time = get_time_localized(timeformat, timezone)
-            self.update_function_component(self.COMPONENTS.t_time[1], text=time)
-            # Show date in tDate when show_time_date is on
-            if self._show_time_date:
-                subtext = self._get_date_text(timezone)
-                self.update_function_component(self.COMPONENTS.t_date[1], text=subtext)
-                self.set_function_component(
-                    self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
-                )
-            else:
-                self.set_function_component(
-                    self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=False
-                )
+            timeformat = self.app.device_config.get("time_format")
+            main_text, sub_text = self._card_text_time(timeformat, timezone)
         elif card == "date":
-            short_date = self._get_short_date_text(timezone)
-            self.update_function_component(self.COMPONENTS.t_time[1], text=short_date)
-            subtext = self._get_date_text(timezone)
-            self.update_function_component(self.COMPONENTS.t_date[1], text=subtext)
-            self.set_function_component(
-                self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
-            )
+            main_text, sub_text = self._card_text_date(timezone)
         elif card == "outside_temperature":
-            # Show outside temperature
-            if self._weather_item is not None:
-                try:
-                    temp = round(
-                        float(self._weather_item.get_item_attr("temperature", "")),
-                        self.TEMP_PRECISION,
-                    )
-                except (ValueError, TypeError):
-                    self.update_function_component(self.COMPONENTS.t_time[1], text="---°C")
-                    return
-                unit = self._temp_unit
-                self.update_function_component(self.COMPONENTS.t_time[1], text=f"{temp}{unit}")
-                self.update_function_component(
-                    self.COMPONENTS.t_date[1], text=self.translate("OUTSIDE")
-                )
-            else:
-                self.update_function_component(self.COMPONENTS.t_time[1], text="--°C")
-                self.update_function_component(
-                    self.COMPONENTS.t_date[1], text=self.translate("OUTSIDE")
-                )
-            self.set_function_component(
-                self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
-            )
+            main_text, sub_text = self._card_text_outside_temperature()
         elif card == "inside_temperature":
-            # Show inside (NSPanel) temperature
-            name = self.app.device.get_name()
-            name_slug = name.lower().replace("-", "_").replace(" ", "_")
-            temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
-            try:
-                temp_inside = round(float(temp_inside_entity.get_state()), self.TEMP_PRECISION)
-            except (ValueError, TypeError):
-                self.update_function_component(self.COMPONENTS.t_time[1], text="---°C")
-                return
-            unit = self._temp_unit if self._weather_item is not None else "°C"
-            if not self.TEMP_PRECISION:
-                temp_inside = int(temp_inside)
-            self.update_function_component(self.COMPONENTS.t_time[1], text=f"{temp_inside}{unit}")
-            self.update_function_component(self.COMPONENTS.t_date[1], text=self.translate("INSIDE"))
-            self.set_function_component(
-                self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True
-            )
+            main_text, sub_text = self._card_text_inside_temperature()
+        else:
+            return
+        self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
+        self.update_function_component(self.COMPONENTS.t_time[1], text=main_text)
+        self.update_function_component(self.COMPONENTS.t_date[1], text=sub_text)
+        self.set_function_component(self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True)
         self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
 
     def _tick(self, _data: dict | None = None) -> None:

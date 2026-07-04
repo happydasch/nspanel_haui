@@ -25,24 +25,25 @@ class SettingsPage(HAUIPage):
     )
 
     COMPONENTS = ComponentRegistry(
-        title=Component(2, "tTitle"),
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
-        t_brght_title=Component(7, "tBrghtTitle"),
-        t_brght_ico=Component(8, "tBrghtIco"),
-        h_brght=Component(9, "hBrght"),
-        t_brght_pct=Component(10, "tBrghtPct"),
-        t_brght_dim_ico=Component(11, "tBrghtDimIco"),
-        h_brght_dim=Component(12, "hBrghtDim"),
-        t_brght_dim_pct=Component(13, "tBrghtDimPct"),
+        header=Component(2, "tHeader"),
+        title=Component(3, "tTitle"),
+        fnc_left_pri=Component(4, "bFncLPri"),
+        fnc_left_sec=Component(5, "bFncLSec"),
+        fnc_right_pri=Component(6, "bFncRPri"),
+        fnc_right_sec=Component(7, "bFncRSec"),
+        t_brght_title=Component(8, "tBrghtTitle"),
+        t_brght_ico=Component(9, "tBrghtIco"),
+        h_brght=Component(10, "hBrght"),
+        t_brght_pct=Component(11, "tBrghtPct"),
+        t_brght_dim_ico=Component(12, "tBrghtDimIco"),
+        h_brght_dim=Component(13, "hBrghtDim"),
+        t_brght_dim_pct=Component(14, "tBrghtDimPct"),
     )
 
     # panel
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        name = self.app.device.get_name()
+        name = self.app.device.get_name().lower().replace("-", "_").replace(" ", "_")
 
         # auto dimming component
         self.auto_dimming = self.app.get_item(f"switch.{name}_use_auto_dimming")

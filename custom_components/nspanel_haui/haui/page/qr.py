@@ -96,7 +96,7 @@ class QRPage(HAUIPage):
         self._has_text: bool = False
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        name = self.app.device.get_name()
+        name = self.app.device.get_name().lower().replace("-", "_").replace(" ", "_")
         self.on_release(self.COMPONENTS.qr_code, self.callback_qr_code)
         self.on_release(self.COMPONENTS.qr_code_big, self.callback_qr_code_big)
         self.auto_dimming = self.app.get_item(f"switch.{name}_use_auto_dimming")

@@ -162,7 +162,7 @@ class ClockPage(HAUIPage):
 
     # Card cycle constants
     _CARD_INTERVAL = 5  # seconds between card advances during cycling
-    _CARD_PAUSE_DURATION = 10  # seconds to pause on the first card after a full cycle
+    _CARD_PAUSE_DURATION = 15  # seconds to pause on the first card after a full cycle
 
     # panel
     def prepare(self) -> None:

@@ -66,7 +66,7 @@ DAY_NAMES = {
     ),
     "pl_PL": (
         ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"],
-        ["pon", "wt", "śr", "czw", "pt", "sob", "niedz"],
+        ["pon", "wt", "śr", "czw", "pt", "sob", "nie"],
     ),
 }
 

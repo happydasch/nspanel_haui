@@ -4,19 +4,6 @@ description: Weather panel configuration and options
 ---
 
 # Panel Weather
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel Weather](#panel-weather)
-  - [About](#about)
-  - [Config](#config)
-    - [Background](#background)
-    - [Show forecast](#show-forecast)
-    - [Show weather](#show-weather)
-    - [Show temperature](#show-temperature)
-    - [Show Notifications](#show-notifications)
-  - [Screens](#screens)
-
 ## About
 
 `type: weather`
@@ -111,10 +98,3 @@ To add the home temperature `show_temp` and `show_home_temp` needs to be `True`.
 ### Show Notifications
 
 The notifications icon can be hidden by setting `show_notifications` to `False`.
-
-## Screens
-
-![Panel Weather](../assets/panel_weather.png)
-![Panel Weather Simple](../assets/panel_weather_simple.png)
-
-![Panel Weather Background](../assets/panel_weather_background.png)

@@ -4,31 +4,6 @@ description: Architecture, handshake protocol, heartbeats, and connection state 
 ---
 
 # Communication Overview
-
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
-- [Communication Overview](#communication-overview)
-  - [Architecture](#architecture)
-  - [Handshake Protocol](#handshake-protocol)
-    - [Step-by-step](#step-by-step)
-    - [From the Hub side (`HAUIConnectionController.process_event()`):](#from-the-hub-side-hauiconnectioncontrollerprocess_event)
-    - [From the Device side (ESPHome YAML):](#from-the-device-side-esphome-yaml)
-  - [Bidirectional Heartbeats](#bidirectional-heartbeats)
-    - [Hub→Device heartbeat](#hubdevice-heartbeat)
-    - [Device→Hub heartbeat](#devicehub-heartbeat)
-  - [Timeout \& Reconnection](#timeout--reconnection)
-    - [Hub-side timeout detection](#hub-side-timeout-detection)
-    - [Device-side timeout detection](#device-side-timeout-detection)
-    - [Reconnection flow (Livesign detection)](#reconnection-flow-livesign-detection)
-    - [Device-side reconnection](#device-side-reconnection)
-    - [Connection state change notification](#connection-state-change-notification)
-  - [Error Scenarios](#error-scenarios)
-    - [ESPHome Native API disconnect](#esphome-native-api-disconnect)
-    - [HA restart](#ha-restart)
-    - [ESP32 reboot](#esp32-reboot)
-    - [Network partition](#network-partition)
-  - [State Machine](#state-machine)
-
 ## Architecture
 
 ```text

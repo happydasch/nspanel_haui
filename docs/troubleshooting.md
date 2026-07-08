@@ -4,15 +4,6 @@ description: Common issues, error messages, and solutions for NSPanel HAUI
 ---
 
 # Troubleshooting
-
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
-- [Troubleshooting](#troubleshooting)
-  - [Device Discovery Issues](#device-discovery-issues)
-  - [TFT Upload Failures](#tft-upload-failures)
-  - [Sleep Errors](#sleep-errors)
-  - [Connection Problems](#connection-problems)
-
 ## Device Discovery Issues
 
 ### NSPanel devices not discovered

@@ -4,17 +4,6 @@ description: Common issues, troubleshooting, and tips for NSPanel HAUI
 ---
 
 # FAQ
-
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
-- [FAQ](#faq)
-  - [I don't know how to start](#i-dont-know-how-to-start)
-  - [How to upload a TFT file](#how-to-upload-a-tft-file)
-  - [Update is not possible](#update-is-not-possible)
-  - [Error on sleep](#error-on-sleep)
-  - [The display should change its brightness and sleep state over the day](#the-display-should-change-its-brightness-and-sleep-state-over-the-day)
-  - [My NSPanel devices are not discovered](#my-nspanel-devices-are-not-discovered)
-
 ## I don't know how to start
 
 Take a look at some [example configurations](Example_Config.md). If you still don't know, how to do anything, please open an issue.

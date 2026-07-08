@@ -5,16 +5,6 @@ description: Device-level configuration keys for NSPanel HAUI
 
 # Device Configuration
 
-[README](https://github.com/happydasch/nspanel_haui) | [Documentation](../README.md) | [Installation](../Install.md) | [Configuration](../Config.md) | [Panels](../panels/README.md) | [FAQ](../FAQ.md)
-
-[< Configuration](../Config.md)
-
-- [Device Configuration](#device-configuration)
-  - [Navigation Configuration](#navigation-configuration)
-  - [Notification Configuration](#notification-configuration)
-  - [Update Controller](#update-controller)
-  - [Connection Controller](#connection-controller)
-  - [Gesture Controller](#gesture-controller)
 
 ## Device Configuration
 

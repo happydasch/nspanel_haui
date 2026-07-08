@@ -4,14 +4,6 @@ description: Unlock popup panel configuration and usage
 ---
 
 # Popup Unlock
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Popup Unlock](#popup-unlock)
-  - [About](#about)
-  - [Config](#config)
-  - [Screens](#screens)
-
 ## About
 
 `type: popup_unlock`
@@ -37,15 +29,3 @@ panels:
     # set a unlock code
     unlock_code: "1234"
 ```
-
-## Screens
-
-![Popup Unlock](../assets/popup_unlock.png)
-
-While inputting keycode:
-
-![Popup Input](../assets/popup_unlock_input.png)
-
-Unlocked state:
-
-![Popup Unlock Open](../assets/popup_unlock_open.png)

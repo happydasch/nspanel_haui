@@ -4,15 +4,6 @@ description: Cover panel configuration and options
 ---
 
 # Panel Cover
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel Cover](#panel-cover)
-  - [About](#about)
-  - [Popup](#popup)
-  - [Config](#config)
-  - [Screens](#screens)
-
 ## About
 
 `type: cover`
@@ -32,13 +23,3 @@ panels:
   - type: cover
     entity: cover.example_cover
 ```
-
-## Screens
-
-![Subpanel Cover](../assets/subpanel_cover.png)
-
-![Panel Cover](../assets/panel_cover.png)
-
-Popup:
-
-![Popup Cover](../assets/popup_cover.png)

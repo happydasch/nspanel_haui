@@ -4,16 +4,6 @@ description: Climate panel configuration and options
 ---
 
 # Panel Climate
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel Climate](#panel-climate)
-  - [About](#about)
-  - [Popup](#popup)
-  - [Config](#config)
-    - [HVAC Modes `hvac_modes`](#hvac-modes-hvac_modes)
-  - [Screens](#screens)
-
 ## About
 
 `type: climate`
@@ -47,13 +37,3 @@ panels:
     entity: climate.example_climate
     hvac_modes: ["off", "heat", "cool"]
 ```
-
-## Screens
-
-![Subpanel Climate](../assets/subpanel_climate.png)
-
-![Panel Climate](../assets/panel_climate.png)
-
-![Panel Climate Temp Range](../assets/panel_climate_temp_range.png)
-
-![Popup Climate](../assets/popup_climate.png)

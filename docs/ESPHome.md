@@ -5,8 +5,6 @@ description: ESPHome configuration, scripts, events, and actions for the NSPanel
 
 # ESPHome Component
 
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
 The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome is being used.
 
 - Uses the ESPHome and the nextion display component
@@ -15,35 +13,12 @@ The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAs
 
 For the communication between the device and the server ESPHome native API events are used.
 
-- [ESPHome Component](#esphome-component)
-  - [Installation](#installation)
-  - [Config](#config)
-  - [Communication](#communication)
-    - [Connection Globals](#connection-globals)
-    - [Connection Scripts](#connection-scripts)
-    - [Events](#events)
-    - [Actions](#actions)
-  - [Requests](#requests)
-  - [Responses](#responses)
-  - [Commands](#commands)
-  - [Events](#events-1)
-  - [Actions](#actions-1)
-  - [Page](#page)
-  - [Interaction](#interaction)
-    - [Interaction Sensors](#interaction-sensors)
-  - [Brightness and Dimming](#brightness-and-dimming)
-    - [Brightness Sensors](#brightness-sensors)
-  - [Temperature](#temperature)
-  - [Buttons](#buttons)
-  - [Diagnostics](#diagnostics)
-  - [Other](#other)
-
 ## Installation
 
 See `esphome/install.yaml` for the installation configuration. This file is going to be installed on the device.
 See `esphome/nspanel_haui.yaml` for the esphome configuration file. This file contains all ESPHome functionality.
 
-Copy the secrets from `esphome/secrets.yaml` and add them in ESPHome by pressing the `Secrets` Link in the right corner. This step is not neccessary if you add the secrets directly in the config file.
+Copy the secrets from `esphome/secrets.yaml` and add them in ESPHome by pressing the `Secrets` Link in the right corner. This step is not necessary if you add the secrets directly in the config file.
 
 To install ESPHome on the device use the config from `esphome/install.yaml`. Edit the substitution values and install the device.
 
@@ -146,7 +121,7 @@ These responses will be sent after a request.
 These are commands that are being executed on the ESP.
 
 - `send_command` Sends a command to the nextion display
-- `send_commands`Sends multiple commands to the nextion display
+- `send_commands` Sends multiple commands to the nextion display
 - `goto_page` Sets the active page on display
 - `send_notification` Sends a notification to the display
 

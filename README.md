@@ -9,8 +9,6 @@ A Home Assistant custom integration that replaces the stock Sonoff NSPanel firmw
 
 [Documentation](docs/README.md) &middot; [Panels Overview](docs/panels/README.md) &middot; [Installation Guide](docs/Install.md) &middot; [Configuration](docs/Config.md) &middot; [FAQ](docs/FAQ.md) &middot; [Example Configs](docs/Example_Config.md) &middot; [HA Community Thread](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
 
-![Panels](docs/assets/feature_panels.png)
-
 ---
 
 ## Features
@@ -114,16 +112,7 @@ System panels (blank, settings, about, loading) and popups (unlock, notify, sele
 
 ## Configuration
 
-All device settings — panels, entities, gestures, dimming, sleep, and colours — are managed through the Home Assistant interface.
-
-| Editor views | Device settings |
-|---|---|
-| ![Grid or List](docs/assets/screenshots/grid_or_list.png) | ![Device Manager](docs/assets/screenshots/device_manager.png) |
-| ![Grid View](docs/assets/screenshots/grid.png) | ![Device Settings](docs/assets/screenshots/device_settings.png) |
-| ![System Panels](docs/assets/screenshots/system_panels.png) | ![Device Colors](docs/assets/screenshots/device_colors.png) |
-| ![Add Panel](docs/assets/screenshots/add_panel.png) | ![Device Info](docs/assets/screenshots/device_info.png) |
-
-See the [Configuration guide](docs/Config.md) for all available options and the [Device description](docs/Device.md) for a full feature overview.
+All device settings — panels, entities, gestures, dimming, sleep, and colours — are managed through the Home Assistant interface. See the [Configuration guide](docs/Config.md) for all available options and the [Device description](docs/Device.md) for a full feature overview.
 
 ---
 

@@ -4,14 +4,6 @@ description: System panel configuration and options
 ---
 
 # Panel System
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel System](#panel-system)
-  - [About](#about)
-  - [Config](#config)
-  - [Screens](#screens)
-
 ## About
 
 `type: system`
@@ -27,12 +19,3 @@ The system panel is the entry point when connecting. On initial connection it wi
 ```yaml
 # No config available
 ```
-
-## Screens
-
-![Panel System Not Connected](../assets/panel_system_not_connected.png)
-
-If the panel has connected once to the AD server, the screen will look this way:
-
-![Panel System Connected](../assets/panel_system_connected.png)
-

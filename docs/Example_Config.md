@@ -4,15 +4,6 @@ description: Sample YAML configurations for NSPanel HAUI panels
 ---
 
 # Example Configurations
-
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
-- [Example Configurations](#example-configurations)
-  - [Simple config](#simple-config)
-  - [Single page](#single-page)
-  - [Multiple navigation pages](#multiple-navigation-pages)
-  - [Multiple pages with subpages](#multiple-pages-with-subpages)
-
 ## Simple config
 
 Import via the HA UI: **NSPanel HAUI → YAML Import** (enter your device name).

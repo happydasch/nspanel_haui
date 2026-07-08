@@ -4,20 +4,6 @@ description: Panel configuration — modes, navigation, home/sleep/wakeup, and l
 ---
 
 # Panel Configuration
-
-[README](https://github.com/happydasch/nspanel_haui) | [Documentation](../README.md) | [Installation](../Install.md) | [Configuration](../Config.md) | [Panels](../panels/README.md) | [FAQ](../FAQ.md)
-
-[< Configuration](../Config.md)
-
-- [Panel Configuration](#panel-configuration)
-  - [Panel Modes](#panel-modes)
-  - [Accessing a panel](#accessing-a-panel)
-  - [Closing a panel automatically](#closing-a-panel-automatically)
-  - [Using a Panel as a Home Panel](#using-a-panel-as-a-home-panel)
-  - [Using a Panel as a Sleep Panel](#using-a-panel-as-a-sleep-panel)
-  - [Using Panel as a Wakeup Panel](#using-panel-as-a-wakeup-panel)
-  - [Locking a Panel with a Code](#locking-a-panel-with-a-code)
-
 `panels` list
 
 ```yaml

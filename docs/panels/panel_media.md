@@ -4,17 +4,6 @@ description: Media panel configuration and options
 ---
 
 # Panel Media
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel Media](#panel-media)
-  - [About](#about)
-  - [Popup](#popup)
-  - [Config](#config)
-  - [Grouping / Ungrouping](#grouping--ungrouping)
-  - [Media](#media)
-  - [Screens](#screens)
-
 ## About
 
 `type: media`
@@ -89,9 +78,3 @@ media_favorites:
   - media-source://media_source/local/playlist_1.mp3
   - media-source://media_source/local/playlist_2.mp3
 ```
-
-## Screens
-
-![Subpanel Media](../assets/subpanel_media.png)
-
-![Panel Media](../assets/panel_media.png)

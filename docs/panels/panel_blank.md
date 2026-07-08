@@ -4,14 +4,6 @@ description: Blank panel used for sleep/idle state
 ---
 
 # Panel Blank
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel Blank](#panel-blank)
-  - [About](#about)
-  - [Config](#config)
-  - [Screens](#screens)
-
 ## About
 
 `type: blank`
@@ -27,7 +19,3 @@ The blank panel is used by the panel when sleeping to prevent accidental touch e
 ```yaml
 # No config available
 ```
-
-## Screens
-
-![Panel Blank](../assets/panel_blank.png)

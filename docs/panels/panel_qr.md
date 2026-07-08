@@ -4,17 +4,6 @@ description: QR Code panel configuration and options
 ---
 
 # Panel QR-Code
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel QR-Code](#panel-qr-code)
-  - [About](#about)
-  - [Config](#config)
-    - [QR-Code Format](#qr-code-format)
-    - [Start with big QR](#start-with-big-qr)
-    - [Text display](#text-display)
-  - [Screens](#screens)
-
 ## About
 
 `type: qr`
@@ -86,17 +75,3 @@ When `show_text` is `true` and no entities are configured, the SSID and password
   password: MyPassW0rd
   show_text: true
 ```
-
-## Screens
-
-![Subpanel QR-Code](../assets/subpanel_qr.png)
-
-![Panel QR-Code](../assets/panel_qr.png)
-
-Panel with zoomed qr-code:
-
-![Panel QR-Code](../assets/panel_qr_zoom.png)
-
-Big qr-code without text:
-
-![Panel Big QR-Code](../assets/panel_qr_only_qr.png)

@@ -4,16 +4,6 @@ description: Guide for developing custom integrations with NSPanel HAUI
 ---
 
 # Custom Integration
-
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
-- [Custom Integration](#custom-integration)
-  - [Overview](#overview)
-  - [Requirements](#requirements)
-  - [Installation](#installation)
-  - [Configuration](#configuration)
-  - [Multiple Devices](#multiple-devices)
-
 ## Overview
 
 NSPanel HAUI can run as a native Home Assistant custom integration. No external addon required. The config format is identical to the Hub setup - only the file location changes.
@@ -25,19 +15,20 @@ NSPanel HAUI can run as a native Home Assistant custom integration. No external 
 
 ## Installation
 
-1. Copy the `custom_components/nspanel_haui/` folder into your HA config directory:
+For most users, the **recommended installation method** is via HACS, adding the integration through the Home Assistant UI's config flow workflow. This avoids manual YAML editing:
 
+1. Install via HACS or copy the `custom_components/nspanel_haui/` folder into your HA config directory:
    ```
    <ha_config>/custom_components/nspanel_haui/
    ```
-
-   HACS or manual copy both work.
-
 2. Restart Home Assistant.
+3. Go to **Settings → Devices & Services → Add Integration → NSPanel HAUI** to set up via the config flow.
 
 ## Configuration
 
-Add to `configuration.yaml`. The `config:` block contains panels and entities:
+**The primary configuration method is the HA UI panel editor.** After adding the integration, open the NSPanel device page to add, remove, and configure panels.
+
+For advanced setups or bulk import, YAML configuration in `configuration.yaml` is still supported. The `config:` block defines panels and entities:
 
 ```yaml
 nspanel_haui:

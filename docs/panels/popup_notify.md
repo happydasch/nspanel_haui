@@ -4,14 +4,6 @@ description: Notify popup panel configuration and usage
 ---
 
 # Popup Notify
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Popup Notify](#popup-notify)
-  - [About](#about)
-  - [Config](#config)
-  - [Screens](#screens)
-
 > For the notification queue shown when the notification bell is tapped, see [Popup Notifs](popup_notifs.md).
 
 ## About
@@ -82,11 +74,3 @@ def callback(self, btn_left: bool, btn_right: bool):
 # as a lambda
 button_callback_fnc=lambda btn_left, btn_right: # do something
 ```
-
-## Screens
-
-![Popup Notification](../assets/popup_notify.png)
-
-Full width (no icon):
-
-![Popup Notification](../assets/popup_notify_full.png)

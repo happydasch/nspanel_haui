@@ -4,14 +4,6 @@ description: About panel configuration and options
 ---
 
 # Panel About
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel About](#panel-about)
-  - [About](#about)
-  - [Config](#config)
-  - [Screens](#screens)
-
 ## About
 
 `type: system_about`
@@ -34,7 +26,3 @@ Displays:
 ```yaml
 # No config available
 ```
-
-## Screens
-
-![Panel About](../assets/panel_about.png)

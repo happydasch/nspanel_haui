@@ -4,15 +4,6 @@ description: Notification popup panel configuration and usage
 ---
 
 # Popup Notifs
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Popup Notifs](#popup-notifs)
-  - [About](#about)
-  - [Sending notifications](#sending-notifications)
-  - [Persistent notifications](#persistent-notifications)
-  - [Device config](#device-config)
-
 > For the simple one-shot popup used internally, see [Popup Notify](popup_notify.md).
 
 ## About

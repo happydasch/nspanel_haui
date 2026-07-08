@@ -4,20 +4,6 @@ description: ClockTwo panel configuration and options
 ---
 
 # Panel ClockTwo
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel ClockTwo](#panel-clocktwo)
-  - [About](#about)
-  - [Config](#config)
-    - [Background](#background)
-    - [Change language](#change-language)
-    - [Custom colors](#custom-colors)
-    - [Show AM/PM](#show-ampm)
-    - [Show Intro Text](#show-intro-text)
-    - [Show Notifications](#show-notifications)
-  - [Screens](#screens)
-
 ## About
 
 `type: clocktwo`
@@ -101,9 +87,3 @@ The intro text can be omitted by setting `show_intro_text` and `show_intro_text_
 ### Show Notifications
 
 The notifications icon can be hidden by setting `show_notifications` to `False`
-
-## Screens
-
-![Panel ClockTwo](../assets/panel_clocktwo.png)
-
-![Panel ClockTwo Background](../assets/panel_clocktwo_background.png)

@@ -5,29 +5,7 @@ description: NSPanelHAUI hub app architecture, structure, and internal component
 
 # Hub Component
 
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
 NSPanelHAUI is the backend that allows to manage home automation devices using the NSPanel.
-
-- [Hub Component](#hub-component)
-  - [Requirements](#requirements)
-  - [Installation](#installation)
-  - [Structure](#structure)
-    - [Base Component](#base-component)
-    - [App](#app)
-    - [Config](#config)
-    - [Device](#device)
-    - [Page](#page)
-    - [Panel](#panel)
-    - [Entity](#entity)
-  - [Connection](#connection)
-  - [Navigation](#navigation)
-  - [Gestures](#gestures)
-  - [Updates](#updates)
-  - [Events](#events)
-  - [Communication](#communication)
-  - [Available Pages](#available-pages)
-  - [Available Panels](#available-panels)
 
 ## Requirements
 

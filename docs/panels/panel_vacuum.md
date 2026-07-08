@@ -4,15 +4,6 @@ description: Vacuum panel configuration and options
 ---
 
 # Panel Vacuum
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel Vacuum](#panel-vacuum)
-  - [About](#about)
-  - [Popup](#popup)
-  - [Config](#config)
-  - [Screens](#screens)
-
 ## About
 
 `type: vacuum`
@@ -32,9 +23,3 @@ panels:
   - type: vacuum
     entity: vacuum.example_vacuum
 ```
-
-## Screens
-
-![Subpanel Vacuum](../assets/subpanel_vacuum.png)
-
-![Panel Vacuum](../assets/panel_vacuum.png)

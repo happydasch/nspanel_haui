@@ -4,19 +4,6 @@ description: Clock panel configuration and options
 ---
 
 # Panel Clock
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel Clock](#panel-clock)
-  - [About](#about)
-  - [Config](#config)
-    - [Background](#background)
-    - [Cycle Cards](#cycle-cards)
-    - [Weather](#weather)
-    - [Item Buttons](#item-buttons)
-    - [Show Notifications](#show-notifications)
-  - [Screens](#screens)
-
 ## About
 
 `type: clock`
@@ -126,11 +113,3 @@ items:
 ### Show Notifications
 
 The notifications icon can be hidden by setting `show_notifications` to `False`.
-
-## Screens
-
-![Panel Clock](../assets/panel_clock.png)
-
-![Panel Clock Simple](../assets/panel_clock_simple.png)
-
-![Panel Clock Background](../assets/panel_clock_background.png)

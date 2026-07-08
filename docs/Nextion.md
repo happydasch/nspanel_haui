@@ -4,17 +4,6 @@ description: Nextion display configuration, HMI editing, and display rendering
 ---
 
 # Nextion Component
-
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
-- [Nextion Component](#nextion-component)
-  - [Installation](#installation)
-  - [How to edit the HMI file](#how-to-edit-the-hmi-file)
-  - [Display dimensions and non-visible area](#display-dimensions-and-non-visible-area)
-  - [Panel rendering and refresh](#panel-rendering-and-refresh)
-  - [Advanced queue tuning options](#advanced-queue-tuning-options)
-  - [Scripts for display](#scripts-for-display)
-
 ## Installation
 
 To install the TFT file on the display, the device needs to be already flashed with ESPHome.

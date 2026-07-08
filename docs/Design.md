@@ -5,27 +5,11 @@ description: Visual design guidelines for Nextion display panels
 
 # Design Guidelines
 
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
-![Grid](assets/nextion_images/grid.png)
-
-- [Design Guidelines](#design-guidelines)
-  - [Overview](#overview)
-  - [Style](#style)
-  - [Fonts](#fonts)
-  - [Icons](#icons)
-  - [Colors](#colors)
-  - [Header](#header)
-
 ## Overview
-
-![Overview](assets/style_overview.png)
 
 You can download a [template file](assets/panel.psd) in PSD Format.
 
 ## Style
-
-![Components](assets/style_components.png)
 
 The display is splitted into two areas, a top area and a main area.
 
@@ -34,8 +18,6 @@ The top area is used for navigation and a header.
 The main area is used for content.
 
 ## Fonts
-
-![Text](assets/style_text.png)
 
 The font [Roboto](https://github.com/googlefonts/roboto) and [MaterialDesign-Webfont](https://github.com/Templarian/MaterialDesign-Webfont) is being used.
 
@@ -60,8 +42,6 @@ The icons available can be viewed here:
 - [Pictogrammers](https://pictogrammers.com/library/mdi/) if you need the char of the source font
 
 ## Colors
-
-![Color](assets/style_color.png)
 
 The display is using these colors.
 

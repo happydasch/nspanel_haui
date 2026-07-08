@@ -4,15 +4,6 @@ description: Grid panel configuration and options
 ---
 
 # Panel Grid
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel Grid](#panel-grid)
-  - [About](#about)
-  - [Config](#config)
-    - [Per-Item Color Overrides](#per-item-color-overrides)
-  - [Screens](#screens)
-
 ## About
 
 `type: grid`
@@ -78,13 +69,3 @@ panels:
 If more than 6 entities are configured, a next-page button appears. The panel
 remembers which page you last viewed and returns to it on revisit — this is
 automatic, not configurable.
-
-## Screens
-
-![Subpanel Grid](../assets/subpanel_grid.png)
-
-![Panel Grid](../assets/panel_grid.png)
-
-Simple grid (no background, no power button):
-
-![Panel Grid Simple](../assets/panel_grid_simple.png)

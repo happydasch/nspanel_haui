@@ -4,27 +4,6 @@ description: Item configuration — entities, state, name, value, icon, color, i
 ---
 
 # Item Configuration
-
-[README](https://github.com/happydasch/nspanel_haui) | [Documentation](../README.md) | [Installation](../Install.md) | [Configuration](../Config.md) | [Panels](../panels/README.md) | [FAQ](../FAQ.md)
-
-[< Configuration](../Config.md)
-
-- [Item Configuration](#item-configuration)
-  - [How items relate to HA entities](#how-items-relate-to-ha-entities)
-  - [Item State](#item-state)
-  - [Item Name](#item-name)
-  - [Item Value](#item-value)
-  - [Item Icon](#item-icon)
-    - [Templating using HomeAssistant](#templating-using-homeassistant)
-    - [Icon value type](#icon-value-type)
-  - [Item Color](#item-color)
-  - [Internal Items](#internal-items)
-    - [Item: skip](#item-skip)
-    - [Item: text](#item-text)
-    - [Item: navigate](#item-navigate)
-    - [Item: action](#item-action)
-  - [Override a default popup](#override-a-default-popup)
-
 An **item** is the basic building block that a panel displays or acts on.  Each item is
 represented at runtime by the `HAUIItem` class.  An item can be one of two kinds:
 

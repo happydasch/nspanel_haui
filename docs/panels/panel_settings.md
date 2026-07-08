@@ -4,14 +4,6 @@ description: Settings panel configuration and options
 ---
 
 # Panel Settings
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
-- [Panel Settings](#panel-settings)
-  - [About](#about)
-  - [Config](#config)
-  - [Screens](#screens)
-
 ## About
 
 `type: system_settings`
@@ -32,7 +24,3 @@ Available settings:
 ```yaml
 # No config available
 ```
-
-## Screens
-
-![Panel Settings](../assets/panel_settings.png)

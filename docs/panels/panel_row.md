@@ -4,9 +4,6 @@ description: Row panel configuration and options
 ---
 
 # Panel Row
-
-[< All Panels](README.md) | [Configuration](../Config.md) | [FAQ](../FAQ.md)
-
 ## About
 
 `type: row`
@@ -28,9 +25,3 @@ panels:
 If more than 5 entities are configured, a next-page button appears. The panel
 remembers which page you last viewed and returns to it on revisit — this is
 automatic, not configurable.
-
-## Screens
-
-![Subpanel Row](../assets/subpanel_row.png)
-
-![Panel Row](../assets/panel_row.png)

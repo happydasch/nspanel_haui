@@ -5,8 +5,6 @@ description: HomeAssistant UI for the Sonoff NSPanel — documentation index
 
 # NSPanel HomeAssistant UI Docs
 
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
 ## End User
 
 For details about installation and configuration see the following pages.
@@ -57,10 +55,10 @@ The display operations with minimal logic are assigned to Nextion, which works i
 
 ## Versioning
 
-There are version informations for:
+Version information is maintained for:
 
-- Hub App
-- YAML-File for ESPHome
-- TFT-Display File (Matches Release Version)
+- **Hub App** — tracked in `custom_components/nspanel_haui/haui/version.py` and synced to `manifest.json` and `pyproject.toml`
+- **ESPHome YAML** — the ESPHome device config tracks its own compatibility version
+- **TFT Display File** — matches the Hub App release version
 
-Every release should contain the tft files as assets. The version for the tft files should match the release version.
+Every release should include the compiled TFT file as a release asset.

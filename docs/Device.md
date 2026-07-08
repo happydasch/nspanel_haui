@@ -4,21 +4,6 @@ description: Device behavior, gestures, display states, hardware buttons, and so
 ---
 
 # Device Description
-
-[README](README.md) | [Documentation](README.md) | [Installation](Install.md) | [Configuration](Config.md) | [Panels](panels/README.md) | [FAQ](FAQ.md)
-
-- [Device Description](#device-description)
-  - [Device](#device)
-    - [Gestures](#gestures)
-    - [Display State Sleep, Dimmed and On](#display-state-sleep-dimmed-and-on)
-    - [Sleep Panel](#sleep-panel)
-    - [Waking up](#waking-up)
-    - [Return Panel after Wakeup](#return-panel-after-wakeup)
-    - [Hardware Buttons](#hardware-buttons)
-    - [Sounds](#sounds)
-  - [Panels](#panels)
-    - [Notifications](#notifications)
-
 ## Device
 
 The device is responsible for gestures, display state and its hardware buttons. The device functionality is implemented in `haui/device.py`. Per-device configuration constants (field names, defaults) live in `haui/device_config.py`. The communication between server and client is described in [Communication.md](Communication.md).

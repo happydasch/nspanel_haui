@@ -19,5 +19,3 @@ The vacuum entity panel allows to control a vacuum entity.
 ## Config
 
 Panel options are configured through the NSPanel HAUI editor in Home Assistant.
-
-

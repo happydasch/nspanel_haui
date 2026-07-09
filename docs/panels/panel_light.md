@@ -21,5 +21,3 @@ The functions available depend on the light entity being used. Only buttons for 
 ## Config
 
 Panel options are configured through the NSPanel HAUI editor in Home Assistant.
-
-

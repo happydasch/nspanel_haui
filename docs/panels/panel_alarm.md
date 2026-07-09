@@ -13,5 +13,3 @@ The alarm panel provides a numeric keypad (0–9, CLR, DEL) for entering an alar
 ## Config
 
 Panel options are configured through the NSPanel HAUI editor in Home Assistant.
-
-

@@ -126,4 +126,3 @@ System panels. The system panels are always available and there is no need to co
 ### [Panel About](panel_about.md) `sys_about`
 
   System panel for about details.
-

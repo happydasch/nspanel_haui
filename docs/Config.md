@@ -23,5 +23,3 @@ The following device-level settings control time and date formatting. Configurat
 | `time_format` | Time format using Python `strftime` codes (e.g. `%H:%M`). See the [Python datetime docs](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes) for available codes. |
 | `date_format` | Date format using Python `strftime` codes (e.g. `%A, %d. %B %Y`). |
 | `date_format_locale` | CLDR locale format key (e.g. `full`, `long`, `medium`, `short`). Deprecated alias: `date_format_babel` (still supported for backward compatibility). |
-
-

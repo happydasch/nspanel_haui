@@ -15,4 +15,3 @@ The blank panel is used by the panel when sleeping to prevent accidental touch e
 **This panel is a system panel and should not be used in the configuration.**
 
 ## Config
-

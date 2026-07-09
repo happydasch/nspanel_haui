@@ -1,5 +1,4 @@
 {
   "name": "NSPanel HomeAssistant UI",
-  "homeassistant": "2026.5",
-  "domains": ["nspanel_haui"]
+  "homeassistant": "2026.5"
 }

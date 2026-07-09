@@ -36,5 +36,3 @@ It is possible to group/ungroup media_player entities. The available group membe
 
 - `media_favorites` allows to use media content IDs. The editor shows one editable row
   per favorite.
-
-

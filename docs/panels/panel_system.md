@@ -15,4 +15,3 @@ The system panel is the entry point when connecting. On initial connection it wi
 **This panel is a system panel and should not be used in the configuration.**
 
 ## Config
-

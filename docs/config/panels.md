@@ -61,4 +61,4 @@ If no sleep occured but page was changed, it will return to the last active pane
 
 `unlock_code` string
 
-Panels can be locked with a code. If a unlock_code is set, the panel will be only accessible after entering the unlock code.
+Panels can be locked with a code. If an unlock_code is set, the panel will be only accessible after entering the unlock code.

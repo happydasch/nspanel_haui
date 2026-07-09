@@ -12,10 +12,7 @@ description: System panel configuration and options
 
 The system panel is the entry point when connecting. On initial connection it will show a QR code with a url leading to docs. If once initialized and connected then it will show a localized message when disconnected.
 
-**This panel a system panel and should not be used in the configuration.**
+**This panel is a system panel and should not be used in the configuration.**
 
 ## Config
 
-```yaml
-# No config available
-```

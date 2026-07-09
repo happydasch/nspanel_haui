@@ -5,10 +5,9 @@ description: Device-level configuration keys for NSPanel HAUI
 
 # Device Configuration
 
+Device-level settings configure the NSPanel hardware behaviour — buttons, sounds, timeouts, and display states. These are configured through the NSPanel HAUI device editor in Home Assistant.
 
 ## Device Configuration
-
-`device` dict
 
 - `name` string
 
@@ -20,8 +19,8 @@ description: Device-level configuration keys for NSPanel HAUI
 
 - `panels` list
 
-  Per-device panel list.  Each panel is at minimum `{"type": "<type_key>"}`.
-  Default `[{"type": "clock"}]`.
+Per-device panel list. Each panel has a type defined in the editor.
+  Default first panel is `clock`.
 
 - `esphome_device_id` string
 
@@ -127,68 +126,22 @@ description: Device-level configuration keys for NSPanel HAUI
 
   Debug verbosity level (0-3). Higher values produce more log output. Default `0`.
 
-```yaml
-device:
-  name: ""
-  locale: "en_US"
-  panels: [{"type": "clock"}]
-  esphome_device_id: ""
-  enabled: true
-  button_left_entity: ""
-  button_right_entity: ""
-  home_panel: ""
-  sleep_panel: ""
-  wakeup_panel: ""
-  show_home_button: false
-  show_sleep_button: false
-  show_notifications_button: true
-  log_items: false
-  debug_level: 0
-  reset_interaction_on_button: true
-  snapshot_max_age_seconds: -1
-  hub_idle_timeout: 0
-  auto_navigate_home_timeout: 0
-  use_relay_left: true
-  use_relay_right: true
-  sound_on_startup: true
-  sound_on_notification: true
-  color_overrides: {}
-```
+Configured through the NSPanel HAUI device editor in Home Assistant.
 
 ## Navigation Configuration
 
-`navigation` dict
-
-```yaml
-navigation:
-  page_timeout: 2.0
-```
+Configured through the NSPanel HAUI device editor in Home Assistant.
 
 ## Notification Configuration
 
-`notification` dict
-
-```yaml
-notification: {}
-```
+Configured through the NSPanel HAUI device editor in Home Assistant.
 
 ## Update Controller
 
-The update controller is responsible for checking version informations and notify about any issues.
-
+The update controller is responsible for checking version information and notifying about any issues.
 To enable update checks set an interval > 0 and/or set check_on_connect to true.
 
-`update` dict
-
-```yaml:
-update:
-  auto_install: True  # Install tft file automatically if no or a unknown tft file is installed
-  auto_update: false  # Update automatically on new releases
-  tft_filename: nspanel_haui.tft  # The asset filename to load
-  check_on_connect: false  # Should be checked for updates when connected
-  on_connect_delay: 60  # Delay between connect and check
-  update_interval: 0  # Set to 86400 for daily checks
-```
+Configured through the NSPanel HAUI device editor in Home Assistant.
 
 - `auto_install` bool
 - `auto_update` bool
@@ -199,21 +152,11 @@ update:
 
 ## Connection Controller
 
-`connection` dict
-
-```yaml
-connection:
-  heartbeat_interval: null
-  overdue_factor: 2.0
-```
+Configured through the NSPanel HAUI device editor in Home Assistant.
 
 - `heartbeat_interval` int
 - `overdue_factor` float
 
 ## Gesture Controller
 
-`gesture` dict
-
-```yaml
-gesture: {}
-```
+Configured through the NSPanel HAUI device editor in Home Assistant.

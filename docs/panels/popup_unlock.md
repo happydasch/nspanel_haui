@@ -10,9 +10,9 @@ description: Unlock popup panel configuration and usage
 
 `key: popup_unlock`
 
-The unlock popup panel is being used internally to provide a unlocking mechanism for panels.
+The unlock popup panel is used internally to provide an unlocking mechanism for panels.
 
-To use this panel, just set a unlock code to any other panel.
+To use this panel, just set an unlock code on any other panel.
 
 This panel is using the buttons of the locked panel.
 
@@ -20,12 +20,4 @@ This panel is using the buttons of the locked panel.
 
 The unlock code needs to be a string.
 
-```yaml
-panels:
-
-  # this panel will be locked and can be unlocked using the unlock code
-  - type: grid
-    title: Unlock Panel
-    # set a unlock code
-    unlock_code: "1234"
-```
+All panel options are configured through the NSPanel HAUI editor in Home Assistant.

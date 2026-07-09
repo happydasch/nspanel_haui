@@ -80,6 +80,31 @@ The rendering cycle has two paths:
 - **Full render** (`display_panel`): used for initial page display, panel switches, and overflow recovery. Resets the command-dedup cache so the first batch is never suppressed as a duplicate of the previous page.
 - **Refresh** (`refresh_panel`): used for incremental updates (entity state changes, clock ticks, etc.). Re-runs `render_panel` on the already-active panel without a page transition.
 
+```mermaid
+flowchart TD
+    Event{What triggered<br/>the render?}
+    
+    Event -->|Page switch /<br/>initial display| Full[Full Render - display_panel]
+    Event -->|Entity state change /<br/>clock tick| Refresh[Refresh - refresh_panel]
+    
+    Full --> Cache[Reset command-dedup cache]
+    Cache --> Goto[Send goto_page command]
+    Goto --> Ack{0x66 ack<br/>received?}
+    Ack -->|Yes| Settle[Wait page_settle_delay]
+    Ack -->|Timeout 10s| Fallback[Force-resend page command<br/>and render anyway]
+    Settle --> Render[render_panel - full display commands]
+    Fallback --> Render
+    
+    Refresh --> RenderDirect[render_panel - incremental<br/>display commands]
+    
+    RenderDirect --> Batch[Batch and send via send_commands]
+    Render --> Batch
+    Batch --> Done[Done]
+    
+    style Full fill:#4ba6ee,color:#fff
+    style Refresh fill:#f09d37,color:#fff
+```
+
 #### Page settle delay
 
 After a page-change command the Nextion sends a 0x66 ack once the new page is active. The hub waits for this ack before sending render commands — commands arriving before the ack are rejected with "Invalid variable name" (0x1A) because page components are not yet initialised.

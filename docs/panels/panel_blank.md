@@ -12,10 +12,7 @@ description: Blank panel used for sleep/idle state
 
 The blank panel is used by the panel when sleeping to prevent accidental touch events while waking up.
 
-**This panel a system panel and should not be used in the configuration.**
+**This panel is a system panel and should not be used in the configuration.**
 
 ## Config
 
-```yaml
-# No config available
-```

@@ -12,25 +12,6 @@ The clocktwo panel shows the current time by using written text on the display.
 
 ## Config
 
-```yaml
-panels:
-
-  # clocktwo panel
-  - type: clocktwo
-
-  # clocktwo panel with a different background
-  - type: clocktwo
-    background: dog_1
-
-  # clocktwo panel with a background and with custom colors
-  - type: clocktwo
-    clock_language: en
-    background: dog_1
-    off_color:
-    letter_color:
-    special_color:
-```
-
 ### Background
 
 The clocktwo panel can have different background images. To set a background use the `background` param.

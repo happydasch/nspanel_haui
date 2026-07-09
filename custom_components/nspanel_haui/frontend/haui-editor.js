@@ -34,7 +34,7 @@ import { positionContextMenu } from './dom-helpers.js';
 import { selectDevice } from './device-manager.js';
 import { renderPanelTable, renderSystemPanels, renderEmptyCard } from './panel-table.js';
 import { renderPanelGrid } from './panel-grid.js';
-import { renderTitleHeader, renderDeviceInfoStrip, renderPanelToolbar, renderToolbarActions } from './toolbar.js';
+import { renderTitleHeader, renderDeviceInfoStrip, renderPanelToolbar, renderToolbarActions, renderFooter } from './toolbar.js';
 import { startStatusPolling, stopStatusPolling } from './device-info.js';
 
 import * as SystemPanels from './system-panels.js';
@@ -348,6 +348,7 @@ class NSPanelEditor extends LitElement {
         <ha-card outlined class="content-card">
           ${renderEmptyCard(t("No NSPanel HAUI integration configured. Add one via Settings \u2192 Devices and Services."))}
         </ha-card>
+        ${renderFooter(this)}
       </div>`;
     }
 
@@ -355,6 +356,7 @@ class NSPanelEditor extends LitElement {
       return html`<div class="container">
         ${renderTitleHeader(this)}
         <div class="loading">${t('Loading panels...')}</div>
+        ${renderFooter(this)}
       </div>`;
     }
 
@@ -455,6 +457,7 @@ class NSPanelEditor extends LitElement {
           @dialog-save=${this._onColorsSave}
         ></ha-dialog-colors>
         ${this._toast ? Toast.renderToast(this) : ""}
+        ${renderFooter(this)}
       </div>
     `;
   }

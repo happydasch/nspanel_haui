@@ -20,49 +20,15 @@ The album art, title, and artist info span the full panel width for a cleaner lo
 
 ## Config
 
-```yaml
-panels:
-  - type: media
-    entity: media_player.example_media_player
-    sonos_favorites: sensor.sonos_favorites
-    sonos_favorites_in_source: false
-    media_favorites: []
-    group_items: []
-```
+Panel options are configured through the NSPanel HAUI editor in Home Assistant.
+
+
 
 ## Grouping / Ungrouping
 
 It is possible to group/ungroup media_player entities. The available group members will be generated from `entities[1:]`, `group_items`, `group_members` of entity.
 
-```yaml
-panels:
-  - type: media
-    entity: media_player.media_player_to_control
-    group_items:
-      - media_player.group_member_1
-      - media_player.group_member_2
-      - media_player.group_member_3
 
-or
-
-panels:
-  - type: media
-    entity: media_player.media_player_to_control
-    entities:
-      - entity: media_player.group_member_1
-      - entity: media_player.group_member_2
-      - entity: media_player.group_member_3
-
-or
-
-panels:
-  - type: media
-    entities:
-      - entity: media_player.media_player_to_control
-      - entity: media_player.group_member_1
-      - entity: media_player.group_member_2
-      - entity: media_player.group_member_3
-```
 
 ## Media
 
@@ -71,10 +37,4 @@ panels:
 - `media_favorites` allows to use media content IDs. The editor shows one editable row
   per favorite.
 
-```yaml
-sonos_favorites: sensor.sonos_favorites
-sonos_favorites_in_source: false
-media_favorites:
-  - media-source://media_source/local/playlist_1.mp3
-  - media-source://media_source/local/playlist_2.mp3
-```
+

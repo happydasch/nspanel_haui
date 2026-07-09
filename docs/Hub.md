@@ -91,14 +91,37 @@ page start ..
   - **render_panel**(panel)
 - **after_render_panel**(panel, rendered)
 - **stop_panel**(panel)
+```mermaid
+sequenceDiagram
+    participant Page as Page Instance
+    participant Panel as HAUIPanel
 
-page stop ..
+    Page->>Panel: create_panel(panel)
+    Note over Panel: panel config loaded
+    
+    Page->>Panel: start_panel(panel)
+    Page->>Panel: config_panel(panel)
+    
+    Page->>Panel: before_render_panel(panel)
+    alt returns True
+        Page->>Panel: render_panel(panel)
+        Page->>Panel: after_render_panel(panel, rendered=True)
+    else returns False
+        Page->>Panel: after_render_panel(panel, rendered=False)
+    end
+    
+    Note over Panel: panel is active<br/>(entity updates trigger refresh)
+    
+    Page->>Panel: refresh_panel()
+    Page->>Panel: render_panel(panel)
+    
+    Page->>Panel: stop_panel(panel)
+    Note over Panel: panel cleaned up
+```
 
 While a panel is active, it can be refreshed using:
 
-- **refresh_panel()**
-
-  re-renders the currently set panel by calling render_panel. This will not be triggered automatically.
+- **refresh_panel()** — re-renders the currently set panel by calling render_panel. This will not be triggered automatically.
 
 ### Item
 
@@ -115,12 +138,23 @@ The connection between the Hub app and the device is managed by `haui.controller
 
 ### State Machine
 
-See [docs/Communication.md](Communication.md) for the full protocol description and sequence diagram.
+```mermaid
+stateDiagram-v2
+    state DISCONNECTED
+    state HANDSHAKING
+    state CONNECTED
 
-```
-DISCONNECTED ──req_connection──▶ HANDSHAKING ──res_device_state──▶ CONNECTED
-     ▲                                                               │
-     └───────────────────── timeout ────────────────────────────────┘
+    [*] --> DISCONNECTED
+    
+    DISCONNECTED --> HANDSHAKING: req_connection<br/>received from device
+    
+    HANDSHAKING --> HANDSHAKING: res_connection received<br/>(sends req_device_state)
+    HANDSHAKING --> CONNECTED: res_device_state received<br/>(sends hub_connection_initialized)
+    
+    CONNECTED --> DISCONNECTED: heartbeat timeout<br/>or hub_connection_closed
+    CONNECTED --> CONNECTED: bidirectional heartbeats<br/>(every heartbeat_interval)
+    
+    DISCONNECTED --> DISCONNECTED: livesign detection<br/>(re-initiate handshake)
 ```
 
 ### Bidirectional Heartbeats

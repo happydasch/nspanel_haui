@@ -17,6 +17,19 @@ The top area is used for navigation and a header.
 
 The main area is used for content.
 
+The 480×320 display is split into two zones:
+
+```mermaid
+flowchart TD
+    subgraph Display["NSPanel Display (480×320)"]
+        Header["Header Area (top)<br/>2 function buttons left + title + 2 function buttons right"]
+        Content["Main Area (bottom)<br/>Panel content<br/>- Grid, Light, Climate, Cover, etc."]
+    end
+    
+    style Header fill:#313131,color:#dedede
+    style Content fill:#181818,color:#dedede
+```
+
 ## Fonts
 
 The font [Roboto](https://github.com/googlefonts/roboto) and [MaterialDesign-Webfont](https://github.com/Templarian/MaterialDesign-Webfont) is being used.

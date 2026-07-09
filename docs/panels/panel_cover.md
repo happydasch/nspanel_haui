@@ -18,8 +18,4 @@ The cover entity panel allows to control a single cover entity. Open, stop, and 
 
 ## Config
 
-```yaml
-panels:
-  - type: cover
-    entity: cover.example_cover
-```
+All panel options are configured through the NSPanel HAUI editor in Home Assistant.

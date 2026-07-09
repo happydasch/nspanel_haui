@@ -20,21 +20,6 @@ When a button is visible and pressed the panel closes. Set `close_on_button: fal
 
 ## Config
 
-```yaml
-notification: Notification text
-btn_right: Button right text
-btn_left: Button left text
-icon: icon name or char   # optional - omit or leave empty to show full-width text
-btn_left_color: color definition
-btn_right_color: color definition
-btn_left_back_color: color definition
-btn_right_back_color: color definition
-icon_color: color definition
-button_callback_fnc: function for button notification
-close_callback_fnc: function for close notification
-close_on_button: true
-```
-
 **Icon:**
 
 `icon` is optional. When provided the text is shown in a narrower column beside the icon. When omitted (or set to an empty string) the text fills the full width.

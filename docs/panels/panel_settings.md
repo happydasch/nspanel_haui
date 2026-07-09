@@ -17,10 +17,7 @@ Available settings:
 - full brightness
 - dimmed brightness
 
-**This panel a system panel and should not be used in the configuration.**
+**This panel is a system panel and should not be used in the configuration.**
 
 ## Config
 
-```yaml
-# No config available
-```

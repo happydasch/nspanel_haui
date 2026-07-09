@@ -6,7 +6,7 @@ description: Device behavior, gestures, display states, hardware buttons, and so
 # Device Description
 ## Device
 
-The device is responsible for gestures, display state and its hardware buttons. The device functionality is implemented in `haui/device.py`. Per-device configuration constants (field names, defaults) live in `haui/device_config.py`. The communication between server and client is described in [Communication.md](Communication.md).
+The device is responsible for gestures, display state and its hardware buttons. The communication between server and client is described in [Communication.md](Communication.md).
 
 ### Gestures
 
@@ -78,7 +78,7 @@ The device will play sounds on different occasions. The sounds can be disabled.
 
 ## Panels
 
-The device supports multiple different panels which are displayed on the display. Each panel can be configured and a complex navigation hierachy is possible. To get an overview of all available panels, see [Panels overview](panels/README.md).
+The device supports multiple different panels which are displayed on the display. Each panel can be configured and a complex navigation hierarchy is possible. To get an overview of all available panels, see [Panels overview](panels/README.md).
 
 ### Notifications
 

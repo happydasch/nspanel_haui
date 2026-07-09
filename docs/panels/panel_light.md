@@ -20,9 +20,6 @@ The functions available depend on the light entity being used. Only buttons for 
 
 ## Config
 
-```yaml
-panels:
-  - type: light
-    entity: light.example_light
-    show_kelvin: false  # false = Mireds (default), true = Kelvin for color temperature display
-```
+Panel options are configured through the NSPanel HAUI editor in Home Assistant.
+
+

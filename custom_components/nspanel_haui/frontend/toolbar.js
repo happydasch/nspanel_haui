@@ -174,9 +174,7 @@ export function renderDeviceInfoStrip(host) {
               { icon: 'mdi:file-export', label: t('Export YAML'), disabled: !host._selectedDevice, action: () => host._onHeaderExportYaml() },
               'divider',
               { icon: 'mdi:file-document-outline', label: t('Logs'), action: () => { host._showLogs = true; host.requestUpdate(); } },
-              'divider',
-              { icon: 'mdi:help-circle-outline', label: t('Documentation'), action: () => { window.open('https://happydasch.github.io/nspanel_haui/', '_blank'); } },
-            ], () => { host._actionsMenuIndex = null; })
+              ], () => { host._actionsMenuIndex = null; })
           : ""}
       </div>
     </div>
@@ -251,6 +249,37 @@ export function renderToolbarActions(host) {
           <span>${t('List')}</span>
         </button>
       </div>
+    </div>
+  `;
+}
+
+/**
+ * Render a persistent footer with GitHub and Documentation links.
+ * Always visible at the bottom of the editor.
+ */
+export function renderFooter(host) {
+  return html`
+    <div class="editor-footer">
+      <a
+        class="footer-link"
+        href="https://github.com/happydasch/nspanel_haui"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="${t('GitHub')}"
+      >
+        <ha-icon icon="mdi:github"></ha-icon>
+        <span>${t('GitHub')}</span>
+      </a>
+      <a
+        class="footer-link"
+        href="https://happydasch.github.io/nspanel_haui/"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="${t('Documentation')}"
+      >
+        <ha-icon icon="mdi:help-circle-outline"></ha-icon>
+        <span>${t('Documentation')}</span>
+      </a>
     </div>
   `;
 }

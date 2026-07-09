@@ -17,16 +17,16 @@ If selection is bigger than available items, a function button in the header to 
 
 ## Config
 
-```yaml
-select_mode: What kind of display of selection, Default None (default, full)
-selected: Id of selected item
-items: List of items to display
-multiple: Allow to select multiple items, Default False
-multiple_delay: Delay before closing when multiple is True, Default 1.5
-close_on_select: Should the popup be closed after selection, Default True
-selection_callback_fnc: Function for selection
-close_callback_fnc: Function for close
-```
+The following config keys can be set:
+
+- `select_mode` — What kind of display of selection, Default None (default, full)
+- `selected` — Id of selected item
+- `items` — List of items to display
+- `multiple` — Allow to select multiple items, Default False
+- `multiple_delay` — Delay before closing when multiple is True, Default 1.5
+- `close_on_select` — Should the popup be closed after selection, Default True
+- `selection_callback_fnc` — Function for selection
+- `close_callback_fnc` — Function for close
 
 ### Select mode
 

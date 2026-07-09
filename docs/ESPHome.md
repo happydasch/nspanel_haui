@@ -363,6 +363,47 @@ The brightness change process is processed this way:
 - **After Sleep Timeout:** brightness goes to 0 if sleep mode is activated,
   duration is defined by dimming duration (State off)
 
+
+```mermaid
+stateDiagram-v2
+    [*] --> On: Touch / Button
+    
+    state On {
+        [*] --> FullBrightness: dimming_timeout not expired
+        FullBrightness --> FullBrightness: touch resets timer
+    }
+    
+    On --> Dimmed: dimming_timeout expires
+    On --> On: touch resets timer
+    
+    state Dimmed {
+        [*] --> DimBrightness: dim_brightness applied
+    }
+    
+    Dimmed --> On: touch / button
+    Dimmed --> Off: sleep_timeout expires
+    
+    state Off {
+        [*] --> BlackScreen: brightness = 0
+    }
+    
+    Off --> On: touch / button
+    Off --> Dimmed: wake (if sleep disabled)
+    
+    note right of On
+        Display at full brightness
+        Duration: dimming_timeout
+    end note
+    note right of Dimmed
+        Display at dim_brightness
+        Duration: sleep_timeout - dimming_timeout
+    end note
+    note right of Off
+        Display off / sleep
+        Only if sleep mode activated
+    end note
+```
+
 ### Brightness Sensors
 
 Brightness related sensors.

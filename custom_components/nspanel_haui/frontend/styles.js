@@ -798,4 +798,30 @@ export const editorStyles = css`
     .pl-key { max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
     .pl-card-type-icon { max-width: 30px; }
   }
+
+  /* ── editor footer (GitHub + Docs links) ── */
+  .editor-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 16px;
+    border-top: 1px solid var(--divider-color, #e0e0e0);
+    margin-top: var(--ha-space-6);
+  }
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--secondary-text-color, #666);
+    text-decoration: none;
+    font-size: 0.88em;
+    transition: color 0.15s;
+  }
+  .footer-link:hover {
+    color: var(--primary-color, #03a9f4);
+  }
+  .footer-link ha-icon {
+    --mdc-icon-size: 16px;
+  }
   `;

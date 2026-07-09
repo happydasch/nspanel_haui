@@ -70,8 +70,5 @@ Persistent notifications are intended for alerts that require user attention - f
 
 The following device-level config keys affect notification behaviour:
 
-```yaml
-device:
-  sound_on_notification: true       # play sound for normal (non-persistent) notifications
-  persistent_sound_interval: 5      # seconds between repeated sounds for persistent notifications
-```
+- `sound_on_notification` — play sound for normal (non-persistent) notifications
+- `persistent_sound_interval` — seconds between repeated sounds for persistent notifications

@@ -6,7 +6,7 @@ description: Common issues, troubleshooting, and tips for NSPanel HAUI
 # FAQ
 ## I don't know how to start
 
-Take a look at some [example configurations](Example_Config.md). If you still don't know, how to do anything, please open an issue.
+Take a look at the [Panel Configuration](config/panels.md) reference and the [Panel Overview](panels/README.md) for details.
 
 ## How to upload a TFT file
 
@@ -24,7 +24,7 @@ This will most likely fix the issue.
 
 ## Error on sleep
 
-You may see log entries as below. This cannot be changed and does not any harm.
+You may see log entries as below. This cannot be changed and does not cause any harm.
 
 ```log
 [I] [haui:602] Display is going to sleep
@@ -33,84 +33,15 @@ You may see log entries as below. This cannot be changed and does not any harm.
 
 ## The display should change its brightness and sleep state over the day
 
-Add a automation in home assistant. NSPanel HAUI does not support to change this but home assistant is way more flexible so it's very simple to change anything dynamically using home assistant automations.
+Add an automation in home assistant. NSPanel HAUI does not support to change this but home assistant is way more flexible so it's very simple to change anything dynamically using home assistant automations.
 
-Here is an example automation:
+Here is an example of how to do this:
 
-Day (from sunrise)
-Dimmed to 55%, no sleep
+Day (from sunrise): Dimmed to 55%, no sleep.
 
-```yaml
-alias: NSPanel HAUI Day
-description: ""
-trigger:
-  - platform: sun
-    event: sunrise
-condition: []
-action:
-  - action: switch.turn_off
-    metadata: {}
-    data: {}
-    target:
-      entity_id:
-        - switch.nspanel_haui_use_auto_sleeping
-  - action: number.set_value
-    metadata: {}
-    data:
-      value: "55"
-    target:
-      entity_id:
-        - number.nspanel_haui_brightness_dimmed
-mode: single
-```
+Evening (from sunset): Dimmed to 20%, no sleep.
 
-Evening (from sunset)
-Dimmed to 20%, no sleep
-
-```yaml
-alias: NSPanel HAUI Evening
-description: ""
-trigger:
-  - platform: sun
-    event: sunset
-condition: []
-action:
-  - action: switch.turn_off
-    metadata: {}
-    data: {}
-    target:
-      entity_id:
-        - switch.nspanel_haui_use_auto_sleeping
-  - action: number.set_value
-    metadata: {}
-    data:
-      value: "20"
-    target:
-      entity_id:
-        - number.nspanel_haui__brightness_dimmed
-mode: single
-```
-
-Night (4,5h after sunset)
-Display can go to sleep (the dimmed brightness will remain 20%)
-
-```yaml
-alias: NSPanel HAUI Night
-description: ""
-trigger:
-  - platform: sun
-    event: sunset
-    offset: "04:30:00"
-condition: []
-action:
-  - action: switch.turn_on
-    metadata: {}
-    data: {}
-    target:
-      entity_id:
-        - switch.nspanel_haui_use_auto_sleeping
-mode: single
-```
+Night (4,5h after sunset): Display can go to sleep (the dimmed brightness will remain 20%).
 
 ## My NSPanel devices are not discovered
 

@@ -24,29 +24,6 @@ There is also a **text display** option: when no entities are configured and `sh
 
 ## Config
 
-```yaml
-panels:
-
-  # big qr code
-  - type: qr
-    essid: MySSID
-    password: MyPassW0rd
-    big_qr: true
-
-  # small qr code
-  - type: qr
-    essid: MySSID
-    password: MyPassW0rd
-    big_qr: false
-    entities:
-      - entity: "text:Test 1"
-        name: Title 1
-        icon: mdi:key
-      - entity: "text:Test 2"
-        name: Title 2
-        icon: mdi:wifi
-```
-
 ### ESSID + Password
 
 The wifi credentials are entered as two separate text fields: `essid` (WiFi network name) and `password` (WiFi password). The integration automatically builds the QR code string in the standard WiFi format:
@@ -59,19 +36,10 @@ Source: [https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network](
 
 ### Start with big QR
 
-```yaml
-- type: qr
-  ...
-  big_qr: true
-```
+
 
 ### Text display
 
 When `show_text` is `true` and no entities are configured, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle controls visibility — big QR hides the text, small QR reveals it.
 
-```yaml
-- type: qr
-  essid: MySSID
-  password: MyPassW0rd
-  show_text: true
-```
+

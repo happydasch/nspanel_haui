@@ -20,20 +20,8 @@ All available hvac modes will be shown as icons at the bottom of the panel.
 
 ## Config
 
-```yaml
-panels:
-  - type: climate
-    entity: climate.example_climate
-    hvac_modes: None
-```
-
 ### HVAC Modes `hvac_modes`
 
 Override the supported hvac modes by providing a list with hvac mode names using `hvac_modes`.
 
-```yaml
-panels:
-  - type: climate
-    entity: climate.example_climate
-    hvac_modes: ["off", "heat", "cool"]
-```
+All panel options are configured through the NSPanel HAUI editor in Home Assistant.

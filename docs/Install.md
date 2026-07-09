@@ -53,7 +53,7 @@ This needs to be done only once. After restart, add the integration via **Settin
 
 The Hub app is configured through the Home Assistant UI via the NSPanel HAUI integration's config flow and panel editor. No manual `configuration.yaml` editing is needed.
 
-See [Configuration Details](Config.md) for all available options and [Config Examples](Example_Config.md) for sample configurations.
+See [Configuration Details](Config.md) for all available options and the [FAQ](FAQ.md) for common questions.
 
 ## 5. Step: Install TFT File
 

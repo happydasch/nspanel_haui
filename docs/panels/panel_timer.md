@@ -18,11 +18,9 @@ The timer panel allows to run a (for now local) timer. If a time bigger than 0 i
 
 ## Config
 
-```yaml
-panels:
-  - type: timer
-    show_notification: true
-```
+Panel options are configured through the NSPanel HAUI editor in Home Assistant.
+
+
 
 ## Notification on timer end
 

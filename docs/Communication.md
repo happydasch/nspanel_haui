@@ -6,27 +6,20 @@ description: Architecture, handshake protocol, heartbeats, and connection state 
 # Communication Overview
 ## Architecture
 
-```text
-┌──────────────┐                    ┌────────────────────────────┐
-│              │      UART          │     ESPHome Device         │
-│   Nextion    │◄─────────────────►│                            │
-│   Display    │                    │  ┌──────────────────────┐  │
-│              │                    │  │ Connection Scripts  │  │
-└──────────────┘                    │  │ - check_connection  │  │
-                                    │  │ - check_hub_connection│  │
-                                    │  │ - set_hub_connected │  │
-┌───────────────────────────────────┤  └──────────────────────┘  │
-│   Hub App (NSPanelHAUI)          │                            │
-│                                   │  ESPHome Native API        │
-│  ┌─────────────────────────┐      │◄─────────────────────────►│
-│  │ HAUIConnectionController│      └────────────────────────────┘
-│  │  - 3-state handshake    │
-│  │  - Bidirectional HB     │     Client (Display ↔ Device)
-│  │  - Timeout monitoring   │     Server (Hub App)
-│  └─────────────────────────┘
-└───────────────────────────────────┘
-         All communication: ESPHome Native API
-```
+```mermaid
+flowchart LR
+    subgraph Nextion["Nextion Display"]
+        N[Touch & Render]
+    end
+    subgraph Device["ESP32 / ESPHome"]
+        E[Connection Scripts<br/>check_connection<br/>check_hub_connection<br/>set_hub_connected]
+    end
+    subgraph Hub["Hub App (NSPanelHAUI)"]
+        C[HAUIConnectionController<br/>3-state handshake<br/>Bidirectional heartbeats<br/>Timeout monitoring]
+    end
+
+    N <==>|UART| E
+    E <==>|ESPHome Native API| Hub
 
 The **device** (ESP32 running ESPHome) talks to the **display** (Nextion) via UART and communicates with the **hub app** (NSPanelHAUI) via ESPHome Native API events.
 
@@ -36,29 +29,18 @@ The handshake uses a 3-step sequence between hub (`HAUIConnectionController`) an
 
 ### Step-by-step
 
-```
-Device                    Hub
-  │                        │
-  │     1. req_connection  │
-  │───────────────────────►│  (DISCONNECTED → HANDSHAKING on hub)
-  │                        │
-  │     2. hub_connection_response  │
-  │◄───────────────────────│  (SENDING → waiting on device)
-  │                        │
-  │     3. res_connection  │
-  │───────────────────────►│  (hub reads heartbeat_interval)
-  │                        │
-  │     4. req_device_state│
-  │◄───────────────────────│  (device publishes res_device_state)
-  │                        │
-  │     5. res_device_state│
-  │───────────────────────►│  (HANDSHAKING → CONNECTED on hub)
-  │                        │
-  │     6. hub_connection_initialized  │
-  │◄───────────────────────│  (waiting → CONNECTED on device)
-  │                        │
-  │     7. Bidirectional heartbeats begin  │
-  │◄──────────────────────►│
+```mermaid
+sequenceDiagram
+    participant Device as ESPHome Device
+    participant Hub as Hub (NSPanelHAUI)
+
+    Device->>Hub: 1. req_connection<br/>(DISCONNECTED → HANDSHAKING on hub)
+    Hub->>Device: 2. hub_connection_response<br/>(SENDING → waiting on device)
+    Device->>Hub: 3. res_connection<br/>(hub reads heartbeat_interval)
+    Hub->>Device: 4. req_device_state
+    Device->>Hub: 5. res_device_state<br/>(HANDSHAKING → CONNECTED on hub)
+    Hub->>Device: 6. hub_connection_initialized<br/>(waiting → CONNECTED on device)
+    Device-->>Hub: 7. Bidirectional heartbeats begin
 ```
 
 ### From the Hub side (`HAUIConnectionController.process_event()`):
@@ -247,28 +229,19 @@ maintaining a mirror.
 
 ### Round-Trip Flow
 
-```
-HA Page (Python)                       ESPHome Device                Nextion
-─────────────────                      ───────────────               ───────
-request_component_value(comp)
-  → _request_component_read()
-    → send_esphome(REQ_VAL, name)
+```mermaid
+sequenceDiagram
+    participant Page as HA Page (Python)
+    participant ESP as ESPHome Device
+    participant NX as Nextion
 
-                                        req_val action
-                                          → request_number script
-                                            → req_val_component = name
-                                            → send: system.resVal=name.val
-                                            → res_val.update()
-
-                                                                     reads name.val
-                                                                     → system.resVal
-                                        res_val sensor on_value
-                                          → publish read_response
-                                            {name, type:"number", value}
-
-_process_read_response(e)
-  → callback(value)
-```
+    Page ->> ESP: request_component_value(comp)<br/>→ send_esphome(REQ_VAL, name)
+    ESP ->> ESP: req_val action<br/>→ request_number script<br/>→ set req_val_component = name
+    ESP ->> NX: send: system.resVal=name.val
+    NX ->> NX: reads name.val → system.resVal
+    NX ->> ESP: res_val sensor on_value
+    ESP ->> Page: publish read_response<br/>{name, type:"number", value}
+    Page ->> Page: _process_read_response(e)<br/>→ callback(value)
 
 The text path is identical but uses `REQ_TXT` → `request_text` script →
 `system.resTxt.txt=name.txt` → `res_txt` sensor → `read_response` with

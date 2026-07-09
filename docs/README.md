@@ -5,53 +5,47 @@ description: HomeAssistant UI for the Sonoff NSPanel — documentation index
 
 # NSPanel HomeAssistant UI Docs
 
+Welcome to the documentation for **NSPanel HAUI**, a Home Assistant custom integration
+that replaces the stock Sonoff NSPanel firmware with a flexible, configurable display
+system built on ESPHome.
+
+---
+
 ## End User
 
-For details about installation and configuration see the following pages.
+These guides help you install, configure, and use NSPanel HAUI on your Sonoff NSPanel device.
 
-- [Installation](Install.md)
-  A step-by-step guide for installation
+- **[Installation](Install.md)** — Step-by-step guide for installing the integration and flashing the device.
+- **[Custom Integration](Custom_Integration.md)** — How to install and set up the integration in Home Assistant.
+- **[Configuration](Config.md)** — Overview of configuring your panels and device.
+  - [Device Configuration](config/device.md) — Device-level settings (sounds, screensaver, buttons, etc.).
+  - [Panel Configuration](config/panels.md) — How to create and arrange panels on the display.
+  - [Item Configuration](config/items.md) — Configuring entities, icons, colors, and internal items.
+- **[Device Description](Device.md)** — How the device works: gestures, display states, hardware buttons, sounds, notifications.
+- **[Available Panels](panels/README.md)** — Overview of all panel types with links to each.
+- **[Examples](Example_Config.md)** — Example configurations to get started quickly.
+- **[FAQ](FAQ.md)** — Frequently asked questions and solutions to common issues.
+- **[Troubleshooting](troubleshooting.md)** — Diagnosing and resolving problems.
 
-- [Configuration](Config.md)
-  Details about the App Configuration
-
-- [Device Description](Device.md)
-  A description of the device itself, how it is inteded to work and what is supported.
-
-- [Available Panels](panels/README.md)
-  Overview of available panels
-
-- [FAQ](FAQ.md)
-  Frequently asked questions
+---
 
 ## Development
 
-The device handling responsibility is assigned to ESPHome. The communication with the nextion display is done using the ESPHome component `nextion`.
+For developers extending or maintaining the integration.
 
-The backend and global logic of the system is under the management of the Hub, which handles all the behind-the-scenes operations.
+The system has three main components:
 
-The display operations with minimal logic are assigned to Nextion, which works in collaboration with ESPHome to show informations on the panel.
+- **ESPHome** — Handles serial communication with the display and relays touch events to the Hub.
+- **Hub App** — Runs inside Home Assistant, processes entity states, and controls what the display shows.
+- **Nextion Display** — Renders the panels and manages widget state.
 
-- [Design Guidelines](Design.md)
+- **[Design Guidelines](Design.md)** — Styling, theming, and panel design principles.
+- **[Communication Overview](Communication.md)** — How the components communicate.
+- **[ESPHome Component](ESPHome.md)** — ESP32 firmware that drives the display and reports events.
+- **[Hub Component](Hub.md)** — The core logic: entity state management, panel lifecycle, navigation.
+- **[Nextion Component](Nextion.md)** — Display-level operations and widget management.
 
-  A description about designing styling panels.
-
-- [Communication Overview](Communication.md)
-
-  A description about the communication process of the components.
-
-- [ESPHome Component](ESPHome.md)
-
-  The ESP processes the serial communication and creates events which are sent via ESPHome native API.
-  Only the ESP communicates directly with the display.
-
-- [Hub Component](Hub.md)
-
-  Most logic is implemented in the Hub App. This app controls the Nextion display running on the ESP32. It updates the display based on the latest data from Home Assistant entities.
-
-- [Nextion Component](Nextion.md)
-
-  The display is responsible for showing the panels, preparing components on pages before they being shown (setting an initial state).
+---
 
 ## Versioning
 

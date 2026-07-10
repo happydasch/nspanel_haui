@@ -37,6 +37,9 @@ export const haStyle = css`
     display: block;
   }
   .container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
     padding-bottom: var(--ha-space-6);
   }
   ha-icon-button {
@@ -70,6 +73,9 @@ export const editorContainerStyles = css`
   :host {
     container-type: inline-size;
     container-name: haui-editor;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
   }
 `;
 
@@ -102,7 +108,15 @@ export const editorStyles = css`
   ${panelGridStyles}${panelTableStyles}${panelCommonStyles}${panelPreviewStyles}
   ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}
   .container {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
     padding-bottom: var(--ha-space-6);
+  }
+
+  /* ── main content area (flex-grows to push footer down) ── */
+  .main-content {
+    flex: 1 0 auto;
   }
 
   /* ── title header ──────────────── */

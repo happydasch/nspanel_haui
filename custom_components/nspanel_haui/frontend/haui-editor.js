@@ -345,9 +345,11 @@ class NSPanelEditor extends LitElement {
     if (!this.entryId) {
       return html`<div class="container">
         ${renderTitleHeader(this)}
+        <div class="main-content">
         <ha-card outlined class="content-card">
           ${renderEmptyCard(t("No NSPanel HAUI integration configured. Add one via Settings \u2192 Devices and Services."))}
         </ha-card>
+        </div>
         ${renderFooter(this)}
       </div>`;
     }
@@ -355,7 +357,9 @@ class NSPanelEditor extends LitElement {
     if (this._loading) {
       return html`<div class="container">
         ${renderTitleHeader(this)}
+        <div class="main-content">
         <div class="loading">${t('Loading panels...')}</div>
+        </div>
         ${renderFooter(this)}
       </div>`;
     }
@@ -363,6 +367,8 @@ class NSPanelEditor extends LitElement {
     return html`
       <div class="container">
         ${renderTitleHeader(this)}
+
+        <div class="main-content">
 
         <ha-card outlined class="content-card">
           <div class="card-content">
@@ -385,6 +391,8 @@ class NSPanelEditor extends LitElement {
               ${renderPanelTable(this)}
               ${renderSystemPanels(this, this._viewMode)}
             </div>`}
+
+        </div>
 
         <ha-dialog-edit-panel
           .hass=${this.hass}

@@ -39,3 +39,10 @@ packages:
   switch: !include nspanel_haui/switch.yaml
   sensor: !include nspanel_haui/sensor.yaml
   # debug: !include nspanel_haui/debug.yaml
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/happydasch/nspanel_haui
+      ref: master
+    components: [ nextion ]

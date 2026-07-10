@@ -764,7 +764,7 @@ class HAUINavigationController(HAUIBase):
         # reload_panels() creates new HAUIPanel objects with new UUIDs, so
         # the snapshot may hold stale references.  Failing to re-resolve causes
         # the restored panel to be dead, which triggers a fallback to home on
-        # the next interaction – producing the ping-pong navigation bug.
+        # the next interaction - producing the ping-pong navigation bug.
         if prev_panel is not None:
             resolved = self.app.device_config.get_panel(prev_panel.id)
             if resolved is not None:

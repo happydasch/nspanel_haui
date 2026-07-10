@@ -18,7 +18,7 @@ from nspanel_haui.haui.utils.color import parse_color_value, rgb565_to_rgb, rgb_
 
 
 def test_colors_all_values_in_rgb565_range() -> None:
-    """Every COLORS value must be a valid RGB565 int (0–65535)."""
+    """Every COLORS value must be a valid RGB565 int (0-65535)."""
     for key, value in COLORS.items():
         assert isinstance(key, str), f"Key {key!r} must be str"
         assert isinstance(value, int), f"{key} value {value!r} must be int"

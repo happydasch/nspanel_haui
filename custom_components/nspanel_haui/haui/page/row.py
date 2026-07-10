@@ -622,7 +622,7 @@ class RowPage(HAUIPage):
 
         Args:
             component: The slider component whose value was read.
-            value: The slider value (0–100).
+            value: The slider value (0-100).
         """
         if not self._in_read_callback:
             self.log(

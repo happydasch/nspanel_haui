@@ -10,13 +10,13 @@ description: Alarm panel configuration and options
 
 `key: item` (alarm_control_panel entity)
 
-The alarm panel provides a numeric keypad (0–9, CLR, DEL) for entering an alarm code, and up to 4 action buttons for arming/disarming the security system. It is used as the base for the unlock popup and is intended for use with `alarm_control_panel` entities.
+The alarm panel provides a numeric keypad (0-9, CLR, DEL) for entering an alarm code, and up to 4 action buttons for arming/disarming the security system. It is used as the base for the unlock popup and is intended for use with `alarm_control_panel` entities.
 
 ## Display
 
 - **Title** — Shows the current alarm state label (e.g., "Disarmed", "Armed Home", "Triggered"). While entering a code on the keypad, the title shows password dots instead.
 - **Header indicator** — A shield icon in the top-right header reflects the armed state: red (armed), green (disarmed), amber (arming/pending).
-- **Keypad** — 12 buttons: digits 0–9, CLR (clear all), DEL (delete last digit).
+- **Keypad** — 12 buttons: digits 0-9, CLR (clear all), DEL (delete last digit).
 - **Action buttons** — 4 bottom buttons whose content depends on the alarm state:
   - **Armed / arming / pending / triggered** — A single "Disarm" button.
   - **Disarmed** — Up to 4 arm mode buttons, filtered by the entity's `supported_features`. Modes (in priority order): Home, Away, Night, Vacation, Custom Bypass.

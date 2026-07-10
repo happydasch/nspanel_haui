@@ -1,0 +1,902 @@
+{
+  "component": {
+    "sensor": {
+      "state": {
+        "_": {
+          "off": "Arrêt",
+          "on": "Marche"
+        }
+      }
+    },
+    "zwave": {
+      "state": {
+        "_": {
+          "initializing": "Initialisation",
+          "dead": "Mort",
+          "sleeping": "En veille",
+          "ready": "Prêt"
+        },
+        "query_stage": {
+          "initializing": "Initialisation",
+          "dead": "Mort"
+        }
+      }
+    },
+    "ebusd": {
+      "state": {
+        "day": "Jour",
+        "night": "Nuit"
+      }
+    },
+    "light": {
+      "state": {
+        "_": {
+          "off": "Éteint",
+          "on": "Allumé"
+        }
+      }
+    },
+    "switch": {
+      "state": {
+        "_": {
+          "off": "Désactivé",
+          "on": "Activé"
+        }
+      }
+    },
+    "binary_sensor": {
+      "state": {
+        "_": {
+          "off": "Désactivé",
+          "on": "Activé"
+        },
+        "battery": {
+          "off": "Normal",
+          "on": "Faible"
+        },
+        "cold": {
+          "off": "Normal",
+          "on": "Froid"
+        },
+        "connectivity": {
+          "off": "Déconnecté",
+          "on": "Connecté"
+        },
+        "door": {
+          "off": "Fermé",
+          "on": "Ouvert"
+        },
+        "garage_door": {
+          "off": "Fermé",
+          "on": "Ouvert"
+        },
+        "gas": {
+          "off": "Aucun",
+          "on": "Détecté"
+        },
+        "heat": {
+          "off": "Normal",
+          "on": "Chaud"
+        },
+        "lock": {
+          "off": "Verrouillé",
+          "on": "Déverrouillé"
+        },
+        "moisture": {
+          "off": "Sec",
+          "on": "Humide"
+        },
+        "motion": {
+          "off": "Aucun",
+          "on": "Détecté"
+        },
+        "occupancy": {
+          "off": "Aucun",
+          "on": "Détecté"
+        },
+        "opening": {
+          "off": "Fermé",
+          "on": "Ouvert"
+        },
+        "presence": {
+          "off": "Absent",
+          "on": "Présent"
+        },
+        "problem": {
+          "off": "OK",
+          "on": "Problème"
+        },
+        "safety": {
+          "off": "Sûr",
+          "on": "Danger"
+        },
+        "smoke": {
+          "off": "Aucun",
+          "on": "Détecté"
+        },
+        "sound": {
+          "off": "Aucun",
+          "on": "Détecté"
+        },
+        "vibration": {
+          "off": "Aucun",
+          "on": "Détecté"
+        },
+        "window": {
+          "off": "Fermé",
+          "on": "Ouvert"
+        }
+      }
+    },
+    "lock": {
+      "state": {
+        "_": {
+          "locked": "Verrouillé",
+          "unlocked": "Déverrouillé"
+        }
+      }
+    },
+    "cover": {
+      "state": {
+        "_": {
+          "open": "Ouvert",
+          "opening": "Ouverture",
+          "closed": "Fermé",
+          "closing": "Fermeture",
+          "stopped": "Arrêté"
+        }
+      }
+    },
+    "alarm_control_panel": {
+      "state": {
+        "_": {
+          "armed": "Armé",
+          "disarmed": "Désarmé",
+          "armed_home": "Armé (domicile)",
+          "armed_away": "Armé (absent)",
+          "armed_night": "Armé (nuit)",
+          "armed_custom_bypass": "Armé (personnalisé)",
+          "pending": "En attente",
+          "arming": "Armement",
+          "disarming": "Désarmement",
+          "triggered": "Déclenché"
+        }
+      }
+    },
+    "media_player": {
+      "state": {
+        "_": {
+          "off": "Arrêt",
+          "on": "Marche",
+          "playing": "Lecture",
+          "paused": "En pause",
+          "idle": "Inactif",
+          "standby": "Veille"
+        }
+      }
+    },
+    "device_tracker": {
+      "state": {
+        "_": {
+          "home": "Domicile",
+          "not_home": "Absent"
+        }
+      }
+    },
+    "vacuum": {
+      "state": {
+        "_": {
+          "cleaning": "Nettoyage",
+          "docked": "À la base",
+          "error": "Erreur",
+          "idle": "Inactif",
+          "off": "Arrêt",
+          "on": "Marche",
+          "paused": "En pause",
+          "returning": "Retour à la base"
+        }
+      },
+      "fan_speed": {
+        "_": {
+          "low": "Faible",
+          "medium": "Moyen",
+          "high": "Élevé",
+          "max": "Maximum",
+          "off": "Arrêt",
+          "gentle": "Doux",
+          "balanced": "Équilibré",
+          "turbo": "Turbo",
+          "quiet": "Silencieux",
+          "custom": "Personnalisé",
+          "max_plus": "Max Plus"
+        }
+      }
+    },
+    "fan": {
+      "state": {
+        "_": {
+          "off": "Désactivé",
+          "on": "Activé"
+        }
+      }
+    },
+    "climate": {
+      "state": {
+        "_": {
+          "off": "Arrêt",
+          "heat": "Chauffage",
+          "cool": "Refroidissement",
+          "heat_cool": "Chauffage/Refroidissement",
+          "auto": "Auto",
+          "dry": "Déshumidification",
+          "fan_only": "Ventilation seule"
+        }
+      },
+      "fan_mode": {
+        "_": {
+          "auto": "Auto",
+          "low": "Faible",
+          "medium": "Moyen",
+          "high": "Élevé",
+          "mute": "Silencieux",
+          "turbo": "Turbo"
+        }
+      },
+      "preset_mode": {
+        "_": {
+          "none": "Aucun",
+          "sleep": "Sommeil",
+          "Antifungus": "Antifongique",
+          "Clean": "Nettoyage",
+          "Health": "Santé"
+        }
+      },
+      "swing_mode": {
+        "_": {
+          "off": "Arrêt",
+          "both": "Les deux",
+          "vertical": "Vertical",
+          "horizontal": "Horizontal"
+        }
+      }
+    },
+    "automation": {
+      "state": {
+        "_": {
+          "off": "Désactivé",
+          "on": "Activé"
+        }
+      }
+    },
+    "calendar": {
+      "state": {
+        "_": {
+          "off": "Désactivé",
+          "on": "Activé"
+        }
+      }
+    },
+    "camera": {
+      "state": {
+        "_": {
+          "recording": "Enregistrement",
+          "streaming": "Diffusion",
+          "idle": "Inactif"
+        }
+      }
+    },
+    "configurator": {
+      "state": {
+        "_": {
+          "configure": "Configurer",
+          "configured": "Configuré"
+        }
+      }
+    },
+    "group": {
+      "state": {
+        "_": {
+          "off": "Désactivé",
+          "on": "Activé",
+          "home": "Domicile",
+          "not_home": "Absent",
+          "open": "Ouvert",
+          "closed": "Fermé",
+          "locked": "Verrouillé",
+          "unlocked": "Déverrouillé",
+          "ok": "OK",
+          "problem": "Problème"
+        }
+      }
+    },
+    "input_boolean": {
+      "state": {
+        "_": {
+          "off": "Désactivé",
+          "on": "Activé"
+        }
+      }
+    },
+    "person": {
+      "state": {
+        "_": {
+          "home": "Domicile",
+          "not_home": "Absent"
+        }
+      }
+    },
+    "plant": {
+      "state": {
+        "_": {
+          "ok": "OK",
+          "problem": "Problème"
+        }
+      }
+    },
+    "remote": {
+      "state": {
+        "_": {
+          "off": "Arrêt",
+          "on": "Marche"
+        }
+      }
+    },
+    "script": {
+      "state": {
+        "_": {
+          "off": "Désactivé",
+          "on": "Activé"
+        }
+      }
+    },
+    "sun": {
+      "state": {
+        "_": {
+          "above_horizon": "Au-dessus de l'horizon",
+          "below_horizon": "Sous l'horizon"
+        }
+      }
+    },
+    "timer": {
+      "state": {
+        "_": {
+          "active": "Actif",
+          "idle": "Inactif",
+          "paused": "En pause"
+        }
+      }
+    },
+    "weather": {
+      "state": {
+        "_": {
+          "clear-night": "Nuit claire",
+          "cloudy": "Nuageux",
+          "exceptional": "Exceptionnel",
+          "fog": "Brouillard",
+          "hail": "Grêle",
+          "lightning": "Orage",
+          "lightning-rainy": "Orage pluvieux",
+          "partlycloudy": "Partiellement nuageux",
+          "pouring": "Pluie battante",
+          "rainy": "Pluvieux",
+          "snowy": "Neigeux",
+          "snowy-rainy": "Neige et pluie",
+          "sunny": "Ensoleillé",
+          "windy": "Venteux",
+          "windy-variant": "Venteux"
+        }
+      }
+    }
+  },
+  "text": {
+    "(template error)": "(erreur de modèle)",
+    "(unknown)": "(inconnu)",
+    "+ Add": "+ Ajouter",
+    "+ Add Item": "+ Ajouter un élément",
+    "- None -": "- Aucun -",
+    "?": "?",
+    "A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0-65535), or a Home Assistant template that overrides the default entity color.": "Une couleur hexadécimale CSS (#rrggbb), un triplet RGB ([r,g,b]), un entier RGB565 (0–65535), ou un modèle Home Assistant qui remplace la couleur par défaut de l'entité.",
+    "A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display.": "Un dictionnaire d'état JSON ou un modèle Home Assistant qui remplace l'état de l'entité utilisé pour la logique d'affichage. Utile pour les tests ou l'affichage conditionnel.",
+    "A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects).": "Une valeur d'affichage ou un modèle Home Assistant qui remplace ce qui est affiché pour cet élément sur le panneau. Prend en charge les valeurs typées (entiers, flottants, tableaux/objets JSON).",
+    "ACTION": "ACTION",
+    "AD-Version:": "Version AD :",
+    "AWAY": "ABSENT",
+    "About": "À propos",
+    "Accent": "Accent",
+    "Action": "Action",
+    "Activate": "Activer",
+    "Active": "Actif",
+    "Active (dark)": "Actif (sombre)",
+    "Active letter color": "Couleur des lettres actives",
+    "Add": "Ajouter",
+    "Add Panel": "Ajouter un panneau",
+    "Added": "Ajouté",
+    "Added \"{name}\"": "\"{name}\" ajouté",
+    "Additional items to display below the vacuum controls (up to 6).": "Éléments supplémentaires à afficher sous les commandes de l'aspirateur (jusqu'à 6).",
+    "Additional sensor entities to display as info panels (max 2).": "Entités de capteur supplémentaires à afficher comme panneaux d'info (max 2).",
+    "Advanced": "Avancé",
+    "Alarm": "Alarme",
+    "Alarm control panel item for arming/disarming the security system.": "Élément de panneau d'alarme pour armer/désarmer le système de sécurité.",
+    "Alarm control panel with numeric keypad.": "Panneau d'alarme avec clavier numérique.",
+    "All": "Tout",
+    "Always restore": "Toujours restaurer",
+    "An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon.": "Un nom d'icône MDI (par ex. mdi:lightbulb) ou un modèle Home Assistant qui remplace l'icône par défaut de l'entité.",
+    "Appearance": "Apparence",
+    "Armed": "Armé",
+    "Attribute": "Attribut",
+    "Auto": "Auto",
+    "Autumn": "Automne",
+    "Away": "Absent",
+    "Background": "Arrière-plan",
+    "Background image theme for the clock display.": "Thème d'image d'arrière-plan pour l'affichage de l'horloge.",
+    "Background image theme for the weather display.": "Thème d'image d'arrière-plan pour l'affichage météo.",
+    "Background image theme for the word clock display.": "Thème d'image d'arrière-plan pour l'affichage de l'horloge en toutes lettres.",
+    "Blank": "Vide",
+    "Blank/idle page used for sleep state.": "Page vide/inactive utilisée pour l'état de veille.",
+    "Brightness": "Luminosité",
+    "Bypass": "Bypass",
+    "CLR": "CLR",
+    "Callback": "Rappel",
+    "Cancel": "Annuler",
+    "Cat": "Chat",
+    "Check": "Vérifier",
+    "Choose which panels appear in specific display states. Leave unset to keep the current panel.": "Choisissez quels panneaux apparaissent dans des états d'affichage spécifiques. Laissez vide pour conserver le panneau actuel.",
+    "Clean": "Nettoyage",
+    "Click": "Clic",
+    "Climate": "Climatisation",
+    "Climate item with temperature and mode controls.": "Élément de climatisation avec commandes de température et de mode.",
+    "Climate/HVAC entity for temperature control and mode switching.": "Entité climatisation/CVC pour le contrôle de la température et le changement de mode.",
+    "Clock": "Horloge",
+    "Clock Two": "Horloge Deux",
+    "Clock language": "Langue de l'horloge",
+    "Close": "Fermer",
+    "Color": "Couleur",
+    "Color override": "Remplacement de couleur",
+    "Colors": "Couleurs",
+    "Colors for entity state indicators (on, off, unavailable).": "Couleurs des indicateurs d'état des entités (activé, désactivé, indisponible).",
+    "Colors for interactive buttons and controls.": "Couleurs des boutons et commandes interactifs.",
+    "Colors for the main page area: background and text at various states.": "Couleurs de la zone principale de la page : arrière-plan et texte dans divers états.",
+    "Colors for the top bar: background, title text, and accent icons.": "Couleurs de la barre supérieure : arrière-plan, texte du titre et icônes d'accent.",
+    "Component": "Composant",
+    "Configuration": "Configuration",
+    "Configure how this device behaves: language and diagnostics, audible alerts, hardware buttons, navigation, sleep/wakeup, and which panels appear in each display state.": "Configurez le comportement de cet appareil : langue et diagnostics, alertes sonores, boutons matériels, navigation, veille/réveil, et quels panneaux apparaissent dans chaque état d'affichage.",
+    "Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.": "Configurez les boutons matériels physiques gauche/droite du NSPanel. Chaque bouton peut basculer son relais interne ou une entité Home Assistant.",
+    "Confirm": "Confirmer",
+    "Connected": "Connecté",
+    "Connection": "Connexion",
+    "Content": "Contenu",
+    "Controls how the display behaves when waking from dimmed or sleep state.": "Contrôle le comportement de l'écran au réveil depuis l'état atténué ou de veille.",
+    "Controls the verbosity of diagnostic logging sent to the Home Assistant logs: Off = no debug output, Basic = key lifecycle events, Verbose = all commands and data exchanged with the display": "Contrôle la verbosité de la journalisation de diagnostic envoyée aux journaux Home Assistant : Désactivé = aucune sortie de débogage, Basique = événements clés du cycle de vie, Détaillé = toutes les commandes et données échangées avec l'écran",
+    "Controls whether the last viewed panel is restored when waking from sleep or dimmed state.": "Détermine si le dernier panneau consulté est restauré au réveil depuis l'état de veille ou atténué.",
+    "Cool": "Refroidissement",
+    "Cover": "Volet",
+    "Cover item with open, close and position controls.": "Élément de volet avec commandes d'ouverture, de fermeture et de position.",
+    "Current Page": "Page actuelle",
+    "Current page": "Page actuelle",
+    "Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel.": "Nom d'affichage personnalisé ou modèle Home Assistant ({{ ... }}) qui remplace le nom par défaut de l'entité affiché sur le panneau.",
+    "Custom items shown beside the QR code (max 2).": "Éléments personnalisés affichés à côté du QR code (max 2).",
+    "Custom time limit...": "Limite de temps personnalisée...",
+    "DEL": "DEL",
+    "DISARM": "DÉSARMER",
+    "DISMISS": "IGNORER",
+    "Daily": "Quotidien",
+    "Dark": "Sombre",
+    "Debug Level": "Niveau de débogage",
+    "Default: 62694 (amber). Accepts RGB565, [r,g,b], or #rrggbb.": "Par défaut : 62694 (ambre). Accepte RGB565, [r,g,b] ou #rrggbb.",
+    "Default: 65535 (white). Accepts RGB565, [r,g,b], or #rrggbb.": "Par défaut : 65535 (blanc). Accepte RGB565, [r,g,b] ou #rrggbb.",
+    "Default: 8452 (dark gray). Accepts RGB565, [r,g,b], or #rrggbb.": "Par défaut : 8452 (gris foncé). Accepte RGB565, [r,g,b] ou #rrggbb.",
+    "Delete": "Supprimer",
+    "Delete panel?": "Supprimer le panneau ?",
+    "Delete {name}? This cannot be undone.": "Supprimer {name} ? Cette action est irréversible.",
+    "Device": "Appareil",
+    "Device \"{name}\" moved {direction}": "Appareil \"{name}\" déplacé {direction}",
+    "Device Colors": "Couleurs de l'appareil",
+    "Device Enabled": "Appareil activé",
+    "Device Info": "Infos de l'appareil",
+    "Device Logs": "Journaux de l'appareil",
+    "Device Manager": "Gestionnaire d'appareils",
+    "Device Name": "Nom de l'appareil",
+    "Device Names": "Noms des appareils",
+    "Device Settings": "Paramètres de l'appareil",
+    "Device actions": "Actions de l'appareil",
+    "Device colors saved": "Couleurs de l'appareil enregistrées",
+    "Device config save failed": "Échec de l'enregistrement de la configuration de l'appareil",
+    "Device configuration saved": "Configuration de l'appareil enregistrée",
+    "Device info and version details.": "Infos de l'appareil et détails de version.",
+    "Device name is required": "Le nom de l'appareil est requis",
+    "Device settings": "Paramètres de l'appareil",
+    "Device settings saved": "Paramètres de l'appareil enregistrés",
+    "Devices": "Appareils",
+    "Digital clock with date and notification indicator.": "Horloge numérique avec date et indicateur de notification.",
+    "Dimmed": "Atténué",
+    "Disable": "Désactiver",
+    "Disabled": "Désactivé",
+    "Disarm": "Désarmer",
+    "Disconnected": "Déconnecté",
+    "Dismiss": "Ignorer",
+    "Display": "Affichage",
+    "Display Buttons": "Boutons d'affichage",
+    "Display Text": "Texte d'affichage",
+    "Display a QR code alongside item info.": "Afficher un QR code à côté des infos de l'élément.",
+    "Display brightness and system settings.": "Luminosité de l'écran et paramètres système.",
+    "Display updated for \"{name}\"": "Affichage mis à jour pour \"{name}\"",
+    "Do you want to check for a update?": "Voulez-vous rechercher une mise à jour ?",
+    "Do you want to update?": "Voulez-vous mettre à jour ?",
+    "Documentation": "Documentation",
+    "Dog 1": "Chien 1",
+    "Dog 2": "Chien 2",
+    "Dry": "Déshumidification",
+    "ESPHome": "ESPHome",
+    "Edit": "Modifier",
+    "Edit Panel": "Modifier le panneau",
+    "Edit System Panel": "Modifier le panneau système",
+    "Edited (overrides system default)": "Modifié (remplace le défaut système)",
+    "Enable": "Activer",
+    "Enabled": "Activé",
+    "English": "Anglais",
+    "Entity": "Entité",
+    "Entity to display and control.": "Entité à afficher et contrôler.",
+    "Entity unavailable": "Entité indisponible",
+    "Entity:": "Entité :",
+    "Export YAML": "Exporter YAML",
+    "Export failed": "Échec de l'export",
+    "Exported \"{name}\" as YAML": "\"{name}\" exporté en YAML",
+    "Failed to add device": "Échec de l'ajout de l'appareil",
+    "Failed to remove device": "Échec de la suppression de l'appareil",
+    "Failed to save colors": "Échec de l'enregistrement des couleurs",
+    "Failed to update display": "Échec de la mise à jour de l'affichage",
+    "Fan Only": "Ventilation seule",
+    "Favorites": "Favoris",
+    "Fetch failed": "Échec de la récupération",
+    "Forecast type": "Type de prévision",
+    "Fri": "Ven",
+    "Full and Dimmed Brightness:": "Luminosité pleine et atténuée :",
+    "General Settings": "Paramètres généraux",
+    "General device behavior: display language, diagnostic logging verbosity, and audible alerts for startup and notifications.": "Comportement général de l'appareil : langue d'affichage, verbosité de la journalisation de diagnostic, et alertes sonores au démarrage et pour les notifications.",
+    "German": "Allemand",
+    "GitHub": "GitHub",
+    "Got unknown TFT-Version information.": "Informations de version TFT inconnues reçues.",
+    "Grid": "Grille",
+    "Grid of up to 6 item tiles with pagination.": "Grille de jusqu'à 6 tuiles d'éléments avec pagination.",
+    "Grid view": "Vue en grille",
+    "Group": "Groupe",
+    "Group media player entities": "Grouper les entités lecteur multimédia",
+    "Groups": "Groupes",
+    "HOME": "ACCUEIL",
+    "HVAC modes override": "Remplacement des modes CVC",
+    "Handshaking…": "Établissement de la connexion…",
+    "Hardware Buttons": "Boutons matériels",
+    "Has override fields": "Comporte des champs de remplacement",
+    "Header": "En-tête",
+    "Heat": "Chauffage",
+    "Heat/Cool": "Chauffage/Refroidissement",
+    "Hello, World!": "Bonjour tout le monde !",
+    "Home": "Accueil",
+    "Home panel": "Panneau d'accueil",
+    "Hourly": "Horaire",
+    "INSIDE": "INTÉRIEUR",
+    "IP Address": "Adresse IP",
+    "Icon": "Icône",
+    "Icon override": "Remplacement d'icône",
+    "Import YAML": "Importer YAML",
+    "Import failed": "Échec de l'import",
+    "Imported YAML for \"{name}\"": "YAML importé pour \"{name}\"",
+    "Inactive": "Inactif",
+    "Info": "Info",
+    "Info Items": "Éléments d'info",
+    "Interact on button press": "Interagir à l'appui du bouton",
+    "Interval": "Intervalle",
+    "Item": "Élément",
+    "Item selection panel with multi-page support.": "Panneau de sélection d'éléments avec prise en charge multi-pages.",
+    "Items": "Éléments",
+    "Items displayed as a row with cover/action controls.": "Éléments affichés en rangée avec commandes de volet/action.",
+    "Items to display as tiles on the grid page.": "Éléments à afficher comme tuiles sur la page grille.",
+    "Items to display at the bottom (6 max).": "Éléments à afficher en bas (6 max).",
+    "JSON object passed as service_data when calling the action. Keys are available as template variables in scripts.": "Objet JSON passé comme service_data lors de l'appel de l'action. Les clés sont disponibles comme variables de modèle dans les scripts.",
+    "JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}": "Objet JSON passé comme service_data lors de l'appel de l'action. Les clés sont disponibles comme variables de modèle dans les scripts. Exemple : {\\\"vacuum_repeat\\\": 2}",
+    "Just now": "À l'instant",
+    "Key": "Clé",
+    "Language": "Langue",
+    "Language for the word clock text matrix.": "Langue de la matrice de texte de l'horloge en toutes lettres.",
+    "Last Panel Update": "Dernière mise à jour du panneau",
+    "Left Button - Use Relay": "Bouton gauche - Utiliser le relais",
+    "Left Button Entity": "Entité du bouton gauche",
+    "Light": "Lumière",
+    "Light entity to control brightness, color and temperature.": "Entité lumière pour contrôler la luminosité, la couleur et la température.",
+    "List": "Liste",
+    "List view": "Vue en liste",
+    "Listeners": "Écouteurs",
+    "Living Room": "Salon",
+    "Loading default colors...": "Chargement des couleurs par défaut...",
+    "Loading panels...": "Chargement des panneaux...",
+    "Lock": "Verrou",
+    "Logs": "Journaux",
+    "Maximum": "Maximum",
+    "Maximum age in seconds before falling back to the home panel.": "Âge maximum en secondes avant de revenir au panneau d'accueil.",
+    "Media": "Média",
+    "Media Player": "Lecteur multimédia",
+    "Media content IDs shown in the media selector.": "Identifiants de contenu multimédia affichés dans le sélecteur de médias.",
+    "Media favorites": "Favoris multimédia",
+    "Media player controls with track info and volume.": "Commandes du lecteur multimédia avec infos de piste et volume.",
+    "Media player entity to control playback and volume.": "Entité lecteur multimédia pour contrôler la lecture et le volume.",
+    "Modern": "Moderne",
+    "Mon": "Lun",
+    "Monochrome": "Monochrome",
+    "More": "Plus",
+    "Move Down": "Descendre",
+    "Move Up": "Monter",
+    "Move down": "Descendre",
+    "Move up": "Monter",
+    "NSPanel HAUI": "NSPanel HAUI",
+    "Name": "Nom",
+    "Name override": "Remplacement de nom",
+    "Navigate": "Naviguer",
+    "Navigation": "Navigation",
+    "Network": "Réseau",
+    "Network error": "Erreur réseau",
+    "Never restore": "Ne jamais restaurer",
+    "Night": "Nuit",
+    "No NSPanel HAUI integration configured. Add one via Settings → Devices and Services.": "Aucune intégration NSPanel HAUI configurée. Ajoutez-en une via Paramètres → Appareils et services.",
+    "No active listeners.": "Aucun écouteur actif.",
+    "No active timers.": "Aucune minuterie active.",
+    "No additional options for this panel type.": "Aucune option supplémentaire pour ce type de panneau.",
+    "No config entry selected": "Aucune entrée de configuration sélectionnée",
+    "No device selected": "Aucun appareil sélectionné",
+    "No devices configured yet.": "Aucun appareil configuré pour l'instant.",
+    "No devices found": "Aucun appareil trouvé",
+    "No effect": "Aucun effet",
+    "No items yet": "Aucun élément pour l'instant",
+    "No log entries yet.": "Aucune entrée de journal pour l'instant.",
+    "No notifications": "Aucune notification",
+    "No panels configured yet.": "Aucun panneau configuré pour l'instant.",
+    "No signal": "Aucun signal",
+    "No value needed": "Aucune valeur requise",
+    "Non-Navigation": "Hors navigation",
+    "Notification": "Notification",
+    "Notification list with prev/next navigation.": "Liste de notifications avec navigation précédent/suivant.",
+    "Notifications": "Notifications",
+    "OUTSIDE": "EXTÉRIEUR",
+    "Off": "Arrêt",
+    "Off-letter color": "Couleur des lettres inactives",
+    "Offline": "Hors ligne",
+    "On": "Marche",
+    "Option A": "Option A",
+    "Option B": "Option B",
+    "Option C": "Option C",
+    "Option D": "Option D",
+    "Outdated TFT-Version": "Version TFT obsolète",
+    "Override HVAC modes shown on this panel.": "Remplacer les modes CVC affichés sur ce panneau.",
+    "Override the color of this item.": "Remplacer la couleur de cet élément.",
+    "Override the default popup panel type for this item.": "Remplacer le type de panneau contextuel par défaut pour cet élément.",
+    "Override the displayed name of this item.": "Remplacer le nom affiché de cet élément.",
+    "Override the displayed value of this item.": "Remplacer la valeur affichée de cet élément.",
+    "Override the icon of this item.": "Remplacer l'icône de cet élément.",
+    "PANIC": "PANIQUE",
+    "PIN unlock overlay for locked panels.": "Superposition de déverrouillage par code PIN pour les panneaux verrouillés.",
+    "Panel": "Panneau",
+    "Panel Assignments": "Attributions de panneaux",
+    "Panel deleted": "Panneau supprimé",
+    "Panel key": "Clé du panneau",
+    "Panel moved down": "Panneau descendu",
+    "Panel moved up": "Panneau monté",
+    "Panel pin": "Code PIN du panneau",
+    "Panel title": "Titre du panneau",
+    "Panel type": "Type de panneau",
+    "Pick color": "Choisir une couleur",
+    "Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle": "Émettre un court signal sonore lorsque l'écran se connecte avec succès à Home Assistant après un redémarrage ou une coupure de courant",
+    "Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display": "Émettre une tonalité d'alerte sonore chaque fois qu'une nouvelle notification est reçue de Home Assistant pour attirer l'attention sur l'écran",
+    "Please wait while the update is starting": "Veuillez patienter pendant le démarrage de la mise à jour",
+    "Polish": "Polonais",
+    "Pop-up notification panel with icon and optional buttons.": "Panneau de notification contextuel avec icône et boutons optionnels.",
+    "Popup key": "Clé du panneau contextuel",
+    "Popup override": "Remplacement du panneau contextuel",
+    "Presets": "Préréglages",
+    "Press": "Appui",
+    "Pressed": "Appuyé",
+    "QR Code": "QR Code",
+    "Recent": "Récent",
+    "Remove": "Supprimer",
+    "Removed \"{name}\"": "\"{name}\" supprimé",
+    "Reset all": "Tout réinitialiser",
+    "Reset to default": "Réinitialiser par défaut",
+    "Right Button - Use Relay": "Bouton droit - Utiliser le relais",
+    "Right Button Entity": "Entité du bouton droit",
+    "Row": "Rangée",
+    "Row of entities with cover/action controls.": "Rangée d'entités avec commandes de volet/action.",
+    "Rows": "Rangées",
+    "Run": "Exécuter",
+    "SSID": "SSID",
+    "Save": "Enregistrer",
+    "Save failed": "Échec de l'enregistrement",
+    "Saved": "Enregistré",
+    "Saving...": "Enregistrement...",
+    "Secondary Items": "Éléments secondaires",
+    "Select Fan Speed": "Sélectionner la vitesse du ventilateur",
+    "Select a device to edit its panels.": "Sélectionnez un appareil pour modifier ses panneaux.",
+    "Select effect": "Sélectionner un effet",
+    "Select fan mode": "Sélectionner le mode ventilateur",
+    "Select group members": "Sélectionner les membres du groupe",
+    "Select media": "Sélectionner un média",
+    "Select preset mode": "Sélectionner le préréglage",
+    "Select source": "Sélectionner la source",
+    "Select swing mode": "Sélectionner le mode d'oscillation",
+    "Selection List": "Liste de sélection",
+    "Sensor entity containing Sonos favorites data.": "Entité de capteur contenant les données de favoris Sonos.",
+    "Service": "Service",
+    "Service data": "Données de service",
+    "Set Home": "Définir l'accueil",
+    "Set Sleep": "Définir la veille",
+    "Set Wakeup": "Définir le réveil",
+    "Set a PIN code to lock this panel. Users must enter this code before accessing the panel.": "Définissez un code PIN pour verrouiller ce panneau. Les utilisateurs doivent saisir ce code avant d'accéder au panneau.",
+    "Settings": "Paramètres",
+    "Show 'IT IS' text on full hour (e.g. 'IT IS FIVE OCLOCK').": "Afficher le texte « IL EST » à l'heure pile (par ex. « IL EST CINQ HEURES »).",
+    "Show AM/PM": "Afficher AM/PM",
+    "Show AM/PM indicator on the word clock display.": "Afficher l'indicateur AM/PM sur l'horloge en toutes lettres.",
+    "Show Kelvin instead of Mireds (Mired is default).": "Afficher les Kelvin au lieu des Mireds (Mired par défaut).",
+    "Show a home navigation button on panels so users can tap to return to the configured home panel from any page": "Afficher un bouton de navigation d'accueil sur les panneaux pour que les utilisateurs puissent revenir au panneau d'accueil configuré depuis n'importe quelle page",
+    "Show a notification on the display when the timer completes.": "Afficher une notification sur l'écran lorsque la minuterie se termine.",
+    "Show a notifications button on supported panels that indicates and provides access to any pending notifications": "Afficher un bouton de notifications sur les panneaux pris en charge qui indique et donne accès aux notifications en attente",
+    "Show a sleep button on the home panel that lets users manually put the display into sleep mode": "Afficher un bouton de veille sur le panneau d'accueil qui permet aux utilisateurs de mettre manuellement l'écran en veille",
+    "Show big code": "Afficher le grand code",
+    "Show color temperature in Kelvin": "Afficher la température de couleur en Kelvin",
+    "Show current date as a cycle card.": "Afficher la date actuelle comme carte cyclique.",
+    "Show current time as a cycle card.": "Afficher l'heure actuelle comme carte cyclique.",
+    "Show daily or hourly weather forecast on the bottom row.": "Afficher les prévisions météo quotidiennes ou horaires sur la rangée du bas.",
+    "Show date": "Afficher la date",
+    "Show home button": "Afficher le bouton d'accueil",
+    "Show home temperature": "Afficher la température du domicile",
+    "Show in navigation": "Afficher dans la navigation",
+    "Show inside (NSPanel) temperature as a cycle card.": "Afficher la température intérieure (NSPanel) comme carte cyclique.",
+    "Show inside temperature": "Afficher la température intérieure",
+    "Show internal NSPanel temperature alongside weather temperature.": "Afficher la température interne du NSPanel à côté de la température météo.",
+    "Show internal NSPanel temperature sensor alongside weather data.": "Afficher le capteur de température interne du NSPanel à côté des données météo.",
+    "Show intro text": "Afficher le texte d'introduction",
+    "Show intro text ('IT IS') at start of word clock display.": "Afficher le texte d'introduction (« IL EST ») au début de l'horloge en toutes lettres.",
+    "Show intro text on full hour": "Afficher le texte d'introduction à l'heure pile",
+    "Show network info": "Afficher les infos réseau",
+    "Show notification indicator icon on the weather screen.": "Afficher l'icône d'indicateur de notification sur l'écran météo.",
+    "Show notification indicator icon on the word clock screen.": "Afficher l'icône d'indicateur de notification sur l'écran de l'horloge en toutes lettres.",
+    "Show notification indicator when there are pending notifications.": "Afficher l'indicateur de notification lorsqu'il y a des notifications en attente.",
+    "Show notification on finish": "Afficher une notification à la fin",
+    "Show notifications": "Afficher les notifications",
+    "Show notifications button": "Afficher le bouton de notifications",
+    "Show outside temperature": "Afficher la température extérieure",
+    "Show outside temperature as a cycle card.": "Afficher la température extérieure comme carte cyclique.",
+    "Show sleep button": "Afficher le bouton de veille",
+    "Show temperature": "Afficher la température",
+    "Show temperature value text on the clock screen.": "Afficher le texte de la valeur de température sur l'écran de l'horloge.",
+    "Show the current temperature value.": "Afficher la valeur de température actuelle.",
+    "Show the main weather icon and condition text.": "Afficher l'icône météo principale et le texte de condition.",
+    "Show time": "Afficher l'heure",
+    "Show weather": "Afficher la météo",
+    "Show weather icon and temperature on the clock screen.": "Afficher l'icône météo et la température sur l'écran de l'horloge.",
+    "Signal": "Signal",
+    "Single light with brightness, color temperature and effects.": "Lumière unique avec luminosité, température de couleur et effets.",
+    "Skip": "Ignorer",
+    "Sleep Panel": "Panneau de veille",
+    "Sleep and Wakeup": "Veille et réveil",
+    "Sleep panel": "Panneau de veille",
+    "Snapshot max age": "Âge maximum de l'instantané",
+    "Sonos favorites in source list": "Favoris Sonos dans la liste des sources",
+    "Sound on notification": "Son à la notification",
+    "Sound on startup": "Son au démarrage",
+    "Source": "Source",
+    "Special letter color": "Couleur des lettres spéciales",
+    "Spring": "Printemps",
+    "Start with a big QR code.": "Commencer avec un grand QR code.",
+    "Starting Update": "Démarrage de la mise à jour",
+    "State": "État",
+    "State override": "Remplacement d'état",
+    "Stop": "Arrêter",
+    "Summer": "Été",
+    "System": "Système",
+    "System Panels": "Panneaux système",
+    "System panel reset to default": "Panneau système réinitialisé par défaut",
+    "System status and connection screen.": "État du système et écran de connexion.",
+    "TFT Version": "Version TFT",
+    "TFT-Version:": "Version TFT :",
+    "Tap a swatch to change a color - the preview above updates live. Only changed colors are saved.": "Touchez un échantillon pour changer une couleur - l'aperçu ci-dessus se met à jour en direct. Seules les couleurs modifiées sont enregistrées.",
+    "Target Panel": "Panneau cible",
+    "Text": "Texte",
+    "Text (disabled)": "Texte (désactivé)",
+    "Text (inactive)": "Texte (inactif)",
+    "Text items": "Éléments de texte",
+    "The item {} is currently unavailable.": "L'élément {} est actuellement indisponible.",
+    "The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior.": "La clé d'une configuration de panneau contextuel qui s'ouvre lorsque cet élément est touché. Laissez vide pour utiliser le comportement contextuel par défaut.",
+    "The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels": "La locale détermine comment les dates, heures et nombres sont formatés sur l'écran, et quelle langue est utilisée pour les libellés de texte intégrés",
+    "The panel shown briefly when the display wakes from sleep": "Le panneau affiché brièvement lorsque l'écran se réveille de la veille",
+    "The panel shown when the display enters sleep mode": "Le panneau affiché lorsque l'écran entre en mode veille",
+    "The panel shown when the user navigates home or after dim/sleep returns": "Le panneau affiché lorsque l'utilisateur navigue vers l'accueil ou après un retour d'atténuation/veille",
+    "This is taking longer than usual,": "Cela prend plus de temps que d'habitude,",
+    "Thu": "Jeu",
+    "Tiles": "Tuiles",
+    "Time": "Heure",
+    "Timer": "Minuterie",
+    "Timer finished": "Minuterie terminée",
+    "Timer has finished.": "La minuterie est terminée.",
+    "Timer item with start, pause and stop controls.": "Élément de minuterie avec commandes de démarrage, pause et arrêt.",
+    "Timers": "Minuteries",
+    "Title shown on the panel header. Falls back to unnamed if left empty.": "Titre affiché dans l'en-tête du panneau. Revient à « sans nom » si laissé vide.",
+    "Toggle sidebar": "Basculer la barre latérale",
+    "Toggle this Home Assistant entity (light, switch, scene, etc.) when the left hardware button is pressed. Only available when the left relay is disabled.": "Basculer cette entité Home Assistant (lumière, interrupteur, scène, etc.) lorsque le bouton matériel gauche est pressé. Disponible uniquement lorsque le relais gauche est désactivé.",
+    "Toggle this Home Assistant entity (light, switch, scene, etc.) when the right hardware button is pressed. Only available when the right relay is disabled.": "Basculer cette entité Home Assistant (lumière, interrupteur, scène, etc.) lorsque le bouton matériel droit est pressé. Disponible uniquement lorsque le relais droit est désactivé.",
+    "Toggle visibility of on-screen navigation buttons on panels.": "Basculer la visibilité des boutons de navigation à l'écran sur les panneaux.",
+    "Transport": "Transport",
+    "Tue": "Mar",
+    "Type": "Type",
+    "Type of item this entity slot represents": "Type d'élément que représente cet emplacement d'entité",
+    "UNLOCK": "DÉVERROUILLER",
+    "Unavailable": "Indisponible",
+    "Unknown": "Inconnu",
+    "Unknown Interpret": "Interprète inconnu",
+    "Unknown Title": "Titre inconnu",
+    "Unlock": "Déverrouiller",
+    "Unlock Panel": "Déverrouiller le panneau",
+    "Unnamed": "Sans nom",
+    "Unset Home": "Annuler l'accueil",
+    "Unset Sleep": "Annuler la veille",
+    "Unset Wakeup": "Annuler le réveil",
+    "Update": "Mettre à jour",
+    "Update All": "Tout mettre à jour",
+    "Update available": "Mise à jour disponible",
+    "Updated display for {count} device(s)": "Affichage mis à jour pour {count} appareil(s)",
+    "Use condition-based colors or monochrome for the weather icon.": "Utiliser des couleurs basées sur la condition ou monochrome pour l'icône météo.",
+    "Used to reference this panel in actions and gestures": "Utilisé pour référencer ce panneau dans les actions et les gestes",
+    "Vacation": "Vacances",
+    "Vacuum": "Aspirateur",
+    "Vacuum robot controls and status.": "Commandes et état du robot aspirateur.",
+    "Vacuum robot entity for starting, stopping and returning to dock.": "Entité robot aspirateur pour démarrer, arrêter et revenir à la base.",
+    "Value": "Valeur",
+    "Value override": "Remplacement de valeur",
+    "Versatile wall panel for HomeAssistant based": "Panneau mural polyvalent pour les maisons intelligentes basées sur Home Assistant",
+    "Version:": "Version :",
+    "Waiting for Connection": "En attente de connexion",
+    "Wakeup Panel": "Panneau de réveil",
+    "Wakeup panel": "Panneau de réveil",
+    "Weather": "Météo",
+    "Weather display with time, date and forecast.": "Affichage météo avec heure, date et prévisions.",
+    "Weather entity to display conditions, temperature and forecast.": "Entité météo pour afficher les conditions, la température et les prévisions.",
+    "Weather entity to display temperature, pressure and weather icon.": "Entité météo pour afficher la température, la pression et l'icône météo.",
+    "Weather icon color": "Couleur de l'icône météo",
+    "Wed": "Mer",
+    "When enabled, pressing a hardware button resets the inactivity timer and prevents the display from dimming or sleeping. Disable to allow buttons to work without delaying display sleep.": "Lorsqu'activé, appuyer sur un bouton matériel réinitialise le minuteur d'inactivité et empêche l'écran de s'atténuer ou de se mettre en veille. Désactivez pour permettre aux boutons de fonctionner sans retarder la mise en veille de l'écran.",
+    "When enabled, the left hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead.": "Lorsqu'activé, le bouton matériel gauche bascule le relais physique intégré. Désactivez pour attribuer une entité Home Assistant à la place.",
+    "When enabled, the right hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead.": "Lorsqu'activé, le bouton matériel droit bascule le relais physique intégré. Désactivez pour attribuer une entité Home Assistant à la place.",
+    "When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)": "Lorsque décoché, le panneau n'est accessible que via la pile (actions d'éléments, gestes, ou comme panneau accueil/veille/réveil)",
+    "WiFi": "WiFi",
+    "WiFi SSID": "SSID WiFi",
+    "WiFi network name (SSID).": "Nom du réseau WiFi (SSID).",
+    "WiFi network password.": "Mot de passe du réseau WiFi.",
+    "WiFi password": "Mot de passe WiFi",
+    "Winter": "Hiver",
+    "Word-clock display in multiple languages.": "Affichage de l'horloge en toutes lettres en plusieurs langues.",
+    "YAML Version": "Version YAML",
+    "YAML-Version:": "Version YAML :",
+    "Your TFT-version is outdated.": "Votre version TFT est obsolète.",
+    "already exists": "existe déjà",
+    "below": "en dessous",
+    "changed": "modifié",
+    "day(s) ago": "j",
+    "disabled": "désactivé",
+    "enter an entity ID, panel key, service name, or custom text": "saisissez un ID d'entité, une clé de panneau, un nom de service ou un texte personnalisé",
+    "grid_0": "grid_0",
+    "hidden": "masqué",
+    "hour(s) ago": "h",
+    "in navigation": "dans la navigation",
+    "is already used by another panel": "est déjà utilisé par un autre panneau",
+    "items": "éléments",
+    "light.bedroom": "light.bedroom",
+    "light/turn_on": "light/turn_on",
+    "mdi:home": "mdi:home",
+    "minute(s) ago": "min",
+    "my_nspanel": "my_nspanel",
+    "no color": "aucune couleur",
+    "no icon selected": "aucune icône sélectionnée",
+    "panel": "panneau",
+    "panels": "panneaux",
+    "please check your configuration": "veuillez vérifier votre configuration",
+    "shown": "affiché",
+    "smart homes with a custom UI Design.": "avec un design d'interface utilisateur personnalisé.",
+    "unknown": "inconnu"
+  }
+}

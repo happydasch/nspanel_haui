@@ -17,6 +17,7 @@ LOCALE_OPTIONS: list[tuple[str, str]] = [
     ("de_DE", "Deutsch"),
     ("nl_NL", "Nederlands"),
     ("pl_PL", "Polski"),
+    ("fr_FR", "Français"),
 ]
 
 DEVICE_CONFIG: dict[str, Any] = {

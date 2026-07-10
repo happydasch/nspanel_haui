@@ -7,7 +7,7 @@
  */
 
 /**
- * Convert a hex #rrggbb string to an RGB565 integer (0–65535).
+ * Convert a hex #rrggbb string to an RGB565 integer (0-65535).
  * Uses Math.round scaling for accuracy across the full input range.
  */
 export function hexToRgb565(hex) {
@@ -23,7 +23,7 @@ export function hexToRgb565(hex) {
 }
 
 /**
- * Convert an RGB565 integer (0–65535) to a #rrggbb hex string.
+ * Convert an RGB565 integer (0-65535) to a #rrggbb hex string.
  */
 export function rgb565ToHex(num) {
   const n = num | 0;

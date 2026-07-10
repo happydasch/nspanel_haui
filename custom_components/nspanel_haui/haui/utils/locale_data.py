@@ -4,7 +4,7 @@ Provides day/month names and format patterns for supported locales.
 Replaces babel.dates.format_date with hardcoded CLDR-based data.
 """
 
-SUPPORTED_LOCALES = frozenset({"en_US", "de_DE", "nl_NL", "pl_PL"})
+SUPPORTED_LOCALES = frozenset({"en_US", "de_DE", "nl_NL", "pl_PL", "fr_FR"})
 
 # Format tokens:
 #   {DOW}   = full weekday name
@@ -47,6 +47,14 @@ LOCALE_PATTERNS = {
         "E": "{DOWA}",
         "EEEE": "{DOW}",
     },
+    "fr_FR": {
+        "full": "{DOW} {DAY} {MON} {YEAR}",
+        "long": "{DAY} {MON} {YEAR}",
+        "medium": "{DAY} {MONA} {YEAR}",
+        "short": "{DAY}/{MON}/{YEAR}",  # numeric-ish
+        "E": "{DOWA}",
+        "EEEE": "{DOW}",
+    },
 }
 
 # Day names indexed by Python weekday (0=Monday, 6=Sunday)
@@ -67,6 +75,10 @@ DAY_NAMES = {
     "pl_PL": (
         ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"],
         ["pon", "wt", "sr", "czw", "pt", "sob", "nie"],
+    ),
+    "fr_FR": (
+        ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"],
+        ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."],
     ),
 }
 
@@ -168,6 +180,36 @@ MONTH_NAMES = {
             "grudnia",
         ],
         ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"],
+    ),
+    "fr_FR": (
+        [
+            "janvier",
+            "février",
+            "mars",
+            "avril",
+            "mai",
+            "juin",
+            "juillet",
+            "août",
+            "septembre",
+            "octobre",
+            "novembre",
+            "décembre",
+        ],
+        [
+            "janv.",
+            "févr.",
+            "mars",
+            "avr.",
+            "mai",
+            "juin",
+            "juil.",
+            "août",
+            "sept.",
+            "oct.",
+            "nov.",
+            "déc.",
+        ],
     ),
 }
 

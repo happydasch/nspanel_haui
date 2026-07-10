@@ -52,6 +52,7 @@ export const LOCALE_OPTIONS = [
   { value: "de_DE", label: "Deutsch" },
   { value: "nl_NL", label: "Nederlands" },
   { value: "pl_PL", label: "Polski" },
+  { value: "fr_FR", label: "Français" },
 ];
 
 /** Debug level options for the device config debug_level dropdown. */

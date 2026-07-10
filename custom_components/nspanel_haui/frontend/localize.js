@@ -22,7 +22,7 @@ let _currentLang = null;
  * On failure (network error, missing endpoint) falls back to empty map.
  *
  * @param {import("lit").LitElement} hass - the hass object from the Lit element
- * @param {string} lang - language code ('en', 'de', 'nl', 'pl')
+ * @param {string} lang - language code ('en', 'de', 'nl', 'pl', 'fr')
  * @returns {Promise<Object<string, string>>} flat { key: translation } map
  */
 export async function fetchTranslations(hass, lang) {
@@ -63,5 +63,5 @@ export function t(key) {
 export function getLanguage(hass) {
   if (!hass?.language) return 'en';
   const lang = hass.language.split('-')[0].split('_')[0].toLowerCase();
-  return ['en', 'de', 'nl', 'pl'].includes(lang) ? lang : 'en';
+  return ['en', 'de', 'nl', 'pl', 'fr'].includes(lang) ? lang : 'en';
 }

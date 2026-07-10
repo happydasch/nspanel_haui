@@ -56,7 +56,7 @@ These options are set in `esphome/nspanel_haui/display.yaml` and are not needed 
 
 - `max_commands_per_loop` (default: 50): limits commands processed per loop iteration to spread out allocation/deallocation. When `command_spacing` is active this cap is redundant (pacer already limits to 1 cmd/loop), so it only matters with spacing disabled.
 
-- `command_spacing` (default: `0`, disabled): minimum gap between commands sent to the Nextion display. When set to a non-zero duration (e.g. `2ms`), the pacer sends at most 1 command per loop iteration, keeping only 1 command in flight on UART at a time and preventing RX buffer overflow on slower Nextion panels. The ESP32 loop runs at ~3–5ms under this workload, giving ~200–330 commands/sec at `2ms` spacing. Leave at `0` for maximum throughput. Enable only if you observe buffer overflows or display glitches under heavy load.
+- `command_spacing` (default: `0`, disabled): minimum gap between commands sent to the Nextion display. When set to a non-zero duration (e.g. `2ms`), the pacer sends at most 1 command per loop iteration, keeping only 1 command in flight on UART at a time and preventing RX buffer overflow on slower Nextion panels. The ESP32 loop runs at ~3-5ms under this workload, giving ~200-330 commands/sec at `2ms` spacing. Leave at `0` for maximum throughput. Enable only if you observe buffer overflows or display glitches under heavy load.
 
 The repo also exposes these actions via API:
 
@@ -83,10 +83,10 @@ The rendering cycle has two paths:
 ```mermaid
 flowchart TD
     Event{What triggered<br/>the render?}
-    
+
     Event -->|Page switch /<br/>initial display| Full[Full Render - display_panel]
     Event -->|Entity state change /<br/>clock tick| Refresh[Refresh - refresh_panel]
-    
+
     Full --> Cache[Reset command-dedup cache]
     Cache --> Goto[Send goto_page command]
     Goto --> Ack{0x66 ack<br/>received?}
@@ -94,13 +94,13 @@ flowchart TD
     Ack -->|Timeout 10s| Fallback[Force-resend page command<br/>and render anyway]
     Settle --> Render[render_panel - full display commands]
     Fallback --> Render
-    
+
     Refresh --> RenderDirect[render_panel - incremental<br/>display commands]
-    
+
     RenderDirect --> Batch[Batch and send via send_commands]
     Render --> Batch
     Batch --> Done[Done]
-    
+
     style Full fill:#4ba6ee,color:#fff
     style Refresh fill:#f09d37,color:#fff
 ```

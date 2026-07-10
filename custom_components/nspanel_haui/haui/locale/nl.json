@@ -395,7 +395,7 @@
     "+ Add Item": "+ Item toevoegen",
     "- None -": "- Geen -",
     "?": "?",
-    "A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0–65535), or a Home Assistant template that overrides the default entity color.": "Een CSS-hexkleur (#rrggbb), RGB-drietal ([r,g,b]), RGB565 integer (0–65535) of een Home Assistant-sjabloon dat de standaard entiteitskleur overschrijft.",
+    "A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0-65535), or a Home Assistant template that overrides the default entity color.": "Een CSS-hexkleur (#rrggbb), RGB-drietal ([r,g,b]), RGB565 integer (0-65535) of een Home Assistant-sjabloon dat de standaard entiteitskleur overschrijft.",
     "A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display.": "Een JSON-statuswoordenboek of Home Assistant-sjabloon dat de entiteitsstatus voor weergavelogica overschrijft. Handig voor testen of voorwaardelijke weergave.",
     "A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects).": "Een weergavewaarde of Home Assistant-sjabloon dat overschrijft wat voor dit item op het paneel wordt weergegeven. Ondersteunt getypeerde waarden (integers, floats, JSON-arrays/objecten).",
     "ACTION": "ACTIE",

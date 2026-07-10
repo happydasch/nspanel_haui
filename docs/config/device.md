@@ -104,7 +104,7 @@ Per-device panel list. Each panel has a type defined in the editor.
 
   RGB565 color values overriding the built-in `COLORS` defaults, keyed by
   color name. Unknown keys are ignored (logged) and values are clamped to
-  `0`–`65535`. Default `{}` (empty).
+  `0`-`65535`. Default `{}` (empty).
 
 - `sound_on_startup` bool
 

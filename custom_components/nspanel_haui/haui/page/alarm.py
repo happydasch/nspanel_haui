@@ -3,11 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
+from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.color import ALARM_COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption, _
+from ..mapping.icons import ICO_PASSWORD
+from ..utils.icon import get_icon
 
 
 class AlarmPage(HAUIPage):
@@ -53,17 +56,20 @@ class AlarmPage(HAUIPage):
         b4_fnc=Component(23, "b4Fnc"),
     )
 
-    # alarm state icons
+    # alarm state icons (pre-converted to display glyphs — the display's
+    # set_component_text writes raw text, so "mdi:..." names must be resolved
+    # to their icon-font characters here rather than passed through verbatim).
     _ALARM_ICONS = {
-        "disarmed": "mdi:shield-off-outline",
-        "armed_home": "mdi:shield-home-outline",
-        "armed_away": "mdi:shield-lock-outline",
-        "armed_night": "mdi:weather-night",
-        "armed_vacation": "mdi:shield-airplane-outline",
-        "armed_custom_bypass": "mdi:shield-check-outline",
-        "pending": "mdi:shield-outline",
-        "triggered": "mdi:alert-circle-outline",
-        "arming": "mdi:shield-sync-outline",
+        "disarmed": get_icon("mdi:shield-off-outline"),
+        "armed_home": get_icon("mdi:shield-home-outline"),
+        "armed_away": get_icon("mdi:shield-lock-outline"),
+        "armed_night": get_icon("mdi:weather-night"),
+        "armed_vacation": get_icon("mdi:shield-airplane-outline"),
+        "armed_custom_bypass": get_icon("mdi:shield-check-outline"),
+        "pending": get_icon("mdi:shield-outline"),
+        "triggered": get_icon("mdi:alert-circle-outline"),
+        "arming": get_icon("mdi:shield-sync-outline"),
+        "disarming": get_icon("mdi:shield-sync-outline"),
     }
 
     # alarm state -> ALARM_COLORS palette key
@@ -77,7 +83,31 @@ class AlarmPage(HAUIPage):
         "pending": "arming",
         "triggered": "armed",
         "arming": "arming",
+        "disarming": "arming",
     }
+
+    # AlarmControlPanelEntityFeature bit -> (arm service, button label).
+    # Ordered by display priority; only the first four supported modes fit
+    # the four action-button slots.
+    _ARM_MODES: list[tuple[int, str, str]] = [
+        (1, "alarm_arm_home", _("Home")),
+        (2, "alarm_arm_away", _("Away")),
+        (4, "alarm_arm_night", _("Night")),
+        (32, "alarm_arm_vacation", _("Vacation")),
+        (16, "alarm_arm_custom_bypass", _("Bypass")),
+    ]
+
+    # States that are not "disarmed": while in any of them the panel offers a
+    # single disarm action instead of the arm-mode buttons.
+    _DISARMED_STATES = ("", "disarmed", "unknown", "unavailable")
+
+    def prepare(self) -> None:
+        # currently configured alarm item (None if unconfigured/unavailable)
+        self._item: HAUIItem | None = None
+        # code digits entered on the keypad
+        self._input: str = ""
+        # component name -> alarm service for the four action buttons
+        self._btn_actions: dict[str, str] = {}
 
     def _alarm_color(self, state: str) -> int:
         """Resolve the icon color for an alarm *state* from ALARM_COLORS.
@@ -86,6 +116,34 @@ class AlarmPage(HAUIPage):
         """
         key = self._ALARM_COLOR_KEYS.get(state)
         return ALARM_COLORS[key] if key is not None else self.get_color("text")
+
+    @property
+    def _action_buttons(self) -> tuple[Component, ...]:
+        """The four bottom action-button components, in slot order."""
+        return (
+            self.COMPONENTS.b1_fnc,
+            self.COMPONENTS.b2_fnc,
+            self.COMPONENTS.b3_fnc,
+            self.COMPONENTS.b4_fnc,
+        )
+
+    @property
+    def _keypad_buttons(self) -> tuple[Component, ...]:
+        """The twelve keypad components (digits, clear, delete)."""
+        return (
+            self.COMPONENTS.btn_key_0,
+            self.COMPONENTS.btn_key_1,
+            self.COMPONENTS.btn_key_2,
+            self.COMPONENTS.btn_key_3,
+            self.COMPONENTS.btn_key_4,
+            self.COMPONENTS.btn_key_5,
+            self.COMPONENTS.btn_key_6,
+            self.COMPONENTS.btn_key_7,
+            self.COMPONENTS.btn_key_8,
+            self.COMPONENTS.btn_key_9,
+            self.COMPONENTS.btn_key_clr,
+            self.COMPONENTS.btn_key_del,
+        )
 
     # panel
 
@@ -100,15 +158,104 @@ class AlarmPage(HAUIPage):
         self.set_function_component(
             self.COMPONENTS.fnc_right_sec, self.FNC_BTN_R_SEC, "armed_indicator"
         )
-        # register alarm item state listener
-        items = self._build_items_from_panel(panel, "items")
-        if items:
-            item = items[0]
-            self.add_item_listener(item.get_item_id(), self.callback_alarm_state, "state")
-            # initial state render
-            self.update_armed_indicator(item)
+        # resolve the configured alarm item and listen for state changes
+        items = self._build_items_from_panel(panel, "item", "items")
+        self._item = items[0] if items else None
+        if self._item is not None:
+            self.add_item_listener(
+                self._item.get_item_id(), self.callback_alarm_state, "state"
+            )
+        # wire the numeric keypad
+        for comp in self._keypad_buttons:
+            self.on_release(comp, self.callback_keypad)
+        # register the four action buttons (rendered/labelled in update_components)
+        self._btn_actions = {}
+        for comp in self._action_buttons:
+            self.on_release(comp, self.callback_action)
+            self.set_function_component(comp, comp.name, comp.name, visible=False)
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
+
+    def render_panel(self, panel: HAUIPanel) -> None:
+        self.update_components()
+
+    # rendering
+
+    def update_components(self) -> None:
+        """Render the title, armed indicator and action buttons for the state."""
+        state = self._item.get_item_state() if self._item is not None else None
+        state = state or ""
+
+        # title: show entered code as password dots, otherwise the state label
+        if self._input:
+            title = ICO_PASSWORD * len(self._input)
+        elif state:
+            title = self.translate_state("alarm_control_panel", state)
+        else:
+            title = self.translate("Alarm")
+        self.set_component_text(self.COMPONENTS.title, title)
+
+        # armed indicator in the header
+        self.update_function_component(
+            self.FNC_BTN_R_SEC,
+            icon=self._ALARM_ICONS.get(state, ""),
+            color=self._alarm_color(state),
+            visible=True,
+        )
+
+        # action buttons: disarm while armed, otherwise the supported arm modes
+        self._btn_actions = {}
+        actions = self._resolve_actions(state)
+        for comp, action in zip(self._action_buttons, actions, strict=False):
+            service, label = action
+            self._btn_actions[comp.name] = service
+            self._show_action_button(comp, label)
+        for comp in self._action_buttons[len(actions):]:
+            self.update_function_component(fnc_id=comp.name, visible=False)
+
+    def _resolve_actions(self, state: str) -> list[tuple[str, str]]:
+        """Return (service, label) pairs for the action buttons in this state."""
+        if self._item is None:
+            return []
+        # armed / arming / pending / triggered -> a single disarm action
+        if state not in self._DISARMED_STATES:
+            return [("alarm_disarm", self.translate("Disarm"))]
+        # disarmed -> arm modes from supported_features
+        features = int(self._item.get_item_attr("supported_features", 0) or 0)
+        # some integrations don't advertise features; fall back to the common set
+        if not features:
+            features = 1 | 2 | 4
+        actions: list[tuple[str, str]] = []
+        for bit, service, label in self._ARM_MODES:
+            if features & bit:
+                actions.append((service, self.translate(label)))
+            if len(actions) >= len(self._action_buttons):
+                break
+        return actions
+
+    def _show_action_button(self, component: Component, label: str) -> None:
+        """Render a single action button as an enabled, labelled control."""
+        color, color_pressed, back_color, back_color_pressed = self.get_button_colors(True)
+        self.update_function_component(
+            fnc_id=component.name,
+            text=label,
+            color=color,
+            color_pressed=color_pressed,
+            back_color=back_color,
+            back_color_pressed=back_color_pressed,
+            touch_events=True,
+            visible=True,
+        )
+
+    def _action_needs_code(self, service: str) -> bool:
+        """Whether *service* requires a code for the configured alarm entity."""
+        if self._item is None:
+            return False
+        if not self._item.get_item_attr("code_format"):
+            return False
+        if service == "alarm_disarm":
+            return True
+        return bool(self._item.get_item_attr("code_arm_required", True))
 
     # callback
 
@@ -118,20 +265,39 @@ class AlarmPage(HAUIPage):
         if self.app.device.device_info.get("display_state") == "off":
             return
         with self.rec_cmd:
-            self.update_function_component(
-                self.FNC_BTN_R_SEC,
-                icon=self._ALARM_ICONS.get(new, ""),
-                color=self._alarm_color(new),
-                visible=True,
-            )
+            # a state transition means any in-progress code entry is done
+            self._input = ""
+            self.update_components()
 
-    def update_armed_indicator(self, item: HAUIItem) -> None:
-        state = item.get_item_state() or ""
-        icon = self._ALARM_ICONS.get(state, "")
-        color = self._alarm_color(state)
-        self.update_function_component(
-            self.FNC_BTN_R_SEC,
-            icon=icon,
-            color=color,
-            visible=True,
-        )
+    def callback_keypad(self, event: HAUIEvent, component: Component) -> None:
+        with self.rec_cmd:
+            name = component.name
+            if name.startswith("bKey"):
+                key = name[4:]
+                if key == "Clr":
+                    self._input = ""
+                elif key == "Del":
+                    self._input = self._input[:-1]
+                else:
+                    self._input += str(key)
+            self.update_components()
+
+    def callback_action(self, event: HAUIEvent, component: Component) -> None:
+        if self._item is None:
+            return
+        service = self._btn_actions.get(component.name)
+        if service is None:
+            return
+        code = self._input
+        # code required but none entered -> keep the entry, do nothing
+        if self._action_needs_code(service) and not code:
+            self.log(f"Alarm action {service} requires a code")
+            return
+        kwargs: dict[str, Any] = {}
+        if code:
+            kwargs["code"] = code
+        self.log(f"Alarm action {service} for {self._item.get_item_id()}")
+        self._item.call_item_service(service, **kwargs)
+        with self.rec_cmd:
+            self._input = ""
+            self.update_components()

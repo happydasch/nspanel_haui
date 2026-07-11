@@ -6,7 +6,7 @@ description: Device behavior, gestures, display states, hardware buttons, and so
 # Device Description
 ## Device
 
-The device is responsible for gestures, display state and its hardware buttons. The communication between server and client is described in [Communication.md](Communication.md).
+The device is responsible for gestures, display state and its hardware buttons. The communication between server and client is described in [communication.md](communication.md).
 
 ### Gestures
 

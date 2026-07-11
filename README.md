@@ -7,24 +7,7 @@
 
 A Home Assistant custom integration that replaces the stock Sonoff NSPanel firmware with a flexible, configurable touchscreen display system built on ESPHome. Configure everything from the HA interface — panels, entities, gestures, and dimming — without editing YAML.
 
-[Documentation](docs/README.md) &middot; [Panels Overview](docs/panels/README.md) &middot; [Installation Guide](docs/Install.md) &middot; [Configuration](docs/Config.md) &middot; [FAQ](docs/FAQ.md) &middot; [Example Configs](docs/Example_Config.md) &middot; [HA Community Thread](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
-
----
-
-## Features
-
-| | |
-|---|---|
-| **Configurable panels** | Grid, row, light, climate, cover, media, vacuum, timer, alarm, QR code, weather, clock, and more |
-| **In-UI editor** | Add, remove, and configure panels directly from the Home Assistant interface — no YAML editing required |
-| **Touch gestures** | Swipe left/right for navigation, gesture sequences for advanced controls |
-| **Live state updates** | Display refreshes instantly when an entity state changes |
-| **Display dimming** | Auto-dim brightness after a configurable timeout |
-| **Sleep/wake panels** | Switch to a designated page after inactivity; fully configurable sleep and wakeup panels |
-| **Panel locking** | Lock any panel with a PIN code; unlock via on-screen keypad |
-| **Physical buttons** | Coupled or uncoupled relay modes — use hardware buttons as software inputs |
-| **Notifications** | Receive and display notifications with optional looping sounds |
-| **Auto-update** | Firmware and TFT updates delivered through the Hub app after initial flash |
+[Documentation](docs/README.md) &middot; [Panels Overview](docs/panels/README.md) &middot; [Installation Guide](docs/install.md) &middot; [Configuration](docs/config.md) &middot; [FAQ](docs/faq.md) &middot; [Example Configs](docs/example_config.md) &middot; [HA Community Thread](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
 
 ---
 
@@ -32,9 +15,8 @@ A Home Assistant custom integration that replaces the stock Sonoff NSPanel firmw
 
 ### Prerequisites
 
-- A **Sonoff NSPanel** (original or Pro) connected to your network
-- **Home Assistant** 2024.x or newer with **ESPHome** add-on installed
-- An **ESPHome dashboard** to manage device firmware
+- A **Sonoff NSPanel** flashed with custom ESPHome firmware installed
+- **Home Assistant** 2026.4 or newer
 
 ### Step 1: Install via HACS (recommended)
 
@@ -59,7 +41,7 @@ If the button above does not work:
 3. Flash the firmware to your NSPanel via USB or OTA
 4. After flashing, the TFT display firmware is updated automatically by the Hub app
 
-See the [ESPHome guide](docs/ESPHome.md) and [Nextion guide](docs/Nextion.md) for details.
+See the [ESPHome guide](docs/esphome.md) and [Nextion guide](docs/nextion.md) for details.
 </details>
 
 ### Step 3: Add the integration in Home Assistant
@@ -78,7 +60,7 @@ Once the integration is running, each NSPanel appears as a device in Home Assist
 - Configure panel-specific options (display mode, colors, icons, etc.)
 - Set up navigation, gestures, dimming, and sleep/wake behaviour
 
-See the [Configuration guide](docs/Config.md) for detailed instructions.
+See the [Configuration guide](docs/config.md) for detailed instructions.
 
 ---
 
@@ -112,7 +94,7 @@ System panels (blank, settings, about, loading) and popups (unlock, notify, sele
 
 ## Configuration
 
-All device settings — panels, entities, gestures, dimming, sleep, and colours — are managed through the Home Assistant interface. See the [Configuration guide](docs/Config.md) for all available options and the [Device description](docs/Device.md) for a full feature overview.
+All device settings — panels, entities, gestures, dimming, sleep, and colours — are managed through the Home Assistant interface. See the [Configuration guide](docs/config.md) for all available options and the [Device description](docs/device.md) for a full feature overview.
 
 ---
 
@@ -122,23 +104,23 @@ All device settings — panels, entities, gestures, dimming, sleep, and colours 
 
 | Document | Description |
 |----------|-------------|
-| [Installation Guide](docs/Install.md) | Step-by-step installation instructions |
-| [Configuration](docs/Config.md) | Panel and device configuration reference |
+| [Installation Guide](docs/install.md) | Step-by-step installation instructions |
+| [Configuration](docs/config.md) | Panel and device configuration reference |
 | [Panels Overview](docs/panels/README.md) | All available panel types and their options |
-| [Device Description](docs/Device.md) | Device behaviour, gestures, dimming, and features |
-| [FAQ](docs/FAQ.md) | Frequently asked questions and troubleshooting |
-| [Example Configs](docs/Example_Config.md) | Example panel configurations |
+| [Device Description](docs/device.md) | Device behaviour, gestures, dimming, and features |
+| [FAQ](docs/faq.md) | Frequently asked questions and troubleshooting |
+| [Example Configs](docs/example_config.md) | Example panel configurations |
 | [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html) | Available icon codes |
 
 ### Development
 
 | Document | Description |
 |----------|-------------|
-| [Design Guidelines](docs/Design.md) | Styling and panel design principles |
-| [Communication Overview](docs/Communication.md) | How Hub, ESPHome, and Nextion communicate |
-| [ESPHome Component](docs/ESPHome.md) | ESP32 firmware details and serial protocol |
-| [Hub Component](docs/Hub.md) | The core integration logic |
-| [Nextion Component](docs/Nextion.md) | Display firmware and TFT details |
+| [Design Guidelines](docs/design.md) | Styling and panel design principles |
+| [Communication Overview](docs/communication.md) | How Hub, ESPHome, and Nextion communicate |
+| [ESPHome Component](docs/esphome.md) | ESP32 firmware details and serial protocol |
+| [Hub Component](docs/hub.md) | The core integration logic |
+| [Nextion Component](docs/nextion.md) | Display firmware and TFT details |
 
 ---
 

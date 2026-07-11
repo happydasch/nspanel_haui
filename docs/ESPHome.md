@@ -24,7 +24,7 @@ To install ESPHome on the device use the config from `esphome/install.yaml`. Edi
 
 If the device shows up in Home Assistant you can manually install the TFT file by pressing the `Upload Display` button. The TFT file will automatically be installed when the device connects to the Hub app.
 
-See [Nextion](Nextion.md) for more details about the display.
+See [Nextion](nextion.md) for more details about the display.
 
 ## Config
 
@@ -44,7 +44,7 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 
 All communication between the ESPHome device and the Hub app uses ESPHome Native API events. The configuration for events is in `esphome/nspanel_haui/scripts_event.yaml`. The connection scripts are in `esphome/nspanel_haui/scripts_connection.yaml`.
 
-See [docs/Communication.md](Communication.md) for the full protocol description.
+See [docs/communication.md](communication.md) for the full protocol description.
 
 ### Connection Globals
 
@@ -367,29 +367,29 @@ The brightness change process is processed this way:
 ```mermaid
 stateDiagram-v2
     [*] --> On: Touch / Button
-    
+
     state On {
         [*] --> FullBrightness: dimming_timeout not expired
         FullBrightness --> FullBrightness: touch resets timer
     }
-    
+
     On --> Dimmed: dimming_timeout expires
     On --> On: touch resets timer
-    
+
     state Dimmed {
         [*] --> DimBrightness: dim_brightness applied
     }
-    
+
     Dimmed --> On: touch / button
     Dimmed --> Off: sleep_timeout expires
-    
+
     state Off {
         [*] --> BlackScreen: brightness = 0
     }
-    
+
     Off --> On: touch / button
     Off --> Dimmed: wake (if sleep disabled)
-    
+
     note right of On
         Display at full brightness
         Duration: dimming_timeout

@@ -4,6 +4,7 @@ description: Nextion display configuration, HMI editing, and display rendering
 ---
 
 # Nextion Component
+
 ## Installation
 
 To install the TFT file on the display, the device needs to be already flashed with ESPHome.

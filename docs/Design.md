@@ -25,7 +25,7 @@ flowchart TD
         Header["Header Area (top)<br/>2 function buttons left + title + 2 function buttons right"]
         Content["Main Area (bottom)<br/>Panel content<br/>- Grid, Light, Climate, Cover, etc."]
     end
-    
+
     style Header fill:#313131,color:#dedede
     style Content fill:#181818,color:#dedede
 ```

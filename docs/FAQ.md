@@ -56,4 +56,3 @@ To resolve this, ensure you have manually added your ESPHome devices in Home Ass
 If you continue having discovery issues:
 
 - Use `--network=host` for your Home Assistant Docker container — this enables mDNS and ESPHome's native discovery.
-- Use the **"Scan for new devices"** button in the HAUI Editor's Device Manager to manually trigger discovery.

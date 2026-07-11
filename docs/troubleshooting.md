@@ -4,6 +4,7 @@ description: Common issues, error messages, and solutions for NSPanel HAUI
 ---
 
 # Troubleshooting
+
 ## Device Discovery Issues
 
 ### NSPanel devices not discovered
@@ -17,8 +18,6 @@ If you're running Home Assistant in Docker with **bridge networking** (the defau
 3. After adding them, the HAUI hub will automatically pick up the devices within a few seconds.
 
 **Alternative:** Use `--network=host` for your Home Assistant Docker container — this enables mDNS and ESPHome's native discovery.
-
-**Manual trigger:** Use the "Scan for new devices" button in the HAUI Editor's Device Manager to manually trigger discovery.
 
 ## TFT Upload Failures
 
@@ -64,7 +63,7 @@ After changing device configuration or adding new panels, a full Home Assistant 
 
 If you continue having issues after trying these solutions:
 
-- Check the [FAQ](FAQ.md) for additional common questions.
+- Check the [FAQ](faq.md) for additional common questions.
 - Open an issue on the [GitHub issue tracker](https://github.com/happydasch/nspanel_haui/issues) with:
   - Your HA version and HAUI version
   - Relevant log entries (from both HA and the ESPHome device)

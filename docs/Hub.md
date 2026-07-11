@@ -98,10 +98,10 @@ sequenceDiagram
 
     Page->>Panel: create_panel(panel)
     Note over Panel: panel config loaded
-    
+
     Page->>Panel: start_panel(panel)
     Page->>Panel: config_panel(panel)
-    
+
     Page->>Panel: before_render_panel(panel)
     alt returns True
         Page->>Panel: render_panel(panel)
@@ -109,12 +109,12 @@ sequenceDiagram
     else returns False
         Page->>Panel: after_render_panel(panel, rendered=False)
     end
-    
+
     Note over Panel: panel is active<br/>(entity updates trigger refresh)
-    
+
     Page->>Panel: refresh_panel()
     Page->>Panel: render_panel(panel)
-    
+
     Page->>Panel: stop_panel(panel)
     Note over Panel: panel cleaned up
 ```
@@ -145,15 +145,15 @@ stateDiagram-v2
     state CONNECTED
 
     [*] --> DISCONNECTED
-    
+
     DISCONNECTED --> HANDSHAKING: req_connection<br/>received from device
-    
+
     HANDSHAKING --> HANDSHAKING: res_connection received<br/>(sends req_device_state)
     HANDSHAKING --> CONNECTED: res_device_state received<br/>(sends hub_connection_initialized)
-    
+
     CONNECTED --> DISCONNECTED: heartbeat timeout<br/>or hub_connection_closed
     CONNECTED --> CONNECTED: bidirectional heartbeats<br/>(every heartbeat_interval)
-    
+
     DISCONNECTED --> DISCONNECTED: livesign detection<br/>(re-initiate handshake)
 ```
 

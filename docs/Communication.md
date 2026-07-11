@@ -4,6 +4,7 @@ description: Architecture, handshake protocol, heartbeats, and connection state 
 ---
 
 # Communication Overview
+
 ## Architecture
 
 ```mermaid
@@ -20,6 +21,7 @@ flowchart LR
 
     N <==>|UART| E
     E <==>|ESPHome Native API| Hub
+```
 
 The **device** (ESP32 running ESPHome) talks to the **display** (Nextion) via UART and communicates with the **hub app** (NSPanelHAUI) via ESPHome Native API events.
 
@@ -242,6 +244,7 @@ sequenceDiagram
     NX ->> ESP: res_val sensor on_value
     ESP ->> Page: publish read_response<br/>{name, type:"number", value}
     Page ->> Page: _process_read_response(e)<br/>→ callback(value)
+```
 
 The text path is identical but uses `REQ_TXT` → `request_text` script →
 `system.resTxt.txt=name.txt` → `res_txt` sensor → `read_response` with

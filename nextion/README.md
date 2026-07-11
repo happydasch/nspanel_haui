@@ -17,5 +17,5 @@ All ESPHome device configuration files (YAML scripts, packages, and build config
 
 For documentation about the ESPHome device configuration see:
 
-- [ESPHome Configuration](../docs/ESPHome.md)
+- [ESPHome Configuration](../docs/esphome.md)
 - [`esphome/README.md`](../esphome/README.md)

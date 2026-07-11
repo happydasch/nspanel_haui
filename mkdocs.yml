@@ -72,14 +72,14 @@ extra:
 nav:
   - Home: README.md
   - End User:
-    - Installation: Install.md
-    - Custom Integration: Custom_Integration.md
+    - Installation: install.md
+    - Custom Integration: custom_integration.md
     - Configuration:
-      - Overview: Config.md
+      - Overview: config.md
       - Device Configuration: config/device.md
       - Panel Configuration: config/panels.md
       - Item Configuration: config/items.md
-    - Device Description: Device.md
+    - Device Description: device.md
     - Panels:
       - Overview: panels/README.md
       - Weather: panels/panel_weather.md
@@ -103,12 +103,12 @@ nav:
       - Popup Notify: panels/popup_notify.md
       - Popup Select: panels/popup_select.md
       - Popup Unlock: panels/popup_unlock.md
-    - Examples: Example_Config.md
-    - FAQ: FAQ.md
+    - Examples: example_config.md
+    - FAQ: faq.md
     - Troubleshooting: troubleshooting.md
   - Development:
-    - Design Guidelines: Design.md
-    - Communication Overview: Communication.md
-    - ESPHome Component: ESPHome.md
-    - Hub Component: Hub.md
-    - Nextion Component: Nextion.md
+    - Design Guidelines: design.md
+    - Communication Overview: communication.md
+    - ESPHome Component: esphome.md
+    - Hub Component: hub.md
+    - Nextion Component: nextion.md

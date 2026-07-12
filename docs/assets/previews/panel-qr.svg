@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#1a1a2e" stroke="#444" stroke-width="1.5"/>
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#000" stroke="#444" stroke-width="1.5"/>
   <text x="80" y="14" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="9" font-weight="bold">QR Code</text>
   <!-- QR code pattern - 9x9 grid, cell 8px + 1 gap -->
   <g transform="translate(40,20)">
+    <!-- All qr cells are now inverted: dark modules are lighter gray for visibility on black background -->
     <!-- Row 0 -->
     <rect x="0" y="0" width="8" height="8" fill="#fff"/>
     <rect x="9" y="0" width="8" height="8" fill="#fff"/>
@@ -15,33 +16,33 @@
     <rect x="72" y="0" width="8" height="8" fill="#fff"/>
     <!-- Row 1 -->
     <rect x="0" y="9" width="8" height="8" fill="#fff"/>
-    <rect x="9" y="9" width="8" height="8" fill="#000"/>
-    <rect x="18" y="9" width="8" height="8" fill="#000"/>
-    <rect x="27" y="9" width="8" height="8" fill="#000"/>
-    <rect x="36" y="9" width="8" height="8" fill="#000"/>
-    <rect x="45" y="9" width="8" height="8" fill="#000"/>
-    <rect x="54" y="9" width="8" height="8" fill="#000"/>
-    <rect x="63" y="9" width="8" height="8" fill="#000"/>
+    <rect x="9" y="9" width="8" height="8" fill="#ddd"/>
+    <rect x="18" y="9" width="8" height="8" fill="#ddd"/>
+    <rect x="27" y="9" width="8" height="8" fill="#ddd"/>
+    <rect x="36" y="9" width="8" height="8" fill="#ddd"/>
+    <rect x="45" y="9" width="8" height="8" fill="#ddd"/>
+    <rect x="54" y="9" width="8" height="8" fill="#ddd"/>
+    <rect x="63" y="9" width="8" height="8" fill="#ddd"/>
     <rect x="72" y="9" width="8" height="8" fill="#fff"/>
     <!-- Row 2 -->
     <rect x="0" y="18" width="8" height="8" fill="#fff"/>
-    <rect x="9" y="18" width="8" height="8" fill="#000"/>
+    <rect x="9" y="18" width="8" height="8" fill="#ddd"/>
     <rect x="18" y="18" width="8" height="8" fill="#fff"/>
-    <rect x="27" y="18" width="8" height="8" fill="#000"/>
+    <rect x="27" y="18" width="8" height="8" fill="#ddd"/>
     <rect x="36" y="18" width="8" height="8" fill="#fff"/>
-    <rect x="45" y="18" width="8" height="8" fill="#000"/>
+    <rect x="45" y="18" width="8" height="8" fill="#ddd"/>
     <rect x="54" y="18" width="8" height="8" fill="#fff"/>
-    <rect x="63" y="18" width="8" height="8" fill="#000"/>
+    <rect x="63" y="18" width="8" height="8" fill="#ddd"/>
     <rect x="72" y="18" width="8" height="8" fill="#fff"/>
     <!-- Row 3 -->
     <rect x="0" y="27" width="8" height="8" fill="#fff"/>
-    <rect x="9" y="27" width="8" height="8" fill="#000"/>
-    <rect x="18" y="27" width="8" height="8" fill="#000"/>
-    <rect x="27" y="27" width="8" height="8" fill="#000"/>
-    <rect x="36" y="27" width="8" height="8" fill="#000"/>
-    <rect x="45" y="27" width="8" height="8" fill="#000"/>
-    <rect x="54" y="27" width="8" height="8" fill="#000"/>
-    <rect x="63" y="27" width="8" height="8" fill="#000"/>
+    <rect x="9" y="27" width="8" height="8" fill="#ddd"/>
+    <rect x="18" y="27" width="8" height="8" fill="#ddd"/>
+    <rect x="27" y="27" width="8" height="8" fill="#ddd"/>
+    <rect x="36" y="27" width="8" height="8" fill="#ddd"/>
+    <rect x="45" y="27" width="8" height="8" fill="#ddd"/>
+    <rect x="54" y="27" width="8" height="8" fill="#ddd"/>
+    <rect x="63" y="27" width="8" height="8" fill="#ddd"/>
     <rect x="72" y="27" width="8" height="8" fill="#fff"/>
     <!-- Row 4 -->
     <rect x="0" y="36" width="8" height="8" fill="#fff"/>
@@ -55,33 +56,33 @@
     <rect x="72" y="36" width="8" height="8" fill="#fff"/>
     <!-- Row 5 -->
     <rect x="0" y="45" width="8" height="8" fill="#fff"/>
-    <rect x="9" y="45" width="8" height="8" fill="#000"/>
+    <rect x="9" y="45" width="8" height="8" fill="#ddd"/>
     <rect x="18" y="45" width="8" height="8" fill="#fff"/>
-    <rect x="27" y="45" width="8" height="8" fill="#000"/>
+    <rect x="27" y="45" width="8" height="8" fill="#ddd"/>
     <rect x="36" y="45" width="8" height="8" fill="#fff"/>
-    <rect x="45" y="45" width="8" height="8" fill="#000"/>
+    <rect x="45" y="45" width="8" height="8" fill="#ddd"/>
     <rect x="54" y="45" width="8" height="8" fill="#fff"/>
-    <rect x="63" y="45" width="8" height="8" fill="#000"/>
+    <rect x="63" y="45" width="8" height="8" fill="#ddd"/>
     <rect x="72" y="45" width="8" height="8" fill="#fff"/>
     <!-- Row 6 -->
     <rect x="0" y="54" width="8" height="8" fill="#fff"/>
-    <rect x="9" y="54" width="8" height="8" fill="#000"/>
-    <rect x="18" y="54" width="8" height="8" fill="#000"/>
-    <rect x="27" y="54" width="8" height="8" fill="#000"/>
-    <rect x="36" y="54" width="8" height="8" fill="#000"/>
-    <rect x="45" y="54" width="8" height="8" fill="#000"/>
-    <rect x="54" y="54" width="8" height="8" fill="#000"/>
-    <rect x="63" y="54" width="8" height="8" fill="#000"/>
+    <rect x="9" y="54" width="8" height="8" fill="#ddd"/>
+    <rect x="18" y="54" width="8" height="8" fill="#ddd"/>
+    <rect x="27" y="54" width="8" height="8" fill="#ddd"/>
+    <rect x="36" y="54" width="8" height="8" fill="#ddd"/>
+    <rect x="45" y="54" width="8" height="8" fill="#ddd"/>
+    <rect x="54" y="54" width="8" height="8" fill="#ddd"/>
+    <rect x="63" y="54" width="8" height="8" fill="#ddd"/>
     <rect x="72" y="54" width="8" height="8" fill="#fff"/>
     <!-- Row 7 -->
     <rect x="0" y="63" width="8" height="8" fill="#fff"/>
-    <rect x="9" y="63" width="8" height="8" fill="#000"/>
-    <rect x="18" y="63" width="8" height="8" fill="#000"/>
-    <rect x="27" y="63" width="8" height="8" fill="#000"/>
-    <rect x="36" y="63" width="8" height="8" fill="#000"/>
-    <rect x="45" y="63" width="8" height="8" fill="#000"/>
-    <rect x="54" y="63" width="8" height="8" fill="#000"/>
-    <rect x="63" y="63" width="8" height="8" fill="#000"/>
+    <rect x="9" y="63" width="8" height="8" fill="#ddd"/>
+    <rect x="18" y="63" width="8" height="8" fill="#ddd"/>
+    <rect x="27" y="63" width="8" height="8" fill="#ddd"/>
+    <rect x="36" y="63" width="8" height="8" fill="#ddd"/>
+    <rect x="45" y="63" width="8" height="8" fill="#ddd"/>
+    <rect x="54" y="63" width="8" height="8" fill="#ddd"/>
+    <rect x="63" y="63" width="8" height="8" fill="#ddd"/>
     <rect x="72" y="63" width="8" height="8" fill="#fff"/>
     <!-- Row 8 -->
     <rect x="0" y="72" width="8" height="8" fill="#fff"/>

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#1a1a2e" stroke="#444" stroke-width="1.5"/>
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#000" stroke="#444" stroke-width="1.5"/>
   <text x="80" y="14" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="9" font-weight="bold">Row</text>
   <!-- Row card 1 -->
   <rect x="10" y="22" width="140" height="18" rx="4" fill="rgba(255,255,255,0.06)"/>

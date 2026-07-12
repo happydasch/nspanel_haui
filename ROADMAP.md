@@ -1,6 +1,6 @@
 # Roadmap
 
-Development trajectory from **v0.3.1** toward **v1.0**.
+Development trajectory from **v0.3.2** toward **v1.0**.
 
 ---
 

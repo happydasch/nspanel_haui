@@ -471,11 +471,16 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         rendered = False
         self._fnc_items = {}
         with self.rec_cmd:
+            # apply background colour FIRST — before start_panel/config/render —
+            # so that component vis/text commands that follow don't get painted
+            # over by the screen clear.
+            self._apply_background()
+
             self.start_panel(panel)
 
-            # 1. call config for panel
+            # call config for panel
             self.config_panel(panel)
-            # 2. call before render for panel
+            # call before render for panel
             if self.before_render_panel(panel):
                 self.debug_log(
                     f"Rendering panel {panel.id}",
@@ -489,15 +494,13 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 self._render_function_components()
                 self.render_panel(panel)
                 rendered = True
-            # 3. full page refresh LAST: redraws static TFT components erased
-            # by the leading cls in config_panel, after all component writes.
-            # Sending ref 0 right after cls keeps the display busy with a full
-            # redraw while the rest of the batch streams in, which fills the
-            # Nextion RX buffer on large batches (0x24 overflow -> re-render
-            # loop).
+
+            # Full page refresh LAST: redraws all static TFT components
+            # after the cls + component commands that preceded them.
             if not self.PICTURE_BACKGROUND:
                 self.send_cmd("ref 0")
-        # 4. call after render for panel
+
+        # call after render for panel
         self.after_render_panel(panel, rendered)
 
     def _render_function_components(self) -> None:
@@ -510,6 +513,32 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         for fnc_id in self._fnc_items:
             self.update_function_component(fnc_id)
 
+    def _apply_background(self) -> None:
+        """Apply background colour and header/title colours at the START of a
+        panel transition, before any component setup or render commands.
+
+        Picture-background pages (``PICTURE_BACKGROUND = True``) handle their
+        own background via pre-compiled assets; ``cls`` would overwrite them.
+        """
+        if not self.PICTURE_BACKGROUND:
+            self.send_cmd(f"cls {self.get_color('background')}")
+            # apply header colours to the header background (if the page has one)
+            try:
+                header_comp = self.COMPONENTS.header
+            except AttributeError:
+                pass
+            else:
+                self.set_component_back_color(header_comp, self.get_color("header_background"))
+
+            # apply header colours to the title component (if the page has one)
+            try:
+                title_comp = self.COMPONENTS.title
+            except AttributeError:
+                pass
+            else:
+                self.set_component_text_color(title_comp, self.get_color("header_text"))
+                self.set_component_back_color(title_comp, self.get_color("header_background"))
+
     def config_panel(self, panel: HAUIPanel) -> None:
         """Configures the currently set panel.
 
@@ -517,30 +546,9 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             panel (HAUIPanel): Current panel
         """
         with self.rec_cmd:
-            # Apply background color for solid-color pages.
-            # Picture-background pages (clock, weather, clocktwo) handle their
-            # own background via pre-compiled picture assets in the TFT.
-            if not self.PICTURE_BACKGROUND:
-                # cls erases static TFT components; the matching "ref 0" that
-                # redraws them is sent at the END of the set_panel batch so the
-                # full-page refresh never runs while commands are streaming in.
-                self.send_cmd(f"cls {self.get_color('background')}")
-                # apply header colors to the header background (if the page has one)
-                try:
-                    header_comp = self.COMPONENTS.header
-                except AttributeError:
-                    pass
-                else:
-                    self.set_component_back_color(header_comp, self.get_color("header_background"))
-
-                # apply header colors to the title component (if the page has one)
-                try:
-                    title_comp = self.COMPONENTS.title
-                except AttributeError:
-                    pass
-                else:
-                    self.set_component_text_color(title_comp, self.get_color("header_text"))
-                    self.set_component_back_color(title_comp, self.get_color("header_background"))
+            # Background is applied by ``_apply_background()`` at the start of
+            # the ``set_panel`` batch (before ``start_panel``), so ``cls`` does
+            # not paint over the component commands that follow.
 
             # physical button state
             if self._btn_state_left is not None:

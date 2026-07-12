@@ -24,7 +24,6 @@ class UnlockPage(AlarmPage):
         icon="mdi:lock-outline",
     )
 
-    _input = ""
     _title = ""
     _unlock_panel: HAUIPanel | None = None
 
@@ -104,9 +103,6 @@ class UnlockPage(AlarmPage):
             return False
         return True
 
-    def render_panel(self, panel: HAUIPanel) -> None:
-        self.update_components()
-
     # misc
 
     def update_components(self) -> None:
@@ -147,21 +143,6 @@ class UnlockPage(AlarmPage):
             )
 
     # callback
-
-    def callback_keypad(self, event: HAUIEvent, component: Component) -> None:
-        self.log(f"Got keypad press: {component}")
-        with self.rec_cmd:
-            # process keypad value
-            if component.name.startswith("bKey"):
-                bKeyVal = component.name[4:]
-                if bKeyVal not in ["Del", "Clr"]:
-                    self._input += str(bKeyVal)
-                elif bKeyVal == "Clr":
-                    self._input = ""
-                elif bKeyVal == "Del":
-                    self._input = self._input[:-1]
-
-            self.update_components()
 
     def callback_unlock(self, event: HAUIEvent, component: Component) -> None:
         if self._unlock_panel is None:

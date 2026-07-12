@@ -170,7 +170,7 @@ class AlarmPage(HAUIPage):
         self._btn_actions = {}
         for comp in self._action_buttons:
             self.on_release(comp, self.callback_action)
-            self.set_function_component(comp, comp.name, comp.name, visible=False)
+            self.set_function_component(comp, comp.name, comp.name, visible=True)
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
 

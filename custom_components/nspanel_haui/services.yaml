@@ -10,10 +10,12 @@ open_panel:
     If wakeup is enabled (default false), the display is woken
     before opening the panel — equivalent to calling
     reset_last_interaction first.
-  target:
-    device:
-      integration: nspanel_haui
   fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
     panel:
       required: true
       example: "alarm"
@@ -32,9 +34,12 @@ close_panel:
   description: >-
     Close the current panel and return to the previous panel
     (or home panel if there is no history).
-  target:
-    device:
-      integration: nspanel_haui
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
 
 # ── nspanel_haui.wakeup ──────────────────────────────────────
 wakeup:
@@ -42,9 +47,12 @@ wakeup:
   description: >-
     Wake the display and navigate to the configured wakeup
     panel (or home panel if no wakeup panel is set).
-  target:
-    device:
-      integration: nspanel_haui
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
 
 # ── nspanel_haui.sleep ───────────────────────────────────────
 sleep:
@@ -52,6 +60,9 @@ sleep:
   description: >-
     Send the display to sleep by opening the configured sleep
     panel.
-  target:
-    device:
-      integration: nspanel_haui
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui

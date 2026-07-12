@@ -5,96 +5,269 @@
 [![HA Community](https://img.shields.io/badge/HA%20Community-Thread-03a87c?style=for-the-badge)](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
 [![License](https://img.shields.io/github/license/happydasch/nspanel_haui?style=for-the-badge)](LICENSE)
 
-A Home Assistant custom integration that replaces the stock Sonoff NSPanel firmware with a flexible, configurable touchscreen display system built on ESPHome. Configure everything from the HA interface — panels, entities, gestures, and dimming — without editing YAML.
+<p align="center">
+  <img src="docs/assets/hero-banner.svg" alt="NSPanel HAUI Hero" width="100%">
+</p>
 
-[Documentation](docs/README.md) &middot; [Panels Overview](docs/panels/README.md) &middot; [Installation Guide](docs/install.md) &middot; [Configuration](docs/config.md) &middot; [FAQ](docs/faq.md) &middot; [Example Configs](docs/example_config.md) &middot; [HA Community Thread](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
-
----
-
-## Installation
-
-### Prerequisites
-
-- A **Sonoff NSPanel** flashed with custom ESPHome firmware installed
-- **Home Assistant** 2026.4 or newer
-
-### Step 1: Install via HACS (recommended)
-
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=happydasch&repository=nspanel_haui&category=integration)
-
-If the button above does not work:
-
-1. Open **HACS** in your Home Assistant sidebar
-2. Go to **Integrations**
-3. Click the three-dot menu and select **Custom repositories**
-4. Add `https://github.com/happydasch/nspanel_haui` with category **Integration**
-5. Click **Install** on the **NSPanel HAUI** entry
-6. **Restart Home Assistant**
-
-### Step 2: Flash ESPHome firmware
-
-<details>
-<summary>Expand for ESPHome flashing steps</summary>
-
-1. In the ESPHome dashboard, create a new device using the provided [install.yaml](esphome/install.yaml) as a starting point
-2. Configure your Wi-Fi credentials and device name
-3. Flash the firmware to your NSPanel via USB or OTA
-4. After flashing, the TFT display firmware is updated automatically by the Hub app
-
-See the [ESPHome guide](docs/esphome.md) and [Nextion guide](docs/nextion.md) for details.
-</details>
-
-### Step 3: Add the integration in Home Assistant
-
-1. Go to **Settings** → **Devices & Services** → **Add Integration**
-2. Search for **NSPanel HAUI** and select it
-3. The integration will auto-discover your NSPanel on the network
-4. Follow the config flow to set up your device name and ESPHome API credentials
-
-### Step 4: Configure panels
-
-Once the integration is running, each NSPanel appears as a device in Home Assistant. Open the device page to:
-
-- Add, remove, and reorder panels
-- Assign entities to each panel
-- Configure panel-specific options (display mode, colors, icons, etc.)
-- Set up navigation, gestures, dimming, and sleep/wake behaviour
-
-See the [Configuration guide](docs/config.md) for detailed instructions.
+<p align="center">
+  <b>A flexible touchscreen display system for the Sonoff NSPanel, built on ESPHome.</b><br>
+  All configuration is done through a built-in web frontend — a Lovelace panel<br>
+  inside Home Assistant that provides a visual editor for panels, entities,<br>
+  gestures, colors, and more.
+</p>
 
 ---
 
-### Manual Installation
+<p align="center">
+  <a href="docs/README.md"><b>Documentation</b></a> ·
+  <a href="docs/panels/README.md"><b>Panels Overview</b></a> ·
+  <a href="docs/install.md"><b>Installation Guide</b></a> ·
+  <a href="docs/config.md"><b>Configuration</b></a> ·
+  <a href="docs/faq.md"><b>FAQ</b></a> ·
+  <a href="docs/example_config.md"><b>Example Configs</b></a>
+</p>
 
-If you do not use HACS, copy the `custom_components/nspanel_haui/` directory into your Home Assistant `custom_components/` folder and restart. Then follow steps 2-4 above.
+
+---
+
+## Quick Start
+
+Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
+
+<p align="center">
+  <img src="docs/assets/diagrams/install-flow.svg" alt="Installation Flow" width="100%">
+</p>
+
+
+1. **Install via HACS** — Add the custom repository, install the integration, and restart Home Assistant.
+
+   [Install guide →](docs/install.md)
+
+2. **Flash ESPHome** — Use `esphome/install.yaml` as a starting point, configure your Wi-Fi, and flash via USB or OTA.
+
+   [ESPHome guide →](docs/esphome.md)
+
+3. **Add Integration** — Go to Settings → Devices & Services → Add NSPanel HAUI. It auto-discovers your device.
+
+   [Config flow →](docs/custom_integration.md)
+
+4. **Configure Panels** — Open the web frontend, add panels, assign entities, and set colors to your liking.
+
+   [Configuration guide →](docs/config.md)
+
+<a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=happydasch&repository=nspanel_haui&category=integration">
+  <img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.">
+</a>
+
+---
+
+## Features
+
+<table>
+  <tr>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/view-grid.svg" width="32" height="32"><br>
+      <b>13 Panel Types</b><br>
+      <small>Grid, light, climate,<br>cover, media, weather,<br>and more</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/gesture-swipe.svg" width="32" height="32"><br>
+      <b>Touch + Gestures</b><br>
+      <small>Swipe navigation,<br>gesture sequences,<br>tap interactions</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/palette.svg" width="32" height="32"><br>
+      <b>Full Customization</b><br>
+      <small>Per-entity colors,<br>icons, backgrounds,<br>themes</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/theme-light-dark.svg" width="32" height="32"><br>
+      <b>Auto-Dimming</b><br>
+      <small>Smart sleep/wake,<br>ambient light sensor,<br>screensaver</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/tune.svg" width="32" height="32"><br>
+      <b>Visual Editor</b><br>
+      <small>Built-in Lovelace panel<br>with live previews, drag<br>reorder, color pickers</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/translate.svg" width="32" height="32"><br>
+      <b>Multi-Language</b><br>
+      <small>English, German,<br>Dutch, Polish,<br>French</small>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/bell-ring.svg" width="32" height="32"><br>
+      <b>Notifications</b><br>
+      <small>Sound alerts, toasts,<br>notification queue<br>on display</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/lock.svg" width="32" height="32"><br>
+      <b>Panel Locking</b><br>
+      <small>PIN-protected unlock<br>for sensitive<br>controls</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/remote.svg" width="32" height="32"><br>
+      <b>ESPHome Native API</b><br>
+      <small>Fast, reliable<br>communication with<br>the display</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/clock-digital.svg" width="32" height="32"><br>
+      <b>Screensaver Modes</b><br>
+      <small>Clock, weather,<br>clock-two (text)<br>display modes</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/gesture-tap-hold.svg" width="32" height="32"><br>
+      <b>Hardware Buttons</b><br>
+      <small>Physical rocker switch<br>support with custom<br>actions</small>
+    </td>
+    <td align="center" valign="top" width="16%">
+      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/qrcode.svg" width="32" height="32"><br>
+      <b>QR Code Display</b><br>
+      <small>Show Wi-Fi details,<br>URLs, or text as<br>QR codes</small>
+    </td>
+  </tr>
+</table>
 
 ---
 
 ## Available Panels
 
-| Type | Page | Description |
-|------|------|-------------|
-| `grid` | [Panel Grid](docs/panels/panel_grid.md) | Up to 6 entities arranged in a grid |
-| `row` | [Panel Row](docs/panels/panel_row.md) | Up to 5 entities in a horizontal row |
-| `light` | [Panel Light](docs/panels/panel_light.md) | Full light control (brightness, color temp, RGB) |
-| `climate` | [Panel Climate](docs/panels/panel_climate.md) | Thermostat / HVAC control panel |
-| `cover` | [Panel Cover](docs/panels/panel_cover.md) | Cover / blind position control |
-| `media` | [Panel Media](docs/panels/panel_media.md) | Media player controls and queue |
-| `vacuum` | [Panel Vacuum](docs/panels/panel_vacuum.md) | Vacuum cleaner controls |
-| `timer` | [Panel Timer](docs/panels/panel_timer.md) | Countdown timer with start/stop |
-| `alarm` | [Panel Alarm](docs/panels/panel_alarm.md) | Alarm control panel (arm/disarm) |
-| `qr` | [Panel QR Code](docs/panels/panel_qr.md) | QR code display (Wi-Fi details, URLs) |
-| `weather` | [Panel Weather](docs/panels/panel_weather.md) | Weather forecast + time/date (screensaver) |
-| `clock` | [Panel Clock](docs/panels/panel_clock.md) | Time/date + weather (screensaver) |
-| `clocktwo` | [Panel ClockTwo](docs/panels/panel_clocktwo.md) | Time as written text (screensaver) |
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-grid.png" alt="Grid Panel" width="100%"><br>
+      <b>Grid</b> <code>grid</code><br>
+      <small>Up to 6 entities in a scrollable grid layout. Color overrides, power buttons.</small>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-row.png" alt="Row Panel" width="100%"><br>
+      <b>Row</b> <code>row</code><br>
+      <small>Up to 5 entities in a horizontal row. Compact, icon-focused layout.</small>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-light.png" alt="Light Panel" width="100%"><br>
+      <b>Light</b> <code>light</code><br>
+      <small>Full light control: brightness, color temp, RGB color wheel, effects.</small>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-climate.png" alt="Climate Panel" width="100%"><br>
+      <b>Climate</b> <code>climate</code><br>
+      <small>HVAC control: temperature, modes, fan speed, swing, presets.</small>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-cover.png" alt="Cover Panel" width="100%"><br>
+      <b>Cover</b> <code>cover</code><br>
+      <small>Open/close/stop with vertical position slider. Blinds, garages, curtains.</small>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-media.png" alt="Media Panel" width="100%"><br>
+      <b>Media</b> <code>media</code><br>
+      <small>Media player controls, volume, queue. Supports TV, speakers, receivers.</small>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-vacuum.png" alt="Vacuum Panel" width="100%"><br>
+      <b>Vacuum</b> <code>vacuum</code><br>
+      <small>Start/stop, return to dock, fan speed, locate. Up to 6 secondary items.</small>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-timer.png" alt="Timer Panel" width="100%"><br>
+      <b>Timer</b> <code>timer</code><br>
+      <small>Local countdown timer with start/pause/stop. Uses display-local time.</small>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-alarm.png" alt="Alarm Panel" width="100%"><br>
+      <b>Alarm</b> <code>alarm</code><br>
+      <small>Numeric keypad for alarm code entry. Arm/disarm with mode buttons.</small>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-qr.png" alt="QR Panel" width="100%"><br>
+      <b>QR Code</b> <code>qr</code><br>
+      <small>Display QR codes for Wi-Fi, URLs, or custom text. Great for guest networks.</small>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-weather.png" alt="Weather Panel" width="100%"><br>
+      <b>Weather</b> <code>weather</code><br>
+      <small>Screensaver-ready weather display. Forecast, backgrounds, info items.</small>
+    </td>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-clock.png" alt="Clock Panel" width="100%"><br>
+      <b>Clock</b> <code>clock</code><br>
+      <small>Large time/date display. Optional weather, entity buttons, backgrounds.</small>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="docs/assets/screenshots/panel-clocktwo.png" alt="ClockTwo Panel" width="100%"><br>
+      <b>ClockTwo</b> <code>clocktwo</code><br>
+      <small>Time displayed as written text. Minimalist screensaver alternative.</small>
+    </td>
+    <td width="33%" valign="top" colspan="2">
+      <b>System panels</b> (blank, settings, about, loading) and <b>popups</b> (unlock, notify, select) are built-in and require no configuration. See the <a href="docs/panels/README.md">Panels Overview</a> for details.
+    </td>
+  </tr>
+</table>
 
-System panels (blank, settings, about, loading) and popups (unlock, notify, select) are built-in and require no configuration.
+---
+
+## Web Frontend Editor
+
+NSPanel HAUI ships with a **fully integrated web frontend** — a custom Lovelace panel that runs inside Home Assistant and provides a visual, point-and-click interface for configuring everything on your NSPanel.
+
+| Capability | What you can do |
+|------------|-----------------|
+| **Panel management** | Add, remove and reorder panels. Each panel type (grid, light, climate, etc.) gets a visual **live preview** showing how it will look on the actual display. |
+| **Entity assignment** | Pick entities from a searchable HA entity picker. Configure per-entity icons, display names, colors, and overrides. |
+| **Color editing** | Full color picker for device-level theme colors and per-item overrides. |
+| **Gesture & navigation** | Configure swipe directions, physical button actions, and auto-dimming behavior. |
+| **Multi-device** | Manage multiple NSPanels from a single Lovelace panel. Switch between devices, compare configs. |
+| **Real-time status** | Live device connection status, uptime, firmware versions, and log viewer — all from the frontend. |
+
+The frontend is **automatically available** once the integration is added — no separate installation step needed. Open it from the Lovelace panel list or via the device page in **Settings → Devices & Services**.
+
+Behind the scenes, the frontend communicates with the Hub app through a REST API (`/api/nspanel_haui/...`) and the Home Assistant custom panel system. The frontend code lives in `custom_components/nspanel_haui/frontend/` and is written in vanilla JavaScript using Lit for components.
 
 ---
 
 ## Configuration
 
-All device settings — panels, entities, gestures, dimming, sleep, and colours — are managed through the Home Assistant interface. See the [Configuration guide](docs/config.md) for all available options and the [Device description](docs/device.md) for a full feature overview.
+All device settings — panels, entities, gestures, dimming, sleep, and colours — are managed through the Home Assistant interface.
+
+| Guide | What it covers |
+|-------|---------------|
+| [Configuration Overview](docs/config.md) | All available options at a glance |
+| [Device Configuration](docs/config/device.md) | Sounds, screensaver, buttons, dimming |
+| [Panel Configuration](docs/config/panels.md) | Creating and arranging panels |
+| [Item Configuration](docs/config/items.md) | Entities, icons, colors, internal items |
+| [Device Description](docs/device.md) | Gestures, display states, hardware buttons, notifications |
+| [Example Configs](docs/example_config.md) | Ready-to-use panel combinations |
+
+---
+
+## Architecture
+
+NSPanel HAUI uses a three-layer architecture:
+
+<p align="center">
+  <img src="docs/assets/diagrams/architecture.svg" alt="Architecture Diagram" width="100%">
+</p>
+
+| Layer | Component | Role |
+|-------|-----------|------|
+| **Hub App** | `NSPanelHAUI` (runs in HA) | Reads entity states, renders display commands, manages navigation |
+| **ESP32** | ESPHome firmware | Serial bridge between HA and the display, relays touch events |
+| **Nextion** | Touchscreen display | Renders panels, manages widget state, handles touch input |
+
+Data flows both ways: panel configs and entity states flow **down** to the display, while touch events and button presses flow **up** to Home Assistant.
+
+For detailed architecture information, see the [Communication Overview](docs/communication.md).
 
 ---
 
@@ -105,12 +278,14 @@ All device settings — panels, entities, gestures, dimming, sleep, and colours 
 | Document | Description |
 |----------|-------------|
 | [Installation Guide](docs/install.md) | Step-by-step installation instructions |
+| [Custom Integration](docs/custom_integration.md) | How to install and set up the integration |
 | [Configuration](docs/config.md) | Panel and device configuration reference |
 | [Panels Overview](docs/panels/README.md) | All available panel types and their options |
 | [Device Description](docs/device.md) | Device behaviour, gestures, dimming, and features |
 | [FAQ](docs/faq.md) | Frequently asked questions and troubleshooting |
+| [Troubleshooting](docs/troubleshooting.md) | Diagnosing and resolving common problems |
 | [Example Configs](docs/example_config.md) | Example panel configurations |
-| [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html) | Available icon codes |
+| [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html) | Available icon codes for your panels |
 
 ### Development
 
@@ -130,13 +305,3 @@ This project builds on the ideas of:
 
 - [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) by joBr99
 - [NSPanel HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint) by Blackymas
-
-### Links
-
-- [ESPHome](https://esphome.io)
-- [Nextion Instruction Set](https://nextion.tech/instruction-set/)
-- [NSPanel Docs (pky.eu)](https://docs.nspanel.pky.eu/)
-- [Generate-HASP-Fonts](https://github.com/joBr99/Generate-HASP-Fonts)
-- [NSPanel Demo Files](https://github.com/masto/NSPanel-Demo-Files)
-- [nspanel-mf](https://github.com/marcfager/nspanel-mf)
-- [HA nextion_handler](https://github.com/krizkontrolz/Home-Assistant-nextion_handler)

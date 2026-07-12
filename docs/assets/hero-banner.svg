@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 345" width="1200" height="345">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#141414"/>
+      <stop offset="100%" style="stop-color:#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4ba6ee"/>
+      <stop offset="100%" style="stop-color:#6c5ce7"/>
+    </linearGradient>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#2b2d31"/>
+      <stop offset="100%" style="stop-color:#1c1e21"/>
+    </linearGradient>
+    <linearGradient id="btnGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#26282c"/>
+      <stop offset="100%" style="stop-color:#161719"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="deviceShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="1200" height="345" fill="url(#bgGrad)" rx="12"/>
+
+  <!-- Subtle grid pattern -->
+  <g opacity="0.04">
+    <line x1="0" y1="80" x2="1200" y2="80" stroke="#4ba6ee" stroke-width="1"/>
+    <line x1="0" y1="160" x2="1200" y2="160" stroke="#4ba6ee" stroke-width="1"/>
+    <line x1="0" y1="240" x2="1200" y2="240" stroke="#4ba6ee" stroke-width="1"/>
+    <line x1="300" y1="0" x2="300" y2="345" stroke="#4ba6ee" stroke-width="1"/>
+    <line x1="600" y1="0" x2="600" y2="345" stroke="#4ba6ee" stroke-width="1"/>
+    <line x1="900" y1="0" x2="900" y2="345" stroke="#4ba6ee" stroke-width="1"/>
+  </g>
+
+  <!-- Device mockup: Sonoff NSPanel (square, screen module + two flat hardware buttons) -->
+  <g transform="translate(80, 40)" filter="url(#deviceShadow)">
+    <!-- Body (matte charcoal, square) -->
+    <rect x="0" y="0" width="240" height="240" rx="22" ry="22" fill="url(#bodyGrad)" stroke="#3a3c41" stroke-width="1.5"/>
+    <!-- Screen module glass -->
+    <rect x="10" y="10" width="220" height="166" rx="12" ry="12" fill="#0a0b0e"/>
+    <!-- Seam between screen module and button module -->
+    <line x1="8" y1="179" x2="232" y2="179" stroke="#111214" stroke-width="1.5"/>
+
+    <!-- Active display -->
+    <rect x="30" y="24" width="180" height="140" rx="4" fill="#07080a"/>
+
+    <!-- Header: nav arrows, sleep, centered title -->
+    <polyline points="44,31 38,37 44,43" fill="none" stroke="#cfd6df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="50" y="41" font-family="sans-serif" font-size="9" fill="#6f7b8a">z</text>
+    <text x="56" y="37" font-family="sans-serif" font-size="6" fill="#6f7b8a">z</text>
+    <text x="120" y="41" font-family="sans-serif" font-size="11" fill="#eef2f6" text-anchor="middle">Living Room</text>
+    <polyline points="198,31 204,37 198,43" fill="none" stroke="#cfd6df" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Tiles: 3x2 vibrant grid -->
+    <!-- Row 1 -->
+    <rect x="30"  y="50" width="57" height="52" rx="4" fill="#e6cf1c"/>
+    <rect x="91.5" y="50" width="57" height="52" rx="4" fill="#f2801d"/>
+    <rect x="153" y="50" width="57" height="52" rx="4" fill="#e58fce"/>
+    <!-- Row 2 -->
+    <rect x="30"  y="106" width="57" height="52" rx="4" fill="#63c31e"/>
+    <rect x="91.5" y="106" width="57" height="52" rx="4" fill="#2f9be0"/>
+    <rect x="153" y="106" width="57" height="52" rx="4" fill="#6b63e6"/>
+
+    <!-- Tile icons (white) -->
+    <g stroke="#fff" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Light: bulb -->
+      <circle cx="58.5" cy="67" r="6" fill="#fff" stroke="none"/>
+      <rect x="56" y="72" width="5" height="4" rx="1" fill="#fff" stroke="none"/>
+      <!-- Cover: blinds -->
+      <rect x="112" y="61" width="15" height="14" rx="1"/>
+      <line x1="114" y1="66" x2="125" y2="66"/>
+      <line x1="114" y1="70" x2="125" y2="70"/>
+      <!-- Music: note -->
+      <path d="M176 73 L176 58 L188 56 L188 69"/>
+      <circle cx="173.5" cy="73" r="3" fill="#fff" stroke="none"/>
+      <circle cx="185.5" cy="69" r="3" fill="#fff" stroke="none"/>
+      <!-- Vacuum: robot -->
+      <circle cx="58.5" cy="123" r="7"/>
+      <circle cx="58.5" cy="123" r="1.8" fill="#fff" stroke="none"/>
+      <line x1="58.5" y1="116" x2="58.5" y2="119"/>
+      <!-- Scenes: framed play -->
+      <rect x="112" y="116" width="15" height="13" rx="1"/>
+      <polygon points="117,120 124,123 117,126" fill="#fff" stroke="none"/>
+      <!-- Climate: snowflake -->
+      <line x1="181.5" y1="115" x2="181.5" y2="131"/>
+      <line x1="174.5" y1="119" x2="188.5" y2="127"/>
+      <line x1="174.5" y1="127" x2="188.5" y2="119"/>
+    </g>
+
+    <!-- Tile labels -->
+    <g font-family="sans-serif" font-size="7" fill="#fff" text-anchor="middle">
+      <text x="58.5" y="96">Light</text>
+      <text x="120" y="96">Cover</text>
+      <text x="181.5" y="96">Music</text>
+      <text x="58.5" y="152">Vacuum</text>
+      <text x="120" y="152">Scenes</text>
+      <text x="181.5" y="152">Climate</text>
+    </g>
+
+    <!-- Hardware buttons: two flat matte rockers (short, near bottom) -->
+    <rect x="14" y="186" width="100" height="40" rx="6" fill="url(#btnGrad)" stroke="#3a3c41" stroke-width="1"/>
+    <rect x="126" y="186" width="100" height="40" rx="6" fill="url(#btnGrad)" stroke="#3a3c41" stroke-width="1"/>
+    <!-- Subtle top bevel highlight -->
+    <line x1="22" y1="190" x2="106" y2="190" stroke="#3d3f44" stroke-width="1" opacity="0.7"/>
+    <line x1="134" y1="190" x2="218" y2="190" stroke="#3d3f44" stroke-width="1" opacity="0.7"/>
+  </g>
+
+  <!-- Title section (middle third) -->
+  <g transform="translate(430, 78)">
+    <!-- NSPanel icon -->
+    <circle cx="20" cy="20" r="18" fill="url(#accentGrad)" filter="url(#glow)"/>
+    <text x="12" y="27" font-family="sans-serif" font-size="20" fill="#fff" font-weight="bold">N</text>
+    <text x="50" y="32" font-family="sans-serif" font-size="32" fill="#e4e4e4" font-weight="700">NSPanel HAUI</text>
+    <text x="50" y="58" font-family="sans-serif" font-size="16" fill="#888">HomeAssistant UI</text>
+
+    <!-- Tagline -->
+    <text x="50" y="98" font-family="sans-serif" font-size="14" fill="#aaa">Flexible touchscreen display system</text>
+    <text x="50" y="120" font-family="sans-serif" font-size="14" fill="#aaa">for the Sonoff NSPanel, built on ESPHome</text>
+
+    <!-- Feature badges -->
+    <g transform="translate(50, 145)">
+      <rect x="0" y="0" width="80" height="24" rx="12" fill="rgba(75,166,238,0.15)" stroke="rgba(75,166,238,0.3)" stroke-width="1"/>
+      <text x="12" y="16" font-family="sans-serif" font-size="10" fill="#4ba6ee">13 Panels</text>
+      <rect x="90" y="0" width="80" height="24" rx="12" fill="rgba(108,92,231,0.15)" stroke="rgba(108,92,231,0.3)" stroke-width="1"/>
+      <text x="102" y="16" font-family="sans-serif" font-size="10" fill="#6c5ce7">No YAML</text>
+      <rect x="180" y="0" width="120" height="24" rx="12" fill="rgba(0,200,83,0.15)" stroke="rgba(0,200,83,0.3)" stroke-width="1"/>
+      <text x="192" y="16" font-family="sans-serif" font-size="10" fill="#00c853">HACS + ESPHome</text>
+    </g>
+  </g>
+
+  <!-- Architecture flow (right third, vertical) -->
+  <g transform="translate(930, 64)">
+    <text x="70" y="4" font-family="sans-serif" font-size="11" fill="#8b93a0" text-anchor="middle" letter-spacing="0.5">How it works</text>
+
+    <!-- Home Assistant -->
+    <rect x="0" y="16" width="140" height="46" rx="8" fill="#1a2332" stroke="#4ba6ee" stroke-width="1"/>
+    <text x="70" y="36" font-family="sans-serif" font-size="11" fill="#4ba6ee" text-anchor="middle">Home Assistant</text>
+    <text x="70" y="50" font-family="sans-serif" font-size="8" fill="#8b93a0" text-anchor="middle">Automations &amp; state</text>
+    <line x1="70" y1="62" x2="70" y2="78" stroke="#555" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <polygon points="66,74 70,80 74,74" fill="#555"/>
+    <text x="80" y="74" font-family="sans-serif" font-size="8" fill="#6f7b8a">Native API</text>
+
+    <!-- ESP32 device -->
+    <rect x="0" y="82" width="140" height="46" rx="8" fill="#1a2332" stroke="#6c5ce7" stroke-width="1"/>
+    <text x="70" y="102" font-family="sans-serif" font-size="11" fill="#6c5ce7" text-anchor="middle">ESP32 Device</text>
+    <text x="70" y="116" font-family="sans-serif" font-size="8" fill="#8b93a0" text-anchor="middle">ESPHome firmware</text>
+    <line x1="70" y1="128" x2="70" y2="144" stroke="#555" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <polygon points="66,140 70,146 74,140" fill="#555"/>
+    <text x="80" y="140" font-family="sans-serif" font-size="8" fill="#6f7b8a">UART</text>
+
+    <!-- Touchscreen -->
+    <rect x="0" y="148" width="140" height="46" rx="8" fill="#1a2332" stroke="#e4a34a" stroke-width="1"/>
+    <text x="70" y="168" font-family="sans-serif" font-size="11" fill="#e4a34a" text-anchor="middle">Touchscreen</text>
+    <text x="70" y="182" font-family="sans-serif" font-size="8" fill="#8b93a0" text-anchor="middle">Panel UI (Nextion)</text>
+  </g>
+
+  <!-- Bottom: key links -->
+  <g transform="translate(0, 322)">
+    <text x="72" y="12" font-family="sans-serif" font-size="12" fill="#555">Install via HACS · Flash ESPHome · Configure in HA UI</text>
+  </g>
+</svg>

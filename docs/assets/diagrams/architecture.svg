@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 260" width="800" height="260">
+  <defs>
+    <linearGradient id="haGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#1a2332"/><stop offset="100%" style="stop-color:#0d1117"/></linearGradient>
+    <linearGradient id="espGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#1a2332"/><stop offset="100%" style="stop-color:#0d1117"/></linearGradient>
+    <linearGradient id="nxGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#1a2332"/><stop offset="100%" style="stop-color:#0d1117"/></linearGradient>
+  </defs>
+  <rect width="800" height="260" fill="#0d1117" rx="12"/>
+
+  <!-- Layer 1: Home Assistant -->
+  <g transform="translate(40, 30)">
+    <rect x="0" y="0" width="220" height="90" rx="10" fill="url(#haGrad)" stroke="#4ba6ee" stroke-width="1.5"/>
+    <!-- HA icon -->
+    <circle cx="20" cy="20" r="12" fill="#4ba6ee" opacity="0.2"/>
+    <text x="13" y="25" font-family="sans-serif" font-size="14" fill="#4ba6ee">H</text>
+    <text x="38" y="25" font-family="sans-serif" font-size="13" fill="#e4e4e4" font-weight="bold">Home Assistant</text>
+    <text x="15" y="48" font-family="sans-serif" font-size="11" fill="#888">NSPanel HAUI Hub App</text>
+    <text x="15" y="65" font-family="sans-serif" font-size="10" fill="#666">Panel lifecycle · Entity states</text>
+    <text x="15" y="80" font-family="sans-serif" font-size="10" fill="#666">Navigation · Display commands</text>
+  </g>
+
+  <!-- Arrow 1 -->
+  <g transform="translate(260, 65)">
+    <line x1="0" y1="10" x2="70" y2="10" stroke="#555" stroke-width="1.5" stroke-dasharray="5,3"/>
+    <polygon points="66,6 76,10 66,14" fill="#555"/>
+    <text x="15" y="0" font-family="sans-serif" font-size="9" fill="#555">Native API</text>
+  </g>
+
+  <!-- Layer 2: ESP32 -->
+  <g transform="translate(340, 30)">
+    <rect x="0" y="0" width="200" height="90" rx="10" fill="url(#espGrad)" stroke="#6c5ce7" stroke-width="1.5"/>
+    <circle cx="20" cy="20" r="12" fill="#6c5ce7" opacity="0.2"/>
+    <text x="12" y="25" font-family="sans-serif" font-size="12" fill="#6c5ce7">ESP</text>
+    <text x="48" y="25" font-family="sans-serif" font-size="13" fill="#e4e4e4" font-weight="bold">ESP32 Device</text>
+    <text x="15" y="48" font-family="sans-serif" font-size="11" fill="#888">ESPHome Firmware</text>
+    <text x="15" y="65" font-family="sans-serif" font-size="10" fill="#666">Serial bridge · Touch events</text>
+    <text x="15" y="80" font-family="sans-serif" font-size="10" fill="#666">Display relay</text>
+  </g>
+
+  <!-- Arrow 2 -->
+  <g transform="translate(540, 65)">
+    <line x1="0" y1="10" x2="60" y2="10" stroke="#555" stroke-width="1.5"/>
+    <polygon points="56,6 66,10 56,14" fill="#555"/>
+    <text x="10" y="0" font-family="sans-serif" font-size="9" fill="#555">UART</text>
+  </g>
+
+  <!-- Layer 3: Nextion -->
+  <g transform="translate(610, 30)">
+    <rect x="0" y="0" width="160" height="90" rx="10" fill="url(#nxGrad)" stroke="#e4a34a" stroke-width="1.5"/>
+    <circle cx="20" cy="20" r="12" fill="#e4a34a" opacity="0.2"/>
+    <text x="13" y="25" font-family="sans-serif" font-size="12" fill="#e4a34a">NX</text>
+    <text x="48" y="25" font-family="sans-serif" font-size="13" fill="#e4e4e4" font-weight="bold">Nextion</text>
+    <text x="15" y="48" font-family="sans-serif" font-size="11" fill="#888">Touchscreen Display</text>
+    <text x="15" y="65" font-family="sans-serif" font-size="10" fill="#666">480 × 320 pixels</text>
+    <text x="15" y="80" font-family="sans-serif" font-size="10" fill="#666">Panel rendering</text>
+  </g>
+
+  <!-- Bottom label -->
+  <text x="290" y="160" font-family="sans-serif" font-size="11" fill="#555" text-anchor="middle">Three-layer communication architecture</text>
+
+  <!-- Interaction legend -->
+  <g transform="translate(40, 190)">
+    <text x="0" y="0" font-family="sans-serif" font-size="12" fill="#888" font-weight="bold">Data Flow</text>
+    <rect x="0" y="10" width="12" height="12" rx="2" fill="#4ba6ee" opacity="0.3"/>
+    <text x="18" y="21" font-family="sans-serif" font-size="10" fill="#666">Panel configs &amp; entity states → ESP32 → Display</text>
+    <rect x="350" y="10" width="12" height="12" rx="2" fill="#e4a34a" opacity="0.3"/>
+    <text x="368" y="21" font-family="sans-serif" font-size="10" fill="#666">Touch events → ESP32 → Home Assistant</text>
+  </g>
+</svg>

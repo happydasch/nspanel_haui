@@ -4,125 +4,88 @@ description: Overview of all available panel types for NSPanel HAUI
 ---
 
 # Panel Overview
-## Special Panels
 
-Special Panels without navigation. Can be used as a screensaver.
+NSPanel HAUI supports **13 panel types** plus **system panels** and **popups**. Panels are categorized by purpose:
 
-### [Panel Weather](panel_weather.md) `weather`
+- **Entity Controls** — Control a single Home Assistant entity (light, climate, cover, etc.)
+- **Multi-Entity** — Display and control multiple entities at once
+- **Screensavers** — Full-screen displays for idle/sleep mode
+- **Utility** — Special-purpose panels (timer, QR, alarm)
+- **System** — Always-available built-in panels (no configuration needed)
 
-Provides a display with weather details and time / date.
+---
 
+## Screensaver Panels
 
-### [Panel Clock](panel_clock.md) `clock`
+Panels that can be used as screensavers / idle display. These panels do not show navigation by default.
 
-Provides a display with time / date and weather details.
+| Panel | Type | Description |
+|-------|------|-------------|
+| [Weather](panel_weather.md) | `weather` | Weather forecast, time/date, optional background images. Supports info items and entity buttons. |
+| [Clock](panel_clock.md) | `clock` | Large time/date display with optional weather, background, and entity buttons. |
+| [ClockTwo](panel_clocktwo.md) | `clocktwo` | Minimalist clock showing time as written text (e.g., \"twelve thirty-four\"). |
 
+---
 
-### [Panel ClockTwo](panel_clocktwo.md) `clocktwo`
+## Multi-Entity Panels
 
-Provides a display with time as written text.
+Panels that show multiple entities in a navigation-enabled layout.
 
+| Panel | Type | Description |
+|-------|------|-------------|
+| [Grid](panel_grid.md) | `grid` | Up to 6 entities arranged in a scrollable grid. Color overrides, power buttons. |
+| [Row](panel_row.md) | `row` | Up to 5 entities in a horizontal row. Compact icon-focused layout. |
 
-## Entities Panels
+---
 
-Panels with navigation. For showing entities.
+## Entity Control Panels
 
-### [Panel Grid](panel_grid.md) `grid`
+Single-entity control panels with full feature support.
 
-  Panel with 6 entities in a grid.
+| Panel | Type | Description |
+|-------|------|-------------|
+| [Light](panel_light.md) | `light` | Full light control: brightness, color temperature, RGB color wheel, effects. |
+| [Media](panel_media.md) | `media` | Media player controls: play/pause, volume, queue. Supports TV, speakers, receivers. |
+| [Vacuum](panel_vacuum.md) | `vacuum` | Robot vacuum controls: start/stop, return home, fan speed, locate. Up to 6 secondary items. |
+| [Cover](panel_cover.md) | `cover` | Cover/blind control: open, stop, close, vertical position slider. |
+| [Climate](panel_climate.md) | `climate` | HVAC control: temperature setpoint, modes (heat/cool/auto), fan speed, swing, presets. |
 
+---
 
-### [Panel Row](panel_row.md) `row`
+## Utility Panels
 
-  Panel with 5 entities in rows.
+Special-purpose panels for non-entity functions.
 
+| Panel | Type | Description |
+|-------|------|-------------|
+| [Timer](panel_timer.md) | `timer` | Local countdown timer with start/pause/stop. Display-local time, no HA entity needed. |
+| [QR Code](panel_qr.md) | `qr` | Display QR codes for Wi-Fi details, URLs, or custom text. |
+| [Alarm](panel_alarm.md) | `alarm` | Numeric keypad for alarm code entry. Arm/disarm with mode buttons. |
 
-## Main Panels
+---
 
-Panels with navigation. Main Display Elements.
+## Popups
 
-### [Panel Light](panel_light.md) `light`
+Overlay panels used for temporary interactions.
 
-  Panel to control a light entity.
+| Popup | Type | Description |
+|-------|------|-------------|
+| [Unlock](popup_unlock.md) | `popup_unlock` | PIN-protected unlock for locked panels. Built on `AlarmPage`. |
+| [Notify](popup_notify.md) | `popup_notify` | Ad-hoc notification popup with optional action buttons. |
+| [Notifs](popup_notifs.md) | `popup_notifs` | Notification queue. Displays multi-notification history. |
+| [Select](popup_select.md) | `popup_select` | Selection list popup for choosing values (fan speeds, presets, etc.). |
 
+Popup variants of entity panels (`popup_light`, `popup_media_player`, `popup_vacuum`, `popup_climate`, `popup_timer`, `popup_cover`) mirror their main panel layout.
 
-### [Panel Media](panel_media.md) `media`
+---
 
-  Media control panel.
+## System Panels
 
+Always available, no configuration needed.
 
-### [Panel Vacuum](panel_vacuum.md) `vacuum`
-
-  Vacuum control panel.
-
-
-### [Panel QR-Code](panel_qr.md) `qr`
-
-  QR-Code panel for Wifi Details or other informations / urls.
-
-
-### [Panel Cover](panel_cover.md) `cover`
-
-  Cover panel.
-
-
-### [Panel Climate](panel_climate.md) `climate`
-
-  Climate panel.
-
-
-### [Panel Timer](panel_timer.md) `timer`
-
-  Timer panel.
-
-
-### [Panel Alarm](panel_alarm.md) `alarm`
-
-  Alarm control panel.
-
-
-## Other Panels
-
-Different panels.
-
-### [Popup Unlock](popup_unlock.md)  `popup_unlock`
-
-  Popup for locking and unlocking panels.
-
-
-### [Popup Notify](popup_notify.md) `popup_notify`
-
-  Ad-hoc popup for one-shot notifications with optional buttons.
-
-
-### [Popup Notifs](popup_notifs.md) `popup_notifs`
-
-  Notification queue panel. Displays notifications sent via `send_notification`, with support for optional icons and persistent (looping-sound) alerts.
-
-### [Popup Select](popup_select.md)  `popup_select`
-
-  Popup for selecting values.
-
-
-## System
-
-System panels. The system panels are always available and there is no need to configure them.
-
-### [Panel Blank](panel_blank.md) `sys_blank`
-
-  Blank panel is used for sleeping.
-
-
-### [Panel System](panel_system.md) `sys_system`
-
-  System panel is used for loading, when loosing connection, this panel will be automatically set if the device looses connection.
-
-
-### [Panel Settings](panel_settings.md) `sys_settings`
-
-  System panel for device settings.
-
-
-### [Panel About](panel_about.md) `sys_about`
-
-  System panel for about details.
+| Panel | Type | Description |
+|-------|------|-------------|
+| [Blank](panel_blank.md) | `sys_blank` | Blank/empty panel used during sleep mode. |
+| [System](panel_system.md) | `sys_system` | Loading/error panel. Automatically shown when the device loses connection. |
+| [Settings](panel_settings.md) | `sys_settings` | Device settings panel (brightness, dimming, sounds, etc.). |
+| [About](panel_about.md) | `sys_about` | Device and version information panel. |

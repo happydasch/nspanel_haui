@@ -5,5 +5,6 @@ __pycache__
 .venv
 venv
 nspanel_haui_env/
+.env
 ref_src/
 site/

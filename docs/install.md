@@ -4,6 +4,11 @@ description: Step-by-step installation guide for NSPanel HAUI
 ---
 
 # Installation Guide
+
+<p align="center">
+  <img src="assets/diagrams/install-flow.svg" alt="Installation Flow" width="100%">
+</p>
+
 ## Requirements
 
 HomeAssistant needs to provide following applications:

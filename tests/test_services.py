@@ -7,21 +7,9 @@ import types
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-from nspanel_haui.haui.mapping.const import ESPAction
-from nspanel_haui.services import (
-    DOMAIN,
-    SERVICE_CLOSE_PANEL,
-    SERVICE_OPEN_PANEL,
-    SERVICE_SLEEP,
-    SERVICE_WAKEUP,
-    _resolve_target_apps,
-    async_register_services,
-)
-
 # ---------------------------------------------------------------------------
-
 # Stub out homeassistant before importing services so tests run without HA.
+# (voluptuous is installed as a dev dependency, so it doesn't need stubbing.)
 # ---------------------------------------------------------------------------
 
 
@@ -52,6 +40,17 @@ def _install_ha_stubs() -> None:
 
 _install_ha_stubs()
 
+import pytest  # noqa: E402
+from nspanel_haui.haui.mapping.const import ESPAction  # noqa: E402
+from nspanel_haui.services import (  # noqa: E402
+    DOMAIN,
+    SERVICE_CLOSE_PANEL,
+    SERVICE_OPEN_PANEL,
+    SERVICE_SLEEP,
+    SERVICE_WAKEUP,
+    _resolve_target_apps,
+    async_register_services,
+)
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
@@ -277,4 +276,3 @@ async def test_sleep(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_sleep(mock_hass, call)
 
     mock_nav.open_sleep_panel.assert_called_once_with(True)
-

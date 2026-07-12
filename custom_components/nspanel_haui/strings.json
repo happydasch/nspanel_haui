@@ -48,6 +48,10 @@
       "name": "Open panel",
       "description": "Navigate to a specific panel.  If wakeup is enabled the display wakes first.",
       "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to navigate."
+        },
         "panel": {
           "name": "Panel",
           "description": "Panel key or UUID to navigate to (e.g. 'alarm', 'grid_0')."
@@ -60,15 +64,33 @@
     },
     "close_panel": {
       "name": "Close panel",
-      "description": "Close the current panel and return to the previous or home panel."
+      "description": "Close the current panel and return to the previous or home panel.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to close the panel on."
+        }
+      }
     },
     "wakeup": {
       "name": "Wake up",
-      "description": "Wake the display and navigate to the wakeup or home panel."
+      "description": "Wake the display and navigate to the wakeup or home panel.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to wake up."
+        }
+      }
     },
     "sleep": {
       "name": "Sleep",
-      "description": "Send the display to sleep."
+      "description": "Send the display to sleep.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to put to sleep."
+        }
+      }
     }
   }
 }

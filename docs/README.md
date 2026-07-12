@@ -11,6 +11,24 @@ system built on ESPHome.
 
 ---
 
+## Architecture Overview
+
+NSPanel HAUI uses a three-layer communication architecture:
+
+<p align="center">
+  <img src="assets/diagrams/architecture.svg" alt="Architecture Diagram" width="80%">
+</p>
+
+| Layer | Component | Role |
+|-------|-----------|------|
+| **Hub App** | `NSPanelHAUI` (runs in HA) | Reads entity states, renders display commands, manages navigation |
+| **ESP32** | ESPHome firmware | Serial bridge between HA and the display, relays touch events |
+| **Nextion** | Touchscreen display | Renders panels, manages widget state, handles touch input |
+
+Data flows both ways: panel configs and entity states flow **down** to the display, while touch events and button presses flow **up** to Home Assistant.
+
+---
+
 ## End User
 
 These guides help you install, configure, and use NSPanel HAUI on your Sonoff NSPanel device.
@@ -44,6 +62,28 @@ The system has three main components:
 - **[ESPHome Component](esphome.md)** — ESP32 firmware that drives the display and reports events.
 - **[Hub Component](hub.md)** — The core logic: entity state management, panel lifecycle, navigation.
 - **[Nextion Component](nextion.md)** — Display-level operations and widget management.
+
+---
+
+## At a Glance — Panel Types
+
+| Type | Category | Panel Doc |
+|------|----------|-----------|
+| `grid` | Multi-entity | [Grid](panels/panel_grid.md) |
+| `row` | Multi-entity | [Row](panels/panel_row.md) |
+| `light` | Entity control | [Light](panels/panel_light.md) |
+| `climate` | Entity control | [Climate](panels/panel_climate.md) |
+| `cover` | Entity control | [Cover](panels/panel_cover.md) |
+| `media` | Entity control | [Media](panels/panel_media.md) |
+| `vacuum` | Entity control | [Vacuum](panels/panel_vacuum.md) |
+| `timer` | Utility | [Timer](panels/panel_timer.md) |
+| `alarm` | Security | [Alarm](panels/panel_alarm.md) |
+| `qr` | Utility | [QR Code](panels/panel_qr.md) |
+| `weather` | Screensaver | [Weather](panels/panel_weather.md) |
+| `clock` | Screensaver | [Clock](panels/panel_clock.md) |
+| `clocktwo` | Screensaver | [ClockTwo](panels/panel_clocktwo.md) |
+
+System panels (blank, settings, about, loading) and popups (unlock, notify, select) are built-in.
 
 ---
 

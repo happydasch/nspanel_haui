@@ -5,15 +5,57 @@ description: HomeAssistant UI (HAUI) for the Sonoff NSPanel — documentation in
 
 # NSPanel HAUI Docs
 
-Welcome to the documentation for **NSPanel HAUI**, a Home Assistant custom integration
-that replaces the stock Sonoff NSPanel firmware with a flexible, configurable display
-system built on ESPHome.
+Welcome! **NSPanel HAUI** turns your Sonoff NSPanel into a smart touchscreen
+dashboard for Home Assistant — all configured through a visual editor in the HA UI.
+
+Whether you just got your panel or want to fine-tune it, this guide will get you there.
 
 ---
 
-## Architecture Overview
+## 🚀 Getting Started
 
-NSPanel HAUI uses a three-layer communication architecture:
+If you're setting up a new NSPanel, follow these steps in order:
+
+1. **Install the integration** — Add NSPanel HAUI to Home Assistant via HACS.
+   → [Installation guide](install.md)
+
+2. **Flash your device** — Load ESPHome firmware onto the NSPanel.
+   → [ESPHome setup](esphome.md)
+
+3. **Connect it** — Add the device in Home Assistant (Settings → Devices & Services).
+   → [Integration setup](custom_integration.md)
+
+4. **Configure your panels** — Open the web frontend and start building your dashboard.
+   → [Configuration overview](config.md)
+   - [Device settings](config/device.md) — brightness, sounds, screensaver, buttons
+   - [Panel layout](config/panels.md) — add, remove, reorder panels
+   - [Items & entities](config/items.md) — pick entities, set icons, colors
+
+5. **Browse panel types** — See what kinds of panels you can add.
+   → [All panel types](panels/README.md)
+
+---
+
+## 📖 Guides
+
+Hands-on help for common tasks.
+
+| Guide | What you'll learn |
+|-------|-------------------|
+| [Installation](install.md) | Step-by-step: HACS, flashing, first setup |
+| [Configuration](config.md) | Device settings, panel layout, item editing |
+| [Panel Overview](panels/README.md) | All panel types with descriptions and docs |
+| [Examples](example_config.md) | Real-world configs to copy and adapt |
+| [Device Description](device.md) | Gestures, buttons, notifications, sleep modes |
+| [FAQ](faq.md) | Answers to common questions |
+| [Troubleshooting](troubleshooting.md) | Fixing connection issues, display problems, and more |
+
+---
+
+<details>
+<summary><b>🔧 Developer Docs</b> — architecture, component design, extending the integration</summary>
+
+The system has three layers:
 
 <p align="center">
   <img src="assets/diagrams/architecture.svg" alt="Architecture Diagram" width="80%">
@@ -25,47 +67,16 @@ NSPanel HAUI uses a three-layer communication architecture:
 | **ESP32** | ESPHome firmware | Serial bridge between HA and the display, relays touch events |
 | **Nextion** | Touchscreen display | Renders panels, manages widget state, handles touch input |
 
-Data flows both ways: panel configs and entity states flow **down** to the display, while touch events and button presses flow **up** to Home Assistant.
+- **[Design Guidelines](design.md)** — Styling, theming, and panel design principles
+- **[Communication Overview](communication.md)** — How the layers talk to each other
+- **[ESPHome Component](esphome.md)** — ESP32 firmware details
+- **[Hub Component](hub.md)** — Core logic: state management, panel lifecycle, navigation
+- **[Nextion Component](nextion.md)** — Display-level operations and widget management
 
----
+</details>
 
-## End User
-
-These guides help you install, configure, and use NSPanel HAUI on your Sonoff NSPanel device.
-
-- **[Installation](install.md)** — Step-by-step guide for installing the integration and flashing the device.
-- **[Custom Integration](custom_integration.md)** — How to install and set up the integration in Home Assistant.
-- **[Configuration](config.md)** — Overview of configuring your panels and device.
-  - [Device Configuration](config/device.md) — Device-level settings (sounds, screensaver, buttons, etc.).
-  - [Panel Configuration](config/panels.md) — How to create and arrange panels on the display.
-  - [Item Configuration](config/items.md) — Configuring entities, icons, colors, and internal items.
-- **[Device Description](device.md)** — How the device works: gestures, display states, hardware buttons, sounds, notifications.
-- **[Available Panels](panels/README.md)** — Overview of all panel types with links to each.
-- **[Examples](example_config.md)** — Example configurations to get started quickly.
-- **[FAQ](faq.md)** — Frequently asked questions and solutions to common issues.
-- **[Troubleshooting](troubleshooting.md)** — Diagnosing and resolving problems.
-
----
-
-## Development
-
-For developers extending or maintaining the integration.
-
-The system has three main components:
-
-- **ESPHome** — Handles serial communication with the display and relays touch events to the Hub.
-- **Hub App** — Runs inside Home Assistant, processes entity states, and controls what the display shows.
-- **Nextion Display** — Renders the panels and manages widget state.
-
-- **[Design Guidelines](design.md)** — Styling, theming, and panel design principles.
-- **[Communication Overview](communication.md)** — How the components communicate.
-- **[ESPHome Component](esphome.md)** — ESP32 firmware that drives the display and reports events.
-- **[Hub Component](hub.md)** — The core logic: entity state management, panel lifecycle, navigation.
-- **[Nextion Component](nextion.md)** — Display-level operations and widget management.
-
----
-
-## Versioning
+<details>
+<summary><b>📦 Versioning</b> — release structure and version tracking</summary>
 
 Version information is maintained for:
 
@@ -74,3 +85,5 @@ Version information is maintained for:
 - **TFT Display File** — matches the Hub App release version
 
 Every release should include the compiled TFT file as a release asset.
+
+</details>

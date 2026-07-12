@@ -4,6 +4,7 @@ repo_url: https://github.com/happydasch/nspanel_haui
 repo_name: nspanel_haui
 edit_uri: edit/master/docs/
 site_description: HomeAssistant UI for the Sonoff NSPanel — a flexible, configurable display system built on ESPHome.
+use_directory_urls: false
 site_author: happydasch
 copyright: Copyright &copy; 2024-2026 happydasch
 

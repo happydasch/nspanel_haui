@@ -1,0 +1,57 @@
+# ── nspanel_haui.open_panel ──────────────────────────────────
+open_panel:
+  name: Open panel
+  description: >-
+    Navigate the display to the specified panel.  The panel
+    is opened through the navigation controller so the full
+    render pipeline runs (goto_page, page ack, settle, set_panel).
+    Navigation history, popups, and lock state are honored.
+
+    If wakeup is enabled (default false), the display is woken
+    before opening the panel — equivalent to calling
+    reset_last_interaction first.
+  target:
+    device:
+      integration: nspanel_haui
+  fields:
+    panel:
+      required: true
+      example: "alarm"
+      selector:
+        text:
+          type: text
+    wakeup:
+      required: false
+      default: false
+      selector:
+        boolean:
+
+# ── nspanel_haui.close_panel ─────────────────────────────────
+close_panel:
+  name: Close panel
+  description: >-
+    Close the current panel and return to the previous panel
+    (or home panel if there is no history).
+  target:
+    device:
+      integration: nspanel_haui
+
+# ── nspanel_haui.wakeup ──────────────────────────────────────
+wakeup:
+  name: Wake up
+  description: >-
+    Wake the display and navigate to the configured wakeup
+    panel (or home panel if no wakeup panel is set).
+  target:
+    device:
+      integration: nspanel_haui
+
+# ── nspanel_haui.sleep ───────────────────────────────────────
+sleep:
+  name: Sleep
+  description: >-
+    Send the display to sleep by opening the configured sleep
+    panel.
+  target:
+    device:
+      integration: nspanel_haui

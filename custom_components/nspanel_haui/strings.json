@@ -37,10 +37,38 @@
           "debug": "Debug logging"
         },
         "data_description": {
-          "update_interval": "How often the integration polls panel state (5\u2013300 s).",
+          "update_interval": "How often the integration polls panel state (5-300 s).",
           "debug": "Verbose debug logging for this hub."
         }
       }
+    }
+  },
+  "services": {
+    "open_panel": {
+      "name": "Open panel",
+      "description": "Navigate to a specific panel.  If wakeup is enabled the display wakes first.",
+      "fields": {
+        "panel": {
+          "name": "Panel",
+          "description": "Panel key or UUID to navigate to (e.g. 'alarm', 'grid_0')."
+        },
+        "wakeup": {
+          "name": "Wake up first",
+          "description": "Wake the display before opening the panel."
+        }
+      }
+    },
+    "close_panel": {
+      "name": "Close panel",
+      "description": "Close the current panel and return to the previous or home panel."
+    },
+    "wakeup": {
+      "name": "Wake up",
+      "description": "Wake the display and navigate to the wakeup or home panel."
+    },
+    "sleep": {
+      "name": "Sleep",
+      "description": "Send the display to sleep."
     }
   }
 }

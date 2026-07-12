@@ -162,9 +162,7 @@ class AlarmPage(HAUIPage):
         items = self._build_items_from_panel(panel, "item", "items")
         self._item = items[0] if items else None
         if self._item is not None:
-            self.add_item_listener(
-                self._item.get_item_id(), self.callback_alarm_state, "state"
-            )
+            self.add_item_listener(self._item.get_item_id(), self.callback_alarm_state, "state")
         # wire the numeric keypad
         for comp in self._keypad_buttons:
             self.on_release(comp, self.callback_keypad)
@@ -210,7 +208,7 @@ class AlarmPage(HAUIPage):
             service, label = action
             self._btn_actions[comp.name] = service
             self._show_action_button(comp, label)
-        for comp in self._action_buttons[len(actions):]:
+        for comp in self._action_buttons[len(actions) :]:
             self.update_function_component(fnc_id=comp.name, visible=False)
 
     def _resolve_actions(self, state: str) -> list[tuple[str, str]]:

@@ -625,7 +625,7 @@ export function renderItemEditFields(host, descriptor) {
             const hints = {
               name: t("Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel."),
               icon: t("An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon."),
-              color: t("A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0\u201365535), or a Home Assistant template that overrides the default entity color."),
+              color: t("A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0-65535), or a Home Assistant template that overrides the default entity color."),
               value: t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
               state: t("A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display."),
               popup_key: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior."),

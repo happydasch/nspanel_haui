@@ -12,7 +12,7 @@ Whether you just got your panel or want to fine-tune it, this guide will get you
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 If you're setting up a new NSPanel, follow these steps in order:
 
@@ -36,54 +36,30 @@ If you're setting up a new NSPanel, follow these steps in order:
 
 ---
 
-## 📖 Guides
+## Guides
 
 Hands-on help for common tasks.
 
-| Guide | What you'll learn |
-|-------|-------------------|
-| [Installation](install.md) | Step-by-step: HACS, flashing, first setup |
-| [Configuration](config.md) | Device settings, panel layout, item editing |
-| [Panel Overview](panels/README.md) | All panel types with descriptions and docs |
-| [Examples](example_config.md) | Real-world configs to copy and adapt |
-| [Device Description](device.md) | Gestures, buttons, notifications, sleep modes |
-| [FAQ](faq.md) | Answers to common questions |
-| [Troubleshooting](troubleshooting.md) | Fixing connection issues, display problems, and more |
+### Setting up
+
+- **[Installation](install.md)** — Step-by-step: HACS, flashing, first setup
+- **[Configuration](config.md)** — Device settings, panel layout, item editing
+- **[Examples](example_config.md)** — Real-world configs to copy and adapt
+
+### Using your panel
+
+- **[Panel Overview](panels/README.md)** — All panel types with descriptions and docs
+- **[Device Description](device.md)** — Gestures, buttons, notifications, sleep modes
+
+### Need help?
+
+- **[FAQ](faq.md)** — Answers to common questions
+- **[Troubleshooting](troubleshooting.md)** — Fixing connection issues, display problems, and more
 
 ---
 
-<details>
-<summary><b>🔧 Developer Docs</b> — architecture, component design, extending the integration</summary>
+## Development
 
-The system has three layers:
+Want to understand the internals, extend the integration, or contribute?
 
-<p align="center">
-  <img src="assets/diagrams/architecture.svg" alt="Architecture Diagram" width="80%">
-</p>
-
-| Layer | Component | Role |
-|-------|-----------|------|
-| **Hub App** | `NSPanelHAUI` (runs in HA) | Reads entity states, renders display commands, manages navigation |
-| **ESP32** | ESPHome firmware | Serial bridge between HA and the display, relays touch events |
-| **Nextion** | Touchscreen display | Renders panels, manages widget state, handles touch input |
-
-- **[Design Guidelines](design.md)** — Styling, theming, and panel design principles
-- **[Communication Overview](communication.md)** — How the layers talk to each other
-- **[ESPHome Component](esphome.md)** — ESP32 firmware details
-- **[Hub Component](hub.md)** — Core logic: state management, panel lifecycle, navigation
-- **[Nextion Component](nextion.md)** — Display-level operations and widget management
-
-</details>
-
-<details>
-<summary><b>📦 Versioning</b> — release structure and version tracking</summary>
-
-Version information is maintained for:
-
-- **Hub App** — tracked in `custom_components/nspanel_haui/haui/version.py` and synced to `manifest.json` and `pyproject.toml`
-- **ESPHome YAML** — the ESPHome device config tracks its own compatibility version
-- **TFT Display File** — matches the Hub App release version
-
-Every release should include the compiled TFT file as a release asset.
-
-</details>
+→ [Development docs](development.md) — architecture, component design, versioning

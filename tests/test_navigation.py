@@ -5,6 +5,8 @@ state machine can be refactored without silent regressions. They spy on the
 high-level navigation methods rather than exercising the full display stack.
 """
 
+import time
+
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.controller.navigation import HAUINavigationController
 from nspanel_haui.haui.mapping.const import ESPEvent
@@ -58,6 +60,7 @@ class FakeApp:
         self.device = device
         self.controller = {}
         self.cancel_calls = []
+        self.run_in_delays = []
 
     def log(self, msg, *a, **k):
         pass
@@ -66,6 +69,7 @@ class FakeApp:
         self.cancel_calls.append(handle)
 
     def run_in(self, cb, delay, **kwargs):
+        self.run_in_delays.append(delay)
         if delay == 0:
             cb(kwargs)
         return "handle"
@@ -84,6 +88,7 @@ def _make_nav(**device_cfg):
         "open_wakeup": 0,
         "exit_sleep": 0,
         "display_panel": [],
+        "refresh_panel": 0,
         "unset_page": 0,
     }
     nav._start_idle_timer = lambda: nav.calls.__setitem__("idle", nav.calls["idle"] + 1)
@@ -96,6 +101,9 @@ def _make_nav(**device_cfg):
         "exit_sleep", nav.calls["exit_sleep"] + 1
     )
     nav.display_panel = lambda panel: nav.calls["display_panel"].append(panel)
+    nav.refresh_panel = lambda: nav.calls.__setitem__(
+        "refresh_panel", nav.calls["refresh_panel"] + 1
+    )
     nav.unset_page = lambda: nav.calls.__setitem__("unset_page", nav.calls["unset_page"] + 1)
     return nav
 
@@ -426,14 +434,14 @@ def test_buffer_overflow_schedules_re_render():
     assert nav._buffer_overflow_timer is not None  # run_in returns "handle"
 
 
-def test_buffer_overflow_recover_renders_panel():
-    """_buffer_overflow_recover calls display_panel with the current panel."""
+def test_buffer_overflow_recover_refreshes_panel():
+    """_buffer_overflow_recover refreshes the panel (no full set_panel batch)."""
     nav = _make_nav()
-    panel = DummyPanel("p1")
-    nav.panel = panel
+    nav.panel = DummyPanel("p1")
     nav.page = FakePage(page_id=3, started=True)
     nav._buffer_overflow_recover({})
-    assert nav.calls["display_panel"] == [panel]
+    assert nav.calls["refresh_panel"] == 1
+    assert nav.calls["display_panel"] == []
     assert nav._buffer_overflow_timer is None
 
 
@@ -443,7 +451,7 @@ def test_buffer_overflow_recover_skips_when_no_panel():
     nav.panel = None
     nav.page = None
     nav._buffer_overflow_recover({})
-    assert nav.calls["display_panel"] == []
+    assert nav.calls["refresh_panel"] == 0
 
 
 def test_buffer_overflow_debounces_repeated_events():
@@ -456,3 +464,43 @@ def test_buffer_overflow_debounces_repeated_events():
     nav.process_event(HAUIEvent(ESPEvent.BUFFER_OVERFLOW, "1"))
     # First timer was cancelled
     assert first_timer in nav.app.cancel_calls
+
+
+def test_buffer_overflow_recovery_backs_off_exponentially():
+    """Each consecutive recovery doubles the debounce delay."""
+    nav = _make_nav()
+    nav.panel = DummyPanel("p1")
+    nav.page = FakePage(page_id=3, started=True)
+    for _ in range(3):
+        nav.process_event(HAUIEvent(ESPEvent.BUFFER_OVERFLOW, "1"))
+        nav._buffer_overflow_recover({})
+    assert nav.app.run_in_delays == [
+        nav_module.OVERFLOW_RECOVERY_DELAY,
+        nav_module.OVERFLOW_RECOVERY_DELAY * 2,
+        nav_module.OVERFLOW_RECOVERY_DELAY * 4,
+    ]
+
+
+def test_buffer_overflow_recovery_pauses_after_max_attempts():
+    """After max consecutive recoveries, further overflows are ignored."""
+    nav = _make_nav()
+    nav.panel = DummyPanel("p1")
+    nav.page = FakePage(page_id=3, started=True)
+    for _ in range(nav_module.OVERFLOW_RECOVERY_MAX_ATTEMPTS):
+        nav.process_event(HAUIEvent(ESPEvent.BUFFER_OVERFLOW, "1"))
+        nav._buffer_overflow_recover({})
+    scheduled = len(nav.app.run_in_delays)
+    nav.process_event(HAUIEvent(ESPEvent.BUFFER_OVERFLOW, "1"))
+    assert len(nav.app.run_in_delays) == scheduled  # no new timer
+    assert nav.calls["refresh_panel"] == nav_module.OVERFLOW_RECOVERY_MAX_ATTEMPTS
+
+
+def test_buffer_overflow_backoff_resets_after_quiet_period():
+    """A quiet period without overflows resets the recovery backoff."""
+    nav = _make_nav()
+    nav.panel = DummyPanel("p1")
+    nav.page = FakePage(page_id=3, started=True)
+    nav._overflow_recoveries = nav_module.OVERFLOW_RECOVERY_MAX_ATTEMPTS
+    nav._last_overflow_ts = time.monotonic() - nav_module.OVERFLOW_RECOVERY_RESET - 1
+    nav.process_event(HAUIEvent(ESPEvent.BUFFER_OVERFLOW, "1"))
+    assert nav.app.run_in_delays == [nav_module.OVERFLOW_RECOVERY_DELAY]

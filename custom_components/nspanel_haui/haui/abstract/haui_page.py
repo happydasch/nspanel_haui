@@ -489,6 +489,14 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 self._render_function_components()
                 self.render_panel(panel)
                 rendered = True
+            # 3. full page refresh LAST: redraws static TFT components erased
+            # by the leading cls in config_panel, after all component writes.
+            # Sending ref 0 right after cls keeps the display busy with a full
+            # redraw while the rest of the batch streams in, which fills the
+            # Nextion RX buffer on large batches (0x24 overflow -> re-render
+            # loop).
+            if not self.PICTURE_BACKGROUND:
+                self.send_cmd("ref 0")
         # 4. call after render for panel
         self.after_render_panel(panel, rendered)
 
@@ -513,8 +521,10 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             # Picture-background pages (clock, weather, clocktwo) handle their
             # own background via pre-compiled picture assets in the TFT.
             if not self.PICTURE_BACKGROUND:
+                # cls erases static TFT components; the matching "ref 0" that
+                # redraws them is sent at the END of the set_panel batch so the
+                # full-page refresh never runs while commands are streaming in.
                 self.send_cmd(f"cls {self.get_color('background')}")
-                self.send_cmd("ref 0")
                 # apply header colors to the header background (if the page has one)
                 try:
                     header_comp = self.COMPONENTS.header

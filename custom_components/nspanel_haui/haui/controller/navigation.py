@@ -18,6 +18,14 @@ from ..mapping.const import ESPCommand, ESPEvent, SysPanelKey
 from ..mapping.page import PAGE_MAPPING
 from ..utils.page import get_page_class_for_panel, get_page_id_for_panel
 
+# Buffer-overflow recovery tuning: the first recovery is debounced by the
+# base delay, each consecutive recovery doubles it, and after the max number
+# of consecutive recoveries the controller pauses recovery entirely until the
+# display has been quiet (no overflow events) for the reset period.
+OVERFLOW_RECOVERY_DELAY = 0.5  # seconds, debounce before first recovery
+OVERFLOW_RECOVERY_MAX_ATTEMPTS = 5  # consecutive recoveries before pausing
+OVERFLOW_RECOVERY_RESET = 30.0  # seconds without overflows to reset backoff
+
 
 class HAUINavigationController(HAUIBase):
     """Navigation Controller
@@ -48,6 +56,8 @@ class HAUINavigationController(HAUIBase):
         self._wakeup_panel: HAUIPanel | None = None  # wakeup panel config
         self._page_timeout: str | None = None  # Timer for switching pages
         self._buffer_overflow_timer: str | None = None  # Debounced re-render after overflow
+        self._overflow_recoveries = 0  # consecutive overflow recoveries (backoff)
+        self._last_overflow_ts: float = 0.0  # monotonic time of last overflow event
         self._page_settle_timer: str | None = None  # Delayed re-render after page event settle
         self._close_timeout: str | None = None  # Timer for panel auto close
         self._idle_timer: str | None = None  # Timer for hub-side idle timeout
@@ -942,20 +952,54 @@ class HAUINavigationController(HAUIBase):
         lost — the display shows a mix of stale and updated widgets.
 
         We schedule a debounced re-render of the current panel so the display
-        recovers automatically.  The 500ms delay lets the ESPHome queue drain
-        any remaining commands before we re-send the full panel state.
+        recovers automatically.  The delay lets the ESPHome queue drain any
+        remaining commands before we re-send the panel state.
+
+        Recovery must not be able to loop: if the re-render batch itself
+        overflows the buffer, re-sending it forever just repeats the overflow.
+        Consecutive recoveries therefore back off exponentially and recovery
+        pauses entirely after OVERFLOW_RECOVERY_MAX_ATTEMPTS, until the
+        display has been overflow-free for OVERFLOW_RECOVERY_RESET seconds.
         """
+        now = time.monotonic()
+        if now - self._last_overflow_ts > OVERFLOW_RECOVERY_RESET:
+            self._overflow_recoveries = 0
+        self._last_overflow_ts = now
+        if self._overflow_recoveries >= OVERFLOW_RECOVERY_MAX_ATTEMPTS:
+            # Recovery is paused; stay quiet until a reset period passes.
+            self.debug_log(
+                "Nextion buffer overflow while recovery is paused — ignoring",
+                min_level=1,
+            )
+            return
+        delay = OVERFLOW_RECOVERY_DELAY * (2**self._overflow_recoveries)
         self.log(
-            "Nextion buffer overflow detected — scheduling panel re-render",
+            f"Nextion buffer overflow detected — scheduling panel re-render in {delay:.1f}s",
             level="WARNING",
         )
         if self._buffer_overflow_timer is not None:
             self.app.cancel_timer(self._buffer_overflow_timer)
-        self._buffer_overflow_timer = self.app.run_in(self._buffer_overflow_recover, 0.5)
+        self._buffer_overflow_timer = self.app.run_in(self._buffer_overflow_recover, delay)
 
     def _buffer_overflow_recover(self, _kwargs: dict[str, Any]) -> None:
-        """Re-render the current panel after a buffer overflow."""
+        """Re-render the current panel after a buffer overflow.
+
+        Uses refresh_panel (render only — no cls / full-page ref) instead of
+        a full set_panel so the recovery batch is smaller than the batch that
+        overflowed and cannot re-trigger the overflow by itself.
+        """
         self._buffer_overflow_timer = None
-        if self.panel is not None and self.page is not None:
-            self.log("Re-rendering panel after buffer overflow")
-            self.display_panel(self.panel)
+        if self.panel is None or self.page is None:
+            return
+        self._overflow_recoveries += 1
+        self.log(
+            "Re-rendering panel after buffer overflow "
+            f"(attempt {self._overflow_recoveries}/{OVERFLOW_RECOVERY_MAX_ATTEMPTS})"
+        )
+        if self._overflow_recoveries >= OVERFLOW_RECOVERY_MAX_ATTEMPTS:
+            self.log(
+                "Buffer overflow keeps recurring — pausing recovery until "
+                f"{OVERFLOW_RECOVERY_RESET:.0f}s without overflows",
+                level="ERROR",
+            )
+        self.refresh_panel()

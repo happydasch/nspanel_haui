@@ -514,6 +514,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             # own background via pre-compiled picture assets in the TFT.
             if not self.PICTURE_BACKGROUND:
                 self.send_cmd(f"cls {self.get_color('background')}")
+                self.send_cmd("ref 0")
                 # apply header colors to the header background (if the page has one)
                 try:
                     header_comp = self.COMPONENTS.header

@@ -266,7 +266,8 @@ class AlarmPage(HAUIPage):
             return
         with self.rec_cmd:
             # a state transition means any in-progress code entry is done
-            self._input = ""
+            if old != new:
+                self._input = ""
             self.update_components()
 
     def callback_keypad(self, event: HAUIEvent, component: Component) -> None:

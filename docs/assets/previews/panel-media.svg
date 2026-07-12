@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#1a1a2e" stroke="#444" stroke-width="1.5"/>
+  <text x="80" y="14" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="9" font-weight="bold">Media</text>
+  <!-- Title -->
+  <text x="80" y="30" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="8" font-weight="bold">Bohemian Rhapsody</text>
+  <text x="80" y="40" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="6">Queen</text>
+  <!-- Progress bar -->
+  <rect x="20" y="48" width="120" height="4" rx="2" fill="#333"/>
+  <rect x="20" y="48" width="65" height="4" rx="2" fill="#22c55e" opacity="0.7"/>
+  <circle cx="85" cy="50" r="3.5" fill="#fff"/>
+  <!-- Speaker icon -->
+  <g transform="translate(22,66) scale(0.7)">
+    <rect x="0" y="-4" width="6" height="8" fill="#aaa"/>
+    <polygon points="6,-6 12,-12 12,12 6,6" fill="#aaa"/>
+    <path d="M14,-8 A8,8 0 0,1 14,8" fill="none" stroke="#aaa" stroke-width="1.5"/>
+    <path d="M17,-12 A12,12 0 0,1 17,12" fill="none" stroke="#aaa" stroke-width="1.2"/>
+  </g>
+  <!-- Volume area -->
+  <rect x="38" y="63" width="92" height="5" rx="2.5" fill="#333"/>
+  <rect x="38" y="63" width="50" height="5" rx="2.5" fill="#aaa"/>
+  <circle cx="88" cy="65.5" r="3.5" fill="#fff"/>
+  <!-- Controls row -->
+  <g transform="translate(80,94)">
+    <rect x="-52" y="-11" width="24" height="22" rx="4" fill="rgba(255,255,255,0.06)"/>
+    <polygon points="-34,-5 -34,5 -41,0" fill="#ccc"/>
+    <polygon points="-41,-5 -41,5 -48,0" fill="#ccc"/>
+    <rect x="-13" y="-13" width="26" height="26" rx="6" fill="#22c55e" opacity="0.6"/>
+    <polygon points="-4,-7 -4,7 8,0" fill="#fff"/>
+    <rect x="28" y="-11" width="24" height="22" rx="4" fill="rgba(255,255,255,0.06)"/>
+    <polygon points="34,-5 34,5 41,0" fill="#ccc"/>
+    <polygon points="41,-5 41,5 48,0" fill="#ccc"/>
+  </g>
+</svg>

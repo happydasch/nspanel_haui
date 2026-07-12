@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#1a1a2e" stroke="#444" stroke-width="1.5"/>
+  <text x="80" y="14" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="9" font-weight="bold">Grid</text>
+  <rect x="12" y="22" width="41" height="26" rx="4" fill="#3b82f6" opacity="0.7"/>
+  <rect x="59" y="22" width="41" height="26" rx="4" fill="#22c55e" opacity="0.7"/>
+  <rect x="106" y="22" width="41" height="26" rx="4" fill="#f59e0b" opacity="0.7"/>
+  <rect x="12" y="52" width="41" height="26" rx="4" fill="#a855f7" opacity="0.7"/>
+  <rect x="59" y="52" width="41" height="26" rx="4" fill="#3b82f6" opacity="0.5"/>
+  <rect x="106" y="52" width="41" height="26" rx="4" fill="#22c55e" opacity="0.5"/>
+  <line x1="12" y1="86" x2="147" y2="86" stroke="#333" stroke-width="1"/>
+  <text x="80" y="100" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="7">6 tiles in 2 rows</text>
+</svg>

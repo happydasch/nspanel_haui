@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#1a1a2e" stroke="#444" stroke-width="1.5"/>
+  <text x="80" y="52" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="34" font-weight="bold">10:45</text>
+  <text x="80" y="72" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="8">Tuesday, March 25</text>
+  <!-- Date info -->
+  <rect x="45" y="82" width="70" height="17" rx="4" fill="#222"/>
+  <text x="80" y="93" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="7">Week 13 · 2026</text>
+</svg>

@@ -137,75 +137,75 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
 <table>
   <tr>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-grid.png" alt="Grid Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-grid.svg" alt="Grid Panel" width="100%"><br>
       <b>Grid</b> <code>grid</code><br>
       <small>Up to 6 entities in a scrollable grid layout. Color overrides, power buttons.</small>
     </td>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-row.png" alt="Row Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-row.svg" alt="Row Panel" width="100%"><br>
       <b>Row</b> <code>row</code><br>
-      <small>Up to 5 entities in a horizontal row. Compact, icon-focused layout.</small>
+      <small>Up to 5 entities in a vertical scrollable rows. Compact, text-focused layout.</small>
     </td>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-light.png" alt="Light Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-light.svg" alt="Light Panel" width="100%"><br>
       <b>Light</b> <code>light</code><br>
       <small>Full light control: brightness, color temp, RGB color wheel, effects.</small>
     </td>
   </tr>
   <tr>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-climate.png" alt="Climate Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-climate.svg" alt="Climate Panel" width="100%"><br>
       <b>Climate</b> <code>climate</code><br>
       <small>HVAC control: temperature, modes, fan speed, swing, presets.</small>
     </td>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-cover.png" alt="Cover Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-cover.svg" alt="Cover Panel" width="100%"><br>
       <b>Cover</b> <code>cover</code><br>
       <small>Open/close/stop with vertical position slider. Blinds, garages, curtains.</small>
     </td>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-media.png" alt="Media Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-media.svg" alt="Media Panel" width="100%"><br>
       <b>Media</b> <code>media</code><br>
       <small>Media player controls, volume, queue. Supports TV, speakers, receivers.</small>
     </td>
   </tr>
   <tr>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-vacuum.png" alt="Vacuum Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-vacuum.svg" alt="Vacuum Panel" width="100%"><br>
       <b>Vacuum</b> <code>vacuum</code><br>
       <small>Start/stop, return to dock, fan speed, locate. Up to 6 secondary items.</small>
     </td>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-timer.png" alt="Timer Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-timer.svg" alt="Timer Panel" width="100%"><br>
       <b>Timer</b> <code>timer</code><br>
       <small>Local countdown timer with start/pause/stop. Uses display-local time.</small>
     </td>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-alarm.png" alt="Alarm Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-alarm.svg" alt="Alarm Panel" width="100%"><br>
       <b>Alarm</b> <code>alarm</code><br>
       <small>Numeric keypad for alarm code entry. Arm/disarm with mode buttons.</small>
     </td>
   </tr>
   <tr>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-qr.png" alt="QR Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-qr.svg" alt="QR Panel" width="100%"><br>
       <b>QR Code</b> <code>qr</code><br>
       <small>Display QR codes for Wi-Fi, URLs, or custom text. Great for guest networks.</small>
     </td>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-weather.png" alt="Weather Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-weather.svg" alt="Weather Panel" width="100%"><br>
       <b>Weather</b> <code>weather</code><br>
       <small>Screensaver-ready weather display. Forecast, backgrounds, info items.</small>
     </td>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-clock.png" alt="Clock Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-clock.svg" alt="Clock Panel" width="100%"><br>
       <b>Clock</b> <code>clock</code><br>
       <small>Large time/date display. Optional weather, entity buttons, backgrounds.</small>
     </td>
   </tr>
   <tr>
     <td width="33%" valign="top">
-      <img src="docs/assets/screenshots/panel-clocktwo.png" alt="ClockTwo Panel" width="100%"><br>
+      <img src="docs/assets/previews/panel-clocktwo.svg" alt="ClockTwo Panel" width="100%"><br>
       <b>ClockTwo</b> <code>clocktwo</code><br>
       <small>Time displayed as written text. Minimalist screensaver alternative.</small>
     </td>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#1a1a2e" stroke="#444" stroke-width="1.5"/>
+  <text x="80" y="14" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="9" font-weight="bold">Climate</text>
+  <!-- Target temperature -->
+  <text x="52" y="57" text-anchor="middle" fill="#3b82f6" font-family="sans-serif" font-size="32" font-weight="bold">22°</text>
+  <!-- Temp up/down buttons -->
+  <rect x="98" y="26" width="30" height="16" rx="4" fill="rgba(255,255,255,0.06)"/>
+  <text x="113" y="38" text-anchor="middle" fill="#3b82f6" font-family="sans-serif" font-size="12" font-weight="bold">+</text>
+  <rect x="98" y="46" width="30" height="16" rx="4" fill="rgba(255,255,255,0.06)"/>
+  <text x="113" y="57" text-anchor="middle" fill="#3b82f6" font-family="sans-serif" font-size="12" font-weight="bold">&#x2212;</text>
+  <!-- Mode selector -->
+  <rect x="25" y="68" width="110" height="13" rx="6.5" fill="#222"/>
+  <rect x="27" y="70" width="34" height="9" rx="4.5" fill="#3b82f6" opacity="0.6"/>
+  <text x="44" y="77" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="6">Cool</text>
+  <text x="80" y="77" text-anchor="middle" fill="#666" font-family="sans-serif" font-size="6">Heat</text>
+  <text x="116" y="77" text-anchor="middle" fill="#666" font-family="sans-serif" font-size="6">Auto</text>
+  <text x="45" y="96" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="6">Target: 22°C</text>
+  <text x="115" y="96" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="6">Current: 24°C</text>
+</svg>

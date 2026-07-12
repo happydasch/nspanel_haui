@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#1a1a2e" stroke="#444" stroke-width="1.5"/>
+  <text x="80" y="14" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="9" font-weight="bold">Timer</text>
+  <!-- Time digits -->
+  <text x="80" y="58" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="30" font-weight="bold">03:45</text>
+  <text x="80" y="74" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="7">remaining</text>
+  <!-- Controls -->
+  <rect x="42" y="88" width="34" height="18" rx="4" fill="#333"/>
+  <polygon points="54,93 54,101 48,97" fill="#aaa"/>
+  <polygon points="62,93 62,101 56,97" fill="#aaa"/>
+  <rect x="84" y="88" width="34" height="18" rx="4" fill="#f59e0b" opacity="0.6"/>
+  <text x="101" y="100" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="8">Pause</text>
+</svg>

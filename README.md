@@ -240,14 +240,12 @@ Behind the scenes, the frontend communicates with the Hub app through a REST API
 
 All device settings — panels, entities, gestures, dimming, sleep, and colours — are managed through the Home Assistant interface.
 
-| Guide | What it covers |
-|-------|---------------|
-| [Configuration Overview](docs/config.md) | All available options at a glance |
-| [Device Configuration](docs/config/device.md) | Sounds, screensaver, buttons, dimming |
-| [Panel Configuration](docs/config/panels.md) | Creating and arranging panels |
-| [Item Configuration](docs/config/items.md) | Entities, icons, colors, internal items |
-| [Device Description](docs/device.md) | Gestures, display states, hardware buttons, notifications |
-| [Example Configs](docs/example_config.md) | Ready-to-use panel combinations |
+- **[Configuration Overview](docs/config.md)** — All available options at a glance
+- **[Device Configuration](docs/config/device.md)** — Sounds, screensaver, buttons, dimming
+- **[Panel Configuration](docs/config/panels.md)** — Creating and arranging panels
+- **[Item Configuration](docs/config/items.md)** — Entities, icons, colors, internal items
+- **[Device Description](docs/device.md)** — Gestures, display states, hardware buttons, notifications
+- **[Example Configs](docs/example_config.md)** — Ready-to-use panel combinations
 
 ---
 
@@ -259,11 +257,9 @@ NSPanel HAUI uses a three-layer architecture:
   <img src="docs/assets/diagrams/architecture.svg" alt="Architecture Diagram" width="100%">
 </p>
 
-| Layer | Component | Role |
-|-------|-----------|------|
-| **Hub App** | `NSPanelHAUI` (runs in HA) | Reads entity states, renders display commands, manages navigation |
-| **ESP32** | ESPHome firmware | Serial bridge between HA and the display, relays touch events |
-| **Nextion** | Touchscreen display | Renders panels, manages widget state, handles touch input |
+- **Hub App** (`NSPanelHAUI`, runs in HA) — Reads entity states, renders display commands, manages navigation
+- **ESP32** (ESPHome firmware) — Serial bridge between HA and the display, relays touch events
+- **Nextion** (Touchscreen display) — Renders panels, manages widget state, handles touch input
 
 Data flows both ways: panel configs and entity states flow **down** to the display, while touch events and button presses flow **up** to Home Assistant.
 
@@ -275,33 +271,29 @@ For detailed architecture information, see the [Communication Overview](docs/com
 
 ### End User
 
-| Document | Description |
-|----------|-------------|
-| [Installation Guide](docs/install.md) | Step-by-step installation instructions |
-| [Custom Integration](docs/custom_integration.md) | How to install and set up the integration |
-| [Configuration](docs/config.md) | Panel and device configuration reference |
-| [Panels Overview](docs/panels/README.md) | All available panel types and their options |
-| [Device Description](docs/device.md) | Device behaviour, gestures, dimming, and features |
-| [FAQ](docs/faq.md) | Frequently asked questions and troubleshooting |
-| [Troubleshooting](docs/troubleshooting.md) | Diagnosing and resolving common problems |
-| [Example Configs](docs/example_config.md) | Example panel configurations |
-| [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html) | Available icon codes for your panels |
+- **[Installation Guide](docs/install.md)** — Step-by-step installation instructions
+- **[Custom Integration](docs/custom_integration.md)** — How to install and set up the integration
+- **[Configuration](docs/config.md)** — Panel and device configuration reference
+- **[Panels Overview](docs/panels/README.md)** — All available panel types and their options
+- **[Device Description](docs/device.md)** — Device behaviour, gestures, dimming, and features
+- **[FAQ](docs/faq.md)** — Frequently asked questions and troubleshooting
+- **[Troubleshooting](docs/troubleshooting.md)** — Diagnosing and resolving common problems
+- **[Example Configs](docs/example_config.md)** — Example panel configurations
+- **[Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)** — Available icon codes for your panels
 
 ### Development
 
-| Document | Description |
-|----------|-------------|
-| [Design Guidelines](docs/design.md) | Styling and panel design principles |
-| [Communication Overview](docs/communication.md) | How Hub, ESPHome, and Nextion communicate |
-| [ESPHome Component](docs/esphome.md) | ESP32 firmware details and serial protocol |
-| [Hub Component](docs/hub.md) | The core integration logic |
-| [Nextion Component](docs/nextion.md) | Display firmware and TFT details |
+- **[Design Guidelines](docs/design.md)** — Styling and panel design principles
+- **[Communication Overview](docs/communication.md)** — How Hub, ESPHome, and Nextion communicate
+- **[ESPHome Component](docs/esphome.md)** — ESP32 firmware details and serial protocol
+- **[Hub Component](docs/hub.md)** — The core integration logic
+- **[Nextion Component](docs/nextion.md)** — Display firmware and TFT details
 
 ---
 
 ## Resources
 
-This project builds on the ideas of:
+Inspired by other NSPanel projects:
 
 - [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) by joBr99
 - [NSPanel HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint) by Blackymas

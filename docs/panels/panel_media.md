@@ -4,6 +4,9 @@ description: Media panel configuration and options
 ---
 
 # Panel Media
+
+![](../assets/previews/panel-media.svg)
+
 ## About
 
 `type: media`

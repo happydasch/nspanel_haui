@@ -4,6 +4,9 @@ description: Weather panel configuration and options
 ---
 
 # Panel Weather
+
+![](../assets/previews/panel-weather.svg)
+
 ## About
 
 `type: weather`

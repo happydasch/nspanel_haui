@@ -4,6 +4,9 @@ description: Clock panel configuration and options
 ---
 
 # Panel Clock
+
+![](../assets/previews/panel-clock.svg)
+
 ## About
 
 `type: clock`

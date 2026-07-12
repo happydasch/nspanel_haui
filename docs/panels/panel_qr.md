@@ -4,6 +4,9 @@ description: QR Code panel configuration and options
 ---
 
 # Panel QR-Code
+
+![](../assets/previews/panel-qr.svg)
+
 ## About
 
 `type: qr`

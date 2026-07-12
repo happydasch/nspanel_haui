@@ -4,6 +4,9 @@ description: Vacuum panel configuration and options
 ---
 
 # Panel Vacuum
+
+![](../assets/previews/panel-vacuum.svg)
+
 ## About
 
 `type: vacuum`

@@ -4,6 +4,9 @@ description: Alarm panel configuration and options
 ---
 
 # Panel Alarm
+
+![](../assets/previews/panel-alarm.svg)
+
 ## About
 
 `type: alarm`

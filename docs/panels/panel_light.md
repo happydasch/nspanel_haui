@@ -4,6 +4,9 @@ description: Light panel configuration and options
 ---
 
 # Panel Light
+
+![](../assets/previews/panel-light.svg)
+
 ## About
 
 `type: light`

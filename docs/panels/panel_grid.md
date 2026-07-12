@@ -4,6 +4,9 @@ description: Grid panel configuration and options
 ---
 
 # Panel Grid
+
+![](../assets/previews/panel-grid.svg)
+
 ## About
 
 `type: grid`

@@ -4,6 +4,9 @@ description: Timer panel configuration and options
 ---
 
 # Panel Timer
+
+![](../assets/previews/panel-timer.svg)
+
 ## About
 
 `type: timer`

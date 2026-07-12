@@ -4,6 +4,9 @@ description: Climate panel configuration and options
 ---
 
 # Panel Climate
+
+![](../assets/previews/panel-climate.svg)
+
 ## About
 
 `type: climate`

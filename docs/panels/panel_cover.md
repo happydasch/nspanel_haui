@@ -4,6 +4,9 @@ description: Cover panel configuration and options
 ---
 
 # Panel Cover
+
+![](../assets/previews/panel-cover.svg)
+
 ## About
 
 `type: cover`

@@ -4,6 +4,9 @@ description: Row panel configuration and options
 ---
 
 # Panel Row
+
+![](../assets/previews/panel-row.svg)
+
 ## About
 
 `type: row`

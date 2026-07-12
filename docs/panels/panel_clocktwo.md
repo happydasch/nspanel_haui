@@ -4,6 +4,9 @@ description: ClockTwo panel configuration and options
 ---
 
 # Panel ClockTwo
+
+![](../assets/previews/panel-clocktwo.svg)
+
 ## About
 
 `type: clocktwo`

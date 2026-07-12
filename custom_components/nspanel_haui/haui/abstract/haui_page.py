@@ -495,11 +495,6 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 self.render_panel(panel)
                 rendered = True
 
-            # Full page refresh LAST: redraws all static TFT components
-            # after the cls + component commands that preceded them.
-            if not self.PICTURE_BACKGROUND:
-                self.send_cmd("ref 0")
-
         # call after render for panel
         self.after_render_panel(panel, rendered)
 

@@ -108,6 +108,7 @@ nav:
     - FAQ: faq.md
     - Troubleshooting: troubleshooting.md
   - Development:
+    - development.md
     - Design Guidelines: design.md
     - Communication Overview: communication.md
     - ESPHome Component: esphome.md

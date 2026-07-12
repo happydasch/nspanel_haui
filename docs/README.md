@@ -65,28 +65,6 @@ The system has three main components:
 
 ---
 
-## At a Glance — Panel Types
-
-| Type | Category | Panel Doc |
-|------|----------|-----------|
-| `grid` | Multi-entity | [Grid](panels/panel_grid.md) |
-| `row` | Multi-entity | [Row](panels/panel_row.md) |
-| `light` | Entity control | [Light](panels/panel_light.md) |
-| `climate` | Entity control | [Climate](panels/panel_climate.md) |
-| `cover` | Entity control | [Cover](panels/panel_cover.md) |
-| `media` | Entity control | [Media](panels/panel_media.md) |
-| `vacuum` | Entity control | [Vacuum](panels/panel_vacuum.md) |
-| `timer` | Utility | [Timer](panels/panel_timer.md) |
-| `alarm` | Security | [Alarm](panels/panel_alarm.md) |
-| `qr` | Utility | [QR Code](panels/panel_qr.md) |
-| `weather` | Screensaver | [Weather](panels/panel_weather.md) |
-| `clock` | Screensaver | [Clock](panels/panel_clock.md) |
-| `clocktwo` | Screensaver | [ClockTwo](panels/panel_clocktwo.md) |
-
-System panels (blank, settings, about, loading) and popups (unlock, notify, select) are built-in.
-
----
-
 ## Versioning
 
 Version information is maintained for:

@@ -19,11 +19,11 @@ NSPanel HAUI supports **13 panel types** plus **system panels** and **popups**. 
 
 Panels that can be used as screensavers / idle display. These panels do not show navigation by default.
 
-| Panel | Type | Description |
-|-------|------|-------------|
-| [Weather](panel_weather.md) | `weather` | Weather forecast, time/date, optional background images. Supports info items and entity buttons. |
-| [Clock](panel_clock.md) | `clock` | Large time/date display with optional weather, background, and entity buttons. |
-| [ClockTwo](panel_clocktwo.md) | `clocktwo` | Minimalist clock showing time as written text (e.g., \"twelve thirty-four\"). |
+| Preview | Panel | Type | Description |
+|---------|-------|------|-------------|
+| <a href="panel_weather.md"><img src="../assets/previews/panel-weather.svg" width="80" height="60"></a> | [Weather](panel_weather.md) | `weather` | Weather forecast, time/date, optional background images. Supports info items and entity buttons. |
+| <a href="panel_clock.md"><img src="../assets/previews/panel-clock.svg" width="80" height="60"></a> | [Clock](panel_clock.md) | `clock` | Large time/date display with optional weather, background, and entity buttons. |
+| <a href="panel_clocktwo.md"><img src="../assets/previews/panel-clocktwo.svg" width="80" height="60"></a> | [ClockTwo](panel_clocktwo.md) | `clocktwo` | Minimalist clock showing time as written text (e.g., "twelve thirty-four"). |
 
 ---
 
@@ -31,10 +31,10 @@ Panels that can be used as screensavers / idle display. These panels do not show
 
 Panels that show multiple entities in a navigation-enabled layout.
 
-| Panel | Type | Description |
-|-------|------|-------------|
-| [Grid](panel_grid.md) | `grid` | Up to 6 entities arranged in a scrollable grid. Color overrides, power buttons. |
-| [Row](panel_row.md) | `row` | Up to 5 entities in a horizontal row. Compact icon-focused layout. |
+| Preview | Panel | Type | Description |
+|---------|-------|------|-------------|
+| <a href="panel_grid.md"><img src="../assets/previews/panel-grid.svg" width="80" height="60"></a> | [Grid](panel_grid.md) | `grid` | Up to 6 entities arranged in a scrollable grid. Color overrides, power buttons. |
+| <a href="panel_row.md"><img src="../assets/previews/panel-row.svg" width="80" height="60"></a> | [Row](panel_row.md) | `row` | Up to 5 entities in a horizontal row. Compact icon-focused layout. |
 
 ---
 
@@ -42,13 +42,13 @@ Panels that show multiple entities in a navigation-enabled layout.
 
 Single-entity control panels with full feature support.
 
-| Panel | Type | Description |
-|-------|------|-------------|
-| [Light](panel_light.md) | `light` | Full light control: brightness, color temperature, RGB color wheel, effects. |
-| [Media](panel_media.md) | `media` | Media player controls: play/pause, volume, queue. Supports TV, speakers, receivers. |
-| [Vacuum](panel_vacuum.md) | `vacuum` | Robot vacuum controls: start/stop, return home, fan speed, locate. Up to 6 secondary items. |
-| [Cover](panel_cover.md) | `cover` | Cover/blind control: open, stop, close, vertical position slider. |
-| [Climate](panel_climate.md) | `climate` | HVAC control: temperature setpoint, modes (heat/cool/auto), fan speed, swing, presets. |
+| Preview | Panel | Type | Description |
+|---------|-------|------|-------------|
+| <a href="panel_light.md"><img src="../assets/previews/panel-light.svg" width="80" height="60"></a> | [Light](panel_light.md) | `light` | Full light control: brightness, color temperature, RGB color wheel, effects. |
+| <a href="panel_media.md"><img src="../assets/previews/panel-media.svg" width="80" height="60"></a> | [Media](panel_media.md) | `media` | Media player controls: play/pause, volume, queue. Supports TV, speakers, receivers. |
+| <a href="panel_vacuum.md"><img src="../assets/previews/panel-vacuum.svg" width="80" height="60"></a> | [Vacuum](panel_vacuum.md) | `vacuum` | Robot vacuum controls: start/stop, return home, fan speed, locate. Up to 6 secondary items. |
+| <a href="panel_cover.md"><img src="../assets/previews/panel-cover.svg" width="80" height="60"></a> | [Cover](panel_cover.md) | `cover` | Cover/blind control: open, stop, close, vertical position slider. |
+| <a href="panel_climate.md"><img src="../assets/previews/panel-climate.svg" width="80" height="60"></a> | [Climate](panel_climate.md) | `climate` | HVAC control: temperature setpoint, modes (heat/cool/auto), fan speed, swing, presets. |
 
 ---
 
@@ -56,11 +56,11 @@ Single-entity control panels with full feature support.
 
 Special-purpose panels for non-entity functions.
 
-| Panel | Type | Description |
-|-------|------|-------------|
-| [Timer](panel_timer.md) | `timer` | Local countdown timer with start/pause/stop. Display-local time, no HA entity needed. |
-| [QR Code](panel_qr.md) | `qr` | Display QR codes for Wi-Fi details, URLs, or custom text. |
-| [Alarm](panel_alarm.md) | `alarm` | Numeric keypad for alarm code entry. Arm/disarm with mode buttons. |
+| Preview | Panel | Type | Description |
+|---------|-------|------|-------------|
+| <a href="panel_timer.md"><img src="../assets/previews/panel-timer.svg" width="80" height="60"></a> | [Timer](panel_timer.md) | `timer` | Local countdown timer with start/pause/stop. Display-local time, no HA entity needed. |
+| <a href="panel_qr.md"><img src="../assets/previews/panel-qr.svg" width="80" height="60"></a> | [QR Code](panel_qr.md) | `qr` | Display QR codes for Wi-Fi details, URLs, or custom text. |
+| <a href="panel_alarm.md"><img src="../assets/previews/panel-alarm.svg" width="80" height="60"></a> | [Alarm](panel_alarm.md) | `alarm` | Numeric keypad for alarm code entry. Arm/disarm with mode buttons. |
 
 ---
 

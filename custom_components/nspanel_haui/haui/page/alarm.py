@@ -166,11 +166,12 @@ class AlarmPage(HAUIPage):
         # wire the numeric keypad
         for comp in self._keypad_buttons:
             self.on_release(comp, self.callback_keypad)
+            self.show_component(comp)
         # register the four action buttons (rendered/labelled in update_components)
         self._btn_actions = {}
         for comp in self._action_buttons:
             self.on_release(comp, self.callback_action)
-            self.set_function_component(comp, comp.name, comp.name, visible=True)
+            self.set_function_component(comp, comp.name, comp.name, visible=False)
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
 

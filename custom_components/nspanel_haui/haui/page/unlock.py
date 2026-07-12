@@ -55,20 +55,7 @@ class UnlockPage(AlarmPage):
             )
 
             # set components
-            for c in [
-                AlarmPage.COMPONENTS.btn_key_0,
-                AlarmPage.COMPONENTS.btn_key_1,
-                AlarmPage.COMPONENTS.btn_key_2,
-                AlarmPage.COMPONENTS.btn_key_3,
-                AlarmPage.COMPONENTS.btn_key_4,
-                AlarmPage.COMPONENTS.btn_key_5,
-                AlarmPage.COMPONENTS.btn_key_6,
-                AlarmPage.COMPONENTS.btn_key_7,
-                AlarmPage.COMPONENTS.btn_key_8,
-                AlarmPage.COMPONENTS.btn_key_9,
-                AlarmPage.COMPONENTS.btn_key_clr,
-                AlarmPage.COMPONENTS.btn_key_del,
-            ]:
+            for c in self._keypad_buttons:
                 self.on_release(c, self.callback_keypad)
             self.on_release(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
             self.set_function_component(

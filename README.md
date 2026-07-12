@@ -222,6 +222,10 @@ See the <a href="docs/panels/README.md">Panels Overview</a> for details.
 
 NSPanel HAUI ships with a **fully integrated web frontend** — a custom Lovelace panel that runs inside Home Assistant and provides a visual, point-and-click interface for configuring everything on your NSPanel.
 
+<p align="center">
+  <img src="docs/assets/frontend-preview.svg" alt="Web Frontend Editor Preview" width="100%">
+</p>
+
 | Capability | What you can do |
 |------------|-----------------|
 | **Panel management** | Add, remove and reorder panels. Each panel type (grid, light, climate, etc.) gets a visual **live preview** showing how it will look on the actual display. |

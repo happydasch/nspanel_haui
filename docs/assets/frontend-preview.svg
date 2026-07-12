@@ -1,0 +1,523 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 912" width="1200" height="912" font-family="Roboto, Helvetica, Arial, sans-serif">
+  <!-- Page background -->
+  <rect width="1200" height="912" rx="12" fill="#f4f5f7"/>
+
+  <!-- ===== Top app bar ===== -->
+  <path d="M0 12 A12 12 0 0 1 12 0 H1188 A12 12 0 0 1 1200 12 V54 H0 Z" fill="#ffffff"/>
+  <line x1="0" y1="54" x2="1200" y2="54" stroke="#e3e5e8" stroke-width="1"/>
+  <text x="40" y="34" font-size="19" font-weight="600" fill="#212121">NSPanel HAUI</text>
+  <!-- connection icon top right -->
+  <g stroke="#2196f3" stroke-width="2" fill="none">
+    <rect x="1128" y="19" width="14" height="11" rx="2"/>
+    <rect x="1146" y="15" width="9" height="15" rx="2"/>
+    <circle cx="1135" cy="24.5" r="1.5" fill="#2196f3" stroke="none"/>
+  </g>
+
+  <!-- ===== Device card ===== -->
+  <rect x="40" y="72" width="1120" height="106" rx="10" fill="#ffffff" stroke="#e3e5e8"/>
+  <!-- select field -->
+  <path d="M60 94 a6 6 0 0 1 6 -6 H1134 a6 6 0 0 1 6 6 V132 H60 Z" fill="#f1f3f4"/>
+  <line x1="60" y1="132" x2="1140" y2="132" stroke="#5f6368" stroke-width="1.5"/>
+  <text x="78" y="115" font-size="14" fill="#212121">nspanel-livingroom</text>
+  <polyline points="1112,107 1118,113 1124,107" fill="none" stroke="#5f6368" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- status row -->
+  <circle cx="72" cy="155" r="4.5" fill="#4caf50"/>
+  <text x="84" y="160" font-size="13" fill="#424242">Connected</text>
+  <g stroke="#757575" stroke-width="1.4" fill="none">
+    <rect x="182" y="148" width="13" height="10" rx="1.5"/>
+    <line x1="185" y1="161" x2="192" y2="161"/>
+  </g>
+  <text x="202" y="160" font-size="13" fill="#424242" font-family="monospace">192.168.0.118</text>
+  <g stroke="#757575" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="332" y="147" width="14" height="12" rx="2"/>
+    <polyline points="336,151 334,153 336,155"/>
+    <polyline points="342,151 344,153 342,155"/>
+  </g>
+  <text x="352" y="160" font-size="13" fill="#424242">sleep (weather)</text>
+  <!-- action icons right -->
+  <g stroke="#616161" stroke-width="1.6" fill="none">
+    <circle cx="1032" cy="153" r="8"/>
+    <circle cx="1029" cy="150" r="1.2" fill="#616161" stroke="none"/>
+    <circle cx="1035" cy="150" r="1.2" fill="#616161" stroke="none"/>
+    <circle cx="1032" cy="156" r="1.2" fill="#616161" stroke="none"/>
+  </g>
+  <g stroke="#616161" stroke-width="1.6" fill="none">
+    <circle cx="1080" cy="153" r="4"/>
+    <g stroke-linecap="round">
+      <line x1="1080" y1="144" x2="1080" y2="147"/>
+      <line x1="1080" y1="159" x2="1080" y2="162"/>
+      <line x1="1071" y1="153" x2="1074" y2="153"/>
+      <line x1="1086" y1="153" x2="1089" y2="153"/>
+      <line x1="1073.5" y1="146.5" x2="1075.7" y2="148.7"/>
+      <line x1="1084.3" y1="157.3" x2="1086.5" y2="159.5"/>
+      <line x1="1073.5" y1="159.5" x2="1075.7" y2="157.3"/>
+      <line x1="1084.3" y1="148.7" x2="1086.5" y2="146.5"/>
+    </g>
+  </g>
+  <g fill="#616161">
+    <circle cx="1126" cy="147" r="1.8"/>
+    <circle cx="1126" cy="153" r="1.8"/>
+    <circle cx="1126" cy="159" r="1.8"/>
+  </g>
+
+  <!-- ===== Add Panel + view toggle ===== -->
+  <rect x="40" y="200" width="122" height="38" rx="19" fill="#2196f3"/>
+  <text x="101" y="224" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Add Panel</text>
+  <rect x="1000" y="202" width="160" height="34" rx="6" fill="#ffffff" stroke="#2196f3"/>
+  <path d="M1000 208 a6 6 0 0 1 6 -6 H1078 V236 H1006 a6 6 0 0 1 -6 -6 Z" fill="#2196f3"/>
+  <g stroke="#ffffff" stroke-width="1.4" fill="none">
+    <rect x="1016" y="213" width="5" height="5"/><rect x="1023" y="213" width="5" height="5"/>
+    <rect x="1016" y="220" width="5" height="5"/><rect x="1023" y="220" width="5" height="5"/>
+  </g>
+  <text x="1036" y="223" font-size="12.5" fill="#ffffff">Grid</text>
+  <g stroke="#616161" stroke-width="1.6" stroke-linecap="round">
+    <line x1="1096" y1="214" x2="1112" y2="214"/>
+    <line x1="1096" y1="219" x2="1112" y2="219"/>
+    <line x1="1096" y1="224" x2="1112" y2="224"/>
+  </g>
+  <text x="1120" y="223" font-size="12.5" fill="#616161">List</text>
+
+  <!-- ===== Section: Navigation ===== -->
+  <polygon points="44,262 54,262 49,269" fill="#424242"/>
+  <text x="62" y="270" font-size="16" font-weight="700" fill="#212121">Navigation (3 panels)</text>
+
+  <!-- ===== Nav card: Living Room (grid, home) ===== -->
+  <g transform="translate(40,286)">
+    <rect width="262" height="266" rx="12" fill="#ffffff" stroke="#e3e5e8"/>
+    <g stroke="#757575" stroke-width="1.4" fill="none">
+      <rect x="14" y="14" width="6" height="6"/><rect x="23" y="14" width="6" height="6"/>
+      <rect x="14" y="23" width="6" height="6"/><rect x="23" y="23" width="6" height="6"/>
+    </g>
+    <rect x="38" y="12" width="20" height="20" rx="5" fill="#f5a623"/>
+    <path d="M43 22 L48 17.5 L53 22 V27 H43 Z" fill="#ffffff"/>
+    <text x="66" y="27" font-size="14" font-weight="600" fill="#212121">Living Room</text>
+    <rect x="180" y="12" width="48" height="20" rx="10" fill="#eceff1"/>
+    <text x="204" y="26" font-size="11" fill="#607d8b" text-anchor="middle">home</text>
+    <g fill="#757575"><circle cx="244" cy="17" r="1.7"/><circle cx="244" cy="22" r="1.7"/><circle cx="244" cy="27" r="1.7"/></g>
+    <!-- display preview -->
+    <rect x="14" y="44" width="234" height="156" rx="8" fill="#111111"/>
+    <polyline points="30,58 25,63 30,68" fill="none" stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="38" y="66" font-size="8" fill="#8a93a0">z</text>
+    <text x="43" y="61" font-size="5.5" fill="#8a93a0">z</text>
+    <text x="131" y="66" font-size="11" fill="#eef2f6" text-anchor="middle">Living Room</text>
+    <polyline points="232,58 237,63 232,68" fill="none" stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- tiles -->
+    <rect x="24" y="76" width="68" height="52" rx="4" fill="#d3b13c"/>
+    <rect x="97" y="76" width="68" height="52" rx="4" fill="#ee7b23"/>
+    <rect x="170" y="76" width="68" height="52" rx="4" fill="#e8615f"/>
+    <rect x="24" y="133" width="68" height="52" rx="4" fill="#67b93e"/>
+    <rect x="97" y="133" width="68" height="52" rx="4" fill="#7a5fd0"/>
+    <rect x="170" y="133" width="68" height="52" rx="4" fill="#3789d3"/>
+    <g stroke="#ffffff" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <!-- bulb -->
+      <circle cx="58" cy="92" r="5" fill="#ffffff" stroke="none"/>
+      <rect x="55.5" y="96.5" width="5" height="4" rx="1" fill="#ffffff" stroke="none"/>
+      <!-- blinds -->
+      <rect x="125" y="86" width="12" height="11" rx="1"/>
+      <line x1="127" y1="90" x2="135" y2="90"/>
+      <line x1="127" y1="93.5" x2="135" y2="93.5"/>
+      <!-- music note -->
+      <path d="M201 99 L201 88 L210 86.5 L210 96"/>
+      <circle cx="199" cy="99" r="2.4" fill="#ffffff" stroke="none"/>
+      <circle cx="208" cy="96" r="2.4" fill="#ffffff" stroke="none"/>
+      <!-- vacuum -->
+      <circle cx="58" cy="149" r="5.5"/>
+      <circle cx="58" cy="149" r="1.4" fill="#ffffff" stroke="none"/>
+      <!-- scenes -->
+      <rect x="125" y="144" width="12" height="10" rx="1"/>
+      <polygon points="129,147 134,149.5 129,152" fill="#ffffff" stroke="none"/>
+      <!-- climate -->
+      <line x1="204" y1="144" x2="204" y2="158"/>
+      <line x1="198" y1="147.5" x2="210" y2="154.5"/>
+      <line x1="198" y1="154.5" x2="210" y2="147.5"/>
+    </g>
+    <g font-size="7.5" fill="#ffffff" text-anchor="middle">
+      <text x="58" y="120">Lights</text>
+      <text x="131" y="120">Covers</text>
+      <text x="204" y="120">Music</text>
+      <text x="58" y="177">Vacuum</text>
+      <text x="131" y="177">Scenes</text>
+      <text x="204" y="177">Climate</text>
+    </g>
+    <text x="14" y="228" font-size="11.5" fill="#616161">Grid of up to 6 item tiles with pagination.</text>
+  </g>
+
+  <!-- ===== Nav card: Room (row) ===== -->
+  <g transform="translate(326,286)">
+    <rect width="262" height="266" rx="12" fill="#ffffff" stroke="#e3e5e8"/>
+    <g stroke="#757575" stroke-width="1.4" fill="none" stroke-linecap="round">
+      <rect x="14" y="14" width="15" height="15" rx="2"/>
+      <line x1="17" y1="19" x2="26" y2="19"/>
+      <line x1="17" y1="24" x2="26" y2="24"/>
+    </g>
+    <text x="40" y="27" font-size="14" font-weight="600" fill="#212121">Room</text>
+    <rect x="176" y="12" width="52" height="20" rx="10" fill="#eceff1"/>
+    <text x="202" y="26" font-size="11" fill="#607d8b" text-anchor="middle">row_0</text>
+    <g fill="#757575"><circle cx="244" cy="17" r="1.7"/><circle cx="244" cy="22" r="1.7"/><circle cx="244" cy="27" r="1.7"/></g>
+    <!-- display preview -->
+    <rect x="14" y="44" width="234" height="156" rx="8" fill="#111111"/>
+    <polyline points="30,58 25,63 30,68" fill="none" stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M42 62 L47 57.5 L52 62 V66.5 H42 Z" fill="none" stroke="#cfd6df" stroke-width="1.4" stroke-linejoin="round"/>
+    <text x="131" y="66" font-size="11" fill="#eef2f6" text-anchor="middle">Room</text>
+    <polyline points="232,58 237,63 232,68" fill="none" stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- entity rows -->
+    <g transform="translate(0,0)">
+      <rect x="24" y="76" width="214" height="28" rx="4" fill="#1e1e1e"/>
+      <rect x="32" y="84" width="10" height="10" rx="1.5" fill="none" stroke="#9aa0a6" stroke-width="1.2"/>
+      <line x1="34" y1="87" x2="40" y2="87" stroke="#9aa0a6" stroke-width="1.2"/>
+      <text x="48" y="94" font-size="8" fill="#c9cdd2">Living Room Light</text>
+      <rect x="182" y="82" width="16" height="16" rx="2.5" fill="#2c2c2c"/>
+      <rect x="202" y="82" width="16" height="16" rx="2.5" fill="#2c2c2c"/>
+      <rect x="222" y="82" width="16" height="16" rx="2.5" fill="#2c2c2c"/>
+      <polyline points="186,92 190,87 194,92" fill="none" stroke="#b9bec4" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="207.5" y="87.5" width="5" height="5" fill="#b9bec4"/>
+      <polyline points="226,88 230,93 234,88" fill="none" stroke="#b9bec4" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0,34)">
+      <rect x="24" y="76" width="214" height="28" rx="4" fill="#1e1e1e"/>
+      <rect x="32" y="84" width="10" height="10" rx="1.5" fill="none" stroke="#9aa0a6" stroke-width="1.2"/>
+      <line x1="34" y1="87" x2="40" y2="87" stroke="#9aa0a6" stroke-width="1.2"/>
+      <text x="48" y="94" font-size="8" fill="#c9cdd2">Kitchen Light</text>
+      <rect x="182" y="82" width="16" height="16" rx="2.5" fill="#2c2c2c"/>
+      <rect x="202" y="82" width="16" height="16" rx="2.5" fill="#2c2c2c"/>
+      <rect x="222" y="82" width="16" height="16" rx="2.5" fill="#2c2c2c"/>
+      <polyline points="186,92 190,87 194,92" fill="none" stroke="#b9bec4" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="207.5" y="87.5" width="5" height="5" fill="#b9bec4"/>
+      <polyline points="226,88 230,93 234,88" fill="none" stroke="#b9bec4" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g transform="translate(0,68)">
+      <rect x="24" y="76" width="214" height="28" rx="4" fill="#1e1e1e"/>
+      <rect x="32" y="84" width="10" height="10" rx="1.5" fill="none" stroke="#9aa0a6" stroke-width="1.2"/>
+      <line x1="34" y1="91" x2="40" y2="91" stroke="#9aa0a6" stroke-width="1.2"/>
+      <text x="48" y="94" font-size="8" fill="#c9cdd2">Living Room Cover</text>
+      <rect x="182" y="82" width="16" height="16" rx="2.5" fill="#2c2c2c"/>
+      <rect x="202" y="82" width="16" height="16" rx="2.5" fill="#2c2c2c"/>
+      <rect x="222" y="82" width="16" height="16" rx="2.5" fill="#2c2c2c"/>
+      <polyline points="186,92 190,87 194,92" fill="none" stroke="#b9bec4" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="207.5" y="87.5" width="5" height="5" fill="#b9bec4"/>
+      <polyline points="226,88 230,93 234,88" fill="none" stroke="#b9bec4" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <rect x="24" y="178" width="214" height="14" rx="4" fill="#1e1e1e"/>
+    <text x="14" y="228" font-size="11.5" fill="#616161">Row of entities with cover/action controls.</text>
+  </g>
+
+  <!-- ===== Nav card: Wifi (qr) ===== -->
+  <g transform="translate(612,286)">
+    <rect width="262" height="266" rx="12" fill="#ffffff" stroke="#e3e5e8"/>
+    <g fill="#757575">
+      <rect x="14" y="14" width="6" height="6"/><rect x="23" y="14" width="6" height="6"/>
+      <rect x="14" y="23" width="6" height="6"/>
+      <rect x="25" y="25" width="4" height="4"/><rect x="21" y="21" width="3" height="3"/>
+    </g>
+    <text x="40" y="27" font-size="14" font-weight="600" fill="#212121">Wifi</text>
+    <rect x="180" y="12" width="48" height="20" rx="10" fill="#eceff1"/>
+    <text x="204" y="26" font-size="11" fill="#607d8b" text-anchor="middle">qr_0</text>
+    <g fill="#757575"><circle cx="244" cy="17" r="1.7"/><circle cx="244" cy="22" r="1.7"/><circle cx="244" cy="27" r="1.7"/></g>
+    <!-- display preview -->
+    <rect x="14" y="44" width="234" height="156" rx="8" fill="#111111"/>
+    <polyline points="30,58 25,63 30,68" fill="none" stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M42 62 L47 57.5 L52 62 V66.5 H42 Z" fill="none" stroke="#cfd6df" stroke-width="1.4" stroke-linejoin="round"/>
+    <text x="131" y="66" font-size="11" fill="#eef2f6" text-anchor="middle">Wifi</text>
+    <circle cx="216" cy="63" r="6" fill="none" stroke="#f5a623" stroke-width="1.4"/>
+    <line x1="216" y1="60" x2="216" y2="66" stroke="#f5a623" stroke-width="1.4" stroke-linecap="round"/>
+    <line x1="213" y1="63" x2="219" y2="63" stroke="#f5a623" stroke-width="1.4" stroke-linecap="round"/>
+    <polyline points="232,58 237,63 232,68" fill="none" stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- QR code (real v1 QR: WIFI:S:HAUI;;) -->
+    <g fill="#d9d9d9">
+      <rect x="78" y="84" width="35" height="5"/>
+      <rect x="138" y="84" width="5" height="5"/>
+      <rect x="148" y="84" width="35" height="5"/>
+      <rect x="78" y="89" width="5" height="5"/>
+      <rect x="108" y="89" width="5" height="5"/>
+      <rect x="128" y="89" width="5" height="5"/>
+      <rect x="138" y="89" width="5" height="5"/>
+      <rect x="148" y="89" width="5" height="5"/>
+      <rect x="178" y="89" width="5" height="5"/>
+      <rect x="78" y="94" width="5" height="5"/>
+      <rect x="88" y="94" width="15" height="5"/>
+      <rect x="108" y="94" width="5" height="5"/>
+      <rect x="128" y="94" width="15" height="5"/>
+      <rect x="148" y="94" width="5" height="5"/>
+      <rect x="158" y="94" width="15" height="5"/>
+      <rect x="178" y="94" width="5" height="5"/>
+      <rect x="78" y="99" width="5" height="5"/>
+      <rect x="88" y="99" width="15" height="5"/>
+      <rect x="108" y="99" width="5" height="5"/>
+      <rect x="118" y="99" width="5" height="5"/>
+      <rect x="128" y="99" width="5" height="5"/>
+      <rect x="138" y="99" width="5" height="5"/>
+      <rect x="148" y="99" width="5" height="5"/>
+      <rect x="158" y="99" width="15" height="5"/>
+      <rect x="178" y="99" width="5" height="5"/>
+      <rect x="78" y="104" width="5" height="5"/>
+      <rect x="88" y="104" width="15" height="5"/>
+      <rect x="108" y="104" width="5" height="5"/>
+      <rect x="118" y="104" width="10" height="5"/>
+      <rect x="138" y="104" width="5" height="5"/>
+      <rect x="148" y="104" width="5" height="5"/>
+      <rect x="158" y="104" width="15" height="5"/>
+      <rect x="178" y="104" width="5" height="5"/>
+      <rect x="78" y="109" width="5" height="5"/>
+      <rect x="108" y="109" width="5" height="5"/>
+      <rect x="123" y="109" width="5" height="5"/>
+      <rect x="133" y="109" width="5" height="5"/>
+      <rect x="148" y="109" width="5" height="5"/>
+      <rect x="178" y="109" width="5" height="5"/>
+      <rect x="78" y="114" width="35" height="5"/>
+      <rect x="118" y="114" width="5" height="5"/>
+      <rect x="128" y="114" width="5" height="5"/>
+      <rect x="138" y="114" width="5" height="5"/>
+      <rect x="148" y="114" width="35" height="5"/>
+      <rect x="78" y="124" width="10" height="5"/>
+      <rect x="103" y="124" width="15" height="5"/>
+      <rect x="133" y="124" width="5" height="5"/>
+      <rect x="158" y="124" width="10" height="5"/>
+      <rect x="78" y="129" width="10" height="5"/>
+      <rect x="93" y="129" width="15" height="5"/>
+      <rect x="113" y="129" width="5" height="5"/>
+      <rect x="128" y="129" width="5" height="5"/>
+      <rect x="138" y="129" width="5" height="5"/>
+      <rect x="158" y="129" width="5" height="5"/>
+      <rect x="178" y="129" width="5" height="5"/>
+      <rect x="83" y="134" width="15" height="5"/>
+      <rect x="108" y="134" width="10" height="5"/>
+      <rect x="138" y="134" width="5" height="5"/>
+      <rect x="163" y="134" width="15" height="5"/>
+      <rect x="78" y="139" width="5" height="5"/>
+      <rect x="93" y="139" width="10" height="5"/>
+      <rect x="113" y="139" width="5" height="5"/>
+      <rect x="123" y="139" width="5" height="5"/>
+      <rect x="133" y="139" width="5" height="5"/>
+      <rect x="143" y="139" width="5" height="5"/>
+      <rect x="158" y="139" width="25" height="5"/>
+      <rect x="103" y="144" width="15" height="5"/>
+      <rect x="123" y="144" width="5" height="5"/>
+      <rect x="133" y="144" width="5" height="5"/>
+      <rect x="143" y="144" width="15" height="5"/>
+      <rect x="163" y="144" width="10" height="5"/>
+      <rect x="178" y="144" width="5" height="5"/>
+      <rect x="118" y="149" width="5" height="5"/>
+      <rect x="133" y="149" width="5" height="5"/>
+      <rect x="153" y="149" width="25" height="5"/>
+      <rect x="78" y="154" width="35" height="5"/>
+      <rect x="118" y="154" width="5" height="5"/>
+      <rect x="138" y="154" width="10" height="5"/>
+      <rect x="153" y="154" width="5" height="5"/>
+      <rect x="173" y="154" width="5" height="5"/>
+      <rect x="78" y="159" width="5" height="5"/>
+      <rect x="108" y="159" width="5" height="5"/>
+      <rect x="118" y="159" width="10" height="5"/>
+      <rect x="133" y="159" width="5" height="5"/>
+      <rect x="143" y="159" width="15" height="5"/>
+      <rect x="163" y="159" width="20" height="5"/>
+      <rect x="78" y="164" width="5" height="5"/>
+      <rect x="88" y="164" width="15" height="5"/>
+      <rect x="108" y="164" width="5" height="5"/>
+      <rect x="123" y="164" width="5" height="5"/>
+      <rect x="143" y="164" width="5" height="5"/>
+      <rect x="153" y="164" width="5" height="5"/>
+      <rect x="168" y="164" width="15" height="5"/>
+      <rect x="78" y="169" width="5" height="5"/>
+      <rect x="88" y="169" width="15" height="5"/>
+      <rect x="108" y="169" width="5" height="5"/>
+      <rect x="128" y="169" width="10" height="5"/>
+      <rect x="143" y="169" width="5" height="5"/>
+      <rect x="153" y="169" width="5" height="5"/>
+      <rect x="78" y="174" width="5" height="5"/>
+      <rect x="88" y="174" width="15" height="5"/>
+      <rect x="108" y="174" width="5" height="5"/>
+      <rect x="123" y="174" width="5" height="5"/>
+      <rect x="133" y="174" width="10" height="5"/>
+      <rect x="148" y="174" width="5" height="5"/>
+      <rect x="158" y="174" width="5" height="5"/>
+      <rect x="168" y="174" width="15" height="5"/>
+      <rect x="78" y="179" width="5" height="5"/>
+      <rect x="108" y="179" width="5" height="5"/>
+      <rect x="118" y="179" width="5" height="5"/>
+      <rect x="128" y="179" width="20" height="5"/>
+      <rect x="158" y="179" width="5" height="5"/>
+      <rect x="168" y="179" width="5" height="5"/>
+      <rect x="78" y="184" width="35" height="5"/>
+      <rect x="118" y="184" width="5" height="5"/>
+      <rect x="153" y="184" width="15" height="5"/>
+      <rect x="173" y="184" width="5" height="5"/>
+    </g>
+    <text x="14" y="228" font-size="11.5" fill="#616161">Display a QR code alongside item info.</text>
+  </g>
+
+  <!-- ===== Section: Non-Navigation ===== -->
+  <polygon points="44,588 54,588 49,595" fill="#424242"/>
+  <text x="62" y="596" font-size="16" font-weight="700" fill="#212121">Non-Navigation (6 panels)</text>
+
+  <!-- ===== Card: Pogoda (weather, sleep) ===== -->
+  <g transform="translate(40,612)">
+    <rect width="262" height="266" rx="12" fill="#ffffff" stroke="#e3e5e8"/>
+    <g stroke="#757575" stroke-width="1.4" fill="none" stroke-linecap="round">
+      <path d="M18 26 a5 5 0 0 1 1 -9.9 a6 6 0 0 1 11.4 1.5 a4.5 4.5 0 0 1 -0.9 8.4 Z"/>
+    </g>
+    <rect x="38" y="12" width="20" height="20" rx="5" fill="#f5a623"/>
+    <path d="M52 22 a5.5 5.5 0 0 1 -6.5 5.4 a6.5 6.5 0 1 0 6.5 -10.8 a5.5 5.5 0 0 1 0 5.4 Z" fill="#ffffff" transform="translate(-1,0)"/>
+    <text x="66" y="27" font-size="14" font-weight="600" fill="#212121">Weather</text>
+    <rect x="180" y="12" width="50" height="20" rx="10" fill="#eceff1"/>
+    <text x="205" y="26" font-size="11" fill="#607d8b" text-anchor="middle">sleep</text>
+    <g fill="#757575"><circle cx="244" cy="17" r="1.7"/><circle cx="244" cy="22" r="1.7"/><circle cx="244" cy="27" r="1.7"/></g>
+    <!-- weather preview -->
+    <rect x="14" y="44" width="234" height="156" rx="8" fill="#2f3050"/>
+    <text x="28" y="70" font-size="13" fill="#ffffff">21°</text>
+    <text x="28" y="83" font-size="8" fill="#a9adcc">1023 hPa</text>
+    <text x="234" y="66" font-size="9" fill="#c5c9e0" text-anchor="end">Mon 21 May</text>
+    <!-- cloud + sun icon -->
+    <circle cx="52" cy="106" r="8" fill="none" stroke="#7aa7e8" stroke-width="2"/>
+    <path d="M40 118 a6 6 0 0 1 1.4 -11.8 a8 8 0 0 1 15.2 2 a5.5 5.5 0 0 1 -1.1 9.8 Z" fill="#2f3050" stroke="#7aa7e8" stroke-width="2"/>
+    <text x="34" y="134" font-size="8" fill="#a9adcc">65%</text>
+    <text x="160" y="122" font-size="34" font-weight="700" fill="#ffffff" text-anchor="middle">12:34</text>
+    <!-- forecast row -->
+    <g font-size="7" fill="#c5c9e0" text-anchor="middle">
+      <rect x="24" y="148" width="40" height="42" rx="3" fill="#3c3d63"/>
+      <rect x="67" y="148" width="40" height="42" rx="3" fill="#3c3d63"/>
+      <rect x="110" y="148" width="40" height="42" rx="3" fill="#3c3d63"/>
+      <rect x="153" y="148" width="40" height="42" rx="3" fill="#3c3d63"/>
+      <rect x="196" y="148" width="40" height="42" rx="3" fill="#3c3d63"/>
+      <text x="44" y="158">Mon</text><text x="87" y="158">Tue</text><text x="130" y="158">Wed</text><text x="173" y="158">Thu</text><text x="216" y="158">Fri</text>
+      <circle cx="44" cy="169" r="4" fill="#e8b84a"/><circle cx="87" cy="169" r="4" fill="#8f95b8"/><circle cx="130" cy="169" r="4" fill="#7aa7e8"/><circle cx="173" cy="169" r="4" fill="#8f95b8"/><circle cx="216" cy="169" r="4" fill="#e8b84a"/>
+      <g font-size="8" fill="#ffffff">
+        <text x="44" y="185">22°</text><text x="87" y="185">18°</text><text x="130" y="185">15°</text><text x="173" y="185">20°</text><text x="216" y="185">25°</text>
+      </g>
+    </g>
+    <text x="14" y="228" font-size="11.5" fill="#616161">Weather display with time, date and forec…</text>
+  </g>
+
+  <!-- ===== Card: Lights (grid_light) ===== -->
+  <g transform="translate(326,612)">
+    <rect width="262" height="266" rx="12" fill="#ffffff" stroke="#e3e5e8"/>
+    <g stroke="#757575" stroke-width="1.4" fill="none">
+      <rect x="14" y="14" width="6" height="6"/><rect x="23" y="14" width="6" height="6"/>
+      <rect x="14" y="23" width="6" height="6"/><rect x="23" y="23" width="6" height="6"/>
+    </g>
+    <text x="40" y="27" font-size="14" font-weight="600" fill="#212121">Lights</text>
+    <rect x="152" y="12" width="76" height="20" rx="10" fill="#eceff1"/>
+    <text x="190" y="26" font-size="11" fill="#607d8b" text-anchor="middle">grid_light</text>
+    <g fill="#757575"><circle cx="244" cy="17" r="1.7"/><circle cx="244" cy="22" r="1.7"/><circle cx="244" cy="27" r="1.7"/></g>
+    <!-- subpanel preview -->
+    <rect x="14" y="44" width="234" height="156" rx="8" fill="#101010"/>
+    <polyline points="26,64 31,59 36,64" fill="none" stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M46 62 L51 57.5 L56 62 V67 H46 Z" fill="none" stroke="#cfd6df" stroke-width="1.5" stroke-linejoin="round"/>
+    <text x="131" y="66" font-size="11" fill="#eef2f6" text-anchor="middle">Lights</text>
+    <g stroke="#f5a623" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="198,59 203,63 208,59"/>
+      <polyline points="198,64 203,68 208,64"/>
+    </g>
+    <g stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round">
+      <line x1="222" y1="59" x2="230" y2="67"/><line x1="230" y1="59" x2="222" y2="67"/>
+    </g>
+    <g>
+      <rect x="24" y="76" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="97" y="76" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="170" y="76" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="24" y="133" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="97" y="133" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="170" y="133" width="68" height="52" rx="4" fill="#262626"/>
+    </g>
+    <g fill="#e8e8e8">
+      <circle cx="58" cy="94" r="5"/><rect x="55.5" y="98" width="5" height="4" rx="1"/>
+      <circle cx="131" cy="94" r="5"/><rect x="128.5" y="98" width="5" height="4" rx="1"/>
+      <circle cx="204" cy="94" r="5"/><rect x="201.5" y="98" width="5" height="4" rx="1"/>
+      <circle cx="58" cy="151" r="5"/><rect x="55.5" y="155" width="5" height="4" rx="1"/>
+      <circle cx="131" cy="151" r="5"/><rect x="128.5" y="155" width="5" height="4" rx="1"/>
+      <circle cx="204" cy="151" r="5"/><rect x="201.5" y="155" width="5" height="4" rx="1"/>
+    </g>
+    <g font-size="8" fill="#d5d5d5" text-anchor="middle">
+      <text x="58" y="120">Kitchen</text><text x="131" y="120">Living…</text><text x="204" y="120">Guest…</text>
+      <text x="58" y="177">Cabinets</text><text x="131" y="177">Bar</text><text x="204" y="177">Counter</text>
+    </g>
+    <text x="14" y="228" font-size="11.5" fill="#616161">Grid of up to 6 item tiles with pagination.</text>
+  </g>
+
+  <!-- ===== Card: Rolety (grid_cover) ===== -->
+  <g transform="translate(612,612)">
+    <rect width="262" height="266" rx="12" fill="#ffffff" stroke="#e3e5e8"/>
+    <g stroke="#757575" stroke-width="1.4" fill="none">
+      <rect x="14" y="14" width="6" height="6"/><rect x="23" y="14" width="6" height="6"/>
+      <rect x="14" y="23" width="6" height="6"/><rect x="23" y="23" width="6" height="6"/>
+    </g>
+    <text x="40" y="27" font-size="14" font-weight="600" fill="#212121">Covers</text>
+    <rect x="148" y="12" width="80" height="20" rx="10" fill="#eceff1"/>
+    <text x="188" y="26" font-size="11" fill="#607d8b" text-anchor="middle">grid_cover</text>
+    <g fill="#757575"><circle cx="244" cy="17" r="1.7"/><circle cx="244" cy="22" r="1.7"/><circle cx="244" cy="27" r="1.7"/></g>
+    <!-- subpanel preview -->
+    <rect x="14" y="44" width="234" height="156" rx="8" fill="#101010"/>
+    <polyline points="26,64 31,59 36,64" fill="none" stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M46 62 L51 57.5 L56 62 V67 H46 Z" fill="none" stroke="#cfd6df" stroke-width="1.5" stroke-linejoin="round"/>
+    <text x="131" y="66" font-size="11" fill="#eef2f6" text-anchor="middle">Covers</text>
+    <g stroke="#f5a623" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="198,59 203,63 208,59"/>
+      <polyline points="198,64 203,68 208,64"/>
+    </g>
+    <g stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round">
+      <line x1="222" y1="59" x2="230" y2="67"/><line x1="230" y1="59" x2="222" y2="67"/>
+    </g>
+    <g>
+      <rect x="24" y="76" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="97" y="76" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="170" y="76" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="24" y="133" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="97" y="133" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="170" y="133" width="68" height="52" rx="4" fill="#262626"/>
+    </g>
+    <g stroke="#e8e8e8" stroke-width="1.6" fill="none" stroke-linecap="round">
+      <g transform="translate(58,96)"><line x1="-8" y1="-6" x2="8" y2="-6"/><line x1="-5" y1="-6" x2="-5" y2="6"/><line x1="5" y1="-6" x2="5" y2="6"/></g>
+      <g transform="translate(131,96)"><line x1="-8" y1="-6" x2="8" y2="-6"/><line x1="-5" y1="-6" x2="-5" y2="6"/><line x1="5" y1="-6" x2="5" y2="6"/></g>
+      <g transform="translate(204,96)"><line x1="-8" y1="-6" x2="8" y2="-6"/><line x1="-5" y1="-6" x2="-5" y2="6"/><line x1="5" y1="-6" x2="5" y2="6"/></g>
+      <g transform="translate(58,153)"><line x1="-8" y1="-6" x2="8" y2="-6"/><line x1="-5" y1="-6" x2="-5" y2="6"/><line x1="5" y1="-6" x2="5" y2="6"/></g>
+      <g transform="translate(131,153)"><line x1="-8" y1="-6" x2="8" y2="-6"/><line x1="-5" y1="-6" x2="-5" y2="6"/><line x1="5" y1="-6" x2="5" y2="6"/></g>
+      <g transform="translate(204,153)"><line x1="-8" y1="-6" x2="8" y2="-6"/><line x1="-5" y1="-6" x2="-5" y2="6"/><line x1="5" y1="-6" x2="5" y2="6"/></g>
+    </g>
+    <g font-size="8" fill="#d5d5d5" text-anchor="middle">
+      <text x="58" y="120">Living…</text><text x="131" y="120">Dining…</text><text x="204" y="120">Kitchen</text>
+      <text x="58" y="177">Guest…</text><text x="131" y="177">Bathr…</text><text x="204" y="177">Stairs</text>
+    </g>
+    <text x="14" y="228" font-size="11.5" fill="#616161">Grid of up to 6 item tiles with pagination.</text>
+  </g>
+
+  <!-- ===== Card: Media (grid_media) ===== -->
+  <g transform="translate(898,612)">
+    <rect width="262" height="266" rx="12" fill="#ffffff" stroke="#e3e5e8"/>
+    <g stroke="#757575" stroke-width="1.4" fill="none">
+      <rect x="14" y="14" width="6" height="6"/><rect x="23" y="14" width="6" height="6"/>
+      <rect x="14" y="23" width="6" height="6"/><rect x="23" y="23" width="6" height="6"/>
+    </g>
+    <text x="40" y="27" font-size="14" font-weight="600" fill="#212121">Media</text>
+    <rect x="146" y="12" width="82" height="20" rx="10" fill="#eceff1"/>
+    <text x="187" y="26" font-size="11" fill="#607d8b" text-anchor="middle">grid_media</text>
+    <g fill="#757575"><circle cx="244" cy="17" r="1.7"/><circle cx="244" cy="22" r="1.7"/><circle cx="244" cy="27" r="1.7"/></g>
+    <!-- subpanel preview -->
+    <rect x="14" y="44" width="234" height="156" rx="8" fill="#101010"/>
+    <polyline points="26,64 31,59 36,64" fill="none" stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M46 62 L51 57.5 L56 62 V67 H46 Z" fill="none" stroke="#cfd6df" stroke-width="1.5" stroke-linejoin="round"/>
+    <text x="131" y="66" font-size="11" fill="#eef2f6" text-anchor="middle">Media</text>
+    <g stroke="#cfd6df" stroke-width="1.6" stroke-linecap="round">
+      <line x1="222" y1="59" x2="230" y2="67"/><line x1="230" y1="59" x2="222" y2="67"/>
+    </g>
+    <g>
+      <rect x="24" y="76" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="97" y="76" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="170" y="76" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="24" y="133" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="97" y="133" width="68" height="52" rx="4" fill="#262626"/>
+      <rect x="170" y="133" width="68" height="52" rx="4" fill="#262626"/>
+    </g>
+    <g stroke="#e8e8e8" stroke-width="1.5" fill="none">
+      <g transform="translate(58,96)"><rect x="-5" y="-9" width="10" height="18" rx="2"/><circle cx="0" cy="-4" r="1.4" fill="#e8e8e8" stroke="none"/><circle cx="0" cy="3" r="2.6"/></g>
+      <g transform="translate(131,96)"><rect x="-5" y="-9" width="10" height="18" rx="2"/><circle cx="0" cy="-4" r="1.4" fill="#e8e8e8" stroke="none"/><circle cx="0" cy="3" r="2.6"/></g>
+      <g transform="translate(204,96)"><rect x="-5" y="-9" width="10" height="18" rx="2"/><circle cx="0" cy="-4" r="1.4" fill="#e8e8e8" stroke="none"/><circle cx="0" cy="3" r="2.6"/></g>
+      <g transform="translate(58,153)"><rect x="-5" y="-9" width="10" height="18" rx="2"/><circle cx="0" cy="-4" r="1.4" fill="#e8e8e8" stroke="none"/><circle cx="0" cy="3" r="2.6"/></g>
+      <g transform="translate(131,153)"><rect x="-5" y="-9" width="10" height="18" rx="2"/><circle cx="0" cy="-4" r="1.4" fill="#e8e8e8" stroke="none"/><circle cx="0" cy="3" r="2.6"/></g>
+      <g transform="translate(204,153)"><rect x="-5" y="-9" width="10" height="18" rx="2"/><circle cx="0" cy="-4" r="1.4" fill="#e8e8e8" stroke="none"/><circle cx="0" cy="3" r="2.6"/></g>
+    </g>
+    <g font-size="8" fill="#d5d5d5" text-anchor="middle">
+      <text x="58" y="120">Living…</text><text x="131" y="120">Kitchen</text><text x="204" y="120">Guest…</text>
+      <text x="58" y="177">Bedroom</text><text x="131" y="177">Office</text><text x="204" y="177">Kids</text>
+    </g>
+    <text x="14" y="228" font-size="11.5" fill="#616161">Grid of up to 6 item tiles with pagination.</text>
+  </g>
+</svg>

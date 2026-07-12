@@ -19,11 +19,13 @@ available.
 
 - **Using a service**:
 
-  - Service: `nspanel_haui_upload_tft`
+  - Service: `esphome.<device>_upload_tft`
     This will load the TFT from the configured URL
 
-  - Service: `nspanel_haui_upload_tft_url`
+  - Service: `esphome.<device>_upload_tft_url`
     This will load the TFT from the URL provided to the service.
+
+See the [Services Reference](services.md#tft-display-upload) for full details and examples.
 
 ## Nextion display configuration used in this project
 

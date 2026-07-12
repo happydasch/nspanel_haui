@@ -62,4 +62,4 @@ Hands-on help for common tasks.
 
 Want to understand the internals, extend the integration, or contribute?
 
-→ [Development docs](development.md) — architecture, component design, versioning
+[Development docs](development.md) — architecture, component design, versioning

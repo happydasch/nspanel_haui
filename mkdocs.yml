@@ -71,8 +71,8 @@ extra:
       link: https://github.com/happydasch/nspanel_haui
 
 nav:
-  - Home: README.md
   - End User:
+    - README.md
     - Installation: install.md
     - Custom Integration: custom_integration.md
     - Configuration:
@@ -113,3 +113,4 @@ nav:
     - ESPHome Component: esphome.md
     - Hub Component: hub.md
     - Nextion Component: nextion.md
+    - Services Reference: services.md

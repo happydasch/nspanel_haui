@@ -14,8 +14,10 @@ Take a look at the [Panel Configuration](config/panels.md) reference and the [Pa
   - Button: `Update Display`
 
 - Using a service:
-  - Service: `nspanel_haui_upload_tft`
-  - Service: `nspanel_haui_upload_tft_url`
+  - Service: `esphome.<device>_upload_tft`
+  - Service: `esphome.<device>_upload_tft_url`
+
+See the [Services Reference](services.md#tft-display-upload) for full details.
 
 ## Update is not possible
 

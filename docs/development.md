@@ -33,6 +33,7 @@ The system has three layers:
 - **[ESPHome Component](esphome.md)** — ESP32 firmware details
 - **[Hub Component](hub.md)** — Core logic: state management, panel lifecycle, navigation
 - **[Nextion Component](nextion.md)** — Display-level operations and widget management
+- **[Services Reference](services.md)** — Home Assistant services for display control and TFT upload
 
 ---
 

@@ -106,8 +106,9 @@ async def _create_app(
     """Create and initialize a single NSPanelHAUI app instance for a device.
 
     Builds the device config from the three config layers (data, options,
-    panels), resolves the HA device_id, initializes the app on the executor
-    thread, and returns the ready-to-use instance.
+    panels), resolves the HA device_id, registers an ``nspanel_haui`` device
+    in the device registry, initializes the app on the executor thread, and
+    returns the ready-to-use instance.
 
     The caller is responsible for storing the returned app in the running
     apps dict (hass.data[DOMAIN][entry.entry_id][dev_name]).
@@ -128,6 +129,27 @@ async def _create_app(
         panels.get("devices", {}).get(dev_name, {}).get("last_panel_update") if panels else None
     )
     await hass.async_add_executor_job(app.initialize)
+
+    # Register an nspanel_haui device in the HA device registry so the
+    # device selector (integration: nspanel_haui) in services.yaml works.
+    from homeassistant.helpers import device_registry as dr
+
+    dev_reg = dr.async_get(hass)
+    identifiers: set[tuple[str, str]] = {("nspanel_haui", dev_name)}
+    via_device: tuple[str, str] | None = None
+    if ha_device_id:
+        esphome_dev = dev_reg.async_get(ha_device_id)
+        if esphome_dev and esphome_dev.identifiers:
+            via_device = next(iter(esphome_dev.identifiers))
+    dev_reg.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers=identifiers,
+        name=dev_name,
+        manufacturer="happydasch",
+        model="nspanel_haui",
+        via_device=via_device,
+    )
+
     _LOGGER.info("NSPanel HAUI instance for device '%s' started", dev_name)
     return app
 

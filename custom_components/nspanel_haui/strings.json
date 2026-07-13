@@ -91,6 +91,48 @@
           "description": "NSPanel device to put to sleep."
         }
       }
+    },
+    "set_brightness": {
+      "name": "Set brightness",
+      "description": "Set the display backlight brightness (0-100%).",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to set brightness on."
+        },
+        "intensity": {
+          "name": "Intensity",
+          "description": "Brightness level from 0 (off) to 100 (maximum)."
+        }
+      }
+    },
+    "send_command": {
+      "name": "Send command",
+      "description": "Send a raw Nextion display command to the device.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to send the command to."
+        },
+        "cmd": {
+          "name": "Command",
+          "description": "Raw Nextion display command string."
+        }
+      }
+    },
+    "goto_page": {
+      "name": "Go to page",
+      "description": "Switch to a Nextion page by its numeric page ID (low-level).",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to switch pages on."
+        },
+        "page": {
+          "name": "Page ID",
+          "description": "Numeric Nextion page ID to switch to."
+        }
+      }
     }
   }
 }

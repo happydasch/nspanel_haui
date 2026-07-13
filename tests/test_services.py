@@ -45,7 +45,10 @@ from nspanel_haui.haui.mapping.const import ESPAction  # noqa: E402
 from nspanel_haui.services import (  # noqa: E402
     DOMAIN,
     SERVICE_CLOSE_PANEL,
+    SERVICE_GOTO_PAGE,
     SERVICE_OPEN_PANEL,
+    SERVICE_SEND_COMMAND,
+    SERVICE_SET_BRIGHTNESS,
     SERVICE_SLEEP,
     SERVICE_WAKEUP,
     _resolve_target_apps,
@@ -76,6 +79,7 @@ def mock_nav():
     nav.close_panel = MagicMock()
     nav.open_wakeup_panel = MagicMock()
     nav.open_sleep_panel = MagicMock()
+    nav.goto_page = MagicMock()
     return nav
 
 
@@ -158,9 +162,9 @@ class TestRegisterServices:
     """Tests for async_register_services."""
 
     def test_registers_all_services(self, mock_hass):
-        """All four services are registered."""
+        """All services are registered."""
         async_register_services(mock_hass)
-        assert mock_hass.services.async_register.call_count == 4
+        assert mock_hass.services.async_register.call_count == 7
 
     def test_idempotent(self, mock_hass):
         """Second call skips registration (has_service returns True)."""
@@ -178,6 +182,9 @@ class TestRegisterServices:
         assert SERVICE_CLOSE_PANEL in registered
         assert SERVICE_WAKEUP in registered
         assert SERVICE_SLEEP in registered
+        assert SERVICE_SET_BRIGHTNESS in registered
+        assert SERVICE_SEND_COMMAND in registered
+        assert SERVICE_GOTO_PAGE in registered
 
 
 # ── Service handler integration tests ───────────────────────────────────
@@ -276,3 +283,54 @@ async def test_sleep(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_sleep(mock_hass, call)
 
     mock_nav.open_sleep_panel.assert_called_once_with(True)
+
+@pytest.mark.asyncio
+async def test_set_brightness(mock_hass, mock_nav, mock_esphome_ctrl):
+    """set_brightness publishes ESPAction.SET_BRIGHTNESS with intensity."""
+    app = _make_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    from nspanel_haui.services import _handle_set_brightness
+
+    call = MagicMock()
+    call.data = {"intensity": 75, "device_id": "dev_1"}
+
+    await _handle_set_brightness(mock_hass, call)
+
+    mock_esphome_ctrl.esphome.publish.assert_called_once_with(
+        ESPAction.SET_BRIGHTNESS, "75"
+    )
+
+
+@pytest.mark.asyncio
+async def test_send_command(mock_hass, mock_nav, mock_esphome_ctrl):
+    """send_command publishes ESPAction.SEND_COMMAND with cmd."""
+    app = _make_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    from nspanel_haui.services import _handle_send_command
+
+    call = MagicMock()
+    call.data = {"cmd": "page 0", "device_id": "dev_1"}
+
+    await _handle_send_command(mock_hass, call)
+
+    mock_esphome_ctrl.esphome.publish.assert_called_once_with(
+        ESPAction.SEND_COMMAND, "page 0"
+    )
+
+
+@pytest.mark.asyncio
+async def test_goto_page(mock_hass, mock_nav, mock_esphome_ctrl):
+    """goto_page delegates to nav.goto_page with page ID."""
+    app = _make_app(mock_nav, mock_esphome_ctrl)
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    from nspanel_haui.services import _handle_goto_page
+
+    call = MagicMock()
+    call.data = {"page": 3, "device_id": "dev_1"}
+
+    await _handle_goto_page(mock_hass, call)
+
+    mock_nav.goto_page.assert_called_once_with(3)

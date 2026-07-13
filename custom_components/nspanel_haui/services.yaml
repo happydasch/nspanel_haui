@@ -54,6 +54,66 @@ wakeup:
         device:
           integration: nspanel_haui
 
+# ── nspanel_haui.set_brightness ──────────────────────────────
+set_brightness:
+  name: Set brightness
+  description: >-
+    Set the display backlight brightness.  Values range from 0
+    (off) to 100 (maximum).
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    intensity:
+      required: true
+      example: 75
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+
+# ── nspanel_haui.send_command ────────────────────────────────
+send_command:
+  name: Send command
+  description: >-
+    Send a raw Nextion display command to the device.  For advanced
+    users and debugging only.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    cmd:
+      required: true
+      example: "page 0"
+      selector:
+        text:
+          type: text
+
+# ── nspanel_haui.goto_page ───────────────────────────────────
+goto_page:
+  name: Go to page
+  description: >-
+    Switch the display to a Nextion page by its numeric page ID.
+    This is a low-level operation that bypasses the navigation
+    pipeline — prefer ``open_panel`` for normal use.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    page:
+      required: true
+      example: 0
+      selector:
+        number:
+          min: 0
+          max: 50
 # ── nspanel_haui.sleep ───────────────────────────────────────
 sleep:
   name: Sleep

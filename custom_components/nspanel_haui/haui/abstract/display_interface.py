@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
@@ -16,7 +15,7 @@ _LOGGER = logging.getLogger(__name__)
 
 @runtime_checkable
 class DisplayTransport(Protocol):
-    def send(self, command: str, value: str) -> None:
+    def send(self, command: str, value: str | list[str]) -> None:
         """Send a raw Nextion command string via the underlying transport."""
 
 
@@ -26,7 +25,7 @@ class ESPHomeTransport:
     def __init__(self, app: NSPanelHAUI):
         self.app = app
 
-    def send(self, command: str, value: str) -> None:
+    def send(self, command: str, value: str | list[str]) -> None:
         if "esphome" not in self.app.controller:
             _LOGGER.warning(
                 "ESPHome controller not available — dropping command %s (value: %s)",
@@ -79,7 +78,7 @@ class DisplayInterface:
 
         for idx, chunk in chunks:
             try:
-                self.transport.send(ESPCommand.SEND_COMMANDS, json.dumps({"commands": chunk}))
+                self.transport.send(ESPCommand.SEND_COMMANDS, chunk)
             except Exception:
                 _LOGGER.error(
                     "Failed to send chunk %d/%d (%d commands) to display transport",

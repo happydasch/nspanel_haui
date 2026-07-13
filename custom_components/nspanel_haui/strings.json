@@ -133,6 +133,78 @@
           "description": "Numeric Nextion page ID to switch to."
         }
       }
+    },
+    "send_notification": {
+      "name": "Send notification",
+      "description": "Show a notification on the panel with a title, message and icon.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to notify."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Notification title shown on the panel."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Notification body text."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "Material Design Icon shown with the notification (e.g. 'mdi:bell')."
+        },
+        "timeout": {
+          "name": "Timeout",
+          "description": "Seconds until auto-dismiss. 0 keeps it until dismissed."
+        },
+        "persistent": {
+          "name": "Persistent",
+          "description": "Require dismissal on the panel to stop the alert sound."
+        }
+      }
+    },
+    "play_rtttl": {
+      "name": "Play RTTTL tune",
+      "description": "Play a ringtone on the panel buzzer from an RTTTL string.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to play the tune on."
+        },
+        "song_str": {
+          "name": "RTTTL string",
+          "description": "RTTTL-encoded tune to play."
+        }
+      }
+    },
+    "play_sound": {
+      "name": "Play sound",
+      "description": "Play a named built-in sound on the panel buzzer.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to play the sound on."
+        },
+        "name": {
+          "name": "Sound name",
+          "description": "Name of the built-in sound to play."
+        }
+      }
+    },
+    "reset_last_interaction": {
+      "name": "Reset last interaction",
+      "description": "Reset the panel idle timer as if the user just touched it.",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "NSPanel device to reset the idle timer on."
+        },
+        "offset": {
+          "name": "Offset",
+          "description": "Offset in seconds applied to the reset point."
+        }
+      }
     }
   }
 }

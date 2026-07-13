@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -35,7 +34,7 @@ class HAUIESPHomeController(HAUIBase):
         """
         super().__init__(app, config)
         self.esphome = esp_api
-        self.prev_cmd: str | None = None
+        self.prev_cmd: tuple[str, str] | None = None
         self._event_callback = event_callback
         self._device_names: list[str] = []
 
@@ -75,14 +74,14 @@ class HAUIESPHomeController(HAUIBase):
 
     # public
 
-    def send_cmd(self, cmd: str, value: str = "", force: bool = False) -> None:
+    def send_cmd(self, cmd: str, value: str | dict | list = "", force: bool = False) -> None:
         """Sends a command to the device(s) via ESPHome native API.
 
         Commands are broadcast to all discovered ESPHome devices.
 
         Args:
             cmd (str): Command name (with or without esphome. prefix).
-            value (str, optional): Value for command. Defaults to ''.
+            value: Value for command. Passed as-is (str/dict/list).
             force (bool, optional): Force sending the same command.
                 Defaults to False.
         """
@@ -95,24 +94,22 @@ class HAUIESPHomeController(HAUIBase):
 
         if value is None:
             value = ""
-        elif not isinstance(value, (dict, list)):
-            value = str(value)
-        cmd_json = json.dumps({"name": bare_cmd, "value": value})
 
         # Dedup only applies to single-command sends. Batch sends
         # (send_commands) are already deduplicated at the _dedup_commands
         # level in haui_base.py; transport-level dedup of batches can drop
         # an entire chunk of a multi-chunk send, causing partial updates.
-        if bare_cmd != "send_commands" and not force and self.prev_cmd == cmd_json:
+        dedup_key = (bare_cmd, value if isinstance(value, str) else str(value))
+        if bare_cmd != "send_commands" and not force and self.prev_cmd == dedup_key:
             self.log(
-                f"Dropping identical consecutive message: {cmd_json}",
+                f"Dropping identical consecutive message: {bare_cmd}/{value}",
                 level="WARNING",
             )
             return
 
         self.debug_log(f"Publishing command: {bare_cmd}")
-        self.esphome.publish(bare_cmd, cmd_json)
-        self.prev_cmd = cmd_json
+        self.esphome.publish(bare_cmd, value)
+        self.prev_cmd = dedup_key
 
     def reset_prev_cmd(self) -> None:
         """Clear the previous-command cache so the next render is never suppressed.

@@ -6,7 +6,6 @@ Bridges Home Assistant's async API to the synchronous interface used by haui/ co
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import uuid
 from collections.abc import Callable
@@ -122,12 +121,15 @@ class ItemProxy:
 
 
 class ESPHomeProxy:
-    """Bridge to ESPHome native API for device communication.
+    """Bridge to ESPHome native API for direct device communication.
 
-    All ESPHome device actions are exposed as HA services:
-      esphome.<device_name>_<action_name>
+    Sends commands to the ESPHome device via the native API client
+    (``entry_data.client.execute_service()``) instead of routing through
+    ``hass.services.async_call("esphome", ...)``, eliminating the HA service
+    bus indirection.
 
-    Device events come through the HA event bus with esphome.* event types.
+    Device events are still received via the HA event bus (the ESPHome
+    firmware publishes them through ``homeassistant.event``).
     """
 
     def __init__(
@@ -200,8 +202,44 @@ class ESPHomeProxy:
     # Actions where value should be treated as a dict passed directly
     _NOTIFICATION_ACTIONS = set(member.value for member in NotificationAction)
 
+    def _get_runtime_entry_data(self) -> Any | None:
+        """Find the ESPHome config entry for this device and return its RuntimeEntryData.
+
+        Returns ``None`` when the ESPHome config entry has not been found or
+        ``entry.runtime_data`` has not been populated yet.
+        """
+        from .esphome_helpers import normalize_device_name
+
+        if not self._device_name:
+            return None
+        normalized = normalize_device_name(self._device_name)
+        for entry in self._hass.config_entries.async_entries("esphome"):
+            dev_name = entry.data.get("device_name", "")
+            if dev_name and normalize_device_name(dev_name) == normalized:
+                try:
+                    return entry.runtime_data
+                except AttributeError:
+                    return None
+        return None
+
+    @staticmethod
+    def _find_service(services: dict[int, Any], name: str) -> Any | None:
+        """Find a UserService by name in the ESPHome services dict (keyed by int key).
+
+        Returns the service object, or ``None`` if not found (device has not
+        yet shared its service definitions).
+        """
+        for service in services.values():
+            if hasattr(service, "name") and service.name == name:
+                return service
+        return None
+
     def _build_service_data(self, name: str, value: Any) -> dict[str, Any]:
-        """Build ESPHome service data from action name and value."""
+        """Build ESPHome service data from action name and value.
+
+        The output format matches the variable names declared in the
+        ``api.yaml`` action definition.
+        """
         if isinstance(value, dict):
             # Dict values are passed directly as top-level service data.
             # This allows callers like hub_connection_response({"version": "..."})
@@ -216,12 +254,12 @@ class ESPHomeProxy:
         if name == ESPAction.SEND_COMMAND:
             service_data["cmd"] = value
         elif name == ESPAction.SEND_COMMANDS:
-            service_data["commands"] = self._normalize_commands(value)
+            service_data["commands"] = value if isinstance(value, list) else [value]
         elif name == ESPAction.GOTO_PAGE:
             service_data["page"] = value
         elif name == ESPAction.SET_BRIGHTNESS:
             service_data["intensity"] = int(value) if value else 0
-        elif name.removeprefix("esphome.") in ("req_val", "req_txt"):
+        elif name in ("req_val", "req_txt"):
             if isinstance(value, dict):
                 service_data["name"] = value.get("name", "")
                 service_data["source_type"] = value.get("source_type", "component")
@@ -245,101 +283,67 @@ class ESPHomeProxy:
 
         return service_data
 
-    @staticmethod
-    def _normalize_commands(value: Any) -> list:
-        """Normalize commands payload into a list of command strings."""
-        if isinstance(value, str):
-            try:
-                cmds = json.loads(value)
-            except json.JSONDecodeError:
-                _LOGGER.warning(
-                    "Failed to JSON-decode commands payload, wrapping as single command: %s",
-                    value[:200],
-                )
-                return [value]
-        else:
-            cmds = value
-        if isinstance(cmds, dict):
-            cmds = cmds.get("commands", [])
-        if not isinstance(cmds, list):
-            return [cmds]
-        return cmds
+    def publish(self, name: str, value: str | dict | list = "") -> None:
+        """Execute a service on the ESPHome device via its native API client.
 
-    def publish(self, topic: str, payload: Any) -> None:
-        """Publish to ESPHome device via native API service call.
+        Looks up the device's ``RuntimeEntryData`` (populated by the ESPHome
+        integration), finds the matching ``UserService`` by name, and calls
+        ``APIClient.execute_service()`` directly — bypassing the HA service
+        bus entirely.
 
-        In the native API model:
-        - 'topic' becomes the ESPHome service suffix (action name)
-        - 'payload' is JSON decoded to get 'name' and 'value'
-        - We call esphome.<device>_<name> with the value as parameter
+        Args:
+            name: Service/action name (e.g. ``"send_command"``, ``"set_brightness"``).
+            value: Parameter value matching the action's declared variable
+                type.  ``str`` for single-value actions, ``list`` for
+                ``send_commands``, ``dict`` for ``hub_connection_response``.
         """
 
         async def _call_service() -> None:
-            from homeassistant.exceptions import (  # noqa: PLC0415
-                HomeAssistantError,
-                ServiceNotFound,
-            )
-
             try:
-                try:
-                    data = json.loads(payload)
-                    if not isinstance(data, dict):
-                        raise TypeError("non-dict JSON value")
-                except (json.JSONDecodeError, TypeError):
-                    data = {"name": topic, "value": payload}
-
-                name = data.get("name", topic)
-                value = data.get("value", "")
                 service_data = self._build_service_data(name, value)
-                devices = self._get_target_devices()
 
-                if not devices:
+                entry_data = self._get_runtime_entry_data()
+                if entry_data is None:
                     _LOGGER.warning(
-                        "ESPHome publish('%s') has no target devices — command will be lost",
+                        "ESPHome publish('%s'): no ESPHome entry found for device '%s'"
+                        " — command will be lost",
                         name,
+                        self._device_name,
                     )
+                    return
 
-                for device_name in devices:
-                    service_name = f"{device_name}_{name}"
-
-                    # INFO level so service calls are visible in normal logs
-                    _LOGGER.info(
-                        "→ ESPHome: esphome.%s %s",
-                        service_name,
-                        service_data if service_data else "(no args)",
+                if not entry_data.available or entry_data.client is None:
+                    _LOGGER.warning(
+                        "ESPHome publish('%s'): device '%s' not available — command deferred",
+                        name,
+                        self._device_name,
                     )
+                    return
 
-                    try:
-                        await self._hass.services.async_call(
-                            "esphome", service_name, service_data, blocking=True
-                        )
-                    except ServiceNotFound as exc:
-                        # Device unloaded or service registry not yet populated —
-                        # transient on startup / reload.
-                        _LOGGER.warning(
-                            "ESPHome service %s missing (device %s): %s",
-                            service_name,
-                            device_name,
-                            exc,
-                        )
-                    except HomeAssistantError as exc:
-                        # ESPHome raises HomeAssistantError for "not ready" /
-                        # "Not connected" / closed connection states.
-                        _LOGGER.warning(
-                            "ESPHome service %s deferred (device %s not ready): %s",
-                            service_name,
-                            device_name,
-                            exc,
-                        )
-                    except Exception as exc:  # noqa: BLE001
-                        _LOGGER.warning(
-                            "Failed to call ESPHome service %s for device %s: %s",
-                            service_name,
-                            device_name,
-                            exc,
-                        )
+                service = self._find_service(entry_data.services, name)
+                if service is None:
+                    _LOGGER.warning(
+                        "ESPHome publish('%s'): service not found on device '%s'"
+                        " — device may not have shared its definitions yet",
+                        name,
+                        self._device_name,
+                    )
+                    return
+
+                _LOGGER.info(
+                    "→ ESPHome native: %s %s",
+                    name,
+                    service_data if service_data else "(no args)",
+                )
+
+                await entry_data.client.execute_service(service, service_data)
+
             except Exception as exc:  # noqa: BLE001
-                _LOGGER.error("publish(%s) coroutine failed: %s", topic, exc)
+                _LOGGER.error(
+                    "ESPHome publish('%s') failed: %s",
+                    name,
+                    exc,
+                )
 
         # Block until the service call completes so that multiple chunks
         # from a single send_cmds batch are delivered to the ESP32
@@ -350,47 +354,11 @@ class ESPHomeProxy:
         try:
             future.result(timeout=10)
         except TimeoutError:
-            _LOGGER.warning("ESPHome publish('%s') timed out after 10s", topic)
+            _LOGGER.warning("ESPHome publish('%s') timed out after 10s", name)
         except Exception as exc:  # noqa: BLE001
             # Exception already logged inside _call_service; swallow the
             # propagated copy so the executor thread is not disrupted.
-            _LOGGER.debug("publish('%s') future raised: %s", topic, exc)
-
-    def _get_target_devices(self) -> list[str]:
-        """Get list of target device service prefixes for ESPHome calls.
-
-        ESPHome services are named ``<node_name>_<action>`` where *node_name*
-        is the ESPHome YAML node name (lowercase, with hyphens and spaces
-        replaced by underscores), not the HA display title.  We try to read
-        the stored node name from the config entry data, and fall back to
-        sanitizing the display title.
-        """
-
-        def _sanitize(name: str) -> str:
-            return name.lower().replace(" ", "_").replace("-", "_")
-
-        devices: list[str] = []
-        for entry in self._hass.config_entries.async_entries("esphome"):
-            # Prefer the real ESPHome node name from the config entry
-            device_name = entry.data.get("device_name", "")
-            if device_name:
-                devices.append(_sanitize(device_name))
-            elif hasattr(entry, "title") and entry.title:
-                devices.append(_sanitize(entry.title))
-        # Filter to only the configured device name if one was supplied
-        if self._device_name:
-            normalized = _sanitize(self._device_name)
-            devices = [d for d in devices if d == normalized]
-        # If no matching entries found, log an error and return empty list.
-        # Previously we fell back to ALL ESPHome entries, but that would
-        # cross-route commands across devices in a multi-device setup.
-        if not devices:
-            if self._device_name:
-                _LOGGER.error(
-                    "No ESPHome device matched configured '%s'; no targets available",
-                    self._device_name,
-                )
-        return devices
+            _LOGGER.debug("publish('%s') future raised: %s", name, exc)
 
 
 class HAAdapter:

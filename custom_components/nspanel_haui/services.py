@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
-from .haui.mapping.const import ESPAction
+from .haui.mapping.const import ESPAction, NotificationAction
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
@@ -34,6 +34,10 @@ SERVICE_SLEEP = "sleep"
 SERVICE_SET_BRIGHTNESS = "set_brightness"
 SERVICE_SEND_COMMAND = "send_command"
 SERVICE_GOTO_PAGE = "goto_page"
+SERVICE_SEND_NOTIFICATION = "send_notification"
+SERVICE_PLAY_RTTTL = "play_rtttl"
+SERVICE_PLAY_SOUND = "play_sound"
+SERVICE_RESET_LAST_INTERACTION = "reset_last_interaction"
 
 # DOMAIN is defined in __init__.py; we keep a local copy to avoid
 # circular imports when services.py is imported there.
@@ -51,9 +55,7 @@ SERVICE_WAKEUP_SCHEMA = vol.Schema({})
 SERVICE_SLEEP_SCHEMA = vol.Schema({})
 SERVICE_SET_BRIGHTNESS_SCHEMA = vol.Schema(
     {
-        vol.Required("intensity"): vol.All(
-            vol.Coerce(int), vol.Range(min=0, max=100)
-        ),
+        vol.Required("intensity"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
     }
 )
 SERVICE_SEND_COMMAND_SCHEMA = vol.Schema(
@@ -63,9 +65,31 @@ SERVICE_SEND_COMMAND_SCHEMA = vol.Schema(
 )
 SERVICE_GOTO_PAGE_SCHEMA = vol.Schema(
     {
-        vol.Required("page"): vol.All(
-            vol.Coerce(int), vol.Range(min=0)
-        ),
+        vol.Required("page"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+    }
+)
+SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
+    {
+        vol.Required("title"): cv.string,
+        vol.Optional("message", default=""): cv.string,
+        vol.Optional("icon", default=""): cv.string,
+        vol.Optional("timeout", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Optional("persistent", default=False): cv.boolean,
+    }
+)
+SERVICE_PLAY_RTTTL_SCHEMA = vol.Schema(
+    {
+        vol.Required("song_str"): cv.string,
+    }
+)
+SERVICE_PLAY_SOUND_SCHEMA = vol.Schema(
+    {
+        vol.Required("name"): cv.string,
+    }
+)
+SERVICE_RESET_LAST_INTERACTION_SCHEMA = vol.Schema(
+    {
+        vol.Optional("offset", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
     }
 )
 
@@ -108,7 +132,11 @@ def _wake_display(app: NSPanelHAUI) -> None:
         )
 
 
-def _publish_action(app: NSPanelHAUI, action: ESPAction, value: str) -> None:
+def _publish_action(
+    app: NSPanelHAUI,
+    action: ESPAction | NotificationAction,
+    value: str | dict | list,
+) -> None:
     """Publish an ESPAction to a device via its ESPHome controller."""
     esp_ctrl = app.controller.get("esphome")
     if esp_ctrl and hasattr(esp_ctrl, "esphome"):
@@ -116,7 +144,8 @@ def _publish_action(app: NSPanelHAUI, action: ESPAction, value: str) -> None:
     else:
         _LOGGER.warning(
             "ESPHome controller missing on '%s' — cannot publish %s",
-            getattr(app, "name", "?"), action,
+            getattr(app, "name", "?"),
+            action,
         )
 
 
@@ -143,7 +172,8 @@ async def _device_action(
     if not targets:
         _LOGGER.warning(
             "%s: no matching HAUI device (device_id=%s)",
-            call.service, device_id,
+            call.service,
+            device_id,
         )
         return
 
@@ -157,9 +187,7 @@ async def _device_action(
             try:
                 action(app, dev_name)
             except Exception:
-                _LOGGER.exception(
-                    "%s: failed for '%s'", call.service, dev_name
-                )
+                _LOGGER.exception("%s: failed for '%s'", call.service, dev_name)
 
         await hass.async_add_executor_job(_do)
 
@@ -208,9 +236,7 @@ async def _handle_sleep(hass: HomeAssistant, call: ServiceCall) -> None:
     await _device_action(hass, call, action=_sleep_action)
 
 
-async def _handle_set_brightness(
-    hass: HomeAssistant, call: ServiceCall
-) -> None:
+async def _handle_set_brightness(hass: HomeAssistant, call: ServiceCall) -> None:
     intensity: int = call.data["intensity"]
 
     def _brightness_action(app: Any, dev_name: str) -> None:
@@ -219,9 +245,7 @@ async def _handle_set_brightness(
     await _device_action(hass, call, action=_brightness_action)
 
 
-async def _handle_send_command(
-    hass: HomeAssistant, call: ServiceCall
-) -> None:
+async def _handle_send_command(hass: HomeAssistant, call: ServiceCall) -> None:
     cmd: str = call.data["cmd"]
 
     def _command_action(app: Any, dev_name: str) -> None:
@@ -243,6 +267,62 @@ async def _handle_goto_page(hass: HomeAssistant, call: ServiceCall) -> None:
     await _device_action(hass, call, action=_goto_action)
 
 
+async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> None:
+    timeout: int = call.data.get("timeout", 0)
+    persistent: bool = call.data.get("persistent", False)
+
+    data: dict[str, Any] = {
+        "title": call.data["title"],
+        "message": call.data.get("message", ""),
+        "icon": call.data.get("icon", ""),
+    }
+    if timeout > 0:
+        data["timeout"] = timeout
+        action = (
+            NotificationAction.SEND_NOTIFICATION_PERSISTENT_WITH_TIMEOUT
+            if persistent
+            else NotificationAction.SEND_NOTIFICATION_WITH_TIMEOUT
+        )
+    else:
+        action = (
+            NotificationAction.SEND_NOTIFICATION_PERSISTENT
+            if persistent
+            else NotificationAction.SEND_NOTIFICATION
+        )
+
+    def _notify_action(app: Any, dev_name: str) -> None:
+        _publish_action(app, action, data)
+
+    await _device_action(hass, call, action=_notify_action)
+
+
+async def _handle_play_rtttl(hass: HomeAssistant, call: ServiceCall) -> None:
+    song_str: str = call.data["song_str"]
+
+    def _rtttl_action(app: Any, dev_name: str) -> None:
+        _publish_action(app, ESPAction.PLAY_RTTTL, song_str)
+
+    await _device_action(hass, call, action=_rtttl_action)
+
+
+async def _handle_play_sound(hass: HomeAssistant, call: ServiceCall) -> None:
+    sound_name: str = call.data["name"]
+
+    def _sound_action(app: Any, dev_name: str) -> None:
+        _publish_action(app, ESPAction.PLAY_SOUND, sound_name)
+
+    await _device_action(hass, call, action=_sound_action)
+
+
+async def _handle_reset_last_interaction(hass: HomeAssistant, call: ServiceCall) -> None:
+    offset: int = call.data.get("offset", 0)
+
+    def _reset_action(app: Any, dev_name: str) -> None:
+        _publish_action(app, ESPAction.RESET_LAST_INTERACTION, str(offset))
+
+    await _device_action(hass, call, action=_reset_action)
+
+
 # ── Registration ─────────────────────────────────────────────
 
 
@@ -252,37 +332,68 @@ def async_register_services(hass: HomeAssistant) -> None:
         return  # all registered as one block
 
     hass.services.async_register(
-        DOMAIN, SERVICE_OPEN_PANEL,
+        DOMAIN,
+        SERVICE_OPEN_PANEL,
         partial(_handle_open_panel, hass),
         schema=SERVICE_OPEN_PANEL_SCHEMA,
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_CLOSE_PANEL,
+        DOMAIN,
+        SERVICE_CLOSE_PANEL,
         partial(_handle_close_panel, hass),
         schema=SERVICE_CLOSE_PANEL_SCHEMA,
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_WAKEUP,
+        DOMAIN,
+        SERVICE_WAKEUP,
         partial(_handle_wakeup, hass),
         schema=SERVICE_WAKEUP_SCHEMA,
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_SLEEP,
+        DOMAIN,
+        SERVICE_SLEEP,
         partial(_handle_sleep, hass),
         schema=SERVICE_SLEEP_SCHEMA,
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_SET_BRIGHTNESS,
+        DOMAIN,
+        SERVICE_SET_BRIGHTNESS,
         partial(_handle_set_brightness, hass),
         schema=SERVICE_SET_BRIGHTNESS_SCHEMA,
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_SEND_COMMAND,
+        DOMAIN,
+        SERVICE_SEND_COMMAND,
         partial(_handle_send_command, hass),
         schema=SERVICE_SEND_COMMAND_SCHEMA,
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_GOTO_PAGE,
+        DOMAIN,
+        SERVICE_GOTO_PAGE,
         partial(_handle_goto_page, hass),
         schema=SERVICE_GOTO_PAGE_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SEND_NOTIFICATION,
+        partial(_handle_send_notification, hass),
+        schema=SERVICE_SEND_NOTIFICATION_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PLAY_RTTTL,
+        partial(_handle_play_rtttl, hass),
+        schema=SERVICE_PLAY_RTTTL_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PLAY_SOUND,
+        partial(_handle_play_sound, hass),
+        schema=SERVICE_PLAY_SOUND_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RESET_LAST_INTERACTION,
+        partial(_handle_reset_last_interaction, hass),
+        schema=SERVICE_RESET_LAST_INTERACTION_SCHEMA,
     )

@@ -126,3 +126,117 @@ sleep:
       selector:
         device:
           integration: nspanel_haui
+
+# ── nspanel_haui.send_notification ───────────────────────────
+send_notification:
+  name: Send notification
+  description: >-
+    Show a notification on the panel with a title, message and icon.
+    Optionally auto-dismiss after a timeout, or make it persistent so
+    it must be dismissed on the panel to stop the alert sound.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    title:
+      required: true
+      example: "Doorbell"
+      selector:
+        text:
+          type: text
+    message:
+      required: false
+      example: "Someone is at the front door"
+      selector:
+        text:
+          type: text
+          multiline: true
+    icon:
+      required: false
+      example: "mdi:bell"
+      selector:
+        icon:
+    timeout:
+      required: false
+      default: 0
+      example: 10
+      description: >-
+        Seconds until the notification auto-dismisses.  0 (default)
+        keeps it on screen until dismissed.
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: "s"
+          mode: box
+    persistent:
+      required: false
+      default: false
+      description: >-
+        When on, the notification must be dismissed on the panel to
+        stop the alert sound.
+      selector:
+        boolean:
+
+# ── nspanel_haui.play_rtttl ──────────────────────────────────
+play_rtttl:
+  name: Play RTTTL tune
+  description: >-
+    Play a ringtone on the panel buzzer from an RTTTL string.
+    See https://picaxe.com/rtttl-ringtones-for-tune-command/
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    song_str:
+      required: true
+      example: "Beep:d=4,o=5,b=100:16e6"
+      selector:
+        text:
+          type: text
+
+# ── nspanel_haui.play_sound ──────────────────────────────────
+play_sound:
+  name: Play sound
+  description: >-
+    Play a named built-in sound on the panel buzzer.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    name:
+      required: true
+      example: "notification"
+      selector:
+        text:
+          type: text
+
+# ── nspanel_haui.reset_last_interaction ──────────────────────
+reset_last_interaction:
+  name: Reset last interaction
+  description: >-
+    Reset the panel's idle timer as if the user just touched it —
+    keeps the display awake or delays sleep.  Optionally add an
+    offset (in seconds) to the reset point.
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    offset:
+      required: false
+      default: 0
+      example: 0
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: "s"
+          mode: box

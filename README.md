@@ -237,7 +237,7 @@ NSPanel HAUI ships with a **fully integrated web frontend** — a custom Lovelac
 
 The frontend is **automatically available** once the integration is added — no separate installation step needed. Open it from the Lovelace panel list or via the device page in **Settings → Devices & Services**.
 
-Behind the scenes, the frontend communicates with the Hub app through a REST API (`/api/nspanel_haui/...`) and the Home Assistant custom panel system. The frontend code lives in `custom_components/nspanel_haui/frontend/` and is written in vanilla JavaScript using Lit for components.
+Behind the scenes, the frontend communicates with the HAUI hub app through a REST API (`/api/nspanel_haui/...`) and the Home Assistant custom panel system. The frontend code lives in `custom_components/nspanel_haui/frontend/` and is written in vanilla JavaScript using Lit for components.
 
 ---
 
@@ -262,7 +262,7 @@ NSPanel HAUI uses a three-layer architecture:
   <img src="docs/assets/diagrams/architecture.svg" alt="Architecture Diagram" width="100%">
 </p>
 
-- **Hub App** (`NSPanelHAUI`, runs in HA) — Reads entity states, renders display commands, manages navigation
+- **HAUI** (`NSPanelHAUI`, hub that runs in HA) — Reads entity states, renders display commands, manages navigation
 - **ESP32** (ESPHome firmware) — Serial bridge between HA and the display, relays touch events
 - **Nextion** (Touchscreen display) — Renders panels, manages widget state, handles touch input
 

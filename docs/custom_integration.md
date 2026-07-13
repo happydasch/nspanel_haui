@@ -4,6 +4,7 @@ description: Guide for developing custom integrations with NSPanel HAUI
 ---
 
 # Custom Integration
+
 ## Overview
 
 NSPanel HAUI runs as a native Home Assistant custom integration. No external addon required.

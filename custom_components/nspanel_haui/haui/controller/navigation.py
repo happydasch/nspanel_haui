@@ -677,6 +677,16 @@ class HAUINavigationController(HAUIBase):
         self.app.device.woke_up = True
         self.open_panel(self._sleep_panel.id, autostart=autostart)
 
+    def mark_awake(self) -> None:
+        """Mark the device as awake, clearing sleep panel state.
+
+        Call this when navigating out of sleep via any code path
+        (wakeup panel, service call, touch gesture) to prevent the next
+        touch from triggering ``exit_sleep_to_prev_or_home``.
+        """
+        self._sleep_panel_active = False
+        self.app.device.sleeping = False
+
     def open_wakeup_panel(self, autostart: bool = False) -> None:
         """Opens the wakeup panel.
 
@@ -687,11 +697,7 @@ class HAUINavigationController(HAUIBase):
             self.close_panel()
             self.log("No wakeup panel available")
             return
-        # Clear sleep state — when a wakeup panel opens, sleep is exited.
-        # check_wakeup() determines has_wakeup_panel from device config
-        # independent of _sleep_panel_active, so touch-gate behaviour is kept.
-        self._sleep_panel_active = False
-        self.app.device.sleeping = False
+        self.mark_awake()
         self.open_panel(self._wakeup_panel.id, autostart=autostart)
 
     def exit_sleep_to_prev_or_home(self, config: dict | None) -> None:
@@ -708,8 +714,7 @@ class HAUINavigationController(HAUIBase):
             snap_max_age if snap_max_age > 0 else 0
         )
         if not restored:
-            self._sleep_panel_active = False
-            self.app.device.sleeping = False
+            self.mark_awake()
             self.open_home_panel()
 
     # snapshot methods
@@ -784,8 +789,7 @@ class HAUINavigationController(HAUIBase):
                     f"Snapshot panel {prev_panel.id} no longer in config, falling back to home"
                 )
                 self.unset_snapshot()
-                self._sleep_panel_active = False
-                self.app.device.sleeping = False
+                self.mark_awake()
                 self.open_home_panel()
                 return False
         if prev_current_nav is not None and prev_current_nav is not prev_panel:
@@ -804,8 +808,7 @@ class HAUINavigationController(HAUIBase):
         # Consume the snapshot and clear sleep state so check_wakeup() and
         # process_event() don't re-trigger the same restore on the next event.
         self.unset_snapshot()
-        self._sleep_panel_active = False
-        self.app.device.sleeping = False
+        self.mark_awake()
 
         # Cancel any pending timeouts before restoring the panel to prevent
         # stale _page_timeout_callbacks from firing mid-restore.
@@ -931,9 +934,11 @@ class HAUINavigationController(HAUIBase):
         if self._wakeup_panel is not None:
             self.log(f"Wakeup panel: {self._wakeup_panel.id}")
             self.open_wakeup_panel()
-            # open_wakeup_panel() clears _sleep_panel_active; check_wakeup()
-            # still gates touch via the wakeup_panel key (independent of the
-            # flag). device.sleeping is cleared by Device.process_event.
+            # open_wakeup_panel() clears both _sleep_panel_active and
+            # device.sleeping via mark_awake(); the Device.process_event
+            # WAKEUP handler also calls set_sleeping(False) redundantly.
+            # check_wakeup() still gates touch via the wakeup_panel key
+            # (independent of the flag).
         else:
             # No wakeup panel: restore the prior panel unless config forces home.
             self.log("No wakeup panel available, restoring snapshot or home")

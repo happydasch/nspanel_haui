@@ -264,7 +264,7 @@ class HAUIDevice(HAUIBase):
             # Reset sleep panel state on disconnect so stale
             # _sleep_panel_active does not trigger open_home_panel
             # from display_state events during reconnection.
-            navigation._sleep_panel_active = False
+            navigation.mark_awake()
 
     def set_sleeping(self, sleeping: bool) -> None:
         """Sets the device as sleeping.

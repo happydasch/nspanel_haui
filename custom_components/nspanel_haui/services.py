@@ -204,6 +204,8 @@ async def _handle_open_panel(hass: HomeAssistant, call: ServiceCall) -> None:
         if nav is None:
             _LOGGER.warning("open_panel: navigation missing on '%s'", dev_name)
             return
+        if wakeup:
+            nav.mark_awake()
         nav.open_panel(panel_key)
 
     await _device_action(hass, call, action=_open_action, wake_first=wakeup)

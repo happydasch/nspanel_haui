@@ -10,6 +10,7 @@ class SystemPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="system",
         page_name="system",
+        page_id=0,
         label=_("System"),
         description=_("System status and connection screen."),
         is_system=True,

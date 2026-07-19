@@ -24,7 +24,7 @@ def _make_device_entry(d: dict[str, Any]) -> dict[str, Any]:
     """Build a hub device entry from a discovery result."""
     dev = copy.deepcopy(DEVICE_CONFIG)
     dev["name"] = d["name"]
-    dev["enabled"] = False
+    dev["enabled"] = True
     if d.get("esphome_device_id"):
         dev["esphome_device_id"] = d["esphome_device_id"]
     return dev

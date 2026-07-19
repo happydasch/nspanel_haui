@@ -60,7 +60,6 @@ class SysPanelKey(StrEnum):
     SYS_ABOUT = "sys_about"
 
     POPUP_NOTIFY = "popup_notify"
-    POPUP_NOTIFS = "popup_notifs"
     POPUP_SELECT = "popup_select"
     POPUP_LIGHT = "popup_light"
     POPUP_MEDIA_PLAYER = "popup_media_player"
@@ -69,6 +68,7 @@ class SysPanelKey(StrEnum):
     POPUP_TIMER = "popup_timer"
     POPUP_COVER = "popup_cover"
     POPUP_UNLOCK = "popup_unlock"
+    POPUP_ALARM = "popup_alarm"
 
 
 class NotificationAction(StrEnum):
@@ -104,6 +104,14 @@ class ESPCommand(StrEnum):
     SEND_COMMAND = "esphome.send_command"
     SEND_COMMANDS = "esphome.send_commands"
     GOTO_PAGE = "esphome.goto_page"
+
+
+class NotifType(StrEnum):
+    """Notification severity types used for color and sound behavior."""
+
+    INFO = "info"
+    WARNING = "warning"
+    CRITICAL = "critical"
 
 
 class NotifEvent(StrEnum):

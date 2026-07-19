@@ -72,7 +72,7 @@ export const previewWeatherStyles = css`
   /* Giant clock (tTime replacement) */
   .pg-preview-weather-clock {
     font-size: clamp(36px, 10cqi, 72px);
-    font-weight: 600;
+    font-weight: 400;
     color: var(--primary-text-color, #fff);
     letter-spacing: 5px;
     line-height: 1;

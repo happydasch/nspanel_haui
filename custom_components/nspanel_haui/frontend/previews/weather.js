@@ -1,8 +1,8 @@
 /**
  * NSPanel HAUI - Panel preview: Weather.
  *
- * Respects: show_home_temp, show_temp,
- * weather_icons, forecast_type.
+ * Device layout: info row (home/outside temp + date), main weather icon + details,
+ * 5-day forecast at bottom. Font:4 for main icon, Font:6 for time, Font:1 for labels.
  */
 import { html } from '../lit-import.js';
 import { t } from '../localize.js';
@@ -20,8 +20,8 @@ export function renderWeatherPreview(_host, panel, _pIdx, _pt) {
   return {
     content: html`
       <div class="pg-preview-full-col" style="gap:1px;">
-        <div style="display:flex;gap:4px;flex-shrink:0;align-items:center;min-height:20px;">
-          <div style="font-size:clamp(9px,2.4cqi,16px);color:var(--primary-text-color,#ddd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;flex:1;min-width:0;">
+        <div style="display:flex;gap:4px;flex-shrink:0;align-items:center;min-height:18px;padding:0 2px;">
+          <div style="font-size:clamp(9px,2.4cqi,16px);font-weight:400;color:var(--primary-text-color,#ddd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400;flex:1;min-width:0;">
             ${showHomeTemp ? html`
               <ha-icon icon="mdi:home-thermometer" style="--mdc-icon-size:clamp(9px,2cqi,14px);color:var(--secondary-text-color,#aaa);vertical-align:middle;"></ha-icon>
               22<small style="font-size:0.7em;color:var(--secondary-text-color,#ccc);">&deg;</small>
@@ -32,24 +32,24 @@ export function renderWeatherPreview(_host, panel, _pIdx, _pt) {
               21<small style="font-size:0.7em;color:var(--secondary-text-color,#ccc);">&deg;</small>
             ` : ''}
           </div>
-          <div style="font-size:clamp(9px,2.4cqi,16px);color:var(--primary-text-color,#ddd);font-weight:500;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">Mon 21 May</div>
+          <div style="font-size:clamp(9px,2.4cqi,16px);font-weight:400;color:var(--primary-text-color,#ddd);font-weight:500;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">Mon 21 May</div>
         </div>
         ${showTemp ? html`
-          <div style="display:flex;flex-shrink:0;min-height:14px;">
-            <div style="font-size:clamp(8px,1.8cqi,12px);color:var(--secondary-text-color,#888);">1023 hPa</div>
+          <div style="display:flex;flex-shrink:0;min-height:14px;padding:0 2px;">
+            <div style="font-size:clamp(8px,1.8cqi,12px);font-weight:400;color:var(--secondary-text-color,#888);">1023 hPa</div>
           </div>
         ` : ''}
         <div class="pg-preview-full-flex" style="gap:4px;flex:1;min-height:0;">
           <div style="display:flex;gap:4px;flex:1;min-width:0;align-items:flex-start;">
               <ha-icon icon="mdi:weather-partly-cloudy" style="--mdc-icon-size:clamp(32px,9cqi,58px);color:${iconColor};flex-shrink:0;"></ha-icon>
-            <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
               <div class="pg-preview-weather-info-row">
                 <ha-icon icon="mdi:water-percent" style="--mdc-icon-size:clamp(12px,2.8cqi,20px);color:var(--secondary-text-color,#aaa);flex-shrink:0;"></ha-icon>
-                <span style="font-size:clamp(9px,2cqi,13px);color:var(--secondary-text-color,#999);">65%</span>
+                <span style="font-size:clamp(9px,2cqi,13px);font-weight:400;color:var(--secondary-text-color,#999);">65%</span>
               </div>
               <div class="pg-preview-weather-info-row">
                 <ha-icon icon="mdi:weather-windy" style="--mdc-icon-size:clamp(12px,2.8cqi,20px);color:var(--secondary-text-color,#aaa);flex-shrink:0;"></ha-icon>
-                <span style="font-size:clamp(9px,2cqi,13px);color:var(--secondary-text-color,#999);">15 km/h</span>
+                <span style="font-size:clamp(9px,2cqi,13px);font-weight:400;color:var(--secondary-text-color,#999);">15 km/h</span>
               </div>
             </div>
           </div>

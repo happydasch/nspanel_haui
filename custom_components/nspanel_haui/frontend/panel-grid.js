@@ -52,12 +52,17 @@ function renderPanelCard(host, p, panels, isNavPanel) {
 
   // Right button auto-assignment (mirrors Python FunctionButtonMixin + grid/row
   // overrides for pagination):
+  //   - notifications enabled → NAV_NOTIF on right_sec, NEXT/CLOSE on right_pri
   //   - nav + pagination → NEXT on right_pri, pagination on right_sec
   //   - nav + no pagination → NEXT on right_pri
   //   - non-nav + pagination → CLOSE on right_pri, pagination on right_sec
   //   - non-nav + no pagination → CLOSE on right_pri (auto-assigned via _auto_assign_fncs)
   let rightPri, rightSec;
-  if (showInNav) {
+  if (hasNotifBtn) {
+    // Notifications icon on right_sec (matches Python: right_sec = NAV_NOTIF)
+    rightSec = { icon: 'mdi:email-outline', accent: true };
+    rightPri = showInNav ? 'mdi:chevron-right' : 'mdi:close';
+  } else if (showInNav) {
     rightPri = 'mdi:chevron-right';
     rightSec = hasPagination ? { icon: 'mdi:chevron-double-down', accent: true } : '';
   } else if (hasPagination) {
@@ -67,12 +72,10 @@ function renderPanelCard(host, p, panels, isNavPanel) {
     rightPri = 'mdi:close';
     rightSec = '';
   }
-  // left_sec: not-home+home_btn → HOME, home+notif → NOTIF, home+sleep → SLEEP
+  // left_sec: not-home+home_btn → HOME, home+sleep → SLEEP (notification is on right_sec)
   let leftSec = '';
   if (!isHome && hasHomeBtn) {
     leftSec = 'mdi:home-outline';
-  } else if (isHome && hasNotifBtn) {
-    leftSec = 'mdi:email-outline';
   } else if (isHome && hasSleepBtn) {
     leftSec = 'mdi:sleep';
   }

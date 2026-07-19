@@ -1,5 +1,8 @@
 /**
  * NSPanel HAUI - Panel preview: System.
+ *
+ * Device layout: QR code in center (140x140) with spinner,
+ * error message text below.
  */
 import { html } from '../lit-import.js';
 

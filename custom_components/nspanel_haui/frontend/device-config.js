@@ -46,6 +46,7 @@ export async function saveDeviceConfig(host) {
     "show_home_button", "show_sleep_button", "show_notifications_button",
     "sound_on_startup",
     "sound_on_notification", "use_relay_left", "use_relay_right",
+    "use_do_not_disturb",
     "enabled",
   ];
   for (const k of boolKeys) {
@@ -60,6 +61,14 @@ export async function saveDeviceConfig(host) {
   dcEl = form.querySelector("#dc-home_panel"); cfg.home_panel = (dcEl && dcEl.value) || "";
   dcEl = form.querySelector("#dc-sleep_panel"); cfg.sleep_panel = (dcEl && dcEl.value) || "";
   dcEl = form.querySelector("#dc-wakeup_panel"); cfg.wakeup_panel = (dcEl && dcEl.value) || "";
+  // Read quiet hours only when do not disturb is enabled
+  if (cfg.use_do_not_disturb) {
+    dcEl = form.querySelector("#dc-quiet_hours_start"); cfg.quiet_hours_start = (dcEl && dcEl.value) || "";
+    dcEl = form.querySelector("#dc-quiet_hours_end"); cfg.quiet_hours_end = (dcEl && dcEl.value) || "";
+  } else {
+    cfg.quiet_hours_start = "";
+    cfg.quiet_hours_end = "";
+  }
 
   // Read number fields
   let numEl;

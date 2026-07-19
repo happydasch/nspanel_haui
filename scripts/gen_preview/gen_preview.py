@@ -207,7 +207,6 @@ _PAGE_CLASSES: dict[str, str] = {
     "GridPage": "grid",
     "LightPage": "light",
     "MediaPage": "media",
-    "NotifsPage": "notify",
     "NotifyPage": "notify",
     "QRPage": "qr",
     "RowPage": "row",
@@ -332,7 +331,7 @@ def _render_name(type_key: str) -> str:
         result = "".join(word.capitalize() for word in type_key.split("_"))
     else:
         _WORD_SPLIT = re.compile(
-            r"(card|clock|two|system|settings|about|popup|unlock|notify|notifs|"
+            r"(card|clock|two|system|settings|about|popup|unlock|notify|"
             r"select|media|vacuum|climate|timer|cover|light|grid|row|alarm|weather|qr|blank)"
         )
         parts = [p for p in _WORD_SPLIT.split(type_key) if p]
@@ -410,7 +409,6 @@ _EXISTING_RENDERERS: dict[str, str] = {
     "weather": "renderWeatherPreview",
     "qr": "renderQRPreview",
     "notify": "renderNotifyPreview",
-    "notifs": "renderNotifyPreview",
     "select": "renderSelectPreview",
     "system_settings": "renderSettingsPreview",
     "system_about": "renderAboutPreview",
@@ -418,7 +416,6 @@ _EXISTING_RENDERERS: dict[str, str] = {
     "blank": "renderBlankPreview",
     "popup_unlock": "renderUnlockPreview",
     "popup_notify": "renderNotifyPreview",
-    "popup_notifs": "renderNotifyPreview",
     "popup_select": "renderSelectPreview",
     "popup_light": "renderLightPreview",
     "popup_media_player": "renderMediaPreview",
@@ -432,7 +429,6 @@ _EXISTING_RENDERERS: dict[str, str] = {
 _POPUP_ALIASES: dict[str, str] = {
     "popup_unlock": "alarm",
     "popup_notify": "notify",
-    "popup_notifs": "notifs",
     "popup_select": "select",
     "popup_light": "light",
     "popup_media_player": "media",
@@ -451,7 +447,6 @@ _SYSTEM_TYPES = frozenset(
         "blank",
         "popup_unlock",
         "popup_notify",
-        "popup_notifs",
         "popup_select",
         "popup_light",
         "popup_media_player",
@@ -460,7 +455,6 @@ _SYSTEM_TYPES = frozenset(
         "popup_timer",
         "popup_cover",
         "notify",
-        "notifs",
         "select",
         "alarm",
     }

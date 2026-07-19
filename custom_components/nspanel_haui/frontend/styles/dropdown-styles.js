@@ -15,7 +15,7 @@ export const dropdownStyles = css`
   }
   /* ── domain filter area ──────────── */
   .dropdown-filter-area {
-    margin-bottom: 4px;
+    margin-top: 4px;
   }
 
 

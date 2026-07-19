@@ -197,6 +197,28 @@ function pickYamlFile() {
 /* ── device management ─────────────────────────────────────────────────── */
 
 /**
+ * Scan for discoverable ESPHome HAUI devices.
+ *
+ * GET /api/nspanel_haui/devices/{entryId}
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @returns {Promise<{ devices: Array<{ name: string, friendly_name: string, esphome_device_id: string }> }>}
+ */
+export async function scanDevices(host) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  const resp = await host.hass.fetchWithAuth(
+    `/api/nspanel_haui/devices/${host.entryId}`
+  );
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
+    throw new Error(err.message || t("Failed to scan for devices"));
+  }
+  return resp.json();
+}
+
+/**
  * Add a new device to the config entry.
  *
  * POST /api/nspanel_haui/devices/{entryId}

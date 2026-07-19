@@ -86,4 +86,4 @@ The device can receive notifications and display them. Notifications remain in t
 
 Notifications support an optional icon and an optional `persistent` flag. When `persistent` is set to true the notification sound loops at a regular interval until the notification is explicitly dismissed - useful for alerts that require user attention.
 
-See [Popup Notification](panels/popup_notifs.md) for full details and usage examples.
+See [Popup Notify](panels/popup_notify.md) for full details and usage examples.

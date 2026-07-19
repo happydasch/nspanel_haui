@@ -77,7 +77,10 @@ def test_device_notify_method():
     original_send_notification = mock_notification_controller.send_notification
     captured_call = []
 
-    def mock_send_notification(title, message, icon, timeout, persistent=False):
+    def mock_send_notification(
+        title, message, icon, timeout, persistent=False,
+        notif_type="info", force_show=False,
+    ):
         captured_call.append(
             {
                 "title": title,
@@ -85,10 +88,14 @@ def test_device_notify_method():
                 "icon": icon,
                 "timeout": timeout,
                 "persistent": persistent,
+                "notif_type": notif_type,
+                "force_show": force_show,
             }
         )
         # Call the original method to maintain functionality
-        return original_send_notification(title, message, icon, timeout, persistent)
+        return original_send_notification(
+            title, message, icon, timeout, persistent, notif_type, force_show,
+        )
 
     mock_notification_controller.send_notification = mock_send_notification
 
@@ -123,7 +130,10 @@ def test_device_notify_method_defaults():
     original_send_notification = mock_notification_controller.send_notification
     captured_call = []
 
-    def mock_send_notification(title, message="", icon="", timeout=0, persistent=False):
+    def mock_send_notification(
+        title, message="", icon="", timeout=0, persistent=False,
+        notif_type="info", force_show=False,
+    ):
         captured_call.append(
             {
                 "title": title,
@@ -131,10 +141,14 @@ def test_device_notify_method_defaults():
                 "icon": icon,
                 "timeout": timeout,
                 "persistent": persistent,
+                "notif_type": notif_type,
+                "force_show": force_show,
             }
         )
         # Call the original method to maintain functionality
-        return original_send_notification(title, message, icon, timeout, persistent)
+        return original_send_notification(
+            title, message, icon, timeout, persistent, notif_type, force_show,
+        )
 
     mock_notification_controller.send_notification = mock_send_notification
 
@@ -173,5 +187,5 @@ def test_device_notify_method_integration():
     assert len(app.callback_event_calls) == 1
     event = app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, timeout, False)
+    expected_value = (title, message, icon, timeout, False, "info", False)
     assert event.value == expected_value

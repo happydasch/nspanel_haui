@@ -2,9 +2,6 @@
 
 Provides HA service calls that go through the navigation controller so the
 full render pipeline runs (goto_page, page ack, settle, set_panel).
-
-Also exposes direct ESPAction publish calls for brightness, raw commands,
-and other device-level operations.
 """
 
 from __future__ import annotations
@@ -17,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
-from .haui.mapping.const import ESPAction, NotificationAction
+from .haui.mapping.const import NotificationAction
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
@@ -31,12 +28,7 @@ SERVICE_OPEN_PANEL = "open_panel"
 SERVICE_CLOSE_PANEL = "close_panel"
 SERVICE_WAKEUP = "wakeup"
 SERVICE_SLEEP = "sleep"
-SERVICE_SET_BRIGHTNESS = "set_brightness"
-SERVICE_SEND_COMMAND = "send_command"
-SERVICE_GOTO_PAGE = "goto_page"
 SERVICE_SEND_NOTIFICATION = "send_notification"
-SERVICE_PLAY_RTTTL = "play_rtttl"
-SERVICE_PLAY_SOUND = "play_sound"
 SERVICE_RESET_LAST_INTERACTION = "reset_last_interaction"
 
 # DOMAIN is defined in __init__.py; we keep a local copy to avoid
@@ -46,49 +38,41 @@ DOMAIN = "nspanel_haui"
 # ── Service schemas ─────────────────────────────────────────
 SERVICE_OPEN_PANEL_SCHEMA = vol.Schema(
     {
+        vol.Optional("device", default=None): vol.Any(str, None),
         vol.Required("panel"): cv.string,
         vol.Optional("wakeup", default=False): cv.boolean,
     }
 )
-SERVICE_CLOSE_PANEL_SCHEMA = vol.Schema({})
-SERVICE_WAKEUP_SCHEMA = vol.Schema({})
-SERVICE_SLEEP_SCHEMA = vol.Schema({})
-SERVICE_SET_BRIGHTNESS_SCHEMA = vol.Schema(
+SERVICE_CLOSE_PANEL_SCHEMA = vol.Schema(
     {
-        vol.Required("intensity"): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+        vol.Optional("device", default=None): vol.Any(str, None),
     }
 )
-SERVICE_SEND_COMMAND_SCHEMA = vol.Schema(
+SERVICE_WAKEUP_SCHEMA = vol.Schema(
     {
-        vol.Required("cmd"): cv.string,
+        vol.Optional("device", default=None): vol.Any(str, None),
     }
 )
-SERVICE_GOTO_PAGE_SCHEMA = vol.Schema(
+SERVICE_SLEEP_SCHEMA = vol.Schema(
     {
-        vol.Required("page"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Optional("device", default=None): vol.Any(str, None),
     }
 )
 SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
     {
+        vol.Optional("device", default=None): vol.Any(str, None),
         vol.Required("title"): cv.string,
         vol.Optional("message", default=""): cv.string,
         vol.Optional("icon", default=""): cv.string,
         vol.Optional("timeout", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
         vol.Optional("persistent", default=False): cv.boolean,
-    }
-)
-SERVICE_PLAY_RTTTL_SCHEMA = vol.Schema(
-    {
-        vol.Required("song_str"): cv.string,
-    }
-)
-SERVICE_PLAY_SOUND_SCHEMA = vol.Schema(
-    {
-        vol.Required("name"): cv.string,
+        vol.Optional("type", default="info"): vol.In(["info", "warning", "critical"]),
+        vol.Optional("force_show", default=False): cv.boolean,
     }
 )
 SERVICE_RESET_LAST_INTERACTION_SCHEMA = vol.Schema(
     {
+        vol.Optional("device", default=None): vol.Any(str, None),
         vol.Optional("offset", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
     }
 )
@@ -123,7 +107,7 @@ def _wake_display(app: NSPanelHAUI) -> None:
     try:
         esp_ctrl = app.controller.get("esphome")
         if esp_ctrl and hasattr(esp_ctrl, "esphome"):
-            esp_ctrl.esphome.publish(ESPAction.RESET_LAST_INTERACTION, "0")
+            esp_ctrl.esphome.publish("reset_last_interaction", "0")
     except Exception:
         _LOGGER.debug(
             "reset_last_interaction failed for '%s'",
@@ -134,7 +118,7 @@ def _wake_display(app: NSPanelHAUI) -> None:
 
 def _publish_action(
     app: NSPanelHAUI,
-    action: ESPAction | NotificationAction,
+    action: str | NotificationAction,
     value: str | dict | list,
 ) -> None:
     """Publish an ESPAction to a device via its ESPHome controller."""
@@ -161,17 +145,18 @@ async def _device_action(
 ) -> None:
     """Resolve device targets and run *action(app, dev_name)* on each.
 
-    Resolves the ``device_id`` from the service call, looks up each target
+    Resolves the ``device`` from the service call, looks up each target
     app, and dispatches *action* via the executor so HA's async loop is
     not blocked.  The action receives the full ``NSPanelHAUI`` instance so
     it can access both navigation and ESPHome controllers.
     """
-    device_id: str | None = call.data.get("device_id")
+    device_id: str | None = call.data.get("device")
     targets = _resolve_target_apps(hass, device_id)
 
     if not targets:
         _LOGGER.warning(
-            "%s: no matching HAUI device (device_id=%s)",
+            "%s: no matching HAUI app (device=%s) — "
+            "selected ESPHome device may not be running HAUI firmware",
             call.service,
             device_id,
         )
@@ -238,45 +223,18 @@ async def _handle_sleep(hass: HomeAssistant, call: ServiceCall) -> None:
     await _device_action(hass, call, action=_sleep_action)
 
 
-async def _handle_set_brightness(hass: HomeAssistant, call: ServiceCall) -> None:
-    intensity: int = call.data["intensity"]
-
-    def _brightness_action(app: Any, dev_name: str) -> None:
-        _publish_action(app, ESPAction.SET_BRIGHTNESS, str(intensity))
-
-    await _device_action(hass, call, action=_brightness_action)
-
-
-async def _handle_send_command(hass: HomeAssistant, call: ServiceCall) -> None:
-    cmd: str = call.data["cmd"]
-
-    def _command_action(app: Any, dev_name: str) -> None:
-        _publish_action(app, ESPAction.SEND_COMMAND, cmd)
-
-    await _device_action(hass, call, action=_command_action)
-
-
-async def _handle_goto_page(hass: HomeAssistant, call: ServiceCall) -> None:
-    page_id: int = call.data["page"]
-
-    def _goto_action(app: Any, dev_name: str) -> None:
-        nav = app.controller.get("navigation")
-        if nav is None:
-            _LOGGER.warning("goto_page: navigation missing on '%s'", dev_name)
-            return
-        nav.goto_page(page_id)
-
-    await _device_action(hass, call, action=_goto_action)
-
-
 async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> None:
     timeout: int = call.data.get("timeout", 0)
     persistent: bool = call.data.get("persistent", False)
+    notif_type: str = call.data.get("type", "info")
+    force_show: bool = call.data.get("force_show", False)
 
     data: dict[str, Any] = {
         "title": call.data["title"],
         "message": call.data.get("message", ""),
         "icon": call.data.get("icon", ""),
+        "notif_type": notif_type,
+        "force_show": force_show,
     }
     if timeout > 0:
         data["timeout"] = timeout
@@ -298,29 +256,11 @@ async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> N
     await _device_action(hass, call, action=_notify_action)
 
 
-async def _handle_play_rtttl(hass: HomeAssistant, call: ServiceCall) -> None:
-    song_str: str = call.data["song_str"]
-
-    def _rtttl_action(app: Any, dev_name: str) -> None:
-        _publish_action(app, ESPAction.PLAY_RTTTL, song_str)
-
-    await _device_action(hass, call, action=_rtttl_action)
-
-
-async def _handle_play_sound(hass: HomeAssistant, call: ServiceCall) -> None:
-    sound_name: str = call.data["name"]
-
-    def _sound_action(app: Any, dev_name: str) -> None:
-        _publish_action(app, ESPAction.PLAY_SOUND, sound_name)
-
-    await _device_action(hass, call, action=_sound_action)
-
-
 async def _handle_reset_last_interaction(hass: HomeAssistant, call: ServiceCall) -> None:
     offset: int = call.data.get("offset", 0)
 
     def _reset_action(app: Any, dev_name: str) -> None:
-        _publish_action(app, ESPAction.RESET_LAST_INTERACTION, str(offset))
+        _publish_action(app, "reset_last_interaction", str(offset))
 
     await _device_action(hass, call, action=_reset_action)
 
@@ -359,39 +299,9 @@ def async_register_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(
         DOMAIN,
-        SERVICE_SET_BRIGHTNESS,
-        partial(_handle_set_brightness, hass),
-        schema=SERVICE_SET_BRIGHTNESS_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SEND_COMMAND,
-        partial(_handle_send_command, hass),
-        schema=SERVICE_SEND_COMMAND_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_GOTO_PAGE,
-        partial(_handle_goto_page, hass),
-        schema=SERVICE_GOTO_PAGE_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
         SERVICE_SEND_NOTIFICATION,
         partial(_handle_send_notification, hass),
         schema=SERVICE_SEND_NOTIFICATION_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_PLAY_RTTTL,
-        partial(_handle_play_rtttl, hass),
-        schema=SERVICE_PLAY_RTTTL_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_PLAY_SOUND,
-        partial(_handle_play_sound, hass),
-        schema=SERVICE_PLAY_SOUND_SCHEMA,
     )
     hass.services.async_register(
         DOMAIN,

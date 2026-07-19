@@ -30,8 +30,7 @@ class LogsDialog extends LitElement {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        .preventScrimClose=${true}
-      >
+        >
         ${dialogHeader(t("Device Logs"), this._dispatchClose)}
 
         <div class="dialog-body">

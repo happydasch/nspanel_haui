@@ -1,24 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#000" stroke="#444" stroke-width="1.5"/>
-  <text x="80" y="14" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="9" font-weight="bold">Row</text>
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#000"/>
   <!-- Row card 1 -->
   <rect x="10" y="22" width="140" height="18" rx="4" fill="rgba(255,255,255,0.06)"/>
   <text x="22" y="34" fill="#3b82f6" font-family="sans-serif" font-size="8">&#x25CF;</text>
   <text x="36" y="34" fill="#ccc" font-family="sans-serif" font-size="7">Living Room</text>
-  <text x="118" y="33" fill="#aaa" font-family="sans-serif" font-size="7">&#x25B2; &#x25A0; &#x25BC;</text>
+  <text x="118" y="33" fill="#888" font-family="sans-serif" font-size="7">&#x25B2; &#x25A0; &#x25BC;</text>
   <!-- Row card 2 -->
   <rect x="10" y="44" width="140" height="18" rx="4" fill="rgba(255,255,255,0.06)"/>
-  <text x="22" y="56" fill="#22c55e" font-family="sans-serif" font-size="8">&#x25CF;</text>
+  <text x="22" y="56" fill="#60a5fa" font-family="sans-serif" font-size="8">&#x25CF;</text>
   <text x="36" y="56" fill="#ccc" font-family="sans-serif" font-size="7">Dining</text>
-  <text x="118" y="55" fill="#aaa" font-family="sans-serif" font-size="7">&#x25B2; &#x25A0; &#x25BC;</text>
+  <text x="118" y="55" fill="#888" font-family="sans-serif" font-size="7">&#x25B2; &#x25A0; &#x25BC;</text>
   <!-- Row card 3 -->
   <rect x="10" y="66" width="140" height="18" rx="4" fill="rgba(255,255,255,0.06)"/>
-  <text x="22" y="78" fill="#f59e0b" font-family="sans-serif" font-size="8">&#x25CF;</text>
+  <text x="22" y="78" fill="#2563eb" font-family="sans-serif" font-size="8">&#x25CF;</text>
   <text x="36" y="78" fill="#ccc" font-family="sans-serif" font-size="7">Kitchen</text>
-  <text x="118" y="77" fill="#aaa" font-family="sans-serif" font-size="7">&#x25B2; &#x25A0; &#x25BC;</text>
+  <text x="118" y="77" fill="#888" font-family="sans-serif" font-size="7">&#x25B2; &#x25A0; &#x25BC;</text>
   <!-- Row card 4 -->
   <rect x="10" y="88" width="140" height="18" rx="4" fill="rgba(255,255,255,0.06)"/>
-  <text x="22" y="100" fill="#a855f7" font-family="sans-serif" font-size="8">&#x25CF;</text>
+  <text x="22" y="100" fill="#93c5fd" font-family="sans-serif" font-size="8">&#x25CF;</text>
   <text x="36" y="100" fill="#ccc" font-family="sans-serif" font-size="7">Bedroom</text>
-  <text x="118" y="99" fill="#aaa" font-family="sans-serif" font-size="7">&#x25B2; &#x25A0; &#x25BC;</text>
+  <text x="118" y="99" fill="#888" font-family="sans-serif" font-size="7">&#x25B2; &#x25A0; &#x25BC;</text>
 </svg>

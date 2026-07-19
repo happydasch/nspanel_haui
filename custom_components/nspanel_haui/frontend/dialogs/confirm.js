@@ -35,8 +35,7 @@ class ConfirmDialog extends LitElement {
         .open=${this.open}
         @closed=${this._dispatchClose}
         type="alert"
-        .preventScrimClose=${true}
-      >
+        >
         ${dialogHeader(title || t('Confirm'), this._dispatchClose)}
         <div class="dialog-body">
           <p>${message || ""}</p>

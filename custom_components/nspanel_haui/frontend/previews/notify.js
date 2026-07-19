@@ -1,15 +1,13 @@
 /**
  * NSPanel HAUI - Panel preview: Notify.
+ *
+ * Device layout: icon (font:3, 134x160) on left if present,
+ * text (font:0, 278x160) on right, up to 2 action buttons at bottom.
  */
 import { html } from '../lit-import.js';
 import { t } from '../localize.js';
 
 export function renderNotifyPreview(_host, panel, _pIdx, _pt) {
-  // notifs type shows prev/next notification arrows on left_sec and right_sec
-  const isNotifs = panel && panel.type === 'notifs';
-  const overrides = isNotifs
-    ? { leftSec: { icon: 'mdi:chevron-double-left', accent: true }, rightSec: { icon: 'mdi:chevron-double-right', accent: true } }
-    : undefined;
   return {
     content: html`
       <div class="pg-preview-full-col" style="min-height:0;">
@@ -28,6 +26,5 @@ export function renderNotifyPreview(_host, panel, _pIdx, _pt) {
           <div class="pg-preview-btn active" style="width:100%;flex:1;min-height:0;"><span class="pg-preview-btn-label">${t('ACTION')}</span></div>
         </div>
       </div>`,
-    headerButtonOverrides: overrides,
   };
 }

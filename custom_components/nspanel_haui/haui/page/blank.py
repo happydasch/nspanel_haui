@@ -11,6 +11,7 @@ class BlankPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="blank",
         page_name="blank",
+        page_id=1,
         label=_("Blank"),
         description=_("Blank/idle page used for sleep state."),
         is_system=True,

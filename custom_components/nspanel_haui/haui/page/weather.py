@@ -26,6 +26,7 @@ class WeatherPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="weather",
         page_name="weather",
+        page_id=6,
         label=_("Weather"),
         description=_("Weather display with time, date and forecast."),
         options=[

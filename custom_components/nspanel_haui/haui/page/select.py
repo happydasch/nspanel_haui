@@ -15,6 +15,7 @@ class SelectPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="select",
         page_name="select",
+        page_id=5,
         label=_("Selection List"),
         description=_("Item selection panel with multi-page support."),
         is_system=True,

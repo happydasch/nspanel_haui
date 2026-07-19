@@ -51,6 +51,9 @@ class DeviceManagerDialog extends LitElement {
       _showAddForm: { type: Boolean, state: true },
       _newDeviceName: { type: String, state: true },
       _addError: { type: String, state: true },
+      _scannedDevices: { type: Array, state: true },
+      _scanning: { type: Boolean, state: true },
+      _scanError: { type: String, state: true },
       _removingDevice: { type: String, state: true },
       _deviceMenuIndex: { type: Number, state: true },
       _toast: { type: Object, state: true },
@@ -70,6 +73,9 @@ class DeviceManagerDialog extends LitElement {
     this._showAddForm = false;
     this._newDeviceName = "";
     this._addError = "";
+    this._scannedDevices = [];
+    this._scanning = false;
+    this._scanError = "";
     this._removingDevice = null;
     this._deviceMenuIndex = null;
     this.__statusTimer = null;
@@ -155,11 +161,12 @@ class DeviceManagerDialog extends LitElement {
               <div class="device-mgr-add-form">
                 <div class="form-group">
                   <label>${t('Device Name')}</label>
-                  <ha-input
+                  <input
+                    class="native-input"
                     .value=${this._newDeviceName}
                     @input=${(e) => this._newDeviceName = e.target.value}
                     placeholder=${t('my_nspanel')}
-                  ></ha-input>
+                  />
                 </div>
                 <div class="device-mgr-add-actions">
                   <ha-button variant="neutral" appearance="plain" @click=${() => { this._showAddForm = false; this._newDeviceName = ""; this._addError = ""; }}>
@@ -181,11 +188,46 @@ class DeviceManagerDialog extends LitElement {
               ` : deviceKeys.map(name => this._renderDeviceRow(name))}
             </div>
 
+            <!-- discovered devices (scan results) -->
+            ${this._scannedDevices.length > 0 ? html`
+              <div class="device-mgr-section">
+                <h3 class="device-mgr-section-title">${t('Discovered Devices')}</h3>
+                <div class="device-mgr-section-actions">
+                  <ha-button @click=${() => this._dispatchScanDevices(this._scannedDevices)} variant="neutral" appearance="plain">
+                    <ha-icon icon="mdi:plus-circle-outline" slot="icon"></ha-icon>
+                    ${t('Add All')}
+                  </ha-button>
+                </div>
+                ${this._scannedDevices.map(d => html`
+                  <div class="device-mgr-row">
+                    <div class="device-mgr-row-body">
+                      <div class="device-mgr-row-head">
+                        <span class="device-mgr-name">${d.friendly_name || d.name}</span>
+                      </div>
+                      <div class="device-mgr-row-details">
+                        ${d.name !== (d.friendly_name || d.name) ? html`<span class="info-chip">${d.name}</span>` : ''}
+                      </div>
+                    </div>
+                    <div class="device-mgr-row-actions">
+                      <ha-button @click=${() => this._dispatchAddDevice({ name: d.name, esphome_device_id: d.esphome_device_id || '' })}>
+                        ${t('Add')}
+                      </ha-button>
+                    </div>
+                  </div>
+                `)}
+              </div>
+            ` : ''}
+            ${this._scanError ? html`<p class="device-mgr-error">${this._scanError}</p>` : ''}
+
             </div>
         </form>${Toast.renderToast(this)}
 
         <div slot="footer" class="device-mgr-footer">
           <div class="footer-toggle-wrapper">
+            <ha-button @click=${() => this._onScan()} variant="neutral" appearance="plain" ?disabled=${this._scanning}>
+              <ha-icon icon="mdi:magnify" slot="icon"></ha-icon>
+              ${this._scanning ? t('Scanning...') : t('Scan')}
+            </ha-button>
             <ha-button @click=${() => this._dispatchUpdateAll()} variant="neutral" appearance="plain">
               <ha-icon icon="mdi:refresh" slot="icon"></ha-icon>
               ${t('Update All')}
@@ -216,6 +258,8 @@ class DeviceManagerDialog extends LitElement {
     const tft = di?.tft_version || '-';
     const nw = readNetworkInfo(this.hass, name);
 
+    const displayName = dev.friendly_name || name;
+
     const dropdownItems = [
       {
         icon: enabled ? 'mdi:close-circle-outline' : 'mdi:check-circle-outline',
@@ -238,9 +282,10 @@ class DeviceManagerDialog extends LitElement {
           <div class="device-mgr-row-head">
             <span class="device-mgr-state-indicator ${enabled ? 'state-on' : 'state-off'}"
                   title=${enabled ? t('Enabled') : t('Disabled')}></span>
-            <span class="device-mgr-name">${name}</span>
+            <span class="device-mgr-name">${displayName}</span>
+            ${name !== displayName ? html`<span class="device-mgr-name-sub">${name}</span>` : ''}
             ${renderWifiIcon(nw.rssi, nw.ssid)}
-            <span class="device-mgr-panel-count">${panelCount} ${t('panel')}${panelCount !== 1 ? 's' : ''}</span>
+            <span class="device-mgr-panel-count">${panelCount} ${panelCount !== 1 ? t('panels') : t('panel')}</span>
           </div>
           <div class="device-mgr-row-details">
             ${yaml !== '-' ? html`<span class="info-chip" title="${t('YAML Version')}">Y: ${yaml}</span>` : ''}
@@ -302,6 +347,33 @@ class DeviceManagerDialog extends LitElement {
 
   _dispatchUpdateAll() { this._dispatchUpdateDisplay("*"); }
 
+  /* ── scan for devices ──────────────────────────────────────────────── */
+
+  async _onScan() {
+    this._scanning = true;
+    this._scanError = "";
+    this._scannedDevices = [];
+    this.requestUpdate();
+    try {
+      const { scanDevices } = await import('../api.js');
+      const result = await scanDevices({ entryId: this.entryId, hass: this.hass });
+      const discovered = (result.devices || []).filter(
+        (d) => !(this.devices || {})[d.name || d.friendly_name]
+      );
+      this._scannedDevices = discovered;
+      if (!discovered.length) {
+        this._scanError = t('No new HAUI devices found');
+      }
+    } catch (e) {
+      this._scanError = e.message || t('Scan failed');
+    }
+    this._scanning = false;
+    this.requestUpdate();
+  }
+
+  _dispatchScanDevices(devices) {
+    this.dispatchEvent(_dispatch("scan-devices", { devices }));
+  }
 
   /* ── add device ──────────────────────────────────────────────────── */
 

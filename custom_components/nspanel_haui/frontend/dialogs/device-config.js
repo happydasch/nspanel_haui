@@ -9,25 +9,22 @@ import { LitElement, html, css } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
 import { LOCALE_OPTIONS, DEBUG_LEVELS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
+import { renderSelect, renderToggle } from '../form-fields.js';
 import { dialogHeader } from './dialog-header.js';
 import { t } from '../localize.js';
 
 /**
- * Render a toggle (ha-switch) row used within the device config form.
- * Fires `@change` to update internal state.
+ * Render a toggle row used within the device config form.
+ * Uses native toggle checkbox via renderToggle.
  */
 function checkbox(host, id, key, cfg, label, hint = "") {
   return html`
     <div class="checkbox-wrap">
       <div class="checkbox-row">
-        <ha-switch
-          id=${id}
-          ?checked=${Boolean(cfg[key])}
-          @change=${(e) => {
-            host._deviceConfigForm = { ...host._deviceConfigForm, [key]: e.target.checked };
-            host.requestUpdate();
-          }}
-        ></ha-switch>
+        ${renderToggle(id, Boolean(cfg[key]), (checked) => {
+          host._deviceConfigForm = { ...host._deviceConfigForm, [key]: checked };
+          host.requestUpdate();
+        })}
         <label for=${id}>${label}</label>
       </div>
       ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
@@ -43,15 +40,55 @@ function selectField(host, id, key, cfg, label, options, parser = (v) => v, hint
   return html`
     <div class="form-group">
       <label for=${id}>${label}</label>
-      <ha-select
+      ${renderSelect(id, cfg[key] ?? "", options, (v) => {
+        host._deviceConfigForm = { ...host._deviceConfigForm, [key]: parser(v) };
+        host.requestUpdate();
+      })}
+      ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
+    </div>
+  `;
+}
+
+/**
+ * Render a text input field within the device config form.
+ * Fires `@input` to update internal state.
+ */
+function textField(host, id, key, cfg, label, hint = "") {
+  return html`
+    <div class="form-group">
+      <label for=${id}>${label}</label>
+      <input
         id=${id}
+        class="native-input"
         .value=${String(cfg[key] ?? "")}
-        .options=${options}
-        @selected=${(e) => {
-          host._deviceConfigForm = { ...host._deviceConfigForm, [key]: parser(e.detail.value) };
+        @input=${(e) => {
+          host._deviceConfigForm = { ...host._deviceConfigForm, [key]: e.target.value };
           host.requestUpdate();
         }}
-      ></ha-select>
+      />
+      ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
+    </div>
+  `;
+}
+
+/**
+ * Render a time input field within the device config form (HH:MM, 24h format).
+ * Fires `@input` to update internal state.
+ */
+function timeField(host, id, key, cfg, label, hint = "") {
+  return html`
+    <div class="form-group">
+      <label for=${id}>${label}</label>
+      <input
+        id=${id}
+        type="time"
+        class="native-input"
+        .value=${String(cfg[key] ?? "")}
+        @input=${(e) => {
+          host._deviceConfigForm = { ...host._deviceConfigForm, [key]: e.target.value };
+          host.requestUpdate();
+        }}
+      />
       ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
     </div>
   `;
@@ -73,6 +110,16 @@ class DeviceConfigDialog extends LitElement {
       margin: 0;
       font-weight: 500;
       font-size: 0.92em;
+    }
+    .time-range-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .time-range-sep {
+      flex-shrink: 0;
+      color: var(--secondary-text-color, #666);
+      font-weight: 500;
     }
   `];
 
@@ -130,10 +177,6 @@ class DeviceConfigDialog extends LitElement {
                 t("The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels"))}
               ${selectField(this, "dc-debug_level", "debug_level", cfg, t("Debug Level"), DEBUG_LEVELS, (v) => parseInt(v, 10),
                 t("Controls the verbosity of diagnostic logging sent to the Home Assistant logs: Off = no debug output, Basic = key lifecycle events, Verbose = all commands and data exchanged with the display"))}
-              ${checkbox(this, "dc-sound_on_startup", "sound_on_startup", cfg, t("Sound on startup"),
-                t("Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle"))}
-              ${checkbox(this, "dc-sound_on_notification", "sound_on_notification", cfg, t("Sound on notification"),
-                t("Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display"))}
             </div>
           </details>
 
@@ -149,6 +192,50 @@ class DeviceConfigDialog extends LitElement {
                 t("Show a sleep button on the home panel that lets users manually put the display into sleep mode"))}
               ${checkbox(this, "dc-show_notifications_button", "show_notifications_button", cfg, t("Show notifications button"),
                 t("Show a notifications button on supported panels that indicates and provides access to any pending notifications"))}
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>${t("Notifications")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("Configure audible alerts for startup and incoming notifications, and set a do-not-disturb window to silence sounds during specific hours.")}
+              </p>
+              ${checkbox(this, "dc-sound_on_startup", "sound_on_startup", cfg, t("Sound on startup"),
+                t("Play a short audible tone when the display successfully connects to Home Assistant after a restart or power cycle"))}
+              ${checkbox(this, "dc-sound_on_notification", "sound_on_notification", cfg, t("Sound on notification"),
+                t("Play an audible alert tone whenever a new notification is received from Home Assistant to draw attention to the display"))}
+              ${checkbox(this, "dc-use_do_not_disturb", "use_do_not_disturb", cfg, t("Use do not disturb"),
+                t("Only play notification sounds during the specified quiet hours. When enabled, notifications are silenced outside this time window."))}
+              ${cfg.use_do_not_disturb ? html`
+                <div class="form-group">
+                  <label>${t("Quiet hours")}</label>
+                  <div class="time-range-row">
+                    <input
+                      id="dc-quiet_hours_start"
+                      type="time"
+                      class="native-input"
+                      .value=${String(cfg.quiet_hours_start ?? "")}
+                      @input=${(e) => {
+                        this._deviceConfigForm = { ...this._deviceConfigForm, quiet_hours_start: e.target.value };
+                        this.requestUpdate();
+                      }}
+                    />
+                    <span class="time-range-sep">&ndash;</span>
+                    <input
+                      id="dc-quiet_hours_end"
+                      type="time"
+                      class="native-input"
+                      .value=${String(cfg.quiet_hours_end ?? "")}
+                      @input=${(e) => {
+                        this._deviceConfigForm = { ...this._deviceConfigForm, quiet_hours_end: e.target.value };
+                        this.requestUpdate();
+                      }}
+                    />
+                  </div>
+                  <div class="field-hint">${t("Notification sounds are only played during this time window. Leave both fields empty to allow sounds at any time within the DND window.")}</div>
+                </div>
+              ` : ""}
             </div>
           </details>
 
@@ -223,33 +310,28 @@ class DeviceConfigDialog extends LitElement {
               </p>
               <div class="form-group">
                 <label>${t("Snapshot max age")}</label>
-                <ha-select
-                  id="dc-snapshot_max_age_mode"
-                  .value=${snapMode}
-                  .options=${[
-                    { value: "-1", label: t("Always restore") },
-                    { value: "0", label: t("Never restore") },
-                    { value: "custom", label: t("Custom time limit...") },
-                  ]}
-                  @selected=${(e) => {
-                    const mode = e.detail.value;
-                    let v;
-                    if (mode === "-1") v = -1;
-                    else if (mode === "0") v = 0;
-                    else v = (this._deviceConfigForm?.snapshot_max_age_seconds > 0)
-                      ? this._deviceConfigForm.snapshot_max_age_seconds
-                      : 60;
-                    this._deviceConfigForm = { ...this._deviceConfigForm, snapshot_max_age_seconds: v };
-                    this.requestUpdate();
-                  }}
-                ></ha-select>
+                ${renderSelect("dc-snapshot_max_age_mode", snapMode, [
+                  { value: "-1", label: t("Always restore") },
+                  { value: "0", label: t("Never restore") },
+                  { value: "custom", label: t("Custom time limit...") },
+                ], (v) => {
+                  let modeVal;
+                  if (v === "-1") modeVal = -1;
+                  else if (v === "0") modeVal = 0;
+                  else modeVal = (this._deviceConfigForm?.snapshot_max_age_seconds > 0)
+                    ? this._deviceConfigForm.snapshot_max_age_seconds
+                    : 60;
+                  this._deviceConfigForm = { ...this._deviceConfigForm, snapshot_max_age_seconds: modeVal };
+                  this.requestUpdate();
+                })}
                 <div class="field-hint">${t("Controls whether the last viewed panel is restored when waking from sleep or dimmed state.")}</div>
                 ${snapMode === "custom" ? html`
                   <div style="margin-top: 8px;">
-                    <ha-input
+                    <input
                       id="dc-snapshot_max_age_custom"
                       type="number"
-                      .inputMode="numeric"
+                      inputmode="numeric"
+                      class="native-input"
                       .value=${String(snapCustomVal)}
                       @input=${(e) => {
                         const v = parseInt(e.target.value, 10);
@@ -259,7 +341,7 @@ class DeviceConfigDialog extends LitElement {
                         };
                         this.requestUpdate();
                       }}
-                    ></ha-input>
+                    />
                     <div class="field-hint">${t("Maximum age in seconds before falling back to the home panel.")}</div>
                   </div>
                 ` : ""}
@@ -272,14 +354,10 @@ class DeviceConfigDialog extends LitElement {
 
         <div slot="footer" class="footer-wrapper">
           <div class="footer-toggle-wrapper">
-            <ha-switch
-              id="dc-enabled"
-              ?checked=${Boolean(cfg.enabled)}
-              @change=${(e) => {
-                this._deviceConfigForm = { ...this._deviceConfigForm, enabled: e.target.checked };
-                this.requestUpdate();
-              }}
-            ></ha-switch>
+            ${renderToggle("dc-enabled", Boolean(cfg.enabled), (checked) => {
+              this._deviceConfigForm = { ...this._deviceConfigForm, enabled: checked };
+              this.requestUpdate();
+            })}
             <label for="dc-enabled" style="margin-inline-start:8px;">${t("Device Enabled")}</label>
           </div>
           ${this._validationError ? html`

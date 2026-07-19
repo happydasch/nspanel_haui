@@ -42,20 +42,14 @@ _install_ha_stubs()
 
 import pytest  # noqa: E402
 from nspanel_haui.haui.mapping.const import (  # noqa: E402
-    ESPAction,
     NotificationAction,
 )
 from nspanel_haui.services import (  # noqa: E402
     DOMAIN,
     SERVICE_CLOSE_PANEL,
-    SERVICE_GOTO_PAGE,
     SERVICE_OPEN_PANEL,
-    SERVICE_PLAY_RTTTL,
-    SERVICE_PLAY_SOUND,
     SERVICE_RESET_LAST_INTERACTION,
-    SERVICE_SEND_COMMAND,
     SERVICE_SEND_NOTIFICATION,
-    SERVICE_SET_BRIGHTNESS,
     SERVICE_SLEEP,
     SERVICE_WAKEUP,
     _resolve_target_apps,
@@ -171,7 +165,7 @@ class TestRegisterServices:
     def test_registers_all_services(self, mock_hass):
         """All services are registered."""
         async_register_services(mock_hass)
-        assert mock_hass.services.async_register.call_count == 11
+        assert mock_hass.services.async_register.call_count == 6
 
     def test_idempotent(self, mock_hass):
         """Second call skips registration (has_service returns True)."""
@@ -189,12 +183,7 @@ class TestRegisterServices:
         assert SERVICE_CLOSE_PANEL in registered
         assert SERVICE_WAKEUP in registered
         assert SERVICE_SLEEP in registered
-        assert SERVICE_SET_BRIGHTNESS in registered
-        assert SERVICE_SEND_COMMAND in registered
-        assert SERVICE_GOTO_PAGE in registered
         assert SERVICE_SEND_NOTIFICATION in registered
-        assert SERVICE_PLAY_RTTTL in registered
-        assert SERVICE_PLAY_SOUND in registered
         assert SERVICE_RESET_LAST_INTERACTION in registered
 
 
@@ -230,7 +219,7 @@ async def test_open_panel_with_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
 
     await _handle_open_panel(mock_hass, call)
 
-    mock_esphome_ctrl.esphome.publish.assert_called_once_with(ESPAction.RESET_LAST_INTERACTION, "0")
+    mock_esphome_ctrl.esphome.publish.assert_called_once_with("reset_last_interaction", "0")
     mock_nav.open_panel.assert_called_once_with("alarm")
 
 
@@ -276,7 +265,7 @@ async def test_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
 
     await _handle_wakeup(mock_hass, call)
 
-    mock_esphome_ctrl.esphome.publish.assert_called_once_with(ESPAction.RESET_LAST_INTERACTION, "0")
+    mock_esphome_ctrl.esphome.publish.assert_called_once_with("reset_last_interaction", "0")
     mock_nav.open_wakeup_panel.assert_called_once()
 
 
@@ -300,53 +289,6 @@ async def test_sleep(mock_hass, mock_nav, mock_esphome_ctrl):
 async def test_set_brightness(mock_hass, mock_nav, mock_esphome_ctrl):
     """set_brightness publishes ESPAction.SET_BRIGHTNESS with intensity."""
     app = _make_app(mock_nav, mock_esphome_ctrl)
-    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
-
-    from nspanel_haui.services import _handle_set_brightness
-
-    call = MagicMock()
-    call.data = {"intensity": 75, "device_id": "dev_1"}
-
-    await _handle_set_brightness(mock_hass, call)
-
-    mock_esphome_ctrl.esphome.publish.assert_called_once_with(ESPAction.SET_BRIGHTNESS, "75")
-
-
-@pytest.mark.asyncio
-async def test_send_command(mock_hass, mock_nav, mock_esphome_ctrl):
-    """send_command publishes ESPAction.SEND_COMMAND with cmd."""
-    app = _make_app(mock_nav, mock_esphome_ctrl)
-    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
-
-    from nspanel_haui.services import _handle_send_command
-
-    call = MagicMock()
-    call.data = {"cmd": "page 0", "device_id": "dev_1"}
-
-    await _handle_send_command(mock_hass, call)
-
-    mock_esphome_ctrl.esphome.publish.assert_called_once_with(ESPAction.SEND_COMMAND, "page 0")
-
-
-@pytest.mark.asyncio
-async def test_goto_page(mock_hass, mock_nav, mock_esphome_ctrl):
-    """goto_page delegates to nav.goto_page with page ID."""
-    app = _make_app(mock_nav, mock_esphome_ctrl)
-    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
-
-    from nspanel_haui.services import _handle_goto_page
-
-    call = MagicMock()
-    call.data = {"page": 3, "device_id": "dev_1"}
-
-    await _handle_goto_page(mock_hass, call)
-
-    mock_nav.goto_page.assert_called_once_with(3)
-
-
-@pytest.mark.asyncio
-async def test_send_notification_basic(mock_hass, mock_nav, mock_esphome_ctrl):
-    """send_notification with no timeout/persistent uses SEND_NOTIFICATION."""
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
@@ -366,7 +308,8 @@ async def test_send_notification_basic(mock_hass, mock_nav, mock_esphome_ctrl):
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with(
         NotificationAction.SEND_NOTIFICATION,
-        {"title": "Doorbell", "message": "At the door", "icon": "mdi:bell"},
+        {"title": "Doorbell", "message": "At the door", "icon": "mdi:bell",
+         "notif_type": "info", "force_show": False},
     )
 
 
@@ -392,42 +335,9 @@ async def test_send_notification_persistent_with_timeout(mock_hass, mock_nav, mo
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with(
         NotificationAction.SEND_NOTIFICATION_PERSISTENT_WITH_TIMEOUT,
-        {"title": "Alarm", "message": "", "icon": "", "timeout": 30},
+        {"title": "Alarm", "message": "", "icon": "", "timeout": 30,
+         "notif_type": "info", "force_show": False},
     )
-
-
-@pytest.mark.asyncio
-async def test_play_rtttl(mock_hass, mock_nav, mock_esphome_ctrl):
-    """play_rtttl publishes ESPAction.PLAY_RTTTL with the song string."""
-    app = _make_app(mock_nav, mock_esphome_ctrl)
-    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
-
-    from nspanel_haui.services import _handle_play_rtttl
-
-    call = MagicMock()
-    call.data = {"song_str": "Beep:d=4,o=5,b=100:16e6", "device_id": "dev_1"}
-
-    await _handle_play_rtttl(mock_hass, call)
-
-    mock_esphome_ctrl.esphome.publish.assert_called_once_with(
-        ESPAction.PLAY_RTTTL, "Beep:d=4,o=5,b=100:16e6"
-    )
-
-
-@pytest.mark.asyncio
-async def test_play_sound(mock_hass, mock_nav, mock_esphome_ctrl):
-    """play_sound publishes ESPAction.PLAY_SOUND with the sound name."""
-    app = _make_app(mock_nav, mock_esphome_ctrl)
-    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
-
-    from nspanel_haui.services import _handle_play_sound
-
-    call = MagicMock()
-    call.data = {"name": "notification", "device_id": "dev_1"}
-
-    await _handle_play_sound(mock_hass, call)
-
-    mock_esphome_ctrl.esphome.publish.assert_called_once_with(ESPAction.PLAY_SOUND, "notification")
 
 
 @pytest.mark.asyncio
@@ -443,4 +353,4 @@ async def test_reset_last_interaction(mock_hass, mock_nav, mock_esphome_ctrl):
 
     await _handle_reset_last_interaction(mock_hass, call)
 
-    mock_esphome_ctrl.esphome.publish.assert_called_once_with(ESPAction.RESET_LAST_INTERACTION, "5")
+    mock_esphome_ctrl.esphome.publish.assert_called_once_with("reset_last_interaction", "5")

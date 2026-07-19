@@ -10,7 +10,6 @@ import { html } from './lit-import.js';
 import { t } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS, renderEntityPicker } from './haui-entity.js';
 import {
-  hasOverrides,
   detectItemType,
   parseItemValue,
   encodeItemValue,
@@ -27,11 +26,43 @@ import {
   parseFieldValue,
   scheduleTemplateRender,
   renderIconPicker,
+  renderSelect,
+  renderToggle,
   saveColor,
   renderColorPresets,
 } from './form-fields.js';
 import { parseRgbListToHex, hexToColorMatching } from './color-utils.js';
 import { formVal } from './dom-helpers.js';
+
+/* ── color popover helpers ──────────────────────────────────────────────── */
+
+/**
+ * Toggle a color popover, closing all others first.
+ * Also installs a one-shot document mousedown handler to close on outside
+ * click when the popover is opened.
+ * @param {Event} e - click event from the palette button
+ */
+function toggleColorPopover(e) {
+  const btn = e.currentTarget;
+  const root = btn.getRootNode();
+  // Close all other open color popovers in this shadow root
+  root.querySelectorAll(".color-popover.open").forEach(el => el.classList.remove("open"));
+  const pop = btn.closest(".form-group").querySelector(".color-popover");
+  if (!pop) return;
+  const wasOpen = pop.classList.contains("open");
+  pop.classList.toggle("open");
+  // When opening, install a one-shot outside-click handler
+  if (!wasOpen) {
+    const close = (ev) => {
+      if (!pop.contains(ev.target) && !btn.contains(ev.target)) {
+        pop.classList.remove("open");
+        document.removeEventListener("mousedown", close);
+      }
+    };
+    // Use setTimeout to avoid the current click event triggering the handler
+    setTimeout(() => document.addEventListener("mousedown", close), 0);
+  }
+}
 
 /* ── item list row (shared by all item list UIs) ─────────────────────── */
 
@@ -81,9 +112,6 @@ export function renderItemListRow(host, item, actions, flags = {}) {
           ${showTypeChip
             ? ''
             : html`<span class="item-row-chip">${typeLabel}</span>`}
-          ${hasOverrides(item)
-            ? html`<span class="item-list-override-badge" title=${t("Has override fields")}>⚙</span>`
-            : ''}
         </div>
         ${secondary
           ? html`<div class="item-row-secondary">${secondary}</div>`
@@ -166,17 +194,9 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
           if (choices) {
             return html`
               <div class="list-item-row">
-                <ha-select
-                  class="w-full"
-                  .value=${String(val)}
-                  .options=${choices.map((c) =>
-                    Array.isArray(c) ? { value: c[0], label: c[1] } : c
-                  )}
-                  @selected=${(e) => {
-                    mutate((arr) => { arr[i] = e.detail.value; });
-                  }}
-                  @closed=${(e) => e.stopPropagation()}
-                ></ha-select>
+                ${renderSelect(`${id}-${i}`, val, choices, (v) => {
+                  mutate((arr) => { arr[i] = v; });
+                })}
                 ${rem}
               </div>
             `;
@@ -204,13 +224,13 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
           return html`
             <div class="list-item-row">
               ${rem}
-              <ha-input
-                class="w-full"
+              <input
+                class="native-input"
                 .value=${String(val != null ? val : "")}
                 @input=${(e) => {
                   mutate((arr) => { arr[i] = e.target.value; });
                 }}
-              ></ha-input>
+              />
             </div>
           `;
         })}
@@ -366,11 +386,7 @@ function renderItemOptionField(host, opt, currentValue) {
       return html`
         <div class="checkbox-wrap">
           <div class="checkbox-row">
-            <ha-switch
-              id=${id}
-              ?checked=${Boolean(val)}
-              @change=${(e) => setVal(e.target.checked)}
-            ></ha-switch>
+            ${renderToggle(id, val, setVal)}
             <label for=${id} title=${opt.description}>${opt.label}</label>
           </div>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
@@ -381,14 +397,15 @@ function renderItemOptionField(host, opt, currentValue) {
       return html`
         <div class="form-group">
           <label for=${id} title=${opt.description}>${opt.label}</label>
-          <ha-input
+          <input
             id=${id}
             type="number"
-            .inputMode="numeric"
+            inputmode="numeric"
             step="1"
+            class="native-input"
             .value=${String(val != null ? val : "")}
             @input=${(e) => { setVal(parseInt(e.target.value, 10) || 0); }}
-          ></ha-input>
+          />
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
         </div>
       `;
@@ -397,76 +414,69 @@ function renderItemOptionField(host, opt, currentValue) {
       const colorHex = parseRgbListToHex(val);
       const displayStr = formatFieldValue(val);
       const hasTpl = displayStr.includes("{{");
-      const handlePresetPick = (hex) => {
-        const prevVal = host._editingItem?.config?.[opt.key];
-        const newVal = hexToColorMatching(hex, prevVal);
-        setVal(newVal);
-        saveColor(hex);
-      };
       return html`
-        <div class="form-group color-form-group">
+        <div class="form-group">
           <label for=${id} title=${opt.description}>${opt.label}</label>
-          <div class="color-picker-wrap">
-            <ha-input id=${id} .value=${displayStr}
+          <div class="field-row">
+            <div class="input-preview-wrap">
+              <div class="cp-sw input-preview" style="pointer-events:auto;background-color:${colorHex || "#888"};border-radius:4px;border:1px solid rgba(0,0,0,0.18);"
+                title=${colorHex || t("no color")}
+                @click=${(e) => {
+                  const inp = e.currentTarget.querySelector("input[type=color]");
+                  if (inp) inp.click();
+                }}
+              >
+                <input type="color" .value=${colorHex || "#000000"}
+                  @input=${(e) => {
+                    const hex = e.target.value;
+                    const prevVal = host._editingItem?.config?.[opt.key];
+                    const newVal = hexToColorMatching(hex, prevVal);
+                    saveColor(hex);
+                    setVal(newVal);
+                  }}
+                />
+              </div>
+              <input
+                id=${id}
+                class="native-input"
+                .value=${displayStr}
               @input=${(e) => {
                 const raw = e.target.value;
                 if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
                 setVal(parseFieldValue(raw));
               }}
               @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
-            ></ha-input>
-            <ha-icon-button
-              class="color-picker-btn"
-              @click=${(e) => {
-                const wrap = e.target.closest(".color-picker-wrap");
-                const input = wrap?.querySelector("input[type=color]");
-                if (input) input.click();
-              }}
-              title=${t("Pick color")}
-            >
-              <ha-icon icon="mdi:palette"></ha-icon>
-            </ha-icon-button>
-            <input
-              type="color"
-              class="color-input-hidden"
-              .value=${colorHex || "#000000"}
-              @input=${(e) => {
-                const hex = e.target.value;
-                const prevVal = host._editingItem?.config?.[opt.key];
-                const newVal = hexToColorMatching(hex, prevVal);
-                saveColor(hex);
-                setVal(newVal);
-              }}
             />
+            </div>
+            <ha-icon-button class="color-picker-btn"
+              @click=${toggleColorPopover}
+              title=${t("Presets")}
+            >
+              <ha-icon icon="mdi:palette-swatch-outline"></ha-icon>
+            </ha-icon-button>
           </div>
-          ${!hasTpl && val != null && val !== ""
-            ? html`
-                <div class="color-preview-row">
-                  <div class="color-preview-swatch" style=${`background-color:${colorHex || "#888888"}`}></div>
-                  <span class="color-preview-label">${colorHex || t("no color")}</span>
-                </div>`
-            : ""}
-          ${!hasTpl ? renderColorPresets(colorHex, handlePresetPick) : ""}
+          <div class="color-popover" @click=${(e) => e.stopPropagation()}>
+            ${!hasTpl ? renderColorPresets(colorHex, (hex) => {
+              const prevVal = host._editingItem?.config?.[opt.key];
+              const newVal = hexToColorMatching(hex, prevVal);
+              saveColor(hex);
+              setVal(newVal);
+              const el = e.currentTarget.closest(".color-popover");
+              if (el) el.classList.remove("open");
+            }) : ""}
+          </div>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
           <div class="template-preview" ?hidden=${!hasTpl}>
             <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
           </div>
-        </div>
-      `;
+        </div>`;
     }
 
     case "select":
       return html`
         <div class="form-group">
           <label for=${id} title=${opt.description}>${opt.label}</label>
-          <ha-select
-            id=${id}
-            .value=${String(val != null ? val : "")}
-            .options=${(opt.choices || []).map((c) =>
-              Array.isArray(c) ? { value: c[0], label: c[1] } : c
-            )}
-            @selected=${(e) => { setVal(e.detail.value); }}
-          ></ha-select>
+          ${renderSelect(id, val, opt.choices || [], setVal)}
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
         </div>
       `;
@@ -476,16 +486,16 @@ function renderItemOptionField(host, opt, currentValue) {
       return html`
         <div class="form-group">
           <label for=${id} title=${opt.description}>${opt.label}</label>
-          <ha-input
+          <input
             id=${id}
+            class="native-input"
             .value=${String(val != null ? val : "")}
-            class="w-full"
             @input=${(e) => {
               if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target);
               setVal(e.target.value);
             }}
             @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
-          ></ha-input>
+          />
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
           ${host.hass
             ? html`
@@ -497,6 +507,120 @@ function renderItemOptionField(host, opt, currentValue) {
         </div>
       `;
   }
+}
+
+/* ── promoted field helper (name, icon, color) ──────────────────── */
+
+/**
+ * Render a single promoted field (name, icon, or color) for the inline
+ * item editor. These sit above the Advanced fold so users see them immediately.
+ */
+function renderPromotedField(host, ee, f, label, hint) {
+  if (f === 'color') {
+    const cv = ee.config?.[f];
+    const cHex = parseRgbListToHex(cv);
+    const displayStr = formatFieldValue(cv);
+    const hasTpl = displayStr.includes("{{");
+    return html`
+      <div class="form-group">
+        <label for="item-${f}" title=${hint}>${label}</label>
+        <div class="field-row">
+          <div class="input-preview-wrap">
+            <div class="cp-sw input-preview" style="pointer-events:auto;background-color:${cHex || "#888"};border-radius:4px;border:1px solid rgba(0,0,0,0.18);"
+              title=${cHex || t("no color")}
+              @click=${(e) => {
+                const inp = e.currentTarget.querySelector("input[type=color]");
+                if (inp) inp.click();
+              }}
+            >
+              <input type="color" .value=${cHex || "#000000"}
+                @input=${(e) => {
+                  const hex = e.target.value;
+                  const prevVal = host._editingItem?.config?.[f];
+                  const newVal = hexToColorMatching(hex, prevVal);
+                  saveColor(hex);
+                  host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: newVal } };
+                  setTimeout(() => host.requestUpdate(), 0);
+                }}
+              />
+            </div>
+            <input
+              id="item-${f}"
+              class="native-input"
+              .value=${displayStr}
+            @input=${(e) => {
+              const raw = e.target.value;
+              if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
+              host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
+              setTimeout(() => host.requestUpdate(), 0);
+            }}
+            @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
+          />
+          </div>
+          <ha-icon-button class="color-picker-btn"
+            @click=${toggleColorPopover}
+            title=${t("Presets")}
+          >
+            <ha-icon icon="mdi:palette-swatch-outline"></ha-icon>
+          </ha-icon-button>
+        </div>
+        <div class="color-popover" @click=${(e) => e.stopPropagation()}>
+          ${!hasTpl ? renderColorPresets(cHex, (hex) => {
+            const prevVal = host._editingItem?.config?.[f];
+            const newVal = hexToColorMatching(hex, prevVal);
+            host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: newVal } };
+            saveColor(hex);
+            const el = e.currentTarget.closest(".color-popover");
+            if (el) el.classList.remove("open");
+            setTimeout(() => host.requestUpdate(), 0);
+          }) : ""}
+        </div>
+        ${hasTpl ? html`<div class="template-preview"><span id="tp-item-${f}">...</span></div>` : html`<div class="template-preview" hidden><span id="tp-item-${f}"></span></div>`}
+      </div>`;
+  }
+  if (f === 'icon') {
+    const rawIcon = ee.config?.[f];
+    const displayStr = formatFieldValue(rawIcon) || "";
+    const showDictPreview = rawIcon != null && typeof rawIcon === "object" && !Array.isArray(rawIcon);
+    const dictPreviewText = showDictPreview
+      ? t("State-keyed") + ": " + Object.entries(rawIcon).map(([k, v]) => `${k} → ${v}`).join(", ")
+      : "";
+    return html`
+      <div class="form-group">
+        <label for="item-${f}" title=${hint}>${label}</label>
+        ${renderIconPicker(`item-${f}`, displayStr, host.hass, (newVal) => {
+          host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(newVal) } };
+          setTimeout(() => host.requestUpdate(), 0);
+        })}
+        <div class="state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
+      </div>`;
+  }
+  const rawVal = ee.config?.[f];
+  const displayStr = formatFieldValue(rawVal);
+  const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
+  const dictPreviewText = showDictPreview
+    ? t("State-keyed") + ": " + Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", ")
+    : "";
+  const hasTpl = displayStr.includes("{{");
+  return html`
+    <div class="form-group">
+      <label for="item-${f}" title=${hint}>${label}</label>
+      <input id="item-${f}" .value=${displayStr} class="native-input"
+        @input=${(e) => {
+          const raw = e.target.value;
+          if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
+          host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
+          setTimeout(() => host.requestUpdate(), 0);
+        }}
+        @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
+      />
+      ${host.hass
+        ? html`<div class="template-preview" ?hidden=${!hasTpl}>
+            <span id="tp-item-${f}">${hasTpl ? "..." : ""}</span>
+          </div>`
+        : ""}
+      <div class="state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
+    </div>`;
 }
 
 /* ── inline item edit form ──────────────────────────────────────────── */
@@ -524,21 +648,16 @@ export function renderItemEditFields(host, descriptor) {
     <div class="item-edit-inline" id="${uid}">
       <div class="form-group">
         <label for="item-type" title=${t("Type of item this entity slot represents")}>${t("Type")}</label>
-        <ha-select
-          id="item-type"
-          .value=${itemType}
-          .options=${[
-            { value: ITEM_TYPE.ENTITY_ID, label: t("Entity") },
-            { value: ITEM_TYPE.SKIP, label: t("Skip") },
-            { value: ITEM_TYPE.TEXT, label: t("Text") },
-            { value: ITEM_TYPE.NAVIGATE, label: t("Navigate") },
-            { value: ITEM_TYPE.ACTION, label: t("Action") },
-          ]}
-          @selected=${(e) => {
-            host._editingItemType = e.detail.value;
-            host.requestUpdate();
-          }}
-        ></ha-select>
+        ${renderSelect("item-type", itemType, [
+          { value: ITEM_TYPE.ENTITY_ID, label: t("Entity") },
+          { value: ITEM_TYPE.SKIP, label: t("Skip") },
+          { value: ITEM_TYPE.TEXT, label: t("Text") },
+          { value: ITEM_TYPE.NAVIGATE, label: t("Navigate") },
+          { value: ITEM_TYPE.ACTION, label: t("Action") },
+        ], (v) => {
+          host._editingItemType = v;
+          host.requestUpdate();
+        })}
       </div>
 
       <div class="form-group">
@@ -574,9 +693,9 @@ export function renderItemEditFields(host, descriptor) {
           }
           return html`
             <label for="item-entity" title=${`${info.label} — ${t("enter an entity ID, panel key, service name, or custom text")}`}>${info.label}</label>
-            <ha-input
+            <input
               id="item-entity"
-              class="w-full"
+              class="native-input"
               .value=${itemValue}
               placeholder=${info.placeholder}
               @input=${(e) => {
@@ -585,10 +704,10 @@ export function renderItemEditFields(host, descriptor) {
                   ...host._editingItem,
                   config: { ...host._editingItem.config, item: e.target.value },
                 };
-                host.requestUpdate();
+                setTimeout(() => host.requestUpdate(), 0);
               }}
               @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-entity`, e.target); }}
-            ></ha-input>
+            />
             ${host.hass
               ? html`<div class="template-preview" ?hidden=${!(String(itemValue).includes("{{"))}>
                   <span id="tp-item-entity">${(String(itemValue).includes("{{")) ? "..." : ""}</span>
@@ -598,6 +717,11 @@ export function renderItemEditFields(host, descriptor) {
         })()}
       </div>
 
+      ${[/* ── name, icon, color — promoted above Advanced fold ── */
+        { f: 'name', label: t("Name"), hint: t("Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel.") },
+        { f: 'icon', label: t("Icon"), hint: t("An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon.") },
+        { f: 'color', label: t("Color"), hint: t("A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0-65535), or a Home Assistant template that overrides the default entity color.") },
+      ].map(fd => renderPromotedField(host, ee, fd.f, fd.label, fd.hint))}
       <div
         class="collapsible-title"
         @click=${(e) => {
@@ -612,139 +736,50 @@ export function renderItemEditFields(host, descriptor) {
         ${t("Advanced")}
       </div>
       <div class="item-advanced-section">
-        ${ENTITY_OVERRIDE_FIELDS.filter(f => f !== 'service_data').map(
+        ${ENTITY_OVERRIDE_FIELDS.filter(f => f !== 'service_data' && f !== 'name' && f !== 'icon' && f !== 'color').map(
           (f) => {
             const fieldLabels = {
-              name: t("Name"),
-              icon: t("Icon"),
-              color: t("Color"),
               value: t("Value"),
               state: t("State"),
               popup_key: t("Popup key"),
             };
             const hints = {
-              name: t("Custom display name or Home Assistant template ({{ ... }}) that replaces the default entity name shown on the panel."),
-              icon: t("An MDI icon name (e.g., mdi:lightbulb) or a Home Assistant template that overrides the default entity icon."),
-              color: t("A CSS hex color (#rrggbb), RGB triplet ([r,g,b]), RGB565 integer (0-65535), or a Home Assistant template that overrides the default entity color."),
               value: t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
               state: t("A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display."),
               popup_key: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior."),
             };
+            const typedFields = new Set(["value", "state"]);
+            const isTyped = typedFields.has(f);
+            const rawVal = ee.config?.[f];
+            const displayStr = formatFieldValue(rawVal);
+            const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
+            const dictPreviewText = showDictPreview
+              ? t("State-keyed") + ": " + Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", ")
+              : "";
             return html`
               <div class="form-group">
                 <label for="item-${f}" title=${hints[f]}>${fieldLabels[f]}</label>
-                ${f === "color"
-                  ? (() => {
-                    const cv = ee.config?.[f];
-                    const cHex = parseRgbListToHex(cv);
-                    const displayStr = formatFieldValue(cv);
-                    const hasTpl = displayStr.includes("{{");
-                    const handlePresetPick = (hex) => {
-                      const prevVal = host._editingItem?.config?.[f];
-                      const newVal = hexToColorMatching(hex, prevVal);
-                      host._editingItem = {
-                        ...host._editingItem,
-                        config: { ...host._editingItem.config, [f]: newVal },
-                      };
-                      saveColor(hex);
-                      host.requestUpdate();
+                <input
+                  id="item-${f}"
+                  class="native-input"
+                  .value=${displayStr}
+                  @input=${(e) => {
+                    const raw = e.target.value;
+                    if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
+                    host._editingItem = {
+                      ...host._editingItem,
+                      config: { ...host._editingItem.config, [f]: isTyped ? parseFieldValue(raw) : raw },
                     };
-                    return html`
-                      <div class="color-picker-wrap">
-                        <ha-input
-                          id="item-${f}"
-                          .value=${displayStr}
-                          @input=${(e) => {
-                            const raw = e.target.value;
-                            if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
-                            host._editingItem = {
-                              ...host._editingItem,
-                              config: { ...host._editingItem.config, [f]: parseFieldValue(raw) },
-                            };
-                            host.requestUpdate();
-                          }}
-                          @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
-                        ></ha-input>
-                        <ha-icon-button
-                          class="color-picker-btn"
-                          @click=${(e) => {
-                            const wrap = e.target.closest(".color-picker-wrap");
-                            const input = wrap?.querySelector("input[type=color]");
-                            if (input) input.click();
-                          }}
-                          title=${t("Pick color")}
-                        >
-                          <ha-icon icon="mdi:palette"></ha-icon>
-                        </ha-icon-button>
-                        <input
-                          type="color"
-                          class="color-input-hidden"
-                          .value=${cHex}
-                          @input=${(e) => {
-                            const hex = e.target.value;
-                            const prevVal = host._editingItem?.config?.[f];
-                            const newVal = hexToColorMatching(hex, prevVal);
-                            saveColor(hex);
-                            host._editingItem = {
-                              ...host._editingItem,
-                              config: { ...host._editingItem.config, [f]: newVal },
-                            };
-                            host.requestUpdate();
-                          }}
-                        />
-                      </div>
-                      ${!hasTpl && cv != null && cv !== ""
-                        ? html`<div class="color-preview-row">
-                            <div class="color-preview-swatch" style=${`background-color:${cHex || "#888888"}`}></div>
-                            <span class="color-preview-label">${cHex || t("no color")}</span>
-                          </div>`
-                        : ""}
-                      ${!hasTpl ? renderColorPresets(cHex, handlePresetPick) : ""}
-                      <div class="template-preview" ?hidden=${!hasTpl}>
-                        <span id="tp-item-${f}">${hasTpl ? "..." : ""}</span>
-                      </div>
-                    `;
-                  })()
-                  : f === "icon"
-                  ? renderIconPicker(`item-${f}`, ee.config?.[f] || "", host.hass, (newVal) => {
-                      host._editingItem = {
-                        ...host._editingItem,
-                        config: { ...host._editingItem.config, [f]: newVal },
-                      };
-                      host.requestUpdate();
-                    })
-                  : (() => {
-                      const typedFields = new Set(["value", "state"]);
-                      const isTyped = typedFields.has(f);
-                      const rawVal = ee.config?.[f];
-                      const displayStr = isTyped
-                        ? formatFieldValue(rawVal)
-                        : (rawVal != null ? String(rawVal) : "");
-                      return html`
-                        <ha-input
-                          id="item-${f}"
-                          .value=${displayStr}
-                          class="w-full"
-                          @input=${(e) => {
-                            const raw = e.target.value;
-                            if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
-                            host._editingItem = {
-                              ...host._editingItem,
-                              config: { ...host._editingItem.config, [f]: isTyped ? parseFieldValue(raw) : raw },
-                            };
-                            host.requestUpdate();
-                          }}
-                          @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
-                        ></ha-input>
-                        ${host.hass
-                          ? html`<div class="template-preview" ?hidden=${!displayStr.includes("{{")}>
-                              <span id="tp-item-${f}">${displayStr.includes("{{") ? "..." : ""}</span>
-                            </div>`
-                          : ""}
-                      `;
-                    })()
-                }
-                <div class="field-hint">${hints[f]}</div>
+                    setTimeout(() => host.requestUpdate(), 0);
+                  }}
+                  @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
+                />
+                ${host.hass
+                  ? html`<div class="template-preview" ?hidden=${!displayStr.includes("{{")}>
+                      <span id="tp-item-${f}">${displayStr.includes("{{") ? "..." : ""}</span>
+                    </div>`
+                  : ""}
+                <div class="state-keyed-preview" ?hidden=${!showDictPreview}>${dictPreviewText}</div>
               </div>
             `;
           }
@@ -769,24 +804,34 @@ export function renderItemEditFields(host, descriptor) {
                   host._editingItem = host._editingItem
                     ? { ...host._editingItem, config: { ...host._editingItem.config, service_data: parsed } }
                     : { config: { service_data: parsed } };
-                  host.requestUpdate();
+                  setTimeout(() => host.requestUpdate(), 0);
                 }}
                 placeholder='{"vacuum_repeat": 1, "mode": "turbo"}'
               ></textarea>
               <div class="field-hint">${t("JSON object passed as service_data when calling the action. Keys are available as template variables in scripts. Example: {\\\"vacuum_repeat\\\": 2}")}</div>
             </div>`
           : ""}
-        ${descriptor?.item_options?.length
-          ? descriptor.item_options.map((itemKey) => {
-              const opt = descriptor.options.find(o => o.key === itemKey);
-              if (!opt) return "";
-              return renderItemOptionField(
-                host,
-                { key: opt.key, kind: opt.kind, label: opt.label, description: opt.description, choices: opt.choices },
-                ee.config?.[itemKey]
-              );
-            })
-          : ""}
+        ${(() => {
+          if (!descriptor?.item_options?.length) return "";
+          return descriptor.item_options.map((itemKey) => {
+            let opt = descriptor.options.find(o => o.key === itemKey);
+            if (!opt) {
+              // Infer field type from key name when no PageOption entry exists
+              const kind = itemKey.includes("color") ? "color"
+                : itemKey.startsWith("show_") || itemKey.startsWith("is_") || itemKey.startsWith("enable_") ? "bool"
+                : "str";
+              const label = itemKey
+                .replace(/_/g, " ")
+                .replace(/\b\w/g, c => c.toUpperCase());
+              opt = { key: itemKey, kind, label, description: "", choices: null };
+            }
+            return renderItemOptionField(
+              host,
+              { key: opt.key, kind: opt.kind, label: opt.label, description: opt.description, choices: opt.choices },
+              ee.config?.[itemKey]
+            );
+          });
+        })()}
       </div>
 
       <div class="item-edit-actions">

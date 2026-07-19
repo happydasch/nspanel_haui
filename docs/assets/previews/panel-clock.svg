@@ -1,8 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#000" stroke="#444" stroke-width="1.5"/>
-  <text x="80" y="52" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="34" font-weight="bold">10:45</text>
-  <text x="80" y="72" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="8">Tuesday, March 25</text>
-  <!-- Date info -->
-  <rect x="45" y="82" width="70" height="17" rx="4" fill="#222"/>
-  <text x="80" y="93" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="7">Week 13 · 2026</text>
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#000"/>
+  <!-- Weather top-left -->
+  <text x="8" y="10" fill="#3b82f6" font-family="sans-serif" font-size="7" font-weight="bold">24°</text>
+  <text x="8" y="18" fill="#888" font-family="sans-serif" font-size="5">1023hPa</text>
+  <!-- Weather icon top-right -->
+  <circle cx="148" cy="12" r="6" fill="#3b82f6" opacity="0.5"/>
+  <!-- Big time -->
+  <text x="80" y="60" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="38" font-weight="bold">10:45</text>
+  <!-- Date -->
+  <text x="80" y="78" text-anchor="middle" fill="#888" font-family="sans-serif" font-size="8">Tuesday, March 25</text>
+  <!-- 6 entity buttons at bottom -->
+  <rect x="8" y="104" width="20" height="12" rx="2" fill="rgba(255,255,255,0.06)"/>
+  <rect x="34" y="104" width="20" height="12" rx="2" fill="rgba(255,255,255,0.06)"/>
+  <rect x="60" y="104" width="20" height="12" rx="2" fill="rgba(255,255,255,0.06)"/>
+  <rect x="86" y="104" width="20" height="12" rx="2" fill="rgba(255,255,255,0.06)"/>
+  <rect x="112" y="104" width="20" height="12" rx="2" fill="rgba(255,255,255,0.06)"/>
+  <rect x="138" y="104" width="20" height="12" rx="2" fill="rgba(255,255,255,0.06)"/>
 </svg>

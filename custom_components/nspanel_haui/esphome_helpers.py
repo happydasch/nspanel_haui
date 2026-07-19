@@ -17,18 +17,6 @@ _HAUI_PROJECT_NAME = "happydasch.nspanel_haui"
 _HAUI_MANUFACTURER = "happydasch"
 _HAUI_MODEL = "nspanel_haui"
 
-# ESPHome custom services that identify HAUI firmware (service-based fallback)
-_HAUI_SERVICES: frozenset[str] = frozenset(
-    {
-        "haui_discover",
-        "send_command",
-        "send_commands",
-        "goto_page",
-        "upload_tft_url",
-        "set_brightness",
-    }
-)
-
 
 def normalize_device_name(name: str) -> str:
     """Normalize a device name for fuzzy comparison."""
@@ -69,6 +57,9 @@ def find_esphome_device(hass, device_name: str) -> str | None:
         for entity in er.entities.values():
             if entity.platform == "esphome":
                 if normalized_device_name in normalize_device_name(entity.name or ""):
+                    # Return the config entry ID from the matched entity
+                    if entity.config_entry_id:
+                        return entity.config_entry_id
                     return None  # confirmed match, entry_id not available
     except (AttributeError, KeyError, TypeError):
         _LOGGER.debug("Error in find_esphome_device fallback lookup", exc_info=True)
@@ -86,8 +77,10 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
        across HA restarts even when the device is offline.
     2. ``entry.runtime_data.device_info`` (only populated while the device
        is connected via the ESPHome API).
-    3. ``entry.runtime_data.services`` for HAUI-specific custom actions.
-    4. HA service registry (services persist after disconnect).
+    3. Entity registry: look up entities tied to this config entry and check
+       if their device registry entry has HAUI identifiers. Entity + device
+       registry entries persist across HA restarts, so this works for devices
+       that have connected at least once but are currently offline.
     """
     # Strategy 1: device registry — authoritative, works offline.
     try:
@@ -122,30 +115,7 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
         except (AttributeError, KeyError, TypeError):
             _LOGGER.debug("is_haui_device device_info check failed", exc_info=True)
 
-        # Strategy 3: runtime_data services.
-        try:
-            if hasattr(runtime_data, "services"):
-                for svc in runtime_data.services.values():
-                    if hasattr(svc, "name") and svc.name in _HAUI_SERVICES:
-                        return True
-        except (AttributeError, KeyError, TypeError):
-            _LOGGER.debug("is_haui_device service check failed", exc_info=True)
-
-    # Strategy 4: HA service registry.
-    try:
-        device_name: str = entry.data.get("device_name", "")
-        if device_name:
-            sanitized = device_name.lower().replace("-", "_")
-            esphome_services = hass.services.async_services().get("esphome", {})
-            for svc_name in esphome_services:
-                if svc_name.startswith(f"{sanitized}_") and any(
-                    svc_name.endswith(f"_{s}") for s in _HAUI_SERVICES
-                ):
-                    return True
-    except (AttributeError, KeyError, TypeError):
-        _LOGGER.debug("is_haui_device service registry check failed", exc_info=True)
-
-    # Strategy 5: entity registry — look up entities tied to this config
+    # Strategy 3: entity registry — look up entities tied to this config
     # entry and check if their device registry entry has HAUI identifiers.
     # Entity + device registry entries persist across HA restarts (stored
     # in the HA database), so this works for devices that have connected at
@@ -207,12 +177,54 @@ def resolve_ha_device_id(hass: Any, node_name: str) -> str | None:
     return None
 
 
+def lookup_device_registry_name(hass: Any, node_name: str) -> str:
+    """Resolve an ESPHome node name to the ESPHome device registry name.
+
+    The ESPHome device is the physical NSPanel the user sees and renames
+    via Home Assistant → Settings → Devices & Services.  This is the
+    name the frontend should display.
+
+    Returns ``name_by_user`` (user-customized), then ``name``, then
+    ``node_name`` as-is.
+    """
+    sanitized = normalize_device_name(node_name)
+    if not sanitized:
+        return node_name
+
+    try:
+        from homeassistant.helpers import device_registry as dr
+        dev_reg = dr.async_get(hass)
+    except (ImportError, AttributeError):
+        return node_name
+
+    try:
+        for entry in hass.config_entries.async_entries("esphome"):
+            dev_name = entry.data.get("device_name", "")
+            if normalize_device_name(dev_name) != sanitized:
+                continue
+
+            entry_id = getattr(entry, "entry_id", None)
+            if entry_id:
+                for dev_entry in dr.async_entries_for_config_entry(
+                    dev_reg, entry_id
+                ):
+                    if dev_entry.name_by_user:
+                        return dev_entry.name_by_user
+                    if dev_entry.name:
+                        return dev_entry.name
+            break
+    except (AttributeError, KeyError, TypeError):
+        pass
+
+    return node_name
+
+
 async def discover_esphome_devices(hass: Any, *, _is_retry: bool = False) -> list[dict]:
     """Discover NSPanel devices via ESPHome config entries.
 
     Only returns devices confirmed to have HAUI firmware installed.
     Iterates ESPHome config entries and returns a list of device dicts with
-    ``name`` and ``esphome_device_id`` keys.
+    ``name``, ``friendly_name``, and ``esphome_device_id`` keys.
 
     Retries once after a short delay if no devices are found and this is
     the first call (services may not be registered yet at startup).
@@ -225,10 +237,14 @@ async def discover_esphome_devices(hass: Any, *, _is_retry: bool = False) -> lis
         name = entry.data.get("device_name") or (
             device.get("name") if isinstance(device, dict) else None
         )
+
+        friendly_name = lookup_device_registry_name(hass, name or "")
+        name = name or entry.title or entry.entry_id
+
         devices.append(
             {
-                "name": name or entry.title or entry.entry_id,
-                "friendly_name": entry.title or name or entry.entry_id,
+                "name": name,
+                "friendly_name": friendly_name,
                 "esphome_device_id": entry.entry_id,
             }
         )

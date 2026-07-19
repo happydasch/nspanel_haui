@@ -16,7 +16,6 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, NotifEvent, SysPanelKey
-from ..mapping.page import PAGE_MAPPING
 from .mixins.button_state_mixin import ButtonStateMixin
 from .mixins.component_mixin import ComponentMixin
 from .mixins.function_btn_mixin import FunctionButtonMixin
@@ -456,10 +455,14 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             self.stop_panel(self.panel)
         self.panel = panel
         if panel is None:
+            from ..mapping.page import PAGE_MAPPING
+
             self.log(f"Page {PAGE_MAPPING.get(self.page_id)} | closed")
             return
         panel_key = panel.get("key", "")
         panel_type = panel.get_type()
+        from ..mapping.page import PAGE_MAPPING
+
         self.log(f"Page {PAGE_MAPPING.get(self.page_id)} | Panel: {panel_key} ({panel_type})")
 
         # Batch ALL commands from start_panel, config_panel, and render_panel
@@ -966,24 +969,26 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         # read response — route to registered slider / text handler
         elif event.name == ESPResponse.READ_RESPONSE:
             self._process_read_response(event)
-        # notification indicator — the badge lives on the left-secondary button
+        # notification indicator — the badge lives on the right-secondary button
         # when its fnc_name is NAV_NOTIF (set by _auto_assign_fncs).
-        if self.FNC_BTN_L_SEC in self._fnc_items:
-            left_sec = self._fnc_items[self.FNC_BTN_L_SEC]
-            if left_sec["fnc_name"] == self.FNC_TYPE_NAV_NOTIF and event.name in [
-                NotifEvent.NOTIF_ADD,
-                NotifEvent.NOTIF_REMOVE,
-                NotifEvent.NOTIF_CLEAR,
-            ]:
-                if event.name == NotifEvent.NOTIF_ADD:
-                    color = self.get_color("header_accent")
-                else:
-                    color = self.get_color("component_text")
+        if event.name in [
+            NotifEvent.NOTIF_ADD,
+            NotifEvent.NOTIF_REMOVE,
+            NotifEvent.NOTIF_CLEAR,
+        ]:
+            notif_slot = None
+            if self.FNC_BTN_R_SEC in self._fnc_items:
+                sec = self._fnc_items[self.FNC_BTN_R_SEC]
+                if sec["fnc_name"] == self.FNC_TYPE_NAV_NOTIF:
+                    notif_slot = self.FNC_BTN_R_SEC
+            if notif_slot is not None:
                 notification = self.app.controller["notification"]
-                visible = False
-                if notification.has_notifications():
-                    visible = True
-                self.update_function_component(self.FNC_BTN_L_SEC, color=color, visible=visible)
+                visible = notification.has_notifications()
+                color = (
+                    self.get_color("header_accent")
+                    if visible else self.get_color("component_text")
+                )
+                self.update_function_component(notif_slot, color=color, visible=visible)
 
     def set_slider_color(self, slider: Component, show_toggle: bool = True) -> None:
         """Set the slider handle color to ``component_active_dark``.

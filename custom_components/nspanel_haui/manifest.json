@@ -1,7 +1,7 @@
 {
   "domain": "nspanel_haui",
   "name": "NSPanel HAUI",
-  "after_dependencies": ["zeroconf", "dhcp", "http"],
+  "after_dependencies": ["zeroconf", "dhcp", "http", "esphome"],
   "codeowners": ["@happydasch"],
   "config_flow": true,
   "dhcp": [{"registered_devices": true}],

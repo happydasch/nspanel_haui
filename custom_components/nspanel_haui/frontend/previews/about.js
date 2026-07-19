@@ -1,5 +1,9 @@
 /**
  * NSPanel HAUI - Panel preview: System About.
+ *
+ * Device layout: device info text (tAbout1, tAbout2),
+ * version info pairs (tTftVers/Val, tYamlVers/Val, tADVers/Val).
+ * All font:0 regular.
  */
 import { html } from '../lit-import.js';
 

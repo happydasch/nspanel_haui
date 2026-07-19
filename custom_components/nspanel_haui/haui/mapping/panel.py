@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 from ..abstract.component import ComponentRegistry
-from ..mapping.const import SysPanelKey
-
-# system panels
 from ..page.about import AboutPage
 from ..page.alarm import AlarmPage
 from ..page.blank import BlankPage
@@ -14,7 +11,7 @@ from ..page.cover import CoverPage
 from ..page.grid import GridPage
 from ..page.light import LightPage
 from ..page.media import MediaPage
-from ..page.notify import NotifsPage, NotifyPage
+from ..page.notify import NotifyPage
 from ..page.qr import QRPage
 from ..page.row import RowPage
 from ..page.select import SelectPage
@@ -27,81 +24,125 @@ from ..page.weather import WeatherPage
 from ..utils.text import get_translation
 from .descriptor import PageDescriptor
 
-# system panel mapping
-# sys_panel_key -> panel_type
-SYS_PANEL_MAPPING = {
-    # sys pages
-    SysPanelKey.SYS_SYSTEM: "system",
-    SysPanelKey.SYS_ABOUT: "system_about",
-    SysPanelKey.SYS_BLANK: "blank",
-    SysPanelKey.SYS_SETTINGS: "system_settings",
-    # popups
-    SysPanelKey.POPUP_UNLOCK: "popup_unlock",
-    SysPanelKey.POPUP_NOTIFY: "popup_notify",
-    SysPanelKey.POPUP_NOTIFS: "popup_notifs",
-    SysPanelKey.POPUP_SELECT: "popup_select",
-    SysPanelKey.POPUP_LIGHT: "popup_light",
-    SysPanelKey.POPUP_MEDIA_PLAYER: "popup_media_player",
-    SysPanelKey.POPUP_VACUUM: "popup_vacuum",
-    SysPanelKey.POPUP_CLIMATE: "popup_climate",
-    SysPanelKey.POPUP_TIMER: "popup_timer",
-    SysPanelKey.POPUP_COVER: "popup_cover",
-}
+# ── Page class registry ──────────────────────────────────────────────────
+
+_page_classes: list[type] = [
+    AboutPage,
+    AlarmPage,
+    BlankPage,
+    ClimatePage,
+    ClockPage,
+    ClockTwoPage,
+    CoverPage,
+    GridPage,
+    LightPage,
+    MediaPage,
+    NotifyPage,
+    QRPage,
+    RowPage,
+    SelectPage,
+    SettingsPage,
+    SystemPage,
+    TimerPage,
+    UnlockPage,
+    VacuumPage,
+    WeatherPage,
+]
 
 
-# Collect descriptors from all page classes that define one,
-# then add popup aliases which reuse existing page classes.
 def _build_panel_mapping() -> dict[str, tuple[str, type]]:
-    _page_classes = [
-        AboutPage,
-        AlarmPage,
-        BlankPage,
-        ClimatePage,
-        ClockPage,
-        ClockTwoPage,
-        CoverPage,
-        GridPage,
-        LightPage,
-        MediaPage,
-        NotifsPage,
-        NotifyPage,
-        QRPage,
-        RowPage,
-        SelectPage,
-        SettingsPage,
-        SystemPage,
-        TimerPage,
-        UnlockPage,
-        VacuumPage,
-        WeatherPage,
-    ]
+    """Build PANEL_MAPPING from page class DESCRIPTORs.
+
+    Each page class registers under its ``type_key``.  Popup aliases are
+    derived from descriptor fields:
+    * ``popup_alias_for`` — different class, same Nextion page (UnlockPage)
+    * ``can_show_popup`` and not ``is_system`` — same class, ``popup_<name>`` key
+    * ``is_system`` with ``sys_panel_default["key"]`` starting with ``popup_``
+      — system popup (notify, select)
+    """
     mapping: dict[str, tuple[str, type]] = {}
     for cls in _page_classes:
         d: PageDescriptor | None = getattr(cls, "DESCRIPTOR", None)
         if d is not None:
             mapping[d.type_key] = (d.page_name, cls)
 
-    # popup aliases - share page classes with their non-popup counterparts
-    # Explicit dict is the clearest approach since the alias key differs from
-    # the base type_key in non-trivial ways (e.g. "media" -> "popup_media_player").
-    popup_aliases = {
-        "popup_unlock": ("alarm", UnlockPage),
-        "popup_notify": ("notify", NotifyPage),
-        "popup_notifs": ("notifs", NotifsPage),
-        "popup_select": ("select", SelectPage),
-        "popup_light": ("light", LightPage),
-        "popup_media_player": ("media", MediaPage),
-        "popup_vacuum": ("vacuum", VacuumPage),
-        "popup_climate": ("climate", ClimatePage),
-        "popup_timer": ("timer", TimerPage),
-        "popup_cover": ("cover", CoverPage),
-    }
-    mapping.update(popup_aliases)
+    for cls in _page_classes:
+        d = getattr(cls, "DESCRIPTOR", None)
+        if d is None:
+            continue
+
+        # 1) popup_alias_for — different class, e.g. UnlockPage → alarm
+        if d.popup_alias_for:
+            mapping[d.type_key] = (d.popup_alias_for, cls)
+        # 2) Non-system pages with can_show_popup — same class, popup_<name>
+        elif d.can_show_popup and not d.is_system:
+            page_name = d.page_name
+            alias_key = "popup_media_player" if page_name == "media" else f"popup_{page_name}"
+            mapping[alias_key] = (page_name, cls)
+        # 3) System popup pages (notify, select) — sys_panel_default key
+        elif d.is_system and d.sys_panel_default:
+            sys_key = d.sys_panel_default.get("key", "")
+            if sys_key.startswith("popup_"):
+                mapping[sys_key] = (d.page_name, cls)
+
     return mapping
 
 
 PANEL_MAPPING: dict[str, tuple[str, type]] = _build_panel_mapping()
 
+
+# ── PAGE_MAPPING: derived from DESCRIPTOR.page_id ─────────────────────────
+
+def _build_page_mapping() -> dict[int, str]:
+    """Build PAGE_MAPPING from DESCRIPTOR.page_id, skipping popup aliases."""
+    mapping: dict[int, str] = {}
+    for type_key, (_, cls) in PANEL_MAPPING.items():
+        d = getattr(cls, "DESCRIPTOR", None)
+        if d is None or d.page_id is None:
+            continue
+        # Skip popup aliases — they share a page_id with their parent
+        # (e.g. UnlockPage shares page_id=17 with AlarmPage)
+        if d.popup_alias_for is not None:
+            continue
+        # Only register the primary entry, not alias entries
+        if type_key != d.type_key:
+            continue
+        mapping[d.page_id] = d.page_name
+    return mapping
+
+
+PAGE_MAPPING: dict[int, str] = _build_page_mapping()
+
+
+# ── SYS_PANEL_MAPPING: derived from PANEL_MAPPING descriptors ─────────────
+
+def _build_sys_panel_mapping() -> dict[str, str]:
+    """Build SYS_PANEL_MAPPING from PANEL_MAPPING descriptors.
+
+    ``sys_key -> type_key`` for system pages and popup aliases.
+    """
+    mapping: dict[str, str] = {}
+    for type_key, (_, cls) in PANEL_MAPPING.items():
+        d = getattr(cls, "DESCRIPTOR", None)
+        if d is None:
+            continue
+        # System pages: use sys_panel_default["key"]
+        # Only the native type_key entry (not alias entries) registers
+        if d.is_system and d.sys_panel_default and type_key == d.type_key:
+            sys_key = d.sys_panel_default.get("key")
+            if sys_key:
+                mapping[sys_key] = type_key
+        # Popup aliases: identity mapping (sys_key == type_key)
+        # Only for non-system entries — system pages register via the if branch above
+        elif type_key != d.type_key and not d.is_system:
+            mapping[type_key] = type_key
+    return mapping
+
+
+SYS_PANEL_MAPPING: dict[str, str] = _build_sys_panel_mapping()
+
+
+# ── Derived config builders ───────────────────────────────────────────────
 
 def build_sys_panels_defaults() -> list[dict]:
     """Build the DEFAULT_CONFIG["sys_panels"] list from SYS_PANEL_MAPPING.
@@ -122,7 +163,6 @@ def build_sys_panels_defaults() -> list[dict]:
 
         entry = PANEL_MAPPING.get(type_key)
         if entry is None:
-            # Fallback: minimal default
             defaults.append(
                 {
                     "type": type_key,

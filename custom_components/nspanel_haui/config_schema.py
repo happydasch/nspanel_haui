@@ -146,6 +146,15 @@ class ConfigSchema:
             vol.Required(
                 "sound_on_notification", default=current.get("sound_on_notification", True)
             ): bool,
+            vol.Required(
+                "use_do_not_disturb", default=current.get("use_do_not_disturb", False)
+            ): bool,
+            vol.Optional(
+                "quiet_hours_start", default=current.get("quiet_hours_start", "")
+            ): str,
+            vol.Optional(
+                "quiet_hours_end", default=current.get("quiet_hours_end", "")
+            ): str,
             vol.Required("log_items", default=current.get("log_items", False)): bool,
             vol.Required("debug_level", default=current.get("debug_level", 0)): vol.Coerce(int),
             vol.Required(

@@ -17,6 +17,7 @@ class QRPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="qr",
         page_name="qr",
+        page_id=11,
         label=_("QR Code"),
         description=_("Display a QR code alongside item info."),
         options=[

@@ -1,5 +1,9 @@
 /**
  * NSPanel HAUI - Panel preview: Clock / ClockTwo.
+ *
+ * Device layout: big time (font:7) or weather icon/text at top,
+ * date line, 6 entity buttons at bottom.
+ * Font:7 is light weight for the big time display.
  */
 import { html } from '../lit-import.js';
 import { backgroundClass, itemDisplay, tileBgColor, tileIconColor } from './utils.js';
@@ -48,10 +52,10 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
   return {
     content: html`
       <div class="pg-preview-full-col" style="gap:1px;">
-        <div style="display:flex;flex-shrink:0;align-items:center;width:100%;gap:4px;min-height:0;">
+        <div style="display:flex;flex-shrink:0;align-items:center;width:100%;gap:4px;min-height:0;padding:0 2px;">
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;">
             ${showTemp ? html`
-              <div style="font-size:clamp(9px,2.5cqi,15px);color:var(--primary-text-color,#ddd);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <div style="font-size:clamp(9px,2.5cqi,15px);font-weight:400;color:var(--primary-text-color,#ddd);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                 ${showHomeTemp ? html`
                   <ha-icon icon="mdi:home-thermometer" style="--mdc-icon-size:clamp(9px,2cqi,13px);color:var(--secondary-text-color,#aaa);vertical-align:middle;"></ha-icon>
                   21<small style="font-size:0.7em;color:var(--secondary-text-color,#ccc);">&deg;</small>
@@ -60,7 +64,7 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
                 <ha-icon icon="mdi:thermometer" style="--mdc-icon-size:clamp(9px,2cqi,13px);color:var(--secondary-text-color,#aaa);vertical-align:middle;"></ha-icon>
                 21<small style="font-size:0.7em;color:var(--secondary-text-color,#ccc);">&deg;</small>
               </div>
-              <div style="font-size:clamp(7px,1.6cqi,11px);color:var(--secondary-text-color,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${hasWeatherEntity ? '1023 hPa' : ''}</div>
+              <div style="font-size:clamp(7px,1.6cqi,11px);font-weight:400;color:var(--secondary-text-color,#888);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${hasWeatherEntity ? '1023 hPa' : ''}</div>
             ` : ''}
           </div>
           ${showWeather ? html`
@@ -72,17 +76,17 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
 
         <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;min-height:0;gap:1px;">
           ${card === 'time' ? html`
-            <span style="font-size:clamp(50px,14cqi,88px);font-weight:700;color:var(--primary-text-color,#fff);letter-spacing:5px;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,0.3);">12:34</span>
-            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">Mon, Jun 16</div>
+            <span style="font-size:clamp(50px,14cqi,88px);font-weight:400;color:var(--primary-text-color,#fff);letter-spacing:5px;line-height:1;">12:34</span>
+            <div style="font-size:clamp(9px,2.2cqi,14px);font-weight:400;color:var(--secondary-text-color,#aaa);">Mon, Jun 16</div>
           ` : card === 'date' ? html`
-            <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">Mon 16</span>
-            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">Mon, Jun 16</div>
+            <span style="font-size:clamp(36px,10cqi,68px);font-weight:400;color:var(--primary-text-color,#fff);line-height:1;">Mon 16</span>
+            <div style="font-size:clamp(9px,2.2cqi,14px);font-weight:400;color:var(--secondary-text-color,#aaa);">Mon, Jun 16</div>
           ` : card === 'outside_temperature' ? html`
-            <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">21&deg;C</span>
-            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">OUTSIDE</div>
+            <span style="font-size:clamp(36px,10cqi,68px);font-weight:400;color:var(--primary-text-color,#fff);line-height:1;">21&deg;C</span>
+            <div style="font-size:clamp(9px,2.2cqi,14px);font-weight:400;color:var(--secondary-text-color,#aaa);">OUTSIDE</div>
           ` : html`
-            <span style="font-size:clamp(36px,10cqi,68px);font-weight:600;color:var(--primary-text-color,#fff);line-height:1;">24&deg;C</span>
-            <div style="font-size:clamp(9px,2.2cqi,14px);color:var(--secondary-text-color,#aaa);font-weight:400;">INSIDE</div>
+            <span style="font-size:clamp(36px,10cqi,68px);font-weight:400;color:var(--primary-text-color,#fff);line-height:1;">24&deg;C</span>
+            <div style="font-size:clamp(9px,2.2cqi,14px);font-weight:400;color:var(--secondary-text-color,#aaa);">INSIDE</div>
           `}
         </div>
 
@@ -154,7 +158,7 @@ export function renderClockTwoPreview(_host, panel, _pIdx, _pt) {
             ${rightTop}
             ${showNotifs ? html`
               <div class="pg-preview-clocktwo-notif">
-                <ha-icon icon="mdi:bell-ring-outline" style="--mdc-icon-size:clamp(14px,3cqi,24px);color:var(--accent-color,#ffab40);"></ha-icon>
+                <ha-icon icon="mdi:bell-ring-outline" style="--mdc-icon-size:clamp(14px,3cqi,24px);color:var(--primary-color,#4fc3f7);"></ha-icon>
               </div>
             ` : html`<div style="flex:1;"></div>`}
             ${rightBottom}

@@ -12,7 +12,7 @@ import { LitElement, html } from '../lit-import.js';
 import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
 import { clone } from '../constants.js';
 import { formVal } from '../dom-helpers.js';
-import { getPanelOptionGroups, renderOptionField } from '../form-fields.js';
+import { getPanelOptionGroups, renderOptionField, renderSelect, renderToggle } from '../form-fields.js';
 import { dialogHeader } from './dialog-header.js';
 import { t } from '../localize.js';
 import { saveItemEdit, cancelItemEdit } from '../item-editor.js';
@@ -118,14 +118,7 @@ class EditPanelDialog extends LitElement {
               <label for="fld-type">${t('Panel type')}</label>
               <div style="display:flex;align-items:center;gap:8px;">
                 ${descriptor?.icon ? html`<ha-icon .icon=${descriptor.icon}></ha-icon>` : ""}
-                <ha-select
-                  id="fld-type"
-                  name="type"
-                  style="flex:1"
-                  .value=${panelType}
-                  .options=${this.panelTypes.map((pt) => ({ value: pt.type_key, label: pt.label }))}
-                  @selected=${this._onTypeChange}
-                ></ha-select>
+                ${renderSelect("fld-type", panelType, this.panelTypes.map((pt) => ({ value: pt.type_key, label: pt.label })), (v) => this._onTypeChange(v))}
               </div>
               ${descriptor ? html`<span class="field-hint">${descriptor.description}</span>` : ""}
             </div>
@@ -133,11 +126,11 @@ class EditPanelDialog extends LitElement {
 
           <div class="form-group">
             <label for="fld-title">${t('Panel title')}</label>
-            <ha-input
+            <input
               id="fld-title"
               name="title"
+              class="native-input"
               .value=${ep.data.title || ""}
-              style="width: 100%"
               @input=${(e) => {
                 this._editingPanel = {
                   ...this._editingPanel,
@@ -145,7 +138,7 @@ class EditPanelDialog extends LitElement {
                 };
                 this.requestUpdate();
               }}
-            ></ha-input>
+            />
             <span class="field-hint">${t('Title shown on the panel header. Falls back to unnamed if left empty.')}</span>
           </div>
 
@@ -167,11 +160,11 @@ class EditPanelDialog extends LitElement {
 
               <div class="form-group">
                 <label for="fld-key">${t('Panel key')}</label>
-                <ha-input
+                <input
                   id="fld-key"
                   name="key"
+                  class="native-input"
                   .value=${ep.data.key || ""}
-                  style="width: 100%"
                   @input=${(e) => {
                     this._editingPanel = {
                       ...this._editingPanel,
@@ -179,18 +172,18 @@ class EditPanelDialog extends LitElement {
                     };
                     this.requestUpdate();
                   }}
-                ></ha-input>
+                />
                 <span class="field-hint">${t('Used to reference this panel in actions and gestures')}</span>
               </div>
 
               <div class="form-group">
                 <label for="fld-unlock-code">${t('Panel pin')}</label>
-                <ha-input
+                <input
                   id="fld-unlock-code"
                   name="unlock_code"
                   type="password"
+                  class="native-input"
                   .value=${ep.data.unlock_code || ""}
-                  style="width: 100%"
                   @input=${(e) => {
                     this._editingPanel = {
                       ...this._editingPanel,
@@ -198,23 +191,19 @@ class EditPanelDialog extends LitElement {
                     };
                     this.requestUpdate();
                   }}
-                ></ha-input>
+                />
                 <span class="field-hint">${t('Set a PIN code to lock this panel. Users must enter this code before accessing the panel.')}</span>
               </div>
 
               <div class="form-group">
                 <div class="checkbox-row">
-                  <ha-switch
-                    id="fld-show-in-nav"
-                    ?checked=${ep.data.show_in_navigation !== false}
-                    @change=${(e) => {
-                      this._editingPanel = {
-                        ...this._editingPanel,
-                        data: { ...this._editingPanel.data, show_in_navigation: e.target.checked },
-                      };
-                      this.requestUpdate();
-                    }}
-                  ></ha-switch>
+                  ${renderToggle("fld-show-in-nav", ep.data.show_in_navigation !== false, (checked) => {
+                    this._editingPanel = {
+                      ...this._editingPanel,
+                      data: { ...this._editingPanel.data, show_in_navigation: checked },
+                    };
+                    this.requestUpdate();
+                  })}
                   <label for="fld-show-in-nav">${t('Show in navigation')}</label>
                 </div>
                 <span class="field-hint">${t("When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)")}</span>
@@ -253,11 +242,8 @@ class EditPanelDialog extends LitElement {
     `;
   }
 
-  _onTypeChange(e) {
-    const newType = e.detail.value;
-    // Idempotency guard: ha-select fires @selected synchronously on user
-    // interaction only, but a re-rendered ha-select may fire the event again
-    // with its restored .value.  Skip if the type hasn't actually changed.
+  _onTypeChange(newType) {
+    // Idempotency guard: skip if the type hasn't actually changed.
     if (newType === this._editingPanelType) return;
 
     this._editingPanelType = newType;

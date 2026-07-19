@@ -607,6 +607,7 @@ class TestFindESPHomeDevice:
         fake_entity = MagicMock()
         fake_entity.platform = "esphome"
         fake_entity.name = "panel_living"
+        fake_entity.config_entry_id = None
 
         er_mock = MagicMock()
         er_mock.entities.values.return_value = [fake_entity]
@@ -659,12 +660,8 @@ class TestDiscoverEspHomeDevices:
     """Tests for _discover_esphome_devices(hass)."""
 
     def test_returns_list_of_dicts(self):
-        """Each result has 'name' and 'esphome_device_id' keys."""
+        """Each result has 'name', 'friendly_name', and 'esphome_device_id' keys."""
         from nspanel_haui.esphome_helpers import discover_esphome_devices
-
-        # Mock a HAUI service so is_haui_device() returns True
-        svc = MagicMock()
-        svc.name = "send_command"
 
         entry1 = MagicMock()
         entry1.entry_id = "entry1"
@@ -672,7 +669,8 @@ class TestDiscoverEspHomeDevices:
         # Use device_name so the name is resolved from it
         entry1.data = {"device_name": "kitchen-panel"}
         entry1.runtime_data = MagicMock()
-        entry1.runtime_data.services = {"svc1": svc}
+        entry1.runtime_data.device_info = MagicMock()
+        entry1.runtime_data.device_info.project_name = "happydasch.nspanel_haui"
 
         hass = MagicMock()
         hass.config_entries.async_entries = MagicMock(return_value=[entry1])
@@ -696,16 +694,13 @@ class TestDiscoverEspHomeDevices:
         """Uses entry.title when device_name is not in data."""
         from nspanel_haui.esphome_helpers import discover_esphome_devices
 
-        # Mock a HAUI service so is_haui_device() returns True
-        svc = MagicMock()
-        svc.name = "send_command"
-
         entry1 = MagicMock()
         entry1.entry_id = "entry1"
         entry1.title = "My Panel"
         entry1.data = {}
         entry1.runtime_data = MagicMock()
-        entry1.runtime_data.services = {"svc1": svc}
+        entry1.runtime_data.device_info = MagicMock()
+        entry1.runtime_data.device_info.project_name = "happydasch.nspanel_haui"
 
         hass = MagicMock()
         hass.config_entries.async_entries = MagicMock(return_value=[entry1])
@@ -718,16 +713,13 @@ class TestDiscoverEspHomeDevices:
         """ESPHome discovery result includes entry_id as esphome_device_id."""
         from nspanel_haui.esphome_helpers import discover_esphome_devices
 
-        # Mock a HAUI service so is_haui_device() returns True
-        svc = MagicMock()
-        svc.name = "send_command"
-
         entry1 = MagicMock()
         entry1.entry_id = "abc123"
         entry1.title = "Living Room Panel"
         entry1.data = {}
         entry1.runtime_data = MagicMock()
-        entry1.runtime_data.services = {"svc1": svc}
+        entry1.runtime_data.device_info = MagicMock()
+        entry1.runtime_data.device_info.project_name = "happydasch.nspanel_haui"
 
         hass = MagicMock()
         hass.config_entries.async_entries = MagicMock(return_value=[entry1])

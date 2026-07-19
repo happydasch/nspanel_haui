@@ -109,7 +109,7 @@ def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
     assert len(dummy_app.callback_event_calls) == 1
     event = dummy_app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, timeout, False)
+    expected_value = (title, message, icon, timeout, False, "info", False)
     assert event.value == expected_value
 
 

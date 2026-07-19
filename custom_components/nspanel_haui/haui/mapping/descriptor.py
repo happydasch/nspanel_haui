@@ -84,6 +84,14 @@ class PageDescriptor:
     for ``popup_unlock``).  Popup aliases are auto-registered and do
     **not** appear as user-selectable panel types.
     """
+    page_id: int | None = None
+    """Nextion page ID number for this page.
+
+    Each page maps to a numeric page ID in the Nextion firmware.  Popup
+    aliases (``popup_alias_for``) share the aliased page's ID.
+    ``None`` means the page class does not have a dedicated Nextion page
+    (e.g. runtime-only overlay logic).
+    """
     has_header: bool = True
     """Whether this page type displays the header bar (function buttons).
 

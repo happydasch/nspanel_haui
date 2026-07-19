@@ -19,6 +19,8 @@ _LOGGER = logging.getLogger(__name__)
 DOMAIN = "nspanel_haui"
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
+PLATFORMS: list[str] = ["notify"]
+
 # Config helpers - moved to haui/device_config.py for single source of truth
 from .haui.device_config import (  # noqa: E402
     apply_panel_store,
@@ -94,6 +96,44 @@ def _build_config_dict(
     return cfg
 
 
+async def _link_esphome_device(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    ha_device_id: str,
+    dev_name: str,
+) -> None:
+    """Link the ESPHome device to the nspanel_haui integration.
+
+    Adds an ``nspanel_haui`` identifier to the existing ESPHome device entry and
+    attaches our config entry so the device shows up in the nspanel_haui hub
+    page. The device selector (integration: nspanel_haui) in services.yaml
+    matches the extra identifier, and clicking the device in the hub page goes to
+    the ESPHome device (its primary config entry).
+
+    Safe to call when the device is already linked (idempotent).
+    """
+    from homeassistant.helpers import device_registry as dr
+
+    dev_reg = dr.async_get(hass)
+    esphome_dev = dev_reg.async_get(ha_device_id)
+    if not esphome_dev:
+        return
+
+    nspanel_identifier = ("nspanel_haui", dev_name)
+    has_identifier = nspanel_identifier in esphome_dev.identifiers
+    has_config_entry = entry.entry_id in esphome_dev.config_entries
+
+    if has_identifier and has_config_entry:
+        return  # already linked
+
+    kwargs: dict[str, Any] = {}
+    if not has_identifier:
+        kwargs["merge_identifiers"] = {nspanel_identifier}
+    if not has_config_entry:
+        kwargs["add_config_entry_id"] = entry.entry_id
+    dev_reg.async_update_device(ha_device_id, **kwargs)
+
+
 async def _create_app(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -106,9 +146,10 @@ async def _create_app(
     """Create and initialize a single NSPanelHAUI app instance for a device.
 
     Builds the device config from the three config layers (data, options,
-    panels), resolves the HA device_id, registers an ``nspanel_haui`` device
-    in the device registry, initializes the app on the executor thread, and
-    returns the ready-to-use instance.
+    panels), resolves the ESPHome HA device_id, adds an ``nspanel_haui``
+    identifier to the ESPHome device entry so the device selector
+    (integration: nspanel_haui) can find it, initializes the app on the
+    executor thread, and returns the ready-to-use instance.
 
     The caller is responsible for storing the returned app in the running
     apps dict (hass.data[DOMAIN][entry.entry_id][dev_name]).
@@ -130,25 +171,10 @@ async def _create_app(
     )
     await hass.async_add_executor_job(app.initialize)
 
-    # Register an nspanel_haui device in the HA device registry so the
-    # device selector (integration: nspanel_haui) in services.yaml works.
-    from homeassistant.helpers import device_registry as dr
-
-    dev_reg = dr.async_get(hass)
-    identifiers: set[tuple[str, str]] = {("nspanel_haui", dev_name)}
-    via_device: tuple[str, str] | None = None
+    # Link the ESPHome device to our integration so it shows in the hub page
+    # and the device selector (integration: nspanel_haui) can find it.
     if ha_device_id:
-        esphome_dev = dev_reg.async_get(ha_device_id)
-        if esphome_dev and esphome_dev.identifiers:
-            via_device = next(iter(esphome_dev.identifiers))
-    dev_reg.async_get_or_create(
-        config_entry_id=entry.entry_id,
-        identifiers=identifiers,
-        name=dev_name,
-        manufacturer="happydasch",
-        model="nspanel_haui",
-        via_device=via_device,
-    )
+        await _link_esphome_device(hass, entry, ha_device_id, dev_name)
 
     _LOGGER.info("NSPanel HAUI instance for device '%s' started", dev_name)
     return app
@@ -208,39 +234,30 @@ _DISCOVERY_INITIALIZED = False
 
 
 async def _register_discovery(hass: HomeAssistant) -> None:
-    """Register discovery resources once per HA session.
+    """Register the persistent device registry listener once per HA session.
 
-    No-op when a hub entry already exists — no scans, no listeners, no
-    flood. Discovery is *only* about getting the first hub created;
-    once it exists the user manages devices via the HAUI Editor.
+    Listens for new ESPHome HAUI devices appearing in the device registry
+    and auto-adds them to the hub.  The listener stays alive for the
+    entire HA session so that devices added later (e.g. via ESPHome
+    integration after the hub was created) are picked up automatically.
 
-    When no hub exists: schedule a one-shot ``_trigger_haui_discovery``
-    and install a single device-registry listener that fires the same
-    trigger when an ESPHome HAUI device shows up. The listener
-    self-unsubscribes the moment a hub entry exists.
+    Must be called from ``async_setup`` (integration-level), not
+    ``async_setup_entry``, so it runs once at startup regardless of
+    whether a hub entry exists yet.
     """
     global _DISCOVERY_INITIALIZED
     if _DISCOVERY_INITIALIZED:
         return
     _DISCOVERY_INITIALIZED = True
 
-    if hass.config_entries.async_entries(DOMAIN):
-        return
-
     from homeassistant.core import callback as ha_callback
     from homeassistant.helpers import device_registry as dr
 
     from .esphome_helpers import is_haui_device
 
-    cancel: list[Any] = []
-
     @ha_callback
     def _on_device_registry_change(event: Any) -> None:
-        # Self-unsubscribe once a hub exists.
-        if hass.config_entries.async_entries(DOMAIN):
-            if cancel:
-                cancel.pop()()
-            return
+        """Persistent listener: auto-add new HAUI devices to the hub."""
         data = event.data if isinstance(event.data, dict) else {}
         if data.get("action") not in ("create", "update"):
             return
@@ -253,19 +270,18 @@ async def _register_discovery(hass: HomeAssistant) -> None:
         for cid in dev_entry.config_entries:
             entry = hass.config_entries.async_get_entry(cid)
             if entry and entry.domain == "esphome" and is_haui_device(hass, entry):
-                hass.async_create_task(_trigger_haui_discovery(hass))
+                for hub_entry in hass.config_entries.async_entries(DOMAIN):
+                    hass.async_create_task(_auto_add_unconfigured_devices(hass, hub_entry))
                 break
 
-    cancel.append(
-        hass.bus.async_listen(
-            dr.EVENT_DEVICE_REGISTRY_UPDATED,
-            _on_device_registry_change,
-        )
+    hass.bus.async_listen(
+        dr.EVENT_DEVICE_REGISTRY_UPDATED,
+        _on_device_registry_change,
     )
 
-    # One-shot bootstrap covers the case where HAUI devices already
-    # exist in the registry before our integration was loaded.
-    hass.async_create_task(_trigger_haui_discovery(hass))
+    # Bootstrap: if no hub exists yet, trigger the initial discovery flow
+    if not hass.config_entries.async_entries(DOMAIN):
+        hass.async_create_task(_trigger_haui_discovery(hass))
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -276,8 +292,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     the correct app via HA device_id filtering.
     """
 
-    # ── ensure discovery listener is registered (runs even on restart) ──
-    await _register_discovery(hass)
+    # ── ensure discovery listener is registered (runs once per HA session) ──
+    # Previously called _register_discovery here, but the listener was never
+    # actually registered because _register_discovery bailed out when a hub
+    # entry existed.  The listener is now registered in async_setup.
     from homeassistant.core import callback as ha_callback
 
     from .esphome_helpers import resolve_ha_device_id
@@ -338,6 +356,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return True
 
     hass.data[DOMAIN][entry.entry_id] = apps
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     # ── device-id resolution race ──────────────────────────────────────
@@ -357,12 +376,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             device_entry = dev_reg.async_get(device_id)
             if not device_entry:
                 return
-            # Find any ESPHome config entry on this new device
+            # Find any ESPHome config entry on this new device (inner_ent
+            # avoids shadowing the outer `entry` ConfigEntry parameter).
             esphome_id: str | None = None
             for config_entry_id in device_entry.config_entries:
-                entry = hass.config_entries.async_get_entry(config_entry_id)
-                if entry and entry.domain == "esphome":
-                    esphome_id = entry.entry_id
+                inner_ent = hass.config_entries.async_get_entry(config_entry_id)
+                if inner_ent and inner_ent.domain == "esphome":
+                    esphome_id = inner_ent.entry_id
                     break
             if not esphome_id:
                 return
@@ -374,6 +394,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         proxy = dapp._plugin_proxies.get("ESPHome")
                         if proxy is not None:
                             proxy._device_id = resolved
+                        await _link_esphome_device(hass, entry, resolved, dname)
                         _LOGGER.info("Resolved HA device_id for '%s': %s", dname, resolved)
             # Once all are resolved, cancel the listener
             if all(a._ha_device_id is not None for a in apps.values()):
@@ -416,7 +437,31 @@ async def _auto_add_unconfigured_devices(hass: HomeAssistant, entry: ConfigEntry
         discovered = await discover_esphome_devices(hass)
         configured_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
         unconfigured = [d for d in discovered if d["name"] not in configured_names]
+
+        # Re-enable devices that are already configured but disabled — prevents
+        # the common case where the config flow or API created the entry with
+        # enabled: False and the user never manually enabled them.
+        existing_devices = list(entry.data.get("devices", []))
+        needs_update = False
+        for dev in existing_devices:
+            if dev.get("enabled", True) is False:
+                discovered_names = {d["name"] for d in discovered}
+                if dev.get("name") in discovered_names:
+                    dev["enabled"] = True
+                    needs_update = True
+                    _LOGGER.info(
+                        "Re-enabled HAUI device '%s' in hub '%s'", dev["name"], entry.title
+                    )
+
+        if needs_update:
+            hass.config_entries.async_update_entry(
+                entry,
+                data={**entry.data, "devices": existing_devices},
+            )
+
         if not unconfigured:
+            if needs_update:
+                await async_reload_entry(hass, entry)
             return
 
         import copy
@@ -455,6 +500,9 @@ async def _auto_add_unconfigured_devices(hass: HomeAssistant, entry: ConfigEntry
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Stop and unload a NSPanel HAUI config entry."""
+    # Unload entity platforms (notify entities) before removing app data
+    await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
     apps: dict | None = hass.data[DOMAIN].pop(entry.entry_id, None)
 
     # Cancel device-id resolution listener if present
@@ -470,6 +518,23 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for _device_name, app in apps.items():
         if not await _stop_app(hass, app):
             errors = True
+        # Remove our config_entry_id from the ESPHome device so it no
+        # longer shows in the nspanel_haui hub page.
+        if app._ha_device_id:
+            try:
+                from homeassistant.helpers import device_registry as dr
+
+                dev_reg = dr.async_get(hass)
+                dev_reg.async_update_device(
+                    app._ha_device_id,
+                    remove_config_entry_id=entry.entry_id,
+                )
+            except Exception:
+                _LOGGER.debug(
+                    "Could not remove config entry from device '%s'",
+                    _device_name,
+                    exc_info=True,
+                )
     return not errors
 
 

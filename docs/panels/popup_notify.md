@@ -4,7 +4,6 @@ description: Notify popup panel configuration and usage
 ---
 
 # Popup Notify
-> For the notification queue shown when the notification bell is tapped, see [Popup Notifs](popup_notifs.md).
 
 ## About
 

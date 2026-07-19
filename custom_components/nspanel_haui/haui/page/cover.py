@@ -15,6 +15,7 @@ class CoverPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="cover",
         page_name="cover",
+        page_id=18,
         label=_("Cover"),
         description=_("Cover item with open, close and position controls."),
         options=[

@@ -12,6 +12,7 @@ class SettingsPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="system_settings",
         page_name="settings",
+        page_id=3,
         label=_("Settings"),
         description=_("Display brightness and system settings."),
         is_system=True,

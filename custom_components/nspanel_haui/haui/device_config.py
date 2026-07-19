@@ -67,31 +67,16 @@ DEVICE_CONFIG: dict[str, Any] = {
     # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
     "color_overrides": {},
     "sound_on_notification": True,
+    "use_do_not_disturb": False,  # toggle to enable quiet hours
+    "quiet_hours_start": "",  # empty = disabled, format "HH:MM" (24h)
+    "quiet_hours_end": "",  # empty = disabled, format "HH:MM"
 }
 
+# Fields synced from store to device config.
+# Derived from DEVICE_CONFIG keys, excluding meta-fields that have separate
+# handling paths (name, panels, esphome_device_id).
 DEVICE_CONFIG_FIELDS: list[str] = [
-    "locale",
-    "button_left_entity",
-    "button_right_entity",
-    "home_panel",
-    "sleep_panel",
-    "wakeup_panel",
-    "show_home_button",
-    "show_sleep_button",
-    "show_notifications_button",
-    "page_settle_delay",
-    "enabled",
-    "log_items",
-    "debug_level",
-    "reset_interaction_on_button",
-    "snapshot_max_age_seconds",
-    "hub_idle_timeout",
-    "auto_navigate_home_timeout",
-    "sound_on_startup",
-    "use_relay_left",
-    "use_relay_right",
-    "sound_on_notification",
-    "color_overrides",
+    k for k in DEVICE_CONFIG if k not in ("name", "panels", "esphome_device_id")
 ]
 
 

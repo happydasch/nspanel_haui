@@ -78,23 +78,23 @@ script:
           std::string sound_string = "";
 
           if (name == "startup") {
-            sound_string = "startup:4:d=4,o=5,b=200:8c7,8g7,8d7,8g7";
+            sound_string = "startup:d=4,o=5,b=200:8c7,8g7,8d7,8g7";
           } else if (name == "tone") {
-            sound_string = "tone:4:d=8,o=6,b=200:16e6";
+            sound_string = "tone:d=8,o=6,b=200:16e6";
           } else if (name == "tone_up") {
-            sound_string = "tone:4:d=8,o=6,b=200:16d6";
+            sound_string = "tone_up:d=8,o=6,b=200:16d6";
           } else if (name == "tone_down") {
-            sound_string = "tone:4:d=8,o=6,b=200:16g6";
+            sound_string = "tone_down:d=8,o=6,b=200:16g6";
           } else if (name == "seq_up") {
-            sound_string = "seq_up:4:d=16,o=5,b=160:16e6,16g6";
+            sound_string = "seq_up:d=16,o=5,b=160:16e6,16g6";
           } else if (name == "seq_down") {
-            sound_string = "seq_down:4:d=16,o=5,b=160:16g6,16d6";
+            sound_string = "seq_down:d=16,o=5,b=160:16g6,16d6";
           } else if (name == "notification") {
-            sound_string = "notification:4:d=8,o=6,b=200:16e,16c6,16g6,8c6,8g6";
+            sound_string = "notification:d=8,o=6,b=200:16e,16c6,16g6,8c6,8g6";
           } else if (name == "alert_fast") {
-            sound_string = "alert_fast:4:d=8,o=6,b=200:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7";
+            sound_string = "alert_fast:d=8,o=6,b=200:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7";
           } else if (name == "alert") {
-            sound_string = "alert:4:d=16,o=6,b=400:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7";
+            sound_string = "alert:d=16,o=6,b=400:16c7,16d7,16c7,16d7,16c7,16d7,16c7,16d7,16e7";
           } else if (name == "elise") {
             sound_string = "elise:d=8,o=5,b=125:32p,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,e,g#,b,4c.6,32p,e,e6,d#6,e6,d#6,e6,b,d6,c6,4a.,32p,c,e,a,4b.,32p,d,c6,b,2a";
           }

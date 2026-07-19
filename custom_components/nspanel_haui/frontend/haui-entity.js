@@ -117,16 +117,13 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
 
   const picker = html`
     <div class="entity-picker-wrap">
-      <ha-input
+      <input
         id=${id}
-        class="entity-picker-input"
+        class="entity-picker-input native-input"
         .value=${value || ""}
         placeholder=${placeholder || (domain ? `${domain}.…` : "")}
         autocomplete="off"
         @input=${(e) => {
-          updateTypedValue(e.target, eventValue(e));
-        }}
-        @value-changed=${(e) => {
           updateTypedValue(e.target, eventValue(e));
         }}
         @focus=${(e) => {
@@ -154,7 +151,7 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
           },
           onDismiss: (e) => hideDropdown(e.target.closest('.entity-picker-wrap')),
         })}
-      ></ha-input>
+      />
       <div class="dropdown-filter-area">
         ${domains.length > 1 ? html`
           <div class="domain-filter-bar">

@@ -4,6 +4,7 @@ description: Item configuration — entities, state, name, value, icon, color, i
 ---
 
 # Item Configuration
+
 An **item** is the basic building block that a panel displays or acts on. Each item can be one of two kinds:
 
 - **External item** — wraps a real Home Assistant entity (e.g. `light.kitchen`).
@@ -11,142 +12,127 @@ An **item** is the basic building block that a panel displays or acts on. Each i
 - **Internal item** — does *not* correspond to any HA entity. Recognised keywords are
   `skip`, `text`, `navigate`, and `action`.
 
-Items are configured through the panel editor's item editor in the Home Assistant UI. Each item entry uses the `entity` key for the entity ID (or an internal keyword), plus optional override keys:
+Items are configured entirely through the panel editor's **item editor** in the Home Assistant UI
+— there is no YAML configuration for items. Each entry uses the `item` key for the entity ID
+(or an internal keyword), plus optional override fields in the editor's collapsible **Advanced** section:
 
-- `entity` - the HA entity id (e.g. `sensor.temperature`) or internal keyword
-- `name` - name override; defaults to the entity's friendly name
-- `value` - value override; defaults to the entity's state or derived value
-- `icon` - icon override; defaults to the entity's icon
-- `color` - color override; defaults to a type-based color
-- `state` - state override; by default the entity's `state` is used
+| Field       | Description |
+|-------------|-------------|
+| `item`      | The HA entity ID (e.g. `sensor.temperature`) or internal keyword. The entity picker shows available entities; for keywords, choose from the type selector. |
+| `name`      | Display name override; defaults to the entity's `friendly_name`. Accepts plain text, a JSON object (state-keyed mapping), or a template. |
+| `value`     | Display value override; defaults to the entity's state. Typed field — accepts integers, floats, JSON objects (state-keyed mapping), JSON arrays, or a template. |
+| `icon`      | Icon override; defaults to the entity's icon. Uses an icon picker with `mdi:` names, a JSON object (state-keyed mapping), or a template. |
+| `color`     | Color override; defaults to a type-based color. Text input with a native color picker — accepts hex (`#rrggbb`), RGB triplet (`[r,g,b]`), RGB565 integer (0–65535), a JSON object (state-keyed mapping), or a template. |
+| `state`     | State override; defaults to the entity's `state`. Typed field — an attribute name (string) or a JSON array for nested attribute access. |
+| `popup_key` | The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behaviour. |
 
-name, value, icon and color can also contain Home Assistant template code.
-These values may contain `mdi:` icons which will be replaced by their
-unicode representations.
+### Item state
 
-### Item State
+By default the entity's `state` attribute is used. To override:
 
-The state of the item. By default, the entity state is used. It is possible to
-override the state by defining a `state` in the editor. If a string is set, the
-entity attribute with that name will be used. If a list is provided, the list
-values are used as keys to get the state value from attributes.
+- **String** — the entity attribute with that name will be used (e.g. `"brightness"`).
+- **Array (JSON)** — the array values are used as keys to drill into nested attributes.
+  Entered as a JSON array: `["attributes", "rgb_color"]`.
 
-### Item Name
+### Item name
 
-The name of the item. The name to be returned can be configured in different ways.
-By default it will return a value based on the entity - either `name` or
-`friendly_name` will be returned.
+Overrides the display name. Supported formats:
 
-If a string is provided, this will be used as the name.
+- **Plain text** — a fixed name string.
+- **JSON object** (state-keyed) — a mapping from entity state values to names:
+  ```json
+  {"on": "Lights On", "off": "Lights Off"}
+  ```
+- **Template** — a Home Assistant template prefixed with `template:` or enclosed in `{{ ... }}`.
 
-If a dict is provided and the entity state matches the dict key, then this name
-will be returned.
+### Item value
 
-Accepts:
+Overrides the displayed value. This is a **typed field** in the editor — values are parsed through `parseFieldValue`:
 
-- `dict`:
+- **Integer or float** — typed directly (e.g. `42`, `3.14`).
+- **JSON object** (state-keyed) — a mapping from entity state values to display values:
+  ```json
+  {"home": "At home", "not_home": "Away"}
+  ```
+- **JSON array** — a list of values.
+- **String** — used as-is.
+- **Template** — a Home Assistant template prefixed with `template:` or enclosed in `{{ ... }}`.
 
-  state → name mapping based on current entity state
+### Item icon
 
-- `str`:
+Overrides the entity icon. The editor provides an icon picker with a searchable dropdown and live preview, or a text input for JSON object (state-keyed) values.
 
-  name to use
-
-### Item Value
-
-The value to display for the item. The value to be returned can be configured in
-different ways. By default it will return a value based on entity state and type.
-
-It is possible to override the value in the config of the item.
-
-If a string is provided, this will be used as a value.
-
-If a dict is provided and the entity state matches the dict key, then this value
-will be returned.
-
-Accepts:
-
-- `dict`:
-
-  state → value mapping based on current entity state
-
-- `str`:
-
-  value to use
-
-### Item Icon
+- **Icon name** — an `mdi:` icon string (e.g. `mdi:lightbulb`). The icon picker shows a searchable list of available icons.
+- **JSON object** (state-keyed) — a mapping from entity state values to icon names:
+  ```json
+  {"on": "mdi:lightbulb", "off": "mdi:lightbulb-outline"}
+  ```
+  The JSON string is shown in the text input field; the icon preview falls back to the puzzle icon.
+- **Template** — a Home Assistant template enclosed in `{{ ... }}`.
 
 [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)
 
-#### Templating using HomeAssistant
+### Item color
 
-name, value, icon and color can also be templated. The value needs to start with `template:`
+Overrides the entity colour. Accepted formats:
 
-- `template:` home assistant template
+| Format | Example |
+|--------|---------|
+| CSS hex | `#ff6600` |
+| RGB triplet | `[255, 102, 0]` |
+| RGB565 integer | `63488` |
+| JSON object (state-keyed) | `{"on": "#00ff00", "off": "#ff0000"}` |
+| Template | `template:{{ ... }}` or `{{ ... }}` |
 
-#### Icon value type
+The editor renders a text input with a native `<input type="color">` picker button.
+Picking a colour in the picker updates the text value, preserving the original format
+(hex stays hex, RGB565 stays numeric, etc.). Colour swatches for common NSPanel colours
+are shown below the input for quick selection.
 
-- `dict`:
+### Template support
 
-  state → icon mapping based on current entity state
+name, value, icon and colour support Home Assistant templates. Template values use the
+`{{ ... }}` enclosure syntax:
 
-- `str`:
+- **`{{ ... }}`** — rendered as a live preview in the editor when a Home Assistant
+  instance is connected. Both `template:` prefix and `{{ ... }}` syntax are treated
+  identically by the Python backend, but only `{{ ... }}` triggers editor-side preview.
 
-  icon to use
+Templates that contain `mdi:` icons will have those icons replaced with their unicode
+representations on the display.
 
-### Item Color
+### Internal items
 
-Selected values can be entered in different formats:
+Internal items have no backing HA entity — they are handled directly by the panel logic.
+The **item** field uses the type selector to pick an internal type, then provides a text input
+for the value/key/service name.
 
-- `dict`:
+#### skip
 
-  state → color mapping based on current entity state
+The item is skipped — no display slot or action. Equivalent to not configuring the item at all.
 
-  **Note:** Use quotes for `on` and `off` to prevent YAML interpreting them as booleans.
+#### text
 
-- `list`, `tuple`:
+Displays custom text instead of an entity value. The entered text is used as the item value.
 
-  color to use as list with RGB values
+#### navigate
 
-- `str`, `int`:
+Navigates to another panel when tapped. The entered value is the **panel key** to navigate to.
 
-  color to use as RGB565 number
+#### action
 
-### Internal Items
+Executes a Home Assistant service call when tapped. The entered value is the service name
+(e.g. `light.toggle`). Additional parameters are passed as `service_data` — a JSON object
+entered in the **Service data** textarea:
 
-Internal items begin with a keyword followed by `:` or just the keyword.
-These items have no backing HA entity — they are handled directly.
+```json
+{"brightness": 255, "transition": 2}
+```
 
-#### Item: skip
-
-- `skip`
-
-  The item should be skipped. This is the same as setting no entity.
-
-#### Item: text
-
-- `text`
-
-  Use the text instead of an entity. The text is available as the item value.
-  `text:Text to use`
-
-#### Item: navigate
-
-- `navigate`
-
-  Navigate to the panel with the key `navigate:key`
-
-#### Item: action
-
-- `action`
-
-  Action to execute.
-
-  Pass parameters using `action_data`
+`service_data` supports template variables — keys are available as template variables in
+scripts.
 
 ### Override a default popup
 
-`popup_key` string
-
-A different than the default popup can be opened when executing by
-setting `popup_key` to the panel key to open.
+`popup_key` — a string containing the panel key of a popup configuration. When the item is
+tapped, the specified popup panel opens instead of the default popup for the item's entity type.

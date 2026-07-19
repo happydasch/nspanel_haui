@@ -179,6 +179,25 @@ export const itemListStyles = css`
     display: block;
   }
 
+  /* ── color popover ────────────────── */
+  .color-popover {
+    display: none;
+    position: absolute;
+    z-index: 100;
+    margin-top: 4px;
+    padding: 8px;
+    background: var(--card-background-color, #fff);
+    border: 1px solid var(--divider-color, #e0e0e0);
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  }
+  .color-popover.open {
+    display: block;
+  }
+  .item-edit-inline .form-group {
+    position: relative;
+  }
+
   /* ── inline item edit form ───────── */
   .item-edit-inline {
     padding: 14px;
@@ -220,8 +239,8 @@ export const itemListStyles = css`
     flex: 1;
     min-width: 0;
   }
-  .list-items-input ha-input,
-  .list-items-input ha-select,
+  .list-items-input .native-input,
+  .list-items-input .native-select,
   .list-items-input .entity-picker-wrap {
     width: 100%;
   }

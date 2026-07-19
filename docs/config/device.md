@@ -5,158 +5,121 @@ description: Device-level configuration keys for NSPanel HAUI
 
 # Device Configuration
 
-Device-level settings configure the NSPanel hardware behaviour — buttons, sounds, timeouts, and display states. These are configured through the NSPanel HAUI device editor in Home Assistant.
+Device-level settings configure the NSPanel hardware behaviour — buttons, sounds, timeouts, and display states. All of this is configured through the frontend (Device Manager and Device Settings dialogs) — there is no YAML configuration.
 
-## Device Configuration
+## Device Manager
+
+Opened from the panel toolbar. Lists all configured devices and lets you add, remove, reorder, enable/disable, and open settings for a device.
 
 - `name` string
 
-  The name of the panel device
-
-- `locale` string
-
-  The locale of the device
-
-- `panels` list
-
-Per-device panel list. Each panel has a type defined in the editor.
-  Default first panel is `clock`.
+  The name of the panel device. Set when adding a device.
 
 - `esphome_device_id` string
 
-  The ESPHome device ID this config entry is linked to.  Set automatically
-  during discovery.  Default empty.
+  The ESPHome device ID this config entry is linked to. Set automatically during discovery/add.
 
 - `enabled` bool
 
-  Whether the device is active at runtime.  Disabled devices are skipped
-  without deleting their config.  Default `True`.
+  Whether the device is active at runtime. Disabled devices are skipped without deleting their config. Toggled from the device row menu or the footer switch in Device Settings. Default `True`.
 
-- `home_panel` string
+- `panels` list
 
-  Panel key of the home panel.  Empty means no home panel set.
+  Per-device panel list, managed on the panel editing screen for the selected device.
 
-- `sleep_panel` string
+## Device Settings
 
-  Panel key of the panel shown when the display goes to sleep.  Empty means
-  no sleep panel is set.
+Opened via the "Settings" action on a device in Device Manager. Fields are grouped into collapsible sections:
 
-- `wakeup_panel` string
+### General Settings
 
-  Panel key of the panel shown when the display wakes up.  Empty means no
-  wakeup panel is set.
+- `locale` string
 
-- `show_notifications_button` bool
-
-  Whether the notifications button is visible on supported panels.
-  Default `True`.
-
-- `button_left_entity` string
-
-  The entity (entity ID) for the left hardware button. Default empty.
-
-- `button_right_entity` string
-
-  The entity (entity ID) for the right hardware button. Default empty.
-
-- `use_relay_left` bool
-
-  Whether the left hardware button should toggle the internal relay. Default True.
-
-- `use_relay_right` bool
-
-  Whether the right hardware button should toggle the internal relay. Default True.
-
-- `show_home_button` bool
-
-  Should the panels show a home button. Default False.
-
-- `show_sleep_button` bool
-
-  Should the panels show a sleep button when on home panel. Default False.
-
-- `log_items` bool
-
-  Should display items/commands be logged. Default False.
-
-- `reset_interaction_on_button` bool
-
-  Whether hardware button presses reset the idle/interaction timer (and wake the
-  display). When `False`, button presses only toggle the relay and do not count
-  as user interaction. The device-side `use_button_interaction` switch is kept
-  in sync with this value. Default `True`.
-
-- `hub_idle_timeout` int
-
-  Hub-side idle timeout in seconds (`0` = disabled). Fallback that triggers
-  sleep after this many seconds of inactivity when the device doesn't publish
-  `esphome.timeout` events (e.g. when auto-sleeping is off on the device).
-  Default `0`.
-
-- `auto_navigate_home_timeout` int
-
-  Auto-navigate-home timeout in seconds (`0` = disabled). When `>0`, after
-  this many seconds of inactivity on any non-home panel the hub navigates back
-  to the home panel automatically. Should be set shorter than any sleep/dim
-  timeout to take effect before the display sleeps. Default `0`.
-
-- `color_overrides` dict
-
-  RGB565 color values overriding the built-in `COLORS` defaults, keyed by
-  color name. Unknown keys are ignored (logged) and values are clamped to
-  `0`-`65535`. Default `{}` (empty).
-
-- `sound_on_startup` bool
-
-  Should a sound be played when the display is connected after startup. Default True.
-
-- `sound_on_notification` bool
-
-  Should a sound be played when the display receives a non-persistent notification. Default True.
-
-- `snapshot_max_age_seconds` int
-
-  Maximum age in seconds of a navigation snapshot before it's considered stale
-  and the display falls back to the home panel instead.
-  - `-1` (default): No limit - always restore the snapshot.
-  - `0`: Never restore the snapshot - always go to the home panel.
-  - `>0`: Only restore if the snapshot is newer than this many seconds.
+  Display language — one of `en_US`, `de_DE`, `nl_NL`, `pl_PL`, `fr_FR`. Determines how dates, times, and numbers are formatted and which language is used for built-in text labels.
 
 - `debug_level` int
 
-  Debug verbosity level (0-3). Higher values produce more log output. Default `0`.
+  Diagnostic logging verbosity shown in the dropdown as Off (`0`), Basic (`1`), or Verbose (`2`). Default `0`.
 
-Configured through the NSPanel HAUI device editor in Home Assistant.
+- `sound_on_startup` bool
 
-## Navigation Configuration
+  Play a short tone when the display connects to Home Assistant after a restart or power cycle. Default `True`.
 
-Configured through the NSPanel HAUI device editor in Home Assistant.
+- `sound_on_notification` bool
 
-## Notification Configuration
+  Play an alert tone whenever a new notification is received. Default `True`.
 
-Configured through the NSPanel HAUI device editor in Home Assistant.
+### Display Buttons
 
-## Update Controller
+- `show_home_button` bool
 
-The update controller is responsible for checking version information and notifying about any issues.
-To enable update checks set an interval > 0 and/or set check_on_connect to true.
+  Show a home navigation button on panels. Default `False`.
 
-Configured through the NSPanel HAUI device editor in Home Assistant.
+- `show_sleep_button` bool
 
-- `auto_install` bool
-- `auto_update` bool
-- `tft_filename` string
-- `update_interval` int
-- `check_on_connect` bool
-- `on_connect_delay` int
+  Show a sleep button on the home panel. Default `False`.
 
-## Connection Controller
+- `show_notifications_button` bool
 
-Configured through the NSPanel HAUI device editor in Home Assistant.
+  Show the notifications button on supported panels. Default `True`.
 
-- `heartbeat_interval` int
-- `overdue_factor` float
+### Panel Assignments
 
-## Gesture Controller
+- `home_panel` string
 
-Configured through the NSPanel HAUI device editor in Home Assistant.
+  Panel key shown when navigating home or returning from dim/sleep. Empty means no home panel set.
+
+- `sleep_panel` string
+
+  Panel key shown when the display enters sleep mode. Empty means no sleep panel set.
+
+- `wakeup_panel` string
+
+  Panel key shown briefly when the display wakes from sleep. Empty means no wakeup panel set.
+
+### Hardware Buttons
+
+- `use_relay_left` / `use_relay_right` bool
+
+  Whether the left/right hardware button toggles its internal relay. Disable to assign a Home Assistant entity instead. Default `True` for both.
+
+- `button_left_entity` / `button_right_entity` string
+
+  Entity ID toggled by the left/right hardware button. Only shown (and used) when the corresponding relay is disabled. Default empty.
+
+- `reset_interaction_on_button` bool
+
+  Whether hardware button presses reset the idle/interaction timer (and wake the display). When `False`, button presses only toggle the relay/entity and don't count as user interaction. Default `True`.
+
+### Sleep and Wakeup
+
+- `snapshot_max_age_seconds` int
+
+  Whether the last-viewed panel is restored when waking from sleep/dim, shown as a mode select:
+  - **Always restore** (`-1`, default) — always restore the snapshot.
+  - **Never restore** (`0`) — always go to the home panel.
+  - **Custom time limit...** (`>0`) — only restore if the snapshot is newer than this many seconds.
+
+## Color Overrides
+
+Opened from its own dialog (separate from Device Settings). Lets you override individual entries of the built-in `COLORS` palette per device.
+
+- `color_overrides` dict
+
+  RGB565 color values keyed by color name. Unknown keys are ignored (logged) and values are clamped to `0`-`65535`. Default `{}` (empty).
+
+## Fields not yet exposed in the UI
+
+These exist in the underlying config but have no frontend control yet, so they stay at their defaults:
+
+- `log_items` bool — log display items/commands. Default `False`.
+- `hub_idle_timeout` int — hub-side idle timeout in seconds (`0` = disabled), a fallback that triggers sleep when the device doesn't publish `esphome.timeout` events. Default `0`.
+- `auto_navigate_home_timeout` int — after this many seconds of inactivity on a non-home panel, auto-navigate back home (`0` = disabled). Default `0`.
+
+## Global Defaults (not per-device, fixed)
+
+The following are hardcoded defaults, not exposed anywhere in the frontend:
+
+- **Connection** — `heartbeat_interval` (`5.0`s), `overdue_factor` (`2.0`)
+- **Update** — `auto_install` (`True`), `auto_update` (`False`), `tft_filename` (`nspanel_haui.tft`), `check_on_connect` (`False`), `on_connect_delay` (`60`s), `update_interval` (`0` = disabled)
+- **Navigation** — `page_timeout` (`10.0`s)

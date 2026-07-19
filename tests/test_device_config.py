@@ -56,6 +56,9 @@ def test_device_config_has_all_required_keys() -> None:
         "sound_on_startup",
         "color_overrides",
         "sound_on_notification",
+        "use_do_not_disturb",
+        "quiet_hours_start",
+        "quiet_hours_end",
     }
     assert set(DEVICE_CONFIG.keys()) == required
 

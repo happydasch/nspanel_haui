@@ -107,7 +107,7 @@ export const previewClockStyles = css`
     flex-shrink: 0;
   }
   .pg-preview-clocktwo-special.active {
-    color: var(--accent-color, #ffab40);
+    color: var(--primary-color, #4fc3f7);
   }
   .pg-preview-clocktwo-notif {
     display: flex;

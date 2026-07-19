@@ -13,7 +13,7 @@ export const colorPickerStyles = css`
     gap: 8px;
     align-items: center;
   }
-  .color-picker-wrap > ha-input {
+  .color-picker-wrap > .native-input {
     flex: 1;
   }
   .color-input-hidden {
@@ -29,14 +29,10 @@ export const colorPickerStyles = css`
     --mdc-icon-size: 20px;
     flex-shrink: 0;
     color: var(--secondary-text-color, #666);
-    border: 1px solid var(--divider-color, #e0e0e0);
-    border-radius: 8px;
-    background: var(--card-background-color, #fff);
-    transition: border-color 0.15s, background 0.15s;
+    transition: color 0.15s;
   }
   .color-picker-btn:hover {
-    border-color: var(--primary-color, #03a9f4);
-    background: color-mix(in srgb, var(--primary-color, #03a9f4) 6%, transparent);
+    color: var(--primary-color, #03a9f4);
   }
 
   /* ── preview row ─────────────────── */
@@ -99,11 +95,8 @@ export const colorPickerStyles = css`
   /* ── color dialog swatches ───────── */
   .cp-sw {
     position: relative;
-    width: 30px;
-    height: 30px;
-    border-radius: 7px;
-    border: 1px solid rgba(0, 0, 0, 0.18);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    width: 20px;
+    height: 20px;
     flex-shrink: 0;
     cursor: pointer;
     overflow: hidden;

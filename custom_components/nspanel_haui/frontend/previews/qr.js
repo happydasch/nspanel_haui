@@ -1,5 +1,9 @@
 /**
  * NSPanel HAUI - Panel preview: QR.
+ *
+ * Device layout: QR code on left (180x180), info items on right
+ * (q1Icon/q1Title/q1Text, q2Icon/q2Title/q2Text).
+ * Big QR mode: centered 240x240 QR code.
  */
 import { html } from '../lit-import.js';
 

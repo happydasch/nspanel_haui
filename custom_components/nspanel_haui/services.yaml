@@ -11,18 +11,26 @@ open_panel:
     before opening the panel — equivalent to calling
     reset_last_interaction first.
   fields:
-    device_id:
-      required: true
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
       selector:
         device:
           integration: nspanel_haui
     panel:
+      name: "Panel key"
+      description: >-
+        Panel type to open (e.g. "alarm", "clock", "grid", "light",
+        "climate", "cover", "media", "fan", "shutter", "card").
       required: true
       example: "alarm"
       selector:
         text:
           type: text
     wakeup:
+      name: "Wake up"
+      description: "Wake the display before opening the panel."
       required: false
       default: false
       selector:
@@ -35,8 +43,10 @@ close_panel:
     Close the current panel and return to the previous panel
     (or home panel if there is no history).
   fields:
-    device_id:
-      required: true
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
       selector:
         device:
           integration: nspanel_haui
@@ -48,81 +58,26 @@ wakeup:
     Wake the display and navigate to the configured wakeup
     panel (or home panel if no wakeup panel is set).
   fields:
-    device_id:
-      required: true
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
       selector:
         device:
           integration: nspanel_haui
 
-# ── nspanel_haui.set_brightness ──────────────────────────────
-set_brightness:
-  name: Set brightness
-  description: >-
-    Set the display backlight brightness.  Values range from 0
-    (off) to 100 (maximum).
-  fields:
-    device_id:
-      required: true
-      selector:
-        device:
-          integration: nspanel_haui
-    intensity:
-      required: true
-      example: 75
-      selector:
-        number:
-          min: 0
-          max: 100
-          unit_of_measurement: "%"
-
-# ── nspanel_haui.send_command ────────────────────────────────
-send_command:
-  name: Send command
-  description: >-
-    Send a raw Nextion display command to the device.  For advanced
-    users and debugging only.
-  fields:
-    device_id:
-      required: true
-      selector:
-        device:
-          integration: nspanel_haui
-    cmd:
-      required: true
-      example: "page 0"
-      selector:
-        text:
-          type: text
-
-# ── nspanel_haui.goto_page ───────────────────────────────────
-goto_page:
-  name: Go to page
-  description: >-
-    Switch the display to a Nextion page by its numeric page ID.
-    This is a low-level operation that bypasses the navigation
-    pipeline — prefer ``open_panel`` for normal use.
-  fields:
-    device_id:
-      required: true
-      selector:
-        device:
-          integration: nspanel_haui
-    page:
-      required: true
-      example: 0
-      selector:
-        number:
-          min: 0
-          max: 50
 # ── nspanel_haui.sleep ───────────────────────────────────────
 sleep:
   name: Sleep
   description: >-
     Send the display to sleep by opening the configured sleep
-    panel.
+    panel.  The display will wake on touch or via the ``wakeup``
+    service.
   fields:
-    device_id:
-      required: true
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
       selector:
         device:
           integration: nspanel_haui
@@ -135,18 +90,24 @@ send_notification:
     Optionally auto-dismiss after a timeout, or make it persistent so
     it must be dismissed on the panel to stop the alert sound.
   fields:
-    device_id:
-      required: true
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
       selector:
         device:
           integration: nspanel_haui
     title:
+      name: "Title"
+      description: "Notification headline shown at the top of the panel."
       required: true
       example: "Doorbell"
       selector:
         text:
           type: text
     message:
+      name: "Message"
+      description: "Body text of the notification. Can be left empty for a title-only alert."
       required: false
       example: "Someone is at the front door"
       selector:
@@ -154,17 +115,31 @@ send_notification:
           type: text
           multiline: true
     icon:
+      name: "Icon"
+      description: "Material Design Icon (e.g. \"mdi:bell\") shown next to the title."
       required: false
       example: "mdi:bell"
       selector:
         icon:
-    timeout:
+    type:
+      name: "Severity"
+      description: "Severity level that affects the alert colour and sound."
       required: false
-      default: 0
-      example: 10
+      default: "info"
+      selector:
+        select:
+          options:
+            - "info"
+            - "warning"
+            - "critical"
+    timeout:
+      name: "Timeout"
       description: >-
         Seconds until the notification auto-dismisses.  0 (default)
         keeps it on screen until dismissed.
+      required: false
+      default: 0
+      example: 10
       selector:
         number:
           min: 0
@@ -172,50 +147,23 @@ send_notification:
           unit_of_measurement: "s"
           mode: box
     persistent:
-      required: false
-      default: false
+      name: "Persistent"
       description: >-
         When on, the notification must be dismissed on the panel to
-        stop the alert sound.
+        stop the alert sound (loops until dismissed).
+      required: false
+      default: false
       selector:
         boolean:
-
-# ── nspanel_haui.play_rtttl ──────────────────────────────────
-play_rtttl:
-  name: Play RTTTL tune
-  description: >-
-    Play a ringtone on the panel buzzer from an RTTTL string.
-    See https://picaxe.com/rtttl-ringtones-for-tune-command/
-  fields:
-    device_id:
-      required: true
+    force_show:
+      name: "Force show"
+      description: >-
+        When on, immediately opens the notification panel even if
+        another panel is currently displayed.
+      required: false
+      default: false
       selector:
-        device:
-          integration: nspanel_haui
-    song_str:
-      required: true
-      example: "Beep:d=4,o=5,b=100:16e6"
-      selector:
-        text:
-          type: text
-
-# ── nspanel_haui.play_sound ──────────────────────────────────
-play_sound:
-  name: Play sound
-  description: >-
-    Play a named built-in sound on the panel buzzer.
-  fields:
-    device_id:
-      required: true
-      selector:
-        device:
-          integration: nspanel_haui
-    name:
-      required: true
-      example: "notification"
-      selector:
-        text:
-          type: text
+        boolean:
 
 # ── nspanel_haui.reset_last_interaction ──────────────────────
 reset_last_interaction:
@@ -225,12 +173,16 @@ reset_last_interaction:
     keeps the display awake or delays sleep.  Optionally add an
     offset (in seconds) to the reset point.
   fields:
-    device_id:
-      required: true
+    device:
+      name: "Device"
+      description: "Target NSPanel device. If omitted, applies to all devices."
+      required: false
       selector:
         device:
           integration: nspanel_haui
     offset:
+      name: "Offset"
+      description: "Additional seconds of wake time before the display returns to idle."
       required: false
       default: 0
       example: 0

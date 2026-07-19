@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
-from ..mapping.const import ESPResponse, NotifEvent
+from ..mapping.const import ESPResponse, NotifEvent, SysPanelKey
 from ..utils.notification_blinker import NotificationBlinker
 
 
@@ -18,6 +18,9 @@ class HAUINotificationController(HAUIBase):
     Provides functionality for notifications.
     Also hosts a shared NotificationBlinker so every page does not
     need its own 1-second timer.
+
+    Notification tuple format:
+        (title, message, icon, timeout, persistent, type, force_show)
     """
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any]):
@@ -40,6 +43,8 @@ class HAUINotificationController(HAUIBase):
         icon: str = "",
         timeout: int = 0,
         persistent: bool = False,
+        notif_type: str = "info",
+        force_show: bool = False,
     ) -> None:
         """Send a notification to the panel.
 
@@ -55,10 +60,14 @@ class HAUINotificationController(HAUIBase):
             How long the notification should be shown in seconds.
         persistent: bool, optional
             When True the notification sound loops until the notification is dismissed.
+        notif_type: str, optional
+            Severity type: "info", "warning", or "critical".
+        force_show: bool, optional
+            When True, opens the notification panel immediately.
         """
 
-        self.log(f"Sending notification: title={title!r} persistent={persistent}")
-        self.add_notification(title, message, icon, timeout, persistent)
+        self.log(f"Sending notification: title={title!r} persistent={persistent} type={notif_type}")
+        self.add_notification(title, message, icon, timeout, persistent, notif_type, force_show)
 
     # notifications
 
@@ -69,11 +78,31 @@ class HAUINotificationController(HAUIBase):
         icon: str = "",
         timeout: int = 0,
         persistent: bool = False,
+        notif_type: str = "info",
+        force_show: bool = False,
     ) -> tuple:
-        notification = (title, message, icon, timeout, persistent)
+        notification = (title, message, icon, timeout, persistent, notif_type, force_show)
         self._notifications.append(notification)
         event = HAUIEvent(NotifEvent.NOTIF_ADD, value=notification)
         self.app.callback_event(event)
+
+        # Force-show: open the notification panel immediately
+        if force_show:
+            navigation = self.app.controller.get("navigation")
+            if navigation:
+                count = len(self._notifications)
+                if count == 1:
+                    navigation.open_panel(
+                        SysPanelKey.POPUP_NOTIFY,
+                        icon=icon,
+                        title=title,
+                        notification=message,
+                        close_on_button=True,
+                        close_timeout=timeout if timeout > 0 else 0,
+                    )
+                else:
+                    navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
+
         return notification
 
     def remove_notification(self, notification: tuple) -> bool:
@@ -140,7 +169,15 @@ class HAUINotificationController(HAUIBase):
         if event.name == ESPResponse.SEND_NOTIFICATION:
             self.log(f"Send notification: {event.as_str()}")
             notification = event.as_json()
-            self.add_notification(**notification)
+            # Extract the new fields from the JSON data
+            title = notification.get("title", "")
+            message = notification.get("message", "")
+            icon = notification.get("icon", "")
+            timeout = notification.get("timeout", 0)
+            persistent = notification.get("persistent", False)
+            notif_type = notification.get("notif_type", "info")
+            force_show = notification.get("force_show", False)
+            self.add_notification(title, message, icon, timeout, persistent, notif_type, force_show)
         # Also forward notification lifecycle events to the shared blinker
         # so pages don't need to handle them individually.
         self._blinker.handle_event(event)

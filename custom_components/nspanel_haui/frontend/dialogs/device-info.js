@@ -312,8 +312,7 @@ class DeviceInfoDialog extends LitElement {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        .preventScrimClose=${true}
-      >
+        >
         ${dialogHeader(t('Device Info'), this._dispatchClose)}
 
         <div class="dialog-body">

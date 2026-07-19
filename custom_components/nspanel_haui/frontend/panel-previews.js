@@ -46,7 +46,6 @@ registerPanelPreview('clocktwo', renderClockTwoPreview);
 registerPanelPreview('weather', renderWeatherPreview);
 registerPanelPreview('qr', renderQRPreview);
 registerPanelPreview('notify', renderNotifyPreview);
-registerPanelPreview('notifs', renderNotifyPreview);
 registerPanelPreview('select', renderSelectPreview);
 registerPanelPreview('system_settings', renderSettingsPreview);
 registerPanelPreview('system_about', renderAboutPreview);
@@ -54,8 +53,8 @@ registerPanelPreview('system', renderSystemPreview);
 registerPanelPreview('blank', renderBlankPreview);
 // Popup aliases share renderers with their base types (handled via panel.type)
 registerPanelPreview('popup_unlock', renderUnlockPreview);
+registerPanelPreview('popup_alarm', renderAlarmPreview);
 registerPanelPreview('popup_notify', renderNotifyPreview);
-registerPanelPreview('popup_notifs', renderNotifyPreview);
 registerPanelPreview('popup_select', renderSelectPreview);
 registerPanelPreview('popup_light', renderLightPreview);
 registerPanelPreview('popup_media_player', renderMediaPreview);

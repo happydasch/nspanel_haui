@@ -18,7 +18,9 @@ run at the ESPHome device level.
 
 These four services are registered under the `nspanel_haui` domain and
 **require a `device_id`** to target which panel device to control.  The
-device picker in the HA UI automatically filters to NSPanel HAUI devices.
+device picker in the HA UI filters to ESPHome devices that have HAUI
+firmware installed — no separate `nspanel_haui` device entry is created
+in the device registry.
 
 ### `nspanel_haui.open_panel`
 

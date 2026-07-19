@@ -1,12 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 120" width="160" height="120">
-  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#000" stroke="#444" stroke-width="1.5"/>
-  <text x="80" y="14" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="9" font-weight="bold">Grid</text>
-  <rect x="12" y="22" width="41" height="26" rx="4" fill="#3b82f6" opacity="0.7"/>
-  <rect x="59" y="22" width="41" height="26" rx="4" fill="#22c55e" opacity="0.7"/>
-  <rect x="106" y="22" width="41" height="26" rx="4" fill="#f59e0b" opacity="0.7"/>
-  <rect x="12" y="52" width="41" height="26" rx="4" fill="#a855f7" opacity="0.7"/>
-  <rect x="59" y="52" width="41" height="26" rx="4" fill="#3b82f6" opacity="0.5"/>
-  <rect x="106" y="52" width="41" height="26" rx="4" fill="#22c55e" opacity="0.5"/>
-  <line x1="12" y1="86" x2="147" y2="86" stroke="#333" stroke-width="1"/>
-  <text x="80" y="100" text-anchor="middle" fill="#aaa" font-family="sans-serif" font-size="7">6 tiles in 2 rows</text>
+  <rect x="0" y="0" width="160" height="120" rx="8" ry="8" fill="#000"/>
+  <!-- 3x2 colored tiles like frontend-preview -->
+  <rect x="10" y="10" width="42" height="34" rx="4" fill="#d3b13c"/>
+  <circle cx="31" cy="24" r="5" fill="#fff" opacity="0.8"/>
+  <rect x="28" y="29" width="6" height="4" rx="1" fill="#fff" opacity="0.8"/>
+  <text x="31" y="52" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="6">Lights</text>
+
+  <rect x="59" y="10" width="42" height="34" rx="4" fill="#ee7b23"/>
+  <line x1="74" y1="26" x2="86" y2="26" stroke="#fff" stroke-width="1.5" opacity="0.8"/>
+  <line x1="74" y1="30" x2="86" y2="30" stroke="#fff" stroke-width="1.5" opacity="0.8"/>
+  <line x1="74" y1="34" x2="86" y2="34" stroke="#fff" stroke-width="1.5" opacity="0.8"/>
+  <text x="80" y="52" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="6">Covers</text>
+
+  <rect x="108" y="10" width="42" height="34" rx="4" fill="#e8615f"/>
+  <circle cx="129" cy="21" r="3" fill="#fff" opacity="0.8"/>
+  <circle cx="129" cy="33" r="3" fill="#fff" opacity="0.8"/>
+  <line x1="123" y1="26.5" x2="135" y2="26.5" stroke="#fff" stroke-width="1.5" opacity="0.8"/>
+  <text x="129" y="52" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="6">Music</text>
+
+  <rect x="10" y="62" width="42" height="34" rx="4" fill="#67b93e"/>
+  <circle cx="31" cy="75" r="5" fill="#fff" opacity="0.8"/>
+  <line x1="29" y1="79" x2="33" y2="79" stroke="#fff" stroke-width="1" opacity="0.8"/>
+  <circle cx="31" cy="75" r="1.5" fill="#67b93e"/>
+  <text x="31" y="104" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="6">Vacuum</text>
+
+  <rect x="59" y="62" width="42" height="34" rx="4" fill="#7a5fd0"/>
+  <rect x="74" y="72" width="12" height="10" rx="1.5" fill="#fff" opacity="0.8"/>
+  <polygon points="77,75 83,77.5 77,80" fill="#7a5fd0"/>
+  <text x="80" y="104" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="6">Scenes</text>
+
+  <rect x="108" y="62" width="42" height="34" rx="4" fill="#3789d3"/>
+  <line x1="125" y1="72" x2="133" y2="86" stroke="#fff" stroke-width="2" opacity="0.8"/>
+  <line x1="125" y1="86" x2="133" y2="72" stroke="#fff" stroke-width="2" opacity="0.8"/>
+  <text x="129" y="104" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="6">Climate</text>
 </svg>

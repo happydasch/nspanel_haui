@@ -13,26 +13,12 @@ from aiohttp import web
 from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.helpers.storage import Store
 
+from .esphome_helpers import lookup_device_registry_name
 from .haui.config_models import validate_panels
 
 _LOGGER = logging.getLogger(__name__)
 
 PANEL_STORE_VERSION = 1
-
-
-def _lookup_esphome_friendly_name(hass: Any, node_name: str) -> str:
-    """Look up the friendly name (entry.title) for an ESPHome device by node name.
-
-    Returns the friendly name if found, or the node_name as fallback.
-    """
-    from homeassistant.util import slugify
-
-    slugified = slugify(node_name)
-    for entry in hass.config_entries.async_entries("esphome"):
-        dev_name = entry.data.get("device_name", "")
-        if slugify(dev_name) == slugified:
-            return entry.title or node_name
-    return node_name
 
 
 def _read_network_entities(hass: Any, device_name: str) -> dict:
@@ -256,11 +242,12 @@ class PanelConfigView(HomeAssistantView):
 
         result["system_panels"] = await hass.async_add_executor_job(get_system_panel_entries, lang)
 
-        # Enrich each device with friendly_name from ESPHome config entries
+        # Enrich each device with friendly_name from HA device registry.
+        # Always refresh — the stored value (if any) may be stale since users
+        # can change a device's name via HA Settings → Devices & Services.
         for dev_key, dev_data in result.get("devices", {}).items():
-            if "friendly_name" not in dev_data:
-                friendly_name = _lookup_esphome_friendly_name(hass, dev_key)
-                dev_data["friendly_name"] = friendly_name
+            friendly_name = lookup_device_registry_name(hass, dev_key)
+            dev_data["friendly_name"] = friendly_name
 
         return self.json(result)
 
@@ -373,15 +360,35 @@ class DeviceConfigView(HomeAssistantView):
     name = "api:nspanel_haui:devices"
     requires_auth = True
 
+    async def get(self, request, entry_id: str):
+        """Return discovered ESPHome HAUI devices available for adding.
+
+        Returns a list of discovered devices with ``name``, ``friendly_name``,
+        and ``esphome_device_id`` keys.
+        """
+        hass = request.app["hass"]
+        from .esphome_helpers import discover_esphome_devices
+
+        discovered = await discover_esphome_devices(hass)
+        return self.json({"devices": discovered})
+
     async def post(self, request, entry_id: str):
-        """Add a new device to the config entry and panel store."""
+        """Add one or more devices to the config entry and panel store.
+
+        Accepts either a single device object ``{name, enabled, esphome_device_id}``
+        or a batch ``{devices: [{name, enabled, esphome_device_id}, ...]}``.
+
+        After adding, reloads the config entry so app instances start for
+        newly-enabled devices.
+        """
         hass = request.app["hass"]
         body = await request.json()
-        name = (body.get("name") or "").strip()
-        if not name:
-            return self.json(
-                {"status": "error", "message": "Device name is required"}, status_code=400
-            )
+
+        # Support both single-device and batch modes
+        devices_to_add: list[dict] = body.get("devices", [])
+        if not devices_to_add:
+            # Single-device mode (backward compat)
+            devices_to_add = [body]
 
         entry = hass.config_entries.async_get_entry(entry_id)
         if not entry:
@@ -389,26 +396,39 @@ class DeviceConfigView(HomeAssistantView):
                 {"status": "error", "message": "Config entry not found"}, status_code=404
             )
 
-        # Check for duplicate name
-        existing_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
-        if name in existing_names:
-            return self.json(
-                {"status": "error", "message": f'Device "{name}" already exists'}, status_code=409
-            )
-
         import copy
 
         from .haui.device_config import DEVICE_CONFIG
 
+        existing_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
+        new_devices: list[dict] = []
+        names_added: list[str] = []
+
+        for dev_spec in devices_to_add:
+            name = (dev_spec.get("name") or "").strip()
+            if not name:
+                continue
+            if name in existing_names:
+                continue
+
+            new_dev = copy.deepcopy(DEVICE_CONFIG)
+            new_dev["name"] = name
+            # Default to enabled=True — the user explicitly opted in by clicking Add
+            new_dev["enabled"] = dev_spec.get("enabled", True)
+            if "esphome_device_id" in dev_spec:
+                new_dev["esphome_device_id"] = dev_spec["esphome_device_id"]
+            new_devices.append(new_dev)
+            existing_names.add(name)
+            names_added.append(name)
+
+        if not new_devices:
+            return self.json(
+                {"status": "ok", "devices_added": [], "message": "No new devices to add"}
+            )
+
         # Add to config_entry.data["devices"]
-        new_dev = copy.deepcopy(DEVICE_CONFIG)
-        new_dev["name"] = name
-        new_dev["enabled"] = False
-        # New devices are disabled by default; enable via device settings
-        if "esphome_device_id" in body:
-            new_dev["esphome_device_id"] = body["esphome_device_id"]
         new_data = dict(entry.data)
-        new_data.setdefault("devices", []).append(new_dev)
+        new_data.setdefault("devices", []).extend(new_devices)
         hass.config_entries.async_update_entry(entry, data=new_data)
 
         # Add to panel store
@@ -416,14 +436,20 @@ class DeviceConfigView(HomeAssistantView):
 
         store: Store = Store(hass, PANEL_STORE_VERSION, f"nspanel_haui.{entry_id}_panels")
         panels_data = await store.async_load() or {"version": 1, "devices": {}}
-        if name not in panels_data.get("devices", {}):
-            panels_data.setdefault("devices", {})[name] = {
-                "config": {},
-                "panels": [],
-            }
+        for name in names_added:
+            if name not in panels_data.get("devices", {}):
+                panels_data.setdefault("devices", {})[name] = {
+                    "config": {},
+                    "panels": [],
+                }
         await store.async_save(panels_data)
 
-        return self.json({"status": "ok"})
+        # Reload the config entry so apps start for the new device(s)
+        from . import async_reload_entry
+
+        hass.async_create_task(async_reload_entry(hass, entry))
+
+        return self.json({"status": "ok", "devices_added": names_added})
 
     async def delete(self, request, entry_id: str):
         """Remove a device from the config entry, optionally keeping panel config.
@@ -472,6 +498,11 @@ class DeviceConfigView(HomeAssistantView):
                 panels_data.get("devices", {}).pop(name, None)
                 await store.async_save(panels_data)
                 _LOGGER.debug("Removed device %s from panel store for %s", name, entry_id)
+
+        # Reload the config entry so the app instance is stopped
+        from . import async_reload_entry
+
+        hass.async_create_task(async_reload_entry(hass, entry))
 
         return self.json({"status": "ok", "kept_config": keep_config})
 

@@ -15,7 +15,6 @@ from .component import Component
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
 
-from ..mapping.page import PAGE_MAPPING
 from ..utils.debounce import Debouncer
 from ..utils.icon import parse_icon
 from ..utils.text import get_state_translation, get_translation
@@ -487,6 +486,8 @@ class HAUIBase:
             return ""
         parts = []
         if nav.page is not None:
+            from ..mapping.page import PAGE_MAPPING
+
             parts.append(f"page={PAGE_MAPPING.get(nav.page.page_id, nav.page.page_id)}")
         if nav.panel is not None:
             panel_key = nav.panel.get("key", "")

@@ -17,6 +17,7 @@ class AlarmPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="alarm",
         page_name="alarm",
+        page_id=17,
         label=_("Alarm"),
         description=_("Alarm control panel with numeric keypad."),
         options=[
@@ -28,6 +29,7 @@ class AlarmPage(HAUIPage):
                 section=_("Alarm"),
             ),
         ],
+        can_show_popup=True,
         icon="mdi:shield-lock-outline",
     )
 

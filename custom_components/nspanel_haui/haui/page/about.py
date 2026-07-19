@@ -13,6 +13,7 @@ class AboutPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="system_about",
         page_name="about",
+        page_id=2,
         label=_("About"),
         description=_("Device info and version details."),
         is_system=True,

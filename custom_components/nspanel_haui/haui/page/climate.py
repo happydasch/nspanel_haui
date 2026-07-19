@@ -19,6 +19,7 @@ class ClimatePage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="climate",
         page_name="climate",
+        page_id=16,
         label=_("Climate"),
         description=_("Climate item with temperature and mode controls."),
         options=[

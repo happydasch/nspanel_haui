@@ -266,12 +266,33 @@ class HAUIDevice(HAUIBase):
             # from display_state events during reconnection.
             navigation.mark_awake()
 
-    def set_sleeping(self, sleeping: bool) -> None:
-        """Sets the device as sleeping.
+    def _is_quiet_hours(self) -> bool:
+        """Check if the current time falls within quiet hours.
 
-        Args:
-            sleeping (bool): Sleeping state
+        Quiet hours suppress notification sounds and screen wake.
+        Supports overnight ranges (e.g., 22:00-07:00).
+
+        Returns:
+            bool: True if quiet hours are active
         """
+        start = self.get("quiet_hours_start", "")
+        end = self.get("quiet_hours_end", "")
+        if not start or not end:
+            return False
+        try:
+            from datetime import datetime
+
+            now = datetime.now().time()
+            start_time = datetime.strptime(start, "%H:%M").time()
+            end_time = datetime.strptime(end, "%H:%M").time()
+            if start_time <= end_time:
+                return start_time <= now <= end_time
+            # overnight range
+            return now >= start_time or now <= end_time
+        except (ValueError, TypeError):
+            return False
+
+    def set_sleeping(self, sleeping: bool) -> None:
         self.sleeping = sleeping
 
     def notify(
@@ -281,10 +302,12 @@ class HAUIDevice(HAUIBase):
         icon: str = "",
         timeout: int = 0,
         persistent: bool = False,
+        notif_type: str = "info",
+        force_show: bool = False,
     ) -> None:
         """Send a notification via the notification controller."""
         self.app.controller["notification"].send_notification(
-            title, message, icon, timeout, persistent
+            title, message, icon, timeout, persistent, notif_type, force_show
         )
 
     def get_locale(self) -> str:
@@ -354,9 +377,15 @@ class HAUIDevice(HAUIBase):
     def play_sound(self, name: str) -> None:
         """Plays a sound.
 
+        Quiet hours suppress all sounds — the call is a no-op when
+        quiet hours are active so callers do not need individual checks.
+
         Args:
             name (str): Name of the sound
         """
+        if self._is_quiet_hours():
+            self.debug_log(f"Quiet hours active — suppressing sound '{name}'")
+            return
         self.app.controller["esphome"].esphome.publish("play_sound", name)
 
     # callback
@@ -460,13 +489,16 @@ class HAUIDevice(HAUIBase):
             self._on_relay_event(side, event.value == "1")
         # process notification events
         elif event.name == NotifEvent.NOTIF_ADD:
-            notification = event.value  # (title, message, icon, timeout, persistent)
+            notification = event.value  # (title, message, icon, timeout, persistent,
+            # type, force_show)
             if isinstance(notification, (list, tuple)):
                 persistent = notification[4] if len(notification) > 4 else False
             else:
                 persistent = False
             if self.get("sound_on_notification"):
-                if persistent:
+                if self._is_quiet_hours():
+                    self.debug_log("Quiet hours active — suppressing notification sound")
+                elif persistent:
                     self._start_persistent_sound()
                 else:
                     self.play_sound("notification")

@@ -124,13 +124,13 @@ def test_sleep_button_shows_when_notifications_empty():
 
 
 def test_notifications_button_wins_when_pending():
-    """Pending notifications keep the slot; sleep does not override."""
+    """Pending notifications keep the slot on right-secondary."""
     page, panel = _build(
         {**HOME, "show_sleep_button": True, "show_notifications_button": True},
         notif_count=2,
     )
     page._auto_assign_fncs(panel)
-    assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_NOTIF, True)
+    assert _slot(page, page.FNC_BTN_R_SEC) == (FncType.NAV_NOTIF, True)
 
 
 def test_no_sleep_button_when_disabled():

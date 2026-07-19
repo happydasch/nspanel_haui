@@ -18,6 +18,7 @@
 import { positionPickerDropdown, createDropdownKeyboardController } from './dom-helpers.js';
 import { html } from './lit-import.js';
 import { t } from './localize.js';
+import { formatFieldValue } from './form-fields.js';
 import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
 
 /** Item type constants (match Python INTERNAL_ITEM_TYPE). */
@@ -139,31 +140,22 @@ export function encodeItemValue(value, type) {
  * @param {object} config - item config dict with at least an ``item`` key
  * @returns {string} human-readable summary
  */
-export function itemSummary(config) {
-  if (!config || config.item === null || config.item === undefined) {
-    return t('Skip');
-  }
-  // Empty string means entity type with no entity chosen yet
-  if (config.item === '') return t('Entity');
-  const raw = config.item;
-  if (typeof raw === 'string') {
-    if (raw.startsWith(INTERNAL_PREFIX.text))      return `${t('Text')}: ${raw.slice(5)}`;
-    if (raw.startsWith(INTERNAL_PREFIX.navigate))  return `${t('Navigate')}: ${raw.slice(9)}`;
-    if (raw.startsWith(INTERNAL_PREFIX.action))    return `${t('Action')}: ${raw.slice(7)}`;
-  }
-  // Gracefully handle objects by extracting entity_id, falling back to unknown
-  return (raw && typeof raw === 'object') ? (raw.item || raw.entity_id || t('(unknown)')) : String(raw);
-}
-
 /**
  * Primary display text for a row: name override if set, else type label.
  * @param {object} config
  * @returns {string}
  */
 export function itemPrimaryText(config) {
-  if (config && config.name) return String(config.name);
-  const t = detectItemType(config?.item);
-  return ITEM_TYPE_SHORT[t] || t('Item');
+  if (config && config.name) {
+    const v = config.name;
+    // State-keyed dict → show human-friendly preview
+    if (typeof v === "object" && !Array.isArray(v)) {
+      return Object.entries(v).map(([k, val]) => `${k}: ${val}`).join(", ");
+    }
+    return formatFieldValue(v);
+  }
+  const typeStr = detectItemType(config?.item);
+  return ITEM_TYPE_SHORT[typeStr] || t('Item');
 }
 
 /**
@@ -276,9 +268,9 @@ export function renderPanelKeyPicker(host, { id, value, label, placeholder, pane
 
   const picker = html`
     <div class="entity-picker-wrap" style="position:relative;">
-      <ha-input
+      <input
         id=${id}
-        class="entity-picker-input"
+        class="entity-picker-input native-input"
         .value=${String(value != null ? value : "")}
         placeholder=${placeholder || ""}
         style="width:100%"
@@ -312,7 +304,7 @@ export function renderPanelKeyPicker(host, { id, value, label, placeholder, pane
           },
           onDismiss: (e) => _hidePanelKeyDropdown(e.target.closest('.entity-picker-wrap')),
         })}
-      ></ha-input>
+      />
 
       <div class="entity-dropdown"
         style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:200px; overflow-y:auto; border:1px solid var(--divider-color,#ddd); border-radius:4px; background:var(--card-background-color,#fff); margin-top:2px;">

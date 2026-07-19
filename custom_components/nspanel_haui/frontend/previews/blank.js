@@ -1,5 +1,7 @@
 /**
  * NSPanel HAUI - Panel preview: Blank.
+ *
+ * Device layout: blank/idle screen with just a hotspot.
  */
 import { html } from '../lit-import.js';
 

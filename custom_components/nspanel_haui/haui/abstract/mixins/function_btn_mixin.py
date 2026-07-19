@@ -412,42 +412,33 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_PREV
                     else:
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_UP
-                # left secondary: on home panel => NOTIF (fallback SLEEP),
+                # left secondary: on home panel => SLEEP,
                 # otherwise on non-popup panels => HOME
                 elif fnc_id == self.FNC_BTN_L_SEC:
                     if not is_popup:
                         is_home = home_key and panel.get("key") == home_key
                         if not is_home and panel.show_home_button():
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
-                        elif is_home:
-                            notif_visible = False
-                            if panel.show_notifications_button():
-                                notification = self.app.controller["notification"]
-                                notif_visible = notification.has_notifications()
-                                fnc_item["fnc_name"] = self.FNC_TYPE_NAV_NOTIF
-                                fnc_item["fnc_args"]["visible"] = notif_visible
-                            # Sleep takes the slot whenever the notifications
-                            # button is not actively shown — whether because
-                            # notifications are disabled, or enabled with none
-                            # pending.  (Previously this required notifications
-                            # enabled-but-empty, so an explicit `visible=False`
-                            # existed; with them disabled `visible` was unset
-                            # and the sleep button silently never appeared.)
-                            if not notif_visible and panel.show_sleep_button():
-                                fnc_item["fnc_name"] = self.FNC_TYPE_NAV_SLEEP
-                                fnc_item["fnc_args"]["visible"] = True
+                        elif is_home and panel.show_sleep_button():
+                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_SLEEP
+                            fnc_item["fnc_args"]["visible"] = True
                 # right primary: navigation => NEXT, otherwise => CLOSE
                 elif fnc_id == self.FNC_BTN_R_PRI:
                     if show_in_nav:
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_NEXT
                     else:
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_CLOSE
-                # right secondary: locked panel => UNLOCK indicator
+                # right secondary: notifications => NAV_NOTIF, locked => UNLOCK
                 elif fnc_id == self.FNC_BTN_R_SEC:
                     locked = panel.get_state("locked")
                     if locked is not None:
                         fnc_item["fnc_name"] = self.FNC_TYPE_UNLOCK
                         fnc_item["fnc_args"]["locked"] = locked
+                    elif panel.show_notifications_button():
+                        notification = self.app.controller["notification"]
+                        notif_visible = notification.has_notifications()
+                        fnc_item["fnc_name"] = self.FNC_TYPE_NAV_NOTIF
+                        fnc_item["fnc_args"]["visible"] = notif_visible
             # visibility: hide buttons with no assigned function, show ones that do
             if fnc_item["fnc_args"].get("visible", None) is None:
                 if fnc_item["fnc_name"] is None:
@@ -555,7 +546,20 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         elif fnc_name == self.FNC_TYPE_NAV_SLEEP:
             navigation.open_sleep_panel()
         elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
-            navigation.open_panel(SysPanelKey.POPUP_NOTIFS)
+            notif_ctrl = self.app.controller["notification"]
+            count = len(notif_ctrl.get_notifications())
+            if count == 1:
+                notif = notif_ctrl.get_notifications()[0]
+                navigation.open_panel(
+                    SysPanelKey.POPUP_NOTIFY,
+                    icon=notif[2],  # icon
+                    title=notif[0],  # title
+                    notification=notif[1],  # message
+                    close_on_button=True,
+                    close_timeout=notif[3] if notif[3] > 0 else 0,
+                )
+            else:
+                navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
         elif fnc_name == self.FNC_TYPE_NAV_ABOUT:
             navigation.open_panel(SysPanelKey.SYS_ABOUT)
         elif fnc_name == self.FNC_TYPE_NAV_UP or fnc_name == self.FNC_TYPE_NAV_CLOSE:

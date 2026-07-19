@@ -69,6 +69,8 @@ export function parseRgbListToHex(val) {
     }
     return "";
   }
+  // Plain object (dict) is not parseable as a color — return empty early
+  if (typeof val === "object" && !Array.isArray(val)) return "";
   const s = String(val).trim();
   if (s.includes("{{")) return "";
   // RGB565 integer string → hex

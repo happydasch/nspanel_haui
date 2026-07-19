@@ -315,6 +315,7 @@ class NSPanelEditor extends LitElement {
   async _onDeviceManagerImportYaml()     { return DeviceEvents.onDeviceManagerImportYaml(this); }
   async _onDeviceManagerExportYaml()     { return DeviceEvents.onDeviceManagerExportYaml(this); }
 
+  async _onDeviceManagerScan(e) { return DeviceEvents.onDeviceManagerScan(this, e); }
   async _onDeviceManagerUpdateDisplay(e) { return DeviceEvents.onDeviceManagerUpdateDisplay(this, e); }
 
   /* ── toast ────────────────────────────────────────────────────────────── */
@@ -454,6 +455,7 @@ class NSPanelEditor extends LitElement {
           @export-yaml=${this._onDeviceManagerExportYaml}
           @move-device=${this._onDeviceManagerMoveDevice}
           @toggle-device=${this._onDeviceManagerToggleDevice}
+          @scan-devices=${this._onDeviceManagerScan}
           @update-display=${this._onDeviceManagerUpdateDisplay}
         ></ha-dialog-device-manager>
 

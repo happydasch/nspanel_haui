@@ -25,6 +25,7 @@ class VacuumPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="vacuum",
         page_name="vacuum",
+        page_id=15,
         label=_("Vacuum"),
         description=_("Vacuum robot controls and status."),
         options=[

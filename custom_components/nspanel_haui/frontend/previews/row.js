@@ -1,5 +1,8 @@
 /**
  * NSPanel HAUI - Panel preview: Row.
+ *
+ * Device layout: 5 rows of items. Each row: icon (font:2, 50x50),
+ * name (font:1, 220x50), optional slider + up/down/stop buttons.
  */
 import { html } from '../lit-import.js';
 import { t } from '../localize.js';
@@ -21,9 +24,9 @@ export function renderRowPreview(host, panel, _pIdx, _pt) {
             <div class="pg-preview-row-card">
               <ha-icon icon="${icon}"></ha-icon>
               <span class="pg-preview-tile-label">${shortName || t('Item')}</span>
-              <div class="pg-preview-btn"><ha-icon icon="mdi:arrow-up-bold"></ha-icon></div>
-              <div class="pg-preview-btn"><ha-icon icon="mdi:stop"></ha-icon></div>
-              <div class="pg-preview-btn"><ha-icon icon="mdi:arrow-down-bold"></ha-icon></div>
+              <div class="pg-preview-btn" style="width:18px;height:16px;"><ha-icon icon="mdi:chevron-up" style="--mdc-icon-size:9px;"></ha-icon></div>
+              <div class="pg-preview-btn" style="width:18px;height:16px;"><ha-icon icon="mdi:stop" style="--mdc-icon-size:8px;"></ha-icon></div>
+              <div class="pg-preview-btn" style="width:18px;height:16px;"><ha-icon icon="mdi:chevron-down" style="--mdc-icon-size:9px;"></ha-icon></div>
             </div>`;
         })}
         ${items.length > 5

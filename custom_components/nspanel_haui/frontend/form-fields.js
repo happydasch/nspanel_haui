@@ -9,16 +9,11 @@ import { html } from './lit-import.js';
 import { t } from './localize.js';
 import { ENTITY_OVERRIDE_FIELDS, renderEntityPicker } from './haui-entity.js';
 import {
-  hexToRgb565,
-  rgb565ToHex,
-  hexToRgbList,
-  hexToRgbArray,
   parseRgbListToHex,
   hexToColorMatching,
   COLOR_PRESETS,
 } from './color-utils.js';
 import {
-  hasOverrides,
   detectItemType,
   parseItemValue,
   renderPanelKeyPicker,
@@ -30,6 +25,67 @@ import {
   itemSecondaryText,
 } from './haui-item.js';
 
+
+/* ── shared form field helpers ──────────────────────────────────────────── */
+
+/**
+ * Render a native <select> element replacing ha-select.
+ * Options may be {value, label} objects or [value, label] pairs.
+ * Fires onChange(newValue) on user selection.
+ *
+ * @param {string}  id        - DOM id
+ * @param {string}  value     - Current selected value
+ * @param {Array}   options   - Array of {value, label} or [value, label]
+ * @param {function} onChange - Called with new value on change
+ * @param {object}  [opts]
+ * @param {string}  [opts.className] - Additional CSS class
+ * @param {string}  [opts.placeholder] - Placeholder option label (no value)
+ * @param {boolean} [opts.disabled] - Disabled state
+ * @returns {import('lit-html').TemplateResult}
+ */
+export function renderSelect(id, value, options, onChange, opts = {}) {
+  const cls = ["native-select", opts.className].filter(Boolean).join(" ");
+  return html`
+    <select
+      id=${id}
+      class=${cls}
+      .value=${String(value != null ? value : "")}
+      @change=${(e) => { onChange(e.target.value); }}
+      ?disabled=${opts.disabled}
+    >
+      ${opts.placeholder ? html`<option value="" disabled ?selected=${value == null || value === ""}>${opts.placeholder}</option>` : ""}
+      ${options.map((c) => {
+        const opt = Array.isArray(c) ? { value: c[0], label: c[1] } : c;
+        return html`<option value=${opt.value} ?selected=${String(value) === String(opt.value)}>${opt.label}</option>`;
+      })}
+    </select>
+  `;
+}
+
+/**
+ * Render a native toggle checkbox replacing ha-switch.
+ *
+ * @param {string}  id       - DOM id
+ * @param {boolean} checked  - Checked state
+ * @param {function} onChange - Called with new checked state
+ * @param {object}  [opts]
+ * @param {string}  [opts.className] - Additional CSS class
+ * @param {boolean} [opts.disabled] - Disabled state
+ * @returns {import('lit-html').TemplateResult}
+ */
+export function renderToggle(id, checked, onChange, opts = {}) {
+  const cls = ["native-toggle", opts.className].filter(Boolean).join(" ");
+  return html`
+    <input
+      id=${id}
+      type="checkbox"
+      class=${cls}
+      ?checked=${Boolean(checked)}
+      @change=${(e) => { onChange(e.target.checked); }}
+      ?disabled=${opts.disabled}
+    />
+  `;
+}
 
 /**
  * Format a typed value (list, dict, number, bool, string) into a string suitable
@@ -63,7 +119,19 @@ export function parseFieldValue(s) {
   const str = s.trim();
   if (str === "") return "";
   // Templates pass through unchanged
-  if (str.includes("{{")) return s;
+  if (str.includes("{{")) {
+    // If the entire string is wrapped in {{...}} and the inner content is valid JSON
+    // (object or array), parse the inner content as JSON instead of treating it
+    // as a template. This allows users to write {{"on": "Lights"}} as well as
+    // the bare {"on": "Lights"}.
+    const m = str.match(/^\{\{\s*(\{.*\}|\[.*\])\s*\}\}$/s);
+    if (m) {
+      const inner = m[1].trim();
+      try { return JSON.parse(inner); } catch {}
+      try { return JSON.parse(inner.replace(/'/g, '"')); } catch {}
+    }
+    return s;
+  }
   // Integer
   if (/^-?\d+$/.test(str)) {
     const n = parseInt(str, 10);
@@ -338,10 +406,16 @@ export function renderIconPicker(id, value, hass = null, onInput = null) {
 
   return html`
     <div class="icon-picker-wrap">
-      <ha-input
-        id=${id}
-        class="icon-picker-input"
-        .value=${currentVal}
+      <div class="field-row">
+      <div class="input-preview-wrap">
+        <ha-icon class="icon-preview input-preview" style="pointer-events:none;"
+          icon=${currentVal && !currentVal.startsWith("{") && !currentVal.startsWith("[") ? currentVal : "mdi:puzzle"}
+          title=${currentVal || t("no icon selected")}
+        ></ha-icon>
+        <input
+          id=${id}
+          class="native-input icon-picker-input"
+          .value=${currentVal}
         placeholder=${t("mdi:home")}
         @input=${(e) => {
           const tf = e.target;
@@ -401,7 +475,8 @@ export function renderIconPicker(id, value, hass = null, onInput = null) {
           },
           onDismiss: (e) => _hideIconDropdown(e.target.closest('.icon-picker-wrap')),
         })}
-      ></ha-input>
+      />
+      </div>
       <div class="icon-dropdown" hidden>
         ${iconList.map((icon) => html`
           <div class="icon-dropdown-item" data-icon="${icon}"
@@ -412,9 +487,6 @@ export function renderIconPicker(id, value, hass = null, onInput = null) {
           </div>
         `)}
       </div>
-      <div class="icon-preview-row">
-        <ha-icon class="icon-preview" icon=${currentVal || "mdi:puzzle"}></ha-icon>
-        <span class="icon-preview-label">${currentVal || t("no icon selected")}</span>
       </div>
       <div class="template-preview" ?hidden=${!hasTpl}>
         <span id="tp-${id}">${hasTpl ? "..." : ""}</span>
@@ -444,58 +516,6 @@ function _selectIconItem(wrap, item, hass, onInput) {
 }
 
 
-/**
- * Render a plain <ha-input> with an optional full-width style.
- *
- * @param {string}  id              - DOM id for the field
- * @param {string}  value           - Current value
- * @param {boolean} [fullWidth=false] - When true, add ``style="width:100%"``
- * @param {object}  [hass=null]     - HA hass object for template rendering
- * @returns {import('./lit-import.js').TemplateResult}
- */
-function renderTextField(id, value, fullWidth = false, hass = null) {
-  const val = String(value != null ? value : "");
-  const hasTemplate = val.includes("{{");
-
-  const field = fullWidth
-    ? html`
-        <ha-input
-          id=${id}
-          .value=${val}
-          class="w-full"
-          @input=${(e) => { if (hass) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target); }}
-          @focus=${(e) => { if (hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target); }}
-        ></ha-input>
-      `
-    : html`
-        <ha-input
-          id=${id}
-          .value=${val}
-          @input=${(e) => { if (hass) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target); }}
-          @focus=${(e) => { if (hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target); }}
-        ></ha-input>
-      `;
-
-  if (!hass) return field;
-
-  return html`
-    ${field}
-    <div class="template-preview" ?hidden=${!hasTemplate}>
-      <span id="tp-${id}">${hasTemplate ? "..." : ""}</span>
-    </div>
-  `;
-}
-
-/** Inline template-preview block matching the .template-preview class. */
-function templatePreview(id, value) {
-  const has = String(value || "").includes("{{");
-  return html`
-    <div class="template-preview" ?hidden=${!has}>
-      <span id="tp-${id}">${has ? "..." : ""}</span>
-    </div>
-  `;
-}
-
 /** Render a form control for a single PageOption. */
 export function renderOptionField(host, opt, currentValue, descriptor) {
   const id = `fld-${opt.key}`;
@@ -513,17 +533,13 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
       return html`
         <div class="checkbox-wrap">
           <div class="checkbox-row">
-            <ha-switch
-              id=${id}
-              ?checked=${Boolean(val)}
-              @change=${(e) => {
-                host._editingPanel = {
-                  ...host._editingPanel,
-                  data: { ...host._editingPanel.data, [opt.key]: e.target.checked },
-                };
-                host.requestUpdate();
-              }}
-            ></ha-switch>
+            ${renderToggle(id, val, (checked) => {
+              host._editingPanel = {
+                ...host._editingPanel,
+                data: { ...host._editingPanel.data, [opt.key]: checked },
+              };
+              host.requestUpdate();
+            })}
             <label for=${id} title=${optDesc}>${optLabel}</label>
           </div>
           ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
@@ -534,11 +550,12 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
       return html`
         <div class="form-group">
           <label for=${id} title=${optDesc}>${optLabel}</label>
-          <ha-input
+          <input
             id=${id}
             type="number"
-            .inputMode="numeric"
+            inputmode="numeric"
             step="1"
+            class="native-input"
             .value=${String(val != null ? val : "")}
             @input=${(e) => {
               const v = e.target.value;
@@ -551,7 +568,7 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
               };
               host.requestUpdate();
             }}
-          ></ha-input>
+          />
           ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
         </div>
       `;
@@ -560,11 +577,12 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
       return html`
         <div class="form-group">
           <label for=${id} title=${optDesc}>${optLabel}</label>
-          <ha-input
+          <input
             id=${id}
             type="number"
-            .inputMode="numeric"
+            inputmode="numeric"
             step="any"
+            class="native-input"
             .value=${String(val != null ? val : "")}
             @input=${(e) => {
               const v = e.target.value;
@@ -577,7 +595,7 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
               };
               host.requestUpdate();
             }}
-          ></ha-input>
+          />
           ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
         </div>
       `;
@@ -600,7 +618,7 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
         <div class="form-group color-form-group">
           <label for=${id} title=${optDesc}>${optLabel}</label>
           <div class="color-picker-wrap">
-            <ha-input id=${id} .value=${displayStr}
+            <input id=${id} class="native-input" .value=${displayStr}
               @input=${(e) => {
                 const raw = e.target.value;
                 if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
@@ -611,7 +629,7 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
                 host.requestUpdate();
               }}
               @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
-            ></ha-input>
+            />
             <ha-icon-button
               class="color-picker-btn"
               @click=${(e) => {
@@ -632,7 +650,7 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
                 const prevVal = host._editingPanel?.data?.[opt.key];
                 const newVal = hexToColorMatching(hex, prevVal);
                 const group = e.target.closest(".color-form-group");
-                const tf = group?.querySelector(".color-picker-wrap ha-input");
+                const tf = group?.querySelector(".color-picker-wrap .native-input");
                 if (tf) tf.value = formatFieldValue(newVal);
                 saveColor(hex);
                 host._editingPanel = {
@@ -715,25 +733,16 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
       return html`
         <div class="form-group">
           <label for=${id} title=${optDesc}>${optLabel}</label>
-          <ha-select
-            id=${id}
-            .value=${String(val != null ? val : "")}
-            .options=${(opt.choices || []).map((c) => {
-              const label = Array.isArray(c) ? c[1] : c.label;
-              return Array.isArray(c) ? { value: c[0], label } : { ...c, label };
-            })}
-            @selected=${(e) => {
-              host._editingPanel = {
-                ...host._editingPanel,
-                data: {
-                  ...host._editingPanel.data,
-                  [opt.key]: e.detail.value,
-                },
-              };
-              host.requestUpdate();
-            }}
-          >
-          </ha-select>
+          ${renderSelect(id, val, opt.choices || [], (v) => {
+            host._editingPanel = {
+              ...host._editingPanel,
+              data: {
+                ...host._editingPanel.data,
+                [opt.key]: v,
+              },
+            };
+            host.requestUpdate();
+          })}
           ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
         </div>
       `;
@@ -799,10 +808,10 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
       return html`
         <div class="form-group">
           <label for=${id} title=${optDesc}>${optLabel}</label>
-          <ha-input
+          <input
             id=${id}
+            class="native-input"
             .value=${displayStr}
-            class="w-full"
             @input=${(e) => {
               const raw = e.target.value;
               if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
@@ -816,7 +825,7 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
               host.requestUpdate();
             }}
             @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
-          ></ha-input>
+          />
           ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
           ${host.hass
             ? html`
@@ -834,10 +843,10 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
       return html`
         <div class="form-group">
           <label for=${id} title=${optDesc}>${optLabel}</label>
-          <ha-input
+          <input
             id=${id}
+            class="native-input"
             .value=${String(val != null ? val : "")}
-            class="w-full"
             @input=${(e) => {
               if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target);
               host._editingPanel = {
@@ -850,7 +859,7 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
               host.requestUpdate();
             }}
             @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
-          ></ha-input>
+          />
           ${optDesc ? html`<div class="field-hint">${optDesc}</div>` : ""}
           ${host.hass
             ? html`

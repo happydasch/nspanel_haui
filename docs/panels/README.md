@@ -72,7 +72,6 @@ Overlay panels used for temporary interactions.
 |-------|------|-------------|
 | [Unlock](popup_unlock.md) | `popup_unlock` | PIN-protected unlock for locked panels. Built on `AlarmPage`. |
 | [Notify](popup_notify.md) | `popup_notify` | Ad-hoc notification popup with optional action buttons. |
-| [Notifs](popup_notifs.md) | `popup_notifs` | Notification queue. Displays multi-notification history. |
 | [Select](popup_select.md) | `popup_select` | Selection list popup for choosing values (fan speeds, presets, etc.). |
 
 Popup variants of entity panels (`popup_light`, `popup_media_player`, `popup_vacuum`, `popup_climate`, `popup_timer`, `popup_cover`) mirror their main panel layout.

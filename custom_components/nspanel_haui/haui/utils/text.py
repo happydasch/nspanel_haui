@@ -3,6 +3,8 @@ import logging
 import os
 from typing import Any
 
+from ..utils.icon import get_icon
+
 _LOGGER = logging.getLogger(__name__)
 
 # Cache translation files per language so we read each one only once.
@@ -75,6 +77,23 @@ def get_translations(locale: str) -> dict:
 
     _TRANSLATION_CACHE[lang] = translations
     return translations
+
+
+def parse_notification_text(text: str) -> str:
+    """Parse notification text for display.
+
+    Only extracts icon characters from mdi: prefixed strings.
+    Leaves all other text unchanged.
+
+    Args:
+        text (str): Text to parse
+
+    Returns:
+        str: Parsed text with icon characters substituted when applicable
+    """
+    if text.startswith("mdi:"):
+        return get_icon(text)
+    return text
 
 
 def trim_text(text: str, num_chr: int, suffix: str = "..") -> str:

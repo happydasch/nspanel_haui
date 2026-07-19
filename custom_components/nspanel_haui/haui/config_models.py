@@ -70,6 +70,9 @@ def _ensure_models() -> None:
         snapshot_max_age_seconds: int = -1
         sound_on_startup: bool = True
         sound_on_notification: bool = True
+        use_do_not_disturb: bool = False
+        quiet_hours_start: str = ""
+        quiet_hours_end: str = ""
         use_relay_left: bool = True
         use_relay_right: bool = True
         debug_level: int = 0

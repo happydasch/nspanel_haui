@@ -8,22 +8,29 @@ import { css } from '../../lit-import.js';
 
 export const previewCommonStyles = css`
   /* --- Simulated preview primitives --- */
+  /* Device font mapping:
+   * Font 3 (96-164px): light weight 400 — used for big icons/displays
+   * Font 1 (16-32px): regular weight 400 — titles, medium text
+   * Font 0 (8-16px): regular weight 400 — small text, labels
+   * Font 2: icon font — symbol-only
+   */
 
   .pg-preview-time-display {
     font-size: 2.6em;
-    font-weight: 600;
+    font-weight: 400;
     margin-top: -10px;
     color: var(--primary-text-color, #fff);
     line-height: 1.1;
   }
   .pg-preview-date-display {
     font-size: 0.7em;
+    font-weight: 400;
     color: var(--secondary-text-color, #aaa);
     margin-top: 2px;
   }
   .pg-preview-temp-display {
     font-size: 2.6em;
-    font-weight: 600;
+    font-weight: 400;
     color: var(--primary-text-color, #fff);
   }
   .pg-preview-temp-unit {
@@ -59,6 +66,7 @@ export const previewCommonStyles = css`
   .pg-preview-tile-label {
     flex-shrink: 0;
     font-size: 0.55em;
+    font-weight: 400;
     color: var(--secondary-text-color, #bbb);
     white-space: nowrap;
     overflow: hidden;
@@ -68,6 +76,7 @@ export const previewCommonStyles = css`
   }
   .pg-preview-tile-icon-only {
     font-size: 0.65em;
+    font-weight: 400;
     color: var(--secondary-text-color, #bbb);
     white-space: nowrap;
     overflow: hidden;
@@ -163,6 +172,7 @@ export const previewCommonStyles = css`
   }
   .pg-preview-btn-label {
     font-size: 0.4em;
+    font-weight: 400;
     color: var(--secondary-text-color, #999);
     text-align: center;
     white-space: nowrap;
@@ -170,6 +180,7 @@ export const previewCommonStyles = css`
 
   .pg-preview-btn-label-sm {
     font-size: 0.4em;
+    font-weight: 400;
     color: var(--secondary-text-color, #666);
   }
 
@@ -240,7 +251,7 @@ export const previewCommonStyles = css`
     width: 50%;
   }
 
-  /* --- Background theme gradients --- */
+  /* --- Background theme gradients (subtle, device-like) --- */
   .pg-preview-bg-spring {
     background: linear-gradient(135deg, rgba(168,230,207,0.20) 0%, rgba(220,237,193,0.20) 100%);
   }

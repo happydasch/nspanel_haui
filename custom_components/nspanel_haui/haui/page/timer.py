@@ -22,6 +22,7 @@ class TimerPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="timer",
         page_name="timer",
+        page_id=12,
         label=_("Timer"),
         description=_("Timer item with start, pause and stop controls."),
         options=[

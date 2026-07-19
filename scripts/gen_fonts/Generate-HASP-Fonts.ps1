@@ -32,6 +32,7 @@ Function Main {
 
   $outfile = "output" | Resolve-Path | ForEach-Object { $_.Path }
   $textFont = "./Roboto/Roboto-Regular.ttf" | Get-ChildItem | ForEach-Object { $_.FullName }
+  $textFontLight = "./Roboto/Roboto-Light.ttf" | Get-ChildItem | ForEach-Object { $_.FullName }
   $textFontBold = "./Roboto/Roboto-Bold.ttf" | Get-ChildItem | ForEach-Object { $_.FullName }
   $iconFont = "./MaterialDesign-Webfont/fonts/materialdesignicons-webfont.ttf" | Get-ChildItem | ForEach-Object { $_.FullName }
   $startCP = 0xf0001
@@ -57,14 +58,15 @@ Function Main {
     @(20, 1, 4, 0),
     @(24, 1, 0, 2),
     @(32, 1, -2, 4),
-    @(48, 1, 0, 4)
+    @(48, 1, 0, 4),
+    @(72, 0, 0, 6)
   )
   # $textFontSize,$textVerticalOffset,$iconFontSizeOffset,$iconVerticalOffset
   $toGenerateWeather = @(
-    @(72, 0, 0, 6),
     @(96, 0, 0, 6),
     @(112, 0, 0, 8),
-    @(128, 0, 0, 8)
+    @(128, 0, 0, 8),
+    @(164, 0, 0, 8)
   )
 
   foreach ($values in $toGenerate) {
@@ -73,7 +75,7 @@ Function Main {
     $iconFontSizeOffset = $values[2]
     $iconVerticalOffset = $values[3]
     New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $rangeIcon -rangeText $rangeText
-    New-ZiFontV5 -textFont $textFontBold -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $rangeIcon -rangeText $rangeText
+    New-ZiFontV5 -textFont $textFontLight -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $rangeIcon -rangeText $rangeText
   }
 
   foreach ($values in $toGenerateWeather) {
@@ -82,7 +84,7 @@ Function Main {
     $iconFontSizeOffset = $values[2]
     $iconVerticalOffset = $values[3]
     New-ZiFontV5 -textFont $textFont -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $weatherIcons -rangeText $rangeTextWeather
-    New-ZiFontV5 -textFont $textFontBold -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $weatherIcons -rangeText $rangeTextWeather
+    New-ZiFontV5 -textFont $textFontLight -iconFont $iconFont -iconFontFirstCP $startCP -iconFontLastCP $endCP -iconCPOffset $offsetCP -iconVerticalOffset $iconVerticalOffset -textVerticalOffset $textVerticalOffset -textFontSize $textFontSize -iconFontSizeOffset $iconFontSizeOffset -Codepage $codePage -Path $outfile -rangeIcon $weatherIcons -rangeText $rangeTextWeather
   }
 }
 

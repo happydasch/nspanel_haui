@@ -38,6 +38,7 @@ class MediaPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="media",
         page_name="media",
+        page_id=14,
         label=_("Media Player"),
         description=_("Media player controls with track info and volume."),
         options=[

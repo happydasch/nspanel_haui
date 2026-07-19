@@ -79,17 +79,19 @@ export function renderDeviceSelector(host) {
     const dev = (host._panels.devices || {})[name] || {};
     const config = dev.config || {};
     const enabled = config.enabled !== false;
-    const label = enabled ? `${name}` : `${name} (${t('disabled')})`;
+    const displayName = dev.friendly_name || name;
+    const label = enabled ? `${displayName}` : `${displayName} (${t('disabled')})`;
     return { value: name, label };
   });
 
   return html`
-    <ha-select
-      class="toolbar-select"
+    <select
+      class="toolbar-select native-select"
       .value=${selected || ""}
-      .options=${options}
-      @selected=${(e) => selectDevice(host, e.detail.value)}
-    ></ha-select>
+      @change=${(e) => selectDevice(host, e.target.value)}
+    >
+      ${options.map((o) => html`<option value=${o.value} ?selected=${(selected || "") === o.value}>${o.label}</option>`)}
+    </select>
   `;
 }
 

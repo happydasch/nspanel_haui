@@ -326,7 +326,7 @@ class HAUINavigationController(HAUIBase):
         panel = self.app.device_config.get_panel(panel_id)
         self.log(
             f"Resolved panel: id={panel_id}, type={panel.get_type() if panel else 'NOT FOUND'!r}, "
-            f"key={panel.get('key') if panel else 'NOT FOUND'!r}, "
+            f"key={panel.get('key', '') if panel else 'NOT FOUND'!r}, "
             f"show_in_nav={panel.show_in_navigation() if panel else 'NOT FOUND'}, "
             f"kwargs={kwargs}",
             level="DEBUG",

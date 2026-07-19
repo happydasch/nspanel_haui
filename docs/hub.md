@@ -235,6 +235,19 @@ every command that ist sent between `start_rec_cmd` and `stop_rec_cmd` will be s
 
 The pages represent pages on the nextion displays. The pages interact with the ESP and are the main place where to add code for interaction with the device. All pages are defined in `haui.page.*`. See `haui.page.HAUIPage` for functionality.
 
+## Device Linking
+
+Each configured NSPanel HAUI device is linked to its underlying **ESPHome device** in the Home Assistant device registry. Instead of creating a separate `nspanel_haui` device entry, the hub adds an `nspanel_haui` identifier and attaches its config entry to the existing ESPHome device entry.
+
+This means:
+
+- The device shows up in the **nspanel_haui hub page** — you can see all claimed ESPHome devices under the integration
+- **Clicking the device** in the hub page navigates to the ESPHome device page (the ESPHome config entry remains its primary one)
+- The **service device picker** (`integration: nspanel_haui`) only shows ESPHome devices that have HAUI firmware — plain ESPHome devices are excluded
+- When the integration is unloaded, the config entry is cleanly removed from the device
+
+The linking is handled in `_link_esphome_device()` in `__init__.py` and runs both during initial setup and when a device appears later (race condition handling via the device registry listener).
+
 ## Available Panels
 
 Panels are configured representations of a page. A page can have multiple panels, like the alarm page, which is used for alarm activation and the unlock popup. There can be multiple panels using the same page. All panels can have a custom key defined, which is used for navigation. See [Panels Overview](panels/README.md) for more details about the different panels.

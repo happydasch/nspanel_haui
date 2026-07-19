@@ -8,6 +8,17 @@ import { clone } from './constants.js';
 import { t } from './localize.js';
 import * as Api from './api.js';
 
+/**
+ * Get the user-friendly display name for a device, falling back to the device key.
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} name  - device key
+ * @returns {string}
+ */
+function _friendlyName(host, name) {
+  return host._panels?.devices?.[name]?.friendly_name || name;
+}
+
+
 export async function onDeviceManagerMoveDevice(host, e) {
   const { name, direction } = e.detail || {};
   if (!name || !direction) return;
@@ -27,7 +38,7 @@ export async function onDeviceManagerMoveDevice(host, e) {
   }
   host._panels = { ...host._panels, devices: newDevices };
   const label = direction < 0 ? "up" : "down";
-  await host._savePanels(host._devicePanels(), t('Device "{name}" moved {direction}').replace('{name}', name).replace('{direction}', label));
+  await host._savePanels(host._devicePanels(), t('Device "{name}" moved {direction}').replace('{name}', _friendlyName(host, name)).replace('{direction}', label));
 }
 
 export async function onDeviceManagerToggleDevice(host, e) {
@@ -63,7 +74,7 @@ export async function onDeviceManagerToggleDevice(host, e) {
 
     if (resp.ok) {
       host._panels = payload;
-      host._showToast(`"${name}" ${t(newEnabled ? "enabled" : "disabled")}`, "success");
+      host._showToast(`"${_friendlyName(host, name)}" ${newEnabled ? t("enabled") : t("disabled")}`, "success");
     } else {
       const err = await resp.json().catch(() => ({}));
       host._panels = {
@@ -109,8 +120,9 @@ export async function onDeviceManagerRemove(host, e) {
   if (!name) return;
   try {
     await Api.removeDevice(host, name);
-    await Api.loadPanels(host);
-    host._showToast(t('Removed "{name}"').replace('{name}', name), "success");
+    // The backend triggers a config entry reload, so the editor will
+    // re-render without the removed device.  Do NOT call loadPanels.
+    host._showToast(t('Removed "{name}"').replace('{name}', _friendlyName(host, name)), "success");
   } catch (err) {
     host._showToast(err.message || t("Failed to remove device"), "error");
   }
@@ -122,10 +134,38 @@ export async function onDeviceManagerAdd(host, e) {
   if (!device) return;
   try {
     await Api.addDevice(host, device);
-    await Api.loadPanels(host);
+    // The backend triggers a config entry reload, so the editor will
+    // re-render with the new device.  Do NOT call loadPanels here.
     host._showToast(t('Added "{name}"').replace('{name}', device.name), "success");
   } catch (err) {
     host._showToast(err.message || t("Failed to add device"), "error");
+  }
+  host.requestUpdate();
+}
+
+export async function onDeviceManagerScan(host, e) {
+  const devices = e.detail?.devices;
+  if (!devices || !devices.length) {
+    host._showToast(t("No new HAUI devices found"), "info");
+    return;
+  }
+  try {
+    // Batch-add all discovered devices in a single API call.
+    const batch = devices.map((d) => ({
+      name: d.name || d.friendly_name,
+      esphome_device_id: d.esphome_device_id || "",
+      enabled: true,
+    })).filter((d) => d.name && !(host._panels?.devices?.[d.name]));
+    if (!batch.length) {
+      host._showToast(t("No new HAUI devices found"), "info");
+      return;
+    }
+    await Api.addDevice(host, { devices: batch });
+    // The backend triggers a reload — the toast shows after the editor
+    // re-renders.  Do NOT call loadPanels here.
+    host._showToast(t("Added {count} device(s)").replace("{count}", batch.length), "success");
+  } catch (err) {
+    host._showToast(err.message || t("Failed to add devices"), "error");
   }
   host.requestUpdate();
 }
@@ -153,7 +193,7 @@ export async function onDeviceManagerUpdateDisplay(host, e) {
     if (name === "*") {
       host._showToast(t('Updated display for {count} device(s)').replace('{count}', count), "success");
     } else {
-      host._showToast(t('Display updated for "{name}"').replace('{name}', name), "success");
+      host._showToast(t('Display updated for "{name}"').replace('{name}', _friendlyName(host, name)), "success");
     }
   } catch (err) {
     host._showToast(err.message || t("Failed to update display"), "error");

@@ -503,7 +503,7 @@ export const editorStyles = css`
     margin-bottom: 16px;
   }
 
-  .device-mgr-add-form ha-input {
+  .device-mgr-add-form .native-input {
     display: block;
     width: 100%;
   }

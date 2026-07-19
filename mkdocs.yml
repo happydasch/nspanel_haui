@@ -100,7 +100,6 @@ nav:
       - Blank: panels/panel_blank.md
       - System: panels/panel_system.md
       - Settings: panels/panel_settings.md
-      - Popup Notifications: panels/popup_notifs.md
       - Popup Notify: panels/popup_notify.md
       - Popup Select: panels/popup_select.md
       - Popup Unlock: panels/popup_unlock.md

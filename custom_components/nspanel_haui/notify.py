@@ -76,9 +76,8 @@ class NSPanelNotifyEntity(NotifyEntity):
         else:
             self._attr_name = None  # inherit device name
 
-        device_id = getattr(app, "_ha_device_id", None)
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, device_id or dev_name)},
+            identifiers={(DOMAIN, dev_name)},
         )
 
     def send_message(self, message: str, title: str | None = None) -> None:

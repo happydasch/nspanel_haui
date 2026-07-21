@@ -513,12 +513,24 @@ class WeatherPage(HAUIPage):
         self._update_forecast_data()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
+        notification = self.app.controller["notification"]
         if (
             fnc_id == self.COMPONENTS.t_main_icon[1]
-            and self.app.controller["notification"].has_notifications()
+            and notification.has_notifications()
         ):
             navigation = self.app.controller["navigation"]
-            navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
+            if len(notification.get_notifications()) == 1:
+                notif = notification.get_notifications()[0]
+                navigation.open_panel(
+                    SysPanelKey.POPUP_NOTIFY,
+                    icon=notif[2],
+                    title=notif[0],
+                    notification=notif[1],
+                    close_on_button=True,
+                    close_timeout=notif[3] if notif[3] > 0 else 0,
+                )
+            else:
+                notification.open_notification_list()
         elif fnc_name == "item":
             item = self._fnc_items[fnc_id]["fnc_args"].get("item")
             if item is not None:

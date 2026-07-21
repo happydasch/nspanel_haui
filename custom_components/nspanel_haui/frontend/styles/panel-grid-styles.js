@@ -164,7 +164,7 @@ export const panelGridStyles = css`
     align-items: stretch;
     justify-content: center;
     flex: 1;
-    padding: 6px 4px;
+    padding: 0 4px 4px;
     background: rgba(0, 0, 0, 0.12);
   }
   .pg-card-preview--with-header {

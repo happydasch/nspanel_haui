@@ -6,7 +6,7 @@ description: Common issues, troubleshooting, and tips for NSPanel HAUI
 # FAQ
 ## I don't know how to start
 
-Take a look at the [Panel Configuration](config/panels.md) reference and the [Panel Overview](panels/README.md) for details.
+Take a look at the [Panel Configuration](configuration/panels.md) reference and the [Panel Overview](panels/README.md) for details.
 
 ## How to upload a TFT file
 

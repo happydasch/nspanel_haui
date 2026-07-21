@@ -745,10 +745,10 @@ export function renderItemEditFields(host, descriptor) {
             };
             const hints = {
               value: t("A display value or Home Assistant template that overrides what is shown for this item on the panel. Supports typed values (integers, floats, JSON arrays/objects)."),
-              state: t("A JSON state dictionary or Home Assistant template that overrides the entity state used for display logic. Useful for testing or conditional display."),
+              state: t("An attribute name (string) or JSON array for nested attribute access that overrides the entity state used for display logic."),
               popup_key: t("The key of a popup panel configuration that opens when this item is tapped. Leave empty to use the default popup behavior."),
             };
-            const typedFields = new Set(["value", "state"]);
+            const typedFields = new Set(["value"]);
             const isTyped = typedFields.has(f);
             const rawVal = ee.config?.[f];
             const displayStr = formatFieldValue(rawVal);

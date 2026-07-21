@@ -21,8 +21,7 @@ open_panel:
     panel:
       name: "Panel key"
       description: >-
-        Panel type to open (e.g. "alarm", "clock", "grid", "light",
-        "climate", "cover", "media", "fan", "shutter", "card").
+        Panel key to open (e.g. "grid_0", "light_0", "home").
       required: true
       example: "alarm"
       selector:

@@ -1,6 +1,6 @@
 ---
 title: Panel Weather
-description: Weather panel configuration and options
+description: Weather panel — screensaver with weather, info items, and entity buttons
 ---
 
 # Panel Weather
@@ -9,59 +9,48 @@ description: Weather panel configuration and options
 
 ## About
 
-`type: weather`
+The weather panel can be used as a screensaver. It displays weather details, time/date, and optional background images. Additional info items and entity buttons can be placed below the weather display.
 
-The weather panel can be used as a "screensaver". It will show weather details and other configured information.
+## How to configure
 
-## Config
+In the **panel editor**, set:
+
+**Item** (entity picker) — A weather entity to display. Required.
 
 ### Info Items
 
-Additional sensor entities can be shown as info panels below the main weather data using `info_items`. Max 2 items.
-
-
+Additional sensor entities can be shown as info panels below the main weather data. You can add up to 2 info items. Common uses: indoor temperature, humidity, CO2 level.
 
 ### Entity Buttons
 
-Quick-action buttons can be placed below the weather display using `entity_buttons`. Max 6 items.
-
-
+Quick-action buttons can be placed below the weather display. You can add up to 6 entity buttons. Each button uses the standard entity picker.
 
 ### Background
 
-The weather panel can have different background images. To set a background use the `background` param.
+The weather panel can have different background images. Select from the dropdown in the editor:
 
-Possible values:
+- Dark — a clean dark theme
+- Modern — modern gradient
+- Spring — floral theme
+- Summer — warm theme
+- Autumn — fall colors
+- Winter — cold theme
+- Dog 1, Dog 2, Cat — pet-themed backgrounds
 
-- dark
-- modern
-- spring
-- summer
-- autumn
-- winter
-- dog_1
-- dog_2
-- cat
+For dynamic backgrounds, you can use a Home Assistant template in the background field: `template:{{ 'dark' if is_state('sun.sun', 'below_horizon') else 'modern' }}`. The return value should match a background name listed above.
 
-Dynamic background values are possible using HomeAssistant templates.
+### Show Forecast
 
-`background: template:{...}`
+Toggle **Daily** or **Hourly** forecast display in the editor.
 
-The return value should match a background name.
+### Show Weather
 
-### Show forecast
+Toggle the main weather icon on/off.
 
-To get weather forecasts on the panel set `forecast_type` to `daily` or `hourly`.
+### Show Temperature
 
-### Show weather
-
-The main weather icon can be hidden by setting `show_weather` to `False`.
-
-### Show temperature
-
-The main temperature text can be hidden by setting `show_temp` to `False`.
-To add the home temperature `show_temp` and `show_home_temp` needs to be `True`.
+Toggle the main temperature text. When **Show Home Temperature** is also enabled, the NSPanel's internal temperature is shown alongside the weather.
 
 ### Show Notifications
 
-The notifications icon can be hidden by setting `show_notifications` to `False`.
+Toggle the notifications icon on/off.

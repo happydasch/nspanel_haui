@@ -1,6 +1,6 @@
 ---
 title: Panel Light
-description: Light panel configuration and options
+description: Light panel — full control for a single light entity
 ---
 
 # Panel Light
@@ -9,19 +9,11 @@ description: Light panel configuration and options
 
 ## About
 
-`type: light`
-
 The light panel provides full control for a single light entity — brightness, color temperature, RGB color, effects, and power. Only controls for features the entity supports are shown.
 
-<!-- TODO: Add screenshot at ../assets/screenshots/panel-light.png once screenshot generation script is implemented -->
+## Popup Variant
 
-## Popup
-
-`type: popup_light`
-
-`key: popup_light_key`
-
-The popup variant mirrors the main panel layout and is used when a light is assigned as an item on another panel (e.g., grid tile → tap → light popup).
+The popup variant (`popup_light`) mirrors the main panel layout. It is used automatically when a light entity is assigned as an item on another panel (e.g., tapping a light tile in the grid panel).
 
 ## Controls
 
@@ -33,31 +25,24 @@ The popup variant mirrors the main panel layout and is used when a light is assi
 | **Color Wheel** | Tap-and-drag rectangular color picker. Shown when the entity supports `rgb_color` or `xy_color`. |
 | **Function Buttons** | Up to 4 context-sensitive buttons below the main controls: effects, color mode, scene cycling, etc. |
 
-## Config
+## How to configure
 
-### Item
+In the **panel editor**, set:
 
-`key: item` | `kind: item` | `domain: light`
+- **Item** (entity picker) — A light entity to control. Required.
+- **Show Kelvin** (toggle) — When enabled, color temperature is displayed in Kelvin (e.g., 3500K) instead of Mireds (286 mired). Mired is the default Home Assistant unit. Default: off.
 
-The light entity to control. Required.
+### Per-Item Options (when used as a popup)
 
-### Show Kelvin
+When a light panel is used as a popup from another panel, the parent entity's advanced settings can override:
 
-`key: show_kelvin` | `kind: bool` | `default: False`
-
-When enabled, color temperature is displayed in Kelvin (e.g., 3500K) instead of Mireds (e.g., 286 mired). Mired is the default Home Assistant unit.
-
-### Per-Item Options
-
-When a light panel is used as a popup from another panel, the parent entity can configure:
-
-- `icon` — Override the light icon
-- `name` — Custom display name
-- `back_color` — Background color override for the tile
+- **Icon** — Override the light icon
+- **Name** — Custom display name
+- **Background Color** — Background color override for the tile
 
 ## Display Behavior
 
-- The **title** defaults to the entity's friendly name, configurable via the panel's title setting.
-- Controls automatically hide or show based on the light entity's `supported_color_modes` and `supported_features` attributes.
+- The **title** defaults to the entity's friendly name, configurable via the panel's title field.
+- Controls automatically hide or show based on the light entity's supported features.
 - When the light is off, sliders are disabled and the power button reflects the state.
 - The color wheel always appears when RGB/XY color is supported, regardless of other features.

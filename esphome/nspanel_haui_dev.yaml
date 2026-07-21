@@ -46,8 +46,6 @@ packages:
   debug: !include nspanel_haui/debug.yaml
 
 external_components:
-  - source:
-      type: git
-      url: https://github.com/happydasch/nspanel_haui
-      ref: dev
-    components: [ nextion ]
+  - source: github://pr#17744
+    components: [nextion]
+    refresh: 1h

@@ -5,6 +5,8 @@ description: Step-by-step installation guide for NSPanel HAUI
 
 # Installation Guide
 
+> **Quick start:** See the [Quick Start Guide](get-started.md) for a 5-minute setup overview.
+
 <p align="center">
   <img src="assets/diagrams/install-flow.svg" alt="Installation Flow" width="100%">
 </p>
@@ -58,7 +60,7 @@ This needs to be done only once. After restart, add the integration via **Settin
 
 The Hub app is configured through the Home Assistant UI via the NSPanel HAUI integration's config flow and panel editor. No manual `configuration.yaml` editing is needed.
 
-See [Configuration Details](config.md) for all available options and the [FAQ](faq.md) for common questions.
+See [Configuration Details](configuration/README.md) for all available options and the [FAQ](faq.md) for common questions.
 
 ## 5. Step: Install TFT File
 

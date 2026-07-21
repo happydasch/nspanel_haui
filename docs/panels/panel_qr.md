@@ -1,6 +1,6 @@
 ---
 title: Panel QR Code
-description: QR Code panel configuration and options
+description: QR Code panel — display Wi-Fi QR codes, URLs, or custom text
 ---
 
 # Panel QR-Code
@@ -9,38 +9,32 @@ description: QR Code panel configuration and options
 
 ## About
 
-`type: qr`
+The QR code panel displays a QR code, for example for Wi-Fi network access. It can show two different sizes: a large QR code when no entities are configured, or a smaller QR code with entity information on the other half.
 
-The QR-Code panel can be used to display a qr code containing provided informations for example wifi access.
+- Tapping the QR code toggles between big and small sizes.
+- When the big QR code is displayed, the display will not turn off.
+- Entity values longer than 15 characters are split across two lines.
 
-The panel can show 2 different qr code sizes. It will display a big qr code if there are no entities configured. If there are entities then a smaller qr code will be shown on one half and entity informations on the other.
+## How to configure
 
-If the smaller qr code is available, by touching the qr code the big qr code will be displayed and vice versa.
+In the **panel editor**, set:
 
-If the big qr code is activated, then the display will not turn off.
+### ESSID and Password
 
-The entity values will be split on two lines if value is longer than 15 characters.
-
-The panel can be started with a big QR by setting `big_qr` to True.
-
-There is also a **text display** option: when no entities are configured and `show_text` is `true`, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle works normally — big QR hides the text, small QR shows it with the text.
-
-## Config
-
-### ESSID + Password
-
-The wifi credentials are entered as two separate text fields: `essid` (WiFi network name) and `password` (WiFi password). The integration automatically builds the QR code string in the standard WiFi format:
+Enter the Wi-Fi network name (SSID) and password as text fields. The integration automatically builds the QR code in the standard Wi-Fi format:
 
 ```
 WIFI:S:<SSID>;T:WPA;P:<PASSWORD>;;
 ```
 
-Source: [https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network](https://en.wikipedia.org/wiki/QR_code#Joining_a_Wi%E2%80%91Fi_network)
+### Start with Big QR (toggle)
 
-### Start with big QR
+When enabled, the panel starts with the QR code displayed large. Default: Off.
 
+### Show Text (toggle)
 
+When enabled and no entities are configured, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle controls visibility — big QR hides the text, small QR reveals it. Default: On.
 
-### Text display
+### Entities
 
-When `show_text` is `true` and no entities are configured, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle controls visibility — big QR hides the text, small QR reveals it.
+You can add entities to display alongside the QR code. When entities are configured, the QR code appears smaller on one side with entity information on the other.

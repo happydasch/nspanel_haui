@@ -1,6 +1,6 @@
 ---
 title: Panel Row
-description: Row panel configuration and options
+description: Row panel — compact horizontal entity tiles
 ---
 
 # Panel Row
@@ -9,14 +9,13 @@ description: Row panel configuration and options
 
 ## About
 
-`type: row`
+The row panel shows up to 5 entities as compact icon-focused tiles in a horizontal row. If more than 5 entities are configured, a next-page button appears for scrolling. This panel is ideal for placing simple toggles, sensors, and quick actions in a single view.
 
-The entities row panel provides a panel with 5 rows. If more than 5 entities are provided, the entities can be scrolled.
+## How to configure
 
-This panel can be also used to organize panels and subpanels.
+In the **panel editor**, add the entities you want to display as items. Each item uses the standard entity picker.
 
-## Config
+## Display Behavior
 
-If more than 5 entities are configured, a next-page button appears. The panel
-remembers which page you last viewed and returns to it on revisit — this is
-automatic, not configurable.
+- If more than 5 entities are configured, a next-page button appears.
+- The panel remembers which page you last viewed and returns to it on revisit — this is automatic, not configurable.

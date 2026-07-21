@@ -343,8 +343,8 @@ class ClockPage(HAUIPage):
             return
         self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
         self.update_function_component(self.COMPONENTS.t_time[1], text=main_text)
-        self.update_function_component(self.COMPONENTS.t_date[1], text=sub_text)
         self.set_function_component(self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True)
+        self.update_function_component(self.COMPONENTS.t_date[1], text=sub_text)
         self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
 
     def _tick(self, _data: dict | None = None) -> None:
@@ -533,12 +533,24 @@ class ClockPage(HAUIPage):
             self.update_main_weather()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
+        notification = self.app.controller["notification"]
         if (
             fnc_id == self.COMPONENTS.t_main_icon[1]
-            and self.app.controller["notification"].has_notifications()
+            and notification.has_notifications()
         ):
             navigation = self.app.controller["navigation"]
-            navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
+            if len(notification.get_notifications()) == 1:
+                notif = notification.get_notifications()[0]
+                navigation.open_panel(
+                    SysPanelKey.POPUP_NOTIFY,
+                    icon=notif[2],
+                    title=notif[0],
+                    notification=notif[1],
+                    close_on_button=True,
+                    close_timeout=notif[3] if notif[3] > 0 else 0,
+                )
+            else:
+                notification.open_notification_list()
         elif fnc_name == "item":
             item = self._fnc_items[fnc_id]["fnc_args"].get("item")
             if item is not None:

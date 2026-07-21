@@ -1,6 +1,6 @@
 ---
 title: Panel Timer
-description: Timer panel configuration and options
+description: Timer panel — local countdown timer and stopwatch
 ---
 
 # Panel Timer
@@ -9,17 +9,11 @@ description: Timer panel configuration and options
 
 ## About
 
-`type: timer`
-
 The timer panel provides a local countdown timer with start, pause, and stop controls. The timer runs entirely on the display — it does not use a Home Assistant `timer` entity. If a duration greater than 0 is set, the timer counts down from that value; if 0 is set, it counts up (stopwatch mode).
 
-<!-- TODO: Add screenshot at ../assets/screenshots/panel-timer.png once screenshot generation script is implemented -->
+## Popup Variant
 
-## Popup
-
-`type: popup_timer`
-
-`key: popup_timer`
+The popup variant (`popup_timer`) mirrors the main panel layout.
 
 ## Controls
 
@@ -30,18 +24,16 @@ The timer panel provides a local countdown timer with start, pause, and stop con
 | **Start button** | Begins the countdown. Enabled when duration > 0 and timer is not running. |
 | **Stop button** | Stops/resets the timer. Enabled while timer is running. |
 
-## Config
+## How to configure
 
-### Show Notification
+In the **panel editor**, set:
 
-`key: show_notification` | `kind: bool` | `default: True`
-
-When the timer finishes (reaches 00:00 in countdown mode), a sound is played. If this option is enabled, a notification popup is also shown on the display.
+- **Show Notification** (toggle) — When the timer finishes (reaches 00:00 in countdown mode), a sound is played. If this option is enabled, a notification popup is also shown on the display. Default: On.
 
 ## Display Behavior
 
 - **Before starting:** The up/down arrow buttons allow setting the initial duration.
 - **Running:** The time display updates every 0.5 seconds. Start button becomes a pause/resume button.
-- **Finished (countdown):** A sound plays; if `show_notification` is enabled, a popup notification appears.
+- **Finished (countdown):** A sound plays; if Show Notification is enabled, a popup notification appears.
 - **Stopwatch mode:** When initial duration is 00:00, the timer counts up from 0.
 - The timer state is local to the display — it does not persist across device restarts.

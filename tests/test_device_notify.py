@@ -38,6 +38,7 @@ class DummyApp:
         self.service_calls = []
         self.log_calls = []
         self.callback_event_calls = []
+        self._timer_handles: dict[str, bool] = {}
 
     def log(self, msg, *args, **kwargs):
         self.log_calls.append(msg)
@@ -53,6 +54,14 @@ class DummyApp:
 
     def callback_event(self, event):
         self.callback_event_calls.append(event)
+
+    def run_in(self, cb, delay, **kwargs):
+        handle = f"timer_{len(self._timer_handles)}"
+        self._timer_handles[handle] = True
+        return handle
+
+    def cancel_timer(self, handle):
+        self._timer_handles.pop(handle, None)
 
 
 def test_device_notify_method():

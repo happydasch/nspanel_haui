@@ -1,6 +1,6 @@
 ---
 title: Panel Clock
-description: Clock panel configuration and options
+description: Clock panel — screensaver with time, date, weather, and cycle cards
 ---
 
 # Panel Clock
@@ -9,70 +9,56 @@ description: Clock panel configuration and options
 
 ## About
 
-`type: clock`
+The clock panel displays a large digital time with optional date, outside/inside temperature, and weather information. The center display area cycles through up to 4 configurable cards every 5 seconds, and can be tapped to manually advance. Up to 6 entity buttons can be shown at the bottom for quick action access.
 
-The clock panel displays a large digital time with optional date, outside/inside temperature, and weather information. The center display area cycles through up to 4 configurable cards every 5 seconds, and can be tapped to manually advance.
+## How to configure
 
-Up to 6 entity buttons can be shown at the bottom for quick action access.
+In the **panel editor**, set:
 
-## Config
+**Item** (entity picker) — A weather entity to display weather data (optional).
 
 ### Background
 
-The clock panel can have different background images. To set a background use the `background` param.
+The clock panel can have different background images. Select from the dropdown in the editor:
 
-Possible values:
+- Dark — a clean dark theme
+- Modern — modern gradient
+- Spring — floral theme
+- Summer — warm theme
+- Autumn — fall colors
+- Winter — cold theme
+- Dog 1, Dog 2, Cat — pet-themed backgrounds
 
-- dark
-- modern
-- spring
-- summer
-- autumn
-- winter
-- dog_1
-- dog_2
-- cat
-
-Dynamic background values are possible using HomeAssistant templates.
-
-`background: template:{...}`
-
-The return value should match a background name.
+For dynamic backgrounds, use a Home Assistant template in the background field: `template:{{ ... }}`. The return value should match a background name.
 
 ### Cycle Cards
 
-The center area cycles through enabled cards every 5 seconds. Tap the time area to advance to the next card immediately.
+The center area cycles through enabled cards every 5 seconds. Tap the time area to advance to the next card immediately. Each card is a toggle in the editor:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `show_time_time` | `True` | Show current time (HH:MM) with the date below it |
-| `show_time_date` | `True` | Show a separate date card (e.g. "Mon 16") |
-| `show_time_outside_temp` | `True` | Show outside temperature from the weather entity |
-| `show_time_inside_temp` | `False` | Show NSPanel internal temperature |
+| **Show Time** | On | Show current time (HH:MM) with the date below it |
+| **Show Date** | On | Show a separate date card (e.g. "Mon 16") |
+| **Show Outside Temp** | On | Show outside temperature from the weather entity |
+| **Show Inside Temp** | Off | Show NSPanel internal temperature |
 
-The date is always shown below the time when the time card is active, regardless of `show_time_date`. The `show_time_date` option only controls whether a separate dedicated date card is added to the rotation.
-
-If no cards are enabled, the time card is shown as a fallback.
+The date is always shown below the time when the time card is active, regardless of the Show Date toggle. The Show Date toggle only controls whether a separate dedicated date card is added to the rotation. If no cards are enabled, the time card is shown as a fallback.
 
 ### Weather
 
-To display weather information, set a weather entity using the `entity` option.
+If a weather entity is set, you can configure:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `entity` | — | Weather entity (e.g. `weather.home`) |
-| `show_weather` | `True` | Show the weather condition icon |
-| `show_temp` | `True` | Show temperature and pressure text |
-| `show_home_temp` | `False` | Show NSPanel internal temperature alongside the weather |
-| `weather_icons` | `color` | Icon style: `color` (condition-based) or `monochrome` |
-| `items` | — | Up to 6 entity buttons for quick actions (see below) |
+| **Show Weather** | On | Show the weather condition icon |
+| **Show Temperature** | On | Show temperature and pressure text |
+| **Show Home Temp** | Off | Show NSPanel internal temperature alongside the weather |
+| **Weather Icons** | Color | Icon style: Color (condition-based) or Monochrome |
 
 ### Item Buttons
 
-Up to 6 quick-action buttons can be placed at the bottom of the clock using the `items` list:
-
-
+Up to 6 quick-action buttons can be placed at the bottom of the clock. Each button uses the standard entity picker in the items list.
 
 ### Show Notifications
 
-The notifications icon can be hidden by setting `show_notifications` to `False`.
+Toggle the notifications icon on/off.

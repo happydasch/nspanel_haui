@@ -15,7 +15,7 @@ NSPanelHAUI is the backend that allows to manage home automation devices using t
 ## Installation
 
 1. Install the NSPanel HAUI custom integration via HACS or by copying to `custom_components/nspanel_haui/`
-2. Add the integration via **Settings → Devices & Services → Add Integration → NSPanel HAUI** (config flow) or configure via `configuration.yaml`
+2. Add the integration via **Settings → Devices & Services → Add Integration → NSPanel HAUI** (config flow)
 3. Restart Home Assistant
 
 ## Structure
@@ -24,12 +24,12 @@ The classes are structured as described below.
 
 ### Base Component
 
-All parts of haui are based on the `haui.abstract.HAUIBase` class. This class provides some basic functionality. There are more specialized classes, which extend from `HAUIBase`:
+All parts of haui are based on the `haui.abstract.haui_base.HAUIBase` class. This class provides some basic functionality. There are more specialized classes, which extend from `HAUIBase`:
 
-- `haui.abstract.HAUIBase`
+- `haui.abstract.haui_base.HAUIBase`
   Base class with common functionality
 
-- `haui.page.HAUIPage`
+- `haui.abstract.haui_page.HAUIPage`
   Page representation, this class is used when interacting with the page on the device
 
 ### App
@@ -38,14 +38,12 @@ All parts of haui are based on the `haui.abstract.HAUIBase` class. This class pr
 
 The lifetime of the application is:
 
-- initialize
-- start
-- terminate
-- stop
+- **`initialize()`** — sets up config, device, controllers, then calls `start()` internally
+- **`stop()`** — cancels timers, stops device and controllers
 
 ### Config
 
-`haui.abstract.config.HAUIConfig`
+`haui.abstract.haui_config.HAUIConfig`
 
 The configuration is taken from the Hub app config. This class allows to process the config values and gives access to panels and entities.
 
@@ -62,7 +60,7 @@ The lifetime of a device is:
 
 ### Page
 
-`haui.page.HAUIPage`
+`haui.abstract.haui_page.HAUIPage`
 
 This class represents a single page on the display.
 
@@ -73,7 +71,7 @@ The lifetime of a page is:
 
 ### Panel
 
-`haui.abstract.HAUIPanel`
+`haui.abstract.haui_panel.HAUIPanel`
 
 The panel represents a configured page. The panel contains the configuration and entities to use. The configuration values are taken from the config.
 
@@ -83,6 +81,7 @@ The lifetime of a panel is:
 
 page start ..
 
+- **prepare()** (optional) — set instance attribute defaults, called during `__init__()`
 - **start_panel**(panel)
 - **config_panel**(panel)
 - **before_render_panel**(panel)
@@ -95,6 +94,9 @@ page start ..
 sequenceDiagram
     participant Page as Page Instance
     participant Panel as HAUIPanel
+
+    Page->>Page: prepare()
+    Note over Page: instance attributes set
 
     Page->>Panel: create_panel(panel)
     Note over Panel: panel config loaded
@@ -125,7 +127,7 @@ While a panel is active, it can be refreshed using:
 
 ### Item
 
-`haui.abstract.HAUIItem`
+`haui.abstract.haui_item.HAUIItem`
 
 An item represents a configured entry in a panel. It can wrap a real HA entity
 (``HAUIEntity``) or be an internal item (``skip``, ``text``, ``navigate``, ``action``).
@@ -207,33 +209,27 @@ All update functionality can be found in `haui.controller.HAUIUpdateController`
 
 ## Events
 
-All events are wrapped in the `haui.abstract.HAUIEvent` class. This class provides basic access to events received via ESPHome.
+All events are wrapped in the `haui.abstract.haui_event.HAUIEvent` class. This class provides basic access to events received via ESPHome.
 
 ## Communication
 
-Most of the communication happens by publishing to ESPHome. There are two commands to change the display `send_cmd` and `send_cmds`. It is possible to record all calls to send_cmd of `haui.page.HAUIPage` and to use them together with send_cmds:
+Most of the communication happens by publishing to ESPHome. There are two commands to change the display `send_cmd` and `send_cmds`. It is possible to record all calls to send_cmd of `haui.abstract.haui_page.HAUIPage` and to use them together with send_cmds:
 
 ```python
-# start recording of commands to be sent
-self.start_rec_cmd()
-...
+# batch multiple commands using the rec_cmd context manager
+with self.rec_cmd:
+    self.set_component_text(self.components.title, "Hello")
+    self.set_component_value(self.components.t_info, 42)
+    self.render_panel(panel)
 
-# call render request for page
-self.render_panel(panel)
-
-Execute some commands ...
-
-...
-# stop recording of commands to be sent
-commands = self.stop_rec_cmd(send_commands=False)
-self.send_esphome('send_commands', {'commands': commands})
+# commands are deduplicated and sent automatically on exit
 ```
 
-every command that ist sent between `start_rec_cmd` and `stop_rec_cmd` will be stored and returned when `stop_rec_cmd` is being called. By default `stop_rec_cmd` will automatically send the recorded commands.
+Commands recorded inside the `with rec_cmd:` block are deduplicated — only the last write to each target is sent — and the batch is sent automatically when the block exits. The lower-level `start_rec_cmd()` / `stop_rec_cmd()` methods are also available for manual use if needed.
 
 ## Available Pages
 
-The pages represent pages on the nextion displays. The pages interact with the ESP and are the main place where to add code for interaction with the device. All pages are defined in `haui.page.*`. See `haui.page.HAUIPage` for functionality.
+The pages represent pages on the nextion displays. The pages interact with the ESP and are the main place where to add code for interaction with the device. All pages are defined in `haui.page.*`. See `haui.abstract.haui_page.HAUIPage` for functionality.
 
 ## Device Linking
 

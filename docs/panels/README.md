@@ -5,6 +5,8 @@ description: Overview of all available panel types for NSPanel HAUI
 
 # Panel Overview
 
+All panels are configured through the visual editor in Home Assistant. See the [Configuration Overview](../configuration/README.md) for how to use the editor.
+
 NSPanel HAUI supports **13 panel types** plus **system panels** and **popups**. Panels are categorized by purpose:
 
 - **Entity Controls** — Control a single Home Assistant entity (light, climate, cover, etc.)

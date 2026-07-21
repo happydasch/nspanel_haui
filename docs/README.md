@@ -10,6 +10,8 @@ dashboard for Home Assistant — all configured through a visual editor in the H
 
 Whether you just got your panel or want to fine-tune it, this guide will get you there.
 
+> **New to NSPanel HAUI?** → Start with the [Quick Start Guide](get-started.md).
+
 ---
 
 ## Getting Started
@@ -26,10 +28,10 @@ If you're setting up a new NSPanel, follow these steps in order:
    → [Integration setup](custom_integration.md)
 
 4. **Configure your panels** — Open the web frontend and start building your dashboard.
-   → [Configuration overview](config.md)
-   - [Device settings](config/device.md) — brightness, sounds, screensaver, buttons
-   - [Panel layout](config/panels.md) — add, remove, reorder panels
-   - [Items & entities](config/items.md) — pick entities, set icons, colors
+   → [Configuration overview](configuration/README.md)
+   - [Device settings](configuration/device.md) — brightness, sounds, screensaver, buttons
+   - [Panel layout](configuration/panels.md) — add, remove, reorder panels
+   - [Items & entities](configuration/items.md) — pick entities, set icons, colors
 
 5. **Browse panel types** — See what kinds of panels you can add.
    → [All panel types](panels/README.md)
@@ -42,9 +44,10 @@ Hands-on help for common tasks.
 
 ### Setting up
 
+- **[Quick Start](get-started.md)** — Get up and running in 5 minutes
 - **[Installation](install.md)** — Step-by-step: HACS, flashing, first setup
-- **[Configuration](config.md)** — Device settings, panel layout, item editing
-- **[Examples](example_config.md)** — Real-world configs to copy and adapt
+- **[Configuration](configuration/README.md)** — Device settings, panel layout, item editing
+- **[Examples](examples.md)** — Real-world configs to copy and adapt
 
 ### Using your panel
 

@@ -16,7 +16,7 @@ export function renderGridPreview(host, panel, _pIdx, _pt) {
   }
   return {
     content: html`
-      <div class="pg-preview-grid-fill" style="padding:4px 2px;">
+      <div class="pg-preview-grid-fill">
         ${items.slice(0, 6).map(item => simItemTile(item, { tileClass: 'pg-preview-grid-tile fill' }, host))}
       </div>`,
     containerClass: backgroundClass(panel),

@@ -103,8 +103,11 @@ class HAUIEntity:
             for a in attr:
                 if res is None:
                     break
-                if a in res:
+                try:
                     res = res[a]
+                except (IndexError, KeyError, TypeError):
+                    res = None
+                    break
         else:
             res = None
         return default if res is None else res

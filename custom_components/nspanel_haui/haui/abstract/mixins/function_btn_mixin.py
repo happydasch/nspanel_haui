@@ -559,7 +559,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                     close_timeout=notif[3] if notif[3] > 0 else 0,
                 )
             else:
-                navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
+                notif_ctrl.open_notification_list()
         elif fnc_name == self.FNC_TYPE_NAV_ABOUT:
             navigation.open_panel(SysPanelKey.SYS_ABOUT)
         elif fnc_name == self.FNC_TYPE_NAV_UP or fnc_name == self.FNC_TYPE_NAV_CLOSE:

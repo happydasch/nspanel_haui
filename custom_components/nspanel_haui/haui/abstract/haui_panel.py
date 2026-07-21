@@ -77,6 +77,11 @@ class HAUIPanel(HAUIBase):
     def get_title(self, default_title: str | None = None) -> str:
         """Returns the title of this panel.
 
+        When no ``default_title`` is given and the panel has no explicit title
+        configured, falls back to the page type's human-readable label (e.g.
+        ``"Grid"``, ``"Light"``) derived from the panel's ``type_key``, rather
+        than the generic ``"Unnamed"`` string.
+
         Args:
             default_title (str, optional): Default title if not set. Defaults to None.
 
@@ -84,11 +89,27 @@ class HAUIPanel(HAUIBase):
             str: Title
         """
         if default_title is None:
-            default_title = self.translate("Unnamed")
+            default_title = self._get_type_label()
         title = self.get("title", "")
         if title == "":
             title = default_title
         return title
+
+    def _get_type_label(self) -> str:
+        """Look up the human-readable label for this panel's page type.
+
+        Returns the translated page type label (e.g. ``"Grid"``, ``"Light"``)
+        if the panel type is registered, otherwise falls back to ``"Unnamed"``.
+        """
+        from ..mapping.panel import PANEL_MAPPING
+
+        entry = PANEL_MAPPING.get(self.get_type())
+        if entry is not None:
+            _cls = entry[1]
+            d = getattr(_cls, "DESCRIPTOR", None)
+            if d is not None and d.label:
+                return self.translate(d.label)
+        return self.translate("Unnamed")
 
     def show_button(self, name: str) -> bool:
         """Returns True if the named button should be shown.

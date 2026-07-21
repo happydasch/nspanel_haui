@@ -23,6 +23,8 @@ class HAUINotificationController(HAUIBase):
         (title, message, icon, timeout, persistent, type, force_show)
     """
 
+    MAX_QUEUE_SIZE = 50
+
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any]):
         """Initialize for notification controlller.
 
@@ -35,6 +37,8 @@ class HAUINotificationController(HAUIBase):
         self._notifications: list[tuple] = []  # list for notifications
         self._blinker = NotificationBlinker()
         self._blinker_refresh_fn: Callable[[], None] | None = None
+        # id(notification) -> timer handle for expiry
+        self._expiry_timers: dict[int, str] = {}
 
     def send_notification(
         self,
@@ -81,10 +85,30 @@ class HAUINotificationController(HAUIBase):
         notif_type: str = "info",
         force_show: bool = False,
     ) -> tuple:
+        # Deduplication: skip if same (title, message) already exists
+        for existing in self._notifications:
+            if existing[0] == title and existing[1] == message:
+                self.log(f"Notification already queued: {title!r}")
+                return existing
+
+        # Max queue size: drop oldest if at limit
+        if len(self._notifications) >= self.MAX_QUEUE_SIZE:
+            oldest = self._notifications.pop(0)
+            self._cancel_expiry(oldest)
+            self.log(f"Notification queue full, dropping oldest: {oldest[0]!r}")
+
         notification = (title, message, icon, timeout, persistent, notif_type, force_show)
         self._notifications.append(notification)
         event = HAUIEvent(NotifEvent.NOTIF_ADD, value=notification)
         self.app.callback_event(event)
+
+        # Schedule expiry if timeout > 0
+        if timeout > 0:
+            notif_id = id(notification)
+            handle = self.app.run_in(
+                lambda _data: self._expire_notification(notif_id), timeout
+            )
+            self._expiry_timers[notif_id] = handle
 
         # Force-show: open the notification panel immediately
         if force_show:
@@ -101,12 +125,13 @@ class HAUINotificationController(HAUIBase):
                         close_timeout=timeout if timeout > 0 else 0,
                     )
                 else:
-                    navigation.open_panel(SysPanelKey.POPUP_NOTIFY)
+                    self.open_notification_list()
 
         return notification
 
     def remove_notification(self, notification: tuple) -> bool:
         if notification in self._notifications:
+            self._cancel_expiry(notification)
             self._notifications.remove(notification)
             event = HAUIEvent(NotifEvent.NOTIF_REMOVE, value=notification)
             self.app.callback_event(event)
@@ -114,6 +139,10 @@ class HAUINotificationController(HAUIBase):
         return False
 
     def clear_notifications(self) -> None:
+        # Cancel all expiry timers
+        for handle in self._expiry_timers.values():
+            self.app.cancel_timer(handle)
+        self._expiry_timers.clear()
         self._notifications = []
         event = HAUIEvent(NotifEvent.NOTIF_CLEAR, value=None)
         self.app.callback_event(event)
@@ -126,6 +155,83 @@ class HAUINotificationController(HAUIBase):
 
     def has_persistent_notifications(self) -> bool:
         return any(n[4] for n in self._notifications)
+
+    # ------------------------------------------------------------------
+    # Notification expiry
+    # ------------------------------------------------------------------
+
+    def _cancel_expiry(self, notification: tuple) -> None:
+        """Cancel the expiry timer for a notification, if any."""
+        notif_id = id(notification)
+        handle = self._expiry_timers.pop(notif_id, None)
+        if handle is not None:
+            self.app.cancel_timer(handle)
+
+    def _expire_notification(self, notification_id: int) -> None:
+        """Called via app.run_in when a notification's timeout expires."""
+        self._expiry_timers.pop(notification_id, None)
+        # Find the notification by id and remove it
+        for i, n in enumerate(self._notifications):
+            if id(n) == notification_id:
+                self._notifications.pop(i)
+                event = HAUIEvent(NotifEvent.NOTIF_REMOVE, value=n)
+                self.app.callback_event(event)
+                self.log(f"Notification expired: {n[0]!r}")
+                return
+
+    # ------------------------------------------------------------------
+    # Open notification selection list (uses SelectPage)
+    # ------------------------------------------------------------------
+
+    def open_notification_list(self) -> None:
+        """Open the selection page with all pending notifications.
+
+        Each notification is shown as a selectable item.  Tapping one
+        opens its detail popup via :meth:`_on_notification_selected`.
+        """
+        navigation = self.app.controller.get("navigation")
+        if not navigation:
+            return
+        items = []
+        for i, n in enumerate(self._notifications):
+            title = str(n[0]) if n[0] else ""
+            message = str(n[1]) if n[1] else ""
+            label = title
+            if message:
+                label = f"{title}: {message[:40]}"
+            items.append({"value": str(i), "name": label[:60]})
+        navigation.open_panel(
+            SysPanelKey.POPUP_SELECT,
+            items=items,
+            selection_callback_fnc=self._on_notification_selected,
+            close_on_select=False,
+            select_mode="full",
+        )
+
+    def _on_notification_selected(self, selected_value: str) -> None:
+        """Open the detail popup for the selected notification.
+
+        Args:
+            selected_value: Stringified index into ``_notifications``.
+        """
+        try:
+            idx = int(selected_value)
+        except (ValueError, TypeError):
+            return
+        if idx < 0 or idx >= len(self._notifications):
+            return
+        n = self._notifications[idx]
+        navigation = self.app.controller.get("navigation")
+        if not navigation:
+            return
+        navigation.open_panel(
+            SysPanelKey.POPUP_NOTIFY,
+            icon=n[2],
+            title=n[0],
+            notification=n[1],
+            close_on_button=True,
+            close_timeout=n[3] if n[3] > 0 else 0,
+        )
 
     # ------------------------------------------------------------------
     # Shared notification blinker

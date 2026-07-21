@@ -76,6 +76,14 @@ The device will play sounds on different occasions. The sounds can be disabled.
 - `sound_on_startup`
 - `sound_on_notification`
 
+### Quiet Hours
+
+The device supports a do-not-disturb (DND) mode that suppresses notification sounds during
+configurable quiet hours. When `use_do_not_disturb` is enabled, notification sounds are only
+played within the `quiet_hours_start`–`quiet_hours_end` time window. The window supports
+overnight ranges (e.g., 22:00–07:00). This is configured in the Device Settings dialog under
+the **Notifications** section.
+
 ## Panels
 
 The device supports multiple different panels which are displayed on the display. Each panel can be configured and a complex navigation hierarchy is possible. To get an overview of all available panels, see [Panels overview](panels/README.md).

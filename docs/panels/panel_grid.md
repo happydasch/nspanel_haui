@@ -1,6 +1,6 @@
 ---
 title: Panel Grid
-description: Grid panel configuration and options
+description: Grid panel — multi-entity tiles with color overrides and pagination
 ---
 
 # Panel Grid
@@ -9,28 +9,29 @@ description: Grid panel configuration and options
 
 ## About
 
-`type: grid`
+The grid panel shows up to 6 entities as large tiles in a scrollable layout. Each tile displays the entity name, icon, and state. If more than 6 entities are configured, a next-page button appears for scrolling.
 
-The entities grid panel provides a panel with 6 big buttons. If more than 6 entities are provided, the entities can be scrolled.
+This panel is a great starting point for grouping lights, switches, sensors, and scenes on a single screen.
 
-This panel can be also used to organize panels and subpanels. Colors can be set for the individual tiles.
+## How to configure
 
-## Config
+In the **panel editor**, add the entities you want to display as items. Each item uses the standard entity picker — select an entity, then optionally customize its appearance.
 
 ### Per-Item Color Overrides
 
-Each entity in the grid can have optional color and appearance overrides.
-Set any of these on individual entities to override the default theme colors:
+Each entity in the grid can have optional color and appearance overrides. In the **Advanced** section of the item editor, you can set:
 
-- `text_color` — Text and icon color for the tile
-- `back_color` — Background color of the tile
-- `color_pressed` — Text/icon color when pressed
-- `back_color_pressed` — Background color when pressed
-- `power_color` — Color for the power toggle button
-- `show_power_button` — Set to `true` to show a power on/off toggle button
+| Option | Description |
+|--------|-------------|
+| **Text Color** | Text and icon color for the tile |
+| **Background Color** | Background color of the tile |
+| **Pressed Text Color** | Text/icon color when the tile is pressed |
+| **Pressed Background** | Background color when the tile is pressed |
+| **Power Button Color** | Color for the power toggle button |
+| **Show Power Button** | Toggle to show a power on/off button on the tile |
 
+## Display Behavior
 
-
-If more than 6 entities are configured, a next-page button appears. The panel
-remembers which page you last viewed and returns to it on revisit — this is
-automatic, not configurable.
+- If more than 6 entities are configured, a next-page button appears.
+- The panel remembers which page you last viewed and returns to it on revisit — this is automatic, not configurable.
+- Tapping a tile opens the entity's default popup control (e.g., a light popup for a light entity).

@@ -1,23 +1,16 @@
 ---
 title: Popup Unlock
-description: Unlock popup panel configuration and usage
+description: Unlock popup — PIN-protected panel unlocking
 ---
 
 # Popup Unlock
+
 ## About
 
-`type: popup_unlock`
+The unlock popup is used internally to provide a PIN unlocking mechanism for panels. To use this feature, just set an unlock code on any panel in the editor.
 
-`key: popup_unlock`
+The unlock code is a numeric PIN entered as a string field in the panel editor's standard fields.
 
-The unlock popup panel is used internally to provide an unlocking mechanism for panels.
+## How to configure
 
-To use this panel, just set an unlock code on any other panel.
-
-This panel is using the buttons of the locked panel.
-
-## Config
-
-The unlock code needs to be a string.
-
-All panel options are configured through the NSPanel HAUI editor in Home Assistant.
+In the **panel editor**, set the **Unlock Code** field on any panel. When set, the panel requires this code before it can be accessed. The input is masked as a password field in the editor.

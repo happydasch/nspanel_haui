@@ -939,8 +939,12 @@ class HAUINavigationController(HAUIBase):
             # WAKEUP handler also calls set_sleeping(False) redundantly.
             # check_wakeup() still gates touch via the wakeup_panel key
             # (independent of the flag).
+        elif self._sleep_panel_active:
+            # Sleep is active; let check_wakeup (touch-driven) handle the exit.
+            self.log("Wakeup event while sleep panel active; awaiting touch to exit")
         else:
-            # No wakeup panel: restore the prior panel unless config forces home.
+            # No wakeup panel and already awake (e.g., reconnect scenario):
+            # restore the prior panel unless config forces home.
             self.log("No wakeup panel available, restoring snapshot or home")
             self.exit_sleep_to_prev_or_home(self.app.device.config)
 

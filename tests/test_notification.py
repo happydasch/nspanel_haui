@@ -28,6 +28,7 @@ class DummyApp:
         self.call_service_calls = []
         self.entity_calls = []
         self.callback_event_calls = []
+        self._timer_handles: dict[str, bool] = {}
 
     def log(self, msg, **kwargs):  # pragma: no cover
         self.log_calls.append(msg)
@@ -52,6 +53,14 @@ class DummyApp:
 
     def callback_event(self, event):
         self.callback_event_calls.append(event)
+
+    def run_in(self, cb, delay, **kwargs):
+        handle = f"timer_{len(self._timer_handles)}"
+        self._timer_handles[handle] = True
+        return handle
+
+    def cancel_timer(self, handle):
+        self._timer_handles.pop(handle, None)
 
 
 class DummyESPHome:

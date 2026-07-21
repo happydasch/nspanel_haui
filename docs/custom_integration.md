@@ -29,4 +29,4 @@ For most users, the **recommended installation method** is via HACS, adding the 
 
 **The primary configuration method is the HA UI panel editor.** After adding the integration, open the NSPanel device page to add, remove, and configure panels via the editor.
 
-For full config options see [Configuration Details](config.md).
+For full config options see [Configuration Details](configuration/README.md).

@@ -1,6 +1,6 @@
 ---
 title: Panel Media
-description: Media panel configuration and options
+description: Media panel — media player controls with grouping and favorites
 ---
 
 # Panel Media
@@ -9,33 +9,31 @@ description: Media panel configuration and options
 
 ## About
 
-`type: media`
+The media panel controls a media player entity — TV, speaker, or receiver. It displays the currently playing song/album art, and provides play/pause, volume, track navigation, and grouping controls. The album art, title, and artist info span the full panel width for a cleaner look. A vertical volume slider on the right replaces the previous bottom progress bar.
 
-The media entity panel allows to control a media entity. It displays the currently playing song and allows to control the media player. It allows to group / ungroup configured media players and allows to select media to play from a list of defined entries.
+## Popup Variant
 
-The album art, title, and artist info span the full panel width for a cleaner look. A vertical volume slider on the right replaces the previous bottom progress bar.
+The popup variant (`popup_media_player`) mirrors the main panel layout. It is used automatically when a media player entity is assigned as an item on another panel.
 
-## Popup
+## How to configure
 
-`type: popup_media_player`
+In the **panel editor**, set:
 
-`key: popup_media_player_key`
+- **Item** (entity picker) — A media player entity to control. Required.
 
-## Config
+### Media Favorites
 
-Panel options are configured through the NSPanel HAUI editor in Home Assistant.
+You can add media favorites as quick-select items. The editor shows one editable row per favorite:
 
-
+- **Sonos Favorites** — Enable to use Sonos favorites as the source for media items. This requires the Sonos integration to be configured in Home Assistant. If **Sonos favorites in source** is enabled, favorites appear in the source selection popup.
+- **Media Favorites** — Add individual media content items. Each entry has a name and content ID.
 
 ## Grouping / Ungrouping
 
-It is possible to group/ungroup media_player entities. The available group members will be generated from `entities[1:]`, `group_items`, `group_members` of entity.
+If the media player supports grouping (e.g., Sonos speakers), you can group and ungroup devices. Available group members are determined automatically from the entity's `group_members` attribute.
 
+## Display Behavior
 
-
-## Media
-
-`sonos_favorites` allows to use sonos favorites as the source for media items. This entity needs to be enabled in home assistant. If `sonos_favorites_in_source` is True then the favorites will show up in the source popup.
-
-- `media_favorites` allows to use media content IDs. The editor shows one editable row
-  per favorite.
+- Album art, title, and artist span the full panel width.
+- The vertical volume slider is on the right side.
+- When nothing is playing, the panel shows the media player's current source or idle state.

@@ -469,8 +469,6 @@ class HAUIDevice(HAUIBase):
             self.set_sleeping(True)
         elif event.name == ESPEvent.WAKEUP:
             self.set_sleeping(False)
-            # set a flag as just woke up
-            self.woke_up = True
         elif event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT):
             side = "left" if event.name == ESPEvent.BUTTON_LEFT else "right"
             if event.value == "1":  # pressed
@@ -527,6 +525,14 @@ class HAUIDevice(HAUIBase):
             and navigation.panel.get("key") != self.get("home_panel")
         )
         if not (on_wakeup_panel or navigation._sleep_panel_active):
+            return
+
+        # First touch after sleep just wakes the display — do NOT exit yet.
+        # The ``woke_up`` flag was set by ``open_sleep_panel()`` to swallow
+        # this touch.  Clear it so the *next* touch triggers the exit.
+        if self.woke_up:
+            self.woke_up = False
+            self.log("Not exiting sleep/wakeup screen, just woke up")
             return
 
         self.woke_up = False

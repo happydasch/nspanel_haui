@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
@@ -219,6 +220,13 @@ class HAUIItem(HAUIBase):
         if state == "":
             return self._entity.get_entity_state()
         # state is overridden - use config state key as an attribute lookup
+        # Support JSON array string (e.g. '["forecast", 0, "temperature"]')
+        # for nested attribute access.
+        if isinstance(state, str) and state.startswith("["):
+            try:
+                state = json.loads(state)
+            except (json.JSONDecodeError, TypeError):
+                pass
         return self._entity.get_entity_attr(state, None)
 
     def call_item_service(self, service: str, **kwargs: Any) -> None:

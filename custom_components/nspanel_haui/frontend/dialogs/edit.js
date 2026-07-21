@@ -139,7 +139,7 @@ class EditPanelDialog extends LitElement {
                 this.requestUpdate();
               }}
             />
-            <span class="field-hint">${t('Title shown on the panel header. Falls back to unnamed if left empty.')}</span>
+            <span class="field-hint">${t('Title shown on the panel header. Falls back to the panel type name if left empty.')}</span>
           </div>
 
           ${getPanelOptionGroups(descriptor).map(group => {

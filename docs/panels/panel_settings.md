@@ -1,22 +1,15 @@
 ---
 title: Panel Settings
-description: Settings panel configuration and options
+description: Settings panel — brightness and dimming controls on the device
 ---
 
 # Panel Settings
+
 ## About
 
-`type: system_settings`
+The settings panel provides on-device settings for the display:
 
-`key: sys_settings`
+- Full brightness
+- Dimmed brightness
 
-The settings panel is being used to provide settings on the device.
-
-Available settings:
-
-- full brightness
-- dimmed brightness
-
-**This panel is a system panel and should not be used in the configuration.**
-
-## Config
+**This panel is a system panel and should not be added manually.**

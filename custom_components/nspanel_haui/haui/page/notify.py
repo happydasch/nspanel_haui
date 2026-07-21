@@ -13,6 +13,12 @@ from ..utils.text import parse_notification_text
 if TYPE_CHECKING:
     pass
 
+_NOTIF_TYPE_COLORS = {
+    "info": "component_text",
+    "warning": "header_accent",
+    "critical": "component_active",
+}
+
 
 class CommonNotifyPage(HAUIPage):
     COMPONENTS = ComponentRegistry(
@@ -54,6 +60,7 @@ class NotifyPage(CommonNotifyPage):
         self._notification = ""
         self._btn_left = ""
         self._btn_right = ""
+        self._notif_type = "info"
         self._button_callback_fnc = None
         self._close_callback_fnc = None
 
@@ -65,6 +72,7 @@ class NotifyPage(CommonNotifyPage):
         self._btn_left = parse_icon(panel.get("btn_left", ""))
         self._btn_right = parse_icon(panel.get("btn_right", ""))
         self._text_size = panel.get("text_size", "auto")
+        self._notif_type = panel.get("notif_type", "info")
         self._button_callback_fnc = panel.get("button_callback_fnc", None)
         self._close_callback_fnc = panel.get("close_callback_fnc", None)
 
@@ -98,18 +106,20 @@ class NotifyPage(CommonNotifyPage):
         self.set_component_text(self.COMPONENTS.title, title)
 
         if self._icon:
-            icon_color = panel.get("icon_color")
-            if icon_color:
-                self.set_component_text_color(self.COMPONENTS.t_icon, icon_color)
-            else:
-                self.set_component_text_color(
-                    self.COMPONENTS.t_icon, self.get_color("component_text")
-                )
+            # Use severity-based icon color
+            icon_color_key = _NOTIF_TYPE_COLORS.get(self._notif_type, "component_text")
+            icon_color = panel.get("icon_color", self.get_color(icon_color_key))
+            self.set_component_text_color(self.COMPONENTS.t_icon, icon_color)
+            # Apply font size via _calculate_text_display
+            _, _, font_size = self._calculate_text_display(self._notification, has_icon=True)
+            self.send_cmd(f"font {self.COMPONENTS.t_text.name},{font_size}")
             self.set_component_text(self.COMPONENTS.t_icon, self._icon)
             self.set_component_text(self.COMPONENTS.t_text, self._notification)
             self.show_component(self.COMPONENTS.t_text)
             self.show_component(self.COMPONENTS.t_icon)
         else:
+            _, _, font_size = self._calculate_text_display(self._notification, has_icon=False)
+            self.send_cmd(f"font {self.COMPONENTS.t_text_full.name},{font_size}")
             self.set_component_text(self.COMPONENTS.t_text_full, self._notification)
             self.show_component(self.COMPONENTS.t_text_full)
         if self._btn_left:

@@ -380,11 +380,12 @@ Example: `fix(esphome): include device name in discovery fallback`
 ### Before committing
 
 1. **Keep docs in sync** — after any code change, check the `docs/` directory for files related to what you changed and update them to reflect the new behavior, options, schemas, or defaults. Outdated docs are bugs.
-2. Run `pytest tests/` - all tests must pass
-3. Run `ruff check custom_components/` - no lint errors
-4. Run `mypy` - no new type errors in `haui/`
-5. If you changed config flow logic, ensure `test_config_flow.py` covers the change
-6. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match
+2. **Verify docs build** — after updating docs, run `mkdocs build --strict` from the project root to catch any broken links, missing files, or rendering errors. The docs site must build without warnings or errors before committing.
+3. Run `pytest tests/` - all tests must pass
+4. Run `ruff check custom_components/` - no lint errors
+5. Run `mypy` - no new type errors in `haui/`
+6. If you changed config flow logic, ensure `test_config_flow.py` covers the change
+7. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match
 
 ### Pull requests
 

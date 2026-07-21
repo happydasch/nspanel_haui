@@ -105,9 +105,7 @@ class HAUINotificationController(HAUIBase):
         # Schedule expiry if timeout > 0
         if timeout > 0:
             notif_id = id(notification)
-            handle = self.app.run_in(
-                lambda _data: self._expire_notification(notif_id), timeout
-            )
+            handle = self.app.run_in(lambda _data: self._expire_notification(notif_id), timeout)
             self._expiry_timers[notif_id] = handle
 
         # Force-show: open the notification panel immediately

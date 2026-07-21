@@ -193,6 +193,7 @@ def lookup_device_registry_name(hass: Any, node_name: str) -> str:
 
     try:
         from homeassistant.helpers import device_registry as dr
+
         dev_reg = dr.async_get(hass)
     except (ImportError, AttributeError):
         return node_name
@@ -205,9 +206,7 @@ def lookup_device_registry_name(hass: Any, node_name: str) -> str:
 
             entry_id = getattr(entry, "entry_id", None)
             if entry_id:
-                for dev_entry in dr.async_entries_for_config_entry(
-                    dev_reg, entry_id
-                ):
+                for dev_entry in dr.async_entries_for_config_entry(dev_reg, entry_id):
                     if dev_entry.name_by_user:
                         return dev_entry.name_by_user
                     if dev_entry.name:

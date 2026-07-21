@@ -308,8 +308,13 @@ async def test_set_brightness(mock_hass, mock_nav, mock_esphome_ctrl):
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with(
         NotificationAction.SEND_NOTIFICATION,
-        {"title": "Doorbell", "message": "At the door", "icon": "mdi:bell",
-         "notif_type": "info", "force_show": False},
+        {
+            "title": "Doorbell",
+            "message": "At the door",
+            "icon": "mdi:bell",
+            "notif_type": "info",
+            "force_show": False,
+        },
     )
 
 
@@ -335,8 +340,14 @@ async def test_send_notification_persistent_with_timeout(mock_hass, mock_nav, mo
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with(
         NotificationAction.SEND_NOTIFICATION_PERSISTENT_WITH_TIMEOUT,
-        {"title": "Alarm", "message": "", "icon": "", "timeout": 30,
-         "notif_type": "info", "force_show": False},
+        {
+            "title": "Alarm",
+            "message": "",
+            "icon": "",
+            "timeout": 30,
+            "notif_type": "info",
+            "force_show": False,
+        },
     )
 
 

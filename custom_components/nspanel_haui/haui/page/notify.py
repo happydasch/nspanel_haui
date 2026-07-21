@@ -138,9 +138,7 @@ class NotifyPage(CommonNotifyPage):
             self.set_component_text(self.COMPONENTS.btn_right, self._btn_right)
             self.show_component(self.COMPONENTS.btn_right)
 
-    def _calculate_text_display(
-        self, message: str, has_icon: bool
-    ) -> tuple[Component, str, int]:
+    def _calculate_text_display(self, message: str, has_icon: bool) -> tuple[Component, str, int]:
         """Calculate text display mode based on message length and icon presence.
 
         Returns:

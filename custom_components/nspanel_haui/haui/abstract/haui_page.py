@@ -985,8 +985,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 notification = self.app.controller["notification"]
                 visible = notification.has_notifications()
                 color = (
-                    self.get_color("header_accent")
-                    if visible else self.get_color("component_text")
+                    self.get_color("header_accent") if visible else self.get_color("component_text")
                 )
                 self.update_function_component(notif_slot, color=color, visible=visible)
 

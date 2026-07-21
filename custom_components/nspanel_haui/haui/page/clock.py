@@ -534,10 +534,7 @@ class ClockPage(HAUIPage):
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         notification = self.app.controller["notification"]
-        if (
-            fnc_id == self.COMPONENTS.t_main_icon[1]
-            and notification.has_notifications()
-        ):
+        if fnc_id == self.COMPONENTS.t_main_icon[1] and notification.has_notifications():
             navigation = self.app.controller["navigation"]
             if len(notification.get_notifications()) == 1:
                 notif = notification.get_notifications()[0]

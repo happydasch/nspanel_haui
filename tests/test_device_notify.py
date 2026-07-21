@@ -87,8 +87,13 @@ def test_device_notify_method():
     captured_call = []
 
     def mock_send_notification(
-        title, message, icon, timeout, persistent=False,
-        notif_type="info", force_show=False,
+        title,
+        message,
+        icon,
+        timeout,
+        persistent=False,
+        notif_type="info",
+        force_show=False,
     ):
         captured_call.append(
             {
@@ -103,7 +108,13 @@ def test_device_notify_method():
         )
         # Call the original method to maintain functionality
         return original_send_notification(
-            title, message, icon, timeout, persistent, notif_type, force_show,
+            title,
+            message,
+            icon,
+            timeout,
+            persistent,
+            notif_type,
+            force_show,
         )
 
     mock_notification_controller.send_notification = mock_send_notification
@@ -140,8 +151,13 @@ def test_device_notify_method_defaults():
     captured_call = []
 
     def mock_send_notification(
-        title, message="", icon="", timeout=0, persistent=False,
-        notif_type="info", force_show=False,
+        title,
+        message="",
+        icon="",
+        timeout=0,
+        persistent=False,
+        notif_type="info",
+        force_show=False,
     ):
         captured_call.append(
             {
@@ -156,7 +172,13 @@ def test_device_notify_method_defaults():
         )
         # Call the original method to maintain functionality
         return original_send_notification(
-            title, message, icon, timeout, persistent, notif_type, force_show,
+            title,
+            message,
+            icon,
+            timeout,
+            persistent,
+            notif_type,
+            force_show,
         )
 
     mock_notification_controller.send_notification = mock_send_notification

@@ -93,6 +93,7 @@ PANEL_MAPPING: dict[str, tuple[str, type]] = _build_panel_mapping()
 
 # ── PAGE_MAPPING: derived from DESCRIPTOR.page_id ─────────────────────────
 
+
 def _build_page_mapping() -> dict[int, str]:
     """Build PAGE_MAPPING from DESCRIPTOR.page_id, skipping popup aliases."""
     mapping: dict[int, str] = {}
@@ -115,6 +116,7 @@ PAGE_MAPPING: dict[int, str] = _build_page_mapping()
 
 
 # ── SYS_PANEL_MAPPING: derived from PANEL_MAPPING descriptors ─────────────
+
 
 def _build_sys_panel_mapping() -> dict[str, str]:
     """Build SYS_PANEL_MAPPING from PANEL_MAPPING descriptors.
@@ -143,6 +145,7 @@ SYS_PANEL_MAPPING: dict[str, str] = _build_sys_panel_mapping()
 
 
 # ── Derived config builders ───────────────────────────────────────────────
+
 
 def build_sys_panels_defaults() -> list[dict]:
     """Build the DEFAULT_CONFIG["sys_panels"] list from SYS_PANEL_MAPPING.

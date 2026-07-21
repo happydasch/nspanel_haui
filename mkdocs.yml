@@ -74,12 +74,13 @@ nav:
   - End User:
     - README.md
     - Installation: install.md
+    - Quick Start: get-started.md
     - Custom Integration: custom_integration.md
     - Configuration:
-      - Overview: config.md
-      - Device Configuration: config/device.md
-      - Panel Configuration: config/panels.md
-      - Item Configuration: config/items.md
+      - Overview: configuration/README.md
+      - Device Configuration: configuration/device.md
+      - Panel Configuration: configuration/panels.md
+      - Item Configuration: configuration/items.md
     - Device Description: device.md
     - Panels:
       - Overview: panels/README.md
@@ -103,7 +104,7 @@ nav:
       - Popup Notify: panels/popup_notify.md
       - Popup Select: panels/popup_select.md
       - Popup Unlock: panels/popup_unlock.md
-    - Examples: example_config.md
+    - Examples: examples.md
     - FAQ: faq.md
     - Troubleshooting: troubleshooting.md
   - Development:

@@ -175,8 +175,117 @@ class DeviceConfigDialog extends LitElement {
               </p>
               ${selectField(this, "dc-locale", "locale", cfg, t("Language"), LOCALE_OPTIONS, (v) => v,
                 t("The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels"))}
+
+                ${checkbox(this, "dc-use_auto_dimming", "use_auto_dimming", cfg, t("Auto dimming"),
+                  t("When enabled, the display dims automatically after the dimming timeout. Disable to keep the display at full brightness at all times."))}
+                <div class="form-group">
+                  <label for="dc-timeout_dimming">${t("Dimming timeout (seconds)")}</label>
+                  <input
+                    id="dc-timeout_dimming"
+                    type="number"
+                    inputmode="numeric"
+                    class="native-input"
+                    min="0"
+                    max="3600"
+                    .value=${String(cfg.timeout_dimming ?? 10)}
+                    @input=${(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      this._deviceConfigForm = { ...this._deviceConfigForm, timeout_dimming: isNaN(v) || v < 0 ? 0 : Math.min(v, 3600) };
+                    }}
+                  />
+                  <div class="field-hint">${t("Seconds of inactivity before the display dims (0 = disabled, max 3600).")}</div>
+                </div>
+
+                ${checkbox(this, "dc-use_auto_page", "use_auto_page", cfg, t("Auto page"),
+                  t("When enabled, the display transitions through the dimming and sleep cycle after the page timeout. Disable to stay on the current panel until the dimming or sleep timeout is reached."))}
+                <div class="form-group">
+                  <label for="dc-timeout_page">${t("Page timeout (seconds)")}</label>
+                  <input
+                    id="dc-timeout_page"
+                    type="number"
+                    inputmode="numeric"
+                    class="native-input"
+                    min="0"
+                    max="3600"
+                    .value=${String(cfg.timeout_page ?? 30)}
+                    @input=${(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      this._deviceConfigForm = { ...this._deviceConfigForm, timeout_page: isNaN(v) || v < 0 ? 0 : Math.min(v, 3600) };
+                    }}
+                  />
+                  <div class="field-hint">${t("Seconds of inactivity before the page timeout fires and transitions to the dimming/sleep cycle (0 = disabled, max 3600).")}</div>
+                </div>
+
+                ${checkbox(this, "dc-use_auto_sleeping", "use_auto_sleeping", cfg, t("Auto sleep"),
+                  t("When enabled, the display enters sleep mode after the sleep timeout. Disable to prevent the display from sleeping."))}
+                <div class="form-group">
+                  <label for="dc-timeout_sleep">${t("Sleep timeout (seconds)")}</label>
+                  <input
+                    id="dc-timeout_sleep"
+                    type="number"
+                    inputmode="numeric"
+                    class="native-input"
+                    min="0"
+                    max="3600"
+                    .value=${String(cfg.timeout_sleep ?? 120)}
+                    @input=${(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      this._deviceConfigForm = { ...this._deviceConfigForm, timeout_sleep: isNaN(v) || v < 0 ? 0 : Math.min(v, 3600) };
+                    }}
+                  />
+                  <div class="field-hint">${t("Seconds of inactivity before the display enters sleep mode (0 = disabled, max 3600).")}</div>
+                </div>
+
               ${selectField(this, "dc-debug_level", "debug_level", cfg, t("Debug Level"), DEBUG_LEVELS, (v) => parseInt(v, 10),
                 t("Controls the verbosity of diagnostic logging sent to the Home Assistant logs: Off = no debug output, Basic = key lifecycle events, Verbose = all commands and data exchanged with the display"))}
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>${t("Hardware Buttons")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.")}
+              </p>
+              ${checkbox(this, "dc-use_relay_left", "use_relay_left", cfg, t("Left Button - Use Relay"),
+                t("When enabled, the left hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead."))}
+
+              ${!(cfg.use_relay_left ?? true) ? renderEntityPicker(this, {
+                id: "dc-button_left_entity",
+                value: this._deviceConfigForm?.button_left_entity ?? cfg.button_left_entity,
+                label: t("Left Button Entity"),
+                hint: t("Toggle this Home Assistant entity (light, switch, scene, etc.) when the left hardware button is pressed. Only available when the left relay is disabled."),
+                hass: this.hass,
+                onInput: (val) => {
+                  this._deviceConfigForm = { ...this._deviceConfigForm, button_left_entity: val };
+                },
+                onSelect: (v) => {
+                  this._deviceConfigForm = { ...this._deviceConfigForm, button_left_entity: v };
+                },
+              }) : ""}
+
+              <div class="section-divider"></div>
+
+              ${checkbox(this, "dc-use_relay_right", "use_relay_right", cfg, t("Right Button - Use Relay"),
+                t("When enabled, the right hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead."))}
+
+              ${!(cfg.use_relay_right ?? true) ? renderEntityPicker(this, {
+                id: "dc-button_right_entity",
+                value: this._deviceConfigForm?.button_right_entity ?? cfg.button_right_entity,
+                label: t("Right Button Entity"),
+                hint: t("Toggle this Home Assistant entity (light, switch, scene, etc.) when the right hardware button is pressed. Only available when the right relay is disabled."),
+                hass: this.hass,
+                onInput: (val) => {
+                  this._deviceConfigForm = { ...this._deviceConfigForm, button_right_entity: val };
+                },
+                onSelect: (v) => {
+                  this._deviceConfigForm = { ...this._deviceConfigForm, button_right_entity: v };
+                },
+              }) : ""}
+            <div class="section-divider"></div>
+              ${checkbox(this, "dc-reset_interaction_on_button", "reset_interaction_on_button", cfg,
+                t("Interact on button press"),
+                t("When enabled, pressing a hardware button resets the inactivity timer and prevents the display from dimming or sleeping. Disable to allow buttons to work without delaying display sleep."))}
             </div>
           </details>
 
@@ -240,69 +349,6 @@ class DeviceConfigDialog extends LitElement {
           </details>
 
           <details class="config-section">
-            <summary>${t("Panel Assignments")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
-                ${t("Choose which panels appear in specific display states. Leave unset to keep the current panel.")}
-              </p>
-              ${selectField(this, "dc-home_panel", "home_panel", cfg, t("Home panel"), panelOptions, (v) => v,
-                t("The panel shown when the user navigates home or after dim/sleep returns"))}
-              ${selectField(this, "dc-sleep_panel", "sleep_panel", cfg, t("Sleep Panel"), panelOptions, (v) => v,
-                t("The panel shown when the display enters sleep mode"))}
-              ${selectField(this, "dc-wakeup_panel", "wakeup_panel", cfg, t("Wakeup Panel"), panelOptions, (v) => v,
-                t("The panel shown briefly when the display wakes from sleep"))}
-            </div>
-          </details>
-
-          <details class="config-section">
-            <summary>${t("Hardware Buttons")}</summary>
-            <div class="config-section-body">
-              <p class="config-section-intro">
-                ${t("Configure the physical left/right hardware buttons on the NSPanel. Each button can toggle its internal relay or a Home Assistant entity.")}
-              </p>
-              ${checkbox(this, "dc-use_relay_left", "use_relay_left", cfg, t("Left Button - Use Relay"),
-                t("When enabled, the left hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead."))}
-
-              ${!(cfg.use_relay_left ?? true) ? renderEntityPicker(this, {
-                id: "dc-button_left_entity",
-                value: this._deviceConfigForm?.button_left_entity ?? cfg.button_left_entity,
-                label: t("Left Button Entity"),
-                hint: t("Toggle this Home Assistant entity (light, switch, scene, etc.) when the left hardware button is pressed. Only available when the left relay is disabled."),
-                hass: this.hass,
-                onInput: (val) => {
-                  this._deviceConfigForm = { ...this._deviceConfigForm, button_left_entity: val };
-                },
-                onSelect: (v) => {
-                  this._deviceConfigForm = { ...this._deviceConfigForm, button_left_entity: v };
-                },
-              }) : ""}
-
-              <div class="section-divider"></div>
-
-              ${checkbox(this, "dc-use_relay_right", "use_relay_right", cfg, t("Right Button - Use Relay"),
-                t("When enabled, the right hardware button toggles the built-in physical relay. Disable to assign a Home Assistant entity instead."))}
-
-              ${!(cfg.use_relay_right ?? true) ? renderEntityPicker(this, {
-                id: "dc-button_right_entity",
-                value: this._deviceConfigForm?.button_right_entity ?? cfg.button_right_entity,
-                label: t("Right Button Entity"),
-                hint: t("Toggle this Home Assistant entity (light, switch, scene, etc.) when the right hardware button is pressed. Only available when the right relay is disabled."),
-                hass: this.hass,
-                onInput: (val) => {
-                  this._deviceConfigForm = { ...this._deviceConfigForm, button_right_entity: val };
-                },
-                onSelect: (v) => {
-                  this._deviceConfigForm = { ...this._deviceConfigForm, button_right_entity: v };
-                },
-              }) : ""}
-            <div class="section-divider"></div>
-              ${checkbox(this, "dc-reset_interaction_on_button", "reset_interaction_on_button", cfg,
-                t("Interact on button press"),
-                t("When enabled, pressing a hardware button resets the inactivity timer and prevents the display from dimming or sleeping. Disable to allow buttons to work without delaying display sleep."))}
-            </div>
-          </details>
-
-          <details class="config-section">
             <summary>${t("Sleep and Wakeup")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">
@@ -348,6 +394,22 @@ class DeviceConfigDialog extends LitElement {
               </div>
             </div>
           </details>
+
+          <details class="config-section">
+            <summary>${t("Panel Assignments")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("Choose which panels appear in specific display states. Leave unset to keep the current panel.")}
+              </p>
+              ${selectField(this, "dc-home_panel", "home_panel", cfg, t("Home panel"), panelOptions, (v) => v,
+                t("The panel shown when the user navigates home or after dim/sleep returns"))}
+              ${selectField(this, "dc-sleep_panel", "sleep_panel", cfg, t("Sleep Panel"), panelOptions, (v) => v,
+                t("The panel shown when the display enters sleep mode"))}
+              ${selectField(this, "dc-wakeup_panel", "wakeup_panel", cfg, t("Wakeup Panel"), panelOptions, (v) => v,
+                t("The panel shown briefly when the display wakes from sleep"))}
+            </div>
+          </details>
+
 
           </div>
         </form>

@@ -63,6 +63,12 @@ DEVICE_CONFIG: dict[str, Any] = {
     "auto_navigate_home_timeout": 0,
     "use_relay_left": True,
     "use_relay_right": True,
+    "use_auto_dimming": True,
+    "use_auto_page": True,
+    "use_auto_sleeping": True,
+    "timeout_dimming": 10,
+    "timeout_page": 30,
+    "timeout_sleep": 120,
     "sound_on_startup": True,
     # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
     "color_overrides": {},

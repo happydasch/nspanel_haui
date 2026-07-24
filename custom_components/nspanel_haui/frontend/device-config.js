@@ -48,6 +48,7 @@ export async function saveDeviceConfig(host) {
     "sound_on_notification", "use_relay_left", "use_relay_right",
     "use_do_not_disturb",
     "enabled",
+    "use_auto_dimming", "use_auto_page", "use_auto_sleeping",
   ];
   for (const k of boolKeys) {
     const el = form.querySelector(`#dc-${k}`); cfg[k] = el ? el.checked : false;
@@ -76,6 +77,14 @@ export async function saveDeviceConfig(host) {
   cfg.snapshot_max_age_seconds = isNaN(snap) ? -1 : snap;
   numEl = form.querySelector("#dc-debug_level"); const dbg = parseInt(numEl ? numEl.value : "0", 10);
   cfg.debug_level = isNaN(dbg) ? 0 : dbg;
+
+  // Read timeout number fields
+  const timeoutKeys = ["timeout_dimming", "timeout_page", "timeout_sleep"];
+  for (const key of timeoutKeys) {
+    numEl = form.querySelector(`#dc-${key}`);
+    const val = parseInt(numEl ? numEl.value : "0", 10);
+    cfg[key] = isNaN(val) || val < 0 ? 0 : val;
+  }
 
   host._deviceConfig = cfg;
   host._editingDeviceConfig = false;

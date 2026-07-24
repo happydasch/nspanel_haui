@@ -114,6 +114,17 @@ class HAUIDevice(HAUIBase):
             self.log(f"Syncing {switch_entity_id} OFF (hub config {hub_key}=False)")
             item.turn_off()
 
+    def _sync_config_number(self, hub_key: str, number_entity_id: str) -> None:
+        """Sync a hub config number with the device's ESPHome number entity."""
+        if not self.app.item_exists(number_entity_id):
+            return
+        hub_value = self.get(hub_key, 0)
+        item = self.app.get_item(number_entity_id)
+        current = item.get_state()
+        if current is not None and current != "unavailable" and float(current) != hub_value:
+            self.log(f"Syncing {number_entity_id} to {hub_value} (hub config {hub_key})")
+            item.set_state(state=hub_value)
+
     def _sync_button_interaction(self) -> None:
         """Sync the hub's ``reset_interaction_on_button`` with the device's switch.
 
@@ -156,6 +167,17 @@ class HAUIDevice(HAUIBase):
         )
 
     # part
+    def _sync_behavior_config(self) -> None:
+        """Sync hub config auto-* and timeout fields with ESPHome switches/numbers."""
+        slug = self.get_name().lower().replace("-", "_").replace(" ", "_")
+        self._sync_config_switch("use_auto_dimming", f"switch.{slug}_use_auto_dimming")
+        self._sync_config_switch("use_auto_page", f"switch.{slug}_use_auto_page")
+        self._sync_config_switch("use_auto_sleeping", f"switch.{slug}_use_auto_sleeping")
+        self._sync_config_number("timeout_dimming", f"number.{slug}_timeout_dim")
+        self._sync_config_number("timeout_page", f"number.{slug}_timeout_page")
+        self._sync_config_number("timeout_sleep", f"number.{slug}_timeout_sleep")
+
+    # part
 
     def start_part(self) -> None:
         """Starts the part."""
@@ -164,6 +186,7 @@ class HAUIDevice(HAUIBase):
         self._register_callbacks()
         self._sync_button_interaction()
         self._sync_relay_config()
+        self._sync_behavior_config()
 
     def stop_part(self) -> None:
         """Stops the part."""

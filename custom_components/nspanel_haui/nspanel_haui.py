@@ -245,6 +245,9 @@ class NSPanelHAUI(HAAdapter):
         if self.device:
             self.device._cancel_callbacks()
             self.device._register_callbacks()
+            # Sync behavior config (auto-* switches and timeout numbers) to
+            # ESPHome entities so changes take effect immediately.
+            self.device._sync_behavior_config()
 
         # Refresh navigation controller panel references
         nav_ctrl = self.controller.get("navigation")

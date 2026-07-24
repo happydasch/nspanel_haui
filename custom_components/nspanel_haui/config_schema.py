@@ -126,6 +126,18 @@ class ConfigSchema:
             ),
             vol.Required("use_relay_left", default=current.get("use_relay_left", True)): bool,
             vol.Required("use_relay_right", default=current.get("use_relay_right", True)): bool,
+            vol.Required("use_auto_dimming", default=current.get("use_auto_dimming", True)): bool,
+            vol.Required("use_auto_page", default=current.get("use_auto_page", True)): bool,
+            vol.Required("use_auto_sleeping", default=current.get("use_auto_sleeping", True)): bool,
+            vol.Required(
+                "timeout_dimming", default=current.get("timeout_dimming", 10)
+            ): vol.Coerce(int),
+            vol.Required(
+                "timeout_page", default=current.get("timeout_page", 30)
+            ): vol.Coerce(int),
+            vol.Required(
+                "timeout_sleep", default=current.get("timeout_sleep", 120)
+            ): vol.Coerce(int),
             vol.Required("show_home_button", default=current.get("show_home_button", False)): bool,
             vol.Required(
                 "show_sleep_button", default=current.get("show_sleep_button", False)

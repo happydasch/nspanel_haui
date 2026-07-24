@@ -75,6 +75,12 @@ def _ensure_models() -> None:
         quiet_hours_end: str = ""
         use_relay_left: bool = True
         use_relay_right: bool = True
+        use_auto_dimming: bool = True
+        use_auto_page: bool = True
+        use_auto_sleeping: bool = True
+        timeout_dimming: int = 10
+        timeout_page: int = 30
+        timeout_sleep: int = 120
         debug_level: int = 0
         log_items: bool = False
         hub_idle_timeout: int = 0

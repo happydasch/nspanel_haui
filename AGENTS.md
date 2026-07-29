@@ -344,6 +344,177 @@ The project uses hardcoded CLDR locale data (see `haui/utils/locale_data.py`) in
 
 `scripts/translations/merge_translations.py` is a secondary helper for merging a completed `scripts/translations/translate.json` batch back into `haui/locale/*.json` without clobbering existing entries — for external translation-service round trips, not needed for routine local development.
 
+## SOLID Principles
+
+This codebase follows SOLID principles. Preserve these patterns when adding or modifying code.
+
+### Single Responsibility Principle (SRP)
+
+Each class owns exactly one concern. Do not add unrelated responsibilities.
+
+| Class | Responsibility | File |
+|-------|---------------|------|
+| `NSPanelHAUI` | Top-level composition: wires controllers, device, and config together | `nspanel_haui.py` |
+| `HAAdapter` | Bridges HA's async API → synchronous interface for haui/ core | `ha_adapter.py` |
+| `ESPHomeProxy` | Sends commands to ESP32 via Native API, listens for device events | `ha_adapter.py` |
+| `ItemProxy` | Synchronous wrapper around a single HA entity's state/attributes/services | `ha_adapter.py` |
+| `HAUIBase` | Config access, command batching, display transport, logging, lifecycle | `haui/abstract/haui_base.py` |
+| `HAUIConfig` | Merges config layers, instantiates/validates `HAUIPanel` objects | `haui/abstract/haui_config.py` |
+| `HAUIPanel` | Wraps one panel's config: title, type, button visibility, navigation state | `haui/abstract/haui_panel.py` |
+| `HAUIEntity` | Synchronous entity access: state, attributes, service calls, display-value helpers | `haui/abstract/haui_entity.py` |
+| `HAUIItem` | Wraps one item (entity or internal action) within a panel | `haui/abstract/haui_item.py` |
+| `HAUIEvent` | Event value parsing (int/str/json accessors) | `haui/abstract/haui_event.py` |
+| `DisplayInterface` | High-level display commands (`send_cmd`, `send_cmds`, `set_component_text`, `set_component_value`) | `haui/abstract/display_interface.py` |
+| `ESPHomeTransport` | Low-level wiring: pushes commands to the ESPHome controller | `haui/abstract/display_interface.py` |
+| `ComponentRegistry` | Declares and merges Nextion widget descriptors for a page | `haui/abstract/component.py` |
+| Controllers | One concern per controller: connection, navigation, ESPHome, gesture, notification, update | `haui/controller/` |
+
+**Pattern:** `NSPanelHAUI` is a composition hub — it creates controllers and delegates, it does not implement business logic. Keep it that way.
+
+**Anti-pattern:** Adding display logic, entity access, or HA API calls directly to a controller or `NSPanelHAUI`. Delegate to the appropriate abstract class instead.
+
+### Open/Closed Principle (OCP)
+
+Classes are **open for extension, closed for modification**. The panel type system is the textbook example.
+
+**Adding a new panel type** (open for extension):
+1. Create a page class in `haui/page/yourpage.py` with a `DESCRIPTOR` (type `PageDescriptor`) and `COMPONENTS` (type `ComponentRegistry`)
+2. Import it in `haui/mapping/panel.py` and add it to the `_page_classes` list
+3. The `_build_panel_mapping()` function automatically registers it in `PANEL_MAPPING` by reading `DESCRIPTOR.type_key`
+4. Popup aliases are derived from descriptor metadata — no manual registration needed
+
+```python
+# mapping/panel.py — closed for modification of registration logic
+_page_classes: list[type] = [
+    AboutPage, AlarmPage, ..., WeatherPage,  # ← add new class here
+]
+
+def _build_panel_mapping() -> dict[str, tuple[str, type]]:
+    mapping = {}
+    for cls in _page_classes:                     # open for new entries
+        d = getattr(cls, "DESCRIPTOR", None)
+        if d is not None:
+            mapping[d.type_key] = (d.page_name, cls)
+    return mapping
+```
+
+**Extending components** on a page subclass:
+```python
+class MyPage(HAUIPage):
+    COMPONENTS = HAUIPage.COMPONENTS.merge(   # extend, don't redefine
+        title=Component(2, "tTitle"),
+        my_slider=Component(7, "hSlider"),
+    )
+```
+
+**Lifecycle hooks** use the Template Method pattern — subclasses override specific methods without changing the base's orchestration:
+- `render_panel` → `before_render_panel` / `after_render_panel`
+- `start_panel` → `_stop_panel` for cleanup
+- `start` / `stop` → `start_part` / `stop_part`
+
+**Anti-pattern:** Modifying `_build_panel_mapping()` or `PANEL_MAPPING` directly for each new panel type. Adding logic to base classes when a subclass override suffices.
+
+### Liskov Substitution Principle (LSP)
+
+Subtypes must be substitutable for their base types. All page classes implement the same lifecycle protocol:
+
+```python
+# Navigation controller treats any page identically
+page.render_panel(panel)      # works for GridPage, ClimatePage, LightPage, etc.
+page.start_panel(panel)
+page.stop_panel(panel)
+```
+
+**Rules:**
+- Implement the lifecycle hooks (`prepare()`, `start_panel()`, `render_panel()`, `stop_panel()`) with the same semantics
+- `BlankPage` is a **documented intentional exception** — it has no `render_panel()` and is used only for the sleep state
+- Controllers are iterated polymorphically in `NSPanelHAUI.start()` / `stop()` — each must implement `start()` and `stop()` from `HAUIBase`
+
+**Anti-pattern:** Breaking the lifecycle contract in a subclass (e.g., returning unexpected types from `render_panel()`, or not calling `super().stop_panel()` in cleanup).
+
+### Interface Segregation Principle (ISP)
+
+Many specific interfaces are better than one general interface. The codebase uses three patterns:
+
+**1. Mixins for page behavior:**
+```python
+class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
+    ...
+```
+Each mixin depends only on a small set of expected attributes, not the full `HAUIPage` surface. The `if TYPE_CHECKING:` block in each mixin declares only what it needs:
+
+```python
+class ComponentMixin:
+    if TYPE_CHECKING:
+        app: NSPanelHAUI
+        _callbacks: list[tuple[Component, Callable]]
+        def send_cmd(self, cmd: str) -> None: ...
+        def log(self, msg: str, **kwargs: Any) -> None: ...
+        def render_template(self, template: str, parse_icons: bool = True) -> str: ...
+```
+
+**2. Single-method Protocols:**
+```python
+@runtime_checkable
+class DisplayTransport(Protocol):
+    def send(self, command: str, value: str | list[str]) -> None: ...
+```
+
+**3. Minimal data classes:**
+- `HAUIEvent` — 3 small accessor methods (int/str/json)
+- `Component` — NamedTuple with `.id` and `.name`
+- `ComponentRegistry` — widget declaration + `.merge()` only
+
+**Pattern:** When a class needs behavior from multiple domains, prefer multiple targeted mixins over one fat base class. When defining a dependency, prefer a Protocol with the minimum methods needed.
+
+**Anti-pattern:** Adding methods to a mixin that require new attributes from the host class without declaring them in `TYPE_CHECKING`. Creating a single "god" interface that every component must implement.
+
+### Dependency Inversion Principle (DIP)
+
+High-level code should depend on abstractions, not concretions. The codebase enforces this at three layers:
+
+**Layer 1: `haui/` core depends on `HAAdapter`, not on HA directly**
+
+All `haui/` classes receive a reference via `self.app` and use only the synchronous interface defined by `HAAdapter`. The `haui/` package has **zero direct imports from `homeassistant`** — zero `asyncio` usage, zero HA API calls. All HA bridging happens in `HAAdapter` / `ESPHomeProxy`:
+
+```python
+# haui_entity.py — never touches HA async API directly
+class HAUIEntity:
+    def get_entity(self) -> Any:
+        if self.has_entity():
+            return self._app.get_item(self._entity_id)  # synchronous bridge method
+        return None
+```
+
+**Layer 2: Display pipeline depends on a Protocol**
+
+```python
+@dataclass
+class DisplayInterface:
+    transport: DisplayTransport  # ← Protocol, not ESPHomeTransport
+
+    def send_cmd(self, cmd: str) -> None:
+        self.transport.send(ESPCommand.SEND_COMMAND, cmd)
+```
+
+Page code calls `self.send_cmd()` / `self.set_component_text()` which delegates through `HAUIBase` → `DisplayInterface` → `DisplayTransport` Protocol. Neither `HAUIBase` nor pages know about `ESPHomeTransport` or the ESPHome controller.
+
+**Layer 3: Controllers are wired by composition, not by inheritance**
+
+```python
+# NSPanelHAUI — composition hub
+self.controller["esphome"] = HAUIESPHomeController(self, ...)
+self.controller["navigation"] = HAUINavigationController(self, ...)
+```
+
+**Rules:**
+- All HA calls go through `self.app.*` bridge methods on `HAAdapter`
+- Display commands go through `self.send_cmd()` / `self.set_component_text()` / `self.set_component_value()` — never through the ESPHome controller directly
+- No `asyncio` usage in `haui/` core
+- When depending on a collaborator, depend on a Protocol or abstract class, not a concrete implementation
+
+**Anti-pattern:** Importing `homeassistant` modules in `haui/` package code. Calling `asyncio.run_coroutine_threadsafe` outside `HAAdapter`/`ESPHomeProxy`. Passing concrete transport classes where a Protocol would work.
+
 ## Code Style
 
 - **Line length:** 100 characters (configured in `pyproject.toml`)
@@ -361,7 +532,8 @@ The project uses hardcoded CLDR locale data (see `haui/utils/locale_data.py`) in
 - **Don't add `asyncio` code in `haui/` core** - the core runs synchronously on an executor thread. All async bridging happens in `HAAdapter`.
 - **Don't commit to `ref_src/`** - `ref_src/home-assistant/core/`, `ref_src/home-assistant/frontend/`, `ref_src/esphome/esphome/`, and `ref_src/custom_components/` are read-only reference checkouts. Use them only for discovering HA / ESPHome API signatures and studying integration patterns.
 - **Don't add comments that restate the code** - comments should explain _why_, not _what_. See the core AGENTS.md guideline.
-- **Don't use silent fallbacks or defaults** - prefer failing loudly over swallowing errors or guessing a fallback value. A crash or exception is easier to debug than a silently wrong behavior caused by a default. Only use fallbacks when the call site explicitly chooses to handle the failure gracefully, and even then, log at warning level.
+- **Prefer exception over silent swallow** - raise an exception instead of catching and ignoring errors. A crash or exception is easier to debug than a silently wrong behavior.
+- **Avoid fallbacks** - prefer not use fallback values or defaults. They mask bugs and produce wrong behavior silently. Only use a fallback when the call site explicitly chooses to handle the failure gracefully, and even then, log at warning level.
 - **Don't pass non-literal expressions to `t()` or `host._t()`** - translation extraction tools parse source code for `t('literal string')`. If `t()` receives a variable, template literal, or conditional expression instead of a string literal, the string will never be found by extraction and won't be translated. For dynamic values, use the `.replace('{placeholder}', value)` pattern: `t('Hello {name}').replace('{name}', userName)`.
 - **Don't hardcode user-facing strings** - any string visible in the UI must go through `t()` (from `localize.js`) or `host._t()`. This includes `title` attributes on buttons, toast messages, status messages, and Error fallback strings.
 

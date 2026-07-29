@@ -334,13 +334,13 @@ def test_no_exit_when_no_sleep_or_wakeup_panel_active():
     assert nav.exit_calls == []
 
 
-def test_first_touch_wakes_when_display_already_on() -> None:
-    """First touch wakes even when the display is already ON (does not exit)."""
+def test_first_touch_exits_when_display_already_on() -> None:
+    """First touch exits sleep immediately when the display is already ON (one-touch)."""
     device, nav = _wakeup_harness()
     device.woke_up = True
     device.device_info["display_state"] = "on"
     device.check_wakeup()
-    assert len(nav.exit_calls) == 0
+    assert len(nav.exit_calls) == 1
     assert device.woke_up is False
 
 

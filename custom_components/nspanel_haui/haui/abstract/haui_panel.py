@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, Any
 
 from ..mapping.const import PANEL_CONFIG
 from ..utils.value import merge_dicts
-from .haui_base import HAUIBase
+from .haui_config_access import HAUIConfigAccess
 
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
 
 
-class HAUIPanel(HAUIBase):
+class HAUIPanel(HAUIConfigAccess):
     """Represents a panel on the display.
 
     Its a description of what the page should look like and what

@@ -10,14 +10,14 @@ from ..utils.color import parse_color_value
 from ..utils.item import execute_item, get_item_color, get_item_icon, get_item_name, get_item_value
 from ..utils.text import get_state_translation
 from ..utils.value import merge_dicts
-from .haui_base import HAUIBase
+from .haui_config_access import HAUIConfigAccess
 from .haui_entity import HAUIEntity
 
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
 
 
-class HAUIItem(HAUIBase):
+class HAUIItem(HAUIConfigAccess):
     """Represents an item from a panel"""
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any] | None = None) -> None:

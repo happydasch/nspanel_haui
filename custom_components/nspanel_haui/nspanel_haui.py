@@ -5,7 +5,6 @@ from typing import Any, TypedDict
 from .ha_adapter import HAAdapter
 from .haui.abstract.haui_base import HAUIBase
 from .haui.abstract.haui_config import HAUIConfig
-from .haui.abstract.haui_panel import HAUIPanel
 from .haui.controller.connection import HAUIConnectionController
 from .haui.controller.esphome import HAUIESPHomeController
 from .haui.controller.gesture import HAUIGestureController
@@ -173,33 +172,23 @@ class NSPanelHAUI(HAAdapter):
     def _rebuild_panel_collections(self, panel_configs: list) -> tuple[list, dict, dict]:
         """Build panel lists and lookup dicts from panel configs.
 
+        Delegates to :meth:`HAUIConfig._build_panel_lists` for the shared
+        panel-building logic, adding per-device logging.
+
         Returns:
             Tuple of (panels_list, panels_by_id, panels_by_key).
         """
-        new_panels: list = []
-        panels_by_id: dict = {}
-        panels_by_key: dict[str, Any] = {}
+        from .haui.abstract.haui_config import HAUIConfig
 
         for panel_config in panel_configs:
-            panel = HAUIPanel(self, panel_config)
-            key = panel.get("key", "")
+            key = panel_config.get("key", "")
             self.log(
                 f"Loading panel key={key!r} type={panel_config.get('type')!r} "
                 f"show_in_nav={panel_config.get('show_in_navigation', True)}",
                 level="DEBUG",
             )
-            if key and key in panels_by_key:
-                self.log(
-                    f"User panel overrides system panel '{key}' (type={panel_config.get('type')})",
-                    level="INFO",
-                )
-                continue
-            new_panels.append(panel)
-            panels_by_id[panel.id] = panel
-            if key:
-                panels_by_key[key] = panel
-
-        return new_panels, panels_by_id, panels_by_key
+        panels, by_id, by_key = HAUIConfig._build_panel_lists(self, panel_configs)
+        return panels, by_id, by_key
 
     def reload_panels(self, panels_data: dict) -> None:
         """Reload panel config from the store without full restart.

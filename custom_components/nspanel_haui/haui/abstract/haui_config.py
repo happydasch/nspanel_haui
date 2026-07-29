@@ -10,11 +10,11 @@ if TYPE_CHECKING:
 from ..config_models import validate_config
 from ..mapping.const import DEFAULT_CONFIG
 from ..utils.value import merge_dicts
-from .haui_base import HAUIBase
+from .haui_config_access import HAUIConfigAccess
 from .haui_panel import HAUIPanel
 
 
-class HAUIConfig(HAUIBase):
+class HAUIConfig(HAUIConfigAccess):
     """HAUI Configuration."""
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any] | None = None) -> None:
@@ -38,22 +38,43 @@ class HAUIConfig(HAUIBase):
         # validate after base init so self.app etc. are available
         validate_config(cfg)
         # load all panels
-        self._panels: list[HAUIPanel] = []
-        self._panels_by_id: dict = {}
-        self._panels_by_key: dict[str, HAUIPanel] = {}
-        # user panels first: when a sys_panel shares a key with a user panel
-        # the user panel wins and the duplicated sys_panel is skipped
         panels_to_load = self.get("panels")
         panels_to_load += self.get("sys_panels")
-        for panel_config in panels_to_load:
-            panel = HAUIPanel(self.app, panel_config)
+        self._panels, self._panels_by_id, self._panels_by_key = (
+            self._build_panel_lists(self.app, panels_to_load)
+        )
+
+    @staticmethod
+    def _build_panel_lists(
+        app: NSPanelHAUI, panel_configs: list[dict[str, Any]]
+    ) -> tuple[list[HAUIPanel], dict, dict[str, HAUIPanel]]:
+        """Build panel lists and lookup dicts from panel configs.
+
+        User panels take precedence over system panels with the same key.
+        The first panel with a given key wins; subsequent duplicates are skipped.
+        This de-duplication means user panels override system panels when they
+        share a key.
+
+        Args:
+            app: The NSPanelHAUI application instance.
+            panel_configs: List of panel config dicts.
+
+        Returns:
+            Tuple of (panels_list, panels_by_id, panels_by_key).
+        """
+        panels: list[HAUIPanel] = []
+        panels_by_id: dict = {}
+        panels_by_key: dict[str, HAUIPanel] = {}
+        for panel_config in panel_configs:
+            panel = HAUIPanel(app, panel_config)
             key = panel.get("key", "")
-            if key and key in self._panels_by_key:
+            if key and key in panels_by_key:
                 continue
-            self._panels.append(panel)
-            self._panels_by_id[panel.id] = panel
+            panels.append(panel)
+            panels_by_id[panel.id] = panel
             if key:
-                self._panels_by_key[key] = panel
+                panels_by_key[key] = panel
+        return panels, panels_by_id, panels_by_key
 
     # public
 

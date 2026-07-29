@@ -814,9 +814,37 @@ class HAUINavigationController(HAUIBase):
         # stale _page_timeout_callbacks from firing mid-restore.
         self.cancel_timeouts()
 
+        # Clear the ESPHome controller's prev_cmd cache — otherwise the
+        # goto_page command that follows may be suppressed by dedup when two
+        # consecutive page IDs happen to match (e.g. sleep panel re-uses the
+        # same Nextion page as the pre-sleep panel).
+        if "esphome" in self.app.controller:
+            self.app.controller["esphome"].reset_prev_cmd()
+        # Force the goto_page so it always reaches the display after sleep.
+        panel_kwargs["force"] = True
+
         self.reload_panel()
+
+        # Schedule a refresh at ~1s to recover any render commands lost while
+        # the display was waking from deep sleep.  If the initial render
+        # succeeded, the refresh is harmless.
+        self.app.run_in(self._recover_from_sleep, 1.0)
+
         self.log("Navigation snapshot restored")
         return True
+
+    # event
+
+    def _recover_from_sleep(self, _kwargs: dict[str, Any]) -> None:
+        """Refresh the panel after waking from sleep.
+
+        The Nextion display may drop render commands sent immediately after
+        a cold wake.  Delaying the refresh gives the display time to fully
+        initialise before we re-send the panel state.
+        """
+        if self.panel is not None:
+            self.log("Refreshing panel after sleep recovery")
+            self.refresh_panel()
 
     # event
 

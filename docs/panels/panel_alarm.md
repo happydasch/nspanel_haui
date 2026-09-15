@@ -32,3 +32,7 @@ The alarm panel provides a numeric keypad (0-9, CLR, DEL) for entering an alarm 
 In the **panel editor**, set:
 
 - **Item** (entity picker) — An `alarm_control_panel` entity to control. Required.
+- **Keypad** section — visual styling for the numeric keypad:
+  - **Keypad font size** — Font ID for the keypad digits (0-7, larger = bigger text). Default: `2`.
+  - **Keypad button background** — Background color of each key. Default: the theme's component background (`8452`).
+  - **Keypad text color** — Color of the keypad digits. Default: the theme's component text (`65535`).

@@ -7,10 +7,15 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import ALARM_COLORS
+from ..mapping.color import ALARM_COLORS, COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_PASSWORD
 from ..utils.icon import get_icon
+
+# keypad styling defaults, shared by the descriptor options and the runtime helper
+_KEYPAD_FONT_DEFAULT = 2
+_KEYPAD_BG_DEFAULT = COLORS["component_background"]
+_KEYPAD_TEXT_DEFAULT = COLORS["component_text"]
 
 
 class AlarmPage(HAUIPage):
@@ -27,6 +32,29 @@ class AlarmPage(HAUIPage):
                 domain="alarm_control_panel",
                 description=_("Alarm control panel item for arming/disarming the security system."),
                 section=_("Alarm"),
+            ),
+            PageOption(
+                key="keypad_font",
+                kind="int",
+                default=_KEYPAD_FONT_DEFAULT,
+                label=_("Keypad font size"),
+                description=_("Font ID for the numeric keypad digits (0-7, larger = bigger text)."),
+                section=_("Keypad"),
+            ),
+            PageOption(
+                key="keypad_bg_color",
+                kind="color",
+                default=_KEYPAD_BG_DEFAULT,
+                label=_("Keypad button background"),
+                description=_("Background color of each keypad digit (button-like appearance)."),
+                section=_("Keypad"),
+            ),
+            PageOption(
+                key="keypad_text_color",
+                kind="color",
+                default=_KEYPAD_TEXT_DEFAULT,
+                label=_("Keypad text color"),
+                section=_("Keypad"),
             ),
         ],
         can_show_popup=True,
@@ -169,6 +197,7 @@ class AlarmPage(HAUIPage):
         for comp in self._keypad_buttons:
             self.on_release(comp, self.callback_keypad)
             self.show_component(comp)
+        self._style_keypad(panel)
         # register the four action buttons (rendered/labelled in update_components)
         self._btn_actions = {}
         for comp in self._action_buttons:
@@ -179,6 +208,22 @@ class AlarmPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_components()
+
+    def _style_keypad(self, panel: HAUIPanel) -> None:
+        """Apply the configured font and colors to every keypad button once.
+
+        Values fall back to the descriptor defaults for panels saved before the
+        keypad options existed (including the unlock popup, which is a system
+        panel and has no options of its own).
+        """
+        font = panel.get("keypad_font", _KEYPAD_FONT_DEFAULT)
+        bg_color = panel.get("keypad_bg_color", _KEYPAD_BG_DEFAULT)
+        text_color = panel.get("keypad_text_color", _KEYPAD_TEXT_DEFAULT)
+        with self.rec_cmd:
+            for comp in self._keypad_buttons:
+                self.send_cmd(f"{comp.name}.font={font}")
+                self.set_component_back_color(comp, bg_color)
+                self.set_component_text_color(comp, text_color)
 
     # rendering
 

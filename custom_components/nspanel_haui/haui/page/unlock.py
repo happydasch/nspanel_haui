@@ -58,6 +58,8 @@ class UnlockPage(AlarmPage):
             # set components
             for c in self._keypad_buttons:
                 self.on_release(c, self.callback_keypad)
+            # match the alarm keypad's button styling
+            self._style_keypad(panel)
             self.on_release(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
             self.set_function_component(
                 component=AlarmPage.COMPONENTS.b1_fnc,
@@ -117,7 +119,7 @@ class UnlockPage(AlarmPage):
                 touch_events=True,
                 color=self.get_color("component_active"),
                 color_pressed=self.get_color("component_text"),
-                back_color=self.get_color("background"),
+                back_color=self.get_color("component_background"),
                 back_color_pressed=self.get_color("component_pressed"),
             )
         else:

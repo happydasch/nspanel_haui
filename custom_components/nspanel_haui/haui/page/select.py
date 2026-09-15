@@ -109,14 +109,24 @@ class SelectPage(HAUIPage):
             idx = i + 1
             btn = getattr(self.COMPONENTS, "btn_sel_" + str(idx))
             self.set_function_component(
-                btn, btn[1], color=self.get_color("component_active"), visible=False
+                btn,
+                btn[1],
+                color=self.get_color("component_active"),
+                back_color=self.get_color("component_background"),
+                back_color_pressed=self.get_color("component_pressed"),
+                visible=False,
             )
             sel_buttons[btn] = self.callback_select
         for i in range(self.ITEMS_PER_PAGE_FULL):
             idx = i + 1
             btn = getattr(self.COMPONENTS, "btn_sel_full_" + str(idx))
             self.set_function_component(
-                btn, btn[1], color=self.get_color("component_active"), visible=False
+                btn,
+                btn[1],
+                color=self.get_color("component_active"),
+                back_color=self.get_color("component_background"),
+                back_color_pressed=self.get_color("component_pressed"),
+                visible=False,
             )
             sel_buttons[btn] = self.callback_select
         self.on_release(sel_buttons)
@@ -218,7 +228,14 @@ class SelectPage(HAUIPage):
                     color = self.get_color("component_accent")
                 elif not self._multiple and sel_value == self._selected:
                     color = self.get_color("component_accent")
-                self.update_function_component(btn[1], text=sel_name, color=color, visible=True)
+                self.update_function_component(
+                    btn[1],
+                    text=sel_name,
+                    color=color,
+                    back_color=self.get_color("component_background"),
+                    back_color_pressed=self.get_color("component_pressed"),
+                    visible=True,
+                )
             else:
                 self._active[btn] = None
                 self.update_function_component(btn[1], visible=False)

@@ -19,7 +19,7 @@ substitutions:
   ap_password: !secret ap_password
 
   # Custom Update Url
-  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/esphome/nspanel_haui.tft
+  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
 
 packages:
   remote_package:

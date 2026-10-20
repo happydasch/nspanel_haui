@@ -41,6 +41,6 @@ packages:
   # debug: !include nspanel_haui/debug.yaml
 
 external_components:
-  - source: github://pr#17744
+  - source: github://happydasch/esphome@nextion-fix-2026.9.1
     components: [nextion]
     refresh: 1h

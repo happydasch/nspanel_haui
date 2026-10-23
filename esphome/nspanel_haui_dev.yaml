@@ -44,8 +44,3 @@ packages:
   switch: !include nspanel_haui/switch.yaml
   sensor: !include nspanel_haui/sensor.yaml
   debug: !include nspanel_haui/debug.yaml
-
-external_components:
-  - source: github://pr#17744
-    components: [nextion]
-    refresh: 1h

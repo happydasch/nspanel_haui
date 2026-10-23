@@ -39,8 +39,3 @@ packages:
   switch: !include nspanel_haui/switch.yaml
   sensor: !include nspanel_haui/sensor.yaml
   # debug: !include nspanel_haui/debug.yaml
-
-external_components:
-  - source: github://happydasch/esphome@nextion-fix-2026.9.1
-    components: [nextion]
-    refresh: 1h

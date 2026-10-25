@@ -25,7 +25,6 @@ and follow [Semantic Versioning](https://semver.org/).
   and vacuum battery configuration follow the current documented formats.
   See the [Upgrade guide](docs/upgrading.md) for exact changes and update steps.
 
-
 ### Added
 
 - **Universal prebuilt firmware** (`nspanel_haui.bin`) — one binary for EU and

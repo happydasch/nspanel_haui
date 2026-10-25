@@ -1,0 +1,140 @@
+{
+  "config": {
+    "flow_title": "NSPanel HAUI ({count} urządzenie(a) odkryto)",
+    "step": {
+      "user": {
+        "title": "Dodaj hub NSPanel HAUI"
+      },
+      "confirm": {
+        "title": "Odkryto urządzenia NSPanel HAUI",
+        "description": "Znaleziono {count} urządzenie(a) ESPHome z oprogramowaniem HAUI: {names}. Dodać je do nowego huba NSPanel HAUI?"
+      }
+    },
+    "abort": {
+      "already_configured": "Hub o tej nazwie jest już skonfigurowany",
+      "already_in_progress": "Konfiguracja huba jest już w toku",
+      "single_instance_allowed": "Obsługiwany jest tylko jeden hub NSPanel HAUI",
+      "no_devices_found": "Nie wykryto żadnych urządzeń NSPanel HAUI. Najpierw zainstaluj oprogramowanie HAUI na urządzeniu ESPHome."
+    }
+  },
+  "issues": {
+    "device_start_failed": {
+      "title": "Nie udało się uruchomić urządzenia: {device}",
+      "fix_flow": {
+        "step": {
+          "reload": {
+            "title": "Przeładuj hub",
+            "description": "NSPanel HAUI nie mógł uruchomić urządzenia {device}.\n\nBłąd: `{error}`.\n\nUżyj tej poprawki, aby ponownie uruchomić urządzenie, lub sprawdź dzienniki, aby uzyskać szczegóły. Ponowne załadowanie konfiguracji huba NSPanel HAUI spowoduje ponowną próbę uruchomienia urządzenia {device}."
+          }
+        },
+        "flow_title": "Ponów uruchomienie urządzenia {device}"
+      }
+    },
+    "hub_idle": {
+      "title": "Hub NSPanel HAUI nie ma włączonych urządzeń",
+      "description": "Hub {hub} nie ma włączonych urządzeń.\n\nWłącz co najmniej jedno urządzenie w edytorze NSPanel HAUI lub dodaj nowe urządzenie ESPHome z oprogramowaniem HAUI. Nowe urządzenia HAUI mogą być automatycznie dodawane do huba."
+    }
+  },
+  "services": {
+    "open_panel": {
+      "name": "Otwórz panel",
+      "description": "Przejdź do określonego panelu. Jeśli wybudzenie jest włączone, wyświetlacz najpierw się budzi.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Docelowe urządzenie NSPanel. W razie pominięcia, dotyczy wszystkich urządzeń."
+        },
+        "panel": {
+          "name": "Panel",
+          "description": "Klucz panelu lub UUID do nawigacji (np. 'alarm', 'grid_0')."
+        },
+        "wakeup": {
+          "name": "Najpierw obudź",
+          "description": "Obudź wyświetlacz przed otwarciem panelu."
+        }
+      }
+    },
+    "close_panel": {
+      "name": "Zamknij panel",
+      "description": "Zamknij bieżący panel i wróć do poprzedniego lub domyślnego panelu.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Docelowe urządzenie NSPanel. W razie pominięcia, dotyczy wszystkich urządzeń."
+        }
+      }
+    },
+    "wakeup": {
+      "name": "Obudź",
+      "description": "Obudź wyświetlacz i przejdź do panelu wybudzenia lub domyślnego.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Docelowe urządzenie NSPanel. W razie pominięcia, dotyczy wszystkich urządzeń."
+        }
+      }
+    },
+    "idle": {
+      "name": "Bezczynność",
+      "description": "Natychmiast przejdź w stan bezczynności, otwierając skonfigurowaną stronę bezczynności (idle_panel), tak jakby upłynął limit czasu strony.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Docelowe urządzenie NSPanel. W razie pominięcia, dotyczy wszystkich urządzeń."
+        }
+      }
+    },
+    "send_notification": {
+      "name": "Wyślij powiadomienie",
+      "description": "Pokaż powiadomienie na panelu z tytułem, wiadomością i ikoną.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Docelowe urządzenie NSPanel. W razie pominięcia, dotyczy wszystkich urządzeń."
+        },
+        "title": {
+          "name": "Tytuł",
+          "description": "Tytuł powiadomienia wyświetlany na panelu."
+        },
+        "message": {
+          "name": "Wiadomość",
+          "description": "Treść powiadomienia."
+        },
+        "icon": {
+          "name": "Ikona",
+          "description": "Ikona Material Design wyświetlana z powiadomieniem (np. 'mdi:bell')."
+        },
+        "timeout": {
+          "name": "Limit czasu",
+          "description": "Sekundy do automatycznego zamknięcia. 0 pozostawia do ręcznego zamknięcia."
+        },
+        "persistent": {
+          "name": "Trwałe",
+          "description": "Wymaga odrzucenia na panelu, aby zatrzymać dźwięk alertu."
+        },
+        "type": {
+          "name": "Dotkliwość",
+          "description": "Poziom dotkliwości wpływający na kolor alertu i dźwięk."
+        },
+        "force_show": {
+          "name": "Wymuś pokazanie",
+          "description": "Natychmiast otwórz powiadomienie, nawet jeśli wyświetlany jest inny panel."
+        }
+      }
+    },
+    "reset_last_interaction": {
+      "name": "Resetuj ostatnią interakcję",
+      "description": "Zresetuj licznik czasu bezczynności panelu, tak jakby użytkownik właśnie go dotknął.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Docelowe urządzenie NSPanel. W razie pominięcia, dotyczy wszystkich urządzeń."
+        },
+        "offset": {
+          "name": "Przesunięcie",
+          "description": "Przesunięcie w sekundach zastosowane do punktu resetowania."
+        }
+      }
+    }
+  }
+}

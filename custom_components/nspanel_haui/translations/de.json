@@ -1,0 +1,140 @@
+{
+  "config": {
+    "flow_title": "NSPanel HAUI ({count} Gerät(e) entdeckt)",
+    "step": {
+      "user": {
+        "title": "NSPanel HAUI Hub hinzufügen"
+      },
+      "confirm": {
+        "title": "NSPanel HAUI-Geräte entdeckt",
+        "description": "{count} ESPHome-Gerät(e) mit HAUI-Firmware gefunden: {names}. Möchtest du sie zu einem neuen NSPanel HAUI-Hub hinzufügen?"
+      }
+    },
+    "abort": {
+      "already_configured": "Ein Hub mit diesem Namen ist bereits konfiguriert",
+      "already_in_progress": "Eine Hub-Konfiguration ist bereits in Bearbeitung",
+      "single_instance_allowed": "Es wird nur ein NSPanel HAUI-Hub unterstützt",
+      "no_devices_found": "Es wurden keine NSPanel HAUI-Geräte gefunden. Installiere zuerst die HAUI-Firmware auf einem ESPHome-Gerät."
+    }
+  },
+  "issues": {
+    "device_start_failed": {
+      "title": "Gerät konnte nicht gestartet werden: {device}",
+      "fix_flow": {
+        "step": {
+          "reload": {
+            "title": "Hub neu laden",
+            "description": "NSPanel HAUI konnte Gerät {device} nicht starten.\n\nDer Fehler war: `{error}`.\n\nVerwende diese Korrektur, um den Start des Geräts erneut zu versuchen, oder überprüfe die Logs für Details. Das erneute Laden der NSPanel HAUI-Hub-Konfiguration startet Gerät {device} erneut."
+          }
+        },
+        "flow_title": "Gerät {device} erneut starten"
+      }
+    },
+    "hub_idle": {
+      "title": "NSPanel HAUI-Hub hat keine aktivierten Geräte",
+      "description": "Der Hub {hub} hat keine aktivierten Geräte.\n\nAktiviere mindestens ein Gerät im NSPanel HAUI-Editor oder füge ein neues ESPHome-Gerät mit HAUI-Firmware hinzu. Neue HAUI-Geräte können automatisch zum Hub hinzugefügt werden."
+    }
+  },
+  "services": {
+    "open_panel": {
+      "name": "Panel öffnen",
+      "description": "Zu einem bestimmten Panel navigieren. Wenn Aufwecken aktiviert ist, wird zuerst das Display geweckt.",
+      "fields": {
+        "device": {
+          "name": "Gerät",
+          "description": "Ziel-NSPanel-Gerät. Wenn nicht angegeben, gilt für alle Geräte."
+        },
+        "panel": {
+          "name": "Panel",
+          "description": "Panel-Schlüssel oder UUID zum Navigieren (z.B. 'alarm', 'grid_0')."
+        },
+        "wakeup": {
+          "name": "Zuerst aufwecken",
+          "description": "Display vor dem Öffnen des Panels aufwecken."
+        }
+      }
+    },
+    "close_panel": {
+      "name": "Panel schließen",
+      "description": "Das aktuelle Panel schließen und zum vorherigen oder Start-Panel zurückkehren.",
+      "fields": {
+        "device": {
+          "name": "Gerät",
+          "description": "Ziel-NSPanel-Gerät. Wenn nicht angegeben, gilt für alle Geräte."
+        }
+      }
+    },
+    "wakeup": {
+      "name": "Aufwecken",
+      "description": "Display aufwecken und zum Aufweck- oder Start-Panel navigieren.",
+      "fields": {
+        "device": {
+          "name": "Gerät",
+          "description": "Ziel-NSPanel-Gerät. Wenn nicht angegeben, gilt für alle Geräte."
+        }
+      }
+    },
+    "idle": {
+      "name": "Ruhezustand",
+      "description": "Sofort in den Ruhezustand wechseln, indem die konfigurierte Ruheseite (idle_panel) geöffnet wird, als ob der Seiten-Timeout ausgelöst wurde.",
+      "fields": {
+        "device": {
+          "name": "Gerät",
+          "description": "Ziel-NSPanel-Gerät. Wenn nicht angegeben, gilt für alle Geräte."
+        }
+      }
+    },
+    "send_notification": {
+      "name": "Benachrichtigung senden",
+      "description": "Zeigt eine Benachrichtigung mit Titel, Nachricht und Symbol auf dem Panel an.",
+      "fields": {
+        "device": {
+          "name": "Gerät",
+          "description": "Ziel-NSPanel-Gerät. Wenn nicht angegeben, gilt für alle Geräte."
+        },
+        "title": {
+          "name": "Titel",
+          "description": "Benachrichtigungstitel, der auf dem Panel angezeigt wird."
+        },
+        "message": {
+          "name": "Nachricht",
+          "description": "Benachrichtigungstext."
+        },
+        "icon": {
+          "name": "Symbol",
+          "description": "Material Design Icon, das mit der Benachrichtigung angezeigt wird (z.B. 'mdi:bell')."
+        },
+        "timeout": {
+          "name": "Zeitüberschreitung",
+          "description": "Sekunden bis zum automatischen Schließen. 0 bleibt bis zum manuellen Schließen."
+        },
+        "persistent": {
+          "name": "Dauerhaft",
+          "description": "Erfordert Bestätigung auf dem Panel, um den Alarmton zu stoppen."
+        },
+        "type": {
+          "name": "Schweregrad",
+          "description": "Schweregrad, der die Alarmfarbe und den Ton beeinflusst."
+        },
+        "force_show": {
+          "name": "Erzwingen",
+          "description": "Benachrichtigung sofort anzeigen, auch wenn ein anderes Panel geöffnet ist."
+        }
+      }
+    },
+    "reset_last_interaction": {
+      "name": "Letzte Interaktion zurücksetzen",
+      "description": "Den Panel-Ruhe-Timer zurücksetzen, als ob der Benutzer es gerade berührt hätte.",
+      "fields": {
+        "device": {
+          "name": "Gerät",
+          "description": "Ziel-NSPanel-Gerät. Wenn nicht angegeben, gilt für alle Geräte."
+        },
+        "offset": {
+          "name": "Versatz",
+          "description": "Versatz in Sekunden, der auf den Rücksetzzeitpunkt angewendet wird."
+        }
+      }
+    }
+  }
+}

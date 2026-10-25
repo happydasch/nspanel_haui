@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-import math
-from typing import Any
-
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..abstract.mixins.paged_items_mixin import PagedItemsMixin
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.text import trim_text
 
 
-class GridPage(HAUIPage):
+class GridPage(PagedItemsMixin, HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="grid",
         page_name="grid",
@@ -21,12 +19,42 @@ class GridPage(HAUIPage):
         label=_("Grid"),
         description=_("Grid of up to 6 item tiles with pagination."),
         item_options=[
-            "text_color",
-            "back_color",
-            "color_pressed",
-            "back_color_pressed",
-            "power_color",
-            "show_power_button",
+            PageOption(
+                key="text_color",
+                kind="color",
+                label=_("Text color"),
+                description=_("Color of the tile's icon and name."),
+            ),
+            PageOption(
+                key="back_color",
+                kind="color",
+                label=_("Background color"),
+                description=_("Background of the tile."),
+            ),
+            PageOption(
+                key="color_pressed",
+                kind="color",
+                label=_("Pressed text color"),
+                description=_("Icon and name color while the tile is pressed."),
+            ),
+            PageOption(
+                key="back_color_pressed",
+                kind="color",
+                label=_("Pressed background color"),
+                description=_("Background of the tile while it is pressed."),
+            ),
+            PageOption(
+                key="power_color",
+                kind="color",
+                label=_("Power button color"),
+                description=_("Color of the power button while the item is on."),
+            ),
+            PageOption(
+                key="show_power_button",
+                kind="bool",
+                label=_("Show power button"),
+                description=_("Show a power button on the tile that turns the item on or off."),
+            ),
         ],
         options=[
             PageOption(
@@ -84,14 +112,11 @@ class GridPage(HAUIPage):
 
     # panel
 
-    def prepare(self) -> None:
+    _DEBOUNCE_KEY = "grid_item_state"
 
-        self._items: list[HAUIItem] = []
-        self._active_items: dict[tuple, HAUIItem | None] = {}
-        self._active_handles: list = []
+    def prepare(self) -> None:
+        self._init_paging()
         self._item_mapping: list = []
-        self._current_page = 0
-        self._pending_item_updates: set[str] = set()
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
@@ -101,19 +126,39 @@ class GridPage(HAUIPage):
         # configured initial page every time the panel opens.
         self._current_page = panel.get_state("current_page", 0)
         # set function buttons
-        # Pagination always sits on fnc_right_sec (inner, near title), leaving
-        # fnc_right_pri for auto-assignment (NEXT on nav, CLOSE otherwise).
+        # Pagination sits on fnc_right_sec when the panel is in navigation,
+        # leaving fnc_right_pri for auto-assignment (NEXT on nav).  When the
+        # panel is not in navigation (e.g. the home panel), pagination moves to
+        # fnc_right_pri so fnc_right_sec stays free for the notification
+        # indicator — matching the row page behaviour.
+        show_in_nav = panel.show_in_navigation()
+        # Only claim a right slot for pagination when there actually is more
+        # than one page.  Otherwise the slot stays free so _auto_assign_fncs()
+        # can put the notification indicator there — an invisible next_page
+        # button used to occupy the slot and hide unread notifications.  When
+        # pagination does claim right_sec (in navigation), auto-assign moves
+        # the notification indicator onto the idle button's left-secondary
+        # slot on the home panel.
+        has_pagination = len(self._items) > self.NUM_GRIDS
         nav_btn: dict = {
-            "fnc_component": self.COMPONENTS.fnc_right_sec,
+            "fnc_component": (
+                self.COMPONENTS.fnc_right_sec if show_in_nav else self.COMPONENTS.fnc_right_pri
+            ),
             "fnc_name": "next_page",
             "fnc_args": {
                 "icon": ICO_NEXT_PAGE,
                 "color": self.get_color("header_accent"),
-                "visible": len(self._items) > self.NUM_GRIDS,
+                "visible": has_pagination,
             },
         }
-        btn_right_1: tuple | dict = self.COMPONENTS.fnc_right_pri
-        btn_right_2: tuple | dict = nav_btn
+        btn_right_1: tuple | dict
+        btn_right_2: tuple | dict
+        if show_in_nav:
+            btn_right_1 = self.COMPONENTS.fnc_right_pri
+            btn_right_2 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_sec
+        else:
+            btn_right_1 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_pri
+            btn_right_2 = self.COMPONENTS.fnc_right_sec
         self.set_function_buttons(
             self.COMPONENTS.fnc_left_pri,
             self.COMPONENTS.fnc_left_sec,
@@ -142,14 +187,6 @@ class GridPage(HAUIPage):
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
 
-    def _stop_panel(self, panel: HAUIPanel) -> None:
-        # cancel any pending debounced item-state updates
-        self.debouncer.cancel("grid_item_state")
-        self._pending_item_updates.clear()
-        while self._active_handles:
-            handle = self._active_handles.pop()
-            self.remove_item_listener(handle)
-
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.COMPONENTS.title, panel.get_title())
         self.set_grid_entries()
@@ -169,16 +206,9 @@ class GridPage(HAUIPage):
 
     def set_grid_entries(self) -> None:
         # check if there are any listener active and cancel them
-        while self._active_handles:
-            handle = self._active_handles.pop()
-            self.remove_item_listener(handle)
+        self._clear_item_listeners()
         # get current entities to display
-        start = 0 + (int(self._current_page) * self.NUM_GRIDS)
-        end = min(len(self._items), start + self.NUM_GRIDS)
-        if len(self._items) > start:
-            items = self._items[start:end]
-        else:
-            items = []
+        items = self._page_items(self.NUM_GRIDS)
         # set buttons
         item_ids = set()
         mapping = []
@@ -311,44 +341,12 @@ class GridPage(HAUIPage):
 
     # callback
 
-    def callback_item_state(
-        self, item: str, attribute: str, old: Any, new: Any, kwargs: Any
-    ) -> None:
-        item_ids = {
-            haui_item.get_item_id()
-            for haui_item in self._active_items.values()
-            if haui_item is not None
-        }
-        if item not in item_ids:
-            return
-        # Coalesce rapid attribute updates into a single redraw to avoid
-        # flooding the Nextion UART, which delays touch-event delivery.
-        self._pending_item_updates.add(item)
-        self.debouncer.call("grid_item_state", self._flush_item_updates)
-
-    def _flush_item_updates(self) -> None:
-        # Swap pending set first so concurrent adds aren't lost on clear.
-        pending = self._pending_item_updates
-        if not pending:
-            return
-        self._pending_item_updates = set()
-        with self.rec_cmd:
-            idx = 0
-            for haui_item in self._active_items.values():
-                idx += 1
-                if haui_item is None:
-                    continue
-                if haui_item.get_item_id() in pending:
-                    self.update_grid_entry(idx)
+    def _update_entry(self, idx: int) -> None:
+        self.update_grid_entry(idx)
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_name == "next_page":
-            count_pages = math.ceil(len(self._items) / self.NUM_GRIDS)
-            self._current_page += 1
-            if self._current_page >= count_pages:
-                self._current_page = 0
-            if self.panel is not None:
-                self.panel.set_state("current_page", self._current_page)
+            self._advance_page(self.NUM_GRIDS)
             with self.rec_cmd:
                 self.set_grid_entries()
 

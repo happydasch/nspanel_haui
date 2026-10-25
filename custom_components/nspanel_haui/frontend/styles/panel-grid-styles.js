@@ -176,6 +176,18 @@ export const panelGridStyles = css`
   .pg-card-preview:not(.pg-card-preview--with-header) {
     aspect-ratio: 3 / 2;
   }
+  /* Portrait TFT (320x480): taller frame, function buttons in a bottom bar */
+  .pg-card-preview.pg-card-preview--portrait {
+    aspect-ratio: 2 / 3;
+  }
+  .pg-card-preview-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 5px;
+    background: rgba(0, 0, 0, 0.45);
+    flex-shrink: 0;
+  }
   .pg-card-preview-content {
     display: flex;
     flex-direction: column;
@@ -212,8 +224,8 @@ export const panelGridStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 auto;
+    min-width: 3em;
     color: var(--primary-text-color, #000);
   }
   .pg-card-title .pg-unnamed {
@@ -228,7 +240,12 @@ export const panelGridStyles = css`
     padding: 1px 6px;
     border-radius: 4px;
     white-space: nowrap;
-    flex-shrink: 0;
+    /* a long key (popup_media_player) gives way before the title does */
+    flex: 0 10 auto;
+    min-width: 2.5em;
+    max-width: 45%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .pg-card-badges {
@@ -250,14 +267,5 @@ export const panelGridStyles = css`
   }
   .pg-badge ha-icon {
     --mdc-icon-size: 14px;
-  }
-  .pg-badge-home {
-    background: var(--primary-color, #03a9f4);
-  }
-  .pg-badge-sleep {
-    background: var(--warning-color, #ffa726);
-  }
-  .pg-badge-wakeup {
-    background: var(--success-color, #43a047);
   }
 `;

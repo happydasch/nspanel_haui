@@ -71,6 +71,15 @@ export const previewQRStyles = css`
     flex: 1;
     min-width: 0;
   }
+  /* Portrait TFT: QR code on top, the info rows below it */
+  .pg-card-preview--portrait .pg-card-preview-qr-small {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .pg-card-preview--portrait .pg-preview-qr-side {
+    flex: 0 0 auto;
+    width: 100%;
+  }
   .pg-qr-icon-big {
     --mdc-icon-size: 56px;
     opacity: 0.85;

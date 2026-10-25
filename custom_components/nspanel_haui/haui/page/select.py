@@ -194,7 +194,7 @@ class SelectPage(HAUIPage):
             self.app.cancel_timer(self._handle_multiple_timer)
             self._handle_multiple_timer = None
 
-    def _finish_selection_multiple(self) -> None:
+    def _finish_selection_multiple(self, _kwargs: dict[str, Any] | None = None) -> None:
         self._stop_selection_timer()
         assert self._selection_callback_fnc is not None
         self._selection_callback_fnc(self._selected)
@@ -287,10 +287,9 @@ class SelectPage(HAUIPage):
                     else:
                         self._selected.append(value)
                 else:
-                    if value == self._selected:
-                        self._selected = None
-                    else:
-                        self._selected = value
+                    # a single selection can't be emptied: callbacks pass the
+                    # value straight to services that reject None
+                    self._selected = value
                 break
         with self.rec_cmd:
             self.set_items()

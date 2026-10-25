@@ -1,6 +1,12 @@
 ---
 script:
 
+  # The Nextion's `is_sleeping()` framework call is kept where it guards a
+  # genuine hardware-sleep session (only ever engaged on the no-hub path); the
+  # hub-side display-state machine tracks the *target* brightness state and
+  # does not record hardware sleep.  Request scripts wake before reading so a
+  # value read never lands on a dark display.
+
   # Script to send a notification
   - id: send_notification
     parameters:
@@ -9,11 +15,12 @@ script:
       icon: string        # pass empty string "" to omit icon
       timeout: int
       persistent: bool    # true = notification must be dismissed to stop sound
+      text_size: string   # "auto" (default) or a font size 1-3
     then:
       - lambda: |-
-          ESP_LOGV("haui", "Script: send_notification: %s - %s - %s - %i - persistent:%i", title.c_str(), message.c_str(), icon.c_str(), timeout, persistent);
+          ESP_LOGV("haui", "Script: send_notification: %s - %s - %s - %i - persistent:%i - text_size:%s", title.c_str(), message.c_str(), icon.c_str(), timeout, persistent, text_size.c_str());
           const json::json_build_t payload = [
-              title, message, icon, timeout, persistent
+              title, message, icon, timeout, persistent, text_size
           ](JsonObject root) {
             root["title"] = title;
             root["message"] = message;
@@ -22,6 +29,9 @@ script:
             }
             root["timeout"] = timeout;
             root["persistent"] = persistent;
+            if (!text_size.empty()) {
+              root["text_size"] = text_size;
+            }
           };
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.send_notification", payload_str);
@@ -33,7 +43,7 @@ script:
     then:
       - lambda: |-
           id(req_val_component).publish_state(component);
-          if (id(haui_disp).is_sleeping()) { id(display_wakeup).execute(); }
+          if (id(haui_disp).is_sleeping()) { id(display_on).execute(); }
           id(haui_disp).send_command_printf("system.resVal.val=%s.val", component.c_str());
           id(res_val).update();
 
@@ -44,7 +54,7 @@ script:
     then:
       - lambda: |-
           id(req_txt_component).publish_state(component);
-          if (id(haui_disp).is_sleeping()) { id(display_wakeup).execute(); }
+          if (id(haui_disp).is_sleeping()) { id(display_on).execute(); }
           id(haui_disp).send_command_printf("system.resTxt.txt=%s", component.c_str());
           id(res_txt).update();
 

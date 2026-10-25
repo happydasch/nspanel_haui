@@ -1,0 +1,78 @@
+#
+# NSPanel HAUI — universal prebuilt firmware.
+#
+# This config compiles without secrets: every credential is baked in with the
+# documented default values below.  One binary serves **any number of panels**:
+# `name_add_mac_suffix` appends the last six MAC digits to the device name at
+# runtime, so every panel gets its own hostname, mDNS name and setup access
+# point from the same build.  Provisioning runs over that access point:
+#
+#   1. Flash the compiled `nspanel_haui.bin` (web.esphome.io / wired).
+#   2. The device boots its open AP — named after the device, e.g.
+#      "nspanel-haui-a1b2c3" (captive portal) — because the baked Wi-Fi
+#      credentials never match.
+#   3. Join the AP, enter your Wi-Fi — ESPHome stores it and reboots.
+#   4. In Home Assistant, add the ESPHome device with the fixed API key below.
+#   5. Add the device in the HAUI editor; the hub links and configures it.
+#
+#   Repeat 1-5 for every panel.  No per-device YAML edit and no local ESPHome
+#   build is needed.
+#
+# Security: the API key and OTA password are public (documented).  Anyone with
+# LAN access can reflash the panel.  Use `esphome/install.yaml` with secrets
+# when this trade-off is not acceptable.
+substitutions:
+  heartbeat_interval: '5'
+  friendly_name: 'NSPanel HAUI'
+  # Base device name.  The MAC suffix is appended at runtime so panels stay
+  # unique; the hub matches devices on `esphome.project.name`
+  # (happydasch.nspanel_haui), not on this name.
+  name: nspanel-haui
+
+  # Fixed, documented credentials (see docs/install.md "Universal image").
+  ota_password: 'nspanel-haui'
+  api_encryption_key: 'TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE='
+  web_username: 'admin'
+  web_password: 'nspanel-haui'
+  # Never-matching Wi-Fi: forces the fallback access point + captive portal.
+  wifi_ssid: 'NSPanel-HAUI-Setup'
+  wifi_password: 'nspanel-haui-setup'
+  # Open fallback AP so the user can always join and provision.
+  ap_password: ''
+
+  # Custom Update Urls: the Update Display button picks the landscape or the
+  # portrait TFT by the display_model number; the hub's auto-update installs
+  # the matching release asset on its own.
+  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
+  tft_update_url_portrait: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui_portrait.tft
+
+# Unique per device: the MAC suffix is appended at runtime, so one binary
+# installs any number of panels without colliding on mDNS or entity ids.
+esphome:
+  name_add_mac_suffix: true
+
+# Drop the compile-time AP SSID from base.yaml so the firmware names the access
+# point after the (suffix-carrying) device name instead.  A fixed SSID would
+# collide as soon as two panels run this image on the same LAN.
+wifi:
+  ap:
+    ssid: !remove
+
+packages:
+  version: !include nspanel_haui/version.yaml
+  globals: !include nspanel_haui/globals.yaml
+  base: !include nspanel_haui/base.yaml
+  hardware: !include nspanel_haui/hardware.yaml
+  display: !include nspanel_haui/display.yaml
+  interval: !include nspanel_haui/interval.yaml
+  scripts_common: !include nspanel_haui/scripts_common.yaml
+  scripts_connection: !include nspanel_haui/scripts_connection.yaml
+  scripts_interaction: !include nspanel_haui/scripts_interaction.yaml
+  scripts_display: !include nspanel_haui/scripts_display.yaml
+  scripts_event: !include nspanel_haui/scripts_event.yaml
+  api: !include nspanel_haui/api.yaml
+  button: !include nspanel_haui/button.yaml
+  number: !include nspanel_haui/number.yaml
+  switch: !include nspanel_haui/switch.yaml
+  sensor: !include nspanel_haui/sensor.yaml
+  # debug: !include nspanel_haui/debug.yaml

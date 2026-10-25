@@ -139,13 +139,9 @@ unicode_ranges += "20A0-20CF,"  # Currency Symbols
 # unicode_ranges+="20000-2A6DF,"	 #CJK Unified Ideographs Extension B
 # unicode_ranges+="2A6E0-2F7FF,"	 #Undefined
 # unicode_ranges+="2F800-2FA1F,"	 #CJK Compatibility Ideographs Supplement
-# unicode_ranges+="2FAB0-DFFFF,"	 #Unused
 # unicode_ranges+="E0000-E007F,"	 #Tags
-# unicode_ranges+="E0080-E00FF,"	 #Unused
 # unicode_ranges+="E0100-E01EF,"	 #Variation Selectors Supplement
-# unicode_ranges+="E01F0-EFFFF,"	 #Unused
 # unicode_ranges+="F0000-FFFFD,"	 #Supplementary Private Use Area-A
-# unicode_ranges+="FFFFE-FFFFF,"	 #Unused
 # unicode_ranges+="100000-10FFFD,"  #Supplementary Private Use Area-B
 
 char_res_string = ""

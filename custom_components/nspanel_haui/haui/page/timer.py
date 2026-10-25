@@ -10,8 +10,8 @@ from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_PAUSE,
+    ICO_PLAY,
     ICO_RESET,
-    ICO_START,
     ICO_STOP,
     ICO_TIMER_FINISHED,
     ICO_TIMER_OFF,
@@ -29,7 +29,7 @@ class TimerPage(HAUIPage):
             PageOption(
                 key="show_notification",
                 kind="bool",
-                default=True,
+                default=False,
                 label=_("Show notification on finish"),
                 description=_("Show a notification on the display when the timer completes."),
                 section=_("Timer"),
@@ -157,8 +157,18 @@ class TimerPage(HAUIPage):
         self.set_component_text(self.COMPONENTS.title, panel.get_title(self.translate("Timer")))
         # initial call sets up timers
         self.update_timer()
+        # the timer keeps running while the panel is closed, but closing it
+        # cancelled the display updates
+        if self.is_timer_active():
+            self._start_display_updates()
 
     # misc
+
+    def _start_display_updates(self) -> None:
+        if self._handle_update_display is None:
+            self._handle_update_display = self.app.run_every(
+                self.update_timer, 0, self.DISPLAY_UPDATE_INTERVAL
+            )
 
     def initialize_timer(self, panel: HAUIPanel) -> dict[str, Any]:
         # timer is stored in panel state so it can be restored after panel was closed
@@ -203,11 +213,7 @@ class TimerPage(HAUIPage):
         )
         if duration > 0:
             timer["timer_handle"] = self.app.run_in(self.callback_timer_ended, duration + 1)
-        # Start the repeating display update timer (replaces threading.Timer)
-        if self._handle_update_display is None:
-            self._handle_update_display = self.app.run_every(
-                self.update_timer, 0, self.DISPLAY_UPDATE_INTERVAL
-            )
+        self._start_display_updates()
         # update display
         with self.rec_cmd:
             self.update_adjust_buttons(False)
@@ -314,10 +320,10 @@ class TimerPage(HAUIPage):
             enabled = True
             if x == self.COMPONENTS.btn_start:
                 if not timer["timer_active"]:
-                    icon = ICO_START
+                    icon = ICO_PLAY
                     fnc_name = "start_timer"
                 elif timer["timer_paused"]:
-                    icon = ICO_START
+                    icon = ICO_PLAY
                     fnc_name = "resume_timer"
                 else:
                     icon = ICO_PAUSE
@@ -330,21 +336,13 @@ class TimerPage(HAUIPage):
                         icon = ICO_RESET
                     else:
                         enabled = False
-            (
-                color,
-                color_pressed,
-                back_color,
-                back_color_pressed,
-            ) = self.get_button_colors(enabled)
             self.update_function_component(
                 x[1],
                 update_fnc_name=fnc_name,
                 visible=True,
-                color=color,
-                color_pressed=color_pressed,
-                back_color_pressed=back_color_pressed,
                 icon=icon,
                 touch=enabled,
+                **self.button_color_args(enabled),
             )
 
     def update_adjust_buttons(self, visible: bool) -> None:
@@ -406,7 +404,7 @@ class TimerPage(HAUIPage):
             self.resume_timer()
         self.update_timer_components()
 
-    def callback_timer_ended(self) -> None:
+    def callback_timer_ended(self, _kwargs: dict[str, Any]) -> None:
         self.stop_timer()
         if self.app.device.get("sound_on_notification"):
             self.app.device.play_sound("alert")

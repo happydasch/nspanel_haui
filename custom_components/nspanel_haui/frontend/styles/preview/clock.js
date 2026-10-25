@@ -15,6 +15,22 @@ export const previewClockStyles = css`
     flex-shrink: 0;
     min-height: 0;
   }
+  /* Portrait TFT: the six entity buttons as two rows of three */
+  .pg-card-preview--portrait .pg-preview-clock-entity-row {
+    flex-wrap: wrap;
+  }
+  .pg-card-preview--portrait .pg-preview-clock-entity-btn {
+    flex: 0 1 30%;
+    min-height: 22px;
+  }
+  /* Portrait TFT word clock: minute dots above and below the matrix */
+  .pg-preview-clocktwo-dots-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 0 4px;
+  }
   .pg-preview-clock-entity-btn {
     display: flex;
     flex-direction: column;

@@ -15,8 +15,14 @@ api:
       - script.execute: publish_connection_request
 
   # When native API client disconnects (HA)
+  # on_client_disconnected fires after the client is removed, so
+  # is_connected() is false only when the last client is gone. Reset
+  # hub_availability then, otherwise the hub-unavailable branches in
+  # check_connection / check_hub_connection never run.
   on_client_disconnected:
     then:
+      - lambda: |-
+          id(hub_availability) = global_api_server->is_connected();
       - script.execute:
           id: set_hub_connected
           connected: 0
@@ -26,11 +32,14 @@ api:
   actions:
 
     # Action to update a TFT file
-    # This will update the nextion display with the tft file
-    # from tft_url
+    # This will update the nextion display with the tft file for the
+    # layout the display_model number selects (landscape or portrait)
     - action: upload_tft
       then:
-        - lambda: id(haui_disp).upload_tft();
+        - lambda: |-
+            id(haui_disp).set_tft_url(
+                id(display_model).state > 0 ? "${tft_update_url_portrait}" : "${tft_update_url}");
+            id(haui_disp).upload_tft();
 
     # Action to update a TFT file from URL
     - action: upload_tft_url
@@ -111,10 +120,15 @@ api:
             id: goto_page
             page: !lambda 'return page;'
 
-    # Action to put the display into hardware sleep
-    - action: display_sleep
+    # Action to put the display into hardware sleep (no-hub path only)
+    - action: display_off
       then:
-        - script.execute: display_sleep
+        - script.execute: display_off
+
+    # Action to wake the display out of hardware sleep
+    - action: display_on
+      then:
+        - script.execute: display_on
 
     # HA heartbeat - resets heartbeat timer on device
     - action: hub_heartbeat
@@ -176,46 +190,21 @@ api:
 
 
     # Action to send a notification
+    # ``timeout``, ``persistent`` and ``text_size`` are optional; omitted
+    # values fall back to 0 / false / "" (the client applies the defaults).
     - action: send_notification
       variables:
         title: string
         message: string
         icon: string
-      then:
-        - lambda: |-
-            id(send_notification).execute(
-              title, message, icon, 0, false
-            );
-    - action: send_notification_with_timeout
-      variables:
-        title: string
-        message: string
-        icon: string
+        # Seconds until auto-dismiss (0 = until dismissed).
         timeout: int
+        # True loops the alert sound until dismissed.
+        persistent: bool
+        # "auto" or a font size 1-3.
+        text_size: string
       then:
         - lambda: |-
             id(send_notification).execute(
-              title, message, icon, timeout, false
-            );
-    # Action to send a persistent notification (must be dismissed to stop sound)
-    - action: send_notification_persistent
-      variables:
-        title: string
-        message: string
-        icon: string
-      then:
-        - lambda: |-
-            id(send_notification).execute(
-              title, message, icon, 0, true
-            );
-    - action: send_notification_persistent_with_timeout
-      variables:
-        title: string
-        message: string
-        icon: string
-        timeout: int
-      then:
-        - lambda: |-
-            id(send_notification).execute(
-              title, message, icon, timeout, true
+              title, message, icon, timeout, persistent, text_size
             );

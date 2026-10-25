@@ -30,16 +30,58 @@ const nspanelHauiIcons = {
 };
 /* eslint-enable max-len */
 
-window.customIcons = window.customIcons || {};
-
-window.customIcons["haui"] = {
-  getIcon: async (iconName) => {
-    const icon = nspanelHauiIcons[iconName];
-    return icon ? { path: icon.path } : {};
-  },
-  getIconList: async () =>
-    Object.entries(nspanelHauiIcons).map(([name, content]) => ({
-      name,
-      keywords: content.keywords,
-    })),
+const registerIcons = () => {
+  const iconSet = {
+    getIcon: async (iconName) => {
+      const icon = nspanelHauiIcons[iconName];
+      return icon ? { path: icon.path } : {};
+    },
+    getIconList: async () =>
+      Object.entries(nspanelHauiIcons).map(([name, content]) => ({
+        name,
+        keywords: content.keywords,
+      })),
+  };
+  // Merge into the existing objects instead of replacing them: the frontend
+  // may have already captured the object reference when it resolves custom
+  // icons, so a replacement would leave its lookups reading an empty set.
+  window.customIcons = Object.assign(window.customIcons || {}, {
+    haui: iconSet,
+  });
+  window.customIconsets = Object.assign(window.customIconsets || {}, {
+    haui: iconSet.getIcon,
+  });
 };
+
+// <ha-icon> resolves a custom icon exactly once, when its `icon` property is
+// first set. Sidebar and dashboard icons render while the page boots, and this
+// module is loaded through an asynchronous import() (add_extra_js_url), so on
+// a cold cache an icon can resolve "haui:" before the set is registered. HA
+// then falls back to <iron-icon>, which renders nothing, and never retries.
+// Re-trigger such icons now that the set is in place, and again whenever a
+// panel becomes ready (the sidebar mounts with the first panel).
+const healHauiIcons = () => {
+  const healRoot = (root) => {
+    root.querySelectorAll("ha-icon").forEach((element) => {
+      const icon = element.icon;
+      if (
+        typeof icon === "string" &&
+        icon.startsWith("haui:") &&
+        element._legacy
+      ) {
+        element.icon = undefined;
+        element.icon = icon;
+      }
+    });
+    root.querySelectorAll("*").forEach((element) => {
+      if (element.shadowRoot) {
+        healRoot(element.shadowRoot);
+      }
+    });
+  };
+  healRoot(document);
+};
+
+registerIcons();
+healHauiIcons();
+window.addEventListener("hass-panel-ready", healHauiIcons);

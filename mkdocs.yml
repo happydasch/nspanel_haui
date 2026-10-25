@@ -40,8 +40,6 @@ plugins:
   - search
   - git-revision-date-localized:
       enable_creation_date: true
-  - mike:
-      version_selector: true
 
 markdown_extensions:
   - admonition
@@ -64,8 +62,6 @@ markdown_extensions:
       permalink: true
 
 extra:
-  version:
-    provider: mike
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/happydasch/nspanel_haui
@@ -75,10 +71,12 @@ nav:
     - README.md
     - Installation: install.md
     - Quick Start: get-started.md
+    - Upgrading: upgrading.md
     - Custom Integration: custom_integration.md
     - Configuration:
       - Overview: configuration/README.md
       - Device Configuration: configuration/device.md
+      - Display Models: configuration/display-models.md
       - Panel Configuration: configuration/panels.md
       - Item Configuration: configuration/items.md
     - Device Description: device.md
@@ -105,13 +103,15 @@ nav:
       - Popup Select: panels/popup_select.md
       - Popup Unlock: panels/popup_unlock.md
     - Examples: examples.md
+    - Services: services.md
     - FAQ: faq.md
     - Troubleshooting: troubleshooting.md
   - Development:
     - development.md
+    - Release Process & Strategy: release.md
     - Design Guidelines: design.md
     - Communication Overview: communication.md
     - ESPHome Component: esphome.md
     - Hub Component: hub.md
     - Nextion Component: nextion.md
-    - Services Reference: services.md
+    - Nextion Editor (Human Guide): nextion-editor.md

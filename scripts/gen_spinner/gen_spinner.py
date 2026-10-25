@@ -1,12 +1,43 @@
-# script to generate a spinner animation using material style.
-#
-# NOTE: quick and dirty solution, don't expect too much from this script
-#
-# based on:
-# https://github.com/material-components/material-components-android/tree/master/lib/java/com/google/android/material/progressindicator
-#
-#
+"""Render the spinner sprite sheets the system page animates.
+
+The system page shows a Material-style indeterminate circular progress
+indicator (``hSpinner``, 140 x 140) over the ``system`` background. The
+display cannot blend, so every frame is drawn onto the crop of the system
+background tile at the spinner's position, per orientation:
+
+* landscape: ``nextion/images/bkg/landscape/system.png`` at (155, 80)
+* portrait:  ``nextion/images/bkg/portrait/system.png`` at (90, 135)
+
+The 60 frames go into two 1400 x 420 sheets of 3 x 10 frames (pictures 10
+and 11 in the HMI; the page's timer shows frames 0..29 from the first sheet
+and 30..59 from the second), written to ``nextion/images/spinner_<orientation>_1.png``
+and ``_2.png``. Re-run after changing the ``system`` background tile or the
+spinner position.
+
+Based on
+https://github.com/material-components/material-components-android/tree/master/lib/java/com/google/android/material/progressindicator
+
+Usage::
+
+    python scripts/gen_spinner/gen_spinner.py [landscape|portrait ...]
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
 from PIL import Image, ImageDraw
+
+ROOT = Path(__file__).resolve().parents[2]
+BKG_DIR = ROOT / "nextion" / "images" / "bkg"
+OUT_DIR = ROOT / "nextion" / "images"
+
+# spinner position on the system page per orientation
+POSITIONS = {
+    "landscape": (155, 80),
+    "portrait": (90, 135),
+}
 
 # Constants for animation timing.
 TOTAL_CYCLES = 4
@@ -22,42 +53,14 @@ TAIL_DEGREES_OFFSET = -20
 EXTRA_DEGREES_PER_CYCLE = 270
 CONSTANT_ROTATION_DEGREES = 1520
 
-# Define parameters
-image_size = (140, 140)
-arc_radius = 60
-arc_width = 6
-# arc_color = (255, 255, 255, 255)
-arc_color = (75, 166, 238, 255)
-num_frames = 60
-rounded = True
-output_file = "circular_animation.png"
-
-# Create ImageDraw object and center point
-rotval = -90
-multx = int(1400 // image_size[0])
-multy = int(num_frames // multx)
-multy = multy + 1 if num_frames // multx != num_frames / multx else multy
-all_frames_img = Image.new(
-    "RGBA", (int(image_size[0] * multx), int(image_size[1] * multy)), (0, 0, 0, 0)
-)
-center_point = (image_size[0] // 2, image_size[1] // 2)
-segment_positions = [0, 0]
-
-
-def draw_arc(im, starting, ending):
-    draw = ImageDraw.Draw(im)
-    draw.arc(
-        (
-            center_point[0] - arc_radius - arc_width / 2,
-            center_point[1] - arc_radius - arc_width / 2,
-            center_point[0] + arc_radius + arc_width / 2,
-            center_point[1] + arc_radius + arc_width / 2,
-        ),
-        starting,
-        ending,
-        fill=arc_color,
-        width=arc_width,
-    )
+FRAME_SIZE = 140
+ARC_RADIUS = 60
+ARC_WIDTH = 6
+ARC_COLOR = (75, 166, 238)  # component_active
+NUM_FRAMES = 60
+FRAMES_PER_ROW = 10
+ROWS_PER_SHEET = 3
+ROTATION = -90
 
 
 def get_fraction_in_range(playtime, start, duration):
@@ -281,44 +284,73 @@ def fast_out_slow_in(x):
     return VALUES[int(position)] + weight * (VALUES[int(position + 1)] - VALUES[int(position)])
 
 
-def update_segment_positions(frame):
-    # Adds constant rotation to segment positions.
-    playtime = (TOTAL_DURATION_IN_MS / num_frames) * frame
-    animation_fraction = (1 / TOTAL_DURATION_IN_MS) * (TOTAL_DURATION_IN_MS / num_frames)
+def segment_positions(frame: int) -> tuple[float, float]:
+    """Start and end angle of the arc in ``frame``."""
+    playtime = (TOTAL_DURATION_IN_MS / NUM_FRAMES) * frame
+    animation_fraction = (1 / TOTAL_DURATION_IN_MS) * (TOTAL_DURATION_IN_MS / NUM_FRAMES)
     end_fraction = fast_out_slow_in(animation_fraction * frame - TOTAL_DURATION_IN_MS)
-    segment_positions[0] = CONSTANT_ROTATION_DEGREES * animation_fraction + TAIL_DEGREES_OFFSET
-    segment_positions[1] = CONSTANT_ROTATION_DEGREES * animation_fraction
-
-    # Adds cycle specific rotation to segment positions.
+    # constant rotation
+    tail = CONSTANT_ROTATION_DEGREES * animation_fraction + TAIL_DEGREES_OFFSET
+    head = CONSTANT_ROTATION_DEGREES * animation_fraction
+    # cycle specific rotation
     for cycle_index in range(TOTAL_CYCLES):
-        # While expanding.
         fraction = get_fraction_in_range(
             playtime, DELAY_TO_EXPAND_IN_MS[cycle_index], DURATION_TO_EXPAND_IN_MS
         )
-        segment_positions[1] += fast_out_slow_in(fraction) * EXTRA_DEGREES_PER_CYCLE
-        # While collapsing.
+        head += fast_out_slow_in(fraction) * EXTRA_DEGREES_PER_CYCLE
         fraction = get_fraction_in_range(
             playtime, DELAY_TO_COLLAPSE_IN_MS[cycle_index], DURATION_TO_COLLAPSE_IN_MS
         )
-        segment_positions[0] += fast_out_slow_in(fraction) * EXTRA_DEGREES_PER_CYCLE
-    # Closes the gap between head and tail for complete end.
-    segment_positions[0] += (segment_positions[1] - segment_positions[0]) * end_fraction
-    segment_positions[0] += rotval
-    segment_positions[1] += rotval
-    segment_positions[0] %= 360
-    segment_positions[1] %= 360
-
-    print(playtime, animation_fraction, end_fraction, frame, segment_positions)
+        tail += fast_out_slow_in(fraction) * EXTRA_DEGREES_PER_CYCLE
+    # closes the gap between head and tail for the complete end
+    tail += (head - tail) * end_fraction
+    return (tail + ROTATION) % 360, (head + ROTATION) % 360
 
 
-for i in range(num_frames):
-    # open a background image and draw the arc on it (frame)
-    im = Image.open("scripts/gen_spinner/bkg_img.png")
-    # im = Image.open("scripts/gen_spinner/bkg_color.png")
-    update_segment_positions(i)
-    draw_arc(im, segment_positions[0], segment_positions[1])
-    posx = int(i % multx) * image_size[0]
-    posy = int(i // multx) * image_size[1]
-    all_frames_img.paste(im, (posx, posy))
-# Save the all-frames image as a PNG file
-all_frames_img.save("scripts/gen_spinner/progress_all_frames.png")
+def draw_frame(background: Image.Image, frame: int) -> Image.Image:
+    im = background.copy()
+    c = FRAME_SIZE / 2
+    start, end = segment_positions(frame)
+    ImageDraw.Draw(im).arc(
+        (
+            c - ARC_RADIUS - ARC_WIDTH / 2,
+            c - ARC_RADIUS - ARC_WIDTH / 2,
+            c + ARC_RADIUS + ARC_WIDTH / 2,
+            c + ARC_RADIUS + ARC_WIDTH / 2,
+        ),
+        start,
+        end,
+        fill=ARC_COLOR,
+        width=ARC_WIDTH,
+    )
+    return im
+
+
+def render(orientation: str) -> None:
+    x, y = POSITIONS[orientation]
+    tile = Image.open(BKG_DIR / orientation / "system.png").convert("RGB")
+    background = tile.crop((x, y, x + FRAME_SIZE, y + FRAME_SIZE))
+    per_sheet = FRAMES_PER_ROW * ROWS_PER_SHEET
+    for sheet_no in range(NUM_FRAMES // per_sheet):
+        sheet = Image.new("RGB", (FRAMES_PER_ROW * FRAME_SIZE, ROWS_PER_SHEET * FRAME_SIZE))
+        for i in range(per_sheet):
+            frame = draw_frame(background, sheet_no * per_sheet + i)
+            sheet.paste(
+                frame, ((i % FRAMES_PER_ROW) * FRAME_SIZE, (i // FRAMES_PER_ROW) * FRAME_SIZE)
+            )
+        out = OUT_DIR / f"spinner_{orientation}_{sheet_no + 1}.png"
+        sheet.save(out, optimize=True)
+        print(f"{out.relative_to(ROOT)}  {sheet.size[0]}x{sheet.size[1]}")
+
+
+def main() -> None:
+    names = sys.argv[1:] or list(POSITIONS)
+    unknown = [n for n in names if n not in POSITIONS]
+    if unknown:
+        raise SystemExit(f"unknown orientation {unknown}; choose from {list(POSITIONS)}")
+    for name in names:
+        render(name)
+
+
+if __name__ == "__main__":
+    main()

@@ -14,6 +14,7 @@ binary_sensor:
   - platform: gpio
     name: Button Left
     id: button_left
+    entity_category: diagnostic
     pin:
       number: 14
       inverted: true
@@ -30,7 +31,7 @@ binary_sensor:
         # Toggle the relay on the press (down) edge so the action always fires,
         # regardless of how long the button is held. The previous on_click
         # trigger only fired for 50-350ms presses, so a firm/long press - common
-        # when deliberately waking a sleeping panel - was silently dropped.
+        # when deliberately waking a dimmed/off display - was silently dropped.
         - if:
             condition:
               - switch.is_on: use_relay_left
@@ -49,6 +50,7 @@ binary_sensor:
     pin:
       number: 27
       inverted: true
+    entity_category: diagnostic
     # Debounce both edges so on_press fires exactly once per physical press.
     filters:
       - delayed_on_off: 10ms
@@ -62,7 +64,7 @@ binary_sensor:
         # Toggle the relay on the press (down) edge so the action always fires,
         # regardless of how long the button is held. The previous on_click
         # trigger only fired for 50-350ms presses, so a firm/long press - common
-        # when deliberately waking a sleeping panel - was silently dropped.
+        # when deliberately waking a dimmed/off display - was silently dropped.
         - if:
             condition:
               - switch.is_on: use_relay_right

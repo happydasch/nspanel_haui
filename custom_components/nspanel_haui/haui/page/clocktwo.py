@@ -5,14 +5,12 @@ import re
 import zoneinfo
 from typing import Any
 
-from ..abstract.component import Component
-from ..abstract.haui_event import HAUIEvent
+from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.background import BACKGROUNDS
-from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE, ICO_SPECIAL
+from .clock_common import apply_background, release_ticks, subscribe_ticks
 
 MATRIX = {
     "en": (
@@ -244,6 +242,7 @@ class ClockTwoPage(HAUIPage):
                 key="background",
                 kind="select",
                 default="dark",
+                allow_template=True,
                 label=_("Background"),
                 description=_("Background image theme for the word clock display."),
                 section=_("Appearance"),
@@ -287,7 +286,7 @@ class ClockTwoPage(HAUIPage):
             PageOption(
                 key="show_intro_text_full_hour",
                 kind="bool",
-                default=True,
+                default=False,
                 label=_("Show intro text on full hour"),
                 description=_("Show 'IT IS' text on full hour (e.g. 'IT IS FIVE OCLOCK')."),
                 section=_("Time"),
@@ -329,12 +328,12 @@ class ClockTwoPage(HAUIPage):
         has_header=False,
     )
 
-    # components, skipping l1-110, s1-4
-    COMPONENTS = HAUIPage.COMPONENTS.merge(
+    # components, skipping l1-110, s1-4; no header: the page has no function
+    # buttons, ids 3-6 are letters
+    COMPONENTS = ComponentRegistry(
         t_notif=Component(117, "tNotif"),
     )
 
-    DISPLAY_UPDATE_INTERVAL = 1.0
 
     # panel
 
@@ -360,6 +359,12 @@ class ClockTwoPage(HAUIPage):
     def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background (rendered in start_panel after page is confirmed)
         self._background = self.render_template(panel.get("background", "dark"), False)
+        # Send the background command immediately so the global Nextion variable
+        # is set *before* the page's Preinitialize event runs.  create_panel()
+        # runs before goto_page(); the Preinitialize event only reads
+        # background.val on page load, so a command sent afterwards (in
+        # start_panel) updates the variable but not the already-drawn pictures.
+        apply_background(self, "clocktwo")
         self._off_color = panel.get("off_color", self._off_color)
         self._letter_color = panel.get("letter_color", self._letter_color)
         self._special_color = panel.get("special_color", self._special_color)
@@ -372,11 +377,13 @@ class ClockTwoPage(HAUIPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # setting: background — set before rendering content
+        # Also refresh _background here: create_panel() is not called when the
+        # page type is unchanged (same-page panel switch), so the value would
+        # otherwise be stale.
+        self._background = self.render_template(panel.get("background", "dark"), False)
         with self.rec_cmd:
-            if self._background in BACKGROUNDS:
-                self.send_cmd(f"clocktwo.background.val={BACKGROUNDS[self._background]}")
-        # time update callback (shared device-wide tick)
-        self.app.subscribe_tick("minute", self.callback_update_time)
+            apply_background(self, "clocktwo")
+        subscribe_ticks(self, with_date=False)
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # notification
@@ -395,10 +402,7 @@ class ClockTwoPage(HAUIPage):
         self.app.controller["notification"].blinker.refresh()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        # cancel time tick subscription
-        self.app.unsubscribe_tick("minute", self.callback_update_time)
-        # unregister notification indicator from shared blinker
-        self.app.controller["notification"].clear_blinker_callback()
+        release_ticks(self, with_date=False)
 
     # clock
 
@@ -428,7 +432,7 @@ class ClockTwoPage(HAUIPage):
         self._special_current_state = [False] * INDEX_SPECIAL_LENGTH
 
     def update_interface(self) -> None:
-        timezone = self.app.hass.config.time_zone
+        timezone = self.app.get_timezone()
         current_time = datetime.datetime.now(tz=zoneinfo.ZoneInfo(timezone))
         letters_active, specials_active, time_words = self.get_matrix_from_time(current_time)
 
@@ -573,22 +577,6 @@ class ClockTwoPage(HAUIPage):
         with self.rec_cmd:
             self.update_interface()
 
-    def process_event(self, event: HAUIEvent) -> None:
-        super().process_event(event)
-
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_id == self.COMPONENTS.t_notif.name:
-            notification = self.app.controller["notification"]
-            if len(notification.get_notifications()) == 1:
-                notif = notification.get_notifications()[0]
-                navigation = self.app.controller["navigation"]
-                navigation.open_panel(
-                    SysPanelKey.POPUP_NOTIFY,
-                    icon=notif[2],
-                    title=notif[0],
-                    notification=notif[1],
-                    close_on_button=True,
-                    close_timeout=notif[3] if notif[3] > 0 else 0,
-                )
-            else:
-                notification.open_notification_list()
+            self.app.controller["notification"].open_notifications()

@@ -25,4 +25,18 @@ export const previewAlarmStyles = css`
     width: 76px;
     justify-content: space-evenly;
   }
+
+  /* Portrait TFT: keypad on top, the action buttons as a 2x2 block below */
+  .pg-card-preview--portrait .pg-preview-alarm {
+    flex-direction: column;
+  }
+  .pg-card-preview--portrait .pg-preview-alarm .pg-preview-action-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+  .pg-card-preview--portrait .pg-preview-alarm .pg-preview-action-col .pg-preview-btn {
+    flex: 1 1 45%;
+    min-height: 18px;
+  }
 `;

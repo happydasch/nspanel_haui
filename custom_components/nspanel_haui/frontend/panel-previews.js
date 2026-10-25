@@ -5,8 +5,8 @@
  * Each panel type can register a renderer; if none is registered the
  * default fallback (icon only) is used.
  *
- * This module provides reusable visual primitives (simScreen, simHeader,
- * simTile, simSlider, etc.) and per-panel-type renderers that compose them
+ * This module provides reusable visual primitives (simItemTile,
+ * simSlider, etc.) and per-panel-type renderers that compose them
  * to give a meaningful visual hint of the panel layout and config.
  */
 import { registerPanelPreview, renderPanelPreview } from './previews/registry.js';

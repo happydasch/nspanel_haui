@@ -16,21 +16,21 @@ Get your NSPanel connected to Home Assistant and showing your first panel. This 
 
 ## 1. Flash the device
 
-Open the NSPanel and connect the USB-UART adapter (connect GND to IO0 for flashing mode). In the ESPHome dashboard, create a new device using `esphome/install.yaml` from this repository. Set your Wi-Fi credentials and install.
+Open the NSPanel and connect the USB-UART adapter (connect GND to IO0 for flashing mode). Flash the prebuilt `nspanel_haui.bin` from the latest release, then join the access point named after the device (e.g. `nspanel-haui-a1b2c3`) and enter your Wi-Fi. To build your own firmware instead, create a device in the ESPHome dashboard from [`esphome/install.yaml`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/install.yaml).
 
 See [Installation Guide](install.md) for full flashing instructions.
 
 ## 2. Install the integration
 
-Install NSPanel HAUI via HACS (**HACS → Integrations → + → NSPanel HAUI**) or copy `custom_components/nspanel_haui/` into your Home Assistant `custom_components/` directory. Restart Home Assistant.
+Install NSPanel HAUI via HACS (add `https://github.com/happydasch/nspanel_haui` as a custom repository of type **Integration**, then download **NSPanel HAUI**) or copy `custom_components/nspanel_haui/` into your Home Assistant `custom_components/` directory. Restart Home Assistant.
 
 ## 3. Add the device
 
-Go to **Settings → Devices & Services → Add Integration → NSPanel HAUI**. If your device was discovered via ESPHome, it appears automatically. Otherwise, add it manually.
+Go to **Settings → Devices & Services → Add Integration → NSPanel HAUI**. The integration is a single hub and picks up your ESPHome-flashed NSPanels automatically. If none appear, make sure the ESPHome integration has the device (see the [FAQ](faq.md)).
 
 ## 4. Open the panel editor
 
-On the device page, click the device name. The **Panels** tab shows your panel list. Click **Add Panel** to add your first panel.
+Open **NSPanel HAUI** in the Home Assistant sidebar (admin only) and select your device. The editor shows your panel list. Click **Add Panel** to add your first panel.
 
 ## 5. Add your first panel
 

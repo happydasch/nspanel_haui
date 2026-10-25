@@ -13,11 +13,14 @@ button:
         - lambda: |-
             id(haui_disp).soft_reset();
 
-  # Update Display TFT
+  # Update Display TFT (the layout the display_model number selects)
   - platform: template
     name: Update Display
     id: tft_update
     icon: mdi:file-sync
     entity_category: config
     on_press:
-      - lambda: id(haui_disp).upload_tft();
+      - lambda: |-
+          id(haui_disp).set_tft_url(
+              id(display_model).state > 0 ? "${tft_update_url_portrait}" : "${tft_update_url}");
+          id(haui_disp).upload_tft();

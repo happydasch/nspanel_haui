@@ -10,51 +10,30 @@ Take a look at the [Panel Configuration](configuration/panels.md) reference and 
 
 ## How to upload a TFT file
 
-- Using a button:
-  - Button: `Update Display`
+The hub installs the TFT the firmware needs automatically when the device connects. To install it by hand:
 
-- Using a service:
-  - Service: `esphome.<device>_upload_tft`
-  - Service: `esphome.<device>_upload_tft_url`
+- In the editor: **Device Manager → Install TFT**
+- Using a button: the device's `Update Display` button
+- Using a service: `esphome.<device>_upload_tft` or `esphome.<device>_upload_tft_url`
 
 See the [Services Reference](services.md#tft-display-upload) for full details.
 
 ## Update is not possible
 
-If you are getting errors like `Reading from UART timed out at byte 0!` or `Upgrade response is   0` the easiest way to fix this is using the Nextion Editor and a display connected to 5V, GND, TF-TX, TF-RX (See [https://blakadder.com/nspanel-teardown/](https://blakadder.com/nspanel-teardown/) for connection details) to upload a new display file.
-This will most likely fix the issue.
+See [TFT Upload Failures](troubleshooting.md#tft-upload-failures).
 
 ## Error on sleep
 
-You may see log entries as below. This cannot be changed and does not cause any harm.
+See [Sleep Errors](troubleshooting.md#display-off-errors). The log entry is harmless.
 
-```log
-[I] [haui:602] Display is going to sleep
-[E] [nextion:536] ERROR: Received numeric return but the queue is empty
-```
+## The display should change its brightness over the day
 
-## The display should change its brightness and sleep state over the day
+Add an automation in Home Assistant that sets the panel's `number.<device>_brightness_full` and `number.<device>_brightness_dimmed` entities, for example dimmed to 55 % from sunrise and to 20 % from sunset.
 
-Add an automation in home assistant. NSPanel HAUI does not support to change this but home assistant is way more flexible so it's very simple to change anything dynamically using home assistant automations.
+## The display should turn off completely only at night
 
-Here is an example of how to do this:
-
-Day (from sunrise): Dimmed to 55%, no sleep.
-
-Evening (from sunset): Dimmed to 20%, no sleep.
-
-Night (4,5h after sunset): Display can go to sleep (the dimmed brightness will remain 20%).
+Set a **display-off schedule** under Device Settings → Display dimming & off: enable *Sleep schedule* and pick the window (e.g. `22:00`–`07:00`, overnight ranges supported). During the day the display only dims and the idle page stays visible; at night it turns off completely after the display-off timeout and wakes on touch. The hub drives `switch.<device>_use_auto_display_off` by the clock, so automations that toggle that switch (which previously fought the hub's own sync after reconnects and restarts) are no longer needed.
 
 ## My NSPanel devices are not discovered
 
-If you're running Home Assistant in Docker with **bridge networking** (the default), mDNS auto-discovery may not work.  This means the integration won't automatically find your NSPanel devices configured via ESPHome.
-
-To resolve this, ensure you have manually added your ESPHome devices in Home Assistant's ESPHome integration first.  Once the ESPHome entries exist, the HAUI integration will detect them:
-
-1. Go to **Settings → Devices & services → ESPHome**.
-2. Click **Add entry** and add each of your NSPanel devices by IP or hostname.
-3. After adding them, the HAUI hub will automatically pick up the devices within a few seconds.
-
-If you continue having discovery issues:
-
-- Use `--network=host` for your Home Assistant Docker container — this enables mDNS and ESPHome's native discovery.
+See [Device Discovery Issues](troubleshooting.md#device-discovery-issues).

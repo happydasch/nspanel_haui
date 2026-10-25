@@ -82,7 +82,7 @@ function fixedContainingBlock(el) {
  * @param {number} [opts.offsetY=4] - Vertical offset from trigger bottom
  * @param {number} [opts.offsetX=0] - Horizontal offset from aligned edge
  */
-export function positionFixedDropdown(dropdown, trigger, opts = {}) {
+function positionFixedDropdown(dropdown, trigger, opts = {}) {
   const { align = 'left', offsetY = 4, offsetX = 0 } = opts;
   const margin = 8;
 
@@ -223,12 +223,18 @@ export function createDropdownKeyboardController(opts) {
     }
 
     wrap[indexField] = idx;
-    dropdown.querySelectorAll(itemSelector).forEach((item, i) => {
-      item.classList.toggle('active', i === idx);
-    });
-    if (visibleItems[idx]) {
-      visibleItems[idx].scrollIntoView({ block: 'nearest' });
+    // idx indexes the filtered list, so clear the highlight on every item and
+    // set it on the visible one. Toggling by all-items index marks the wrong
+    // element whenever some items are hidden by the search filter.
+    dropdown.querySelectorAll(itemSelector).forEach((item) => item.classList.remove('active'));
+    const activeItem = visibleItems[idx];
+    if (!activeItem) return;
+    activeItem.classList.add('active');
+    // Screen readers follow aria-activedescendant, not the CSS class.
+    if (activeItem.id && e.target?.setAttribute) {
+      e.target.setAttribute('aria-activedescendant', activeItem.id);
     }
+    activeItem.scrollIntoView({ block: 'nearest' });
   };
 }
 
@@ -266,3 +272,18 @@ export function offOutsideClick(host) {
 }
 
 
+
+/* ── localStorage (may throw or be unavailable) ───────────────────────── */
+
+export function readStorage(key, fallback) {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v;
+  } catch (_e) {
+    return fallback;
+  }
+}
+
+export function writeStorage(key, value) {
+  try { localStorage.setItem(key, value); } catch (_e) { /* storage unavailable */ }
+}

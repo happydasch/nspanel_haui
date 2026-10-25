@@ -6,28 +6,16 @@ editor (talks to ``/api/nspanel_haui/panels``).
 
 from __future__ import annotations
 
-import copy
 import logging
 from typing import Any
 
 from homeassistant import config_entries
 
+from .const import DOMAIN
 from .esphome_helpers import discover_esphome_devices as _discover_esphome_devices
-from .haui.device_config import DEVICE_CONFIG
+from .esphome_helpers import hub_device_entry
 
 _LOGGER = logging.getLogger(__name__)
-
-DOMAIN = "nspanel_haui"
-
-
-def _make_device_entry(d: dict[str, Any]) -> dict[str, Any]:
-    """Build a hub device entry from a discovery result."""
-    dev = copy.deepcopy(DEVICE_CONFIG)
-    dev["name"] = d["name"]
-    dev["enabled"] = True
-    if d.get("esphome_device_id"):
-        dev["esphome_device_id"] = d["esphome_device_id"]
-    return dev
 
 
 class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -44,7 +32,7 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="single_instance_allowed")
 
         discovered = await _discover_esphome_devices(self.hass)
-        devices = [_make_device_entry(d) for d in discovered]
+        devices = [hub_device_entry(d) for d in discovered]
 
         _LOGGER.info("Creating hub entry with %d device(s)", len(devices))
 
@@ -80,7 +68,7 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Discovery confirmation card shown on the HA dashboard."""
         discovered = getattr(self, "_discovered_devices", None) or []
         if user_input is not None:
-            devices = [_make_device_entry(d) for d in discovered]
+            devices = [hub_device_entry(d) for d in discovered]
             _LOGGER.info(
                 "Creating hub entry with %d HAUI device(s)",
                 len(devices),
@@ -125,8 +113,3 @@ class NSPanelHAUIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if self._async_current_entries():
             return self.async_abort(reason="already_configured")
         return await self._async_show_discovery_card()
-
-    @staticmethod
-    async def async_migrate_entry(hass, config_entry):
-        """No migration needed - current version."""
-        return True

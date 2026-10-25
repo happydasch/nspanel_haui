@@ -7,15 +7,24 @@ description: Notify popup — ad-hoc notifications with action buttons
 
 ## About
 
-The notification popup is used for one-shot, ad-hoc popups — for example to notify the user about errors or to prompt a yes/no decision. It is opened programmatically via the `nspanel_haui.send_notification` service and supports optional buttons and an optional icon.
+The notification popup is used for one-shot, ad-hoc popups — for example to notify the user about errors or to prompt a yes/no decision. It supports optional buttons and a severity-coloured icon.
+
+It shows the notifications queued by the `nspanel_haui.send_notification` service and the notify entities: either right away with `force_show`, or when the user taps the notification indicator. For these, the popup's right button is **Dismiss**, which removes the notification from the queue. The icon is coloured by the notification `type` (`info`, `warning`, `critical`). When a queued notification has no icon, the popup uses the severity default (`info` → `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` → `mdi:alert-octagon-outline`).
+
+The text size follows the message length: messages under 50 characters use a large font, messages under 150 characters a medium font, and longer messages a small font. Messages longer than one page render as static pages that auto-advance about every 4 seconds; the title shows a `(page/total)` counter and the final page stays visible, so long messages are readable page by page instead of being truncated. The `text_size` field on `nspanel_haui.send_notification` and the `send_notification` ESPHome action overrides the automatic choice per notification with a fixed font size (1-3).
 
 ## How to configure
 
-In the **panel editor**, set:
+This popup is opened by the integration and cannot be configured in the panel editor. Parameters when opening it programmatically:
 
-- **Icon** (optional) — When provided, the text is shown in a narrower column beside the icon. When omitted, the text fills the full width.
-- **Close Timeout** (number) — Automatically close the notification after this many seconds. 0 = no auto-close.
-- **Close on Button** (toggle) — When a button is visible and pressed, the panel closes. Set to off to keep it open after a button press. Default: On.
+- `notification`, `title` — Message text and title.
+- `icon` (optional) — Always shown. When provided, the text is shown in a narrower column beside the icon. When omitted, the severity default icon is used (`info` → `mdi:information-outline`, etc.).
+- `btn_left`, `btn_right` (optional) — Button labels; a button is shown only when set. Colors via `btn_left_color`, `btn_left_back_color` and the `btn_right_*` equivalents.
+- `notif_type` — `info` (default), `warning` or `critical`; sets the icon color (override with `icon_color`).
+- `text_size` — `auto` (default, by message length) or a font size 1-3. The per-notification `text_size` field on the service/actions overrides this panel value.
+- `close_timeout` — Automatically close after this many seconds. 0 = no auto-close.
+- `close_on_button` — Close when a button is pressed. Default: true.
+- `button_callback_fnc`, `close_callback_fnc` — Callbacks.
 
 ## Using the service
 

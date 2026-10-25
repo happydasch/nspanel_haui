@@ -1,6 +1,6 @@
 /**
  * NSPanel HAUI - CRUD operations.
- * Extracted from panel-editor.js; see that file for the class that delegates to these helpers.
+ * Panel and device create/update/delete helpers.
  *
  * Each exported function takes the component instance (`host`) as its first
  * parameter.  The class methods are thin wrappers:
@@ -12,14 +12,14 @@
 import { clone, defaultPanel } from './constants.js';
 import { t } from './localize.js';
 import { serializeItem } from './haui-item.js';
+import { getSystemPanelKeys } from './panel-utils.js';
 
 /* ── helpers ────────────────────────────────────────────────────────────────── */
 
 /** Generate an unused auto-key like "{type}_{n}" for the given panel type. */
-export function generateAutoKey(host, panelType) {
-  const panels = host._devicePanels();
+export function generateAutoKey(panels, panelType) {
   const usedKeys = new Set(
-    panels.filter(p => p.type === panelType).map(p => p.key)
+    (panels || []).filter(p => p.type === panelType).map(p => p.key)
   );
   let idx = 0;
   while (usedKeys.has(`${panelType}_${idx}`)) idx++;
@@ -28,31 +28,35 @@ export function generateAutoKey(host, panelType) {
 
 /* ── panel lifecycle ──────────────────────────────────────────────────────── */
 
-export function openAdd(host) {
+/** Reset the edit-dialog session state and open `data` for editing. */
+export function openPanelDialog(host, index, data, type) {
   host._dialogVersion = (host._dialogVersion || 0) + 1;
   host._itemListData = {};
+  host._editingPanel = { index, data };
+  host._editingPanelType = type;
+  host._error = null;
+  host._deleteTarget = null;
+}
+
+export function openAdd(host) {
   const firstType =
     host._panelTypes.length > 0 ? host._panelTypes[0].type_key : "clock";
   // Auto-generate an unused key like "grid_0", "grid_1", etc.
   // Compute key BEFORE setting _editingPanel so Lit sees it in the initial render.
   const data = defaultPanel(firstType);
-  data.key = generateAutoKey(host, firstType);
-  host._editingPanel = { index: -1, data };
-  host._editingPanelType = firstType;
-  host._error = null;
-  host._deleteTarget = null;
+  data.key = generateAutoKey(host._devicePanels(), firstType);
+  openPanelDialog(host, -1, data, firstType);
 }
 
 export function openEdit(host, index) {
-  host._dialogVersion = (host._dialogVersion || 0) + 1;
-  host._itemListData = {};
   const panels = host._devicePanels();
-  if (index < 0 || index >= panels.length) return;
+  if (index < 0 || index >= panels.length) {
+    host._dialogVersion = (host._dialogVersion || 0) + 1;
+    host._itemListData = {};
+    return;
+  }
   const data = clone(panels[index]);
-  host._editingPanel = { index, data };
-  host._editingPanelType = data.type || "clock";
-  host._error = null;
-  host._deleteTarget = null;
+  openPanelDialog(host, index, data, data.type || "clock");
 }
 
 export function closeEdit(host) {
@@ -64,38 +68,38 @@ export function closeEdit(host) {
 
 /* ── list actions ─────────────────────────────────────────────────────────── */
 
-export function moveUp(host, panelKey) {
+/**
+ * Index of the nearest panel before (`step` -1) or after (`step` 1) `idx` in the
+ * same list group (navigation or not). System-panel overrides are skipped:
+ * they are listed under System Panels, so swapping with one looks like no move.
+ */
+function adjacentListedIndex(host, panels, idx, step) {
+  const sysKeys = getSystemPanelKeys(host);
+  const isNav = panels[idx].show_in_navigation !== false;
+  for (let i = idx + step; i >= 0 && i < panels.length; i += step) {
+    const p = panels[i];
+    if ((p.show_in_navigation !== false) === isNav && !sysKeys.has(p.key)) return i;
+  }
+  return -1;
+}
+
+function movePanel(host, panelKey, step, toastMessage) {
   const panels = host._devicePanels();
   const idx = panels.findIndex(p => p.key === panelKey);
   if (idx < 0) return;
-  const isNav = panels[idx].show_in_navigation !== false;
-  let prevIdx = idx - 1;
-  if (isNav) {
-    while (prevIdx >= 0 && panels[prevIdx].show_in_navigation === false) prevIdx--;
-  } else {
-    while (prevIdx >= 0 && panels[prevIdx].show_in_navigation !== false) prevIdx--;
-  }
-  if (prevIdx < 0) return;
+  const otherIdx = adjacentListedIndex(host, panels, idx, step);
+  if (otherIdx < 0) return;
   const newPanels = [...panels];
-  [newPanels[prevIdx], newPanels[idx]] = [newPanels[idx], newPanels[prevIdx]];
-  host._savePanels(newPanels, t("Panel moved up"));
+  [newPanels[otherIdx], newPanels[idx]] = [newPanels[idx], newPanels[otherIdx]];
+  host._savePanels(newPanels, toastMessage);
+}
+
+export function moveUp(host, panelKey) {
+  movePanel(host, panelKey, -1, t("Panel moved up"));
 }
 
 export function moveDown(host, panelKey) {
-  const panels = host._devicePanels();
-  const idx = panels.findIndex(p => p.key === panelKey);
-  if (idx < 0) return;
-  const isNav = panels[idx].show_in_navigation !== false;
-  let nextIdx = idx + 1;
-  if (isNav) {
-    while (nextIdx < panels.length && panels[nextIdx].show_in_navigation === false) nextIdx++;
-  } else {
-    while (nextIdx < panels.length && panels[nextIdx].show_in_navigation !== false) nextIdx++;
-  }
-  if (nextIdx >= panels.length) return;
-  const newPanels = [...panels];
-  [newPanels[idx], newPanels[nextIdx]] = [newPanels[nextIdx], newPanels[idx]];
-  host._savePanels(newPanels, t("Panel moved down"));
+  movePanel(host, panelKey, 1, t("Panel moved down"));
 }
 
 /* ── delete ───────────────────────────────────────────────────────────────── */
@@ -121,7 +125,7 @@ export async function doDelete(host) {
 /* ── save ─────────────────────────────────────────────────────────────────── */
 
 /**
- * Save panel data that was serialized by ha-dialog-edit-panel.
+ * Save panel data that was serialized by nspanel-dialog-edit-panel.
  * Called when the edit dialog fires dialog-save with detail.panel.
  * Performs duplicate-key validation before saving.
  *
@@ -145,7 +149,7 @@ export async function saveFromData(host, panel, index) {
     (p, i) => i !== index && p.key && p.key.toLowerCase() === (panel.key || "").toLowerCase()
   );
   if (duplicateKey) {
-    host._error = `${t('Key')} "${panel.key}" ${t('is already used by another panel')}`;
+    host._error = t('Key "{key}" is already used by another panel').replace('{key}', panel.key);
     host.requestUpdate();
     return;
   }
@@ -177,7 +181,9 @@ export async function saveFromData(host, panel, index) {
   // have no .value — the actual item data lives in _itemListData.
   // Also handle list_str (raw textarea string → item array).
   // We serialize it properly here, matching the original crud.js save().
-  const itemListData = host._itemListData || {};
+  // Copy: this object is the edit dialog's own state, and a failed save must
+  // leave its item lists intact for the next attempt.
+  const itemListData = { ...(host._itemListData || {}) };
   const descriptorPt = host._panelTypes.find(pt => pt.type_key === panelType);
   if (descriptorPt?.options) {
     for (const opt of descriptorPt.options) {
@@ -256,7 +262,9 @@ export async function saveFromData(host, panel, index) {
     newPanels.push(newPanel);
   }
 
-  const action = index >= 0 ? `${t('Saved')} "${panel.key || t('panel')}"` : `${t('Added')} "${panel.key || t('panel')}"`;
+  const action = index >= 0
+    ? t('Saved "{name}"').replace('{name}', panel.key || t('panel'))
+    : t('Added "{name}"').replace('{name}', panel.key || t('panel'));
   await host._savePanels(newPanels, action);
 }
 
@@ -270,26 +278,45 @@ export function toggleNavVisibility(host, panelKey) {
     i === idx ? { ...p, show_in_navigation: p.show_in_navigation === false } : p
   );
   const nowShown = newPanels[idx].show_in_navigation;
-  const label = nowShown ? t('shown') : t('hidden');
-  host._savePanels(newPanels, `${t('Panel')} "${panelKey}" ${label} ${t('in navigation')}`);
+  const message = nowShown
+    ? t('Panel "{key}" shown in navigation')
+    : t('Panel "{key}" hidden in navigation');
+  host._savePanels(newPanels, message.replace('{key}', panelKey));
 }
 
 /* ── persist ──────────────────────────────────────────────────────────────── */
 
-export async function savePanels(host, newPanels, toastMessage) {
-  if (!host._selectedDevice || !host.entryId) return;
+/**
+ * POST the store with `newPanels` (and `deviceConfig`) for the selected device.
+ * Editor state (`_panels`, `_deviceConfig`) only changes once the server
+ * accepts the save.
+ *
+ * `deviceName` defaults to the selected device.
+ *
+ * @returns {Promise<boolean>} whether the save was accepted
+ */
+export async function savePanels(
+  host, newPanels, toastMessage, deviceConfig = host._deviceConfig, deviceName = host._selectedDevice
+) {
+  if (!deviceName || !host.entryId) return false;
+  // Each save sends the whole store built from _panels, so a save started
+  // before the previous one returns would be built from stale data.
+  if (host._saving) {
+    host._showToast(t("Another save is still in progress"), "error");
+    return false;
+  }
 
   host._saving = true;
+  let saved = false;
   try {
     const payload = clone(host._panels);
     if (!payload.devices) payload.devices = {};
-    if (!payload.devices[host._selectedDevice]) {
-      payload.devices[host._selectedDevice] = {};
+    if (!payload.devices[deviceName]) {
+      payload.devices[deviceName] = {};
     }
-    payload.devices[host._selectedDevice].panels = newPanels;
-    // Preserve device config if present
-    if (host._deviceConfig) {
-      payload.devices[host._selectedDevice].config = clone(host._deviceConfig);
+    payload.devices[deviceName].panels = newPanels;
+    if (deviceConfig) {
+      payload.devices[deviceName].config = clone(deviceConfig);
     }
 
     const resp = await host.hass.fetchWithAuth(
@@ -303,9 +330,11 @@ export async function savePanels(host, newPanels, toastMessage) {
 
     if (resp.ok) {
       host._panels = payload;
+      if (deviceConfig && deviceName === host._selectedDevice) host._deviceConfig = clone(deviceConfig);
       host._editingPanel = null;
       host._editingPanelType = null;
       host._showToast(toastMessage, "success");
+      saved = true;
     } else {
       const err = await resp.json().catch(() => ({}));
       host._error = err.message || `${t('Save failed')} (HTTP ${resp.status})`;
@@ -317,4 +346,5 @@ export async function savePanels(host, newPanels, toastMessage) {
     host._showToast(host._error, "error");
   }
   host._saving = false;
+  return saved;
 }

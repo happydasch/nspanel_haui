@@ -15,7 +15,7 @@ description: Step-by-step installation guide for NSPanel HAUI
 
 HomeAssistant needs to provide following applications:
 
-- ESPHome
+- ESPHome 2026.10 or later
 - Hub (nspanel_haui custom integration)
 
 Please install all requirements before continuing.
@@ -34,21 +34,55 @@ When connecting the USB-UART adapter, connect GND to IO0 to put the device in fl
 
 With the prepared and connected device it is now possible to install ESPHome on it.
 
-1. **Get the config**: Use `esphome/install.yaml` from this repository as a starting point. Copy its content into the ESPHome dashboard and adjust the values.
+1. **Get the config**: Use [`esphome/install.yaml`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/install.yaml) as a starting point. Copy its content into the ESPHome dashboard and adjust the values.
 
 2. **Create a new device**: In the ESPHome dashboard, create a new device. Set the device name to your chosen hostname (default: `nspanel-haui`). Store the generated OTA password and API encryption key.
 
-3. **Edit configuration**: Replace the generated config with the content from `esphome/install.yaml`. Only the substitution values need editing:
+3. **Edit configuration**: Replace the generated config with the content of `install.yaml`. Only the substitution values need editing:
    - `name` — host and device name
    - `wifi_ssid` / `wifi_password` — Wi-Fi credentials
    - `web_username` / `web_password` — web access credentials
    - `ota_password` / `api_encryption_key` — from step 2
+   - `ap_password` — fallback access point password
 
-   You can set these directly in the file or use a `secrets.yaml` file.
+   You can set these directly in the file or in the ESPHome dashboard's **Secrets** (the keys are listed in [`secrets.yaml.example`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/secrets.yaml.example)).
 
 4. **Install**: Click "Install" and select either "Plug into this computer" (if connected via USB and your browser supports WebSerial) or "Manual download" to get `nspanel_haui.bin`.
 
 5. **Alternative — Flash via web**: Open [web.esphome.io](https://web.esphome.io/), load `nspanel_haui.bin`, and click Install. When finished, disconnect the USB-UART adapter and reassemble the panel.
+
+When a release ships the **universal prebuilt firmware** (`nspanel_haui.bin`
+attached to the GitHub release), you can skip the dashboard entirely. See
+*Universal image (no YAML)* below.  The editor's **Device Manager → Download
+firmware** button opens the binary directly.
+
+### Universal image (no YAML)
+
+Every release carries `nspanel_haui.bin` — the same firmware for EU and
+US/portrait panels, with Wi-Fi left to you at first boot:
+
+1. Download `nspanel_haui.bin` (release assets or the editor's **Device
+   Manager → Download firmware**).
+2. Flash it once (wired, as above — web.flasher or **Install → Manual
+   download → Install** in the ESPHome dashboard).
+3. The panel boots into its **open access point named after the device**, e.g.
+   `nspanel-haui-a1b2c3` (the MAC suffix keeps every panel's AP unique).
+   Connect your phone/laptop to it and follow the captive portal to enter your
+   **Wi-Fi name and password**. The device reboots onto your network.
+4. In Home Assistant, add the ESPHome device. When asked for the **encryption
+   key**, use the fixed key `TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE=`.
+5. Add the device in the **NSPanel HAUI editor** (Device Manager → Scan). The
+   hub links it and installs the matching TFT automatically.
+
+**Notes:**
+
+- **One `.bin` installs any number of panels.**  `name_add_mac_suffix: true`
+  appends the last six MAC digits at runtime, so each panel gets a unique
+  hostname, mDNS name and setup access point — no per-device YAML edit or local
+  ESPHome build.  Repeat the five steps for every panel.
+- The baked API key, OTA password and web credentials are documented and
+  public.  If you don't want LAN peers to reflash the panel, use the
+  per-device YAML build with your own secrets instead.
 
 ## 3. Step: Install Hub App
 
@@ -64,12 +98,16 @@ See [Configuration Details](configuration/README.md) for all available options a
 
 ## 5. Step: Install TFT File
 
-The display needs a custom interface which is provided in a TFT file. The file will automatically be installed on the display when the Device connects to the Hub App.
+The display needs a custom interface which is provided in a TFT file. About a minute after the device connects to the Hub App, the Hub App compares the display's TFT version with the version the ESPHome firmware needs. If the display has an older TFT (or none), the matching TFT file is downloaded from the GitHub release with that version and installed automatically. The display is busy for a few minutes while the file is transferred.
+
+After an update that changes the firmware version, update the ESPHome firmware first; the matching TFT then follows on the next connect.
 
 The installation process can also be executed manually. See [Nextion Display](nextion.md) for details.
 
 ## Finished
 
-To install more devices just use unique names. The process remains the same for multiple devices.
+To install more devices, repeat the process.  With the universal prebuilt
+firmware the device names are unique automatically (MAC suffix); with a
+per-device build, set a unique `name` substitution for each panel.
 
 See [Documentation](README.md) for more details.

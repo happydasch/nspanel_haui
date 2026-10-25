@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any
 import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
-from .haui.mapping.const import NotificationAction
+from .const import DOMAIN
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
@@ -27,13 +27,9 @@ _LOGGER = logging.getLogger(__name__)
 SERVICE_OPEN_PANEL = "open_panel"
 SERVICE_CLOSE_PANEL = "close_panel"
 SERVICE_WAKEUP = "wakeup"
-SERVICE_SLEEP = "sleep"
+SERVICE_IDLE = "idle"
 SERVICE_SEND_NOTIFICATION = "send_notification"
 SERVICE_RESET_LAST_INTERACTION = "reset_last_interaction"
-
-# DOMAIN is defined in __init__.py; we keep a local copy to avoid
-# circular imports when services.py is imported there.
-DOMAIN = "nspanel_haui"
 
 # ── Service schemas ─────────────────────────────────────────
 SERVICE_OPEN_PANEL_SCHEMA = vol.Schema(
@@ -43,17 +39,7 @@ SERVICE_OPEN_PANEL_SCHEMA = vol.Schema(
         vol.Optional("wakeup", default=False): cv.boolean,
     }
 )
-SERVICE_CLOSE_PANEL_SCHEMA = vol.Schema(
-    {
-        vol.Optional("device", default=None): vol.Any(str, None),
-    }
-)
-SERVICE_WAKEUP_SCHEMA = vol.Schema(
-    {
-        vol.Optional("device", default=None): vol.Any(str, None),
-    }
-)
-SERVICE_SLEEP_SCHEMA = vol.Schema(
+SERVICE_DEVICE_ONLY_SCHEMA = vol.Schema(
     {
         vol.Optional("device", default=None): vol.Any(str, None),
     }
@@ -68,6 +54,10 @@ SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
         vol.Optional("persistent", default=False): cv.boolean,
         vol.Optional("type", default="info"): vol.In(["info", "warning", "critical"]),
         vol.Optional("force_show", default=False): cv.boolean,
+        vol.Optional("require_ack", default=False): cv.boolean,
+        vol.Optional("text_size", default="auto"): vol.Any(
+            "auto", vol.All(vol.Coerce(int), vol.Range(min=1, max=3))
+        ),
     }
 )
 SERVICE_RESET_LAST_INTERACTION_SCHEMA = vol.Schema(
@@ -89,7 +79,7 @@ def _resolve_target_apps(
     targets: list[tuple[str, NSPanelHAUI]] = []
     for _entry_id, entry_data in hass.data.get(DOMAIN, {}).items():
         if not isinstance(entry_data, dict):
-            continue  # skip _device_id_listeners and other non-app keys
+            continue
         if device_id is None:
             # device_id omitted → all apps
             for dev_name, app in entry_data.items():
@@ -118,7 +108,7 @@ def _wake_display(app: NSPanelHAUI) -> None:
 
 def _publish_action(
     app: NSPanelHAUI,
-    action: str | NotificationAction,
+    action: str,
     value: str | dict | list,
 ) -> None:
     """Publish an ESPAction to a device via its ESPHome controller."""
@@ -163,9 +153,6 @@ async def _device_action(
         return
 
     for dev_name, app in targets:
-        if app is None:
-            continue
-
         def _do(app=app, dev_name=dev_name) -> None:
             if wake_first:
                 _wake_display(app)
@@ -174,7 +161,10 @@ async def _device_action(
             except Exception:
                 _LOGGER.exception("%s: failed for '%s'", call.service, dev_name)
 
-        await hass.async_add_executor_job(_do)
+        # Queued on the app's worker without waiting: app code may itself be
+        # blocked on this service call (e.g. an item action), and waiting for
+        # the worker from here would deadlock it.
+        app.dispatch(_do)
 
 
 # ── Service call handlers ───────────────────────────────────
@@ -209,49 +199,44 @@ async def _handle_wakeup(hass: HomeAssistant, call: ServiceCall) -> None:
     def _wakeup_action(app: Any, dev_name: str) -> None:
         nav = app.controller.get("navigation")
         if nav is not None:
-            nav.open_wakeup_panel()
+            # Wake is a device operation: reset the firmware interaction timer
+            # (wake_first) always runs; the idle page is exited only when one
+            # is actually shown.
+            nav.exit_idle_to_prev_or_home(app.device.config)
 
     await _device_action(hass, call, action=_wakeup_action, wake_first=True)
 
 
-async def _handle_sleep(hass: HomeAssistant, call: ServiceCall) -> None:
-    def _sleep_action(app: Any, dev_name: str) -> None:
+async def _handle_idle(hass: HomeAssistant, call: ServiceCall) -> None:
+    def _idle_action(app: Any, dev_name: str) -> None:
         nav = app.controller.get("navigation")
         if nav is not None:
-            nav.open_sleep_panel(True)
+            nav.open_idle_panel(True)
 
-    await _device_action(hass, call, action=_sleep_action)
+    await _device_action(hass, call, action=_idle_action)
 
 
 async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> None:
-    timeout: int = call.data.get("timeout", 0)
-    persistent: bool = call.data.get("persistent", False)
-    notif_type: str = call.data.get("type", "info")
-    force_show: bool = call.data.get("force_show", False)
-
-    data: dict[str, Any] = {
-        "title": call.data["title"],
-        "message": call.data.get("message", ""),
-        "icon": call.data.get("icon", ""),
-        "notif_type": notif_type,
-        "force_show": force_show,
-    }
-    if timeout > 0:
-        data["timeout"] = timeout
-        action = (
-            NotificationAction.SEND_NOTIFICATION_PERSISTENT_WITH_TIMEOUT
-            if persistent
-            else NotificationAction.SEND_NOTIFICATION_WITH_TIMEOUT
-        )
-    else:
-        action = (
-            NotificationAction.SEND_NOTIFICATION_PERSISTENT
-            if persistent
-            else NotificationAction.SEND_NOTIFICATION
-        )
-
+    # Goes straight to the controller: the ESPHome send_notification actions
+    # only carry title/message/icon/timeout, so type and force_show would be lost.
     def _notify_action(app: Any, dev_name: str) -> None:
-        _publish_action(app, action, data)
+        persistent = call.data.get("persistent", False)
+        force_show = call.data.get("force_show", False)
+        # A persistent notification must be visible immediately, otherwise it
+        # only sits in the queue and users never see it appear on the panel.
+        if persistent and not force_show:
+            force_show = True
+        app.controller["notification"].send_notification(
+            title=call.data["title"],
+            message=call.data.get("message", ""),
+            icon=call.data.get("icon", ""),
+            timeout=call.data.get("timeout", 0),
+            persistent=persistent,
+            notif_type=call.data.get("type", "info"),
+            force_show=force_show,
+            require_ack=call.data.get("require_ack", False),
+            text_size=call.data.get("text_size", "auto"),
+        )
 
     await _device_action(hass, call, action=_notify_action)
 
@@ -273,39 +258,16 @@ def async_register_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_OPEN_PANEL):
         return  # all registered as one block
 
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_OPEN_PANEL,
-        partial(_handle_open_panel, hass),
-        schema=SERVICE_OPEN_PANEL_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_CLOSE_PANEL,
-        partial(_handle_close_panel, hass),
-        schema=SERVICE_CLOSE_PANEL_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_WAKEUP,
-        partial(_handle_wakeup, hass),
-        schema=SERVICE_WAKEUP_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SLEEP,
-        partial(_handle_sleep, hass),
-        schema=SERVICE_SLEEP_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SEND_NOTIFICATION,
-        partial(_handle_send_notification, hass),
-        schema=SERVICE_SEND_NOTIFICATION_SCHEMA,
-    )
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_RESET_LAST_INTERACTION,
-        partial(_handle_reset_last_interaction, hass),
-        schema=SERVICE_RESET_LAST_INTERACTION_SCHEMA,
-    )
+    for name, schema, handler in (
+        (SERVICE_OPEN_PANEL, SERVICE_OPEN_PANEL_SCHEMA, _handle_open_panel),
+        (SERVICE_CLOSE_PANEL, SERVICE_DEVICE_ONLY_SCHEMA, _handle_close_panel),
+        (SERVICE_WAKEUP, SERVICE_DEVICE_ONLY_SCHEMA, _handle_wakeup),
+        (SERVICE_IDLE, SERVICE_DEVICE_ONLY_SCHEMA, _handle_idle),
+        (SERVICE_SEND_NOTIFICATION, SERVICE_SEND_NOTIFICATION_SCHEMA, _handle_send_notification),
+        (
+            SERVICE_RESET_LAST_INTERACTION,
+            SERVICE_RESET_LAST_INTERACTION_SCHEMA,
+            _handle_reset_last_interaction,
+        ),
+    ):
+        hass.services.async_register(DOMAIN, name, partial(handler, hass), schema=schema)

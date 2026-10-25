@@ -39,7 +39,11 @@ export function renderCardChrome(opts) {
 
   const containerExtra = preview?.containerClass ? ' ' + preview.containerClass : '';
   const contentExtra = preview?.contentClass ? ' ' + preview.contentClass : '';
-  const previewClass = `pg-card-preview${hasHeader ? ' pg-card-preview--with-header' : ''}${containerExtra}`;
+  // The portrait TFT keeps the title bar at the top and moves the four
+  // function buttons into a bar at the bottom of the screen.
+  const portrait = !!preview?.portrait;
+  const previewClass = `pg-card-preview${hasHeader ? ' pg-card-preview--with-header' : ''}`
+    + `${portrait ? ' pg-card-preview--portrait' : ''}${containerExtra}`;
   const titleAttr = title || titleFallback || '';
 
   const titleContent = title
@@ -63,51 +67,48 @@ export function renderCardChrome(opts) {
   const screenBg = ownBg
     ? ''
     : 'background:' + (dc.background || 'rgba(0,0,0,0.12)') + ';';
+  const barBg = ownBg ? 'rgba(0,0,0,0.45)' : (dc.header_background || 'rgba(0,0,0,0.45)');
+  const headerTextColor = ownBg ? '#fff' : (dc.header_text || '#fff');
+  const btns = headerButtons || { left: ['', ''], right: ['', ''] };
+
+  // Render a simulated function button icon.
+  // Each value can be a plain icon string or an object { icon, accent? }.
+  const simBtn = (v) => {
+    if (!v) return '';
+    const icon = typeof v === 'string' ? v : v.icon;
+    const isAccent = typeof v === 'object' && v.accent;
+    return html`<ha-icon icon="${icon}" class="${isAccent ? 'icon-accent' : ''}"></ha-icon>`;
+  };
+  const btnGroup = (side, values) => html`
+    <div class="pg-sim-btn-group pg-sim-btn-group-${side}">
+      ${(values || ['', '']).map((v) => html`<div class="pg-sim-btn">${simBtn(v)}</div>`)}
+    </div>`;
 
   return html`
     <div class="pg-card-top-row" @click=${onClick}>
       ${icon ? html`<ha-icon class="pg-card-type-icon" icon="${icon}"></ha-icon>` : ''}
       ${badges.length ? html`<div class="pg-card-badges">${badges}</div>` : ''}
       <span class="pg-card-title" title=${titleAttr}>${titleContent}</span>
-      <span class="pg-card-key">${key || '-'}</span>
+      <span class="pg-card-key" title=${key || ''}>${key || '-'}</span>
       ${actions ? html`<div class="pg-card-actions">${actions}</div>` : ''}
     </div>
     <div class=${previewClass} style="${containerStyle}" @click=${onClick}>
-      ${hasHeader ? (() => {
-        const btns = headerButtons || { left: ['', ''], right: ['', ''] };
-        const lBtns = btns.left || ['', ''];
-        const rBtns = btns.right || ['', ''];
-
-        // Render a simulated header button icon.
-        // Each value can be a plain icon string or an object { icon, accent? }.
-        const _simBtn = (v) => {
-          if (!v) return '';
-          const icon = typeof v === 'string' ? v : v.icon;
-          const isAccent = typeof v === 'object' && v.accent;
-          return html`<ha-icon icon="${icon}" class="${isAccent ? 'icon-accent' : ''}"></ha-icon>`;
-        };
-
-        const dc = preview?.deviceColors || {};
-        const headerBg = ownBg ? 'rgba(0,0,0,0.45)' : (dc.header_background || 'rgba(0,0,0,0.45)');
-        const headerTextColor = ownBg ? '#fff' : (dc.header_text || '#fff');
-        return html`
-        <div class="pg-card-preview-header" style="background:${headerBg}">
-          <div class="pg-sim-btn-group pg-sim-btn-group-left">
-            <div class="pg-sim-btn">${_simBtn(lBtns[0])}</div>
-            <div class="pg-sim-btn">${_simBtn(lBtns[1])}</div>
-          </div>
+      ${hasHeader ? html`
+        <div class="pg-card-preview-header" style="background:${barBg}">
+          ${portrait ? '' : btnGroup('left', btns.left)}
           <span class="pg-sim-title" style="color:${headerTextColor}">${title || titleFallback || t('Panel')}</span>
-          <div class="pg-sim-btn-group pg-sim-btn-group-right">
-            <div class="pg-sim-btn">${_simBtn(rBtns[0])}</div>
-            <div class="pg-sim-btn">${_simBtn(rBtns[1])}</div>
-          </div>
-        </div>`;
-      })() : ''}
+          ${portrait ? '' : btnGroup('right', btns.right)}
+        </div>` : ''}
       <div class="pg-card-preview-screen" style="${screenBg}">
         <div class="pg-card-preview-content${contentExtra}">
           ${preview?.content}
         </div>
       </div>
+      ${hasHeader && portrait ? html`
+        <div class="pg-card-preview-footer" style="background:${barBg}">
+          ${btnGroup('left', btns.left)}
+          ${btnGroup('right', btns.right)}
+        </div>` : ''}
     </div>
     <div class="pg-card-bottom-row">
       ${description
@@ -121,7 +122,7 @@ export function renderCardChrome(opts) {
  * Keyboard handler that triggers a callback on Enter or Space.
  * Use as: @keydown=${onKeyActivate(() => doSomething())}
  */
-export function onKeyActivate(cb) {
+function onKeyActivate(cb) {
   return (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();

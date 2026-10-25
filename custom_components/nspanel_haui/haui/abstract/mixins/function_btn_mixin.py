@@ -54,10 +54,22 @@ class FncType(StrEnum):
     NAV_UP = "nav_up"
     NAV_CLOSE = "nav_close"
     NAV_HOME = "nav_home"
-    NAV_SLEEP = "nav_sleep"
+    NAV_IDLE = "nav_idle"
     NAV_NOTIF = "nav_notif"
     NAV_ABOUT = "nav_about"
     UNLOCK = "unlock"
+
+
+_DEFAULT_FNC_ICONS: dict[str, str] = {
+    FncType.NAV_PREV: ICO_NAV_PREV,
+    FncType.NAV_NEXT: ICO_NAV_NEXT,
+    FncType.NAV_HOME: ICO_NAV_HOME,
+    FncType.NAV_IDLE: ICO_SLEEP,
+    FncType.NAV_NOTIF: ICO_NAV_MESSAGE,
+    FncType.NAV_ABOUT: ICO_ABOUT,
+    FncType.NAV_UP: ICO_NAV_UP,
+    FncType.NAV_CLOSE: ICO_NAV_CLOSE,
+}
 
 
 class FunctionButtonMixin(_FunctionButtonMixinBase):
@@ -93,7 +105,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
     FNC_TYPE_NAV_UP = FncType.NAV_UP
     FNC_TYPE_NAV_CLOSE = FncType.NAV_CLOSE
     FNC_TYPE_NAV_HOME = FncType.NAV_HOME
-    FNC_TYPE_NAV_SLEEP = FncType.NAV_SLEEP
+    FNC_TYPE_NAV_IDLE = FncType.NAV_IDLE
     FNC_TYPE_NAV_NOTIF = FncType.NAV_NOTIF
     FNC_TYPE_NAV_ABOUT = FncType.NAV_ABOUT
     FNC_TYPE_UNLOCK = FncType.UNLOCK
@@ -187,6 +199,23 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             back_color = self.get_color("background")
         return color, color_pressed, back_color, back_color_pressed
 
+    def button_color_args(self, active: bool, *, back_color: bool = False) -> dict:
+        """Returns ``update_function_component`` color kwargs for a button.
+
+        Args:
+            active (bool): is the button active
+            back_color (bool): also include ``back_color`` (most callers only
+                restyle the pressed background)
+
+        Returns:
+            dict: color, color_pressed, back_color_pressed (and back_color)
+        """
+        color, color_pressed, back, back_pressed = self.get_button_colors(active)
+        args = {"color": color, "color_pressed": color_pressed, "back_color_pressed": back_pressed}
+        if back_color:
+            args["back_color"] = back
+        return args
+
     # ------------------------------------------------------------------
     # Function component registration
     # ------------------------------------------------------------------
@@ -268,7 +297,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         Args:
             fnc_id (str): Function Component ID
             update_fnc_name (str): Optional, new function name
-            kwargs (dict): Arguments
+            kwargs (dict): Arguments. Touch is enabled/disabled with ``touch``.
         """
 
         if fnc_id not in self._fnc_items:
@@ -286,7 +315,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         value = fnc_args.get("value", None)
         text = fnc_args.get("text", None)
         icon = fnc_args.get("icon", None)
-        touch = fnc_args.get("touch_events", None)
+        touch = fnc_args.get("touch", None)
         color = fnc_args.get("color", None)
         visible = fnc_args.get("visible", True)
 
@@ -313,35 +342,18 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
         # set icon
         else:
             if icon is None:
-                if fnc_name == self.FNC_TYPE_NAV_PREV:
-                    icon = ICO_NAV_PREV
-                elif fnc_name == self.FNC_TYPE_NAV_NEXT:
-                    icon = ICO_NAV_NEXT
-                elif fnc_name == self.FNC_TYPE_NAV_HOME:
-                    icon = ICO_NAV_HOME
-                elif fnc_name == self.FNC_TYPE_NAV_SLEEP:
-                    icon = ICO_SLEEP
-                elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
-                    icon = ICO_NAV_MESSAGE
-                elif fnc_name == self.FNC_TYPE_NAV_ABOUT:
-                    icon = ICO_ABOUT
-                elif fnc_name == self.FNC_TYPE_NAV_UP:
-                    icon = ICO_NAV_UP
-                elif fnc_name == self.FNC_TYPE_NAV_CLOSE:
-                    icon = ICO_NAV_CLOSE
-                elif fnc_name == self.FNC_TYPE_UNLOCK:
-                    if fnc_args.get("locked", False):
-                        icon = ICO_LOCKED
-                    else:
-                        icon = ICO_UNLOCKED
+                if fnc_name == FncType.UNLOCK:
+                    icon = ICO_LOCKED if fnc_args.get("locked", False) else ICO_UNLOCKED
+                else:
+                    icon = _DEFAULT_FNC_ICONS.get(fnc_name)
             if icon is not None and fnc_item.get("current_icon") != icon:
                 self.set_component_text(fnc_component, icon)
                 fnc_item["current_icon"] = icon
 
         # set touch events
-        if touch is not None and fnc_item.get("current_touch_events") != touch:
+        if touch is not None and fnc_item.get("current_touch") != touch:
             self.set_component_touch(fnc_component, touch)
-            fnc_item["current_touch_events"] = touch
+            fnc_item["current_touch"] = touch
 
         # set colors
         if not fnc_args.get("no_color", False):
@@ -381,6 +393,22 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                 self.hide_component(fnc_component)
             fnc_item["current_visible"] = visible
 
+    def update_supported_component(self, fnc_id: str, supported: bool, **kwargs: Any) -> None:
+        """Shows a feature-gated component with ``kwargs``, or just hides it.
+
+        Unsupported components get no other arguments so a hidden component
+        does not accumulate state it will never render.
+
+        Args:
+            fnc_id (str): Function Component ID
+            supported (bool): is the feature the component belongs to supported
+            kwargs (dict): Arguments for ``update_function_component`` when supported
+        """
+        if supported:
+            self.update_function_component(fnc_id, visible=True, **kwargs)
+        else:
+            self.update_function_component(fnc_id, visible=False)
+
     # ------------------------------------------------------------------
     # Auto-assignment
     # ------------------------------------------------------------------
@@ -413,15 +441,15 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_PREV
                     else:
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_UP
-                # left secondary: on home panel => SLEEP,
+                # left secondary: on home panel => IDLE (idle page),
                 # otherwise on non-popup panels => HOME
                 elif fnc_id == self.FNC_BTN_L_SEC:
                     if not is_popup:
                         is_home = home_key and panel.get("key") == home_key
                         if not is_home and panel.show_home_button():
                             fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
-                        elif is_home and panel.show_sleep_button():
-                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_SLEEP
+                        elif is_home and panel.show_idle_button():
+                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_IDLE
                             fnc_item["fnc_args"]["visible"] = True
                 # right primary: navigation => NEXT, otherwise => CLOSE
                 elif fnc_id == self.FNC_BTN_R_PRI:
@@ -429,10 +457,13 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_NEXT
                     else:
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_CLOSE
-                # right secondary: notifications => NAV_NOTIF, locked => UNLOCK
+                # right secondary: locked => UNLOCK, notifications => NAV_NOTIF
                 elif fnc_id == self.FNC_BTN_R_SEC:
                     locked = panel.get_state("locked")
-                    if locked is not None:
+                    # Only a genuinely locked panel takes the slot: an explicit
+                    # ``locked=False`` means "unlocked", so the notification
+                    # indicator must still be able to use it.
+                    if locked is True:
                         fnc_item["fnc_name"] = self.FNC_TYPE_UNLOCK
                         fnc_item["fnc_args"]["locked"] = locked
                     elif panel.show_notifications_button():
@@ -457,6 +488,39 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             )
             if fnc_id in fnc_ids_header and fnc_item["fnc_args"].get("back_color") is None:
                 fnc_item["fnc_args"]["back_color"] = self.get_color("header_background")
+
+        # Notification indicator: the main loop granted it right_sec only when
+        # that slot was free.  A page that claimed both right slots (grid/row
+        # pagination in navigation, ...) leaves no room for it; take over the
+        # idle button's left-secondary slot instead so unread notifications
+        # stay reachable.
+        self._assign_notification_fallback(panel)
+
+    def _assign_notification_fallback(self, panel: HAUIPanel) -> None:
+        """Give the notification indicator the idle button's slot as a fallback.
+
+        When notifications are enabled but no header slot carries NAV_NOTIF
+        (right_sec was claimed by the page, e.g. grid/row pagination in
+        navigation, and right_pri by prev/next), the notification button
+        overrides the **idle button** (left_sec on the home panel) so unread
+        notifications remain reachable.  The idle button is sacrificed only
+        when it is actually the occupant — an existing HOME/other function or
+        a locked panel is never overridden.
+
+        Args:
+            panel (HAUIPanel): Current panel
+        """
+        if not panel.show_notifications_button():
+            return
+        for _fnc_id, _fnc_item in self._fnc_items.items():
+            if _fnc_item["fnc_name"] == self.FNC_TYPE_NAV_NOTIF:
+                return
+        left_sec = self._fnc_items.get(self.FNC_BTN_L_SEC)
+        if left_sec is None or left_sec["fnc_name"] != self.FNC_TYPE_NAV_IDLE:
+            return
+        notification = self.app.controller["notification"]
+        left_sec["fnc_name"] = self.FNC_TYPE_NAV_NOTIF
+        left_sec["fnc_args"]["visible"] = notification.has_notifications()
 
     def _swap_slots_if_single_nav(self, pri_key: str, sec_key: str) -> None:
         """Swap secondary button slot with primary when both exist and primary is nav-unused.
@@ -544,23 +608,14 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             navigation.open_next_panel()
         elif fnc_name == self.FNC_TYPE_NAV_HOME:
             navigation.open_home_panel()
-        elif fnc_name == self.FNC_TYPE_NAV_SLEEP:
-            navigation.open_sleep_panel()
+        elif fnc_name == self.FNC_TYPE_NAV_IDLE:
+            # This idle-page entry was touch-initiated: arm the grace window
+            # that absorbs the trigger's residual duplicate touch_start (ESP32
+            # touch poller lag) so it can't dismiss the just-opened page.
+            self.app.device.arm_idle_touch_grace()
+            navigation.open_idle_panel()
         elif fnc_name == self.FNC_TYPE_NAV_NOTIF:
-            notif_ctrl = self.app.controller["notification"]
-            count = len(notif_ctrl.get_notifications())
-            if count == 1:
-                notif = notif_ctrl.get_notifications()[0]
-                navigation.open_panel(
-                    SysPanelKey.POPUP_NOTIFY,
-                    icon=notif[2],  # icon
-                    title=notif[0],  # title
-                    notification=notif[1],  # message
-                    close_on_button=True,
-                    close_timeout=notif[3] if notif[3] > 0 else 0,
-                )
-            else:
-                notif_ctrl.open_notification_list()
+            self.app.controller["notification"].open_notifications()
         elif fnc_name == self.FNC_TYPE_NAV_ABOUT:
             navigation.open_panel(SysPanelKey.SYS_ABOUT)
         elif fnc_name == self.FNC_TYPE_NAV_UP or fnc_name == self.FNC_TYPE_NAV_CLOSE:

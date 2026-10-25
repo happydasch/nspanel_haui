@@ -237,9 +237,6 @@ export const formCommonStyles = css`
     gap: 8px;
     align-items: center;
   }
-  .field-row > .field-row-grow {
-    flex: 1;
-  }
   .field-row ha-icon {
     align-self: center;
   }

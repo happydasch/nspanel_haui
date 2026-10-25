@@ -29,20 +29,23 @@ import './dialogs/logs.js';
 import './dialogs/device-manager.js';
 import './dialogs/colors.js';
 
-import { renderOptionField } from './form-fields.js';
-import { positionContextMenu } from './dom-helpers.js';
+import { positionContextMenu, readStorage } from './dom-helpers.js';
 import { selectDevice } from './device-manager.js';
 import { renderPanelTable, renderSystemPanels, renderEmptyCard } from './panel-table.js';
 import { renderPanelGrid } from './panel-grid.js';
 import { renderTitleHeader, renderDeviceInfoStrip, renderPanelToolbar, renderToolbarActions, renderFooter } from './toolbar.js';
 import { startStatusPolling, stopStatusPolling } from './device-info.js';
+import { HA_ELEMENTS_TIMEOUT_MS, undefinedHaElements, whenHaElementsDefined } from './ha-elements.js';
 
 import * as SystemPanels from './system-panels.js';
-import * as ItemEditor from './item-editor.js';
 import * as ColorsEditor from './colors-editor.js';
 import * as DeviceEvents from './device-events.js';
 
 /* ── component ───────────────────────────────────────────────────────────── */
+
+// A shared empty list, so the closed logs dialog does not see a new array on
+// every editor render and re-render with it.
+const NO_LOGS = [];
 
 class NSPanelEditor extends LitElement {
   static get properties() {
@@ -54,6 +57,7 @@ class NSPanelEditor extends LitElement {
       entryId: { type: String, state: true },
       _panels: { type: Object, state: true },
       _loading: { type: Boolean, state: true },
+      _entriesError: { type: String, state: true },
       _selectedDevice: { type: String, state: true },
       _panelTypes: { type: Array, state: true },
       _editingPanel: { type: Object, state: true },
@@ -72,32 +76,16 @@ class NSPanelEditor extends LitElement {
       _showDeviceManager: { type: Boolean, state: true },
       _showColorsDialog: { type: Boolean, state: true },
       _colorsDialog: { type: Object, state: true },
-      _editingItem: { type: Object, state: true },
-      _editingItemType: { type: String, state: true },
 
       _actionsMenuIndex: { type: Number, state: true },
       _viewMode: { type: String, state: true },
       _cardMenuKey: { type: String, state: true },
       _dialogVersion: { type: Number, state: true },
+      _haElementsReady: { type: Boolean, state: true },
+      _haElementsSlow: { type: Boolean, state: true },
+      _haElementsForced: { type: Boolean, state: true },
 
     };
-  }
-
-  static _readStorage(key, fallback) {
-    try {
-      const v = localStorage.getItem(key);
-      return v === null ? fallback : v;
-    } catch (_e) {
-      return fallback;
-    }
-  }
-
-  static _writeStorage(key, value) {
-    try {
-      localStorage.setItem(key, value);
-    } catch (_e) {
-      // ignore — Safari private mode / sandboxed iframe
-    }
   }
 
   static styles = [haStyle, haStyleDialog, editorContainerStyles, editorStyles];
@@ -106,6 +94,7 @@ class NSPanelEditor extends LitElement {
     super();
     this._panels = { version: 1, devices: {} };
     this._loading = true;
+    this._entriesError = null;
     this._selectedDevice = null;
     this.entryId = null;
     this._panelTypes = [];
@@ -119,16 +108,14 @@ class NSPanelEditor extends LitElement {
     this._deviceConfig = null;
     this._editingDeviceConfig = false;
     this._deviceConfigForm = null;
-    this._editingItem = null;
     this._itemListData = {};
-    this._editingItemType = null;
     this._actionsMenuIndex = null;
-    this._viewMode = NSPanelEditor._readStorage('haui_viewMode', 'grid');
+    this._viewMode = readStorage('haui_viewMode', 'grid');
     this._cardMenuKey = null;
     this._dialogVersion = 0;
-    this.__systemPanelsOpen = NSPanelEditor._readStorage('haui_systemPanelsOpen', '') === 'true';
-    this.__navPanelsOpen = NSPanelEditor._readStorage('haui_navPanelsOpen', '') !== 'false';
-    this.__hiddenPanelsOpen = NSPanelEditor._readStorage('haui_hiddenPanelsOpen', '') !== 'false';
+    this.__systemPanelsOpen = readStorage('haui_systemPanelsOpen', '') === 'true';
+    this.__navPanelsOpen = readStorage('haui_navPanelsOpen', '') !== 'false';
+    this.__hiddenPanelsOpen = readStorage('haui_hiddenPanelsOpen', '') !== 'false';
 
     this._deviceStatus = null;
     this._deviceStatusError = null;
@@ -139,13 +126,14 @@ class NSPanelEditor extends LitElement {
     this._showColorsDialog = false;
     this._colorsDialog = {};
     this._panelSaveTimer = null;
+    this._haElementsForced = false;
+    this._waitForHaElements();
   }
 
   /* ── lifecycle ────────────────────────────────────────────────────────── */
 
   connectedCallback() {
     super.connectedCallback();
-    this._ensureTranslations();
     this.__onDocMouseDown = (e) => {
       const path = e.composedPath();
       if (this._actionsMenuIndex !== null && this._actionsMenuIndex !== undefined) {
@@ -177,6 +165,7 @@ class NSPanelEditor extends LitElement {
       this.__onDocMouseDown = null;
     }
     stopStatusPolling(this);
+    this._clearHaElementsTimer();
     if (this._panelSaveTimer) {
       clearTimeout(this._panelSaveTimer);
       this._panelSaveTimer = null;
@@ -184,9 +173,18 @@ class NSPanelEditor extends LitElement {
   }
 
   updated(changed) {
+    // hass is replaced on every state change, so each load runs once (per
+    // language) rather than on every push while it is still pending.
     if (changed.has("hass") && this.hass) {
-      if (this._loading && !this.entryId) this._loadEntries();
-      if (this._panelTypes.length === 0) this._loadPanelTypes();
+      if (!this.__entriesRequested) {
+        this.__entriesRequested = true;
+        this._loadEntries();
+      }
+      const lang = getLanguage(this.hass);
+      if (lang !== this.__language) {
+        this.__language = lang;
+        this._loadLanguage(lang);
+      }
     }
     if (changed.has("_selectedDevice") && this._selectedDevice) {
       startStatusPolling(this);
@@ -210,6 +208,42 @@ class NSPanelEditor extends LitElement {
     }
   }
 
+  /** Hold rendering until HA has defined the elements in ha-elements.js. */
+  _waitForHaElements() {
+    this._haElementsReady = undefinedHaElements().length === 0;
+    this._haElementsSlow = false;
+    if (this._haElementsReady) return;
+    this.__haElementsTimer = setTimeout(() => {
+      this._haElementsSlow = true;
+    }, HA_ELEMENTS_TIMEOUT_MS);
+    whenHaElementsDefined().then(() => {
+      this._clearHaElementsTimer();
+      this._haElementsReady = true;
+    });
+  }
+
+  _clearHaElementsTimer() {
+    if (this.__haElementsTimer) {
+      clearTimeout(this.__haElementsTimer);
+      this.__haElementsTimer = null;
+    }
+  }
+
+  /**
+   * Escape hatch: render the editor although HA elements are still missing.
+   * Without it, an HA build that never defines one of them leaves the editor
+   * stuck on the loading screen with no way forward.
+   */
+  _forceRenderWithoutHaElements() {
+    this._clearHaElementsTimer();
+    this._haElementsForced = true;
+    this.requestUpdate();
+  }
+
+  _reloadPage() {
+    window.location?.reload?.();
+  }
+
   /* ── data loading ─────────────────────────────────────────────────────── */
 
   async _loadEntries()     { return Api.loadEntries(this); }
@@ -231,12 +265,11 @@ class NSPanelEditor extends LitElement {
   _toggleNavVisibility(key) { Crud.toggleNavVisibility(this, key); }
   async _setSpecialPanel(field, panelKey) {
     const dc = { ...this._deviceConfig, [field]: panelKey };
-    this._deviceConfig = dc;
-    if (!this._panels.devices[this._selectedDevice]) {
-      this._panels.devices[this._selectedDevice] = {};
-    }
-    this._panels.devices[this._selectedDevice].config = clone(dc);
-    await this._savePanels(this._devicePanels(), `Set ${field} to "${panelKey}"`);
+    await this._savePanels(
+      this._devicePanels(),
+      t('Set {field} to "{panel}"').replace('{field}', field).replace('{panel}', panelKey),
+      dc,
+    );
   }
   _confirmDelete(i)        { Crud.confirmDelete(this, i); }
   _cancelDelete()          { Crud.cancelDelete(this); }
@@ -248,7 +281,7 @@ class NSPanelEditor extends LitElement {
   /* ── save ─────────────────────────────────────────────────────────────── */
 
   async _save(e) {
-    // Receive serialized form data from ha-dialog-edit-panel via event detail.
+    // Receive serialized form data from nspanel-dialog-edit-panel via event detail.
     if (!e?.detail?.panel) return;
     // Sync item list data from dialog so saveFromData can read it
     if (e.detail.itemListData) {
@@ -256,7 +289,7 @@ class NSPanelEditor extends LitElement {
     }
     return Crud.saveFromData(this, e.detail.panel, e.detail.index);
   }
-  async _savePanels(p, m)  { return Crud.savePanels(this, p, m); }
+  async _savePanels(p, m, c) { return Crud.savePanels(this, p, m, c); }
 
   /* ── device actions (called from templates, delegate to device-manager) ─ */
 
@@ -264,7 +297,6 @@ class NSPanelEditor extends LitElement {
 
   _openDeviceConfig()      { DeviceConfig.openDeviceConfig(this); this.requestUpdate(); }
   _closeDeviceConfig()     { DeviceConfig.closeDeviceConfig(this); this.requestUpdate(); }
-  async _saveDeviceConfig(){ return DeviceConfig.saveDeviceConfig(this); }
 
   /* ── device manager ────────────────────────────────────────────────── */
 
@@ -295,28 +327,14 @@ class NSPanelEditor extends LitElement {
 
   _onHeaderImportYaml() {
     this._actionsMenuIndex = null;
-    this._onDeviceManagerImportYaml();
+    DeviceEvents.onDeviceManagerImportYaml(this);
   }
 
   _onHeaderExportYaml() {
     this._actionsMenuIndex = null;
-    this._onDeviceManagerExportYaml();
+    DeviceEvents.onDeviceManagerExportYaml(this);
   }
 
-  async _onDeviceManagerMoveDevice(e)     { return DeviceEvents.onDeviceManagerMoveDevice(this, e); }
-  async _onDeviceManagerToggleDevice(e)  { return DeviceEvents.onDeviceManagerToggleDevice(this, e); }
-  _onDeviceManagerSelect(e)              { return DeviceEvents.onDeviceManagerSelect(this, e); }
-  _onDeviceManagerSettings(e)            { return DeviceEvents.onDeviceManagerSettings(this, e); }
-  async _onDeviceManagerRemove(e)        { return DeviceEvents.onDeviceManagerRemove(this, e); }
-  async _onDeviceManagerAdd(e)           { return DeviceEvents.onDeviceManagerAdd(this, e); }
-
-  /* ── device manager import/export ───────────────────────────────── */
-
-  async _onDeviceManagerImportYaml()     { return DeviceEvents.onDeviceManagerImportYaml(this); }
-  async _onDeviceManagerExportYaml()     { return DeviceEvents.onDeviceManagerExportYaml(this); }
-
-  async _onDeviceManagerScan(e) { return DeviceEvents.onDeviceManagerScan(this, e); }
-  async _onDeviceManagerUpdateDisplay(e) { return DeviceEvents.onDeviceManagerUpdateDisplay(this, e); }
 
   /* ── toast ────────────────────────────────────────────────────────────── */
 
@@ -325,15 +343,15 @@ class NSPanelEditor extends LitElement {
   /* ── localization ─────────────────────────────────────────────────────── */
 
 
-  async _ensureTranslations() {
-    if (this.hass) {
-      await fetchTranslations(this.hass, getLanguage(this.hass));
-    }
+  /** Load the UI translations and the localized panel types for `lang`. */
+  async _loadLanguage(lang) {
+    // Translations first: panel types carry translated labels, and a failed
+    // load is reported through t(), which is only translated once this resolves.
+    await fetchTranslations(this.hass, lang);
+    this._loadPanelTypes();
+    // t() reads a module-level map, so Lit does not know the text changed.
+    this.requestUpdate();
   }
-
-  /* ── render helpers ───────────────────────────────────────────────────── */
-
-  _renderOptionField(o, v) { return renderOptionField(this, o, v); }
 
   /* ── render ───────────────────────────────────────────────────────────── */
 
@@ -342,7 +360,50 @@ class NSPanelEditor extends LitElement {
     return this._panels.devices[this._selectedDevice].panels || [];
   }
 
+  _renderLoading(message) {
+    return html`<div class="container">
+      ${renderTitleHeader(this)}
+      <div class="main-content">
+      <div class="loading">
+        <div>${message}</div>
+        ${this._haElementsSlow ? html`
+          <div style="margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+            <button
+              style="padding:8px 16px; border-radius:8px; border:1px solid var(--divider-color,#ddd); background:transparent; color:inherit; font:inherit; cursor:pointer;"
+              @click=${() => this._forceRenderWithoutHaElements()}
+            >${t('Continue anyway')}</button>
+            <button
+              style="padding:8px 16px; border-radius:8px; border:none; background:var(--primary-color,#03a9f4); color:var(--text-primary-color,#fff); font:inherit; cursor:pointer;"
+              @click=${() => this._reloadPage()}
+            >${t('Reload page')}</button>
+          </div>
+        ` : ''}
+      </div>
+      </div>
+      ${renderFooter(this)}
+    </div>`;
+  }
+
   render() {
+    if (!this._haElementsReady && !this._haElementsForced) {
+      return this._renderLoading(this._haElementsSlow
+        ? t('Waiting for Home Assistant to load {elements}. If this does not go away, this Home Assistant version may not be supported.')
+          .replace('{elements}', undefinedHaElements().join(', '))
+        : t('Loading panels...'));
+    }
+
+    if (this._entriesError) {
+      return html`<div class="container">
+        ${renderTitleHeader(this)}
+        <div class="main-content">
+        <ha-card outlined class="content-card">
+          ${renderEmptyCard(this._entriesError)}
+        </ha-card>
+        </div>
+        ${renderFooter(this)}
+      </div>`;
+    }
+
     if (!this.entryId) {
       return html`<div class="container">
         ${renderTitleHeader(this)}
@@ -355,15 +416,7 @@ class NSPanelEditor extends LitElement {
       </div>`;
     }
 
-    if (this._loading) {
-      return html`<div class="container">
-        ${renderTitleHeader(this)}
-        <div class="main-content">
-        <div class="loading">${t('Loading panels...')}</div>
-        </div>
-        ${renderFooter(this)}
-      </div>`;
-    }
+    if (this._loading) return this._renderLoading(t('Loading panels...'));
 
     return html`
       <div class="container">
@@ -395,21 +448,22 @@ class NSPanelEditor extends LitElement {
 
         </div>
 
-        <ha-dialog-edit-panel
+        <nspanel-dialog-edit-panel
           .hass=${this.hass}
           .open=${!!this._editingPanel}
           .panel=${this._editingPanel}
           .panelTypes=${this._panelTypes}
           .devicePanels=${this._devicePanels()}
+          .systemPanels=${this._panels?.system_panels || []}
           .saving=${this._saving}
           .error=${this._error}
           .entryId=${this.entryId}
           .dialogVersion=${this._dialogVersion}
           @dialog-closed=${this._closeEdit}
           @dialog-save=${this._save}
-        ></ha-dialog-edit-panel>
+        ></nspanel-dialog-edit-panel>
 
-        <ha-dialog-device-config
+        <nspanel-dialog-device-config
           .hass=${this.hass}
           .open=${!!this._editingDeviceConfig}
           .config=${this._deviceConfigForm}
@@ -417,65 +471,59 @@ class NSPanelEditor extends LitElement {
           .saving=${this._saving}
           @dialog-closed=${this._closeDeviceConfig}
           @dialog-save=${this._onDeviceConfigSave}
-        ></ha-dialog-device-config>
+        ></nspanel-dialog-device-config>
 
-        <ha-dialog-confirm
+        <nspanel-dialog-confirm
           .hass=${this.hass}
           .open=${this._deleteTarget !== null}
           .params=${this._deleteTarget !== null ? this._confirmDialogParams : null}
           @dialog-closed=${this._cancelDelete}
           @dialog-confirmed=${this._doDelete}
-        ></ha-dialog-confirm>
+        ></nspanel-dialog-confirm>
 
-        <ha-dialog-device-info
+        <nspanel-dialog-device-info
           .hass=${this.hass}
           .open=${this._showDeviceInfo}
           .deviceStatus=${this._deviceStatus}
           @dialog-closed=${() => { this._showDeviceInfo = false; this.requestUpdate(); }}
-        ></ha-dialog-device-info>
+        ></nspanel-dialog-device-info>
 
-        <ha-dialog-logs
+        <nspanel-dialog-logs
           .hass=${this.hass}
           .open=${this._showLogs}
-          .logs=${this._deviceStatus?.logs || []}
+          .logs=${this._deviceStatus?.logs || NO_LOGS}
           @dialog-closed=${() => { this._showLogs = false; this.requestUpdate(); }}
-        ></ha-dialog-logs>
-        <ha-dialog-device-manager
+        ></nspanel-dialog-logs>
+        <nspanel-dialog-device-manager
           .hass=${this.hass}
           .open=${this._showDeviceManager}
           .devices=${this._panels.devices || {}}
           .selectedDevice=${this._selectedDevice}
           .entryId=${this.entryId}
           @dialog-closed=${this._closeDeviceManager}
-          @select-device=${this._onDeviceManagerSelect}
-          @device-settings=${this._onDeviceManagerSettings}
-          @remove-device=${this._onDeviceManagerRemove}
-          @add-device=${this._onDeviceManagerAdd}
-          @import-yaml=${this._onDeviceManagerImportYaml}
-          @export-yaml=${this._onDeviceManagerExportYaml}
-          @move-device=${this._onDeviceManagerMoveDevice}
-          @toggle-device=${this._onDeviceManagerToggleDevice}
-          @scan-devices=${this._onDeviceManagerScan}
-          @update-display=${this._onDeviceManagerUpdateDisplay}
-        ></ha-dialog-device-manager>
+          @select-device=${(e) => DeviceEvents.onDeviceManagerSelect(this, e)}
+          @device-settings=${(e) => DeviceEvents.onDeviceManagerSettings(this, e)}
+          @remove-device=${(e) => DeviceEvents.onDeviceManagerRemove(this, e)}
+          @add-device=${(e) => DeviceEvents.onDeviceManagerAdd(this, e)}
+          @move-device=${(e) => DeviceEvents.onDeviceManagerMoveDevice(this, e)}
+          @toggle-device=${(e) => DeviceEvents.onDeviceManagerToggleDevice(this, e)}
+          @scan-devices=${(e) => DeviceEvents.onDeviceManagerScan(this, e)}
+          @update-display=${(e) => DeviceEvents.onDeviceManagerUpdateDisplay(this, e)}
+          @update-tft=${(e) => DeviceEvents.onDeviceManagerUpdateTft(this, e)}
+        ></nspanel-dialog-device-manager>
 
-        <ha-dialog-colors
+        <nspanel-dialog-colors
           .hass=${this.hass}
           .open=${this._showColorsDialog}
           .overrides=${this._colorsDialog}
           @dialog-closed=${this._closeColorsDialog}
           @dialog-save=${this._onColorsSave}
-        ></ha-dialog-colors>
+        ></nspanel-dialog-colors>
         ${this._toast ? Toast.renderToast(this) : ""}
         ${renderFooter(this)}
       </div>
     `;
   }
-
-  /* ── item config dialog ─────────────────────────────────────────────── */
-
-  _saveItemEdit()                        { return ItemEditor.saveItemEdit(this); }
-  _cancelItemEdit()                      { return ItemEditor.cancelItemEdit(this); }
 
   /* ── confirm dialog helper ─────────────────────────────────────────────── */
 
@@ -483,7 +531,7 @@ class NSPanelEditor extends LitElement {
     const idx = this._deleteTarget;
     if (idx === null || idx === undefined) return null;
     const panel = this._devicePanels()[idx];
-    const name = panel ? panel.title || `panel #${idx}` : "this panel";
+    const name = panel ? panel.title || t("Panel #{index}").replace("{index}", idx) : t("this panel");
     return {
       title: t("Delete panel?"),
       message: t("Delete {name}? This cannot be undone.").replace("{name}", name),
@@ -493,31 +541,18 @@ class NSPanelEditor extends LitElement {
   }
 
   /* ── device config save handler ──────────────────────────────────────────── */
-  /* Receives form state from ha-dialog-device-config and saves directly.      */
+  /* Receives form state from nspanel-dialog-device-config and saves directly.      */
 
   async _onDeviceConfigSave(e) {
     const cfg = e.detail?.config;
     if (!cfg || !this._selectedDevice) return;
 
-    // savePanels clones host._deviceConfig into the POST payload, so we
-    // only need to update _deviceConfig here — the _panels state will be
-    // synced from _deviceConfig by savePanels.
-    this._deviceConfig = clone(cfg);
-
-    this._saving = true;
-    this.requestUpdate();
-
-    try {
-      await this._savePanels(this._devicePanels(), t("Device configuration saved"));
-      this._showToast(t("Device configuration saved"), "success");
-    } catch (e) {
-      this._showToast(e.message || t("Device config save failed"), "error");
-    } finally {
-      this._saving = false;
+    // savePanels shows the success or error toast; keep the dialog open on failure.
+    if (await this._savePanels(this._devicePanels(), t("Device configuration saved"), clone(cfg))) {
       this._editingDeviceConfig = false;
       this._deviceConfigForm = null;
-      this.requestUpdate();
     }
+    this.requestUpdate();
   }
 
   /* ── colors dialog ────────────────────────────────────────────────── */

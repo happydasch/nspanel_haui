@@ -7,7 +7,7 @@ service to send notifications to the panel display.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.notify import NotifyEntity, NotifyEntityFeature
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -32,7 +32,10 @@ async def async_setup_entry(
 
     entities: list[NSPanelNotifyEntity] = []
     for dev_name, app in apps.items():
-        if app is None:
+        if app._ha_device_id is None:
+            # Our DeviceInfo would create a bare device holding the identifier
+            # that linking the ESPHome device adds later, making that link fail.
+            # The entry reloads once the device is linked.
             continue
         entities.append(NSPanelNotifyEntity(app, dev_name, config_entry, persistent=False))
         entities.append(NSPanelNotifyEntity(app, dev_name, config_entry, persistent=True))
@@ -80,18 +83,28 @@ class NSPanelNotifyEntity(NotifyEntity):
             identifiers={(DOMAIN, dev_name)},
         )
 
-    def send_message(self, message: str, title: str | None = None) -> None:
-        """Send a message to the panel display.
+    async def async_send_message(self, message: str, title: str | None = None) -> None:
+        """Queue the message on the app's worker without waiting for it.
 
-        Called on the executor thread by the base ``NotifyEntity``
-        machinery.
+        App code may itself be blocked on this notify call (e.g. an item
+        action targeting this entity); waiting for the worker would deadlock.
         """
+        self._app.dispatch(self.send_message, message, title)
+
+    def send_message(self, message: str, title: str | None = None) -> None:
+        """Send a message to the panel display; runs on the app's worker."""
         notif_ctrl = self._app.controller.get("notification")
         if notif_ctrl is None:
             return
 
-        notif_ctrl.send_notification(
-            title=title or "Home Assistant",
-            message=message,
-            persistent=self._persistent,
-        )
+        kwargs: dict[str, Any] = {
+            "title": title or "Home Assistant",
+            "message": message,
+            "persistent": self._persistent,
+        }
+        # Persistent notifications must pop up so users notice them; otherwise
+        # they only sit in the queue.  Non-persistent ones keep the minimal
+        # payload so nothing about their behaviour changes.
+        if self._persistent:
+            kwargs["force_show"] = True
+        notif_ctrl.send_notification(**kwargs)

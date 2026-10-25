@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import colorsys
+import logging
 import random
 import re
 
 from .value import scale
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def generate_color_palette(
@@ -24,9 +27,9 @@ def generate_color_palette(
     Returns:
         tuple: A list with rgb values
     """
-    if seed is None:
-        seed = random.randint(0, 1000)
-    random.seed(seed)
+    # A private generator: seeding the module-level one would reseed the RNG
+    # every other user in the HA process shares.
+    rng = random.Random(seed)
     # Guard against empty or unknown palette_type — return unmodified base color
     if not palette_type or palette_type not in (
         "vibrant",
@@ -42,19 +45,19 @@ def generate_color_palette(
     for _ in range(num_colors):
         if palette_type == "vibrant":
             # Generate vibrant colors by randomizing hue, saturation, and value
-            hue = random.random()
-            saturation = random.uniform(0.7, 1.0)
-            value = random.uniform(0.7, 1.0)
+            hue = rng.random()
+            saturation = rng.uniform(0.7, 1.0)
+            value = rng.uniform(0.7, 1.0)
         elif palette_type == "pastel":
             # Generate pastel colors by reducing saturation and increasing value
-            hue = random.random()
-            saturation = random.uniform(0.2, 0.5)
-            value = random.uniform(0.7, 1.0)
+            hue = rng.random()
+            saturation = rng.uniform(0.2, 0.5)
+            value = rng.uniform(0.7, 1.0)
         elif palette_type == "light":
             # Generate light colors by increasing random value
             hue = hsv_background[0]
             saturation = hsv_background[1]
-            value = random.uniform(0.7, 0.8)
+            value = rng.uniform(0.7, 0.8)
         elif palette_type == "lighten":
             # Generate light colors by decreasing value
             hue = hsv_background[0]
@@ -64,7 +67,7 @@ def generate_color_palette(
             # Generate light colors by decreasing random value
             hue = hsv_background[0]
             saturation = hsv_background[1]
-            value = random.uniform(0.2, 0.3)
+            value = rng.uniform(0.2, 0.3)
         elif palette_type == "darken":
             # Generate light colors by decreasing value
             hue = hsv_background[0]
@@ -207,7 +210,6 @@ def parse_color_value(value: int | str | list | tuple) -> int:
 
     Handles:
     - ``int``: passed through directly (assumed RGB565).
-    - ``[r, g, b]`` bracket string format (legacy configs).
     - ``#rrggbb`` hex string format (from frontend color picker).
     - ``list`` / ``tuple`` of 3 ints: converted via ``rgb_to_rgb565``.
     - Integer string: converted to int directly.
@@ -216,7 +218,9 @@ def parse_color_value(value: int | str | list | tuple) -> int:
         value: A color in one of the supported formats.
 
     Returns:
-        RGB565 integer color value. Returns 0 for empty/invalid strings.
+        RGB565 integer color value. Returns 0 (black) for an empty or invalid
+        value and logs a warning: rendering continues instead of aborting the
+        whole command batch over one bad color.
     """
     if isinstance(value, int):
         return value
@@ -224,26 +228,10 @@ def parse_color_value(value: int | str | list | tuple) -> int:
     if isinstance(value, (list, tuple)):
         return rgb_to_rgb565(value)
 
-    if not isinstance(value, str):
-        return 0
+    if not isinstance(value, str) or not value.strip():
+        return _invalid_color(value)
 
     stripped = value.strip()
-    if not stripped:
-        return 0
-
-    # Handle "[r,g,b]" string format (legacy configs)
-    rgb_match = re.match(
-        r"\[\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\]",
-        stripped,
-    )
-    if rgb_match:
-        return rgb_to_rgb565(
-            [
-                int(rgb_match.group(1)),
-                int(rgb_match.group(2)),
-                int(rgb_match.group(3)),
-            ]
-        )
 
     # Handle "#rrggbb" hex format (from frontend color picker)
     if re.match(r"^#([0-9a-fA-F]{6})$", stripped):
@@ -259,5 +247,10 @@ def parse_color_value(value: int | str | list | tuple) -> int:
     # Try direct integer parsing (e.g. "65535")
     try:
         return int(stripped)
-    except (ValueError, TypeError):
-        return 0
+    except ValueError:
+        return _invalid_color(value)
+
+
+def _invalid_color(value: object) -> int:
+    _LOGGER.warning("Invalid color value %r, using black", value)
+    return 0

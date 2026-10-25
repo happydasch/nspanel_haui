@@ -33,7 +33,7 @@ export function saveItemEdit(host) {
     ? panelTypes.find(d => d.type_key === savePt) || null
     : null;
   if (descriptor?.item_options) {
-    for (const f of descriptor.item_options) {
+    for (const { key: f } of descriptor.item_options) {
       const fv = ee.config?.[f];
       if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
     }

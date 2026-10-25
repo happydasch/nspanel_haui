@@ -39,10 +39,9 @@ def test_device_config_has_all_required_keys() -> None:
         "button_left_entity",
         "button_right_entity",
         "home_panel",
-        "sleep_panel",
-        "wakeup_panel",
+        "idle_panel",
         "show_home_button",
-        "show_sleep_button",
+        "show_idle_button",
         "show_notifications_button",
         "page_settle_delay",
         "log_items",
@@ -55,16 +54,27 @@ def test_device_config_has_all_required_keys() -> None:
         "use_relay_right",
         "use_auto_dimming",
         "use_auto_page",
-        "use_auto_sleeping",
+        "use_auto_display_off",
         "timeout_dimming",
         "timeout_page",
-        "timeout_sleep",
+        "timeout_display_off",
+        "use_sleep_schedule",
+        "sleep_schedule_start",
+        "sleep_schedule_end",
         "sound_on_startup",
         "color_overrides",
         "sound_on_notification",
+        "persistent_sound_interval",
         "use_do_not_disturb",
         "quiet_hours_start",
         "quiet_hours_end",
+        "display_model",
+        "gesture_sequences",
+        "stale_data_seconds",
+        "time_format",
+        "date_format",
+        "date_format_locale",
+        "idle_panel_extra",
     }
     assert set(DEVICE_CONFIG.keys()) == required
 
@@ -262,3 +272,62 @@ def test_apply_panel_store_skips_unknown_device() -> None:
     apply_panel_store(cfg, store, [])
     panels = cfg["devices"][0].get("panels")
     assert "panels" not in cfg["devices"][0] or panels != [{"type": "grid"}]
+
+
+def test_config_model_defaults_match_device_config():
+    """Device defaults live in DEVICE_CONFIG and in the pydantic model; keep them equal."""
+    from nspanel_haui.haui.config_models import _get_device_config_model
+
+    model_defaults = _get_device_config_model()().model_dump()
+
+    assert {k: DEVICE_CONFIG[k] for k in model_defaults} == model_defaults
+
+
+def _device_config_base() -> dict:
+    """Full device-config dict without the identity keys (as in _build_config_dict)."""
+    return {
+        k: v
+        for k, v in DEVICE_CONFIG.items()
+        if k not in ("name", "panels", "esphome_device_id")
+    }
+
+
+def test_device_config_model_rejects_out_of_range_timeouts() -> None:
+    """Timeout and timer values are range-checked in the model."""
+    import pytest
+    from nspanel_haui.haui.config_models import validate_device_config
+
+    base = _device_config_base()
+    for key, bad in (
+        ("timeout_dimming", 36001),
+        ("timeout_page", -1),
+        ("timeout_display_off", 9999),
+        ("hub_idle_timeout", 90000),
+        ("auto_navigate_home_timeout", -5),
+        ("stale_data_seconds", -1),
+        ("snapshot_max_age_seconds", -2),
+    ):
+        with pytest.raises(Exception):
+            validate_device_config({**base, key: bad})
+
+
+def test_device_config_model_accepts_valid_timer_values() -> None:
+    """The editor bounds are the model bounds for valid values."""
+    from nspanel_haui.haui.config_models import validate_device_config
+
+    base = _device_config_base()
+    model = validate_device_config(
+        {
+            **base,
+            "timeout_dimming": 3600,
+            "timeout_page": 3600,
+            "timeout_display_off": 3600,
+            "hub_idle_timeout": 86400,
+            "auto_navigate_home_timeout": 86400,
+            "stale_data_seconds": 86400,
+            "snapshot_max_age_seconds": 0,
+        }
+    )
+    assert model is not None
+    assert model.timeout_dimming == 3600
+    assert model.auto_navigate_home_timeout == 86400

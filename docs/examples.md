@@ -7,7 +7,7 @@ description: Example configurations and usage patterns for NSPanel HAUI panels
 
 While all configuration is done through the Home Assistant UI editor, here are some common usage patterns to help you structure your display layouts.
 
-Configuration is done via the **NSPanel HAUI** device page in **Settings → Devices & Services** → your device → **Panels** tab.
+Configuration is done in the **NSPanel HAUI** editor (sidebar entry, admin only) after selecting your device.
 
 ---
 
@@ -24,8 +24,7 @@ Panel 4:  Cover              (window blinds)
 
 **Device settings:**
 - **Home panel:** `panel_1` (the clock)
-- **Auto-dim:** Enabled, with the clock as the idle page
-- **Swipe left/right:** Navigate between panels
+- **Auto dimming / auto page:** Enabled
 
 ---
 
@@ -40,7 +39,7 @@ Panel 1:  Weather            (screensaver)
   → Entity buttons: toggle bedroom light, toggle porch light
 ```
 
-**Background:** Set to `spring` or `modern` for visual appeal. Use a template for dynamic backgrounds: `background: template:{'dark' if is_state('sun.sun', 'below_horizon') else 'modern'}`
+**Background:** Set to `spring` or `modern` for visual appeal. For dynamic backgrounds, choose **Template…** in the Background field and enter `{{ 'dark' if is_state('sun.sun', 'below_horizon') else 'modern' }}`.
 
 ---
 
@@ -55,7 +54,7 @@ Panel 3:  Media              (TV/speaker controls)
 Panel 4:  Climate            (AC/heating thermostat)
 ```
 
-**Color scheme:** Match the room ambiance with warm accent colors (`header_accent: #f69d31`).
+**Color scheme:** Match the room ambiance with warm accent colors (override the `header_accent` color to `#f69d31` in **Device colors**).
 
 ---
 
@@ -70,8 +69,8 @@ Panel 3:  Grid               (alarm, do-not-disturb toggle, fan)
 ```
 
 **Device settings:**
-- **Dim level:** Low (10-20%) for nighttime
-- **Screensaver timeout:** 15 seconds
+- **Dim brightness** (the `number.<device>_brightness_dimmed` entity of the ESPHome device): 10-20% for nighttime
+- **Dimming timeout** (`timeout_dimming`): 15 seconds
 
 ---
 
@@ -86,7 +85,7 @@ Panel 3:  QR                 (Wi-Fi guest network QR code)
 Panel 4:  Grid               (outdoor lights, door lock, camera)
 ```
 
-**Panel locking:** Enable lock on the alarm panel to require PIN for arm/disarm.
+**Panel pin:** Set a **Panel pin** on the alarm panel to require a PIN before it opens.
 
 ---
 

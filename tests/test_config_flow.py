@@ -129,7 +129,6 @@ _make_ha_stubs()
 from nspanel_haui import _build_config_dict  # noqa: E402, I001
 from nspanel_haui.config_flow import NSPanelHAUIConfigFlow  # noqa: E402
 from nspanel_haui.esphome_helpers import (  # noqa: E402
-    find_esphome_device as _find_esphome_device,
     normalize_device_name as _normalize_device_name,
 )
 
@@ -186,7 +185,7 @@ class TestOptionsToConfigDict:
 
     def test_name_always_set_from_argument(self):
         """Device name always comes from the ``data`` argument."""
-        result = _build_config_dict({"name": "living_room"}, {})
+        result = _build_config_dict({"name": "living_room"})
         assert result["device"]["name"] == "living_room"
 
     def test_panels_from_third_argument(self):
@@ -200,7 +199,6 @@ class TestOptionsToConfigDict:
         }
         result = _build_config_dict(
             {"name": "test", "devices": [{"name": "test", "panels": []}]},
-            {},
             panels,
         )
         assert result["panels"] == [{"type": "grid", "key": "grid_0"}]
@@ -210,7 +208,7 @@ class TestOptionsToConfigDict:
         from nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
 
         original = copy.deepcopy(DEFAULT_CONFIG)
-        _build_config_dict({"name": "test", "devices": [{"name": "test"}]}, {})
+        _build_config_dict({"name": "test", "devices": [{"name": "test"}]})
         assert DEFAULT_CONFIG == original
 
     def test_devices_from_data(self):
@@ -219,7 +217,7 @@ class TestOptionsToConfigDict:
             {"name": "dev1", "panels": [{"type": "clock"}]},
             {"name": "dev2", "panels": []},
         ]
-        result = _build_config_dict({"name": "test", "devices": devices}, {})
+        result = _build_config_dict({"name": "test", "devices": devices})
         # Devices get filled with DEVICE_CONFIG defaults
         assert result["devices"][0]["name"] == "dev1"
         assert result["devices"][0]["panels"] == [{"type": "clock"}]
@@ -239,7 +237,6 @@ class TestOptionsToConfigDict:
         }
         result = _build_config_dict(
             {"name": "test", "devices": [{"name": "dev1", "panels": []}]},
-            {},
             panels,
         )
         assert result["devices"][0]["panels"] == [{"type": "grid", "key": "grid_0"}]
@@ -254,7 +251,6 @@ class TestOptionsToConfigDict:
                     "config": {
                         "locale": "de_DE",
                         "show_home_button": True,
-                        "sleep_exit_behavior": "one_touch",
                         "snapshot_max_age_seconds": 30,
                     },
                     "panels": [{"type": "clock"}],
@@ -265,7 +261,7 @@ class TestOptionsToConfigDict:
             "name": "nspanel_haui",
             "devices": [{"name": "living_room"}],
         }
-        result = _build_config_dict(data, {}, panels)
+        result = _build_config_dict(data, panels)
 
         # cfg["device"] picks up store config
         assert result["device"]["locale"] == "de_DE"
@@ -279,16 +275,15 @@ class TestOptionsToConfigDict:
         # name still comes from data, not store
         assert result["device"]["name"] == "nspanel_haui"
 
-    def test_device_config_home_sleep_wakeup_keys(self):
-        """Device config carries home/sleep/wakeup panel key references."""
+    def test_device_config_home_sleep_keys(self):
+        """Device config carries home/sleep panel key references."""
         panels = {
             "version": 1,
             "devices": {
                 "living_room": {
                     "config": {
                         "home_panel": "my_clock",
-                        "sleep_panel": "screensaver",
-                        "wakeup_panel": "welcome",
+                        "idle_panel": "screensaver",
                     },
                     "panels": [{"type": "clock"}],
                 },
@@ -298,15 +293,14 @@ class TestOptionsToConfigDict:
             "name": "nspanel_haui",
             "devices": [{"name": "living_room"}],
         }
-        result = _build_config_dict(data, {}, panels)
+        result = _build_config_dict(data, panels)
 
         assert result["device"]["home_panel"] == "my_clock"
-        assert result["device"]["sleep_panel"] == "screensaver"
-        assert result["device"]["wakeup_panel"] == "welcome"
+        assert result["device"]["idle_panel"] == "screensaver"
 
     def test_panels_without_config_leaves_device_defaults(self):
         """Without a panels arg, cfg["device"] stays at DEFAULT_CONFIG values."""
-        result = _build_config_dict({"name": "test"}, {})
+        result = _build_config_dict({"name": "test"})
 
         # Device fields hold DEFAULT_CONFIG defaults
         assert result["device"]["locale"] == "en_US"
@@ -325,7 +319,7 @@ class TestOptionsToConfigDict:
             "name": "nspanel_haui",
             "devices": [{"name": "living_room"}],
         }
-        result = _build_config_dict(data, {}, panels)
+        result = _build_config_dict(data, panels)
 
         # No config block → device stays at DEFAULT_CONFIG
         assert result["device"]["locale"] == "en_US"
@@ -345,7 +339,7 @@ class TestOptionsToConfigDict:
             "name": "nspanel_haui",
             "devices": [{"name": "living_room"}],
         }
-        result = _build_config_dict(data, {}, panels)
+        result = _build_config_dict(data, panels)
 
         # other_room doesn't match living_room → device stays default
         assert result["device"]["locale"] == "en_US"
@@ -359,7 +353,7 @@ class TestOptionsToConfigDict:
                 {"name": "dev2", "panels": [{"type": "clock", "key": "clock_1"}]},
             ],
         }
-        result = _build_config_dict(data, {}, device_name="dev1")
+        result = _build_config_dict(data, device_name="dev1")
         assert len(result["devices"]) == 1
         assert result["devices"][0]["name"] == "dev1"
         assert result["panels"] == [{"type": "grid", "key": "grid_1"}]
@@ -379,7 +373,7 @@ class TestOptionsToConfigDict:
                 {"name": "dev2", "panels": []},
             ],
         }
-        result = _build_config_dict(data, {}, panels, device_name="dev2")
+        result = _build_config_dict(data, panels, device_name="dev2")
         assert len(result["devices"]) == 1
         assert result["devices"][0]["name"] == "dev2"
         assert result["panels"] == [{"type": "clock", "key": "store_clock"}]
@@ -390,7 +384,7 @@ class TestOptionsToConfigDict:
             "name": "hub",
             "devices": [{"name": "dev1", "panels": []}],
         }
-        result = _build_config_dict(data, {}, device_name="unknown_dev")
+        result = _build_config_dict(data, device_name="unknown_dev")
         assert len(result["devices"]) == 1
         assert result["devices"][0]["name"] == "unknown_dev"
 
@@ -403,7 +397,7 @@ class TestOptionsToConfigDict:
                 {"name": "dev2", "panels": [{"type": "clock"}]},
             ],
         }
-        result = _build_config_dict(data, {})
+        result = _build_config_dict(data)
         assert len(result["devices"]) == 2
 
 
@@ -479,63 +473,6 @@ class TestResolveHaDeviceId:
 
 
 # ---------------------------------------------------------------------------
-# async_migrate_entry - no-op (current version)
-# ---------------------------------------------------------------------------
-
-
-class TestMigrateEntry:
-    """Test the no-op config entry migration (VERSION=1)."""
-
-    def _make_entry(self, version=1, data=None, options=None):
-        """Build a MagicMock config entry."""
-        entry = MagicMock()
-        entry.version = version
-        entry.data = data or {"name": "test_device"}
-        entry.options = options or {}
-        return entry
-
-    def _run_migration(self, entry):
-        """Run the migration synchronously via asyncio. Returns (hass, result)."""
-        from nspanel_haui.config_flow import NSPanelHAUIConfigFlow
-
-        hass = MagicMock()
-
-        async def _migrate():
-            return await NSPanelHAUIConfigFlow.async_migrate_entry(hass, entry)
-
-        return hass, asyncio.run(_migrate())
-
-    def test_migration_returns_true(self):
-        """Migration returns True without modifying the entry."""
-        entry = self._make_entry(data={"name": "test"})
-        _hass, result = self._run_migration(entry)
-        assert result is True
-
-    def test_migration_does_not_update_entry(self):
-        """Migration does not call async_update_entry."""
-        entry = self._make_entry(
-            data={"name": "test", "devices": [{"name": "dev1"}]},
-            options={"update_interval": 30, "debug": False},
-        )
-        hass, result = self._run_migration(entry)
-        assert result is True
-        assert not hass.config_entries.async_update_entry.called
-
-    def test_migration_preserves_v1_entry_data(self):
-        """Migration leaves entry data and version untouched."""
-        entry = self._make_entry(
-            data={"name": "test", "devices": [{"name": "dev1"}]},
-            options={"update_interval": 30, "debug": False},
-        )
-        hass, result = self._run_migration(entry)
-        assert result is True
-        assert entry.version == 1
-        assert entry.data["name"] == "test"
-        assert entry.data["devices"] == [{"name": "dev1"}]
-        assert entry.options["update_interval"] == 30
-
-
-# ---------------------------------------------------------------------------
 # Tests for MQTT discovery & ESPHome matching (config flow v3)
 # ---------------------------------------------------------------------------
 
@@ -557,103 +494,6 @@ class TestNormalizeDeviceName:
 
     def test_mixed_chars(self):
         assert _normalize_device_name("Panel_Living-Room") == "panel living room"
-
-
-class TestFindESPHomeDevice:
-    """Tests for _find_esphome_device(hass, device_name)."""
-
-    def test_matches_by_device_info_name(self):
-        """Returns entry_id when device_info.name matches."""
-        hass = MagicMock()
-        hass.data = {"esphome": {"entry1": {"device_info": {"name": "panel-living"}}}}
-        result = _find_esphome_device(hass, "panel-living")
-        assert result == "entry1"
-
-    def test_matches_by_normalized_name(self):
-        """Returns entry_id when names differ in case/separators but normalize equal."""
-        hass = MagicMock()
-        hass.data = {"esphome": {"entry1": {"device_info": {"name": "Panel Living"}}}}
-        result = _find_esphome_device(hass, "panel_living")
-        assert result == "entry1"
-
-    def test_no_match_returns_none(self):
-        """Returns None when no device_info.name matches."""
-        hass = MagicMock()
-        hass.data = {"esphome": {"entry1": {"device_info": {"name": "panel-living"}}}}
-        result = _find_esphome_device(hass, "other-panel")
-        assert result is None
-
-    def test_empty_esphome_data_returns_none(self):
-        """Returns None when esphome data dict is empty."""
-        hass = MagicMock()
-        hass.data = {"esphome": {}}
-        result = _find_esphome_device(hass, "panel-living")
-        assert result is None
-
-    def test_no_esphome_key_returns_none(self):
-        """Returns None when hass.data has no 'esphome' key."""
-        hass = MagicMock()
-        hass.data = {}
-        result = _find_esphome_device(hass, "panel-living")
-        assert result is None
-
-    def test_fallback_entity_registry_returns_none(self):
-        """Fallback path matches via entity registry but cannot determine entry_id."""
-        from homeassistant.helpers import entity_registry
-
-        hass = MagicMock()
-        hass.data = {}
-
-        fake_entity = MagicMock()
-        fake_entity.platform = "esphome"
-        fake_entity.name = "panel_living"
-        fake_entity.config_entry_id = None
-
-        er_mock = MagicMock()
-        er_mock.entities.values.return_value = [fake_entity]
-        entity_registry.async_get.return_value = er_mock
-
-        result = _find_esphome_device(hass, "panel-living")
-        # Fallback confirms match but can't determine entry_id
-        assert result is None
-
-    def test_fallback_entity_registry_no_match_returns_none(self):
-        """Fallback path: no entity match returns None."""
-        from homeassistant.helpers import entity_registry
-
-        hass = MagicMock()
-        hass.data = {}
-
-        fake_entity = MagicMock()
-        fake_entity.platform = "sensor"
-        fake_entity.name = "temperature"
-
-        er_mock = MagicMock()
-        er_mock.entities.values.return_value = [fake_entity]
-        entity_registry.async_get.return_value = er_mock
-
-        result = _find_esphome_device(hass, "panel-living")
-        assert result is None
-
-    def test_exception_handled_gracefully(self):
-        """Exceptions during lookup are caught and return None."""
-        hass = MagicMock()
-        hass.data = MagicMock()
-        hass.data.get.side_effect = AttributeError("boom")
-        result = _find_esphome_device(hass, "panel-living")
-        assert result is None
-
-    def test_non_dict_entry_skipped(self):
-        """Non-dict esphome entries are gracefully skipped."""
-        hass = MagicMock()
-        hass.data = {
-            "esphome": {
-                "entry1": ["not", "a", "dict"],
-                "entry2": {"device_info": {"name": "panel-living"}},
-            }
-        }
-        result = _find_esphome_device(hass, "panel-living")
-        assert result == "entry2"
 
 
 class TestDiscoverEspHomeDevices:
@@ -839,7 +679,8 @@ class TestConfigFlowUserStep:
             assert result["data"]["devices"][0]["name"] == "panel-living"
             assert result["data"]["devices"][0]["esphome_device_id"] == "entry1"
             assert result["data"]["devices"][1]["name"] == "panel-kitchen"
-            assert result["data"]["devices"][1]["esphome_device_id"] == ""
+            # The entry holds identity only; an unknown ESPHome id is left out.
+            assert result["data"]["devices"][1] == {"name": "panel-kitchen"}
 
     def test_auto_discovery_empty_result_creates_entry(self):
         """When discovery finds no devices, creates entry with empty devices."""
@@ -925,16 +766,12 @@ class TestDiscoveryCard:
         flow._discovered_devices = [
             {"name": "panel-living", "esphome_device_id": "e1"},
         ]
-        with patch(
-            "nspanel_haui.config_flow._register_discovery",
-            new=AsyncMock(return_value=None),
-            create=True,
-        ):
-            # _register_discovery is imported inside the method via
-            # ``from . import _register_discovery``; patch the package attr.
-            import nspanel_haui as pkg
+        import nspanel_haui as pkg
 
-            pkg._register_discovery = AsyncMock(return_value=None)
+        # _register_discovery is imported inside the method via
+        # ``from . import _register_discovery``; patch the package attr (and
+        # restore it, so later tests get the real function).
+        with patch.object(pkg, "_register_discovery", new=AsyncMock(return_value=None)):
             result = self._run(flow.async_step_confirm({}))
         assert result["type"] == "create_entry"
         assert result["title"] == "NSPanel HAUI Hub"

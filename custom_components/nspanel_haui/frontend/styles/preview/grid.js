@@ -35,4 +35,9 @@ export const previewGridStyles = css`
     grid-template-rows: 1fr 1fr;
     align-self: stretch;
   }
+  /* Portrait TFT: 2 columns x 3 rows */
+  .pg-card-preview--portrait .pg-preview-grid-fill {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+  }
 `;

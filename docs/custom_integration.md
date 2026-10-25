@@ -1,6 +1,6 @@
 ---
-title: Custom Integration Development
-description: Guide for developing custom integrations with NSPanel HAUI
+title: Custom Integration
+description: Install and add the NSPanel HAUI integration
 ---
 
 # Custom Integration
@@ -27,6 +27,6 @@ For most users, the **recommended installation method** is via HACS, adding the 
 
 ## Configuration
 
-**The primary configuration method is the HA UI panel editor.** After adding the integration, open the NSPanel device page to add, remove, and configure panels via the editor.
+**The primary configuration method is the HA UI panel editor.** After adding the integration, open **NSPanel HAUI** in the Home Assistant sidebar (admin only), select your device and add, remove and configure panels there.
 
 For full config options see [Configuration Details](configuration/README.md).

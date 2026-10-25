@@ -51,17 +51,6 @@ export const itemListStyles = css`
     --mdc-icon-size: 20px;
     position: relative;
   }
-  .item-row-color-dot {
-    position: absolute;
-    bottom: -2px;
-    right: -2px;
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    border: 2px solid var(--card-background-color, #fff);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    pointer-events: none;
-  }
 
   .item-row-text {
     flex: 1;
@@ -102,12 +91,6 @@ export const itemListStyles = css`
     font-family: var(--code-font-family, monospace);
     opacity: 0.9;
   }
-  .item-list-override-badge {
-    flex-shrink: 0;
-    font-size: 0.85em;
-    color: var(--secondary-text-color, #666);
-  }
-
   .item-row-actions {
     flex-shrink: 0;
     display: flex;
@@ -221,34 +204,6 @@ export const itemListStyles = css`
     display: flex;
     flex-direction: column;
     gap: 6px;
-  }
-  .list-items-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    border: 1px solid var(--divider-color, #e0e0e0);
-    border-radius: 8px;
-    background: var(--card-background-color, #fff);
-    transition: border-color 0.15s;
-  }
-  .list-items-row:hover {
-    border-color: var(--primary-color, #03a9f4);
-  }
-  .list-items-input {
-    flex: 1;
-    min-width: 0;
-  }
-  .list-items-input .native-input,
-  .list-items-input .native-select,
-  .list-items-input .entity-picker-wrap {
-    width: 100%;
-  }
-  .list-items-remove {
-    flex-shrink: 0;
-    --mdc-icon-button-size: 32px;
-    --mdc-icon-size: 18px;
-    color: var(--secondary-text-color, #666);
   }
   .item-list-limit {
     font-size: 0.82em;

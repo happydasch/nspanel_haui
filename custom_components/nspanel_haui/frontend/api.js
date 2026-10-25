@@ -1,7 +1,7 @@
 import { getLanguage, t } from './localize.js';
 /**
  * NSPanel HAUI - data loading helpers.
- * Extracted from panel-editor.js _loadEntries, _load, _loadPanelTypes methods.
+ * Loads config entries, panels and panel types.
  *
  * Simplified to single-hub: loadEntries picks the first nspanel_haui entry
  * and auto-loads panels. No multi-entry discovery or device scanning.
@@ -12,6 +12,7 @@ export async function loadEntries(host) {
   try {
     const all = await host.hass.callWS({ type: "config_entries/get" });
     const entries = (all || []).filter((e) => e.domain === "nspanel_haui");
+    host._entriesError = null;
     if (entries.length && !host.entryId) {
       host.entryId = entries[0].entry_id;
       await host._load();
@@ -20,6 +21,9 @@ export async function loadEntries(host) {
     }
   } catch (e) {
     console.error("Failed to load config entries:", e);
+    // Not "no integration configured": the list itself could not be read.
+    // The editor renders _entriesError as a card, so no toast here.
+    host._entriesError = e.message || t("Failed to load the integration list");
     host._loading = false;
   }
 }
@@ -35,19 +39,19 @@ export async function loadPanels(host) {
     const resp = await host.hass.fetchWithAuth(
       `/api/nspanel_haui/panels/${host.entryId}?language=${encodeURIComponent(lang)}`
     );
-    if (resp.ok) {
-      host._panels = await resp.json();
-      const devices = Object.keys(host._panels.devices || {});
-      // Preserve the currently selected device if it still exists
-      if (host._selectedDevice && devices.includes(host._selectedDevice)) {
-        // Keep current selection
-      } else {
-        host._selectedDevice = devices.length ? devices[0] : null;
-      }
-      if (host._selectedDevice) host._loadDeviceConfig(host._selectedDevice);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    host._panels = await resp.json();
+    const devices = Object.keys(host._panels.devices || {});
+    // Preserve the currently selected device if it still exists
+    if (host._selectedDevice && devices.includes(host._selectedDevice)) {
+      // Keep current selection
+    } else {
+      host._selectedDevice = devices.length ? devices[0] : null;
     }
+    if (host._selectedDevice) host._loadDeviceConfig(host._selectedDevice);
   } catch (e) {
     console.error("Failed to load panels:", e);
+    host._showToast(t("Failed to load panels"), "error");
   }
   host._loading = false;
 }
@@ -59,11 +63,11 @@ export async function loadPanelTypes(host) {
     const resp = await host.hass.fetchWithAuth(
       `/api/nspanel_haui/panel_types?language=${encodeURIComponent(lang)}`
     );
-    if (resp.ok) {
-      host._panelTypes = await resp.json();
-    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    host._panelTypes = await resp.json();
   } catch (e) {
     console.error("Failed to load panel types:", e);
+    host._showToast(t("Failed to load panel types"), "error");
   }
 }
 export async function loadStatus(host) {
@@ -72,32 +76,34 @@ export async function loadStatus(host) {
     host._deviceStatusError = t("No device selected");
     return;
   }
+  // Request status for the currently-selected device so the backend
+  // returns a flat response (no {devices: {...}} wrapper).
+  const deviceKey = host._selectedDevice || "";
+  let status = null;
+  let error = null;
   try {
-    // Request status for the currently-selected device so the backend
-    // returns a flat response (no {devices: {...}} wrapper).
-    const deviceKey = host._selectedDevice || "";
     const qs = deviceKey ? `?device=${encodeURIComponent(deviceKey)}` : "";
     const resp = await host.hass.fetchWithAuth(
       `/api/nspanel_haui/status/${host.entryId}${qs}`
     );
     if (resp.ok) {
-      let data = await resp.json();
+      status = await resp.json();
       // When no device is selected the backend returns
       // {devices: {name: status, ...}}. Unwrap the first device.
-      if (data.devices && typeof data.devices === "object") {
-        const names = Object.keys(data.devices);
-        data = names.length ? data.devices[names[0]] : {};
+      if (status.devices && typeof status.devices === "object") {
+        const names = Object.keys(status.devices);
+        status = names.length ? status.devices[names[0]] : {};
       }
-      host._deviceStatus = data;
-      host._deviceStatusError = null;
     } else {
-      host._deviceStatus = null;
-      host._deviceStatusError = `HTTP ${resp.status}`;
+      error = `HTTP ${resp.status}`;
     }
   } catch (e) {
-    host._deviceStatus = null;
-    host._deviceStatusError = e.message || t("Fetch failed");
+    error = e.message || t("Fetch failed");
   }
+  // The user may have switched devices while this request was in flight.
+  if ((host._selectedDevice || "") !== deviceKey) return;
+  host._deviceStatus = status;
+  host._deviceStatusError = error;
 }
 
 /**
@@ -109,13 +115,12 @@ export async function loadStatus(host) {
 export async function exportDeviceYaml(host, deviceKey) {
   if (!host.entryId || !deviceKey) return;
   try {
-    const resp = await host.hass.fetchWithAuth(
-      `/api/nspanel_haui/yaml/${host.entryId}?device=${encodeURIComponent(deviceKey)}`
+    const resp = await requestRaw(
+      host,
+      `/api/nspanel_haui/yaml/${host.entryId}?device=${encodeURIComponent(deviceKey)}`,
+      undefined,
+      t("Export failed")
     );
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-      throw new Error(err.message || t("Export failed"));
-    }
     const yamlText = await resp.text();
     downloadBlob(yamlText, `${deviceKey}.yaml`, "application/x-yaml");
   } catch (e) {
@@ -140,21 +145,16 @@ export async function importDeviceYaml(host, deviceKey) {
   if (!file) return;
   const yamlText = await file.text();
 
-  const resp = await host.hass.fetchWithAuth(
+  const result = await request(
+    host,
     `/api/nspanel_haui/yaml/${host.entryId}?device=${encodeURIComponent(deviceKey)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/x-yaml" },
       body: yamlText,
-    }
+    },
+    t("Import failed")
   );
-
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || t("Import failed"));
-  }
-
-  const result = await resp.json();
   // Reload panels to reflect imported data
   await loadPanels(host);
   return t('Imported YAML for "{name}"').replace('{name}', result.device);
@@ -194,6 +194,23 @@ function pickYamlFile() {
   });
 }
 
+/**
+ * fetchWithAuth + error unwrapping. Returns the Response on success; throws
+ * the server's message (or the given translated fallback) otherwise.
+ */
+async function requestRaw(host, url, options, failMessage) {
+  const resp = await host.hass.fetchWithAuth(url, options);
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
+    throw new Error(err.message || failMessage);
+  }
+  return resp;
+}
+
+async function request(host, url, options, failMessage) {
+  return (await requestRaw(host, url, options, failMessage)).json();
+}
+
 /* ── device management ─────────────────────────────────────────────────── */
 
 /**
@@ -208,14 +225,7 @@ export async function scanDevices(host) {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));
   }
-  const resp = await host.hass.fetchWithAuth(
-    `/api/nspanel_haui/devices/${host.entryId}`
-  );
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || t("Failed to scan for devices"));
-  }
-  return resp.json();
+  return request(host, `/api/nspanel_haui/devices/${host.entryId}`, undefined, t("Failed to scan for devices"));
 }
 
 /**
@@ -231,19 +241,12 @@ export async function addDevice(host, device) {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));
   }
-  const resp = await host.hass.fetchWithAuth(
-    `/api/nspanel_haui/devices/${host.entryId}`,
+  return request(host, `/api/nspanel_haui/devices/${host.entryId}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(device),
-    }
-  );
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || t("Failed to add device"));
-  }
-  return resp.json();
+    }, t("Failed to add device"));
 }
 
 /**
@@ -260,19 +263,12 @@ export async function removeDevice(host, name, keepConfig = false) {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));
   }
-  const resp = await host.hass.fetchWithAuth(
-    `/api/nspanel_haui/devices/${host.entryId}?name=${encodeURIComponent(name)}`,
+  return request(host, `/api/nspanel_haui/devices/${host.entryId}?name=${encodeURIComponent(name)}`,
     {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ keep_config: keepConfig }),
-    }
-  );
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || t("Failed to remove device"));
-  }
-  return resp.json();
+    }, t("Failed to remove device"));
 }
 
 /**
@@ -288,18 +284,51 @@ export async function updateDeviceDisplay(host, deviceName) {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));
   }
-  const resp = await host.hass.fetchWithAuth(
-    `/api/nspanel_haui/update_display/${host.entryId}`,
+  return request(host, `/api/nspanel_haui/update_display/${host.entryId}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device: deviceName }),
-    }
-  );
-  if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
-    throw new Error(err.message || t("Failed to update display"));
+    }, t("Failed to update display"));
+}/**
+ * Resolve the prebuilt firmware (.bin) download link of the latest release.
+ *
+ * GET /api/nspanel_haui/firmware
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @returns {Promise<{ url: string|null, version: string|null }>}
+ */
+export async function getFirmwareDownload(host) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
   }
-  return resp.json();
+  return request(host, `/api/nspanel_haui/firmware`, {
+    method: "GET",
+  }, t("Failed to load the firmware link"));
+}
+
+/**
+ * Trigger a TFT install on one or all devices./**
+ * Trigger a TFT install on one or all devices.
+ *
+ * POST /api/nspanel_haui/update_tft/{entryId}
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} deviceName - device name, or "*" for all devices
+ * @param {string} [version] - release version (default: the firmware's yaml_version)
+ * @returns {Promise<{ status: string, devices_updated: string[] }>}
+ */
+export async function updateDeviceTft(host, deviceName, version) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  const body = { device: deviceName };
+  if (version) body.version = version;
+  return request(host, `/api/nspanel_haui/update_tft/${host.entryId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }, t("Failed to install the TFT"));
 }
 

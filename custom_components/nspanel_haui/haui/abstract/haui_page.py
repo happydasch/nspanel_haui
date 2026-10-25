@@ -16,7 +16,6 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, NotifEvent, SysPanelKey
-from .mixins.button_state_mixin import ButtonStateMixin
 from .mixins.component_mixin import ComponentMixin
 from .mixins.function_btn_mixin import FunctionButtonMixin
 
@@ -34,7 +33,7 @@ class _PendingReadRequest:
     expiry: float
 
 
-class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
+class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
     """Represents a page on the nextion display.
 
     Every page on the display needs a page defined here to
@@ -82,18 +81,31 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
     # sensor update → HA event).
     READ_PENDING_TIMEOUT: ClassVar[float] = 6.0
 
+    # Popup opened by execute_item() for an entity domain when the item has no
+    # ``popup_key``.  popup_timer has no domain (the timer is display-local);
+    # items reach it through ``popup_key``.  mapping/panel.py derives the popup
+    # aliases of the domain pages from it.
+    DEFAULT_POPUPS: ClassVar[dict[str, str]] = {
+        "light": SysPanelKey.POPUP_LIGHT,
+        "media_player": SysPanelKey.POPUP_MEDIA_PLAYER,
+        "vacuum": SysPanelKey.POPUP_VACUUM,
+        "cover": SysPanelKey.POPUP_COVER,
+        "climate": SysPanelKey.POPUP_CLIMATE,
+        "alarm_control_panel": SysPanelKey.POPUP_ALARM,
+    }
+
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any] | None = None) -> None:
         super().__init__(app, config)
         self.page_id = int(self.get("page_id"))
-        self.page_id_recv: int | None = None  # set when a page event is received
+        # Read by get_color(). Set here rather than in start_panel(): pages override
+        # start_panel() without calling super(), and _apply_background() runs first.
+        self._use_system_colors: bool = type(self).USE_SYSTEM_COLORS
         # current panel
         self.panel: HAUIPanel | None = None
         # function items, components
         self._fnc_items: dict = {}
-        # physical buttons, components
-        self._btn_state_left: Component | None = None
-        self._btn_state_right: Component | None = None
-        # component callbacks: list for press events (button_state != 0)
+        # component callbacks: list for press events (button_state != 0),
+        # registered via add_component_callback
         self._callbacks: list[tuple[Component, Callable]] = []
         # release callback map: comp_id -> (callback, is_drag)
         # O(1) lookup keyed by component.id for release events (button_state == 0).
@@ -125,12 +137,6 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         self._pending_read_request: _PendingReadRequest | None = None
         # component callbacks for read_response dispatch.
         self._read_callbacks: dict[str, tuple[Component, Callable[[Any], None]]] = {}
-        # Guard: True only while a slider handler is invoked from the
-        # read_response response path (_process_read_response).  Handlers
-        # check this flag to reject button_state values (0 or 1) that
-        # reach them via a direct code path (e.g. an old add_component_callback
-        # that leaks through the drag-component early return).
-        self._in_read_callback: bool = False
         # subclass init hook
         self.prepare()
 
@@ -247,7 +253,6 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         component: Component | str,
         request_type: ESPRequest,
         log_label: str,
-        source_type: str = "component",
     ) -> None:
         """Send a read request and track it as the single in-flight read.
 
@@ -261,9 +266,6 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             component: The component (or its string name) to read.
             request_type: The ESP request type (``REQ_VAL`` or ``REQ_TXT``).
             log_label: Human-readable label used in diagnostic log messages.
-            source_type: ``"component"`` (default) — sends a plain string name.
-                Set to ``"global"`` when reading a global Nextion variable that
-                needs a dict ``{name, source_type}`` service value.
         """
         name = self._extract_component_name(component)
         now = time.monotonic()
@@ -275,11 +277,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             expiry=now + self.READ_PENDING_TIMEOUT,
         )
         self.log(f"{log_label} for {name}: sending request")
-        if source_type != "component":
-            value: str | dict[str, str] = {"name": name, "source_type": source_type}
-        else:
-            value = name
-        self.send_esphome(request_type, value, force=True)
+        self.send_esphome(request_type, name, force=True)
 
     def request_component_value(self, component: Component) -> None:
         """Request a component's numeric value from the display (REQ_VAL).
@@ -370,21 +368,9 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 return
         _comp, handler = entry
         self.log(f"read_response for {name}: type={read_type} value={value!r} — dispatching")
-        self._in_read_callback = True
-        try:
-            handler(value)
-        finally:
-            self._in_read_callback = False
+        handler(value)
 
     # part
-
-    def start_part(self) -> None:
-        """Starts the part.
-
-        This is called when the part is started.
-        """
-        # notify about page start
-        self.start_page()
 
     def stop_part(self) -> None:
         """Stops of part.
@@ -399,31 +385,10 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         self._pending_drag_callback = None
         self._read_callbacks.clear()
         self._pending_read_request = None
-        self._in_read_callback = False
         self.set_panel(None)
-        # notify about page stop
-        self.stop_page()
         # clean up item handles
         for handle in self._handles.copy():
             self.remove_item_listener(handle)
-
-    # page
-
-    def start_page(self) -> None:
-        """Starts the page.
-
-        Put callback registration in here and code that should be run
-        only once on start.
-
-        When changing components, prefer using start_panel.
-        """
-
-    def stop_page(self) -> None:
-        """Stops the page.
-
-        Put callback deregistration in here and other code that should
-        be run when stopping a part.
-        """
 
     # panel functionality
 
@@ -455,13 +420,13 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             self.stop_panel(self.panel)
         self.panel = panel
         if panel is None:
-            from ..mapping.page import PAGE_MAPPING
+            from ..mapping.panel import PAGE_MAPPING
 
             self.log(f"Page {PAGE_MAPPING.get(self.page_id)} | closed")
             return
         panel_key = panel.get("key", "")
         panel_type = panel.get_type()
-        from ..mapping.page import PAGE_MAPPING
+        from ..mapping.panel import PAGE_MAPPING
 
         self.log(f"Page {PAGE_MAPPING.get(self.page_id)} | Panel: {panel_key} ({panel_type})")
 
@@ -548,22 +513,6 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             # the ``set_panel`` batch (before ``start_panel``), so ``cls`` does
             # not paint over the component commands that follow.
 
-            # physical button state
-            if self._btn_state_left is not None:
-                self.add_component_callback(
-                    self._btn_state_left, self.callback_button_state_buttons
-                )
-                self.set_component_value(
-                    self._btn_state_left, self.app.device.get_left_button_state()
-                )
-            if self._btn_state_right is not None:
-                self.add_component_callback(
-                    self._btn_state_right, self.callback_button_state_buttons
-                )
-                self.set_component_value(
-                    self._btn_state_right, self.app.device.get_right_button_state()
-                )
-
             # special case, single nav panel
             # swap secondary buttons with primary buttons, since nav is not used
             nav_panels = self.app.device_config.get_panels(True)
@@ -574,10 +523,21 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             # register function items (rendering deferred to render batch)
             self._fnc_id_by_component.clear()
             for fnc_id, fnc_item in self._fnc_items.items():
-                self.add_component_callback(
-                    fnc_item["fnc_component"], self.callback_function_components
-                )
-                self._fnc_id_by_component[fnc_item["fnc_component"].id] = fnc_id
+                comp = fnc_item["fnc_component"]
+                # Function buttons act on release (callback_function_components
+                # ignores presses).  Register only when the page did not bind
+                # the component itself: ``start_panel`` may already hold the
+                # slot (e.g. the media page's volume slider is both a drag
+                # control and a ``set_volume`` fnc item), and then the page's
+                # callback owns the release.
+                if comp.id not in self._callback_map:
+                    self.on_release(
+                        comp,
+                        lambda event, component, fnc_id=fnc_id: self.callback_function_components(
+                            event, component, 0
+                        ),
+                    )
+                self._fnc_id_by_component[comp.id] = fnc_id
 
     def create_panel(self, panel: HAUIPanel) -> None:
         """Called when a new panel is created.
@@ -591,15 +551,11 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
     def start_panel(self, panel: HAUIPanel) -> None:
         """Called when a panel is started.
 
-        Sets ``_use_system_colors`` from the page's ``USE_SYSTEM_COLORS``
-        ClassVar so ``get_color()`` knows whether to respect user overrides.
-
-        This method should be overwritten in the page.
+        This method should be overwritten in the page. No need to call super.
 
         Args:
             panel (HAUIPanel): Current panel
         """
-        self._use_system_colors = type(self).USE_SYSTEM_COLORS
 
     def stop_panel(self, panel: HAUIPanel) -> None:
         """Called when a panel is stopped.
@@ -626,37 +582,37 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         """
 
     def _save_auto_state(self) -> dict:
-        """Save and disable auto-dimming/page/sleep for popup overlays.
+        """Save and disable auto-dimming/page/display-off for popup overlays.
 
         Returns the saved states dict, which must be passed to the passed to
         ``_restore_auto_state()`` on cleanup.
         """
-        name = self.app.device.get_name()
+        slug = self.app.device.get_slug()
         states: dict = {}
         for key, suffix in (
             ("auto_dimming", "use_auto_dimming"),
             ("auto_page", "use_auto_page"),
-            ("auto_sleeping", "use_auto_sleeping"),
+            ("auto_display_off", "use_auto_display_off"),
         ):
-            item = self.app.get_item(f"switch.{name}_{suffix}")
-            states[key] = item.get_state()
+            item = self.app.get_item(f"switch.{slug}_{suffix}")
+            states[key] = item.get_state() == "on"
             item.turn_off()
         return states
 
     def _restore_auto_state(self, states: dict) -> None:
-        """Restore previously saved auto-dimming/page/sleep states.
+        """Restore previously saved auto-dimming/page/display-off states.
 
         Args:
             states: The dict returned by ``_save_auto_state()``.
         """
-        name = self.app.device.get_name()
+        slug = self.app.device.get_slug()
         for key, suffix in (
             ("auto_dimming", "use_auto_dimming"),
             ("auto_page", "use_auto_page"),
-            ("auto_sleeping", "use_auto_sleeping"),
+            ("auto_display_off", "use_auto_display_off"),
         ):
             if states.get(key):
-                item = self.app.get_item(f"switch.{name}_{suffix}")
+                item = self.app.get_item(f"switch.{slug}_{suffix}")
                 item.turn_on()
 
     # gesture-buffer helpers
@@ -683,11 +639,6 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         if entry is not None:
             _comp, callback, _is_drag = entry
             callback(event, _comp)
-        else:
-            for component, callback in self._callbacks:
-                if comp_id == component.id:
-                    callback(event, component, button_state)
-                    break
 
     # gesture-suppression helpers (slider drag vs. swipe navigation)
 
@@ -731,10 +682,7 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
 
         For drag controls, the callback stored via ``bind_slider()`` fires
         ``_callback_slider_release()`` which reads the actual slider value
-        from the display via a read request.  For legacy
-        ``add_component_callback`` entries the same read path is used — the
-        ``button_state`` from the COMPONENT event is always 0 (release) and
-        never the slider value.
+        from the display via a read request.
         """
         self._cancel_drag_flush_timer()
         if self._pending_drag_callback is None:
@@ -746,11 +694,6 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         if entry is not None:
             _comp, callback, _is_drag = entry
             callback(event, _comp)
-        else:
-            for component, _ in self._callbacks:
-                if comp_id == component.id:
-                    self.request_component_value(component)
-                    break
 
     def _cancel_drag_flush_timer(self) -> None:
         """Cancels the drag-flush fallback timer, if active."""
@@ -821,6 +764,74 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 items.append(HAUIItem(self.app, val))
         return items
 
+    @staticmethod
+    def _extract_entity_id(value: Any) -> str | None:
+        """Extract an entity ID from a config value that is a plain string or ``{item: ...}``.
+
+        The frontend serializes ``kind="item"`` fields through ``serializeItem()``,
+        which stores them as ``{item: "entity_id"}`` dicts.
+        """
+        if isinstance(value, dict):
+            return value.get("item")
+        return value
+
+    def _entity_ids(self, values: list) -> list[str]:
+        """Entity IDs of the string-or-dict config values that have one."""
+        ids = (self._extract_entity_id(value) for value in values)
+        return [entity_id for entity_id in ids if entity_id]
+
+    def _item_from_ref(self, value: Any) -> HAUIItem | None:
+        """Build an item for a string-or-dict entity reference, or None if it has no ID."""
+        entity_id = self._extract_entity_id(value)
+        return HAUIItem(self.app, {"item": entity_id}) if entity_id else None
+
+    def _panel_title(self, panel: HAUIPanel, item: HAUIItem | None, default: str) -> str:
+        """Returns the panel title, falling back to the item's friendly name.
+
+        An explicit panel title is overridden by the item's friendly name, so
+        panels controlling one entity are titled after it.
+
+        Args:
+            panel: The panel to title.
+            item: The item the panel controls, if any.
+            default: Translated default title; callers pass a literal translate() call
+                so translation extraction finds the string.
+
+        Returns:
+            str: Title
+        """
+        title = panel.get_title(default)
+        if item is not None:
+            title = item.get_item_attr("friendly_name", title)
+        return title
+
+    # item options a popup keeps from the item that opened it
+    _POPUP_ITEM_OVERRIDES = ("name", "icon", "color", "value", "state")
+
+    def _resolve_panel_item(self, panel: HAUIPanel) -> HAUIItem | None:
+        """Resolve the single entity item a panel controls.
+
+        Popups get the entity id from the opening item (``item_id``); panels
+        built in the editor store an item config under the ``item`` option.
+
+        Args:
+            panel: The panel to resolve the item for.
+
+        Returns:
+            The item, or None if the panel configures none.
+        """
+        entity_id = panel.get("item_id", None)
+        if entity_id:
+            # execute_item passes the opening item's config; keep its overrides
+            config = {
+                key: panel.get(key)
+                for key in self._POPUP_ITEM_OVERRIDES
+                if panel.get(key, None) is not None
+            }
+            return HAUIItem(self.app, {**config, "item": entity_id})
+        items = self._build_items_from_panel(panel, "item")
+        return items[0] if items else None
+
     def execute_item(self, item: HAUIItem) -> None:
         """Executes the given item.
 
@@ -849,11 +860,8 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
                 notification=msg,
             )
 
-        # execute popup
-        elif item_type in ["light", "media_player", "vacuum", "cover", "climate"]:
-            popup_name = item.get("popup_key", None)
-            if popup_name is None:
-                popup_name = f"popup_{item_type}"
+        # execute popup ("" is what the editor stores after the field is cleared)
+        elif popup_name := item.get("popup_key", None) or self.DEFAULT_POPUPS.get(item_type):
             kwargs = item.get_config()
             kwargs["item_id"] = item.get_item_id()
             # open popup
@@ -888,6 +896,25 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             item.call_item_service("media_stop")
         else:
             item.call_item_service("turn_off")
+
+    def listen_items(self, items: list[HAUIItem], render: Callable[[], None]) -> None:
+        """Re-render with ``render`` whenever one of ``items`` changes state.
+
+        Internal items have no entity and are skipped. The listeners end with
+        the panel (``stop_panel`` clears them).
+
+        Args:
+            items: Items shown on the page.
+            render: Redraws the slots that show these items.
+        """
+
+        def _on_change(*_args: Any) -> None:
+            with self.rec_cmd:
+                render()
+
+        item_ids = {item.get_item_id() for item in items if not item.is_internal()}
+        for item_id in sorted(i for i in item_ids if i):
+            self.add_item_listener(item_id, _on_change, attribute="all")
 
     def add_item_listener(
         self, item_id: str, callback: Callable, attribute: str | None = None
@@ -969,18 +996,27 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         # read response — route to registered slider / text handler
         elif event.name == ESPResponse.READ_RESPONSE:
             self._process_read_response(event)
-        # notification indicator — the badge lives on the right-secondary button
-        # when its fnc_name is NAV_NOTIF (set by _auto_assign_fncs).
+        # notification indicator — the badge can live on any header slot
+        # whose fnc_name is NAV_NOTIF (set by _auto_assign_fncs; normally a
+        # right slot, or the idle button's left-secondary slot as a fallback
+        # when pagination claims both right slots).
         if event.name in [
             NotifEvent.NOTIF_ADD,
             NotifEvent.NOTIF_REMOVE,
             NotifEvent.NOTIF_CLEAR,
         ]:
             notif_slot = None
-            if self.FNC_BTN_R_SEC in self._fnc_items:
-                sec = self._fnc_items[self.FNC_BTN_R_SEC]
-                if sec["fnc_name"] == self.FNC_TYPE_NAV_NOTIF:
-                    notif_slot = self.FNC_BTN_R_SEC
+            for slot in (
+                self.FNC_BTN_R_SEC,
+                self.FNC_BTN_R_PRI,
+                self.FNC_BTN_L_SEC,
+                self.FNC_BTN_L_PRI,
+            ):
+                if slot in self._fnc_items:
+                    item = self._fnc_items[slot]
+                    if item["fnc_name"] == self.FNC_TYPE_NAV_NOTIF:
+                        notif_slot = slot
+                        break
             if notif_slot is not None:
                 notification = self.app.controller["notification"]
                 visible = notification.has_notifications()
@@ -994,11 +1030,13 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
 
         Sliders on NSPanel displays use ``.pco`` for the handle/foreground
         color.  Call this once per render cycle after showing the slider
-        so the handle appears in the configured dark-accent shade.
+        so the handle appears in the configured dark-accent shade.  Sliders
+        compiled without a cursor (light, cover, row) show no handle at all.
 
         Args:
             slider: The slider ``Component`` to colour.
-            show_toggle: Whether to show the toggle switch.
+            show_toggle: True for a primary control (dark-accent handle), False
+                for a secondary one (``component_pressed`` handle).
         """
         if show_toggle:
             self.set_component_text_color(slider, self.get_color("component_active_dark"))
@@ -1020,10 +1058,10 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
         comp_id = component_info[1]
         button_state = component_info[2]
 
-        # Press events (touch_event != 0): dispatch immediately via legacy
-        # list, then STOP.  A press must never fall through to the release
-        # handling below — that would queue the release callback while the
-        # finger is still down and double-fire it (e.g. a held power button
+        # Press events (touch_event != 0): dispatch immediately via the press
+        # callback list, then STOP.  A press must never fall through to the
+        # release handling below — that would queue the release callback while
+        # the finger is still down and double-fire it (e.g. a held power button
         # toggling twice).
         #
         # For drag controls (sliders) the press is skipped entirely because
@@ -1068,12 +1106,3 @@ class HAUIPage(FunctionButtonMixin, ButtonStateMixin, ComponentMixin, HAUIBase):
             self._cancel_buffer_timer()
             self._queued_callback = (comp_id, button_state, event)
             self._buffer_timer = self.app.run_in(self._flush_buffer_callback, 0.1)
-        else:
-            # Fallback to legacy _callbacks list for components registered
-            # via add_component_callback (e.g. function buttons in config_panel).
-            for component, _cb in self._callbacks:
-                if comp_id == component.id:
-                    self._cancel_buffer_timer()
-                    self._queued_callback = (comp_id, button_state, event)
-                    self._buffer_timer = self.app.run_in(self._flush_buffer_callback, 0.1)
-                    break

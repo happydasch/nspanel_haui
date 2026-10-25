@@ -7,11 +7,6 @@
 import { css } from '../lit-import.js';
 
 export const panelCommonStyles = css`
-  /* ── device selector bar (no-device state) ── */
-  .device-selector-bar {
-    padding: 16px;
-  }
-
   /* ── panel toolbar (two rows) ─────── */
   .panel-toolbar {
     display: flex;
@@ -58,21 +53,11 @@ export const panelCommonStyles = css`
     font-weight: 600;
     font-size: 1em;
   }
-  .info-grid-2col {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
   details.panel-group .group-title {
     user-select: none;
     padding: 12px;
     cursor: pointer;
   }
-  details.panel-group .collapse-indicator {
-    margin-left: 6px;
-    font-size: 0.85em;
-  }
-
   /* ── empty-state placeholders ── */
   .no-device-selected {
     padding: 16px;

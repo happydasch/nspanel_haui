@@ -86,11 +86,8 @@ export const panelTableStyles = css`
   .pl-badge-home {
     background: var(--primary-color, #03a9f4);
   }
-  .pl-badge-sleep {
+  .pl-badge-idle {
     background: var(--warning-color, #ffa726);
-  }
-  .pl-badge-wakeup {
-    background: var(--success-color, #43a047);
   }
   .pl-actions {
     flex-shrink: 0;

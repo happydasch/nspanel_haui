@@ -14,6 +14,7 @@ Outputs:
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -111,6 +112,10 @@ def update_lang_file(path: str, text_keys: list[str]) -> tuple[int, int]:
 
 
 def main() -> None:
+    # No options yet; parsing still gives --help instead of rewriting the locale files.
+    argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    ).parse_args()
     text_keys = extract_python_strings() | extract_frontend_strings()
     text_keys.discard("")
     text_keys = sorted(text_keys)

@@ -9,14 +9,14 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..features import MediaPlayerFeatures
+from ..features import MediaPlayerFeatures as F
 from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
-    ICO_ENTITY_POWER,
     ICO_NEXT,
     ICO_PAUSE,
     ICO_PLAY,
+    ICO_POWER,
     ICO_PREV,
     ICO_REPEAT,
     ICO_REPEAT_OFF,
@@ -122,29 +122,27 @@ class MediaPage(HAUIPage):
         j_progress=Component(32, "jProgress"),
     )
 
+    _REPEAT_ICONS = {"all": ICO_REPEAT, "one": ICO_REPEAT_ONE, "off": ICO_REPEAT_OFF}
+
+    _SIMPLE_SERVICES = {
+        "media_prev": "media_previous_track",
+        "media_play": "media_play_pause",
+        "media_next": "media_next_track",
+        "volume_down": "volume_down",
+        "volume_up": "volume_up",
+    }
+
     SCROLLING_INTERVAL = 0.5
     PROGRESS_INTERVAL = 0.5
 
     # panel
 
     @staticmethod
-    def _extract_entity_id(value: Any) -> str | None:
-        """Extract entity ID from a config value that may be plain string or {item: ...} dict.
-
-        The frontend serializes ``kind=\"item\"`` fields through ``serializeItem()``,
-        which stores them as ``{item: \"entity_id\"}`` dicts.
-        """
-        if isinstance(value, dict):
-            return value.get("item")
-        return value
-
-    @staticmethod
     def _looks_like_entity_id(value: str) -> bool:
         return value.startswith("media_player.") and "." in value
 
-    def start_page(self) -> None:
+    def prepare(self) -> None:
         self._title = ""
-        self._items: list[HAUIEntity] = []
         self._media_item: HAUIItem | None = None
         self._group_items: list[str] = []
         self._sonos_favorites: HAUIItem | None = None
@@ -152,7 +150,6 @@ class MediaPage(HAUIPage):
         self._media_favorites: list[str] = []
         self._media_title = ""
         self._media_interpret = ""
-        self._media_channel = ""
         self._handle_scrolling: str | None = None
         self._handle_progress: str | None = None
 
@@ -182,48 +179,22 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.fnc_right_pri,
             media_state_btn,
         )
-        # the volume slider is a function component; pressing the set_volume
-        # function button triggers the value read via a read request
-        self.add_read_callback(self.COMPONENTS.h_volume, self.process_volume)
-        # sonos favorites item
-        sonos_favorites = None
-        sonos_favorites_value = panel.get("sonos_favorites", None)
-        sonos_favorites_id = self._extract_entity_id(sonos_favorites_value)
-        if sonos_favorites_id:
-            self.log(f"setting sonos_favorites {sonos_favorites_id}")
-            sonos_favorites = HAUIItem(self.app, {"item": sonos_favorites_id})
-        self._sonos_favorites = sonos_favorites
+        # the volume slider is a drag control: swipes are suppressed while it
+        # is dragged and its value is read once the touch ends
+        self.bind_slider(self.COMPONENTS.h_volume, self.process_volume)
+        self._sonos_favorites = self._item_from_ref(panel.get("sonos_favorites", None))
         # sonos favorites in source popup
         self._sonos_favorites_in_source = panel.get(
             "sonos_favorites_in_source", self._sonos_favorites_in_source
         )
-        # media favorites — plain entity ID strings from config
-        self._media_favorites = []
-        temp_media_favorites = panel.get("media_favorites", [])
-        for fav in temp_media_favorites:
-            entity_id = self._extract_entity_id(fav)
-            if entity_id:
-                self._media_favorites.append(entity_id)
-        # set group items — plain entity ID strings from config
-        self._group_items = []
-        temp_group_items = panel.get("group_items", [])
-        if len(temp_group_items) > 0:
-            for group_item in temp_group_items:
-                entity_id = self._extract_entity_id(group_item)
-                if entity_id:
-                    self._group_items.append(entity_id)
+        # media favorites and group items — plain entity ID strings from config
+        self._media_favorites = self._entity_ids(panel.get("media_favorites", []))
+        self._group_items = self._entity_ids(panel.get("group_items", []))
         # set item
-        item = None
-        entity_id = panel.get("item_id", None) or self._extract_entity_id(panel.get("item", None))
-        if entity_id:
-            item = HAUIItem(self.app, {"item": entity_id})
-        self._items = []
+        item = self._item_from_ref(panel.get("item_id", None) or panel.get("item", None))
         self.set_media_item(item)
         # set title
-        title = panel.get_title(self.translate("Media"))
-        if item is not None:
-            title = item.get_item_attr("friendly_name", title)
-        self._title = title
+        self._title = self._panel_title(panel, item, self.translate("Media"))
 
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
@@ -253,106 +224,48 @@ class MediaPage(HAUIPage):
         self._media_item = item
         if not item or not item.has_item_id():
             return
-        supported_features = item.get_item_attr("supported_features", 0)
         # Single listener on all attributes: HA batches media metadata updates
         # (title, artist, position, ...) into one state_changed event where the
         # primary state often stays "playing", which caused per-attribute
         # listeners to miss song changes on streaming sources like Sonos.
         self.add_item_listener(item.get_item_id(), self.callback_media_entity, attribute="all")
         # media icon
-        source = False
-        if supported_features & MediaPlayerFeatures.SELECT_SOURCE:
-            source = True
-        if source:
+        if item.supports(F.SELECT_SOURCE):
             self.on_release(self.COMPONENTS.t_icon, self.callback_select_source)
-        # play button
-        play = False
-        if (
-            supported_features & MediaPlayerFeatures.PAUSE
-            or supported_features & MediaPlayerFeatures.PLAY
-        ):
-            play = True
-        self.set_function_component(
-            self.COMPONENTS.btn_play,
-            self.COMPONENTS.btn_play[1],
-            "media_play",
-            icon=ICO_PLAY,
-            color=self.get_color("component_active"),
-            visible=play,
-        )
-        # volume buttons
-        volume_visible = False
-        if supported_features & MediaPlayerFeatures.VOLUME_SET:
-            volume_visible = True
-        self.set_function_component(
-            self.COMPONENTS.btn_vol_down,
-            self.COMPONENTS.btn_vol_down[1],
-            "volume_down",
-            icon=ICO_VOLUME_DOWN,
-            color=self.get_color("component_active"),
-            visible=volume_visible,
-        )
-        self.set_function_component(
-            self.COMPONENTS.btn_vol_up,
-            self.COMPONENTS.btn_vol_up[1],
-            "volume_up",
-            icon=ICO_VOLUME_UP,
-            color=self.get_color("component_active"),
-            visible=volume_visible,
+        # play and volume buttons
+        self._register_feature_buttons(
+            item,
+            (
+                (self.COMPONENTS.btn_play, "media_play", ICO_PLAY, F.PAUSE | F.PLAY),
+                (
+                    self.COMPONENTS.btn_vol_down,
+                    "volume_down",
+                    ICO_VOLUME_DOWN,
+                    F.VOLUME_SET,
+                ),
+                (self.COMPONENTS.btn_vol_up, "volume_up", ICO_VOLUME_UP, F.VOLUME_SET),
+            ),
         )
         self.set_function_component(
             self.COMPONENTS.h_volume,
-            self.COMPONENTS.h_volume[1],
+            self.COMPONENTS.h_volume.name,
             "set_volume",
-            visible=volume_visible,
+            visible=item.supports(F.VOLUME_SET),
         )
-        # prev button
-        prev_track = False
-        if supported_features & MediaPlayerFeatures.PREVIOUS_TRACK:
-            prev_track = True
-        self.set_function_component(
-            self.COMPONENTS.btn_prev,
-            self.COMPONENTS.btn_prev[1],
-            "media_prev",
-            icon=ICO_PREV,
-            color=self.get_color("component_active"),
-            visible=prev_track,
-        )
-        # next button
-        next_track = False
-        if supported_features & MediaPlayerFeatures.NEXT_TRACK:
-            next_track = True
-        self.set_function_component(
-            self.COMPONENTS.btn_next,
-            self.COMPONENTS.btn_next[1],
-            "media_next",
-            icon=ICO_NEXT,
-            color=self.get_color("component_active"),
-            visible=next_track,
-        )
-        # shuffle button
-        shuffle = False
-        if supported_features & MediaPlayerFeatures.SHUFFLE_SET:
-            shuffle = True
-        self.set_function_component(
-            self.COMPONENTS.btn_shuffle,
-            self.COMPONENTS.btn_shuffle[1],
-            "media_shuffle",
-            icon=ICO_SHUFFLE_DISABLED,
-            color=self.get_color("component_active"),
-            visible=shuffle,
-        )
-        # repeat button
-        repeat = False
-        if supported_features & MediaPlayerFeatures.REPEAT_SET:
-            repeat = True
-        self.set_function_component(
-            self.COMPONENTS.btn_repeat,
-            self.COMPONENTS.btn_repeat[1],
-            "media_repeat",
-            icon=ICO_REPEAT_OFF,
-            color=self.get_color("component_active"),
-            visible=repeat,
+        # track, shuffle and repeat buttons
+        self._register_feature_buttons(
+            item,
+            (
+                (self.COMPONENTS.btn_prev, "media_prev", ICO_PREV, F.PREVIOUS_TRACK),
+                (self.COMPONENTS.btn_next, "media_next", ICO_NEXT, F.NEXT_TRACK),
+                (
+                    self.COMPONENTS.btn_shuffle,
+                    "media_shuffle",
+                    ICO_SHUFFLE_DISABLED,
+                    F.SHUFFLE_SET,
+                ),
+                (self.COMPONENTS.btn_repeat, "media_repeat", ICO_REPEAT_OFF, F.REPEAT_SET),
+            ),
         )
         # progress bar
         # visibility will be set by timer calls when media is playing
@@ -365,21 +278,16 @@ class MediaPage(HAUIPage):
             value=0,
         )
         # source button
-        source = False
         source_list = item.get_item_attr("source_list", [])
-        if (
-            supported_features & MediaPlayerFeatures.SELECT_SOURCE
+        source = bool(
+            item.supports(F.SELECT_SOURCE)
             and len(source_list) > 0
             or (self._sonos_favorites is not None and self._sonos_favorites_in_source is True)
-        ):
-            source = True
+        )
         self.set_media_button(1, ICO_SELECT_SOURCE, self.translate("Source"), source)
         self.on_release(self.COMPONENTS.m1_overlay, self.callback_select_source)
         # group button
-        group = False
-        group_list = item.get_item_attr("group_list", [])
-        if supported_features & MediaPlayerFeatures.GROUPING and len(group_list) > 0:
-            group = True
+        group = bool(item.supports(F.GROUPING) and (self._get_group_members() or self._group_items))
         self.set_media_button(2, ICO_SELECT_GROUP, self.translate("Group"), group)
         self.on_release(self.COMPONENTS.m2_overlay, self.callback_select_group)
         # media button
@@ -390,6 +298,29 @@ class MediaPage(HAUIPage):
             media = True
         self.set_media_button(3, ICO_SELECT_MEDIA, self.translate("Media"), media)
         self.on_release(self.COMPONENTS.m3_overlay, self.callback_select_media)
+
+    def _register_feature_buttons(self, item: HAUIItem, buttons: tuple) -> None:
+        """Registers (component, fnc_name, icon, feature flags) buttons, visible when supported."""
+        color = self.get_color("component_active")
+        for component, fnc_name, icon, flags in buttons:
+            self.set_function_component(
+                component,
+                component.name,
+                fnc_name,
+                icon=icon,
+                color=color,
+                visible=item.supports(flags),
+            )
+
+    def _get_group_members(self) -> list[str]:
+        """Return the player's current group members.
+
+        HA reports ``group_members`` as ``None`` for a grouping-capable player
+        that isn't part of a group.
+        """
+        if self._media_item is None:
+            return []
+        return self._media_item.get_item_attr("group_members") or []
 
     def set_media_button(self, idx: int, icon: str, name: str, visible: bool = True) -> None:
         m_btn = getattr(self.COMPONENTS, f"m{idx}_btn")
@@ -444,7 +375,6 @@ class MediaPage(HAUIPage):
         self._media_interpret = media_interpret
         if len(self._media_interpret) > 30:
             self._media_interpret = f"{self._media_interpret} {get_icon('minus')} "
-        self._media_channel = media_channel
         self.set_component_text(self.COMPONENTS.t_icon, item.get_icon())
         self.set_component_text_color(self.COMPONENTS.t_icon, item.get_color())
         self.set_component_text(self.COMPONENTS.t_m_title, media_title)
@@ -471,126 +401,49 @@ class MediaPage(HAUIPage):
             return
         item = self._media_item
         state = item.get_item_state()
-        supported_features = item.get_item_attr("supported_features", 0)
-        queue_position = item.get_item_attr("queue_position", 0)
-        queue_size = item.get_item_attr("queue_size", 0)
+        # controls are enabled by supported_features alone: queue position and
+        # size are Sonos-only attributes, so other players have no queue info
+        colors = self.button_color_args(True)
         # shuffle
-        if supported_features & MediaPlayerFeatures.SHUFFLE_SET:
-            icon = None
-            touch_enabled = queue_size > 0
-            (
-                color,
-                color_pressed,
-                back_color,
-                back_color_pressed,
-            ) = self.get_button_colors(queue_size > 1)
-            shuffle = item.get_item_attr("shuffle")
-            if shuffle is False:
-                icon = ICO_SHUFFLE_DISABLED
-            elif shuffle is True:
-                icon = ICO_SHUFFLE
-            self.update_function_component(
-                self.COMPONENTS.btn_shuffle[1],
-                visible=True,
-                icon=icon,
-                touch=touch_enabled,
-                color=color,
-                color_pressed=color_pressed,
-                back_color_pressed=back_color_pressed,
-            )
-        else:
-            self.update_function_component(self.COMPONENTS.btn_shuffle[1], visible=False)
+        shuffle = item.get_item_attr("shuffle")
+        shuffle_icon = None
+        if shuffle is False:
+            shuffle_icon = ICO_SHUFFLE_DISABLED
+        elif shuffle is True:
+            shuffle_icon = ICO_SHUFFLE
+        self.update_supported_component(
+            self.COMPONENTS.btn_shuffle.name,
+            item.supports(F.SHUFFLE_SET),
+            icon=shuffle_icon,
+            **colors,
+        )
         # repeat
-        if supported_features & MediaPlayerFeatures.REPEAT_SET:
-            icon = None
-            touch_enabled = queue_size > 0
-            (
-                color,
-                color_pressed,
-                back_color,
-                back_color_pressed,
-            ) = self.get_button_colors(queue_size > 0)
-            repeat = item.get_item_attr("repeat")
-            if repeat == "all":
-                icon = ICO_REPEAT
-            elif repeat == "one":
-                icon = ICO_REPEAT_ONE
-            elif repeat == "off":
-                icon = ICO_REPEAT_OFF
-            self.update_function_component(
-                self.COMPONENTS.btn_repeat[1],
-                visible=True,
-                icon=icon,
-                touch=touch_enabled,
-                color=color,
-                color_pressed=color_pressed,
-                back_color_pressed=back_color_pressed,
-            )
-        else:
-            self.update_function_component(self.COMPONENTS.btn_repeat[1], visible=False)
+        self.update_supported_component(
+            self.COMPONENTS.btn_repeat.name,
+            item.supports(F.REPEAT_SET),
+            icon=self._REPEAT_ICONS.get(item.get_item_attr("repeat")),
+            **colors,
+        )
         # play, pause
-        if (
-            supported_features & MediaPlayerFeatures.PLAY
-            or supported_features & MediaPlayerFeatures.PAUSE
-        ):
-            play_icon = ICO_PAUSE if state == "playing" else ICO_PLAY
-            self.update_function_component(
-                self.COMPONENTS.btn_play[1], visible=True, icon=play_icon
-            )
-        else:
-            self.update_function_component(self.COMPONENTS.btn_play[1], visible=False)
-        # prev
-        if supported_features & MediaPlayerFeatures.PREVIOUS_TRACK:
-            prev_enabled = False
-            if queue_position > 1:
-                prev_enabled = True
-            (
-                color,
-                color_pressed,
-                back_color,
-                back_color_pressed,
-            ) = self.get_button_colors(prev_enabled)
-            self.update_function_component(
-                self.COMPONENTS.btn_prev[1],
-                visible=True,
-                touch=prev_enabled,
-                color=color,
-                color_pressed=color_pressed,
-                back_color_pressed=back_color_pressed,
-            )
-        else:
-            self.update_function_component(self.COMPONENTS.btn_prev[1], visible=False)
-        # next
-        if supported_features & MediaPlayerFeatures.NEXT_TRACK:
-            next_enabled = False
-            if queue_position < queue_size:
-                next_enabled = True
-            (
-                color,
-                color_pressed,
-                back_color,
-                back_color_pressed,
-            ) = self.get_button_colors(next_enabled)
-            self.update_function_component(
-                self.COMPONENTS.btn_next[1],
-                visible=True,
-                touch=next_enabled,
-                color=color,
-                color_pressed=color_pressed,
-                back_color_pressed=back_color_pressed,
-            )
-        else:
-            self.update_function_component(self.COMPONENTS.btn_next[1], visible=False)
+        self.update_supported_component(
+            self.COMPONENTS.btn_play.name,
+            item.supports(F.PLAY | F.PAUSE),
+            icon=ICO_PAUSE if state == "playing" else ICO_PLAY,
+        )
+        # prev, next
+        self.update_supported_component(
+            self.COMPONENTS.btn_prev.name, item.supports(F.PREVIOUS_TRACK), **colors
+        )
+        self.update_supported_component(
+            self.COMPONENTS.btn_next.name, item.supports(F.NEXT_TRACK), **colors
+        )
 
     def update_volume(self) -> None:
         if self._media_item is None:
             return
         item = self._media_item
-        supported_features = item.get_item_attr("supported_features", 0)
         volume = int(item.get_item_attr("volume_level", 0) * 100)
-        volume_visible = False
-        if supported_features & MediaPlayerFeatures.VOLUME_SET:
-            volume_visible = True
+        volume_visible = item.supports(F.VOLUME_SET)
         self.set_slider_color(self.COMPONENTS.h_volume)
         self.update_function_component(
             self.COMPONENTS.h_volume[1], value=volume, visible=volume_visible
@@ -637,10 +490,9 @@ class MediaPage(HAUIPage):
             return
         item = self._media_item
         state = item.get_item_state()
-        supported_features = item.get_item_attr("supported_features", 0)
         # power switch supported
-        if supported_features & MediaPlayerFeatures.TURN_ON:
-            icon = ICO_ENTITY_POWER
+        if item.supports(F.TURN_ON):
+            icon = ICO_POWER
             self.update_function_component(self.FNC_BTN_R_SEC, visible=True, icon=icon)
         elif state == "playing":
             icon = ICO_STOP
@@ -669,12 +521,6 @@ class MediaPage(HAUIPage):
         elif fnc_name == "media_shuffle":
             suffle = not item.get_item_attr("shuffle", False)
             item.call_item_service("shuffle_set", shuffle=suffle)
-        elif fnc_name == "media_prev":
-            item.call_item_service("media_previous_track")
-        elif fnc_name == "media_play":
-            item.call_item_service("media_play_pause")
-        elif fnc_name == "media_next":
-            item.call_item_service("media_next_track")
         elif fnc_name == "media_repeat":
             repeat = item.get_item_attr("repeat")
             if repeat == "off":
@@ -684,12 +530,8 @@ class MediaPage(HAUIPage):
             else:
                 repeat = "off"
             item.call_item_service("repeat_set", repeat=repeat)
-        elif fnc_name == "volume_down":
-            item.call_item_service("volume_down")
-        elif fnc_name == "volume_up":
-            item.call_item_service("volume_up")
-        elif fnc_name == "set_volume":
-            self.request_component_value(self.COMPONENTS.h_volume)
+        elif fnc_name in self._SIMPLE_SERVICES:
+            item.call_item_service(self._SIMPLE_SERVICES[fnc_name])
 
     def callback_select_source(self, event: HAUIEvent, component: Component) -> None:
         if self._media_item is None:
@@ -766,7 +608,7 @@ class MediaPage(HAUIPage):
         self.log(f"Got group callback: {component}")
         if self._media_item is None:
             return
-        group_members = self._media_item.get_item_attr("group_members", [])
+        group_members = self._get_group_members()
         navigation = self.app.controller["navigation"]
         item_map = {}
         items = []
@@ -828,7 +670,7 @@ class MediaPage(HAUIPage):
         self.log(f"Got group selection: {selection}")
         if self._media_item is None:
             return
-        group_members = self._media_item.get_item_attr("group_members", [])
+        group_members = self._get_group_members()
         # look for new group members
         new_group_members = []
         for value in selection:
@@ -855,23 +697,9 @@ class MediaPage(HAUIPage):
     # event
 
     def process_volume(self, volume: int) -> None:
-        if not self._in_read_callback:
-            self.log(
-                f"process_volume: value={volume} ignored "
-                f"(not from read_response — likely button_state leak)"
-            )
-            return
         self.log(f"Slider volume value {volume}")
         if self._media_item is None:
             return
         # value between 0 and 1 as float
         volume_level = volume / 100
         self._media_item.call_item_service("volume_set", volume_level=volume_level)
-
-    def process_power(self, power: int) -> None:
-        if self._media_item is None:
-            return
-        if self._media_item.get_item_state() == "on":
-            self._media_item.call_item_service("media_play")
-        else:
-            self._media_item.call_item_service("turn_on")

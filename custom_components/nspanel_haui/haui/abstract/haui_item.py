@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from ..mapping.const import InternalItemType
@@ -31,9 +32,9 @@ class HAUIItem(HAUIConfigAccess):
         cfg = {opt.key: opt.default for opt in ItemOptions.STANDARD_OPTIONS}
         if config is not None:
             merge_dicts(cfg, deepcopy(config))
-        # Strip empty value field so the runtime correctly falls through
-        # to entity-derived display values.
-        if not cfg.get("value"):
+        # Strip an empty value field so the runtime falls through to the
+        # entity-derived display value; 0 and False are real overrides.
+        if cfg.get("value") in (None, ""):
             cfg.pop("value", None)
         super().__init__(app, cfg)
         # type of item
@@ -71,7 +72,7 @@ class HAUIItem(HAUIConfigAccess):
                 break
         if self._internal:
             if ":" in item_id:
-                self._internal_data = "".join(item_id.split(":")[1:])
+                self._internal_data = item_id.split(":", 1)[1]
             self._dbg(
                 f"Item: {item_id} ->"
                 f" internal type={self._internal_type} data={self._internal_data!r}"
@@ -79,7 +80,7 @@ class HAUIItem(HAUIConfigAccess):
         else:
             self._item_id = item_id
             self._item_type = item_id.split(".")[0]
-            self._entity = HAUIEntity(self.app, item_id, config=self.config)
+            self._entity = HAUIEntity(self.app, item_id)
             self._dbg(f"Item: {item_id} -> external type={self._item_type}")
 
     def execute(self) -> None:
@@ -208,6 +209,19 @@ class HAUIItem(HAUIConfigAccess):
             return self._entity.get_entity_attr(attr, default)
         return default
 
+    def supports(self, flag: int) -> bool:
+        """Returns whether the entity advertises any bit of ``flag`` in ``supported_features``.
+
+        A missing entity has no attributes, so it supports nothing.
+
+        Args:
+            flag (int): Feature flag (or several OR-ed flags) to test
+
+        Returns:
+            bool: True if at least one of the flag bits is supported
+        """
+        return bool(self.get_item_attr("supported_features", 0) & flag)
+
     def get_item_state(self) -> str | None:
         """Returns the state of the entity, or None if unavailable.
 
@@ -244,6 +258,40 @@ class HAUIItem(HAUIConfigAccess):
         if self._entity is not None:
             self._entity.call_entity_service(service, **kwargs)
 
+    def is_stale(self, max_age_seconds: int) -> bool:
+        """Whether the entity behind this item has not updated for too long.
+
+        Pages use this to mark stale sensor readouts (dimmed text plus a
+        "…" suffix) so a wall panel does not silently pretend an old value
+        is current.  Internal items (navigate/action/text) have no entity
+        and are never stale.
+
+        Args:
+            max_age_seconds: Threshold in seconds.  0 or negative disables
+                the check entirely (returns False for every item).
+
+        Returns:
+            True when the item has an entity whose ``last_updated`` is older
+            than the threshold, False otherwise (no entity, unknown
+            timestamp, or threshold disabled).
+        """
+        if not max_age_seconds or max_age_seconds <= 0:
+            return False
+        if self._entity is None:
+            return False
+        entity = self.get_item()
+        if entity is None:
+            return False
+        last_updated = getattr(entity, "last_updated", None)
+        if last_updated is None:
+            return False
+        if getattr(last_updated, "tzinfo", None) is None:
+            now = datetime.now()
+        else:
+            now = datetime.now(UTC)
+        age = (now - last_updated).total_seconds()
+        return age > max_age_seconds
+
     def _resolve_state_field(self, key: str, default: str = "") -> str:
         """Resolve a config field that may be state-based (dict) or a template string.
 
@@ -261,6 +309,9 @@ class HAUIItem(HAUIConfigAccess):
         value = self.get(key, default)
         if isinstance(value, dict):
             value = value.get(self.get_item_state(), default)
+        # the editor stores numeric input (e.g. "42") as a number
+        if isinstance(value, int | float) and not isinstance(value, bool):
+            return str(value)
         if isinstance(value, str) and value:
             return self.render_template(value)
         return default
@@ -277,7 +328,7 @@ class HAUIItem(HAUIConfigAccess):
         if not value and self.is_internal() and self.get_internal_type() == "text":
             value = self.get_internal_data()
 
-        return value if value is not None else get_item_value(self, "")
+        return value or get_item_value(self, "")
 
     def get_name(self) -> str:
         """Returns the name of the entity.

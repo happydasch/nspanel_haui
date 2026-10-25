@@ -96,18 +96,6 @@ class ComponentMixin:
         component_color = self.parse_color(color)
         self.send_cmd(f"{component.name}.bco2={component_color}")
 
-    def set_component_password(self, component: Component, input_password: bool) -> None:
-        """Sets a text component to as a password input.
-
-        Args:
-            component (tuple): Component
-            input_password (bool): should input be used as a password input
-        """
-        if input_password:
-            self.send_cmd(f"{component.name}.pw=1")
-        else:
-            self.send_cmd(f"{component.name}.pw=0")
-
     def set_component_touch(self, component: Component, state: bool) -> None:
         """Sets a components touch events.
 
@@ -117,9 +105,7 @@ class ComponentMixin:
         """
         self.send_cmd(f"tsw {component.name},{int(state)}")
 
-    def add_component_callback(
-        self, component: Component, callback: Callable, drag: bool = False
-    ) -> None:
+    def add_component_callback(self, component: Component, callback: Callable) -> None:
         """Adds a callback for the given component (press events).
 
         **Prefer** ``on_release()`` on :class:`~haui.page.HAUIPage` for
@@ -133,23 +119,16 @@ class ComponentMixin:
         Args:
             component (tuple): Component
             callback (function): Callback
-            drag (bool): If True, treat the component as a drag control
-                (e.g. a slider).  The swipe gesture the drag produces is
-                suppressed (so dragging updates the value instead of
-                navigating), and the callback is deferred to TOUCH_END
-                because the Nextion only finalizes the slider's value once
-                the touch fully ends.
         """
         self._callbacks.append((component, callback))
-        if drag:
-            self.mark_drag_component(component)
 
     def mark_drag_component(self, component: Component) -> None:
         """Marks a component as a drag control (slider).
 
-        See ``add_component_callback`` for the behaviour this enables.  Use
-        this directly when the callback is registered elsewhere (e.g. a
-        slider exposed as a function component).
+        Marked components suppress the swipe gesture the drag produces and
+        defer the release callback to TOUCH_END.  Use this directly when the
+        callback is registered elsewhere (e.g. a slider exposed as a function
+        component); ``bind_slider`` does it for plain sliders.
 
         Args:
             component (tuple): Component

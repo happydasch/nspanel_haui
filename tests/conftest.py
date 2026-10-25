@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import types
 from datetime import UTC, datetime
@@ -17,23 +18,53 @@ from unittest.mock import MagicMock
 # ---------------------------------------------------------------------------
 
 
+def _slugify(text: str | None, *, separator: str = "_") -> str:
+    """Mirror of homeassistant.util.slugify for ASCII names (lowercase, runs of
+    non-alphanumerics collapsed to one separator, ends stripped, empty -> "unknown")."""
+    if not text:
+        return ""
+    slug = re.sub(r"[^a-z0-9]+", separator, text.lower()).strip(separator)
+    return slug or "unknown"
+
+
 def _install_ha_stubs() -> None:
     """Minimal homeassistant stubs so __init__.py can import."""
 
     config_validation = MagicMock()
     config_validation.empty_config_schema = MagicMock(return_value=MagicMock(spec_set=dict))
 
+    util = types.ModuleType("homeassistant.util")
+    util.slugify = _slugify
+
     helpers = types.ModuleType("homeassistant.helpers")
     helpers.__path__ = ["homeassistant.helpers"]
     helpers.config_validation = config_validation
 
+    # __init__.py lazily imports issue_registry for the Repairs integration
+    # (device startup failures / idle hub).  A plain MagicMock lets those
+    # calls succeed in tests without a running HA instance.
+    issue_registry = MagicMock()
+    issue_registry.IssueSeverity = type(
+        "IssueSeverity", (), {"ERROR": "error", "WARNING": "warning", "CRITICAL": "critical"}
+    )
+    helpers.issue_registry = issue_registry
+
     ha = types.ModuleType("homeassistant")
     ha.helpers = helpers
+    ha.util = util
+
+    # __init__.py lazily imports the Repairs platform (device startup
+    # failures), which imports homeassistant.data_entry_flow at module scope.
+    data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
+    data_entry_flow.FlowResult = dict
 
     stubs: dict[str, object] = {
         "homeassistant": ha,
         "homeassistant.helpers": helpers,
+        "homeassistant.util": util,
         "homeassistant.helpers.config_validation": config_validation,
+        "homeassistant.helpers.issue_registry": issue_registry,
+        "homeassistant.data_entry_flow": data_entry_flow,
         "homeassistant.const": MagicMock(),
         "homeassistant.core": MagicMock(),
         "homeassistant.components": MagicMock(),

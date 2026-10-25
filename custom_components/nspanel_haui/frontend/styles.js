@@ -161,21 +161,6 @@ export const editorStyles = css`
     min-width: 0;
     --mdc-menu-min-width: 200px;
   }
-  .device-name-static {
-    flex: 1 1 auto;
-    font-weight: 500;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding: 0 4px;
-  }
-  .device-name-static .device-name-count {
-    color: var(--secondary-text-color, #666);
-    font-weight: 400;
-    margin-left: 6px;
-    font-size: 0.85em;
-  }
-
   /* ── content card ────────────────── */
 
   .content-card {
@@ -194,13 +179,6 @@ export const editorStyles = css`
     margin-bottom: 18px;
   }
 
-  /* ── palette preview ───────────────── */
-  .palette-preview-row {
-    display: flex;
-    gap: 4px;
-    margin-top: 8px;
-    padding: 4px 0;
-  }
   .palette-swatch {
     flex: 1;
     height: 32px;
@@ -301,27 +279,6 @@ export const editorStyles = css`
   .strip-error {
     color: var(--error-color, #f44336);
   }
-  .strip-rssi-bars {
-    display: inline-flex;
-    align-items: end;
-    gap: 1.5px;
-    height: 11px;
-  }
-  .strip-rssi-bar {
-    width: 3px;
-    border-radius: 1px;
-    background: var(--disabled-text-color, #d0d0d0);
-    transition: background 0.3s ease;
-  }
-  .strip-rssi-bar:nth-child(1) { height: 3px; }
-  .strip-rssi-bar:nth-child(2) { height: 6px; }
-  .strip-rssi-bar:nth-child(3) { height: 9px; }
-  .strip-rssi-bar:nth-child(4) { height: 12px; }
-  .strip-rssi-bar.wifi-excellent { background: var(--success-color, #43a047); }
-  .strip-rssi-bar.wifi-good      { background: #7cb342; }
-  .strip-rssi-bar.wifi-fair      { background: var(--warning-color, #fb8c00); }
-  .strip-rssi-bar.wifi-weak      { background: var(--error-color, #e53935); }
-
   /* ── device info dialog: status card (top) ── */
   .di-status-card {
     display: flex;
@@ -427,6 +384,9 @@ export const editorStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .di-info-error .di-info-value {
+    color: var(--error-color, #db4436);
   }
   .di-mono {
     font-family: var(--font-family-monospace, "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace);
@@ -743,11 +703,14 @@ export const editorStyles = css`
     border-radius: 4px;
     white-space: nowrap;
   }
-  .info-chip-ip {
-    background: transparent;
-    padding: 1px 0;
+  .info-chip-warn {
+    background: color-mix(in srgb, var(--warning-color, #ffa600) 18%, transparent);
+    color: var(--primary-text-color, #212121);
   }
-
+  .info-chip-error {
+    background: color-mix(in srgb, var(--error-color, #db4436) 18%, transparent);
+    color: var(--primary-text-color, #212121);
+  }
   /* ── WiFi icon in title row ──────────── */
   .wifi-icon-head {
     --mdc-icon-size: 16px;

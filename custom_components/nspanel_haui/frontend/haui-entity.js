@@ -6,7 +6,7 @@
  * operates on plain strings since the frontend has no HA runtime access.
  */
 
-import { html } from './lit-import.js';
+import { html, nothing } from './lit-import.js';
 import { t } from './localize.js';
 import { positionPickerDropdown, createDropdownKeyboardController } from './dom-helpers.js';
 
@@ -41,16 +41,37 @@ function getDomains(entities) {
 
 /* ── entity picker field ───────────────────────────────────────────────── */
 
-export function renderEntityPicker(host, { id, value, label, hint, placeholder, hass, domain, onInput, onSelect }) {
-  const allEntities = Object.entries(hass?.states || {})
-    .filter(([entityId]) => !domain || entityId.startsWith(`${domain}.`))
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([entityId, state]) => ({
-      entityId,
-      name: state?.attributes?.friendly_name || entityId,
-    }));
+/** Sorted entity lists per `hass.states` object, then per domain filter. */
+const _entityListCache = new WeakMap();
 
-  const domains = getDomains(allEntities);
+/**
+ * The picker's sorted entities and their domains. HA replaces `hass.states` on
+ * every state change, so caching per states object lets all pickers rendered
+ * for one hass share a single sort.
+ */
+function entityListFor(states, domain) {
+  let byDomain = _entityListCache.get(states);
+  if (!byDomain) {
+    byDomain = new Map();
+    _entityListCache.set(states, byDomain);
+  }
+  const key = domain || '';
+  if (!byDomain.has(key)) {
+    const entities = Object.entries(states)
+      .filter(([entityId]) => !domain || entityId.startsWith(`${domain}.`))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([entityId, state]) => ({
+        entityId,
+        name: state?.attributes?.friendly_name || entityId,
+      }));
+    byDomain.set(key, { entities, domains: getDomains(entities) });
+  }
+  return byDomain.get(key);
+}
+
+export function renderEntityPicker({ id, value, label, hint, placeholder, hass, domain, onInput, onSelect }) {
+  const { entities: allEntities, domains } = entityListFor(hass?.states || {}, domain);
+  const dropdownId = `${id}-dropdown`;
   let activeDomain = '__all';
 
   const applyValue = (input, rawValue) => {
@@ -72,6 +93,11 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
   const hideDropdown = (wrap) => {
     const dropdown = wrap?.querySelector(".entity-dropdown");
     if (dropdown) dropdown.style.display = "none";
+    const input = wrap?.querySelector(".entity-picker-input");
+    if (input) {
+      input.setAttribute("aria-expanded", "false");
+      input.removeAttribute("aria-activedescendant");
+    }
     if (wrap) wrap._entityActiveIndex = -1;
   };
 
@@ -98,6 +124,12 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
       if (match) any = true;
     });
     dropdown.style.display = any ? "" : "none";
+    // The combobox state changes without a re-render, so sync the ARIA state
+    // on the live elements rather than binding it in the template.
+    if (input) {
+      input.setAttribute("aria-expanded", any ? "true" : "false");
+      input.removeAttribute("aria-activedescendant");
+    }
     if (any) positionPickerDropdown(dropdown, input);
     if (wrap) wrap._entityActiveIndex = -1;
   };
@@ -120,6 +152,11 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
       <input
         id=${id}
         class="entity-picker-input native-input"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded="false"
+        aria-autocomplete="list"
+        aria-controls=${dropdownId}
         .value=${value || ""}
         placeholder=${placeholder || (domain ? `${domain}.…` : "")}
         autocomplete="off"
@@ -172,11 +209,19 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
       </div>
       <div
         class="entity-dropdown"
+        id=${dropdownId}
+        role="listbox"
+        aria-labelledby=${label ? `${id}-label` : nothing}
         style="display:none;"
       >
-        ${allEntities.map((entity) => html`
+        ${allEntities.map((entity, i) => {
+          const optionId = `${dropdownId}-opt-${i}`;
+          return html`
           <div
             class="entity-dropdown-item"
+            id=${optionId}
+            role="option"
+            aria-selected="false"
             data-entity-id=${entity.entityId}
             data-entity-name=${entity.name}
             @mousedown=${(e) => {
@@ -190,7 +235,8 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
             <div class="entity-friendly-name">${entity.name}</div>
             <div class="entity-id">${entity.entityId}</div>
           </div>
-        `)}
+        `;
+        })}
       </div>
     </div>
   `;
@@ -198,7 +244,7 @@ export function renderEntityPicker(host, { id, value, label, hint, placeholder, 
   if (label || hint) {
     return html`
       <div class="form-group">
-        <label for=${id}>${label || ""}</label>
+        <label for=${id} id=${id}-label>${label || ""}</label>
         ${picker}
         ${hint ? html`<div class="field-hint">${hint}</div>` : ""}
       </div>

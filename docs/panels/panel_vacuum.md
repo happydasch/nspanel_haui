@@ -19,12 +19,12 @@ The popup variant (`popup_vacuum`) mirrors the main panel layout. It is used aut
 
 | Widget | Description |
 |--------|-------------|
-| **Action button** | Start cleaning (docked/idle) or pause (cleaning/returning). Icon changes dynamically. |
+| **Action button** | Start or resume cleaning (docked/idle/paused), or while cleaning/returning pause (if supported) or otherwise stop. Icon changes dynamically. |
 | **Home button** | Return to charging dock. Visible when the entity supports return home. Disabled when already docked. |
 | **Fan button** | Opens a fan speed selection popup. Visible when the entity supports fan speed. |
 | **Locate button** | Triggers the locate/sound alarm on the vacuum. Visible when the entity supports locate. |
 | **Status text** | Shows the current state label (e.g., "Cleaning", "Docked", "Returning", "Idle") |
-| **Battery indicator** | Header icon shows battery level. Visible when the entity reports battery level. |
+| **Battery indicator** | Header icon shows battery level. Visible when a battery sensor is configured. |
 | **Secondary items** | Up to 6 additional entity buttons below the main controls. |
 
 ## How to configure
@@ -32,6 +32,7 @@ The popup variant (`popup_vacuum`) mirrors the main panel layout. It is used aut
 In the **panel editor**, set:
 
 - **Item** (entity picker) — A vacuum entity to control. Required.
+- **Battery Sensor** (entity picker) — Optional sensor entity reporting the battery level. Home Assistant deprecated the `battery_level` and `battery_icon` attributes on vacuum entities, so this sensor replaces them.
 - **Secondary Items** (item list) — Up to 6 additional entities to display as quick-action tiles below the vacuum controls. Useful for sensors (e.g., filter status, mop state) or toggles.
 
 ## Display Behavior
@@ -39,4 +40,4 @@ In the **panel editor**, set:
 - The **title** defaults to the entity's friendly name.
 - Buttons are shown or hidden based on the entity's supported features.
 - Start/pause/stop icon changes dynamically based on the vacuum state.
-- The battery icon is shown in the header when the entity reports battery level.
+- The battery icon is shown in the header when a battery sensor is configured. The icon follows the sensor's `icon` attribute when set, otherwise its level in 10 % steps. Without a battery sensor no battery icon is shown.

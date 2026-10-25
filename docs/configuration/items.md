@@ -20,7 +20,7 @@ Items are configured entirely through the panel editor's **item editor** in the 
 |-------------|-------------|
 | `item`      | The HA entity ID (e.g. `sensor.temperature`) or internal keyword. The entity picker shows available entities; for keywords, choose from the type selector. |
 | `name`      | Display name override; defaults to the entity's `friendly_name`. Accepts plain text, a JSON object (state-keyed mapping), or a template. |
-| `value`     | Display value override; defaults to the entity's state. Typed field — accepts integers, floats, JSON objects (state-keyed mapping), JSON arrays, or a template. |
+| `value`     | Display value override; defaults to the entity's state. Typed field — accepts integers, floats, JSON objects (state-keyed mapping), or a template. |
 | `icon`      | Icon override; defaults to the entity's icon. Uses an icon picker with `mdi:` names, a JSON object (state-keyed mapping), or a template. |
 | `color`     | Color override; defaults to a type-based color. Text input with a native color picker — accepts hex (`#rrggbb`), RGB triplet (`[r,g,b]`), RGB565 integer (0–65535), a JSON object (state-keyed mapping), or a template. |
 | `state`     | State override; defaults to the entity's `state`. Typed field — an attribute name (string) or a JSON array for nested attribute access. |
@@ -47,14 +47,13 @@ Overrides the display name. Supported formats:
 
 ### Item value
 
-Overrides the displayed value. This is a **typed field** in the editor — values are parsed through `parseFieldValue`:
+Overrides the displayed value. This is a **typed field** in the editor:
 
 - **Integer or float** — typed directly (e.g. `42`, `3.14`).
 - **JSON object** (state-keyed) — a mapping from entity state values to display values:
   ```json
   {"home": "At home", "not_home": "Away"}
   ```
-- **JSON array** — a list of values.
 - **String** — used as-is.
 - **Template** — a Home Assistant template prefixed with `template:` or enclosed in `{{ ... }}`.
 
@@ -70,7 +69,7 @@ Overrides the entity icon. The editor provides an icon picker with a searchable 
   The JSON string is shown in the text input field; the icon preview falls back to the puzzle icon.
 - **Template** — a Home Assistant template enclosed in `{{ ... }}`.
 
-[Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)
+[Icons Cheatsheet](../cheatsheet.html)
 
 ### Item color
 
@@ -92,11 +91,10 @@ are shown below the input for quick selection.
 ### Template support
 
 name, value, icon and colour support Home Assistant templates. Template values use the
-`{{ ... }}` enclosure syntax:
+`{{ ... }}` / `{% ... %}` syntax (the older `template:` prefix still works):
 
-- **`{{ ... }}`** — rendered as a live preview in the editor when a Home Assistant
-  instance is connected. Both `template:` prefix and `{{ ... }}` syntax are treated
-  identically by the Python backend, but only `{{ ... }}` triggers editor-side preview.
+- **`{{ ... }}`** — rendered on the display, and as a live preview in the editor when a Home
+  Assistant instance is connected.
 
 Templates that contain `mdi:` icons will have those icons replaced with their unicode
 representations on the display.
@@ -136,3 +134,18 @@ scripts.
 
 `popup_key` — a string containing the panel key of a popup configuration. When the item is
 tapped, the specified popup panel opens instead of the default popup for the item's entity type.
+This works for any item, including entity types that have no default popup — for example
+`popup_timer`, which has no entity type of its own.
+
+Default popups by entity type:
+
+| Entity type | Popup |
+|-------------|-------|
+| `light` | `popup_light` |
+| `media_player` | `popup_media_player` |
+| `vacuum` | `popup_vacuum` |
+| `cover` | `popup_cover` |
+| `climate` | `popup_climate` |
+| `alarm_control_panel` | `popup_alarm` |
+
+Items of other types run their default action (toggle, press, ...) when tapped.

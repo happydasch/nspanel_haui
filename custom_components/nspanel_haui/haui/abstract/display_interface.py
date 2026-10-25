@@ -4,7 +4,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from ..abstract.component import Component
 from ..mapping.const import ESPCommand
 
 if TYPE_CHECKING:
@@ -41,9 +40,8 @@ class ESPHomeTransport:
 class DisplayInterface:
     """High-level interface for Nextion display commands.
 
-    The interface mirrors the public methods that existed on :class:`haui.base.HAUIBase`
-    (``set_component_text``/``set_component_value``/``send_cmd``/``send_cmds``).  It delegates to a
-    transport object that implements :class:`DisplayTransport`.
+    Offers ``send_cmd``/``send_cmds`` and delegates to a transport object that
+    implements :class:`DisplayTransport`.
     """
 
     transport: DisplayTransport
@@ -88,13 +86,3 @@ class DisplayInterface:
                     exc_info=True,
                 )
                 raise
-
-    def set_component_text(self, component: Component, text: str) -> None:
-        if not component:
-            return
-        self.send_cmd(f'{component.name}.txt="{str(text)}"')
-
-    def set_component_value(self, component: Component, value: int) -> None:
-        if not component:
-            return
-        self.send_cmd(f"{component.name}.val={int(value)}")

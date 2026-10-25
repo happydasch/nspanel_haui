@@ -26,15 +26,25 @@ DEVICE_CONFIG: dict[str, Any] = {
     "esphome_device_id": "",  # ESPHome device ID when matched to an existing ESPHome device
     "enabled": True,  # device can be disabled to hide from runtime without deleting config
     "locale": "en_US",
+    # time/date formatting (empty = inherit the hub-level default from DEFAULT_CONFIG)
+    "time_format": "",
+    "date_format": "",
+    "date_format_locale": "",
     # hardware buttons
     "button_left_entity": "",
     "button_right_entity": "",
     # navigation
     "home_panel": "",  # panel key of the home panel (empty = none set)
-    "sleep_panel": "",  # panel key of the sleep panel (empty = none set)
-    "wakeup_panel": "",  # panel key of the wakeup panel (empty = none set)
+    # Idle page: the destination of automatic page switching
+    # (use_auto_page).  It is a *navigation* target only - the display-off
+    # state is a separate behavior (use_auto_display_off) and never requires a
+    # page switch or a hardware sleep session.
+    "idle_panel": "",  # panel key of the idle page (empty = none set)
+    # Comma-separated panel keys cycled through on repeated entries (carousel).
+    # The first page shown is idle_panel, then each entry advances to the next.
+    "idle_panel_extra": "",
     "show_home_button": False,
-    "show_sleep_button": False,
+    "show_idle_button": False,
     "show_notifications_button": True,
     # page settle delay (seconds)
     # After receiving the page-change confirmation (esphome.page event), wait
@@ -46,37 +56,86 @@ DEVICE_CONFIG: dict[str, Any] = {
     # logging
     "log_items": False,
     "debug_level": 0,
+    # stale-data indicator: when an entity value has not updated for this many
+    # seconds, pages render it dimmed with a "…" suffix.  0 = off (default).
+    "stale_data_seconds": 0,
+    # Gesture sequences: swipes that arrive in order within ``timeframe``
+    # seconds open the panel ``open``; see haui/controller/gesture.py.
+    # Each entry: {"sequence": ["swipe_left", "swipe_right"], "timeframe": 3, "open": "<panel key>"}
+    "gesture_sequences": [],
     # interaction
     "reset_interaction_on_button": True,
-    "snapshot_max_age_seconds": -1,  # -1 = no limit, 0 = never restore, >0 = max age in seconds
-    # (legacy keys return_to_home_after_seconds, always_return_to_home are
-    #  still accepted for backward compat)
+    # snapshot restore limit: -1 = no limit, 0 = never restore, >0 = max age in seconds
+    "snapshot_max_age_seconds": -1,
     # hub-side idle timeout (seconds, 0 = disabled).
     # Fallback when the device doesn't publish esphome.timeout events
-    # (e.g., use_auto_sleeping is OFF on the device).
+    # (e.g., use_auto_page is OFF on the device).
     "hub_idle_timeout": 0,
     # auto-navigate-home timeout (seconds, 0 = disabled).
     # When >0, after this many seconds of inactivity on any non-home panel,
     # the hub navigates back to the home panel automatically. Should be set
-    # shorter than any sleep/dim timeout to take effect before the display
-    # sleeps.
+    # shorter than any display-off/dim timeout to take effect before the display
+    # turns off.
     "auto_navigate_home_timeout": 0,
     "use_relay_left": True,
     "use_relay_right": True,
     "use_auto_dimming": True,
     "use_auto_page": True,
-    "use_auto_sleeping": True,
+    "use_auto_display_off": True,
     "timeout_dimming": 10,
     "timeout_page": 30,
-    "timeout_sleep": 120,
+    "timeout_display_off": 120,
+    # Display-off schedule: when enabled, use_auto_display_off follows the clock.
+    # Inside the window below auto-off stays allowed (display turns off after
+    # timeout_display_off); outside it the display never turns off automatically.
+    # The schedule overrides the use_auto_display_off toggle while active.  Uses
+    # the same wall-clock semantics as the quiet-hours window (overnight ranges
+    # supported).  This is the native replacement for automations that toggle
+    # switch.<device>_use_auto_display_off - the hub drives that switch by clock.
+    "use_sleep_schedule": False,
+    "sleep_schedule_start": "",
+    "sleep_schedule_end": "",
     "sound_on_startup": True,
     # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
     "color_overrides": {},
     "sound_on_notification": True,
+    "persistent_sound_interval": 5,  # seconds between repeats for persistent notifications
     "use_do_not_disturb": False,  # toggle to enable quiet hours
     "quiet_hours_start": "",  # empty = disabled, format "HH:MM" (24h)
     "quiet_hours_end": "",  # empty = disabled, format "HH:MM"
+    # Hardware display model: the NSPanel is sold as an EU model (landscape
+    # display) and a US model whose display is mounted portrait or landscape.
+    # The update controller picks the matching TFT asset for this device.
+    "display_model": "eu",
 }
+
+# GitHub-release TFT asset name for each display model.  Any landscape mount
+# (including a US panel mounted landscape) uses the default landscape layout;
+# only the US portrait mount needs the rotated asset.
+DISPLAY_MODEL_TFT_FILENAME: dict[str, str] = {
+    "eu": "nspanel_haui.tft",
+    "us": "nspanel_haui_portrait.tft",
+}
+
+
+def tft_filename_for_model(display_model: str | None, default: str = "nspanel_haui.tft") -> str:
+    """Return the TFT asset filename the given display model needs.
+
+    Args:
+        display_model: The device's ``display_model`` value.  Unknown or empty
+            values (e.g. a fresh config before the option ships) fall back to
+            the landscape TFT so existing installs keep updating.
+        default: Filename to return for unknown models.
+
+    Returns:
+        str: TFT filename, e.g. ``nspanel_haui_portrait.tft`` for ``us``.
+    """
+    return DISPLAY_MODEL_TFT_FILENAME.get(str(display_model or "").lower(), default)
+
+
+def is_portrait_model(display_model: str | None) -> bool:
+    """Return whether ``display_model`` runs the rotated portrait TFT layout."""
+    return tft_filename_for_model(display_model) == DISPLAY_MODEL_TFT_FILENAME["us"]
 
 # Fields synced from store to device config.
 # Derived from DEVICE_CONFIG keys, excluding meta-fields that have separate
@@ -87,27 +146,13 @@ DEVICE_CONFIG_FIELDS: list[str] = [
 
 
 def resolve_snapshot_max_age(cfg: dict[str, Any]) -> int:
-    """Resolve ``snapshot_max_age_seconds`` from *cfg*, falling back to legacy keys.
+    """Resolve the snapshot restore limit from *cfg*.
 
-    Legacy mapping:
-      - ``return_to_home_after_seconds`` (old): 0 = no limit (always restore)
-      - ``snapshot_max_age_seconds`` (new): -1 = no limit, 0 = never restore, >0 = max age
-
-    Convert: old_value 0 → new -1; old_value >0 stays the same.
-    Also merges in ``always_return_to_home``: when True, snapshot max age becomes 0.
+    -1 = no limit (always restore), 0 = never restore, >0 = max age in
+    seconds after which the idle-page exit falls back to the home panel.
     """
-    if "snapshot_max_age_seconds" in cfg:
-        val = cfg["snapshot_max_age_seconds"]
-        if cfg.get("always_return_to_home", False):
-            return 0
-        return val
-    # Legacy path
-    if cfg.get("always_return_to_home", False):
-        return 0
-    legacy_val = cfg.get("return_to_home_after_seconds", 0)
-    if legacy_val == 0:
-        return -1  # no limit
-    return legacy_val
+    value = cfg.get("snapshot_max_age_seconds", -1)
+    return -1 if value is None else value
 
 
 def validate_config(cfg: dict[str, Any]) -> None:

@@ -1,19 +1,22 @@
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "nspanel-haui"
 # Version kept in sync with custom_components/nspanel_haui/manifest.json (source of truth)
-version = "0.3.0"
+version = "0.4.0"
 description = "NSPanel HAUI custom integration for Home Assistant"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 
 [project.urls]
 Homepage = "https://github.com/happydasch/nspanel_haui"
 Documentation = "https://happydasch.github.io/nspanel_haui/"
 Repository = "https://github.com/happydasch/nspanel_haui"
 Issues = "https://github.com/happydasch/nspanel_haui/issues"
+
+[tool.setuptools.packages.find]
+include = ["custom_components*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -29,7 +32,7 @@ namespace_packages = true
 files = "custom_components/nspanel_haui/haui"
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 100
 
 [tool.ruff.lint]

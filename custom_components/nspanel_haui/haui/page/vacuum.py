@@ -15,10 +15,33 @@ from ..mapping.icons import (
     ICO_HOME,
     ICO_LOCATE,
     ICO_PAUSE,
-    ICO_START,
+    ICO_PLAY,
     ICO_STOP,
 )
 from ..utils.icon import get_icon
+
+BATTERY_ICON_STEP = 10
+
+
+def _battery_icon_name(level: Any) -> str:
+    """Returns the MDI battery icon name for a level in percent.
+
+    Battery sensors rarely set an ``icon`` attribute of their own — Home
+    Assistant computes the battery icon at display time — so the level is
+    mapped onto the MDI 10 % steps instead.
+
+    Args:
+        level (Any): Battery level in percent (number or numeric string)
+
+    Returns:
+        str: Icon name, e.g. ``mdi:battery-90``
+    """
+    try:
+        pct = max(0.0, min(100.0, float(level)))
+    except (TypeError, ValueError):
+        return "mdi:battery"
+    step = int(round(pct / BATTERY_ICON_STEP)) * BATTERY_ICON_STEP
+    return f"mdi:battery-{step}"
 
 
 class VacuumPage(HAUIPage):
@@ -34,6 +57,16 @@ class VacuumPage(HAUIPage):
                 kind="item",
                 domain="vacuum",
                 description=_("Vacuum robot entity for starting, stopping and returning to dock."),
+                section=_("Vacuum"),
+            ),
+            PageOption(
+                key="battery_sensor",
+                kind="item",
+                domain="sensor",
+                description=_(
+                    "Optional sensor entity reporting the battery level. "
+                    "Replaces the vacuum entity's deprecated battery attributes."
+                ),
                 section=_("Vacuum"),
             ),
             PageOption(
@@ -70,8 +103,11 @@ class VacuumPage(HAUIPage):
 
     NUM_ENTITIES = 6
 
+    _SIMPLE_SERVICES = {"locate": "locate", "return_home": "return_to_base"}
+
     _title = ""
     _vacuum_item: HAUIItem | None = None
+    _battery_item: HAUIItem | None = None
 
     # panel
 
@@ -90,23 +126,18 @@ class VacuumPage(HAUIPage):
             self.COMPONENTS.fnc_right_pri,
             vacuum_battery,
         )
-        # set item
-        item = None
-        entity_id = panel.get("item_id")
-        if entity_id:
-            item = HAUIItem(self.app, {"item": entity_id})
-        items = self._build_items_from_panel(panel, "items")
-        if len(items) > 0:
-            first_item = items.pop(0)
-            if item is None:
-                item = first_item
-        self._items = items
+        item = self._resolve_panel_item(panel)
+        self._items = self._build_items_from_panel(panel, "items")
+        self.listen_items(self._items, self.update_item_buttons)
+        # optional battery sensor: vacuum entities no longer report the
+        # battery_level / battery_icon attributes (deprecated in Home Assistant)
+        battery_sensor = panel.get("battery_sensor", None)
+        if isinstance(battery_sensor, list):
+            battery_sensor = battery_sensor[0] if battery_sensor else None
+        self._battery_item = self._item_from_ref(battery_sensor)
         self.set_vacuum_item(item)
         # set title
-        title = panel.get_title(self.translate("Vacuum"))
-        if item is not None:
-            title = item.get_item_attr("friendly_name", title)
-        self._title = title
+        self._title = self._panel_title(panel, item, self.translate("Vacuum"))
 
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
@@ -118,59 +149,36 @@ class VacuumPage(HAUIPage):
 
     def set_vacuum_item(self, item: HAUIItem | None) -> None:
         self._vacuum_item = item
+        # the battery sensor is independent of the vacuum entity
+        if self._battery_item is not None and self._battery_item.has_item_id():
+            self.add_item_listener(
+                self._battery_item.get_item_id(), self.callback_battery_entity
+            )
         if not item or not item.has_item_id():
             return
-        # add listener
+        # add listener (vacuum entities report their activity as the state)
         self.add_item_listener(item.get_item_id(), self.callback_vacuum_entity)
-        self.add_item_listener(item.get_item_id(), self.callback_vacuum_entity, attribute="status")
-        # use features of vacuum
-        features = item.get_item_attr("supported_features", 0)
         # fan button
-        fan = False
-        if features & VacuumFeatures.FAN_SPEED:
-            fan = True
         self.set_function_component(
             self.COMPONENTS.btn_fan,
             self.COMPONENTS.btn_fan.name,
             "fan",
             color=self.get_color("component_active"),
             icon=ICO_FAN,
-            visible=fan,
+            visible=item.supports(VacuumFeatures.FAN_SPEED),
         )
-        # start/stop button
-        action = False
-        if features & VacuumFeatures.START:
-            action = True
-        self.set_function_component(
-            self.COMPONENTS.btn_action,
-            self.COMPONENTS.btn_action.name,
-            "action",
-            icon=ICO_START,
-            visible=action,
-        )
-        # return home button
-        return_home = False
-        if features & VacuumFeatures.RETURN_HOME:
-            return_home = True
-        self.set_function_component(
-            self.COMPONENTS.btn_home,
-            self.COMPONENTS.btn_home.name,
-            "return_home",
-            icon=ICO_HOME,
-            visible=return_home,
-        )
-        # locate button
-        locate = False
-        if features & VacuumFeatures.LOCATE:
-            locate = True
-        self.set_function_component(
-            self.COMPONENTS.btn_locate,
-            self.COMPONENTS.btn_locate.name,
-            "locate",
-            icon=ICO_LOCATE,
-            visible=locate,
-        )
-        # item buttons
+        for component, fnc_name, icon, flag in (
+            (self.COMPONENTS.btn_action, "action", ICO_PLAY, VacuumFeatures.START),
+            (self.COMPONENTS.btn_home, "return_home", ICO_HOME, VacuumFeatures.RETURN_HOME),
+            (self.COMPONENTS.btn_locate, "locate", ICO_LOCATE, VacuumFeatures.LOCATE),
+        ):
+            self.set_function_component(
+                component, component.name, fnc_name, icon=icon, visible=item.supports(flag)
+            )
+        self.update_item_buttons()
+
+    def update_item_buttons(self) -> None:
+        """Draw the secondary item buttons (icon and state colour)."""
         total_items = len(self._items)
         for i in range(self.NUM_ENTITIES):
             visible = False
@@ -195,75 +203,68 @@ class VacuumPage(HAUIPage):
 
     def update_vacuum_item(self) -> None:
         self.set_component_text(self.COMPONENTS.title, self._title)
+        self.update_battery()
         if self._vacuum_item is None:
             return
         item = self._vacuum_item
         state = item.get_item_state()
-        features = item.get_item_attr("supported_features", 0)
-        # battery
-        if features & VacuumFeatures.BATTERY:
-            battery_icon = item.get_item_attr("battery_icon", ICO_BATTERY)
-            self.update_function_component(
-                self.FNC_BTN_R_SEC, icon=get_icon(battery_icon), visible=True
-            )
         # status text
-        status_text = self.translate_state(item.get_item_type() or "", state or "")
+        status_text = item.translate_item_state()
         self.set_component_text(self.COMPONENTS.t_status, status_text)
         # pause/start/stop button
-        active = False
         pause, start, stop = False, False, False
-        icon = ICO_START
         if state in ["cleaning", "returning"]:
-            start = False
-            if features & VacuumFeatures.PAUSE:
-                pause = True
-            if features & VacuumFeatures.STOP:
-                stop = True
-        elif state in ["docked", "idle"]:
-            if features & VacuumFeatures.START:
-                start = True
+            pause = item.supports(VacuumFeatures.PAUSE)
+            stop = item.supports(VacuumFeatures.STOP)
+        # vacuum.start resumes a paused vacuum
+        elif state in ["docked", "idle", "paused"]:
+            start = item.supports(VacuumFeatures.START)
         active = True
         if start:
-            icon = ICO_START
+            icon = ICO_PLAY
         elif pause:
             icon = ICO_PAUSE
         elif stop:
             icon = ICO_STOP
         else:
-            icon = ICO_START
+            icon = ICO_PLAY
             active = False
-        color, color_pressed, back_color, back_color_pressed = self.get_button_colors(active)
         self.update_function_component(
             self.COMPONENTS.btn_action.name,
             touch=active,
-            color=color,
-            color_pressed=color_pressed,
             icon=icon,
-            back_color_pressed=back_color_pressed,
+            **self.button_color_args(active),
         )
         # home button
-        active = False
-        if state != "docked":
-            active = True
-        color, color_pressed, back_color, back_color_pressed = self.get_button_colors(active)
+        active = state != "docked"
         self.update_function_component(
-            self.COMPONENTS.btn_home.name,
-            touch=active,
-            color=color,
-            color_pressed=color_pressed,
-            back_color_pressed=back_color_pressed,
+            self.COMPONENTS.btn_home.name, touch=active, **self.button_color_args(active)
         )
         # locate button
-        active = False
-        if features & VacuumFeatures.LOCATE:
-            active = True
-        color, color_pressed, back_color, back_color_pressed = self.get_button_colors(active)
+        active = item.supports(VacuumFeatures.LOCATE)
         self.update_function_component(
             self.COMPONENTS.btn_locate.name,
             touch=active,
-            color=self.get_color("component_accent"),
-            color_pressed=color_pressed,
-            back_color_pressed=back_color_pressed,
+            **{**self.button_color_args(active), "color": self.get_color("component_accent")},
+        )
+
+    def update_battery(self) -> None:
+        """Updates the header battery icon.
+
+        The icon comes from the configured battery sensor; without one no
+        battery icon is shown.  The vacuum entity's ``battery_level`` /
+        ``battery_icon`` attributes are deprecated in Home Assistant and are
+        never read.
+        """
+        if self._battery_item is None or not self._battery_item.has_item_id():
+            return
+        icon = self._battery_item.get_item_attr("icon", None)
+        if not icon:
+            icon = _battery_icon_name(self._battery_item.get_item_state())
+        if icon is None:
+            return
+        self.update_function_component(
+            self.FNC_BTN_R_SEC, icon=get_icon(icon), visible=True
         )
 
     # callback
@@ -274,55 +275,52 @@ class VacuumPage(HAUIPage):
         # header
         item = self._vacuum_item
         state = self._vacuum_item.get_item_state()
-        # fan
         if fnc_name == "fan":
-            navigation = self.app.controller["navigation"]
-            current = item.get_item_attr("fan_speed", "")
-            selection = item.get_item_attr("fan_speed_list", [])
-            speeds = []
-            for value in selection:
-                name = self.translate_state("vacuum", value, attr="fan_speed")
-                speeds.append({"name": name, "value": value})
+            speeds = [
+                {"name": self.translate_state("vacuum", value, attr="fan_speed"), "value": value}
+                for value in item.get_item_attr("fan_speed_list", [])
+            ]
             if len(speeds) > 0:
-                navigation.open_panel(
+                self.app.controller["navigation"].open_panel(
                     SysPanelKey.POPUP_SELECT,
                     title=self.translate("Select Fan Speed"),
                     items=speeds,
-                    selected=current,
+                    selected=item.get_item_attr("fan_speed", ""),
                     selection_callback_fnc=self.callback_fan_speed,
                     close_on_select=True,
                 )
-        # start
         elif fnc_name == "action":
             if state in ["cleaning", "returning"]:
-                if fnc_id == self.COMPONENTS.btn_action.name:
-                    item.call_item_service("pause")
-                else:
-                    item.call_item_service("stop")
+                # same preference as the icon: pause if supported, else stop
+                item.call_item_service("pause" if item.supports(VacuumFeatures.PAUSE) else "stop")
             else:
                 item.call_item_service("start")
-        # locate
-        elif fnc_name == "locate":
-            item.call_item_service("locate")
-        # return home
-        elif fnc_name == "return_home":
-            item.call_item_service("return_to_base")
-        # item
+        elif fnc_name in self._SIMPLE_SERVICES:
+            item.call_item_service(self._SIMPLE_SERVICES[fnc_name])
         elif fnc_name == "item":
             item = self._fnc_items[fnc_id]["fnc_args"].get("item")
             if item is not None:
-                item.execute()
+                self.execute_item(item)
         else:
             self.log(f"{fnc_id}, {fnc_name}")
 
     def callback_vacuum_entity(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
     ) -> None:
-        if attribute in ["state", "status"]:
+        if attribute == "state":
             with self.rec_cmd:
                 self.update_vacuum_item()
         else:
             self.log(f"Unknown vacuum item attribute: {attribute}")
+
+    def callback_battery_entity(
+        self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
+    ) -> None:
+        if attribute == "state":
+            with self.rec_cmd:
+                self.update_battery()
+        else:
+            self.log(f"Unknown battery sensor attribute: {attribute}")
 
     def callback_fan_speed(self, selection: Any) -> None:
         if self._vacuum_item is None:

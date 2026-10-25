@@ -9,17 +9,17 @@ description: QR Code panel — display Wi-Fi QR codes, URLs, or custom text
 
 ## About
 
-The QR code panel displays a QR code, for example for Wi-Fi network access. It can show two different sizes: a large QR code when no entities are configured, or a smaller QR code with entity information on the other half.
+The QR code panel displays a QR code, for example for Wi-Fi network access. It can show two different sizes: a large QR code, or a smaller QR code with network info or item values on the other half.
 
 - Tapping the QR code toggles between big and small sizes.
-- When the big QR code is displayed, the display will not turn off.
-- Entity values longer than 15 characters are split across two lines.
+- When the big QR code is shown by tapping the QR code, the display will not turn off (auto-dimming and auto-page are paused). The header zoom button toggles the size without changing these.
+- Item values longer than 19 characters continue on a second line.
 
 ## How to configure
 
 In the **panel editor**, set:
 
-### ESSID and Password
+### WiFi SSID and WiFi password
 
 Enter the Wi-Fi network name (SSID) and password as text fields. The integration automatically builds the QR code in the standard Wi-Fi format:
 
@@ -27,14 +27,14 @@ Enter the Wi-Fi network name (SSID) and password as text fields. The integration
 WIFI:S:<SSID>;T:WPA;P:<PASSWORD>;;
 ```
 
-### Start with Big QR (toggle)
+### Show big code (toggle)
 
 When enabled, the panel starts with the QR code displayed large. Default: Off.
 
-### Show Text (toggle)
+### Show network info (toggle)
 
-When enabled and no entities are configured, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle controls visibility — big QR hides the text, small QR reveals it. Default: On.
+When enabled and no text items are configured, the SSID and password are shown as plain text labels alongside the QR code. The zoom toggle controls visibility — big QR hides the text, small QR reveals it. Default: On.
 
-### Entities
+### Text items
 
-You can add entities to display alongside the QR code. When entities are configured, the QR code appears smaller on one side with entity information on the other.
+You can add up to 2 items to display alongside the QR code. When items are configured, they replace the network info text: the QR code appears smaller on one side with the item values on the other.

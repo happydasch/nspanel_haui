@@ -44,11 +44,11 @@ class SettingsPage(HAUIPage):
     # panel
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        name = self.app.device.get_name().lower().replace("-", "_").replace(" ", "_")
+        name = self.app.device.get_slug()
 
         # auto dimming component
         self.auto_dimming = self.app.get_item(f"switch.{name}_use_auto_dimming")
-        self._use_auto_dimming = self.auto_dimming.get_state()
+        self._use_auto_dimming = self.auto_dimming.get_state() == "on"
         self.auto_dimming.turn_off()
 
         # brightness components
@@ -138,7 +138,7 @@ class SettingsPage(HAUIPage):
     # callback
 
     def callback_brightness(
-        self, item: str, attribute: str, old: Any, new: Any, **cb_args: Any
+        self, item: str, attribute: str, old: Any, new: Any, kwargs: Any
     ) -> None:
         self.log(f"Got brightness callback: {item}.{attribute}:{new}")
         # callback from ha
@@ -158,24 +158,12 @@ class SettingsPage(HAUIPage):
     # event
 
     def process_brightness_full(self, value: int) -> None:
-        if not self._in_read_callback:
-            self.log(
-                f"process_brightness_full: value={value} ignored "
-                f"(not from read_response — likely button_state leak)"
-            )
-            return
         self.log(f"Slider full brightness value {value}")
         if self._full_brightness != value:
             self._full_brightness = value
             self.brightness_full_entity.set_state(state=value)
 
     def process_brightness_dim(self, value: int) -> None:
-        if not self._in_read_callback:
-            self.log(
-                f"process_brightness_dim: value={value} ignored "
-                f"(not from read_response — likely button_state leak)"
-            )
-            return
         self.log(f"Slider dimmed brightness value {value}")
         if self._dimmed_brightness != value:
             self._dimmed_brightness = value

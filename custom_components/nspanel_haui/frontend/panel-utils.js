@@ -39,10 +39,11 @@ export function computeFilteredPanels(panels, systemPanelKeys) {
  * @param {object} p - the panel config object
  * @param {Array} panels - the full panels array
  * @param {boolean} isNavPanel - whether the panel is in the navigation group
+ * @param {Set} systemPanelKeys - keys of system panels, whose overrides are not listed
  * @returns {{ pIdx: number, canMoveUp: boolean, canMoveDown: boolean }}
  */
-export function getPanelMoveState(p, panels, isNavPanel) {
-  const { navPanels, hiddenPanels } = computeFilteredPanels(panels);
+export function getPanelMoveState(p, panels, isNavPanel, systemPanelKeys) {
+  const { navPanels, hiddenPanels } = computeFilteredPanels(panels, systemPanelKeys);
   const matchByKey = (x) => p.key && x.key === p.key;
   const pIdx = p.key ? panels.findIndex(matchByKey) : panels.indexOf(p);
   const navIdx = p.key ? navPanels.findIndex(matchByKey) : navPanels.indexOf(p);
@@ -53,8 +54,8 @@ export function getPanelMoveState(p, panels, isNavPanel) {
 }
 
 /**
- * Build badge icons for home/sleep/wakeup panel designations and the
- * system-panel "edited" marker.
+ * Build badge icons for home/idle panel designations and the system-panel
+ * "edited" marker.
  * @param {object} p - panel config
  * @param {object} dc - device config
  * @param {boolean} [hasOverride] - render the edited badge for system panels
@@ -64,8 +65,7 @@ export function renderBadges(p, dc, hasOverride = false) {
   const badges = [];
   if (!p.key) return badges;
   if (p.key === dc.home_panel) badges.push(html`<span class="pl-badge pl-badge-home" title=${t('Home panel')}><ha-icon icon="mdi:home-outline"></ha-icon></span>`);
-  if (p.key === dc.sleep_panel) badges.push(html`<span class="pl-badge pl-badge-sleep" title=${t('Sleep panel')}><ha-icon icon="mdi:weather-night"></ha-icon></span>`);
-  if (p.key === dc.wakeup_panel) badges.push(html`<span class="pl-badge pl-badge-wakeup" title=${t('Wakeup panel')}><ha-icon icon="mdi:weather-sunny"></ha-icon></span>`);
+  if (p.key === dc.idle_panel) badges.push(html`<span class="pl-badge pl-badge-idle" title=${t('Idle panel')}><ha-icon icon="mdi:weather-night"></ha-icon></span>`);
   if (hasOverride) badges.push(html`<span class="pl-badge pl-badge-edited" title=${t('Edited (overrides system default)')}><ha-icon icon="mdi:pencil"></ha-icon></span>`);
   return badges;
 }

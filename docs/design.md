@@ -5,10 +5,6 @@ description: Visual design guidelines for Nextion display panels
 
 # Design Guidelines
 
-## Overview
-
-You can download a [template file](assets/panel.psd) in PSD Format.
-
 ## Style
 
 The display is splitted into two areas, a top area and a main area.
@@ -34,23 +30,27 @@ flowchart TD
 
 The font [Roboto](https://github.com/googlefonts/roboto) and [MaterialDesign-Webfont](https://github.com/Templarian/MaterialDesign-Webfont) is being used.
 
+The display has eight fonts; the font ID (as used by `.font=` commands and the alarm keypad font option) grows with the size.
+
 Fonts for text
 
-- **Size 20** - Small Size - All icons / Text
-- **Size 24** - Default Size - All icons / Text
-- **Size 32** - Big Size - All icons / Text
-- **Size 48** - Bigger Size - All icons / Text
+- **ID 0, Size 20** - Small Size - All icons / Text
+- **ID 1, Size 24** - Default Size - All icons / Text
+- **ID 2, Size 32** - Big Size - All icons / Text
+- **ID 3, Size 48** - Bigger Size - All icons / Text
 
-Fonts for time / weather
+Fonts for time / weather / large values
 
-- **Size 96** - Only Limited Icons / Limited Text
-- **Size 128** - Only Limited Icons / Limited Text
+- **ID 4, Size 72** - Only Limited Icons / Limited Text
+- **ID 5, Size 96** - Only Limited Icons / Limited Text
+- **ID 6, Size 112** - Only Limited Icons / Limited Text
+- **ID 7, Size 128** - Only Limited Icons / Limited Text
 
 ## Icons
 
 The icons available can be viewed here:
 
-- [Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html) for a icon overview
+- [Icons Cheatsheet](cheatsheet.html) for an icon overview
 
 - [Pictogrammers](https://pictogrammers.com/library/mdi/) if you need the char of the source font
 
@@ -58,47 +58,77 @@ The icons available can be viewed here:
 
 The display is using these colors.
 
-- ![#181818](https://placehold.co/15x15/181818/181818.png) **Background Color**
+The dark theme steps up in brightness from the page to the header to the
+cards to a pressed card, on greys divisible by 8 so the display's 5/6/5-bit
+colour renders them neutral.
 
-  **RGB** `#181818` / 0x1b1b1b / [24, 24, 24]
+- **Background Color**
+
+  Both TFTs compile every solid widget on a content page with this colour
+  (`scripts/gen_portrait/theme.py`); only the header bar keeps the header
+  background.
+
+  **RGB** `#101010` / [16, 16, 16]
+  **RGB565** 4226
+
+- **Header Background**
+
+  **RGB** `#181818` / [24, 24, 24]
   **RGB565** 6339
 
-- ![#dedede](https://placehold.co/15x15/dedede/dedede.png) **Text**
+- **Text**
 
-  **RGB** `#dedede` / 0xdcdbdb / [222, 222, 222]
-  **RGB565** 57083
+  **RGB** `#e0e0e0` / [224, 224, 224]
+  **RGB565** 59164
 
-- ![#717171](https://placehold.co/15x15/717171/717171.png)**Text Inactive**
+- **Text Inactive / Entity Unavailable**
 
-  **RGB** `#717171` / 0x717171 / [113, 113, 113]
+  **RGB** `#737373` / [115, 115, 115]
   **RGB565** 29582
 
-- ![#313131](https://placehold.co/15x15/313131/313131.png) **Text Disabled**
+- **Text Disabled / Component Pressed**
 
-  **RGB** `#313131` / 0x313131 / [49, 49, 49]
+  **RGB** `#313131` / [49, 49, 49]
   **RGB565** 12678
 
-- ![#ffffff](https://placehold.co/15x15/ffffff/ffffff.png) **Component**
+- **Component Text / Header Text**
 
-  **RGB** `#ffffff` / 0xffffff / [255, 255, 255]
+  **RGB** `#ffffff` / [255, 255, 255]
   **RGB565** 65535
 
-- ![#4ba6ee](https://placehold.co/15x15/4ba6ee/4ba6ee.png) **Component Active**
+- **Component Active**
 
   Button Text Action, Active Slider
 
-  **RGB8** `#4ba6ee` / 0x4ba6ee / [75, 166, 238]
+  **RGB** `#4aa5ee` / [74, 165, 238]
   **RGB565** 19773
 
-- ![#f09d37](https://placehold.co/15x15/f09d37/f09d37.png) **Component Accent**
+- **Component Active Dark**
 
-  **RGB** `#f09d37` / 0xf09d37 / [240, 157, 55]
+  **RGB** `#3b86c3` / [59, 134, 195]
+  **RGB565** 15416
+
+- **Component Accent / Header Accent**
+
+  **RGB** `#f69d31` / [246, 157, 49]
   **RGB565** 62694
 
-- ![#4c4c4c](https://placehold.co/15x15/4c4c4c/4c4c4c.png) **Component Background**
+- **Component Background**
 
-  **RGB** `#4c4c4c` / 0x4c4c4c / [76, 76, 76]
-  **RGB565** 38066
+  Cards, tiles and slider tracks
+
+  **RGB** `#282828` / [40, 40, 40]
+  **RGB565** 10565
+
+- **Entity On**
+
+  **RGB** `#fdd835` / [253, 216, 53]
+  **RGB565** 65222
+
+- **Entity Off**
+
+  **RGB** `#44739e` / [68, 115, 158]
+  **RGB565** 17299
 
 ## Header
 
@@ -109,7 +139,7 @@ Outlined icons should be used, use only component_accent color. Only use other c
 
 Creating a new display panel type involves a pipeline from design through implementation, registration, and documentation. The steps below describe the end-to-end process.
 
-### Step 1 — Design in Nextion IDE
+### Step 1 — Design in Nextion Editor
 
 Start by editing `nextion/nspanel_haui.HMI` in the Nextion Editor:
 
@@ -127,12 +157,12 @@ Generate a readable text dump of the HMI file to map Nextion widgets to Python `
 ```bash
 python scripts/nextion2text/Nextion2Text.py \
     -i nextion/nspanel_haui.HMI \
-    -o ref_src/nextion-out-visual \
+    -o build/nextion-out/landscape \
     -d -s -p visual
 ```
 
 - `-i` — path to the `.HMI` file
-- `-o` — output folder (one `.txt` file per Nextion page); `ref_src/` is git-ignored
+- `-o` — output folder (one `.txt` file per Nextion page); `build/` is git-ignored
 - `-d` — clear the output folder first so stale files don't linger
 - `-s` — also write a stats summary file (component/event counts)
 - `-p visual` — include visual properties (position, size, colors) needed for preview layout
@@ -163,13 +193,13 @@ class YourPanelPage(HAUIPage):
         options=[
             PageOption(
                 key="some_option",
-                kind="text",
+                kind="str",
                 description=_("Some configurable option."),
             ),
         ],
     )
 
-    components = HAUIPage.components.merge(
+    COMPONENTS = HAUIPage.COMPONENTS.merge(
         title=Component(2, "tTitle"),
         some_widget=Component(7, "bSomeWidget"),
         # ... map all widgets from the HMI dump
@@ -186,8 +216,8 @@ class YourPanelPage(HAUIPage):
     def render_panel(self, panel: HAUIPanel) -> None:
         """Send display commands. Use rec_cmd for batching."""
         with self.rec_cmd:
-            self.set_component_text(self.components.title, "Hello")
-            self.set_component_value(self.components.some_widget, 1)
+            self.set_component_text(self.COMPONENTS.title, "Hello")
+            self.set_component_value(self.COMPONENTS.some_widget, 1)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         """Cleanup: unregister callbacks, restore state.
@@ -210,8 +240,8 @@ Use the `rec_cmd` context manager to batch display commands:
 
 ```python
 with self.rec_cmd:
-    self.set_component_text(self.components.title, "Hello")
-    self.set_component_value(self.components.some_widget, 42)
+    self.set_component_text(self.COMPONENTS.title, "Hello")
+    self.set_component_value(self.COMPONENTS.some_widget, 42)
     self.send_cmd("click button1,1")
 ```
 
@@ -233,7 +263,7 @@ _page_classes: list[type] = [
 ]
 ```
 
-If the panel has a popup variant, add a `popup_<name>` alias in the `popup_aliases` dict in the same file.
+If the panel has a popup variant, set `popup_alias_for="<parent_type_key>"` (different class on the same Nextion page) or `can_show_popup=True` on its `DESCRIPTOR`; no manual registration is needed.
 
 ### Step 5 — Preview Renderer
 
@@ -283,7 +313,7 @@ Brief description of what this panel does.
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `some_option` | text | Some configurable option |
+| `some_option` | str | Some configurable option |
 
 ## Display Layout
 
@@ -326,7 +356,7 @@ See [Services Reference](services.md) for TFT upload instructions.
 
 | Step | File(s) | Action |
 |------|---------|--------|
-| 1 | `nextion/nspanel_haui.HMI` | Edit in Nextion IDE |
+| 1 | `nextion/nspanel_haui.HMI` | Edit in Nextion Editor |
 | 2 | — | Run `nextion2text` to inspect widget IDs |
 | 3 | `custom_components/nspanel_haui/haui/page/<yourpanel>.py` | **Create** |
 | 4 | `custom_components/nspanel_haui/haui/mapping/panel.py` | Edit (import + register) |

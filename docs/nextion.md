@@ -39,17 +39,16 @@ The Sonoff NSPanel Nextion display has the following physical touch characterist
 
 The display is 480 pixels wide, but the LCD bezel hides the rightmost 30 pixels. Touch coordinates in that band (x = 450..479) are valid but no pixels are visible there.
 
-This is relevant for edge-based gesture detection — swipe-from-right gestures (swipe left) start in the non-visible zone. The ESPHome gesture logic in `scripts_interaction.yaml` uses the full `screen_w` (480) for its right-border check, which naturally includes the non-visible zone.
+This is relevant for edge-based gesture detection — swipe-from-right gestures (swipe left) start in the non-visible zone. The ESPHome gesture logic in `scripts_interaction.yaml` uses `visible_width` (450 in landscape, 320 in portrait) for its right-border check (in landscape a swipe starting at x > 410 counts as a right-edge start, using a 40px margin), so touches in the non-visible zone also count as right-edge starts.
 
-This project uses the ESPHome `nextion` display component with a hardware UART and the following key options:
+This project uses the stock ESPHome `nextion` display component (no custom or patched component; ESPHome 2026.10 or later) with a hardware UART and the following key options:
 
 - `uart_id`: references the UART bus used for the Nextion display.
-- `wake_up_page`: the page shown when the display wakes up.
+- `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. Hardware sleep only happens without a hub connection; with a hub the display stays awake (at brightness 0) and the hub restores the panel itself.
 - `tft_url`: URL used by `upload_tft` to update the TFT file.
 - `on_setup`: triggered after ESPHome connects to the Nextion.
 - `on_page`: triggered when the display changes pages.
 - `on_touch`: triggered when a touch event happens.
-- `on_sleep` / `on_wake`: triggered when the display sleeps or wakes.
 
 ### Advanced queue tuning options
 
@@ -68,6 +67,8 @@ The repo also exposes these actions via API:
 - `send_command`
 - `set_brightness`
 - `goto_page`
+- `send_commands`
+- `display_off`
 
 This project also handles Nextion runtime issues such as buffer overflow using the `on_buffer_overflow` automation.
 When a buffer overflow is detected, the display logs the warning and publishes a `buffer_overflow` event so the app can react or retry safely.
@@ -116,7 +117,7 @@ After the ack the hub waits an additional settle delay (default `0.1s`, configur
 
 #### Buffer overflow recovery
 
-If the Nextion reports a buffer overflow (0x24), the hub debounces a full `display_panel` re-render with a 500ms delay to let the ESPHome queue drain any remaining commands before re-sending the complete panel state. This is a safety net — normal operation should not trigger overflows given the HA-layer batching.
+If the Nextion reports a buffer overflow (0x24), the hub debounces a full `display_panel` re-render, starting at a 500ms delay (doubling for each consecutive overflow, and pausing after 5 consecutive recoveries until the display has been overflow-free for 30s), to let the ESPHome queue drain any remaining commands before re-sending the complete panel state. This is a safety net — normal operation should not trigger overflows given the HA-layer batching.
 
 ## How to edit the HMI file
 
@@ -131,6 +132,11 @@ If you want to process any click events, you need to enable `Send Component ID` 
 If you want to interact with any component on the display, the component id and objectname is required. They are being used and are defined in the Hub App.
 
 When changing order of components on a page, be aware, that the id of the components will change.
+
+> ✍️ **Maintainers:** a step-by-step, human-oriented guide for editing the HMI
+> in the Nextion Editor — adding widgets/pages, fonts & images, and creating
+> or updating the US portrait TFT — lives in
+> [Nextion Editor (Human Guide)](nextion-editor.md).
 
 ## Scripts for display
 

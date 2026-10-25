@@ -38,10 +38,10 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
-  # Should auto-sleeping be used
+  # Should the display turn off automatically after the display-off timeout
   - platform: template
-    name: Use Auto-Sleeping
-    id: use_auto_sleeping
+    name: Use Auto Display-Off
+    id: use_auto_display_off
     entity_category: config
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true

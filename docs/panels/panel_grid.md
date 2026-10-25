@@ -9,7 +9,7 @@ description: Grid panel — multi-entity tiles with color overrides and paginati
 
 ## About
 
-The grid panel shows up to 6 entities as large tiles in a scrollable layout. Each tile displays the entity name, icon, and state. If more than 6 entities are configured, a next-page button appears for scrolling.
+The grid panel shows up to 6 entities as large tiles in a scrollable layout. Each tile displays the entity name and an icon whose color reflects the state. If more than 6 entities are configured, a next-page button appears for scrolling.
 
 This panel is a great starting point for grouping lights, switches, sensors, and scenes on a single screen.
 

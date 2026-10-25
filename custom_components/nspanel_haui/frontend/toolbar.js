@@ -16,13 +16,10 @@ import {
   selectDevice,
   renderDeviceManagerButton,
 } from './device-manager.js';
+import { writeStorage } from './dom-helpers.js';
 import { renderPanelDropdown } from './panel-table.js';
 import { readNetworkInfo } from './network-info.js';
 import { getConnectionStateClass, getConnectionStateLabel } from './device-info.js';
-
-/* ── re-exports for haui-editor.js ─────────────────────────────────────────── */
-
-export { selectDevice } from './device-manager.js';
 
 /* ── title header ────────────────────────────────────────────────────────── */
 
@@ -31,7 +28,7 @@ export { selectDevice } from './device-manager.js';
  * Only shown on narrow viewports; always present in the template
  * but evaluates to empty string when host.narrow is false.
  */
-export function renderMenuButton(host) {
+function renderMenuButton(host) {
   if (!host.narrow) return "";
   return html`
     <ha-icon-button
@@ -59,17 +56,13 @@ export function renderTitleHeader(host) {
   `;
 }
 
-/* ── device manager button ─────────────────────────────────────────────── */
-
-export { renderDeviceManagerButton };
-
 /* ── device selector ─────────────────────────────────────────────────────── */
 
 /**
  * Render a device selector dropdown. Always shows as a dropdown so users
  * can see device names even when only one device exists.
  */
-export function renderDeviceSelector(host) {
+function renderDeviceSelector(host) {
   if (!host._panels) return "";
   const displayNames = getDeviceKeys(host);
   if (displayNames.length === 0) return "";
@@ -123,7 +116,7 @@ export function renderDeviceInfoStrip(host) {
         <span class="strip-label">${label}</span>
       </span>
       ${ip && !host.narrow ? html`
-        <span class="info-strip-item" title="IP: ${ip}">
+        <span class="info-strip-item" title=${t('IP: {ip}').replace('{ip}', ip)}>
           <ha-icon icon="mdi:ip-network-outline" class="strip-icon"></ha-icon>
           <span class="strip-label strip-mono">${ip}</span>
         </span>
@@ -228,7 +221,7 @@ export function renderToolbarActions(host) {
           @click=${() => {
             if (!isGrid) {
               host._viewMode = 'grid';
-              localStorage.setItem('haui_viewMode', 'grid');
+              writeStorage('haui_viewMode', 'grid');
               host.requestUpdate();
             }
           }}
@@ -242,7 +235,7 @@ export function renderToolbarActions(host) {
           @click=${() => {
             if (isGrid) {
               host._viewMode = 'list';
-              localStorage.setItem('haui_viewMode', 'list');
+              writeStorage('haui_viewMode', 'list');
               host.requestUpdate();
             }
           }}

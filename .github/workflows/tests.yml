@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.14"]
 
     steps:
       - uses: actions/checkout@v7
@@ -33,8 +33,29 @@ jobs:
       - name: Build docs
         run: mkdocs build --strict
 
+      - name: Check icon cheatsheet is up to date
+        run: |
+          python3 scripts/gen_fonts/gen_cheatsheet.py
+          git diff --exit-code -- docs/cheatsheet.html
+
       - name: Run tests
         run: pytest tests/
 
       - name: Run ruff
         run: ruff check custom_components/
+
+      - name: Run mypy
+        run: mypy
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: Run frontend tests
+        run: node --test 'tests/frontend/*.test.mjs'

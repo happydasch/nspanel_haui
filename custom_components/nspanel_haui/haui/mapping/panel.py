@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..abstract.component import ComponentRegistry
+from ..abstract.haui_page import HAUIPage
 from ..page.about import AboutPage
 from ..page.alarm import AlarmPage
 from ..page.blank import BlankPage
@@ -22,7 +23,7 @@ from ..page.unlock import UnlockPage
 from ..page.vacuum import VacuumPage
 from ..page.weather import WeatherPage
 from ..utils.text import get_translation
-from .descriptor import PageDescriptor
+from .descriptor import PageDescriptor, PageOption
 
 # ── Page class registry ──────────────────────────────────────────────────
 
@@ -76,9 +77,11 @@ def _build_panel_mapping() -> dict[str, tuple[str, type]]:
             mapping[d.type_key] = (d.popup_alias_for, cls)
         # 2) Non-system pages with can_show_popup — same class, popup_<name>
         elif d.can_show_popup and not d.is_system:
-            page_name = d.page_name
-            alias_key = "popup_media_player" if page_name == "media" else f"popup_{page_name}"
-            mapping[alias_key] = (page_name, cls)
+            # pages for an entity domain are popped up by that domain's popup key;
+            # the timer has no domain and is addressed as popup_<page_name>
+            domain = next((o.domain for o in d.options if o.key == "item"), None)
+            alias_key = HAUIPage.DEFAULT_POPUPS.get(domain or "", f"popup_{d.page_name}")
+            mapping[alias_key] = (d.page_name, cls)
         # 3) System popup pages (notify, select) — sys_panel_default key
         elif d.is_system and d.sys_panel_default:
             sys_key = d.sys_panel_default.get("key", "")
@@ -195,6 +198,24 @@ def _serialize_components(cls: type) -> list[dict]:
     return [{"id": c.id, "name": c.name} for c in reg.values()]
 
 
+def _serialize_option(o: PageOption, language: str) -> dict:
+    """Serialize one PageOption for the editor, with its texts translated."""
+    return {
+        "key": o.key,
+        "kind": o.kind,
+        "default": o.default,
+        "label": get_translation(o.label, language) if o.label else None,
+        "description": get_translation(o.description, language) if o.description else None,
+        "domain": o.domain,
+        "section": get_translation(o.section, language) if o.section else None,
+        "max_items": o.max_items,
+        "allow_template": o.allow_template,
+        "choices": [
+            {"value": k, "label": get_translation(lbl, language)} for k, lbl in (o.choices or [])
+        ],
+    }
+
+
 def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
     """Return serialized descriptors for user-visible (non-system, non-popup) panel types.
 
@@ -213,27 +234,9 @@ def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
                     "icon": d.icon,
                     "has_header": d.has_header,
                     "can_show_popup": d.can_show_popup,
-                    "item_options": d.item_options,
+                    "item_options": [_serialize_option(o, language) for o in d.item_options],
                     "components": _serialize_components(cls),
-                    "options": [
-                        {
-                            "key": o.key,
-                            "kind": o.kind,
-                            "default": o.default,
-                            "label": get_translation(o.label, language) if o.label else None,
-                            "description": get_translation(o.description, language)
-                            if o.description
-                            else None,
-                            "domain": o.domain,
-                            "section": get_translation(o.section, language) if o.section else None,
-                            "max_items": o.max_items,
-                            "choices": [
-                                {"value": k, "label": get_translation(lbl, language)}
-                                for k, lbl in (o.choices or [])
-                            ],
-                        }
-                        for o in d.options
-                    ],
+                    "options": [_serialize_option(o, language) for o in d.options],
                 }
             )
     return sorted(result, key=lambda x: x["label"])

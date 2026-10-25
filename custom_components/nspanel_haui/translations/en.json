@@ -1,0 +1,141 @@
+{
+  "config": {
+    "flow_title": "NSPanel HAUI ({count} device(s) discovered)",
+    "step": {
+      "user": {
+        "title": "Add NSPanel HAUI Hub"
+      },
+      "confirm": {
+        "title": "NSPanel HAUI devices discovered",
+        "description": "Found {count} ESPHome device(s) running HAUI firmware: {names}. Add them to a new NSPanel HAUI hub?"
+      }
+    },
+    "abort": {
+      "already_configured": "A hub with this name is already configured",
+      "already_in_progress": "A hub configuration is already in progress",
+      "single_instance_allowed": "Only one NSPanel HAUI hub is supported",
+      "no_devices_found": "No NSPanel HAUI devices were detected. Install the HAUI firmware on an ESPHome device first."
+    }
+  },
+  "issues": {
+    "device_start_failed": {
+      "title": "Device failed to start: {device}",
+      "description": "NSPanel HAUI could not start device {device}.\n\nThe error was: `{error}`.\n\nUse the fix to retry starting the device, or check the logs for details.",
+      "fix_flow": {
+        "step": {
+          "reload": {
+            "title": "Reload hub",
+            "description": "Reload the NSPanel HAUI hub configuration to retry starting device {device}."
+          }
+        },
+        "flow_title": "Retry starting device {device}"
+      }
+    },
+    "hub_idle": {
+      "title": "NSPanel HAUI hub has no enabled devices",
+      "description": "The hub {hub} has no enabled devices.\n\nEnable at least one device in the NSPanel HAUI editor, or add a new ESPHome device running the HAUI firmware. New HAUI devices can be added to the hub automatically."
+    }
+  },
+  "services": {
+    "open_panel": {
+      "name": "Open panel",
+      "description": "Navigate to a specific panel.  If wakeup is enabled the display wakes first.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "Target NSPanel device. If omitted, applies to all devices."
+        },
+        "panel": {
+          "name": "Panel",
+          "description": "Panel key or UUID to navigate to (e.g. 'alarm', 'grid_0')."
+        },
+        "wakeup": {
+          "name": "Wake up first",
+          "description": "Wake the display before opening the panel."
+        }
+      }
+    },
+    "close_panel": {
+      "name": "Close panel",
+      "description": "Close the current panel and return to the previous or home panel.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "Target NSPanel device. If omitted, applies to all devices."
+        }
+      }
+    },
+    "wakeup": {
+      "name": "Wake up",
+      "description": "Wake the display and navigate to the wakeup or home panel.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "Target NSPanel device. If omitted, applies to all devices."
+        }
+      }
+    },
+    "idle": {
+      "name": "Idle",
+      "description": "Enter the idle state immediately by opening the configured idle page (idle_panel), as if the page timeout had fired.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "Target NSPanel device. If omitted, applies to all devices."
+        }
+      }
+    },
+    "send_notification": {
+      "name": "Send notification",
+      "description": "Show a notification on the panel with a title, message and icon.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "Target NSPanel device. If omitted, applies to all devices."
+        },
+        "title": {
+          "name": "Title",
+          "description": "Notification title shown on the panel."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Notification body text."
+        },
+        "icon": {
+          "name": "Icon",
+          "description": "Material Design Icon shown with the notification (e.g. 'mdi:bell')."
+        },
+        "timeout": {
+          "name": "Timeout",
+          "description": "Seconds until auto-dismiss. 0 keeps it until dismissed."
+        },
+        "persistent": {
+          "name": "Persistent",
+          "description": "Require dismissal on the panel to stop the alert sound."
+        },
+        "type": {
+          "name": "Severity",
+          "description": "Severity level that affects the alert colour and sound."
+        },
+        "force_show": {
+          "name": "Force show",
+          "description": "Immediately open the notification even if another panel is displayed."
+        }
+      }
+    },
+    "reset_last_interaction": {
+      "name": "Reset last interaction",
+      "description": "Reset the panel idle timer as if the user just touched it.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "Target NSPanel device. If omitted, applies to all devices."
+        },
+        "offset": {
+          "name": "Offset",
+          "description": "Offset in seconds applied to the reset point."
+        }
+      }
+    }
+  }
+}

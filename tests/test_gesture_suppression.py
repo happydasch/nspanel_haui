@@ -28,20 +28,6 @@ class FakeComponentHost(ComponentMixin):
         self._drag_components = set()
 
 
-def test_drag_callback_marks_drag_component():
-    host = FakeComponentHost()
-    slider = Component(11, "hVertPos")
-    button = Component(8, "bUp")
-
-    host.add_component_callback(button, lambda *a: None)
-    host.add_component_callback(slider, lambda *a: None, drag=True)
-
-    assert slider.id in host._drag_components
-    assert button.id not in host._drag_components
-    # both callbacks are still registered for dispatch
-    assert len(host._callbacks) == 2
-
-
 def test_mark_drag_component_direct():
     """Sliders exposed as function components are marked directly."""
     host = FakeComponentHost()
@@ -176,7 +162,6 @@ def _bare_page(page_id=1):
     page._fnc_items = {}
     page._read_callbacks = {}
     page._pending_read_request = None
-    page._in_read_callback = False
     page.send_esphome = lambda *a, **kw: page.app.sent_esphome.append((a, kw))
     return page
 
@@ -191,8 +176,7 @@ def test_slider_value_read_deferred_to_touch_end():
     def handler(v):
         calls.append(("handler", v))
 
-    page.add_component_callback(slider, lambda *a: None, drag=True)
-    page.add_read_callback(slider, handler)
+    page.bind_slider(slider, handler)
 
     # slider release (Nextion component event: page,component,release)
     page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, "1,13,0"))
@@ -229,8 +213,7 @@ def test_slider_read_flushes_via_fallback_timer():
     page = _bare_page()
     slider = Component(11, "hVertPos")
     calls = []
-    page.add_read_callback(slider, lambda v: calls.append(("handler", v)))
-    page.add_component_callback(slider, lambda *a: None, drag=True)
+    page.bind_slider(slider, lambda v: calls.append(("handler", v)))
 
     page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, "1,11,0"))
     assert calls == []
@@ -251,13 +234,31 @@ def test_non_drag_release_not_deferred():
     page = _bare_page()
     button = Component(8, "bUp")
     calls = []
-    page.add_component_callback(button, lambda *a: calls.append(a))
+    page.on_release(button, lambda e, c: calls.append(c))
 
     page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, "1,8,0"))
 
     # not a drag control -> no pending drag read, buffered instead
     assert page._pending_drag_callback is None
     assert page._queued_callback is not None
+
+
+def test_press_only_component_release_is_inert():
+    """A release on a press-only (``add_component_callback``) component is dropped.
+
+    Release dispatch is owned by the ``_callback_map`` registry; components
+    registered for press events only have no release handling.
+    """
+    page = _bare_page()
+    button = Component(9, "bGhosty")
+    calls = []
+    page.add_component_callback(button, lambda *a: calls.append(a))
+
+    page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, "1,9,0"))
+
+    assert page._queued_callback is None
+    assert page._buffer_timer is None
+    assert calls == []
 
 
 # --- press events must not fall through to release handling ----------------

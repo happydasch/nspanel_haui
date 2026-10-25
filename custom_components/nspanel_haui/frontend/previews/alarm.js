@@ -13,7 +13,7 @@ export function renderAlarmPreview(_host, _panel, _pIdx, _pt) {
   const keys = ['1','2','3','4','5','6','7','8','9',t('CLR'),'0',t('DEL')];
   return {
     content: html`
-      <div class="pg-preview-full-flex" style="gap:6px;align-items:stretch;padding:2px 0;">
+      <div class="pg-preview-full-flex pg-preview-alarm" style="gap:6px;align-items:stretch;padding:2px 0;">
         <div class="pg-preview-keypad-grid">
           ${keys.map(k => html`
             <div class="pg-preview-btn" style="width:100%;height:100%;"><span style="font-size:0.5em;font-weight:400;color:var(--secondary-text-color,#999);">${k}</span></div>
@@ -34,7 +34,7 @@ export function renderUnlockPreview(_host, _panel, _pIdx, _pt) {
   const keys = ['1','2','3','4','5','6','7','8','9',t('CLR'),'0',t('DEL')];
   return {
     content: html`
-      <div class="pg-preview-full-flex" style="gap:6px;align-items:stretch;padding:2px 0;">
+      <div class="pg-preview-full-flex pg-preview-alarm" style="gap:6px;align-items:stretch;padding:2px 0;">
         <div class="pg-preview-keypad-grid">
           ${keys.map(k => html`
             <div class="pg-preview-btn" style="width:100%;height:100%;"><span style="font-size:0.5em;font-weight:400;color:rgba(255,255,255,0.25);">${k}</span></div>

@@ -8,54 +8,39 @@
  * Maintains its own form state (panel type, title, config options, key, show_in_nav)
  * to avoid polluting the editor's state surface.
  */
-import { LitElement, html } from '../lit-import.js';
-import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { html } from '../lit-import.js';
 import { clone } from '../constants.js';
 import { formVal } from '../dom-helpers.js';
-import { getPanelOptionGroups, renderOptionField, renderSelect, renderToggle } from '../form-fields.js';
+import { getPanelOptionGroups, renderNumberInput, renderOptionField, renderSelect, renderToggle } from '../form-fields.js';
 import { dialogHeader } from './dialog-header.js';
+import { HauiDialog } from './haui-dialog.js';
 import { t } from '../localize.js';
+import { generateAutoKey } from '../crud.js';
 import { saveItemEdit, cancelItemEdit } from '../item-editor.js';
 
-/**
- * Compute an auto-generated key for a new panel of the given type, based on
- * the panels already known to this dialog (passed via devicePanels property).
- */
-function generateAutoKey(panels, panelType) {
-  const usedKeys = new Set(
-    (panels || []).filter(p => p.type === panelType).map(p => p.key)
-  );
-  let idx = 0;
-  while (usedKeys.has(`${panelType}_${idx}`)) idx++;
-  return `${panelType}_${idx}`;
-}
-
-class EditPanelDialog extends LitElement {
+class EditPanelDialog extends HauiDialog {
   static get properties() {
     return {
-      hass: { type: Object },
-      open: { type: Boolean, reflect: true },
       panel: { type: Object },
       panelTypes: { type: Array },
       saving: { type: Boolean },
       error: { type: String },
       entryId: { type: String },
       devicePanels: { type: Array },
+      systemPanels: { type: Array },
       dialogVersion: { type: Number },
     };
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles];
-
   constructor() {
     super();
-    this.open = false;
     this.panel = null;
     this.panelTypes = [];
     this.saving = false;
     this.error = null;
     this.entryId = null;
     this.devicePanels = [];
+    this.systemPanels = [];
     this._editingPanelType = null;
     this._editingPanel = null;
     this._itemListData = {};
@@ -71,6 +56,9 @@ class EditPanelDialog extends LitElement {
       // open doesn't change (e.g. close + reopen in separate microtasks
       // before Lit renders the intermediate null state).
       this._userSelectedType = false;
+      // An item left open in the previous session would keep Save disabled.
+      this._editingItem = null;
+      this._editingItemType = null;
     }
     if (changed.has("panel") && this.panel) {
       // Don't overwrite the user's explicit type selection when the parent
@@ -206,7 +194,20 @@ class EditPanelDialog extends LitElement {
                   })}
                   <label for="fld-show-in-nav">${t('Show in navigation')}</label>
                 </div>
-                <span class="field-hint">${t("When unchecked, panel is only reachable via stack (item actions, gestures, or as home/sleep/wakeup panel)")}</span>
+                <span class="field-hint">${t("When unchecked, panel is only reachable via stack (item actions, gestures, or as the home/idle panel)")}</span>
+              </div>
+
+              <div class="form-group">
+                <label for="fld-close-timeout">${t('Close automatically after (seconds)')}</label>
+                ${renderNumberInput("fld-close-timeout", ep.data.close_timeout ?? 0, (raw) => {
+                  const v = parseInt(raw, 10);
+                  this._editingPanel = {
+                    ...this._editingPanel,
+                    data: { ...this._editingPanel.data, close_timeout: isNaN(v) || v < 0 ? 0 : v },
+                  };
+                  this.requestUpdate();
+                }, { min: 0 })}
+                <span class="field-hint">${t('Close the panel and go back after this many seconds. 0 = stay open.')}</span>
               </div>
             </div>
           </details>
@@ -232,7 +233,8 @@ class EditPanelDialog extends LitElement {
               slot="primaryAction"
               variant="brand"
               @click=${this._dispatchSave}
-              ?disabled=${this.saving}
+              ?disabled=${this.saving || this._editingItem != null}
+              title=${this._editingItem != null ? t('Apply or cancel the open item first') : ''}
             >
               ${saveLabel}
             </ha-button>
@@ -262,10 +264,6 @@ class EditPanelDialog extends LitElement {
       };
     }
     this.requestUpdate();
-  }
-
-  _dispatchClose() {
-    this.dispatchEvent(new CustomEvent("dialog-closed"));
   }
 
   _dispatchSave() {
@@ -310,9 +308,9 @@ class EditPanelDialog extends LitElement {
       }
     }
 
-    this.dispatchEvent(new CustomEvent("dialog-save", {
-      detail: { panel, panelType, index: ep.index, itemListData: this._itemListData },
-    }));
+    this._emit("dialog-save", {
+      panel, panelType, index: ep.index, itemListData: this._itemListData,
+    });
   }
 
   /* ── item inline editor (renderOptionField calls these on dialog host) ─ */
@@ -326,5 +324,5 @@ class EditPanelDialog extends LitElement {
   }
 }
 
-customElements.define("ha-dialog-edit-panel", EditPanelDialog);
+customElements.define("nspanel-dialog-edit-panel", EditPanelDialog);
 export { EditPanelDialog };

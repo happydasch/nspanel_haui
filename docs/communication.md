@@ -84,14 +84,15 @@ Once connected, **both sides independently** send and monitor heartbeats:
 
 | Direction | Mechanism | Default interval | Timeout |
 |-----------|-----------|------------------|---------|
-| Hub → Device | `hub_heartbeat` action (resets `hub_heartbeat` timestamp on device) | `heartbeat_interval` (5s) | `interval × 2` (10s) |
-| Device → Hub | `esphome.heartbeat` event (updates `_last_time` on hub) | `heartbeat_interval` (5s) | `interval × 2` (10s) |
+| Hub → Device | `hub_heartbeat` action (resets `hub_heartbeat` timestamp on device) | `heartbeat_interval` (5s) | device: `interval × 2` (10s) |
+| Device → Hub | `esphome.heartbeat` event (updates `_last_time` on hub) | `heartbeat_interval` (5s) | hub: `max(interval × overdue_factor, 10s)` (factor default 2) |
 
 ### Hub→Device heartbeat
 
 - Started when state reaches CONNECTED
 - Timer fires every `heartbeat_interval` seconds (first at "now+0")
 - Calls the `hub_heartbeat` ESPHome action which resets `hub_heartbeat` on the device
+- Also sent immediately in reply to every `esphome.heartbeat` event; the timer is a fallback
 - Stopped when state leaves CONNECTED
 
 ### Device→Hub heartbeat
@@ -120,7 +121,7 @@ The `check_hub_connection` script runs every 100ms:
 ### Reconnection flow (Livesign detection)
 
 Hub's `process_event()` handles any event received while DISCONNECTED:
-- If event is NOT `res_connection` or `res_device_state` (i.e., not already part of a handshake):
+- If event is NOT `req_connection`, `res_connection` or `res_device_state` (i.e., not already part of a handshake):
   - Treats it as a "livesign" - the device is still alive but connection was lost
   - Initiates handshake immediately: → HANDSHAKING, sends `hub_connection_response`
   - Returns early (does NOT fall through to process the same event as a normal event)
@@ -140,7 +141,7 @@ The `check_connection` script runs every 100ms:
 
 Both sides publish state changes:
 - Device: `esphome.connected` event when `connected != prev_connected`
-- Hub: `callback_connection(bool)` → `HAUIDevice.set_connected(bool)`
+- Hub: `callback_connection(bool)` → `HAUIDevice.on_connection_changed(bool)`
 
 When hub detects CONNECTED → DISCONNECTED:
 1. Sends `hub_connection_closed` action to device
@@ -199,6 +200,7 @@ stateDiagram-v2
     }
 
     HANDSHAKING --> CONNECTED: Hub sends\nhub_connection_initialized
+    HANDSHAKING --> DISCONNECTED: Handshake not completed\nwithin 15s
 
     state CONNECTED {
         [*] --> Heartbeating
@@ -319,15 +321,15 @@ Only **one** read can be in-flight at a time because the ESP32 has a single
 `req_val_component` / `req_txt_component` global pair.  If a second read is
 requested while one is pending, it is **silently skipped** with a log message.
 
-The guard expires after `READ_PENDING_TIMEOUT` (2 seconds by default) so a lost
+The guard expires after `READ_PENDING_TIMEOUT` (6 seconds by default) so a lost
 `read_response` event never wedges the system.  Responses that arrive after the
 timeout are dropped as stale.
 
 ### Touch interaction clearing
 
 When a new touch (`TOUCH_START`) arrives, `_pending_read_request` is cleared
-(None).  Any `read_response` that arrives after that is treated as stale and
-dropped — the new touch is expected to trigger a fresh read request.
+(None) only if it has already expired.  A request still in flight is kept, so a
+`read_response` arriving just after the touch is still delivered.
 
 ### Pages using the read API
 
@@ -335,6 +337,6 @@ dropped — the new touch is expected to trigger a fresh read request.
 |------|------|--------|
 | Light | `haui/page/light.py` | `bind_slider()` for brightness + color temp |
 | Cover | `haui/page/cover.py` | `bind_slider()` for position |
-| Media | `haui/page/media.py` | `add_read_callback()` + `request_component_value()` |
+| Media | `haui/page/media.py` | `bind_slider()` for volume |
 | Settings | `haui/page/settings.py` | `bind_slider()` for brightness full/dim |
-| Row | `haui/page/row.py` | `add_read_callback()` for row-based slider |
+| Row | `haui/page/row.py` | `bind_slider()` per row slider |

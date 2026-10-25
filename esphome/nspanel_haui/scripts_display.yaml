@@ -50,7 +50,7 @@ script:
           int new_brightness = brightness_val;
           // timeout values
           int timeout_dim_val = int(id(timeout_dim).state);
-          int timeout_sleep_val = int(id(timeout_sleep).state);
+          int timeout_off_val = int(id(timeout_display_off).state);
           // duration of dimming
           float duration_dim_val = id(duration_dim).state;
           // last interaction with device
@@ -69,15 +69,15 @@ script:
             diff_seconds = ((float)duration_now - last_interaction_val) / 10;
           }
 
-          // screen timeout means brightness goes off -> target 0
-          if (id(use_auto_sleeping).state && timeout_sleep_val > 0 && diff_seconds > timeout_sleep_val) {
+          // display-off timeout means brightness goes off -> target 0
+          if (id(use_auto_display_off).state && timeout_off_val > 0 && diff_seconds > timeout_off_val) {
 
             if (brightness_val != 0) {
               new_brightness = target_brightness;
               ESP_LOGV("haui", "Target brightness for Off: %i -> %i", brightness_val, target_brightness);
             }
 
-            float ramp_remaining = duration_dim_val - (diff_seconds - timeout_sleep_val);
+            float ramp_remaining = duration_dim_val - (diff_seconds - timeout_off_val);
             if (duration_dim_val > 0 && target_brightness < brightness_val && ramp_remaining > 0) {
               float step_size = (float)brightness_val / (ramp_remaining * 10);
               new_brightness = max(target_brightness, int(brightness_val - step_size));
@@ -90,9 +90,9 @@ script:
               ESP_LOGV("haui", "New brightness for off: %i -> %i", brightness_val, new_brightness);
             }
 
-            // send event if sleeping only on time crossing timeout
-            if (last_diff_seconds <= timeout_sleep_val) {
-              id(publish_event_native).execute("esphome.timeout", "sleep");
+            // send event if turning off only on time crossing timeout
+            if (last_diff_seconds <= timeout_off_val) {
+              id(publish_event_native).execute("esphome.timeout", "off");
             }
 
           // dim timeout means brightness goes to brightness_dim
@@ -161,7 +161,7 @@ script:
 
           // timeout values
           int timeout_dim_val = int(id(timeout_dim).state);
-          int timeout_sleep_val = int(id(timeout_sleep).state);
+          int timeout_off_val = int(id(timeout_display_off).state);
           int current_state = int(id(haui_display_state));
           int new_state = current_state;
 
@@ -187,16 +187,16 @@ script:
           }
 
           // update display state
-          if (id(use_auto_sleeping).state && timeout_sleep_val > 0 && diff_seconds > (timeout_sleep_val + duration_dim_val)) {
+          if (id(use_auto_display_off).state && timeout_off_val > 0 && diff_seconds > (timeout_off_val + duration_dim_val)) {
             if (!id(hub_connection)) {
-              // Hub disconnected while sleep timeout elapsed - reset and go full on
+              // Hub disconnected while the display-off timeout elapsed - reset and go full on
               id(update_last_interaction).execute(-1, 0);
               new_state = 2;
             } else if (current_state != 0) {
               new_state = 0;
             }
-          } else if (!id(use_auto_sleeping).state && current_state == 0) {
-            // Auto-sleep was disabled while display was sleeping - wake up
+          } else if (!id(use_auto_display_off).state && current_state == 0) {
+            // Auto display-off was disabled while the display was off - wake up
             id(update_last_interaction).execute(-1, 0);
             new_state = 2;
           } else if (id(use_auto_dimming).state && timeout_dim_val > 0 && diff_seconds > (timeout_dim_val + duration_dim_val)) {
@@ -212,34 +212,38 @@ script:
             new_state = 2;
           }
 
-          // check sleep/wakeup - use is_sleeping() as the guard so
-          // commands are only sent when the display actually needs to
-          // transition, not on every timer tick
+          // Off/wake transition.  is_sleeping() is the only truthful record
+          // of Nextion hardware sleep: haui_display_state tracks the *target*
+          // brightness state, and the display is only ever hardware-slept on
+          // the no-hub path (with a hub connected it stays awake at brightness
+          // 0 so touches keep reporting coordinates).  Keep the framework
+          // calls for exactly that case; the hub-connected branches below run
+          // on state transitions instead.
           if (current_state == 0 && !id(haui_disp).is_sleeping()) {
-            // before sleep, remember current page
+            // before off, remember current page
             int page_val = int(id(page).state);
             if (page_val > 0 && page_val <= 255) {
               wakeup_page = to_string(page_val);
             }
             if (id(hub_connection)) {
-              // Hub is connected - let the hub navigate to the configured
-              // sleep panel.  The hub receives esphome.timeout="sleep" and
-              // calls open_sleep_panel() which sends goto_page to the user's
-              // sleep panel page.  Display brightness is already 0 (set by
-              // check_display), so the screen stays black.
+              // Hub is connected - the hub owns page switching.  The hub
+              // receives esphome.timeout="page" and opens the configured
+              // idle page on its own; the "off" milestone only
+              // dims/turns off the display here.  Display brightness is
+              // already 0 (set by check_display), so the screen stays black.
               // Do NOT hardware-sleep here: keeping the Nextion awake (just at
               // brightness 0) means a touch always reports coordinates, so the
               // hub's touch-driven wake (single/double touch) works reliably.
               // If the hub goes silent the heartbeat timeout disconnects it and
               // the else-branch below hardware-sleeps the display anyway.
             } else {
-              // No hub connected - navigate to page 0 and sleep directly
+              // No hub connected - navigate to page 0 and hardware-sleep directly
               id(goto_page).execute("1");  // blank
-              id(display_sleep).execute();
+              id(display_off).execute();
             }
           } else if (new_state != 0 && (id(haui_disp).is_sleeping()
                   || (id(hub_connection) && current_state == 0))) {
-            id(display_wakeup).execute();
+            id(display_on).execute();
             if (!id(hub_connection)) {
               // No hub connected - restore the wakeup page ourselves.
               if (wakeup_page != "" && wakeup_page != "1") {
@@ -277,22 +281,25 @@ script:
             id(haui_disp).goto_page(page.c_str());
           }
 
-  # Script to send the display into sleep mode
-  - id: display_sleep
+  # Script to hardware-sleep the display (only reachable on the no-hub path;
+  # with a hub connected the display stays awake at brightness 0).
+  # is_sleeping() is the atomic guard at the framework call itself: the call
+  # must not repeat while a sleep session is already running.
+  - id: display_off
     then:
       - lambda: |-
           if (!id(haui_disp).is_sleeping()) {
-            ESP_LOGI("haui", "Display is going to sleep");
+            ESP_LOGI("haui", "Display off");
             id(haui_disp).sleep(true);
-            id(publish_event_native).execute("esphome.sleep", "");
+            id(publish_event_native).execute("esphome.display_off", "");
           }
 
-  # Script to send the display out of sleep mode
-  - id: display_wakeup
+  # Script to wake the display out of hardware sleep
+  - id: display_on
     then:
       - lambda: |-
           if (id(haui_disp).is_sleeping()) {
-            ESP_LOGI("haui", "Display is waking up");
+            ESP_LOGI("haui", "Display on");
             id(haui_disp).sleep(false);
-            id(publish_event_native).execute("esphome.wakeup", "");
+            id(publish_event_native).execute("esphome.display_on", "");
           }

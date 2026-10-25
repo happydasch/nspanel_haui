@@ -7,17 +7,7 @@
       },
       "confirm": {
         "title": "NSPanel HAUI devices discovered",
-        "description": "Found {count} ESPHome device(s) running HAUI firmware: {names}. Add them to a new NSPanel HAUI hub? Devices stay disabled until you enable them in the HAUI Editor."
-      },
-      "select_devices": {
-        "title": "Select NSPanel Devices",
-        "description": "Found {count} ESPHome device(s). {esphome_info} Pick which ones belong to this hub. Per-device and panel settings are managed in the NSPanel HAUI \u2014 HAUI Editor in the sidebar.",
-        "data": {
-          "selected_devices": "Devices"
-        },
-        "data_description": {
-          "selected_devices": "ESPHome devices discovered on your network."
-        }
+        "description": "Found {count} ESPHome device(s) running HAUI firmware: {names}. Add them to a new NSPanel HAUI hub?"
       }
     },
     "abort": {
@@ -27,20 +17,23 @@
       "no_devices_found": "No NSPanel HAUI devices were detected. Install the HAUI firmware on an ESPHome device first."
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "NSPanel HAUI Hub Settings",
-        "description": "Runtime options for this hub. Per-device and panel settings live in the NSPanel HAUI \u2014 HAUI Editor.",
-        "data": {
-          "update_interval": "Update interval (seconds)",
-          "debug": "Debug logging"
+  "issues": {
+    "device_start_failed": {
+      "title": "Device failed to start: {device}",
+      "description": "NSPanel HAUI could not start device {device}.\n\nThe error was: `{error}`.\n\nUse the fix to retry starting the device, or check the logs for details.",
+      "fix_flow": {
+        "step": {
+          "reload": {
+            "title": "Reload hub",
+            "description": "Reload the NSPanel HAUI hub configuration to retry starting device {device}."
+          }
         },
-        "data_description": {
-          "update_interval": "How often the integration polls panel state (5-300 s).",
-          "debug": "Verbose debug logging for this hub."
-        }
+        "flow_title": "Retry starting device {device}"
       }
+    },
+    "hub_idle": {
+      "title": "NSPanel HAUI hub has no enabled devices",
+      "description": "The hub {hub} has no enabled devices.\n\nEnable at least one device in the NSPanel HAUI editor, or add a new ESPHome device running the HAUI firmware. New HAUI devices can be added to the hub automatically."
     }
   },
   "services": {
@@ -48,9 +41,9 @@
       "name": "Open panel",
       "description": "Navigate to a specific panel.  If wakeup is enabled the display wakes first.",
       "fields": {
-        "device_id": {
+        "device": {
           "name": "Device",
-          "description": "NSPanel device to navigate."
+          "description": "Target NSPanel device. If omitted, applies to all devices."
         },
         "panel": {
           "name": "Panel",
@@ -66,9 +59,9 @@
       "name": "Close panel",
       "description": "Close the current panel and return to the previous or home panel.",
       "fields": {
-        "device_id": {
+        "device": {
           "name": "Device",
-          "description": "NSPanel device to close the panel on."
+          "description": "Target NSPanel device. If omitted, applies to all devices."
         }
       }
     },
@@ -76,61 +69,19 @@
       "name": "Wake up",
       "description": "Wake the display and navigate to the wakeup or home panel.",
       "fields": {
-        "device_id": {
+        "device": {
           "name": "Device",
-          "description": "NSPanel device to wake up."
+          "description": "Target NSPanel device. If omitted, applies to all devices."
         }
       }
     },
-    "sleep": {
-      "name": "Sleep",
-      "description": "Send the display to sleep.",
+    "idle": {
+      "name": "Idle",
+      "description": "Enter the idle state immediately by opening the configured idle page (idle_panel), as if the page timeout had fired.",
       "fields": {
-        "device_id": {
+        "device": {
           "name": "Device",
-          "description": "NSPanel device to put to sleep."
-        }
-      }
-    },
-    "set_brightness": {
-      "name": "Set brightness",
-      "description": "Set the display backlight brightness (0-100%).",
-      "fields": {
-        "device_id": {
-          "name": "Device",
-          "description": "NSPanel device to set brightness on."
-        },
-        "intensity": {
-          "name": "Intensity",
-          "description": "Brightness level from 0 (off) to 100 (maximum)."
-        }
-      }
-    },
-    "send_command": {
-      "name": "Send command",
-      "description": "Send a raw Nextion display command to the device.",
-      "fields": {
-        "device_id": {
-          "name": "Device",
-          "description": "NSPanel device to send the command to."
-        },
-        "cmd": {
-          "name": "Command",
-          "description": "Raw Nextion display command string."
-        }
-      }
-    },
-    "goto_page": {
-      "name": "Go to page",
-      "description": "Switch to a Nextion page by its numeric page ID (low-level).",
-      "fields": {
-        "device_id": {
-          "name": "Device",
-          "description": "NSPanel device to switch pages on."
-        },
-        "page": {
-          "name": "Page ID",
-          "description": "Numeric Nextion page ID to switch to."
+          "description": "Target NSPanel device. If omitted, applies to all devices."
         }
       }
     },
@@ -138,9 +89,9 @@
       "name": "Send notification",
       "description": "Show a notification on the panel with a title, message and icon.",
       "fields": {
-        "device_id": {
+        "device": {
           "name": "Device",
-          "description": "NSPanel device to notify."
+          "description": "Target NSPanel device. If omitted, applies to all devices."
         },
         "title": {
           "name": "Title",
@@ -161,34 +112,14 @@
         "persistent": {
           "name": "Persistent",
           "description": "Require dismissal on the panel to stop the alert sound."
-        }
-      }
-    },
-    "play_rtttl": {
-      "name": "Play RTTTL tune",
-      "description": "Play a ringtone on the panel buzzer from an RTTTL string.",
-      "fields": {
-        "device_id": {
-          "name": "Device",
-          "description": "NSPanel device to play the tune on."
         },
-        "song_str": {
-          "name": "RTTTL string",
-          "description": "RTTTL-encoded tune to play."
-        }
-      }
-    },
-    "play_sound": {
-      "name": "Play sound",
-      "description": "Play a named built-in sound on the panel buzzer.",
-      "fields": {
-        "device_id": {
-          "name": "Device",
-          "description": "NSPanel device to play the sound on."
+        "type": {
+          "name": "Severity",
+          "description": "Severity level that affects the alert colour and sound."
         },
-        "name": {
-          "name": "Sound name",
-          "description": "Name of the built-in sound to play."
+        "force_show": {
+          "name": "Force show",
+          "description": "Immediately open the notification even if another panel is displayed."
         }
       }
     },
@@ -196,9 +127,9 @@
       "name": "Reset last interaction",
       "description": "Reset the panel idle timer as if the user just touched it.",
       "fields": {
-        "device_id": {
+        "device": {
           "name": "Device",
-          "description": "NSPanel device to reset the idle timer on."
+          "description": "Target NSPanel device. If omitted, applies to all devices."
         },
         "offset": {
           "name": "Offset",

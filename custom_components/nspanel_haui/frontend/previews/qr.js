@@ -74,7 +74,7 @@ export function renderQRPreview(_host, p, _pIdx, _pt) {
   const showInfo = p.show_info !== false;
   const items = p.items || [];
   let sideContent;
-  if (showInfo) {
+  if (showInfo && !items.length) {
     sideContent = html`
       <div class="pg-preview-qr-info-row">
         <ha-icon icon="mdi:wifi" class="pg-qr-icon"></ha-icon>

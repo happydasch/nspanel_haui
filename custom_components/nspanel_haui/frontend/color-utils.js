@@ -40,14 +40,14 @@ export function rgb565ToHex(num) {
 }
 
 /** Convert hex #rrggbb to "[r, g, b]" string (for template display). */
-export function hexToRgbList(hex) {
+function hexToRgbList(hex) {
   const m = hex.match(/^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/);
   if (!m) return "";
   return `[${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}]`;
 }
 
 /** Convert hex #rrggbb to [r, g, b] number array. */
-export function hexToRgbArray(hex) {
+function hexToRgbArray(hex) {
   const m = hex.match(/^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/);
   if (!m) return null;
   return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];

@@ -2,6 +2,8 @@ import datetime
 from collections.abc import Callable
 from typing import Any, TypedDict
 
+from homeassistant.util import slugify
+
 from .ha_adapter import HAAdapter
 from .haui.abstract.haui_base import HAUIBase
 from .haui.abstract.haui_config import HAUIConfig
@@ -14,7 +16,8 @@ from .haui.controller.update import HAUIUpdateController
 from .haui.device import HAUIDevice
 from .haui.device_config import DEVICE_CONFIG_FIELDS
 from .haui.mapping.color import ColorTheme
-from .haui.mapping.page import PAGE_MAPPING
+from .haui.mapping.panel import PAGE_MAPPING
+from .haui.version import get_version
 
 
 class ControllerDict(TypedDict, total=True):
@@ -47,6 +50,9 @@ class NSPanelHAUI(HAAdapter):
         self.device_config: HAUIConfig
         self.device: HAUIDevice
         self._runtime_device_name: str = runtime_device_name
+        # entity-id slug of the device name, computed with HA's own slugify so
+        # haui/ builds the same ids HA assigns (haui/ must not import homeassistant)
+        self.device_slug: str = slugify(runtime_device_name)
         self._ha_device_id: str | None = ha_device_id
         self._last_panel_update: str | None = None
         self._tick_subscribers: dict[str, set[Callable]] = {}
@@ -62,7 +68,6 @@ class NSPanelHAUI(HAAdapter):
         ) or {}
         self._color_theme: ColorTheme = ColorTheme(overrides)
 
-        """Called from async_setup via hass.async_add_executor_job."""
         # The runtime device name comes from the constructor (set by async_setup_entry).
         # We don't pick devices[0] anymore — each app drives exactly one device.
         device_name = self._runtime_device_name
@@ -72,6 +77,7 @@ class NSPanelHAUI(HAAdapter):
             device_name = self._config_args.get("name", "")
 
         self._runtime_device_name = device_name
+        self.device_slug = slugify(device_name)
 
         esp_api = self.get_plugin_api(
             "ESPHome", device_name=device_name, device_id=self._ha_device_id
@@ -167,76 +173,40 @@ class NSPanelHAUI(HAAdapter):
             if not subs and cadence in self._tick_timers:
                 self.cancel_timer(self._tick_timers.pop(cadence))
 
-    # panel reload (called by API when panels are saved)
+    # config reload (called by the API when panels or device settings are saved)
 
-    def _rebuild_panel_collections(self, panel_configs: list) -> tuple[list, dict, dict]:
-        """Build panel lists and lookup dicts from panel configs.
+    def reload_config(self, cfg: dict) -> None:
+        """Apply a rebuilt runtime config without a full restart.
 
-        Delegates to :meth:`HAUIConfig._build_panel_lists` for the shared
-        panel-building logic, adding per-device logging.
-
-        Returns:
-            Tuple of (panels_list, panels_by_id, panels_by_key).
-        """
-        from .haui.abstract.haui_config import HAUIConfig
-
-        for panel_config in panel_configs:
-            key = panel_config.get("key", "")
-            self.log(
-                f"Loading panel key={key!r} type={panel_config.get('type')!r} "
-                f"show_in_nav={panel_config.get('show_in_navigation', True)}",
-                level="DEBUG",
-            )
-        panels, by_id, by_key = HAUIConfig._build_panel_lists(self, panel_configs)
-        return panels, by_id, by_key
-
-    def reload_panels(self, panels_data: dict) -> None:
-        """Reload panel config from the store without full restart.
-
-        Called by the REST API after a POST save.  Rebuilds the panel
-        list on the existing HAUIConfig instance and updates per-device
-        configuration on the HAUIDevice controller.
+        ``cfg`` comes from the same builder as startup (``_build_config_dict``
+        in ``__init__.py``), so device settings and panels get the same merge,
+        defaults and validation; a setting removed from the store falls back to
+        its default. Controllers keep running; the device settings, colors and
+        panels are replaced.
         """
         if not self.device_config:
             return
 
-        # Update device-level configuration from store for the runtime device
-        store_devices = panels_data.get("devices", {})
+        new_config = HAUIConfig(self, cfg)
+        device_cfg = new_config.get("device")
         if self.device:
-            store_dev = store_devices.get(self._runtime_device_name)
-            if store_dev and "config" in store_dev:
-                for field in DEVICE_CONFIG_FIELDS:
-                    if field in store_dev["config"]:
-                        self.device.config[field] = store_dev["config"][field]
-                # Propagate color overrides to the ColorTheme
-                co = store_dev["config"].get("color_overrides", {})
-                if co is not None:
-                    self._color_theme = ColorTheme(co if co else {})
+            for field in DEVICE_CONFIG_FIELDS:
+                self.device.config[field] = device_cfg[field]
+        self._color_theme = ColorTheme(device_cfg.get("color_overrides") or {})
 
-        # Collect panels only for the runtime device. Each app instance drives
-        # a single device; panel keys are unique per device but may collide
-        # across devices, so dedupe must be scoped to the runtime device.
-        all_panel_configs = []
-        runtime_dev = store_devices.get(self._runtime_device_name)
-        if runtime_dev:
-            all_panel_configs.extend(runtime_dev.get("panels", []))
-        all_panel_configs += self.device_config.get("sys_panels", [])
-
-        new_panels, panels_by_id, panels_by_key = self._rebuild_panel_collections(all_panel_configs)
-
-        self.device_config._panels = new_panels
-        self.device_config._panels_by_id = panels_by_id
-        self.device_config._panels_by_key = panels_by_key
-        self.log("Panels reloaded from store")
+        self.device_config._panels = new_config._panels
+        self.device_config._panels_by_id = new_config._panels_by_id
+        self.device_config._panels_by_key = new_config._panels_by_key
+        self.log("Device config and panels reloaded from store")
 
         # Restart device button-entity listeners so they pick up updated
         # button_left_entity / button_right_entity from the new config.
         if self.device:
             self.device._cancel_callbacks()
             self.device._register_callbacks()
-            # Sync behavior config (auto-* switches and timeout numbers) to
-            # ESPHome entities so changes take effect immediately.
-            self.device._sync_behavior_config()
+            # Push the settings to the device's ESPHome switches and numbers
+            # (relay mode, button interaction, auto-* and timeouts) right away.
+            self.device.sync_config_to_device()
 
         # Refresh navigation controller panel references
         nav_ctrl = self.controller.get("navigation")
@@ -262,6 +232,21 @@ class NSPanelHAUI(HAAdapter):
         nav_ctrl.refresh_panel()
         self.log("Display updated")
 
+    def install_tft(self, version: str | None = None) -> None:
+        """Trigger a TFT install for this device, on its worker thread.
+
+        Called via ``async_run_on_worker`` from the REST API; ``version``
+        defaults to the version the firmware needs (``yaml_version``).
+
+        Args:
+            version (str | None): Release version to install
+        """
+        update_ctrl = self.controller.get("update")
+        if update_ctrl is None:
+            self.log("Cannot install TFT: no update controller", level="WARNING")
+            return
+        update_ctrl.install_tft(version)
+
     # status endpoint support
 
     @staticmethod
@@ -286,16 +271,23 @@ class NSPanelHAUI(HAAdapter):
             "connection_state": conn.connection_state.value if conn else "unknown",
             "current_page": self._format_current_page(page),
             "logs": self.get_status_logs()[-50:],
+            # Panel Doctor: versions + health summary
+            "integration_version": get_version(),
         }
 
         # Device info from the device config
         device_config = self.device_config.get("device", {}) if self.device_config else {}
         runtime_info = self.device.device_info if self.device else {}
 
-        # Read network info from HA entities only (no stale fallback).
-        from .api import _read_network_entities
+        # TFT update state (manual installs from the editor)
+        update_ctrl = self.controller.get("update")
+        if update_ctrl is not None:
+            result["update"] = update_ctrl.get_update_state()
 
-        nw = _read_network_entities(self.hass, self._runtime_device_name or "")
+        # Read network info from HA entities only (no stale fallback).
+        from .esphome_helpers import read_network_entities
+
+        nw = read_network_entities(self.hass, self._runtime_device_name or "", self.find_entity_id)
 
         result["device_info"] = {
             "name": self._runtime_device_name or device_config.get("name", self.name),
@@ -312,6 +304,23 @@ class NSPanelHAUI(HAAdapter):
                 if conn and conn.last_connection_time
                 else None
             ),
+            # Panel Doctor: health readings for the diagnostics surface.
+            "last_disconnect_reason": (
+                conn.last_disconnect_reason if conn else None
+            ),
+            "disconnected_since": (
+                datetime.datetime.fromtimestamp(
+                    conn.disconnected_since, tz=datetime.UTC
+                ).isoformat()
+                if conn and conn.disconnected_since
+                else None
+            ),
+            "connection_uptime": (
+                int(datetime.datetime.now(tz=datetime.UTC).timestamp() - conn.last_connection_time)
+                if conn and conn.is_connected and conn.last_connection_time
+                else None
+            ),
+            "idle_page_active": bool(nav.idle_panel_active) if nav else False,
         }
 
         # ESPHome transport info
@@ -336,9 +345,6 @@ class NSPanelHAUI(HAAdapter):
                         "callback_name": entry.get("callback_name", ""),
                     }
                 )
-        # Also include device-level listeners (button entities)
-        if self.device is not None:
-            active_listeners.extend(self.device.get_active_listeners())
         result["active_listeners"] = active_listeners
         result["active_listener_count"] = len(active_listeners)
 
@@ -390,3 +396,11 @@ class NSPanelHAUI(HAAdapter):
     def callback_connection(self, connected: bool) -> None:
         self.log(f"Device connection status: {connected}")
         self.device.on_connection_changed(connected)
+        self.controller["update"].on_connection_changed(connected)
+        self.fire_event(
+            "nspanel_haui.connection_changed",
+            {
+                "device": self.device.get_name(),
+                "connected": connected,
+            },
+        )

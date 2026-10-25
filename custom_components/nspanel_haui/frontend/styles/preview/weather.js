@@ -78,15 +78,4 @@ export const previewWeatherStyles = css`
     line-height: 1;
   }
 
-  /* Entity button cell */
-  .pg-preview-weather-entity-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 4px;
-    background: rgba(255,255,255,0.06);
-    flex-shrink: 0;
-  }
 `;

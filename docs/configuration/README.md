@@ -8,15 +8,35 @@ description: How to configure NSPanel HAUI through the Home Assistant UI editor
 NSPanel HAUI is configured entirely through the **Home Assistant UI** — no YAML editing required. The configuration is organised into three areas:
 
 1. **[Device Configuration](device.md)** — Device-level settings: name, locale, hardware buttons, timeouts, sounds, relays, and color overrides.
-2. **[Panel Configuration](panels.md)** — How panels are configured: type, title, key, navigation, unlock codes, and type-specific options.
+2. **[Panel Configuration](panels.md)** — How panels are configured: type, title, key, navigation, panel pin, and type-specific options.
 3. **[Item Configuration](items.md)** — How items relate to HA entities: entity picker, state/name/value/icon/color overrides, internal items, and popup overrides.
 
 ## Finding the Editor
 
-1. Go to **Settings → Devices & Services**.
-2. Find your NSPanel HAUI device.
-3. Click the device name to open its page.
-4. The **Panels** tab shows your panel list. Here you can add, reorder, and delete panels.
+1. Open **NSPanel HAUI** in the Home Assistant sidebar (`/nspanel-haui`). The entry is visible to administrators only.
+2. Select your device in the toolbar.
+3. The panel list shows that device's panels. Here you can add (**Add Panel**), reorder, and delete panels.
+
+### If the editor stays on its loading screen
+
+The editor renders Home Assistant's own dialog and card elements (`<ha-dialog>`,
+`<ha-dialog-footer>`, `<ha-card>`, `<ha-alert>`). Home Assistant loads those lazily — it
+imports them together with its more-info dialog *after* its own first render — so right
+after a page reload the editor can be ready before them. Rendering an undefined
+`<ha-dialog>` would show its content inline without a modal, so the editor waits until the
+elements are defined. This normally takes a second or two.
+
+If the wait exceeds 10 seconds, the loading screen names the elements that are still
+missing and offers two actions:
+
+| Action | Effect |
+|--------|--------|
+| **Reload page** | Reloads the page so Home Assistant runs its startup sequence again. Try this first — it clears a slow or interrupted frontend start. |
+| **Continue anyway** | Renders the editor with whatever elements exist. Dialogs then appear inline instead of as modals: enough to inspect or revert configuration, but not a normal working state. |
+
+A message that never clears means the running Home Assistant frontend does not define one
+of the listed elements. Use **Continue anyway** to reach your configuration, and report the
+Home Assistant version in a GitHub issue.
 
 ## The Panel List
 
@@ -34,10 +54,10 @@ Clicking a panel opens the panel editor with these standard fields:
 | Field | Description |
 |-------|-------------|
 | **Type** | The panel type (e.g. Clock, Grid, Light, Climate). Set when adding — cannot be changed. |
-| **Title** | Display name shown on the panel header. Falls back to "unnamed" if empty. |
-| **Key** | A unique identifier used to reference this panel in navigation, gestures, and popups. |
+| **Title** | Display name shown on the panel header. Falls back to the panel type's label (e.g. "Grid") if empty. |
+| **Key** | A unique identifier used to reference this panel in navigation and popups. |
 | **Show in navigation** | Toggle to show/hide this panel in the navigation bar. |
-| **Unlock code** | A numeric PIN — when set, the panel requires this code before access. |
+| **Panel pin** | A numeric PIN — when set, the panel requires this code before access. |
 
 Below the standard fields, each panel type shows its **type-specific options** in a collapsible **Configuration** section.
 
@@ -54,28 +74,20 @@ See [Item Configuration](items.md) for full details on all override options.
 
 Opened from the device toolbar. Fields are grouped into collapsible sections:
 
-- **General Settings** — Locale, debug level, item logging
-- **Display Buttons** — Home button, sleep button, notifications button visibility
-- **Notifications** — Startup sound, notification sound, do not disturb, quiet hours
-- **Panel Assignments** — Home panel, sleep panel, wakeup panel
+- **General Settings** — Locale, display model, auto dimming / auto page / auto display-off with their timeouts, debug level, item logging, stale-data indicator
 - **Hardware Buttons** — Relay control, button entities, interaction reset
-- **Sleep and Wakeup** — Snapshot restore behavior, idle timeout, auto-navigate home
+- **Display Buttons** — Home button, idle button, notifications button visibility
+- **Gestures** — Named gesture sequences
+- **Notifications** — Startup sound, notification sound, do not disturb, quiet hours
+- **Idle & Wake Behavior** — Snapshot restore behavior, auto-navigate home, hub idle-page fallback
+- **Time & Date** — Time and date formats
+- **Panel Assignments** — Home panel, idle panel (carousel)
 
 See [Device Configuration](device.md) for full details.
 
 ## The Color Overrides Dialog
 
 Opened from its own button (separate from Device Settings). Lets you override individual entries of the built-in color palette per device.
-
-## Common Settings
-
-The following device-level settings control time and date formatting:
-
-| Option | Description |
-|--------|-------------|
-| **Time Format** | Time format using Python `strftime` codes (e.g. `%H:%M`). |
-| **Date Format** | Date format using Python `strftime` codes (e.g. `%A, %d. %B %Y`). |
-| **Date Format Locale** | CLDR locale format key (e.g. `full`, `long`, `medium`, `short`). |
 
 ## See Also
 

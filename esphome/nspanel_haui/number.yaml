@@ -2,6 +2,21 @@
 # Number Configuration
 number:
 
+  # Display orientation / model.  The hub syncs this from the device's
+  # ``display_model`` setting (0 = landscape 450x320, 1 = portrait 320x480).
+  # The gesture script reads it to detect edge swipes on the right screen
+  # dimensions instead of hardcoding the landscape size.
+  - platform: template
+    name: Display Model
+    id: display_model
+    entity_category: config
+    min_value: 0
+    max_value: 1
+    step: 1
+    initial_value: 0
+    restore_value: true
+    optimistic: true
+
   # Screen Full brightness
   - platform: template
     name: Brightness Full
@@ -75,10 +90,10 @@ number:
             //  reset last interaction
             id(update_last_interaction).execute(-1, 0);
 
-  # Sleep timeout
+  # Display-off timeout
   - platform: template
-    name: Timeout Sleep
-    id: timeout_sleep
+    name: Timeout Display-Off
+    id: timeout_display_off
     entity_category: config
     unit_of_measurement: 's'
     min_value: 0

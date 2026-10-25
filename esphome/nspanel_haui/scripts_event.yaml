@@ -33,9 +33,14 @@ script:
           auto yaml_version = "$yaml_version";
           auto wifi_ssid_str = id(wifi_ssid).state;
           float wifi_rssi_val = id(wifi_rssi).state;
+          // Uptime in whole seconds.  millis_64() (not the 32-bit millis())
+          // so the value survives long uptimes - the hub uses it to tell a
+          // fresh boot from a Wi-Fi reconnect when deciding whether to play
+          // the startup sound.
+          auto uptime_secs = millis_64() / 1000;
           const json::json_build_t payload = [
               yaml_version, name, friendly_name, ip,
-              wifi_ssid_str, wifi_rssi_val
+              wifi_ssid_str, wifi_rssi_val, uptime_secs
           ](JsonObject root) {
             root["yaml_version"] = yaml_version;
             root["name"] = name;
@@ -43,6 +48,7 @@ script:
             root["ip"] = ip;
             root["ssid"] = wifi_ssid_str;
             root["rssi"] = wifi_rssi_val;
+            root["uptime"] = uptime_secs;
           };
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.req_connection", payload_str);

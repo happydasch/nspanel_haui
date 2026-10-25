@@ -77,6 +77,15 @@ class HAUIBase(HAUIConfigAccess):
     def stop_part(self) -> None:
         """Called on stop. Override in subclasses."""
 
+    # timers
+
+    def _cancel_timer(self, attr: str) -> None:
+        """Cancel the timer whose handle is stored in ``attr``, if any, and clear it."""
+        handle = getattr(self, attr)
+        if handle is not None:
+            self.app.cancel_timer(handle)
+            setattr(self, attr, None)
+
     # command recording
 
     @property
@@ -91,7 +100,7 @@ class HAUIBase(HAUIConfigAccess):
         return self._rec_cmd_cm()
 
     @contextmanager
-    def _rec_cmd_cm(self) -> Generator[None, None, None]:
+    def _rec_cmd_cm(self) -> Generator[None]:
         self.start_rec_cmd()
         exc_occurred = False
         try:
@@ -223,7 +232,7 @@ class HAUIBase(HAUIConfigAccess):
             return ""
         parts = []
         if nav.page is not None:
-            from ..mapping.page import PAGE_MAPPING
+            from ..mapping.panel import PAGE_MAPPING
 
             parts.append(f"page={PAGE_MAPPING.get(nav.page.page_id, nav.page.page_id)}")
         if nav.panel is not None:

@@ -5,11 +5,12 @@ and the ``_process_read_response`` dispatch and stale-response logic.
 """
 
 import time
+import types
 
 from nspanel_haui.haui.abstract.component import Component
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.abstract.haui_page import HAUIPage, _PendingReadRequest
-from nspanel_haui.haui.mapping.const import ESPRequest, ESPResponse
+from nspanel_haui.haui.mapping.const import ESPEvent, ESPRequest, ESPResponse
 
 # --- helpers ---------------------------------------------------------------
 
@@ -54,7 +55,6 @@ def _bare_page(page_id=1):
     page._fnc_items = {}
     page._read_callbacks = {}
     page._pending_read_request = None
-    page._in_read_callback = False
     page.send_esphome = lambda *a, **kw: page.app.sent_esphome.append((a, kw))
     return page
 
@@ -300,3 +300,72 @@ def test_extract_component_name_handles_component_and_string():
     page = _bare_page()
     assert page._extract_component_name(Component(42, "mycomp")) == "mycomp"
     assert page._extract_component_name("plain_string") == "plain_string"
+
+
+def test_popup_item_keeps_the_opening_items_overrides():
+    """A popup opened from an item shows that item's name (and other overrides)."""
+    from nspanel_haui.haui.abstract.haui_page import HAUIPage
+
+    class _Panel:
+        def __init__(self, config):
+            self.config = config
+
+        def get(self, key, default=None):
+            return self.config.get(key, default)
+
+    page = HAUIPage.__new__(HAUIPage)
+    page.app = types.SimpleNamespace()
+    panel = _Panel(
+        {"item_id": "light.bed", "item": "light.bed", "name": "Bedside", "icon": "mdi:lamp"}
+    )
+
+    item = page._resolve_panel_item(panel)
+
+    assert item.get_item_id() == "light.bed"
+    assert (item.get("name"), item.get("icon")) == ("Bedside", "mdi:lamp")
+
+
+def test_function_button_release_fires_via_registry_path():
+    """Function buttons dispatch on release through the callback registry.
+
+    ``config_panel`` registers function items via ``on_release`` (with an
+    adapter for the 3-arg callback contract); presses must be inert, and the
+    release must fire exactly once through ``_callback_map``.
+    """
+    page = _bare_page()
+
+    # Mirror the config_panel registration: adapt (event, component) -> 3-arg callback
+    comp = Component(7, "bConfirm")
+    calls: list[tuple] = []
+
+    def callback_function_components(event, component, button_state):
+        calls.append((event, component, button_state))
+
+    page.on_release(
+        comp,
+        lambda event, component: callback_function_components(event, component, 0),
+    )
+
+    # press must be inert for function buttons
+    page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, f"1,{comp.id},1"))
+    assert calls == []
+
+    # release is buffered (gesture disambiguation), then flushed once
+    page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, f"1,{comp.id},0"))
+    assert calls == []
+    page._flush_buffer_callback()
+    assert len(calls) == 1
+    assert calls[0][1] == comp
+    assert calls[0][2] == 0
+
+
+def test_function_button_press_without_registry_entry_is_inert():
+    """A press on an unregistered component does not crash or queue a release."""
+    page = _bare_page()
+    comp = Component(8, "bGhost")
+
+    page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, f"1,{comp.id},1"))
+    page.process_component_event(HAUIEvent(ESPEvent.COMPONENT, f"1,{comp.id},0"))
+
+    assert page._queued_callback is None
+    assert page._buffer_timer is None

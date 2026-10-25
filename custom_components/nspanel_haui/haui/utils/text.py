@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from typing import Any
 
 from ..utils.icon import get_icon
@@ -16,7 +17,8 @@ _TRANSLATION_CACHE: dict[str, dict] = {}
 def get_translation(text: str, locale: str) -> str:
     translations = get_translations(locale)
     translation = text
-    if "text" in translations and text in translations["text"]:
+    # Empty values are keys added by extract_translations.py that are not yet translated.
+    if "text" in translations and translations["text"].get(text):
         translation = translations["text"][text]
     return translation
 
@@ -50,7 +52,12 @@ def _translations_root() -> str:
 
 
 def get_translations(locale: str) -> dict:
-    lang = (locale or "en").split("_")[0] or "en"
+    # The language becomes part of a file path, and the REST API passes it
+    # straight from the URL.
+    match = re.match(r"([a-z]+)(?:[_-]|$)", (locale or "en").lower())
+    if match is None:
+        raise ValueError(f"Invalid language code: {locale!r}")
+    lang = match[1]
     if lang in _TRANSLATION_CACHE:
         return _TRANSLATION_CACHE[lang]
 
@@ -115,3 +122,49 @@ def trim_text(text: str, num_chr: int, suffix: str = "..") -> str:
         return text[: num_chr - len(suffix)] + suffix
     else:
         return text
+
+
+def chunk_text(text: str, chars_per_line: int, lines: int) -> list[str]:
+    """Split *text* into pages fitting a Nextion text widget.
+
+    Respects embedded ``\\r\\n`` line breaks; wraps longer lines at
+    ``chars_per_line``; each returned page holds at most ``chars_per_line*lines``
+    characters.
+    """
+    if not text:
+        return []
+
+    # Normalize line endings
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    logical_lines = text.split('\n')
+
+    wrapped_lines = []
+    for line in logical_lines:
+        line = line.rstrip()
+        while len(line) > chars_per_line:
+            break_at = line.rfind(' ', 0, chars_per_line)
+            if break_at == -1:
+                break_at = chars_per_line
+            wrapped_lines.append(line[:break_at].rstrip())
+            line = line[break_at:].lstrip()
+        wrapped_lines.append(line)
+
+    pages: list[str] = []
+    current_page: list[str] = []
+    max_len = chars_per_line * lines
+
+    for line in wrapped_lines:
+        candidate = '\n'.join(current_page + [line])
+        if len(candidate) > max_len and current_page:
+            pages.append('\n'.join(current_page).strip())
+            current_page = [line]
+        else:
+            current_page.append(line)
+
+    if current_page:
+        pages.append('\n'.join(current_page).strip())
+
+    while pages and not pages[-1]:
+        pages.pop()
+
+    return pages

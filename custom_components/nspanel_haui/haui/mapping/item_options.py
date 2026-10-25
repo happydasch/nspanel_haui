@@ -59,16 +59,3 @@ class ItemOptions:
             description=_("Override the color of this item."),
         ),
     ]
-
-    @classmethod
-    def extend_with(cls, extra: list[PageOption]) -> list[PageOption]:
-        """Return standard options + extra per-item options for a page type.
-
-        Args:
-            extra: Additional PageOption entries that a page type supports
-                   as per-item overrides (e.g. grid's text_color).
-
-        Returns:
-            Combined list of standard + extra options.
-        """
-        return list(cls.STANDARD_OPTIONS) + list(extra)

@@ -7,7 +7,7 @@ from uuid import UUID
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
 
-from ..config_models import validate_config
+from ..config_models import validate_config_model, validate_device_config
 from ..mapping.const import DEFAULT_CONFIG
 from ..utils.value import merge_dicts
 from .haui_config_access import HAUIConfigAccess
@@ -35,11 +35,18 @@ class HAUIConfig(HAUIConfigAccess):
             from ..mapping.panel import build_sys_panels_defaults
 
             cfg["sys_panels"] = build_sys_panels_defaults()
-        # validate after base init so self.app etc. are available
-        validate_config(cfg)
+        # validate after base init so self.app etc. are available. Keep the
+        # validated values: the validators clamp and coerce (e.g. color_overrides).
+        validated = validate_config_model(cfg)
+        if validated is not None:
+            cfg.update(validated.model_dump(exclude_unset=True))
+        # The runtime device config is an extra key on the top-level model, so it
+        # is not covered above.
+        device = validate_device_config(cfg["device"])
+        if device is not None:
+            cfg["device"] = device.model_dump(exclude_unset=True)
         # load all panels
-        panels_to_load = self.get("panels")
-        panels_to_load += self.get("sys_panels")
+        panels_to_load = list(self.get("panels")) + list(self.get("sys_panels"))
         self._panels, self._panels_by_id, self._panels_by_key = (
             self._build_panel_lists(self.app, panels_to_load)
         )

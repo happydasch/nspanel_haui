@@ -24,7 +24,6 @@ class DummyPanel:
 class FakePage:
     def __init__(self, page_id, started=False):
         self.page_id = page_id
-        self.page_id_recv = None
         self._started = started
         self.events = []
 
@@ -41,16 +40,19 @@ class FakePage:
 class FakeDevice:
     def __init__(self, **cfg):
         self.connected = cfg.pop("connected", True)
-        self.sleeping = False
         self.device_info = {}
         self.config = {}
         self._cfg = {"debug_level": 0, **cfg}
         self.check_wakeup_calls = 0
+        self._first_touch_consumed = False
 
     def get(self, key, default=None):
         return self._cfg.get(key, default)
 
-    def check_wakeup(self, from_button=False):
+    def get_name(self):
+        return "Fake Panel"
+
+    def check_wakeup(self):
         self.check_wakeup_calls += 1
 
 
@@ -60,10 +62,14 @@ class FakeApp:
         self.device = device
         self.controller = {}
         self.cancel_calls = []
+        self.fire_event_calls = []
         self.run_in_delays = []
 
     def log(self, msg, *a, **k):
         pass
+
+    def fire_event(self, event_type, data=None):
+        self.fire_event_calls.append((event_type, data))
 
     def cancel_timer(self, handle):
         self.cancel_calls.append(handle)
@@ -84,21 +90,21 @@ def _make_nav(**device_cfg):
     nav.calls = {
         "idle": 0,
         "nav_home": 0,
-        "open_sleep": [],
-        "open_wakeup": 0,
-        "exit_sleep": 0,
+        "open_idle": [],
+        "exit_idle": 0,
+        "leave_restore": 0,
         "display_panel": [],
         "refresh_panel": 0,
         "unset_page": 0,
     }
     nav._start_idle_timer = lambda: nav.calls.__setitem__("idle", nav.calls["idle"] + 1)
     nav._start_nav_home_timer = lambda: nav.calls.__setitem__("nav_home", nav.calls["nav_home"] + 1)
-    nav.open_sleep_panel = lambda **kw: nav.calls["open_sleep"].append(kw)
-    nav.open_wakeup_panel = lambda **kw: nav.calls.__setitem__(
-        "open_wakeup", nav.calls["open_wakeup"] + 1
+    nav.open_idle_panel = lambda **kw: nav.calls["open_idle"].append(kw)
+    nav.exit_idle_to_prev_or_home = lambda cfg: nav.calls.__setitem__(
+        "exit_idle", nav.calls["exit_idle"] + 1
     )
-    nav.exit_sleep_to_prev_or_home = lambda cfg: nav.calls.__setitem__(
-        "exit_sleep", nav.calls["exit_sleep"] + 1
+    nav._leave_idle_restoring_or_home = lambda cfg: nav.calls.__setitem__(
+        "leave_restore", nav.calls["leave_restore"] + 1
     )
     nav.display_panel = lambda panel: nav.calls["display_panel"].append(panel)
     nav.refresh_panel = lambda: nav.calls.__setitem__(
@@ -157,7 +163,6 @@ def test_page_event_displays_panel_when_match_and_not_started():
     nav.page = FakePage(page_id=3, started=False)
     nav.process_event(HAUIEvent(ESPEvent.PAGE, "3"))
     assert nav.calls["display_panel"] == [panel]
-    assert nav.page.page_id_recv == 3
 
 
 def test_page_event_stale_echo_ignored():
@@ -176,105 +181,88 @@ def test_page_event_no_display_when_already_started():
     assert nav.calls["display_panel"] == []
 
 
-# --- TIMEOUT (sleep / page) -> open sleep panel ----------------------------
+# --- TIMEOUT -> automatic page switching ------------------------------------
+
+# The firmware publishes "dim" / "off" / "page" idle milestones.  Only
+# "page" concerns the hub (automatic page switching); dim and off are
+# display-brightness milestones that must not trigger a page switch.
 
 
-def test_timeout_sleep_opens_sleep_panel():
+def test_timeout_page_opens_idle_panel():
     nav = _make_nav()
-    nav._sleep_panel = DummyPanel("sleep")
-    nav.panel = DummyPanel("home")
-    nav.process_event(HAUIEvent(ESPEvent.TIMEOUT, "sleep"))
-    assert nav._sleep_panel_active is True
-    assert nav.calls["open_sleep"] == [{"autostart": True}]
-
-
-def test_timeout_page_opens_sleep_panel():
-    nav = _make_nav()
-    nav._sleep_panel = DummyPanel("sleep")
+    nav._idle_panel = DummyPanel("idle")
     nav.panel = DummyPanel("home")
     nav.process_event(HAUIEvent(ESPEvent.TIMEOUT, "page"))
-    assert nav.calls["open_sleep"] == [{"autostart": True}]
+    assert nav.calls["open_idle"] == [{"autostart": True}]
 
 
-def test_timeout_skips_when_already_on_sleep_panel():
+def test_timeout_off_is_ignored():
+    """Display-off (esphome.timeout 'off') never switches pages."""
     nav = _make_nav()
-    sleep_panel = DummyPanel("sleep")
-    nav._sleep_panel = sleep_panel
-    nav.panel = sleep_panel  # already showing the sleep panel
-    nav.process_event(HAUIEvent(ESPEvent.TIMEOUT, "sleep"))
-    assert nav.calls["open_sleep"] == []
+    nav._idle_panel = DummyPanel("idle")
+    nav.panel = DummyPanel("home")
+    nav.process_event(HAUIEvent(ESPEvent.TIMEOUT, "off"))
+    assert nav.calls["open_idle"] == []
 
 
-def test_timeout_other_value_ignored():
+def test_timeout_dim_is_ignored():
     nav = _make_nav()
-    nav._sleep_panel = DummyPanel("sleep")
+    nav._idle_panel = DummyPanel("idle")
     nav.panel = DummyPanel("home")
     nav.process_event(HAUIEvent(ESPEvent.TIMEOUT, "dim"))
-    assert nav.calls["open_sleep"] == []
+    assert nav.calls["open_idle"] == []
 
 
-# --- DISPLAY_STATE ---------------------------------------------------------
+def test_timeout_skips_when_already_on_idle_panel():
+    nav = _make_nav()
+    idle_panel = DummyPanel("idle")
+    nav._idle_panel = idle_panel
+    nav.panel = idle_panel  # already showing the idle page
+    nav.process_event(HAUIEvent(ESPEvent.TIMEOUT, "page"))
+    assert nav.calls["open_idle"] == []
 
 
-def test_display_state_prev_off_opens_wakeup_panel():
+# --- DISPLAY_STATE ----------------------------------------------------------
+
+# The nav controller has no display_state handler: brightness transitions are
+# the firmware's job and the idle-page exit decision belongs to the touch.
+
+
+def test_display_state_does_not_drive_navigation():
     nav = _make_nav()
     nav.app.device.connected = True
-    nav.app.device.sleeping = True
     nav.app.device.device_info = {"display_state": "off"}
-    nav._sleep_panel_active = False
-    nav.process_event(HAUIEvent(ESPEvent.DISPLAY_STATE, "on"))
-    assert nav.calls["open_wakeup"] == 1
-
-
-def test_display_state_on_with_sleep_panel_active_does_not_exit():
-    # The sleep-screen exit decision is owned by the touch (Device.check_wakeup),
-    # NOT the display_state event — so display_state="on" must not drive an exit
-    # or wake panel here (avoids event-order double exits).
-    nav = _make_nav()
-    nav.app.device.connected = True
-    nav.app.device.device_info = {"display_state": "dim"}
-    nav._sleep_panel_active = True
+    nav._idle_panel_active = True
     nav.process_event(HAUIEvent(ESPEvent.DISPLAY_STATE, "on"))
     assert nav.app.device.check_wakeup_calls == 0
-    assert nav.calls["open_wakeup"] == 0
-
-
-def test_display_state_skipped_when_not_connected():
-    nav = _make_nav()
-    nav.app.device.connected = False
-    nav.app.device.device_info = {"display_state": "off"}
-    nav._sleep_panel_active = True
-    nav.process_event(HAUIEvent(ESPEvent.DISPLAY_STATE, "on"))
-    assert nav.calls["open_wakeup"] == 0
-    assert nav.app.device.check_wakeup_calls == 0
+    assert nav.calls["open_idle"] == []
+    assert nav.calls["exit_idle"] == 0
 
 
 # --- WAKEUP ----------------------------------------------------------------
 
 
-def test_wakeup_with_wakeup_panel_opens_it():
+def test_wakeup_while_idle_active_defers_to_touch():
     nav = _make_nav()
-    nav._wakeup_panel = DummyPanel("wake")
-    nav.process_event(HAUIEvent(ESPEvent.WAKEUP, ""))
-    assert nav.calls["open_wakeup"] == 1
-    assert nav.calls["exit_sleep"] == 0
+    nav._idle_panel_active = True
+    nav.process_event(HAUIEvent(ESPEvent.DISPLAY_ON, ""))
+    assert nav.calls["leave_restore"] == 0
 
 
-def test_wakeup_without_wakeup_panel_exits_to_prev_or_home():
+def test_wakeup_restores_context_when_not_idle():
     nav = _make_nav()
-    nav._wakeup_panel = None
-    nav.process_event(HAUIEvent(ESPEvent.WAKEUP, ""))
-    assert nav.calls["exit_sleep"] == 1
-    assert nav.calls["open_wakeup"] == 0
+    nav._idle_panel_active = False
+    nav.process_event(HAUIEvent(ESPEvent.DISPLAY_ON, ""))
+    assert nav.calls["leave_restore"] == 1
 
 
-# --- SLEEP -----------------------------------------------------------------
+# --- DISPLAY_OFF -----------------------------------------------------------
 
 
-def test_sleep_unsets_page():
+def test_display_off_unsets_page():
     nav = _make_nav()
     nav.page = FakePage(page_id=1)
-    nav.process_event(HAUIEvent(ESPEvent.SLEEP, ""))
+    nav.process_event(HAUIEvent(ESPEvent.DISPLAY_OFF, ""))
     assert nav.calls["unset_page"] == 1
 
 
@@ -320,6 +308,9 @@ class OpenPanel:
     def get(self, key, default=None):
         return self._cfg.get(key, default)
 
+    def get_title(self):
+        return self._cfg.get("title", "")
+
     def get_state(self, key, default=None):
         return self._state.get(key, default)
 
@@ -332,7 +323,6 @@ class OpenPage:
 
     def __init__(self, app, config):
         self.page_id = config.get("page_id")
-        self.page_id_recv = None
         self._started = False
         self.create_called = False
 
@@ -422,6 +412,61 @@ def test_page_timeout_callback_forces_goto_and_displays():
     assert len(nav.calls["display_panel"]) == 1
 
 
+# --- idle session cleanup ---------------------------------------------------
+
+
+def test_navigate_away_from_idle_panel_leaves_idle_session():
+    """Any navigation to a panel other than the idle page (gesture, function
+    button, service) is a wake input and clears the idle session."""
+    panel = OpenPanel("p1", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=3)
+    nav.page = FakePage(page_id=3, started=True)
+    nav.panel = OpenPanel("old")
+    nav._idle_panel = OpenPanel("sleep-panel")
+    nav._idle_panel_active = True
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=3),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._open_panel_impl("p1")
+
+    assert nav._idle_panel_active is False
+
+
+def test_open_idle_panel_itself_keeps_idle_session():
+    """Re-opening the idle page (e.g. the sleep button on the idle page itself)
+    must not clear the idle session."""
+    panel = OpenPanel("sleep-panel", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=3)
+    nav.page = FakePage(page_id=3, started=True)
+    nav.panel = OpenPanel("old")
+    nav._idle_panel = panel
+    nav._idle_panel_active = True
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=3),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._open_panel_impl("sleep-panel")
+
+    assert nav._idle_panel_active is True
+
+
+def test_close_idle_panel_leaves_idle_session():
+    """Closing the idle page (close button / close_panel service) is a wake
+    input: the idle session must not survive the close."""
+    panel = OpenPanel("sleep-panel", panel_type="grid")
+    nav = _make_nav_for_open(panel, page_id=3)
+    nav.panel = panel
+    nav._idle_panel = panel
+    nav._idle_panel_active = True
+
+    nav._close_panel_impl()
+
+    assert nav._idle_panel_active is False
+
+
 # --- BUFFER_OVERFLOW -------------------------------------------------------
 
 
@@ -504,3 +549,56 @@ def test_buffer_overflow_backoff_resets_after_quiet_period():
     nav._last_overflow_ts = time.monotonic() - nav_module.OVERFLOW_RECOVERY_RESET - 1
     nav.process_event(HAUIEvent(ESPEvent.BUFFER_OVERFLOW, "1"))
     assert nav.app.run_in_delays == [nav_module.OVERFLOW_RECOVERY_DELAY]
+
+
+def test_open_idle_panel_without_idle_panel_is_a_noop():
+    """No configured idle page: nothing to switch to, current panel stays."""
+    device = FakeDevice()
+    app = FakeApp(device)
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    opened: list = []
+    nav.open_panel = lambda pid, **kw: opened.append(pid)
+    nav.close_panel = lambda: opened.append("close")
+    nav.create_snapshot = lambda: opened.append("snapshot")
+
+    nav.open_idle_panel()
+
+    assert opened == []
+
+
+def test_open_idle_panel_enters_idle_session_and_snapshots_once():
+    """Repeated entries (timeout/button/service) must not overwrite the
+    pre-idle snapshot with the idle page itself."""
+    device = FakeDevice()
+    app = FakeApp(device)
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._idle_panels = [DummyPanel("sleep-a"), DummyPanel("sleep-b")]
+    nav._idle_panel = nav._idle_panels[0]
+    nav._idle_panel_idx = 0
+    snapshots: list = []
+    nav.create_snapshot = lambda: snapshots.append("snapshot")
+    nav.open_panel = lambda pid, **kw: None
+
+    nav.open_idle_panel()
+    nav.open_idle_panel()  # repeated entry while already idle
+
+    assert nav._idle_panel_active is True
+    assert len(snapshots) == 1
+    assert nav._idle_panel_idx == 2  # carousel still advances
+
+
+def test_exit_idle_to_prev_or_home_noops_when_not_idle():
+    device = FakeDevice()
+    app = FakeApp(device)
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._snapshot = (None, {}, None, {}, [])
+    nav._snapshot_time = time.monotonic()
+    opened: list = []
+    nav.open_home_panel = lambda **kw: opened.append("home")
+
+    nav.exit_idle_to_prev_or_home({})
+
+    assert opened == []  # no navigation away from normal operation

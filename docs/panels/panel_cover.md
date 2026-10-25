@@ -19,9 +19,9 @@ The popup variant (`popup_cover`) mirrors the main panel layout. It is used auto
 
 | Widget | Description |
 |--------|-------------|
-| **Up button** | Opens the cover. Visible when the entity supports open. Disabled when position = 100%. |
+| **Up button** | Opens the cover. Visible when the entity supports open. Disabled when position = 100% (or, for covers without a position, when the cover is open). |
 | **Stop button** | Stops the current movement. Visible when the entity supports stop. Active only during opening/closing. |
-| **Down button** | Closes the cover. Visible when the entity supports close. Disabled when position = 0%. |
+| **Down button** | Closes the cover. Visible when the entity supports close. Disabled when position = 0% (or, for covers without a position, when the cover is closed). |
 | **Position slider** | Vertical slider (0–100%) for precise positioning. Visible when the entity supports set_position. Shows current position percentage above the slider. |
 | **Title** | Displays the cover's friendly name. |
 
@@ -35,5 +35,5 @@ In the **panel editor**, set:
 
 - Button visibility and enabled state are determined by the entity's supported features.
 - When a cover is moving (state = opening or closing), the stop button is enabled.
-- The position label shows `{position}%` (e.g., `42%`).
+- The position label shows `{position}%` (e.g., `42%`). Covers that report no position show their state instead (e.g., `Open`).
 - Slider interaction sends the cover position command with the selected value.

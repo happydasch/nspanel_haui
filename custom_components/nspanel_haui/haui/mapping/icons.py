@@ -12,7 +12,6 @@ from typing import Final
 from ..utils.icon import get_icon
 
 # Shared / base-page icons
-ICO_DEFAULT: Final[str] = get_icon("mdi:alert-circle-outline")
 ICO_NAV_PREV: Final[str] = get_icon("mdi:chevron-left")
 ICO_NAV_NEXT: Final[str] = get_icon("mdi:chevron-right")
 ICO_NAV_UP: Final[str] = get_icon("mdi:chevron-up")
@@ -23,18 +22,12 @@ ICO_ZOOM: Final[str] = get_icon("mdi:loupe")
 ICO_LOCKED: Final[str] = get_icon("mdi:lock-outline")
 ICO_UNLOCKED: Final[str] = get_icon("mdi:lock-open-variant-outline")
 ICO_PASSWORD: Final[str] = get_icon("mdi:circle-medium")
-ICO_ENTITY_POWER: Final[str] = get_icon("mdi:power")
-ICO_ENTITY_UNAVAILABLE: Final[str] = get_icon("mdi:cancel")
-ICO_PREV_PAGE: Final[str] = get_icon("mdi:chevron-double-up")
 ICO_NEXT_PAGE: Final[str] = get_icon("mdi:chevron-double-down")
-ICO_PREV_MESSAGE: Final[str] = get_icon("mdi:chevron-double-left")
-ICO_NEXT_MESSAGE: Final[str] = get_icon("mdi:chevron-double-right")
 ICO_MESSAGE: Final[str] = get_icon("mdi:email")
 ICO_SLEEP: Final[str] = get_icon("mdi:sleep")
 ICO_ABOUT: Final[str] = get_icon("mdi:information-outline")
 
 # ClimatePage icons
-ICO_UP: Final[str] = get_icon("mdi:chevron-up")
 ICO_DOWN: Final[str] = get_icon("mdi:chevron-down")
 ICO_FAN: Final[str] = get_icon("mdi:fan")
 ICO_PRESET: Final[str] = get_icon("mdi:view-list")
@@ -70,7 +63,6 @@ ICO_HOME: Final[str] = get_icon("mdi:home")
 ICO_BATTERY: Final[str] = get_icon("mdi:battery")
 
 # TimerPage icons
-ICO_START: Final[str] = get_icon("mdi:play")
 ICO_RESET: Final[str] = get_icon("mdi:close")
 ICO_TIMER_OFF: Final[str] = get_icon("mdi:timer-off-outline")
 ICO_TIMER_FINISHED: Final[str] = get_icon("mdi:timer-check")
@@ -80,9 +72,14 @@ ICO_WIFI: Final[str] = get_icon("mdi:wifi")
 ICO_KEY: Final[str] = get_icon("mdi:key")
 
 # RowPage icons
-ICO_COVER_UP: Final[str] = get_icon("mdi:chevron-up")
-ICO_COVER_DOWN: Final[str] = get_icon("mdi:chevron-down")
-ICO_COVER_STOP: Final[str] = get_icon("mdi:stop")
 
 # ClockTwoPage icons
 ICO_SPECIAL: Final[str] = get_icon("mdi:circle-medium")
+
+# Notification icons
+DEFAULT_NOTIF_ICONS: Final[dict[str, str]] = {
+    "info": "mdi:information-outline",
+    "warning": "mdi:alert-outline",
+    "critical": "mdi:alert-octagon-outline",
+}
+DEFAULT_NOTIF_ICON_FALLBACK: Final[str] = "mdi:bell-outline"

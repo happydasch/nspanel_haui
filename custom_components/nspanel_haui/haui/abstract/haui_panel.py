@@ -117,7 +117,7 @@ class HAUIPanel(HAUIConfigAccess):
         Falls back to the device-level setting, then False.
 
         Args:
-            name: Button name, e.g. "home", "sleep", "notifications".
+            name: Button name, e.g. "home", "idle", "notifications".
 
         Returns:
             bool: True if the button should be shown
@@ -129,9 +129,9 @@ class HAUIPanel(HAUIConfigAccess):
         """Returns True if home button should be shown."""
         return self.show_button("home")
 
-    def show_sleep_button(self) -> bool:
-        """Returns True if sleep button should be shown."""
-        return self.show_button("sleep")
+    def show_idle_button(self) -> bool:
+        """Returns True if the idle button should be shown."""
+        return self.show_button("idle")
 
     def show_notifications_button(self) -> bool:
         """Returns True if notifications button should be shown."""

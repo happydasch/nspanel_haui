@@ -4,25 +4,20 @@
  * Proper Lit custom element following HA's dialog-box pattern.
  * Replaces the old renderConfirmDialog() function.
  */
-import { LitElement, html } from '../lit-import.js';
-import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { html } from '../lit-import.js';
 import { dialogHeader } from './dialog-header.js';
+import { HauiDialog } from './haui-dialog.js';
 import { t } from '../localize.js';
 
-class ConfirmDialog extends LitElement {
+class ConfirmDialog extends HauiDialog {
   static get properties() {
     return {
-      hass: { type: Object },
-      open: { type: Boolean, reflect: true },
       params: { type: Object },
     };
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles];
-
   constructor() {
     super();
-    this.open = false;
     this.params = null;
   }
 
@@ -63,14 +58,10 @@ class ConfirmDialog extends LitElement {
     `;
   }
 
-  _dispatchClose() {
-    this.dispatchEvent(new CustomEvent("dialog-closed"));
-  }
-
   _dispatchConfirm() {
-    this.dispatchEvent(new CustomEvent("dialog-confirmed"));
+    this._emit("dialog-confirmed");
   }
 }
 
-customElements.define("ha-dialog-confirm", ConfirmDialog);
+customElements.define("nspanel-dialog-confirm", ConfirmDialog);
 export { ConfirmDialog };

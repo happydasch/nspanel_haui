@@ -22,9 +22,9 @@
   <a href="docs/README.md"><b>Documentation</b></a> ·
   <a href="docs/panels/README.md"><b>Panels Overview</b></a> ·
   <a href="docs/install.md"><b>Installation Guide</b></a> ·
-  <a href="docs/config.md"><b>Configuration</b></a> ·
+  <a href="docs/configuration/README.md"><b>Configuration</b></a> ·
   <a href="docs/faq.md"><b>FAQ</b></a> ·
-  <a href="docs/example_config.md"><b>Example Configs</b></a>
+  <a href="docs/examples.md"><b>Example Configs</b></a>
 </p>
 
 
@@ -40,12 +40,13 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
 
 
 1. **Install via HACS** — Add the custom repository, install the integration, and restart Home Assistant.
+   Existing users on 0.3.x or earlier: read the [Upgrade guide →](docs/upgrading.md) first — the first stable release renames services, ESPHome actions/events and two config entities, and does not migrate saved settings.
 
    [Install guide →](docs/install.md)
 
-2. **Flash ESPHome** — Use `esphome/install.yaml` as a starting point, configure your Wi-Fi, and flash via USB or OTA.
+2. **Flash ESPHome** — Flash the prebuilt `nspanel_haui.bin` from the latest release and enter your Wi-Fi at first boot, or build your own from `esphome/install.yaml`.
 
-   [ESPHome guide →](docs/esphome.md)
+   [Flashing guide →](docs/install.md#2-step-install-esphome)
 
 3. **Add Integration** — Go to Settings → Devices & Services → Add NSPanel HAUI. It auto-discovers your device.
 
@@ -53,7 +54,7 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
 
 4. **Configure Panels** — Open the web frontend, add panels, assign entities, and set colors to your liking.
 
-   [Configuration guide →](docs/config.md)
+   [Configuration guide →](docs/configuration/README.md)
 
 <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=happydasch&repository=nspanel_haui&category=integration">
   <img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.">
@@ -83,7 +84,7 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
     <td align="center" valign="top" width="16%">
       <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/theme-light-dark.svg" width="32" height="32"><br>
       <b>Auto-Dimming</b><br>
-      <small>Smart sleep/wake,<br>ambient light sensor,<br>screensaver</small>
+      <small>Smart display-off/wake,<br>ambient light sensor,<br>screensaver</small>
     </td>
     <td align="center" valign="top" width="16%">
       <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/tune.svg" width="32" height="32"><br>
@@ -146,7 +147,7 @@ See the <a href="docs/panels/README.md">Panels Overview</a> for details.
     <td width="33%" valign="top">
       <a href="docs/panels/panel_row.md"><img src="docs/assets/previews/panel-row.svg" alt="Row Panel" width="100%"></a><br>
       <b><a href="docs/panels/panel_row.md">Row</a></b> <code>row</code><br>
-      <small>Up to 5 entities in a vertical scrollable rows. Compact, text-focused layout.</small>
+      <small>Up to 5 entities as stacked rows. Compact, text-focused layout.</small>
     </td>
     <td width="33%" valign="top">
       <a href="docs/panels/panel_light.md"><img src="docs/assets/previews/panel-light.svg" alt="Light Panel" width="100%"></a><br>
@@ -209,7 +210,7 @@ See the <a href="docs/panels/README.md">Panels Overview</a> for details.
     <td width="33%" valign="top">
       <a href="docs/panels/panel_clocktwo.md"><img src="docs/assets/previews/panel-clocktwo.svg" alt="ClockTwo Panel" width="100%"></a><br>
       <b><a href="docs/panels/panel_clocktwo.md">ClockTwo</a></b> <code>clocktwo</code><br>
-      <small>Time displayed as written text. Minimalist screensaver alternative.</small>
+      <small>Word clock — the time spelled out on a letter grid. Minimalist screensaver.</small>
     </td>
     <td width="33%" valign="top"></td>
     <td width="33%" valign="top"></td>
@@ -235,7 +236,7 @@ NSPanel HAUI ships with a **fully integrated web frontend** — a custom Lovelac
 | **Multi-device** | Manage multiple NSPanels from a single Lovelace panel. Switch between devices, compare configs. |
 | **Real-time status** | Live device connection status, uptime, firmware versions, and log viewer — all from the frontend. |
 
-The frontend is **automatically available** once the integration is added — no separate installation step needed. Open it from the Lovelace panel list or via the device page in **Settings → Devices & Services**.
+The frontend is **automatically available** once the integration is added — no separate installation step needed. Open it from **NSPanel HAUI** in the Home Assistant sidebar (administrators only).
 
 Behind the scenes, the frontend communicates with the HAUI hub app through a REST API (`/api/nspanel_haui/...`) and the Home Assistant custom panel system. The frontend code lives in `custom_components/nspanel_haui/frontend/` and is written in vanilla JavaScript using Lit for components.
 
@@ -243,14 +244,15 @@ Behind the scenes, the frontend communicates with the HAUI hub app through a RES
 
 ## Configuration
 
-All device settings — panels, entities, gestures, dimming, sleep, and colours — are managed through the Home Assistant interface.
+All device settings — panels, entities, gestures, dimming, display-off schedule, and colours — are managed through the Home Assistant interface.
 
-- **[Configuration Overview](docs/config.md)** — All available options at a glance
-- **[Device Configuration](docs/config/device.md)** — Sounds, screensaver, buttons, dimming
-- **[Panel Configuration](docs/config/panels.md)** — Creating and arranging panels
-- **[Item Configuration](docs/config/items.md)** — Entities, icons, colors, internal items
+- **[Configuration Overview](docs/configuration/README.md)** — All available options at a glance
+- **[Device Configuration](docs/configuration/device.md)** — Sounds, screensaver, buttons, dimming
+- **[Display Models](docs/configuration/display-models.md)** — EU landscape and US portrait panels
+- **[Panel Configuration](docs/configuration/panels.md)** — Creating and arranging panels
+- **[Item Configuration](docs/configuration/items.md)** — Entities, icons, colors, internal items
 - **[Device Description](docs/device.md)** — Gestures, display states, hardware buttons, notifications
-- **[Example Configs](docs/example_config.md)** — Ready-to-use panel combinations
+- **[Example Configs](docs/examples.md)** — Ready-to-use panel combinations
 
 ---
 
@@ -274,25 +276,12 @@ For detailed architecture information, see the [Communication Overview](docs/com
 
 ## Documentation
 
-### End User
+The full index — end-user guides and developer references — is at
+**[docs/README.md](docs/README.md)**. Highlights:
 
-- **[Installation Guide](docs/install.md)** — Step-by-step installation instructions
-- **[Custom Integration](docs/custom_integration.md)** — How to install and set up the integration
-- **[Configuration](docs/config.md)** — Panel and device configuration reference
-- **[Panels Overview](docs/panels/README.md)** — All available panel types and their options
-- **[Device Description](docs/device.md)** — Device behaviour, gestures, dimming, and features
-- **[FAQ](docs/faq.md)** — Frequently asked questions and troubleshooting
-- **[Troubleshooting](docs/troubleshooting.md)** — Diagnosing and resolving common problems
-- **[Example Configs](docs/example_config.md)** — Example panel configurations
-- **[Icons Cheatsheet](https://htmlpreview.github.io/?https://raw.githubusercontent.com/happydasch/nspanel_haui/master/docs/cheatsheet.html)** — Available icon codes for your panels
-
-### Development
-
-- **[Design Guidelines](docs/design.md)** — Styling and panel design principles
-- **[Communication Overview](docs/communication.md)** — How Hub, ESPHome, and Nextion communicate
-- **[ESPHome Component](docs/esphome.md)** — ESP32 firmware details and serial protocol
-- **[Hub Component](docs/hub.md)** — The core integration logic
-- **[Nextion Component](docs/nextion.md)** — Display firmware and TFT details
+- [Installation](docs/install.md) · [Quick Start](docs/get-started.md) · [Configuration](docs/configuration/README.md) · [Panels](docs/panels/README.md) · [Icons](https://happydasch.github.io/nspanel_haui/cheatsheet.html)
+- [FAQ](docs/faq.md) · [Troubleshooting](docs/troubleshooting.md) · [Services](docs/services.md) · [Examples](docs/examples.md)
+- [Development](docs/development.md) · [Design](docs/design.md) · [Communication](docs/communication.md) · [ESPHome](docs/esphome.md) · [Hub](docs/hub.md) · [Nextion](docs/nextion.md)
 
 ---
 

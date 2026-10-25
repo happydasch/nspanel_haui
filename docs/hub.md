@@ -15,8 +15,8 @@ NSPanelHAUI is the backend that allows to manage home automation devices using t
 ## Installation
 
 1. Install the NSPanel HAUI custom integration via HACS or by copying to `custom_components/nspanel_haui/`
-2. Add the integration via **Settings → Devices & Services → Add Integration → NSPanel HAUI** (config flow)
-3. Restart Home Assistant
+2. Restart Home Assistant
+3. Add the integration via **Settings → Devices & Services → Add Integration → NSPanel HAUI** (config flow)
 
 ## Structure
 
@@ -45,7 +45,7 @@ The lifetime of the application is:
 
 `haui.abstract.haui_config.HAUIConfig`
 
-The configuration is taken from the Hub app config. This class allows to process the config values and gives access to panels and entities.
+The configuration is built from the device's settings and panels in the panel store, over the `DEVICE_CONFIG` defaults. This class allows to process the config values and gives access to panels and entities.
 
 ### Device
 
@@ -64,10 +64,9 @@ The lifetime of a device is:
 
 This class represents a single page on the display.
 
-The lifetime of a page is:
-
-- start_page
-- stop_page
+A page lives as long as the panel it shows: navigation creates a new page
+instance each time a panel opens and stops it when the panel closes. The panel
+hooks below run on that instance.
 
 ### Panel
 
@@ -153,6 +152,7 @@ stateDiagram-v2
     HANDSHAKING --> HANDSHAKING: res_connection received<br/>(sends req_device_state)
     HANDSHAKING --> CONNECTED: res_device_state received<br/>(sends hub_connection_initialized)
 
+    HANDSHAKING --> DISCONNECTED: handshake not completed<br/>within 15s
     CONNECTED --> DISCONNECTED: heartbeat timeout<br/>or hub_connection_closed
     CONNECTED --> CONNECTED: bidirectional heartbeats<br/>(every heartbeat_interval)
 
@@ -163,7 +163,7 @@ stateDiagram-v2
 
 Once connected, both sides independently monitor liveness:
 
-- **Hub→Device**: Periodic `hub_heartbeat` action at the device-declared `heartbeat_interval` (default 5s). First heartbeat fires immediately ("now+0"), then every interval.
+- **Hub→Device**: Periodic `hub_heartbeat` action at the device-declared `heartbeat_interval` (default 5s). First heartbeat fires immediately ("now+0"), then every interval. The hub also answers each incoming `esphome.heartbeat` with an immediate `hub_heartbeat`; the timer is a fallback.
 - **Device→Hub**: `esphome.heartbeat` events update `_last_time` in the controller. Timeout = `interval × overdue_factor` (default 10s).
 
 ### Timeout Monitoring
@@ -173,9 +173,13 @@ The `_check_timeout()` method runs on a periodic timer (same interval as heartbe
 - If `time.monotonic() > _last_time + max(interval × factor, 10.0)`, transitions to DISCONNECTED
 - Extended-disconnect warnings log every 60s when state stays DISCONNECTED
 
+### Handshake Timeout
+
+A handshake that does not complete within 15s (`_HANDSHAKE_TIMEOUT`) logs a warning and returns to DISCONNECTED; the device retries `req_connection` every 10s.
+
 ### Reconnection (Livesign Detection)
 
-Any event received while in DISCONNECTED (except `res_connection` and `res_device_state`) triggers immediate handshake re-initiation:
+Any event received while in DISCONNECTED (except `req_connection`, `res_connection` and `res_device_state`) triggers immediate handshake re-initiation:
 1. Sets state → HANDSHAKING
 2. Sends `hub_connection_response` with hub version
 3. Returns early (the same event is NOT processed further)
@@ -187,7 +191,7 @@ On state transitions:
 - **CONNECTED**: Sends `hub_connection_initialized`, `reset_last_interaction`, starts timers, invokes `callback_connection(True)`
 - **DISCONNECTED** (from CONNECTED): Sends `hub_connection_closed`, stops timers, invokes `callback_connection(False)`
 
-The callback propagates to `HAUIDevice.set_connected()`, which handles navigation (open sys_system on first connect, restore panel on reconnect).
+The callback propagates to `HAUIDevice.on_connection_changed()`, which handles navigation (open sys_system on first connect, restore panel on reconnect).
 
 ## Navigation
 
@@ -199,9 +203,7 @@ All navigation related functionality can be found in `haui.controller.HAUINaviga
 
 Supported gestures: swipe_left, swipe_right, swipe_up, swipe_down
 
-There is also support for gesture sequences.
-
-All gesture functionality can be found in `haui.controller.HAUIGestureController`
+Singular gesture handling lives in `haui.device`; `haui.controller.HAUIGestureController` opens a panel when a configured gesture sequence completes within its time limit. Sequences are the `gesture_sequences` device setting (Device Settings → Gestures in the editor; see [Device Configuration](configuration/device.md#gestures)), read on every gesture so a saved config applies without a restart.
 
 ## Updates
 
@@ -218,8 +220,8 @@ Most of the communication happens by publishing to ESPHome. There are two comman
 ```python
 # batch multiple commands using the rec_cmd context manager
 with self.rec_cmd:
-    self.set_component_text(self.components.title, "Hello")
-    self.set_component_value(self.components.t_info, 42)
+    self.set_component_text(self.COMPONENTS.title, "Hello")
+    self.set_component_value(self.COMPONENTS.t_info, 42)
     self.render_panel(panel)
 
 # commands are deduplicated and sent automatically on exit

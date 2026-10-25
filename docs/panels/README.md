@@ -23,9 +23,9 @@ Panels that can be used as screensavers / idle display. These panels do not show
 
 | Preview | Panel | Type | Description |
 |---------|-------|------|-------------|
-| <a href="panel_weather.md"><img src="../assets/previews/panel-weather.svg" width="80" height="60"></a> | [Weather](panel_weather.md) | `weather` | Weather forecast, time/date, optional background images. Supports info items and entity buttons. |
+| <a href="panel_weather.md"><img src="../assets/previews/panel-weather.svg" width="80" height="60"></a> | [Weather](panel_weather.md) | `weather` | Weather forecast, time/date, optional background images. Supports up to two info items. |
 | <a href="panel_clock.md"><img src="../assets/previews/panel-clock.svg" width="80" height="60"></a> | [Clock](panel_clock.md) | `clock` | Large time/date display with optional weather, background, and entity buttons. |
-| <a href="panel_clocktwo.md"><img src="../assets/previews/panel-clocktwo.svg" width="80" height="60"></a> | [ClockTwo](panel_clocktwo.md) | `clocktwo` | Minimalist clock showing time as written text (e.g., "twelve thirty-four"). |
+| <a href="panel_clocktwo.md"><img src="../assets/previews/panel-clocktwo.svg" width="80" height="60"></a> | [ClockTwo](panel_clocktwo.md) | `clocktwo` | Word clock showing the time by highlighting letters (e.g., "IT IS HALF PAST TWELVE"). |
 
 ---
 
@@ -36,7 +36,7 @@ Panels that show multiple entities in a navigation-enabled layout.
 | Preview | Panel | Type | Description |
 |---------|-------|------|-------------|
 | <a href="panel_grid.md"><img src="../assets/previews/panel-grid.svg" width="80" height="60"></a> | [Grid](panel_grid.md) | `grid` | Up to 6 entities arranged in a scrollable grid. Color overrides, power buttons. |
-| <a href="panel_row.md"><img src="../assets/previews/panel-row.svg" width="80" height="60"></a> | [Row](panel_row.md) | `row` | Up to 5 entities in a horizontal row. Compact icon-focused layout. |
+| <a href="panel_row.md"><img src="../assets/previews/panel-row.svg" width="80" height="60"></a> | [Row](panel_row.md) | `row` | Up to 5 entities as stacked rows, each with an icon, name and a control suited to the entity type. |
 
 ---
 
@@ -76,7 +76,7 @@ Overlay panels used for temporary interactions.
 | [Notify](popup_notify.md) | `popup_notify` | Ad-hoc notification popup with optional action buttons. |
 | [Select](popup_select.md) | `popup_select` | Selection list popup for choosing values (fan speeds, presets, etc.). |
 
-Popup variants of entity panels (`popup_light`, `popup_media_player`, `popup_vacuum`, `popup_climate`, `popup_timer`, `popup_cover`) mirror their main panel layout.
+Popup variants of entity panels (`popup_light`, `popup_media_player`, `popup_vacuum`, `popup_climate`, `popup_timer`, `popup_cover`, `popup_alarm`) mirror their main panel layout.
 
 ---
 
@@ -86,7 +86,7 @@ Always available, no configuration needed.
 
 | Panel | Type | Description |
 |-------|------|-------------|
-| [Blank](panel_blank.md) | `sys_blank` | Blank/empty panel used during sleep mode. |
+| [Blank](panel_blank.md) | `sys_blank` | Blank/empty panel you can use as the idle page. |
 | [System](panel_system.md) | `sys_system` | Loading/error panel. Automatically shown when the device loses connection. |
 | [Settings](panel_settings.md) | `sys_settings` | Device settings panel (brightness, dimming, sounds, etc.). |
 | [About](panel_about.md) | `sys_about` | Device and version information panel. |

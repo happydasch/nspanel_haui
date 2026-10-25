@@ -4,9 +4,9 @@
  * Proper Lit custom element. Shows device connection state, firmware info,
  * WiFi signal, active listeners/timers, and ESPHome transport details.
  */
-import { LitElement, html } from '../lit-import.js';
-import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { html } from '../lit-import.js';
 import { dialogHeader } from './dialog-header.js';
+import { HauiDialog } from './haui-dialog.js';
 import { t } from '../localize.js';
 import { readNetworkInfo, rssiStrengthClass, rssiBarCount, fmtRssi } from '../network-info.js';
 
@@ -25,15 +25,15 @@ function fmtTimestamp(isoString) {
     if (diffSec < 60) return t('Just now');
     if (diffSec < 3600) {
       const m = Math.floor(diffSec / 60);
-      return `${m} ${t('minute(s) ago')}`;
+      return t('{count} minute(s) ago').replace('{count}', m);
     }
     if (diffSec < 86400) {
       const h = Math.floor(diffSec / 3600);
-      return `${h} ${t('hour(s) ago')}`;
+      return t('{count} hour(s) ago').replace('{count}', h);
     }
     if (diffSec < 604800) {
       const d = Math.floor(diffSec / 86400);
-      return `${d} ${t('day(s) ago')}`;
+      return t('{count} day(s) ago').replace('{count}', d);
     }
     return then.toLocaleString();
   } catch {
@@ -122,6 +122,63 @@ function renderDeviceInfoSection(ds, di) {
             <span class="di-info-label">${t('TFT Version')}</span>
             <span class="di-info-value di-mono">${di.tft_version || "-"}</span>
           </div>
+        </div>
+      </div>
+    </details>
+  `;
+}
+
+/* ── health section (Panel Doctor) ─────────────────────────────── */
+
+function renderHealthSection(ds, di) {
+  const connected = ds.connected === true;
+  const uptime = connected && di.connection_uptime != null ? di.connection_uptime : null;
+  const reason = di.last_disconnect_reason;
+  const offlineSince = di.disconnected_since;
+  const idlePage = di.idle_page_active === true;
+  const update = ds.update || {};
+  const updateLabels = {
+    checking: t('Checking for update\u2026'),
+    installing: t('Installing TFT\u2026'),
+    done: t('TFT installed'),
+    error: t('TFT update failed'),
+  };
+  const updateLabel = updateLabels[update.state] || (update.state && update.state !== "idle" ? update.state : "");
+
+  return html`
+    <details class="config-section">
+      <summary>
+        <ha-icon icon="mdi:heart-pulse" class="di-section-icon"></ha-icon>
+        ${t("Health")}
+      </summary>
+      <div class="config-section-body">
+        <div class="di-info-grid">
+          <div class="di-info-cell">
+            <span class="di-info-label">${t("Integration Version")}</span>
+            <span class="di-info-value di-mono">${ds.integration_version || "-"}</span>
+          </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t("Connection Uptime")}</span>
+            <span class="di-info-value">${uptime != null ? fmtInterval(uptime) : "—"}</span>
+          </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t("State")}</span>
+            <span class="di-info-value">${idlePage ? t("Idle page") : t("Active")}</span>
+          </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t("Last Disconnect")}</span>
+            <span class="di-info-value" title=${reason || "—"}>
+              ${reason ? `${reason}${offlineSince ? ` · ${fmtTimestamp(offlineSince)}` : ""}` : "—"}
+            </span>
+          </div>
+          ${updateLabel ? html`
+          <div class="di-info-cell${update.state === "error" ? ' di-info-error' : ''}">
+            <span class="di-info-label">${t("TFT Update")}</span>
+            <span class="di-info-value" title=${update.last_error || updateLabel}>
+              ${update.version ? `${updateLabel} · ${update.version}` : updateLabel}
+            </span>
+          </div>
+          ` : ""}
         </div>
       </div>
     </details>
@@ -275,20 +332,15 @@ function renderActiveTimers(ds) {
 
 /* ── dialog component ─────────────────────────────────────────────── */
 
-class DeviceInfoDialog extends LitElement {
+class DeviceInfoDialog extends HauiDialog {
   static get properties() {
     return {
-      hass: { type: Object },
-      open: { type: Boolean, reflect: true },
       deviceStatus: { type: Object },
     };
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles];
-
   constructor() {
     super();
-    this.open = false;
     this.deviceStatus = null;
   }
 
@@ -306,7 +358,10 @@ class DeviceInfoDialog extends LitElement {
 
     const di = ds.device_info || {};
     const deviceName = di.name || "";
-    const nw = readNetworkInfo(this.hass, deviceName);
+    // Prefer the server-resolved network info (entity-registry based) over the
+    // client-side slug lookup, which misses area/device-prefixed entity ids.
+    const diIp = di.ip;
+    const nw = diIp ? { ip: diIp, ssid: di.ssid || '', rssi: di.rssi } : readNetworkInfo(this.hass, deviceName);
 
     return html`
       <ha-dialog
@@ -318,6 +373,7 @@ class DeviceInfoDialog extends LitElement {
         <div class="dialog-body">
           ${renderStatusCard(ds, di, nw)}
           ${renderDeviceInfoSection(ds, di)}
+          ${renderHealthSection(ds, di)}
           ${renderWifiSection(di, nw)}
           ${renderEsphomeSection(ds)}
           ${renderActiveListeners(ds)}
@@ -334,11 +390,7 @@ class DeviceInfoDialog extends LitElement {
       </ha-dialog>
     `;
   }
-
-  _dispatchClose() {
-    this.dispatchEvent(new CustomEvent("dialog-closed"));
-  }
 }
 
-customElements.define("ha-dialog-device-info", DeviceInfoDialog);
-export { DeviceInfoDialog };
+customElements.define("nspanel-dialog-device-info", DeviceInfoDialog);
+export { DeviceInfoDialog, renderHealthSection };

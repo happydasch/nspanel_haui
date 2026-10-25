@@ -4,8 +4,6 @@ Provides day/month names and format patterns for supported locales.
 Replaces babel.dates.format_date with hardcoded CLDR-based data.
 """
 
-SUPPORTED_LOCALES = frozenset({"en_US", "de_DE", "nl_NL", "pl_PL", "fr_FR"})
-
 # Format tokens:
 #   {DOW}   = full weekday name
 #   {DOWA}  = abbreviated weekday name

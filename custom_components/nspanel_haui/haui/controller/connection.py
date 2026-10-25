@@ -73,6 +73,9 @@ class HAUIConnectionController(HAUIBase):
         # Track when we entered DISCONNECTED so we can warn on extended downtime
         self._last_connection_time: float = 0.0
         self._disconnected_since: float | None = None
+        # Human-readable reason for the last disconnect (heartbeat timeout,
+        # handshake timeout, app stopped, ...).  None while connected.
+        self._last_disconnect_reason: str | None = None
 
         # Callback
         self._connection_callback = connection_callback
@@ -92,12 +95,30 @@ class HAUIConnectionController(HAUIBase):
         """Preferred predicate for connection status (read-only)."""
         return self._state == ConnectionState.CONNECTED
 
+    @property
+    def last_disconnect_reason(self) -> str | None:
+        """Human-readable reason of the most recent disconnect (None while connected)."""
+        return self._last_disconnect_reason
+
+    @property
+    def disconnected_since(self) -> float | None:
+        """Wall-clock timestamp of when the device went offline (None while connected)."""
+        if self._disconnected_since is None:
+            return None
+        return time.time() - (time.monotonic() - self._disconnected_since)
+
     # ------------------------------------------------------------------
     # State management
     # ------------------------------------------------------------------
 
-    def _set_state(self, new_state: ConnectionState) -> None:
-        """Atomically transition to *new_state*, running side-effects once."""
+    def _set_state(self, new_state: ConnectionState, reason: str | None = None) -> None:
+        """Atomically transition to *new_state*, running side-effects once.
+
+        Args:
+            new_state: Target state.
+            reason: Optional human-readable reason for the transition, stored
+                as ``last_disconnect_reason`` when leaving CONNECTED/HANDSHAKING.
+        """
         if new_state == self._state:
             return
         old = self._state
@@ -105,8 +126,10 @@ class HAUIConnectionController(HAUIBase):
         self.log(f"Connection state: {old.value} → {new_state.value}")
 
         if new_state == ConnectionState.CONNECTED:
+            self._last_disconnect_reason = None
             self._on_entering_connected()
         elif new_state == ConnectionState.DISCONNECTED:
+            self._last_disconnect_reason = reason or "lost connection"
             self._on_entering_disconnected(old)
         elif new_state == ConnectionState.HANDSHAKING:
             self._on_entering_handshaking()
@@ -123,7 +146,7 @@ class HAUIConnectionController(HAUIBase):
         self._stop_handshake_timer()
         self.send_esphome(ServerResponse.HUB_CONNECTION_INITIALIZED, "", True)
         # Explicitly reset the device's inactivity timer so that display
-        # timeouts (dim/sleep/page) start fresh after every connection
+        # timeouts (dim/display-off/page) start fresh after every connection
         # (including reconnections during a fast hub restart).
         self.send_esphome(ESPAction.RESET_LAST_INTERACTION, "0", True)
         self._start_heartbeat_timer()
@@ -184,9 +207,7 @@ class HAUIConnectionController(HAUIBase):
 
     def _stop_heartbeat_timer(self) -> None:
         """Cancel the hub→device heartbeat timer."""
-        if self._hub_heartbeat_timer:
-            self.app.cancel_timer(self._hub_heartbeat_timer)
-            self._hub_heartbeat_timer = None
+        self._cancel_timer("_hub_heartbeat_timer")
 
     def _send_hub_heartbeat(self, kwargs: dict[str, Any]) -> None:
         """Callback: send a single ``hub_heartbeat`` to the device."""
@@ -209,9 +230,7 @@ class HAUIConnectionController(HAUIBase):
 
     def _stop_handshake_timer(self) -> None:
         """Cancel the handshake timeout timer if running."""
-        if self._handshake_timer:
-            self.app.cancel_timer(self._handshake_timer)
-            self._handshake_timer = None
+        self._cancel_timer("_handshake_timer")
 
     def _on_handshake_timeout(self, kwargs: dict[str, Any]) -> None:
         """Callback: handshake did not complete in time → DISCONNECTED."""
@@ -220,7 +239,7 @@ class HAUIConnectionController(HAUIBase):
                 f"Handshake timed out after {self._HANDSHAKE_TIMEOUT}s",
                 level="WARNING",
             )
-            self._set_state(ConnectionState.DISCONNECTED)
+            self._set_state(ConnectionState.DISCONNECTED, reason="handshake timeout")
 
     # ------------------------------------------------------------------
     # Timeout monitoring (Device→Hub)
@@ -242,7 +261,7 @@ class HAUIConnectionController(HAUIBase):
         time_max = self._last_time + max(self._heartbeat_interval * self._overdue_factor, 10.0)
         if time.monotonic() > time_max:
             self.log("Device connection timeout - no heartbeat received")
-            self._set_state(ConnectionState.DISCONNECTED)
+            self._set_state(ConnectionState.DISCONNECTED, reason="heartbeat timeout")
 
     def _log_extended_disconnect(self) -> None:
         """Log a warning if the device has been disconnected for >60s.
@@ -274,9 +293,7 @@ class HAUIConnectionController(HAUIBase):
 
     def _stop_timer(self) -> None:
         """Stop the timeout-check timer."""
-        if self._timer:
-            self.app.cancel_timer(self._timer)
-            self._timer = None
+        self._cancel_timer("_timer")
 
     def _update_last_time(self) -> None:
         """Record that device activity was seen (resets the timeout clock)."""
@@ -308,9 +325,7 @@ class HAUIConnectionController(HAUIBase):
         self._stop_timer()
         self._stop_heartbeat_timer()
         self._stop_handshake_timer()
-        if self._disconnect_warn_timer:
-            self.app.cancel_timer(self._disconnect_warn_timer)
-            self._disconnect_warn_timer = None
+        self._cancel_timer("_disconnect_warn_timer")
 
     # ------------------------------------------------------------------
     # Event handling - 3-step handshake + heartbeat

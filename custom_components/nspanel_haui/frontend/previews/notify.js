@@ -11,8 +11,8 @@ export function renderNotifyPreview(_host, panel, _pIdx, _pt) {
   return {
     content: html`
       <div class="pg-preview-full-col" style="min-height:0;">
-        <div style="display:flex;flex:1;gap:4px;min-height:0;align-items:stretch;">
-          <div style="display:flex;align-items:center;justify-content:center;flex-shrink:0;width:28%;background:rgba(255,255,255,0.04);border-radius:3px;">
+        <div class="pg-preview-notify-body">
+          <div class="pg-preview-notify-icon">
             <ha-icon icon="mdi:bell-ring-outline" style="--mdc-icon-size:clamp(14px,3cqi,26px);color:var(--primary-text-color,#ddd);opacity:0.6;"></ha-icon>
           </div>
           <div style="display:flex;flex-direction:column;justify-content:center;flex:1;gap:3px;min-width:0;padding:2px 0;">

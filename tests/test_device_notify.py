@@ -27,6 +27,9 @@ class _DevStub:
     def get(self, key: str, default=0):
         return default
 
+    def get_name(self):
+        return "testdevice"
+
 
 class DummyApp:
     def __init__(self):
@@ -38,6 +41,7 @@ class DummyApp:
         self.service_calls = []
         self.log_calls = []
         self.callback_event_calls = []
+        self.fire_event_calls = []
         self._timer_handles: dict[str, bool] = {}
 
     def log(self, msg, *args, **kwargs):
@@ -54,6 +58,9 @@ class DummyApp:
 
     def callback_event(self, event):
         self.callback_event_calls.append(event)
+
+    def fire_event(self, event_type, data=None):
+        self.fire_event_calls.append((event_type, data))
 
     def run_in(self, cb, delay, **kwargs):
         handle = f"timer_{len(self._timer_handles)}"
@@ -94,6 +101,7 @@ def test_device_notify_method():
         persistent=False,
         notif_type="info",
         force_show=False,
+        require_ack=False,
     ):
         captured_call.append(
             {
@@ -158,6 +166,7 @@ def test_device_notify_method_defaults():
         persistent=False,
         notif_type="info",
         force_show=False,
+        require_ack=False,
     ):
         captured_call.append(
             {
@@ -218,5 +227,5 @@ def test_device_notify_method_integration():
     assert len(app.callback_event_calls) == 1
     event = app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, timeout, False, "info", False)
+    expected_value = (title, message, icon, timeout, False, "info", False, False, "auto")
     assert event.value == expected_value

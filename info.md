@@ -15,9 +15,9 @@ It replaces the stock firmware with a configurable display system built on ESPHo
 
 ## Installation
 
-1. Flash the NSPanel with the ESPHome firmware
-2. Update the Nextion display TFT
-3. Install this integration via HACS
-4. Add the integration through Home Assistant UI
+1. Flash the NSPanel with the ESPHome firmware (the prebuilt `nspanel_haui.bin` from the release)
+2. Install this integration via HACS
+3. Add the integration through Home Assistant UI
+4. Add the panel in the NSPanel HAUI editor; the display TFT installs automatically
 
 See the [README](https://github.com/happydasch/nspanel_haui/blob/master/README.md) for full documentation.

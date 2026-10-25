@@ -25,18 +25,14 @@ export function closeColorsDialog(host) {
 export async function saveColors(host, overrides) {
   if (!overrides || !host._selectedDevice) return;
 
-  host._deviceConfig = {
+  const config = {
     ...(host._deviceConfig || DEVICE_CONFIG_DEFAULTS),
     color_overrides: overrides,
   };
 
-  try {
-    await host._savePanels(host._devicePanels(), t("Device colors saved"));
-    host._showToast(t("Device colors saved"), "success");
-  } catch (e) {
-    host._showToast(e.message || t("Failed to save colors"), "error");
-  } finally {
+  // savePanels shows the success or error toast; keep the dialog open on failure.
+  if (await host._savePanels(host._devicePanels(), t("Device colors saved"), config)) {
     host._showColorsDialog = false;
-    host.requestUpdate();
   }
+  host.requestUpdate();
 }

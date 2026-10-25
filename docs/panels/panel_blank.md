@@ -7,6 +7,8 @@ description: Blank panel used for sleep/idle state
 
 ## About
 
-The blank panel is used by the system when sleeping to prevent accidental touch events while waking up.
+The blank panel is a system page that shows nothing. It can be configured as
+the idle page (automatic page switching) when you want an empty screen
+instead of a screensaver, while the display keeps running normally.
 
 **This panel is a system panel and should not be added manually.**

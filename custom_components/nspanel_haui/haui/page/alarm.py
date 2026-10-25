@@ -188,9 +188,7 @@ class AlarmPage(HAUIPage):
         self.set_function_component(
             self.COMPONENTS.fnc_right_sec, self.FNC_BTN_R_SEC, "armed_indicator"
         )
-        # resolve the configured alarm item and listen for state changes
-        items = self._build_items_from_panel(panel, "item", "items")
-        self._item = items[0] if items else None
+        self._item = self._resolve_panel_item(panel)
         if self._item is not None:
             self.add_item_listener(self._item.get_item_id(), self.callback_alarm_state, "state")
         # wire the numeric keypad
@@ -235,8 +233,8 @@ class AlarmPage(HAUIPage):
         # title: show entered code as password dots, otherwise the state label
         if self._input:
             title = ICO_PASSWORD * len(self._input)
-        elif state:
-            title = self.translate_state("alarm_control_panel", state)
+        elif self._item is not None and state:
+            title = self._item.translate_item_state()
         else:
             title = self.translate("Alarm")
         self.set_component_text(self.COMPONENTS.title, title)
@@ -281,16 +279,12 @@ class AlarmPage(HAUIPage):
 
     def _show_action_button(self, component: Component, label: str) -> None:
         """Render a single action button as an enabled, labelled control."""
-        color, color_pressed, back_color, back_color_pressed = self.get_button_colors(True)
         self.update_function_component(
             fnc_id=component.name,
             text=label,
-            color=color,
-            color_pressed=color_pressed,
-            back_color=back_color,
-            back_color_pressed=back_color_pressed,
-            touch_events=True,
+            touch=True,
             visible=True,
+            **self.button_color_args(True, back_color=True),
         )
 
     def _action_needs_code(self, service: str) -> bool:

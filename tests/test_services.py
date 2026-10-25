@@ -41,16 +41,13 @@ def _install_ha_stubs() -> None:
 _install_ha_stubs()
 
 import pytest  # noqa: E402
-from nspanel_haui.haui.mapping.const import (  # noqa: E402
-    NotificationAction,
-)
 from nspanel_haui.services import (  # noqa: E402
     DOMAIN,
     SERVICE_CLOSE_PANEL,
+    SERVICE_IDLE,
     SERVICE_OPEN_PANEL,
     SERVICE_RESET_LAST_INTERACTION,
     SERVICE_SEND_NOTIFICATION,
-    SERVICE_SLEEP,
     SERVICE_WAKEUP,
     _resolve_target_apps,
     async_register_services,
@@ -78,8 +75,8 @@ def mock_nav():
     nav = MagicMock()
     nav.open_panel = MagicMock()
     nav.close_panel = MagicMock()
-    nav.open_wakeup_panel = MagicMock()
-    nav.open_sleep_panel = MagicMock()
+    nav.open_idle_panel = MagicMock()
+    nav.exit_idle_to_prev_or_home = MagicMock()
     nav.goto_page = MagicMock()
     return nav
 
@@ -98,6 +95,8 @@ def _make_app(
 ):
     """Create a minimal NSPanelHAUI-like mock."""
     app = MagicMock()
+    # Real apps queue the action on their worker thread; run it straight away here.
+    app.dispatch = MagicMock(side_effect=lambda fn, *args: fn(*args))
     app._ha_device_id = ha_device_id
     app.controller = {"navigation": mock_nav, "esphome": mock_esphome_ctrl}
     app.name = name
@@ -182,7 +181,7 @@ class TestRegisterServices:
         assert SERVICE_OPEN_PANEL in registered
         assert SERVICE_CLOSE_PANEL in registered
         assert SERVICE_WAKEUP in registered
-        assert SERVICE_SLEEP in registered
+        assert SERVICE_IDLE in registered
         assert SERVICE_SEND_NOTIFICATION in registered
         assert SERVICE_RESET_LAST_INTERACTION in registered
 
@@ -254,7 +253,7 @@ async def test_close_panel(mock_hass, mock_nav, mock_esphome_ctrl):
 
 @pytest.mark.asyncio
 async def test_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
-    """wakeup delegates to nav.open_wakeup_panel and resets interaction."""
+    """wakeup resets the interaction timer and exits the idle page if shown."""
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
@@ -266,62 +265,34 @@ async def test_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_wakeup(mock_hass, call)
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with("reset_last_interaction", "0")
-    mock_nav.open_wakeup_panel.assert_called_once()
+    mock_nav.exit_idle_to_prev_or_home.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_sleep(mock_hass, mock_nav, mock_esphome_ctrl):
-    """sleep delegates to nav.open_sleep_panel(True)."""
+async def test_idle(mock_hass, mock_nav, mock_esphome_ctrl):
+    """idle delegates to nav.open_idle_panel(True)."""
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_sleep
+    from nspanel_haui.services import _handle_idle
 
     call = MagicMock()
     call.data = {"device_id": "dev_1"}
 
-    await _handle_sleep(mock_hass, call)
+    await _handle_idle(mock_hass, call)
 
-    mock_nav.open_sleep_panel.assert_called_once_with(True)
-
-
-@pytest.mark.asyncio
-async def test_set_brightness(mock_hass, mock_nav, mock_esphome_ctrl):
-    """set_brightness publishes ESPAction.SET_BRIGHTNESS with intensity."""
-    app = _make_app(mock_nav, mock_esphome_ctrl)
-    app = _make_app(mock_nav, mock_esphome_ctrl)
-    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
-
-    from nspanel_haui.services import _handle_send_notification
-
-    call = MagicMock()
-    call.data = {
-        "title": "Doorbell",
-        "message": "At the door",
-        "icon": "mdi:bell",
-        "timeout": 0,
-        "persistent": False,
-        "device_id": "dev_1",
-    }
-
-    await _handle_send_notification(mock_hass, call)
-
-    mock_esphome_ctrl.esphome.publish.assert_called_once_with(
-        NotificationAction.SEND_NOTIFICATION,
-        {
-            "title": "Doorbell",
-            "message": "At the door",
-            "icon": "mdi:bell",
-            "notif_type": "info",
-            "force_show": False,
-        },
-    )
+    mock_nav.open_idle_panel.assert_called_once_with(True)
 
 
 @pytest.mark.asyncio
-async def test_send_notification_persistent_with_timeout(mock_hass, mock_nav, mock_esphome_ctrl):
-    """persistent + timeout selects the persistent-with-timeout action."""
+async def test_send_notification_passes_all_fields_to_controller(
+    mock_hass, mock_nav, mock_esphome_ctrl
+):
+    """The ESPHome actions only carry title/message/icon/timeout, so the
+    service must hand type and force_show to the controller directly."""
     app = _make_app(mock_nav, mock_esphome_ctrl)
+    notif_ctrl = MagicMock()
+    app.controller["notification"] = notif_ctrl
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
     from nspanel_haui.services import _handle_send_notification
@@ -329,25 +300,55 @@ async def test_send_notification_persistent_with_timeout(mock_hass, mock_nav, mo
     call = MagicMock()
     call.data = {
         "title": "Alarm",
-        "message": "",
-        "icon": "",
+        "message": "Smoke detected",
+        "icon": "mdi:fire",
         "timeout": 30,
         "persistent": True,
-        "device_id": "dev_1",
+        "type": "critical",
+        "force_show": True,
     }
 
     await _handle_send_notification(mock_hass, call)
 
-    mock_esphome_ctrl.esphome.publish.assert_called_once_with(
-        NotificationAction.SEND_NOTIFICATION_PERSISTENT_WITH_TIMEOUT,
-        {
-            "title": "Alarm",
-            "message": "",
-            "icon": "",
-            "timeout": 30,
-            "notif_type": "info",
-            "force_show": False,
-        },
+    notif_ctrl.send_notification.assert_called_once_with(
+        title="Alarm",
+        message="Smoke detected",
+        icon="mdi:fire",
+        timeout=30,
+        persistent=True,
+        notif_type="critical",
+        force_show=True,
+        require_ack=False,
+        text_size="auto",
+    )
+    mock_esphome_ctrl.esphome.publish.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_send_notification_text_size_passthrough(mock_hass, mock_nav, mock_esphome_ctrl):
+    """The service forwards an explicit text_size to the controller (issue #48)."""
+    app = _make_app(mock_nav, mock_esphome_ctrl)
+    notif_ctrl = MagicMock()
+    app.controller["notification"] = notif_ctrl
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    from nspanel_haui.services import _handle_send_notification
+
+    call = MagicMock()
+    call.data = {"title": "Door", "message": "open", "text_size": 2}
+
+    await _handle_send_notification(mock_hass, call)
+
+    notif_ctrl.send_notification.assert_called_once_with(
+        title="Door",
+        message="open",
+        icon="",
+        timeout=0,
+        persistent=False,
+        notif_type="info",
+        force_show=False,
+        require_ack=False,
+        text_size=2,
     )
 
 
@@ -365,3 +366,25 @@ async def test_reset_last_interaction(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_reset_last_interaction(mock_hass, call)
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with("reset_last_interaction", "5")
+
+
+@pytest.mark.asyncio
+async def test_service_action_is_queued_on_the_app_worker(mock_hass, mock_nav, mock_esphome_ctrl):
+    """Actions run on the app's worker, queued without waiting for it."""
+    app = _make_app(mock_nav, mock_esphome_ctrl)
+    queued = []
+    app.dispatch = MagicMock(side_effect=lambda fn, *args: queued.append(fn))
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    from nspanel_haui.services import _handle_close_panel
+
+    call = MagicMock()
+    call.data = {"device_id": "dev_1"}
+
+    await _handle_close_panel(mock_hass, call)
+
+    mock_hass.async_add_executor_job.assert_not_called()
+    mock_nav.close_panel.assert_not_called()
+    (action,) = queued
+    action()
+    mock_nav.close_panel.assert_called_once()

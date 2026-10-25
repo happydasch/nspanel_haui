@@ -9,6 +9,7 @@ import { renderBadges, computeFilteredPanels, getPanelMoveState, getSystemPanelK
 import { renderSystemPanelCard } from './panel-sys-grid.js';
 import { POPUP_TO_USER_TYPE } from './constants.js';
 import { t } from './localize.js';
+import { writeStorage } from './dom-helpers.js';
 
 /**
  * Render a consistent empty-state card for use across the editor.
@@ -52,8 +53,7 @@ export function buildPanelDropdownItems(host, p, pIdx, canMoveUp, canMoveDown) {
   if (p.key && dc) {
     for (const [field, icon, labelSet, labelUnset] of [
       ['home_panel', 'mdi:home-outline', t('Set Home'), t('Unset Home')],
-      ['sleep_panel', 'mdi:weather-night', t('Set Sleep'), t('Unset Sleep')],
-      ['wakeup_panel', 'mdi:weather-sunny', t('Set Wakeup'), t('Unset Wakeup')],
+      ['idle_panel', 'mdi:weather-night', t('Set Idle'), t('Unset Idle')],
     ]) {
       if (dc[field] === p.key) {
         items.push({ icon: 'mdi:cancel', label: labelUnset, action: () => host._setSpecialPanel(field, '') });
@@ -105,7 +105,7 @@ export function isSysPanelEditable(sysPanel) {
 }
 
 function renderPanelRow(host, p, panels, isNavPanel) {
-  const { pIdx, canMoveUp, canMoveDown } = getPanelMoveState(p, panels, isNavPanel);
+  const { pIdx, canMoveUp, canMoveDown } = getPanelMoveState(p, panels, isNavPanel, getSystemPanelKeys(host));
   const dc = host._deviceConfig || {};
   const pt = host._panelTypes.find(d => d.type_key === p.type);
   // For override panels (user panels with a system panel key), don't fall
@@ -186,10 +186,13 @@ function renderSystemPanelRow(host, sp) {
 }
 
 /**
- * Main entry point: render the panel list (table) view.
+ * Render the navigation / non-navigation panel groups shared by the list and
+ * grid views, including the no-device and empty states.
+ *
+ * @param {function} renderItem - (host, panel, panels, isNavPanel) => template
+ * @param {function} [wrap] - (items) => template, wraps each group's items
  */
-
-export function renderPanelTable(host) {
+export function renderPanelGroups(host, renderItem, wrap = (items) => items) {
   const devices = Object.keys(host._panels.devices || {});
   const panels = host._selectedDevice
     ? (host._panels.devices[host._selectedDevice] && host._panels.devices[host._selectedDevice].panels) || []
@@ -207,26 +210,30 @@ export function renderPanelTable(host) {
 
   const sysPanelKeys = getSystemPanelKeys(host);
   const { navPanels, hiddenPanels } = computeFilteredPanels(panels, sysPanelKeys);
-  const writeOpen = (key, v) => {
-    try { localStorage.setItem(key, v); } catch (_e) { /* ignore */ }
-  };
 
   return html`
     ${panels.length === 0
       ? renderEmptyCard(t('No panels configured yet.'))
       : html`
         <details class="panel-group" ?open=${host.__navPanelsOpen}
-          @toggle=${(e) => { host.__navPanelsOpen = e.target.open; writeOpen('haui_navPanelsOpen', e.target.open); }}>
-          <summary class="group-title">${t('Navigation')} (${navPanels.length} ${t('panels')})</summary>
-          ${navPanels.map(p => renderPanelRow(host, p, panels, true))}
+          @toggle=${(e) => { host.__navPanelsOpen = e.target.open; writeStorage('haui_navPanelsOpen', e.target.open); }}>
+          <summary class="group-title">${t('Navigation ({count} panels)').replace('{count}', navPanels.length)}</summary>
+          ${wrap(navPanels.map(p => renderItem(host, p, panels, true)))}
         </details>
         <details class="panel-group" ?open=${host.__hiddenPanelsOpen}
-          @toggle=${(e) => { host.__hiddenPanelsOpen = e.target.open; writeOpen('haui_hiddenPanelsOpen', e.target.open); }}>
-          <summary class="group-title">${t('Non-Navigation')} (${hiddenPanels.length} ${t('panels')})</summary>
-          ${hiddenPanels.map(p => renderPanelRow(host, p, panels, false))}
+          @toggle=${(e) => { host.__hiddenPanelsOpen = e.target.open; writeStorage('haui_hiddenPanelsOpen', e.target.open); }}>
+          <summary class="group-title">${t('Non-Navigation ({count} panels)').replace('{count}', hiddenPanels.length)}</summary>
+          ${wrap(hiddenPanels.map(p => renderItem(host, p, panels, false)))}
         </details>
       `}
   `;
+}
+
+/**
+ * Main entry point: render the panel list (table) view.
+ */
+export function renderPanelTable(host) {
+  return renderPanelGroups(host, renderPanelRow);
 }
 
 /**
@@ -236,14 +243,11 @@ export function renderPanelTable(host) {
 export function renderSystemPanels(host, viewMode) {
   if (!host._panels?.system_panels?.length) return "";
   const isGrid = viewMode === 'grid';
-  const writeOpen = (v) => {
-    try { localStorage.setItem('haui_systemPanelsOpen', v); } catch (_e) { /* ignore */ }
-  };
   return html`
     <details class="panel-group" ?open=${host.__systemPanelsOpen}
-      @toggle=${(e) => { host.__systemPanelsOpen = e.target.open; writeOpen(e.target.open); }}>
+      @toggle=${(e) => { host.__systemPanelsOpen = e.target.open; writeStorage('haui_systemPanelsOpen', e.target.open); }}>
       <summary class="group-title">
-        ${t('System Panels')} (${host._panels.system_panels.length} ${t('panels')})
+        ${t('System Panels ({count} panels)').replace('{count}', host._panels.system_panels.length)}
       </summary>
       ${isGrid
         ? html`<div class="pg-grid">${host._panels.system_panels.map(sp => renderSystemPanelCard(host, sp))}</div>`

@@ -130,15 +130,6 @@ class TestParseColorValue:
     def test_hex_string_lowercase(self) -> None:
         assert parse_color_value("#ffffff") == 65535
 
-    def test_bracket_string(self) -> None:
-        assert parse_color_value("[255,255,255]") == 65535
-        assert parse_color_value("[  0 , 0 , 0 ]") == 0
-
-    def test_bracket_string_rgb_specific(self) -> None:
-        known = rgb_to_rgb565([74, 165, 238])
-        assert parse_color_value("[74,165,238]") == known
-        assert parse_color_value("  [74,165,238]  ") == known
-
     def test_int_string(self) -> None:
         assert parse_color_value("65535") == 65535
         assert parse_color_value("0") == 0
@@ -149,6 +140,8 @@ class TestParseColorValue:
 
     def test_invalid_string_returns_zero(self) -> None:
         assert parse_color_value("not-a-color") == 0
+        # the pre-editor "[r,g,b]" string format is no longer supported
+        assert parse_color_value("[74,165,238]") == 0
 
     def test_none_value_returns_zero(self) -> None:
         # parse_color_value doesn't accept None in its type hint, but we handle it
@@ -161,12 +154,6 @@ class TestParseColorValue:
         hex_str = f"#{r:02x}{g:02x}{b:02x}"
         result = parse_color_value(hex_str)
         assert result == original
-
-    def test_bracket_roundtrip(self) -> None:
-        """Parsing rgb -> bracket string -> color gives same result."""
-        original = rgb_to_rgb565([74, 165, 238])
-        bracket_str = "[74,165,238]"
-        assert parse_color_value(bracket_str) == original
 
 
 # ============================================================================

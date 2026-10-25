@@ -309,7 +309,7 @@ _RENDERER_TEMPLATE = """\
 import {{ html }} from '../lit-import.js';
 import {{ getItems, backgroundClass }} from './utils.js';
 // import {{
-//   simTile, simItemTile, simSlider, simButtonRow, simItemGrid, simTimeDisplay, simTempDisplay
+//   simItemTile, simSlider, simSliderVertical
 // }} from './primitives.js';
 
 export function render{render_name}Preview(host, panel, _pIdx, _pt) {{

@@ -5,6 +5,17 @@
  */
 import { t } from '../localize.js';
 import { colorToCss } from '../color-utils.js';
+import { isPortraitModel } from '../constants.js';
+
+/**
+ * Whether the selected device runs the portrait (320x480) TFT layout.
+ * Previews use it to mirror the rotated page layouts; the card chrome
+ * reads it from the preview result (see registry.js).
+ * @param {object} host - the Lit element instance (carries _deviceConfig)
+ */
+export function isPortraitDevice(host) {
+  return isPortraitModel(host && host._deviceConfig && host._deviceConfig.display_model);
+}
 
 /**
  * Pick a background class for the screen based on the panel's `background` option.
@@ -31,8 +42,8 @@ export function getItems(panel) {
  * user-visible `color_overrides` schema.
  */
 const DEFAULT_COLORS = {
-  background: 6339,
-  text: 55002,
+  background: 4226,
+  text: 59164,
   text_inactive: 29582,
   header_background: 6339,
   header_text: 65535,
@@ -40,7 +51,7 @@ const DEFAULT_COLORS = {
   component_text: 65535,
   component_active: 19773,
   component_accent: 62694,
-  component_background: 8452,
+  component_background: 10565,
 };
 
 /**
@@ -113,7 +124,7 @@ export function tileIconColor(item) {
  *   - An object with { entity_id: "...", icon, name, ... }
  * Returns the entity_id string or empty string.
  */
-export function itemEntityId(item) {
+function itemEntityId(item) {
   if (!item) return '';
   if (typeof item === 'string') return item;
   if (typeof item.item === 'string') return item.item;

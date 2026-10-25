@@ -33,7 +33,7 @@ script:
             // device to page 0 continuously while the hub is disconnected -
             // so we don't duplicate the goto_page here.
             if (int(id(page).state) != 0) {
-              id(display_wakeup).execute();
+              id(display_on).execute();
             }
           }
           if (id(client_status).state != haui_status_str) {

@@ -6,16 +6,45 @@
  *   - getConnectionStateClass / getConnectionStateLabel (shared helpers)
  *
  * Device Info dialog and Logs dialog are now separate custom elements:
- *   - ha-dialog-device-info  (in dialogs/device-info.js)
- *   - ha-dialog-logs         (in dialogs/logs.js)
+ *   - nspanel-dialog-device-info  (in dialogs/device-info.js)
+ *   - nspanel-dialog-logs         (in dialogs/logs.js)
  */
 import * as Api from './api.js';
 import { t } from './localize.js';
 
 /* ── status polling ──────────────────────────────────────────────────────── */
 
+/**
+ * Poll the selected device's status. Restarts when the selected device has
+ * changed, dropping the previous device's status so it is never shown for the
+ * new one.
+ */
+/**
+ * Whether version ``a`` (e.g. "0.3.3") is older than ``b``. Missing or
+ * non-numeric parts count as 0.
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+export function isOlderVersion(a, b) {
+  const pa = String(a).split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff < 0;
+  }
+  return false;
+}
+
 export function startStatusPolling(host) {
-  if (host._statusTimer) return;
+  if (host._statusTimer && host._statusDevice === host._selectedDevice) return;
+  stopStatusPolling(host);
+  if (host._statusDevice !== host._selectedDevice) {
+    host._deviceStatus = null;
+    host._deviceStatusError = null;
+    host._statusDevice = host._selectedDevice;
+  }
   Api.loadStatus(host);
   host._statusTimer = setInterval(() => Api.loadStatus(host), 5000);
 }

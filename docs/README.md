@@ -18,16 +18,16 @@ Whether you just got your panel or want to fine-tune it, this guide will get you
 
 If you're setting up a new NSPanel, follow these steps in order:
 
-1. **Install the integration** — Add NSPanel HAUI to Home Assistant via HACS.
-   → [Installation guide](install.md)
+1. **Flash your device** — Load ESPHome firmware onto the NSPanel.
+   → [Installation guide](install.md#2-step-install-esphome)
 
-2. **Flash your device** — Load ESPHome firmware onto the NSPanel.
-   → [ESPHome setup](esphome.md)
+2. **Install the integration** — Add NSPanel HAUI to Home Assistant via HACS.
+   → [Installation guide](install.md)
 
 3. **Connect it** — Add the device in Home Assistant (Settings → Devices & Services).
    → [Integration setup](custom_integration.md)
 
-4. **Configure your panels** — Open the web frontend and start building your dashboard.
+4. **Configure your panels** — Open **NSPanel HAUI** in the Home Assistant sidebar and start building your dashboard.
    → [Configuration overview](configuration/README.md)
    - [Device settings](configuration/device.md) — brightness, sounds, screensaver, buttons
    - [Panel layout](configuration/panels.md) — add, remove, reorder panels
@@ -52,7 +52,8 @@ Hands-on help for common tasks.
 ### Using your panel
 
 - **[Panel Overview](panels/README.md)** — All panel types with descriptions and docs
-- **[Device Description](device.md)** — Gestures, buttons, notifications, sleep modes
+- **[Device Description](device.md)** — Gestures, buttons, notifications, display states
+- **[Services](services.md)** — Notifications, wakeup and other actions for automations
 
 ### Need help?
 

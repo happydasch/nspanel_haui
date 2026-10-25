@@ -6,9 +6,9 @@
  */
 import { clone, POPUP_TO_USER_TYPE } from './constants.js';
 import { t } from './localize.js';
+import { openPanelDialog } from './crud.js';
 
 export function openSysPanelEdit(host, sysPanel) {
-  host._dialogVersion = (host._dialogVersion || 0) + 1;
   const panels = host._devicePanels();
   const existingIdx = panels.findIndex(p => p.key === sysPanel.key);
   const resolvedType = POPUP_TO_USER_TYPE[sysPanel.type] || sysPanel.type;
@@ -16,25 +16,12 @@ export function openSysPanelEdit(host, sysPanel) {
   if (existingIdx >= 0) {
     const existingData = clone(panels[existingIdx]);
     existingData.type = resolvedType;
-    host._itemListData = {};
-    host._editingPanel = { index: existingIdx, data: existingData };
-    host._editingPanelType = resolvedType;
-    host._error = null;
-    host._deleteTarget = null;
-    host.requestUpdate();
-    return;
+    openPanelDialog(host, existingIdx, existingData, resolvedType);
+  } else {
+    openPanelDialog(
+      host, -1, { type: resolvedType, key: sysPanel.key, show_in_navigation: false }, resolvedType
+    );
   }
-
-  const data = {
-    type: resolvedType,
-    key: sysPanel.key,
-    show_in_navigation: false,
-  };
-  host._itemListData = {};
-  host._editingPanelType = resolvedType;
-  host._editingPanel = { index: -1, data };
-  host._error = null;
-  host._deleteTarget = null;
   host.requestUpdate();
 }
 

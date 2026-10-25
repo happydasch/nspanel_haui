@@ -1,10 +1,12 @@
 COLORS = {
     # default colors
+    # 0.4 dark theme: page < header < cards < pressed, each one step lighter,
+    # on 8-step greys so the 5/6/5-bit display renders them neutral.
     "header_background": 6339,  # [24, 24, 24]
     "header_text": 65535,  # [255, 255, 255]
     "header_accent": 62694,  # [246, 157, 49]
-    "background": 6339,  # [24, 24, 24]
-    "text": 55002,  # [213, 218, 213]
+    "background": 4226,  # [16, 16, 16]
+    "text": 59164,  # [224, 224, 224]
     "text_inactive": 29582,  # [115, 115, 115] #737373
     "text_disabled": 12678,  # [49, 49, 49]
     "component_text": 65535,  # [255, 255, 255]
@@ -12,7 +14,7 @@ COLORS = {
     "component_active": 19773,  # [74, 165, 238]
     "component_active_dark": 15416,  # [59, 134, 195] #3b86c3
     "component_accent": 62694,  # [246, 157, 49]
-    "component_background": 8452,  # [34, 34, 34]
+    "component_background": 10565,  # [40, 40, 40]
     # entity
     "entity_on": 65222,  # [253, 216, 53] #fdd835
     "entity_off": 17299,  # [68, 115, 158] #44739e

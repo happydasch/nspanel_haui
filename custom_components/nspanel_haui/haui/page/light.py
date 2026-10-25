@@ -32,9 +32,9 @@ class LightPage(HAUIPage):
             PageOption(
                 key="show_kelvin",
                 kind="bool",
-                default=False,
+                default=True,
                 label=_("Show color temperature in Kelvin"),
-                description=_("Show Kelvin instead of Mireds (Mired is default)."),
+                description=_("Show Kelvin instead of mireds. Home Assistant uses Kelvin."),
                 section=_("Light"),
             ),
         ],
@@ -63,8 +63,8 @@ class LightPage(HAUIPage):
     # hardcoded to not request too often, needed for color to rect pos
     PIC_COLOR_RECT_W = 200
     PIC_COLOR_RECT_H = 200
-    PIC_COLOR_RECT_X = 125
-    PIC_COLOR_RECT_Y = 75
+    # top-left corner of pColorWheel in the landscape and the portrait TFT layout
+    PIC_COLOR_RECT_POS = {"landscape": (125, 75), "portrait": (90, 80)}
 
     DEFAULT_FUNCTION = "brightness"
 
@@ -75,8 +75,6 @@ class LightPage(HAUIPage):
         self._title = ""
         self._light_item: HAUIItem | None = None
         self._show_kelvin = True
-        self._color_temp_min = 0
-        self._color_temp_max = 0
         self._light_functions: list[dict[str, Any]] = []
         self._current_light_function: str | None = None
         self._touch_track = False
@@ -115,15 +113,7 @@ class LightPage(HAUIPage):
         )
         # if kelvin should be used instead of mired
         self._show_kelvin = panel.get("show_kelvin", self._show_kelvin)
-        # set item
-        item = None
-        entity_id = panel.get("item_id")
-        if entity_id:
-            item = HAUIItem(self.app, {"item": entity_id})
-        if item is None:
-            items = self._build_items_from_panel(panel, "items")
-            if len(items) > 0:
-                item = items[0]
+        item = self._resolve_panel_item(panel)
         self.set_light_item(item)
         # set title
         title = panel.get_title(self.translate("Light"))
@@ -137,7 +127,9 @@ class LightPage(HAUIPage):
     def render_panel(self, panel: HAUIPanel) -> None:
         # set basic panel info
         self.set_component_text(self.COMPONENTS.title, self._title)
-        if not self.update_functions(self.DEFAULT_FUNCTION) and panel.can_show_popup():
+        # Only a popup opened for this light (item_id) closes when it becomes
+        # unavailable; a standalone light panel stays where the user put it.
+        if not self.update_functions(self.DEFAULT_FUNCTION) and panel.get("item_id", None):
             self.stop_rec_cmd(send_commands=False)
             navigation = self.app.controller["navigation"]
             navigation.close_panel()
@@ -148,19 +140,28 @@ class LightPage(HAUIPage):
         self._light_item = item
         if not item or not item.has_item_id():
             return
-        attr_names = ["state", "effect", "brightness", "rgb_color"]
-        if self._show_kelvin:
-            attr_names.append("color_temp_kelvin")
-            self._color_temp_min = item.get_item_attr("min_color_temp_kelvin", 0)
-            self._color_temp_max = item.get_item_attr("max_color_temp_kelvin", 0)
-        else:
-            attr_names.append("color_temp")
-            self._color_temp_min = item.get_item_attr("min_mireds", 0)
-            self._color_temp_max = item.get_item_attr("max_mireds", 0)
+        attr_names = ["state", "effect", "brightness", "rgb_color", "color_temp_kelvin"]
         for attr_name in attr_names:
             self.add_item_listener(
                 item.get_item_id(), self.callback_light_item, attribute=attr_name
             )
+
+    def get_color_temp_range(self) -> tuple[int, int] | None:
+        """Returns the light's color temperature range in kelvin.
+
+        Read on every use rather than at panel start: a light that is
+        unavailable when the panel starts reports no range yet.
+
+        Returns:
+            tuple | None: (min, max) kelvin, None if the light reports no range
+        """
+        if self._light_item is None:
+            return None
+        min_kelvin = self._light_item.get_item_attr("min_color_temp_kelvin")
+        max_kelvin = self._light_item.get_item_attr("max_color_temp_kelvin")
+        if min_kelvin is None or max_kelvin is None or min_kelvin >= max_kelvin:
+            return None
+        return min_kelvin, max_kelvin
 
     def get_light_function(self, fnc_name: str) -> dict | None:
         for fnc in self._light_functions:
@@ -206,16 +207,13 @@ class LightPage(HAUIPage):
 
         # color temp
         color_temp = None
-        if self._show_kelvin:
-            color_temp_val = self._light_item.get_item_attr("color_temp_kelvin")
-        else:
-            color_temp_val = self._light_item.get_item_attr("color_temp")
-        if "color_temp" in color_modes:
+        color_temp_val = self._light_item.get_item_attr("color_temp_kelvin")
+        if "color_temp" in color_modes and self.get_color_temp_range() is not None:
             color_temp = bool(power)
 
         # effects
         effect = None
-        if "effect_list" in attr:
+        if attr.get("effect_list"):
             effect = bool(power)
         effect_val = self._light_item.get_item_attr("effect", None)
 
@@ -257,10 +255,10 @@ class LightPage(HAUIPage):
                 color = self.get_color("component_text")
             else:
                 color = self.get_color("component_active")
-            self.send_cmd(f"tsw {btn[1]},1")
+            self.set_component_touch(btn, True)
             self.set_component_text_color(btn, color)
         else:
-            self.send_cmd(f"tsw {btn[1]},0")
+            self.set_component_touch(btn, False)
             self.set_component_text_color(btn, self.get_color("text_inactive"))
         self.show_component(btn)
         return btn
@@ -291,71 +289,56 @@ class LightPage(HAUIPage):
 
     def set_color_temp_info(self, value: int) -> None:
         fnc = self.get_light_function("color_temp")
-        if fnc is None:
+        color_temp_range = self.get_color_temp_range()
+        if fnc is None or color_temp_range is None:
             return
-        # expected value: light_temp_min-light_temp_max -> 0-100
+        min_kelvin, max_kelvin = color_temp_range
+        # expected value: kelvin max-min -> 0-100
         if value is not None:
-            conv_value = round(scale(value, (self._color_temp_max, self._color_temp_min), (0, 100)))
+            conv_value = round(scale(value, (max_kelvin, min_kelvin), (0, 100)))
         else:
             value = 0
             conv_value = 0
         # show only info text if value is valid
         if value > 0:
             if self._show_kelvin:
-                unit = "K"
+                txt_value = f"{value}K"
             else:
-                unit = "Mired"
-            txt_value = f"{value}{unit}"
+                # mireds are a display preference only, HA reports kelvin
+                txt_value = f"{round(1_000_000 / value)}Mired"
         else:
             txt_value = ""
         self.set_component_value(self.COMPONENTS.h_color_temp, conv_value)
         if self._current_light_function == "color_temp":
             self.set_component_text(self.COMPONENTS.t_info, txt_value)
 
-    def set_effect_info(self, value: str) -> None:
-        fnc = self.get_light_function("effect")
-        if fnc is None:
-            return
-        btn = fnc["btn"]
-        if value is not None and value != "None":
-            self.set_component_text_color(btn, self.get_color("component_accent"))
-        else:
-            self.set_component_text_color(btn, self.get_color("component_text"))
-
     def set_current_light_function(self, fnc: dict | None) -> None:
-        functions = self.get_available_light_functions()
-        for f in functions:
-            if fnc is None:
-                break
-            if f["name"] == fnc["name"]:
-                self._current_light_function = fnc["name"]
-                return
-        self._current_light_function = None
-
-        if fnc is None:
+        names = [f["name"] for f in self.get_available_light_functions()]
+        if fnc is None or fnc["name"] not in names:
             self.log(f"Unsetting function {fnc}, current: {self._current_light_function}")
-            self._current_light_function = fnc = None
+            self._current_light_function = None
         else:
             self._current_light_function = fnc["name"]
-            # check for light function
-            if fnc["name"] == "effect" and self._light_item is not None:
-                navigation = self.app.controller["navigation"]
-                selection = self._light_item.get_item_attr("effect_list", [])
-                no_effect = self.translate("No effect")
-                effects = []
-                for name in selection:
-                    value = name
-                    if name == "None":
-                        name = no_effect
-                    effects.append({"value": value, "name": name})
-                if len(effects) > 0:
-                    navigation.open_panel(
-                        SysPanelKey.POPUP_SELECT,
-                        title=self.translate("Select effect"),
-                        items=effects,
-                        selection_callback_fnc=self.callback_effect,
-                        close_on_select=True,
-                    )
+
+    def open_effect_selection(self) -> None:
+        if self._light_item is None:
+            return
+        navigation = self.app.controller["navigation"]
+        selection = self._light_item.get_item_attr("effect_list", [])
+        no_effect = self.translate("No effect")
+        effects = []
+        for name in selection:
+            value = name
+            if name == "None":
+                name = no_effect
+            effects.append({"value": value, "name": name})
+        navigation.open_panel(
+            SysPanelKey.POPUP_SELECT,
+            title=self.translate("Select effect"),
+            items=effects,
+            selection_callback_fnc=self.callback_effect,
+            close_on_select=True,
+        )
 
     def update_functions(self, default_function: str | None = None) -> bool:
         functions = self.get_available_light_functions()
@@ -451,8 +434,10 @@ class LightPage(HAUIPage):
             self.set_color_info(val)
         elif name == "color_temp":
             self.set_color_temp_info(val)
-        elif name == "effect":
-            self.set_effect_info(val)
+
+    def color_rect_origin(self) -> tuple[int, int]:
+        """Top-left corner of ``pColorWheel`` in the TFT layout this device runs."""
+        return self.PIC_COLOR_RECT_POS["portrait" if self.app.device.is_portrait else "landscape"]
 
     def update_color_rect(self) -> None:
         if self._current_light_function != "color":
@@ -468,8 +453,9 @@ class LightPage(HAUIPage):
         self.send_cmd(f"ref {self.COMPONENTS.pic_color_rect[0]}")
         if pos_x is not None and pos_y is not None and pos_x > 0 and pos_y > 0:
             self.log(f"Set color rect: {pos_x},{pos_y}")
-            pos_x += self.PIC_COLOR_RECT_X
-            pos_y += self.PIC_COLOR_RECT_Y
+            rect_x, rect_y = self.color_rect_origin()
+            pos_x += rect_x
+            pos_y += rect_y
             self.send_cmd("doevents")
             # draw circle
             color = self.get_color("component_pressed")
@@ -514,18 +500,11 @@ class LightPage(HAUIPage):
                 if (
                     not self.update_functions(self.DEFAULT_FUNCTION)
                     and self.panel is not None
-                    and self.panel.can_show_popup()
+                    and self.panel.get("item_id", None)
                 ):
                     navigation = self.app.controller["navigation"]
                     navigation.close_panel()
                     return
-            elif attribute == "effect":
-                fnc = self.get_light_function("effect")
-                if fnc is None or fnc["val"] == new:
-                    return
-                fnc["val"] = new
-                if self._current_light_function == "effect":
-                    self.set_effect_info(new)
             elif attribute == "rgb_color":
                 fnc = self.get_light_function("color")
                 if fnc is None or fnc["val"] == new:
@@ -538,9 +517,7 @@ class LightPage(HAUIPage):
                     return
                 fnc["val"] = new
                 self.set_brightness_info(new)
-            elif (attribute == "color_temp_kelvin" and self._show_kelvin) or (
-                attribute == "color_temp" and not self._show_kelvin
-            ):
+            elif attribute == "color_temp_kelvin":
                 fnc = self.get_light_function("color_temp")
                 if fnc is None or fnc["val"] == new:
                     return
@@ -560,6 +537,11 @@ class LightPage(HAUIPage):
         # check for current function
         matches = [f for f in self._light_functions if f["btn"] == component]
         fnc: dict | None = matches[0] if matches else None
+        # the effect button is an action rather than a mode; its selection
+        # popup replaces this page, so nothing may be drawn after opening it
+        if fnc is not None and fnc["name"] == "effect":
+            self.open_effect_selection()
+            return
         # toggle current function
         if fnc is not None and fnc["name"] == self._current_light_function:
             fnc = None
@@ -572,7 +554,7 @@ class LightPage(HAUIPage):
                 self.COMPONENTS.btn_light_fnc_3,
                 self.COMPONENTS.btn_light_fnc_4,
             ]:
-                if btn != component or (fnc and fnc["name"] == "effect"):
+                if btn != component:
                     self.set_component_value(btn, 0)
             # make sure power button is visible if needed
             self.update_power_button()
@@ -626,8 +608,9 @@ class LightPage(HAUIPage):
                         except (ValueError, TypeError):
                             pass
                 if pos_x > 0 and pos_y > 0:
-                    pos_x -= self.PIC_COLOR_RECT_X
-                    pos_y -= self.PIC_COLOR_RECT_Y
+                    rect_x, rect_y = self.color_rect_origin()
+                    pos_x -= rect_x
+                    pos_y -= rect_y
                     color = rect_pos_to_color(
                         pos_x, pos_y, self.PIC_COLOR_RECT_W, self.PIC_COLOR_RECT_H
                     )
@@ -649,12 +632,6 @@ class LightPage(HAUIPage):
             )
 
     def process_brightness(self, brightness: int) -> None:
-        if not self._in_read_callback:
-            self.log(
-                f"process_brightness: value={brightness} ignored "
-                f"(not from read_response — likely button_state leak)"
-            )
-            return
         self.log(
             f"Slider brightness value {brightness}"
             f" from component {self.COMPONENTS.h_brightness.name}"
@@ -668,35 +645,18 @@ class LightPage(HAUIPage):
             self._light_item.call_item_service("turn_on", brightness=brightness_ha)
 
     def process_color_temp(self, color_temp: int) -> None:
-        if not self._in_read_callback:
-            self.log(
-                f"process_color_temp: value={color_temp} ignored "
-                f"(not from read_response — likely button_state leak)"
-            )
-            return
         self.log(
             f"Slider color_temp value {color_temp}"
             f" from component {self.COMPONENTS.h_color_temp.name}"
         )
-        if self._light_item is None:
+        color_temp_range = self.get_color_temp_range()
+        if self._light_item is None or color_temp_range is None:
             return
+        min_kelvin, max_kelvin = color_temp_range
         # scale 0-100 from slider to color range of lamp
-        color_temp = int(
-            scale(
-                color_temp,
-                (0, 100),
-                (self._color_temp_max, self._color_temp_min),
-            )
-        )
-        args = {}
-        if self._show_kelvin:
-            current_color_temp = self._light_item.get_item_attr("color_temp_kelvin")
-            args["color_temp_kelvin"] = color_temp
-        else:
-            current_color_temp = self._light_item.get_item_attr("color_temp")
-            args["color_temp"] = color_temp
-        if current_color_temp != color_temp:
-            self._light_item.call_item_service("turn_on", **args)
+        color_temp_kelvin = int(scale(color_temp, (0, 100), (max_kelvin, min_kelvin)))
+        if self._light_item.get_item_attr("color_temp_kelvin") != color_temp_kelvin:
+            self._light_item.call_item_service("turn_on", color_temp_kelvin=color_temp_kelvin)
 
     def process_power(self, power: int) -> None:
         self.log(f"Processing power value {power}")

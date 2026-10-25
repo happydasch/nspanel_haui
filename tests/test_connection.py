@@ -310,3 +310,20 @@ class TestConnectionStateMachine:
 
         ctrl._set_state(ConnectionState.DISCONNECTED)
         assert ctrl.is_connected is False
+
+
+def test_disconnect_records_reason_and_timestamp():
+    """Leaving the connection records why, so the editor can show it (Panel Doctor)."""
+    app, cb, ctrl = make_controller()
+    ctrl._state = ConnectionState.HANDSHAKING
+    ctrl._disconnected_since = None
+    ctrl._set_state(ConnectionState.DISCONNECTED, reason="handshake timeout")
+    assert ctrl.last_disconnect_reason == "handshake timeout"
+    assert ctrl.disconnected_since is not None
+
+    # A reconnect clears the reason and the offline timestamp.
+    ctrl._state = ConnectionState.HANDSHAKING
+    ctrl._disconnected_since = 123.0
+    ctrl._set_state(ConnectionState.CONNECTED)
+    assert ctrl.last_disconnect_reason is None
+    assert ctrl.disconnected_since is None

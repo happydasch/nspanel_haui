@@ -18,8 +18,10 @@ substitutions:
   wifi_ssid: $wifi_ssid
   wifi_password: $wifi_password
   ap_password: $ap_password
-  # Custom Update Url
+  # Custom Update Urls (landscape and portrait TFT; the Update Display button
+  # and the upload_tft action pick one by the display_model number)
   tft_update_url: $tft_update_url
+  tft_update_url_portrait: $tft_update_url_portrait
 
 packages:
   version: !include nspanel_haui/version.yaml
@@ -39,8 +41,3 @@ packages:
   switch: !include nspanel_haui/switch.yaml
   sensor: !include nspanel_haui/sensor.yaml
   # debug: !include nspanel_haui/debug.yaml
-
-external_components:
-  - source: github://pr#17744
-    components: [nextion]
-    refresh: 1h

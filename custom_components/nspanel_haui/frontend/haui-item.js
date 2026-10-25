@@ -15,11 +15,9 @@
  *   - ""                    → entity type, no entity chosen yet
  */
 
-import { positionPickerDropdown, createDropdownKeyboardController } from './dom-helpers.js';
 import { html } from './lit-import.js';
 import { t } from './localize.js';
 import { formatFieldValue } from './form-fields.js';
-import { ENTITY_OVERRIDE_FIELDS } from './haui-entity.js';
 
 /** Item type constants (match Python INTERNAL_ITEM_TYPE). */
 export const ITEM_TYPE = {
@@ -30,17 +28,19 @@ export const ITEM_TYPE = {
   ACTION:     'action',
 };
 
-/** All known item type keys. */
-export const ALL_ITEM_TYPES = Object.values(ITEM_TYPE);
-
-/** Labels and placeholders for each item type (single source of truth). */
-export const ITEM_LABELS = {
-  entity_id: { label: t("Entity"), placeholder: t("light.bedroom") },
-  skip:      { label: "", placeholder: t("No value needed") },
-  text:      { label: t("Display Text"), placeholder: t("Hello, World!") },
-  navigate:  { label: t("Target Panel"), placeholder: t("grid_0") },
-  action:    { label: t("Service"), placeholder: t("light/turn_on") },
-};
+/**
+ * Labels and placeholders for each item type (single source of truth).
+ * A function, not a constant: t() must run after the language has loaded.
+ */
+export function itemLabels() {
+  return {
+    entity_id: { label: t("Entity"), placeholder: t("light.bedroom") },
+    skip:      { label: "", placeholder: t("No value needed") },
+    text:      { label: t("Display Text"), placeholder: t("Hello, World!") },
+    navigate:  { label: t("Target Panel"), placeholder: t("grid_0") },
+    action:    { label: t("Service"), placeholder: t("light/turn_on") },
+  };
+}
 
 /** MDI icon per item type — used as fallback when no override icon set. */
 export const ITEM_TYPE_ICONS = {
@@ -51,14 +51,16 @@ export const ITEM_TYPE_ICONS = {
   action:    'mdi:flash',
 };
 
-/** Short type label shown in row header. */
-export const ITEM_TYPE_SHORT = {
-  entity_id: t('Entity'),
-  skip:      t('Skip'),
-  text:      t('Text'),
-  navigate:  t('Navigate'),
-  action:    t('Action'),
-};
+/** Short type label shown in row header (a function so t() runs at render time). */
+export function itemTypeShort() {
+  return {
+    entity_id: t('Entity'),
+    skip:      t('Skip'),
+    text:      t('Text'),
+    navigate:  t('Navigate'),
+    action:    t('Action'),
+  };
+}
 
 /** Prefix markers for each internal item type (for string encoding). */
 const INTERNAL_PREFIX = {
@@ -155,7 +157,7 @@ export function itemPrimaryText(config) {
     return formatFieldValue(v);
   }
   const typeStr = detectItemType(config?.item);
-  return ITEM_TYPE_SHORT[typeStr] || t('Item');
+  return itemTypeShort()[typeStr] || t('Item');
 }
 
 /**
@@ -170,18 +172,6 @@ export function itemSecondaryText(config) {
   if (t === ITEM_TYPE.SKIP) return '';
   const val = parseItemValue(config.item, t);
   return val || '';
-}
-
-/* ── override helpers ───────────────────────────────────────────────────── */
-
-/**
- * Check whether an item config has any override fields set.
- * @param {object} config - item config dict
- * @returns {boolean}
- */
-export function hasOverrides(config) {
-  if (!config) return false;
-  return ENTITY_OVERRIDE_FIELDS.some(f => !!config[f]);
 }
 
 /* ── serialization ──────────────────────────────────────────────────────── */
@@ -211,135 +201,33 @@ export function serializeItem(config) {
   return item;
 }
 
-/* ── panel key picker ────────────────────────────────────────────────── */
+/* ── navigate target ─────────────────────────────────────────────────── */
 
 /**
- * Open the panel key dropdown and attach a click-outside listener.
- */
-function _openPanelKeyDropdown(wrap) {
-  const dropdown = wrap?.querySelector(".entity-dropdown");
-  if (!dropdown) return;
-  const items = dropdown.querySelectorAll(".entity-dropdown-item");
-  items.forEach((item) => { item.style.display = ""; });
-  dropdown.style.display = items.length ? "" : "none";
-  if (items.length === 0) return;
-
-  const input = wrap?.querySelector(".entity-picker-input");
-  if (dropdown && input) positionPickerDropdown(dropdown, input);
-
-  // Close on click outside — install once on the document
-  if (wrap._panelOutsideHandler) return;
-  wrap._panelOutsideHandler = (ev) => {
-    if (!wrap || wrap.contains(ev.target)) return;
-    _hidePanelKeyDropdown(wrap);
-  };
-  document.addEventListener("mousedown", wrap._panelOutsideHandler);
-}
-
-/** Hide the panel key dropdown and detach the outside listener. */
-function _hidePanelKeyDropdown(wrap) {
-  const dropdown = wrap?.querySelector(".entity-dropdown");
-  if (dropdown) dropdown.style.display = "none";
-  if (wrap) wrap._panelActiveIndex = -1;
-  if (wrap?._panelOutsideHandler) {
-    document.removeEventListener("mousedown", wrap._panelOutsideHandler);
-    delete wrap._panelOutsideHandler;
-  }
-}
-
-/**
- * Render a panel key picker: text input with an autocomplete dropdown
- * that lists available panel keys for the device.
+ * Options for a navigate item's target: the device's panels, then the system
+ * panels, each as "title (key)" (or the key alone). A current value that matches neither stays
+ * selectable and is marked, so applying the item doesn't drop it.
  *
- * Dropdown filtering is done via DOM (no full re-render on keystroke) to
- * keep the input responsive. The caller reads the value from the DOM on
- * save, so no host.requestUpdate() is needed on selection.
- *
- * @param {object}  host         - The Lit component (host of the inline editor)
- * @param {object}  opts
- * @param {string}  opts.id      - DOM id for the text field
- * @param {string}  opts.value   - Current panel key value
- * @param {string}  [opts.label] - Field label
- * @param {string}  [opts.placeholder]
- * @param {string[]} opts.panelKeys - Available panel key strings
+ * @param {Array<{key: string, title?: string}>} devicePanels
+ * @param {Array<{key: string, label?: string}>} systemPanels
+ * @param {string} value - current target panel key
+ * @returns {Array<{value: string, label: string}>}
  */
-export function renderPanelKeyPicker(host, { id, value, label, placeholder, panelKeys }) {
-  const keys = panelKeys || [];
-
-  const picker = html`
-    <div class="entity-picker-wrap" style="position:relative;">
-      <input
-        id=${id}
-        class="entity-picker-input native-input"
-        .value=${String(value != null ? value : "")}
-        placeholder=${placeholder || ""}
-        style="width:100%"
-        @input=${(e) => {
-          const val = (e.target.value || "").toLowerCase();
-          const wrap = e.target.closest(".entity-picker-wrap");
-          const dropdown = wrap?.querySelector(".entity-dropdown");
-          if (!dropdown) return;
-          const items = dropdown.querySelectorAll(".entity-dropdown-item");
-          let any = false;
-          items.forEach((item) => {
-            const key = (item.getAttribute("data-panel-key") || "").toLowerCase();
-            const match = !val || key.includes(val);
-            item.style.display = match ? "" : "none";
-            if (match) any = true;
-          });
-          dropdown.style.display = any ? "" : "none";
-        }}
-        @focus=${(e) => _openPanelKeyDropdown(e.target.closest(".entity-picker-wrap"))}
-        @blur=${(e) => {
-          const wrap = e.target?.closest(".entity-picker-wrap");
-          setTimeout(() => { if (wrap) _hidePanelKeyDropdown(wrap); }, 80);
-        }}
-        @keydown=${createDropdownKeyboardController({
-          getWrap: (e) => e.target.closest('.entity-picker-wrap'),
-          dropdownSelector: '.entity-dropdown',
-          itemSelector: '.entity-dropdown-item',
-          indexField: '_panelActiveIndex',
-          onSelect: (visibleItems, idx) => {
-            _selectPanelKey(visibleItems[idx].closest('.entity-picker-wrap'), visibleItems[idx]);
-          },
-          onDismiss: (e) => _hidePanelKeyDropdown(e.target.closest('.entity-picker-wrap')),
-        })}
-      />
-
-      <div class="entity-dropdown"
-        style="display:none; position:absolute; z-index:10; left:0; right:0; max-height:200px; overflow-y:auto; border:1px solid var(--divider-color,#ddd); border-radius:4px; background:var(--card-background-color,#fff); margin-top:2px;">
-        ${keys.map((key) => html`
-          <div class="entity-dropdown-item"
-            data-panel-key="${key}"
-            @mousedown=${(e) => {
-              e.preventDefault();
-              _selectPanelKey(e.target.closest(".entity-picker-wrap"), e.currentTarget);
-            }}
-            style="cursor:pointer; padding:6px 10px;"
-          >${key}</div>
-        `)}
-      </div>
-    </div>
-  `;
-
-  if (label) {
-    return html`
-      <div class="form-group">
-        <label for=${id}>${label}</label>
-        ${picker}
-      </div>
-    `;
+export function panelTargetOptions(devicePanels, systemPanels, value) {
+  const options = [
+    ...(devicePanels || []).filter((p) => p.key).map((p) => ({
+      value: p.key,
+      label: p.title ? `${p.title} (${p.key})` : p.key,
+    })),
+    ...(systemPanels || []).filter((p) => p.key).map((p) => ({
+      value: p.key,
+      label: p.label ? `${p.label} (${p.key})` : p.key,
+    })),
+  ];
+  if (value && !options.some((o) => o.value === value)) {
+    options.unshift({ value, label: `${value} (${t("unknown panel")})` });
   }
-
-  return picker;
-}
-
-/** Internal: set the input value from a selected dropdown item. */
-function _selectPanelKey(wrap, item) {
-  const tf = wrap?.querySelector(".entity-picker-input");
-  const key = item.getAttribute("data-panel-key") || "";
-  if (tf) tf.value = key;
-  _hidePanelKeyDropdown(wrap);
+  return options;
 }
 
 

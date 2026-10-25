@@ -6,7 +6,7 @@
  * Font:7 is light weight for the big time display.
  */
 import { html } from '../lit-import.js';
-import { backgroundClass, itemDisplay, tileBgColor, tileIconColor } from './utils.js';
+import { backgroundClass, isPortraitDevice, itemDisplay, tileBgColor, tileIconColor } from './utils.js';
 
 export function renderClockPreview(host, panel, _pIdx, _pt) {
   const showWeather = panel?.show_weather !== false;
@@ -98,7 +98,7 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
   };
 }
 
-export function renderClockTwoPreview(_host, panel, _pIdx, _pt) {
+export function renderClockTwoPreview(host, panel, _pIdx, _pt) {
   // The English word-clock matrix (10 rows x 11 columns = 110 letters),
   // matching the MATRIX layout in clocktwo.py for the 'en' locale.
   const MATRIX_ROWS = [
@@ -143,6 +143,27 @@ export function renderClockTwoPreview(_host, panel, _pIdx, _pt) {
       <span>●</span>
     </div>`;
   const showNotifs = panel?.show_notifications !== false;
+  const notif = showNotifs ? html`
+    <div class="pg-preview-clocktwo-notif">
+      <ha-icon icon="mdi:bell-ring-outline" style="--mdc-icon-size:clamp(14px,3cqi,24px);color:var(--primary-color,#4fc3f7);"></ha-icon>
+    </div>
+  ` : html`<div style="flex:1;"></div>`;
+
+  // The portrait TFT has no room beside the 11-column matrix: the minute dots
+  // sit above and below it, with the notification icon bottom-centre.
+  if (isPortraitDevice(host)) {
+    return {
+      content: html`
+        <div class="pg-preview-clocktwo">
+          <div class="pg-preview-clocktwo-dots-row">${leftDots[0]}${rightTop}</div>
+          <div class="pg-preview-clocktwo-grid">
+            ${rows}
+          </div>
+          <div class="pg-preview-clocktwo-dots-row">${leftDots[1]}${notif}${rightBottom}</div>
+        </div>`,
+      containerClass: backgroundClass(panel),
+    };
+  }
 
   return {
     content: html`
@@ -156,11 +177,7 @@ export function renderClockTwoPreview(_host, panel, _pIdx, _pt) {
           </div>
           <div class="pg-preview-clocktwo-side-dots">
             ${rightTop}
-            ${showNotifs ? html`
-              <div class="pg-preview-clocktwo-notif">
-                <ha-icon icon="mdi:bell-ring-outline" style="--mdc-icon-size:clamp(14px,3cqi,24px);color:var(--primary-color,#4fc3f7);"></ha-icon>
-              </div>
-            ` : html`<div style="flex:1;"></div>`}
+            ${notif}
             ${rightBottom}
           </div>
         </div>

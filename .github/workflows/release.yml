@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install ESPHome
+        run: pip install esphome
+
+      - name: Validate the Nextion assets (release gate)
+        # Fails the release until the human Nextion Editor work landed:
+        #   - clock.tTime "Send Component ID" enabled (tap advances the card)
+        #   - system.tftVersion matches the integration version
+        #   - the portrait HMI/TFT exist
+        run: |
+          python scripts/verify_nextion.py --require-portrait
+
+      - name: Validate the universal firmware config
+        run: esphome config esphome/nspanel_haui_universal.yaml
+
+      - name: Compile the universal firmware binary
+        run: |
+          esphome compile esphome/nspanel_haui_universal.yaml
+          BIN=$(find esphome/.esphome -name firmware.factory.bin -path "*nspanel-haui*" | head -1)
+          if [ -z "$BIN" ]; then
+            echo "firmware.factory.bin not found after compile" >&2
+            exit 1
+          fi
+          cp "$BIN" nspanel_haui.bin
+          ls -lh nspanel_haui.bin
+
+      - name: Attach assets to the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            nspanel_haui.bin
+            nextion/nspanel_haui.tft
+            nextion/nspanel_haui_portrait.tft
+          name: ${{ github.ref_name }}
+          body: |
+            See [CHANGELOG.md](CHANGELOG.md) for release notes and
+            [docs/upgrading.md](docs/upgrading.md) for breaking changes and update steps.

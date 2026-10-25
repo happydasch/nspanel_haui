@@ -3,25 +3,20 @@
  *
  * Proper Lit custom element replacing the old renderLogsDialog() function.
  */
-import { LitElement, html } from '../lit-import.js';
-import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { html } from '../lit-import.js';
 import { dialogHeader } from './dialog-header.js';
+import { HauiDialog } from './haui-dialog.js';
 import { t } from '../localize.js';
 
-class LogsDialog extends LitElement {
+class LogsDialog extends HauiDialog {
   static get properties() {
     return {
-      hass: { type: Object },
-      open: { type: Boolean, reflect: true },
       logs: { type: Array },
     };
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles];
-
   constructor() {
     super();
-    this.open = false;
     this.logs = [];
   }
 
@@ -51,11 +46,7 @@ class LogsDialog extends LitElement {
       </ha-dialog>
     `;
   }
-
-  _dispatchClose() {
-    this.dispatchEvent(new CustomEvent("dialog-closed"));
-  }
 }
 
-customElements.define("ha-dialog-logs", LogsDialog);
+customElements.define("nspanel-dialog-logs", LogsDialog);
 export { LogsDialog };

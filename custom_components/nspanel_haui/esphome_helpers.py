@@ -13,7 +13,6 @@ _LOGGER = logging.getLogger(__name__)
 # The ESPHome integration splits this into manufacturer/model on the HA
 # device registry entry, so a registry-based check works offline and is
 # our most reliable detection method.
-_HAUI_PROJECT_NAME = "happydasch.nspanel_haui"
 _HAUI_MANUFACTURER = "happydasch"
 _HAUI_MODEL = "nspanel_haui"
 
@@ -23,48 +22,44 @@ def normalize_device_name(name: str) -> str:
     return name.lower().strip().replace("_", " ").replace("-", " ")
 
 
-def find_esphome_device(hass, device_name: str) -> str | None:
-    """Match NSPanel device name to ESPHome device entry using normalized comparison.
+def hub_device_entry(dev: dict[str, Any]) -> dict[str, Any]:
+    """Return the hub's config-entry record for a device: its identity only.
 
-    Returns the entry_id string, or None when no match is found.
+    Device settings, including ``enabled``, live in the panel store.
+
+    Args:
+        dev: A discovery result or device record with ``name`` and an optional
+            ``esphome_device_id``.
+
+    Returns:
+        dict: ``name`` plus ``esphome_device_id`` when known.
     """
-    normalized_device_name = normalize_device_name(device_name)
+    record = {"name": dev["name"]}
+    if dev.get("esphome_device_id"):
+        record["esphome_device_id"] = dev["esphome_device_id"]
+    return record
 
-    # Primary path: esphome integration stores entries in hass.data
-    try:
-        esphome_data = hass.data.get("esphome", {})
-        if esphome_data:
-            # Handle both dict and DomainData (HA 2024.x+)
-            if not isinstance(esphome_data, dict):
-                esphome_data = dict(esphome_data)
-            for entry_id, entry_data in esphome_data.items():
-                if not isinstance(entry_data, dict):
-                    continue
-                device_info = entry_data.get("device_info", {})
-                if isinstance(device_info, dict):
-                    # Match by name (normalized)
-                    info_name = device_info.get("name", "")
-                    if normalize_device_name(info_name) == normalized_device_name:
-                        return entry_id
-    except (AttributeError, KeyError, TypeError):
-        _LOGGER.debug("Error in find_esphome_device primary lookup", exc_info=True)
 
-    # Fallback: scan entity registry for esphome platform entities
-    try:
-        from homeassistant.helpers import entity_registry
+def find_esphome_entry(hass: Any, node_name: str) -> Any | None:
+    """Return the ESPHome config entry whose ``device_name`` matches *node_name*.
 
-        er = entity_registry.async_get(hass)
-        for entity in er.entities.values():
-            if entity.platform == "esphome":
-                if normalized_device_name in normalize_device_name(entity.name or ""):
-                    # Return the config entry ID from the matched entity
-                    if entity.config_entry_id:
-                        return entity.config_entry_id
-                    return None  # confirmed match, entry_id not available
-    except (AttributeError, KeyError, TypeError):
-        _LOGGER.debug("Error in find_esphome_device fallback lookup", exc_info=True)
-
+    Names are compared normalized, because HA and ESPHome differ in ``_``/``-``
+    and case. Returns ``None`` when there is no match.
+    """
+    sanitized = normalize_device_name(node_name)
+    if not sanitized:
+        return None
+    for entry in hass.config_entries.async_entries("esphome"):
+        if normalize_device_name(entry.data.get("device_name", "")) == sanitized:
+            return entry
     return None
+
+
+def _is_haui_registry_device(dev: Any) -> bool:
+    """Check a device registry entry for the HAUI manufacturer/model."""
+    mfg = (dev.manufacturer or "").lower()
+    model = (dev.model or "").lower()
+    return mfg == _HAUI_MANUFACTURER and _HAUI_MODEL in model
 
 
 def is_haui_device(hass: Any, entry: Any) -> bool:
@@ -90,9 +85,7 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
         entry_id = getattr(entry, "entry_id", None)
         if entry_id:
             for dev_entry in dr.async_entries_for_config_entry(dev_reg, entry_id):
-                mfg = (dev_entry.manufacturer or "").lower()
-                model = (dev_entry.model or "").lower()
-                if mfg == _HAUI_MANUFACTURER and _HAUI_MODEL in model:
+                if _is_haui_registry_device(dev_entry):
                     return True
     except (ImportError, AttributeError, KeyError, TypeError):
         _LOGGER.debug("is_haui_device device registry check failed", exc_info=True)
@@ -136,14 +129,55 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
                 dev = dev_reg.async_get(ent.device_id)
                 if not dev:
                     continue
-                mfg = (dev.manufacturer or "").lower()
-                model = (dev.model or "").lower()
-                if mfg == _HAUI_MANUFACTURER and _HAUI_MODEL in model:
+                if _is_haui_registry_device(dev):
                     return True
     except (ImportError, AttributeError, KeyError, TypeError):
         _LOGGER.debug("is_haui_device entity registry check failed", exc_info=True)
 
     return False
+
+
+def read_network_entities(
+    hass: Any, device_name: str, entity_resolver: Any = None
+) -> dict:
+    """Read WiFi/network info from HA sensor entities for a device.
+
+    Returns {ip, ssid, rssi} from entity states only.
+    RSSI is float|None; IP and SSID are str, empty if unavailable.
+
+    ESPHome text_sensor entities (wifi_info ip_address, ssid) are
+    registered under the sensor domain in HA (Platform.SENSOR), so
+    lookup uses `sensor.{slug}_ip` etc.  When *entity_resolver* is given
+    (a callable ``(domain, original_name) -> entity_id``, e.g. the app's
+    ``find_entity_id``), each sensor is resolved through the entity
+    registry first so area/device-prefixed ids and device renames work.
+    """
+    from homeassistant.util import slugify
+
+    slug = slugify(device_name)
+
+    def _lookup(name: str) -> str | None:
+        if entity_resolver is not None:
+            found = entity_resolver("sensor", name)
+            if found:
+                return found
+        return f"sensor.{slug}_{name}"
+
+    ip_state = hass.states.get(_lookup("ip"))
+    ssid_state = hass.states.get(_lookup("ssid"))
+    rssi_state = hass.states.get(_lookup("rssi"))
+
+    def _val(state: Any) -> str | None:
+        if state is not None and state.state not in ("unknown", "unavailable", ""):
+            return state.state
+        return None
+
+    ip = _val(ip_state) or ""
+    ssid = _val(ssid_state) or ""
+    rssi_raw = _val(rssi_state)
+    rssi = float(rssi_raw) if rssi_raw else None
+
+    return {"ip": ip, "ssid": ssid, "rssi": rssi}
 
 
 def resolve_ha_device_id(hass: Any, node_name: str) -> str | None:
@@ -157,22 +191,16 @@ def resolve_ha_device_id(hass: Any, node_name: str) -> str | None:
         Device registry UUID string, or ``None`` if the device is not
         yet registered (e.g. ESPHome integration has not finished loading).
     """
-    sanitized = normalize_device_name(node_name)
-    if not sanitized:
-        return None
-
     try:
         from homeassistant.helpers import device_registry as dr
     except ImportError:
         return None
 
-    for entry in hass.config_entries.async_entries("esphome"):
-        dev_name = entry.data.get("device_name", "")
-        if normalize_device_name(dev_name) == sanitized:
-            dev_reg = dr.async_get(hass)
-            for dev_entry in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
-                return dev_entry.id
-            break
+    entry = find_esphome_entry(hass, node_name)
+    if entry is not None:
+        dev_reg = dr.async_get(hass)
+        for dev_entry in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
+            return dev_entry.id
 
     return None
 
@@ -187,8 +215,7 @@ def lookup_device_registry_name(hass: Any, node_name: str) -> str:
     Returns ``name_by_user`` (user-customized), then ``name``, then
     ``node_name`` as-is.
     """
-    sanitized = normalize_device_name(node_name)
-    if not sanitized:
+    if not normalize_device_name(node_name):
         return node_name
 
     try:
@@ -199,19 +226,14 @@ def lookup_device_registry_name(hass: Any, node_name: str) -> str:
         return node_name
 
     try:
-        for entry in hass.config_entries.async_entries("esphome"):
-            dev_name = entry.data.get("device_name", "")
-            if normalize_device_name(dev_name) != sanitized:
-                continue
-
-            entry_id = getattr(entry, "entry_id", None)
-            if entry_id:
-                for dev_entry in dr.async_entries_for_config_entry(dev_reg, entry_id):
-                    if dev_entry.name_by_user:
-                        return dev_entry.name_by_user
-                    if dev_entry.name:
-                        return dev_entry.name
-            break
+        entry = find_esphome_entry(hass, node_name)
+        entry_id = getattr(entry, "entry_id", None)
+        if entry_id:
+            for dev_entry in dr.async_entries_for_config_entry(dev_reg, entry_id):
+                if dev_entry.name_by_user:
+                    return dev_entry.name_by_user
+                if dev_entry.name:
+                    return dev_entry.name
     except (AttributeError, KeyError, TypeError):
         pass
 

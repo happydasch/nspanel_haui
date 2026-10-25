@@ -4,7 +4,7 @@
  * Central registry for panel preview renderers and main entry point.
  */
 import { html } from '../lit-import.js';
-import { getDeviceColors, deviceThemeCss } from './utils.js';
+import { getDeviceColors, deviceThemeCss, isPortraitDevice } from './utils.js';
 
 /** @type {Map<string, Function>} */
 const panelPreviewRenderers = new Map();
@@ -48,8 +48,10 @@ function renderDefaultPreview(_host, _p, _pIdx, pt) {
  * @param {object} panel     - the panel config object
  * @param {number} panelIndex - index of the panel in the full panels array
  * @param {object|null} panelType - matched panel type descriptor from host._panelTypes
- * @returns {{ content, contentClass?, containerClass?, headerButtonOverrides?, deviceStyle?, deviceColors? }}
+ * @returns {{ content, contentClass?, containerClass?, headerButtonOverrides?, deviceStyle?, deviceColors?, portrait }}
  * headerButtonOverrides keys: leftPri?, leftSec?, rightPri?, rightSec? — each a string or { icon, accent? }.
+ * `portrait` is true for devices on the portrait TFT: the card chrome then draws
+ * the 320x480 frame with the function buttons in a bottom bar.
  */
 export function renderPanelPreview(host, panel, panelIndex, panelType) {
   const renderFn = panelPreviewRenderers.get(panel.type) || renderDefaultPreview;
@@ -57,5 +59,6 @@ export function renderPanelPreview(host, panel, panelIndex, panelType) {
   const colors = getDeviceColors(host);
   result.deviceStyle = deviceThemeCss(colors);
   result.deviceColors = colors;
+  result.portrait = isPortraitDevice(host);
   return result;
 }

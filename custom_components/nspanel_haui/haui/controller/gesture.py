@@ -14,8 +14,10 @@ from ..mapping.const import ESPEvent
 class HAUIGestureController(HAUIBase):
     """Gesture Controller
 
-    Provides access to advanced gesture control.
-    Supports gesture sequences.
+    Opens a panel when the swipes of a configured gesture sequence arrive in
+    order within its time limit.  The sequences are the device setting
+    ``gesture_sequences`` (``[{"sequence": [...], "timeframe": s, "open": key}]``),
+    read on every gesture so a saved device config applies without a restart.
     """
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any]) -> None:
@@ -31,6 +33,10 @@ class HAUIGestureController(HAUIBase):
 
     # public
 
+    def sequences(self) -> list[dict[str, Any]]:
+        """The device's configured gesture sequences."""
+        return list(self.app.device.get("gesture_sequences", []))
+
     def process_gesture(self, gesture_name: str) -> None:
         """Processes the gesture with the given name.
 
@@ -39,17 +45,14 @@ class HAUIGestureController(HAUIBase):
         """
         # remove currently active sequences if they timed out
         time_now = int(time.time())
-        for seq_index in range(len(self._current_seq)):
-            time_start = self._current_seq[seq_index]["time_start"]
-            time_max = self._current_seq[seq_index]["time_max"]
-            if time_max < time_now:
-                # stop processing if time passed max time for gesture
-                self.log(f"Seqence timeout for {seq_index}")
+        # keys are positions in the configured list
+        for seq_index, seq in list(self._current_seq.items()):
+            if seq["time_max"] < time_now:
+                self.log(f"Sequence timeout for {seq_index}")
                 del self._current_seq[seq_index]
-                continue
 
         # find all matching sequences for this gesture
-        for seq_index, seq_data in enumerate(self.config.values()):
+        for seq_index, seq_data in enumerate(self.sequences()):
             # check timeframe, if no timeframe defined, skip this
             timeframe = int(seq_data.get("timeframe", 0))
             if not timeframe:
@@ -63,11 +66,13 @@ class HAUIGestureController(HAUIBase):
             if seq_index not in self._current_seq:
                 # current gesture is the first in sequence
                 if gesture_name == gestures[0]:
+                    if len(gestures) == 1:
+                        self.log(f"Gesture sequence {seq_index} completed")
+                        self.process_gesture_sequence(seq_data)
+                        continue
                     # start seq
-                    time_start = int(time.time())
-                    time_max = int(time_start + timeframe)
+                    time_max = int(time.time() + timeframe)
                     self._current_seq[seq_index] = {
-                        "time_start": time_start,
                         "time_max": time_max,
                         "index": 0,
                     }

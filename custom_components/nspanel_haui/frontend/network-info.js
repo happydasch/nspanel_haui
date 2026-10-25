@@ -11,7 +11,7 @@ import { t } from './localize.js';
  * Simple slugify matching Python's homeassistant.util.slugify.
  * Lowercases, replaces runs of non-alphanumeric with '_', strips leading/trailing '_'.
  */
-export function slugify(name) {
+function slugify(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 }
 

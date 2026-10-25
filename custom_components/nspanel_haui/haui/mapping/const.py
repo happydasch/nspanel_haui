@@ -15,12 +15,11 @@ class ESPEvent(StrEnum):
     """Events published by the ESP device on the recv topic."""
 
     CONNECTED = "esphome.connected"
-    SLEEP = "esphome.sleep"
-    WAKEUP = "esphome.wakeup"
+    DISPLAY_OFF = "esphome.display_off"
+    DISPLAY_ON = "esphome.display_on"
     PAGE = "esphome.page"
     COMPONENT = "esphome.component"
     TOUCH_START = "esphome.touch_start"
-    TOUCH = "esphome.touch"
     TOUCH_END = "esphome.touch_end"
     GESTURE = "esphome.gesture"
     BUTTON_LEFT = "esphome.button_left"
@@ -30,6 +29,10 @@ class ESPEvent(StrEnum):
     TIMEOUT = "esphome.timeout"
     DISPLAY_STATE = "esphome.display_state"
     BUFFER_OVERFLOW = "esphome.buffer_overflow"
+
+
+# Touch gestures the display reports (the values of ``ESPEvent.GESTURE``).
+GESTURES: tuple[str, ...] = ("swipe_left", "swipe_right", "swipe_up", "swipe_down")
 
 
 class ESPAction(StrEnum):
@@ -54,7 +57,6 @@ class SysPanelKey(StrEnum):
     navigation / refactoring.
     """
 
-    SYS_BLANK = "sys_blank"
     SYS_SYSTEM = "sys_system"
     SYS_SETTINGS = "sys_settings"
     SYS_ABOUT = "sys_about"
@@ -65,19 +67,9 @@ class SysPanelKey(StrEnum):
     POPUP_MEDIA_PLAYER = "popup_media_player"
     POPUP_VACUUM = "popup_vacuum"
     POPUP_CLIMATE = "popup_climate"
-    POPUP_TIMER = "popup_timer"
     POPUP_COVER = "popup_cover"
     POPUP_UNLOCK = "popup_unlock"
     POPUP_ALARM = "popup_alarm"
-
-
-class NotificationAction(StrEnum):
-    """Notification action variants (published with device_name_ prefix)."""
-
-    SEND_NOTIFICATION = "send_notification"
-    SEND_NOTIFICATION_WITH_TIMEOUT = "send_notification_with_timeout"
-    SEND_NOTIFICATION_PERSISTENT = "send_notification_persistent"
-    SEND_NOTIFICATION_PERSISTENT_WITH_TIMEOUT = "send_notification_persistent_with_timeout"
 
 
 class ESPResponse(StrEnum):
@@ -92,7 +84,6 @@ class ESPResponse(StrEnum):
 class ESPRequest(StrEnum):
     """Requests that the hub sends to the ESP device on the cmd topic."""
 
-    REQ_DEVICE_INFO = "esphome.req_device_info"
     REQ_DEVICE_STATE = "esphome.req_device_state"
     REQ_VAL = "esphome.req_val"
     REQ_TXT = "esphome.req_txt"
@@ -164,7 +155,7 @@ PANEL_CONFIG: dict[str, Any] = {
     "title": "",  # user-facing display name
     "show_in_navigation": True,  # whether this panel appears in navigation
     "key": None,  # internal identifier
-    # show_home_button, show_sleep_button, show_notifications_button
+    # show_home_button, show_idle_button, show_notifications_button
     # are not defined here - HAUIPanel.show_button() already falls back
     # to the device-level setting when the key is absent from the panel config.
 }
@@ -189,13 +180,16 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "page_timeout": 10.0,  # Default 10 sec, wait for a page to open (sendme result)
     },
     # notification related settings
-    "notification": {},
+    "notification": {
+        # Seconds between re-opening the popup of an unacknowledged
+        # (require_ack) notification, so it cannot be ignored.
+        "re_alert_interval": 60,
+    },
     # update related settings
     "update": {
-        # set to false to disable automatic initial installation of tft files
+        # install the TFT the firmware needs automatically when the display has an
+        # older one; when false the display asks first
         "auto_install": True,
-        # set to true to automatically update display when a new release is available
-        "auto_update": False,
         "tft_filename": "nspanel_haui.tft",  # TFT filename to use
         "check_on_connect": False,  # Defaults to false, set to true to check for updates on connect
         "on_connect_delay": 60,  # Defaults to 60 sec, delay before checking for updates on connect

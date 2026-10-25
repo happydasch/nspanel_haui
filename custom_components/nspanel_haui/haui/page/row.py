@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import math
 from collections.abc import Callable
-from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
-from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..abstract.mixins.paged_items_mixin import PagedItemsMixin
 from ..features import CoverFeatures
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
@@ -16,7 +14,7 @@ from ..utils.icon import get_icon, get_icon_name_by_action
 from ..utils.text import trim_text
 
 
-class RowPage(HAUIPage):
+class RowPage(PagedItemsMixin, HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="row",
         page_name="row",
@@ -102,13 +100,17 @@ class RowPage(HAUIPage):
 
     # panel
 
-    def prepare(self) -> None:
+    _DEBOUNCE_KEY = "row_item_state"
 
-        self._items: list[HAUIItem] = []
-        self._active_items: dict[tuple, HAUIItem | None] = {}
-        self._active_handles: list = []
-        self._current_page: int = 0
-        self._pending_item_updates: set[str] = set()
+    _ROW_SERVICES = {
+        "toggle": "toggle",
+        "btn_up": "open_cover",
+        "btn_stop": "stop_cover",
+        "btn_down": "close_cover",
+    }
+
+    def prepare(self) -> None:
+        self._init_paging()
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # set vars
@@ -119,6 +121,14 @@ class RowPage(HAUIPage):
         self._current_page = panel.get_state("current_page", 0)
         # set function buttons
         show_in_nav = panel.show_in_navigation()
+        # Only claim a right slot for pagination when there actually is more
+        # than one page.  Otherwise the slot stays free so _auto_assign_fncs()
+        # can put the notification indicator there — an invisible next_page
+        # button used to occupy the slot and hide unread notifications.  When
+        # pagination does claim right_sec (in navigation), auto-assign moves
+        # the notification indicator onto the idle button's left-secondary
+        # slot on the home panel.
+        has_pagination = len(self._items) > self.NUM_ROWS
         nav_btn: dict = {
             "fnc_component": (
                 self.COMPONENTS.fnc_right_sec if show_in_nav else self.COMPONENTS.fnc_right_pri
@@ -127,16 +137,16 @@ class RowPage(HAUIPage):
             "fnc_args": {
                 "icon": ICO_NEXT_PAGE,
                 "color": self.get_color("header_accent"),
-                "visible": len(self._items) > self.NUM_ROWS,
+                "visible": has_pagination,
             },
         }
         btn_right_1: tuple | dict
         btn_right_2: tuple | dict
         if show_in_nav:
             btn_right_1 = self.COMPONENTS.fnc_right_pri
-            btn_right_2 = nav_btn
+            btn_right_2 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_sec
         else:
-            btn_right_1 = nav_btn
+            btn_right_1 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_pri
             btn_right_2 = self.COMPONENTS.fnc_right_sec
         self.set_function_buttons(
             self.COMPONENTS.fnc_left_pri,
@@ -178,12 +188,9 @@ class RowPage(HAUIPage):
             self.set_function_component(
                 slider, slider[1], "slider", visible=False, value=0, row_index=i
             )
-            # row sliders are drag controls: suppress the swipe gesture
-            # the drag produces, and register a read callback so the
-            # slider value is read via a read request on release
-            self.mark_drag_component(slider)
-            self.add_component_callback(slider, self.process_row_slider, drag=True)
-            self.add_read_callback(slider, self._make_row_slider_handler(slider))
+            # row sliders are drag controls: bind_slider suppresses the swipe
+            # gesture the drag produces and reads the value on release
+            self.bind_slider(slider, self._make_row_slider_handler(slider))
             self.set_function_component(
                 slider_txt,
                 slider_txt[1],
@@ -196,14 +203,6 @@ class RowPage(HAUIPage):
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
 
-    def _stop_panel(self, panel: HAUIPanel) -> None:
-        # cancel any pending debounced item-state updates
-        self.debouncer.cancel("row_item_state")
-        self._pending_item_updates.clear()
-        while self._active_handles:
-            handle = self._active_handles.pop()
-            self.remove_item_listener(handle)
-
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.COMPONENTS.title, panel.get_title())
         self.set_row_entries()
@@ -212,16 +211,9 @@ class RowPage(HAUIPage):
 
     def set_row_entries(self) -> None:
         # check if there are any listener active and cancel them
-        while self._active_handles:
-            handle = self._active_handles.pop()
-            self.remove_item_listener(handle)
+        self._clear_item_listeners()
         # get current entities to display
-        start = 0 + (self._current_page * self.NUM_ROWS)
-        end = min(len(self._items), start + self.NUM_ROWS)
-        if len(self._items) > start:
-            items = self._items[start:end]
-        else:
-            items = []
+        items = self._page_items(self.NUM_ROWS)
         # set buttons
         item_ids = set()
         for i in range(self.NUM_ROWS):
@@ -239,7 +231,7 @@ class RowPage(HAUIPage):
                 # internal item
                 if item.is_internal():
                     internal_type = item.get_internal_type()
-                    if internal_type in ["navigate", "action"]:
+                    if internal_type in ["navigate", "action", "text"]:
                         visible = True
                 # standard item
                 else:
@@ -336,14 +328,6 @@ class RowPage(HAUIPage):
                 item = getattr(self.COMPONENTS, f"r{idx}_{n}")
                 self.update_function_component(item[1], visible=False)
 
-    def update_row_entries(self) -> None:
-        items = self._active_items
-        # row entries
-        for idx in range(1, self.NUM_ROWS + 1):
-            if idx > len(items):
-                break
-            self.update_row_entry(idx)
-
     def update_row_entry(self, idx: int) -> None:
         ovl = getattr(self.COMPONENTS, f"r{idx}_ovl")
         item = self._active_items[ovl]
@@ -410,16 +394,49 @@ class RowPage(HAUIPage):
         return display_type
 
     def update_item_text(self, haui_item: HAUIItem, idx: int) -> None:
-        item = getattr(self.COMPONENTS, f"r{idx}_btn_txt")
-        self.update_function_component(item[1], text=haui_item.get_value())
+        self._update_item_value_cell(haui_item, idx, "component_text")
 
     def update_item_button(self, haui_item: HAUIItem, idx: int) -> None:
-        item = getattr(self.COMPONENTS, f"r{idx}_btn_txt")
-        self.update_function_component(item[1], text=haui_item.get_value())
+        self._update_item_value_cell(haui_item, idx, "component_active")
 
     def update_item_timer(self, haui_item: HAUIItem, idx: int) -> None:
+        # The timer cell reuses the same rendering as the text cell.
+        self._update_item_value_cell(haui_item, idx, "component_text")
+
+    def _update_item_value_cell(self, haui_item: HAUIItem, idx: int, color_mode: str) -> None:
         item = getattr(self.COMPONENTS, f"r{idx}_btn_txt")
-        self.update_function_component(item[1], text=haui_item.get_value())
+        self.update_function_component(
+            item[1],
+            text=self._value_cell_text(haui_item),
+            color=self._value_cell_color(haui_item, color_mode),
+        )
+
+    def _item_stale(self, haui_item: HAUIItem) -> bool:
+        """Whether the item's value is stale per the device's threshold.
+
+        Returns:
+            True when ``stale_data_seconds`` is configured and the item's
+            entity has not updated within that window.
+        """
+        max_age = self.app.device.get("stale_data_seconds", 0)
+        try:
+            max_age = int(max_age)
+        except (TypeError, ValueError):
+            max_age = 0
+        return haui_item.is_stale(max_age)
+
+    def _value_cell_text(self, haui_item: HAUIItem) -> str:
+        """Value text for a row cell, with a "…" suffix when stale."""
+        text = haui_item.get_value()
+        if text and self._item_stale(haui_item):
+            return f"{text} …"
+        return text
+
+    def _value_cell_color(self, haui_item: HAUIItem, fresh_key: str) -> int:
+        """Cell colour: dimmed while stale, restored to *fresh_key* otherwise."""
+        if self._item_stale(haui_item):
+            return self.get_color("text_inactive")
+        return self.get_color(fresh_key)
 
     def update_item_toggle(self, haui_item: HAUIItem, idx: int) -> None:
         toggle = getattr(self.COMPONENTS, f"r{idx}_toggle")
@@ -430,160 +447,74 @@ class RowPage(HAUIPage):
         slider = getattr(self.COMPONENTS, f"r{idx}_slider")
         slider_txt = getattr(self.COMPONENTS, f"r{idx}_slider_txt")
         # get values needed for slider
-        value = str(haui_item.get_item_state() or "0")
+        state = haui_item.get_item_state()
         minval = float(haui_item.get_item_attr("min", 0))
         maxval = float(haui_item.get_item_attr("max", 100))
         step = str(haui_item.get_item_attr("step", 1))
         dot_pos = 0 if float(step) >= 1 else step[::-1].find(".")
         scale_factor = int(10**dot_pos)
-        # get internal values for slider
-        i_value = int(value.replace(".", ""))
-        i_minval = int(minval * scale_factor)
-        i_maxval = int(maxval * scale_factor) - i_minval
-        i_value = int(i_value - i_minval)
+        # the Nextion slider only holds integers: scale by the step's decimals
+        i_minval = round(minval * scale_factor)
+        i_maxval = round(maxval * scale_factor) - i_minval
+        if state is None or state in ("unavailable", "unknown"):
+            i_value = 0
+            text = haui_item.translate_item_state()
+        else:
+            i_value = round(float(state) * scale_factor) - i_minval
+            text = str(state)
         # update display
         self.send_cmd(f"{slider[1]}.minval={0}")
         self.send_cmd(f"{slider[1]}.maxval={i_maxval}")
         self.update_function_component(slider[1], value=i_value)
         self.set_slider_color(slider)
-        self.update_function_component(slider_txt[1], text=value)
+        stale = self._item_stale(haui_item)
+        if stale:
+            if text:
+                text = f"{text} …"
+            color = self.get_color("text_inactive")
+        else:
+            color = self.get_color("component_text")
+        self.update_function_component(slider_txt[1], text=text, color=color)
 
     def update_item_cover(self, haui_item: HAUIItem, idx: int) -> None:
-        btn_up = getattr(self.COMPONENTS, f"r{idx}_btn_up")
-        btn_stop = getattr(self.COMPONENTS, f"r{idx}_btn_stop")
-        btn_down = getattr(self.COMPONENTS, f"r{idx}_btn_down")
-        icon_up = ""
-        icon_stop = ""
-        icon_down = ""
-        icon_up_status = False
-        icon_stop_status = False
-        icon_down_status = False
         item_type = haui_item.get_item_type()
         item_state = haui_item.get_item_state()
-        features = haui_item.get_item_attr("supported_features")
         pos = haui_item.get_item_attr("current_position")
         device_class = haui_item.get_item_attr("device_class", "window")
-
-        if features & CoverFeatures.OPEN:  # SUPPORT_OPEN
-            if pos != 100 and not (item_state == "open" and pos == "disable"):
-                icon_up_status = True
-            icon_up = (
-                get_icon_name_by_action(
-                    item_type=item_type, action="open", device_class=device_class
+        can_open = pos != 100 and not (item_state == "open" and pos == "disable")
+        can_close = pos != 0 and not (item_state == "closed" and pos == "disable")
+        # a missing entity has no attributes, so it supports no features
+        for name, flag, action, usable in (
+            ("btn_up", CoverFeatures.OPEN, "open", can_open),
+            ("btn_stop", CoverFeatures.STOP, "stop", item_state not in ["open", "closed"]),
+            ("btn_down", CoverFeatures.CLOSE, "close", can_close),
+        ):
+            button = getattr(self.COMPONENTS, f"r{idx}_{name}")
+            supported = haui_item.supports(flag)
+            icon = ""
+            if supported:
+                icon_name = get_icon_name_by_action(
+                    item_type=item_type, action=action, device_class=device_class
                 )
-                or ""
+                icon = get_icon(icon_name or "") or ""
+            self.update_function_component(
+                button[1],
+                visible=True,
+                text=icon,
+                **self.button_color_args(supported and usable, back_color=True),
             )
-            icon_up = get_icon(icon_up) or ""
-        (
-            color,
-            color_pressed,
-            back_color,
-            back_color_pressed,
-        ) = self.get_button_colors(icon_up_status)
-        self.update_function_component(
-            btn_up[1],
-            visible=True,
-            text=icon_up,
-            color=color,
-            color_pressed=color_pressed,
-            back_color=back_color,
-            back_color_pressed=back_color_pressed,
-        )
-
-        if features & CoverFeatures.STOP:  # SUPPORT_STOP
-            icon_stop = (
-                get_icon_name_by_action(
-                    item_type=item_type, action="stop", device_class=device_class
-                )
-                or ""
-            )
-            icon_stop = get_icon(icon_stop) or ""
-            if item_state not in ["open", "close"]:
-                icon_stop_status = True
-        (
-            color,
-            color_pressed,
-            back_color,
-            back_color_pressed,
-        ) = self.get_button_colors(icon_stop_status)
-        self.update_function_component(
-            btn_stop[1],
-            visible=True,
-            text=icon_stop,
-            color=color,
-            color_pressed=color_pressed,
-            back_color=back_color,
-            back_color_pressed=back_color_pressed,
-        )
-
-        if features & CoverFeatures.CLOSE:  # SUPPORT_CLOSE
-            if pos != 0 and not (item_state == "closed" and pos == "disable"):
-                icon_down_status = True
-            icon_down = (
-                get_icon_name_by_action(
-                    item_type=item_type, action="close", device_class=device_class
-                )
-                or ""
-            )
-            icon_down = get_icon(icon_down) or ""
-        (
-            color,
-            color_pressed,
-            back_color,
-            back_color_pressed,
-        ) = self.get_button_colors(icon_down_status)
-        self.update_function_component(
-            btn_down[1],
-            visible=True,
-            text=icon_down,
-            color=color,
-            color_pressed=color_pressed,
-            back_color=back_color,
-            back_color_pressed=back_color_pressed,
-        )
 
     # callback
 
-    def callback_item_state(
-        self, item: str, attribute: str, old: Any, new: Any, kwargs: Any
-    ) -> None:
-        item_ids = {
-            haui_item.get_item_id()
-            for haui_item in self._active_items.values()
-            if haui_item is not None
-        }
-        if item not in item_ids:
-            return
-        # Coalesce rapid attribute updates into a single redraw to avoid
-        # flooding the Nextion UART, which delays touch-event delivery.
-        self._pending_item_updates.add(item)
-        self.debouncer.call("row_item_state", self._flush_item_updates)
-
-    def _flush_item_updates(self) -> None:
-        # Swap pending set first so concurrent adds aren't lost on clear.
-        pending = self._pending_item_updates
-        if not pending:
-            return
-        self._pending_item_updates = set()
-        with self.rec_cmd:
-            idx = 0
-            for haui_item in self._active_items.values():
-                idx += 1
-                if haui_item is None:
-                    continue
-                if haui_item.get_item_id() in pending:
-                    self.update_row_entry(idx)
+    def _update_entry(self, idx: int) -> None:
+        self.update_row_entry(idx)
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_name == "next_page":
-            count_pages = math.ceil(len(self._items) / self.NUM_ROWS)
-            self._current_page += 1
-            if self._current_page >= count_pages:
-                self._current_page = 0
-            if self.panel is not None:
-                self.panel.set_state("current_page", self._current_page)
+            self._advance_page(self.NUM_ROWS)
             with self.rec_cmd:
                 self.set_row_entries()
+            return
 
         items = self.get_function_components()
         fnc_item = items[fnc_id]
@@ -599,14 +530,8 @@ class RowPage(HAUIPage):
             self.execute_item(item)
         elif fnc_name == "btn_text":
             item.execute()
-        elif fnc_name == "toggle":
-            item.call_item_service("toggle")
-        elif fnc_name == "btn_up":
-            item.call_item_service("open_cover")
-        elif fnc_name == "btn_stop":
-            item.call_item_service("stop_cover")
-        elif fnc_name == "btn_down":
-            item.call_item_service("close_cover")
+        elif fnc_name in self._ROW_SERVICES:
+            item.call_item_service(self._ROW_SERVICES[fnc_name])
 
     # event
 
@@ -625,12 +550,6 @@ class RowPage(HAUIPage):
             component: The slider component whose value was read.
             value: The slider value (0-100).
         """
-        if not self._in_read_callback:
-            self.log(
-                f"_handle_row_slider_value ({component.name}): value={value} ignored "
-                f"(not from read_response — likely button_state leak)"
-            )
-            return
         self.log(f"Row slider value {value} for {component.name}")
         self.debug_log(f"Row slider value {value} from {component.name}")
         for _item_id, fnc_item in self._fnc_items.items():
@@ -647,16 +566,9 @@ class RowPage(HAUIPage):
             dot_pos = 0 if float(step) >= 1 else step[::-1].find(".")
             scale_factor = int(10**dot_pos)
             minval = float(item.get_item_attr("min", 0))
-            i_minval = int(minval * scale_factor)
+            i_minval = round(minval * scale_factor)
             n_value = (value + i_minval) / scale_factor
             entity_object = item.get_item()
             if entity_object:
                 entity_object.set_state(state=n_value)
             return
-
-    def process_row_slider(self, event: HAUIEvent, component: Component, button_state: int) -> None:
-        """Legacy callback retained for _callbacks compatibility."""
-        self._handle_row_slider_value(component, button_state)
-
-    def process_event(self, event: HAUIEvent) -> None:
-        super().process_event(event)

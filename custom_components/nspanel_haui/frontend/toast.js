@@ -1,10 +1,9 @@
 /**
  * NSPanel HAUI - toast helpers.
- * Extracted from panel-editor.js _showToast and _renderToast methods.
+ * Show and render the editor toast message.
  */
 
 import { html } from './lit-import.js';
-import { t } from './localize.js';
 
 export function showToast(host, message, type = "success") {
   host._toast = { message, type };

@@ -48,6 +48,8 @@ class PageOption:
     section: str | None = None
     max_items: int | None = None
     """Maximum number of items allowed in an item_list. ``None`` means unlimited (default)."""
+    allow_template: bool = False
+    """For a ``select``: also offer a Home Assistant template instead of a fixed choice."""
 
 
 @dataclass
@@ -58,8 +60,8 @@ class PageDescriptor:
     description: str
     is_system: bool = False
     options: list[PageOption] = field(default_factory=list)
-    item_options: list[str] = field(default_factory=list)
-    """Panel-level option keys that can also be overridden per-item."""
+    item_options: list[PageOption] = field(default_factory=list)
+    """Extra options the editor offers on each item of this panel type."""
     can_show_popup: bool = False
     """True if this panel type supports overlay (popup) display.
 

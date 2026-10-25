@@ -1,6 +1,6 @@
 """Lightweight config access and logging base class.
 
-Provides config access (``get``, ``get_int``, ``get_str``, etc.), runtime
+Provides config access (``get``), runtime
 state, logging, translation, and template rendering — without the display
 transport, command batching, or lifecycle machinery from ``HAUIBase``.
 
@@ -48,14 +48,6 @@ class HAUIConfigAccess:
         self.state: dict[str, Any] = {}
         self.started: bool = False
 
-    def get_id(self) -> uuid.UUID:
-        """Returns the id of the config.
-
-        Returns:
-            uuid: Id
-        """
-        return self.id
-
     def get(self, key: str, default: Any = _MISSING) -> Any:
         """Gets a value from the configuration.
 
@@ -102,102 +94,6 @@ class HAUIConfigAccess:
                 return default
             raise KeyError(f"Config key '{key}' is None")
         return value
-
-    def get_int(self, key: str, default: int = 0) -> int:
-        """Gets a config value as int, coercing and logging on type mismatch.
-
-        Args:
-            key: The key of the value to get.
-            default: Default value to return if the key is missing or uncoercible.
-
-        Returns:
-            int: The config value coerced to int.
-        """
-        val = self.get(key, None)
-        if isinstance(val, int):
-            return val
-        if val is None:
-            return default
-        try:
-            return int(val)
-        except (ValueError, TypeError):
-            self.log(
-                f"Config key '{key}' expected int, got {type(val).__name__}: {val!r}",
-                level="WARNING",
-            )
-            return default
-
-    def get_str(self, key: str, default: str = "") -> str:
-        """Gets a config value as str, coercing and logging on type mismatch.
-
-        Args:
-            key: The key of the value to get.
-            default: Default value to return if the key is missing.
-
-        Returns:
-            str: The config value coerced to str.
-        """
-        val = self.get(key, None)
-        if isinstance(val, str):
-            return val
-        if val is None:
-            return default
-        self.log(
-            f"Config key '{key}' expected str, got {type(val).__name__}: {val!r}",
-            level="WARNING",
-        )
-        return str(val)
-
-    def get_bool(self, key: str, default: bool = False) -> bool:
-        """Gets a config value as bool, coercing and logging on type mismatch.
-
-        Args:
-            key: The key of the value to get.
-            default: Default value to return if the key is missing.
-
-        Returns:
-            bool: The config value coerced to bool.
-        """
-        val = self.get(key, None)
-        if isinstance(val, bool):
-            return val
-        if val is None:
-            return default
-        if isinstance(val, str):
-            return val.lower() in ("true", "1", "yes")
-        if isinstance(val, int):
-            return val != 0
-        self.log(
-            f"Config key '{key}' expected bool, got {type(val).__name__}: {val!r}",
-            level="WARNING",
-        )
-        return bool(val)
-
-    def get_float(self, key: str, default: float = 0.0) -> float:
-        """Gets a config value as float, coercing and logging on type mismatch.
-
-        Args:
-            key: The key of the value to get.
-            default: Default value to return if the key is missing or uncoercible.
-
-        Returns:
-            float: The config value coerced to float.
-        """
-        val = self.get(key, None)
-        if isinstance(val, float):
-            return val
-        if isinstance(val, int):
-            return float(val)
-        if val is None:
-            return default
-        try:
-            return float(val)
-        except (ValueError, TypeError):
-            self.log(
-                f"Config key '{key}' expected float, got {type(val).__name__}: {val!r}",
-                level="WARNING",
-            )
-            return default
 
     def log(self, msg: str, **kwargs: Any) -> None:
         """Logs a message.
@@ -338,9 +234,10 @@ class HAUIConfigAccess:
         Returns:
             str: rendered template string
         """
-        if "template:" in template:
-            template = template.replace("template:", "")
-            splitted_string = template.replace("template:", "").rpartition("}")
+        # Bare {{ ... }} / {% ... %} templates are rendered directly; the
+        # legacy "template:" prefix is not recognized as a template marker.
+        if "{{" in template or "{%" in template:
+            splitted_string = template.rpartition("}")
             # ATT: there seems to be an encoding problem if the template is too short
             template_string = f"<!--{splitted_string[0]}{splitted_string[1]}-->"
             template = self.app.render_template(template_string)

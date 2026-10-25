@@ -1,6 +1,8 @@
-"""Optional pydantic v2 config validation for NSPanel HAUI.
+"""Pydantic v2 config validation for NSPanel HAUI.
 
-Gracefully degrades to a no-op when pydantic is not installed.
+Pydantic is a hard requirement (declared in ``manifest.json``); the model
+classes are created lazily because importing pydantic does blocking
+importlib I/O that must stay off the HA event loop.
 """
 
 from __future__ import annotations
@@ -8,12 +10,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from .mapping.const import GESTURES
+
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
 _LOGGER = logging.getLogger(__name__)
 
-__all__ = ["validate_config", "validate_device_config", "validate_panels"]
+__all__ = ["validate_config_model", "validate_device_config", "validate_panels"]
 
 # Importing pydantic at module scope does blocking importlib I/O (import_module,
 # importlib.metadata reads), and its BaseModel metaclass triggers more blocking
@@ -21,30 +25,24 @@ __all__ = ["validate_config", "validate_device_config", "validate_panels"]
 # the pydantic import AND model creation until the first validate_* call.
 # Callers on the event loop (e.g. api.py) already dispatch validation via
 # async_add_executor_job, so this lazy init runs on a worker thread.
-_HAVE_PYDANTIC: bool | None = None  # None = not yet probed
 _CONFIG_MODEL: type | None = None
 _DEVICE_CONFIG_MODEL: type | None = None
 
 
 def _ensure_models() -> None:
     """Import pydantic and create model classes lazily, off the event loop."""
-    global _CONFIG_MODEL, _DEVICE_CONFIG_MODEL, _HAVE_PYDANTIC  # noqa: PLW0603
+    global _CONFIG_MODEL, _DEVICE_CONFIG_MODEL  # noqa: PLW0603
 
-    if _HAVE_PYDANTIC is False or _CONFIG_MODEL is not None:
+    if _CONFIG_MODEL is not None:
         return
 
-    try:
-        from pydantic import (
-            BaseModel,
-            ConfigDict,
-            Field,
-            field_validator,
-            model_validator,
-        )
-    except ImportError:
-        _HAVE_PYDANTIC = False
-        return
-    _HAVE_PYDANTIC = True
+    from pydantic import (
+        BaseModel,
+        ConfigDict,
+        Field,
+        field_validator,
+        model_validator,
+    )
 
     from .mapping.color import COLORS
 
@@ -55,36 +53,77 @@ def _ensure_models() -> None:
         key: str | None = None
         show_in_navigation: bool = True
 
+    class _GestureSequence(BaseModel):
+        """One entry of the ``gesture_sequences`` device setting."""
+
+        model_config = ConfigDict(extra="forbid")
+        sequence: list[str]
+        timeframe: int = Field(ge=1, le=60)
+        open: str
+
+        @field_validator("sequence")
+        @classmethod
+        def _known_gestures(cls, v: list[str]) -> list[str]:
+            if not v:
+                raise ValueError("a gesture sequence needs at least one swipe")
+            unknown = [g for g in v if g not in GESTURES]
+            if unknown:
+                raise ValueError(f"unknown gesture(s) {unknown}; use one of {list(GESTURES)}")
+            return v
+
+        @field_validator("open")
+        @classmethod
+        def _needs_panel(cls, v: str) -> str:
+            if not v:
+                raise ValueError("a gesture sequence needs a panel to open")
+            return v
+
     class _DeviceConfig(BaseModel):
         model_config = ConfigDict(extra="allow")
-        locale: str | None = None
-        button_left_entity: str | None = None
-        button_right_entity: str | None = None
+        locale: str = "en_US"
+        display_model: str = "eu"
+        time_format: str = ""
+        date_format: str = ""
+        date_format_locale: str = ""
+        button_left_entity: str = ""
+        button_right_entity: str = ""
         home_panel: str = ""
-        sleep_panel: str = ""
-        wakeup_panel: str = ""
+        idle_panel: str = ""
+        idle_panel_extra: str = ""
         show_home_button: bool = False
-        show_sleep_button: bool = False
+        show_idle_button: bool = False
         show_notifications_button: bool = True
         reset_interaction_on_button: bool = True
-        snapshot_max_age_seconds: int = -1
+        snapshot_max_age_seconds: int = Field(-1, ge=-1)
         sound_on_startup: bool = True
         sound_on_notification: bool = True
+        persistent_sound_interval: int = Field(5, ge=1, le=600)
         use_do_not_disturb: bool = False
         quiet_hours_start: str = ""
         quiet_hours_end: str = ""
+        use_sleep_schedule: bool = False
+        sleep_schedule_start: str = ""
+        sleep_schedule_end: str = ""
         use_relay_left: bool = True
         use_relay_right: bool = True
         use_auto_dimming: bool = True
         use_auto_page: bool = True
-        use_auto_sleeping: bool = True
-        timeout_dimming: int = 10
-        timeout_page: int = 30
-        timeout_sleep: int = 120
+        use_auto_display_off: bool = True
+        # Timeout values are pushed into ESPHome number entities whose own
+        # ranges are 0-3600 (dim/page/display-off) resp. 0-86400 (hub-side
+        # timers); the REST editor clamps to the same bounds, so enforcement
+        # here keeps every entry path (REST, YAML import, stored JSON)
+        # consistent.
+        timeout_dimming: int = Field(10, ge=0, le=3600)
+        timeout_page: int = Field(30, ge=0, le=3600)
+        timeout_display_off: int = Field(120, ge=0, le=3600)
         debug_level: int = 0
         log_items: bool = False
-        hub_idle_timeout: int = 0
+        stale_data_seconds: int = Field(0, ge=0, le=86400)
+        hub_idle_timeout: int = Field(0, ge=0, le=86400)
+        auto_navigate_home_timeout: int = Field(0, ge=0, le=86400)
         color_overrides: dict[str, int] = Field(default_factory=dict)
+        gesture_sequences: list[_GestureSequence] = Field(default_factory=list)
         enabled: bool = True
 
         @field_validator("color_overrides", mode="before")
@@ -101,7 +140,7 @@ def _ensure_models() -> None:
                 if key not in COLORS:
                     # Only the global COLORS palette is overridable. Domain
                     # colors (weather/alarm/climate) are fixed constants, so any
-                    # legacy/unknown key is dropped rather than stored.
+                    # unknown key is dropped rather than stored.
                     _LOGGER.debug("Dropping non-overridable color key %r from color_overrides", key)
                     continue
                 try:
@@ -144,41 +183,39 @@ def _ensure_models() -> None:
     _DEVICE_CONFIG_MODEL = _DeviceConfig
 
 
-def _get_model() -> type[BaseModel] | None:
+def _get_model() -> type[BaseModel]:
     """Return the ConfigModel class, creating it lazily if needed."""
     _ensure_models()
-    return _CONFIG_MODEL  # type: ignore[return-value]
+    assert _CONFIG_MODEL is not None
+    return _CONFIG_MODEL
 
 
-def _get_device_config_model() -> type[BaseModel] | None:
+def _get_device_config_model() -> type[BaseModel]:
     """Return the DeviceConfig model class, creating it lazily if needed."""
     _ensure_models()
-    return _DEVICE_CONFIG_MODEL  # type: ignore[return-value]
+    assert _DEVICE_CONFIG_MODEL is not None
+    return _DEVICE_CONFIG_MODEL
 
 
-def validate_config(raw_cfg: dict) -> BaseModel | None:
+def validate_config_model(raw_cfg: dict) -> BaseModel:
     """Validate *raw_cfg* against the config schema.
 
-    Returns the validated model instance, or None when pydantic is unavailable.
+    Returns the validated model instance.
     """
     model = _get_model()
-    if model is None:
-        return None
     return model(**raw_cfg)
 
 
-def validate_device_config(config: dict) -> BaseModel | None:
+def validate_device_config(config: dict) -> BaseModel:
     """Validate a single device *config* sub-object against _DeviceConfig.
 
-    Returns the validated model instance, or None when pydantic is unavailable.
+    Returns the validated model instance.
     """
     model = _get_device_config_model()
-    if model is None:
-        return None
     return model(**config)
 
 
-def validate_panels(panels_data: dict) -> BaseModel | None:
+def validate_panels(panels_data: dict) -> BaseModel:
     """Validate panel store data.
 
     Ensures the panels dict has valid panel definitions and that
@@ -189,4 +226,4 @@ def validate_panels(panels_data: dict) -> BaseModel | None:
         all_panels.extend(dev_data.get("panels", []))
         if "config" in dev_data:
             validate_device_config(dev_data["config"])
-    return validate_config({"panels": all_panels})
+    return validate_config_model({"panels": all_panels})

@@ -4,26 +4,17 @@
  * Proper Lit custom element showing all configured devices with
  * add, select, settings, and remove capabilities.
  */
-import { LitElement, html } from '../lit-import.js';
-import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { html } from '../lit-import.js';
 import { dialogHeader } from './dialog-header.js';
+import { HauiDialog } from './haui-dialog.js';
 import { t } from '../localize.js';
 import { positionContextMenu, onOutsideClick, offOutsideClick } from '../dom-helpers.js';
 import * as Toast from '../toast.js';
+import { scanDevices, getFirmwareDownload } from '../api.js';
 import { readNetworkInfo, rssiIcon, rssiStrengthClass } from '../network-info.js';
+import { isOlderVersion } from '../device-info.js';
 
 /* ── helpers ────────────────────────────────────────────────── */
-
-/**
- * Single event dispatcher that all event-emitting methods delegate to.
- */
-function _dispatch(eventName, detail = {}) {
-  return new CustomEvent(eventName, {
-    detail,
-    bubbles: true,
-    composed: true,
-  });
-}
 
 /**
  * Render a compact WiFi icon for the title row.
@@ -40,11 +31,32 @@ function renderWifiIcon(rssi, ssid) {
   return html`<ha-icon icon="${icon}" class="wifi-icon-head ${colorCls}" title="${detail}"></ha-icon>`;
 }
 
-class DeviceManagerDialog extends LitElement {
+/**
+ * Render a TFT update state chip for a device status payload.
+ *
+ * @param {Object|undefined} update - `status.update` from the backend
+ * @returns {string|undefined} chip markup, or nothing when idle/absent
+ */
+function renderUpdateStateChip(update) {
+  const state = update?.state;
+  if (!state || state === "idle") return "";
+  const labels = {
+    checking: t('Checking for update\u2026'),
+    installing: t('Installing TFT\u2026'),
+    done: t('TFT installed'),
+    error: t('TFT update failed'),
+  };
+  const label = labels[state] || state;
+  const warn = state === "error" ? " info-chip-error" : "";
+  const title = state === "error" && update?.last_error
+    ? `${label}: ${update.last_error}`
+    : label;
+  return html`<span class="info-chip${warn}" title="${title}">${label}</span>`;
+}
+
+class DeviceManagerDialog extends HauiDialog {
   static get properties() {
     return {
-      hass: { type: Object },
-      open: { type: Boolean, reflect: true },
       devices: { type: Object },
       selectedDevice: { type: String },
       entryId: { type: String },
@@ -61,11 +73,8 @@ class DeviceManagerDialog extends LitElement {
     };
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles];
-
   constructor() {
     super();
-    this.open = false;
     this.devices = {};
     this.selectedDevice = null;
     this.entryId = null;
@@ -98,6 +107,7 @@ class DeviceManagerDialog extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     offOutsideClick(this);
+    this._stopStatusPolling();
   }
 
   showToast(message, type = "success") { Toast.showToast(this, message, type); }
@@ -114,15 +124,21 @@ class DeviceManagerDialog extends LitElement {
       });
     }
     if (changed.has("open")) {
-      if (this.open) {
-        this._fetchAllStatuses();
-        this.__statusTimer = setInterval(() => this._fetchAllStatuses(), 5000);
-      } else {
-        if (this.__statusTimer) {
-          clearInterval(this.__statusTimer);
-          this.__statusTimer = null;
-        }
-      }
+      if (this.open) this._startStatusPolling();
+      else this._stopStatusPolling();
+    }
+  }
+
+  _startStatusPolling() {
+    this._stopStatusPolling();
+    this._fetchAllStatuses();
+    this.__statusTimer = setInterval(() => this._fetchAllStatuses(), 5000);
+  }
+
+  _stopStatusPolling() {
+    if (this.__statusTimer) {
+      clearInterval(this.__statusTimer);
+      this.__statusTimer = null;
     }
   }
 
@@ -193,7 +209,7 @@ class DeviceManagerDialog extends LitElement {
               <div class="device-mgr-section">
                 <h3 class="device-mgr-section-title">${t('Discovered Devices')}</h3>
                 <div class="device-mgr-section-actions">
-                  <ha-button @click=${() => this._dispatchScanDevices(this._scannedDevices)} variant="neutral" appearance="plain">
+                  <ha-button @click=${() => this._emit("scan-devices", { devices: this._scannedDevices })} variant="neutral" appearance="plain">
                     <ha-icon icon="mdi:plus-circle-outline" slot="icon"></ha-icon>
                     ${t('Add All')}
                   </ha-button>
@@ -209,7 +225,7 @@ class DeviceManagerDialog extends LitElement {
                       </div>
                     </div>
                     <div class="device-mgr-row-actions">
-                      <ha-button @click=${() => this._dispatchAddDevice({ name: d.name, esphome_device_id: d.esphome_device_id || '' })}>
+                      <ha-button @click=${() => this._emit("add-device", { device: { name: d.name, esphome_device_id: d.esphome_device_id || '' } })}>
                         ${t('Add')}
                       </ha-button>
                     </div>
@@ -228,9 +244,13 @@ class DeviceManagerDialog extends LitElement {
               <ha-icon icon="mdi:magnify" slot="icon"></ha-icon>
               ${this._scanning ? t('Scanning...') : t('Scan')}
             </ha-button>
-            <ha-button @click=${() => this._dispatchUpdateAll()} variant="neutral" appearance="plain">
+            <ha-button @click=${() => this._emit("update-display", { name: "*" })} variant="neutral" appearance="plain">
               <ha-icon icon="mdi:refresh" slot="icon"></ha-icon>
-              ${t('Update All')}
+              ${t('Refresh all displays')}
+            </ha-button>
+            <ha-button @click=${() => this._onDownloadFirmware()} variant="neutral" appearance="plain" title="${t('Download the firmware binary of the latest release')}">
+              <ha-icon icon="mdi:download" slot="icon"></ha-icon>
+              ${t('Download firmware')}
             </ha-button>
           </div>
           <ha-button @click=${this._dispatchClose}>
@@ -256,28 +276,31 @@ class DeviceManagerDialog extends LitElement {
     const di = this._deviceStatuses?.[name]?.device_info;
     const yaml = di?.yaml_version || '-';
     const tft = di?.tft_version || '-';
-    const nw = readNetworkInfo(this.hass, name);
+    // Prefer the server-resolved network info (entity-registry based) over the
+    // client-side slug lookup, which misses area/device-prefixed entity ids.
+    const nw = (di?.ip) ? { ip: di.ip, ssid: di.ssid || '', rssi: di.rssi } : readNetworkInfo(this.hass, name);
 
     const displayName = dev.friendly_name || name;
 
     const dropdownItems = [
       {
         icon: enabled ? 'mdi:close-circle-outline' : 'mdi:check-circle-outline',
-        label: enabled ? t('Disable') : t('Enable'), action: () => { this._dispatchToggleDevice(name); this._closeDeviceMenu(); }
+        label: enabled ? t('Disable') : t('Enable'), action: () => { this._emit("toggle-device", { name }); this._closeDeviceMenu(); }
       },
       'divider',
-      { icon: 'mdi:refresh', label: t('Update'), action: () => { this._dispatchUpdateDisplay(name); this._closeDeviceMenu(); } },
+      { icon: 'mdi:refresh', label: t('Refresh display'), action: () => { this._emit("update-display", { name }); this._closeDeviceMenu(); } },
+      { icon: 'mdi:update', label: t('Install TFT'), action: () => { this._emit("update-tft", { name }); this._closeDeviceMenu(); } },
       'divider',
-      { icon: 'mdi:arrow-up', label: t('Move Up'), disabled: !canMoveUp, action: () => { this._dispatchMoveDevice(name, -1); this._closeDeviceMenu(); } },
-      { icon: 'mdi:arrow-down', label: t('Move Down'), disabled: !canMoveDown, action: () => { this._dispatchMoveDevice(name, 1); this._closeDeviceMenu(); } },
+      { icon: 'mdi:arrow-up', label: t('Move Up'), disabled: !canMoveUp, action: () => { this._emit("move-device", { name, direction: -1 }); this._closeDeviceMenu(); } },
+      { icon: 'mdi:arrow-down', label: t('Move Down'), disabled: !canMoveDown, action: () => { this._emit("move-device", { name, direction: 1 }); this._closeDeviceMenu(); } },
       'divider',
-      { icon: 'mdi:cog-outline', label: t('Settings'), action: () => { this._dispatchDeviceSettings(name); this._closeDeviceMenu(); } },
+      { icon: 'mdi:cog-outline', label: t('Settings'), action: () => { this._emit("device-settings", { name }); this._closeDeviceMenu(); } },
       'divider',
-      { icon: 'mdi:delete-outline', label: t('Remove'), disabled: isRemoving, danger: true, action: () => { this._onRemoveDevice(name); this._closeDeviceMenu(); } },
+      { icon: 'mdi:delete-outline', label: t('Remove'), disabled: isRemoving, danger: true, action: () => { this._emit("remove-device", { name }); this._closeDeviceMenu(); } },
     ];
 
     return html`
-      <div class="device-mgr-row ${isSelected ? 'selected' : ''} ${enabled ? 'row-enabled' : 'row-disabled'}" @click=${() => this._dispatchSelectDevice(name)}>
+      <div class="device-mgr-row ${isSelected ? 'selected' : ''} ${enabled ? 'row-enabled' : 'row-disabled'}" @click=${() => this._emit("select-device", { name })}>
         <div class="device-mgr-row-body">
           <div class="device-mgr-row-head">
             <span class="device-mgr-state-indicator ${enabled ? 'state-on' : 'state-off'}"
@@ -288,8 +311,11 @@ class DeviceManagerDialog extends LitElement {
             <span class="device-mgr-panel-count">${panelCount} ${panelCount !== 1 ? t('panels') : t('panel')}</span>
           </div>
           <div class="device-mgr-row-details">
-            ${yaml !== '-' ? html`<span class="info-chip" title="${t('YAML Version')}">Y: ${yaml}</span>` : ''}
-            ${tft !== '-' ? html`<span class="info-chip" title="${t('TFT Version')}">T: ${tft}</span>` : ''}
+            ${yaml !== '-' ? html`<span class="info-chip" title="${t('ESPHome firmware version')}">${t('Firmware')} ${yaml}</span>` : ''}
+            ${tft !== '-' ? (yaml !== '-' && isOlderVersion(tft, yaml)
+              ? html`<span class="info-chip info-chip-warn" title="${t('The display is updated automatically to the version the firmware needs')}">${t('Display')} ${tft} · ${t('update pending')}</span>`
+              : html`<span class="info-chip" title="${t('Display (TFT) version')}">${t('Display')} ${tft}</span>`) : ''}
+            ${renderUpdateStateChip(this._deviceStatuses?.[name]?.update)}
             ${nw.ip ? html`<span class="info-chip" title="${t('IP Address')}">${nw.ip}</span>` : ''}
           </div>
         </div>
@@ -327,26 +353,6 @@ class DeviceManagerDialog extends LitElement {
     `;
   }
 
-  /* ── event dispatchers ───────────────────────────────────────────────── */
-
-  _dispatchToggleDevice(name) { this.dispatchEvent(_dispatch("toggle-device", { name })); }
-
-  _dispatchClose() { this.dispatchEvent(_dispatch("dialog-closed")); }
-
-  _dispatchSelectDevice(name) { this.dispatchEvent(_dispatch("select-device", { name })); }
-
-  _dispatchDeviceSettings(name) { this.dispatchEvent(_dispatch("device-settings", { name })); }
-
-  _dispatchRemoveDevice(name) { this.dispatchEvent(_dispatch("remove-device", { name })); }
-
-  _dispatchAddDevice(device) { this.dispatchEvent(_dispatch("add-device", { device })); }
-
-  _dispatchMoveDevice(name, direction) { this.dispatchEvent(_dispatch("move-device", { name, direction })); }
-
-  _dispatchUpdateDisplay(name) { this.dispatchEvent(_dispatch("update-display", { name })); }
-
-  _dispatchUpdateAll() { this._dispatchUpdateDisplay("*"); }
-
   /* ── scan for devices ──────────────────────────────────────────────── */
 
   async _onScan() {
@@ -355,7 +361,6 @@ class DeviceManagerDialog extends LitElement {
     this._scannedDevices = [];
     this.requestUpdate();
     try {
-      const { scanDevices } = await import('../api.js');
       const result = await scanDevices({ entryId: this.entryId, hass: this.hass });
       const discovered = (result.devices || []).filter(
         (d) => !(this.devices || {})[d.name || d.friendly_name]
@@ -371,8 +376,25 @@ class DeviceManagerDialog extends LitElement {
     this.requestUpdate();
   }
 
-  _dispatchScanDevices(devices) {
-    this.dispatchEvent(_dispatch("scan-devices", { devices }));
+  /* ── firmware download link ─────────────────────────────────────── */
+
+  async _onDownloadFirmware() {
+    try {
+      const { url, version } = await getFirmwareDownload({ entryId: this.entryId, hass: this.hass });
+      if (!url) {
+        this.showToast(t("No prebuilt firmware binary published for this release. Build from YAML or use the ESPHome dashboard."), "error");
+        return;
+      }
+      window.open(url, "_blank");
+      this.showToast(
+        version
+          ? t('Downloading firmware {version}').replace('{version}', version)
+          : t('Downloading firmware'),
+        "success",
+      );
+    } catch (e) {
+      this.showToast(e.message || t("Failed to load the firmware link"), "error");
+    }
   }
 
   /* ── add device ──────────────────────────────────────────────────── */
@@ -389,22 +411,13 @@ class DeviceManagerDialog extends LitElement {
       this.requestUpdate();
       return;
     }
-    this._dispatchAddDevice({
-      name,
-      esphome_device_id: "",
-    });
+    this._emit("add-device", { device: { name, esphome_device_id: "" } });
     this._showAddForm = false;
     this._newDeviceName = "";
     this._addError = "";
     this.requestUpdate();
   }
-
-  /* ── remove ──────────────────────────────────────────────────────────── */
-
-  _onRemoveDevice(name) {
-    this._dispatchRemoveDevice(name);
-  }
 }
 
-customElements.define("ha-dialog-device-manager", DeviceManagerDialog);
+customElements.define("nspanel-dialog-device-manager", DeviceManagerDialog);
 export { DeviceManagerDialog };

@@ -55,4 +55,17 @@ export const previewRowStyles = css`
   .pg-preview-row-empty {
     background: rgba(255,255,255,0.03);
   }
+
+  /* Portrait TFT: icon + name on the first line, the controls below it */
+  .pg-card-preview--portrait .pg-preview-row-card {
+    flex-wrap: wrap;
+    align-content: center;
+    padding: 2px 6px;
+  }
+  .pg-card-preview--portrait .pg-preview-row-card .pg-preview-tile-label {
+    flex-basis: calc(100% - clamp(14px, 3cqi, 24px) - 6px);
+  }
+  .pg-card-preview--portrait .pg-preview-row-card .pg-preview-btn:first-of-type {
+    margin-left: auto;
+  }
 `;

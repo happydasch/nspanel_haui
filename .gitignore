@@ -8,3 +8,15 @@ nspanel_haui_env/
 .env
 ref_src/
 site/
+.claude/
+.kilo/
+.venv_docs/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+build/
+*.egg-info/
+# Real ESPHome secrets; copy esphome/secrets.yaml.example and fill it in.
+esphome/secrets.yaml
+
+esphome/.esphome/

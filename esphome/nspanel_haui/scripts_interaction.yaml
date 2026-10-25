@@ -119,11 +119,15 @@ script:
           int min_distance_y = 150;
           int max_angle = 20;
           int border_margin = 40;
-          // Display dimensions (Sonoff NSPanel landscape).
-          // Touch digitizer reports x in 0..479, but only the leftmost 450px
-          // are visible (rightmost 30px sit under the bezel, still touchable).
-          int visible_width = 450;
-          int screen_h = 320;
+          // Display dimensions depend on the device model, synced by the hub
+          // as the `display_model` number (0 = landscape, 1 = portrait).
+          // Touch digitizer reports x in 0..479 for landscape (only the
+          // leftmost 450px are visible; the rightmost 30px sit under the
+          // bezel, still touchable).  The portrait panel is rotated 90°, so
+          // its touch space is 320 wide by 480 tall.
+          int model = int(id(display_model).state);
+          int visible_width = model == 1 ? 320 : 450;
+          int screen_h = model == 1 ? 480 : 320;
 
           // Determine the direction of the swipe
           bool is_horizontal = abs(x2 - x1) > abs(y2 - y1);

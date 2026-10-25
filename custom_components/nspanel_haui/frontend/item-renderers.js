@@ -13,11 +13,11 @@ import {
   detectItemType,
   parseItemValue,
   encodeItemValue,
-  renderPanelKeyPicker,
+  panelTargetOptions,
   ITEM_TYPE,
-  ITEM_LABELS,
+  itemLabels,
   ITEM_TYPE_ICONS,
-  ITEM_TYPE_SHORT,
+  itemTypeShort,
   itemPrimaryText,
   itemSecondaryText,
 } from './haui-item.js';
@@ -26,10 +26,12 @@ import {
   parseFieldValue,
   scheduleTemplateRender,
   renderIconPicker,
+  renderNumberInput,
   renderSelect,
   renderToggle,
   saveColor,
   renderColorPresets,
+  colorFieldText,
 } from './form-fields.js';
 import { parseRgbListToHex, hexToColorMatching } from './color-utils.js';
 import { formVal } from './dom-helpers.js';
@@ -78,7 +80,7 @@ function toggleColorPopover(e) {
 export function renderItemListRow(host, item, actions, flags = {}) {
   const type = detectItemType(item?.item);
   const icon = (item && item.icon) || ITEM_TYPE_ICONS[type] || 'mdi:circle-outline';
-  const typeLabel = ITEM_TYPE_SHORT[type] || t('Item');
+  const typeLabel = itemTypeShort()[type] || t('Item');
   const primary = itemPrimaryText(item);
   const secondary = itemSecondaryText(item);
   const showTypeChip = !item?.name;
@@ -98,13 +100,6 @@ export function renderItemListRow(host, item, actions, flags = {}) {
     <div class="item-list-row">
       <span class="item-row-icon" style=${iconBgStyle || ''}>
         <ha-icon icon=${icon} style=${iconColorStyle || ''}></ha-icon>
-        ${itemColor
-          ? html`<span
-              class="item-row-color-dot"
-              style="background-color:${itemColor}"
-              title=${`${t("Color")}: ${itemColor}`}
-            ></span>`
-          : ''}
       </span>
       <div class="item-row-text">
         <div class="item-row-primary">
@@ -209,7 +204,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
               </div>
               ${(() => {
                 const { renderEntityPicker: picker } = { renderEntityPicker };
-                return picker(host, {
+                return picker({
                   id: `${id}-${i}`,
                   value: eid,
                   domain,
@@ -237,7 +232,7 @@ export function renderListItemsField(host, opt, currentValue, id, options = {}) 
       </div>
 
       ${max != null && list.length >= max
-        ? html`<div class="item-list-limit">${t("Maximum")} ${max} ${t("items")}</div>`
+        ? html`<div class="item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`
         : html`
             <button
               class="add-item-btn"
@@ -282,7 +277,7 @@ export function renderItemListField(host, opt, currentValue) {
 
       <div class="item-list">
         ${entities.length === 0 && editingIndex !== -1
-          ? html`<div class="item-list-empty">${t("No items yet")}. ${t("Click")} "${t("+ Add Item")}" ${t("below")}.</div>`
+          ? html`<div class="item-list-empty">${t('No items yet. Click "+ Add Item" below.')}</div>`
           : ''}
         ${entities.map((item, i) => {
           if (editingIndex === i) {
@@ -336,7 +331,7 @@ export function renderItemListField(host, opt, currentValue) {
         : (() => {
             const max = opt.max_items;
             if (max != null && entities.length >= max) {
-              return html`<div class="item-list-limit">${t("Maximum")} ${max} ${t("items")}</div>`;
+              return html`<div class="item-list-limit">${t("Maximum {max} items").replace("{max}", max)}</div>`;
             }
             return html`
               <button
@@ -397,23 +392,14 @@ function renderItemOptionField(host, opt, currentValue) {
       return html`
         <div class="form-group">
           <label for=${id} title=${opt.description}>${opt.label}</label>
-          <input
-            id=${id}
-            type="number"
-            inputmode="numeric"
-            step="1"
-            class="native-input"
-            .value=${String(val != null ? val : "")}
-            @input=${(e) => { setVal(parseInt(e.target.value, 10) || 0); }}
-          />
+          ${renderNumberInput(id, val, (raw) => setVal(parseInt(raw, 10) || 0), { step: "1" })}
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
         </div>
       `;
 
     case "color": {
       const colorHex = parseRgbListToHex(val);
-      const displayStr = formatFieldValue(val);
-      const hasTpl = displayStr.includes("{{");
+      const hasTpl = formatFieldValue(val).includes("{{");
       return html`
         <div class="form-group">
           <label for=${id} title=${opt.description}>${opt.label}</label>
@@ -439,7 +425,7 @@ function renderItemOptionField(host, opt, currentValue) {
               <input
                 id=${id}
                 class="native-input"
-                .value=${displayStr}
+                .value=${colorFieldText(val)}
               @input=${(e) => {
                 const raw = e.target.value;
                 if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
@@ -461,8 +447,8 @@ function renderItemOptionField(host, opt, currentValue) {
               const newVal = hexToColorMatching(hex, prevVal);
               saveColor(hex);
               setVal(newVal);
-              const el = e.currentTarget.closest(".color-popover");
-              if (el) el.classList.remove("open");
+              host.renderRoot?.querySelectorAll(".color-popover.open")
+                .forEach((el) => el.classList.remove("open"));
             }) : ""}
           </div>
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
@@ -519,8 +505,7 @@ function renderPromotedField(host, ee, f, label, hint) {
   if (f === 'color') {
     const cv = ee.config?.[f];
     const cHex = parseRgbListToHex(cv);
-    const displayStr = formatFieldValue(cv);
-    const hasTpl = displayStr.includes("{{");
+    const hasTpl = formatFieldValue(cv).includes("{{");
     return html`
       <div class="form-group">
         <label for="item-${f}" title=${hint}>${label}</label>
@@ -547,7 +532,7 @@ function renderPromotedField(host, ee, f, label, hint) {
             <input
               id="item-${f}"
               class="native-input"
-              .value=${displayStr}
+              .value=${colorFieldText(cv)}
             @input=${(e) => {
               const raw = e.target.value;
               if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
@@ -570,8 +555,8 @@ function renderPromotedField(host, ee, f, label, hint) {
             const newVal = hexToColorMatching(hex, prevVal);
             host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: newVal } };
             saveColor(hex);
-            const el = e.currentTarget.closest(".color-popover");
-            if (el) el.classList.remove("open");
+            host.renderRoot?.querySelectorAll(".color-popover.open")
+              .forEach((el) => el.classList.remove("open"));
             setTimeout(() => host.requestUpdate(), 0);
           }) : ""}
         </div>
@@ -583,7 +568,7 @@ function renderPromotedField(host, ee, f, label, hint) {
     const displayStr = formatFieldValue(rawIcon) || "";
     const showDictPreview = rawIcon != null && typeof rawIcon === "object" && !Array.isArray(rawIcon);
     const dictPreviewText = showDictPreview
-      ? t("State-keyed") + ": " + Object.entries(rawIcon).map(([k, v]) => `${k} → ${v}`).join(", ")
+      ? t("State-keyed: {value}").replace("{value}", Object.entries(rawIcon).map(([k, v]) => `${k} → ${v}`).join(", "))
       : "";
     return html`
       <div class="form-group">
@@ -599,7 +584,7 @@ function renderPromotedField(host, ee, f, label, hint) {
   const displayStr = formatFieldValue(rawVal);
   const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
   const dictPreviewText = showDictPreview
-    ? t("State-keyed") + ": " + Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", ")
+    ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
     : "";
   const hasTpl = displayStr.includes("{{");
   return html`
@@ -662,10 +647,11 @@ export function renderItemEditFields(host, descriptor) {
 
       <div class="form-group">
         ${(() => {
-          const info = ITEM_LABELS[itemType] || ITEM_LABELS.entity_id;
+          const labels = itemLabels();
+          const info = labels[itemType] || labels.entity_id;
           if (itemType === ITEM_TYPE.SKIP) return "";
           if (itemType === ITEM_TYPE.ENTITY_ID) {
-            return renderEntityPicker(host, {
+            return renderEntityPicker({
               id: "item-entity",
               value: itemValue,
               label: info.label,
@@ -680,16 +666,21 @@ export function renderItemEditFields(host, descriptor) {
             });
           }
           if (itemType === ITEM_TYPE.NAVIGATE) {
-            const panelKeys = (host.devicePanels || [])
-              .filter(p => p.key)
-              .map(p => p.key);
-            return renderPanelKeyPicker(host, {
-              id: "item-entity",
-              value: itemValue,
-              label: info.label,
-              placeholder: info.placeholder,
-              panelKeys,
-            });
+            return html`
+              <label for="item-entity">${info.label}</label>
+              ${renderSelect(
+                "item-entity",
+                itemValue,
+                panelTargetOptions(host.devicePanels, host.systemPanels, itemValue),
+                (v) => {
+                  host._editingItem = {
+                    ...host._editingItem,
+                    config: { ...host._editingItem.config, item: v },
+                  };
+                },
+                { placeholder: t("Choose a panel") },
+              )}
+            `;
           }
           return html`
             <label for="item-entity" title=${`${info.label} — ${t("enter an entity ID, panel key, service name, or custom text")}`}>${info.label}</label>
@@ -754,7 +745,7 @@ export function renderItemEditFields(host, descriptor) {
             const displayStr = formatFieldValue(rawVal);
             const showDictPreview = rawVal != null && typeof rawVal === "object" && !Array.isArray(rawVal);
             const dictPreviewText = showDictPreview
-              ? t("State-keyed") + ": " + Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", ")
+              ? t("State-keyed: {value}").replace("{value}", Object.entries(rawVal).map(([k, v]) => `${k} → ${v}`).join(", "))
               : "";
             return html`
               <div class="form-group">
@@ -813,24 +804,9 @@ export function renderItemEditFields(host, descriptor) {
           : ""}
         ${(() => {
           if (!descriptor?.item_options?.length) return "";
-          return descriptor.item_options.map((itemKey) => {
-            let opt = descriptor.options.find(o => o.key === itemKey);
-            if (!opt) {
-              // Infer field type from key name when no PageOption entry exists
-              const kind = itemKey.includes("color") ? "color"
-                : itemKey.startsWith("show_") || itemKey.startsWith("is_") || itemKey.startsWith("enable_") ? "bool"
-                : "str";
-              const label = itemKey
-                .replace(/_/g, " ")
-                .replace(/\b\w/g, c => c.toUpperCase());
-              opt = { key: itemKey, kind, label, description: "", choices: null };
-            }
-            return renderItemOptionField(
-              host,
-              { key: opt.key, kind: opt.kind, label: opt.label, description: opt.description, choices: opt.choices },
-              ee.config?.[itemKey]
-            );
-          });
+          return descriptor.item_options.map((opt) =>
+            renderItemOptionField(host, opt, ee.config?.[opt.key])
+          );
         })()}
       </div>
 
@@ -857,7 +833,7 @@ export function renderItemEditFields(host, descriptor) {
             ? panelTypes.find(d => d.type_key === savePt) || null
             : null;
           if (desc?.item_options) {
-            for (const f of desc.item_options) {
+            for (const { key: f } of desc.item_options) {
               const fv = host._editingItem.config?.[f];
               if (fv !== null && fv !== undefined && fv !== '') config[f] = fv;
             }
@@ -875,7 +851,7 @@ export function renderItemEditFields(host, descriptor) {
           host._editingItemType = null;
           host.requestUpdate();
         }}>
-          ${isAdd ? t("Add") : t("Save")}
+          ${isAdd ? t("Add") : t("Apply")}
         </ha-button>
       </div>
     </div>

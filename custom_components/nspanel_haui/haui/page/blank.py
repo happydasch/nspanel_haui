@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ..abstract.component import Component
+from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
@@ -13,7 +13,7 @@ class BlankPage(HAUIPage):
         page_name="blank",
         page_id=1,
         label=_("Blank"),
-        description=_("Blank/idle page used for sleep state."),
+        description=_("Blank page usable as the idle page."),
         is_system=True,
         sys_panel_default={
             "key": "sys_blank",
@@ -23,7 +23,8 @@ class BlankPage(HAUIPage):
         has_header=False,
     )
 
-    COMPONENTS = HAUIPage.COMPONENTS.merge(
+    # Not merged from HAUIPage: the blank page has no header buttons.
+    COMPONENTS = ComponentRegistry(
         h_blank=Component(1, "hBlank"),
     )
 

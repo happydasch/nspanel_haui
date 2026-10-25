@@ -5,51 +5,105 @@ Exposes panel CRUD endpoints for the frontend HAUI Editor.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Any
 
+import requests
 from aiohttp import web
+from homeassistant.components.http.decorators import require_admin
 from homeassistant.helpers.http import HomeAssistantView
-from homeassistant.helpers.storage import Store
 
-from .esphome_helpers import lookup_device_registry_name
+from .const import DOMAIN
+from .esphome_helpers import lookup_device_registry_name, read_network_entities
 from .haui.config_models import validate_panels
+from .storage import empty_device, empty_store, enabled_device_names, panel_store
 
 _LOGGER = logging.getLogger(__name__)
 
-PANEL_STORE_VERSION = 1
+
+def _error(view: HomeAssistantView, message: str, status_code: int):
+    """Build the ``{"status": "error", "message": ...}`` response used by all views."""
+    return view.json({"status": "error", "message": message}, status_code=status_code)
 
 
-def _read_network_entities(hass: Any, device_name: str) -> dict:
-    """Read WiFi/network info from HA sensor entities for a device.
+def _get_apps(hass: Any, entry_id: str) -> Any:
+    """Return what hass.data holds for a config entry: the apps dict, or None if not set up."""
+    return hass.data.get(DOMAIN, {}).get(entry_id)
 
-    Returns {ip, ssid, rssi} from entity states only.
-    RSSI is float|None; IP and SSID are str, empty if unavailable.
 
-    ESPHome text_sensor entities (wifi_info ip_address, ssid) are
-    registered under the sensor domain in HA (Platform.SENSOR), so
-    lookup uses `sensor.{slug}_ip` etc.
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()  # noqa: UP017
+
+
+def _query_device(request: Any) -> str:
+    """Return the stripped ``device`` query param ('' when absent)."""
+    return (request.query.get("device") or "").strip()
+
+
+async def _validate_or_400(view: HomeAssistantView, hass: Any, data: dict, what: str):
+    """Validate panel data in the executor; return an error response, or None when valid."""
+    try:
+        # Pydantic model validation does importlib.metadata I/O, which must
+        # not block the event loop.
+        await hass.async_add_executor_job(validate_panels, data)
+    except Exception as exc:
+        _LOGGER.warning("%s validation failed: %s", what, exc)
+        return _error(view, str(exc), 400)
+    return None
+
+
+async def _push_panels(hass: Any, entry_id: str, data: dict) -> dict:
+    """Apply saved panel data to the running apps; returns the JSON response body.
+
+    Reloads the entry when the set of enabled devices changed (notify entities
+    are created per running device at setup) or no apps are running; otherwise
+    rebuilds each device's runtime config the way setup does and applies it on
+    the app's worker.
     """
-    from homeassistant.util import slugify
+    from . import _build_config_dict
 
-    slug = slugify(device_name)
+    apps = _get_apps(hass, entry_id)
 
-    ip_state = hass.states.get(f"sensor.{slug}_ip")
-    ssid_state = hass.states.get(f"sensor.{slug}_ssid")
-    rssi_state = hass.states.get(f"sensor.{slug}_rssi")
+    if apps is None:
+        # Entry not yet set up; nothing to push to
+        return {"status": "ok"}
 
-    def _val(state: Any) -> str | None:
-        if state is not None and state.state not in ("unknown", "unavailable", ""):
-            return state.state
-        return None
+    if not isinstance(apps, dict):
+        # None is handled above; an app object instead of the devices dict is
+        # the pre-multi-device store format and has nothing to push to.
+        return {"status": "ok"}
 
-    ip = _val(ip_state) or ""
-    ssid = _val(ssid_state) or ""
-    rssi_raw = _val(rssi_state)
-    rssi = float(rssi_raw) if rssi_raw else None
+    if not apps:
+        # Entry set up without running apps; fall back to reload
+        _LOGGER.info(
+            "No running apps for entry %s; triggering config entry reload",
+            entry_id,
+        )
+        await hass.config_entries.async_reload(entry_id)
+        return {"status": "ok", "reloaded": True}
 
-    return {"ip": ip, "ssid": ssid, "rssi": rssi}
+    entry = hass.config_entries.async_get_entry(entry_id)
+    # Same rule as setup, so a store-only device (removed with "keep config")
+    # doesn't force a reload on every save.
+    if set(enabled_device_names(entry.data, data)) != set(apps):
+        hass.config_entries.async_schedule_reload(entry_id)
+        return {"status": "ok", "reloaded": True}
+
+    for device_name, app in apps.items():
+        if app.device_config:
+            try:
+                cfg = _build_config_dict(entry.data, data, device_name=device_name)
+                await app.async_run_on_worker(app.reload_config, cfg)
+            except Exception:
+                _LOGGER.exception(
+                    "Failed to push panel update to device '%s' for entry %s",
+                    device_name,
+                    entry_id,
+                )
+
+    return {"status": "ok"}
 
 
 def _strip_empty_configs(dev_data: dict) -> dict:
@@ -83,7 +137,10 @@ class TranslationsView(HomeAssistantView):
 
         hass = request.app["hass"]
         flat = request.query.get("flat", "1")
-        translations = await hass.async_add_executor_job(get_translations, language)
+        try:
+            translations = await hass.async_add_executor_job(get_translations, language)
+        except ValueError as exc:
+            return _error(self, str(exc), 400)
 
         if flat == "1" or flat is True:
             return self.json(translations.get("text", {}))
@@ -97,6 +154,7 @@ class DeviceStatusView(HomeAssistantView):
     name = "api:nspanel_haui:status"
     requires_auth = True
 
+    @require_admin
     async def get(self, request, entry_id: str):
         """Return live device status for a config entry.
 
@@ -106,18 +164,12 @@ class DeviceStatusView(HomeAssistantView):
         directly from HA entities).
         """
         hass = request.app["hass"]
-        domain_data = hass.data.get("nspanel_haui", {})
-        apps = domain_data.get(entry_id)
+        apps = _get_apps(hass, entry_id)
 
-        # Support old format (single NSPanelHAUI) for hot-reloads until
-        # the next full HA restart picks up the new multi-device code.
-        if apps is not None and not isinstance(apps, dict):
-            return self.json(apps.get_device_status())
-
-        if not isinstance(apps, dict):
+        if apps is None:
             apps = {}
 
-        device_name = (request.query.get("device") or "").strip()
+        device_name = _query_device(request)
         if device_name:
             app = apps.get(device_name)
             if app is not None:
@@ -155,7 +207,7 @@ class DeviceStatusView(HomeAssistantView):
     @staticmethod
     def _build_minimal_device_info(hass: Any, dev_name: str) -> dict | None:
         """Build minimal status from HA entities for a device without a running app."""
-        nw = _read_network_entities(hass, dev_name)
+        nw = read_network_entities(hass, dev_name)
 
         # If none of the WiFi entities exist, the device may not be a real ESPHome device
         if not nw["ip"] and not nw["ssid"] and nw["rssi"] is None:
@@ -227,6 +279,7 @@ class PanelConfigView(HomeAssistantView):
     name = "api:nspanel_haui:panels"
     requires_auth = True
 
+    @require_admin
     async def get(self, request, entry_id: str):
         """Return the panel store data for a config entry.
 
@@ -235,9 +288,9 @@ class PanelConfigView(HomeAssistantView):
         """
         hass = request.app["hass"]
         lang = request.query.get("language", "en")
-        store: Store = Store(hass, PANEL_STORE_VERSION, f"nspanel_haui.{entry_id}_panels")
+        store = panel_store(hass, entry_id)
         data = await store.async_load()
-        result = data or {"version": 1, "devices": {}}
+        result = data or empty_store()
         from .haui.mapping.panel import get_system_panel_entries
 
         result["system_panels"] = await hass.async_add_executor_job(get_system_panel_entries, lang)
@@ -251,106 +304,27 @@ class PanelConfigView(HomeAssistantView):
 
         return self.json(result)
 
+    @require_admin
     async def post(self, request, entry_id: str):
         """Save panel store data for a config entry."""
         hass = request.app["hass"]
         data = await request.json()
+        # GET adds these for display; they are not part of the store.
+        data.pop("system_panels", None)
+        for dev_data in data.get("devices", {}).values():
+            dev_data.pop("friendly_name", None)
 
-        try:
-            # Offload Pydantic model validation to executor thread to avoid
-            # blocking the event loop (modelling triggers importlib.metadata I/O).
-            await hass.async_add_executor_job(validate_panels, data)
-        except Exception as exc:
-            _LOGGER.warning("Panel config validation failed: %s", exc)
-            return self.json({"status": "error", "message": str(exc)}, status_code=400)
+        error = await _validate_or_400(self, hass, data, "Panel config")
+        if error is not None:
+            return error
 
         # Stamp each device with the save timestamp (server-side, not from frontend)
-        now_iso = datetime.now(timezone.utc).isoformat()  # noqa: UP017
+        now_iso = _now_iso()
         for dev_data in data.get("devices", {}).values():
             dev_data["last_panel_update"] = now_iso
 
-        store: Store = Store(hass, PANEL_STORE_VERSION, f"nspanel_haui.{entry_id}_panels")
-        await store.async_save(data)
-
-        # Determine which devices should be running based on incoming data
-        domain_data = hass.data.get("nspanel_haui", {})
-        apps = domain_data.get(entry_id)
-
-        if apps is None:
-            # Entry not yet set up; nothing to push to
-            return self.json({"status": "ok"})
-
-        if not isinstance(apps, dict) or not apps:
-            # Legacy single-app format or empty apps dict; fall back to reload
-            _LOGGER.info(
-                "No running apps for entry %s; triggering config entry reload",
-                entry_id,
-            )
-            await hass.config_entries.async_reload(entry_id)
-            return self.json({"status": "ok", "reloaded": True})
-
-        # Compute delta between incoming enabled set and running apps
-        incoming_enabled: set[str] = {
-            dev_name
-            for dev_name, dev_data in data.get("devices", {}).items()
-            if dev_data.get("config", {}).get("enabled", True)
-        }
-        running_devices: set[str] = set(apps.keys())
-
-        newly_enabled = incoming_enabled - running_devices
-        newly_disabled = running_devices - incoming_enabled
-        unchanged = running_devices & incoming_enabled
-
-        # Handle unchanged devices - update panels in-place
-        from . import _create_app, _stop_app
-
-        for device_name in unchanged:
-            app = apps[device_name]
-            if app.device_config:
-                try:
-                    await hass.async_add_executor_job(app.reload_panels, data)
-                except Exception:
-                    _LOGGER.exception(
-                        "Failed to push panel update to device '%s' for entry %s",
-                        device_name,
-                        entry_id,
-                    )
-
-        # Handle newly-enabled devices - create and start app instances
-        for dev_name in newly_enabled:
-            entry = hass.config_entries.async_get_entry(entry_id)
-            if not entry:
-                _LOGGER.warning(
-                    "Config entry %s not found; cannot start device '%s'",
-                    entry_id,
-                    dev_name,
-                )
-                continue
-            try:
-                app = await _create_app(
-                    hass,
-                    entry,
-                    entry.data["name"],
-                    dict(entry.data),
-                    dict(entry.options),
-                    data,
-                    dev_name,
-                )
-                apps[dev_name] = app
-            except Exception:
-                _LOGGER.exception(
-                    "Failed to start newly-enabled device '%s' for entry %s",
-                    dev_name,
-                    entry_id,
-                )
-
-        # Handle newly-disabled devices - stop and remove app instances
-        for dev_name in newly_disabled:
-            app = apps.pop(dev_name, None)
-            if app is not None:
-                await _stop_app(hass, app)
-
-        return self.json({"status": "ok"})
+        await panel_store(hass, entry_id).async_save(data)
+        return self.json(await _push_panels(hass, entry_id, data))
 
 
 class DeviceConfigView(HomeAssistantView):
@@ -360,6 +334,7 @@ class DeviceConfigView(HomeAssistantView):
     name = "api:nspanel_haui:devices"
     requires_auth = True
 
+    @require_admin
     async def get(self, request, entry_id: str):
         """Return discovered ESPHome HAUI devices available for adding.
 
@@ -372,11 +347,11 @@ class DeviceConfigView(HomeAssistantView):
         discovered = await discover_esphome_devices(hass)
         return self.json({"devices": discovered})
 
+    @require_admin
     async def post(self, request, entry_id: str):
         """Add one or more devices to the config entry and panel store.
 
-        Accepts either a single device object ``{name, enabled, esphome_device_id}``
-        or a batch ``{devices: [{name, enabled, esphome_device_id}, ...]}``.
+        Accepts a batch body ``{devices: [{name, enabled, esphome_device_id}, ...]}``.
 
         After adding, reloads the config entry so app instances start for
         newly-enabled devices.
@@ -384,73 +359,62 @@ class DeviceConfigView(HomeAssistantView):
         hass = request.app["hass"]
         body = await request.json()
 
-        # Support both single-device and batch modes
-        devices_to_add: list[dict] = body.get("devices", [])
-        if not devices_to_add:
-            # Single-device mode (backward compat)
-            devices_to_add = [body]
+        devices_to_add = body.get("devices") if isinstance(body, dict) else None
+        if not isinstance(devices_to_add, list):
+            return _error(self, "Body must be {'devices': [...]}", 400)
 
         entry = hass.config_entries.async_get_entry(entry_id)
         if not entry:
-            return self.json(
-                {"status": "error", "message": "Config entry not found"}, status_code=404
-            )
+            return _error(self, "Config entry not found", 404)
 
-        import copy
-
-        from .haui.device_config import DEVICE_CONFIG
+        from .esphome_helpers import hub_device_entry
+        from .haui.device_config import find_store_device
 
         existing_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
         new_devices: list[dict] = []
-        names_added: list[str] = []
+        enabled_by_name: dict[str, bool] = {}
 
         for dev_spec in devices_to_add:
             name = (dev_spec.get("name") or "").strip()
-            if not name:
+            if not name or name in existing_names:
                 continue
-            if name in existing_names:
-                continue
-
-            new_dev = copy.deepcopy(DEVICE_CONFIG)
-            new_dev["name"] = name
-            # Default to enabled=True — the user explicitly opted in by clicking Add
-            new_dev["enabled"] = dev_spec.get("enabled", True)
-            if "esphome_device_id" in dev_spec:
-                new_dev["esphome_device_id"] = dev_spec["esphome_device_id"]
-            new_devices.append(new_dev)
+            new_devices.append(hub_device_entry({**dev_spec, "name": name}))
+            # Default to enabled — the user explicitly opted in by clicking Add.
+            enabled_by_name[name] = dev_spec.get("enabled", True)
             existing_names.add(name)
-            names_added.append(name)
 
         if not new_devices:
             return self.json(
                 {"status": "ok", "devices_added": [], "message": "No new devices to add"}
             )
+        names_added = list(enabled_by_name)
 
-        # Add to config_entry.data["devices"]
-        new_data = dict(entry.data)
-        new_data.setdefault("devices", []).extend(new_devices)
-        hass.config_entries.async_update_entry(entry, data=new_data)
-
-        # Add to panel store
-        from homeassistant.helpers.storage import Store
-
-        store: Store = Store(hass, PANEL_STORE_VERSION, f"nspanel_haui.{entry_id}_panels")
-        panels_data = await store.async_load() or {"version": 1, "devices": {}}
-        for name in names_added:
-            if name not in panels_data.get("devices", {}):
-                panels_data.setdefault("devices", {})[name] = {
-                    "config": {},
-                    "panels": [],
-                }
+        # The entry holds only identity; settings, including ``enabled``, live
+        # in the panel store. A device re-added after a keep-config removal
+        # keeps its stored settings.
+        store = panel_store(hass, entry_id)
+        panels_data = await store.async_load() or empty_store()
+        store_devices = panels_data.setdefault("devices", {})
+        for name, enabled in enabled_by_name.items():
+            store_dev = find_store_device(store_devices, name)
+            if store_dev is None:
+                store_dev = store_devices[name] = empty_device()
+            store_dev.setdefault("config", {})["enabled"] = enabled
         await store.async_save(panels_data)
 
-        # Reload the config entry so apps start for the new device(s)
-        from . import async_reload_entry
-
-        hass.async_create_task(async_reload_entry(hass, entry))
+        # The entry's update listener reloads it, starting apps for the new device(s).
+        new_data = {
+            **entry.data,
+            "devices": [*entry.data.get("devices", []), *new_devices],
+            "removed_devices": [
+                n for n in entry.data.get("removed_devices", []) if n not in names_added
+            ],
+        }
+        hass.config_entries.async_update_entry(entry, data=new_data)
 
         return self.json({"status": "ok", "devices_added": names_added})
 
+    @require_admin
     async def delete(self, request, entry_id: str):
         """Remove a device from the config entry, optionally keeping panel config.
 
@@ -461,48 +425,37 @@ class DeviceConfigView(HomeAssistantView):
         hass = request.app["hass"]
         name = (request.query.get("name") or "").strip()
         if not name:
-            return self.json(
-                {"status": "error", "message": "Device name is required"}, status_code=400
-            )
+            return _error(self, "Device name is required", 400)
 
         data = await request.json()
         keep_config = data.get("keep_config", False) if data else False
 
         entry = hass.config_entries.async_get_entry(entry_id)
         if not entry:
-            return self.json(
-                {"status": "error", "message": "Config entry not found"}, status_code=404
-            )
+            return _error(self, "Config entry not found", 404)
 
         # Always remove from config_entry.data["devices"]
         existing_in_ce = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
         if name not in existing_in_ce:
-            return self.json(
-                {"status": "error", "message": f'Device "{name}" not found'},
-                status_code=404,
-            )
-
-        new_data = dict(entry.data)
-        new_data["devices"] = [d for d in new_data.get("devices", []) if d.get("name") != name]
-        hass.config_entries.async_update_entry(entry, data=new_data)
-        _LOGGER.debug("Removed device %s from config_entry.data for %s", name, entry_id)
+            return _error(self, f'Device "{name}" not found', 404)
 
         # Remove from panel store only when keep_config is False
         if not keep_config:
-            from homeassistant.helpers.storage import Store
-
-            store: Store = Store(hass, PANEL_STORE_VERSION, f"nspanel_haui.{entry_id}_panels")
-            panels_data = await store.async_load() or {"version": 1, "devices": {}}
+            store = panel_store(hass, entry_id)
+            panels_data = await store.async_load() or empty_store()
             had_in_store = name in panels_data.get("devices", {})
             if had_in_store:
                 panels_data.get("devices", {}).pop(name, None)
                 await store.async_save(panels_data)
                 _LOGGER.debug("Removed device %s from panel store for %s", name, entry_id)
 
-        # Reload the config entry so the app instance is stopped
-        from . import async_reload_entry
-
-        hass.async_create_task(async_reload_entry(hass, entry))
+        # The entry's update listener reloads it, stopping the device's app.
+        new_data = dict(entry.data)
+        new_data["devices"] = [d for d in new_data.get("devices", []) if d.get("name") != name]
+        # Keeps auto-add from adding the device straight back while ESPHome still has it.
+        new_data["removed_devices"] = [*entry.data.get("removed_devices", []), name]
+        hass.config_entries.async_update_entry(entry, data=new_data)
+        _LOGGER.debug("Removed device %s from config_entry.data for %s", name, entry_id)
 
         return self.json({"status": "ok", "kept_config": keep_config})
 
@@ -514,6 +467,7 @@ class DeviceYamlView(HomeAssistantView):
     name = "api:nspanel_haui:yaml"
     requires_auth = True
 
+    @require_admin
     async def get(self, request, entry_id: str):
         """Export device configuration as YAML.
 
@@ -521,18 +475,15 @@ class DeviceYamlView(HomeAssistantView):
         When omitted all devices are included.
         """
         hass = request.app["hass"]
-        store: Store = Store(hass, PANEL_STORE_VERSION, f"nspanel_haui.{entry_id}_panels")
-        data = await store.async_load() or {"version": 1, "devices": {}}
+        store = panel_store(hass, entry_id)
+        data = await store.async_load() or empty_store()
         devices = data.get("devices", {})
 
-        device_name = (request.query.get("device") or "").strip()
+        device_name = _query_device(request)
 
         if device_name:
             if device_name not in devices:
-                return self.json(
-                    {"status": "error", "message": f'Device "{device_name}" not found'},
-                    status_code=404,
-                )
+                return _error(self, f'Device "{device_name}" not found', 404)
             export = _strip_empty_configs(devices[device_name])
         else:
             export = {name: _strip_empty_configs(dev_data) for name, dev_data in devices.items()}
@@ -542,6 +493,7 @@ class DeviceYamlView(HomeAssistantView):
         yaml_str = yaml.dump(export, default_flow_style=False, sort_keys=False, allow_unicode=True)
         return web.Response(text=yaml_str, content_type="application/x-yaml")
 
+    @require_admin
     async def post(self, request, entry_id: str):
         """Import device configuration from YAML.
 
@@ -552,12 +504,9 @@ class DeviceYamlView(HomeAssistantView):
         added.  Other devices in the store are left untouched.
         """
         hass = request.app["hass"]
-        device_name = (request.query.get("device") or "").strip()
+        device_name = _query_device(request)
         if not device_name:
-            return self.json(
-                {"status": "error", "message": "Query param 'device' is required"},
-                status_code=400,
-            )
+            return _error(self, "Query param 'device' is required", 400)
 
         import yaml
 
@@ -565,80 +514,52 @@ class DeviceYamlView(HomeAssistantView):
         try:
             parsed: dict = yaml.safe_load(body)
         except yaml.YAMLError as exc:
-            return self.json(
-                {"status": "error", "message": f"Invalid YAML: {exc}"},
-                status_code=400,
-            )
+            return _error(self, f"Invalid YAML: {exc}", 400)
 
         if not isinstance(parsed, dict):
-            return self.json(
-                {"status": "error", "message": "YAML root must be a mapping"},
-                status_code=400,
-            )
+            return _error(self, "YAML root must be a mapping", 400)
 
-        # Normalize: accept bare device data or wrapped under the device name
-        if "config" in parsed or "panels" in parsed:
-            device_data = parsed
-        elif device_name in parsed:
-            device_data = parsed[device_name]
-        else:
-            device_data = parsed
+        # The YAML must expose the device's ``config`` and/or ``panels``
+        # directly; wrapped-under-device-name imports are no longer accepted.
+        if "config" not in parsed and "panels" not in parsed:
+            return _error(
+                self,
+                "YAML must contain a 'config' and/or 'panels' mapping for the device",
+                400,
+            )
+        device_data = parsed
 
         config = device_data.get("config", {})
         if not isinstance(config, dict):
-            return self.json(
-                {"status": "error", "message": "'config' must be a mapping"},
-                status_code=400,
-            )
+            return _error(self, "'config' must be a mapping", 400)
 
         panels = device_data.get("panels", [])
         if not isinstance(panels, list):
-            return self.json(
-                {"status": "error", "message": "'panels' must be a list"},
-                status_code=400,
-            )
+            return _error(self, "'panels' must be a list", 400)
 
         # Validate against known config fields - strip unknown keys
         from .haui.device_config import DEVICE_CONFIG_FIELDS
 
         known_config = {k: config.get(k) for k in DEVICE_CONFIG_FIELDS if k in config}
+        error = await _validate_or_400(
+            self,
+            hass,
+            {"devices": {device_name: {"config": known_config, "panels": panels}}},
+            "YAML import",
+        )
+        if error is not None:
+            return error
 
-        store: Store = Store(hass, PANEL_STORE_VERSION, f"nspanel_haui.{entry_id}_panels")
-        store_data = await store.async_load() or {"version": 1, "devices": {}}
+        store = panel_store(hass, entry_id)
+        store_data = await store.async_load() or empty_store()
         store_data.setdefault("devices", {})[device_name] = {
             "config": known_config,
             "panels": panels,
+            "last_panel_update": _now_iso(),
         }
-        # Stamp with current save time
-        now_iso = datetime.now(timezone.utc).isoformat()  # noqa: UP017
-        store_data.setdefault("devices", {})[device_name]["last_panel_update"] = now_iso
-
         await store.async_save(store_data)
 
-        # Push update to the running integration instances
-        domain_data = hass.data.get("nspanel_haui", {})
-        apps = domain_data.get(entry_id)
-        if apps and isinstance(apps, dict):
-            if apps:
-                for dname, dapp in apps.items():
-                    try:
-                        if dapp.device_config:
-                            await hass.async_add_executor_job(dapp.reload_panels, store_data)
-                    except Exception:
-                        _LOGGER.exception(
-                            "Failed to push YAML import to device '%s' for entry %s",
-                            dname,
-                            entry_id,
-                        )
-            else:
-                _LOGGER.info(
-                    "No running apps for entry %s; triggering config entry reload",
-                    entry_id,
-                )
-                await hass.config_entries.async_reload(entry_id)
-                return self.json({"status": "ok", "device": device_name, "reloaded": True})
-
-        return self.json({"status": "ok", "device": device_name})
+        return self.json({**await _push_panels(hass, entry_id, store_data), "device": device_name})
 
 
 class IconSearchView(HomeAssistantView):
@@ -655,8 +576,8 @@ class IconSearchView(HomeAssistantView):
         """Return filtered list of MDI icon names.
 
         Query param ``q`` (optional) filters by substring match on the icon
-        name (case-insensitive).  When omitted returns all icon names.
-        Maximum 200 results to keep responses small.
+        name (case-insensitive).  When omitted returns all icon names, which
+        the icon picker fetches once and searches client-side.
         """
         if IconSearchView._icons is None:
             from .haui.mapping.icon_names import ICON_NAMES
@@ -669,7 +590,7 @@ class IconSearchView(HomeAssistantView):
         else:
             results = IconSearchView._icons
 
-        return self.json(results[:200])
+        return self.json(results)
 
 
 class DeviceUpdateDisplayView(HomeAssistantView):
@@ -679,6 +600,7 @@ class DeviceUpdateDisplayView(HomeAssistantView):
     name = "api:nspanel_haui:update_display"
     requires_auth = True
 
+    @require_admin
     async def post(self, request, entry_id: str):
         """Refresh the display for the specified device (or all devices).
 
@@ -689,32 +611,119 @@ class DeviceUpdateDisplayView(HomeAssistantView):
         body = await request.json() or {}
         device_name = (body.get("device") or "*").strip()
 
-        domain_data = hass.data.get("nspanel_haui", {})
-        apps = domain_data.get(entry_id)
+        apps = _get_apps(hass, entry_id)
 
         if not isinstance(apps, dict):
-            return self.json(
-                {"status": "error", "message": "No running devices"},
-                status_code=400,
-            )
+            return _error(self, "No running devices", 400)
 
         if device_name and device_name != "*":
             app = apps.get(device_name)
             if app is None:
-                return self.json(
-                    {"status": "error", "message": f'Device "{device_name}" not found'},
-                    status_code=404,
-                )
-            await hass.async_add_executor_job(app.update_display)
+                return _error(self, f'Device "{device_name}" not found', 404)
+            await app.async_run_on_worker(app.update_display)
             return self.json({"status": "ok", "devices_updated": [device_name]})
 
         # Update all devices
         updated: list[str] = []
         for dname, dapp in apps.items():
             try:
-                await hass.async_add_executor_job(dapp.update_display)
+                await dapp.async_run_on_worker(dapp.update_display)
                 updated.append(dname)
             except Exception:
                 _LOGGER.exception("Failed to update display for device '%s'", dname)
+
+        return self.json({"status": "ok", "devices_updated": updated})
+
+
+class FirmwareDownloadView(HomeAssistantView):
+    """REST API view returning the latest release's firmware (.bin) asset URL."""
+
+    url = "/api/nspanel_haui/firmware"
+    name = "api:nspanel_haui:firmware"
+    requires_auth = True
+
+    @require_admin
+    async def get(self, request):
+        """Return the prebuilt firmware download link of the latest release.
+
+        Releases may carry a ``nspanel_haui.bin`` asset (name-agnostic build)
+        in addition to the TFT files.  Returns ``{"url": null}`` when the
+        latest release has no binary asset, so the editor can show a plain
+        build-from-YAML hint instead of a dead link.
+        """
+        from .haui.controller.update import HAUIUpdateController
+
+        # The update controller already caches release info on the worker; for
+        # this small, user-initiated lookup do a fresh, short fetch here so the
+        # link always reflects the very latest release.
+        def _fetch() -> list | None:
+            try:
+                resp = requests.get(HAUIUpdateController.RELEASES_URL, timeout=5)
+            except requests.exceptions.RequestException:
+                return None
+            json_decoded = resp.json()
+            return json_decoded if isinstance(json_decoded, list) else None
+
+        releases = await asyncio.to_thread(_fetch)
+        if not releases:
+            return self.json({"url": None, "version": None})
+
+        # Releases are returned newest-first; the first binary-bearing release
+        # is the right one to link (semver tags are the release convention).
+        for release in releases:
+            for asset in release.get("assets", []):
+                # one universal binary serves every display model
+                if asset.get("name") == "nspanel_haui.bin":
+                    return self.json(
+                        {
+                            "url": asset["browser_download_url"],
+                            "version": release.get("tag_name"),
+                        }
+                    )
+        return self.json({"url": None, "version": None})
+
+
+class DeviceUpdateTftView(HomeAssistantView):
+    """REST API endpoint to trigger a TFT install on one or all devices."""
+
+    url = "/api/nspanel_haui/update_tft/{entry_id}"
+    name = "api:nspanel_haui:update_tft"
+    requires_auth = True
+
+    @require_admin
+    async def post(self, request, entry_id: str):
+        """Install the TFT for the specified device (or all devices).
+
+        JSON body may carry an optional ``device`` field (device name, or ``*``
+        for all devices; default ``*``) and an optional ``version`` (the GitHub
+        release version to install; when omitted the version the firmware needs,
+        its ``yaml_version``, is installed).  The install runs on the device's
+        worker thread.
+        """
+        hass = request.app["hass"]
+        body = await request.json() or {}
+        device_name = (body.get("device") or "*").strip()
+        version = (body.get("version") or "").strip() or None
+
+        apps = _get_apps(hass, entry_id)
+
+        if not isinstance(apps, dict):
+            return _error(self, "No running devices", 400)
+
+        if device_name and device_name != "*":
+            app = apps.get(device_name)
+            if app is None:
+                return _error(self, f'Device "{device_name}" not found', 404)
+            await app.async_run_on_worker(app.install_tft, version)
+            return self.json({"status": "ok", "devices_updated": [device_name]})
+
+        # Update all devices
+        updated: list[str] = []
+        for dname, dapp in apps.items():
+            try:
+                await dapp.async_run_on_worker(dapp.install_tft, version)
+                updated.append(dname)
+            except Exception:
+                _LOGGER.exception("Failed to install TFT for device '%s'", dname)
 
         return self.json({"status": "ok", "devices_updated": updated})

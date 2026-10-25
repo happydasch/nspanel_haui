@@ -15,19 +15,6 @@ export const previewCommonStyles = css`
    * Font 2: icon font — symbol-only
    */
 
-  .pg-preview-time-display {
-    font-size: 2.6em;
-    font-weight: 400;
-    margin-top: -10px;
-    color: var(--primary-text-color, #fff);
-    line-height: 1.1;
-  }
-  .pg-preview-date-display {
-    font-size: 0.7em;
-    font-weight: 400;
-    color: var(--secondary-text-color, #aaa);
-    margin-top: 2px;
-  }
   .pg-preview-temp-display {
     font-size: 2.6em;
     font-weight: 400;
@@ -184,32 +171,6 @@ export const previewCommonStyles = css`
     color: var(--secondary-text-color, #666);
   }
 
-  .pg-preview-sim-switch {
-    width: 22px;
-    height: 12px;
-    border-radius: 6px;
-    background: #555;
-    position: relative;
-    flex-shrink: 0;
-  }
-  .pg-preview-sim-switch.on {
-    background: var(--primary-color, #4fc3f7);
-  }
-  .pg-preview-sim-switch::after {
-    content: '';
-    position: absolute;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #fff;
-    top: 1px;
-    left: 1px;
-    transition: left 0.15s;
-  }
-  .pg-preview-sim-switch.on::after {
-    left: 11px;
-  }
-
   .pg-preview-center-col {
     display: flex;
     flex-direction: column;
@@ -221,12 +182,6 @@ export const previewCommonStyles = css`
     align-items: center;
     gap: 6px;
     justify-content: center;
-  }
-
-  .pg-preview-list-item {
-    height: 14px;
-    border-radius: 2px;
-    background: rgba(255,255,255,0.08);
   }
 
   .pg-preview-text-block {
@@ -298,16 +253,6 @@ export const previewCommonStyles = css`
     flex-shrink: 0;
     justify-content: center;
   }
-  .pg-preview-main-area {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    min-width: 0;
-  }
-
   .pg-card-preview-line {
     width: 40px;
     height: 6px;
@@ -338,5 +283,66 @@ export const previewCommonStyles = css`
     justify-content: flex-start;
     width: 100%;
     height: 100%;
+  }
+
+  /* --- Select: 3x4 option grid (portrait: 2x6) or a full-width list --- */
+  .pg-preview-select-grid,
+  .pg-preview-select-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 2px;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    padding: 2px;
+  }
+  .pg-preview-select-list {
+    grid-template-columns: 1fr;
+  }
+  .pg-card-preview--portrait .pg-preview-select-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(6, 1fr);
+  }
+
+  /* --- Media: the three source buttons (portrait: stacked full-width rows) --- */
+  .pg-preview-media-sources {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 2px 4px;
+    justify-content: space-around;
+  }
+  .pg-card-preview--portrait .pg-preview-media-sources {
+    flex-direction: column;
+    gap: 3px;
+  }
+  .pg-card-preview--portrait .pg-preview-media-sources .pg-preview-btn {
+    max-width: none;
+  }
+
+  /* --- Notify: icon beside the text (portrait: icon above the text) --- */
+  .pg-preview-notify-body {
+    display: flex;
+    flex: 1;
+    gap: 4px;
+    min-height: 0;
+    align-items: stretch;
+  }
+  .pg-preview-notify-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28%;
+    background: rgba(255,255,255,0.04);
+    border-radius: 3px;
+  }
+  .pg-card-preview--portrait .pg-preview-notify-body {
+    flex-direction: column;
+  }
+  .pg-card-preview--portrait .pg-preview-notify-icon {
+    width: 100%;
+    flex: 0 0 28%;
   }
 `;

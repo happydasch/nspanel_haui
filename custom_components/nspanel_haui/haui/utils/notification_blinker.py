@@ -28,6 +28,8 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
+from ..mapping.const import NotifEvent
+
 
 def _noop() -> None:
     """No-op sentinel for when no page has registered a callback."""
@@ -91,6 +93,14 @@ class NotificationBlinker:
             self._timer.cancel()
             self._timer = None
 
+    def mark_read(self) -> None:
+        """Clear the new-notifications flag and stop blinking.
+
+        Called when the user views the notifications or none are left.
+        """
+        self._new_notifications = False
+        self.stop()
+
     def refresh(self) -> None:
         """Re-render the indicator once, without scheduling a timer.
 
@@ -103,20 +113,20 @@ class NotificationBlinker:
 
         Recognised event names:
 
-        * ``"SEND_NOTIFICATION"``, ``"NOTIF_ADD"`` — sets the
-          new-notifications flag and starts blinking.
-        * ``"NOTIF_REMOVE"`` — refreshes the indicator without changing
-          the flag.
-        * ``"NOTIF_CLEAR"`` — clears the flag, stops blinking, shows
-          static indicator.
+        * ``NotifEvent.NOTIF_ADD`` — sets the new-notifications flag and
+          starts blinking.
+        * ``NotifEvent.NOTIF_REMOVE`` — refreshes the indicator without
+          changing the flag.
+        * ``NotifEvent.NOTIF_CLEAR`` — clears the flag, stops blinking,
+          shows static indicator.
         """
         name = getattr(event, "name", event)
         if name not in _NOTIFICATION_EVENTS:
             return
 
-        if name == "NOTIF_ADD":
+        if name == NotifEvent.NOTIF_ADD:
             self._new_notifications = True
-        elif name == "NOTIF_CLEAR":
+        elif name == NotifEvent.NOTIF_CLEAR:
             self._new_notifications = False
             self.stop()
 
@@ -128,6 +138,9 @@ class NotificationBlinker:
 
     def _tick(self) -> None:
         """Call the refresh function and schedule the next blink."""
+        # Events can arrive while a blink is scheduled; cancel it so only
+        # one timer chain exists and stop() can end it.
+        self.stop()
         self._refresh_fn()
 
         if self._new_notifications:
@@ -138,9 +151,8 @@ class NotificationBlinker:
 
 _NOTIFICATION_EVENTS: frozenset[str] = frozenset(
     {
-        "SEND_NOTIFICATION",
-        "NOTIF_ADD",
-        "NOTIF_REMOVE",
-        "NOTIF_CLEAR",
+        NotifEvent.NOTIF_ADD,
+        NotifEvent.NOTIF_REMOVE,
+        NotifEvent.NOTIF_CLEAR,
     }
 )

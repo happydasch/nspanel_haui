@@ -54,8 +54,10 @@ close_panel:
 wakeup:
   name: Wake up
   description: >-
-    Wake the display and navigate to the configured wakeup
-    panel (or home panel if no wakeup panel is set).
+    Wake the display (reset its inactivity timer) and exit the idle
+    page if one is shown, returning to the previous panel (or the
+    home panel per the snapshot restore setting).  Waking never
+    depends on a configured panel.
   fields:
     device:
       name: "Device"
@@ -65,13 +67,14 @@ wakeup:
         device:
           integration: nspanel_haui
 
-# ── nspanel_haui.sleep ───────────────────────────────────────
-sleep:
-  name: Sleep
+# ── nspanel_haui.idle ────────────────────────────────────────
+idle:
+  name: Idle
   description: >-
-    Send the display to sleep by opening the configured sleep
-    panel.  The display will wake on touch or via the ``wakeup``
-    service.
+    Enter the idle state immediately by opening the configured idle
+    page (idle_panel), as if the page timeout had fired.  Repeated
+    calls keep the original pre-idle snapshot.  The display-off
+    behavior is separate and governed by the auto display-off setting.
   fields:
     device:
       name: "Device"
@@ -87,7 +90,8 @@ send_notification:
   description: >-
     Show a notification on the panel with a title, message and icon.
     Optionally auto-dismiss after a timeout, or make it persistent so
-    it must be dismissed on the panel to stop the alert sound.
+    the alert sound loops until the notification is dismissed or its
+    timeout expires.
   fields:
     device:
       name: "Device"
@@ -148,8 +152,8 @@ send_notification:
     persistent:
       name: "Persistent"
       description: >-
-        When on, the notification must be dismissed on the panel to
-        stop the alert sound (loops until dismissed).
+        When on, the alert sound loops until the notification is
+        dismissed on the panel or its timeout expires.
       required: false
       default: false
       selector:
@@ -163,13 +167,24 @@ send_notification:
       default: false
       selector:
         boolean:
+    require_ack:
+      name: "Require acknowledgement"
+      description: >-
+        When on, the notification cannot time out and re-opens its popup
+        periodically until someone presses "Acknowledge" on the panel.
+        The alert sound loops until then. Use it for alarms and other
+        notifications that must not be missed.
+      required: false
+      default: false
+      selector:
+        boolean:
 
 # ── nspanel_haui.reset_last_interaction ──────────────────────
 reset_last_interaction:
   name: Reset last interaction
   description: >-
     Reset the panel's idle timer as if the user just touched it —
-    keeps the display awake or delays sleep.  Optionally add an
+    keeps the display on or delays display-off.  Optionally add an
     offset (in seconds) to the reset point.
   fields:
     device:

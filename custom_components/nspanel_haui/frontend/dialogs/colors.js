@@ -12,9 +12,9 @@
  *   @dialog-save — detail: { overrides: { key: rgb565_int, ... } }
  *   @dialog-closed
  */
-import { LitElement, html, nothing } from '../lit-import.js';
-import { haStyle, haStyleDialog, editorStyles } from '../styles.js';
+import { html, nothing } from '../lit-import.js';
 import { dialogHeader } from './dialog-header.js';
+import { HauiDialog } from './haui-dialog.js';
 import { rgb565ToHex, hexToRgb565 } from '../color-utils.js';
 import { t } from '../localize.js';
 
@@ -77,20 +77,15 @@ function getColorGroups() {
 
 /* ── dialog component ────────────────────────────────────────────────── */
 
-class ColorsDialog extends LitElement {
+class ColorsDialog extends HauiDialog {
   static get properties() {
     return {
-      hass: { type: Object },
-      open: { type: Boolean, reflect: true },
       overrides: { type: Object },
     };
   }
 
-  static styles = [haStyle, haStyleDialog, editorStyles];
-
   constructor() {
     super();
-    this.open = false;
     this.overrides = {};
     this._colors = {};
     this._loading = false;
@@ -172,10 +167,6 @@ class ColorsDialog extends LitElement {
     this.requestUpdate();
   }
 
-  _dispatchClose() {
-    this.dispatchEvent(new CustomEvent("dialog-closed"));
-  }
-
   _dispatchSave() {
     // Only include values that differ from defaults
     const overrides = {};
@@ -184,9 +175,7 @@ class ColorsDialog extends LitElement {
         overrides[k] = v;
       }
     }
-    this.dispatchEvent(
-      new CustomEvent("dialog-save", { detail: { overrides } })
-    );
+    this._emit("dialog-save", { overrides });
   }
 
   _renderPreview() {
@@ -336,7 +325,7 @@ class ColorsDialog extends LitElement {
               ${t("Reset all")}
             </ha-button>
             ${changed > 0
-              ? html`<span class="footer-changed">${changed} ${t("changed")}</span>`
+              ? html`<span class="footer-changed">${t("{count} changed").replace("{count}", changed)}</span>`
               : nothing}
           </div>
           <ha-dialog-footer>
@@ -362,5 +351,5 @@ class ColorsDialog extends LitElement {
   }
 }
 
-customElements.define("ha-dialog-colors", ColorsDialog);
+customElements.define("nspanel-dialog-colors", ColorsDialog);
 export { ColorsDialog };

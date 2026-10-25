@@ -70,18 +70,11 @@ class CoverPage(HAUIPage):
                 self.COMPONENTS.btn_down: self.callback_cover_down,
             }
         )
-        # set item
-        item: HAUIItem | None = None
-        entity_id = panel.get("item_id")
-        if entity_id:
-            item = HAUIItem(self.app, {"item": entity_id})
+        item = self._resolve_panel_item(panel)
         self.set_cover_item(item)
 
         # set title
-        title = panel.get_title(self.translate("Cover"))
-        if item is not None:
-            title = item.get_item_attr("friendly_name", title)
-        self._title = title
+        self._title = self._panel_title(panel, item, self.translate("Cover"))
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
 
@@ -95,7 +88,6 @@ class CoverPage(HAUIPage):
         self._cover_entity = item
         if not item or not item.has_item_id():
             return
-        supported_features = item.get_item_attr("supported_features", 0)
         # add listener
         self.add_item_listener(item.get_item_id(), self.callback_cover_entity)
 
@@ -104,42 +96,22 @@ class CoverPage(HAUIPage):
             self.callback_cover_entity,
             attribute="current_position",
         )
-        # up button
-        visible = False
-        if supported_features & CoverFeatures.OPEN:
-            visible = True
-        self.set_function_component(
-            self.COMPONENTS.btn_up,
-            self.COMPONENTS.btn_up.name,
-            visible=visible,
-            color=self.get_color("component_active"),
-        )
-        # stop button
-        visible = False
-        if supported_features & CoverFeatures.STOP:
-            visible = True
-        self.set_function_component(
-            self.COMPONENTS.btn_stop,
-            self.COMPONENTS.btn_stop.name,
-            visible=visible,
-            color=self.get_color("component_active"),
-        )
-        # down button
-        visible = False
-        if supported_features & CoverFeatures.CLOSE:
-            visible = True
-        self.set_function_component(
-            self.COMPONENTS.btn_down,
-            self.COMPONENTS.btn_down.name,
-            visible=visible,
-            color=self.get_color("component_active"),
-        )
+        for component, flag in (
+            (self.COMPONENTS.btn_up, CoverFeatures.OPEN),
+            (self.COMPONENTS.btn_stop, CoverFeatures.STOP),
+            (self.COMPONENTS.btn_down, CoverFeatures.CLOSE),
+        ):
+            self.set_function_component(
+                component,
+                component.name,
+                visible=item.supports(flag),
+                color=self.get_color("component_active"),
+            )
         # slider
-        visible = False
-        if supported_features & CoverFeatures.SET_POSITION:
-            visible = True
         self.set_function_component(
-            self.COMPONENTS.h_vert_pos, self.COMPONENTS.h_vert_pos.name, visible=visible
+            self.COMPONENTS.h_vert_pos,
+            self.COMPONENTS.h_vert_pos.name,
+            visible=item.supports(CoverFeatures.SET_POSITION),
         )
 
     def update_cover_entity(self) -> None:
@@ -151,78 +123,45 @@ class CoverPage(HAUIPage):
         if self._cover_entity is None:
             return
         item = self._cover_entity
-        current_position = item.get_item_attr("current_position", 0)
-        self.set_component_text(self.COMPONENTS.t_info, f"{current_position}%")
+        current_position = item.get_item_attr("current_position")
+        if current_position is None:
+            # covers without position support only report open/closed
+            info = item.translate_item_state()
+        else:
+            info = f"{current_position}%"
+        self.set_component_text(self.COMPONENTS.t_info, info)
 
     def update_cover_controls(self) -> None:
         if self._cover_entity is None:
             return
         item = self._cover_entity
         state = item.get_item_state()
-        supported_features = item.get_item_attr("supported_features", 0)
-        current_position = item.get_item_attr("current_position", 0)
+        current_position = item.get_item_attr("current_position")
+        # covers without position support only report open/closed
+        if current_position is None:
+            fully_open = state == "open"
+            fully_closed = state == "closed"
+        else:
+            fully_open = current_position >= 100
+            fully_closed = current_position <= 0
 
-        # up button
-        if supported_features & CoverFeatures.OPEN:
-            touch_enabled = current_position < 100
-            (
-                color,
-                color_pressed,
-                back_color,
-                back_color_pressed,
-            ) = self.get_button_colors(touch_enabled)
-            self.update_function_component(
-                self.COMPONENTS.btn_up.name,
-                visible=True,
+        for component, flag, touch_enabled in (
+            (self.COMPONENTS.btn_up, CoverFeatures.OPEN, not fully_open),
+            (self.COMPONENTS.btn_stop, CoverFeatures.STOP, state in ["opening", "closing"]),
+            (self.COMPONENTS.btn_down, CoverFeatures.CLOSE, not fully_closed),
+        ):
+            self.update_supported_component(
+                component.name,
+                item.supports(flag),
                 touch=touch_enabled,
-                color=color,
-                color_pressed=color_pressed,
-                back_color_pressed=back_color_pressed,
+                **self.button_color_args(touch_enabled),
             )
-        else:
-            self.update_function_component(self.COMPONENTS.btn_up.name, visible=False)
-        # stop button
-        if supported_features & CoverFeatures.STOP:
-            touch_enabled = state in ["opening", "closing"]
-            (
-                color,
-                color_pressed,
-                back_color,
-                back_color_pressed,
-            ) = self.get_button_colors(touch_enabled)
-            self.update_function_component(
-                self.COMPONENTS.btn_stop.name,
-                visible=True,
-                touch=touch_enabled,
-                color=color,
-                color_pressed=color_pressed,
-                back_color_pressed=back_color_pressed,
-            )
-        else:
-            self.update_function_component(self.COMPONENTS.btn_stop.name, visible=False)
-        # down button
-        if supported_features & CoverFeatures.CLOSE:
-            touch_enabled = current_position > 0
-            (
-                color,
-                color_pressed,
-                back_color,
-                back_color_pressed,
-            ) = self.get_button_colors(touch_enabled)
-            self.update_function_component(
-                self.COMPONENTS.btn_down.name,
-                visible=True,
-                touch=touch_enabled,
-                color=color,
-                color_pressed=color_pressed,
-                back_color_pressed=back_color_pressed,
-            )
-        else:
-            self.update_function_component(self.COMPONENTS.btn_down.name, visible=False)
         # slider
-        if supported_features & CoverFeatures.SET_POSITION:
+        if item.supports(CoverFeatures.SET_POSITION):
             self.set_slider_color(self.COMPONENTS.h_vert_pos, show_toggle=False)
-            self.set_component_value(self.COMPONENTS.h_vert_pos, value=current_position)
+            # an unavailable cover reports no position
+            if current_position is not None:
+                self.set_component_value(self.COMPONENTS.h_vert_pos, value=current_position)
             self.update_function_component(self.COMPONENTS.h_vert_pos.name, visible=True)
         else:
             self.update_function_component(self.COMPONENTS.h_vert_pos.name, visible=False)
@@ -253,12 +192,6 @@ class CoverPage(HAUIPage):
     # event
 
     def process_cover_pos(self, pos: int) -> None:
-        if not self._in_read_callback:
-            self.log(
-                f"process_cover_pos: value={pos} ignored "
-                f"(not from read_response — likely button_state leak)"
-            )
-            return
         self.log(f"Slider cover position value {pos}")
         if self._cover_entity is not None:
             self._cover_entity.call_item_service("set_cover_position", position=pos)

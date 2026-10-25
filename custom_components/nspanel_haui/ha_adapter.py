@@ -7,13 +7,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import uuid
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from typing import Any
 
-from .haui.mapping.const import ESPAction, NotificationAction
+from .haui.mapping.const import ESPAction
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _run_on_loop(loop: asyncio.AbstractEventLoop, coro: Any, timeout: float = 10) -> Any:
+    """Run *coro* on the HA loop from a worker thread and block for its result."""
+    return asyncio.run_coroutine_threadsafe(coro, loop).result(timeout=timeout)
 
 
 # HA target keys required for entity service calls.
@@ -28,18 +36,28 @@ class ItemProxy:
         hass: Any,
         loop: asyncio.AbstractEventLoop,
         entity_id: str,
-        proxy: Any = None,
+        proxy: Any,
     ) -> None:
         self._hass = hass
         self._loop = loop
         self.entity_id = entity_id
         self._proxy = proxy
-        self._handles: dict[str, Callable] = {}
 
     @property
     def state(self) -> Any:
         s = self._hass.states.get(self.entity_id)
         return s.state if s else None
+
+    @property
+    def last_updated(self) -> Any:
+        """Wall-clock timestamp of when the HA state last changed, if known.
+
+        Used by the stale-data indicator: an entity whose value has not been
+        updated for longer than the configured threshold can be shown as
+        stale on the display instead of silently pretending it is fresh.
+        """
+        s = self._hass.states.get(self.entity_id)
+        return getattr(s, "last_updated", None)
 
     @property
     def attributes(self) -> dict[str, Any]:
@@ -78,46 +96,27 @@ class ItemProxy:
     def turn_off(self, **kwargs: Any) -> None:
         self.call_service("turn_off", **kwargs)
 
+    # Domains whose value is changed via a ``set_value`` service.
+    _SET_VALUE_DOMAINS = frozenset({"number", "input_number"})
+
     def set_state(self, state: Any = None, **kwargs: Any) -> None:
+        """Set the entity's value through its domain's ``set_value`` service.
+
+        Writing to the state machine instead would only change what HA shows
+        (and drop the entity's attributes) without changing the real value.
+
+        Raises:
+            ValueError: If the entity's domain has no ``set_value`` service.
+        """
         if state is None:
             return
         domain = self.entity_id.split(".")[0]
-        if domain == "number":
-            self.call_service("set_value", value=state)
-        else:
-            self._loop.call_soon_threadsafe(self._hass.states.async_set, self.entity_id, str(state))
+        if domain not in self._SET_VALUE_DOMAINS:
+            raise ValueError(f"set_state is not supported for {self.entity_id}")
+        self.call_service("set_value", value=state)
 
     def listen_state(self, cb: Callable, attribute: str | None = None, **kwargs: Any) -> str:
-        if self._proxy is not None:
-            return self._proxy.listen_state(cb, self.entity_id, attribute=attribute, **kwargs)
-        from homeassistant.core import callback as ha_callback  # noqa: PLC0415
-
-        handle_id = str(uuid.uuid4())
-
-        @ha_callback
-        def _ha_cb(event: Any) -> None:
-            old_state = event.data.get("old_state")
-            new_state = event.data.get("new_state")
-            if attribute and attribute not in ("state", None):
-                old = old_state.attributes.get(attribute) if old_state else None
-                new = new_state.attributes.get(attribute) if new_state else None
-            else:
-                old = old_state.state if old_state else None
-                new = new_state.state if new_state else None
-            self._hass.async_create_task(
-                self._hass.async_add_executor_job(
-                    cb, self.entity_id, attribute or "state", old, new, {}
-                )
-            )
-
-        async def _register() -> None:
-            from homeassistant.helpers.event import async_track_state_change_event  # noqa: PLC0415
-
-            remove = async_track_state_change_event(self._hass, self.entity_id, _ha_cb)
-            self._handles[handle_id] = remove
-
-        asyncio.run_coroutine_threadsafe(_register(), self._loop).result(timeout=10)
-        return handle_id
+        return self._proxy.listen_state(cb, self.entity_id, attribute=attribute, **kwargs)
 
 
 class ESPHomeProxy:
@@ -138,9 +137,12 @@ class ESPHomeProxy:
         loop: asyncio.AbstractEventLoop,
         device_name: str = "",
         device_id: str | None = None,
+        *,
+        dispatch: Callable[..., None],
     ) -> None:
         self._hass = hass
         self._loop = loop
+        self._dispatch = dispatch  # queues a callback on the owning app's worker
         self._device_name = device_name
         self._device_id: str | None = device_id
         self._event_listeners: list[Callable] = []
@@ -163,16 +165,18 @@ class ESPHomeProxy:
         def _event_cb(event: Any) -> None:
             data = event.data or {}
 
-            # Filter by HA device_id so each app only receives events for its device
-            if self._device_id and data.get("device_id") != self._device_id:
+            # Filter by HA device_id so each app only receives events for its
+            # device. Unresolved means no ESPHome device matches the name, so
+            # commands can't reach it either; taking every device's events
+            # would only route other panels' touches to this app.
+            if self._device_id is None or data.get("device_id") != self._device_id:
                 return
 
-            # Pass to sync callback on executor thread
             wrapped_data = {
                 "name": data.get("name", ""),
                 "value": data.get("value", ""),
             }
-            self._hass.async_add_executor_job(cb, event.event_type, wrapped_data, {})
+            self._dispatch(cb, event.event_type, wrapped_data, {})
 
         async def _subscribe() -> None:
             from homeassistant.core import callback as ha_callback  # noqa: PLC0415
@@ -180,7 +184,7 @@ class ESPHomeProxy:
             remove = self._hass.bus.async_listen(event_type, ha_callback(_event_cb))
             self._event_listeners.append(remove)
 
-        asyncio.run_coroutine_threadsafe(_subscribe(), self._loop).result(timeout=10)
+        _run_on_loop(self._loop, _subscribe())
 
     def cancel_listen_events(self) -> None:
         """Cancel all event bus listeners registered via listen_event."""
@@ -199,28 +203,23 @@ class ESPHomeProxy:
         "haui_discover",
     }
 
-    # Actions where value should be treated as a dict passed directly
-    _NOTIFICATION_ACTIONS = set(member.value for member in NotificationAction)
-
     def _get_runtime_entry_data(self) -> Any | None:
         """Find the ESPHome config entry for this device and return its RuntimeEntryData.
 
         Returns ``None`` when the ESPHome config entry has not been found or
         ``entry.runtime_data`` has not been populated yet.
         """
-        from .esphome_helpers import normalize_device_name
+        from .esphome_helpers import find_esphome_entry
 
         if not self._device_name:
             return None
-        normalized = normalize_device_name(self._device_name)
-        for entry in self._hass.config_entries.async_entries("esphome"):
-            dev_name = entry.data.get("device_name", "")
-            if dev_name and normalize_device_name(dev_name) == normalized:
-                try:
-                    return entry.runtime_data
-                except AttributeError:
-                    return None
-        return None
+        entry = find_esphome_entry(self._hass, self._device_name)
+        if entry is None:
+            return None
+        try:
+            return entry.runtime_data
+        except AttributeError:
+            return None
 
     @staticmethod
     def _find_service(services: dict[int, Any], name: str) -> Any | None:
@@ -260,11 +259,7 @@ class ESPHomeProxy:
         elif name == ESPAction.SET_BRIGHTNESS:
             service_data["intensity"] = int(value) if value else 0
         elif name in ("req_val", "req_txt"):
-            if isinstance(value, dict):
-                service_data["name"] = value.get("name", "")
-                service_data["source_type"] = value.get("source_type", "component")
-            else:
-                service_data["name"] = value
+            service_data["name"] = value
         elif name == ESPAction.UPLOAD_TFT_URL:
             service_data["url"] = value
         elif name == ESPAction.PLAY_RTTTL:
@@ -273,11 +268,6 @@ class ESPHomeProxy:
             service_data["name"] = value
         elif name == ESPAction.RESET_LAST_INTERACTION:
             service_data["offset"] = int(value) if value else 0
-        elif name in self._NOTIFICATION_ACTIONS:
-            if isinstance(value, str):
-                service_data["title"] = value
-            else:
-                service_data.update(value)
         else:
             service_data["value"] = value
 
@@ -350,9 +340,8 @@ class ESPHomeProxy:
         # sequentially, not concurrently.  Fire-and-forget scheduling caused
         # all chunks to pile up in the Nextion's command queue at once,
         # overflowing max_queue_size and losing commands.
-        future = asyncio.run_coroutine_threadsafe(_call_service(), self._loop)
         try:
-            future.result(timeout=10)
+            _run_on_loop(self._loop, _call_service())
         except TimeoutError:
             _LOGGER.warning("ESPHome publish('%s') timed out after 10s", name)
         except Exception as exc:  # noqa: BLE001
@@ -376,8 +365,17 @@ class HAAdapter:
         self._state_handles: dict[str, Callable] = {}
         self._timer_handles: dict[str, Callable] = {}
         self._timer_meta: dict[str, dict] = {}  # handle_id -> {callback_name, type, interval}
+        # Guards _timer_handles/_timer_meta: the loop starts intervals and the
+        # worker fires and cancels timers.
+        self._timer_lock = threading.Lock()
         self._status_logs: list[str] = []  # last 100 lines for status view
         self._plugin_proxies: dict[str, Any] = {}  # plugin_name -> proxy instance
+        # Every call from Home Assistant into this app (device events, state
+        # changes, timers, reloads, services) runs on this one thread, in order
+        # and never two at once. On HA's shared executor they ran concurrently:
+        # a late render could overwrite the next page and touches raced.
+        self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"nspanel_haui_{name}")
+        self._worker_stopped = False
 
     # logging
 
@@ -394,9 +392,58 @@ class HAAdapter:
         if len(self._status_logs) > 100:
             self._status_logs = self._status_logs[-100:]
 
+    # events
+
+    def fire_event(self, event_type: str, data: dict | None = None) -> None:
+        """Fire an event on the HA event bus (fire-and-forget, from the worker).
+
+        Runs ``hass.bus.async_fire`` on the asyncio loop without waiting, so
+        haui/ core code can publish structured events (page changes, touched
+        items, notifications) for automations while staying synchronous.
+
+        Args:
+            event_type: Event type, e.g. "nspanel_haui.page_changed".
+            data: Event payload dict.
+        """
+
+        async def _fire() -> None:
+            self.hass.bus.async_fire(event_type, data or {})
+
+        # Fire-and-forget: never block the worker on the event loop.
+        asyncio.run_coroutine_threadsafe(_fire(), self._loop)
+
     def get_status_logs(self) -> list[str]:
         """Return a copy of the captured status log lines."""
         return list(self._status_logs)
+
+    # worker
+
+    def dispatch(self, fn: Callable, *args: Any) -> None:
+        """Queue ``fn(*args)`` on this app's worker. Call from the event loop.
+
+        Fire-and-forget: an exception is logged at error level. Once the app
+        has stopped, callbacks are dropped.
+        """
+        if self._worker_stopped:
+            return
+        try:
+            future = self._loop.run_in_executor(self._worker, fn, *args)
+        except RuntimeError:
+            # The worker shut down between the check above and here (app stopping).
+            return
+        future.add_done_callback(partial(self._log_worker_error, fn))
+
+    async def async_run_on_worker(self, fn: Callable, *args: Any) -> Any:
+        """Run ``fn(*args)`` on this app's worker and return its result."""
+        return await self._loop.run_in_executor(self._worker, fn, *args)
+
+    @staticmethod
+    def _log_worker_error(fn: Callable, future: asyncio.Future) -> None:
+        if future.cancelled():
+            return
+        exc = future.exception()
+        if exc is not None:
+            _LOGGER.error("Error in %s", getattr(fn, "__qualname__", fn), exc_info=exc)
 
     def stop(self) -> None:
         """Centralized cleanup: cancel all remaining listeners and timers.
@@ -417,15 +464,14 @@ class HAAdapter:
             self._state_handles.clear()
 
         # Cancel any remaining timers
-        if self._timer_handles:
-            self.log(
-                f"Cleaning up {len(self._timer_handles)} orphaned timer(s)",
-                level="DEBUG",
-            )
-            for remove in list(self._timer_handles.values()):
-                self._loop.call_soon_threadsafe(remove)
+        with self._timer_lock:
+            removes = list(self._timer_handles.values())
             self._timer_handles.clear()
             self._timer_meta.clear()
+        if removes:
+            self.log(f"Cleaning up {len(removes)} orphaned timer(s)", level="DEBUG")
+            for remove in removes:
+                self._loop.call_soon_threadsafe(remove)
 
         # Cancel ESPHome event bus listeners on any cached proxies
         for _plugin_name, proxy in list(self._plugin_proxies.items()):
@@ -433,22 +479,69 @@ class HAAdapter:
                 proxy.cancel_listen_events()
         self._plugin_proxies.clear()
 
+        # Drop callbacks still queued; the one running now (normally this stop) finishes.
+        self._worker_stopped = True
+        self._worker.shutdown(wait=False, cancel_futures=True)
+
     # entities
 
     def item_exists(self, entity_id: str) -> bool:
         return self.hass.states.get(entity_id) is not None
 
-    def get_entity_state(self, entity_id: str) -> str | None:
-        """Read the current state of a HA entity by entity_id.
-
-        Returns the state string (e.g. "-67") or None if the entity doesn't exist.
-        Thread-safe — ``hass.states.get`` is safe to call from executor threads.
-        """
-        s = self.hass.states.get(entity_id)
-        return s.state if s else None
-
     def get_item(self, entity_id: str) -> ItemProxy:
         return ItemProxy(self.hass, self._loop, entity_id, proxy=self)
+
+    def find_entity_id(self, domain: str, original_name: str) -> str | None:
+        """Resolve an ESPHome entity id via the entity registry.
+
+        Home Assistant's entity-id naming (e.g. an ``{area}_{device}_{entity}``
+        pattern) and device renames make ``{node}_{entity}``-style ids
+        unreliable for entities added after a rename.  The entity registry
+        keeps the ESPHome-authored ``original_name``, so look the entity up
+        there instead: prefer the entity on this app's linked device and fall
+        back to the sole candidate when the device link is missing.
+
+        Args:
+            domain: Entity domain (e.g. ``"number"``).
+            original_name: The name the ESPHome YAML authored (e.g. ``"Display Model"``).
+
+        Returns:
+            Entity id, or None when no candidate resolves.
+        """
+        helpers = getattr(self.hass, "helpers", None)
+        if helpers is None or not hasattr(helpers, "entity_registry"):
+            return None
+        registry = helpers.entity_registry.async_get(self.hass)
+        if registry is None:
+            return None
+        wanted = (original_name or "").lower()
+        candidates = [
+            entity_id
+            for entity_id, entry in registry.entities.items()
+            if entry.domain == domain
+            and entry.platform == "esphome"
+            and (entry.original_name or "").lower() == wanted
+        ]
+        if not candidates:
+            return None
+        linked_device_id = getattr(self, "_ha_device_id", None)
+        for entity_id in candidates:
+            if registry.entities[entity_id].device_id == linked_device_id:
+                return entity_id
+        return candidates[0] if len(candidates) == 1 else None
+
+    def get_temperature_unit(self) -> str:
+        """Return HA's temperature unit ("°C" or "°F").
+
+        Climate entity temperatures are converted to this unit; entities
+        don't carry it as an attribute.
+        """
+        return str(self.hass.config.units.temperature_unit)
+
+
+    def get_timezone(self) -> str:
+        """Return HA's IANA timezone identifier (e.g. "Europe/Berlin")."""
+        return str(self.hass.config.time_zone)
 
     # services
 
@@ -478,18 +571,9 @@ class HAAdapter:
                 target = nested_target
                 del service_data["target"]
 
-        # If there's still no target or entity targeting keys in service_data,
-        # the call can't succeed on entity-registered services — HA validates
-        # that one must be present.
-        has_targeting = isinstance(service_data, dict) and bool(_TARGET_KEYS & set(service_data))
-        if (not target) and not has_targeting:
-            _LOGGER.warning(
-                "call_service %s/%s skipped: no target entity specified; "
-                "provide entity_id, device_id, area_id, floor_id, or label_id",
-                domain,
-                svc,
-            )
-            return None
+        # A call without a target goes through as well: services like
+        # script.<name> or notify.<name> take none, and HA reports the error for
+        # an entity service that needs one.
 
         async def _call() -> Any:
             try:
@@ -508,7 +592,7 @@ class HAAdapter:
             return None
 
         try:
-            return asyncio.run_coroutine_threadsafe(_call(), self._loop).result(timeout=30)
+            return _run_on_loop(self._loop, _call(), timeout=30)
         except Exception as exc:  # noqa: BLE001
             _LOGGER.warning("call_service %s/%s timed out or failed: %s", domain, svc, exc)
             return None
@@ -528,7 +612,7 @@ class HAAdapter:
                 return template_str
 
         try:
-            return asyncio.run_coroutine_threadsafe(_render(), self._loop).result(timeout=10)
+            return _run_on_loop(self._loop, _render())
         except Exception:  # noqa: BLE001
             return template_str
 
@@ -555,7 +639,9 @@ class HAAdapter:
             else:
                 old = old_state.state if old_state else None
                 new = new_state.state if new_state else None
-            self.hass.async_add_executor_job(cb, entity_id, attribute or "state", old, new, {})
+            self.dispatch(
+                self._fire_state, handle_id, cb, entity_id, attribute or "state", old, new
+            )
 
         async def _register() -> None:
             from homeassistant.helpers.event import async_track_state_change_event  # noqa: PLC0415
@@ -563,8 +649,17 @@ class HAAdapter:
             remove = async_track_state_change_event(self.hass, entity_id, _ha_cb)
             self._state_handles[handle_id] = remove
 
-        asyncio.run_coroutine_threadsafe(_register(), self._loop).result(timeout=10)
+        _run_on_loop(self._loop, _register())
         return handle_id
+
+    def _fire_state(
+        self, handle_id: str, cb: Callable, entity_id: str, attribute: str, old: Any, new: Any
+    ) -> None:
+        # A change queued before the listener was cancelled (e.g. its page
+        # closed meanwhile) must not reach the old page.
+        if handle_id not in self._state_handles:
+            return
+        cb(entity_id, attribute, old, new, {})
 
     def cancel_listen_state(self, handle: str) -> None:
         remove = self._state_handles.pop(handle, None)
@@ -587,18 +682,16 @@ class HAAdapter:
 
         handle_id = str(uuid.uuid4())
 
-        self._timer_meta[handle_id] = {
-            "callback_name": getattr(cb, "__name__", str(cb)),
-            "type": "interval",
-            "interval": interval,
-        }
+        with self._timer_lock:
+            self._timer_meta[handle_id] = {
+                "callback_name": getattr(cb, "__name__", str(cb)),
+                "type": "interval",
+                "interval": interval,
+            }
 
         @ha_callback
         def _ha_cb(now: Any) -> None:
-            async def _task() -> None:
-                await self.hass.async_add_executor_job(cb, {})
-
-            self.hass.async_create_task(_task())
+            self.dispatch(self._fire_timer, handle_id, cb, False)
 
         # Parse "now+N" pattern - if matched, fire the first callback after
         # N seconds via async_call_later, then switch to recurring
@@ -621,19 +714,23 @@ class HAAdapter:
 
                 @ha_callback
                 def _first_cb(now: Any) -> None:
+                    with self._timer_lock:
+                        # Cancelled before the first fire: don't start the interval.
+                        if handle_id not in self._timer_handles:
+                            return
+                        self._timer_handles[handle_id] = async_track_time_interval(
+                            self.hass, _ha_cb, timedelta(seconds=interval)
+                        )
                     _ha_cb(now)
-                    remove = async_track_time_interval(
-                        self.hass, _ha_cb, timedelta(seconds=interval)
-                    )
-                    self._timer_handles[handle_id] = remove
 
                 remove = async_call_later(self.hass, _now_plus, _first_cb)
             else:
                 remove = async_track_time_interval(self.hass, _ha_cb, timedelta(seconds=interval))
 
-            self._timer_handles[handle_id] = remove
+            with self._timer_lock:
+                self._timer_handles[handle_id] = remove
 
-        asyncio.run_coroutine_threadsafe(_register(), self._loop).result(timeout=10)
+        _run_on_loop(self._loop, _register())
         return handle_id
 
     def run_in(self, cb: Callable, delay: int | float, **kwargs: Any) -> str:
@@ -641,33 +738,41 @@ class HAAdapter:
 
         handle_id = str(uuid.uuid4())
 
-        self._timer_meta[handle_id] = {
-            "callback_name": getattr(cb, "__name__", str(cb)),
-            "type": "one_shot",
-            "interval": delay,
-        }
+        with self._timer_lock:
+            self._timer_meta[handle_id] = {
+                "callback_name": getattr(cb, "__name__", str(cb)),
+                "type": "one_shot",
+                "interval": delay,
+            }
 
         @ha_callback
         def _ha_cb(now: Any) -> None:
-            self._timer_handles.pop(handle_id, None)
-
-            async def _task() -> None:
-                await self.hass.async_add_executor_job(cb, {})
-
-            self.hass.async_create_task(_task())
+            self.dispatch(self._fire_timer, handle_id, cb, True)
 
         async def _register() -> None:
             from homeassistant.helpers.event import async_call_later  # noqa: PLC0415
 
             remove = async_call_later(self.hass, delay, _ha_cb)
-            self._timer_handles[handle_id] = remove
+            with self._timer_lock:
+                self._timer_handles[handle_id] = remove
 
-        asyncio.run_coroutine_threadsafe(_register(), self._loop).result(timeout=10)
+        _run_on_loop(self._loop, _register())
         return handle_id
 
+    def _fire_timer(self, handle_id: str, cb: Callable, one_shot: bool) -> None:
+        with self._timer_lock:
+            # A fire queued before the timer was cancelled must not run.
+            if handle_id not in self._timer_handles:
+                return
+            if one_shot:
+                del self._timer_handles[handle_id]
+                self._timer_meta.pop(handle_id, None)
+        cb({})
+
     def cancel_timer(self, handle: str) -> None:
-        remove = self._timer_handles.pop(handle, None)
-        self._timer_meta.pop(handle, None)
+        with self._timer_lock:
+            remove = self._timer_handles.pop(handle, None)
+            self._timer_meta.pop(handle, None)
         if remove:
             self._loop.call_soon_threadsafe(remove)
 
@@ -677,9 +782,6 @@ class HAAdapter:
     def run_hourly(self, cb: Callable, start: Any = None, **kwargs: Any) -> str:
         return self.run_every(cb, start, 3600, **kwargs)
 
-    def run_daily(self, cb: Callable, start: Any = None, **kwargs: Any) -> str:
-        return self.run_every(cb, start, 86400, **kwargs)
-
     # ESPHome
 
     def get_plugin_api(
@@ -687,7 +789,11 @@ class HAAdapter:
     ) -> Any:
         if plugin_name == "ESPHome":
             proxy = ESPHomeProxy(
-                self.hass, self._loop, device_name=device_name, device_id=device_id
+                self.hass,
+                self._loop,
+                device_name=device_name,
+                device_id=device_id,
+                dispatch=self.dispatch,
             )
             self._plugin_proxies[plugin_name] = proxy
             return proxy

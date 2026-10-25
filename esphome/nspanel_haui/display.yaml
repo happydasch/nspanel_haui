@@ -26,7 +26,7 @@ display:
     # disabled by default for maximum throughput. uncomment and adjust as
     # needed based on observed overflow events and command rates.
     #
-    #command_spacing: 2s
+    #command_spacing: 2ms
     # default url
     tft_url: $tft_update_url
 
@@ -73,13 +73,3 @@ display:
             ESP_LOGW("haui", "Nextion buffer overflow detected");
             id(publish_event_native).execute("esphome.buffer_overflow", "1");
             id(update_last_interaction).execute(-1, 0);
-
-    on_sleep:
-      then:
-        - lambda: |-
-            ESP_LOGW("haui", "Display sleep on_sleep");
-
-    on_wake:
-      then:
-        - lambda: |-
-            ESP_LOGW("haui", "Display wakeup on_wake");

@@ -110,27 +110,12 @@ class UnlockPage(AlarmPage):
         self.update_function_component(AlarmPage.FNC_BTN_R_SEC, color=color)
 
         # update unlock button
-        unlock_btn_enabled = False
-        if str(self._input) == str(self._unlock_code):
-            unlock_btn_enabled = True
-        if unlock_btn_enabled:
-            self.update_function_component(
-                fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
-                touch_events=True,
-                color=self.get_color("component_active"),
-                color_pressed=self.get_color("component_text"),
-                back_color=self.get_color("component_background"),
-                back_color_pressed=self.get_color("component_pressed"),
-            )
-        else:
-            self.update_function_component(
-                fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
-                touch_events=False,
-                color=self.get_color("text_disabled"),
-                color_pressed=self.get_color("text_disabled"),
-                back_color=self.get_color("background"),
-                back_color_pressed=self.get_color("background"),
-            )
+        unlock_btn_enabled = str(self._input) == str(self._unlock_code)
+        self.update_function_component(
+            fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
+            touch=unlock_btn_enabled,
+            **self.button_color_args(unlock_btn_enabled, back_color=True),
+        )
 
     # callback
 

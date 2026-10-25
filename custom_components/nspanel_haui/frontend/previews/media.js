@@ -31,7 +31,7 @@ export function renderMediaPreview(_host, _panel, _pIdx, _pt) {
             ${simSlider({ value: 45 })}
           </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;padding:2px 4px;justify-content:space-around;">
+        <div class="pg-preview-media-sources">
           <div class="pg-preview-btn" style="flex:1;max-width:40px;height:18px;"><ha-icon icon="mdi:music-box" style="--mdc-icon-size:10px;"></ha-icon></div>
           <div class="pg-preview-btn" style="flex:1;max-width:40px;height:18px;"><ha-icon icon="mdi:music-box" style="--mdc-icon-size:10px;"></ha-icon></div>
           <div class="pg-preview-btn" style="flex:1;max-width:40px;height:18px;"><ha-icon icon="mdi:music-box" style="--mdc-icon-size:10px;"></ha-icon></div>

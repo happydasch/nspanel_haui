@@ -9,12 +9,11 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.background import BACKGROUNDS
-from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE
 from ..utils.datetime import format_datetime, get_date_localized, get_time_localized
 from ..utils.icon import parse_icon
+from .clock_common import apply_background, release_ticks, subscribe_ticks
 
 
 class ClockPage(HAUIPage):
@@ -31,6 +30,7 @@ class ClockPage(HAUIPage):
                 key="background",
                 kind="select",
                 default="dark",
+                allow_template=True,
                 label=_("Background"),
                 description=_("Background image theme for the clock display."),
                 choices=[
@@ -139,11 +139,8 @@ class ClockPage(HAUIPage):
         has_header=False,
     )
 
+    # no header: the page has no function buttons, ids 3-6 are other widgets
     COMPONENTS = ComponentRegistry(
-        fnc_left_pri=Component(3, "bFncLPri"),
-        fnc_left_sec=Component(4, "bFncLSec"),
-        fnc_right_pri=Component(5, "bFncRPri"),
-        fnc_right_sec=Component(6, "bFncRSec"),
         t_time=Component(3, "tTime"),
         t_date=Component(4, "tDate"),
         t_main_icon=Component(5, "tMainIcon"),
@@ -158,7 +155,6 @@ class ClockPage(HAUIPage):
     )
 
     NUM_ENTITIES = 6
-    DISPLAY_UPDATE_INTERVAL = 1.0
     TEMP_PRECISION = 0
 
     # Card cycle constants
@@ -189,21 +185,31 @@ class ClockPage(HAUIPage):
     def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background (rendered in start_panel after page is confirmed)
         self._background = self.render_template(panel.get("background", "dark"), False)
+        # Send the background command immediately so the global Nextion variable
+        # is set *before* the page's Preinitialize event runs.  create_panel()
+        # runs before goto_page(); the Preinitialize event only reads
+        # background.val on page load, so a command sent afterwards (in
+        # start_panel) updates the variable but not the already-drawn pictures.
+        apply_background(self, "clock")
 
     def start_panel(self, panel: HAUIPanel) -> None:
         # setting: background — set before rendering content
-        if self._background in BACKGROUNDS:
-            self.send_cmd(f"clock.background.val={BACKGROUNDS[self._background]}")
-        # time update callback (shared device-wide tick)
-        self.app.subscribe_tick("minute", self.callback_update_time)
-        # date update callback (shared device-wide tick)
-        self.app.subscribe_tick("hour", self.callback_update_date)
-        # item listeners
-        for item in self._build_items_from_panel(panel, "item", "items"):
+        # Also refresh _background here: create_panel() is not called when the
+        # page type is unchanged (same-page panel switch), so the value would
+        # otherwise be stale.
+        self._background = self.render_template(panel.get("background", "dark"), False)
+        apply_background(self, "clock")
+        subscribe_ticks(self)
+        # weather item listeners
+        for item in self._build_items_from_panel(panel, "item"):
             if item.get_item_type() == "weather":
                 self.add_item_listener(item.get_item_id(), self.callback_weather, "temperature")
                 self.add_item_listener(item.get_item_id(), self.callback_weather, "pressure")
                 break
+        # item buttons follow their entities' state
+        self.listen_items(
+            self._build_items_from_panel(panel, "items"), lambda: self.update_items(self._items)
+        )
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # setting: show_weather
@@ -272,16 +278,20 @@ class ClockPage(HAUIPage):
         self._cycle_state = "cycling"
         self._render_cycle_card()
         # weather header
-        self.update_items(self._build_items_from_panel(panel, "item", "items"))
+        weather_items = self._build_items_from_panel(panel, "item")
+        self.set_weather_item(weather_items[0] if weather_items else None)
+        # item buttons
+        self.update_items(self._build_items_from_panel(panel, "items"))
         # notifications
         self.app.controller["notification"].blinker.refresh()
 
     def _get_date_text(self, timezone: str) -> str:
-        strftime_format = self.app.device_config.get("date_format")
-        babel_format = self.app.device_config.get(
-            "date_format_locale"
-        ) or self.app.device_config.get("date_format_babel")
-        locale = self.app.device.get_locale()
+        device = self.app.device
+        strftime_format = device.get_date_format()
+        babel_format = device.get_date_format_locale() or self.app.device_config.get(
+            "date_format_babel"
+        )
+        locale = device.get_locale()
         return get_date_localized(strftime_format, babel_format, locale, timezone)
 
     def _get_short_date_text(self, timezone: str) -> str:
@@ -313,7 +323,7 @@ class ClockPage(HAUIPage):
 
     def _card_text_inside_temperature(self) -> tuple[str, str]:
         label = self.translate("INSIDE")
-        name_slug = self.app.device.get_name().lower().replace("-", "_").replace(" ", "_")
+        name_slug = self.app.device.get_slug()
         temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
         try:
             temp = round(float(temp_inside_entity.get_state()), self.TEMP_PRECISION)
@@ -329,9 +339,9 @@ class ClockPage(HAUIPage):
         if not self._cycle_cards or self._current_card_index >= len(self._cycle_cards):
             return
         card = self._cycle_cards[self._current_card_index]
-        timezone = self.app.hass.config.time_zone
+        timezone = self.app.get_timezone()
         if card == "time":
-            timeformat = self.app.device_config.get("time_format")
+            timeformat = self.app.device.get_time_format()
             main_text, sub_text = self._card_text_time(timeformat, timezone)
         elif card == "date":
             main_text, sub_text = self._card_text_date(timezone)
@@ -359,7 +369,9 @@ class ClockPage(HAUIPage):
             with self.rec_cmd:
                 self._advance_card()
 
-    def _advance_card(self, _event: HAUIEvent | None = None) -> None:
+    def _advance_card(
+        self, _event: HAUIEvent | None = None, _component: Component | None = None
+    ) -> None:
         """Advance to the next cycle card or enter/exit pause state."""
         if self._cycle_state == "paused":
             # Pause period over — start a new cycle from the beginning
@@ -387,11 +399,7 @@ class ClockPage(HAUIPage):
         if self._tick_handle is not None:
             self.app.cancel_timer(self._tick_handle)
             self._tick_handle = None
-        # cancel time and date tick subscriptions
-        self.app.unsubscribe_tick("minute", self.callback_update_time)
-        self.app.unsubscribe_tick("hour", self.callback_update_date)
-        # unregister notification indicator from shared blinker
-        self.app.controller["notification"].clear_blinker_callback()
+        release_ticks(self)
 
     # misc
 
@@ -400,8 +408,7 @@ class ClockPage(HAUIPage):
             return
 
         # set up main weather details
-        name = self.app.device.get_name()
-        name_slug = name.lower().replace("-", "_").replace(" ", "_")
+        name_slug = self.app.device.get_slug()
         icon = self._weather_item.get_icon()
         color = self._weather_item.get_color()
         try:
@@ -444,16 +451,13 @@ class ClockPage(HAUIPage):
             visible=self._show_weather,
         )
 
-    def update_items(self, items: list[HAUIItem]) -> None:
-        # first item is main weather item
-        main = None
-        if len(items):
-            main = items.pop(0)
-        if main is not None:
-            self._weather_item = main
-            self._temp_unit = main.get_item_attr("temperature_unit", "°C")
+    def set_weather_item(self, item: HAUIItem | None) -> None:
+        self._weather_item = item
+        if item is not None:
+            self._temp_unit = item.get_item_attr("temperature_unit", "°C")
             self.update_main_weather()
-        # Store remaining items for entity button display
+
+    def update_items(self, items: list[HAUIItem]) -> None:
         self._items = items
         # item buttons
         total_items = len(self._items)
@@ -505,11 +509,6 @@ class ClockPage(HAUIPage):
             else:
                 self.update_main_weather()
 
-    # event
-
-    def process_event(self, event: HAUIEvent) -> None:
-        super().process_event(event)
-
     # callback
 
     def callback_update_time(self, cb_args: dict[str, Any]) -> None:
@@ -519,10 +518,8 @@ class ClockPage(HAUIPage):
             self._render_cycle_card()
 
     def callback_update_date(self, cb_args: dict[str, Any]) -> None:
-        if self.app.device.device_info.get("display_state") == "off":
-            return
-        with self.rec_cmd:
-            self._render_cycle_card()
+        # Same redraw as the minute tick: the cycle card includes the date.
+        self.callback_update_time(cb_args)
 
     def callback_weather(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
@@ -535,20 +532,8 @@ class ClockPage(HAUIPage):
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         notification = self.app.controller["notification"]
         if fnc_id == self.COMPONENTS.t_main_icon[1] and notification.has_notifications():
-            navigation = self.app.controller["navigation"]
-            if len(notification.get_notifications()) == 1:
-                notif = notification.get_notifications()[0]
-                navigation.open_panel(
-                    SysPanelKey.POPUP_NOTIFY,
-                    icon=notif[2],
-                    title=notif[0],
-                    notification=notif[1],
-                    close_on_button=True,
-                    close_timeout=notif[3] if notif[3] > 0 else 0,
-                )
-            else:
-                notification.open_notification_list()
+            notification.open_notifications()
         elif fnc_name == "item":
             item = self._fnc_items[fnc_id]["fnc_args"].get("item")
             if item is not None:
-                item.execute()
+                self.execute_item(item)

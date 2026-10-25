@@ -97,19 +97,20 @@ class QRPage(HAUIPage):
         self._has_text: bool = False
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        name = self.app.device.get_name().lower().replace("-", "_").replace(" ", "_")
+        name = self.app.device.get_slug()
         self.on_release(self.COMPONENTS.qr_code, self.callback_qr_code)
         self.on_release(self.COMPONENTS.qr_code_big, self.callback_qr_code_big)
         self.auto_dimming = self.app.get_item(f"switch.{name}_use_auto_dimming")
         self.auto_page = self.app.get_item(f"switch.{name}_use_auto_page")
-        self._use_auto_dimming = self.auto_dimming.get_state()
-        self._use_auto_page = self.auto_page.get_state()
+        self._use_auto_dimming = self.auto_dimming.get_state() == "on"
+        self._use_auto_page = self.auto_page.get_state() == "on"
 
         # Compute initial state
         essid = panel.get("essid", "")
         password = panel.get("password", "")
         qr_code = f"WIFI:S:{essid};T:WPA;P:{password};;" if essid else ""
         items = self._build_items_from_panel(panel, "items")
+        self.listen_items(items, lambda: self._render_items(items))
         self._has_text = panel.get("show_info", True) or bool(items)
         self._is_big = panel.get("start_big_qr", False)
 
@@ -133,14 +134,15 @@ class QRPage(HAUIPage):
         with self.rec_cmd:
             # Set text on both QR components so whichever is shown after a
             # zoom toggle already has its content.
+            self.set_component_text(self.COMPONENTS.title, panel.get_title())
             self.set_component_text(self.COMPONENTS.qr_code, qr_code)
             self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
             # Render Q1/Q2 content in the same batch as visibility so the
             # Nextion never paints empty/stale slots between batches.
-            if panel.get("show_info", True):
-                self._render_text(panel)
-            elif items:
+            if items:
                 self._render_items(items)
+            elif panel.get("show_info", True):
+                self._render_text(panel)
             self._apply_zoom_state()
 
         # auto-assign function types to header buttons
@@ -157,14 +159,14 @@ class QRPage(HAUIPage):
         essid = panel.get("essid", "")
         password = panel.get("password", "")
         qr_code = f"WIFI:S:{essid};T:WPA;P:{password};;" if essid else ""
+        self.set_component_text(self.COMPONENTS.title, panel.get_title())
         self.set_component_text(self.COMPONENTS.qr_code, qr_code)
         self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
-        if panel.get("show_info", True):
+        items = self._build_items_from_panel(panel, "items")
+        if items:
+            self._render_items(items)
+        elif panel.get("show_info", True):
             self._render_text(panel)
-        else:
-            items = self._build_items_from_panel(panel, "items")
-            if items:
-                self._render_items(items)
         self._apply_zoom_state()
 
     # Visibility
@@ -247,7 +249,6 @@ class QRPage(HAUIPage):
         Note: caller (set_panel) wraps render_panel in rec_cmd, so no need for a
         separate rec_cmd here.
         """
-        self.set_component_text(self.COMPONENTS.title, panel.get_title())
         self.set_component_text(self.COMPONENTS.q1_icon, ICO_WIFI)
         self.set_component_text(self.COMPONENTS.q1_title, "SSID")
         essid = panel.get("essid", "") or ""

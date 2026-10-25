@@ -65,11 +65,12 @@ and follow [Semantic Versioning](https://semver.org/).
 - **US display-model support** — `display_model` (`eu` / `us`) picks the
   matching TFT release asset and per-device US time/date formats
   (`%I:%M %p`, `%m/%d/%Y`). The US portrait TFT ships with the release.
-- **Ack-required notifications** — `require_ack` re-opens the popup and loops
-  the alert sound until the user presses **Acknowledge**.
+- **Ack-required notifications** — `require_ack` implies `persistent` and keeps
+  re-opening the popup and looping the alert sound until the user presses
+  **Acknowledge**.
 - **Notification services and entities** — the new `nspanel_haui.send_notification`
-  service (title, message, icon, severity, persistent, force-show,
-  acknowledge and text-size fields), standard `notify.<device>` /
+  service (`title`, `message`, `icon`, `type` (severity), `persistent`,
+  `force_show`, `require_ack` and `text_size` fields), standard `notify.<device>` /
   `notify.<device>_persistent_notification` entities, the
   `nspanel_haui.reset_last_interaction` service, and the renamed `idle` service
   (was `sleep`).

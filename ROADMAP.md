@@ -1,9 +1,10 @@
 # Roadmap
 
-Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 is code-complete**:
-the version is set in all four places, the CHANGELOG entry is written, and CI is
-green (671 backend tests plus the frontend suite, ruff, mypy, docs). What remains
-for the tag is the **device passlist on real EU + US hardware** and the `v0.4.0`
+Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 is
+feature-complete and in final validation**: the version is set in all four
+places and the CHANGELOG entry is written. What remains for the tag is a pushed
+CI run on the current candidate (backend and frontend suites, ruff, mypy,
+docs), the **device passlist on real EU + US hardware**, and the `v0.4.0`
 GitHub release. The release after that is **v0.5.0 — high-speed display update**.
 
 This file tracks **open work only**. Shipped changes are summarised in
@@ -21,7 +22,8 @@ ships. The release runbook and its known risks live in
 |-----------|-------|
 | Run the device passlist below on real EU + US hardware | `haui/`, `esphome/`, `nextion/` |
 | Publish the GitHub release: `release.yml` compiles the `.bin` and attaches both TFTs; tag `v0.4.0` after the passlist | GitHub Releases |
-| Confirm the documented notification behaviour against real hardware during the passlist — HA service persistence and `require_ack`, the four ESPHome action variants, popup long-message scrolling and severity default icons | `docs/services.md`, `docs/esphome.md`, `docs/panels/popup_notify.md`, `docs/device.md` |
+| Confirm the documented notification behaviour against real hardware during the passlist — HA service persistence, `force_show` and `require_ack`, the ESPHome `send_notification` action with optional `persistent`/`text_size`, popup long-message scrolling and severity default icons | `docs/services.md`, `docs/esphome.md`, `docs/panels/popup_notify.md`, `docs/device.md` |
+| Confirm the 0.3.x upgrade path in the editor — the five renamed device-setting keys migrate automatically; saved panels are not migrated and must be re-entered and verified | `haui/`, `docs/upgrading.md` |
 
 **Device passlist** — confirm on one EU and one US/portrait panel:
 
@@ -35,8 +37,9 @@ ships. The release runbook and its known risks live in
   documented API key. Settings sync reaches the firmware (entity-registry
   resolved), TFT auto-updates, panel renders. Repeat on a second panel and
   confirm both get distinct names/APs from the same `.bin`.
-- **Notifications** — popup, list, dismiss, timeout, persistent and critical
-  sounds, quiet hours, `notify.*` entities, font sizes.
+- **Notifications** — popup, `force_show`, list, dismiss, persistent and
+  critical sounds, quiet hours, `notify.*` entities, font sizes, and
+  `require_ack` looping until **Acknowledge**.
 - **Wakeup / sleep** — wake on touch and via the `wakeup` service, sleep
   panel(s)/carousel and auto-dim as configured, state survives sleep/wake cycles.
 - **Touch / general functionality** — every widget responds and navigates;

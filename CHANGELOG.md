@@ -16,8 +16,10 @@ and follow [Semantic Versioning](https://semver.org/).
 - **ESPHome API names changed** — the display actions and events use explicit
   display-on/display-off names, and notification actions are consolidated into
   one action with optional `timeout`, `persistent` and `text_size` variables.
-- **Saved settings are not migrated** — re-enter pre-0.4 panel/device settings;
-  verify forecast type and panel navigation settings in the editor.
+- **Saved panels are not migrated** — re-enter pre-0.4 panel settings in the
+  editor and verify forecast type and panel navigation settings. (Device
+  settings *are* migrated automatically; see **Fixed** below and the
+  [Upgrade guide](docs/upgrading.md).)
 - **Several compatibility paths were removed** — validation is required, YAML
   imports require the documented root shape, and color/template/function-button
   and vacuum battery configuration follow the current documented formats.
@@ -41,6 +43,12 @@ and follow [Semantic Versioning](https://semver.org/).
   devices on the network and offers to add them.
 - **Configurable display auto-behaviour** — dimming, page transition and display-off
   timeouts per device (`timeout_dimming` / `timeout_page` / `timeout_display_off`).
+- **Display-off schedule** (`use_sleep_schedule` / `sleep_schedule_start` /
+  `sleep_schedule_end`) — a daily window during which `use_auto_display_off`
+  may turn the display off after `timeout_display_off` seconds of inactivity;
+  outside the window the display never turns off automatically (it only
+  dims). The hub applies the schedule itself at every start, reconnect, save
+  and window boundary, replacing automations that toggle the switch.
 - **Vacuum battery sensor** option — point the vacuum panel at a dedicated
   sensor instead of relying on the deprecated battery attributes.
 - **Alarm keypad styling** — font size, background and text colour per alarm
@@ -52,11 +60,17 @@ and follow [Semantic Versioning](https://semver.org/).
   matching TFT release asset and per-device US time/date formats
   (`%I:%M %p`, `%m/%d/%Y`). The US portrait TFT ships with the release.
 - **Ack-required notifications** — `require_ack` re-opens the popup and loops
-  the alert sound until the user presses Acknowledge.- **Ack-required notifications** — `require_ack` re-opens the popup and loops
-  the alert sound until the user presses Acknowledge.
+  the alert sound until the user presses **Acknowledge**; such notifications
+  ignore `timeout` and cannot expire while unacknowledged.
+- **Notification services and entities** — the new `nspanel_haui.send_notification`
+  service (title, message, icon, timeout, severity, persistent, force-show,
+  acknowledge and text-size fields), standard `notify.<device>` /
+  `notify.<device>_persistent_notification` entities, the
+  `nspanel_haui.reset_last_interaction` service, and the renamed `idle` service
+  (was `sleep`).
 - **Per-notification text size** — `text_size` (`"auto"` or a font size 1-3)
-  on `nspanel_haui.send_notification` and the `send_notification*` ESPHome
-  actions controls the popup font per notification.
+  on `nspanel_haui.send_notification` and the `send_notification` ESPHome
+  action controls the popup font per notification.
 - **HA-native events** for automations: `nspanel_haui.page_changed`,
   `nspanel_haui.notification`, `nspanel_haui.connection_changed`.
 - **Current-page string sensor** per device, for automation triggers
@@ -135,11 +149,11 @@ and follow [Semantic Versioning](https://semver.org/).
   unset `idle_panel` made the idle page and the header idle button silently
   no-ops, and auto display-off could not be toggled off from a stored
   `use_auto_sleeping`.
-- **The notification button overrides the idle/sleep button when there is no
-  right-slot for it.** When a panel claims both right header slots (grid/row
-  pagination in navigation, ...) and notifications are enabled, the
-  notification indicator takes over the idle button's slot on the home panel
-  so unread notifications stay reachable instead of disappearing.
+- **The notification indicator falls back to the idle button's slot when there
+  is no free right header slot.** When a panel claims both right header slots
+  (grid/row pagination on the home panel, ...) and notifications are enabled,
+  the notification indicator takes over the idle button's slot on the home
+  panel so unread notifications stay reachable instead of disappearing.
 
 > **Update warning:** both the ESPHome firmware **and** the Nextion TFT changed
 > since 0.3.2 — you must update **both**. On first connect after updating the
@@ -151,9 +165,10 @@ and follow [Semantic Versioning](https://semver.org/).
 > `docs/install.md`).
 >
 > **This is the first stable release with breaking changes.** Pre-0.4 saved
-> panels and device settings are **not migrated** — re-enter them in the editor
-> after updating; the idle-page service, several ESPHome actions/events and two
-> config entities were renamed, and no aliases are kept. Follow the
-> [Upgrade guide](docs/upgrading.md) *before* updating.
+> **panels** are not migrated — re-enter them in the editor after updating
+> (the five renamed device-setting keys *are* migrated automatically, see
+> the [Upgrade guide](docs/upgrading.md)). The idle-page service, several
+> ESPHome actions/events and two config entities were renamed, and no aliases
+> are kept.
 
 [0.4.0]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.0

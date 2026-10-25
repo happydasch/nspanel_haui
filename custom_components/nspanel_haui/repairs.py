@@ -13,6 +13,7 @@ import voluptuous as vol
 from homeassistant import data_entry_flow
 from homeassistant.components.repairs import RepairsFlow
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 
 from .const import DOMAIN
 
@@ -43,10 +44,16 @@ class DeviceStartFailedFixFlow(RepairsFlow):
             return self.async_create_entry(title="", data={})
 
         issue_data = self.data or {}
+        placeholders: dict[str, str] = {"device": str(issue_data.get("device", ""))}
+        # Resolve the placeholders the issue was created with (device, error),
+        # matching the default ConfirmRepairFlow behaviour.
+        issue_registry = ir.async_get(self.hass)
+        if issue := issue_registry.async_get_issue(self.handler, self.issue_id):
+            placeholders.update(issue.translation_placeholders or {})
         return self.async_show_form(
             step_id="reload",
             data_schema=vol.Schema({}),
-            description_placeholders={"device": str(issue_data.get("device", ""))},
+            description_placeholders=placeholders,
         )
 
 

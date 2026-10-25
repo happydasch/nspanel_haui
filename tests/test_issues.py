@@ -32,6 +32,7 @@ def _make_stubs() -> None:
     issue_registry_mod.IssueSeverity = _IssueSeverity
     issue_registry_mod.async_create_issue = MagicMock()
     issue_registry_mod.async_delete_issue = MagicMock()
+    issue_registry_mod.async_get = MagicMock(return_value=MagicMock())
 
     storage_helpers = types.ModuleType("homeassistant.helpers.storage")
 
@@ -58,8 +59,13 @@ def _make_stubs() -> None:
 
         def __init__(self) -> None:
             self.hass: Any = None
+            self.handler: str = ""
             self.data: dict[str, str | int | float | None] | None = None
             self.context: dict[str, Any] = {}
+
+        @property
+        def issue_id(self) -> str:
+            return self.context.get("issue_id", "")
 
         def async_show_form(self, **kwargs: Any) -> dict[str, Any]:
             return {"type": "form", **kwargs}
@@ -279,7 +285,9 @@ def test_fix_flow_reloads_hub_on_confirm() -> None:
 
     flow = DeviceStartFailedFixFlow()
     flow.hass = hass
+    flow.handler = DOMAIN
     flow.data = {"device": "Kitchen"}
+    flow.context = {"issue_id": "device_start_failed_kitchen"}
 
     init_result = asyncio.run(flow.async_step_init(None))
     assert init_result["type"] == "form"
@@ -289,13 +297,52 @@ def test_fix_flow_reloads_hub_on_confirm() -> None:
     assert hass.config_entries.async_schedule_reload.call_args.args == ("hub1",)
 
 
+def test_fix_flow_resolves_issue_placeholders() -> None:
+    """The fix-step description receives the issue's translation placeholders."""
+    from homeassistant.helpers import issue_registry as ir
+
+    hass = _hass_stub()
+    issue = MagicMock(translation_placeholders={"device": "Kitchen", "error": "boom"})
+    ir.async_get.return_value.async_get_issue.return_value = issue
+
+    flow = DeviceStartFailedFixFlow()
+    flow.hass = hass
+    flow.handler = DOMAIN
+    flow.data = {"device": "Kitchen"}
+    flow.context = {"issue_id": "device_start_failed_kitchen"}
+
+    result = asyncio.run(flow.async_step_reload(None))
+    assert result["type"] == "form"
+    assert result["description_placeholders"] == {"device": "Kitchen", "error": "boom"}
+
+
+def test_fix_flow_reloads_without_issue_registry_match() -> None:
+    """No issue match still shows the form with the device placeholder."""
+    from homeassistant.helpers import issue_registry as ir
+
+    hass = _hass_stub()
+    ir.async_get.return_value.async_get_issue.return_value = None
+
+    flow = DeviceStartFailedFixFlow()
+    flow.hass = hass
+    flow.handler = DOMAIN
+    flow.data = {"device": "Kitchen"}
+    flow.context = {"issue_id": "device_start_failed_kitchen"}
+
+    result = asyncio.run(flow.async_step_reload(None))
+    assert result["type"] == "form"
+    assert result["description_placeholders"] == {"device": "Kitchen"}
+
+
 def test_fix_flow_handles_missing_hub_silently() -> None:
     hass = _hass_stub()
     hass.config_entries.async_entries.return_value = []
 
     flow = DeviceStartFailedFixFlow()
     flow.hass = hass
+    flow.handler = DOMAIN
     flow.data = {"device": "Kitchen"}
+    flow.context = {"issue_id": "device_start_failed_kitchen"}
 
     result = asyncio.run(flow.async_step_reload({"confirm": True}))
     assert result["type"] == "create_entry"

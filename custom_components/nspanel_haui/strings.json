@@ -20,12 +20,11 @@
   "issues": {
     "device_start_failed": {
       "title": "Device failed to start: {device}",
-      "description": "NSPanel HAUI could not start device {device}.\n\nThe error was: `{error}`.\n\nUse the fix to retry starting the device, or check the logs for details.",
       "fix_flow": {
         "step": {
           "reload": {
             "title": "Reload hub",
-            "description": "Reload the NSPanel HAUI hub configuration to retry starting device {device}."
+            "description": "NSPanel HAUI could not start device {device}.\n\nThe error was: `{error}`.\n\nUse the fix to retry starting the device, or check the logs for details. Reloading the NSPanel HAUI hub configuration retries starting device {device}."
           }
         },
         "flow_title": "Retry starting device {device}"

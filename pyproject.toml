@@ -30,6 +30,10 @@ mypy_path = "custom_components"
 explicit_package_bases = true
 namespace_packages = true
 files = "custom_components/nspanel_haui/haui"
+# Only haui/ is a mypy target. Its TYPE_CHECKING imports walk up to the app
+# glue, which imports Home Assistant (not installed in CI); type-check those
+# followed modules too but only report errors from haui/ itself.
+follow_imports = "silent"
 
 [tool.ruff]
 target-version = "py314"

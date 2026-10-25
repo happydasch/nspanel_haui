@@ -7,7 +7,7 @@ description: ESPHome configuration, scripts, events, and actions for the NSPanel
 
 The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome is being used.
 
-- Requires ESPHome 2026.10 or later (enforced by `min_version` in `esphome/nspanel_haui/base.yaml`)
+- Requires ESPHome 2026.10 or later (enforced by `min_version` in `esphome/nspanel_haui/base.yaml`); the stock Nextion component before 2026.10 lacks the numeric-response delivery fix ([esphome PR #17744](https://github.com/esphome/esphome/pull/17744)) the firmware's `read_response` path relies on
 - Uses the stock ESPHome `nextion` display component (no custom or patched component, no `external_components`)
 - Provides scripts and actions for communication with the display
 - Responsible for handling the device functionality

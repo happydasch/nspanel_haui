@@ -6,3 +6,4 @@ pydantic>=2.7
 types-requests
 types-python-dateutil
 voluptuous>=0.14.2
+aiohttp>=3.11

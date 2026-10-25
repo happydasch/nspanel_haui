@@ -22,7 +22,6 @@ export const previewRowStyles = css`
     min-height: 0;
     overflow: hidden;
     gap: 6px;
-    background: rgba(255,255,255,0.06);
     border-radius: 6px;
     padding: 0 6px;
   }
@@ -53,7 +52,6 @@ export const previewRowStyles = css`
     --mdc-icon-size: clamp(12px, 2.5cqi, 20px);
   }
   .pg-preview-row-empty {
-    background: rgba(255,255,255,0.03);
   }
 
   /* Portrait TFT: icon + name on the first line, the controls below it */

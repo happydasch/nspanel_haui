@@ -84,11 +84,15 @@ The device supports multiple different panels which are displayed on the display
 
 ### Notifications
 
-The device can receive notifications and display them. Notifications remain in the queue until dismissed by the user on the display, or until their `timeout` expires.
+The device can receive notifications and display them. Notifications stay in the
+queue until dismissed by the user on the display — there is no automatic
+dismissal. Queued notifications play through: when a notification popup is
+dismissed (or its notification is removed) while more notifications are queued,
+the next one opens in its place, so none is shown only once and skipped.
 
 New notifications make the notification indicator blink (the bell on the Clock, Clock Two and Weather panels, or the notifications header button otherwise). The notifications header button prefers a right-side slot (secondary, or primary in a single-nav layout); when a panel claims both right slots — e.g. a grid/row with pagination in navigation — the button moves to the idle button's slot on the home panel instead, so unread notifications stay reachable even though the idle/sleep button is displaced. Tapping it opens the notification popup, or a list when several are queued; opening them stops the blinking. Each notification popup has a **Dismiss** button that removes the notification from the queue. Closing the popup without dismissing keeps it queued.
 
-Notifications support an optional icon; when none is supplied, the severity selects a default one (`info`, `warning` or `critical`). When `persistent` is set to true the notification sound loops every `persistent_sound_interval` seconds until the notification is dismissed or its timeout expires - useful for alerts that require user attention. Notifications of type `critical` play the `alert` sound instead of the `notification` sound.
+Notifications support an optional icon; when none is supplied, the severity selects a default one (`info`, `warning` or `critical`). When `persistent` is set to true the notification sound loops every `persistent_sound_interval` seconds until the notification is dismissed - useful for alerts that require user attention. Notifications of type `critical` play the `alert` sound instead of the `notification` sound. A `require_ack` notification re-opens its popup periodically until **Acknowledge** is pressed (see [Services](services.md#nspanel_hauisend_notification)).
 
 The HA service and notify entities open persistent notifications immediately; the ESPHome actions only loop the sound. See [Services](services.md#nspanel_hauisend_notification) for fields and defaults.
 

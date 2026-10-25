@@ -1,5 +1,6 @@
 import copy
 from datetime import datetime, timedelta
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -102,8 +103,8 @@ def test_notification_controller_add_remove_clear_get(dummy_app):
     controller = HAUINotificationController(dummy_app, {})
 
     # Add two notifications
-    notif1 = controller.add_notification("Test1", "Message1", "icon1", 5)
-    notif2 = controller.add_notification("Test2", "Message2", "icon2", 10)
+    notif1 = controller.add_notification("Test1", "Message1", "icon1")
+    notif2 = controller.add_notification("Test2", "Message2", "icon2")
 
     all_notifs = controller.get_notifications()
     assert notif1 in all_notifs and notif2 in all_notifs
@@ -125,14 +126,13 @@ def test_queued_notification_exposes_named_fields(dummy_app):
     controller = HAUINotificationController(dummy_app, {})
 
     notif = controller.add_notification(
-        "Door", "Front door open", "mdi:door", 30, persistent=True, notif_type="critical"
+        "Door", "Front door open", "mdi:door", persistent=True, notif_type="critical"
     )
 
-    assert (notif.title, notif.message, notif.icon, notif.timeout) == (
+    assert (notif.title, notif.message, notif.icon) == (
         "Door",
         "Front door open",
         "mdi:door",
-        30,
     )
     assert notif.persistent is True
     assert notif.notif_type == "critical"
@@ -146,13 +146,12 @@ def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
     title = "Alert"
     message = "This is a test"
     icon = "bell"
-    timeout = 15
-    controller.send_notification(title, message, icon, timeout)
+    controller.send_notification(title, message, icon)
 
     assert len(dummy_app.callback_event_calls) == 1
     event = dummy_app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, timeout, False, "info", False, False, "auto")
+    expected_value = (title, message, icon, False, "info", False, False, "auto")
     assert event.value == expected_value
 
 
@@ -169,7 +168,7 @@ def test_device_play_sound_on_notification_event(dummy_app):
     device.play_sound = mock_play
 
     event = HAUIEvent(
-        NotifEvent.NOTIF_ADD, Notification("Title", "Msg", "Icon", 0, False, "info", False)
+        NotifEvent.NOTIF_ADD, Notification("Title", "Msg", "Icon", False, "info", False)
     )
     device.process_event(event)
 
@@ -210,7 +209,7 @@ def test_critical_notification_plays_alert_sound(dummy_app):
 
     device.process_event(
         HAUIEvent(
-            NotifEvent.NOTIF_ADD, Notification("Smoke", "Kitchen", "", 0, False, "critical", False)
+            NotifEvent.NOTIF_ADD, Notification("Smoke", "Kitchen", "", False, "critical", False)
         )
     )
 
@@ -218,7 +217,7 @@ def test_critical_notification_plays_alert_sound(dummy_app):
 
 
 def test_persistent_critical_notification_repeats_alert_sound(dummy_app):
-    notification = Notification("Smoke", "Kitchen", "", 0, True, "critical", False)
+    notification = Notification("Smoke", "Kitchen", "", True, "critical", False)
     notif_ctrl = MagicMock()
     notif_ctrl.get_notifications.return_value = [notification]
     notif_ctrl.has_persistent_notifications.return_value = True
@@ -294,12 +293,11 @@ def _opened(app):
     return args[0], kwargs
 
 
-def test_indicator_stops_blinking_when_last_notification_expires(loop_ctrl):
+def test_indicator_stops_blinking_when_last_notification_dismissed(loop_ctrl):
     app, ctrl = loop_ctrl
-    ctrl.add_notification("Door", "open", timeout=5)
-    (expire,) = app.timers.values()
+    ctrl.add_notification("Door", "open")
 
-    expire({})
+    ctrl.remove_notification(ctrl._notifications[0])
 
     assert ctrl.blinker.new_notifications is False
 
@@ -395,16 +393,14 @@ def test_several_notifications_open_the_list(loop_ctrl):
     assert [i["name"] for i in kwargs["items"]] == ["A: 1", "B: 2"]
 
 
-def test_list_selection_opens_the_tapped_notification_after_another_expires(loop_ctrl):
+def test_list_selection_opens_the_tapped_notification(loop_ctrl):
     app, ctrl = loop_ctrl
-    ctrl.add_notification("A", "1", timeout=5)
+    ctrl.add_notification("A", "1")
     ctrl.add_notification("B", "2")
     ctrl.add_notification("C", "3")
     ctrl.open_notifications()
     _, list_kwargs = _opened(app)
     b_value = list_kwargs["items"][1]["value"]
-    (expire_a,) = app.timers.values()
-    expire_a({})
 
     list_kwargs["selection_callback_fnc"](b_value)
 
@@ -427,16 +423,15 @@ def test_list_items_drop_a_dismissed_notification(loop_ctrl):
     assert [i["name"] for i in list_kwargs["items"]] == ["B: 2"]
 
 
-def test_repeated_notification_alerts_again_with_new_timeout(loop_ctrl):
+def test_repeated_notification_alerts_again(loop_ctrl):
     app, ctrl = loop_ctrl
-    ctrl.add_notification("Door", "open", timeout=5)
+    ctrl.add_notification("Door", "open")
     app.callback_event_calls.clear()
 
-    ctrl.add_notification("Door", "open", timeout=600)
+    ctrl.add_notification("Door", "open")
 
-    assert [n[3] for n in ctrl.get_notifications()] == [600]
+    assert len(ctrl.get_notifications()) == 1
     assert NotifEvent.NOTIF_ADD in [e.name for e in app.callback_event_calls]
-    assert len(app.timers) == 1
 
 
 @pytest.mark.parametrize(
@@ -459,10 +454,168 @@ def test_tapping_page_indicator_opens_notifications_through_controller(page_cls,
     navigation.open_panel.assert_not_called()
 
 
-def test_remove_notification_cancels_expiry_for_an_equal_tuple(loop_ctrl):
+def test_remove_notification_cancels_re_alert_for_an_equal_tuple(loop_ctrl):
     app, ctrl = loop_ctrl
-    stored = ctrl.add_notification("Door", "open", timeout=5)
+    stored = ctrl.add_notification("Door", "open", require_ack=True)
 
     ctrl.remove_notification(tuple(list(stored)))
 
     assert app.timers == {}
+
+
+# --- queue player: no-yank and auto-advance ----------------------------------
+
+
+class _PanelStub:
+    """Minimal panel stand-in for the notification-view checks."""
+
+    def __init__(self, panel_type: str, **config: Any):
+        self._type = panel_type
+        self._config = config
+
+    def get_type(self) -> str:
+        return self._type
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._config.get(key, default)
+
+
+class _TrackingNav:
+    """Navigation fake: records opens and reports a configurable current panel."""
+
+    def __init__(self) -> None:
+        self.opens: list[tuple[str, dict]] = []
+        self.current: _PanelStub | None = None
+        self.page = MagicMock()
+
+    def open_panel(self, panel_id: str, **kwargs: Any) -> None:
+        self.opens.append((panel_id, kwargs))
+        self.current = _PanelStub(str(panel_id), **kwargs)
+
+    def get_current_panel(self) -> _PanelStub | None:
+        return self.current
+
+    def close_panel(self) -> None:
+        self.current = None
+
+
+def _queue_player(app: LoopbackApp) -> tuple[LoopbackApp, HAUINotificationController, _TrackingNav]:
+    """App + controller + tracking navigation for the queue-player scenarios."""
+    nav = _TrackingNav()
+    app.navigation = nav
+    app.controller["navigation"] = nav
+    ctrl = HAUINotificationController(app, {})
+    app.controller["notification"] = ctrl
+    return app, ctrl, nav
+
+
+def _advance_timers(app: LoopbackApp) -> list:
+    """The deferred 'show next notification' callbacks currently armed."""
+    return [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_advance_queue"]
+
+
+def test_queued_popup_has_no_auto_close(loop_ctrl):
+    """Notifications no longer auto-dismiss: popups carry no close_timeout."""
+    app, ctrl = loop_ctrl
+    ctrl.add_notification("Door", "open", force_show=True)
+
+    _, kwargs = _opened(app)
+    assert "close_timeout" not in kwargs
+
+
+def test_force_show_does_not_rip_an_open_popup_away(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+
+    ctrl.add_notification("First", "1", force_show=True)
+    assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
+
+    ctrl.add_notification("Second", "2", force_show=True)
+
+    # The first popup stays up; the second waits in the queue.
+    assert len(nav.opens) == 1
+    assert [n.title for n in ctrl.get_notifications()] == ["First", "Second"]
+
+
+def test_force_show_dismissed_popup_advances_to_next_queued(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    ctrl.add_notification("First", "1", force_show=True)
+    ctrl.add_notification("Second", "2", force_show=True)
+    first = nav.opens[0][1]
+
+    first["button_callback_fnc"](False, True)  # Dismiss
+    first["close_callback_fnc"]()              # popup closes (navigation)
+    nav.current = None                         # ...back on a normal panel
+    advance = _advance_timers(app)
+    assert advance, "dismissing a popup with more queued must arm the advance"
+    advance[0]({})
+
+    assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
+    assert nav.opens[-1][1]["title"] == "Second"
+    assert [n.title for n in ctrl.get_notifications()] == ["Second"]
+
+
+def test_closing_popup_without_dismissing_does_not_advance(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    ctrl.add_notification("First", "1", force_show=True)
+    ctrl.add_notification("Second", "2", force_show=True)
+    first = nav.opens[0][1]
+
+    first["close_callback_fnc"]()  # user navigated away, notification stayed
+
+    assert _advance_timers(app) == []
+    assert len(nav.opens) == 1
+    assert [n.title for n in ctrl.get_notifications()] == ["First", "Second"]
+
+
+def test_advance_respects_an_open_notification_list(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    ctrl.add_notification("First", "1", force_show=True)
+    ctrl.add_notification("Second", "2", force_show=True)
+    first = nav.opens[0][1]
+    # User opened the list (bell) while the popup was up; the close callback
+    # fires when the popup page gives way to the list.
+    nav.current = _PanelStub(
+        SysPanelKey.POPUP_SELECT,
+        selection_callback_fnc=ctrl._notification_selection_callback,
+    )
+    first["button_callback_fnc"](False, True)
+    first["close_callback_fnc"]()
+    advance = _advance_timers(app)
+    assert advance
+    advance[0]({})
+
+    # No popup forced over the list the user is looking at.
+    assert len([o for o in nav.opens if o[0] == SysPanelKey.POPUP_NOTIFY]) == 1
+
+
+def test_new_notification_appears_in_open_list_without_page_switch(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    ctrl.add_notification("First", "1")
+    ctrl.add_notification("Second", "2")
+    ctrl.open_notifications()  # two queued -> list
+    assert nav.opens[-1][0] == SysPanelKey.POPUP_SELECT
+    before = len(nav.opens)
+
+    ctrl.add_notification("Third", "3", force_show=True)
+
+    # No page switch, but the shared list items gained the new entry.
+    assert len(nav.opens) == before
+    assert [i["name"] for i in nav.opens[-1][1]["items"]] == ["First: 1", "Second: 2", "Third: 3"]
+
+
+def test_open_popup_is_not_a_notification_view_without_marker(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    # POPUP_NOTIFY used for a non-queued popup (update notice, unavailable
+    # entity, ...) must not count as a notification view.
+    nav.current = _PanelStub(SysPanelKey.POPUP_NOTIFY, title="An update is available")
+
+    ctrl.add_notification("First", "1", force_show=True)
+
+    assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
+    assert nav.opens[-1][1]["notif_id"] != ""

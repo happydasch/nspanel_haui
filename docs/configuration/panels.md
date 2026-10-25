@@ -42,7 +42,7 @@ To reference a panel from actions, define its `key`. Then use `navigate:key` as 
 
 ### Auto-Close
 
-`close_timeout` — **Close automatically after (seconds)** in the panel's general settings. When set to a value greater than 0, the panel closes and navigation goes back after that many seconds. `0` (default) keeps it open. Notifications also use it internally.
+`close_timeout` — **Close automatically after (seconds)** in the panel's general settings. When set to a value greater than 0, the panel closes and navigation goes back after that many seconds. `0` (default) keeps it open. Queued-notification popups do not use it: they stay open until the notification is dismissed.
 
 ### Device-Level Panel Assignments
 

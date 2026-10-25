@@ -9,6 +9,9 @@ class DummyNavigation:
     def open_panel(self, panel):
         self.opened_panel = panel
 
+    def get_current_panel(self):
+        return None
+
     def cancel_timeouts(self):
         pass
 
@@ -87,7 +90,7 @@ def test_device_notify_method():
     title = "Test Notification"
     message = "This is a test message"
     icon = "test_icon"
-    timeout = 30
+    persistent = False
 
     # Mock the send_notification method to capture the call
     original_send_notification = mock_notification_controller.send_notification
@@ -97,7 +100,6 @@ def test_device_notify_method():
         title,
         message,
         icon,
-        timeout,
         persistent=False,
         notif_type="info",
         force_show=False,
@@ -108,7 +110,6 @@ def test_device_notify_method():
                 "title": title,
                 "message": message,
                 "icon": icon,
-                "timeout": timeout,
                 "persistent": persistent,
                 "notif_type": notif_type,
                 "force_show": force_show,
@@ -119,16 +120,16 @@ def test_device_notify_method():
             title,
             message,
             icon,
-            timeout,
             persistent,
             notif_type,
             force_show,
+            require_ack,
         )
 
     mock_notification_controller.send_notification = mock_send_notification
 
     # Call the notify method
-    device.notify(title, message, icon, timeout)
+    device.notify(title, message, icon, persistent)
 
     # Verify the call was forwarded correctly
     assert len(captured_call) == 1
@@ -136,7 +137,7 @@ def test_device_notify_method():
     assert call["title"] == title
     assert call["message"] == message
     assert call["icon"] == icon
-    assert call["timeout"] == timeout
+    assert call["persistent"] == persistent
 
 
 def test_device_notify_method_defaults():
@@ -162,7 +163,6 @@ def test_device_notify_method_defaults():
         title,
         message="",
         icon="",
-        timeout=0,
         persistent=False,
         notif_type="info",
         force_show=False,
@@ -173,7 +173,6 @@ def test_device_notify_method_defaults():
                 "title": title,
                 "message": message,
                 "icon": icon,
-                "timeout": timeout,
                 "persistent": persistent,
                 "notif_type": notif_type,
                 "force_show": force_show,
@@ -184,10 +183,10 @@ def test_device_notify_method_defaults():
             title,
             message,
             icon,
-            timeout,
             persistent,
             notif_type,
             force_show,
+            require_ack,
         )
 
     mock_notification_controller.send_notification = mock_send_notification
@@ -201,7 +200,7 @@ def test_device_notify_method_defaults():
     assert call["title"] == title
     assert call["message"] == ""
     assert call["icon"] == ""
-    assert call["timeout"] == 0
+    assert call["persistent"] is False
 
 
 def test_device_notify_method_integration():
@@ -218,14 +217,13 @@ def test_device_notify_method_integration():
     title = "Integration Test"
     message = "Integration test message"
     icon = "integration_icon"
-    timeout = 45
 
     # Call the notify method
-    device.notify(title, message, icon, timeout)
+    device.notify(title, message, icon)
 
     # Verify callback_event was called with the correct notif_add event
     assert len(app.callback_event_calls) == 1
     event = app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, timeout, False, "info", False, False, "auto")
+    expected_value = (title, message, icon, False, "info", False, False, "auto")
     assert event.value == expected_value

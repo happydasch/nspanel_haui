@@ -600,7 +600,6 @@ class HAUIDevice(HAUIBase):
         title: str,
         message: str = "",
         icon: str = "",
-        timeout: int = 0,
         persistent: bool = False,
         notif_type: str = "info",
         force_show: bool = False,
@@ -608,7 +607,7 @@ class HAUIDevice(HAUIBase):
     ) -> None:
         """Send a notification via the notification controller."""
         self.app.controller["notification"].send_notification(
-            title, message, icon, timeout, persistent, notif_type, force_show, require_ack
+            title, message, icon, persistent, notif_type, force_show, require_ack
         )
 
     def get_locale(self) -> str:

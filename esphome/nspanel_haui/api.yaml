@@ -190,15 +190,13 @@ api:
 
 
     # Action to send a notification
-    # ``timeout``, ``persistent`` and ``text_size`` are optional; omitted
-    # values fall back to 0 / false / "" (the client applies the defaults).
+    # ``persistent`` and ``text_size`` are optional; omitted values fall back
+    # to false / "" (the client applies the defaults).
     - action: send_notification
       variables:
         title: string
         message: string
         icon: string
-        # Seconds until auto-dismiss (0 = until dismissed).
-        timeout: int
         # True loops the alert sound until dismissed.
         persistent: bool
         # "auto" or a font size 1-3.
@@ -206,5 +204,5 @@ api:
       then:
         - lambda: |-
             id(send_notification).execute(
-              title, message, icon, timeout, persistent, text_size
+              title, message, icon, persistent, text_size
             );

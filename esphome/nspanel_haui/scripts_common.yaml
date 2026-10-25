@@ -13,21 +13,19 @@ script:
       title: string
       message: string
       icon: string        # pass empty string "" to omit icon
-      timeout: int
       persistent: bool    # true = notification must be dismissed to stop sound
       text_size: string   # "auto" (default) or a font size 1-3
     then:
       - lambda: |-
-          ESP_LOGV("haui", "Script: send_notification: %s - %s - %s - %i - persistent:%i - text_size:%s", title.c_str(), message.c_str(), icon.c_str(), timeout, persistent, text_size.c_str());
+          ESP_LOGV("haui", "Script: send_notification: %s - %s - %s - persistent:%i - text_size:%s", title.c_str(), message.c_str(), icon.c_str(), persistent, text_size.c_str());
           const json::json_build_t payload = [
-              title, message, icon, timeout, persistent, text_size
+              title, message, icon, persistent, text_size
           ](JsonObject root) {
             root["title"] = title;
             root["message"] = message;
             if (!icon.empty()) {
               root["icon"] = icon;
             }
-            root["timeout"] = timeout;
             root["persistent"] = persistent;
             if (!text_size.empty()) {
               root["text_size"] = text_size;

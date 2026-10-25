@@ -50,7 +50,6 @@ SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
         vol.Required("title"): cv.string,
         vol.Optional("message", default=""): cv.string,
         vol.Optional("icon", default=""): cv.string,
-        vol.Optional("timeout", default=0): vol.All(vol.Coerce(int), vol.Range(min=0)),
         vol.Optional("persistent", default=False): cv.boolean,
         vol.Optional("type", default="info"): vol.In(["info", "warning", "critical"]),
         vol.Optional("force_show", default=False): cv.boolean,
@@ -218,7 +217,8 @@ async def _handle_idle(hass: HomeAssistant, call: ServiceCall) -> None:
 
 async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> None:
     # Goes straight to the controller: the ESPHome send_notification actions
-    # only carry title/message/icon/timeout, so type and force_show would be lost.
+    # only carry title/message/icon/persistent/text_size, so type and
+    # force_show would be lost.
     def _notify_action(app: Any, dev_name: str) -> None:
         persistent = call.data.get("persistent", False)
         force_show = call.data.get("force_show", False)
@@ -230,7 +230,6 @@ async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> N
             title=call.data["title"],
             message=call.data.get("message", ""),
             icon=call.data.get("icon", ""),
-            timeout=call.data.get("timeout", 0),
             persistent=persistent,
             notif_type=call.data.get("type", "info"),
             force_show=force_show,

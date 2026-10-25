@@ -40,7 +40,7 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
 
 
 1. **Install via HACS** — Add the custom repository, install the integration, and restart Home Assistant.
-   Existing users on 0.3.x or earlier: read the [Upgrade guide →](docs/upgrading.md) first — the first stable release renames services, ESPHome actions/events and two config entities, and does not migrate saved settings.
+   Existing users on 0.3.x or earlier: read the [Upgrade guide →](docs/upgrading.md) first — the first stable release renames services, ESPHome actions/events and two config entities. Saved device settings are migrated automatically; saved panels are not, so verify each panel's settings after upgrading.
 
    [Install guide →](docs/install.md)
 
@@ -59,6 +59,20 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
 <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=happydasch&repository=nspanel_haui&category=integration">
   <img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.">
 </a>
+
+---
+
+## What's New
+
+Recent additions to NSPanel HAUI:
+
+- **US portrait support** — the US NSPanel mounted vertically gets its own rotated TFT layout. Pick `European (standard)` or `US (portrait)` per device in the editor; edge-swipe gestures use the installed model's touch dimensions. See [Display Models](docs/configuration/display-models.md).
+- **Display-off schedule** — a daily window (overnight ranges supported) during which the display may turn off after `timeout_display_off` seconds of inactivity; outside the window it only dims. The hub applies the schedule itself, so no automation is needed. See [Device Configuration](docs/configuration/device.md).
+- **Quiet hours (Do Not Disturb)** — silence all notification sounds during a daily window while notifications are still queued and shown.
+- **Ack-required notifications** — keep re-alerting until someone presses *Acknowledge* on the panel; ideal for alarms. Per-notification `text_size` (`auto` or `1`–`3`) is also available.
+- **Universal prebuilt firmware** — one `nspanel_haui.bin` serves EU and US panels. Enter Wi-Fi once over the setup access point; the last six MAC digits are appended to the device name so one binary installs any number of panels.
+- **Gesture navigation** — swipe left/right through navigation panels, up to About, down to Settings. Named gesture sequences open a panel after a configured swipe pattern.
+- **Device discovery** — Device Manager → Scan finds ESPHome devices on your network and offers to add them.
 
 ---
 
@@ -84,12 +98,12 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
     <td align="center" valign="top" width="16%">
       <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/theme-light-dark.svg" width="32" height="32"><br>
       <b>Auto-Dimming</b><br>
-      <small>Smart display-off/wake,<br>ambient light sensor,<br>screensaver</small>
+      <small>Smart display-off/wake,<br>daily off schedule,<br>screensaver</small>
     </td>
     <td align="center" valign="top" width="16%">
       <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/tune.svg" width="32" height="32"><br>
       <b>Visual Editor</b><br>
-      <small>Built-in Lovelace panel<br>with live previews, drag<br>reorder, color pickers</small>
+      <small>Built-in Lovelace panel<br>with live previews,<br>reordering, color pickers</small>
     </td>
     <td align="center" valign="top" width="16%">
       <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/translate.svg" width="32" height="32"><br>
@@ -101,7 +115,7 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
     <td align="center" valign="top" width="16%">
       <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/bell-ring.svg" width="32" height="32"><br>
       <b>Notifications</b><br>
-      <small>Sound alerts, toasts,<br>notification queue<br>on display</small>
+      <small>Sound alerts, toasts,<br>ack-required alerts,<br>notification queue</small>
     </td>
     <td align="center" valign="top" width="16%">
       <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/lock.svg" width="32" height="32"><br>
@@ -233,7 +247,7 @@ NSPanel HAUI ships with a **fully integrated web frontend** — a custom Lovelac
 | **Entity assignment** | Pick entities from a searchable HA entity picker. Configure per-entity icons, display names, colors, and overrides. |
 | **Color editing** | Full color picker for device-level theme colors and per-item overrides. |
 | **Gesture & navigation** | Configure swipe directions, physical button actions, and auto-dimming behavior. |
-| **Multi-device** | Manage multiple NSPanels from a single Lovelace panel. Switch between devices, compare configs. |
+| **Multi-device** | Manage multiple NSPanels from a single Lovelace panel. Switch between devices and their settings. |
 | **Real-time status** | Live device connection status, uptime, firmware versions, and log viewer — all from the frontend. |
 
 The frontend is **automatically available** once the integration is added — no separate installation step needed. Open it from **NSPanel HAUI** in the Home Assistant sidebar (administrators only).

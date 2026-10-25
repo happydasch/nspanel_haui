@@ -288,8 +288,7 @@ async def test_idle(mock_hass, mock_nav, mock_esphome_ctrl):
 async def test_send_notification_passes_all_fields_to_controller(
     mock_hass, mock_nav, mock_esphome_ctrl
 ):
-    """The ESPHome actions only carry title/message/icon/timeout, so the
-    service must hand type and force_show to the controller directly."""
+    """The service hands type, force_show and require_ack to the controller."""
     app = _make_app(mock_nav, mock_esphome_ctrl)
     notif_ctrl = MagicMock()
     app.controller["notification"] = notif_ctrl
@@ -302,7 +301,6 @@ async def test_send_notification_passes_all_fields_to_controller(
         "title": "Alarm",
         "message": "Smoke detected",
         "icon": "mdi:fire",
-        "timeout": 30,
         "persistent": True,
         "type": "critical",
         "force_show": True,
@@ -314,7 +312,6 @@ async def test_send_notification_passes_all_fields_to_controller(
         title="Alarm",
         message="Smoke detected",
         icon="mdi:fire",
-        timeout=30,
         persistent=True,
         notif_type="critical",
         force_show=True,
@@ -343,7 +340,6 @@ async def test_send_notification_text_size_passthrough(mock_hass, mock_nav, mock
         title="Door",
         message="open",
         icon="",
-        timeout=0,
         persistent=False,
         notif_type="info",
         force_show=False,

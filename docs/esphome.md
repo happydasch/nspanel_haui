@@ -152,7 +152,7 @@ These are commands that are being executed on the ESP.
 - `goto_page` Sets the active page on display
 - `send_notification` Sends a notification to the display
 
-  Parameters: `title` (string), `message` (string), `icon` (string - optional; when empty, the notification uses its severity's default icon — these actions default to `info`, so the info icon is used). Optional: `timeout` (int, seconds; `0` = stays until dismissed, default `0`), `persistent` (bool; loops the alert sound until dismissed or the timeout expires, default `false`) and `text_size` (`"auto"` or a font size 1-3, default `"auto"`).
+  Parameters: `title` (string), `message` (string), `icon` (string - optional; when empty, the notification uses its severity's default icon — these actions default to `info`, so the info icon is used). Optional: `persistent` (bool; loops the alert sound until dismissed, default `false`) and `text_size` (`"auto"` or a font size 1-3, default `"auto"`).
 
   The action does not expose severity, force-show or acknowledgement fields, and `persistent` loops the sound without force-opening the popup.
 
@@ -235,7 +235,7 @@ Different ESP device events.
 - `send_notification` Notification Event:
 
   Published by the `send_notification` script
-  Value: JSON with `title`, `message`, `icon` (only if set), `timeout` and `persistent`
+  Value: JSON with `title`, `message`, `icon` (only if set), `persistent` and `text_size` (only if set)
 
 - `buffer_overflow` Nextion Buffer Overflow Event:
 
@@ -308,7 +308,7 @@ This actions below are defined on the ESP. The communication between the Hub ser
 
 - `send_notification` Action to send a notification to a display
 
-  Parameters: `title`, `message`, `icon`; optional `timeout` (int, seconds; `0` = stays until dismissed), `persistent` (bool; loops the alert sound until dismissed or the timeout expires) and `text_size` (`"auto"` or a font size 1-3). `persistent` does not force-open the popup.
+  Parameters: `title`, `message`, `icon`; optional `persistent` (bool; loops the alert sound until dismissed) and `text_size` (`"auto"` or a font size 1-3). `persistent` does not force-open the popup.
 
 - `req_val` / `req_txt` Actions to read a number / text value from the display (parameter `name`)
 

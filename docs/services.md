@@ -104,15 +104,16 @@ data:
 ### `nspanel_haui.send_notification`
 
 Show a notification on the panel with a title, message, severity level, and
-icon.  Supports auto-dismiss (timeout), persistent alerts that loop until
-dismissed on the panel or until their timeout expires, and force-show to
-interrupt whatever is displayed.  A persistent notification opens immediately.
+icon.  Notifications stay in the queue until they are dismissed on the panel
+(or replaced/cleared) — there is no automatic dismissal.  `persistent` loops
+the alert sound until dismissed, and `force_show` interrupts whatever is
+displayed to open the popup.
 When no icon is supplied, the severity selects a default one (`info` →
 `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` →
 `mdi:alert-octagon-outline`).
 See [Notifications](device.md#notifications) for how notifications are
 viewed and dismissed on the panel.  The ESPHome firmware also exposes
-`send_notification` action (title/message/icon + optional timeout/persistent), but this service is
+`send_notification` action (title/message/icon + optional persistent/text_size), but this service is
 the recommended path because it also carries severity and force-show.
 
 | Field | Required | Default | Description |
@@ -122,14 +123,14 @@ the recommended path because it also carries severity and force-show.
 | `message` | no | `""` | Body text (can be empty for a title-only alert) |
 | `icon` | no | severity default | Material Design Icon (e.g. `"mdi:bell"`). When omitted, the `type` selects the default icon |
 | `type` | no | `"info"` | Severity level — `"info"`, `"warning"`, or `"critical"`. Sets the icon colour in the popup; `critical` also plays the `alert` sound instead of `notification` |
-| `timeout` | no | `0` | Seconds until auto-dismiss. `0` = stays until dismissed. Also applies to persistent notifications, so a positive timeout ends the loop when it expires |
-| `persistent` | no | `false` | When `true`, notification sound loops until dismissed on the panel or the timeout expires, and the notification opens immediately |
+| `persistent` | no | `false` | When `true`, notification sound loops until dismissed on the panel, and the notification opens immediately |
 | `force_show` | no | `false` | When `true`, immediately opens the notification panel even if another panel is displayed |
-| `require_ack` | no | `false` | When `true`, the notification ignores `timeout`, cannot expire, and re-opens its popup periodically until someone presses **Acknowledge** on the panel. Implies `persistent` (looping alert sound). Use for alarms and other notifications that must not be missed |
+| `require_ack` | no | `false` | When `true`, the notification re-opens its popup periodically until someone presses **Acknowledge** on the panel. Implies `persistent` (looping alert sound). Use for alarms and other notifications that must not be missed |
 | `text_size` | no | `"auto"` | Popup body text size — `"auto"` (chosen from the message length) or a font size `1`-`3` |
 
 Sending a notification with the same title and message as one that is still
-queued replaces it: the sound plays again and the timeout restarts.
+queued replaces it: the sound plays again and the notification moves to the
+front of the queue.
 
 **Example automation action:**
 
@@ -141,7 +142,6 @@ data:
   message: Someone is at the front door
   icon: mdi:bell
   type: warning
-  timeout: 30
 ```
 
 ### `nspanel_haui.reset_last_interaction`
@@ -180,7 +180,7 @@ Two entities are created per device:
 | `notify.<device_name>_persistent_notification` | Persistent notification (sound loops until dismissed on the panel; opens immediately) |
 
 `notify.send_message` only takes a title and a message, so these entities
-cannot set a timeout, severity, or force-show — use
+cannot set a severity, or force-show — use
 `nspanel_haui.send_notification` for those. When no title is given, "Home Assistant"
 is used. The entities are only created once the device is linked to its ESPHome
 device.
@@ -255,27 +255,16 @@ fields:
     default: ""
     selector:
       icon:
-  timeout:
-    name: Display time
-    description: Seconds until the popup dismisses. 0 = stays until dismissed.
-    default: 60
-    selector:
-      number:
-        min: 0
-        max: 3600
-        unit_of_measurement: s
-        mode: box
   persistent:
     name: Loop sound
-    description: Loop the alert sound until dismissed or the timeout expires.
+    description: Loop the alert sound until dismissed.
     default: false
     selector:
       boolean:
   require_ack:
     name: Require acknowledgement
     description: >-
-      Keep reopening the popup until Acknowledge is pressed. Implies persistent
-      and ignores timeout.
+      Keep reopening the popup until Acknowledge is pressed. Implies persistent.
     default: false
     selector:
       boolean:
@@ -301,16 +290,15 @@ sequence:
         nspanel_devices.salon) }}
       type: "{{ type | default('info') }}"
       icon: "{{ icon | default('') }}"
-      timeout: "{{ timeout | default(60) | int(0) }}"
       persistent: "{{ persistent | default(false) | bool }}"
       require_ack: "{{ require_ack | default(false) | bool }}"
       force_show: "{{ force_show | default(true) | bool }}"
 mode: single
 ```
 
-The service accepts `type`, `icon`, `timeout`, `persistent`, `require_ack` and
-`force_show`, so one script covers the full range of behaviour: a transient
-info popup (the defaults), a warning with a custom icon, or a critical alert
+The service accepts `type`, `icon`, `persistent`, `require_ack` and
+`force_show`, so one script covers the full range of behaviour: an info
+popup (the defaults), a warning with a custom icon, or a critical alert
 that loops the sound and requires acknowledgement. Expose the script to the
 conversation agent; the LLM reads its description and field descriptions when
 deciding how to call it.
@@ -427,7 +415,7 @@ Assistant event bus** so automations can react to what happens on the panel.
 | Event | Payload | When |
 |-------|---------|------|
 | `nspanel_haui.page_changed` | `device`, `action` (`opened`/`closed`), `panel` (key), `type`, `title`, `page` (Nextion page name) | Whenever a panel is opened through the render pipeline or closed |
-| `nspanel_haui.notification` | `device`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `require_ack`, `timeout` | Whenever a notification is queued or dismissed |
+| `nspanel_haui.notification` | `device`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `require_ack` | Whenever a notification is queued or dismissed |
 | `nspanel_haui.connection_changed` | `device`, `connected` (bool) | Whenever the hub's connection to the panel device changes |
 
 All events carry the device name in `event.data.device`, so a single

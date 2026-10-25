@@ -121,10 +121,9 @@ class _NotifApp(_App):
 def test_require_ack_is_stored_and_forces_persistent_loop():
     app = _NotifApp()
     ctrl = HAUINotificationController(app, {})
-    n = ctrl.add_notification("Alarm", "Smoke", timeout=30, require_ack=True)
+    n = ctrl.add_notification("Alarm", "Smoke", require_ack=True)
     assert n.require_ack is True
     assert n.persistent is True  # implied
-    assert n.timeout == 0  # never auto-expires
 
 
 def test_require_ack_schedules_re_alert_loop():
@@ -157,7 +156,7 @@ def test_open_notification_ack_button_label():
     nav = MagicMock()
     app.controller["navigation"] = nav
     # Directly test the button label logic by opening a require_ack notification
-    n = Notification("T", "M", "", 0, True, "critical", False, True)
+    n = Notification("T", "M", "", True, "critical", False, True)
     ctrl.translate = lambda s: s
     ctrl.open_notification(n)
     kwargs = nav.open_panel.call_args[1]

@@ -15,7 +15,14 @@ and follow [Semantic Versioning](https://semver.org/).
   are kept; update automations and dashboard entity references.
 - **ESPHome API names changed** — the display actions and events use explicit
   display-on/display-off names, and notification actions are consolidated into
-  one action with optional `timeout`, `persistent` and `text_size` variables.
+  one action with optional `persistent` and `text_size` variables.
+- **Notification auto-dismiss was removed** — the `timeout` field is gone from
+  `nspanel_haui.send_notification`, the ESPHome `send_notification` action/event
+  and the `nspanel_haui.notification` event. Notifications stay in the queue
+  until dismissed on the panel, replaced or cleared; queued notifications play
+  through one popup after another. For alarms that must be acknowledged, use
+  `require_ack: true` (it re-opens the popup periodically until **Acknowledge**
+  is pressed).
 - **Saved panels are not migrated** — re-enter pre-0.4 panel settings in the
   editor and verify forecast type and panel navigation settings. (Device
   settings *are* migrated automatically; see **Fixed** below and the
@@ -59,10 +66,9 @@ and follow [Semantic Versioning](https://semver.org/).
   matching TFT release asset and per-device US time/date formats
   (`%I:%M %p`, `%m/%d/%Y`). The US portrait TFT ships with the release.
 - **Ack-required notifications** — `require_ack` re-opens the popup and loops
-  the alert sound until the user presses **Acknowledge**; such notifications
-  ignore `timeout` and cannot expire while unacknowledged.
+  the alert sound until the user presses **Acknowledge**.
 - **Notification services and entities** — the new `nspanel_haui.send_notification`
-  service (title, message, icon, timeout, severity, persistent, force-show,
+  service (title, message, icon, severity, persistent, force-show,
   acknowledge and text-size fields), standard `notify.<device>` /
   `notify.<device>_persistent_notification` entities, the
   `nspanel_haui.reset_last_interaction` service, and the renamed `idle` service

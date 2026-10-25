@@ -100,13 +100,21 @@ The four notification actions are **one action** now:
 | Old | Use instead |
 |-----|-------------|
 | `send_notification` | `send_notification` (with optional variables, see below) |
-| `send_notification_with_timeout` | `send_notification` with `timeout` |
+| `send_notification_with_timeout` | `send_notification` (timeouts no longer exist — notifications stay until dismissed) |
 | `send_notification_persistent` | `send_notification` with `persistent: true` |
-| `send_notification_persistent_with_timeout` | `send_notification` with `timeout` + `persistent: true` |
+| `send_notification_persistent_with_timeout` | `send_notification` with `persistent: true` (timeouts no longer exist) |
 
-Optional variables on `send_notification`: `timeout` (int, seconds; `0` =
-until dismissed), `persistent` (bool; loops the alert sound), `text_size`
-(`"auto"` or a font size 1-3).
+Optional variables on `send_notification`: `persistent` (bool; loops the
+alert sound until dismissed), `text_size` (`"auto"` or a font size 1-3).
+
+**Notification `timeout` was removed.** Notifications no longer auto-dismiss:
+an entry stays in the queue until it is dismissed on the panel, replaced by an
+identical title+message, or cleared. The `timeout` field on
+`nspanel_haui.send_notification`, the `send_notification` action and the
+`nspanel_haui.notification` event is gone — remove it from automations and
+scripts. For alerts that must be acknowledged no matter what, use
+`require_ack: true` instead (it re-opens the popup periodically until
+**Acknowledge** is pressed).
 
 ### ESP events
 

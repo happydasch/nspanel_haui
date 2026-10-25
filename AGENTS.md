@@ -369,17 +369,24 @@ Notification delivery has three entry points; the HA service is the recommended 
 
 | Entry point | Options | Notes |
 |-------------|---------|-------|
-| `nspanel_haui.send_notification` service | title, message, icon, type, timeout, persistent, force_show, require_ack | Goes straight to the notification controller; carries severity (`type`) and force-show |
-| `notify.<device>` / `notify.<device>_persistent_notification` | title, message only | The regular entity queues; the persistent entity always opens immediately (force-show) and loops the sound. Neither accepts a configurable timeout, severity, or force-show |
-| ESPHome `send_notification` action | title, message, icon + optional timeout / persistent / text_size | No severity, force-show, or acknowledgement fields |
+| `nspanel_haui.send_notification` service | title, message, icon, type, persistent, force_show, require_ack | Goes straight to the notification controller; carries severity (`type`) and force-show |
+| `notify.<device>` / `notify.<device>_persistent_notification` | title, message only | The regular entity queues; the persistent entity always opens immediately (force-show) and loops the sound. Neither accepts a configurable severity or force-show |
+| ESPHome `send_notification` action | title, message, icon + optional persistent / text_size | No severity, force-show, or acknowledgement fields |
 
 Key semantics:
 
-- `persistent=true` loops the sound until the notification is dismissed **or its timeout expires**, and opens the popup immediately. A positive `timeout` still expires a persistent notification, so "persistent" means "looping", not "immune to timeout".
-- `require_ack=true` implies `persistent` and makes the notification unexpirable: it cannot time out and re-opens its popup periodically (`re_alert_interval`, default 60 s) until the user presses **Acknowledge**.
+- Notifications **never auto-dismiss**: an entry stays in the queue until it is
+  dismissed on the panel, replaced by an identical title+message, or cleared.
+  The notification queue plays through — when the current popup is dismissed
+  while more are queued, the next one opens in its place (`notification._advance_queue`).
+  A new force-show notification never rips an open notification popup/list away:
+  it waits in the queue instead. This is the "notifications are shown only once"
+  regression guard — do not pass a `close_timeout` to queued-notification popups.
+- `persistent=true` loops the sound until the notification is dismissed, and opens the popup immediately (the service forces it; the ESPHome action does not).
+- `require_ack=true` implies `persistent` and re-opens its popup periodically (`re_alert_interval`, default 60 s) until the user presses **Acknowledge** — the only "repeat until acknowledged" guarantee left now that nothing times out.
 - An empty `icon` falls back to a severity default (`info` → `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` → `mdi:alert-octagon-outline`). `critical` also plays the `alert` sound instead of `notification`.
 - Long messages scroll horizontally (marquee) in the detail popup; the queue selection list shows plain titles.
-- Sending a notification with the same title and message as one already queued replaces it: the sound replays and the timeout restarts.
+- Sending a notification with the same title and message as one already queued replaces it: the sound replays and the queue advances to it when the current popup closes.
 
 Idle page vs. display state (important): the **idle page** is the configured automatic page switch, tracked by `navigation.idle_panel_active`. It is independent of the firmware's display brightness machine: the display can be off without a page switch, and the idle page can be shown while the display is still on.
 

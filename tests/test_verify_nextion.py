@@ -29,21 +29,27 @@ def test_parse_dump_reads_page_files():
 
 
 def test_t_time_disabled_fails():
-    page = {"text": "Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: disabled\n"}  # noqa: E501
+    page = {
+        "text": "Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: disabled\n"
+    }  # noqa: E501
     ok, msg = check_t_time_sendme(page)
     assert not ok
     assert "disabled" in msg
 
 
 def test_t_time_on_press_passes():
-    page = {"text": "Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: on press\n"}  # noqa: E501
+    page = {
+        "text": "Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: on press\n"
+    }  # noqa: E501
     ok, _ = check_t_time_sendme(page)
     assert ok
 
 
 def test_t_time_other_enabled_modes_pass():
     for mode in ("on release", "on press and release"):
-        page = {"text": f"Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: {mode}\n"}  # noqa: E501
+        page = {
+            "text": f"Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: {mode}\n"
+        }  # noqa: E501
         ok, _ = check_t_time_sendme(page)
         assert ok, mode
 
@@ -74,13 +80,17 @@ def test_t_time_missing_widget_block_fails():
 
 
 def test_tft_version_matches():
-    page = {"text": "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.4.0\n"}  # noqa: E501
+    page = {
+        "text": "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.4.0\n"
+    }  # noqa: E501
     ok, msg = check_tft_version(page, "0.4.0")
     assert ok, msg
 
 
 def test_tft_version_mismatch_fails():
-    page = {"text": "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.3.3\n"}  # noqa: E501
+    page = {
+        "text": "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.3.3\n"
+    }  # noqa: E501
     ok, msg = check_tft_version(page, "0.4.0")
     assert not ok
     assert "0.3.3" in msg
@@ -143,6 +153,7 @@ def test_portrait_copy_with_only_text_edits_fails_geometry(tmp_path):
     ok, msg = check_portrait(hmi, dump)
     assert not ok
     assert "rotate" in msg
+
 
 # portrait touch parity
 

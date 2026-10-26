@@ -150,9 +150,7 @@ class HAUINavigationController(HAUIBase):
         if log:
             if not self._idle_panels:
                 if self.app.device.get("idle_panel"):
-                    self.log(
-                        f"Idle panel key '{self.app.device.get('idle_panel')}' not found"
-                    )
+                    self.log(f"Idle panel key '{self.app.device.get('idle_panel')}' not found")
             else:
                 self.log(
                     "Idle panel carousel: "
@@ -195,9 +193,7 @@ class HAUINavigationController(HAUIBase):
                 "type": panel.get_type(),
                 "title": panel.get_title(),
                 "page": (
-                    PAGE_MAPPING.get(page_id, panel.get_type())
-                    if page_id
-                    else panel.get_type()
+                    PAGE_MAPPING.get(page_id, panel.get_type()) if page_id else panel.get_type()
                 ),
             },
         )

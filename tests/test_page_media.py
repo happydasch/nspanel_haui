@@ -156,9 +156,7 @@ def test_track_controls_enabled_without_queue_attributes(monkeypatch):
     ],
 )
 def test_group_button_follows_group_members(monkeypatch, group_members, group_items, visible):
-    item = _MediaItem(
-        "playing", {"supported_features": F.GROUPING, "group_members": group_members}
-    )
+    item = _MediaItem("playing", {"supported_features": F.GROUPING, "group_members": group_members})
 
     page = _show(monkeypatch, item, group_items=group_items)
 

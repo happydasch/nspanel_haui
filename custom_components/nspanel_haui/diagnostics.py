@@ -76,8 +76,7 @@ async def async_get_device_diagnostics(
     apps = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
     for name, app in apps.items():
         if any(
-            identifier[0] == DOMAIN and identifier[1] == name
-            for identifier in device.identifiers
+            identifier[0] == DOMAIN and identifier[1] == name for identifier in device.identifiers
         ):
             return _app_snapshot(app)
     return {

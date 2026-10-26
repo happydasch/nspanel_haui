@@ -216,13 +216,15 @@ LAYOUT: dict[str, dict[str, Rect]] = {
 }
 
 # Slider cursors plus the page-background colour of every solid widget (theme.py).
-ATTRS: dict[str, dict[str, dict[str, int]]] = with_theme({
-    "settings": {"hBrght": _H_SLIDER, "hBrghtDim": _H_SLIDER},
-    "light": {"hBrightness": _V_SLIDER, "hColorTemp": _V_SLIDER},
-    "cover": {"hVertPos": _V_SLIDER},
-    "media": {"hVolume": _H_SLIDER},
-    "row": {f"r{i + 1}Slider": _ROW_SLIDER for i in range(5)},
-})
+ATTRS: dict[str, dict[str, dict[str, int]]] = with_theme(
+    {
+        "settings": {"hBrght": _H_SLIDER, "hBrghtDim": _H_SLIDER},
+        "light": {"hBrightness": _V_SLIDER, "hColorTemp": _V_SLIDER},
+        "cover": {"hVertPos": _V_SLIDER},
+        "media": {"hVolume": _H_SLIDER},
+        "row": {f"r{i + 1}Slider": _ROW_SLIDER for i in range(5)},
+    }
+)
 
 
 def check_bounds() -> list[str]:

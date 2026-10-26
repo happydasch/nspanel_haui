@@ -409,9 +409,7 @@ def _items():
         ),
         "light.c": _Entity("on", {"friendly_name": "Lamp"}),
         "switch.d": _Entity("off", {"friendly_name": "Plug"}),
-        "input_number.e": _Entity(
-            "21", {"friendly_name": "Num", "min": 15, "max": 30, "step": 1}
-        ),
+        "input_number.e": _Entity("21", {"friendly_name": "Num", "min": 15, "max": 30, "step": 1}),
         "sensor.f": _Entity("5", {"friendly_name": "Sensor"}),
         "button.g": _Entity("unknown", {"friendly_name": "Btn"}),
     }
@@ -429,9 +427,7 @@ def _next_page_id(page):
 def test_row_and_grid_paging(cls):
     entities = _items()
     keys = list(entities)
-    app, page = _show(
-        cls, 20, {"type": cls.DESCRIPTOR.type_key, "items": _entries(keys)}, entities
-    )
+    app, page = _show(cls, 20, {"type": cls.DESCRIPTOR.type_key, "items": _entries(keys)}, entities)
     page_name = cls.DESCRIPTOR.type_key
     steps = []
     for _ in range(3):

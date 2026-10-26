@@ -363,7 +363,7 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         else:
             try:
                 value = int(float(data.get("value", 0)))
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 self.log(f"Invalid read_response value for {name}: {data.get('value')!r}")
                 return
         _comp, handler = entry

@@ -199,7 +199,9 @@ def test_missing_release_for_the_required_version_installs_nothing(monkeypatch):
 
 def test_no_check_while_disconnected(monkeypatch):
     ctrl, app, fetches = _updater(
-        monkeypatch, {"yaml_version": "0.4.0", "tft_version": "0.3.3"}, [_release("0.4.0")],
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.3.3"},
+        [_release("0.4.0")],
         connected=False,
     )
 
@@ -219,6 +221,7 @@ def test_new_release_check_only_notifies(monkeypatch):
     ((key, kwargs),) = app.opened
     assert key == SysPanelKey.POPUP_NOTIFY
     assert "button_callback_fnc" not in kwargs
+
 
 def test_tft_install_reports_state_transitions(monkeypatch):
     ctrl, app, _ = _updater(
@@ -247,9 +250,7 @@ def test_tft_install_defaults_to_the_firmwares_yaml_version(monkeypatch):
 
 
 def test_tft_install_without_release_moves_to_error(monkeypatch):
-    ctrl, app, _ = _updater(
-        monkeypatch, {"yaml_version": "0.4.0", "tft_version": "0.3.3"}, []
-    )
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.0", "tft_version": "0.3.3"}, [])
 
     ctrl.install_tft("0.4.0")
 

@@ -39,9 +39,7 @@ class _Number:
 class _App:
     def __init__(self, items, name="panel", slug="panel"):
         self.items = items
-        self.device = type(
-            "Device", (), {"get_name": lambda s: name, "get_slug": lambda s: slug}
-        )()
+        self.device = type("Device", (), {"get_name": lambda s: name, "get_slug": lambda s: slug})()
 
     def get_item(self, entity_id):
         return self.items[entity_id]

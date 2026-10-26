@@ -538,7 +538,6 @@ class HAAdapter:
         """
         return str(self.hass.config.units.temperature_unit)
 
-
     def get_timezone(self) -> str:
         """Return HA's IANA timezone identifier (e.g. "Europe/Berlin")."""
         return str(self.hass.config.time_zone)

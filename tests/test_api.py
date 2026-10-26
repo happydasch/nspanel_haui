@@ -545,10 +545,16 @@ def test_firmware_download_resolves_the_latest_binary_asset(monkeypatch):
                     "tag_name": "v0.4.0",
                     "assets": [{"name": "nspanel_haui.tft", "browser_download_url": "/tft"}],
                 },
-                {"tag_name": "v0.3.3", "assets": [
-                    {"name": "nspanel_haui.tft", "browser_download_url": "/tft-0.3.3"},
-                    {"name": "nspanel_haui.bin", "browser_download_url": "/esp/nspanel_haui.bin"},
-                ]},
+                {
+                    "tag_name": "v0.3.3",
+                    "assets": [
+                        {"name": "nspanel_haui.tft", "browser_download_url": "/tft-0.3.3"},
+                        {
+                            "name": "nspanel_haui.bin",
+                            "browser_download_url": "/esp/nspanel_haui.bin",
+                        },
+                    ],
+                },
             ]
         ),
     )
@@ -580,8 +586,7 @@ def test_firmware_download_without_a_binary_returns_no_url(monkeypatch):
     assert result["status_code"] == 200
     assert result["body"] == {"url": None, "version": None}
 
-
-# --- YAML import pushes like a panel save ----------------------------------
+    # --- YAML import pushes like a panel save ----------------------------------
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
     app = _WorkerApp()

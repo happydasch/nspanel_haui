@@ -286,9 +286,7 @@ def test_config_model_defaults_match_device_config():
 def _device_config_base() -> dict:
     """Full device-config dict without the identity keys (as in _build_config_dict)."""
     return {
-        k: v
-        for k, v in DEVICE_CONFIG.items()
-        if k not in ("name", "panels", "esphome_device_id")
+        k: v for k, v in DEVICE_CONFIG.items() if k not in ("name", "panels", "esphome_device_id")
     }
 
 

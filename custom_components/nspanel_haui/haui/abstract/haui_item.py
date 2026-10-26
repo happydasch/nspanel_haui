@@ -239,7 +239,7 @@ class HAUIItem(HAUIConfigAccess):
         if isinstance(state, str) and state.startswith("["):
             try:
                 state = json.loads(state)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 pass
         return self._entity.get_entity_attr(state, None)
 

@@ -15,9 +15,7 @@ class _Panel:
 
 def test_intro_text_full_hour_default_matches_descriptor():
     """The editor shows the descriptor default for panels without the key."""
-    (option,) = [
-        o for o in ClockTwoPage.DESCRIPTOR.options if o.key == "show_intro_text_full_hour"
-    ]
+    (option,) = [o for o in ClockTwoPage.DESCRIPTOR.options if o.key == "show_intro_text_full_hour"]
     page = ClockTwoPage.__new__(ClockTwoPage)
     page.get_color = lambda key: 0
     page.render_template = lambda template, parse_icons=True: template

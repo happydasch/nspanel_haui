@@ -175,9 +175,7 @@ def test_sleep_button_arms_touch_grace_before_opening_sleep():
     duplicate from dismissing the just-opened idle page. Arming happens
     before open_idle_panel() so the window is live the moment it opens.
     """
-    page, panel = _build(
-        {**HOME, "show_idle_button": True, "show_notifications_button": False}
-    )
+    page, panel = _build({**HOME, "show_idle_button": True, "show_notifications_button": False})
     page._auto_assign_fncs(panel)
 
     page.callback_function_components(None, Component(4, "bFncLSec"), 0)

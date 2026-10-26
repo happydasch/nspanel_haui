@@ -47,8 +47,8 @@ class HAUIConfig(HAUIConfigAccess):
             cfg["device"] = device.model_dump(exclude_unset=True)
         # load all panels
         panels_to_load = list(self.get("panels")) + list(self.get("sys_panels"))
-        self._panels, self._panels_by_id, self._panels_by_key = (
-            self._build_panel_lists(self.app, panels_to_load)
+        self._panels, self._panels_by_id, self._panels_by_key = self._build_panel_lists(
+            self.app, panels_to_load
         )
 
     @staticmethod

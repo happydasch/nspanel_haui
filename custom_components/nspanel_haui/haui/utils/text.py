@@ -135,14 +135,14 @@ def chunk_text(text: str, chars_per_line: int, lines: int) -> list[str]:
         return []
 
     # Normalize line endings
-    text = text.replace('\r\n', '\n').replace('\r', '\n')
-    logical_lines = text.split('\n')
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    logical_lines = text.split("\n")
 
     wrapped_lines = []
     for line in logical_lines:
         line = line.rstrip()
         while len(line) > chars_per_line:
-            break_at = line.rfind(' ', 0, chars_per_line)
+            break_at = line.rfind(" ", 0, chars_per_line)
             if break_at == -1:
                 break_at = chars_per_line
             wrapped_lines.append(line[:break_at].rstrip())
@@ -154,15 +154,15 @@ def chunk_text(text: str, chars_per_line: int, lines: int) -> list[str]:
     max_len = chars_per_line * lines
 
     for line in wrapped_lines:
-        candidate = '\n'.join(current_page + [line])
+        candidate = "\n".join(current_page + [line])
         if len(candidate) > max_len and current_page:
-            pages.append('\n'.join(current_page).strip())
+            pages.append("\n".join(current_page).strip())
             current_page = [line]
         else:
             current_page.append(line)
 
     if current_page:
-        pages.append('\n'.join(current_page).strip())
+        pages.append("\n".join(current_page).strip())
 
     while pages and not pages[-1]:
         pages.pop()

@@ -426,7 +426,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
         max_age = self.app.device.get("stale_data_seconds", 0)
         try:
             max_age = int(max_age)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             max_age = 0
         return haui_item.is_stale(max_age)
 

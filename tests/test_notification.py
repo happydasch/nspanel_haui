@@ -547,8 +547,8 @@ def test_force_show_dismissed_popup_advances_to_next_queued(loop_ctrl):
     first = nav.opens[0][1]
 
     first["button_callback_fnc"](False, True)  # Dismiss
-    first["close_callback_fnc"]()              # popup closes (navigation)
-    nav.current = None                         # ...back on a normal panel
+    first["close_callback_fnc"]()  # popup closes (navigation)
+    nav.current = None  # ...back on a normal panel
     advance = _advance_timers(app)
     assert advance, "dismissing a popup with more queued must arm the advance"
     advance[0]({})
@@ -647,6 +647,7 @@ def test_persistent_notification_re_opens_popup_periodically(loop_ctrl):
     # Dismissing the notification stops the re-alert loop.
     ctrl.remove_notification(ctrl.get_notifications()[0])
     assert not [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
+
 
 def test_non_critical_persistent_alert_does_not_hijack_idle_page(loop_ctrl):
     """A non-critical persistent alert waits for the user to leave the idle page."""

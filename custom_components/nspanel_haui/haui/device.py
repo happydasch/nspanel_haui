@@ -184,16 +184,10 @@ class HAUIDevice(HAUIBase):
         item = self.app.get_item(switch_entity_id)
         is_on = item.get_state() == "on"
         if hub_value and not is_on:
-            self.log(
-                f"Syncing {switch_entity_id} ON "
-                f"({reason or f'hub config {hub_key}=True'})"
-            )
+            self.log(f"Syncing {switch_entity_id} ON ({reason or f'hub config {hub_key}=True'})")
             item.turn_on()
         elif not hub_value and is_on:
-            self.log(
-                f"Syncing {switch_entity_id} OFF "
-                f"({reason or f'hub config {hub_key}=False'})"
-            )
+            self.log(f"Syncing {switch_entity_id} OFF ({reason or f'hub config {hub_key}=False'})")
             item.turn_off()
 
     def _sync_config_number(self, hub_key: str, number_entity_id: str) -> None:
@@ -495,7 +489,7 @@ class HAUIDevice(HAUIBase):
         try:
             start_time = datetime.strptime(start, "%H:%M").time()
             end_time = datetime.strptime(end, "%H:%M").time()
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             # Not raised: callers decide whether to play a sound, and an exception
             # there would also abort what follows (e.g. the startup navigation).
             self.log(
@@ -530,7 +524,7 @@ class HAUIDevice(HAUIBase):
         try:
             start_time = datetime.strptime(start, "%H:%M").time()
             end_time = datetime.strptime(end, "%H:%M").time()
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             self.log(
                 f"Ignoring sleep schedule: expected HH:MM, got start={start!r} end={end!r}",
                 level="WARNING",
@@ -557,7 +551,7 @@ class HAUIDevice(HAUIBase):
         try:
             start_time = datetime.strptime(start, "%H:%M").time()
             end_time = datetime.strptime(end, "%H:%M").time()
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
         now = (now or datetime.now()).replace(second=0, microsecond=0)
         candidates = [

@@ -20,9 +20,7 @@ def _import_sensor(monkeypatch: MonkeyPatch):
     registry = types.ModuleType("homeassistant.helpers.device_registry")
     registry.DeviceInfo = dict
     entity_mod = types.ModuleType("homeassistant.helpers.entity")
-    entity_mod.EntityCategory = type(
-        "EntityCategory", (), {"DIAGNOSTIC": "diagnostic"}
-    )
+    entity_mod.EntityCategory = type("EntityCategory", (), {"DIAGNOSTIC": "diagnostic"})
     monkeypatch.setitem(sys.modules, "homeassistant.components.sensor", sensor_mod)
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.device_registry", registry)
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity", entity_mod)
@@ -71,9 +69,7 @@ def test_page_event_for_another_device_is_ignored(monkeypatch):
     sensor = _import_sensor(monkeypatch)
     entity = _entity(sensor)
 
-    asyncio.run(
-        entity._async_page_changed(_event({"device": "office", "page": "clock"}))
-    )
+    asyncio.run(entity._async_page_changed(_event({"device": "office", "page": "clock"})))
 
     assert entity._attr_native_value is None
     assert entity._attr_available is False
@@ -85,15 +81,11 @@ def test_connection_changed_toggles_availability(monkeypatch):
     entity._attr_native_value = "clock"
     entity._attr_available = True
 
-    asyncio.run(
-        entity._async_connection_changed(_event({"device": "kitchen", "connected": False}))
-    )
+    asyncio.run(entity._async_connection_changed(_event({"device": "kitchen", "connected": False})))
     assert entity._attr_available is False
     assert entity._attr_native_value is None
 
-    asyncio.run(
-        entity._async_connection_changed(_event({"device": "kitchen", "connected": True}))
-    )
+    asyncio.run(entity._async_connection_changed(_event({"device": "kitchen", "connected": True})))
     assert entity._attr_available is True
 
 

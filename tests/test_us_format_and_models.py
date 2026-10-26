@@ -180,6 +180,7 @@ class _CarouselApp(_App):
     def __init__(self, panels, **device_cfg):
         super().__init__(device_cfg, {})
         self.device_cfg = device_cfg  # mutable reference for config-change tests
+
         def _dev_get(key, d=None):
             if key == "debug_level":
                 return 0

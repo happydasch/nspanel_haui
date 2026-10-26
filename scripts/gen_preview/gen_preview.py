@@ -234,7 +234,7 @@ def _import_page_classes() -> dict[str, type]:
             d = getattr(cls, "DESCRIPTOR", None)
             if d is not None:
                 classes[d.type_key] = cls
-        except (ImportError, ModuleNotFoundError):
+        except ImportError, ModuleNotFoundError:
             pass
     return classes
 

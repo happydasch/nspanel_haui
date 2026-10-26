@@ -80,7 +80,7 @@ def read_json_or_empty(path: str) -> dict:
     try:
         with open(path) as f:
             return json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return {}
 
 

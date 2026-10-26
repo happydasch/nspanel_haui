@@ -87,7 +87,7 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
             for dev_entry in dr.async_entries_for_config_entry(dev_reg, entry_id):
                 if _is_haui_registry_device(dev_entry):
                     return True
-    except (ImportError, AttributeError, KeyError, TypeError):
+    except ImportError, AttributeError, KeyError, TypeError:
         _LOGGER.debug("is_haui_device device registry check failed", exc_info=True)
 
     # Strategy 2: ESPHome runtime device_info (device currently online).
@@ -105,7 +105,7 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
                         return True
                     if hasattr(di, "model") and di.model and _HAUI_MODEL in di.model:
                         return True
-        except (AttributeError, KeyError, TypeError):
+        except AttributeError, KeyError, TypeError:
             _LOGGER.debug("is_haui_device device_info check failed", exc_info=True)
 
     # Strategy 3: entity registry — look up entities tied to this config
@@ -131,15 +131,13 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
                     continue
                 if _is_haui_registry_device(dev):
                     return True
-    except (ImportError, AttributeError, KeyError, TypeError):
+    except ImportError, AttributeError, KeyError, TypeError:
         _LOGGER.debug("is_haui_device entity registry check failed", exc_info=True)
 
     return False
 
 
-def read_network_entities(
-    hass: Any, device_name: str, entity_resolver: Any = None
-) -> dict:
+def read_network_entities(hass: Any, device_name: str, entity_resolver: Any = None) -> dict:
     """Read WiFi/network info from HA sensor entities for a device.
 
     Returns {ip, ssid, rssi} from entity states only.
@@ -222,7 +220,7 @@ def lookup_device_registry_name(hass: Any, node_name: str) -> str:
         from homeassistant.helpers import device_registry as dr
 
         dev_reg = dr.async_get(hass)
-    except (ImportError, AttributeError):
+    except ImportError, AttributeError:
         return node_name
 
     try:
@@ -234,7 +232,7 @@ def lookup_device_registry_name(hass: Any, node_name: str) -> str:
                     return dev_entry.name_by_user
                 if dev_entry.name:
                     return dev_entry.name
-    except (AttributeError, KeyError, TypeError):
+    except AttributeError, KeyError, TypeError:
         pass
 
     return node_name

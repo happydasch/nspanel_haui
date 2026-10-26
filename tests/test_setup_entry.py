@@ -390,9 +390,7 @@ def test_new_app_initializes_on_its_worker(monkeypatch):
     monkeypatch.setattr(nspanel_haui, "_build_config_dict", lambda *a, **kw: {})
     monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: None)
 
-    app = asyncio.run(
-        nspanel_haui._create_app(_Hass(), _Entry([]), "Hub", {}, None, "kitchen")
-    )
+    app = asyncio.run(nspanel_haui._create_app(_Hass(), _Entry([]), "Hub", {}, None, "kitchen"))
 
     assert app.calls == ["worker", "initialize"]
 

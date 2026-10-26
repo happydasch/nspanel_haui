@@ -154,6 +154,7 @@ async def _device_action(
         return
 
     for dev_name, app in targets:
+
         def _do(app=app, dev_name=dev_name) -> None:
             if wake_first:
                 _wake_display(app)

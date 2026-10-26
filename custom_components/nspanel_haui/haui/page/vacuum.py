@@ -38,7 +38,7 @@ def _battery_icon_name(level: Any) -> str:
     """
     try:
         pct = max(0.0, min(100.0, float(level)))
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return "mdi:battery"
     step = int(round(pct / BATTERY_ICON_STEP)) * BATTERY_ICON_STEP
     return f"mdi:battery-{step}"
@@ -151,9 +151,7 @@ class VacuumPage(HAUIPage):
         self._vacuum_item = item
         # the battery sensor is independent of the vacuum entity
         if self._battery_item is not None and self._battery_item.has_item_id():
-            self.add_item_listener(
-                self._battery_item.get_item_id(), self.callback_battery_entity
-            )
+            self.add_item_listener(self._battery_item.get_item_id(), self.callback_battery_entity)
         if not item or not item.has_item_id():
             return
         # add listener (vacuum entities report their activity as the state)
@@ -263,9 +261,7 @@ class VacuumPage(HAUIPage):
             icon = _battery_icon_name(self._battery_item.get_item_state())
         if icon is None:
             return
-        self.update_function_component(
-            self.FNC_BTN_R_SEC, icon=get_icon(icon), visible=True
-        )
+        self.update_function_component(self.FNC_BTN_R_SEC, icon=get_icon(icon), visible=True)
 
     # callback
 

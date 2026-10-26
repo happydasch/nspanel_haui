@@ -605,7 +605,7 @@ class LightPage(HAUIPage):
                         try:
                             pos_x = int(parts[-2])
                             pos_y = int(parts[-1])
-                        except (ValueError, TypeError):
+                        except ValueError, TypeError:
                             pass
                 if pos_x > 0 and pos_y > 0:
                     rect_x, rect_y = self.color_rect_origin()

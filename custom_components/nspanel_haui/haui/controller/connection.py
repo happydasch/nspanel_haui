@@ -432,7 +432,7 @@ class HAUIConnectionController(HAUIBase):
                 if dev_interval > 0.5:
                     self._heartbeat_interval = dev_interval
                     self.log(f"Device heartbeat interval: {self._heartbeat_interval}s")
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 self.log(
                     "Invalid heartbeat_interval from device, using default",
                     level="WARNING",

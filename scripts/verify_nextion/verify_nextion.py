@@ -177,10 +177,7 @@ def _layout_signature(page_text: str) -> list[tuple[int, int, int, int]]:
         r"x coordinate\s*:\s*(\d+)\s*\n\s*y coordinate\s*:\s*(\d+)\s*\n"
         r"\s*Width\s*:\s*(\d+)\s*\n\s*Height\s*:\s*(\d+)"
     )
-    return [
-        (int(x), int(y), int(w), int(h))
-        for x, y, w, h in pat.findall(page_text)
-    ]
+    return [(int(x), int(y), int(w), int(h)) for x, y, w, h in pat.findall(page_text)]
 
 
 def check_portrait(hmi: Path, landscape_dump: Path) -> tuple[bool, str]:
@@ -264,9 +261,7 @@ def main() -> int:
         return 2
 
     # Regenerate the dump so the checks always run against the current HMI.
-    portrait_hmi = args.hmi.with_name(
-        args.hmi.stem.replace("_haui", "_haui_portrait") + ".HMI"
-    )
+    portrait_hmi = args.hmi.with_name(args.hmi.stem.replace("_haui", "_haui_portrait") + ".HMI")
     portrait_dump = args.dump.with_name(args.dump.name + "-portrait")
 
     def _dump(hmi_path: Path, out_dir: Path) -> None:
@@ -274,9 +269,14 @@ def main() -> int:
             [
                 sys.executable,
                 str(ROOT / "scripts" / "nextion2text" / "Nextion2Text.py"),
-                "-i", str(hmi_path),
-                "-o", str(out_dir),
-                "-d", "-s", "-p", "visual",
+                "-i",
+                str(hmi_path),
+                "-o",
+                str(out_dir),
+                "-d",
+                "-s",
+                "-p",
+                "visual",
             ],
             check=True,
             stdout=subprocess.DEVNULL,

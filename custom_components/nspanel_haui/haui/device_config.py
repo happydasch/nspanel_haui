@@ -137,6 +137,7 @@ def is_portrait_model(display_model: str | None) -> bool:
     """Return whether ``display_model`` runs the rotated portrait TFT layout."""
     return tft_filename_for_model(display_model) == DISPLAY_MODEL_TFT_FILENAME["us"]
 
+
 # Fields synced from store to device config.
 # Derived from DEVICE_CONFIG keys, excluding meta-fields that have separate
 # handling paths (name, panels, esphome_device_id).

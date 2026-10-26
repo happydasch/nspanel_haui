@@ -74,9 +74,7 @@ class NotifyPage(CommonNotifyPage):
         self._notif_type = panel.get("notif_type", NotifType.INFO)
         self._icon = parse_icon(panel.get("icon", ""))
         if not self._icon:
-            fallback_icon = DEFAULT_NOTIF_ICONS.get(
-                self._notif_type, DEFAULT_NOTIF_ICON_FALLBACK
-            )
+            fallback_icon = DEFAULT_NOTIF_ICONS.get(self._notif_type, DEFAULT_NOTIF_ICON_FALLBACK)
             self._icon = parse_icon(fallback_icon)
         self._notification = parse_notification_text(panel.get("notification", ""))
         self._btn_left = parse_icon(panel.get("btn_left", ""))
@@ -131,9 +129,7 @@ class NotifyPage(CommonNotifyPage):
 
         if self._btn_left:
             btn_left_color = panel.get("btn_left_color", self.get_color("component_text"))
-            btn_left_back_color = panel.get(
-                "btn_left_back_color", self.get_color("background")
-            )
+            btn_left_back_color = panel.get("btn_left_back_color", self.get_color("background"))
             self.set_component_text_color(self.COMPONENTS.btn_left, btn_left_color)
             self.set_component_back_color(self.COMPONENTS.btn_left, btn_left_back_color)
             self.set_component_text(self.COMPONENTS.btn_left, self._btn_left)
@@ -141,9 +137,7 @@ class NotifyPage(CommonNotifyPage):
 
         if self._btn_right:
             btn_right_color = panel.get("btn_right_color", self.get_color("component_text"))
-            btn_right_back_color = panel.get(
-                "btn_right_back_color", self.get_color("background")
-            )
+            btn_right_back_color = panel.get("btn_right_back_color", self.get_color("background"))
             self.set_component_text_color(self.COMPONENTS.btn_right, btn_right_color)
             self.set_component_back_color(self.COMPONENTS.btn_right, btn_right_back_color)
             self.set_component_text(self.COMPONENTS.btn_right, self._btn_right)

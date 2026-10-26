@@ -222,8 +222,8 @@ def test_setup_failure_creates_issue() -> None:
 
     created = [
         c
-            for c in ir.async_create_issue.call_args_list
-            if c.args[2] == "device_start_failed_kitchen"
+        for c in ir.async_create_issue.call_args_list
+        if c.args[2] == "device_start_failed_kitchen"
     ]
     assert len(created) == 1
     assert created[0].kwargs["translation_placeholders"]["error"] == "startup exploded"
@@ -246,8 +246,8 @@ def test_setup_success_deletes_issue() -> None:
 
     deleted = [
         c
-            for c in ir.async_delete_issue.call_args_list
-            if c.args[2] == "device_start_failed_kitchen"
+        for c in ir.async_delete_issue.call_args_list
+        if c.args[2] == "device_start_failed_kitchen"
     ]
     assert len(deleted) == 1
 

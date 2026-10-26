@@ -18,9 +18,7 @@ def _page():
 
 
 def test_item_id_wins_for_popups():
-    item = _page()._resolve_panel_item(
-        _Panel({"item_id": "light.a", "item": {"item": "light.b"}})
-    )
+    item = _page()._resolve_panel_item(_Panel({"item_id": "light.a", "item": {"item": "light.b"}}))
 
     assert item is not None
     assert item.get_item_id() == "light.a"

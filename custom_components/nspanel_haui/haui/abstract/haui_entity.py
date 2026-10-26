@@ -100,7 +100,7 @@ class HAUIEntity:
                     break
                 try:
                     res = res[a]
-                except (IndexError, KeyError, TypeError):
+                except IndexError, KeyError, TypeError:
                     res = None
                     break
         else:

@@ -114,4 +114,3 @@ def test_advance_page_updates_text_and_title():
     assert "AAAAAAAAAAAAAAAA" in commands
     assert "tTitle.txt=" in commands
     assert "(2/2)" in commands
-

@@ -334,7 +334,6 @@ class ClockTwoPage(HAUIPage):
         t_notif=Component(117, "tNotif"),
     )
 
-
     # panel
 
     def prepare(self) -> None:

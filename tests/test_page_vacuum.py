@@ -247,7 +247,6 @@ def test_no_battery_icon_without_a_battery_sensor():
     assert "vis bFncRSec,1" not in app.cmds
 
 
-
 def test_secondary_item_button_opens_the_items_popup_like_grid():
     app, page = _show(_vacuum(), items=[{"item": "switch.mop"}])
     executed = []

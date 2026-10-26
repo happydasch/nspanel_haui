@@ -315,7 +315,7 @@ class ClockPage(HAUIPage):
             temp = round(
                 float(self._weather_item.get_item_attr("temperature", "")), self.TEMP_PRECISION
             )
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return "--°C", label
         if not self.TEMP_PRECISION:
             temp = int(temp)
@@ -327,7 +327,7 @@ class ClockPage(HAUIPage):
         temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
         try:
             temp = round(float(temp_inside_entity.get_state()), self.TEMP_PRECISION)
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return "--°C", label
         unit = self._temp_unit if self._weather_item is not None else "°C"
         if not self.TEMP_PRECISION:
@@ -416,7 +416,7 @@ class ClockPage(HAUIPage):
                 float(self._weather_item.get_item_attr("temperature", "")),
                 self.TEMP_PRECISION,
             )
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return
         msg = ""
         if self._show_home_temp:
@@ -425,7 +425,7 @@ class ClockPage(HAUIPage):
                 temp_inside: float | int | None = round(
                     float(temp_inside_entity.get_state()), self.TEMP_PRECISION
                 )
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 temp_inside = None
             if temp_inside is not None:
                 if not self.TEMP_PRECISION:

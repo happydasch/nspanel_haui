@@ -145,7 +145,7 @@ def _ensure_models() -> None:
                     continue
                 try:
                     val = int(raw) if not isinstance(raw, int) else raw
-                except (ValueError, TypeError):
+                except ValueError, TypeError:
                     _LOGGER.warning("Invalid color value %r for key %r, ignoring", raw, key)
                     continue
                 if val < 0 or val > 65535:

@@ -296,4 +296,3 @@ class HAUIBase(HAUIConfigAccess):
         if not component:
             return
         self.send_cmd(f"{component.name}.val={int(value)}")
-

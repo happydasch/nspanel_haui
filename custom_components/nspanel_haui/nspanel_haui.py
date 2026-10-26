@@ -307,9 +307,7 @@ class NSPanelHAUI(HAAdapter):
                 else None
             ),
             # Panel Doctor: health readings for the diagnostics surface.
-            "last_disconnect_reason": (
-                conn.last_disconnect_reason if conn else None
-            ),
+            "last_disconnect_reason": (conn.last_disconnect_reason if conn else None),
             "disconnected_since": (
                 datetime.datetime.fromtimestamp(
                     conn.disconnected_since, tz=datetime.UTC

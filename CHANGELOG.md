@@ -6,7 +6,7 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
-## [0.4.1] — Hotfix draft
+## [0.4.1] — 2026-10-26
 
 ### Fixed
 
@@ -198,4 +198,5 @@ and follow [Semantic Versioning](https://semver.org/).
 > ESPHome actions/events and two config entities were renamed, and no aliases
 > are kept.
 
+[0.4.1]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.1
 [0.4.0]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.0

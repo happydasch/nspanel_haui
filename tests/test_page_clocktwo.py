@@ -1,6 +1,8 @@
 """Clocktwo (word clock) page."""
 
 import datetime
+import threading
+from types import SimpleNamespace
 
 from nspanel_haui.haui.page.clocktwo import ClockTwoPage
 
@@ -11,6 +13,26 @@ class _Panel:
 
     def get(self, key, default=None):
         return self.config.get(key, default)
+
+
+def test_init_interface_batches_the_entire_word_clock_matrix():
+    page = ClockTwoPage.__new__(ClockTwoPage)
+    page._rec_cmd_lock = threading.RLock()
+    page._recording = False
+    page._rec_cmd_depth = 0
+    page._rec_cmd = []
+    page.app = SimpleNamespace(device={"debug_level": 0}, controller={})
+    batches = []
+    page.send_cmds = lambda commands: batches.append(commands)
+    page._off_color = 8452
+    page._clock_language = "en"
+
+    page.init_interface(None)
+
+    assert len(batches) == 1
+    assert len(batches[0]) == (110 + 4) * 2
+    assert page._letter_current_state == [False] * 110
+    assert page._special_current_state == [False] * 4
 
 
 def test_intro_text_full_hour_default_matches_descriptor():

@@ -6,6 +6,15 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] — Hotfix draft
+
+### Fixed
+
+- **Prevent Nextion serial RX buffer overflows** — pace every firmware display command
+  with ESPHome's Nextion command pacer; Clock Two now queues its complete word matrix
+  as one render batch. Flash the updated ESPHome firmware to activate pacing. Also
+  includes the previously fixed Clock Two font-size and background issues.
+
 ## [0.4.0] — 2026-10-26
 
 ### Breaking changes

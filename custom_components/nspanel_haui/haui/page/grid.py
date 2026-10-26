@@ -6,6 +6,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..abstract.mixins.paged_items_mixin import PagedItemsMixin
+from ..mapping.const import InternalItemType
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.text import trim_text
@@ -228,7 +229,11 @@ class GridPage(PagedItemsMixin, HAUIPage):
                 # internal item
                 if item.is_internal():
                     internal_type = item.get_internal_type()
-                    if internal_type in ["navigate", "action", "text"]:
+                    if internal_type in (
+                        InternalItemType.NAVIGATE,
+                        InternalItemType.ACTION,
+                        InternalItemType.TEXT,
+                    ):
                         visible = True
                 # standard item
                 else:

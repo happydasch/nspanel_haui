@@ -90,7 +90,7 @@ class HAUINotificationController(HAUIBase):
         message: str = "",
         icon: str = "",
         persistent: bool = False,
-        notif_type: str = "info",
+        notif_type: str = NotifType.INFO,
         force_show: bool = False,
         text_size: str | int = "auto",
     ) -> None:
@@ -135,7 +135,7 @@ class HAUINotificationController(HAUIBase):
         message: str = "",
         icon: str = "",
         persistent: bool = False,
-        notif_type: str = "info",
+        notif_type: str = NotifType.INFO,
         force_show: bool = False,
         text_size: str | int = "auto",
     ) -> Notification:
@@ -527,7 +527,7 @@ class HAUINotificationController(HAUIBase):
             message = notification.get("message", "")
             icon = notification.get("icon", "")
             persistent = notification.get("persistent", False)
-            notif_type = notification.get("notif_type", "info")
+            notif_type = notification.get("notif_type", NotifType.INFO)
             force_show = notification.get("force_show", False)
             text_size = notification.get("text_size", "auto")
             self.add_notification(

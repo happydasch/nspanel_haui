@@ -43,7 +43,7 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
       `;
     }
     return html`
-      <div class="pg-preview-clock-entity-btn" style="background:rgba(255,255,255,0.04);">
+      <div class="pg-preview-clock-entity-btn">
         <ha-icon icon="mdi:plus" style="--mdc-icon-size:clamp(10px,2.2cqi,15px);color:rgba(255,255,255,0.12);"></ha-icon>
       </div>
     `;

@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 from ..version import get_version
 
@@ -18,7 +19,7 @@ class AboutPage(HAUIPage):
         description=_("Device info and version details."),
         is_system=True,
         sys_panel_default={
-            "key": "sys_about",
+            "key": SysPanelKey.SYS_ABOUT,
             "show_in_navigation": False,
             "show_home_button": False,
         },

@@ -5,6 +5,7 @@ from typing import Any
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 
 
@@ -17,7 +18,7 @@ class SettingsPage(HAUIPage):
         description=_("Display brightness and system settings."),
         is_system=True,
         sys_panel_default={
-            "key": "sys_settings",
+            "key": SysPanelKey.SYS_SETTINGS,
             "show_in_navigation": False,
             "show_home_button": False,
         },

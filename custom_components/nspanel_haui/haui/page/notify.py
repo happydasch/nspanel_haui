@@ -4,15 +4,16 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.const import NotifType, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 from ..mapping.icons import DEFAULT_NOTIF_ICON_FALLBACK, DEFAULT_NOTIF_ICONS
 from ..utils.icon import parse_icon
 from ..utils.text import chunk_text, parse_notification_text
 
-_NOTIF_TYPE_COLORS = {
-    "info": "component_text",
-    "warning": "header_accent",
-    "critical": "component_active",
+_NOTIF_TYPE_COLORS: dict[str, str] = {
+    NotifType.INFO: "component_text",
+    NotifType.WARNING: "header_accent",
+    NotifType.CRITICAL: "component_active",
 }
 
 
@@ -43,7 +44,7 @@ class NotifyPage(CommonNotifyPage):
         description=_("Pop-up notification panel with icon and optional buttons."),
         is_system=True,
         sys_panel_default={
-            "key": "popup_notify",
+            "key": SysPanelKey.POPUP_NOTIFY,
             "show_in_navigation": False,
         },
         can_show_popup=True,
@@ -63,14 +64,14 @@ class NotifyPage(CommonNotifyPage):
         self._page_handle: str | None = None
         self._btn_left = ""
         self._btn_right = ""
-        self._notif_type = "info"
+        self._notif_type = NotifType.INFO
         self._button_callback_fnc = None
         self._close_callback_fnc = None
 
     def start_panel(self, panel: HAUIPanel) -> None:
         self._saved_auto = self._save_auto_state()
 
-        self._notif_type = panel.get("notif_type", "info")
+        self._notif_type = panel.get("notif_type", NotifType.INFO)
         self._icon = parse_icon(panel.get("icon", ""))
         if not self._icon:
             fallback_icon = DEFAULT_NOTIF_ICONS.get(

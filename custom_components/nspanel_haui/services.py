@@ -15,6 +15,7 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
+from .haui.mapping.const import NotifType
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
@@ -51,7 +52,9 @@ SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
         vol.Optional("message", default=""): cv.string,
         vol.Optional("icon", default=""): cv.string,
         vol.Optional("persistent", default=False): cv.boolean,
-        vol.Optional("type", default="info"): vol.In(["info", "warning", "critical"]),
+        vol.Optional("type", default=NotifType.INFO): vol.In(
+            [member.value for member in NotifType]
+        ),
         vol.Optional("force_show", default=False): cv.boolean,
         vol.Optional("text_size", default="auto"): vol.Any(
             "auto", vol.All(vol.Coerce(int), vol.Range(min=1, max=3))
@@ -230,7 +233,7 @@ async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> N
             message=call.data.get("message", ""),
             icon=call.data.get("icon", ""),
             persistent=persistent,
-            notif_type=call.data.get("type", "info"),
+            notif_type=call.data.get("type", NotifType.INFO),
             force_show=force_show,
             text_size=call.data.get("text_size", "auto"),
         )

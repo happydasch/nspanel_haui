@@ -7,6 +7,7 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 from ..mapping.icons import ICO_NEXT_PAGE
 
@@ -20,7 +21,7 @@ class SelectPage(HAUIPage):
         description=_("Item selection panel with multi-page support."),
         is_system=True,
         sys_panel_default={
-            "key": "popup_select",
+            "key": SysPanelKey.POPUP_SELECT,
             "show_in_navigation": False,
         },
         can_show_popup=True,

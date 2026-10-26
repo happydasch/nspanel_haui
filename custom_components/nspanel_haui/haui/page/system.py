@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 
 
@@ -15,7 +16,7 @@ class SystemPage(HAUIPage):
         description=_("System status and connection screen."),
         is_system=True,
         sys_panel_default={
-            "key": "sys_system",
+            "key": SysPanelKey.SYS_SYSTEM,
             "show_in_navigation": False,
         },
         icon="mdi:cog-outline",

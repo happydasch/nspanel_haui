@@ -4,6 +4,7 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 
 
@@ -16,7 +17,7 @@ class BlankPage(HAUIPage):
         description=_("Blank page usable as the idle page."),
         is_system=True,
         sys_panel_default={
-            "key": "sys_blank",
+            "key": SysPanelKey.SYS_BLANK,
             "show_in_navigation": False,
         },
         icon="mdi:circle-outline",

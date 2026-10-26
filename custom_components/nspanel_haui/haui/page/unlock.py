@@ -3,6 +3,7 @@ from __future__ import annotations
 from ..abstract.component import Component
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 from ..mapping.icons import ICO_LOCKED, ICO_PASSWORD
 from .alarm import AlarmPage
@@ -17,7 +18,7 @@ class UnlockPage(AlarmPage):
         description=_("PIN unlock overlay for locked panels."),
         is_system=True,
         sys_panel_default={
-            "key": "popup_unlock",
+            "key": SysPanelKey.POPUP_UNLOCK,
             "show_in_navigation": False,
         },
         popup_alias_for="alarm",

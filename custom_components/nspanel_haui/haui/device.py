@@ -601,7 +601,7 @@ class HAUIDevice(HAUIBase):
         message: str = "",
         icon: str = "",
         persistent: bool = False,
-        notif_type: str = "info",
+        notif_type: str = NotifType.INFO,
         force_show: bool = False,
     ) -> None:
         """Send a notification via the notification controller."""
@@ -697,7 +697,7 @@ class HAUIDevice(HAUIBase):
         if self._is_quiet_hours():
             self.debug_log(f"Quiet hours active — suppressing sound '{name}'")
             return
-        self.app.controller["esphome"].esphome.publish("play_sound", name)
+        self.app.controller["esphome"].esphome.publish(ESPAction.PLAY_SOUND, name)
 
     # callback
 

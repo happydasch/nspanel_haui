@@ -143,6 +143,13 @@ Open items from the release-process review (see
 
 ## v0.6 — Features & integrations
 
+### Hub management
+
+| Item | Priority | Scope |
+|------|----------|-------|
+| Hub settings / options flow — the hub currently has **no settings**: its name is hard-coded to "NSPanel HAUI Hub" and no options flow exists (device and panel settings live per-device in the panel store); add a flow so the hub can be renamed and its settings updated after creation | Next | `config_flow.py`, `api.py`, `frontend/` |
+| Multi-hub support — only one hub is supported today: the config flow aborts any second entry with `single_instance_allowed`; allow multiple hub entries (e.g. one per Home Assistant server or location), each with its own devices and settings | Later | `config_flow.py`, `__init__.py`, `storage.py`, `frontend/` |
+
 ### Platform maturity
 
 | Item | Priority | Scope |

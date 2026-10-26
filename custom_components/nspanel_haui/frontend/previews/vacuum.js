@@ -18,7 +18,7 @@ export function renderVacuumPreview(host, _panel, _pIdx, _pt) {
       `);
     } else {
       entityBtns.push(html`
-        <div class="pg-preview-btn" style="width:20px;height:100%;flex:1 1 0;min-width:12px;background:rgba(255,255,255,0.04);"><ha-icon icon="mdi:plus" style="--mdc-icon-size:10px;color:rgba(255,255,255,0.12);"></ha-icon></div>
+        <div class="pg-preview-btn" style="width:20px;height:100%;flex:1 1 0;min-width:12px;"><ha-icon icon="mdi:plus" style="--mdc-icon-size:10px;color:rgba(255,255,255,0.12);"></ha-icon></div>
       `);
     }
   }

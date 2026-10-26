@@ -60,6 +60,7 @@ class SysPanelKey(StrEnum):
     SYS_SYSTEM = "sys_system"
     SYS_SETTINGS = "sys_settings"
     SYS_ABOUT = "sys_about"
+    SYS_BLANK = "sys_blank"
 
     POPUP_NOTIFY = "popup_notify"
     POPUP_SELECT = "popup_select"

@@ -61,7 +61,7 @@ class HAUIItem(HAUIConfigAccess):
         """
         if not isinstance(item_id, str) or not item_id:
             self._internal = True
-            self._internal_type = "skip"
+            self._internal_type = InternalItemType.SKIP
             return
 
         # check if item is internal
@@ -90,11 +90,11 @@ class HAUIItem(HAUIConfigAccess):
             internal_type = self.get_internal_type()
             internal_data = self.get_internal_data()
             # check internal
-            if internal_type == "navigate":
+            if internal_type == InternalItemType.NAVIGATE:
                 # internal navigate to using key
                 navigation = self.app.controller["navigation"]
                 navigation.open_panel(internal_data)
-            elif internal_type == "action":
+            elif internal_type == InternalItemType.ACTION:
                 # internal action to run
                 service_data = self.get("service_data", {})
                 action_call = internal_data.replace(".", "/", 1)
@@ -325,7 +325,7 @@ class HAUIItem(HAUIConfigAccess):
         value = self._resolve_state_field("value")
 
         # internal text item
-        if not value and self.is_internal() and self.get_internal_type() == "text":
+        if not value and self.is_internal() and self.get_internal_type() == InternalItemType.TEXT:
             value = self.get_internal_data()
 
         return value or get_item_value(self, "")
@@ -340,7 +340,7 @@ class HAUIItem(HAUIConfigAccess):
 
         # internal navigate item uses panel title
         if not name and self.is_internal():
-            if self.get_internal_type() == "navigate":
+            if self.get_internal_type() == InternalItemType.NAVIGATE:
                 panel = self.app.device_config.get_panel(self.get_internal_data())
                 if panel:
                     name = panel.get_title()

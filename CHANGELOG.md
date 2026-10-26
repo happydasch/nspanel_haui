@@ -6,7 +6,7 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
-## [0.4.0] — unreleased
+## [0.4.0] — 2026-10-26
 
 ### Breaking changes
 
@@ -122,6 +122,11 @@ and follow [Semantic Versioning](https://semver.org/).
   `display_model` to a firmware `Display Model` number, so portrait panels
   detect edge swipes on 320×480 like landscape panels do on 450×320.
 - The startup sound plays only after a fresh boot, not on Wi-Fi reconnects.
+- **Long notification messages are split into static pages.** The title shows a
+  `(page/total)` counter and the header's left-secondary button advances to the
+  next page; paging is manual — nothing advances on its own — and the button
+  disappears on the final page, which stays visible, so long messages are read
+  page by page instead of being truncated.
 - **Dark-theme refresh** with stepped surfaces (page `#101010` < header
   `#181818` < cards `#282828` < pressed `#313131`, text `#e0e0e0`), mirrored by
   the editor previews; both TFTs compile their content widgets with the new

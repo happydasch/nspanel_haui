@@ -1,12 +1,11 @@
 # Roadmap
 
-Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 is
-feature-complete and in final validation**: the version is set in all four
-places and the CHANGELOG entry is written. What remains for the tag is a pushed
-CI run on the current candidate (backend and frontend suites, ruff, mypy,
-docs), the **device passlist on real EU + US hardware**, and the `v0.4.0`
-GitHub release. The release after that is **v0.5.0 — high-speed display update &
-visual frontend**, pairing the baud-rate jump with a dedicated editor polish pass.
+Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 shipped on
+2026-10-26**, tagged from a green `master` commit and published by the release
+workflow. Its device passlist on real EU + US panels is still outstanding — that
+confirmation is the remaining open item, and anything it turns up ships as a
+`0.4.1` patch. The next release is **v0.5.0 — high-speed display update & visual
+frontend**, pairing the baud-rate jump with a dedicated editor polish pass.
 
 This file tracks **open work only**. Shipped changes are summarised in
 [CHANGELOG.md](CHANGELOG.md); completed rows are removed from here when a release
@@ -15,17 +14,24 @@ ships. The release runbook and its known risks live in
 
 ---
 
-## v0.4.0 — Remaining release gates
+## v0.4.0 — released 2026-10-26
 
-### Release checklist
+The release workflow validated the Nextion assets, compiled the universal
+firmware and attached all three assets (`nspanel_haui.bin`, landscape and
+portrait TFTs). Open follow-ups:
 
 | Open item | Scope |
 |-----------|-------|
-| Confirm the pinned toolchain resolves cleanly in CI: Home Assistant `2026.10.4` (`requirements-dev.txt`, `hacs.json` `2026.10`) and ESPHome `2026.10.0` (`requirements-esphome.txt`, `base.yaml` `min_version`). The two cannot share one environment (conflicting `cryptography` pins), so they install separately. | `requirements-dev.txt`, `requirements-esphome.txt`, `hacs.json`, `.github/workflows/` |
-| Run the device passlist below on real EU + US hardware | `haui/`, `esphome/`, `nextion/` |
-| Publish the GitHub release: `release.yml` compiles the `.bin` and attaches both TFTs; tag `v0.4.0` after the passlist | GitHub Releases |
-| Confirm the documented notification behaviour against real hardware during the passlist — HA service persistence (persistent notifications re-open their popup periodically until dismissed) and `force_show`, the ESPHome `send_notification` action with optional `persistent`/`text_size`, popup long-message scrolling and severity default icons | `docs/services.md`, `docs/esphome.md`, `docs/panels/popup_notify.md`, `docs/device.md` |
+| Confirm the device passlist below on real EU + US hardware and report the results — anything broken ships as a `0.4.1` patch | `haui/`, `esphome/`, `nextion/` |
+| Smoke-test an update from the published artifacts: flash one panel from the released `.bin` and confirm TFT auto-update | — |
+| Confirm the documented notification behaviour against real hardware during the passlist — HA service persistence (persistent notifications re-open their popup periodically until dismissed) and `force_show`, the ESPHome `send_notification` action with optional `persistent`/`text_size`, popup long-message **manual paging** and severity default icons | `docs/services.md`, `docs/esphome.md`, `docs/panels/popup_notify.md`, `docs/device.md` |
 | Confirm the 0.3.x upgrade path in the editor — the five renamed device-setting keys migrate automatically; saved panels are not migrated and must be re-entered and verified | `haui/`, `docs/upgrading.md` |
+
+The pinned toolchain is confirmed in CI: Home Assistant `2026.10.4`
+(`requirements-dev.txt`, `hacs.json` `2026.10`) and ESPHome `2026.10.0`
+(`requirements-esphome.txt`, `base.yaml` `min_version`) install in separate
+jobs — they cannot share one environment because of conflicting `cryptography`
+pins — and both resolve cleanly.
 
 **Device passlist** — confirm on one EU and one US/portrait panel:
 
@@ -53,20 +59,10 @@ ships. The release runbook and its known risks live in
 - **Editor** — add / remove / enable / disable device and YAML import.
 
 **Acceptance:** every passlist row green on both display models, both TFT assets
-published, and the portrait device auto-updates end-to-end.
+working from the published release, and the portrait device auto-updates
+end-to-end. A row that fails ships a `0.4.1` patch.
 
-### Shipped in 0.4.0 (summary)
-
-Full detail is in [CHANGELOG.md](CHANGELOG.md). The release closed the October
-2026 code review: crash and wrong-state fixes, an admin-only editor API, panel
-behaviour fixes, one worker thread per device, Python 3.14 + mypy in CI, dead
-code removed, and device config consolidated onto the panel store. It also
-completed the wiring audit (settings reach the firmware on save and connect,
-action items without a target, "keep config" removal, `wakeup` without a wakeup
-panel, page items follow entity state) and the release-readiness work (TFT
-auto-update from the matching release, dual-update warning in the changelog).
-Persistent notifications now stay accessible: their popup re-opens periodically
-until dismissed.
+Shipped changes are summarised in [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -194,6 +190,7 @@ Open items from the release-process review (see
 | **0.1.x** | First versions as an AppDaemon app — ESPHome firmware with auto updates; weather, clock, grid, row, light, media, vacuum, QR, cover, climate and timer panels; panel locking and popups |
 | **0.2.x** | Configuration and entity handling — ClockTwo screensaver, configurable wakeup, startup and notification sounds, notifications on the display |
 | **0.3.x** | Native Home Assistant custom integration replaces AppDaemon and MQTT; panel editor inside Home Assistant |
+| **0.4.0** | First stable release with breaking changes — universal prebuilt firmware for any number of panels, US/portrait display model, gesture navigation, device discovery, per-device display-off schedule, notification services and `notify.*` entities with per-notification font sizes and manual long-message paging, Panel Doctor, and per-device TFT install/firmware download in the editor |
 
 ---
 

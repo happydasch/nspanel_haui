@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -197,3 +198,35 @@ def test_sendme_parity_ignores_widgets_present_on_one_side_only():
     }
     ok, _ = check_sendme_parity(landscape, portrait)
     assert ok
+
+
+def test_nextion2text_creates_missing_output_tree(tmp_path):
+    """Nextion2Text must create a nested output dir even when parents are absent.
+
+    Regression: the release gate failed in a fresh CI checkout because the default
+    dump target lives under git-ignored ``ref_src/``, which does not exist, and the
+    output folder was created without ``parents=True``.
+    """
+    root = Path(__file__).resolve().parent.parent
+    out_dir = tmp_path / "ref_src" / "nextion-out-visual"
+    assert not out_dir.exists()
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "nextion2text" / "Nextion2Text.py"),
+            "-i",
+            str(root / "nextion" / "nspanel_haui.HMI"),
+            "-o",
+            str(out_dir),
+            "-d",
+            "-s",
+            "-p",
+            "visual",
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    assert (out_dir / "clock.txt").exists()

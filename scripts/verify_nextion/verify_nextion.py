@@ -279,8 +279,10 @@ def main() -> int:
                 "visual",
             ],
             check=True,
+            # Keep the dump's noisy stdout out of the log, but let stderr through
+            # so a Nextion2Text crash reports its reason instead of only
+            # "returned non-zero exit status 1".
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
         )
 
     _dump(args.hmi, args.dump)

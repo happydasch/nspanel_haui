@@ -1970,11 +1970,14 @@ if __name__ == "__main__":
                         "Something went wrong while recursively deleting all content of the "
                         "output folder. Please reduce your file system voodoo."
                     )
-    hmiTextFolder.mkdir(exist_ok=True)
+    # parents=True so the output tree can be created from scratch; the default
+    # dump target lives under the git-ignored ref_src/ which is absent in a
+    # fresh CI checkout.
+    hmiTextFolder.mkdir(parents=True, exist_ok=True)
 
     if args.json:
         jsonFolder = hmiTextFolder / Path("JSON")
-        jsonFolder.mkdir(exist_ok=True)
+        jsonFolder.mkdir(parents=True, exist_ok=True)
 
     if args.stats:
         statFile = open(hmiTextFolder / Path(hmiFile.stem + "_Stats" + hmiTextFileExt), "w")

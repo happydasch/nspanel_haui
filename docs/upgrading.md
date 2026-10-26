@@ -112,9 +112,9 @@ an entry stays in the queue until it is dismissed on the panel, replaced by an
 identical title+message, or cleared. The `timeout` field on
 `nspanel_haui.send_notification`, the `send_notification` action and the
 `nspanel_haui.notification` event is gone — remove it from automations and
-scripts. For alerts that must be acknowledged no matter what, use
-`require_ack: true` instead (it re-opens the popup periodically until
-**Acknowledge** is pressed).
+scripts. For alerts that must not be missed, use `persistent: true` instead
+(it loops the alert sound and re-opens the popup periodically until the
+notification is dismissed).
 
 ### ESP events
 

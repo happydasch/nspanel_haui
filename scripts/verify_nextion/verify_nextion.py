@@ -16,7 +16,7 @@ Exit code 0 when every check passes, 1 otherwise.  The release workflow
 cannot be published until the Nextion Editor tasks landed.
 
 Usage:
-    python scripts/verify_nextion.py [--hmi PATH] [--dump DIR] \\
+    python scripts/verify_nextion/verify_nextion.py [--hmi PATH] [--dump DIR] \\
         [--expected-version X.Y.Z] [--require-portrait]
 
 The parser/checks live in importable functions so tests can drive fake dumps.
@@ -31,7 +31,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_HMI = ROOT / "nextion" / "nspanel_haui.HMI"
 DEFAULT_DUMP = ROOT / "ref_src" / "nextion-out-visual"
 MANIFEST = ROOT / "custom_components" / "nspanel_haui" / "manifest.json"

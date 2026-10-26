@@ -131,7 +131,7 @@ class NotifyPage(CommonNotifyPage):
         if self._btn_left:
             btn_left_color = panel.get("btn_left_color", self.get_color("component_text"))
             btn_left_back_color = panel.get(
-                "btn_left_back_color", self.get_color("component_background")
+                "btn_left_back_color", self.get_color("background")
             )
             self.set_component_text_color(self.COMPONENTS.btn_left, btn_left_color)
             self.set_component_back_color(self.COMPONENTS.btn_left, btn_left_back_color)
@@ -141,7 +141,7 @@ class NotifyPage(CommonNotifyPage):
         if self._btn_right:
             btn_right_color = panel.get("btn_right_color", self.get_color("component_text"))
             btn_right_back_color = panel.get(
-                "btn_right_back_color", self.get_color("component_background")
+                "btn_right_back_color", self.get_color("background")
             )
             self.set_component_text_color(self.COMPONENTS.btn_right, btn_right_color)
             self.set_component_back_color(self.COMPONENTS.btn_right, btn_right_back_color)

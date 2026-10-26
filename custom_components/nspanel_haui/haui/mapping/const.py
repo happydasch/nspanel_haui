@@ -179,12 +179,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "navigation": {
         "page_timeout": 10.0,  # Default 10 sec, wait for a page to open (sendme result)
     },
-    # notification related settings
-    "notification": {
-        # Seconds between re-opening the popup of an unacknowledged
-        # (require_ack) notification, so it cannot be ignored.
-        "re_alert_interval": 60,
-    },
     # update related settings
     "update": {
         # install the TFT the firmware needs automatically when the display has an

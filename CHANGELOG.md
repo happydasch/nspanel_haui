@@ -20,13 +20,13 @@ and follow [Semantic Versioning](https://semver.org/).
   `nspanel_haui.send_notification`, the ESPHome `send_notification` action/event
   and the `nspanel_haui.notification` event. Notifications stay in the queue
   until dismissed on the panel, replaced or cleared; queued notifications play
-  through one popup after another. For alarms that must be acknowledged, use
-  `require_ack: true` (it re-opens the popup periodically until **Acknowledge**
-  is pressed).
+  through one popup after another. For alerts that must not be missed, use
+  `persistent: true`: it loops the alert sound and re-opens its popup
+  periodically until the notification is dismissed.
 - **Saved panels are not migrated** — re-enter pre-0.4 panel settings in the
-  editor and verify forecast type and panel navigation settings. (Device
-  settings *are* migrated automatically; see **Fixed** below and the
-  [Upgrade guide](docs/upgrading.md).)
+  editor and verify forecast type and panel navigation settings. (The five
+  renamed device-setting keys *are* migrated automatically; see **Fixed**
+  below and the [Upgrade guide](docs/upgrading.md).)
 - **Several compatibility paths were removed** — validation is required, YAML
   imports require the documented root shape, and color/template/function-button
   and vacuum battery configuration follow the current documented formats.
@@ -59,18 +59,15 @@ and follow [Semantic Versioning](https://semver.org/).
   sensor instead of relying on the deprecated battery attributes.
 - **Alarm keypad styling** — font size, background and text colour per alarm
   panel.
-- **Nextion release gate** — `scripts/verify_nextion.py` blocks a release
+- **Nextion release gate** — `scripts/verify_nextion/verify_nextion.py` blocks a release
   until `clock.tTime` reports taps (Send Component ID), `system.tftVersion`
   matches the integration version, and the portrait asset exists.
 - **US display-model support** — `display_model` (`eu` / `us`) picks the
   matching TFT release asset and per-device US time/date formats
   (`%I:%M %p`, `%m/%d/%Y`). The US portrait TFT ships with the release.
-- **Ack-required notifications** — `require_ack` implies `persistent` and keeps
-  re-opening the popup and looping the alert sound until the user presses
-  **Acknowledge**.
 - **Notification services and entities** — the new `nspanel_haui.send_notification`
   service (`title`, `message`, `icon`, `type` (severity), `persistent`,
-  `force_show`, `require_ack` and `text_size` fields), standard `notify.<device>` /
+  `force_show` and `text_size` fields), standard `notify.<device>` /
   `notify.<device>_persistent_notification` entities, the
   `nspanel_haui.reset_last_interaction` service, and the renamed `idle` service
   (was `sleep`).
@@ -146,6 +143,9 @@ and follow [Semantic Versioning](https://semver.org/).
 - `hub_availability` resets on the last disconnect (not on the first).
 - Row pages visually flag stale entity values (`stale_data_seconds`).
 - Popups pause auto-dim correctly on devices named with capitals or `-`.
+- Text-bearing widgets on grid, row, select, notify and alarm-keypad panels sit
+  flat on the page background; runtime painting no longer draws a lighter
+  component box behind tiles, labels and keys.
 
 - **Device settings from 0.3.x are migrated on upgrade.** The store loader now
   renames the legacy config keys in place (`sleep_panel` → `idle_panel`,

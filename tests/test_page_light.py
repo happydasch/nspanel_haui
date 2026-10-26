@@ -286,8 +286,8 @@ def test_popup_closes_when_its_light_becomes_unavailable():
 
 
 def test_color_wheel_origin_follows_the_display_model():
-    """The colour marker is drawn relative to pColorWheel, which sits elsewhere on the portrait TFT."""
-    _, page = _show(_Entity("on", _attributes(supported_color_modes=["rgb"], rgb_color=[255, 0, 0])))
+    """The colour marker is drawn relative to pColorWheel, which sits elsewhere on the portrait TFT."""  # noqa: E501
+    _, page = _show(_Entity("on", _attributes(supported_color_modes=["rgb"], rgb_color=[255, 0, 0])))  # noqa: E501
     assert page.color_rect_origin() == (125, 75)
     page.app.device.is_portrait = True
     assert page.color_rect_origin() == (90, 80)

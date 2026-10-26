@@ -118,49 +118,18 @@ class _NotifApp(_App):
         cb({})
 
 
-def test_require_ack_is_stored_and_forces_persistent_loop():
-    app = _NotifApp()
-    ctrl = HAUINotificationController(app, {})
-    n = ctrl.add_notification("Alarm", "Smoke", require_ack=True)
-    assert n.require_ack is True
-    assert n.persistent is True  # implied
-
-
-def test_require_ack_schedules_re_alert_loop():
-    app = _NotifApp()
-    ctrl = HAUINotificationController(app, {})
-    ctrl.add_notification("Alarm", require_ack=True)
-    # schedule + re-arm after the first fire
-    assert len(app.run_in_calls) >= 1
-    # fire the re-alert once: it must call open_notification and re-arm
-    ctrl.open_notification = MagicMock()
-    handle = app.run_in_calls[0][0]
-    app.trigger(handle)
-    assert ctrl.open_notification.called
-    assert len(app.run_in_calls) >= 2  # re-armed
-
-
-def test_remove_notification_cancels_re_alert():
-    app = _NotifApp()
-    ctrl = HAUINotificationController(app, {})
-    n = ctrl.add_notification("Alarm", require_ack=True)
-    ctrl.remove_notification(n)
-    assert len(app.canceled) == 1  # the re-alert timer was cancelled
-
-
-def test_open_notification_ack_button_label():
+def test_open_notification_button_label_is_dismiss():
     app = _NotifApp()
     ctrl = HAUINotificationController(app, {})
     ctrl.app = app
     app.device = types.SimpleNamespace(get=lambda k, d=None: None, get_name=lambda: "dev")
     nav = MagicMock()
     app.controller["navigation"] = nav
-    # Directly test the button label logic by opening a require_ack notification
-    n = Notification("T", "M", "", True, "critical", False, True)
+    n = Notification("T", "M", "", True, "critical", False)
     ctrl.translate = lambda s: s
     ctrl.open_notification(n)
     kwargs = nav.open_panel.call_args[1]
-    assert kwargs["btn_right"] == "Acknowledge"
+    assert kwargs["btn_right"] == "Dismiss"
 
 
 def test_notification_ha_event_fired():
@@ -173,7 +142,6 @@ def test_notification_ha_event_fired():
     assert data["state"] == "added"
     assert data["device"] == "kitchen"
     assert data["title"] == "Doorbell"
-    assert data["require_ack"] is False
 
 
 # --- sleep panel carousel --------------------------------------------------
@@ -224,6 +192,7 @@ class _CarouselApp(_App):
             get=_dev_get,
             get_name=lambda: "nav",
             sleeping=False,
+            device_info={},
         )
         self.device_config = _CarouselCfg(panels)
         self.controller = {}

@@ -103,7 +103,6 @@ def test_device_notify_method():
         persistent=False,
         notif_type="info",
         force_show=False,
-        require_ack=False,
     ):
         captured_call.append(
             {
@@ -123,7 +122,6 @@ def test_device_notify_method():
             persistent,
             notif_type,
             force_show,
-            require_ack,
         )
 
     mock_notification_controller.send_notification = mock_send_notification
@@ -166,7 +164,6 @@ def test_device_notify_method_defaults():
         persistent=False,
         notif_type="info",
         force_show=False,
-        require_ack=False,
     ):
         captured_call.append(
             {
@@ -186,7 +183,6 @@ def test_device_notify_method_defaults():
             persistent,
             notif_type,
             force_show,
-            require_ack,
         )
 
     mock_notification_controller.send_notification = mock_send_notification
@@ -225,5 +221,5 @@ def test_device_notify_method_integration():
     assert len(app.callback_event_calls) == 1
     event = app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, False, "info", False, False, "auto")
+    expected_value = (title, message, icon, False, "info", False, "auto")
     assert event.value == expected_value

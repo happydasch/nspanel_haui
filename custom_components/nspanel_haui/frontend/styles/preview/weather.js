@@ -21,7 +21,6 @@ export const previewWeatherStyles = css`
     gap: 2px;
     flex: 1;
     padding: 4px 2px;
-    background: rgba(255,255,255,0.04);
     border-radius: 3px;
     min-height: 0;
   }
@@ -55,7 +54,6 @@ export const previewWeatherStyles = css`
     gap: 1px;
     flex: 1;
     padding: 1px 0;
-    background: rgba(255,255,255,0.04);
     border-radius: 3px;
   }
 

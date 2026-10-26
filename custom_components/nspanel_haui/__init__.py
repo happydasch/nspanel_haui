@@ -121,7 +121,7 @@ async def _link_esphome_device(
 
     nspanel_identifier = ("nspanel_haui", dev_name)
     has_identifier = nspanel_identifier in esphome_dev.identifiers
-    has_config_entry = entry.entry_id in esphome_dev.config_entries
+    has_config_entry = esphome_dev.config_entry_id == entry.entry_id
 
     if has_identifier and has_config_entry:
         return  # already linked
@@ -337,13 +337,16 @@ async def _register_discovery(hass: HomeAssistant) -> None:
         dev_entry = dr.async_get(hass).async_get(device_id)
         if not dev_entry:
             return
-        for cid in dev_entry.config_entries:
-            entry = hass.config_entries.async_get_entry(cid)
-            if entry and entry.domain == "esphome" and is_haui_device(hass, entry):
-                for hub_entry in hass.config_entries.async_entries(DOMAIN):
-                    hass.async_create_task(_auto_add_unconfigured_devices(hass, hub_entry))
-                    _reload_if_device_resolved(hub_entry)
-                break
+        # A device belongs to a single config entry; config_entry_id replaces
+        # the deprecated config_entries set.
+        cid = dev_entry.config_entry_id
+        if not cid:
+            return
+        entry = hass.config_entries.async_get_entry(cid)
+        if entry and entry.domain == "esphome" and is_haui_device(hass, entry):
+            for hub_entry in hass.config_entries.async_entries(DOMAIN):
+                hass.async_create_task(_auto_add_unconfigured_devices(hass, hub_entry))
+                _reload_if_device_resolved(hub_entry)
 
     hass.bus.async_listen(
         dr.EVENT_DEVICE_REGISTRY_UPDATED,

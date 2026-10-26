@@ -112,7 +112,7 @@ class SelectPage(HAUIPage):
                 btn,
                 btn[1],
                 color=self.get_color("component_active"),
-                back_color=self.get_color("component_background"),
+                back_color=self.get_color("background"),
                 back_color_pressed=self.get_color("component_pressed"),
                 visible=False,
             )
@@ -124,7 +124,7 @@ class SelectPage(HAUIPage):
                 btn,
                 btn[1],
                 color=self.get_color("component_active"),
-                back_color=self.get_color("component_background"),
+                back_color=self.get_color("background"),
                 back_color_pressed=self.get_color("component_pressed"),
                 visible=False,
             )
@@ -232,7 +232,7 @@ class SelectPage(HAUIPage):
                     btn[1],
                     text=sel_name,
                     color=color,
-                    back_color=self.get_color("component_background"),
+                    back_color=self.get_color("background"),
                     back_color_pressed=self.get_color("component_pressed"),
                     visible=True,
                 )

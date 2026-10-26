@@ -571,6 +571,7 @@ def test_open_idle_panel_enters_idle_session_and_snapshots_once():
     """Repeated entries (timeout/button/service) must not overwrite the
     pre-idle snapshot with the idle page itself."""
     device = FakeDevice()
+    device.device_info["display_state"] = "on"
     app = FakeApp(device)
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
@@ -584,9 +585,24 @@ def test_open_idle_panel_enters_idle_session_and_snapshots_once():
     nav.open_idle_panel()
     nav.open_idle_panel()  # repeated entry while already idle
 
+    assert device._first_touch_consumed is False  # visible idle page is one-touch
     assert nav._idle_panel_active is True
     assert len(snapshots) == 1
     assert nav._idle_panel_idx == 2  # carousel still advances
+
+
+def test_open_idle_panel_arms_wake_touch_when_display_dark():
+    device = FakeDevice()
+    device.device_info["display_state"] = "off"
+    app = FakeApp(device)
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._idle_panels = [DummyPanel("sleep")]
+    nav.open_panel = lambda pid, **kw: None
+
+    nav.open_idle_panel()
+
+    assert device._first_touch_consumed is True
 
 
 def test_exit_idle_to_prev_or_home_noops_when_not_idle():

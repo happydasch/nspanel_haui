@@ -66,7 +66,9 @@ colour renders them neutral.
 
   Both TFTs compile every solid widget on a content page with this colour
   (`scripts/gen_portrait/theme.py`); only the header bar keeps the header
-  background.
+  background. Runtime repainting must preserve that: text-bearing widgets
+  (tiles, row names/icons, select and notify buttons, keypad keys) are painted
+  with `background`, never `component_background`, so they stay flat on the page.
 
   **RGB** `#101010` / [16, 16, 16]
   **RGB565** 4226
@@ -115,7 +117,9 @@ colour renders them neutral.
 
 - **Component Background**
 
-  Cards, tiles and slider tracks
+  Raised surfaces only — header buttons, pressed states and slider tracks.
+  Not a fill for text-bearing widgets; those use the page **Background Color**
+  (see above).
 
   **RGB** `#282828` / [40, 40, 40]
   **RGB565** 10565

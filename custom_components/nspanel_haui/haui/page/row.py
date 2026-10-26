@@ -293,7 +293,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
                             show = True
                             readonly = False
                             color = self.get_color("component_active")
-                            back_color = self.get_color("component_background")
+                            back_color = self.get_color("background")
                             back_color_pressed = self.get_color("component_pressed")
                     # 'btn_txt' will be used as default, text as disabled btn
                     elif n == "btn_txt":

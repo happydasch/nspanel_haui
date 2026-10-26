@@ -23,7 +23,7 @@ def async_register(
 
 async def async_system_health_info(hass: HomeAssistant) -> dict[str, Any]:
     """Get info for the System page."""
-    integration = await async_get_loaded_integration(hass, DOMAIN)
+    integration = await async_get_loaded_integration(hass, DOMAIN)  # type: ignore[misc]
     apps = hass.data.get(DOMAIN, {})
 
     devices: list[str] = []

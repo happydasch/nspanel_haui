@@ -53,7 +53,6 @@ SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
         vol.Optional("persistent", default=False): cv.boolean,
         vol.Optional("type", default="info"): vol.In(["info", "warning", "critical"]),
         vol.Optional("force_show", default=False): cv.boolean,
-        vol.Optional("require_ack", default=False): cv.boolean,
         vol.Optional("text_size", default="auto"): vol.Any(
             "auto", vol.All(vol.Coerce(int), vol.Range(min=1, max=3))
         ),
@@ -233,7 +232,6 @@ async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> N
             persistent=persistent,
             notif_type=call.data.get("type", "info"),
             force_show=force_show,
-            require_ack=call.data.get("require_ack", False),
             text_size=call.data.get("text_size", "auto"),
         )
 

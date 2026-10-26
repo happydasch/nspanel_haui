@@ -191,12 +191,12 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             color = self.get_color("component_active")
             color_pressed = self.get_color("component_text")
             back_color_pressed = self.get_color("component_pressed")
-            back_color = self.get_color("component_background")
         else:
             color = self.get_color("text_disabled")
             color_pressed = self.get_color("text_disabled")
             back_color_pressed = self.get_color("background")
-            back_color = self.get_color("background")
+        # buttons sit flat on the page background; only the pressed state lifts
+        back_color = self.get_color("background")
         return color, color_pressed, back_color, back_color_pressed
 
     def button_color_args(self, active: bool, *, back_color: bool = False) -> dict:

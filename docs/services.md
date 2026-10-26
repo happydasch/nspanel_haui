@@ -106,8 +106,14 @@ data:
 Show a notification on the panel with a title, message, severity level, and
 icon.  Notifications stay in the queue until they are dismissed on the panel
 (or replaced/cleared) — there is no automatic dismissal.  `persistent` loops
-the alert sound until dismissed, and `force_show` interrupts whatever is
-displayed to open the popup.
+the alert sound and re-opens the popup about every 60 seconds until dismissed;
+it opens immediately.  `force_show` also opens the popup immediately, but never
+takes the place of a notification popup or list that is already on screen: the
+new notification waits in the queue and opens when the current one is
+dismissed.  The queue holds up to 50 notifications; when it is full, the oldest
+one is dropped.  While the idle page is shown, only a `critical` persistent
+notification forces its popup over it; other severities stay queued and appear
+as soon as the user returns to a real panel.
 When no icon is supplied, the severity selects a default one (`info` →
 `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` →
 `mdi:alert-octagon-outline`).
@@ -123,14 +129,14 @@ the recommended path because it also carries severity and force-show.
 | `message` | no | `""` | Body text (can be empty for a title-only alert) |
 | `icon` | no | severity default | Material Design Icon (e.g. `"mdi:bell"`). When omitted, the `type` selects the default icon |
 | `type` | no | `"info"` | Severity level — `"info"`, `"warning"`, or `"critical"`. Sets the icon colour in the popup; `critical` also plays the `alert` sound instead of `notification` |
-| `persistent` | no | `false` | When `true`, notification sound loops until dismissed on the panel, and the notification opens immediately |
-| `force_show` | no | `false` | When `true`, immediately opens the notification panel even if another panel is displayed |
-| `require_ack` | no | `false` | When `true`, the notification re-opens its popup periodically until someone presses **Acknowledge** on the panel. Implies `persistent` (looping alert sound). Use for alarms and other notifications that must not be missed |
+| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel. While the idle page is shown, only a `critical` persistent notification interrupts it |
+| `force_show` | no | `false` | When `true`, opens the notification panel immediately, unless a notification popup or list is already open — then it waits in the queue |
 | `text_size` | no | `"auto"` | Popup body text size — `"auto"` (chosen from the message length) or a font size `1`-`3` |
 
 Sending a notification with the same title and message as one that is still
-queued replaces it: the sound plays again and the notification moves to the
-front of the queue.
+queued replaces it: the queued copy is removed (firing a `removed` event), the
+sound plays again, and the new copy is queued at the end — after the
+notifications already waiting in front of it.
 
 **Example automation action:**
 
@@ -261,13 +267,6 @@ fields:
     default: false
     selector:
       boolean:
-  require_ack:
-    name: Require acknowledgement
-    description: >-
-      Keep reopening the popup until Acknowledge is pressed. Implies persistent.
-    default: false
-    selector:
-      boolean:
   force_show:
     name: Force show
     description: >-
@@ -291,15 +290,14 @@ sequence:
       type: "{{ type | default('info') }}"
       icon: "{{ icon | default('') }}"
       persistent: "{{ persistent | default(false) | bool }}"
-      require_ack: "{{ require_ack | default(false) | bool }}"
       force_show: "{{ force_show | default(true) | bool }}"
 mode: single
 ```
 
-The service accepts `type`, `icon`, `persistent`, `require_ack` and
-`force_show`, so one script covers the full range of behaviour: an info
-popup (the defaults), a warning with a custom icon, or a critical alert
-that loops the sound and requires acknowledgement. Expose the script to the
+The service accepts `type`, `icon`, `persistent` and `force_show`, so one
+script covers the full range of behaviour: an info popup (the defaults), a
+warning with a custom icon, or a critical alert that loops the sound and
+re-opens the popup periodically until dismissed. Expose the script to the
 conversation agent; the LLM reads its description and field descriptions when
 deciding how to call it.
 
@@ -415,7 +413,7 @@ Assistant event bus** so automations can react to what happens on the panel.
 | Event | Payload | When |
 |-------|---------|------|
 | `nspanel_haui.page_changed` | `device`, `action` (`opened`/`closed`), `panel` (key), `type`, `title`, `page` (Nextion page name) | Whenever a panel is opened through the render pipeline or closed |
-| `nspanel_haui.notification` | `device`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `require_ack` | Whenever a notification is queued or dismissed |
+| `nspanel_haui.notification` | `device`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent` | Whenever a notification is queued or dismissed |
 | `nspanel_haui.connection_changed` | `device`, `connected` (bool) | Whenever the hub's connection to the panel device changes |
 
 All events carry the device name in `event.data.device`, so a single
@@ -434,6 +432,6 @@ trigger:
       notif_device: "{{ trigger.event.data.device }}"
 ```
 
-Useful patterns: forward `critical` / `require_ack` notifications to your
-phone or a messaging service, log doorbell rings, or reset a "someone is
-home" flag from a panel button.
+Useful patterns: forward `critical` notifications to your phone or a
+messaging service, log doorbell rings, or reset a "someone is home" flag
+from a panel button.

@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
-from ..mapping.const import ESPResponse, NotifEvent, SysPanelKey
+from ..mapping.const import ESPResponse, NotifEvent, NotifType, SysPanelKey
 from ..mapping.icons import DEFAULT_NOTIF_ICON_FALLBACK, DEFAULT_NOTIF_ICONS
 from ..utils.notification_blinker import NotificationBlinker
 
@@ -22,7 +22,6 @@ class Notification(NamedTuple):
     persistent: bool
     notif_type: str
     force_show: bool = False
-    require_ack: bool = False
     text_size: str | int = "auto"
 
 
@@ -35,6 +34,16 @@ class HAUINotificationController(HAUIBase):
     """
 
     MAX_QUEUE_SIZE = 50
+    # Seconds between forced re-opens of a persistent notification's popup.
+    # A persistent notification stays in the queue until dismissed; while it
+    # is queued, this loop brings its popup back to the screen if the user
+    # navigated away, so the alert is never silently lost.
+    PERSISTENT_ALERT_INTERVAL = 60
+    # Severities allowed to interrupt the idle/screensaver page when a
+    # persistent alert re-opens its popup.  Everything else waits for the
+    # user to return to a real panel: a non-critical alert must not flash the
+    # bedroom screen every PERSISTENT_ALERT_INTERVAL seconds all night.
+    FORCE_OVER_IDLE_TYPES = frozenset({NotifType.CRITICAL})
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any]):
         """Initialize for notification controlller.
@@ -48,8 +57,6 @@ class HAUINotificationController(HAUIBase):
         self._notifications: list[Notification] = []
         self._blinker = NotificationBlinker()
         self._blinker_refresh_fn: Callable[[], None] | None = None
-        # id(notification) -> timer handle for the require_ack re-alert loop
-        self._alert_timers: dict[int, str] = {}
         # Items of the notification list popup. Updated in place: closing a
         # notification popup re-renders the list from the kwargs it was opened with.
         self._list_items: list[dict[str, str]] = []
@@ -59,6 +66,8 @@ class HAUINotificationController(HAUIBase):
         self._open_popup_notif_id: str | None = None
         # Handle of a deferred "show next queued notification" timer.
         self._advance_handle: str | None = None
+        # Periodic re-alert timers for persistent notifications, keyed by id().
+        self._persistent_alert_handles: dict[str, str] = {}
         # Stable reference to the notification selection callback: bound
         # methods compare by identity, and each attribute access creates a
         # new object, so a stored bound method must be compared against the
@@ -66,11 +75,14 @@ class HAUINotificationController(HAUIBase):
         self._notification_selection_callback = self._on_notification_selected
 
     def stop_part(self) -> None:
-        """Stops the part: a pending blink timer must not outlive the app."""
+        """Stops the part: pending timers must not outlive the app."""
         self._blinker.stop()
         if self._advance_handle is not None:
             self.app.cancel_timer(self._advance_handle)
             self._advance_handle = None
+        for handle in self._persistent_alert_handles.values():
+            self.app.cancel_timer(handle)
+        self._persistent_alert_handles.clear()
 
     def send_notification(
         self,
@@ -80,7 +92,6 @@ class HAUINotificationController(HAUIBase):
         persistent: bool = False,
         notif_type: str = "info",
         force_show: bool = False,
-        require_ack: bool = False,
         text_size: str | int = "auto",
     ) -> None:
         """Send a notification to the panel.
@@ -94,16 +105,12 @@ class HAUINotificationController(HAUIBase):
         icon: str, optional
             Icon name. Pass empty string to omit.
         persistent: bool, optional
-            When True the notification sound loops until the notification is dismissed.
+            When True the notification sound loops and its popup re-opens
+            periodically until the notification is dismissed.
         notif_type: str, optional
             Severity type: "info", "warning", or "critical".
         force_show: bool, optional
             When True, opens the notification panel immediately.
-        require_ack: bool, optional
-            When True the notification cannot time out and re-opens its popup
-            periodically until the user presses "Acknowledge" (implies
-            persistent sound).  Guaranteed-attention notifications for alarms
-            and similar.
         text_size: str or int, optional
             Popup body text size: "auto" (default; chosen from the message
             length) or a font size 1-3.
@@ -117,7 +124,6 @@ class HAUINotificationController(HAUIBase):
             persistent,
             notif_type,
             force_show,
-            require_ack,
             text_size,
         )
 
@@ -131,7 +137,6 @@ class HAUINotificationController(HAUIBase):
         persistent: bool = False,
         notif_type: str = "info",
         force_show: bool = False,
-        require_ack: bool = False,
         text_size: str | int = "auto",
     ) -> Notification:
         # A repeat replaces the queued copy so it alerts again.
@@ -147,12 +152,6 @@ class HAUINotificationController(HAUIBase):
             self.log(f"Notification queue full, dropping oldest: {oldest.title!r}")
             self._remove(oldest)
 
-        # An ack-required notification must never go away while it is
-        # unacknowledged: it loops the sound until the user presses
-        # "Acknowledge".
-        if require_ack:
-            persistent = True
-
         # Give every notification a visible icon when the caller does not
         # supply one.  Without this the popup renders without an icon and the
         # notification looks like a plain text box.
@@ -166,7 +165,6 @@ class HAUINotificationController(HAUIBase):
             persistent,
             notif_type,
             force_show,
-            require_ack,
             text_size,
         )
         self._notifications.append(notification)
@@ -178,10 +176,6 @@ class HAUINotificationController(HAUIBase):
         self.app.callback_event(event)
         self._fire_notification_event("added", notification)
 
-        # Ack-required notifications re-open their popup until acknowledged.
-        if require_ack:
-            self._schedule_re_alert(notification)
-
         # A force-show notification opens immediately — unless a notification
         # popup or list is already on screen.  Stealing an open notification
         # popup would show the new arrival only once and drop the one the
@@ -190,10 +184,54 @@ class HAUINotificationController(HAUIBase):
         if force_show and not self._notification_view_open():
             self.open_notifications()
 
+        # A persistent notification must stay accessible: keep bringing its
+        # popup back until the user dismisses it.
+        if notification.persistent:
+            self._start_persistent_alert(notification)
+
         return notification
 
+    def _start_persistent_alert(self, notification: Notification) -> None:
+        """Re-open a persistent notification's popup until it is dismissed.
+
+        Arms a repeating timer that puts the notification back on screen
+        every ``PERSISTENT_ALERT_INTERVAL`` seconds while it stays queued.
+        The timer stops itself once the notification leaves the queue (and
+        is cancelled eagerly by ``_remove``/``clear_notifications``).
+        """
+        notif_id = str(id(notification))
+
+        def _re_alert_tick(_data: Any = None) -> None:
+            # Dismissed or cleared: stop the loop and drop the handle.
+            if not any(str(id(n)) == notif_id for n in self._notifications):
+                handle = self._persistent_alert_handles.pop(notif_id, None)
+                if handle is not None:
+                    self.app.cancel_timer(handle)
+                return
+            # Never steal an open notification popup or list from the user.
+            if self._notification_view_open():
+                return
+            for n in self._notifications:
+                if str(id(n)) == notif_id:
+                    # While the idle/screensaver page is shown, only alerts in
+                    # FORCE_OVER_IDLE_TYPES may interrupt it.  Other persistent
+                    # alerts stay queued and re-appear as soon as the user
+                    # returns to a real panel; the timer keeps running, so the
+                    # "never silently lost" guarantee still holds.
+                    if self._idle_page_active() and n.notif_type not in self.FORCE_OVER_IDLE_TYPES:
+                        return
+                    self.open_notification(n)
+                    break
+
+        handle = self.app.run_every(
+            _re_alert_tick,
+            "now+1",
+            self.PERSISTENT_ALERT_INTERVAL,
+        )
+        self._persistent_alert_handles[notif_id] = handle
+
     def remove_notification(self, notification: Notification) -> bool:
-        # Match by value but remove the stored instance: the re-alert loop is keyed by its id().
+        # Match by value but remove the stored instance.
         for stored in self._notifications:
             if stored == notification:
                 self._remove(stored)
@@ -201,14 +239,14 @@ class HAUINotificationController(HAUIBase):
         return False
 
     def clear_notifications(self) -> None:
-        # Cancel all re-alert loops
-        for handle in self._alert_timers.values():
-            self.app.cancel_timer(handle)
-        self._alert_timers.clear()
         # A pending queue advance must not fire after a clear.
         if self._advance_handle is not None:
             self.app.cancel_timer(self._advance_handle)
             self._advance_handle = None
+        # Stop every periodic re-alert loop along with its notification.
+        for handle in self._persistent_alert_handles.values():
+            self.app.cancel_timer(handle)
+        self._persistent_alert_handles.clear()
         self._open_popup_notif_id = None
         self._notifications = []
         self._refresh_list_items()
@@ -217,7 +255,10 @@ class HAUINotificationController(HAUIBase):
 
     def _remove(self, notification: Notification) -> None:
         """Remove a queued notification, given the stored instance."""
-        self._cancel_re_alert(notification)
+        # Stop the periodic re-alert loop for this notification, if any.
+        handle = self._persistent_alert_handles.pop(str(id(notification)), None)
+        if handle is not None:
+            self.app.cancel_timer(handle)
         self._notifications.remove(notification)
         self._refresh_list_items()
         # If the notification list is displayed, drop the removed item and
@@ -237,55 +278,6 @@ class HAUINotificationController(HAUIBase):
 
     def has_persistent_notifications(self) -> bool:
         return any(n.persistent for n in self._notifications)
-
-    # ------------------------------------------------------------------
-    # Ack-required re-alert loop
-    # ------------------------------------------------------------------
-
-    def _re_alert_interval(self) -> int:
-        """Seconds between re-alert popups for unacknowledged notifications."""
-        interval = self.get("re_alert_interval", 60)
-        try:
-            return max(5, int(interval))
-        except (TypeError, ValueError):
-            return 60
-
-    def _schedule_re_alert(self, notification: Notification) -> None:
-        """Arm the periodic re-alert that re-opens the popup until acknowledged."""
-        notif_id = id(notification)
-        handle = self.app.run_in(
-            lambda _data: self._re_alert(notif_id), self._re_alert_interval()
-        )
-        self._alert_timers[notif_id] = handle
-
-    def _cancel_re_alert(self, notification: Notification) -> None:
-        """Cancel the re-alert loop for a notification, if any."""
-        handle = self._alert_timers.pop(id(notification), None)
-        if handle is not None:
-            self.app.cancel_timer(handle)
-
-    def _re_alert(self, notification_id: int) -> None:
-        """Re-open the popup of an unacknowledged notification.
-
-        Re-arms itself as long as the notification is still queued. While the
-        idle page is active, the popup is not forced open; the loop keeps
-        running and re-alerts as soon as the user returns to a real panel.
-        """
-        self._alert_timers.pop(notification_id, None)
-        # While the idle page (automatic page switching) is shown the
-        # popup is not forced open; the loop keeps running and re-alerts as
-        # soon as the user is back on a real panel.
-        navigation = self.app.controller.get("navigation")
-        idle_page = navigation.idle_panel_active if navigation is not None else False
-        for n in self._notifications:
-            if id(n) != notification_id:
-                continue
-            if n.require_ack and not idle_page:
-                self.log(f"Re-alerting unacknowledged notification: {n.title!r}")
-                self.open_notification(n)
-            # Re-arm regardless so the alert resumes after the user wakes up.
-            self._schedule_re_alert(n)
-            return
 
     # ------------------------------------------------------------------
     # Viewing notifications
@@ -314,10 +306,7 @@ class HAUINotificationController(HAUIBase):
         queued notification opens in its place.
         """
         notif_id = str(id(notification))
-        if notification.require_ack:
-            btn_right = self.translate("Acknowledge")
-        else:
-            btn_right = self.translate("Dismiss")
+        btn_right = self.translate("Dismiss")
         self.app.controller["navigation"].open_panel(
             SysPanelKey.POPUP_NOTIFY,
             icon=notification.icon,
@@ -365,6 +354,16 @@ class HAUINotificationController(HAUIBase):
         panel = navigation.get_current_panel() if navigation is not None else None
         return panel is not None and self._is_notification_view(panel)
 
+    def _idle_page_active(self) -> bool:
+        """Whether the idle (screensaver) page is currently shown.
+
+        Used by the persistent re-alert loop to decide whether it may
+        interrupt what the user is looking at.  The idle page is a page
+        switch owned by navigation, independent of display brightness.
+        """
+        navigation = self.app.controller.get("navigation")
+        return bool(navigation is not None and navigation.idle_panel_active)
+
     def _is_notification_view(self, panel: Any) -> bool:
         """True when ``panel`` is a popup/list opened by this controller.
 
@@ -382,7 +381,7 @@ class HAUINotificationController(HAUIBase):
         """A notification popup closed; continue the queue if it was consumed.
 
         The close callback fires whenever the popup page goes away: on the
-        Dismiss/Acknowledge button and when the user navigates away.  Only
+        Dismiss button and when the user navigates away.  Only
         the former consumed the notification — i.e. removed it from the
         queue — so the queue advance is armed exactly then.  A popup the
         user left alone (its notification is still queued) does not advance.
@@ -478,7 +477,6 @@ class HAUINotificationController(HAUIBase):
                 "icon": notification.icon,
                 "notif_type": notification.notif_type,
                 "persistent": notification.persistent,
-                "require_ack": notification.require_ack,
             },
         )
 
@@ -531,7 +529,6 @@ class HAUINotificationController(HAUIBase):
             persistent = notification.get("persistent", False)
             notif_type = notification.get("notif_type", "info")
             force_show = notification.get("force_show", False)
-            require_ack = notification.get("require_ack", False)
             text_size = notification.get("text_size", "auto")
             self.add_notification(
                 title,
@@ -540,7 +537,6 @@ class HAUINotificationController(HAUIBase):
                 persistent,
                 notif_type,
                 force_show,
-                require_ack,
                 text_size,
             )
         # Also forward notification lifecycle events to the shared blinker

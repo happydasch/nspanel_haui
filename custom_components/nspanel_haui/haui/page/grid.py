@@ -246,7 +246,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
     def get_grid_colors(self, item: HAUIItem | None) -> tuple:
         # Default theme colors — no panel-level overrides.
         text_color = self.get_color("text")
-        back_color = self.get_color("component_background")
+        back_color = self.get_color("background")
         color_pressed = self.get_color("component_text")
         back_color_pressed = self.get_color("component_pressed")
         power_color = self.get_color("component_active")

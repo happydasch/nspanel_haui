@@ -750,9 +750,12 @@ class HAUINavigationController(HAUIBase):
         self._idle_panel_idx += 1
         self._idle_panel = panel
         self._idle_panel_active = True
-        # Swallow the touch that triggered the navigation so check_wakeup
-        # doesn't immediately exit the page it just opened.
-        self.app.device._first_touch_consumed = True
+        # A dark display needs one wake touch before the idle page can be
+        # exited. Touch-initiated entry while the display is on is protected
+        # separately by the idle-touch grace window.
+        self.app.device._first_touch_consumed = (
+            self.app.device.device_info.get("display_state", "off") != "on"
+        )
         self.open_panel(panel.id, autostart=autostart)
 
     def mark_awake(self) -> None:

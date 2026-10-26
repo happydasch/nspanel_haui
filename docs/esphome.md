@@ -152,9 +152,9 @@ These are commands that are being executed on the ESP.
 - `goto_page` Sets the active page on display
 - `send_notification` Sends a notification to the display
 
-  Parameters: `title` (string), `message` (string), `icon` (string - optional; when empty, the notification uses its severity's default icon — these actions default to `info`, so the info icon is used). Optional: `persistent` (bool; loops the alert sound until dismissed, default `false`) and `text_size` (`"auto"` or a font size 1-3, default `"auto"`).
+  Parameters: `title` (string), `message` (string), `icon` (string - optional; when empty, the notification uses its severity's default icon — these actions default to `info`, so the info icon is used). Optional: `persistent` (bool; loops the alert sound and re-opens the popup about every 60 seconds until dismissed, default `false`) and `text_size` (`"auto"` or a font size 1-3, default `"auto"`).
 
-  The action does not expose severity, force-show or acknowledgement fields, and `persistent` loops the sound without force-opening the popup.
+  The action does not expose severity or force-show fields; `persistent` loops the sound and re-opens the popup periodically without force-showing it. The first re-open comes about a second after the action; if a notification popup or list is already open, the re-open waits until it is dismissed. Because the action cannot set a severity, its alerts default to `info` and never re-open over the idle page.
 
 ## Events
 
@@ -308,7 +308,7 @@ This actions below are defined on the ESP. The communication between the Hub ser
 
 - `send_notification` Action to send a notification to a display
 
-  Parameters: `title`, `message`, `icon`; optional `persistent` (bool; loops the alert sound until dismissed) and `text_size` (`"auto"` or a font size 1-3). `persistent` does not force-open the popup.
+  Parameters: `title`, `message`, `icon`; optional `persistent` (bool; loops the alert sound and re-opens the popup about every 60 seconds until dismissed) and `text_size` (`"auto"` or a font size 1-3). `persistent` does not force-show the popup; the first re-open comes about a second after the action.
 
 - `req_val` / `req_txt` Actions to read a number / text value from the display (parameter `name`)
 

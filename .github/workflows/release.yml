@@ -31,7 +31,7 @@ jobs:
         #   - system.tftVersion matches the integration version
         #   - the portrait HMI/TFT exist
         run: |
-          python scripts/verify_nextion.py --require-portrait
+          python scripts/verify_nextion/verify_nextion.py --require-portrait
 
       - name: Validate the universal firmware config
         run: esphome config esphome/nspanel_haui_universal.yaml

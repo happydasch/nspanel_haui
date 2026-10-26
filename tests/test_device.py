@@ -531,10 +531,28 @@ def test_first_touch_only_wakes():
 
 
 def test_second_touch_exits():
-    """Second touch (after the wake guard was cleared) exits the idle page."""
+    """Second touch exits after the wake touch was consumed."""
     device, nav = _wakeup_harness()
     device._first_touch_consumed = False
     device.check_wakeup()
+    assert len(nav.exit_calls) == 1
+
+
+def test_dark_wake_touch_and_poller_duplicate_do_not_exit_idle_page():
+    """A delayed display-state update and duplicate poller event must not turn
+    one dark-screen touch into an idle-page exit; the next real touch does.
+    """
+    device, nav = _wakeup_harness()
+    device._first_touch_consumed = True
+
+    # The firmware can publish "on" before the queued touch-start reaches HA.
+    device.process_event(HAUIEvent(ESPEvent.DISPLAY_STATE, "on"))
+    device.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))
+    device.process_event(HAUIEvent(ESPEvent.TOUCH_START, ""))  # poller duplicate
+
+    assert nav.exit_calls == []
+
+    device.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))  # next physical touch
     assert len(nav.exit_calls) == 1
 
 
@@ -592,13 +610,12 @@ def test_no_exit_when_idle_panel_not_active():
 
 
 def test_first_touch_exits_when_display_already_on() -> None:
-    """First touch exits sleep immediately when the display is already ON (one-touch)."""
+    """An idle page opened while on exits on the first touch."""
     device, nav = _wakeup_harness()
-    device._first_touch_consumed = True
+    device._first_touch_consumed = False
     device.device_info["display_state"] = "on"
     device.check_wakeup()
     assert len(nav.exit_calls) == 1
-    assert device._first_touch_consumed is False
 
 
 def test_residual_touch_start_does_not_dismiss_just_opened_sleep() -> None:
@@ -1074,7 +1091,9 @@ def test_switching_the_display_model_installs_the_matching_tft() -> None:
     re-syncs with the same model do not (the version check cannot see the layout)."""
     installs: list = []
     app = _SwitchApp({})
-    app.controller["update"] = type("Update", (), {"install_tft": lambda self: installs.append(1)})()
+    app.controller["update"] = type(
+        "Update", (), {"install_tft": lambda self: installs.append(1)}
+    )()
     device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "eu"})
 
     device.sync_config_to_device()

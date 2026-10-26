@@ -64,7 +64,7 @@ def test_keypad_options_declared():
     assert font.default == 2
 
     assert bg.kind == "color"
-    assert bg.default == COLORS["component_background"]
+    assert bg.default == COLORS["background"]
 
     assert text.kind == "color"
     assert text.default == COLORS["component_text"]
@@ -78,7 +78,7 @@ def test_style_keypad_applies_defaults_to_all_buttons():
     assert len(names) == 12
     for name in names:
         assert f"{name}.font=2" in page.commands
-        assert f"{name}.bco={COLORS['component_background']}" in page.commands
+        assert f"{name}.bco={COLORS['background']}" in page.commands
         assert f"{name}.pco={COLORS['component_text']}" in page.commands
 
 
@@ -102,7 +102,7 @@ def test_style_keypad_honours_overrides_and_parses_string_color():
 def test_get_button_colors_fills_enabled_buttons():
     page = _ColorPage()
     _color, _color_pressed, back, back_pressed = page.get_button_colors(True)
-    assert back == COLORS["component_background"]
+    assert back == COLORS["background"]
     assert back_pressed == COLORS["component_pressed"]
 
 

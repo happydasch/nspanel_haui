@@ -96,7 +96,7 @@ re-check `git status` for uncommitted work first.
 4. Run the gates locally:
 
    ```bash
-   python scripts/verify_nextion.py --require-portrait
+   python scripts/verify_nextion/verify_nextion.py --require-portrait
    python scripts/gen_portrait/gen_portrait.py --check
    python scripts/gen_preview/gen_preview.py --check-missing
    ```

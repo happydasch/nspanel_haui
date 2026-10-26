@@ -603,11 +603,10 @@ class HAUIDevice(HAUIBase):
         persistent: bool = False,
         notif_type: str = "info",
         force_show: bool = False,
-        require_ack: bool = False,
     ) -> None:
         """Send a notification via the notification controller."""
         self.app.controller["notification"].send_notification(
-            title, message, icon, persistent, notif_type, force_show, require_ack
+            title, message, icon, persistent, notif_type, force_show
         )
 
     def get_locale(self) -> str:
@@ -748,7 +747,11 @@ class HAUIDevice(HAUIBase):
             if self._idle_touch_grace_active():
                 self.log("Ignoring residual touch_start after idle-page open")
                 return
-            self.check_wakeup()
+            # The ESPHome coordinate poller also reports touch_start with an
+            # empty value; the native Nextion callback ("1") is the single
+            # wake decision per physical press.
+            if event.value == "1":
+                self.check_wakeup()
         # the display went dark again (e.g. while the idle page stays open),
         # so the next touch must only wake it: re-arm the two-touch guard
         elif event.name == ESPEvent.DISPLAY_STATE:
@@ -832,21 +835,21 @@ class HAUIDevice(HAUIBase):
         # Values from the device: "on", "dim", "off".
         display_state = self.device_info.get("display_state", "off")
 
-        if display_state == "on":
-            # Display is already on — the user can see the screen.
-            # Exit the idle page immediately on the first touch (one-touch).
-            self._first_touch_consumed = False
-            navigation.exit_idle_to_prev_or_home(self.config)
-            return
-
-        # Display is off or dim — the user cannot see the screen.
-        # First touch wakes the display; second touch exits the idle page.
+        # The native touch event can reach the hub after the firmware has
+        # already published the display-on transition. Consume a wake touch
+        # recorded while dark before considering the current display state.
         if self._first_touch_consumed:
             self._first_touch_consumed = False
             self.log("Not exiting idle page, just woke up")
             return
 
-        self._first_touch_consumed = False
+        if display_state == "on":
+            # Display is visible: a single touch exits the idle page.
+            navigation.exit_idle_to_prev_or_home(self.config)
+            return
+
+        # Display is dark and the wake touch was already consumed: this is the
+        # second touch, so exit even if the on-state event has not arrived yet.
         navigation.exit_idle_to_prev_or_home(self.config)
 
     def _on_button_release(self, side: str) -> None:

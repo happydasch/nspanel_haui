@@ -133,7 +133,7 @@ def _registry_update(monkeypatch, app):
     registry = types.ModuleType("homeassistant.helpers.device_registry")
     registry.EVENT_DEVICE_REGISTRY_UPDATED = "device_registry_updated"
     registry.async_get = lambda hass: types.SimpleNamespace(
-        async_get=lambda device_id: types.SimpleNamespace(config_entries={"esp1"})
+        async_get=lambda device_id: types.SimpleNamespace(config_entry_id="esp1")
     )
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.device_registry", registry)
     monkeypatch.setattr(

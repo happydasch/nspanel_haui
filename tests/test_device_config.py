@@ -307,7 +307,7 @@ def test_device_config_model_rejects_out_of_range_timeouts() -> None:
         ("stale_data_seconds", -1),
         ("snapshot_max_age_seconds", -2),
     ):
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             validate_device_config({**base, key: bad})
 
 

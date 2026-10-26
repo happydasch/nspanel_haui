@@ -273,7 +273,7 @@ the result alongside the landscape TFT on every release.
   must be applied to the portrait HMI as well (and vice versa), with its
   geometry expressed in `portrait_layout.py`. Be extra careful here: a widget
   missing on one side only fails on the device. `gen_portrait.py --check` for
-  both specs and `verify_nextion.py --require-portrait` are the guard rails.
+  both specs and `verify_nextion/verify_nextion.py --require-portrait` are the guard rails.
 - Both `.tft` files must be attached to every GitHub release. The hub's update
   controller downloads `nspanel_haui.tft` for `display_model: eu` (the default
   landscape layout) and `nspanel_haui_portrait.tft` for `display_model: us`
@@ -308,7 +308,7 @@ the result alongside the landscape TFT on every release.
 3. Full checks: `pytest tests/`, `ruff check custom_components/`, `mypy`,
    and if you touched `frontend/`, `node --test 'tests/frontend/*.test.mjs'`.
 4. If you added user-facing strings: `python scripts/translations/extract_translations.py`.
-5. Automatic release gate: `python scripts/verify_nextion.py --require-portrait`
+5. Automatic release gate: `python scripts/verify_nextion/verify_nextion.py --require-portrait`
    fails the release until (a) `clock.tTime` has **Send Component ID** enabled,
    (b) `system.tftVersion` matches `manifest.json`, and (c) the portrait
    HMI/TFT exist.  Run it locally after every HMI edit; the release workflow

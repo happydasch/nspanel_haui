@@ -5,7 +5,8 @@ feature-complete and in final validation**: the version is set in all four
 places and the CHANGELOG entry is written. What remains for the tag is a pushed
 CI run on the current candidate (backend and frontend suites, ruff, mypy,
 docs), the **device passlist on real EU + US hardware**, and the `v0.4.0`
-GitHub release. The release after that is **v0.5.0 — high-speed display update**.
+GitHub release. The release after that is **v0.5.0 — high-speed display update &
+visual frontend**, pairing the baud-rate jump with a dedicated editor polish pass.
 
 This file tracks **open work only**. Shipped changes are summarised in
 [CHANGELOG.md](CHANGELOG.md); completed rows are removed from here when a release
@@ -22,7 +23,7 @@ ships. The release runbook and its known risks live in
 |-----------|-------|
 | Run the device passlist below on real EU + US hardware | `haui/`, `esphome/`, `nextion/` |
 | Publish the GitHub release: `release.yml` compiles the `.bin` and attaches both TFTs; tag `v0.4.0` after the passlist | GitHub Releases |
-| Confirm the documented notification behaviour against real hardware during the passlist — HA service persistence, `force_show` and `require_ack`, the ESPHome `send_notification` action with optional `persistent`/`text_size`, popup long-message scrolling and severity default icons | `docs/services.md`, `docs/esphome.md`, `docs/panels/popup_notify.md`, `docs/device.md` |
+| Confirm the documented notification behaviour against real hardware during the passlist — HA service persistence (persistent notifications re-open their popup periodically until dismissed) and `force_show`, the ESPHome `send_notification` action with optional `persistent`/`text_size`, popup long-message scrolling and severity default icons | `docs/services.md`, `docs/esphome.md`, `docs/panels/popup_notify.md`, `docs/device.md` |
 | Confirm the 0.3.x upgrade path in the editor — the five renamed device-setting keys migrate automatically; saved panels are not migrated and must be re-entered and verified | `haui/`, `docs/upgrading.md` |
 
 **Device passlist** — confirm on one EU and one US/portrait panel:
@@ -38,8 +39,7 @@ ships. The release runbook and its known risks live in
   resolved), TFT auto-updates, panel renders. Repeat on a second panel and
   confirm both get distinct names/APs from the same `.bin`.
 - **Notifications** — popup, `force_show`, list, dismiss, persistent and
-  critical sounds, quiet hours, `notify.*` entities, font sizes, and
-  `require_ack` looping until **Acknowledge**.
+  critical sounds, quiet hours, `notify.*` entities, and font sizes.
 - **Wakeup / sleep** — wake on touch and via the `wakeup` service, sleep
   panel(s)/carousel and auto-dim as configured, state survives sleep/wake cycles.
 - **Touch / general functionality** — every widget responds and navigates;
@@ -64,13 +64,18 @@ completed the wiring audit (settings reach the firmware on save and connect,
 action items without a target, "keep config" removal, `wakeup` without a wakeup
 panel, page items follow entity state) and the release-readiness work (TFT
 auto-update from the matching release, dual-update warning in the changelog).
+Persistent notifications now stay accessible: their popup re-opens periodically
+until dismissed.
 
 ---
 
-## v0.5.0 — High-speed display update
+## v0.5.0 — High-speed display update & visual frontend
 
-Move the display to a high-speed link so TFT installs and runtime rendering run
-at **921600 baud** instead of 115200 — an 8× baud increase (~10× in practice),
+v0.5 is not only about speed — it is equally a **visual frontend** release:
+the sidebar editor is where panels are configured and reviewed, and the release
+gives it a dedicated polish pass alongside the speed work below. On the speed
+side, move the display to a high-speed link so TFT installs and runtime rendering
+run at **921600 baud** instead of 115200 — an 8× baud increase (~10× in practice),
 turning an ~11 MB TFT update from ~16 min into ~2 min. The bottleneck is the UART
 baud rate; the TFT must enforce the rate on boot and a boot scan must recover
 panels still on an old 115200 TFT after the firmware update.
@@ -79,7 +84,7 @@ panels still on an old 115200 TFT after the firmware update.
 |------|-------|
 | Raise the display UART to 921600 baud (`baud_rate: 115200 → 921600`); TFT upload inherits the rate (`upload_tft(baud=0)` uses the UART baud — `api.yaml`/`button.yaml` need no change), and the universal image inherits via the `hardware.yaml` package | `esphome/nspanel_haui/hardware.yaml` |
 | Add the **boot baud-rate scan**: `baud_scan` power-cycles `screen_power`, probes every Nextion-supported rate directly over `haui_uart` (`get sleep\xff\xff\xff` probe), switches the UART to the detected rate; `baud_check_at_boot` waits a `BAUD_RATE_TIMEOUT` for `haui_disp->is_detected()` before scanning | `esphome/nspanel_haui/` (new script, wired into boot/watchdog) |
-| Recompile **both** TFTs with `bauds=921600` in the boot event code (today `bauds=115200//Configure baudrate` at offset 7340991 in `nspanel_haui.HMI` and `nspanel_haui_portrait.HMI`); re-export both `.tft` in the Nextion Editor; run `scripts/verify_nextion.py --require-portrait` + `gen_portrait.py --check` parity gates | `nextion/`, scripts |
+| Recompile **both** TFTs with `bauds=921600` in the boot event code (today `bauds=115200//Configure baudrate` at offset 7340991 in `nspanel_haui.HMI` and `nspanel_haui_portrait.HMI`); re-export both `.tft` in the Nextion Editor; run `scripts/verify_nextion/verify_nextion.py --require-portrait` + `gen_portrait.py --check` parity gates | `nextion/`, scripts |
 | Pacing at the higher rate: keep `max_queue_size: 800` / `max_commands_per_loop: 50`, decide on `command_spacing` (candidate: `1ms`) guided by observed `on_buffer_overflow` events | `esphome/nspanel_haui/display.yaml` |
 | Docs: baud default, update-time expectations, baud-scan recovery behaviour, upgrade caveats | `docs/esphome.md`, `docs/nextion.md`, `docs/install.md`, `docs/troubleshooting.md` |
 | Device passlist: fresh 921600 TFTs on EU + portrait hardware, upgrade path from a 115200 TFT (baud-scan recovery), universal prebuilt image, repeated auto-updates, no UART overflows under the update burst | — |
@@ -88,6 +93,35 @@ panels still on an old 115200 TFT after the firmware update.
 universal image; a panel still running an old 115200 TFT regains its display
 after a firmware update without user action; no UART buffer overflows during
 the auto-update burst.
+
+### Visual frontend focus
+
+The sidebar editor is the primary interface for configuring and reviewing
+panels, and 0.5 gives it a dedicated polish pass across three areas:
+
+#### Device manager
+
+| Item | Priority | Scope |
+|------|----------|-------|
+| Allow multi‑device operations: bulk firmware/TFT update, move panels across devices (reordering devices works today) | Later | `frontend/` |
+| Frontend Device Manager cleanup — consolidate the dialog after the v0.4 additions (layout, per‑device actions, stale states) | Next | `frontend/dialogs/device-manager.js` |
+
+#### Page / Panel management
+
+| Item | Priority | Scope |
+|------|----------|-------|
+| Improve the panel list view — drag‑to‑reorder, inline rename, duplicate panel (reorder works through the row menu today) | Next | `frontend/` |
+| Edit-panel sidebar cleanup — tidy the panel edit sidebar: selection state, actions, empty states | Next | `frontend/` |
+| Add a "create from template" flow for common panel configurations | Later | `frontend/` |
+
+#### Editor UI polish
+
+| Item | Priority | Scope |
+|------|----------|-------|
+| Form validation feedback (inline errors, required‑field indicators) | Next | `frontend/` |
+| Preview cleanup — unify the panel preview renderers and styles, prune dead code (portrait re-flow included) | Next | `frontend/previews/`, `frontend/panel-previews.js` |
+| Keyboard‑navigable modals and consistent focus management | Later | `frontend/` |
+| Accessibility pass — labelled form controls, ARIA attributes, colour contrast | Later | `frontend/` |
 
 ---
 
@@ -104,34 +138,6 @@ Open items from the release-process review (see
 | Scripted HMI patching for the release-only edits (`tftVersion`, Send Component ID), keeping the Editor as fallback | 0.5+ | `scripts/`, `nextion/` |
 | Portrait layout as a build-time rotation instead of a second committed HMI | 0.5+ | `nextion/`, `scripts/gen_portrait/` |
 | Git LFS or release-only storage for the TFT binaries | 0.5+ | repo |
-
----
-
-## v0.5 — Frontend maturity
-
-### Device manager
-
-| Item | Priority | Scope |
-|------|----------|-------|
-| Allow multi‑device operations: bulk firmware/TFT update, move panels across devices (reordering devices works today) | Later | `frontend/` |
-| Frontend Device Manager cleanup — consolidate the dialog after the v0.4 additions (layout, per‑device actions, stale states) | Next | `frontend/dialogs/device-manager.js` |
-
-### Page / Panel management
-
-| Item | Priority | Scope |
-|------|----------|-------|
-| Improve the panel list view — drag‑to‑reorder, inline rename, duplicate panel (reorder works through the row menu today) | Next | `frontend/` |
-| Edit-panel sidebar cleanup — tidy the panel edit sidebar: selection state, actions, empty states | Next | `frontend/` |
-| Add a "create from template" flow for common panel configurations | Later | `frontend/` |
-
-### Editor UI polish
-
-| Item | Priority | Scope |
-|------|----------|-------|
-| Form validation feedback (inline errors, required‑field indicators) | Next | `frontend/` |
-| Preview cleanup — unify the panel preview renderers and styles, prune dead code (portrait re-flow included) | Next | `frontend/previews/`, `frontend/panel-previews.js` |
-| Keyboard‑navigable modals and consistent focus management | Later | `frontend/` |
-| Accessibility pass — labelled form controls, ARIA attributes, colour contrast | Later | `frontend/` |
 
 ---
 

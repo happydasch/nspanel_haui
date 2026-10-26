@@ -256,13 +256,15 @@ Each generated file lists the page's widgets (ID, Nextion name, attributes) and 
 
 Geometry and other int attributes of existing widgets can be patched in place by script; everything that changes a block's length (adding/removing widgets, event code, text of another length, pictures, fonts) is Nextion Editor work. `scripts/gen_portrait/gen_portrait.py` is the reference implementation (`parse_pages`, `_write_attr`, `block_crc`); it applies a spec module — `portrait_layout.py` (complete 320 × 480 layout) or `landscape_layout.py` (partial refinements of the 480 × 320 layout, `--spec landscape_layout`); extend the spec rather than hand-editing bytes.
 
-**Both HMIs share one definition of components.** The Python `COMPONENTS` registries address `nspanel_haui.HMI` and `nspanel_haui_portrait.HMI` with the same names and ids, so every change to one HMI — a widget added, removed, renamed or re-ordered, an attribute or geometry edit, event code — must be applied to the other as well (geometry and attributes through the sibling spec: `landscape_layout.py` ↔ `portrait_layout.py`). Be extra careful here: a widget that exists in only one HMI breaks that TFT silently at runtime. Run `gen_portrait.py --check` for both specs and `python scripts/verify_nextion.py --require-portrait` before calling either HMI done.
+**Both HMIs share one definition of components.** The Python `COMPONENTS` registries address `nspanel_haui.HMI` and `nspanel_haui_portrait.HMI` with the same names and ids, so every change to one HMI — a widget added, removed, renamed or re-ordered, an attribute or geometry edit, event code — must be applied to the other as well (geometry and attributes through the sibling spec: `landscape_layout.py` ↔ `portrait_layout.py`). Be extra careful here: a widget that exists in only one HMI breaks that TFT silently at runtime. Run `gen_portrait.py --check` for both specs and `python scripts/verify_nextion/verify_nextion.py --require-portrait` before calling either HMI done.
+
+**Editing display files:** when editing Nextion display files, use the Nextion Editor via VNC/noVNC. The editor is a Windows GUI application, so drive it over VNC/noVNC on the desktop where it runs. Use the editor for anything the script cannot do safely (see above), then follow the workflow below.
 
 Workflow (the editor owns the file while a project is open):
 
 1. **Close the project** in the Nextion Editor (File → Close Project) before writing the HMI. The editor silently re-saves the open project on Close Project and on every project switch, overwriting whatever a script wrote.
-2. **Patch**, then prove it: re-dump with Nextion2Text (`-p visual`) and compare every widget against the spec — `gen_portrait.py` does this itself and refuses to write on any mismatch, and its `--check` mode reports widgets that exist on only one side. The portrait spec names the landscape HMI as its `SIBLING_HMI`: both files must hold the same widgets and every widget's Send Component ID (`sendkey`) is copied from the landscape project — toggle touch settings there, never in the portrait copy. `scripts/verify_nextion.py --require-portrait` enforces that parity.
-3. **Re-open the project** (recent list), look at every page, compile (`Compile`, then `File → TFT file output` → `nextion/nspanel_haui_portrait.tft`) and run `python scripts/verify_nextion.py --require-portrait`. Done means the editor opened the file without "Version mismatch", every page renders as specified, and the gate passes.
+2. **Patch**, then prove it: re-dump with Nextion2Text (`-p visual`) and compare every widget against the spec — `gen_portrait.py` does this itself and refuses to write on any mismatch, and its `--check` mode reports widgets that exist on only one side. The portrait spec names the landscape HMI as its `SIBLING_HMI`: both files must hold the same widgets and every widget's Send Component ID (`sendkey`) is copied from the landscape project — toggle touch settings there, never in the portrait copy. `scripts/verify_nextion/verify_nextion.py --require-portrait` enforces that parity.
+3. **Re-open the project** (recent list), look at every page, compile (`Compile`, then `File → TFT file output` → `nextion/nspanel_haui_portrait.tft`) and run `python scripts/verify_nextion/verify_nextion.py --require-portrait`. Done means the editor opened the file without "Version mismatch", every page renders as specified, and the gate passes.
 
 Format reference (what the script relies on):
 
@@ -369,9 +371,9 @@ Notification delivery has three entry points; the HA service is the recommended 
 
 | Entry point | Options | Notes |
 |-------------|---------|-------|
-| `nspanel_haui.send_notification` service | title, message, icon, type, persistent, force_show, require_ack | Goes straight to the notification controller; carries severity (`type`) and force-show |
+| `nspanel_haui.send_notification` service | title, message, icon, type, persistent, force_show, text_size | Goes straight to the notification controller; carries severity (`type`) and force-show |
 | `notify.<device>` / `notify.<device>_persistent_notification` | title, message only | The regular entity queues; the persistent entity always opens immediately (force-show) and loops the sound. Neither accepts a configurable severity or force-show |
-| ESPHome `send_notification` action | title, message, icon + optional persistent / text_size | No severity, force-show, or acknowledgement fields |
+| ESPHome `send_notification` action | title, message, icon + optional persistent / text_size | No severity or force-show fields |
 
 Key semantics:
 
@@ -382,15 +384,13 @@ Key semantics:
   A new force-show notification never rips an open notification popup/list away:
   it waits in the queue instead. This is the "notifications are shown only once"
   regression guard — do not pass a `close_timeout` to queued-notification popups.
-- `persistent=true` loops the sound until the notification is dismissed, and opens the popup immediately (the service forces it; the ESPHome action does not).
-- `require_ack=true` implies `persistent` and re-opens its popup periodically (`re_alert_interval`, default 60 s) until the user presses **Acknowledge** — the only "repeat until acknowledged" guarantee left now that nothing times out.
+- `persistent=true` loops the sound until the notification is dismissed, and opens the popup immediately (the service forces it; the ESPHome action does not). While the idle page is shown, only a `critical` persistent notification forces its popup over it; other severities wait for the user to return to a real panel — the timer keeps running, so the alert resumes when the idle page is exited.
 - An empty `icon` falls back to a severity default (`info` → `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` → `mdi:alert-octagon-outline`). `critical` also plays the `alert` sound instead of `notification`.
 - Long messages scroll horizontally (marquee) in the detail popup; the queue selection list shows plain titles.
 - Sending a notification with the same title and message as one already queued replaces it: the sound replays and the queue advances to it when the current popup closes.
 
 Idle page vs. display state (important): the **idle page** is the configured automatic page switch, tracked by `navigation.idle_panel_active`. It is independent of the firmware's display brightness machine: the display can be off without a page switch, and the idle page can be shown while the display is still on.
 
-- `notification._re_alert()` re-opens an unacknowledged popup only while `require_ack` is set **and** `idle_panel_active` is false. While the idle page is shown, the re-alert timer keeps re-arming without forcing the popup open, so the alert resumes when the user returns to a real panel. Do not "fix" this by forcing the popup over the idle page.
 - `services.py` `wakeup` calls `navigation.exit_idle_to_prev_or_home(config)` (a no-op when no idle session is active) and `idle` calls `navigation.open_idle_panel(True)`. `open_idle_panel()` is a pure page switch — it never turns the display off — and creates the pre-idle snapshot only when an idle session actually starts.
 - Navigation and `function_btn_mixin` actions use the same `open_idle_panel()` / `exit_idle_to_prev_or_home()` API; the `idle_panel` / `idle_panel_extra` / `show_idle_button` config keys are the only names.
 

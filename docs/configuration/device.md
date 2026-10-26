@@ -167,7 +167,7 @@ shortcuts on top of that.
 
 - `persistent_sound_interval` int
 
-  Seconds between repeats of the alert tone while a persistent notification waits to be dismissed. Default `5`.
+  Seconds between repeats of the alert tone while a persistent notification waits to be dismissed. This controls the sound only — the notification popup itself re-opens about every 60 seconds. Default `5`.
 
 - `use_do_not_disturb` bool
 

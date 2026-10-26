@@ -14,7 +14,7 @@ from ..utils.icon import get_icon
 
 # keypad styling defaults, shared by the descriptor options and the runtime helper
 _KEYPAD_FONT_DEFAULT = 2
-_KEYPAD_BG_DEFAULT = COLORS["component_background"]
+_KEYPAD_BG_DEFAULT = COLORS["background"]
 _KEYPAD_TEXT_DEFAULT = COLORS["component_text"]
 
 

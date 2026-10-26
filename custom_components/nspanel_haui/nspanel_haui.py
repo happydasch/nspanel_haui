@@ -96,8 +96,10 @@ class NSPanelHAUI(HAAdapter):
         self.controller["navigation"] = HAUINavigationController(
             self, self.device_config.get("navigation")
         )
+        # The notification controller no longer has a dedicated config section
+        # (re_alert_interval was replaced by PERSISTENT_ALERT_INTERVAL).
         self.controller["notification"] = HAUINotificationController(
-            self, self.device_config.get("notification")
+            self, self.device_config.get("notification", {})
         )
         self.controller["update"] = HAUIUpdateController(self, self.device_config.get("update"))
         self.controller["gesture"] = HAUIGestureController(self, self.device_config.get("gesture"))

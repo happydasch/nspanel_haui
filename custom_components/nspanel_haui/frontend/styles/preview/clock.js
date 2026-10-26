@@ -42,7 +42,7 @@ export const previewClockStyles = css`
     min-height: 0;
     padding: 1px;
     border-radius: 3px;
-    background: rgba(255,255,255,0.08);
+    /* no own background: entity buttons sit flat on the page background */
     overflow: hidden;
   }
   .pg-preview-clock-entity-btn ha-icon {

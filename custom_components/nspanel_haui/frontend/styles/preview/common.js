@@ -36,7 +36,7 @@ export const previewCommonStyles = css`
     padding: 4px 2px;
     min-height: 40px;
     overflow: hidden;
-    background: rgba(255,255,255,0.08);
+    /* no own background: widgets sit flat on the page background */
   }
   .pg-preview-tile-icon-wrap {
     flex: 1;
@@ -145,7 +145,7 @@ export const previewCommonStyles = css`
     width: 30px;
     height: 24px;
     border-radius: 3px;
-    background: rgba(255,255,255,0.10);
+    /* no own background: buttons sit flat on the page background */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -335,7 +335,6 @@ export const previewCommonStyles = css`
     justify-content: center;
     flex-shrink: 0;
     width: 28%;
-    background: rgba(255,255,255,0.04);
     border-radius: 3px;
   }
   .pg-card-preview--portrait .pg-preview-notify-body {

@@ -288,7 +288,7 @@ async def test_idle(mock_hass, mock_nav, mock_esphome_ctrl):
 async def test_send_notification_passes_all_fields_to_controller(
     mock_hass, mock_nav, mock_esphome_ctrl
 ):
-    """The service hands type, force_show and require_ack to the controller."""
+    """The service hands type and force_show to the controller."""
     app = _make_app(mock_nav, mock_esphome_ctrl)
     notif_ctrl = MagicMock()
     app.controller["notification"] = notif_ctrl
@@ -315,7 +315,6 @@ async def test_send_notification_passes_all_fields_to_controller(
         persistent=True,
         notif_type="critical",
         force_show=True,
-        require_ack=False,
         text_size="auto",
     )
     mock_esphome_ctrl.esphome.publish.assert_not_called()
@@ -343,7 +342,6 @@ async def test_send_notification_text_size_passthrough(mock_hass, mock_nav, mock
         persistent=False,
         notif_type="info",
         force_show=False,
-        require_ack=False,
         text_size=2,
     )
 

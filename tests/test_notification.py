@@ -76,6 +76,11 @@ class DummyApp:
         self._timer_handles[handle] = True
         return handle
 
+    def run_every(self, cb, start, interval, **kwargs):
+        handle = f"timer_{len(self._timer_handles)}"
+        self._timer_handles[handle] = True
+        return handle
+
     def cancel_timer(self, handle):
         self._timer_handles.pop(handle, None)
 
@@ -151,7 +156,7 @@ def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
     assert len(dummy_app.callback_event_calls) == 1
     event = dummy_app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, False, "info", False, False, "auto")
+    expected_value = (title, message, icon, False, "info", False, "auto")
     assert event.value == expected_value
 
 
@@ -266,6 +271,11 @@ class LoopbackApp(DummyApp):
     def cancel_timer(self, handle):
         super().cancel_timer(handle)
         self.timers.pop(handle, None)
+
+    def run_every(self, cb, start, interval, **kwargs):
+        handle = super().run_every(cb, start, interval)
+        self.timers[handle] = cb
+        return handle
 
 
 @pytest.fixture
@@ -454,15 +464,6 @@ def test_tapping_page_indicator_opens_notifications_through_controller(page_cls,
     navigation.open_panel.assert_not_called()
 
 
-def test_remove_notification_cancels_re_alert_for_an_equal_tuple(loop_ctrl):
-    app, ctrl = loop_ctrl
-    stored = ctrl.add_notification("Door", "open", require_ack=True)
-
-    ctrl.remove_notification(tuple(list(stored)))
-
-    assert app.timers == {}
-
-
 # --- queue player: no-yank and auto-advance ----------------------------------
 
 
@@ -487,6 +488,7 @@ class _TrackingNav:
         self.opens: list[tuple[str, dict]] = []
         self.current: _PanelStub | None = None
         self.page = MagicMock()
+        self.idle_panel_active = False
 
     def open_panel(self, panel_id: str, **kwargs: Any) -> None:
         self.opens.append((panel_id, kwargs))
@@ -619,3 +621,80 @@ def test_open_popup_is_not_a_notification_view_without_marker(loop_ctrl):
 
     assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
     assert nav.opens[-1][1]["notif_id"] != ""
+
+
+def test_persistent_notification_re_opens_popup_periodically(loop_ctrl):
+    """A persistent notification's popup is re-opened by its periodic timer."""
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+
+    ctrl.add_notification("Smoke", "Kitchen", persistent=True)
+
+    # A persistent notification arms a repeating "show it again" timer.
+    ticks = [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
+    assert ticks, "a persistent notification must arm a periodic re-alert timer"
+
+    # The timer fires while no notification view is open: the popup opens.
+    ticks[0]({})
+    assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
+    assert nav.opens[-1][1]["title"] == "Smoke"
+
+    # A second tick must not steal the popup the user is already reading.
+    opens_before = len(nav.opens)
+    ticks[0]({})
+    assert len(nav.opens) == opens_before
+
+    # Dismissing the notification stops the re-alert loop.
+    ctrl.remove_notification(ctrl.get_notifications()[0])
+    assert not [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
+
+def test_non_critical_persistent_alert_does_not_hijack_idle_page(loop_ctrl):
+    """A non-critical persistent alert waits for the user to leave the idle page."""
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    nav.idle_panel_active = True
+
+    ctrl.add_notification("Laundry", "done", persistent=True)
+
+    ticks = [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
+    assert ticks
+    ticks[0]({})
+    # Still queued, but not forced over the screensaver.
+    assert nav.opens == []
+    assert [n.title for n in ctrl.get_notifications()] == ["Laundry"]
+
+    # Once the user is back on a real panel, the next tick shows it.
+    nav.idle_panel_active = False
+    ticks[0]({})
+    assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
+    assert nav.opens[-1][1]["title"] == "Laundry"
+
+
+def test_critical_persistent_alert_forces_over_idle_page(loop_ctrl):
+    """A critical persistent alert may interrupt the idle page."""
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    nav.idle_panel_active = True
+
+    ctrl.add_notification("Smoke", "Kitchen", persistent=True, notif_type="critical")
+
+    ticks = [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
+    assert ticks
+    ticks[0]({})
+    assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
+    assert nav.opens[-1][1]["title"] == "Smoke"
+
+
+def test_non_critical_persistent_alert_shows_when_not_idle(loop_ctrl):
+    """The idle-page guard only applies while the idle page is shown."""
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    nav.idle_panel_active = False
+
+    ctrl.add_notification("Laundry", "done", persistent=True)
+
+    ticks = [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
+    assert ticks
+    ticks[0]({})
+    assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
+    assert nav.opens[-1][1]["title"] == "Laundry"

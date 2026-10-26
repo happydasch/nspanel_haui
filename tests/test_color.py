@@ -10,7 +10,7 @@ from nspanel_haui.haui.mapping.color import (
     ColorTheme,
     make_color_theme,
 )
-from nspanel_haui.haui.utils.color import parse_color_value, rgb565_to_rgb, rgb_to_rgb565
+from nspanel_haui.haui.utils.color import parse_color_value, rgb565_to_rgb
 
 # ============================================================================
 # COLORS dict integrity

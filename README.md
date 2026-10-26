@@ -69,7 +69,7 @@ Recent additions to NSPanel HAUI:
 - **US portrait support** — the US NSPanel mounted vertically gets its own rotated TFT layout. Pick `European (standard)` or `US (portrait)` per device in the editor; edge-swipe gestures use the installed model's touch dimensions. See [Display Models](docs/configuration/display-models.md).
 - **Display-off schedule** — a daily window (overnight ranges supported) during which the display may turn off after `timeout_display_off` seconds of inactivity; outside the window it only dims. The hub applies the schedule itself, so no automation is needed. See [Device Configuration](docs/configuration/device.md).
 - **Quiet hours (Do Not Disturb)** — silence all notification sounds during a daily window while notifications are still queued and shown.
-- **Ack-required notifications** — keep re-alerting until someone presses *Acknowledge* on the panel; ideal for alarms. Per-notification `text_size` (`auto` or `1`–`3`) is also available.
+- **Persistent alerts** — notifications can loop their alert sound until dismissed on the panel; ideal for alarms. Per-notification `text_size` (`auto` or `1`–`3`) is also available.
 - **Universal prebuilt firmware** — one `nspanel_haui.bin` serves EU and US panels. Enter Wi-Fi once over the setup access point; the last six MAC digits are appended to the device name so one binary installs any number of panels.
 - **Gesture navigation** — swipe left/right through navigation panels, up to About, down to Settings. Named gesture sequences open a panel after a configured swipe pattern.
 - **Device discovery** — Device Manager → Scan finds ESPHome devices on your network and offers to add them.

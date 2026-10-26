@@ -1,11 +1,11 @@
-"""Tests for the Nextion release gate (scripts/verify_nextion.py)."""
+"""Tests for the Nextion release gate (scripts/verify_nextion/)."""
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "verify_nextion"))
 
 from verify_nextion import (  # noqa: E402
     check_portrait,
@@ -29,21 +29,21 @@ def test_parse_dump_reads_page_files():
 
 
 def test_t_time_disabled_fails():
-    page = {"text": "Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: disabled\n"}
+    page = {"text": "Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: disabled\n"}  # noqa: E501
     ok, msg = check_t_time_sendme(page)
     assert not ok
     assert "disabled" in msg
 
 
 def test_t_time_on_press_passes():
-    page = {"text": "Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: on press\n"}
+    page = {"text": "Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: on press\n"}  # noqa: E501
     ok, _ = check_t_time_sendme(page)
     assert ok
 
 
 def test_t_time_other_enabled_modes_pass():
     for mode in ("on release", "on press and release"):
-        page = {"text": f"Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: {mode}\n"}
+        page = {"text": f"Text tTime\n    Attributes\n        ID: 3\n        Send Component ID: {mode}\n"}  # noqa: E501
         ok, _ = check_t_time_sendme(page)
         assert ok, mode
 
@@ -74,13 +74,13 @@ def test_t_time_missing_widget_block_fails():
 
 
 def test_tft_version_matches():
-    page = {"text": "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.4.0\n"}
+    page = {"text": "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.4.0\n"}  # noqa: E501
     ok, msg = check_tft_version(page, "0.4.0")
     assert ok, msg
 
 
 def test_tft_version_mismatch_fails():
-    page = {"text": "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.3.3\n"}
+    page = {"text": "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.3.3\n"}  # noqa: E501
     ok, msg = check_tft_version(page, "0.4.0")
     assert not ok
     assert "0.3.3" in msg
@@ -123,7 +123,10 @@ def test_portrait_copy_with_only_text_edits_fails_geometry(tmp_path):
     (tmp_path / "nspanel_haui.tft").write_text("landscape-tft")
     (tmp_path / "nspanel_haui_portrait.tft").write_text("portrait-tft-b")
     # Same widget geometry on every page — portrait is a copy.
-    landscape_hmi = "Text a\n    Attributes\n        ID: 1\n        x coordinate: 0\n        y coordinate: 0\n        Width: 100\n        Height: 50\n"
+    landscape_hmi = (
+        "Text a\n    Attributes\n        ID: 1\n        x coordinate: 0\n"
+        "        y coordinate: 0\n        Width: 100\n        Height: 50\n"
+    )
     portrait_hmi = landscape_hmi.replace("x coordinate: 0", "x coordinate: 0")
     hmi.write_text(landscape_hmi)
     (tmp_path / "nspanel_haui_portrait.HMI").write_text(portrait_hmi)
@@ -132,7 +135,7 @@ def test_portrait_copy_with_only_text_edits_fails_geometry(tmp_path):
     dump = tmp_path / "dumps"
     dump.mkdir()
     (dump / "clock.txt").write_text(landscape_hmi)
-    (dump / "clock.txt-portrait").parent == dump
+    assert (dump / "clock.txt-portrait").parent == dump
     portrait_dump = dump.with_name("dumps-portrait")
     portrait_dump.mkdir(exist_ok=True)
     (portrait_dump / "clock.txt").write_text(portrait_hmi)

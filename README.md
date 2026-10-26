@@ -78,158 +78,38 @@ Recent additions to NSPanel HAUI:
 
 ## Features
 
-<table>
-  <tr>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/view-grid.svg" width="32" height="32"><br>
-      <b>13 Panel Types</b><br>
-      <small>Grid, light, climate,<br>cover, media, weather,<br>and more</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/gesture-swipe.svg" width="32" height="32"><br>
-      <b>Touch + Gestures</b><br>
-      <small>Swipe navigation,<br>gesture sequences,<br>tap interactions</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/palette.svg" width="32" height="32"><br>
-      <b>Full Customization</b><br>
-      <small>Per-entity colors,<br>icons, backgrounds,<br>themes</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/theme-light-dark.svg" width="32" height="32"><br>
-      <b>Auto-Dimming</b><br>
-      <small>Smart display-off/wake,<br>daily off schedule,<br>screensaver</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/tune.svg" width="32" height="32"><br>
-      <b>Visual Editor</b><br>
-      <small>Built-in Lovelace panel<br>with live previews,<br>reordering, color pickers</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/translate.svg" width="32" height="32"><br>
-      <b>Multi-Language</b><br>
-      <small>English, German,<br>Dutch, Polish,<br>French</small>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/bell-ring.svg" width="32" height="32"><br>
-      <b>Notifications</b><br>
-      <small>Sound alerts, toasts,<br>persistent alerts,<br>notification queue</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/lock.svg" width="32" height="32"><br>
-      <b>Panel Locking</b><br>
-      <small>PIN-protected unlock<br>for sensitive<br>controls</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/remote.svg" width="32" height="32"><br>
-      <b>ESPHome Native API</b><br>
-      <small>Fast, reliable<br>communication with<br>the display</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/clock-digital.svg" width="32" height="32"><br>
-      <b>Screensaver Modes</b><br>
-      <small>Clock, weather,<br>clock-two (text)<br>display modes</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/gesture-tap-hold.svg" width="32" height="32"><br>
-      <b>Hardware Buttons</b><br>
-      <small>Physical rocker switch<br>support with custom<br>actions</small>
-    </td>
-    <td align="center" valign="top" width="16%">
-      <img src="https://cdn.jsdelivr.net/npm/@mdi/svg@7/svg/qrcode.svg" width="32" height="32"><br>
-      <b>QR Code Display</b><br>
-      <small>Show Wi-Fi details,<br>URLs, or text as<br>QR codes</small>
-    </td>
-  </tr>
-</table>
+- 🧩 **13 Panel Types** — Grid, light, climate, cover, media, weather, and more
+- ✋ **Touch + Gestures** — Swipe navigation, gesture sequences, tap interactions
+- 🎨 **Full Customization** — Per-entity colors, icons, backgrounds, themes
+- 🌙 **Auto-Dimming** — Smart display-off/wake, daily off schedule, screensaver
+- ✏️ **Visual Editor** — Built-in Lovelace panel with live previews, reordering, color pickers
+- 🌐 **Multi-Language** — English, German, Dutch, Polish, French
+- 🔔 **Notifications** — Sound alerts, toasts, persistent alerts, notification queue
+- 🔒 **Panel Locking** — PIN-protected unlock for sensitive controls
+- ⚡ **ESPHome Native API** — Fast, reliable communication with the display
+- 🕐 **Screensaver Modes** — Clock, weather, clock-two (text) display modes
+- 🎛️ **Hardware Buttons** — Physical rocker switch support with custom actions
+- 📱 **QR Code Display** — Show Wi-Fi details, URLs, or text as QR codes
 
 ---
 
 ## Available Panels
 
-See the <a href="docs/panels/README.md">Panels Overview</a> for details.
+See the [Panels Overview](docs/panels/README.md) for details.
 
-<table>
-  <tr>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_grid.md"><img src="docs/assets/previews/panel-grid.svg" alt="Grid Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_grid.md">Grid</a></b> <code>grid</code><br>
-      <small>Up to 6 entities in a scrollable grid layout. Color overrides, power buttons.</small>
-    </td>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_row.md"><img src="docs/assets/previews/panel-row.svg" alt="Row Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_row.md">Row</a></b> <code>row</code><br>
-      <small>Up to 5 entities as stacked rows. Compact, text-focused layout.</small>
-    </td>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_light.md"><img src="docs/assets/previews/panel-light.svg" alt="Light Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_light.md">Light</a></b> <code>light</code><br>
-      <small>Full light control: brightness, color temp, RGB color wheel, effects.</small>
-    </td>
-  </tr>
-  <tr>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_climate.md"><img src="docs/assets/previews/panel-climate.svg" alt="Climate Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_climate.md">Climate</a></b> <code>climate</code><br>
-      <small>HVAC control: temperature, modes, fan speed, swing, presets.</small>
-    </td>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_cover.md"><img src="docs/assets/previews/panel-cover.svg" alt="Cover Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_cover.md">Cover</a></b> <code>cover</code><br>
-      <small>Open/close/stop with vertical position slider. Blinds, garages, curtains.</small>
-    </td>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_media.md"><img src="docs/assets/previews/panel-media.svg" alt="Media Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_media.md">Media</a></b> <code>media</code><br>
-      <small>Media player controls, volume, queue. Supports TV, speakers, receivers.</small>
-    </td>
-  </tr>
-  <tr>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_vacuum.md"><img src="docs/assets/previews/panel-vacuum.svg" alt="Vacuum Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_vacuum.md">Vacuum</a></b> <code>vacuum</code><br>
-      <small>Start/stop, return to dock, fan speed, locate. Up to 6 secondary items.</small>
-    </td>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_timer.md"><img src="docs/assets/previews/panel-timer.svg" alt="Timer Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_timer.md">Timer</a></b> <code>timer</code><br>
-      <small>Local countdown timer with start/pause/stop. Uses display-local time.</small>
-    </td>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_alarm.md"><img src="docs/assets/previews/panel-alarm.svg" alt="Alarm Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_alarm.md">Alarm</a></b> <code>alarm</code><br>
-      <small>Numeric keypad for alarm code entry. Arm/disarm with mode buttons.</small>
-    </td>
-  </tr>
-  <tr>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_qr.md"><img src="docs/assets/previews/panel-qr.svg" alt="QR Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_qr.md">QR Code</a></b> <code>qr</code><br>
-      <small>Display QR codes for Wi-Fi, URLs, or custom text. Great for guest networks.</small>
-    </td>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_weather.md"><img src="docs/assets/previews/panel-weather.svg" alt="Weather Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_weather.md">Weather</a></b> <code>weather</code><br>
-      <small>Screensaver-ready weather display. Forecast, backgrounds, info items.</small>
-    </td>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_clock.md"><img src="docs/assets/previews/panel-clock.svg" alt="Clock Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_clock.md">Clock</a></b> <code>clock</code><br>
-      <small>Large time/date display. Optional weather, entity buttons, backgrounds.</small>
-    </td>
-  </tr>
-  <tr>
-    <td width="33%" valign="top">
-      <a href="docs/panels/panel_clocktwo.md"><img src="docs/assets/previews/panel-clocktwo.svg" alt="ClockTwo Panel" width="100%"></a><br>
-      <b><a href="docs/panels/panel_clocktwo.md">ClockTwo</a></b> <code>clocktwo</code><br>
-      <small>Word clock — the time spelled out on a letter grid. Minimalist screensaver.</small>
-    </td>
-    <td width="33%" valign="top"></td>
-    <td width="33%" valign="top"></td>
-  </tr>
-</table>
+- <a href="docs/panels/panel_grid.md"><img src="docs/assets/previews/panel-grid.svg" alt="Grid Panel" width="80"></a> **[Grid](docs/panels/panel_grid.md)** (`grid`) — Up to 6 entities in a scrollable grid layout. Color overrides, power buttons.
+- <a href="docs/panels/panel_row.md"><img src="docs/assets/previews/panel-row.svg" alt="Row Panel" width="80"></a> **[Row](docs/panels/panel_row.md)** (`row`) — Up to 5 entities as stacked rows. Compact, text-focused layout.
+- <a href="docs/panels/panel_light.md"><img src="docs/assets/previews/panel-light.svg" alt="Light Panel" width="80"></a> **[Light](docs/panels/panel_light.md)** (`light`) — Full light control: brightness, color temp, RGB color wheel, effects.
+- <a href="docs/panels/panel_climate.md"><img src="docs/assets/previews/panel-climate.svg" alt="Climate Panel" width="80"></a> **[Climate](docs/panels/panel_climate.md)** (`climate`) — HVAC control: temperature, modes, fan speed, swing, presets.
+- <a href="docs/panels/panel_cover.md"><img src="docs/assets/previews/panel-cover.svg" alt="Cover Panel" width="80"></a> **[Cover](docs/panels/panel_cover.md)** (`cover`) — Open/close/stop with vertical position slider. Blinds, garages, curtains.
+- <a href="docs/panels/panel_media.md"><img src="docs/assets/previews/panel-media.svg" alt="Media Panel" width="80"></a> **[Media](docs/panels/panel_media.md)** (`media`) — Media player controls, volume, queue. Supports TV, speakers, receivers.
+- <a href="docs/panels/panel_vacuum.md"><img src="docs/assets/previews/panel-vacuum.svg" alt="Vacuum Panel" width="80"></a> **[Vacuum](docs/panels/panel_vacuum.md)** (`vacuum`) — Start/stop, return to dock, fan speed, locate. Up to 6 secondary items.
+- <a href="docs/panels/panel_timer.md"><img src="docs/assets/previews/panel-timer.svg" alt="Timer Panel" width="80"></a> **[Timer](docs/panels/panel_timer.md)** (`timer`) — Local countdown timer with start/pause/stop. Uses display-local time.
+- <a href="docs/panels/panel_alarm.md"><img src="docs/assets/previews/panel-alarm.svg" alt="Alarm Panel" width="80"></a> **[Alarm](docs/panels/panel_alarm.md)** (`alarm`) — Numeric keypad for alarm code entry. Arm/disarm with mode buttons.
+- <a href="docs/panels/panel_qr.md"><img src="docs/assets/previews/panel-qr.svg" alt="QR Panel" width="80"></a> **[QR Code](docs/panels/panel_qr.md)** (`qr`) — Display QR codes for Wi-Fi, URLs, or custom text. Great for guest networks.
+- <a href="docs/panels/panel_weather.md"><img src="docs/assets/previews/panel-weather.svg" alt="Weather Panel" width="80"></a> **[Weather](docs/panels/panel_weather.md)** (`weather`) — Screensaver-ready weather display. Forecast, backgrounds, info items.
+- <a href="docs/panels/panel_clock.md"><img src="docs/assets/previews/panel-clock.svg" alt="Clock Panel" width="80"></a> **[Clock](docs/panels/panel_clock.md)** (`clock`) — Large time/date display. Optional weather, entity buttons, backgrounds.
+- <a href="docs/panels/panel_clocktwo.md"><img src="docs/assets/previews/panel-clocktwo.svg" alt="ClockTwo Panel" width="80"></a> **[ClockTwo](docs/panels/panel_clocktwo.md)** (`clocktwo`) — Word clock — the time spelled out on a letter grid. Minimalist screensaver.
 
 ---
 

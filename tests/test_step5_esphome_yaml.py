@@ -23,6 +23,7 @@ def test_unused_required_tft_version_removed():
     assert "required_tft_version" not in _read("version.yaml")
 
 
-def test_commented_command_spacing_within_schema_cap():
-    # nextion schema caps command_spacing at 255ms
-    assert "#command_spacing: 2ms" in _read("display.yaml")
+def test_command_spacing_is_enabled_to_prevent_nextion_rx_overflow():
+    import re
+
+    assert re.search(r"^\s+command_spacing:\s*2ms\s*$", _read("display.yaml"), re.MULTILINE)

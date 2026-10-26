@@ -20,3 +20,4 @@ build/
 esphome/secrets.yaml
 
 esphome/.esphome/
+.venv314/

@@ -15,6 +15,7 @@ description: Step-by-step installation guide for NSPanel HAUI
 
 HomeAssistant needs to provide following applications:
 
+- Home Assistant 2026.10 or later (the integration targets the 2026.10 API; `hacs.json` declares the same minimum)
 - ESPHome 2026.10 or later
 - Hub (nspanel_haui custom integration)
 

@@ -489,7 +489,7 @@ class HAUIDevice(HAUIBase):
         try:
             start_time = datetime.strptime(start, "%H:%M").time()
             end_time = datetime.strptime(end, "%H:%M").time()
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             # Not raised: callers decide whether to play a sound, and an exception
             # there would also abort what follows (e.g. the startup navigation).
             self.log(
@@ -524,7 +524,7 @@ class HAUIDevice(HAUIBase):
         try:
             start_time = datetime.strptime(start, "%H:%M").time()
             end_time = datetime.strptime(end, "%H:%M").time()
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             self.log(
                 f"Ignoring sleep schedule: expected HH:MM, got start={start!r} end={end!r}",
                 level="WARNING",
@@ -551,7 +551,7 @@ class HAUIDevice(HAUIBase):
         try:
             start_time = datetime.strptime(start, "%H:%M").time()
             end_time = datetime.strptime(end, "%H:%M").time()
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return None
         now = (now or datetime.now()).replace(second=0, microsecond=0)
         candidates = [

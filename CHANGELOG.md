@@ -10,6 +10,13 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ### Breaking changes
 
+- **Minimum Home Assistant version raised to 2026.10** — `hacs.json` now
+  declares `2026.10` (0.3.2 declared `2026.5`). Home Assistant 2026.5–2026.9 no
+  longer satisfy the requirement; update Home Assistant before upgrading. The
+  integration targets the 2026.10 device/config-entry APIs.
+- **ESPHome 2026.10 or later is required** — the device configs set
+  `min_version: 2026.10.0` and the release is built with a pinned ESPHome
+  `2026.10.0`.
 - **HA service and display settings were renamed** — the idle-page service and
   automatic display-off settings/entities now use the new vocabulary. No aliases
   are kept; update automations and dashboard entity references.

@@ -21,6 +21,7 @@ ships. The release runbook and its known risks live in
 
 | Open item | Scope |
 |-----------|-------|
+| Confirm the pinned toolchain resolves cleanly in CI: Home Assistant `2026.10.4` (`requirements-dev.txt`, `hacs.json` `2026.10`) and ESPHome `2026.10.0` (`requirements-esphome.txt`, `base.yaml` `min_version`). The two cannot share one environment (conflicting `cryptography` pins), so they install separately. | `requirements-dev.txt`, `requirements-esphome.txt`, `hacs.json`, `.github/workflows/` |
 | Run the device passlist below on real EU + US hardware | `haui/`, `esphome/`, `nextion/` |
 | Publish the GitHub release: `release.yml` compiles the `.bin` and attaches both TFTs; tag `v0.4.0` after the passlist | GitHub Releases |
 | Confirm the documented notification behaviour against real hardware during the passlist — HA service persistence (persistent notifications re-open their popup periodically until dismissed) and `force_show`, the ESPHome `send_notification` action with optional `persistent`/`text_size`, popup long-message scrolling and severity default icons | `docs/services.md`, `docs/esphome.md`, `docs/panels/popup_notify.md`, `docs/device.md` |

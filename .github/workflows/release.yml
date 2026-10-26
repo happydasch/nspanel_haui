@@ -23,7 +23,11 @@ jobs:
           python-version: "3.14"
 
       - name: Install ESPHome
-        run: pip install esphome
+        # Pinned via requirements-esphome.txt to match min_version in
+        # esphome/nspanel_haui/base.yaml so the released .bin is reproducible.
+        # ESPHome lives in its own file because its cryptography pin conflicts
+        # with the one Home Assistant requires in requirements-dev.txt.
+        run: pip install -r requirements-esphome.txt
 
       - name: Validate the Nextion assets (release gate)
         # Fails the release until the human Nextion Editor work landed:

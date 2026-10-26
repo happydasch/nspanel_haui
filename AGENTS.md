@@ -386,7 +386,7 @@ Key semantics:
   regression guard — do not pass a `close_timeout` to queued-notification popups.
 - `persistent=true` loops the sound until the notification is dismissed, and opens the popup immediately (the service forces it; the ESPHome action does not). While the idle page is shown, only a `critical` persistent notification forces its popup over it; other severities wait for the user to return to a real panel — the timer keeps running, so the alert resumes when the idle page is exited.
 - An empty `icon` falls back to a severity default (`info` → `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` → `mdi:alert-octagon-outline`). `critical` also plays the `alert` sound instead of `notification`.
-- Long messages scroll horizontally (marquee) in the detail popup; the queue selection list shows plain titles.
+- Long messages are split into static pages in the detail popup and advance only when the manual next-page header button is pressed; the final page stays visible. The queue selection list shows plain titles.
 - Sending a notification with the same title and message as one already queued replaces it: the sound replays and the queue advances to it when the current popup closes.
 
 Idle page vs. display state (important): the **idle page** is the configured automatic page switch, tracked by `navigation.idle_panel_active`. It is independent of the firmware's display brightness machine: the display can be off without a page switch, and the idle page can be shown while the display is still on.

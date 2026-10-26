@@ -179,8 +179,8 @@ class HAUINotificationController(HAUIBase):
         # A force-show notification opens immediately — unless a notification
         # popup or list is already on screen.  Stealing an open notification
         # popup would show the new arrival only once and drop the one the
-        # user is still reading; instead it waits in the queue and the popup
-        # auto-advances to it when the current one is dismissed.
+        # user is still reading; instead it waits in the queue and opens when
+        # the current one is dismissed.
         if force_show and not self._notification_view_open():
             self.open_notifications()
 

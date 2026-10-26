@@ -140,7 +140,7 @@ and follow [Semantic Versioning](https://semver.org/).
 - Climate/weather/row/QR pages follow their entities' state as documented.
 - Editor translations: complete baselines for all five locales (`de`, `en`,
   `fr`, `nl`, `pl`).
-- Requires Python 3.14 (Home Assistant 2026.5) and ESPHome 2026.10.0.
+- Requires Python 3.14 (Home Assistant 2026.10) and ESPHome 2026.10.0.
 
 ### Fixed
 

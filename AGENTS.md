@@ -4,9 +4,9 @@ You are an experienced, pragmatic software engineering AI agent. Do not over-eng
 
 **NSPanel HAUI** (HomeAssistant UI) is a Home Assistant custom integration that replaces the stock Sonoff NSPanel firmware with a flexible, configurable display system built on ESPHome.
 
-- **Language:** Python 3.14+ (integration; `requires-python = ">=3.14"` in `pyproject.toml`, the Python Home Assistant 2026.5 requires; CI runs 3.14), JavaScript (HA Lovelace editor frontend)
+- **Language:** Python 3.14+ (integration; `requires-python = ">=3.14"` in `pyproject.toml`, the Python Home Assistant 2026.10 requires; CI runs 3.14), JavaScript (HA Lovelace editor frontend)
 - **Hardware:** Sonoff NSPanel (ESP32 + Nextion touchscreen display)
-- **Home Assistant:** minimum `2026.5` (`hacs.json`); integration type `hub`, IoT class `local_push`
+- **Home Assistant:** minimum `2026.10` (`hacs.json`); integration type `hub`, IoT class `local_push`
 - **Runtime dependencies:** `pydantic>=2.0`, `python-dateutil>=2.8.0` (declared in `manifest.json`); `requests` and `packaging` are also imported by the update controller; both ship with Home Assistant core, so they are not listed in `manifest.json`
 - **Linting:** ruff (`E`, `F`, `W`, `I`, `UP`, `B` rulesets; line length 100; target `py314`)
 - **Type checking:** mypy (targets `custom_components/nspanel_haui/haui` only)
@@ -122,7 +122,7 @@ When referencing HA Lovelace UI patterns, the key paths are:
 
 ## Essential Commands
 
-Activate a virtual environment first. A local dev venv may already exist at `.venv/` (Python 3.13; CI uses 3.14); a separate `.venv_docs/` venv is handy for docs builds:
+Activate a virtual environment first. A local dev venv may already exist at `.venv/` (Python 3.14, matching CI); a separate `.venv_docs/` venv is handy for docs builds:
 
 ```bash
 source .venv/bin/activate

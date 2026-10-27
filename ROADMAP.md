@@ -4,6 +4,12 @@ Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
 shipped on 2026-10-26**, tagged from a green `master` commit and published by
 the release workflow.
 
+The **dev** branch tracks **0.4.2**: the remaining gate implementation —
+firmware auto-update, version-bump tooling, CI version/translation/Nextion
+checks and the vendored Nextion display-read fix — has all landed there since
+the release (details in [CHANGELOG.md](CHANGELOG.md)). What the gate still needs
+is the hardware confirmation on the passlist below.
+
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
 its known risks live in [docs/release.md](docs/release.md); day-to-day tasks
@@ -27,7 +33,10 @@ One job: make the install complete and working. New features wait.
 - **Universal binary** — flashes and runs; TFT installs and auto-updates
   end-to-end on both display models; base and core functions work on real EU and
   US panels.
-- **Firmware auto-update** — display and firmware update together on a release.
+- **Firmware auto-update** — implemented on dev (0.4.2): release manifests, the
+  `HAUI Firmware` update entity and the TFT-after-reboot deferral are shipped
+  (Changelog); the hardware confirmation of the full release flow remains on the
+  passlist.
 - **Sleep / idle behaviour** — touch wakes the panel, the `wakeup` service works
   reliably, and state survives sleep/wake cycles. *Known gap: touch-to-wake and
   idle-panel transitions are not reliable yet.*
@@ -35,14 +44,18 @@ One job: make the install complete and working. New features wait.
   `send_notification` with `persistent`/`text_size`, long-message paging and
   severity default icons confirmed on hardware.
 - **Confirm recent fixes on hardware** — TFT reinstall (#63), buzzer stop (#62)
-  and portrait weather time (#64).
+  and portrait weather time (#64) are fixed on dev (0.4.2, see Changelog); the
+  hardware confirmation on the passlist below is what remains.
 - **Upgrade paths** — the five renamed 0.3.x device-setting keys migrate
   automatically; saved panels are not migrated and must be re-entered.
-- **Release hygiene** — CI validates version consistency, translations and
-  Nextion assets on every push/PR, and the release workflow rejects a tag whose
-  version disagrees with `manifest.json`. The pinned toolchain (Home Assistant
-  `2026.10.4`, ESPHome `2026.10.0`) resolves cleanly in separate jobs; they
-  cannot share an environment because of conflicting `cryptography` pins.
+- **Release hygiene** — done on dev: `scripts/bump_version.py` /
+  `scripts/bump_tft_version.py` script the version bump across manifest,
+  `pyproject.toml`, `version.yaml` and both HMIs, and CI validates version
+  consistency, translations and Nextion assets on every push/PR while the
+  release workflow rejects a tag whose version disagrees with `manifest.json`.
+  The pinned toolchain (Home Assistant `2026.10.4`, ESPHome `2026.10.0`)
+  resolves cleanly in separate jobs; they cannot share an environment because of
+  conflicting `cryptography` pins.
 
 **Device passlist** — confirm on one EU and one US/portrait panel:
 
@@ -142,8 +155,9 @@ Open items from the release-process review (runbook and known risks in
   in `release.yml` (0.5).
 - Pre-flight gates in `tests.yml`/`release.yml` so a tag cannot ship untested
   code — now runs on every push/PR (0.5).
-- Scripted HMI patching for release-only edits (`tftVersion`, Send Component ID),
-  keeping the Editor as fallback (0.5+).
+- Scripted HMI patching for release-only edits — `tftVersion` scripting landed
+  with the version-bump tooling (0.4.x); Send Component ID and other in-place
+  edits still need the Editor or an extended patch spec (0.5+).
 - Portrait layout as a build-time rotation instead of a second committed HMI
   (0.5+).
 - Git LFS or release-only storage for the TFT binaries (0.5+).

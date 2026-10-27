@@ -54,6 +54,22 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Firmware display reads work on released ESPHome again** — the
+  numeric-response delivery fix for the stock `nextion` component
+  ([esphome PR #17744](https://github.com/esphome/esphome/pull/17744)) was
+  merged two days after the 2026.10.0 release tag was cut, so *no released
+  ESPHome* contains it; without it every display read logged
+  `Numeric return but '…' invalid type 0` and the value was dropped (`page` /
+  `dim` errors after every interaction, lost `res_val`/`res_txt`/TFT-version
+  reads). The firmware configs now ship a temporary vendored patch
+  (`esphome/nextion_patch/`, the 2026.10.0 component plus the cherry-picked
+  fix) and override the stock component with it through `external_components`
+  — shipped in the `nspanel_haui.yaml` package, so installed setups pick it up
+  with their next `esphome config` run; the universal/dev configs use a local
+  source so CI and the release build validate the actual checkout. Recompile
+  and flash the firmware once. The patch and its override blocks are removed
+  (and `min_version` raised) when a released ESPHome contains #17744
+  (2026.11.0).
 - **TFT no longer reinstalls after every reboot (#63)** — the hub compared the
   firmware's `yaml_version` against the `tft_version` snapshot captured during the
   boot handshake, when the display had not answered yet. The empty value parsed as

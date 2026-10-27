@@ -46,6 +46,18 @@ substitutions:
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
   tft_update_url_portrait: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui_portrait.tft
 
+# Temporary: stock `nextion` in released ESPHome lacks the numeric-response
+# delivery fix (esphome/esphome#17744, ships in 2026.11.0).  Override it with
+# the patched component vendored next to this file (see nextion_patch/README).
+# Local source so CI and the release build validate the actual checkout; the
+# remote package (nspanel_haui.yaml) carries the equivalent git-source block
+# for users.
+external_components:
+  - source:
+      type: local
+      path: nextion_patch
+    components: [nextion]
+
 # Unique per device: the MAC suffix is appended at runtime, so one binary
 # installs any number of panels without colliding on mDNS or entity ids.
 esphome:

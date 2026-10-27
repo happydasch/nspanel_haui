@@ -18,6 +18,13 @@ esp32:
 
 # ESPHome Configuration
 esphome:
+  # 2026.10.0 is enforced because the configs use APIs from that release; it is
+  # NOT the release that fixed the nextion numeric-response delivery (that fix,
+  # esphome/esphome#17744, ships in 2026.11.0).  Until 2026.11.0 the shipped
+  # configs carry esphome/nextion_patch and an external_components override that
+  # applies the fix; bump BOTH min_version and requirements-esphome.txt (and
+  # delete nextion_patch + its override blocks) when a released ESPHome contains
+  # #17744.
   min_version: 2026.10.0
   name: $name
   friendly_name: $friendly_name

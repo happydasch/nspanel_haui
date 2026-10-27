@@ -57,13 +57,33 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 - `name` (nspanel-haui)
 - `ota_password` (!secret ota_password)
 - `api_encryption_key` (!secret api_encryption_key)
-- `web_username` (!secret web_username)
-- `web_password` (!secret web_password)
 - `wifi_ssid` (!secret wifi_ssid)
 - `wifi_password` (!secret wifi_password)
 - `ap_password` (!secret ap_password)
 - `tft_update_url` (URL to the ``nspanel_haui.tft`` file, e.g. ``http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft``)
 - `tft_update_url_portrait` (URL to the ``nspanel_haui_portrait.tft`` file, used by the `Update Display` button when `display_model` is 1)
+
+### Web server (optional)
+
+The ESPHome web server is **not enabled** in the shipped firmware. It costs
+flash and RAM that the HTTP OTA path (TLS, JSON, `http_request`) needs, so
+`esphome/nspanel_haui/base.yaml` leaves it out. Home Assistant only shows a
+**Visit** link for a device whose firmware runs the web server.
+
+Enable the web UI in *your own* device YAML — the file that includes
+`nspanel_haui.yaml` as a package, not a package file itself:
+
+```yaml
+web_server:
+  port: 80
+  auth:
+    username: admin
+    password: !secret web_password
+```
+
+Then flash that build. `esphome/nspanel_haui_dev.yaml` enables the web server
+for local development and reads `web_username` / `web_password` from
+`secrets.yaml`.
 
 ## Communication
 

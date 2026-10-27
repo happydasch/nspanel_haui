@@ -31,6 +31,13 @@ DEVICE_STATE_REFRESH_SECONDS = 15
 VERIFY_REFRESH_SECONDS = 60
 VERIFY_MAX_REFRESHES = 2
 
+# Firmware auto-update.  When the release ships a firmware image the hub asks
+# Home Assistant to install it (``update.install``) on the device's firmware
+# update entity; the TFT the new firmware needs follows after the reboot.  A
+# failed trigger is retried at most once an hour.
+FIRMWARE_ENTITY_NAME = "HAUI Firmware"
+FIRMWARE_RETRY_SECONDS = 60 * 60
+
 
 class HAUIUpdateController(HAUIBase):
     """Update Controller
@@ -83,6 +90,14 @@ class HAUIUpdateController(HAUIBase):
         self._last_install_version: str | None = None
         self._last_install_at: datetime.datetime | None = None
         self._last_install_confirmed = False
+        # Firmware auto-update bookkeeping.  The install runs on the device and
+        # ends in a reboot, so a reconnect means the attempt finished — either
+        # way.  While it is in flight the TFT install waits, because the reboot
+        # would abort an upload.
+        self._firmware_installing = False
+        self._firmware_install_version: str | None = None
+        self._firmware_install_at: datetime.datetime | None = None
+        self._firmware_install_error: str | None = None
 
     # internal timers for version checks
 
@@ -132,6 +147,7 @@ class HAUIUpdateController(HAUIBase):
         self._pending_state_check = False
         self._cancel_timer("_install_verify_timer")
         self._cancel_timer("_install_timeout_timer")
+        self._firmware_installing = False
 
     # update
 
@@ -257,6 +273,96 @@ class HAUIUpdateController(HAUIBase):
         if current_version is None or latest_version is None:
             return False
         return current_version < latest_version
+
+    # firmware auto-update
+
+    def _find_firmware_update_entity(self) -> str | None:
+        """Resolve the device's firmware update entity.
+
+        The firmware declares ``update: platform: http_request`` named
+        ``HAUI Firmware``; older firmware images have no such entity, in which
+        case the lookup returns None and firmware auto-update is skipped.
+
+        Returns:
+            None|str: Entity id of the firmware update entity
+        """
+        try:
+            return self.app.find_entity_id("update", FIRMWARE_ENTITY_NAME)
+        except Exception:  # noqa: BLE001 - registry access is best-effort
+            return None
+
+    def _firmware_update_available(self) -> bool:
+        """True when the device's firmware update entity reports an update."""
+        entity_id = self._find_firmware_update_entity()
+        if not entity_id:
+            return False
+        try:
+            return self.app.get_item(entity_id).get_state() == "on"
+        except Exception:  # noqa: BLE001 - state lookup is best-effort
+            return False
+
+    def _firmware_install_due(self, version: str | None) -> bool:
+        """Whether a firmware install should be started now.
+
+        Args:
+            version (str | None): Release version the update belongs to
+
+        Returns:
+            bool: True when ``firmware_auto_update`` is on, no TFT upload is in
+            flight, the retry cooldown has passed and the device reports an
+            installable update.
+        """
+        if not self.get("firmware_auto_update", True):
+            return False
+        if self._update_state == UPDATE_STATE_INSTALLING:
+            return False  # never reboot the device mid TFT upload
+        if self._firmware_installing and self._firmware_install_at is not None:
+            age = datetime.datetime.now(tz=datetime.UTC) - self._firmware_install_at
+            if age.total_seconds() < FIRMWARE_RETRY_SECONDS:
+                return False
+        return self._firmware_update_available()
+
+    def _install_firmware(self, version: str | None) -> bool:
+        """Ask Home Assistant to install the device's firmware update.
+
+        Args:
+            version (str | None): Release version the update belongs to
+
+        Returns:
+            bool: True when the install service call was dispatched
+        """
+        entity_id = self._find_firmware_update_entity()
+        if not entity_id:
+            return False
+        try:
+            self.app.call_service("update.install", entity_id=entity_id)
+        except Exception as exc:  # noqa: BLE001 - service call is best-effort
+            msg = f"Firmware update could not be started: {exc}"
+            self.log(msg, level="ERROR")
+            self._firmware_install_error = msg
+            return False
+        self._firmware_installing = True
+        self._firmware_install_version = version
+        self._firmware_install_at = datetime.datetime.now(tz=datetime.UTC)
+        self._firmware_install_error = None
+        self.log(f"Firmware update to {version} started")
+        return True
+
+    def _notify_firmware_install(self, version: str | None) -> None:
+        """Tell the user on the display that a firmware update is installing."""
+        msg = self.translate(
+            "A new firmware release is installing. The display updates after "
+            "the device reboots."
+        )
+        msg += "\r\n\r\n"
+        msg += self.translate("Version:")
+        msg += f" {version}"
+        self.app.controller["navigation"].open_panel(
+            SysPanelKey.POPUP_NOTIFY,
+            icon="mdi:package-down",
+            title=self.translate("Firmware update"),
+            notification=msg,
+        )
 
     def run_update_display(self, version: str) -> dict[str, Any]:
         """Installs the TFT file of the GitHub release ``version`` on the display.
@@ -430,6 +536,12 @@ class HAUIUpdateController(HAUIBase):
 
     def _install_missing_tft(self, required_version: str, installed_version: str | None) -> None:
         """Install the required TFT automatically, or ask when ``auto_install`` is off."""
+        if self._firmware_installing:
+            # A firmware install reboots the device; a TFT upload now would be
+            # cut off mid-transfer.  The version check runs again after the
+            # reconnect, when the new firmware's yaml_version decides the TFT.
+            self.log("Firmware update in flight; TFT install deferred until it finishes")
+            return
         if self.get("auto_install", True):
             self.log(
                 f"TFT {installed_version!r} is older than {required_version}, installing"
@@ -637,6 +749,15 @@ class HAUIUpdateController(HAUIBase):
         latest_release = self._get_latest_release()
         if not self._is_update_available() or latest_release is None:
             return
+        # Ship display and firmware together: when the release carries a firmware
+        # image the device reports an installable update for, install it now and
+        # let the TFT follow after the reboot (the new firmware's yaml_version is
+        # newer than the installed TFT, which triggers the TFT install).
+        firmware_version = latest_release.get("tag_name")
+        if self._firmware_install_due(firmware_version):
+            if self._install_firmware(firmware_version):
+                self._notify_firmware_install(firmware_version)
+                return
         device_info = self.app.device.device_info
         msg = latest_release["name"]
         msg += "\r\n"
@@ -673,6 +794,13 @@ class HAUIUpdateController(HAUIBase):
         """
         self._stop_timer_delay()
         if connected:
+            if self._firmware_installing:
+                # A firmware install ends in a reboot; a reconnect means the
+                # attempt finished.  Clear the flag so the TFT check can run —
+                # when the install failed, yaml_version still matches the
+                # installed TFT and nothing happens.
+                self._firmware_installing = False
+                self.log("Device reconnected after a firmware update attempt")
             self.log(f"Checking the TFT version in {self.get('on_connect_delay')} seconds")
             self._start_timer_delay()
             if self._update_state == UPDATE_STATE_INSTALLING:

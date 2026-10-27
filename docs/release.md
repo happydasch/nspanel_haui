@@ -20,7 +20,9 @@ maps `display_model` to those filenames and `haui/controller/update.py` download
 them from the GitHub release whose tag matches the firmware's `yaml_version`
 (the `v` prefix is ignored by `_parse_version`). Renaming an asset breaks
 automatic TFT updates for already-flashed panels, so a rename needs a migration
-story first.
+story first. Adding a variant (for example the high-speed TFT planned for v0.5)
+is safe as long as the existing names stay unchanged; the update controller must
+map each device to the right variant.
 
 ## Versioning and tag policy
 
@@ -75,10 +77,12 @@ actor to the ruleset rather than weakening the rules.
 ruleset there if the branch starts collecting unreviewed changes.
 
 No fixed calendar. Ship when user-visible changes accumulate or a fix cannot
-wait. Patch releases (`0.4.1`) for regressions; minor releases (`0.5.0`) for
-features and breaking changes. **Any breaking change must ship with a
-`docs/upgrading.md` entry and a CHANGELOG "Breaking changes" section** — no
-alias is kept as a fallback, so the upgrade guide is the only migration path.
+wait. The **0.4.x line is a hard gate**: it finishes the binary and TFT install
+and proves the base and core functions before any v0.5 work starts. Patch
+releases in that line close regressions and gate failures; minor releases
+(`0.5.0`) ship features and breaking changes. **Any breaking change must ship
+with a `docs/upgrading.md` entry and a CHANGELOG "Breaking changes" section** —
+no alias is kept as a fallback, so the upgrade guide is the only migration path.
 
 ## CI gates
 
@@ -99,9 +103,10 @@ re-check `git status` for uncommitted work first.
 ### 1. Pre-flight (a few days before)
 
 - Confirm `master` is green (tests, frontend, docs, hassfest/HACS).
-- Confirm the device-test list in the
-  [Roadmap's release checklist](https://github.com/happydasch/nspanel_haui/blob/master/ROADMAP.md#release-checklist)
-  passed on real EU and US hardware.
+- Confirm the device passlist in the
+  [Roadmap's v0.4.x section](https://github.com/happydasch/nspanel_haui/blob/master/ROADMAP.md#v04x--finishing-the-binary-and-tft-install-current-focus)
+  passed on real EU and US hardware. The 0.4.x line is a hard gate: v0.5 work
+  does not start until every row is green.
 - Freeze features; only fixes land from here.
 - Decide the version number and check for pending breaking changes.
 

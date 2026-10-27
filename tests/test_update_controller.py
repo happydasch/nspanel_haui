@@ -1,5 +1,7 @@
 """Tests for the GitHub release fetch in the update controller."""
 
+import datetime
+
 import pytest
 import requests
 from nspanel_haui.haui.controller import update
@@ -76,7 +78,20 @@ def _release(tag, with_tft=True, with_portrait=False):
 class _App:
     hass = None
 
-    def __init__(self, device_info, connected=True, display_model="eu"):
+    def __init__(
+        self,
+        device_info,
+        connected=True,
+        display_model="eu",
+        firmware_entity=None,
+        firmware_state="on",
+    ):
+        # Firmware update entity support: when ``firmware_entity`` is set the
+        # app resolves it by name and reports ``firmware_state``; otherwise
+        # ``find_entity_id`` returns None (firmware auto-update is skipped).
+        self.firmware_entity = firmware_entity
+        self.firmware_state = firmware_state
+        self.calls: list = []
         self.device = types.SimpleNamespace(
             device_info=device_info,
             connected=connected,
@@ -120,9 +135,38 @@ class _App:
     def cancel_timer(self, handle):
         self.timers.pop(handle, None)
 
+    # firmware update entity access (see HAUIUpdateController firmware methods)
 
-def _updater(monkeypatch, device_info, releases=(), connected=True, display_model="eu", **config):
-    app = _App(device_info, connected, display_model)
+    def find_entity_id(self, domain, original_name):
+        if not self.firmware_entity:
+            return None
+        return self.firmware_entity
+
+    def get_item(self, entity_id):
+        app = self
+
+        return types.SimpleNamespace(
+            get_state=lambda: app.firmware_state,
+            call_service=lambda service, **kwargs: app.calls.append(
+                (service, kwargs)
+            ),
+        )
+
+    def call_service(self, service, **kwargs):
+        self.calls.append((service, kwargs))
+
+
+def _updater(
+    monkeypatch,
+    device_info,
+    releases=(),
+    connected=True,
+    display_model="eu",
+    firmware_entity=None,
+    firmware_state="on",
+    **config,
+):
+    app = _App(device_info, connected, display_model, firmware_entity, firmware_state)
     ctrl = HAUIUpdateController(app, {**DEFAULT_CONFIG["update"], **config})
     ctrl.log = lambda *a, **kw: None
     ctrl.translate = lambda text: text
@@ -557,3 +601,158 @@ def test_reconnect_verification_confirms_a_matching_version(monkeypatch):
     state = ctrl.get_update_state()
     assert state["state"] == "done"
     assert ctrl._last_install_confirmed is True
+
+
+# --- firmware auto-update ----------------------------------------------------
+
+
+def test_firmware_install_due_when_entity_reports_an_update(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+    )
+
+    assert ctrl._firmware_install_due("0.4.2") is True
+
+
+def test_firmware_install_not_due_without_an_entity(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.1", "tft_version": "0.4.1"}, [_release("0.4.2")]
+    )
+
+    assert ctrl._firmware_install_due("0.4.2") is False
+
+
+def test_firmware_install_not_due_when_entity_is_up_to_date(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        firmware_state="off",
+    )
+
+    assert ctrl._firmware_install_due("0.4.2") is False
+
+
+def test_firmware_install_not_due_when_disabled(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        firmware_auto_update=False,
+    )
+
+    assert ctrl._firmware_install_due("0.4.2") is False
+
+
+def test_firmware_install_not_due_during_a_tft_upload(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+    )
+    ctrl._set_update_state(update.UPDATE_STATE_INSTALLING, version="0.4.1")
+
+    assert ctrl._firmware_install_due("0.4.2") is False
+
+
+def test_firmware_install_respects_the_retry_cooldown(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+    )
+    ctrl._firmware_installing = True
+    ctrl._firmware_install_at = datetime.datetime.now(tz=datetime.UTC)
+
+    assert ctrl._firmware_install_due("0.4.2") is False
+
+
+def test_firmware_install_triggers_update_install_service(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+    )
+
+    assert ctrl._install_firmware("0.4.2") is True
+    assert app.calls == [
+        ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"})
+    ]
+    assert ctrl._firmware_installing is True
+    assert ctrl._firmware_install_version == "0.4.2"
+    assert ctrl._firmware_install_error is None
+
+
+def test_firmware_install_without_entity_returns_false(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.1", "tft_version": "0.4.1"}, [_release("0.4.2")]
+    )
+
+    assert ctrl._install_firmware("0.4.2") is False
+    assert app.calls == []
+
+
+def test_check_for_update_installs_the_firmware_first(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+    )
+
+    ctrl.check_for_update()
+
+    assert app.calls == [
+        ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"})
+    ]
+    ((key, kwargs),) = app.opened
+    assert key == SysPanelKey.POPUP_NOTIFY
+    assert "Firmware update" in kwargs["title"]
+
+
+def test_check_for_update_only_notifies_when_firmware_update_is_unavailable(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        firmware_state="off",
+    )
+
+    ctrl.check_for_update()
+
+    assert app.calls == []
+    ((key, kwargs),) = app.opened
+    assert key == SysPanelKey.POPUP_NOTIFY
+    assert "Update available" in kwargs["title"]
+
+
+def test_tft_install_deferred_while_firmware_install_is_in_flight(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.0", "tft_version": "0.3.3"}, [_release("0.4.0")]
+    )
+    ctrl._firmware_installing = True
+
+    ctrl.check_installed_version()
+
+    assert app.published == []
+    assert app.opened == []
+
+
+def test_reconnect_clears_the_firmware_install_flag(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.1", "tft_version": "0.4.1"}, [_release("0.4.2")]
+    )
+    ctrl._firmware_installing = True
+
+    ctrl.on_connection_changed(True)
+
+    assert ctrl._firmware_installing is False

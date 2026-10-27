@@ -13,8 +13,8 @@ substitutions:
   # Accounts and Passwords
   ota_password: $ota_password
   api_encryption_key: $api_encryption_key
-  web_username: $web_username
-  web_password: $web_password
+  # No web credentials: the web server is optional and disabled by default
+  # (see base.yaml). Add a web_server block to your own YAML to enable it.
   wifi_ssid: $wifi_ssid
   wifi_password: $wifi_password
   ap_password: $ap_password

@@ -12,8 +12,9 @@ substitutions:
   # Accounts and Passwords
   ota_password: !secret ota_password
   api_encryption_key: !secret api_encryption_key
-  web_username: !secret web_username
-  web_password: !secret web_password
+  # The ESPHome web server is optional and disabled by default (see
+  # nspanel_haui/base.yaml). To enable it, uncomment the web_server block at
+  # the end of this file and set its credentials.
   wifi_ssid: !secret wifi_ssid
   wifi_password: !secret wifi_password
   ap_password: !secret ap_password
@@ -28,3 +29,13 @@ packages:
     ref: master
     files:
       - esphome/nspanel_haui.yaml
+# Optional: ESPHome web server (disabled by default, see base.yaml).
+# Uncomment to serve the web UI on port 80. Home Assistant then shows a
+# "Visit" link for the device. Use your own values or !secret entries.
+#
+# web_server:
+#   port: 80
+#   auth:
+#     username: admin
+#     password: !secret web_password
+

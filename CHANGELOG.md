@@ -8,8 +8,26 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Breaking changes
+
+- **The ESPHome web server is no longer enabled by default** — the firmware
+  ships without `web_server` to free the flash and RAM that the HTTP OTA path
+  (TLS, JSON, `http_request`) needs. After flashing the new firmware the
+  device's web UI on port 80 and Home Assistant's "Visit" link disappear until
+  you enable the component yourself: add a `web_server:` block to your own
+  device YAML (see [ESPHome Component → Web server](docs/esphome.md#web-server-optional)).
+  `esphome/nspanel_haui_dev.yaml` keeps the web server for local development.
+
 ### Added
 
+- **Firmware auto-update** — the release workflow now attaches a
+  `firmware-manifest.json` to every release and the firmware exposes an
+  `update: platform: http_request` entity named **HAUI Firmware**. When the hub
+  finds a newer release and `firmware_auto_update` is on (the default), it asks
+  Home Assistant to install the device's firmware update first; the TFT the new
+  firmware needs is installed after the device reboots. A firmware install that
+  would collide with a running TFT upload is deferred. Set
+  `firmware_auto_update: false` to keep the previous notice-only behaviour.
 - **Version bump tooling** — `scripts/bump_version.py` updates the manifest,
   `pyproject.toml`, ESPHome `version.yaml` and both HMI `system.tftVersion`
   values in one command, so a release no longer needs a Nextion Editor visit
@@ -18,6 +36,21 @@ and follow [Semantic Versioning](https://semver.org/).
   `scripts/bump_tft_version.py` bumps only the HMI text and is reused by the
   combined script.  Both have a `--check` dry run and are covered by
   `tests/test_bump_version.py`.
+
+### Changed
+
+- **Update checks now install the firmware first** — when a newer release exists
+  and the device reports an installable firmware update, the hub triggers the
+  firmware install before the TFT. The device reboots into the new firmware and
+  then installs the matching TFT on the next connect. Set
+  `firmware_auto_update: false` to restore the notice-only behaviour. Flash the
+  updated firmware once so the `HAUI Firmware` update entity exists.
+- **CI now validates version consistency and translations** — the tests workflow
+  checks that the version sources agree (`scripts/bump_version.py --check`) and
+  that translation files are up to date; the release workflow rejects a tag whose
+  version disagrees with `manifest.json`, so a release cannot ship a mismatched
+  version. The tests workflow also validates the Nextion assets and runs `ruff`
+  on `scripts/`.
 
 ### Fixed
 
@@ -33,8 +66,10 @@ and follow [Semantic Versioning](https://semver.org/).
 - **Buzzer stops when a TFT upload starts (#62)** — `upload_tft()` blocks the ESP32
   main loop for the whole transfer, so a playing RTTTL tune never had its note
   turned off and kept sounding until the reboot. The three upload entry points
-  (the Update Display button and the `upload_tft`/`upload_tft_url` actions) now stop
-  the buzzer first. Flash the updated ESPHome firmware to activate the fix.
+  (the Update Display button and the `upload_tft`/`upload_tft_url` actions) now run
+  a shared `suspend_activities` script first, which stops the buzzer; future
+  stoppable components only need to be added there. Flash the updated ESPHome
+  firmware to activate the fix.
 - **Portrait weather time and date are centered (#64)** — the full-width portrait
   `tTime`/`tDate` widgets kept the landscape right-alignment attribute and drew
   against the screen edge. `PORTRAIT_ATTRS` now centers them; recompile the portrait

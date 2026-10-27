@@ -21,6 +21,11 @@ Most users flash the prebuilt `nspanel_haui.bin` from the release instead of bui
 | `nspanel_haui.yaml` | Production config. Uses `$variable` placeholders filled by `install.yaml`. Uses the stock ESPHome Nextion component. |
 | `nspanel_haui_dev.yaml` | Development config. Hardcoded substitutions, but still reads `!secret` values from `secrets.yaml`. Points TFT update URL at `homeassistant.local:8123`. Uses the stock ESPHome Nextion component. |
 | `nspanel_haui_universal.yaml` | Universal prebuilt image. Baked documented credentials (no `secrets.yaml`), `name_add_mac_suffix: true` for unique device names/APs, and no fixed Wi-Fi — provisioned over its open access point. Compiled by `release.yml` into the `nspanel_haui.bin` release asset. |
+The ESPHome web server is **optional and disabled by default**: `base.yaml`
+leaves `web_server` out so the HTTP OTA path has flash and RAM headroom. The dev
+config enables it for diagnostics; to get the web UI in your own build, add a
+top-level `web_server:` block to your device YAML (see `docs/esphome.md`).
+
 
 ## Script Organization
 

@@ -30,10 +30,10 @@ substitutions:
   name: nspanel-haui
 
   # Fixed, documented credentials (see docs/install.md "Universal image").
+  # The web server stays disabled in this image (see base.yaml), so no web
+  # credentials are baked in.
   ota_password: 'nspanel-haui'
   api_encryption_key: 'TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE='
-  web_username: 'admin'
-  web_password: 'nspanel-haui'
   # Never-matching Wi-Fi: forces the fallback access point + captive portal.
   wifi_ssid: 'NSPanel-HAUI-Setup'
   wifi_password: 'nspanel-haui-setup'

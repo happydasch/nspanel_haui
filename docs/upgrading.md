@@ -47,7 +47,9 @@ The firmware and the hub exchange event names, so a mismatched pair (new
 integration + old firmware, or vice versa) publishes events the other side no
 longer understands. After updating the integration, the display installs the
 matching TFT automatically on first connect (or asks, depending on
-`auto_install`), but the firmware binary itself must be flashed.
+`auto_install`), but the firmware binary itself must be flashed for this first
+upgrade. After that the device's `HAUI Firmware` update entity can install later
+firmware releases through Home Assistant.
 
 ## 4. What changed
 
@@ -188,10 +190,10 @@ restore the storage backup from step 2. The old firmware and TFT must match
 the old integration — restore those versions too before reconnecting the
 device.
 
-## 8. TFT update behaviour changes
+## 8. Update behaviour changes
 
-The automatic TFT update logic changed in this release. Review these points
-before upgrading:
+The automatic update logic changed in this release. Review these points before
+upgrading:
 
 - **Empty `tft_version` is treated as unknown.** The hub's boot handshake reads
   the display's version about 1 second after boot, before the display answered.
@@ -216,3 +218,38 @@ before upgrading:
 - **The buzzer stops before a TFT upload starts.** A playing tune no longer
   sounds until the reboot. Flash the updated ESPHome firmware to activate this
   fix.
+- **Firmware auto-update ships the display and firmware together.** When a newer
+  release exists and the device reports an installable firmware update through
+  its `HAUI Firmware` entity, the hub triggers the firmware install first. The
+  device reboots into the new firmware and then installs the matching TFT on the
+  next connect. A TFT upload that is already running is never interrupted: the
+  firmware install waits for it to finish. Set `firmware_auto_update: false` to
+  keep the previous notice-only behaviour. The first firmware that contains this
+  feature must still be flashed manually — the `HAUI Firmware` entity only exists
+  in the new firmware, so an older firmware cannot be updated by the hub.
+
+## 9. Web server is no longer enabled by default
+
+The shipped firmware no longer runs the ESPHome **web server**. It costs flash
+and RAM that the HTTP OTA path (TLS, JSON, `http_request`) needs to fit next to
+the display stack. What changes when you flash the new firmware:
+
+- The device's web UI on port 80 disappears, and Home Assistant's **Visit**
+  link for the device disappears with it.
+- The web server was never part of the HAUI protocol — the hub, the editor and
+  the TFT install path all use the ESPHome native API — so nothing else breaks.
+
+To keep the web UI, add the component to *your own* device YAML (the file that
+includes `nspanel_haui.yaml` as a package) before flashing:
+
+```yaml
+web_server:
+  port: 80
+  auth:
+    username: admin
+    password: !secret web_password
+```
+
+`esphome/nspanel_haui_dev.yaml` keeps the web server for local development. See
+[ESPHome Component → Web server](esphome.md#web-server-optional).
+

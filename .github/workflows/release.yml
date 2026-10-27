@@ -58,6 +58,12 @@ jobs:
         run: esphome config esphome/nspanel_haui_universal.yaml
 
       - name: Compile the universal firmware binary
+        # Two images come out of a compile and they are not interchangeable:
+        #   - firmware.factory.bin is a full flash image (bootloader + partition
+        #     table + app from offset 0) — for manual/serial flashing only.
+        #   - firmware.ota.bin is the app image the HTTP OTA platform writes into
+        #     the OTA partition.  Feeding the factory image to OTA would write
+        #     bootloader bytes into the app slot.
         run: |
           esphome compile esphome/nspanel_haui_universal.yaml
           BIN=$(find esphome/.esphome -name firmware.factory.bin -path "*nspanel-haui*" | head -1)
@@ -66,15 +72,60 @@ jobs:
             exit 1
           fi
           cp "$BIN" nspanel_haui.bin
-          ls -lh nspanel_haui.bin
+          OTA="$(dirname "$BIN")/firmware.ota.bin"
+          if [ ! -f "$OTA" ]; then
+            echo "firmware.ota.bin not found after compile" >&2
+            exit 1
+          fi
+          cp "$OTA" nspanel_haui_ota.bin
+          ls -lh nspanel_haui.bin nspanel_haui_ota.bin
+
+      - name: Generate the firmware update manifest
+        # The device's `update: platform: http_request` entity polls this
+        # manifest; it must use the ESPHome web-tools schema
+        # (name/version/builds[].ota) with an absolute download URL and the
+        # image's md5.  Only tag pushes get a manifest: a workflow_dispatch
+        # run would otherwise advertise a branch name as the "version" and
+        # every panel would try to update to it.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          tag = os.environ["GITHUB_REF_NAME"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          with open("nspanel_haui_ota.bin", "rb") as fh:
+              md5 = hashlib.md5(fh.read()).hexdigest()
+          manifest = {
+              "name": "NSPanel HAUI",
+              "version": tag.lstrip("v"),
+              "builds": [
+                  {
+                      "chipFamily": "ESP32",
+                      "ota": {
+                          "path": (
+                              f"https://github.com/{repo}/releases/download/"
+                              f"{tag}/nspanel_haui_ota.bin"
+                          ),
+                          "md5": md5,
+                      },
+                  }
+              ],
+          }
+          with open("firmware-manifest.json", "w") as fh:
+              json.dump(manifest, fh, indent=2)
+              fh.write("\n")
+          print(json.dumps(manifest, indent=2))
+          PY
 
       - name: Attach assets to the GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             nspanel_haui.bin
+            nspanel_haui_ota.bin
             nextion/nspanel_haui.tft
             nextion/nspanel_haui_portrait.tft
+            firmware-manifest.json
           name: ${{ github.ref_name }}
           body: |
             See [CHANGELOG.md](CHANGELOG.md) for release notes and

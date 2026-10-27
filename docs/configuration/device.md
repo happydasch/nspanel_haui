@@ -15,9 +15,23 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
   HAUI firmware and offers them for batch-add. Discovered devices are added
   enabled and linked to their ESPHome entry.
 - **Install TFT** — Triggers a TFT install for the selected device immediately
-  (installs stay automatic on connect; this button forces one now).
+  (installs stay automatic on connect; this button forces one now). When the
+  install cannot start (device offline, no `yaml_version`, or the GitHub release
+  is unreachable), the editor shows a toast with the reason instead of a success
+  message.  A request that never gets an answer (e.g. the device worker is
+  blocked) times out after 20 seconds and shows a timeout toast instead of
+  doing nothing.
 - **Download firmware** — Opens the prebuilt `nspanel_haui.bin` of the latest
   release when one is attached, and explains the build-from-YAML path otherwise.
+  The integration only resolves the download link: flashing the ESP32 is done
+  manually through ESPHome (the integration does not auto-update firmware).
+- **Install TFT retry** — After an install that the display never confirms
+  (the device does not report the new TFT version within its timeout), the
+  automatic path stops and reports an error. Press **Install TFT** again to
+  start a fresh attempt; a manually requested install is not blocked by the
+  previous unconfirmed one. Automatic installs stay disabled while an install
+  remains unconfirmed, so a display that cannot report its version is not
+  uploaded to forever.
 - **Refresh display** — Re-renders the display.
 - Each row shows the device's online/offline state, firmware and TFT versions,
   IP address and signal strength; a display whose TFT is older than the

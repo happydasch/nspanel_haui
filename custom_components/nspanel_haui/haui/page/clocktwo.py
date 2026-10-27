@@ -423,8 +423,8 @@ class ClockTwoPage(HAUIPage):
             specials.append(ICO_SPECIAL)
         components = letter_components + special_components
         components_text = self._clock_letters + specials
-        for component, component_text in zip(components, components_text, strict=True):
-            with self.rec_cmd:
+        with self.rec_cmd:
+            for component, component_text in zip(components, components_text, strict=True):
                 self.set_component_text_color(component, self._off_color)
                 self.set_component_text(component, text=component_text or "")
         self._letter_current_state = [False] * INDEX_LETTER_LENGTH

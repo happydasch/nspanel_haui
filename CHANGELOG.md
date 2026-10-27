@@ -6,7 +6,55 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
-## [0.4.0] — unreleased
+## [Unreleased]
+
+### Added
+
+- **Version bump tooling** — `scripts/bump_version.py` updates the manifest,
+  `pyproject.toml`, ESPHome `version.yaml` and both HMI `system.tftVersion`
+  values in one command, so a release no longer needs a Nextion Editor visit
+  just to type the new version.  The HMI edit is in place and only legal for a
+  same-length version; a length-changing bump still needs the Editor.
+  `scripts/bump_tft_version.py` bumps only the HMI text and is reused by the
+  combined script.  Both have a `--check` dry run and are covered by
+  `tests/test_bump_version.py`.
+
+### Fixed
+
+- **TFT no longer reinstalls after every reboot (#63)** — the hub compared the
+  firmware's `yaml_version` against the `tft_version` snapshot captured during the
+  boot handshake, when the display had not answered yet. The empty value parsed as
+  `0.0.0`, so the hub considered the TFT outdated, uploaded it, rebooted the ESP32,
+  and repeated the loop. An unknown version is now treated as *unknown*: the hub
+  requests a fresh device state and only evaluates known versions. A recent
+  unconfirmed install is no longer auto-retried — use **Install TFT** in the editor
+  to retry manually. The `INSTALLING` state now survives the reboot, and a matching
+  version reported on reconnect marks the install `done`.
+- **Buzzer stops when a TFT upload starts (#62)** — `upload_tft()` blocks the ESP32
+  main loop for the whole transfer, so a playing RTTTL tune never had its note
+  turned off and kept sounding until the reboot. The three upload entry points
+  (the Update Display button and the `upload_tft`/`upload_tft_url` actions) now stop
+  the buzzer first. Flash the updated ESPHome firmware to activate the fix.
+- **Portrait weather time and date are centered (#64)** — the full-width portrait
+  `tTime`/`tDate` widgets kept the landscape right-alignment attribute and drew
+  against the screen edge. `PORTRAIT_ATTRS` now centers them; recompile the portrait
+  TFT to activate the fix.
+- **Failed TFT installs report why** — the update controller returns its state
+  (idle/checking/installing/error/done) from `install_tft`/`run_update_display`, the
+  REST API responds with HTTP 502 and the editor shows a toast when the upload
+  command could not be sent. A GitHub API failure during the update check no longer
+  raises out of the timer callback.
+
+## [0.4.1] — 2026-10-26
+
+### Fixed
+
+- **Prevent Nextion serial RX buffer overflows** — pace every firmware display command
+  with ESPHome's Nextion command pacer; Clock Two now queues its complete word matrix
+  as one render batch. Flash the updated ESPHome firmware to activate pacing. Also
+  includes the previously fixed Clock Two font-size and background issues.
+
+## [0.4.0] — 2026-10-26
 
 ### Breaking changes
 
@@ -122,6 +170,11 @@ and follow [Semantic Versioning](https://semver.org/).
   `display_model` to a firmware `Display Model` number, so portrait panels
   detect edge swipes on 320×480 like landscape panels do on 450×320.
 - The startup sound plays only after a fresh boot, not on Wi-Fi reconnects.
+- **Long notification messages are split into static pages.** The title shows a
+  `(page/total)` counter and the header's left-secondary button advances to the
+  next page; paging is manual — nothing advances on its own — and the button
+  disappears on the final page, which stays visible, so long messages are read
+  page by page instead of being truncated.
 - **Dark-theme refresh** with stepped surfaces (page `#101010` < header
   `#181818` < cards `#282828` < pressed `#313131`, text `#e0e0e0`), mirrored by
   the editor previews; both TFTs compile their content widgets with the new
@@ -184,4 +237,5 @@ and follow [Semantic Versioning](https://semver.org/).
 > ESPHome actions/events and two config entities were renamed, and no aliases
 > are kept.
 
+[0.4.1]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.1
 [0.4.0]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.0

@@ -124,4 +124,29 @@ test('a failed TFT install shows the backend error', async () => {
   await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(host.toasts.at(-1), ['error', 'nope']);
+});test('a TFT install that fails for all devices reports the failed count and reason', async () => {
+  const host = makeHost({ devices: { kitchen } }, () =>
+    jsonResponse({
+      status: 'ok',
+      devices_updated: [],
+      failed: [{ name: 'kitchen', error: 'device disconnected' }],
+    }),
+  );
+
+  await Events.onDeviceManagerUpdateTft(host, { detail: { name: '*' } });
+
+  assert.deepEqual(host.toasts.at(-1), [
+    'error',
+    'TFT update failed for 1 device(s): device disconnected',
+  ]);
+});
+
+test('a failed TFT install rejects with its HTTP error message', async () => {
+  const host = makeHost({ devices: { kitchen } }, () =>
+    jsonResponse({ message: 'device disconnected' }, 502),
+  );
+
+  await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen' } });
+
+  assert.deepEqual(host.toasts.at(-1), ['error', 'device disconnected']);
 });

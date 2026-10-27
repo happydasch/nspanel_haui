@@ -15,6 +15,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 
 
 class _Unauthorized(Exception):
@@ -586,6 +587,31 @@ def test_firmware_download_without_a_binary_returns_no_url(monkeypatch):
     assert result["status_code"] == 200
     assert result["body"] == {"url": None, "version": None}
 
+
+def test_firmware_download_unreachable_github_returns_error(monkeypatch):
+    def raise_timeout(url, timeout):
+        raise requests.exceptions.ConnectTimeout("no route to host")
+
+    monkeypatch.setattr(api.requests, "get", raise_timeout)
+    hass = MagicMock()
+
+    result = asyncio.run(api.FirmwareDownloadView().get(_Request(hass, admin=True)))
+
+    # A network problem must not be reported as "the release has no binary".
+    assert result["status_code"] == 502
+    assert result["body"]["status"] == "error"
+    assert "GitHub" in result["body"]["message"]
+
+
+def test_firmware_download_empty_release_list_returns_error(monkeypatch):
+    monkeypatch.setattr(api.requests, "get", lambda url, timeout: _BinResponse([]))
+    hass = MagicMock()
+
+    result = asyncio.run(api.FirmwareDownloadView().get(_Request(hass, admin=True)))
+
+    assert result["status_code"] == 502
+    assert result["body"]["status"] == "error"
+
     # --- YAML import pushes like a panel save ----------------------------------
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
@@ -622,6 +648,92 @@ def test_tft_install_passes_the_requested_version():
     asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
 
     assert app.calls == ["worker", ("install_tft", "0.4.0")]
+
+
+def test_tft_install_includes_the_update_state_in_the_response():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    state = {"state": "installing", "version": "0.4.1", "started_at": "t", "last_error": None}
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _StatefulTftApp(state)}
+    request = _Request(hass, admin=True, body={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
+
+    assert result["status_code"] == 200
+    assert result["body"]["devices_updated"] == ["kitchen"]
+    assert result["body"]["update"] == state
+
+
+class _StatefulTftApp(_WorkerApp):
+    """A worker app whose install_tft reports the controller's update state."""
+
+    def __init__(self, state: dict):
+        super().__init__()
+        self._state = state
+
+    def install_tft(self, version=None):
+        self.calls.append(("install_tft", version))
+        return self._state
+
+
+def test_tft_install_reports_why_it_could_not_start():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    state = {"state": "error", "version": "0.4.1", "started_at": None,
+             "last_error": "device disconnected"}
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _StatefulTftApp(state)}
+    request = _Request(hass, admin=True, body={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
+
+    # A failed TFT install must surface the reason instead of pretending the
+    # install started (the success path used to be shown unconditionally).
+    assert result["status_code"] == 502
+    assert result["body"]["status"] == "error"
+    assert result["body"]["message"] == "device disconnected"
+
+
+def test_tft_install_reports_a_publish_failure():
+    """A publish that could not reach the device is a 502, not a silent success.
+
+    The upload command must reach the ESP32 for the install to happen; when
+    the ESPHome publish call fails the controller records an error state that
+    the API must surface exactly like the other install failures.
+    """
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    state = {
+        "state": "error",
+        "version": "0.4.1",
+        "started_at": None,
+        "last_error": "Could not send the TFT upload command; check the ESPHome connection",
+    }
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": _StatefulTftApp(state)}
+    request = _Request(hass, admin=True, body={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
+
+    assert result["status_code"] == 502
+    assert "could not send" in (result["body"]["message"] or "").lower()
+
+
+def test_tft_install_all_devices_reports_failures_separately():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    hass.data["nspanel_haui"]["entry1"] = {
+        "kitchen": _WorkerApp(),
+        "office": _StatefulTftApp(
+            {"state": "error", "version": None, "started_at": None,
+             "last_error": "no yaml_version reported"}
+        ),
+    }
+    request = _Request(hass, admin=True, body={"device": "*"})
+
+    result = asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
+
+    assert result["status_code"] == 200
+    assert result["body"]["devices_updated"] == ["kitchen"]
+    assert result["body"]["failed"] == [{"name": "office", "error": "no yaml_version reported"}]
 
 
 # --- YAML import pushes like a panel save ----------------------------------

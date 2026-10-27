@@ -649,7 +649,9 @@ class FirmwareDownloadView(HomeAssistantView):
         Releases may carry a ``nspanel_haui.bin`` asset (name-agnostic build)
         in addition to the TFT files.  Returns ``{"url": null}`` when the
         latest release has no binary asset, so the editor can show a plain
-        build-from-YAML hint instead of a dead link.
+        build-from-YAML hint instead of a dead link.  When the GitHub API is
+        unreachable an error response is returned instead, so the editor does
+        not mistake a network problem for a missing asset.
         """
         from .haui.controller.update import HAUIUpdateController
 
@@ -659,14 +661,23 @@ class FirmwareDownloadView(HomeAssistantView):
         def _fetch() -> list | None:
             try:
                 resp = requests.get(HAUIUpdateController.RELEASES_URL, timeout=5)
-            except requests.exceptions.RequestException:
+                json_decoded = resp.json()
+            except (requests.exceptions.RequestException, ValueError):
+                # Network failure, a non-JSON body (GitHub rate limit page), …
                 return None
-            json_decoded = resp.json()
             return json_decoded if isinstance(json_decoded, list) else None
 
         releases = await asyncio.to_thread(_fetch)
         if not releases:
-            return self.json({"url": None, "version": None})
+            # None = the GitHub API could not be reached; [] = it returned no
+            # releases.  Both are environment problems, not "the release lacks
+            # a binary" — report them as such so the editor does not claim the
+            # release ships no firmware.
+            return _error(
+                self,
+                "Could not reach the GitHub API; check the Home Assistant host's network access",
+                502,
+            )
 
         # Releases are returned newest-first; the first binary-bearing release
         # is the right one to link (semver tags are the release convention).
@@ -714,16 +725,40 @@ class DeviceUpdateTftView(HomeAssistantView):
             app = apps.get(device_name)
             if app is None:
                 return _error(self, f'Device "{device_name}" not found', 404)
-            await app.async_run_on_worker(app.install_tft, version)
-            return self.json({"status": "ok", "devices_updated": [device_name]})
+            result = await app.async_run_on_worker(app.install_tft, version)
+            if isinstance(result, dict) and result.get("state") == "error":
+                # The controller records *why* the install could not start
+                # (device disconnected, no yaml_version, no matching release,
+                # GitHub fetch failure).  Surface that to the editor instead of
+                # a success response that never installs anything.
+                return _error(
+                    self,
+                    result.get("last_error") or "TFT update failed",
+                    502,
+                )
+            return self.json(
+                {"status": "ok", "devices_updated": [device_name], "update": result}
+            )
 
         # Update all devices
         updated: list[str] = []
+        failed: list[dict[str, str]] = []
         for dname, dapp in apps.items():
             try:
-                await dapp.async_run_on_worker(dapp.install_tft, version)
-                updated.append(dname)
+                result = await dapp.async_run_on_worker(dapp.install_tft, version)
+                if isinstance(result, dict) and result.get("state") == "error":
+                    failed.append(
+                        {"name": dname, "error": result.get("last_error") or "TFT update failed"}
+                    )
+                    _LOGGER.warning(
+                        "Failed to install TFT for device '%s': %s",
+                        dname,
+                        result.get("last_error"),
+                    )
+                else:
+                    updated.append(dname)
             except Exception:
                 _LOGGER.exception("Failed to install TFT for device '%s'", dname)
+                failed.append({"name": dname, "error": "install failed"})
 
-        return self.json({"status": "ok", "devices_updated": updated})
+        return self.json({"status": "ok", "devices_updated": updated, "failed": failed})

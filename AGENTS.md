@@ -90,7 +90,7 @@ Inside the Hub app, components follow a layered structure:
 | `docs/` | User documentation: install, configuration, panels, FAQ, ESPHome, Hub, Nextion, Communication, Design, development, troubleshooting |
 | `nextion/` | Nextion display assets (TFT file, HMI source, fonts, images) |
 | `esphome/` | ESPHome device configuration files (`install.yaml`, runtime/dev configs, `secrets.yaml.example`; copy it to the git-ignored `secrets.yaml` for local builds). Requires ESPHome 2026.10 or later (`min_version` in `nspanel_haui/base.yaml`) |
-| `scripts/` | Development utilities: font generation (`gen_fonts`, `gen_char`), color palettes/wheels, spinner generation, background tile generation (`gen_backgrounds`), editor design grids (`gen_grid`), RGB565 image conversion, Nextion2Text, preview generator, translation extraction, portrait HMI geometry patcher (`gen_portrait`) |
+| `scripts/` | Development utilities: font generation (`gen_fonts`, `gen_char`), color palettes/wheels, spinner generation, background tile generation (`gen_backgrounds`), editor design grids (`gen_grid`), RGB565 image conversion, Nextion2Text, preview generator, translation extraction, portrait HMI geometry patcher (`gen_portrait`), release version bump (`bump_version`, `bump_tft_version`) |
 | `ref_src/home-assistant/core/` | Home Assistant core checkout - read-only reference for HA API signatures; do not modify |
 | `ref_src/home-assistant/frontend/` | Home Assistant frontend source checkout — read-only reference for HA Lovelace UI patterns; do not modify |
 | `ref_src/esphome/esphome/` | ESPHome source checkout - read-only reference for ESPHome component/API behavior; do not modify |
@@ -263,7 +263,9 @@ Geometry and other int attributes of existing widgets can be patched in place by
 Workflow (the editor owns the file while a project is open):
 
 1. **Close the project** in the Nextion Editor (File → Close Project) before writing the HMI. The editor silently re-saves the open project on Close Project and on every project switch, overwriting whatever a script wrote.
-2. **Patch**, then prove it: re-dump with Nextion2Text (`-p visual`) and compare every widget against the spec — `gen_portrait.py` does this itself and refuses to write on any mismatch, and its `--check` mode reports widgets that exist on only one side. The portrait spec names the landscape HMI as its `SIBLING_HMI`: both files must hold the same widgets and every widget's Send Component ID (`sendkey`) is copied from the landscape project — toggle touch settings there, never in the portrait copy. `scripts/verify_nextion/verify_nextion.py --require-portrait` enforces that parity.
+2. **Patch**, then prove it: re-dump with Nextion2Text (`-p visual`) and compare every widget against the spec — `gen_portrait.py` does this itself and refuses to write on any mismatch. Its `--check` mode reports widgets that exist on only one side *and* attribute values that differ from the spec (alignment, font, …), so a spec-only change cannot pass while the committed HMI still has the old value. The portrait spec names the landscape HMI as its `SIBLING_HMI`: both files must hold the same widgets and every widget's Send Component ID (`sendkey`) is copied from the landscape project — toggle touch settings there, never in the portrait copy. `scripts/verify_nextion/verify_nextion.py --require-portrait` enforces that parity.
+
+**The hub reads `tft_version` only from the device-state event.** The ESPHome firmware publishes its device state on `req_device_state` (and — newer firmware — when the Nextion text sensor first reports the version). The hub's boot handshake arrives ~1 s after boot, before the display answered, so the snapshot is empty; the update controller must request a fresh `REQ_DEVICE_STATE` at check time and treat an empty value as *unknown*, not `0.0.0`. Treating empty as old re-installed the TFT after every reboot (#63) — see `custom_components/nspanel_haui/haui/controller/update.py` and `esphome/nspanel_haui/sensor.yaml` (`tft_version.on_value` republishes the state).
 3. **Re-open the project** (recent list), look at every page, compile (`Compile`, then `File → TFT file output` → `nextion/nspanel_haui_portrait.tft`) and run `python scripts/verify_nextion/verify_nextion.py --require-portrait`. Done means the editor opened the file without "Version mismatch", every page renders as specified, and the gate passes.
 
 Format reference (what the script relies on):
@@ -386,7 +388,7 @@ Key semantics:
   regression guard — do not pass a `close_timeout` to queued-notification popups.
 - `persistent=true` loops the sound until the notification is dismissed, and opens the popup immediately (the service forces it; the ESPHome action does not). While the idle page is shown, only a `critical` persistent notification forces its popup over it; other severities wait for the user to return to a real panel — the timer keeps running, so the alert resumes when the idle page is exited.
 - An empty `icon` falls back to a severity default (`info` → `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` → `mdi:alert-octagon-outline`). `critical` also plays the `alert` sound instead of `notification`.
-- Long messages scroll horizontally (marquee) in the detail popup; the queue selection list shows plain titles.
+- Long messages are split into static pages in the detail popup and advance only when the manual next-page header button is pressed; the final page stays visible. The queue selection list shows plain titles.
 - Sending a notification with the same title and message as one already queued replaces it: the sound replays and the queue advances to it when the current popup closes.
 
 Idle page vs. display state (important): the **idle page** is the configured automatic page switch, tracked by `navigation.idle_panel_active`. It is independent of the firmware's display brightness machine: the display can be off without a page switch, and the idle page can be shown while the display is still on.
@@ -649,9 +651,17 @@ Example: `fix(esphome): include device name in discovery fallback`
 8. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match.
 9. Breaking changes must be documented in `docs/upgrading.md` and the CHANGELOG's "Breaking changes" section.
 
-### Pull requests
+### Branches and pull requests
 
-- Target the `dev` branch for feature work, `master` for hotfixes
+`master` is release-only — never commit to it directly. It takes merges from
+`dev` only; Pages deploys from it and HACS users install from its releases. A
+ruleset blocks direct pushes, force-pushes and deletion there, so the merge from
+`dev` has to go through a PR with green CI. `dev` is the integration branch, the
+target for all day-to-day work, and the repository's default branch. The full
+cycle lives in `docs/release.md` ("Branches and cadence").
+
+- Branch features off `dev` and open the PR against `dev`
+- Hotfixes branch off `master`; after the release, merge `master` back into `dev`
 - Describe what changed, why, and how it was tested
 - Include a screenshot or short recording for frontend/display changes
 - Reference related issues or PRs

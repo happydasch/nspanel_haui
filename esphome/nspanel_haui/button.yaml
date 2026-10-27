@@ -20,7 +20,11 @@ button:
     icon: mdi:file-sync
     entity_category: config
     on_press:
+      # prepare_tft_upload suspends active device activities (the rtttl tune,
+      # …) before the blocking upload starts, otherwise a playing note sounds
+      # until the reboot.
       - lambda: |-
-          id(haui_disp).set_tft_url(
-              id(display_model).state > 0 ? "${tft_update_url_portrait}" : "${tft_update_url}");
-          id(haui_disp).upload_tft();
+          const char *url = id(display_model).state > 0
+              ? "${tft_update_url_portrait}"
+              : "${tft_update_url}";
+          id(prepare_tft_upload).execute(url);

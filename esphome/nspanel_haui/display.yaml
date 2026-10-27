@@ -11,22 +11,13 @@ display:
     # plus concurrent state updates without drops.
     max_queue_size: 800
     # Limit commands processed per loop iteration to spread out
-    # allocation/deallocation and reduce heap fragmentation.
-    # Note: with command_spacing > 0 the pacer caps at 1 cmd/loop,
-    # so only activate command_spacing to throttle cmd rate.
+    # allocation/deallocation and reduce heap fragmentation. The command pacer
+    # below further limits output to one command per loop iteration.
     max_commands_per_loop: 50
-    # Minimum gap between commands sent to the Nextion display.  With spacing
-    # enabled, the ESPHome Nextion component sends at most 1 command per loop
-    # iteration (send_command_() uses App.get_loop_component_start_time() as
-    # the timestamp, which is constant within a single loop iteration, so the
-    # pacer check fails after the first send).  The loop typically runs at
-    # 3-5ms on ESP32 for this workload, yielding ~200-330 commands/sec.
-    # The 1KB Nextion RX buffer can hold ~78 comemands.
-    # Set to e.g. 2ms to throttle to 1 cmd/loop and prevent UART overflow;
-    # disabled by default for maximum throughput. uncomment and adjust as
-    # needed based on observed overflow events and command rates.
-    #
-    #command_spacing: 2ms
+    # Pace every Nextion command, regardless of which page generated it. This
+    # prevents bursts from overrunning the display's 1 KB RX buffer; the ESPHome
+    # loop timestamp means the effective minimum is one command per loop.
+    command_spacing: 2ms
     # default url
     tft_url: $tft_update_url
 

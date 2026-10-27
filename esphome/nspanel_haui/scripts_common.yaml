@@ -110,3 +110,32 @@ script:
           if (sound_string != "") {
             id(haui_rtttl).play(sound_string);
           }
+
+  # General purpose script: stop every active device activity before a long
+  # blocking operation.  Call this from any flow that takes the main loop away
+  # for a while (TFT upload, firmware update, …) so nothing that is currently
+  # running bleeds into — or survives — the operation.  Add each stoppable
+  # component here instead of scattering the calls over the upload sites.
+  - id: suspend_activities
+    then:
+      - lambda: |-
+          ESP_LOGI("haui", "Suspending active device activities");
+          // A playing rtttl tune must be stopped explicitly: upload_tft()
+          // blocks the main loop for the whole transfer, so the rtttl
+          // component's loop() never turns the note off and the tune would
+          // sound until the reboot.
+          id(haui_rtttl).stop();
+
+  # Start a TFT upload: suspend active activities first, then set the URL and
+  # hand the blocking upload to the display.  The URL parameter lets all three
+  # upload entry points (button and the two API actions) share this logic.
+  - id: prepare_tft_upload
+    parameters:
+      url: std::string
+    then:
+      - lambda: |-
+          ESP_LOGI("haui", "Script prepare_tft_upload %s", url.c_str());
+      - script.execute: suspend_activities
+      - lambda: |-
+          id(haui_disp).set_tft_url(url.c_str());
+          id(haui_disp).upload_tft();

@@ -6,7 +6,11 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import NotifType, SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
-from ..mapping.icons import DEFAULT_NOTIF_ICON_FALLBACK, DEFAULT_NOTIF_ICONS
+from ..mapping.icons import (
+    DEFAULT_NOTIF_ICON_FALLBACK,
+    DEFAULT_NOTIF_ICONS,
+    ICO_NEXT_PAGE,
+)
 from ..utils.icon import parse_icon
 from ..utils.text import chunk_text, parse_notification_text
 
@@ -15,6 +19,9 @@ _NOTIF_TYPE_COLORS: dict[str, str] = {
     NotifType.WARNING: "header_accent",
     NotifType.CRITICAL: "component_active",
 }
+
+# Custom function name for the manual next-page header button.
+_FNC_NEXT_PAGE = "notif_next_page"
 
 
 class CommonNotifyPage(HAUIPage):
@@ -61,7 +68,6 @@ class NotifyPage(CommonNotifyPage):
         self._chunks: list[str] = []
         self._current_page = 0
         self._total_pages = 0
-        self._page_handle: str | None = None
         self._btn_left = ""
         self._btn_right = ""
         self._notif_type = NotifType.INFO
@@ -99,14 +105,23 @@ class NotifyPage(CommonNotifyPage):
             self.COMPONENTS.fnc_right_sec,
         )
 
+        # The left-secondary header slot stays free on the notify popup
+        # (auto-assignment leaves it empty for popups), so use it for the
+        # manual next-page button.  It is hidden until _start_paging finds
+        # more than one page of text.
+        self.set_function_component(
+            self.COMPONENTS.fnc_left_sec,
+            self.FNC_BTN_L_SEC,
+            _FNC_NEXT_PAGE,
+            icon=ICO_NEXT_PAGE,
+            color=self.get_color("header_accent"),
+            visible=False,
+        )
+
         # auto-assign function types to header buttons
         self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        # stop any paging timer
-        if self._page_handle is not None:
-            self.app.cancel_timer(self._page_handle)
-            self._page_handle = None
         self._restore_auto_state(self._saved_auto)
         # notify about close
         if self._close_callback_fnc:
@@ -143,8 +158,9 @@ class NotifyPage(CommonNotifyPage):
             self.set_component_text(self.COMPONENTS.btn_right, self._btn_right)
             self.show_component(self.COMPONENTS.btn_right)
 
-        # Show the first page immediately; _start_paging handles paging and
-        # appends the page counter to the title when the text does not fit.
+        # Show the first page immediately; _start_paging splits the text into
+        # pages, appends the page counter to the title when it does not fit,
+        # and shows the manual next-page button while more pages remain.
         self._start_paging(font_size)
 
     def _calculate_text_display(self, message: str) -> int:
@@ -161,11 +177,12 @@ class NotifyPage(CommonNotifyPage):
     # paging
 
     def _start_paging(self, font_size: int) -> None:
-        """Split the notification text into pages and start the pager."""
-        if self._page_handle is not None:
-            self.app.cancel_timer(self._page_handle)
-            self._page_handle = None
+        """Split the notification text into pages and show the first page.
 
+        Paging is manual: the left-secondary header button advances to the
+        next page.  Long text never advances on its own and is never
+        truncated — the final page stays visible until the popup closes.
+        """
         if font_size == 3:
             chars_per_line = 22
             lines = 2
@@ -185,13 +202,13 @@ class NotifyPage(CommonNotifyPage):
 
         if self._total_pages > 1:
             self._set_page_text()
-            self._page_handle = self.app.run_every(self._advance_page, 0, 4.0)
         else:
             self.set_component_text(
                 self.COMPONENTS.t_text,
                 self._chunks[0] if self._chunks else self._notification,
             )
         self.show_component(self.COMPONENTS.t_text)
+        self._update_next_page_button()
 
     def _set_page_text(self) -> None:
         """Render the current page and its ``(page/total)`` title counter."""
@@ -201,19 +218,31 @@ class NotifyPage(CommonNotifyPage):
             self.COMPONENTS.title,
             f"{self._title} {counter}" if self._title else counter,
         )
+        self._update_next_page_button()
+
+    def _update_next_page_button(self) -> None:
+        """Show the manual next-page button only while another page remains."""
+        if self.FNC_BTN_L_SEC not in self._fnc_items:
+            return
+        self.update_function_component(
+            self.FNC_BTN_L_SEC,
+            visible=self._total_pages > 1 and self._current_page < self._total_pages - 1,
+        )
 
     def _advance_page(self, _data: dict | None = None) -> None:
         """Advance to the next page of the notification text."""
         if not self._chunks or self._current_page >= self._total_pages - 1:
-            if self._page_handle is not None:
-                self.app.cancel_timer(self._page_handle)
-                self._page_handle = None
             return
 
         self._current_page += 1
         self._set_page_text()
 
     # callback
+
+    def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
+        """Handle the manual next-page header button."""
+        if fnc_name == _FNC_NEXT_PAGE:
+            self._advance_page()
 
     def callback_button(self, event: HAUIEvent, component: Component) -> None:
         self.log(f"Got button press: {component}")

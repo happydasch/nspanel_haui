@@ -42,9 +42,37 @@ Do not "fix" old tags — the device-side lookup tolerates both forms.
 
 ## Branches and cadence
 
-- `master` — release branch; every tag is cut from a green commit here.
-- `dev` — integration branch for the next version.
-- Feature branches — merged into `dev`, then `dev` into `master` for a release.
+`master` is **release-only**. Work never lands there directly: it takes merges
+from `dev` and nothing else, so every tag is cut from a commit that already ran
+green on the integration branch.
+
+- `master` — release branch. Receives merges from `dev` only. Every tag `vX.Y.Z`
+  is cut from a green commit here. GitHub Pages deploys from this branch and
+  HACS users install from its releases. Protected by the "Protect master
+  (release-only)" ruleset: no direct pushes, no force-pushes, no deletion, and a
+  merge needs a PR with the four always-running CI checks green.
+- `dev` — integration branch, the target for all day-to-day work, and the
+  repository's **default branch**, so new PRs base on it automatically. CI runs
+  here on every push and PR.
+- Feature branches — branch off `dev`, open the PR against `dev`.
+- Hotfix branches — branch off `master` only when a released version needs a
+  patch that cannot wait for the next `dev` cycle; PR into `master`, tag, then
+  merge `master` back into `dev`.
+
+The cycle in one line: feature → PR into `dev` → release prep on `dev` (version
+bump, CHANGELOG, TFTs) → PR `dev` → `master` → tag on `master` →
+`release.yml` publishes → merge `master` back into `dev` → open the next
+CHANGELOG section.
+
+Enforcement: the `master` ruleset blocks direct pushes, force-pushes and branch
+deletion, and requires a pull request whose four always-running checks are green
+before merge. It has **no bypass actors**, so the release merge from `dev` goes
+through a PR like everything else. Tags are unaffected — `release.yml` still
+fires on a `v*` tag pushed to `master`. To add an escape hatch, add a bypass
+actor to the ruleset rather than weakening the rules.
+
+`dev` itself is not protected: it takes direct pushes and PRs alike. Add a
+ruleset there if the branch starts collecting unreviewed changes.
 
 No fixed calendar. Ship when user-visible changes accumulate or a fix cannot
 wait. Patch releases (`0.4.1`) for regressions; minor releases (`0.5.0`) for
@@ -79,11 +107,24 @@ re-check `git status` for uncommitted work first.
 
 ### 2. Version bump
 
-- Set the version in the four places above (manifest, pyproject, ESPHome
-  `version.yaml`, HMI `system.tftVersion`).
-- Add or update the `CHANGELOG.md` section and its date.
-- Re-save the HMI and recompile both TFTs (see next step) — the gate fails on a
-  stale `tftVersion` or a stale TFT.
+Run the bump script — it writes the manifest, `pyproject.toml`, ESPHome
+`version.yaml` and both HMI `system.tftVersion` values in one pass:
+
+```bash
+python scripts/bump_version.py 0.5.0            # bump every source
+python scripts/bump_version.py 0.5.0 --check    # dry run, writes nothing
+```
+
+The HMI edit is in place and only legal for a same-length version (`0.4.1` →
+`0.4.2`); a shorter or longer version resizes the attribute record and the
+script refuses it — use the Nextion Editor for that bump. The script does not
+touch `CHANGELOG.md`, so add or update its section and date by hand. Re-save the
+HMI and recompile both TFTs (see next step) — the gate fails on a stale
+`tftVersion` or a stale TFT.
+
+`scripts/bump_tft_version.py` bumps only the HMI `tftVersion` text; the combined
+script above calls it. Both are importable and covered by
+`tests/test_bump_version.py`.
 
 ### 3. Nextion assets (human, GUI-only)
 
@@ -92,7 +133,11 @@ re-check `git status` for uncommitted work first.
    `File → TFT file output` → `nextion/nspanel_haui.tft`.
 3. Re-run `python scripts/gen_portrait/gen_portrait.py` so the portrait HMI
    picks up landscape edits, then compile
-   `nextion/nspanel_haui_portrait.tft`.
+   `nextion/nspanel_haui_portrait.tft`. The recompile is mandatory after any
+   `PORTRAIT_ATTRS`/HMI change — the committed HMI alone does not reach
+   devices. `gen_portrait.py --check` now verifies attribute values as well as
+   widget coverage, so an attribute-only change fails the gate until the HMI
+   is regenerated.
 4. Run the gates locally:
 
    ```bash

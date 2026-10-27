@@ -234,7 +234,7 @@ class NSPanelHAUI(HAAdapter):
         nav_ctrl.refresh_panel()
         self.log("Display updated")
 
-    def install_tft(self, version: str | None = None) -> None:
+    def install_tft(self, version: str | None = None) -> dict:
         """Trigger a TFT install for this device, on its worker thread.
 
         Called via ``async_run_on_worker`` from the REST API; ``version``
@@ -242,12 +242,22 @@ class NSPanelHAUI(HAAdapter):
 
         Args:
             version (str | None): Release version to install
+
+        Returns:
+            dict: The update state after the attempt (see
+            ``HAUIUpdateController.get_update_state``); ``state`` is ``error``
+            when the install could not start.
         """
         update_ctrl = self.controller.get("update")
         if update_ctrl is None:
             self.log("Cannot install TFT: no update controller", level="WARNING")
-            return
-        update_ctrl.install_tft(version)
+            return {
+                "state": "error",
+                "version": version,
+                "started_at": None,
+                "last_error": "no update controller",
+            }
+        return update_ctrl.install_tft(version)
 
     # status endpoint support
 

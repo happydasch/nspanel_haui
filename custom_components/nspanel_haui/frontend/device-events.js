@@ -160,12 +160,34 @@ export async function onDeviceManagerUpdateDisplay(host, e) {
   } catch (err) {
     host._showToast(err.message || t("Failed to update display"), "error");
   }
-}export async function onDeviceManagerUpdateTft(host, e) {
+}
+
+export async function onDeviceManagerUpdateTft(host, e) {
   const name = e.detail?.name;
   if (!name) return;
   try {
     const result = await Api.updateDeviceTft(host, name);
+    // Single-device failures are returned as HTTP errors and land in the
+    // catch below; the `*` path aggregates failures server-side.  A body with
+    // a 200 but an error update state is only possible by contract change on
+    // the backend — still surface it instead of a false success toast.
+    const update = result.update;
+    if (update?.state === "error") {
+      host._showToast(update.last_error || t("TFT update failed"), "error");
+      return;
+    }
+    const failed = result.failed || [];
     const count = result.devices_updated?.length || 0;
+    if (failed.length) {
+      const firstError = failed[0]?.error || t("TFT update failed");
+      host._showToast(
+        t('TFT update failed for {count} device(s): {error}')
+          .replace('{count}', failed.length)
+          .replace('{error}', firstError),
+        "error",
+      );
+      return;
+    }
     if (name === "*") {
       host._showToast(t('TFT update started for {count} device(s)').replace('{count}', count), "success");
     } else {

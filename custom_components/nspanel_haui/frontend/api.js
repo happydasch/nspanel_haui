@@ -198,8 +198,36 @@ function pickYamlFile() {
  * fetchWithAuth + error unwrapping. Returns the Response on success; throws
  * the server's message (or the given translated fallback) otherwise.
  */
+const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
+
 async function requestRaw(host, url, options, failMessage) {
-  const resp = await host.hass.fetchWithAuth(url, options);
+  const controller = new AbortController();
+  const timeoutMs = host._apiTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  // Ref'd setTimeout (not AbortSignal.timeout, whose timer is unref'd in some
+  // JS engines and never fires in an otherwise idle event loop): a request that
+  // never settles must abort and surface instead of hanging silently.  The
+  // timer is cleared once the fetch settles so fast requests leave nothing
+  // behind.
+  const timer = options?.signal
+    ? null
+    : setTimeout(
+        () => controller.abort(new DOMException("Request timed out", "TimeoutError")),
+        timeoutMs,
+      );
+  const signal = options?.signal || controller.signal;
+  let resp;
+  try {
+    resp = await host.hass.fetchWithAuth(url, { ...options, signal });
+  } catch (err) {
+    if (err && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new Error(
+        t("Request timed out; the device may be busy. Check the Home Assistant logs")
+      );
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({ message: `HTTP ${resp.status}` }));
     throw new Error(err.message || failMessage);

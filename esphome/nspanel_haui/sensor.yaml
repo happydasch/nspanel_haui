@@ -87,6 +87,15 @@ text_sensor:
     update_interval: never
     component_name: system.tftVersion
     internal: true
+    on_value:
+      - lambda: |-
+          // The hub's boot handshake reads this sensor before the display
+          // answered (it reports ~5s after boot).  Republish the device state
+          // as soon as the version arrives, so the hub can confirm the
+          // installed TFT without waiting for its next req_device_state.
+          if (id(hub_connection) && !id(tft_version).state.empty()) {
+            id(publish_device_state).execute();
+          }
 
   # Number request component
   - platform: template

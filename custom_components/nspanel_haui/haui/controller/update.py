@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
-from ..mapping.const import ESPAction, ESPResponse, SysPanelKey
+from ..mapping.const import ESPAction, ESPRequest, ESPResponse, SysPanelKey
 from ..utils.text import trim_text
 
 # TFT update states reported to the editor.  There is no byte-level progress
@@ -22,6 +22,14 @@ UPDATE_STATE_CHECKING = "checking"
 UPDATE_STATE_INSTALLING = "installing"
 UPDATE_STATE_ERROR = "error"
 UPDATE_STATE_DONE = "done"
+
+# TFT install timing.  The portrait upload takes ~13 minutes, so the install
+# timeout must be generous; the verification window on reconnect (the upload
+# reboots the device) only re-reads the state a few times before failing.
+INSTALL_TIMEOUT_SECONDS = 20 * 60
+DEVICE_STATE_REFRESH_SECONDS = 15
+VERIFY_REFRESH_SECONDS = 60
+VERIFY_MAX_REFRESHES = 2
 
 
 class HAUIUpdateController(HAUIBase):
@@ -62,6 +70,19 @@ class HAUIUpdateController(HAUIBase):
         self._update_version: str | None = None
         self._update_started_at: datetime.datetime | None = None
         self._update_last_error: str | None = None
+        # #63: the handshake reads ``tft_version`` ~1s after boot, before the
+        # display reported it.  The bookkeeping below re-reads device state on
+        # demand and treats an unknown version / unconfirmed install as "not
+        # outdated", so an empty snapshot is never mistaken for an outdated TFT
+        # (which reinstalled the TFT after every reboot).
+        self._pending_state_check = False
+        self._state_check_timer: str | None = None
+        self._install_verify_timer: str | None = None
+        self._install_verify_refreshes = 0
+        self._install_timeout_timer: str | None = None
+        self._last_install_version: str | None = None
+        self._last_install_at: datetime.datetime | None = None
+        self._last_install_confirmed = False
 
     # internal timers for version checks
 
@@ -107,23 +128,26 @@ class HAUIUpdateController(HAUIBase):
         """Stops the part."""
         self._stop_timer()
         self._stop_timer_delay()
+        self._cancel_timer("_state_check_timer")
+        self._pending_state_check = False
+        self._cancel_timer("_install_verify_timer")
+        self._cancel_timer("_install_timeout_timer")
 
     # update
 
-    def _parse_version(self, version: str) -> Version:
-        """Parses the given version string and returns a Version object.
+    def _try_parse_version(self, version: str | None) -> Version | None:
+        """Strictly parse ``version``, returning None for empty/invalid values.
 
-        Args:
-            version (str): Version string
-
-        Returns:
-            Version: parsed Version
+        An empty ``tft_version`` (the display reports it only after boot) is
+        *unknown*, not ``0.0.0`` — treating it as an old version is exactly
+        what reinstalled the TFT after every reboot.
         """
+        if not version:
+            return None
         try:
-            vers = parse(version)
+            return parse(version)
         except InvalidVersion:
-            vers = Version("0.0.0")
-        return vers
+            return None
 
     def _update_release_infos(self) -> None:
         """Updates the release informations."""
@@ -132,7 +156,13 @@ class HAUIUpdateController(HAUIBase):
         self._req_fetch = True
         try:
             resp = requests.get(self.RELEASES_URL, timeout=5)
-            json_decoded = resp.json()
+            try:
+                json_decoded = resp.json()
+            except ValueError as exc:
+                # GitHub rate-limit / proxy responses are HTML, not JSON.
+                raise RuntimeError(
+                    f"GitHub returned a non-JSON response for {self.RELEASES_URL}: {exc}"
+                ) from exc
             if not isinstance(json_decoded, list):
                 self.log("Unexpected response from GitHub API", level="WARNING")
                 json_decoded = []
@@ -147,25 +177,30 @@ class HAUIUpdateController(HAUIBase):
     def _get_latest_release(self) -> dict[str, Any] | None:
         """Returns the latest available release dict.
 
+        Releases whose tag does not parse as a version are skipped, so an
+        odd tag can neither break the comparison nor surface as ``0.0.0``.
+
         Returns:
             None|dict: Release info
         """
         latest_release = None
+        latest_version: Version | None = None
         for release in self._release_infos:
-            if latest_release is None:
-                temp_version = None
-            else:
-                temp_version = self._parse_version(latest_release["tag_name"])
-            new_version = self._parse_version(release["tag_name"])
-            if temp_version is None or new_version > temp_version:
+            version = self._try_parse_version(release.get("tag_name"))
+            if version is None:
+                continue
+            if latest_version is None or version > latest_version:
                 latest_release = release
+                latest_version = version
         return latest_release
 
     def _find_release(self, version: str) -> dict[str, Any] | None:
         """Returns the release whose tag is ``version`` (``v`` prefix ignored)."""
-        wanted = self._parse_version(version)
+        wanted = self._try_parse_version(version)
+        if wanted is None:
+            return None
         for release in self._release_infos:
-            if self._parse_version(release["tag_name"]) == wanted:
+            if self._try_parse_version(release.get("tag_name")) == wanted:
                 return release
         return None
 
@@ -217,20 +252,22 @@ class HAUIUpdateController(HAUIBase):
         latest_release = self._get_latest_release()
         if device_info is None or latest_release is None:
             return False
-        current_tft = device_info.get("tft_version")
-        if current_tft is None:
+        current_version = self._try_parse_version(device_info.get("tft_version"))
+        latest_version = self._try_parse_version(latest_release.get("tag_name"))
+        if current_version is None or latest_version is None:
             return False
-        current_version = self._parse_version(current_tft)
-        latest_version = self._parse_version(latest_release["tag_name"])
-        if current_version < latest_version:
-            return True
-        return False
+        return current_version < latest_version
 
-    def run_update_display(self, version: str) -> None:
+    def run_update_display(self, version: str) -> dict[str, Any]:
         """Installs the TFT file of the GitHub release ``version`` on the display.
 
         Args:
             version (str): Release version, the firmware's ``yaml_version``
+
+        Returns:
+            dict: The update state after the attempt (``get_update_state()``);
+            the caller can check ``state == UPDATE_STATE_ERROR`` and read
+            ``last_error`` to report the outcome to the user.
         """
         self._set_update_state(UPDATE_STATE_CHECKING, version=version)
         try:
@@ -238,18 +275,35 @@ class HAUIUpdateController(HAUIBase):
         except RuntimeError as exc:
             self.log(f"TFT update failed: {exc}", level="ERROR")
             self._set_update_state(UPDATE_STATE_ERROR, version=version, error=str(exc))
-            return
+            return self.get_update_state()
         update_url = self._get_update_url(self._find_release(version))
         if update_url is None:
             msg = f"No GitHub release {version} with {self._get_tft_filename()}; TFT not updated"
             self.log(msg, level="WARNING")
             self._set_update_state(UPDATE_STATE_ERROR, version=version, error=msg)
-            return
+            return self.get_update_state()
         self.log(f"Installing TFT {version} from {update_url}")
+        published = self.app.controller["esphome"].esphome.publish(
+            ESPAction.UPLOAD_TFT_URL, update_url
+        )
+        if not published:
+            msg = "Could not send the TFT upload command; check the ESPHome connection"
+            self.log(msg, level="ERROR")
+            self._set_update_state(UPDATE_STATE_ERROR, version=version, error=msg)
+            self._cancel_timer("_install_timeout_timer")
+            return self.get_update_state()
+        # Record the attempt so the confirm check treats the install as
+        # in-flight: an upload that reboots the device reads back an empty
+        # tft_version, and that must not be mistaken for "outdated" (which
+        # used to reinstall the TFT after every reboot).
+        self._last_install_version = version
+        self._last_install_at = datetime.datetime.now(tz=datetime.UTC)
+        self._last_install_confirmed = False
         self._set_update_state(UPDATE_STATE_INSTALLING, version=version)
-        self.app.controller["esphome"].esphome.publish(ESPAction.UPLOAD_TFT_URL, update_url)
+        self._start_install_timeout_timer()
+        return self.get_update_state()
 
-    def install_tft(self, version: str | None = None) -> None:
+    def install_tft(self, version: str | None = None) -> dict[str, Any]:
         """Trigger a TFT install from the editor.
 
         Installs the TFT of the GitHub release ``version``; when ``version`` is
@@ -259,11 +313,16 @@ class HAUIUpdateController(HAUIBase):
 
         Args:
             version (str | None): Release version to install
+
+        Returns:
+            dict: The update state after the attempt; ``state`` is
+            ``UPDATE_STATE_ERROR`` when the install could not start (see
+            ``last_error``).
         """
         if not self.app.device.connected:
             self.log("Cannot install the TFT while the device is disconnected", level="WARNING")
             self._set_update_state(UPDATE_STATE_ERROR, error="device disconnected")
-            return
+            return self.get_update_state()
         if version is None:
             version = (self.app.device.device_info or {}).get("yaml_version")
         if not version:
@@ -272,8 +331,12 @@ class HAUIUpdateController(HAUIBase):
                 level="WARNING",
             )
             self._set_update_state(UPDATE_STATE_ERROR, error="no yaml_version reported")
-            return
-        self.run_update_display(version)
+            return self.get_update_state()
+        # A manual retry starts a fresh attempt: it must not be blocked by the
+        # "install not confirmed" guard left over from a previous attempt.
+        self._last_install_confirmed = False
+        self._last_install_at = None
+        return self.run_update_display(version)
 
     # update state (for the editor / Panel Doctor)
 
@@ -332,33 +395,45 @@ class HAUIUpdateController(HAUIBase):
             return
         requested = self._update_version
         installed = (self.app.device.device_info or {}).get("tft_version")
-        if (
-            requested
-            and installed
-            and self._parse_version(installed) >= self._parse_version(requested)
-        ):
+        requested_v = self._try_parse_version(requested)
+        installed_v = self._try_parse_version(installed)
+        if requested_v is None or installed_v is None:
+            return
+        if installed_v >= requested_v:
             self._set_update_state(UPDATE_STATE_DONE, version=requested)
+            self._last_install_confirmed = True
+            self._cancel_timer("_install_verify_timer")
+            self._cancel_timer("_install_timeout_timer")
 
-    def check_installed_version(self) -> None:
-        """Updates the TFT when it is older than the version the firmware needs."""
-        if not self.app.device.connected:
-            return
-        device_info = self.app.device.device_info
-        installed_version = device_info.get("tft_version")
-        required_version = device_info.get("yaml_version")
-        self.log(
-            f"Checking installed version: required={required_version} installed={installed_version}"
+    def _recent_unconfirmed_install(self, version: str | None) -> bool:
+        """True when ``version`` was installed and the display never confirmed it.
+
+        Such an install may still be in flight (the upload reboots the device,
+        so confirming takes time) or have failed (the display never reported
+        the new version).  Either way it must not be auto-reinstalled, or a
+        display that cannot report its version would be uploaded to forever.
+        """
+        return (
+            self._last_install_version == version
+            and not self._last_install_confirmed
+            and self._last_install_at is not None
         )
-        if not required_version:
-            self.log("The firmware reported no yaml_version; TFT not checked", level="WARNING")
-            return
-        # no or an invalid TFT version parses as 0.0.0, so it is updated too
-        if self._parse_version(required_version) <= self._parse_version(installed_version or ""):
-            self.log("Installed TFT version is up to date")
-            self._mark_done_if_installed()
-            return
+
+    def _set_install_failed(self, message: str) -> None:
+        """Mark the in-flight install as failed and stop its timers."""
+        self.log(message, level="ERROR")
+        self._set_update_state(
+            UPDATE_STATE_ERROR, version=self._last_install_version, error=message
+        )
+        self._cancel_timer("_install_verify_timer")
+        self._cancel_timer("_install_timeout_timer")
+
+    def _install_missing_tft(self, required_version: str, installed_version: str | None) -> None:
+        """Install the required TFT automatically, or ask when ``auto_install`` is off."""
         if self.get("auto_install", True):
-            self.log(f"TFT {installed_version!r} is older than {required_version}, installing")
+            self.log(
+                f"TFT {installed_version!r} is older than {required_version}, installing"
+            )
             self.run_update_display(required_version)
             return
         msg = self.translate("Your TFT-version is outdated.")
@@ -381,9 +456,184 @@ class HAUIUpdateController(HAUIBase):
             notification=msg,
         )
 
+    def _request_device_state(self) -> None:
+        """Ask the firmware to republish its device state.
+
+        The boot handshake reads ``tft_version`` before the display answered,
+        and the firmware only republishes the state on ``req_device_state``
+        (plus — newer firmware — when the display finally reports the version).
+        The explicit request is what turns a stale/empty snapshot into real data.
+        """
+        self.send_esphome(ESPRequest.REQ_DEVICE_STATE, "", force=True)
+
+    def _start_state_check_timer(self) -> None:
+        """Start the fallback that evaluates the version if the refresh is lost."""
+        self._state_check_timer = self.app.run_in(
+            self._state_check_timer_callback, DEVICE_STATE_REFRESH_SECONDS
+        )
+
+    def _state_check_timer_callback(self, kwargs: dict[str, Any]) -> None:
+        self._state_check_timer = None
+        self._evaluate_installed_version(
+            self.app.device.device_info or {}, refresh_answered=False
+        )
+
+    def _evaluate_installed_version(
+        self, device_info: dict[str, Any], refresh_answered: bool = True
+    ) -> None:
+        """Decide whether the TFT needs an install based on ``device_info``.
+
+        ``refresh_answered`` is False when the state refresh timed out.  A
+        lost response is fail-safe: an *unknown* installed version is then
+        never auto-installed, because the display may simply still be reading
+        it.  Known versions are evaluated either way.
+        """
+        required_version = device_info.get("yaml_version")
+        installed_version = device_info.get("tft_version")
+        required = self._try_parse_version(required_version)
+        if required is None or not isinstance(required_version, str):
+            msg = f"invalid yaml_version {required_version!r}"
+            self.log(
+                "The firmware reported an invalid yaml_version; TFT not checked",
+                level="WARNING",
+            )
+            self._set_update_state(
+                UPDATE_STATE_ERROR, version=self._update_version, error=msg
+            )
+            return
+        installed = self._try_parse_version(installed_version)
+        if not refresh_answered and installed is None:
+            self.log(
+                "Could not read the installed TFT version (no device-state answer); "
+                "not installing",
+                level="WARNING",
+            )
+            return
+        if installed is not None:
+            self.log(
+                f"Checking installed version: required={required_version} "
+                f"installed={installed_version}"
+            )
+            if installed >= required:
+                self.log("Installed TFT version is up to date")
+                self._mark_done_if_installed()
+                self._last_install_confirmed = True
+                self._cancel_timer("_install_verify_timer")
+                self._cancel_timer("_install_timeout_timer")
+                return
+            if self._recent_unconfirmed_install(required_version):
+                self._set_install_failed(
+                    "TFT install was not confirmed; press Install TFT to retry "
+                    "(auto-reinstall is disabled while unconfirmed)"
+                )
+                return
+            self._install_missing_tft(required_version, installed_version)
+            return
+        # The refresh answered but the display still has no version.
+        if self._install_verify_timer is not None:
+            # A reconnect right after an install: the bounded verification
+            # window owns the outcome.  Re-read once more instead of guessing.
+            self.log(
+                "TFT version still unknown after reconnect; verifying the install"
+            )
+            self._request_device_state()
+            return
+        if self._recent_unconfirmed_install(required_version):
+            self._set_install_failed(
+                "TFT install was not confirmed; press Install TFT to retry "
+                "(auto-reinstall is disabled while unconfirmed)"
+            )
+            return
+        self.log(f"TFT version unknown, installing {required_version}")
+        self._install_missing_tft(required_version, installed_version)
+
+    # install timing (the upload reboots the device, so confirmation is async)
+
+    def _start_install_timeout_timer(self) -> None:
+        """Start the overall install timeout (covers the slow portrait upload)."""
+        self._cancel_timer("_install_timeout_timer")
+        self._install_timeout_timer = self.app.run_in(
+            self._install_timeout_timer_callback, INSTALL_TIMEOUT_SECONDS
+        )
+
+    def _install_timeout_timer_callback(self, kwargs: dict[str, Any]) -> None:
+        self._install_timeout_timer = None
+        if self._update_state != UPDATE_STATE_INSTALLING:
+            return
+        self._set_install_failed(
+            "TFT install timed out; the display never reported the new version"
+        )
+
+    def _start_install_verification(self) -> None:
+        """Verify an install that was in flight when the device reconnected.
+
+        The upload ends in a reboot, so a reconnect while ``installing`` is
+        expected.  Start a bounded refresh window: re-read the state a few
+        times, then fail so the editor can offer a manual retry.  A matching
+        version flips the state to ``done`` via ``_mark_done_if_installed``.
+        """
+        self._install_verify_refreshes = 0
+        self._request_device_state()
+        self._start_install_verify_timer()
+
+    def _start_install_verify_timer(self) -> None:
+        self._cancel_timer("_install_verify_timer")
+        self._install_verify_timer = self.app.run_in(
+            self._install_verify_timer_callback, VERIFY_REFRESH_SECONDS
+        )
+
+    def _install_verify_timer_callback(self, kwargs: dict[str, Any]) -> None:
+        self._install_verify_timer = None
+        if self._update_state != UPDATE_STATE_INSTALLING:
+            return  # done or errored in the meantime
+        if self._install_verify_refreshes >= VERIFY_MAX_REFRESHES:
+            self._set_install_failed(
+                "TFT install was not confirmed within the timeout; press Install TFT to retry"
+            )
+            return
+        self._install_verify_refreshes += 1
+        self._request_device_state()
+        self._start_install_verify_timer()
+
+    def check_installed_version(self) -> None:
+        """Updates the TFT when it is older than the version the firmware needs.
+
+        The firmware publishes ``tft_version`` only in response to
+        ``req_device_state``; the handshake reads it before the display
+        answered.  When the version is unknown — or a recent install is still
+        unconfirmed — a fresh device-state read is requested instead of acting
+        on the possibly-empty boot snapshot.  This is what stops the reboot
+        loop where an empty version was compared as ``0.0.0`` and reinstalled.
+        """
+        if not self.app.device.connected:
+            return
+        device_info = self.app.device.device_info or {}
+        installed_version = device_info.get("tft_version")
+        required_version = device_info.get("yaml_version")
+        self.log(
+            f"Checking installed version: required={required_version} installed={installed_version}"
+        )
+        if self._pending_state_check or self._state_check_timer is not None:
+            return  # a refresh is already in flight
+        if installed_version or self._recent_unconfirmed_install(required_version):
+            # The display already reported a version (or a recent install is
+            # waiting for confirmation): evaluate right away.
+            self._evaluate_installed_version(device_info)
+            return
+        # Version unknown: ask the device before drawing any conclusion.
+        self._pending_state_check = True
+        self._request_device_state()
+        self._start_state_check_timer()
+
     def check_for_update(self) -> None:
         """Shows a notice on the display when a newer release than the TFT exists."""
-        self._update_release_infos()
+        try:
+            self._update_release_infos()
+        except RuntimeError as exc:
+            # GitHub being unreachable must not raise out of a timer callback;
+            # log it and leave the display alone.
+            self.log(f"Update check failed: {exc}", level="WARNING")
+            return
         latest_release = self._get_latest_release()
         if not self._is_update_available() or latest_release is None:
             return
@@ -413,6 +663,11 @@ class HAUIUpdateController(HAUIBase):
         Called by the app once the connection handshake is complete, so the
         device info holds ``tft_version`` and ``yaml_version``.
 
+        A disconnect while ``installing`` is expected — the upload ends in a
+        reboot — so that state is kept (the install timeout started at install
+        time covers the case where the device never reconnects; the bounded
+        verification window on reconnect covers the upload-completed case).
+
         Args:
             connected (bool): Connection state
         """
@@ -420,9 +675,14 @@ class HAUIUpdateController(HAUIBase):
         if connected:
             self.log(f"Checking the TFT version in {self.get('on_connect_delay')} seconds")
             self._start_timer_delay()
+            if self._update_state == UPDATE_STATE_INSTALLING:
+                self._start_install_verification()
         else:
-            # An install in progress cannot report back while disconnected.
-            if self._update_state not in (UPDATE_STATE_IDLE, UPDATE_STATE_DONE):
+            self._cancel_timer("_state_check_timer")
+            self._cancel_timer("_install_verify_timer")
+            self._pending_state_check = False
+            self._install_verify_refreshes = 0
+            if self._update_state not in (UPDATE_STATE_IDLE, UPDATE_STATE_INSTALLING):
                 self._set_update_state(UPDATE_STATE_IDLE)
 
     def callback_update_response(self, btn_left: bool, btn_right: bool, version: str) -> None:
@@ -470,4 +730,10 @@ class HAUIUpdateController(HAUIBase):
         if event.name == ESPResponse.RES_DEVICE_STATE:
             device_state = event.as_json()
             self.app.device.set_device_info(device_state, append=True)
+            if self._pending_state_check:
+                # A version-check refresh answered: evaluate with the fresh
+                # snapshot instead of the (possibly empty) boot handshake one.
+                self._pending_state_check = False
+                self._cancel_timer("_state_check_timer")
+                self._evaluate_installed_version(self.app.device.device_info or {})
             self._mark_done_if_installed()

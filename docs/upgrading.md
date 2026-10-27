@@ -187,3 +187,32 @@ Pin the previous integration version (e.g. in HACS, reinstall 0.3.2) and
 restore the storage backup from step 2. The old firmware and TFT must match
 the old integration — restore those versions too before reconnecting the
 device.
+
+## 8. TFT update behaviour changes
+
+The automatic TFT update logic changed in this release. Review these points
+before upgrading:
+
+- **Empty `tft_version` is treated as unknown.** The hub's boot handshake reads
+  the display's version about 1 second after boot, before the display answered.
+  An empty value is no longer parsed as `0.0.0` (which caused an automatic
+  reinstall after every reboot). Instead, the hub requests a fresh device state
+  and only acts on a known version. This is fail-safe: if the device does not
+  answer the refresh request, no automatic install starts. Use **Install TFT**
+  in the editor to install manually.
+- **A recent unconfirmed install is not auto-retried.** When an install cannot
+  be confirmed (the device does not report the new version within its timeout),
+  the hub reports an error and stops. It will not retry automatically; press
+  **Install TFT** in the editor to start a fresh attempt. This prevents a
+  display that cannot report its version from being uploaded to forever.
+- **`INSTALLING` survives the reboot.** The TFT upload ends in an ESP32 reboot,
+  so the disconnect is expected. The state stays `installing` until the device
+  reconnects and reports the new version (→ `done`) or the verification window
+  times out (→ `error`). A matching version reported on reconnect confirms the
+  install; a timeout shows the reason in the editor.
+- **Failed installs report why.** The editor shows a toast when the upload
+  command could not be sent or when the update state ends in `error`. The REST
+  API returns HTTP 502 for a failed install instead of a silent success.
+- **The buzzer stops before a TFT upload starts.** A playing tune no longer
+  sounds until the reboot. Flash the updated ESPHome firmware to activate this
+  fix.

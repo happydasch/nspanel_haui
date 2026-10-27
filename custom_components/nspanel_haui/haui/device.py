@@ -34,6 +34,13 @@ def _notification_sound(notif_type: str) -> str:
 # staying far shorter than a deliberate second tap to wake the display.
 IDLE_TOUCH_GRACE_WINDOW: float = 1.5
 
+# The native Nextion callback ("1") and the 200 ms coordinate poller ("")
+# publish a touch_start for the same physical press.  The native event is the
+# authoritative wake decision; the poller event is ignored while a native event
+# for the same press is recent.  If the native event is lost (serial/API lag),
+# the poller event is used as a fallback so the touch is never ignored.
+TOUCH_DUPLICATE_WINDOW: float = 1.5
+
 # A freshly booted device reports an uptime of a few seconds in its
 # connection request; a Wi-Fi drop-and-reconnect keeps the (much longer)
 # uptime.  The startup sound plays only while uptime stays under this
@@ -83,6 +90,11 @@ class HAUIDevice(HAUIBase):
         # leftovers of the touch that opened the idle page (see
         # arm_idle_touch_grace).  0.0 = no grace active.
         self._idle_touch_grace_until = 0.0
+        # Monotonic timestamp of the last native touch_start ("1") event.
+        # The poller's empty-value duplicate is ignored within
+        # TOUCH_DUPLICATE_WINDOW of this timestamp, but used as a fallback
+        # when the native event was lost (serial/API lag).
+        self._last_native_touch_ts: float = 0.0
         self._initial_connect_done = False
         self._synced_display_model: str | None = None
         self._btn_left_info: dict[str, Any] = {
@@ -741,10 +753,17 @@ class HAUIDevice(HAUIBase):
             if self._idle_touch_grace_active():
                 self.log("Ignoring residual touch_start after idle-page open")
                 return
-            # The ESPHome coordinate poller also reports touch_start with an
-            # empty value; the native Nextion callback ("1") is the single
-            # wake decision per physical press.
+            # The native Nextion callback ("1") is the authoritative wake
+            # decision per physical press; the ESPHome coordinate poller
+            # reports the same press with an empty value up to ~1 s later.
+            # Suppress the poller duplicate, but use it as a fallback when the
+            # native event was lost (serial/API lag) — otherwise a lost "1"
+            # makes the touch do nothing at all.
+            now = time.monotonic()
             if event.value == "1":
+                self._last_native_touch_ts = now
+                self.check_wakeup()
+            elif now - self._last_native_touch_ts > TOUCH_DUPLICATE_WINDOW:
                 self.check_wakeup()
         # the display went dark again (e.g. while the idle page stays open),
         # so the next touch must only wake it: re-arm the two-touch guard

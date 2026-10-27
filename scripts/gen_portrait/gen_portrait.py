@@ -336,6 +336,13 @@ def main(argv: list[str] | None = None) -> int:
     with_sibling = f" and with {sibling_path.name}" if sibling_path else ""
     print(f"{source}: {len(pages)} pages, spec {args.spec} consistent with the HMI{with_sibling}")
     if args.check:
+        # Verify attribute values too (alignment, font, …), not just widget
+        # coverage: a spec-only change must not pass the release gate while
+        # the committed HMI still carries the old value (#64 alignment, #60 font).
+        problems = verify(raw, spec, sibling)
+        if problems:
+            print("\n".join(problems))
+            return 1
         return 0
 
     changed = apply_layout(raw, pages, spec, sibling)

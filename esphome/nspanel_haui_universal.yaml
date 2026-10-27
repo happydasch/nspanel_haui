@@ -30,10 +30,10 @@ substitutions:
   name: nspanel-haui
 
   # Fixed, documented credentials (see docs/install.md "Universal image").
+  # The web server stays disabled in this image (see base.yaml), so no web
+  # credentials are baked in.
   ota_password: 'nspanel-haui'
   api_encryption_key: 'TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE='
-  web_username: 'admin'
-  web_password: 'nspanel-haui'
   # Never-matching Wi-Fi: forces the fallback access point + captive portal.
   wifi_ssid: 'NSPanel-HAUI-Setup'
   wifi_password: 'nspanel-haui-setup'
@@ -45,6 +45,18 @@ substitutions:
   # the matching release asset on its own.
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
   tft_update_url_portrait: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui_portrait.tft
+
+# Temporary: stock `nextion` in released ESPHome lacks the numeric-response
+# delivery fix (esphome/esphome#17744, ships in 2026.11.0).  Override it with
+# the patched component vendored next to this file (see nextion_patch/README).
+# Local source so CI and the release build validate the actual checkout; the
+# remote package (nspanel_haui.yaml) carries the equivalent git-source block
+# for users.
+external_components:
+  - source:
+      type: local
+      path: nextion_patch
+    components: [nextion]
 
 # Unique per device: the MAC suffix is appended at runtime, so one binary
 # installs any number of panels without colliding on mDNS or entity ids.

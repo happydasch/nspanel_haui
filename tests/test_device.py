@@ -1104,3 +1104,38 @@ def test_switching_the_display_model_installs_the_matching_tft() -> None:
     device.sync_config_to_device()
 
     assert installs == [1]
+
+def test_touch_start_native_event_calls_wakeup() -> None:
+    """The native "1" touch_start triggers the wake decision."""
+    device, nav = _wakeup_harness()
+    device._first_touch_consumed = False
+
+    device.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))
+
+    assert len(nav.exit_calls) == 1
+    assert device._last_native_touch_ts > 0.0
+
+
+def test_touch_start_poller_duplicate_ignored_within_window() -> None:
+    """The poller "" duplicate of a native press is ignored."""
+    device, nav = _wakeup_harness()
+    device._first_touch_consumed = False
+
+    device.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))
+    assert len(nav.exit_calls) == 1
+
+    # Poller duplicate arrives immediately after the native event.
+    device.process_event(HAUIEvent(ESPEvent.TOUCH_START, ""))
+    assert len(nav.exit_calls) == 1
+
+
+def test_touch_start_poller_fallback_when_native_lost() -> None:
+    """The poller "" event acts as a wake fallback when the native event was lost."""
+    device, nav = _wakeup_harness()
+    device._first_touch_consumed = False
+    # No native event for this press — the last one is outside the window.
+    device._last_native_touch_ts = time.monotonic() - 2.0
+
+    device.process_event(HAUIEvent(ESPEvent.TOUCH_START, ""))
+
+    assert len(nav.exit_calls) == 1

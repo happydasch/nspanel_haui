@@ -6,6 +6,105 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] — 2026-10-27
+
+### Breaking changes
+
+- **The ESPHome web server is no longer enabled by default** — the firmware
+  ships without `web_server` to free the flash and RAM that the HTTP OTA path
+  (TLS, JSON, `http_request`) needs. After flashing the new firmware the
+  device's web UI on port 80 and Home Assistant's "Visit" link disappear until
+  you enable the component yourself: add a `web_server:` block to your own
+  device YAML (see [ESPHome Component → Web server](docs/esphome.md#web-server-optional)).
+  `esphome/nspanel_haui_dev.yaml` keeps the web server for local development.
+
+### Added
+
+- **Firmware auto-update** — the release workflow now attaches a
+  `firmware-manifest.json` to every release and the firmware exposes an
+  `update: platform: http_request` entity named **HAUI Firmware**. When the hub
+  finds a newer release and `firmware_auto_update` is on (the default), it asks
+  Home Assistant to install the device's firmware update first; the TFT the new
+  firmware needs is installed after the device reboots. A firmware install that
+  would collide with a running TFT upload is deferred. Set
+  `firmware_auto_update: false` to keep the previous notice-only behaviour.
+- **Version bump tooling** — `scripts/bump_version.py` updates the manifest,
+  `pyproject.toml`, ESPHome `version.yaml` and both HMI `system.tftVersion`
+  values in one command, so a release no longer needs a Nextion Editor visit
+  just to type the new version.  The HMI edit is in place and only legal for a
+  same-length version; a length-changing bump still needs the Editor.
+  `scripts/bump_tft_version.py` bumps only the HMI text and is reused by the
+  combined script.  Both have a `--check` dry run and are covered by
+  `tests/test_bump_version.py`.
+
+### Changed
+
+- **Update checks now install the firmware first** — when a newer release exists
+  and the device reports an installable firmware update, the hub triggers the
+  firmware install before the TFT. The device reboots into the new firmware and
+  then installs the matching TFT on the next connect. Set
+  `firmware_auto_update: false` to restore the notice-only behaviour. Flash the
+  updated firmware once so the `HAUI Firmware` update entity exists.
+- **CI now validates version consistency and translations** — the tests workflow
+  checks that the version sources agree (`scripts/bump_version.py --check`) and
+  that translation files are up to date; the release workflow rejects a tag whose
+  version disagrees with `manifest.json`, so a release cannot ship a mismatched
+  version. The tests workflow also validates the Nextion assets and runs `ruff`
+  on `scripts/`.
+
+### Fixed
+
+- **Firmware display reads work on released ESPHome again** — the
+  numeric-response delivery fix for the stock `nextion` component
+  ([esphome PR #17744](https://github.com/esphome/esphome/pull/17744)) was
+  merged two days after the 2026.10.0 release tag was cut, so *no released
+  ESPHome* contains it; without it every display read logged
+  `Numeric return but '…' invalid type 0` and the value was dropped (`page` /
+  `dim` errors after every interaction, lost `res_val`/`res_txt`/TFT-version
+  reads). The firmware configs now ship a temporary vendored patch
+  (`esphome/nextion_patch/`, the 2026.10.0 component plus the cherry-picked
+  fix) and override the stock component with it through `external_components`
+  — shipped in the `nspanel_haui.yaml` package, so installed setups pick it up
+  with their next `esphome config` run; the universal/dev configs use a local
+  source so CI and the release build validate the actual checkout. Recompile
+  and flash the firmware once. The patch and its override blocks are removed
+  (and `min_version` raised) when a released ESPHome contains #17744
+  (2026.11.0).
+- **TFT no longer reinstalls after every reboot (#63)** — the hub compared the
+  firmware's `yaml_version` against the `tft_version` snapshot captured during the
+  boot handshake, when the display had not answered yet. The empty value parsed as
+  `0.0.0`, so the hub considered the TFT outdated, uploaded it, rebooted the ESP32,
+  and repeated the loop. An unknown version is now treated as *unknown*: the hub
+  requests a fresh device state and only evaluates known versions. A recent
+  unconfirmed install is no longer auto-retried — use **Install TFT** in the editor
+  to retry manually. The `INSTALLING` state now survives the reboot, and a matching
+  version reported on reconnect marks the install `done`.
+- **Buzzer stops when a TFT upload starts (#62)** — `upload_tft()` blocks the ESP32
+  main loop for the whole transfer, so a playing RTTTL tune never had its note
+  turned off and kept sounding until the reboot. The three upload entry points
+  (the Update Display button and the `upload_tft`/`upload_tft_url` actions) now run
+  a shared `suspend_activities` script first, which stops the buzzer; future
+  stoppable components only need to be added there. Flash the updated ESPHome
+  firmware to activate the fix.
+- **Portrait weather time and date are centered (#64)** — the full-width portrait
+  `tTime`/`tDate` widgets kept the landscape right-alignment attribute and drew
+  against the screen edge. `PORTRAIT_ATTRS` now centers them; recompile the portrait
+  TFT to activate the fix.
+- **Failed TFT installs report why** — the update controller returns its state
+  (idle/checking/installing/error/done) from `install_tft`/`run_update_display`, the
+  REST API responds with HTTP 502 and the editor shows a toast when the upload
+  command could not be sent. A GitHub API failure during the update check no longer
+  raises out of the timer callback.
+
+### Contributors
+
+Thanks to [@jsenecal](https://github.com/jsenecal), whose reports drove the three
+hardware fixes in this release: TFT reinstalls after every reboot
+([#63](https://github.com/happydasch/nspanel_haui/issues/63)), the buzzer
+continuing through a TFT upload ([#62](https://github.com/happydasch/nspanel_haui/issues/62))
+and the off-centre portrait weather time and date
+([#64](https://github.com/happydasch/nspanel_haui/issues/64)).
+
 ## [0.4.1] — 2026-10-26
 
 ### Fixed
@@ -198,5 +297,6 @@ and follow [Semantic Versioning](https://semver.org/).
 > ESPHome actions/events and two config entities were renamed, and no aliases
 > are kept.
 
+[0.4.2]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.2
 [0.4.1]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.1
 [0.4.0]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.0

@@ -618,3 +618,48 @@ def test_exit_idle_to_prev_or_home_noops_when_not_idle():
     nav.exit_idle_to_prev_or_home({})
 
     assert opened == []  # no navigation away from normal operation
+
+def test_stale_page_change_recovery_on_touch() -> None:
+    """A touch during a stale page change forces the recovery callback.
+
+    Regression: when a goto_page command is lost (buffer overflow / serial
+    lag), the display stays on the old page while the hub waits for the page
+    ack.  A touch during that wait must re-send the command immediately instead
+    of doing nothing until the 10 s page_timeout fires.
+    """
+    nav = _make_nav()
+    recovery_calls = []
+    nav._page_timeout_callback = lambda _kwargs: recovery_calls.append("recovered")
+    nav._page_timeout = "handle"  # a page change is pending
+    nav._page_change_ts = time.monotonic() - 2.0  # ...and is stale
+
+    nav.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))
+
+    assert recovery_calls == ["recovered"]
+
+
+def test_fresh_page_change_does_not_trigger_recovery() -> None:
+    """A touch during a normal, fresh page transition does not force a reload."""
+    nav = _make_nav()
+    recovery_calls = []
+    nav._page_timeout_callback = lambda _kwargs: recovery_calls.append("recovered")
+    nav._page_timeout = "handle"
+    nav._page_change_ts = time.monotonic()  # just requested
+
+    nav.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))
+
+    assert recovery_calls == []
+
+
+def test_page_ack_clears_page_change_timestamp() -> None:
+    """The page ack resets the pending-change timestamp."""
+    nav = _make_nav()
+    nav._page_timeout = "handle"
+    nav._page_change_ts = time.monotonic()
+    page = FakePage(1)
+    nav.page = page
+    nav._panel = DummyPanel("p")
+
+    nav.process_event(HAUIEvent(ESPEvent.PAGE, "1"))
+
+    assert nav._page_change_ts == 0.0

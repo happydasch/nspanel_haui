@@ -425,6 +425,13 @@ PORTRAIT_ATTRS: dict[str, dict[str, dict[str, int]]] = {
     "cover": {"hVertPos": _V_SLIDER},
     "media": {"hVolume": _H_SLIDER},
     "row": {f"r{i + 1}Slider": _ROW_SLIDER for i in range(5)},
+    # The portrait weather time/date are full-width (0..320) but kept the
+    # landscape ``xcen=2`` (right-aligned) attribute, pushing the text against
+    # the screen edge.  Center them (#64).
+    "weather": {"tTime": {"xcen": 1}, "tDate": {"xcen": 1}},
+    # #60's clock font fix: the portrait clock time uses font 6 (larger) and
+    # must survive HMI regeneration.
+    "clock": {"tTime": {"font": 6}},
 }
 
 

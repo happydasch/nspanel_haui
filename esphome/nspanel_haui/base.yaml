@@ -1,6 +1,10 @@
 ---
 substitutions:
   log_level: INFO
+  # Firmware update manifest. The release workflow regenerates it and attaches
+  # it to every GitHub release; ``releases/latest/download`` always serves the
+  # newest release, so this URL stays valid across versions.
+  firmware_manifest_url: https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json
 
 
 # ESP Configuration
@@ -14,6 +18,13 @@ esp32:
 
 # ESPHome Configuration
 esphome:
+  # 2026.10.0 is enforced because the configs use APIs from that release; it is
+  # NOT the release that fixed the nextion numeric-response delivery (that fix,
+  # esphome/esphome#17744, ships in 2026.11.0).  Until 2026.11.0 the shipped
+  # configs carry esphome/nextion_patch and an external_components override that
+  # applies the fix; bump BOTH min_version and requirements-esphome.txt (and
+  # delete nextion_patch + its override blocks) when a released ESPHome contains
+  # #17744.
   min_version: 2026.10.0
   name: $name
   friendly_name: $friendly_name
@@ -34,10 +45,34 @@ logger:
   level: $log_level
 
 
+# HTTP client — used by the HTTP OTA platform and the firmware update entity to
+# fetch the release manifest and the firmware image from GitHub.
+http_request:
+  id: haui_http
+  useragent: nspanel-haui
+  timeout: 10s
+
+
 # OTA Configuration
+# Native ESPHome OTA for dashboard/manual flashing, plus HTTP OTA so the device
+# can pull a new image from the release manifest on its own. The hub triggers
+# the install through the firmware update entity below.
 ota:
-  platform: esphome
-  password: $ota_password
+  - platform: esphome
+    password: $ota_password
+  - platform: http_request
+
+
+# Firmware update entity — published to Home Assistant as "HAUI Firmware" so
+# the hub can trigger ``update.install`` when a new release ships. The manifest
+# carries the version, the download URL and the md5 of the released .bin.
+update:
+  - platform: http_request
+    id: haui_firmware_update
+    name: HAUI Firmware
+    device_class: firmware
+    source: $firmware_manifest_url
+    update_interval: 6h
 
 
 # WIFI Configuration
@@ -57,9 +92,19 @@ wifi:
 captive_portal:
 
 
-# Web Server
-web_server:
-  port: 80
-  auth:
-    username: $web_username
-    password: $web_password
+# Web server — optional, disabled by default.
+#
+# The shipped firmware does not run the ESPHome web server: it costs flash and
+# RAM that the HTTP OTA path (TLS + JSON + http_request) needs.  Home Assistant
+# shows a "Visit" link for the web UI only when this component is present.
+#
+# To enable the web UI for one panel, add the block to YOUR device YAML (the
+# file that includes `nspanel_haui.yaml` as a package) — not to a package file:
+#
+#   web_server:
+#     port: 80
+#     auth:
+#       username: admin
+#       password: !secret web_password
+#
+# See docs/esphome.md → "Web server (optional)".

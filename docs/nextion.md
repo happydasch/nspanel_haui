@@ -41,7 +41,7 @@ The display is 480 pixels wide, but the LCD bezel hides the rightmost 30 pixels.
 
 This is relevant for edge-based gesture detection — swipe-from-right gestures (swipe left) start in the non-visible zone. The ESPHome gesture logic in `scripts_interaction.yaml` uses `visible_width` (450 in landscape, 320 in portrait) for its right-border check (in landscape a swipe starting at x > 410 counts as a right-edge start, using a 40px margin), so touches in the non-visible zone also count as right-edge starts.
 
-This project uses the stock ESPHome `nextion` display component (no custom or patched component; ESPHome 2026.10 or later) with a hardware UART and the following key options:
+This project uses the stock ESPHome `nextion` display component (with a temporary vendored patch for the numeric-response fix until a released ESPHome contains it, ESPHome 2026.11.0 — see `esphome/nextion_patch/`; ESPHome 2026.10 or later) with a hardware UART and the following key options:
 
 - `uart_id`: references the UART bus used for the Nextion display.
 - `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. Hardware sleep only happens without a hub connection; with a hub the display stays awake (at brightness 0) and the hub restores the panel itself.

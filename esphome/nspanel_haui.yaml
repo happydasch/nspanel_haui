@@ -13,8 +13,8 @@ substitutions:
   # Accounts and Passwords
   ota_password: $ota_password
   api_encryption_key: $api_encryption_key
-  web_username: $web_username
-  web_password: $web_password
+  # No web credentials: the web server is optional and disabled by default
+  # (see base.yaml). Add a web_server block to your own YAML to enable it.
   wifi_ssid: $wifi_ssid
   wifi_password: $wifi_password
   ap_password: $ap_password
@@ -22,6 +22,26 @@ substitutions:
   # and the upload_tft action pick one by the display_model number)
   tft_update_url: $tft_update_url
   tft_update_url_portrait: $tft_update_url_portrait
+
+# Temporary: the numeric-response delivery fix for the stock `nextion`
+# component (esphome/esphome#17744) merged two days after the 2026.10.0
+# release tag was cut, so no released ESPHome contains it.  Without it every
+# display read logs "Numeric return but '...' invalid type 0" and the value
+# is dropped.  This overrides the stock component with the patched copy
+# vendored in this repo (esphome/nextion_patch/), which is the 2026.10.0
+# component plus the cherry-picked fix and therefore compiles against
+# ESPHome 2026.10.0.  Remove this whole block AND esphome/nextion_patch/
+# once a released ESPHome contains #17744 (2026.11.0), and bump min_version
+# in base.yaml together with it.  `ref` stays `dev` for the whole bridge: dev
+# carries the patch dir first, and the file disappears from both branches in
+# the same cleanup, so master users on this package keep working until then.
+external_components:
+  - source:
+      type: git
+      url: https://github.com/happydasch/nspanel_haui
+      ref: dev
+      path: esphome/nextion_patch
+    components: [nextion]
 
 packages:
   version: !include nspanel_haui/version.yaml

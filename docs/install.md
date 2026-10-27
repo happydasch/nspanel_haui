@@ -42,11 +42,15 @@ With the prepared and connected device it is now possible to install ESPHome on 
 3. **Edit configuration**: Replace the generated config with the content of `install.yaml`. Only the substitution values need editing:
    - `name` — host and device name
    - `wifi_ssid` / `wifi_password` — Wi-Fi credentials
-   - `web_username` / `web_password` — web access credentials
    - `ota_password` / `api_encryption_key` — from step 2
    - `ap_password` — fallback access point password
 
    You can set these directly in the file or in the ESPHome dashboard's **Secrets** (the keys are listed in [`secrets.yaml.example`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/secrets.yaml.example)).
+
+   The ESPHome **web server is optional and off by default** (it costs flash
+   and RAM that HTTP OTA needs). If you want the web UI, uncomment the
+   `web_server:` block at the end of `install.yaml`; Home Assistant then shows a
+   **Visit** link for the device. See [ESPHome Component → Web server](esphome.md#web-server-optional).
 
 4. **Install**: Click "Install" and select either "Plug into this computer" (if connected via USB and your browser supports WebSerial) or "Manual download" to get `nspanel_haui.bin`.
 
@@ -81,9 +85,12 @@ US/portrait panels, with Wi-Fi left to you at first boot:
   appends the last six MAC digits at runtime, so each panel gets a unique
   hostname, mDNS name and setup access point — no per-device YAML edit or local
   ESPHome build.  Repeat the five steps for every panel.
-- The baked API key, OTA password and web credentials are documented and
-  public.  If you don't want LAN peers to reflash the panel, use the
-  per-device YAML build with your own secrets instead.
+- The baked API key and OTA password are documented and public.  If you don't
+  want LAN peers to reflash the panel, use the per-device YAML build with your
+  own secrets instead.
+- The universal image does **not** run the ESPHome web server (see
+  [Web server (optional)](esphome.md#web-server-optional)). Build your own YAML
+  from `esphome/install.yaml` if you want the web UI.
 
 ## 3. Step: Install Hub App
 
@@ -101,7 +108,7 @@ See [Configuration Details](configuration/README.md) for all available options a
 
 The display needs a custom interface which is provided in a TFT file. About a minute after the device connects to the Hub App, the Hub App compares the display's TFT version with the version the ESPHome firmware needs. If the display has an older TFT (or none), the matching TFT file is downloaded from the GitHub release with that version and installed automatically. The display is busy for a few minutes while the file is transferred.
 
-After an update that changes the firmware version, update the ESPHome firmware first; the matching TFT then follows on the next connect.
+After an update that changes the firmware version, update the ESPHome firmware first; the matching TFT then follows on the next connect. Once the device runs firmware with the `HAUI Firmware` update entity, the hub can trigger future firmware updates through Home Assistant; the first flash onto older firmware remains a manual ESPHome step.
 
 The installation process can also be executed manually. See [Nextion Display](nextion.md) for details.
 

@@ -101,13 +101,16 @@ projects, so the hub addresses either TFT with the same `COMPONENTS`.
   buttons to a bottom bar; grids re-flow (grid 2 × 3, select 2 × 6, rows with
   their controls under the name line).
 
-### Firmware OTA is a manual step from HA
+### Firmware OTA goes through the device's update entity
 
-Home Assistant's ESPHome integration exposes **no OTA service**, and the
-ESPHome dashboard may not be reachable from every install.  TFT updates are
-fully automatic on connect; firmware updates remain a documented manual step
-(dashboard → Update → Install).  Do not build an OTA trigger into the editor
-until the ESPHome ecosystem exposes a supported path.
+The firmware declares an `update: platform: http_request` component named
+**HAUI Firmware**, so Home Assistant's ESPHome integration exposes it as a normal
+update entity and the hub can install a firmware update without the ESPHome
+dashboard. The device pulls the image over HTTP, reboots, and then installs the
+matching TFT. The first flash onto firmware that predates the update entity is
+still a manual step (dashboard → Update → Install), because an older image cannot
+update itself; the editor's **Download firmware** button remains the manual
+fallback.
 
 ### Release assets and gates
 

@@ -89,8 +89,8 @@ Inside the Hub app, components follow a layered structure:
 | `tests/` | Pytest tests (backend) plus Node test-runner tests in `tests/frontend/`; `conftest.py` stubs `homeassistant` and `dateutil`, so no running HA instance is needed |
 | `docs/` | User documentation: install, configuration, panels, FAQ, ESPHome, Hub, Nextion, Communication, Design, development, troubleshooting |
 | `nextion/` | Nextion display assets (TFT file, HMI source, fonts, images) |
-| `esphome/` | ESPHome device configuration files (`install.yaml`, runtime/dev configs, `secrets.yaml.example`; copy it to the git-ignored `secrets.yaml` for local builds). Requires ESPHome 2026.10 or later (`min_version` in `nspanel_haui/base.yaml`) |
-| `scripts/` | Development utilities: font generation (`gen_fonts`, `gen_char`), color palettes/wheels, spinner generation, background tile generation (`gen_backgrounds`), editor design grids (`gen_grid`), RGB565 image conversion, Nextion2Text, preview generator, translation extraction, portrait HMI geometry patcher (`gen_portrait`) |
+| `esphome/` | ESPHome device configuration files (`install.yaml`, runtime/dev configs, `secrets.yaml.example`; copy it to the git-ignored `secrets.yaml` for local builds). Requires ESPHome 2026.10 or later (`min_version` in `nspanel_haui/base.yaml`). `nextion_patch/` is a **temporary vendored patched copy of the stock `nextion` component** (the numeric-response fix, esphome#17744, missed the 2026.10.0 release; ships in 2026.11.0) wired in via `external_components` in `nspanel_haui.yaml` (git source) and the universal/dev configs (local source) — delete the dir + override blocks and bump `min_version` + `requirements-esphome.txt` when a released ESPHome contains #17744 |
+| `scripts/` | Development utilities: font generation (`gen_fonts`, `gen_char`), color palettes/wheels, spinner generation, background tile generation (`gen_backgrounds`), editor design grids (`gen_grid`), RGB565 image conversion, Nextion2Text, preview generator, translation extraction, portrait HMI geometry patcher (`gen_portrait`), release version bump (`bump_version`, `bump_tft_version`) |
 | `ref_src/home-assistant/core/` | Home Assistant core checkout - read-only reference for HA API signatures; do not modify |
 | `ref_src/home-assistant/frontend/` | Home Assistant frontend source checkout — read-only reference for HA Lovelace UI patterns; do not modify |
 | `ref_src/esphome/esphome/` | ESPHome source checkout - read-only reference for ESPHome component/API behavior; do not modify |
@@ -263,7 +263,11 @@ Geometry and other int attributes of existing widgets can be patched in place by
 Workflow (the editor owns the file while a project is open):
 
 1. **Close the project** in the Nextion Editor (File → Close Project) before writing the HMI. The editor silently re-saves the open project on Close Project and on every project switch, overwriting whatever a script wrote.
-2. **Patch**, then prove it: re-dump with Nextion2Text (`-p visual`) and compare every widget against the spec — `gen_portrait.py` does this itself and refuses to write on any mismatch, and its `--check` mode reports widgets that exist on only one side. The portrait spec names the landscape HMI as its `SIBLING_HMI`: both files must hold the same widgets and every widget's Send Component ID (`sendkey`) is copied from the landscape project — toggle touch settings there, never in the portrait copy. `scripts/verify_nextion/verify_nextion.py --require-portrait` enforces that parity.
+2. **Patch**, then prove it: re-dump with Nextion2Text (`-p visual`) and compare every widget against the spec — `gen_portrait.py` does this itself and refuses to write on any mismatch. Its `--check` mode reports widgets that exist on only one side *and* attribute values that differ from the spec (alignment, font, …), so a spec-only change cannot pass while the committed HMI still has the old value. The portrait spec names the landscape HMI as its `SIBLING_HMI`: both files must hold the same widgets and every widget's Send Component ID (`sendkey`) is copied from the landscape project — toggle touch settings there, never in the portrait copy. `scripts/verify_nextion/verify_nextion.py --require-portrait` enforces that parity.
+
+**The hub reads `tft_version` only from the device-state event.** The ESPHome firmware publishes its device state on `req_device_state` (and — newer firmware — when the Nextion text sensor first reports the version). The hub's boot handshake arrives ~1 s after boot, before the display answered, so the snapshot is empty; the update controller must request a fresh `REQ_DEVICE_STATE` at check time and treat an empty value as *unknown*, not `0.0.0`. Treating empty as old re-installed the TFT after every reboot (#63) — see `custom_components/nspanel_haui/haui/controller/update.py` and `esphome/nspanel_haui/sensor.yaml` (`tft_version.on_value` republishes the state).
+
+**Firmware updates go through the device's own `HAUI Firmware` entity.** The firmware declares `http_request` + `ota: platform: http_request` + `update: platform: http_request` in `esphome/nspanel_haui/base.yaml`; the update entity polls the release manifest (`firmware_manifest_url`) and the hub calls Home Assistant's `update.install` on it when a newer release exists (`firmware_auto_update`, default `true`). The release workflow generates and attaches `firmware-manifest.json` (name/version/builds[].ota with the absolute .bin URL and md5) on tag pushes only — a workflow_dispatch release carries no manifest, so devices simply see no update. Ordering matters: a TFT upload in flight blocks the firmware install, and an in-flight firmware install defers the TFT install; the TFT follows after the device reboots into the new firmware. **The ESPHome web server is optional and not part of the shipped build** — `base.yaml` leaves `web_server` out so HTTP OTA has flash/RAM headroom. `esphome/nspanel_haui_dev.yaml` enables it for local development; a device YAML that includes `nspanel_haui.yaml` as a package enables it by adding a top-level `web_server:` block. Home Assistant's "Visit" link only appears when the component runs.
 3. **Re-open the project** (recent list), look at every page, compile (`Compile`, then `File → TFT file output` → `nextion/nspanel_haui_portrait.tft`) and run `python scripts/verify_nextion/verify_nextion.py --require-portrait`. Done means the editor opened the file without "Version mismatch", every page renders as specified, and the gate passes.
 
 Format reference (what the script relies on):
@@ -649,9 +653,17 @@ Example: `fix(esphome): include device name in discovery fallback`
 8. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match.
 9. Breaking changes must be documented in `docs/upgrading.md` and the CHANGELOG's "Breaking changes" section.
 
-### Pull requests
+### Branches and pull requests
 
-- Target the `dev` branch for feature work, `master` for hotfixes
+`master` is release-only — never commit to it directly. It takes merges from
+`dev` only; Pages deploys from it and HACS users install from its releases. A
+ruleset blocks direct pushes, force-pushes and deletion there, so the merge from
+`dev` has to go through a PR with green CI. `dev` is the integration branch, the
+target for all day-to-day work, and the repository's default branch. The full
+cycle lives in `docs/release.md` ("Branches and cadence").
+
+- Branch features off `dev` and open the PR against `dev`
+- Hotfixes branch off `master`; after the release, merge `master` back into `dev`
 - Describe what changed, why, and how it was tested
 - Include a screenshot or short recording for frontend/display changes
 - Reference related issues or PRs

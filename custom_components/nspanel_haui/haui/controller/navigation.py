@@ -65,6 +65,9 @@ class HAUINavigationController(HAUIBase):
         # machine) and never requires a page switch.
         self._idle_panel_active = False
         self._page_timeout: str | None = None  # Timer for switching pages
+        # Monotonic time the pending page change was requested.  A touch while
+        # this is stale means the goto_page command was lost, so we re-send it.
+        self._page_change_ts: float = 0.0
         self._buffer_overflow_timer: str | None = None  # Debounced re-render after overflow
         self._overflow_recoveries = 0  # consecutive overflow recoveries (backoff)
         self._last_overflow_ts: float = 0.0  # monotonic time of last overflow event
@@ -490,6 +493,7 @@ class HAUINavigationController(HAUIBase):
         timeout = self.get("page_timeout", 10.0)
         self._cancel_timer("_page_timeout")
         self._page_timeout = self.app.run_in(self._page_timeout_callback, timeout)
+        self._page_change_ts = time.monotonic()
 
         # The previous panel's close timer must never fire for this panel,
         # whether or not the new panel has a timeout of its own.
@@ -940,6 +944,19 @@ class HAUINavigationController(HAUIBase):
         self.debug_log(f"Navigation process_event: {event.name} value={str(event.value)[:100]}")
         self._reset_hub_timers_on_interaction(event)
 
+        # Recovery: a touch while a page change is pending means the goto_page
+        # command was lost.  Re-send it immediately instead of waiting for the
+        # 10 s page_timeout.  The 1 s grace covers a normal page render, so a
+        # touch during an ordinary transition does not cause a double reload.
+        if event.name == ESPEvent.TOUCH_START and self._page_timeout is not None:
+            now = time.monotonic()
+            if now - self._page_change_ts > 1.0:
+                self.log(
+                    "Touch while page change pending — forcing page recovery",
+                    level="WARNING",
+                )
+                self._page_timeout_callback({})
+
         handlers: dict[str, Any] = {
             ESPEvent.PAGE: self._handle_page_event,
             ESPEvent.TIMEOUT: self._handle_timeout_event,
@@ -979,6 +996,7 @@ class HAUINavigationController(HAUIBase):
         """A page-change ack arrived from the device."""
         # cancel page timeout if any
         self._cancel_timer("_page_timeout")
+        self._page_change_ts = 0.0
         if self.page is None:
             return
         # mismatch - likely a stale echo of a previous goto.

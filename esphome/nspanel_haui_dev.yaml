@@ -27,6 +27,24 @@ substitutions:
   tft_update_url: http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft
   tft_update_url_portrait: http://homeassistant.local:8123/local/nspanel/nspanel_haui_portrait.tft
 
+# Temporary: stock `nextion` in released ESPHome lacks the numeric-response
+# delivery fix (esphome/esphome#17744, ships in 2026.11.0).  Override it with
+# the patched component vendored next to this file (see nextion_patch/README).
+external_components:
+  - source:
+      type: local
+      path: nextion_patch
+    components: [nextion]
+
+# Local development build: keep the ESPHome web server for diagnostics.
+# The production and universal builds drop it (base.yaml) so HTTP OTA has
+# flash headroom.
+web_server:
+  port: 80
+  auth:
+    username: $web_username
+    password: $web_password
+
 packages:
   version: !include nspanel_haui/version.yaml
   globals: !include nspanel_haui/globals.yaml

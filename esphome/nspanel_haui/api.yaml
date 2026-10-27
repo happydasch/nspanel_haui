@@ -34,20 +34,23 @@ api:
     # Action to update a TFT file
     # This will update the nextion display with the tft file for the
     # layout the display_model number selects (landscape or portrait)
+    # ``prepare_tft_upload`` suspends active device activities first (see
+    # ``suspend_activities``): upload_tft() blocks the main loop for the whole
+    # transfer, so a playing rtttl tune would sound until the reboot.
     - action: upload_tft
       then:
         - lambda: |-
-            id(haui_disp).set_tft_url(
-                id(display_model).state > 0 ? "${tft_update_url_portrait}" : "${tft_update_url}");
-            id(haui_disp).upload_tft();
+            const char *url = id(display_model).state > 0
+                ? "${tft_update_url_portrait}"
+                : "${tft_update_url}";
+            id(prepare_tft_upload).execute(url);
 
     # Action to update a TFT file from URL
     - action: upload_tft_url
       variables:
         url: string
       then:
-        - lambda: id(haui_disp).set_tft_url(url.c_str());
-        - lambda: id(haui_disp).upload_tft();
+        - lambda: id(prepare_tft_upload).execute(url);
 
     # Batch send_commands - receives string array, sends each to display
     - action: send_commands

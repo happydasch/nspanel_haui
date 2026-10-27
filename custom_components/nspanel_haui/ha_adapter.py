@@ -273,7 +273,7 @@ class ESPHomeProxy:
 
         return service_data
 
-    def publish(self, name: str, value: str | dict | list = "") -> None:
+    def publish(self, name: str, value: str | dict | list = "") -> bool:
         """Execute a service on the ESPHome device via its native API client.
 
         Looks up the device's ``RuntimeEntryData`` (populated by the ESPHome
@@ -286,9 +286,16 @@ class ESPHomeProxy:
             value: Parameter value matching the action's declared variable
                 type.  ``str`` for single-value actions, ``list`` for
                 ``send_commands``, ``dict`` for ``hub_connection_response``.
+
+        Returns:
+            bool: True when the call was accepted by the device, False when no
+                ESPHome entry/service was found, the device was unavailable,
+                or the call timed out/raised.  Callers that must know whether
+                a command actually went out (e.g. the TFT upload trigger)
+                check this instead of assuming success.
         """
 
-        async def _call_service() -> None:
+        async def _call_service() -> bool:
             try:
                 service_data = self._build_service_data(name, value)
 
@@ -300,7 +307,7 @@ class ESPHomeProxy:
                         name,
                         self._device_name,
                     )
-                    return
+                    return False
 
                 if not entry_data.available or entry_data.client is None:
                     _LOGGER.warning(
@@ -308,7 +315,7 @@ class ESPHomeProxy:
                         name,
                         self._device_name,
                     )
-                    return
+                    return False
 
                 service = self._find_service(entry_data.services, name)
                 if service is None:
@@ -318,7 +325,7 @@ class ESPHomeProxy:
                         name,
                         self._device_name,
                     )
-                    return
+                    return False
 
                 _LOGGER.info(
                     "→ ESPHome native: %s %s",
@@ -327,6 +334,7 @@ class ESPHomeProxy:
                 )
 
                 await entry_data.client.execute_service(service, service_data)
+                return True
 
             except Exception as exc:  # noqa: BLE001
                 _LOGGER.error(
@@ -334,6 +342,7 @@ class ESPHomeProxy:
                     name,
                     exc,
                 )
+                return False
 
         # Block until the service call completes so that multiple chunks
         # from a single send_cmds batch are delivered to the ESP32
@@ -341,13 +350,15 @@ class ESPHomeProxy:
         # all chunks to pile up in the Nextion's command queue at once,
         # overflowing max_queue_size and losing commands.
         try:
-            _run_on_loop(self._loop, _call_service())
+            return _run_on_loop(self._loop, _call_service())
         except TimeoutError:
             _LOGGER.warning("ESPHome publish('%s') timed out after 10s", name)
+            return False
         except Exception as exc:  # noqa: BLE001
             # Exception already logged inside _call_service; swallow the
             # propagated copy so the executor thread is not disrupted.
             _LOGGER.debug("publish('%s') future raised: %s", name, exc)
+            return False
 
 
 class HAAdapter:

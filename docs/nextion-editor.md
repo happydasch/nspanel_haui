@@ -223,12 +223,16 @@ the result alongside the landscape TFT on every release.
    ```
 
    The check fails when a widget exists on only one side, so a widget added
-   to the landscape project needs its `PORTRAIT_LAYOUT` entry first. Only
-   x/y/w/h (plus the page size) and the spec's attribute overrides change;
-   names, ids and `sendme` are untouched, and every widget's
+   to the landscape project needs its `PORTRAIT_LAYOUT` entry first. It now
+   also verifies attribute values (alignment, font, …) against the spec, so a
+   change to `PORTRAIT_ATTRS` cannot pass while the committed HMI still has
+   the old value. Only x/y/w/h (plus the page size) and the spec's attribute
+   overrides change; names, ids and `sendme` are untouched, and every widget's
    `Send Component ID` is copied from the landscape HMI (the spec's
    `SIBLING_HMI`) — toggle touch settings in the landscape project, then
-   re-run the script. The layout rules the spec follows:
+   re-run the script. A `PORTRAIT_ATTRS` change must also be followed by a
+   TFT recompile (step 4 below): the HMI change alone does not reach devices.
+   The layout rules the spec follows:
    - The header bar (`tHeader`/`tTitle`) spans the full top 50 px; the four
      function buttons move to a bottom bar at y 430..480, so the content area
      is y 50..430 with 12 px side margins.
@@ -312,7 +316,10 @@ the result alongside the landscape TFT on every release.
    fails the release until (a) `clock.tTime` has **Send Component ID** enabled,
    (b) `system.tftVersion` matches `manifest.json`, and (c) the portrait
    HMI/TFT exist.  Run it locally after every HMI edit; the release workflow
-   runs it too.
+   runs it too.  For a release, set the version first with
+   `python scripts/bump_version.py X.Y.Z` — it edits the HMI `tftVersion`
+   text directly (same-length versions only) so you do not have to type it in
+   the Nextion Editor.  A length-changing version still needs the Editor.
 6. On-device test per model: page renders completely, all widgets hit-test
    correctly, gestures behave (see §7.3 for portrait), auto-update installs the
    right TFT for `display_model: us`.

@@ -15,9 +15,27 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
   HAUI firmware and offers them for batch-add. Discovered devices are added
   enabled and linked to their ESPHome entry.
 - **Install TFT** — Triggers a TFT install for the selected device immediately
-  (installs stay automatic on connect; this button forces one now).
+  (installs stay automatic on connect; this button forces one now). When the
+  install cannot start (device offline, no `yaml_version`, or the GitHub release
+  is unreachable), the editor shows a toast with the reason instead of a success
+  message.  A request that never gets an answer (e.g. the device worker is
+  blocked) times out after 20 seconds and shows a timeout toast instead of
+  doing nothing.
 - **Download firmware** — Opens the prebuilt `nspanel_haui.bin` of the latest
   release when one is attached, and explains the build-from-YAML path otherwise.
+  This is the manual fallback. Once a device runs firmware that exposes the
+  `HAUI Firmware` update entity and `firmware_auto_update` is on (the default),
+  the hub asks Home Assistant to install the device's firmware update first and
+  the matching TFT follows after the reboot. The first flash onto older firmware
+  still has to be done manually through ESPHome, because that firmware has no
+  update entity.
+- **Install TFT retry** — After an install that the display never confirms
+  (the device does not report the new TFT version within its timeout), the
+  automatic path stops and reports an error. Press **Install TFT** again to
+  start a fresh attempt; a manually requested install is not blocked by the
+  previous unconfirmed one. Automatic installs stay disabled while an install
+  remains unconfirmed, so a display that cannot report its version is not
+  uploaded to forever.
 - **Refresh display** — Re-renders the display.
 - Each row shows the device's online/offline state, firmware and TFT versions,
   IP address and signal strength; a display whose TFT is older than the
@@ -251,5 +269,5 @@ The following are hardcoded defaults, not exposed anywhere in the frontend:
 
 - **Display formats** — global defaults `time_format` (`%H:%M`), `date_format` (`%A, %d. %B %Y`), `date_format_locale` (`full`); each can be overridden per device (see Time & Date above)
 - **Connection** — `heartbeat_interval` (`5.0`s), `overdue_factor` (`2.0`)
-- **Update** — `auto_install` (`True`: install the TFT the firmware needs without asking), `tft_filename` (`nspanel_haui.tft`), `on_connect_delay` (`60`s before the TFT check after a connect), `check_on_connect` (`False`) and `update_interval` (`0` = disabled): show a notice on the display when a newer release exists (it is not installed; update the integration and firmware)
+- **Update** — `auto_install` (`True`: install the TFT the firmware needs without asking), `tft_filename` (`nspanel_haui.tft`), `on_connect_delay` (`60`s before the TFT check after a connect), `check_on_connect` (`False`) and `update_interval` (`0` = disabled): show a notice on the display when a newer release exists. With `firmware_auto_update` (`True`) the hub also asks Home Assistant to install the device's firmware update first; the TFT the new firmware needs follows after the reboot. Set `firmware_auto_update` to `False` to keep the notice-only behaviour. A TFT install the display never confirms is reported as an error in the editor instead of being retried automatically; press **Install TFT** to retry.
 - **Navigation** — `page_timeout` (`10.0`s)

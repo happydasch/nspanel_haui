@@ -1,14 +1,13 @@
 # Roadmap
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
-shipped on 2026-10-26**, tagged from a green `master` commit and published by
-the release workflow.
+shipped on 2026-10-26 and v0.4.2 on 2026-10-27**, each tagged from a green
+`master` commit and published by the release workflow.
 
-The **dev** branch tracks **0.4.2**: the remaining gate implementation —
-firmware auto-update, version-bump tooling, CI version/translation/Nextion
-checks and the vendored Nextion display-read fix — has all landed there since
-the release (details in [CHANGELOG.md](CHANGELOG.md)). What the gate still needs
-is the hardware confirmation on the passlist below.
+The **dev** branch tracks **0.4.3**: the update-trigger gaps found while
+validating 0.4.2 on hardware (see the collected issues below) plus the remaining
+gate work. What the gate still needs is the hardware confirmation on the passlist
+below.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
@@ -84,6 +83,44 @@ One job: make the install complete and working. New features wait.
 working from the published release, and the portrait device auto-updating
 end-to-end. A failing row ships as a `0.4.x` patch; **v0.5 does not start until
 this gate is green.**
+
+### 0.4.3 — collected issues
+
+Issues found while validating 0.4.2 on hardware, collected for the next patch.
+
+- **Automatic TFT/firmware updates never trigger.** `DEFAULT_CONFIG["update"]`
+  (`auto_install`, `tft_filename`, `on_connect_delay`, `check_on_connect`,
+  `update_interval`, `firmware_auto_update`) is never merged from config-entry
+  data, the panel store or YAML import — `_build_config_dict` only merges device
+  fields and `DEVICE_CONFIG_FIELDS` excludes `update` — and the frontend has no
+  control for it. The shipped defaults are therefore hardcoded:
+  `update_interval: 0` starts no timer and `check_on_connect: False` skips the
+  check on connect, so `check_for_update()` — the GitHub-release check that also
+  triggers the firmware install — never runs on its own. Expose the settings
+  (options flow and/or device editor) and choose working defaults.
+- **The device's `HAUI Firmware` entity cannot fetch the manifest.** ESPHome's
+  default `http_request` RX buffer is 512 bytes against GitHub's ~5.4 KB redirect
+  headers, so the entity never reports an available update and
+  `firmware_auto_update` stays inert even when the hub's check runs. Raise
+  `buffer_size_rx` in `base.yaml`.
+- **Update settings are documented but not exposed.** `docs/configuration/device.md`,
+  `docs/upgrading.md` and the 0.4.2 changelog tell users to set
+  `firmware_auto_update: false` and call the update block "Global Defaults (not
+  per-device, fixed)" — there is no control for either. Correct the wording once
+  the settings are exposed.
+- **No update status or manual check in the editor.** The editor shows TFT
+  install state but not whether the device's firmware entity reports an update,
+  and there is no "Check for updates" action; only "Install TFT" and "Download
+  firmware" exist. Surface firmware availability and a manual refresh.
+- **Release lookups are per device and unauthenticated.** Each device's update
+  controller calls the GitHub releases API independently; enabling checks by
+  default risks the 60-requests/hour IP limit. Cache the release list at hub
+  level or read the manifest instead. The device's firmware entity polls every
+  6 h, so request a refresh before evaluating or the hub can see a stale "no
+  update" state.
+- **Release hygiene.** #62/#63/#64 are fixed in the published 0.4.2 and still
+  open; confirm on hardware and close them. Consider the deferred full
+  update-pipeline integration test so the trigger path is covered end to end.
 
 ---
 

@@ -263,11 +263,23 @@ These exist in the underlying config but have no UI control yet, so they stay at
 - `page_settle_delay` float — delay in seconds before settling a new page after navigation (debounce for page events). Default `0.1`.
 - `date_format_locale` string — Locale-aware date pattern name (`full`, `long`, `medium`, `short`, `E`, `EEEE`) rendered with translated day/month names. Empty inherits the global `full`. Set both `date_format` and `date_format_locale` to `""` only together when you want a pure strftime date.
 
+## Updates
+
+The device editor's **Updates** section controls release checks and automatic installs. These settings are stored per device and merged over the integration defaults, so a device that is never opened in the editor still runs the shipped defaults.
+
+- `check_on_connect` (default `True`) — run a release check after the device connects.
+- `update_interval` (default `3600` seconds, hourly; `0` disables) — periodic release check.
+- `firmware_auto_update` (default `True`) — when a newer release ships a firmware image, ask Home Assistant to install the device's `HAUI Firmware` update first; the matching TFT follows after the reboot. Turn it off for notice-only behaviour.
+- `auto_install` (default `True`) — install the TFT the firmware needs without asking. When off, the display asks first.
+
+`tft_filename` (default `nspanel_haui.tft`) and `on_connect_delay` (default `60` seconds before the TFT check after a connect) remain integration defaults and are not exposed in the editor.
+
+A TFT install the display never confirms is reported as an error in the editor instead of being retried automatically; press **Install TFT** to retry. The device action menu also has **Check for updates**, which refreshes the release info immediately (bypassing the one-hour hub-level release cache).
+
 ## Global Defaults (not per-device, fixed)
 
 The following are hardcoded defaults, not exposed anywhere in the frontend:
 
 - **Display formats** — global defaults `time_format` (`%H:%M`), `date_format` (`%A, %d. %B %Y`), `date_format_locale` (`full`); each can be overridden per device (see Time & Date above)
 - **Connection** — `heartbeat_interval` (`5.0`s), `overdue_factor` (`2.0`)
-- **Update** — `auto_install` (`True`: install the TFT the firmware needs without asking), `tft_filename` (`nspanel_haui.tft`), `on_connect_delay` (`60`s before the TFT check after a connect), `check_on_connect` (`False`) and `update_interval` (`0` = disabled): show a notice on the display when a newer release exists. With `firmware_auto_update` (`True`) the hub also asks Home Assistant to install the device's firmware update first; the TFT the new firmware needs follows after the reboot. Set `firmware_auto_update` to `False` to keep the notice-only behaviour. A TFT install the display never confirms is reported as an error in the editor instead of being retried automatically; press **Install TFT** to retry.
 - **Navigation** — `page_timeout` (`10.0`s)

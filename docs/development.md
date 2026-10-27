@@ -114,7 +114,7 @@ fallback.
 
 ### Release assets and gates
 
-The three artifact names (frozen contract), the Nextion gate and the CI
+The release asset names (frozen contract), the Nextion gate and the CI
 workflow checks are owned by
 [Release process & strategy](release.md#what-a-release-ships); keep that page as
 the single source.

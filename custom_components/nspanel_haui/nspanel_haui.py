@@ -215,10 +215,14 @@ class NSPanelHAUI(HAAdapter):
         if nav_ctrl is not None:
             nav_ctrl.reload_panels()
 
-        # Restart update controller timer with new interval
+        # Refresh the update controller's options (it reads them from its own
+        # config dict in start_part/check_for_update) and restart its timer.
         update_ctrl = self.controller.get("update")
         if update_ctrl is not None:
             update_ctrl.stop_part()
+            update_cfg = new_config.get("update")
+            if isinstance(update_cfg, dict):
+                update_ctrl.config = update_cfg
             update_ctrl.start_part()
 
     def update_display(self) -> None:
@@ -258,6 +262,18 @@ class NSPanelHAUI(HAAdapter):
                 "last_error": "no update controller",
             }
         return update_ctrl.install_tft(version)
+
+    def check_for_update(self) -> None:
+        """Trigger a manual update check for this device, on its worker thread.
+
+        Called via ``async_run_on_worker`` from the REST API.  A manual check
+        bypasses stale failure state and the hub-level release cache.
+        """
+        update_ctrl = self.controller.get("update")
+        if update_ctrl is None:
+            self.log("Cannot check for updates: no update controller", level="WARNING")
+            return
+        update_ctrl.manual_check_for_update()
 
     # status endpoint support
 

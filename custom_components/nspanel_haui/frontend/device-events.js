@@ -197,3 +197,17 @@ export async function onDeviceManagerUpdateTft(host, e) {
     host._showToast(err.message || t("Failed to install the TFT"), "error");
   }
 }
+
+export async function onDeviceManagerCheckUpdate(host, e) {
+  const name = e.detail?.name;
+  if (!name) return;
+  try {
+    await Api.checkDeviceUpdate(host, name);
+    host._showToast(
+      t('Checking for updates on "{name}"').replace('{name}', _friendlyName(host, name)),
+      "success",
+    );
+  } catch (err) {
+    host._showToast(err.message || t("Failed to check for updates"), "error");
+  }
+}

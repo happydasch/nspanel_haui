@@ -45,7 +45,12 @@ def _build_config_dict(
       When provided, only that device is included and panel store data is
       scoped to it.
     """
-    from .haui.device_config import DEVICE_CONFIG, DEVICE_CONFIG_FIELDS
+    from .haui.device_config import (
+        DEVICE_CONFIG,
+        DEVICE_CONFIG_FIELDS,
+        deep_merge,
+        find_store_device,
+    )
     from .haui.mapping.const import DEFAULT_CONFIG
 
     cfg = copy.deepcopy(DEFAULT_CONFIG)
@@ -69,6 +74,23 @@ def _build_config_dict(
     store_devices = panels.get("devices", {}) if panels else {}
     if store_devices:
         apply_panel_store(cfg, store_devices, DEVICE_CONFIG_FIELDS)
+
+    # Merge the store's per-device update settings into the top-level
+    # ``cfg["update"]`` block.  The update controller reads its options from
+    # ``cfg["update"]`` as a flat dict; the device editor may store a partial
+    # ``update`` block, so a deep merge keeps defaults for keys it omits.
+    if store_devices:
+        # Mirror apply_panel_store: the runtime device is the first (and,
+        # after filtering by device_name, the only) entry in cfg["devices"].
+        devs = cfg.get("devices", [])
+        dev_key = devs[0].get("name", "") if devs else ""
+        if not dev_key:
+            dev_key = device_name or cfg["device"]["name"]
+        store_dev = find_store_device(store_devices, dev_key)
+        if store_dev and "config" in store_dev:
+            update_cfg = store_dev["config"].get("update")
+            if isinstance(update_cfg, dict):
+                cfg["update"] = deep_merge(cfg["update"], update_cfg)
 
     populate_devices_from_store(cfg, store_devices, DEVICE_CONFIG_FIELDS)
 
@@ -543,6 +565,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         ColorDefaultsView,
         DeviceConfigView,
         DeviceStatusView,
+        DeviceUpdateCheckView,
         DeviceUpdateDisplayView,
         DeviceUpdateTftView,
         DeviceYamlView,
@@ -563,6 +586,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.http.register_view(DeviceStatusView())
     hass.http.register_view(DeviceUpdateDisplayView())
     hass.http.register_view(DeviceUpdateTftView())
+    hass.http.register_view(DeviceUpdateCheckView())
     hass.http.register_view(FirmwareDownloadView())
     hass.http.register_view(DeviceYamlView())
     hass.http.register_view(IconSearchView())

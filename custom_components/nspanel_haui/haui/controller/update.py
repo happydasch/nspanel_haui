@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime
+import threading
+import time
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -37,6 +39,17 @@ VERIFY_MAX_REFRESHES = 2
 # failed trigger is retried at most once an hour.
 FIRMWARE_ENTITY_NAME = "HAUI Firmware"
 FIRMWARE_RETRY_SECONDS = 60 * 60
+
+# Hub-level release cache.  Every device has its own controller, but the
+# GitHub releases page is identical for all of them; without a shared cache a
+# hub with N devices spends N unauthenticated requests per interval against
+# GitHub's 60 requests/hour/IP limit.  The cache lives at module level so it is
+# shared across controller instances; a manual check bypasses the TTL.
+RELEASE_CACHE_TTL_SECONDS = 60 * 60
+_release_cache: tuple[float, list[dict[str, Any]]] | None = None
+# Controllers run on separate worker threads, so the cache check + fetch is
+# serialized: the first controller fetches and the rest reuse its result.
+_release_cache_lock = threading.Lock()
 
 
 class HAUIUpdateController(HAUIBase):
@@ -165,30 +178,76 @@ class HAUIUpdateController(HAUIBase):
         except InvalidVersion:
             return None
 
-    def _update_release_infos(self) -> None:
-        """Updates the release informations."""
+    def _update_release_infos(self, force: bool = False) -> None:
+        """Updates the release informations.
+
+        The GitHub releases page is the same for every device, so the response
+        is cached at module level and shared across controller instances.  A
+        hub with several panels therefore makes one request per TTL instead of
+        one per device, staying well inside GitHub's unauthenticated rate
+        limit.  ``force`` bypasses the cache for a user-initiated refresh; a
+        failed request falls back to stale cached data when it exists.
+        """
+        global _release_cache
+
         if self._req_fetch:
             return
-        self._req_fetch = True
-        try:
-            resp = requests.get(self.RELEASES_URL, timeout=5)
+
+        with _release_cache_lock:
+            if not force and _release_cache is not None:
+                cached_at, cached_infos = _release_cache
+                if time.monotonic() - cached_at < RELEASE_CACHE_TTL_SECONDS:
+                    self._release_infos = cached_infos
+                    return
+
+            self._req_fetch = True
+            cacheable = False
             try:
-                json_decoded = resp.json()
-            except ValueError as exc:
-                # GitHub rate-limit / proxy responses are HTML, not JSON.
+                resp = requests.get(self.RELEASES_URL, timeout=5)
+                try:
+                    json_decoded = resp.json()
+                except ValueError as exc:
+                    # GitHub rate-limit / proxy responses are HTML, not JSON.
+                    if _release_cache is not None:
+                        self._release_infos = _release_cache[1]
+                        self.log(
+                            "GitHub returned a non-JSON response; using cached release info",
+                            level="WARNING",
+                        )
+                        return
+                    raise RuntimeError(
+                        f"GitHub returned a non-JSON response for {self.RELEASES_URL}: {exc}"
+                    ) from exc
+                if not isinstance(json_decoded, list):
+                    # Rate-limit errors come back as a JSON object, not a list.
+                    # Prefer stale cached data over caching a failure for an hour.
+                    if _release_cache is not None:
+                        self._release_infos = _release_cache[1]
+                        self.log(
+                            "Unexpected response from GitHub API; using cached release info",
+                            level="WARNING",
+                        )
+                        return
+                    self.log("Unexpected response from GitHub API", level="WARNING")
+                    json_decoded = []
+                else:
+                    cacheable = True
+            except requests.exceptions.RequestException as exc:
+                if _release_cache is not None:
+                    self._release_infos = _release_cache[1]
+                    self.log(
+                        f"Release info fetch failed ({exc}); using cached release info",
+                        level="WARNING",
+                    )
+                    return
                 raise RuntimeError(
-                    f"GitHub returned a non-JSON response for {self.RELEASES_URL}: {exc}"
+                    f"Failed to fetch release info from {self.RELEASES_URL}: {exc}"
                 ) from exc
-            if not isinstance(json_decoded, list):
-                self.log("Unexpected response from GitHub API", level="WARNING")
-                json_decoded = []
-        except requests.exceptions.RequestException as exc:
-            raise RuntimeError(
-                f"Failed to fetch release info from {self.RELEASES_URL}: {exc}"
-            ) from exc
-        finally:
-            self._req_fetch = False
-        self._release_infos = json_decoded
+            finally:
+                self._req_fetch = False
+            self._release_infos = json_decoded
+            if cacheable:
+                _release_cache = (time.monotonic(), json_decoded)
 
     def _get_latest_release(self) -> dict[str, Any] | None:
         """Returns the latest available release dict.
@@ -300,6 +359,24 @@ class HAUIUpdateController(HAUIBase):
             return self.app.get_item(entity_id).get_state() == "on"
         except Exception:  # noqa: BLE001 - state lookup is best-effort
             return False
+
+    def _refresh_firmware_update_entity(self) -> None:
+        """Ask Home Assistant to poll the firmware update entity.
+
+        The ``HAUI Firmware`` entity polls on its own schedule (the ESPHome
+        config uses ``update_interval: 6h``), so right after a release the hub
+        can see a stale "no update" state.  ``homeassistant.update_entity``
+        runs with ``blocking=True`` through the adapter, so the entity has
+        polled by the time this returns and the controller can evaluate fresh
+        state synchronously on the worker thread.
+        """
+        entity_id = self._find_firmware_update_entity()
+        if not entity_id:
+            return
+        try:
+            self.app.call_service("homeassistant.update_entity", entity_id=entity_id)
+        except Exception as exc:  # noqa: BLE001 - refresh is best-effort
+            self.log(f"Could not refresh firmware update entity: {exc}", level="WARNING")
 
     def _firmware_install_due(self, version: str | None) -> bool:
         """Whether a firmware install should be started now.
@@ -485,6 +562,10 @@ class HAUIUpdateController(HAUIBase):
                 self._update_started_at.isoformat() if self._update_started_at else None
             ),
             "last_error": self._update_last_error,
+            # The firmware entity reports "on" when a firmware update is
+            # available; surfaced so the editor can show it next to the TFT
+            # state.
+            "firmware_update_available": self._firmware_update_available(),
         }
 
     def _mark_done_if_installed(self) -> None:
@@ -737,10 +818,28 @@ class HAUIUpdateController(HAUIBase):
         self._request_device_state()
         self._start_state_check_timer()
 
-    def check_for_update(self) -> None:
+    def manual_check_for_update(self) -> None:
+        """Trigger a user-initiated update check from the editor.
+
+        A manual retry must not be suppressed by leftover failure state from an
+        earlier install attempt, and it should bypass the hub-level release
+        cache so the user gets a fresh GitHub answer.  Runs on the device
+        worker, so call via ``app.async_run_on_worker``.
+        """
+        if not self.app.device.connected:
+            self.log("Cannot check for updates while the device is disconnected", level="WARNING")
+            return
+        self._last_install_at = None
+        self._last_install_confirmed = False
+        if self._update_state == UPDATE_STATE_ERROR:
+            self._update_last_error = None
+            self._set_update_state(UPDATE_STATE_IDLE)
+        self.check_for_update(force_refresh=True)
+
+    def check_for_update(self, force_refresh: bool = False) -> None:
         """Shows a notice on the display when a newer release than the TFT exists."""
         try:
-            self._update_release_infos()
+            self._update_release_infos(force=force_refresh)
         except RuntimeError as exc:
             # GitHub being unreachable must not raise out of a timer callback;
             # log it and leave the display alone.
@@ -753,6 +852,9 @@ class HAUIUpdateController(HAUIBase):
         # image the device reports an installable update for, install it now and
         # let the TFT follow after the reboot (the new firmware's yaml_version is
         # newer than the installed TFT, which triggers the TFT install).
+        # Refresh the firmware entity first: it polls independently (6h), so a
+        # just-published release can still read as "no update" here.
+        self._refresh_firmware_update_entity()
         firmware_version = latest_release.get("tag_name")
         if self._firmware_install_due(firmware_version):
             if self._install_firmware(firmware_version):

@@ -541,6 +541,10 @@ class DeviceYamlView(HomeAssistantView):
         from .haui.device_config import DEVICE_CONFIG_FIELDS
 
         known_config = {k: config.get(k) for k in DEVICE_CONFIG_FIELDS if k in config}
+        # The update block is nested and not part of DEVICE_CONFIG_FIELDS, but
+        # it is a valid per-device setting (see _build_config_dict).
+        if isinstance(config.get("update"), dict):
+            known_config["update"] = config["update"]
         error = await _validate_or_400(
             self,
             hass,
@@ -762,3 +766,53 @@ class DeviceUpdateTftView(HomeAssistantView):
                 failed.append({"name": dname, "error": "install failed"})
 
         return self.json({"status": "ok", "devices_updated": updated, "failed": failed})
+
+
+class DeviceUpdateCheckView(HomeAssistantView):
+    """REST API endpoint to trigger a manual update check on one or all devices."""
+
+    url = "/api/nspanel_haui/check_update/{entry_id}"
+    name = "api:nspanel_haui:check_update"
+    requires_auth = True
+
+    @require_admin
+    async def post(self, request, entry_id: str):
+        """Run a manual update check for the specified device (or all devices).
+
+        JSON body may carry an optional ``device`` field (device name, or ``*``
+        for all devices; default ``*``).  The check runs on the device's worker
+        thread and bypasses the hub-level release cache; availability is
+        reported through the update state, which the status endpoint exposes.
+        """
+        hass = request.app["hass"]
+        try:
+            body = await request.json()
+        except ValueError:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+        device_name = (body.get("device") or "*").strip()
+
+        apps = _get_apps(hass, entry_id)
+
+        if not isinstance(apps, dict):
+            return _error(self, "No running devices", 400)
+
+        if device_name and device_name != "*":
+            app = apps.get(device_name)
+            if app is None:
+                return _error(self, f'Device "{device_name}" not found', 404)
+            await app.async_run_on_worker(app.check_for_update)
+            return self.json({"status": "ok", "devices_checked": [device_name]})
+
+        checked: list[str] = []
+        failed: list[dict[str, str]] = []
+        for dname, dapp in apps.items():
+            try:
+                await dapp.async_run_on_worker(dapp.check_for_update)
+                checked.append(dname)
+            except Exception:
+                _LOGGER.exception("Failed to check for updates on device '%s'", dname)
+                failed.append({"name": dname, "error": "check failed"})
+
+        return self.json({"status": "ok", "devices_checked": checked, "failed": failed})

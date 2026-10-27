@@ -275,6 +275,39 @@ class TestOptionsToConfigDict:
         # name still comes from data, not store
         assert result["device"]["name"] == "nspanel_haui"
 
+    def test_update_block_merged_from_store(self):
+        """Per-device update settings deep-merge over the shipped defaults."""
+        from nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+
+        panels = {
+            "version": 1,
+            "devices": {
+                "living_room": {
+                    "config": {
+                        "update": {
+                            "update_interval": 60,
+                            "check_on_connect": False,
+                        },
+                    },
+                    "panels": [],
+                },
+            },
+        }
+        data = {
+            "name": "nspanel_haui",
+            "devices": [{"name": "living_room"}],
+        }
+        result = _build_config_dict(data, panels)
+
+        assert result["update"]["update_interval"] == 60
+        assert result["update"]["check_on_connect"] is False
+        # Keys the store does not override keep the shipped defaults.
+        assert (
+            result["update"]["firmware_auto_update"]
+            == DEFAULT_CONFIG["update"]["firmware_auto_update"]
+        )
+        assert result["update"]["tft_filename"] == DEFAULT_CONFIG["update"]["tft_filename"]
+
     def test_device_config_home_sleep_keys(self):
         """Device config carries home/sleep panel key references."""
         panels = {

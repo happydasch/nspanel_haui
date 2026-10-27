@@ -8,6 +8,14 @@ from nspanel_haui.haui.controller import update
 from nspanel_haui.haui.controller.update import HAUIUpdateController
 
 
+@pytest.fixture(autouse=True)
+def _reset_release_cache():
+    """Reset the module-level release cache between tests."""
+    update._release_cache = None
+    yield
+    update._release_cache = None
+
+
 class _Response:
     def __init__(self, payload):
         self._payload = payload
@@ -44,6 +52,63 @@ def test_release_fetch_retries_after_a_failed_request(monkeypatch):
     ctrl._update_release_infos()
 
     assert ctrl._release_infos == [{"tag_name": "v0.3.3"}]
+
+
+def test_release_fetch_uses_the_shared_cache(monkeypatch):
+    """Consecutive controllers share one GitHub request within the TTL."""
+    calls = []
+
+    def fake_get(url, timeout):
+        calls.append(url)
+        return _Response([{"tag_name": "v0.3.3"}])
+
+    monkeypatch.setattr(update.requests, "get", fake_get)
+
+    first = _controller()
+    first._update_release_infos()
+    second = _controller()
+    second._update_release_infos()
+
+    assert len(calls) == 1
+    assert second._release_infos == [{"tag_name": "v0.3.3"}]
+
+
+def test_release_fetch_bypasses_the_cache_when_forced(monkeypatch):
+    """force=True refreshes even when a fresh cache entry exists."""
+    calls = []
+
+    def fake_get(url, timeout):
+        calls.append(url)
+        return _Response([{"tag_name": "v0.3.3"}])
+
+    monkeypatch.setattr(update.requests, "get", fake_get)
+
+    first = _controller()
+    first._update_release_infos()
+    second = _controller()
+    second._update_release_infos(force=True)
+
+    assert len(calls) == 2
+
+
+def test_manual_check_clears_failure_state(monkeypatch):
+    """A manual check resets error/install guards before evaluating."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        firmware_state="off",
+    )
+    ctrl._update_state = update.UPDATE_STATE_ERROR
+    ctrl._last_install_at = datetime.datetime.now(tz=datetime.UTC)
+    ctrl._last_install_confirmed = False
+
+    ctrl.manual_check_for_update()
+
+    assert ctrl._update_state == update.UPDATE_STATE_IDLE
+    assert ctrl._last_install_at is None
+    assert ctrl._last_install_confirmed is False
 
 
 # --- automatic TFT update ----------------------------------------------------
@@ -711,7 +776,9 @@ def test_check_for_update_installs_the_firmware_first(monkeypatch):
     ctrl.check_for_update()
 
     assert app.calls == [
-        ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"})
+        # The entity polls on its own schedule, so the hub refreshes it first.
+        ("homeassistant.update_entity", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+        ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"}),
     ]
     ((key, kwargs),) = app.opened
     assert key == SysPanelKey.POPUP_NOTIFY
@@ -729,7 +796,9 @@ def test_check_for_update_only_notifies_when_firmware_update_is_unavailable(monk
 
     ctrl.check_for_update()
 
-    assert app.calls == []
+    assert app.calls == [
+        ("homeassistant.update_entity", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+    ]
     ((key, kwargs),) = app.opened
     assert key == SysPanelKey.POPUP_NOTIFY
     assert "Update available" in kwargs["title"]

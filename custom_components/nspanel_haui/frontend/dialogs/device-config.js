@@ -93,6 +93,20 @@ function debugLevelOptions() {
   ];
 }
 
+/** Read a value from the nested `update` config block. */
+function updateValue(cfg, key, fallback) {
+  return cfg?.update?.[key] ?? fallback;
+}
+
+/** Write a value into the nested `update` config block. */
+function setUpdateValue(host, key, value) {
+  host._deviceConfigForm = {
+    ...host._deviceConfigForm,
+    update: { ...(host._deviceConfigForm?.update || {}), [key]: value },
+  };
+  host.requestUpdate();
+}
+
 /**
  * Render a select/combobox field within the device config form.
  * Fires `@selected` to update internal state.
@@ -340,6 +354,44 @@ class DeviceConfigDialog extends HauiDialog {
                 t("Show a button that manually opens the idle page (the configured idle panel)"))}
               ${checkbox(this, "dc-show_notifications_button", "show_notifications_button", cfg, t("Show notifications button"),
                 t("Show a notifications button on supported panels that indicates and provides access to any pending notifications"))}
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>${t("Updates")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("Controls checks for new releases and automatic firmware/TFT installs. Checks run by default so the display stays current.")}
+              </p>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-check_on_connect", Boolean(updateValue(cfg, "check_on_connect", true)), (checked) => setUpdateValue(this, "check_on_connect", checked))}
+                  <label for="dc-update-check_on_connect">${t("Check for updates on connect")}</label>
+                </div>
+                <div class="field-hint">${t("Run a release check after the device connects to Home Assistant.")}</div>
+              </div>
+              <div class="form-group">
+                <label for="dc-update-update_interval">${t("Update check interval (seconds)")}</label>
+                ${renderNumberInput("dc-update-update_interval", Number(updateValue(cfg, "update_interval", 3600)), (raw) => {
+                  const v = parseInt(raw, 10);
+                  setUpdateValue(this, "update_interval", isNaN(v) || v < 0 ? 0 : v);
+                }, { min: 0, max: 604800 })}
+                <div class="field-hint">${t("How often to check GitHub for a newer release. 0 = disabled, 3600 = hourly.")}</div>
+              </div>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-firmware_auto_update", Boolean(updateValue(cfg, "firmware_auto_update", true)), (checked) => setUpdateValue(this, "firmware_auto_update", checked))}
+                  <label for="dc-update-firmware_auto_update">${t("Auto-install firmware updates")}</label>
+                </div>
+                <div class="field-hint">${t("Install a newer firmware when the release ships one. The matching TFT follows after the device reboots.")}</div>
+              </div>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-auto_install", Boolean(updateValue(cfg, "auto_install", true)), (checked) => setUpdateValue(this, "auto_install", checked))}
+                  <label for="dc-update-auto_install">${t("Auto-install TFT updates")}</label>
+                </div>
+                <div class="field-hint">${t("Install an older display TFT automatically when the firmware needs a newer one. When off the display asks first.")}</div>
+              </div>
             </div>
           </details>
 

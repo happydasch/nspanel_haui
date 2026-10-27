@@ -290,6 +290,7 @@ class DeviceManagerDialog extends HauiDialog {
       'divider',
       { icon: 'mdi:refresh', label: t('Refresh display'), action: () => { this._emit("update-display", { name }); this._closeDeviceMenu(); } },
       { icon: 'mdi:update', label: t('Install TFT'), action: () => { this._emit("update-tft", { name }); this._closeDeviceMenu(); } },
+      { icon: 'mdi:cloud-search-outline', label: t('Check for updates'), action: () => { this._emit("check-for-update", { name }); this._closeDeviceMenu(); } },
       'divider',
       { icon: 'mdi:arrow-up', label: t('Move Up'), disabled: !canMoveUp, action: () => { this._emit("move-device", { name, direction: -1 }); this._closeDeviceMenu(); } },
       { icon: 'mdi:arrow-down', label: t('Move Down'), disabled: !canMoveDown, action: () => { this._emit("move-device", { name, direction: 1 }); this._closeDeviceMenu(); } },
@@ -316,6 +317,9 @@ class DeviceManagerDialog extends HauiDialog {
               ? html`<span class="info-chip info-chip-warn" title="${t('The display is updated automatically to the version the firmware needs')}">${t('Display')} ${tft} · ${t('update pending')}</span>`
               : html`<span class="info-chip" title="${t('Display (TFT) version')}">${t('Display')} ${tft}</span>`) : ''}
             ${renderUpdateStateChip(this._deviceStatuses?.[name]?.update)}
+            ${this._deviceStatuses?.[name]?.update?.firmware_update_available
+              ? html`<span class="info-chip info-chip-warn" title="${t('The device reports a firmware update available')}">${t('Firmware update available')}</span>`
+              : ''}
             ${nw.ip ? html`<span class="info-chip" title="${t('IP Address')}">${nw.ip}</span>` : ''}
           </div>
         </div>

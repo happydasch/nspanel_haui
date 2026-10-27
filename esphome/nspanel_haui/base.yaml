@@ -51,6 +51,10 @@ http_request:
   id: haui_http
   useragent: nspanel-haui
   timeout: 10s
+  # GitHub answers release/asset requests with ~5.4 KB of redirect headers.
+  # The 512-byte default RX buffer overflows ("HTTP_CLIENT: Out of buffer"),
+  # so the firmware update entity could never fetch the manifest.
+  buffer_size_rx: 8192
 
 
 # OTA Configuration

@@ -223,10 +223,12 @@ upgrading:
   its `HAUI Firmware` entity, the hub triggers the firmware install first. The
   device reboots into the new firmware and then installs the matching TFT on the
   next connect. A TFT upload that is already running is never interrupted: the
-  firmware install waits for it to finish. Set `firmware_auto_update: false` to
-  keep the previous notice-only behaviour. The first firmware that contains this
-  feature must still be flashed manually — the `HAUI Firmware` entity only exists
-  in the new firmware, so an older firmware cannot be updated by the hub.
+  firmware install waits for it to finish. Turn off **Auto-install firmware
+  updates** in the device editor (or set `firmware_auto_update: false` in the
+  device config) to keep the previous notice-only behaviour. The first firmware
+  that contains this feature must still be flashed manually — the `HAUI
+  Firmware` entity only exists in the new firmware, so an older firmware cannot
+  be updated by the hub.
 
 ## 9. Web server is no longer enabled by default
 

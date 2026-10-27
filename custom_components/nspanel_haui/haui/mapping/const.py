@@ -186,10 +186,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # older one; when false the display asks first
         "auto_install": True,
         "tft_filename": "nspanel_haui.tft",  # TFT filename to use
-        "check_on_connect": False,  # Defaults to false, set to true to check for updates on connect
+        # Check for updates on connect by default. Set to False to disable the
+        # automatic check when the device connects.
+        "check_on_connect": True,
         "on_connect_delay": 60,  # Defaults to 60 sec, delay before checking for updates on connect
-        # set to 0 to disable, set to 86400 for daily checks
-        "update_interval": 0,
+        # set to 0 to disable, set to 3600 for hourly checks
+        "update_interval": 3600,
         # install a newer firmware automatically when the release ships one; the
         # TFT the new firmware needs follows after the device reboots. Only runs
         # when update checks are enabled (check_on_connect or update_interval).

@@ -137,10 +137,10 @@ pytest tests/
 node --test 'tests/frontend/*.test.mjs'
 
 # Lint Python code
-ruff check custom_components/
+ruff check custom_components/ scripts/
 
 # Lint with auto-fix (this is also the only formatting step; there is no separate formatter in CI)
-ruff check --fix custom_components/
+ruff check --fix custom_components/ scripts/
 
 # Type-check the haui core package
 mypy
@@ -154,7 +154,7 @@ python scripts/translations/extract_translations.py
 ```
 
 **CI:** Three workflows run on push/PR to `master` and `dev`:
-- `tests.yml` - installs dev + docs dependencies, builds docs (`mkdocs build --strict`), runs `pytest tests/`, `ruff check custom_components/` and `mypy` on Python 3.14, and runs the frontend tests on Node 24
+- `tests.yml` - installs dev + docs dependencies, builds docs (`mkdocs build --strict`), runs `pytest tests/`, `ruff check custom_components/ scripts/` and `mypy` on Python 3.14, and runs the frontend tests on Node 24
 - `validate.yml` - runs `hassfest` and `hacs` validators (also on a daily schedule)
 - `docs.yml` - builds docs and deploys to GitHub Pages on `master` when `docs/**` or `mkdocs.yml` changes
 
@@ -647,7 +647,7 @@ Example: `fix(esphome): include device name in discovery fallback`
 2. **Verify docs build** — after updating docs, install `requirements-docs.txt` and run `mkdocs build --strict` from the project root to catch broken links, missing files, or rendering errors. The build must succeed (CI runs the same command).
 3. Run `pytest tests/` — all tests must pass.
 4. Run `node --test 'tests/frontend/*.test.mjs'` when touching `frontend/` — all tests must pass.
-5. Run `ruff check custom_components/` — no lint errors.
+5. Run `ruff check custom_components/ scripts/` — no lint errors.
 6. Run `mypy` — no type errors in `haui/`.
 7. If you changed config flow logic, ensure `tests/test_config_flow.py` covers the change.
 8. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match.

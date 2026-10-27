@@ -360,3 +360,27 @@ export async function updateDeviceTft(host, deviceName, version) {
     }, t("Failed to install the TFT"));
 }
 
+/**
+ * Trigger a manual update check on one or all devices.
+ *
+ * POST /api/nspanel_haui/check_update/{entryId}
+ *
+ * Runs on the device worker thread and bypasses the hub-level release cache,
+ * so a user-initiated check always sees the latest GitHub release.
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} deviceName - device name, or "*" for all devices
+ * @returns {Promise<{ status: string, devices_checked: string[] }>}
+ */
+export async function checkDeviceUpdate(host, deviceName = "*") {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  return request(host, `/api/nspanel_haui/check_update/${host.entryId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device: deviceName }),
+    }, t("Failed to check for updates"));
+}
+

@@ -222,6 +222,21 @@ def merge_store_fields(source: dict, target: dict, fields: list) -> None:
             target[field] = source[field]
 
 
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge *override* into *base* and return *base*.
+
+    Nested dictionaries are merged key-wise so defaults survive when the
+    override only sets a subset. Non-dict values in *override* replace the
+    corresponding value in *base*. *base* is modified in place.
+    """
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
 def populate_devices_from_store(cfg: dict, store_devices: dict, fields: list) -> None:
     """Build ``cfg['devices']`` list from store data when no devices exist in config."""
     if cfg.get("devices"):

@@ -6,6 +6,33 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.3] — unreleased
+
+### Fixed
+
+- **Update checks now run with the shipped defaults** — `check_on_connect`
+  (now `True` by default) and `update_interval` (now `3600` seconds, hourly;
+  `0` still disables) were previously unreachable user settings: the top-level
+  `update` block was never merged into the running configuration, so every
+  device kept the pristine defaults. Per-device update settings are now
+  deep-merged from the device store over the integration defaults.
+- **The device can fetch GitHub manifests again** — the ESPHome `http_request`
+  RX buffer is raised to 8192 bytes so the ~5.4 KB GitHub redirect headers fit
+  instead of the 512-byte default (`HTTP_CLIENT: Out of buffer`).
+- **The editor can check for updates and show firmware availability** — the
+  device action menu has **Check for updates** (bypassing the one-hour
+  hub-level release cache) and the device list shows when the `HAUI Firmware`
+  entity reports an update.
+- **One GitHub request per hub, not per device** — update controllers share a
+  module-level releases cache for an hour, keeping a multi-device hub inside
+  GitHub's unauthenticated rate limit. A manual check bypasses the cache.
+
+### Changed
+
+- The update settings (`check_on_connect`, `update_interval`,
+  `firmware_auto_update`, `auto_install`) are editable per device in the
+  editor's **Updates** section.
+
 ## [0.4.2] — 2026-10-27
 
 ### Breaking changes

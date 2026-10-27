@@ -61,6 +61,14 @@ export const DEVICE_CONFIG_DEFAULTS = {
   date_format: "",
   date_format_locale: "",
   color_overrides: {},
+  // Mirrors DEFAULT_CONFIG["update"] in Python.  Checks run by default so a
+  // device that is never opened in the editor still receives updates.
+  update: {
+    check_on_connect: true,
+    update_interval: 3600,
+    firmware_auto_update: true,
+    auto_install: true,
+  },
 };
 
 /**

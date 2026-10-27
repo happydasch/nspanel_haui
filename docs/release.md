@@ -50,7 +50,7 @@ green on the integration branch.
   is cut from a green commit here. GitHub Pages deploys from this branch and
   HACS users install from its releases. Protected by the "Protect master
   (release-only)" ruleset: no direct pushes, no force-pushes, no deletion, and a
-  merge needs a PR with the four always-running CI checks green.
+  merge needs a PR with the always-running CI checks green.
 - `dev` — integration branch, the target for all day-to-day work, and the
   repository's **default branch**, so new PRs base on it automatically. CI runs
   here on every push and PR.
@@ -65,7 +65,7 @@ bump, CHANGELOG, TFTs) → PR `dev` → `master` → tag on `master` →
 CHANGELOG section.
 
 Enforcement: the `master` ruleset blocks direct pushes, force-pushes and branch
-deletion, and requires a pull request whose four always-running checks are green
+deletion, and requires a pull request whose always-running checks are green
 before merge. It has **no bypass actors**, so the release merge from `dev` goes
 through a PR like everything else. Tags are unaffected — `release.yml` still
 fires on a `v*` tag pushed to `master`. To add an escape hatch, add a bypass
@@ -84,7 +84,7 @@ alias is kept as a fallback, so the upgrade guide is the only migration path.
 
 | Workflow | Triggers | Runs |
 |----------|----------|------|
-| `tests.yml` | pushes/PRs to `master`, `dev` | `mkdocs build --strict`, `pytest`, `ruff`, `mypy`, frontend tests |
+| `tests.yml` | pushes/PRs to `master`, `dev` | `mkdocs build --strict`, icon cheatsheet / translation / version-source checks, Nextion asset gate, `pytest`, `ruff` (integration + `scripts/`), `mypy`, frontend tests, ESPHome config validation |
 | `docs.yml` | docs/mkdocs changes | `mkdocs build --strict`, Pages deploy from `master` |
 | `validate.yml` | pushes/PRs, nightly | hassfest, HACS validation |
 | `release.yml` | `v*` tags, manual dispatch | Nextion gate, ESPHome config + compile, asset upload |

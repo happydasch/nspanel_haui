@@ -29,13 +29,30 @@ jobs:
         # with the one Home Assistant requires in requirements-dev.txt.
         run: pip install -r requirements-esphome.txt
 
+      - name: Check the tag matches the integration version
+        # HACS resolves the installed version from manifest.json; a tag that
+        # disagrees with it ships a release users cannot update to cleanly.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "manifest.json says $VERSION but the tag is v$TAG" >&2
+            echo "run scripts/bump_version.py $TAG and commit before tagging" >&2
+            exit 1
+          fi
+
       - name: Validate the Nextion assets (release gate)
         # Fails the release until the human Nextion Editor work landed:
         #   - clock.tTime "Send Component ID" enabled (tap advances the card)
         #   - system.tftVersion matches the integration version
         #   - the portrait HMI/TFT exist
+        #   - the portrait spec still matches the committed HMI (alignment/font
+        #     attributes, #64/#60) — the TFTs must be recompiled after any
+        #     PORTRAIT_ATTRS change, so this catches a stale committed HMI.
         run: |
           python scripts/verify_nextion/verify_nextion.py --require-portrait
+          python scripts/gen_portrait/gen_portrait.py --check
 
       - name: Validate the universal firmware config
         run: esphome config esphome/nspanel_haui_universal.yaml

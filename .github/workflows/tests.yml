@@ -38,11 +38,32 @@ jobs:
           python3 scripts/gen_fonts/gen_cheatsheet.py
           git diff --exit-code -- docs/cheatsheet.html
 
+      - name: Check translations are up to date
+        # extract_translations.py rebuilds en.json and the other locale files
+        # from the Python/frontend strings.  A stale locale file means a new
+        # string shipped without a translation slot; regenerate and commit.
+        run: |
+          python3 scripts/translations/extract_translations.py
+          git diff --exit-code -- custom_components/nspanel_haui/haui/locale scripts/translations/translate.json
+
+      - name: Check version sources agree
+        # manifest.json is the source of truth.  bump_version.py --check fails
+        # when pyproject.toml, version.yaml or either HMI's system.tftVersion
+        # disagrees — the drift previously only surfaced in the release gate.
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
+          python3 scripts/bump_version.py "$VERSION" --check
+
+      - name: Validate Nextion assets
+        # Runs the release gate on every push/PR so a stale HMI (tftVersion,
+        # Send Component ID, portrait assets) fails early instead of at the tag.
+        run: python3 scripts/verify_nextion/verify_nextion.py --require-portrait
+
       - name: Run tests
         run: pytest tests/
 
       - name: Run ruff
-        run: ruff check custom_components/
+        run: ruff check custom_components/ scripts/
 
       - name: Run mypy
         run: mypy
@@ -59,3 +80,22 @@ jobs:
 
       - name: Run frontend tests
         run: node --test 'tests/frontend/*.test.mjs'
+
+  esphome:
+    # The firmware YAMLs changed in this branch and only the release workflow
+    # validated them before.  A separate job keeps ESPHome's cryptography pin
+    # out of the pytest environment (see requirements-esphome.txt).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install ESPHome
+        run: pip install -r requirements-esphome.txt
+
+      - name: Validate the universal firmware config
+        run: esphome config esphome/nspanel_haui_universal.yaml

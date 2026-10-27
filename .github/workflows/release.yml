@@ -117,6 +117,20 @@ jobs:
           print(json.dumps(manifest, indent=2))
           PY
 
+      - name: Assemble the release notes
+        # Release notes are prepared per release in .github/release-notes/<tag>.md
+        # and published as the release body. Fall back to the changelog pointer
+        # when no prepared file exists (workflow_dispatch runs and older tags).
+        run: |
+          NOTES=".github/release-notes/${GITHUB_REF_NAME}.md"
+          if [ -f "$NOTES" ]; then
+            cp "$NOTES" release-notes.md
+            echo "Using prepared release notes from $NOTES"
+          else
+            printf 'See [CHANGELOG.md](CHANGELOG.md) for release notes and\n[docs/upgrading.md](docs/upgrading.md) for breaking changes and update steps.\n' > release-notes.md
+            echo "No prepared notes at $NOTES; using the changelog pointer."
+          fi
+
       - name: Attach assets to the GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -127,6 +141,4 @@ jobs:
             nextion/nspanel_haui_portrait.tft
             firmware-manifest.json
           name: ${{ github.ref_name }}
-          body: |
-            See [CHANGELOG.md](CHANGELOG.md) for release notes and
-            [docs/upgrading.md](docs/upgrading.md) for breaking changes and update steps.
+          body_path: release-notes.md

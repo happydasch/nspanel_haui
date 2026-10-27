@@ -6,7 +6,7 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.2] — 2026-10-27
 
 ### Breaking changes
 
@@ -95,6 +95,15 @@ and follow [Semantic Versioning](https://semver.org/).
   REST API responds with HTTP 502 and the editor shows a toast when the upload
   command could not be sent. A GitHub API failure during the update check no longer
   raises out of the timer callback.
+
+### Contributors
+
+Thanks to [@jsenecal](https://github.com/jsenecal), whose reports drove the three
+hardware fixes in this release: TFT reinstalls after every reboot
+([#63](https://github.com/happydasch/nspanel_haui/issues/63)), the buzzer
+continuing through a TFT upload ([#62](https://github.com/happydasch/nspanel_haui/issues/62))
+and the off-centre portrait weather time and date
+([#64](https://github.com/happydasch/nspanel_haui/issues/64)).
 
 ## [0.4.1] — 2026-10-26
 
@@ -288,5 +297,6 @@ and follow [Semantic Versioning](https://semver.org/).
 > ESPHome actions/events and two config entities were renamed, and no aliases
 > are kept.
 
+[0.4.2]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.2
 [0.4.1]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.1
 [0.4.0]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.0

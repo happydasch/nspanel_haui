@@ -120,8 +120,8 @@ python scripts/bump_version.py 0.5.0            # bump every source
 python scripts/bump_version.py 0.5.0 --check    # dry run, writes nothing
 ```
 
-The HMI edit is in place and only legal for a same-length version (`0.4.1` →
-`0.4.2`); a shorter or longer version resizes the attribute record and the
+The HMI edit is in place and only legal for a same-length version (`0.4.2` →
+`0.4.3`); a shorter or longer version resizes the attribute record and the
 script refuses it — use the Nextion Editor for that bump. The script does not
 touch `CHANGELOG.md`, so add or update its section and date by hand. Re-save the
 HMI and recompile both TFTs (see next step) — the gate fails on a stale
@@ -163,7 +163,18 @@ script above calls it. Both are importable and covered by
   each device a unique name and access point, so no per-device build is needed.
   The baked API/OTA/web credentials remain shared — keep that caveat documented.
 
-### 5. Tag and publish
+### 5. Release notes and tagging
+
+Prepare the GitHub release body in `.github/release-notes/<tag>.md` (for example
+`.github/release-notes/v0.4.2.md`) before tagging. The file is committed with
+the release, so it reaches the tagged commit; `release.yml` publishes it as the
+release body and falls back to the changelog pointer when no file exists. Keep
+the changelog as the canonical notes and summarise them here: highlights,
+anything to do before updating, links and the issues addressed with their
+contributors. Credit external contributors by their GitHub handle and keep
+individual maintainer names out of the release body.
+
+Then tag and publish:
 
 ```bash
 git tag -a vX.Y.Z -m "NSPanel HAUI X.Y.Z"
@@ -171,12 +182,15 @@ git push origin vX.Y.Z
 ```
 
 The tag push starts `release.yml`, which runs the Nextion gate, validates and
-compiles the universal firmware, and attaches all three assets to the GitHub
-release. Watch the run; do not announce before it is green.
+compiles the universal firmware, and attaches the two firmware images, both TFTs
+and `firmware-manifest.json` to the GitHub release. Watch the run; do not
+announce before it is green.
 
 ### 6. Post-release
 
-- Verify the release page carries all three assets with the expected names.
+- Verify the release page carries the two firmware images (`nspanel_haui.bin`,
+  `nspanel_haui_ota.bin`), both TFTs and `firmware-manifest.json` with the
+  expected names, and that the body shows the prepared release notes.
 - Flash one panel from the published `.bin` and confirm TFT auto-update, as a
   smoke test of the exact published artifacts.
 - Announce; link the changelog and the update warning.
@@ -193,12 +207,12 @@ re-point an existing tag at different bytes.
 
 | # | Complexity | Impact |
 |---|------------|--------|
-| 1 | Nextion Editor is GUI-only | Version bump and TFT compile cannot be scripted; the release gate can only verify the result |
-| 2 | Four version places, no bump script | Drift between manifest/pyproject/YAML/HMI is the most likely release failure |
+| 1 | Nextion Editor is GUI-only | TFT compile cannot be scripted; the version bump is scripted only for same-length versions and the release gate can only verify the result |
+| 2 | Four version places | Drift between manifest/pyproject/YAML/HMI is the most likely release failure; `scripts/bump_version.py` updates all four in one pass and CI checks agreement |
 | 3 | Portrait TFT derives from the landscape HMI | Every landscape edit needs a regeneration step; forgetting it fails the gate or ships a stale portrait |
 | 4 | Frozen asset names | A rename silently breaks TFT auto-update for flashed panels |
 | 5 | Tag pushes skip the test workflow | A tag on a stale commit can ship without a fresh test run |
-| 6 | GitHub release body only points at `CHANGELOG.md` + the upgrade guide | Release notes live in `CHANGELOG.md`; the workflow body does not duplicate them |
+| 6 | Prepared release notes are a separate file from the changelog | `.github/release-notes/<tag>.md` is published as the release body when present; the workflow falls back to the changelog pointer, and the two can drift if only one is updated |
 | 7 | ~120 MB of Nextion binaries in git | HACS downloads include them; repo and zip size grow with every TFT rebuild |
 | 8 | Shared baked credentials in the universal binary | Multi-panel naming is solved; credential isolation is not |
 | 9 | ESPHome minimum version | `base.yaml` defines the minimum supported ESPHome version; the release workflow installs the current package and validates against that floor |

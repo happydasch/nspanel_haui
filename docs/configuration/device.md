@@ -14,13 +14,22 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
 - **Scan for devices** — Discovers ESPHome devices on the network that run
   HAUI firmware and offers them for batch-add. Discovered devices are added
   enabled and linked to their ESPHome entry.
-- **Install TFT** — Triggers a TFT install for the selected device immediately
-  (installs stay automatic on connect; this button forces one now). When the
-  install cannot start (device offline, no `yaml_version`, or the GitHub release
-  is unreachable), the editor shows a toast with the reason instead of a success
-  message.  A request that never gets an answer (e.g. the device worker is
-  blocked) times out after 20 seconds and shows a timeout toast instead of
-  doing nothing.
+- **Install TFT** — Open the device's **More** menu and choose **Install TFT**
+  to trigger an install immediately (installs stay automatic on connect; this
+  forces one now), even when the current display TFT version is unknown. A
+  picker opens in the device's row: **Version the firmware needs** (the
+  default), any GitHub release that ships this display model's TFT (older ones
+  included), or **From URL** for a custom or development build. Another
+  release or a URL stays on the display until the firmware version changes or
+  Home Assistant restarts (see [`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)). The row
+  shows **Display Unknown** / **Firmware Unknown** when those versions are not
+  reported. An install refetches GitHub release metadata when the cached list
+  lacks the firmware-matched TFT, so a list cached before a firmware update
+  cannot hide the matching TFT release. When the install cannot start (device offline,
+  no `yaml_version`, or the GitHub release is unreachable), the editor shows a
+  toast with the reason instead of a success message. A request that never gets
+  an answer (e.g. the device worker is blocked) times out after 20 seconds and
+  shows a timeout toast instead of doing nothing.
 - **Download firmware** — Opens the prebuilt `nspanel_haui.bin` of the latest
   release when one is attached, and explains the build-from-YAML path otherwise.
   This is the manual fallback. Once a device runs firmware that exposes the
@@ -39,7 +48,11 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
 - **Refresh display** — Re-renders the display.
 - Each row shows the device's online/offline state, firmware and TFT versions,
   IP address and signal strength; a display whose TFT is older than the
-  firmware version is flagged **update pending**.
+  firmware version is flagged **update pending**. Wi-Fi readings are resolved
+  from the ESPHome entity registry and displayed independently; unavailable
+  values are omitted or shown as **Unknown**, and an unknown signal does not
+  mean the device is offline. The **Device Info** dialog shows the IP, SSID and
+  signal readings from the same status data.
 
 The per-device fields:
 
@@ -65,6 +78,7 @@ Every device setting, including `enabled`, and the device's panels are saved in 
 
 - **Saving applies immediately.** Saving in the editor applies the new settings and panels to the running device without a restart. A setting you clear goes back to its default. Enabling or disabling a device reloads the hub.
 - **New devices start enabled.** Devices found through ESPHome discovery are added enabled. A device you disable stays disabled, and a device you remove stays removed until you add it again.
+- **Deleting a device in Home Assistant.** **Delete** in the device's menu on *Settings → Devices & services → NSPanel HAUI* does the same as **Remove** in the device manager: the device leaves the hub, and its settings and panels are deleted.
 - **Upgrading from 0.3.2 or earlier.** Settings that older versions kept in the config entry are not carried over. After updating, check each device's settings in the editor.
 
 ## Device Settings
@@ -80,6 +94,14 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 - `display_model` string
 
   Hardware display model — one of `eu` (default) or `us`. Selects which TFT layout the display needs. The default `eu` covers every landscape-mounted panel (including a US panel mounted landscape, which is functionally identical); `us` is a US panel mounted portrait (buttons below the screen) and needs the rotated portrait TFT. The update controller downloads the matching TFT asset for the selected model. See [Display Models](display-models.md).
+
+- `log_level` string
+
+  Standard logging threshold for this device's app messages in the Home Assistant log, shown in the dropdown as Critical, Error, Warning, Info, or Debug. Default `"INFO"`. `DEBUG` adds detailed diagnostics — entity/attribute state changes and the display commands exchanged with the panel — on top of the routine Info lifecycle messages.
+
+  The threshold sets what the hub *emits*; Home Assistant still decides what is *displayed*: to see Debug records in the HA log, add `logger: custom_components.nspanel_haui: debug` to your [logger configuration](https://www.home-assistant.io/integrations/logger/).
+
+- **Logs** dialog — the **Logs** button in the toolbar opens the last 50 of the 100 most recent in-memory HAUI messages for the selected running device. It is a diagnostic buffer of the hub app, not a complete Home Assistant or ESPHome log viewer: firmware logs and HA messages from other integrations are not included, and the buffer is not written to disk.
 
 ### Display dimming & off
 
@@ -120,14 +142,6 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 - `timeout_page` int
 
   Seconds of inactivity before the idle page opens (`0` = disabled, max `3600` in the editor). Default `30`.
-
-- `debug_level` int
-
-  Diagnostic logging verbosity shown in the dropdown as Off (`0`), Basic (`1`), or Verbose (`2`). Default `0`.
-
-- `log_items` bool
-
-  Log every item update of this device to the Home Assistant log, for troubleshooting. Default `False`.
 
 - `stale_data_seconds` int
 
@@ -177,11 +191,11 @@ shortcuts on top of that.
 
 - `sound_on_startup` bool
 
-  Play a short tone when the display connects to Home Assistant after a restart or power cycle. The tone plays only on a fresh boot — a Wi-Fi reconnect while the device stayed running stays silent (the firmware reports its uptime with the connection request; devices without it fall back to playing on every connect). Default `True`.
+  Play a short tone when the display connects to Home Assistant after a restart or power cycle. The tone plays only on a fresh boot — a Wi-Fi reconnect while the device stayed running stays silent (the firmware reports its uptime with the connection request; devices without it fall back to playing on every connect). Default `False`.
 
 - `sound_on_notification` bool
 
-  Play an alert tone whenever a new notification is received. Notifications of type `critical` use the `alert` sound. Default `True`.
+  Play an alert tone whenever a new notification is received. Notifications of type `critical` use the `alert` sound, and a `persistent` notification repeats its tone until dismissed. The timer panel's finish alert follows this setting too. Default `False`.
 
 - `persistent_sound_interval` int
 
@@ -240,7 +254,7 @@ shortcuts on top of that.
 
 - `auto_navigate_home_timeout` int
 
-  After this many seconds without interaction on another panel, go back to the home panel. Set it shorter than the dimming and display-off timeouts. `0` = off (default).
+  After this many seconds without interaction on another panel, go back to the home panel. Set it shorter than the dimming and display-off timeouts. When the idle page opens first (`timeout_page` is shorter), the idle page stays, and leaving it goes to the home panel instead of the panel you were on. `0` = off (default).
 
 - `hub_idle_timeout` int
 
@@ -263,11 +277,46 @@ These exist in the underlying config but have no UI control yet, so they stay at
 - `page_settle_delay` float — delay in seconds before settling a new page after navigation (debounce for page events). Default `0.1`.
 - `date_format_locale` string — Locale-aware date pattern name (`full`, `long`, `medium`, `short`, `E`, `EEEE`) rendered with translated day/month names. Empty inherits the global `full`. Set both `date_format` and `date_format_locale` to `""` only together when you want a pure strftime date.
 
+## Updates
+
+The device editor's **Updates** section controls release checks and automatic installs. These settings are stored per device and merged over the integration defaults, so a device that is never opened in the editor still runs the shipped defaults.
+
+- `check_on_connect` (default `True`) — run a release check after the device connects.
+- `update_interval` (default `3600` seconds, hourly; `0` disables) — periodic release check.
+- `firmware_auto_update` (default `True`) — independently checks the device's
+  `HAUI Firmware` update entity and asks Home Assistant to install an offered
+  firmware update. This check does not depend on the TFT being out of date.
+  After reboot, the TFT follows the version required by the new firmware. Turn
+  this off to disable unattended firmware installs; the explicit **Install
+  firmware** action stays available. Installing another release or a URL by
+  hand pauses this check until Home Assistant restarts or the offered update is
+  installed (see [`nspanel_haui.update_firmware`](../services.md#nspanel_hauiupdate_firmware)).
+- `auto_install` (default `True`) — install the TFT the firmware needs without asking. When off, the display asks first. A TFT installed by hand with a `version` or `url` ([`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)) is kept until the firmware version changes or Home Assistant restarts.
+
+`tft_filename` (default `nspanel_haui.tft`) and `on_connect_delay` (default `60` seconds before the TFT check after a connect) remain integration defaults and are not exposed in the editor.
+
+Home Assistant shows the display TFT as the **HAUI Display** update entity next
+to **HAUI Firmware** on the device page; its **Install** runs the same TFT
+install as **Install TFT** (see [Services](../services.md#haui-display-update-entity)).
+
+A TFT install the display never confirms is reported as an error in the editor
+instead of being retried automatically; press **Install TFT** to retry. The
+Device Manager action menu has **Install firmware**, which opens the same kind
+of picker as **Install TFT**: the update the `HAUI Firmware` entity offers (when
+there is one), any release that ships an over-the-air image (v0.4.2 and later,
+older ones included), or **From URL** for a firmware OTA image. It also has
+**Check for updates** to refresh both
+firmware availability and GitHub release info immediately (bypassing the
+one-hour hub-level release cache). The check also compares the display's TFT
+with the version the firmware needs and installs an outdated TFT (or asks on
+the display when `auto_install` is off), and the editor shows its outcome: up
+to date with the latest release, a firmware update started or available, a TFT
+install started, or why the check failed.
+
 ## Global Defaults (not per-device, fixed)
 
 The following are hardcoded defaults, not exposed anywhere in the frontend:
 
 - **Display formats** — global defaults `time_format` (`%H:%M`), `date_format` (`%A, %d. %B %Y`), `date_format_locale` (`full`); each can be overridden per device (see Time & Date above)
 - **Connection** — `heartbeat_interval` (`5.0`s), `overdue_factor` (`2.0`)
-- **Update** — `auto_install` (`True`: install the TFT the firmware needs without asking), `tft_filename` (`nspanel_haui.tft`), `on_connect_delay` (`60`s before the TFT check after a connect), `check_on_connect` (`False`) and `update_interval` (`0` = disabled): show a notice on the display when a newer release exists. With `firmware_auto_update` (`True`) the hub also asks Home Assistant to install the device's firmware update first; the TFT the new firmware needs follows after the reboot. Set `firmware_auto_update` to `False` to keep the notice-only behaviour. A TFT install the display never confirms is reported as an error in the editor instead of being retried automatically; press **Install TFT** to retry.
 - **Navigation** — `page_timeout` (`10.0`s)

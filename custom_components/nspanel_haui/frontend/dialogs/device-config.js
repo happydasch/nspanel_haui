@@ -6,7 +6,7 @@
  * Communicates form changes via CustomEvent.
  */
 import { html, css } from '../lit-import.js';
-import { DATE_FORMAT_OPTIONS, DISPLAY_MODEL_OPTIONS, GESTURE_NAMES, LOCALE_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
+import { DATE_FORMAT_OPTIONS, DISPLAY_MODEL_OPTIONS, GESTURE_NAMES, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
 import { renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
 import { dialogHeader } from './dialog-header.js';
@@ -84,13 +84,18 @@ function formatSelectField(host, baseId, key, cfg, label, options, hint) {
   `;
 }
 
-/** Debug level options for the debug_level dropdown (labels resolved at render time). */
-function debugLevelOptions() {
-  return [
-    { value: "0", label: t("Off") },
-    { value: "1", label: t("Basic") },
-    { value: "2", label: t("Verbose") },
-  ];
+/** Read a value from the nested `update` config block. */
+function updateValue(cfg, key, fallback) {
+  return cfg?.update?.[key] ?? fallback;
+}
+
+/** Write a value into the nested `update` config block. */
+function setUpdateValue(host, key, value) {
+  host._deviceConfigForm = {
+    ...host._deviceConfigForm,
+    update: { ...(host._deviceConfigForm?.update || {}), [key]: value },
+  };
+  host.requestUpdate();
 }
 
 /**
@@ -185,7 +190,6 @@ class DeviceConfigDialog extends HauiDialog {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        .preventScrimClose=${true}
       >
         ${dialogHeader(t("Device Settings"), this._dispatchClose)}
 
@@ -208,10 +212,8 @@ class DeviceConfigDialog extends HauiDialog {
                 ${selectField(this, "dc-display_model", "display_model", cfg, t("Display Model"), DISPLAY_MODEL_OPTIONS, (v) => v,
                   t("Select the hardware model. EU and US (landscape) use the standard landscape layout; US (portrait) uses the rotated portrait TFT. The update controller downloads the matching TFT for the selected model."))}
 
-              ${selectField(this, "dc-debug_level", "debug_level", cfg, t("Debug Level"), debugLevelOptions(), (v) => parseInt(v, 10),
-                t("Controls the verbosity of diagnostic logging sent to the Home Assistant logs: Off = no debug output, Basic = key lifecycle events, Verbose = all commands and data exchanged with the display"))}
-              ${checkbox(this, "dc-log_items", "log_items", cfg, t("Log item updates"),
-                t("Write every item update of this device to the Home Assistant log. For troubleshooting; leave it off otherwise."))}
+              ${selectField(this, "dc-log_level", "log_level", cfg, t("Log Level"), LOG_LEVEL_OPTIONS, (v) => v,
+                  t("Controls the verbosity of this device's app messages in the Home Assistant log: standard logger thresholds. DEBUG adds detailed diagnostics (entity state changes, display commands) on top of the routine INFO lifecycle messages."))}
               ${intField(this, "dc-stale_data_seconds", "stale_data_seconds", cfg, t("Stale data threshold (seconds)"), 0, 0, 86400,
                 t("When a sensor value has not updated for this many seconds, the row page shows it dimmed with a … suffix so an old value is not mistaken for current. 0 = off."))}
             </div>
@@ -344,6 +346,44 @@ class DeviceConfigDialog extends HauiDialog {
           </details>
 
           <details class="config-section">
+            <summary>${t("Updates")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("Controls checks for new releases and automatic firmware/TFT installs. Checks run by default so the display stays current.")}
+              </p>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-check_on_connect", Boolean(updateValue(cfg, "check_on_connect", true)), (checked) => setUpdateValue(this, "check_on_connect", checked))}
+                  <label for="dc-update-check_on_connect">${t("Check for updates on connect")}</label>
+                </div>
+                <div class="field-hint">${t("Run a release check after the device connects to Home Assistant.")}</div>
+              </div>
+              <div class="form-group">
+                <label for="dc-update-update_interval">${t("Update check interval (seconds)")}</label>
+                ${renderNumberInput("dc-update-update_interval", Number(updateValue(cfg, "update_interval", 3600)), (raw) => {
+                  const v = parseInt(raw, 10);
+                  setUpdateValue(this, "update_interval", isNaN(v) || v < 0 ? 0 : v);
+                }, { min: 0, max: 604800 })}
+                <div class="field-hint">${t("How often to check GitHub for a newer release. 0 = disabled, 3600 = hourly.")}</div>
+              </div>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-firmware_auto_update", Boolean(updateValue(cfg, "firmware_auto_update", true)), (checked) => setUpdateValue(this, "firmware_auto_update", checked))}
+                  <label for="dc-update-firmware_auto_update">${t("Auto-install firmware updates")}</label>
+                </div>
+                <div class="field-hint">${t("Install a newer firmware when the release ships one. The matching TFT follows after the device reboots.")}</div>
+              </div>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-auto_install", Boolean(updateValue(cfg, "auto_install", true)), (checked) => setUpdateValue(this, "auto_install", checked))}
+                  <label for="dc-update-auto_install">${t("Auto-install TFT updates")}</label>
+                </div>
+                <div class="field-hint">${t("Replace an outdated display TFT automatically when the firmware needs a newer one. When off, the display asks first.")}</div>
+              </div>
+            </div>
+          </details>
+
+          <details class="config-section">
             <summary>${t("Gestures")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">
@@ -472,7 +512,6 @@ class DeviceConfigDialog extends HauiDialog {
 
           <details class="config-section">
             <summary>${t("Panel Assignments")}</summary>
-            <div class="config-section-body"><summary>${t("Panel Assignments")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">
                 ${t("Choose which panels play the home and idle roles. Leave unset to keep the current panel.")}

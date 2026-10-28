@@ -39,9 +39,10 @@ To install ESPHome on the device use the config from `esphome/install.yaml`. Edi
 
 **Universal prebuilt firmware:** every release also carries `nspanel_haui.bin`,
 compiled from `esphome/nspanel_haui_universal.yaml`.  That config bakes in
-documented default credentials (no `secrets.yaml` needed) and a never-matching
-Wi-Fi, so the device boots its open access point and is provisioned over the
-captive portal.  See [Installation](install.md) → *Universal image (no YAML)*.
+documented default credentials (no `secrets.yaml` needed) and no Wi-Fi network,
+so the device boots its open access point and is provisioned over the captive
+portal.  The Wi-Fi entered there survives firmware updates.  See
+[Installation](install.md) → *Universal image (no YAML)*.
 `name_add_mac_suffix: true` appends the last six MAC digits at runtime, so one
 binary installs any number of panels with unique names and access points.
 
@@ -60,8 +61,7 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 - `wifi_ssid` (!secret wifi_ssid)
 - `wifi_password` (!secret wifi_password)
 - `ap_password` (!secret ap_password)
-- `tft_update_url` (URL to the ``nspanel_haui.tft`` file, e.g. ``http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft``)
-- `tft_update_url_portrait` (URL to the ``nspanel_haui_portrait.tft`` file, used by the `Update Display` button when `display_model` is 1)
+- `tft_update_url` (default TFT URL of the display component, which enables TFT upload support; the hub always sends the URL of the TFT it installs)
 
 ### Web server (optional)
 
@@ -279,11 +279,16 @@ This actions below are defined on the ESP. The communication between the Hub ser
 
 - `display_off` / `display_on` Actions to put the display into / out of hardware sleep (publish `esphome.display_off` / `esphome.display_on`)
 
-- `upload_tft` Action to update a TFT file
+- `install_firmware_url` Action to flash the firmware OTA image at `url` with its `md5sum`
 
-  This will update the nextion display with the tft file
+  The hub sends it to install another release or a custom build
+  (`nspanel_haui.update_firmware`, the editor's **Install firmware** picker).
 
 - `upload_tft_url` Action to update a TFT file from URL
+
+  The hub's TFT install sends it. Use `nspanel_haui.update_tft` (optionally
+  with `url`) or the **HAUI Display** update entity instead, they track the
+  install.
 
 - `set_brightness` Action to change the brightness of the display
 
@@ -321,6 +326,10 @@ This actions below are defined on the ESP. The communication between the Hub ser
   ```
 
 - `play_sound` Action to play a named sound
+
+  A playing tune (from either action) is stopped before a TFT upload, an OTA
+  firmware update or a reboot: those block the main loop the buzzer's notes are
+  switched off from, so the current note would otherwise keep sounding.
 
 - `reset_last_interaction` Action to reset the last interaction value
 
@@ -525,22 +534,21 @@ Temperature related sensor.
 
 Buttons provided by the ESP.
 
-- `Update Display` (`tft_update`)
-
-  This button uploads the tft from a configured url to nextion
-
 - `Restart Display` (`restart_display`, disabled by default)
 
   Restarts the display
 
 ## Diagnostics
 
-Diagnostics related sensors.
+Diagnostics related sensors. The production package and universal release image
+expose the diagnostics used by the integration. The local development config
+also includes `debug.yaml`, which adds uptime and ESPHome debug sensors for
+troubleshooting; these are not included in release firmware. Your own device
+YAML must not duplicate entities that its selected packages already include.
 
 - TFT Version: Version of the TFT file (read from the display)
 - Client Status: `online` / `offline`, the hub connection state
 - WIFI Info: IP, SSID, BSSID and RSSI
-- Reset Reason: reason of the last reset (only with `esphome/nspanel_haui_dev.yaml` / `debug.yaml`)
 
 ### Exposed sensors (curated set)
 
@@ -559,8 +567,13 @@ only clutter the entity registry.
 | `sensor.nspanel_kitchen_brightness` | Current display brightness (the last value the hub set, 0–100) |
 | `sensor.nspanel_kitchen_temperature` | Internal panel temperature (NTC, °C) |
 
-The temperature chain uses two further sensors (`adc`, `resistance`) that are
-`disabled_by_default: true` — only the final `temperature` sensor is enabled.
+The temperature calculation's `adc` and `resistance` sensors remain
+`disabled_by_default: true`; only the final `temperature` sensor is exposed.
+The hub looks the temperature sensor up through the entity registry by its
+ESPHome-authored name (`Temperature`), so the example id above is only a
+fallback: a renamed device or HA's area-prefixed entity ids (e.g.
+`sensor.nspanel_bedroom_temperature` on a device called "NSPanel Sypialnia")
+do not break the clock and weather panels reading it.
 
 ## Other
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
@@ -250,19 +252,22 @@ class GridPage(PagedItemsMixin, HAUIPage):
 
     def get_grid_colors(self, item: HAUIItem | None) -> tuple:
         # Default theme colors — no panel-level overrides.
-        text_color = self.get_color("text")
-        back_color = self.get_color("background")
-        color_pressed = self.get_color("component_text")
-        back_color_pressed = self.get_color("component_pressed")
-        power_color = self.get_color("component_active")
+        text_color: Any = self.get_color("text")
+        back_color: Any = self.get_color("background")
+        color_pressed: Any = self.get_color("component_text")
+        back_color_pressed: Any = self.get_color("component_pressed")
+        power_color: Any = self.get_color("component_active")
 
-        # Item-level overrides
+        # Item-level overrides.  Resolve state-keyed/templated colours here:
+        # sending a dict straight to parse_color_value renders the tile black.
         if item is not None:
-            text_color = item.get("text_color", text_color)
-            back_color = item.get("back_color", back_color)
-            color_pressed = item.get("color_pressed", color_pressed)
-            back_color_pressed = item.get("back_color_pressed", back_color_pressed)
-            power_color = item.get("power_color", power_color)
+            text_color = item.get_color_field("text_color", text_color)
+            back_color = item.get_color_field("back_color", back_color)
+            color_pressed = item.get_color_field("color_pressed", color_pressed)
+            back_color_pressed = item.get_color_field(
+                "back_color_pressed", back_color_pressed
+            )
+            power_color = item.get_color_field("power_color", power_color)
             if not self.is_item_active(item):
                 power_color = back_color_pressed
 
@@ -329,12 +334,14 @@ class GridPage(PagedItemsMixin, HAUIPage):
             self.set_component_text(name, trim_text(item.get_name(), self.LEN_NAME))
             self.set_component_text_color(ico, item.get_color())
             self.set_component_text(ico, item.get_icon())
-            # make sure to redraw power if visible
             if self.is_power_visible(item):
+                power = getattr(self.COMPONENTS, f"g{idx}_power")
                 _, _, _, _, power_color = self.get_grid_colors(item)
-                self.update_function_component(
-                    getattr(self.COMPONENTS, f"g{idx}_power").name, visible=True, color=power_color
-                )
+                self.update_function_component(power.name, visible=True, color=power_color)
+                # The icon box overlaps the bottom of the power button, so the
+                # icon redraw above clips it; the update above sends nothing
+                # when the power button's own attributes are unchanged.
+                self.send_cmd(f"ref {power.name}")
             else:
                 self.update_function_component(
                     getattr(self.COMPONENTS, f"g{idx}_power").name, visible=False
@@ -347,7 +354,9 @@ class GridPage(PagedItemsMixin, HAUIPage):
     # callback
 
     def _update_entry(self, idx: int) -> None:
-        self.update_grid_entry(idx)
+        # Re-apply the whole tile, not just icon/name: state-keyed text and
+        # background colours must change with the entity state too.
+        self.set_grid_entry(idx, visible=True)
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         if fnc_name == "next_page":

@@ -1,11 +1,20 @@
 """Tests for the GitHub release fetch in the update controller."""
 
 import datetime
+import hashlib
 
 import pytest
 import requests
 from nspanel_haui.haui.controller import update
 from nspanel_haui.haui.controller.update import HAUIUpdateController
+
+
+@pytest.fixture(autouse=True)
+def _reset_release_cache():
+    """Reset the module-level release cache between tests."""
+    update._release_cache = None
+    yield
+    update._release_cache = None
 
 
 class _Response:
@@ -46,6 +55,64 @@ def test_release_fetch_retries_after_a_failed_request(monkeypatch):
     assert ctrl._release_infos == [{"tag_name": "v0.3.3"}]
 
 
+def test_release_fetch_uses_the_shared_cache(monkeypatch):
+    """Consecutive controllers share one GitHub request within the TTL."""
+    calls = []
+
+    def fake_get(url, timeout):
+        calls.append(url)
+        return _Response([{"tag_name": "v0.3.3"}])
+
+    monkeypatch.setattr(update.requests, "get", fake_get)
+
+    first = _controller()
+    first._update_release_infos()
+    second = _controller()
+    second._update_release_infos()
+
+    assert len(calls) == 1
+    assert second._release_infos == [{"tag_name": "v0.3.3"}]
+
+
+def test_release_fetch_bypasses_the_cache_when_forced(monkeypatch):
+    """force=True refreshes even when a fresh cache entry exists."""
+    calls = []
+
+    def fake_get(url, timeout):
+        calls.append(url)
+        return _Response([{"tag_name": "v0.3.3"}])
+
+    monkeypatch.setattr(update.requests, "get", fake_get)
+
+    first = _controller()
+    first._update_release_infos()
+    second = _controller()
+    second._update_release_infos(force=True)
+
+    assert len(calls) == 2
+
+
+def test_manual_check_clears_failure_state(monkeypatch):
+    """A manual check resets error/install guards before evaluating."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        firmware_state="off",
+    )
+    ctrl._update_state = update.UPDATE_STATE_ERROR
+    ctrl._last_install_at = datetime.datetime.now(tz=datetime.UTC)
+    ctrl._last_install_confirmed = False
+
+    ctrl.manual_check_for_update()
+
+    assert ctrl._update_state == update.UPDATE_STATE_IDLE
+    assert ctrl._last_install_at is None
+    # The check's TFT evaluation then confirms the TFT the firmware needs.
+    assert ctrl._last_install_confirmed is True
+
+
 # --- automatic TFT update ----------------------------------------------------
 
 import types  # noqa: E402
@@ -78,6 +145,9 @@ def _release(tag, with_tft=True, with_portrait=False):
 class _App:
     hass = None
 
+    def log(self, msg: str, **kwargs) -> None:
+        pass
+
     def __init__(
         self,
         device_info,
@@ -85,17 +155,23 @@ class _App:
         display_model="eu",
         firmware_entity=None,
         firmware_state="on",
+        firmware_version="0.4.2",
+        firmware_service_error=None,
     ):
         # Firmware update entity support: when ``firmware_entity`` is set the
         # app resolves it by name and reports ``firmware_state``; otherwise
         # ``find_entity_id`` returns None (firmware auto-update is skipped).
         self.firmware_entity = firmware_entity
         self.firmware_state = firmware_state
+        self.firmware_version = firmware_version
+        self.firmware_service_error = firmware_service_error
         self.calls: list = []
+        self.events: list = []
         self.device = types.SimpleNamespace(
             device_info=device_info,
             connected=connected,
             display_model=display_model,
+            get_name=lambda: "kitchen",
             get=lambda key, default=None: 0,
             set_device_info=lambda info, append=True: self.device.__dict__.update(
                 {"device_info": {**self.device.device_info, **info}}
@@ -124,6 +200,9 @@ class _App:
             "navigation": navigation,
         }
 
+    def fire_event(self, event_type, data=None):
+        self.events.append((event_type, data))
+
     def run_in(self, callback, delay):
         handle = f"timer{len(self.timers)}"
         self.timers[handle] = (callback, delay)
@@ -147,13 +226,19 @@ class _App:
 
         return types.SimpleNamespace(
             get_state=lambda: app.firmware_state,
+            attributes={"latest_version": app.firmware_version},
             call_service=lambda service, **kwargs: app.calls.append(
                 (service, kwargs)
             ),
         )
 
-    def call_service(self, service, **kwargs):
+    def call_service(self, service, raise_on_error=False, **kwargs):
         self.calls.append((service, kwargs))
+        if self.firmware_service_error is not None:
+            if raise_on_error:
+                raise self.firmware_service_error
+            return None
+        return True if raise_on_error else None
 
 
 def _updater(
@@ -164,9 +249,19 @@ def _updater(
     display_model="eu",
     firmware_entity=None,
     firmware_state="on",
+    firmware_version="0.4.2",
+    firmware_service_error=None,
     **config,
 ):
-    app = _App(device_info, connected, display_model, firmware_entity, firmware_state)
+    app = _App(
+        device_info,
+        connected,
+        display_model,
+        firmware_entity,
+        firmware_state,
+        firmware_version,
+        firmware_service_error,
+    )
     ctrl = HAUIUpdateController(app, {**DEFAULT_CONFIG["update"], **config})
     ctrl.log = lambda *a, **kw: None
     ctrl.translate = lambda text: text
@@ -303,6 +398,42 @@ def test_tft_install_defaults_to_the_firmwares_yaml_version(monkeypatch):
     assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.0.tft")]
     assert ctrl.get_update_state()["version"] == "0.4.0"
     assert result["state"] == "installing"
+
+
+def test_manual_tft_install_refreshes_stale_release_cache(monkeypatch):
+    """The install action must see the TFT release matching freshly updated firmware."""
+    ctrl, app, fetches = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": ""},
+        [_release("0.4.2")],
+    )
+    update._release_cache = (update.time.monotonic(), [_release("0.4.1")])
+
+    result = ctrl.install_tft()
+
+    assert fetches == [HAUIUpdateController.RELEASES_URL]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.2.tft")]
+    assert result["state"] == "installing"
+
+
+def test_auto_tft_install_refetches_a_cache_older_than_the_firmware(monkeypatch):
+    """A firmware install skips the release fetch, so the cache can predate it.
+
+    The TFT check after the firmware reboot must not fail with "no GitHub
+    release" while the release exists.
+    """
+    ctrl, app, fetches = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.1"},
+        [_release("0.4.2"), _release("0.4.1")],
+    )
+    update._release_cache = (update.time.monotonic(), [_release("0.4.1")])
+
+    ctrl.check_installed_version()
+
+    assert fetches == [HAUIUpdateController.RELEASES_URL]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.2.tft")]
+    assert ctrl.get_update_state()["state"] == "installing"
 
 
 def test_tft_install_without_release_moves_to_error(monkeypatch):
@@ -603,7 +734,417 @@ def test_reconnect_verification_confirms_a_matching_version(monkeypatch):
     assert ctrl._last_install_confirmed is True
 
 
+# --- manual update check -----------------------------------------------------
+
+
+def test_manual_check_reports_an_up_to_date_panel(monkeypatch):
+    """The editor needs an answer even when nothing is newer."""
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, [_release("0.4.2")]
+    )
+
+    result = ctrl.manual_check_for_update()
+
+    assert result["latest_release"] == "0.4.2"
+    assert result["check_error"] is None
+    assert result["state"] == "idle"
+    assert app.published == []
+
+
+def test_manual_check_installs_an_outdated_tft(monkeypatch):
+    """Without it an outdated TFT installed only after the next reconnect."""
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.1"}, [_release("0.4.2")]
+    )
+
+    result = ctrl.manual_check_for_update()
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.2.tft")]
+    assert result["state"] == "installing"
+    assert result["version"] == "0.4.2"
+
+
+def test_manual_check_during_an_install_starts_no_second_upload(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.1"}, [_release("0.4.2")]
+    )
+    ctrl.install_tft()
+    app.published.clear()
+
+    result = ctrl.manual_check_for_update()
+
+    assert app.published == []
+    assert result["state"] == "installing"
+
+
+def test_manual_check_reports_a_github_failure(monkeypatch):
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+
+    def failing_get(url, timeout):
+        raise requests.exceptions.ConnectTimeout("timed out")
+
+    monkeypatch.setattr(update.requests, "get", failing_get)
+
+    result = ctrl.manual_check_for_update()
+
+    assert "timed out" in result["check_error"]
+    assert result["latest_release"] is None
+
+
+def test_manual_check_while_disconnected_reports_it(monkeypatch):
+    ctrl, app, fetches = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, connected=False
+    )
+
+    result = ctrl.manual_check_for_update()
+
+    assert result["check_error"] == "device disconnected"
+    assert fetches == []
+
+
+# --- TFT install from a URL --------------------------------------------------
+
+DEV_TFT_URL = "http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft"
+
+
+def test_url_install_sends_the_url_without_a_release_lookup(monkeypatch):
+    ctrl, app, fetches = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, [_release("0.4.2")]
+    )
+    ctrl._update_version = "0.4.2"  # left over from an earlier release install
+
+    state = ctrl.install_tft_url(DEV_TFT_URL)
+
+    assert fetches == []
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, DEV_TFT_URL)]
+    assert state["state"] == "installing"
+    assert state["version"] is None
+
+
+def test_url_install_while_disconnected_moves_to_error(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, connected=False
+    )
+
+    state = ctrl.install_tft_url(DEV_TFT_URL)
+
+    assert app.published == []
+    assert state["state"] == "error"
+
+
+def test_url_install_is_not_done_before_the_upload_reboot(monkeypatch):
+    """A device-state answer before the reboot reports the old TFT."""
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+
+    ctrl.install_tft_url(DEV_TFT_URL)
+    ctrl.process_event(_device_state(yaml_version="0.4.2", tft_version="0.4.2"))
+
+    assert ctrl.get_update_state()["state"] == "installing"
+
+
+def test_url_install_is_done_once_the_display_reports_after_the_reboot(monkeypatch):
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+
+    ctrl.install_tft_url(DEV_TFT_URL)
+    ctrl.on_connection_changed(False)  # the upload rebooted the device
+    app.device.device_info = {"yaml_version": "0.4.2", "tft_version": ""}
+    ctrl.on_connection_changed(True)
+    ctrl.process_event(_device_state(yaml_version="0.4.2", tft_version="0.4.2"))
+
+    assert ctrl.get_update_state()["state"] == "done"
+
+
+def _reboot_with(ctrl, app, **state):
+    """The upload ends in a reboot; the display then reports ``state``."""
+    ctrl.on_connection_changed(False)
+    app.device.device_info = {**state, "tft_version": ""}
+    ctrl.on_connection_changed(True)
+    ctrl.process_event(_device_state(**state))
+
+
+def test_older_release_install_is_kept_after_its_reboot(monkeypatch):
+    """The automatic check must not replace a TFT the user installed by hand."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        [_release("0.4.2"), _release("0.4.1")],
+    )
+
+    ctrl.install_tft("0.4.1")
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.1.tft")]
+    _reboot_with(ctrl, app, yaml_version="0.4.2", tft_version="0.4.1")
+    assert ctrl.get_update_state()["state"] == "done"
+    ctrl.check_installed_version()
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.1.tft")]
+
+
+def test_url_install_is_kept_after_its_reboot(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, [_release("0.4.2")]
+    )
+
+    ctrl.install_tft_url(DEV_TFT_URL)
+    _reboot_with(ctrl, app, yaml_version="0.4.2", tft_version="0.4.0")
+    ctrl.check_installed_version()
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, DEV_TFT_URL)]
+
+
+def test_a_new_firmware_version_replaces_a_kept_tft(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        [_release("0.4.3"), _release("0.4.2"), _release("0.4.1")],
+    )
+    ctrl.install_tft("0.4.1")
+    _reboot_with(ctrl, app, yaml_version="0.4.2", tft_version="0.4.1")
+
+    # The firmware updates to 0.4.3: the TFT has to follow it again.
+    _reboot_with(ctrl, app, yaml_version="0.4.3", tft_version="0.4.1")
+    ctrl.check_installed_version()
+
+    assert app.published[-1] == (ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.3.tft")
+
+
+def test_installing_the_required_release_ends_keeping_an_older_one(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        [_release("0.4.2"), _release("0.4.1")],
+    )
+    ctrl.install_tft("0.4.1")
+    ctrl.install_tft()
+
+    assert ctrl._manual_tft_firmware is None
+
+
+def test_release_list_holds_only_releases_with_this_devices_tft(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        [_release("0.4.1"), _release("0.4.2"), _release("0.3.0", with_tft=False), _release("x")],
+    )
+
+    result = ctrl.list_tft_releases()
+
+    assert result == {"releases": ["0.4.2", "0.4.1"], "required": "0.4.2", "error": None}
+
+
+def test_release_list_reports_a_github_failure(monkeypatch):
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+
+    def failing_get(url, timeout):
+        raise requests.exceptions.ConnectTimeout("timed out")
+
+    monkeypatch.setattr(update.requests, "get", failing_get)
+
+    result = ctrl.list_tft_releases()
+
+    assert result["releases"] == []
+    assert "timed out" in result["error"]
+
+
+# --- HAUI Display update entity events ---------------------------------------
+
+
+def test_device_state_publishes_the_display_versions(monkeypatch):
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": ""})
+
+    ctrl.process_event(_device_state(yaml_version="0.4.2", tft_version="0.4.1"))
+
+    assert app.events[-1] == (
+        update.DISPLAY_UPDATE_EVENT,
+        {
+            "device": "kitchen",
+            "connected": True,
+            "installed_version": "0.4.1",
+            "latest_version": "0.4.2",
+            "state": "idle",
+            "last_error": None,
+        },
+    )
+
+
+def test_unknown_tft_version_is_published_as_none(monkeypatch):
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": ""})
+
+    ctrl.on_connection_changed(True)
+
+    _event_type, data = app.events[-1]
+    assert data["installed_version"] is None
+    assert data["latest_version"] == "0.4.2"
+
+
+def test_install_state_changes_are_published(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.1"}, [_release("0.4.2")]
+    )
+
+    ctrl.install_tft()
+
+    states = [data["state"] for event_type, data in app.events]
+    assert states[-2:] == ["checking", "installing"]
+
+
 # --- firmware auto-update ----------------------------------------------------
+
+
+# --- firmware from another release or a URL ----------------------------------
+
+OTA_IMAGE = bytes([update.ESP_IMAGE_MAGIC]) + b"app image"
+FACTORY_IMAGE = b"\xff" * 16
+
+
+def _firmware_release(tag):
+    base = f"https://dl/{tag}"
+    return {
+        "tag_name": tag,
+        "name": f"Release {tag}",
+        "body": "",
+        "assets": [
+            {"name": "nspanel_haui.bin", "browser_download_url": f"{base}/factory.bin"},
+            {"name": "nspanel_haui_ota.bin", "browser_download_url": f"{base}/ota.bin"},
+            {"name": "firmware-manifest.json", "browser_download_url": f"{base}/manifest.json"},
+        ],
+    }
+
+
+class _Download:
+    def __init__(self, body):
+        self._body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def raise_for_status(self):
+        pass
+
+    def iter_content(self, chunk_size):
+        for i in range(0, len(self._body), chunk_size):
+            yield self._body[i : i + chunk_size]
+
+
+def _firmware_updater(monkeypatch, releases, downloads=None, **kwargs):
+    """An updater whose GitHub API, manifests and image downloads are faked."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.3"},
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        **kwargs,
+    )
+    fetched: list = []
+
+    def fake_get(url, timeout, stream=False):
+        fetched.append(url)
+        if url == HAUIUpdateController.RELEASES_URL:
+            return _Response(list(releases))
+        if url.endswith("/manifest.json"):
+            tag = url.split("/")[-2]
+            return _Response(
+                {"builds": [{"ota": {"path": f"https://dl/{tag}/ota.bin", "md5": f"md5-{tag}"}}]}
+            )
+        return _Download((downloads or {})[url])
+
+    monkeypatch.setattr(update.requests, "get", fake_get)
+    return ctrl, app, fetched
+
+
+def test_firmware_release_list_holds_only_over_the_air_releases(monkeypatch):
+    older = _release("0.4.1")  # factory image only: never offered over the air
+    older["assets"].append({"name": "nspanel_haui.bin", "browser_download_url": "x"})
+    ctrl, app, _ = _firmware_updater(
+        monkeypatch, [_firmware_release("v0.4.2"), older, _firmware_release("v0.4.3")]
+    )
+
+    assert ctrl.list_firmware_releases() == {"releases": ["v0.4.3", "v0.4.2"], "error": None}
+
+
+def test_firmware_release_install_flashes_the_manifest_image(monkeypatch):
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
+
+    state = ctrl.install_firmware("v0.4.2")
+
+    assert app.published == [
+        (
+            ESPAction.INSTALL_FIRMWARE_URL,
+            {"url": "https://dl/v0.4.2/ota.bin", "md5sum": "md5-v0.4.2"},
+        )
+    ]
+    assert state["firmware_installing"] is True
+    assert state["firmware_install_error"] is None
+    assert app.calls == []  # update.install is not used for another release
+
+
+def test_firmware_release_without_ota_image_is_refused(monkeypatch):
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_release("0.4.1")])
+
+    state = ctrl.install_firmware("0.4.1")
+
+    assert app.published == []
+    assert "ships no over-the-air firmware" in state["firmware_install_error"]
+
+
+def test_firmware_url_install_sends_the_md5_of_the_image(monkeypatch):
+    url = "http://ha.local/firmware.ota.bin"
+    ctrl, app, _ = _firmware_updater(monkeypatch, [], downloads={url: OTA_IMAGE})
+
+    ctrl.install_firmware(url=url)
+
+    md5 = hashlib.md5(OTA_IMAGE, usedforsecurity=False).hexdigest()
+    assert app.published == [(ESPAction.INSTALL_FIRMWARE_URL, {"url": url, "md5sum": md5})]
+
+
+@pytest.mark.parametrize(
+    ("image", "error"),
+    [
+        pytest.param(FACTORY_IMAGE, "not the factory image", id="factory-image"),
+        pytest.param(OTA_IMAGE + b"\0" * update.FIRMWARE_MAX_BYTES, "app partition", id="too-big"),
+    ],
+)
+def test_firmware_url_install_refuses_an_unusable_image(monkeypatch, image, error):
+    url = "http://ha.local/firmware.bin"
+    ctrl, app, _ = _firmware_updater(monkeypatch, [], downloads={url: image})
+
+    state = ctrl.install_firmware(url=url)
+
+    assert app.published == []
+    assert error in state["firmware_install_error"]
+
+
+def test_firmware_without_the_install_action_reports_it(monkeypatch):
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
+    app.controller["esphome"].esphome.publish = lambda action, value: False
+
+    state = ctrl.install_firmware("v0.4.2")
+
+    assert "install_firmware_url action" in state["firmware_install_error"]
+    assert state["firmware_installing"] is False
+
+
+def test_hand_installed_firmware_pauses_the_automatic_update(monkeypatch):
+    """Otherwise the next check reinstalls the latest release over it."""
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
+    ctrl.install_firmware("v0.4.2")
+    ctrl.on_connection_changed(False)
+    ctrl.on_connection_changed(True)  # rebooted into 0.4.2; HA offers 0.4.3
+
+    assert ctrl._firmware_install_due("0.4.3") is False
+
+
+def test_installing_the_offered_firmware_ends_the_pause(monkeypatch):
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
+    ctrl.install_firmware("v0.4.2")
+    ctrl.on_connection_changed(False)
+    ctrl.on_connection_changed(True)
+
+    ctrl.install_firmware()
+
+    assert ctrl._manual_firmware is False
+    assert ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"}) in app.calls
 
 
 def test_firmware_install_due_when_entity_reports_an_update(monkeypatch):
@@ -700,6 +1241,110 @@ def test_firmware_install_without_entity_returns_false(monkeypatch):
     assert app.calls == []
 
 
+def test_on_connect_installs_firmware_before_checking_for_a_tft_upload(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.2"},
+        [_release("0.4.3")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        firmware_version="0.4.3",
+    )
+
+    ctrl._timer_delay_callback({})
+
+    assert app.calls == [
+        ("homeassistant.update_entity", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+        ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+    ]
+    assert app.published == []
+    assert ctrl._firmware_installing is True
+
+
+def test_firmware_auto_install_runs_when_tft_is_already_current(monkeypatch):
+    """Firmware checks are independent of whether the TFT has a newer release."""
+    ctrl, app, fetches = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        [_release("0.4.2")],
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        firmware_version="0.4.3",
+    )
+
+    ctrl.check_for_update()
+
+    assert app.calls == [
+        ("homeassistant.update_entity", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+        ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+    ]
+    assert fetches == []
+    assert ctrl._firmware_installing is True
+    assert ctrl._firmware_install_version == "0.4.3"
+
+
+def test_manual_firmware_install_refreshes_and_starts_available_update(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        firmware_version="0.4.3",
+        firmware_auto_update=False,
+    )
+
+    state = ctrl.install_firmware()
+
+    assert app.calls == [
+        ("homeassistant.update_entity", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+        ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+    ]
+    assert state["firmware_installing"] is True
+    assert state["firmware_update_version"] == "0.4.3"
+    assert state["firmware_install_error"] is None
+
+
+def test_manual_firmware_install_without_entity_reports_legacy_firmware(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+    )
+
+    state = ctrl.install_firmware()
+
+    assert app.calls == []
+    assert "update entity not found" in state["firmware_install_error"].lower()
+
+
+def test_firmware_service_error_is_reported_and_not_marked_installing(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        firmware_service_error=RuntimeError("service unavailable"),
+    )
+
+    assert ctrl._install_firmware("0.4.3") is False
+    assert ctrl._firmware_installing is False
+    assert "service unavailable" in ctrl._firmware_install_error
+
+
+def test_firmware_reboot_defers_then_starts_the_required_tft_install(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.2"},
+        [_release("0.4.3")],
+    )
+    ctrl._firmware_installing = True
+
+    ctrl.check_installed_version()
+    assert app.published == []
+
+    ctrl.on_connection_changed(True)
+    ctrl.check_installed_version()
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.3.tft")]
+    assert ctrl.get_update_state()["state"] == update.UPDATE_STATE_INSTALLING
+    assert ctrl.get_update_state()["version"] == "0.4.3"
+
+
 def test_check_for_update_installs_the_firmware_first(monkeypatch):
     ctrl, app, _ = _updater(
         monkeypatch,
@@ -711,7 +1356,9 @@ def test_check_for_update_installs_the_firmware_first(monkeypatch):
     ctrl.check_for_update()
 
     assert app.calls == [
-        ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"})
+        # The entity polls on its own schedule, so the hub refreshes it first.
+        ("homeassistant.update_entity", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+        ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"}),
     ]
     ((key, kwargs),) = app.opened
     assert key == SysPanelKey.POPUP_NOTIFY
@@ -729,7 +1376,9 @@ def test_check_for_update_only_notifies_when_firmware_update_is_unavailable(monk
 
     ctrl.check_for_update()
 
-    assert app.calls == []
+    assert app.calls == [
+        ("homeassistant.update_entity", {"entity_id": "update.nspanel_haui_haui_firmware"}),
+    ]
     ((key, kwargs),) = app.opened
     assert key == SysPanelKey.POPUP_NOTIFY
     assert "Update available" in kwargs["title"]

@@ -13,7 +13,7 @@ from nspanel_haui.haui.device_config import tft_filename_for_model
 
 class _App:
     def __init__(self, device_cfg=None, hub_cfg=None):
-        dev_cfg = {"debug_level": 0, **(device_cfg or {})}
+        dev_cfg = dict(device_cfg or {})
         self.device_config = hub_cfg or {}  # hub-level defaults
         self._runtime_device_name = ""
         self.device = HAUIDevice(self, dev_cfg)
@@ -122,7 +122,9 @@ def test_open_notification_button_label_is_dismiss():
     app = _NotifApp()
     ctrl = HAUINotificationController(app, {})
     ctrl.app = app
-    app.device = types.SimpleNamespace(get=lambda k, d=None: None, get_name=lambda: "dev")
+    app.device = types.SimpleNamespace(
+        get=lambda k, d=None: None, get_name=lambda: "dev", sleeping=False
+    )
     nav = MagicMock()
     app.controller["navigation"] = nav
     n = Notification("T", "M", "", True, "critical", False)
@@ -135,13 +137,44 @@ def test_open_notification_button_label_is_dismiss():
 def test_notification_ha_event_fired():
     app = _NotifApp()
     ctrl = HAUINotificationController(app, {})
-    app.device = types.SimpleNamespace(get_name=lambda: "kitchen", get=lambda k, d=None: None)
+    app.device = types.SimpleNamespace(
+        get_name=lambda: "kitchen", get=lambda k, d=None: None, sleeping=False
+    )
     ctrl.add_notification("Doorbell", "Someone is here", icon="mdi:bell")
     (event_type, data) = app.fire_event_calls[0]
     assert event_type == "nspanel_haui.notification"
     assert data["state"] == "added"
     assert data["device"] == "kitchen"
     assert data["title"] == "Doorbell"
+
+
+def test_notification_clear_publishes_removal_events():
+    app = _NotifApp()
+    ctrl = HAUINotificationController(app, {})
+    app.device = types.SimpleNamespace(
+        get_name=lambda: "kitchen", get=lambda k, d=None: None, sleeping=False
+    )
+    notification = ctrl.add_notification("Doorbell", "Someone is here", icon="mdi:bell")
+    app.fire_event_calls.clear()
+
+    ctrl.clear_notifications()
+
+    assert ctrl.get_notifications() == []
+    assert app.fire_event_calls == [
+        (
+            "nspanel_haui.notification",
+            {
+                "device": "kitchen",
+                "id": str(id(notification)),
+                "state": "removed",
+                "title": "Doorbell",
+                "message": "Someone is here",
+                "icon": "mdi:bell",
+                "notif_type": "info",
+                "persistent": False,
+            },
+        )
+    ]
 
 
 # --- sleep panel carousel --------------------------------------------------
@@ -182,8 +215,6 @@ class _CarouselApp(_App):
         self.device_cfg = device_cfg  # mutable reference for config-change tests
 
         def _dev_get(key, d=None):
-            if key == "debug_level":
-                return 0
             if key == "idle_panel_extra":
                 # stored comma-separated in config, fine to pass through
                 return (device_cfg or {}).get(key, d)
@@ -194,6 +225,7 @@ class _CarouselApp(_App):
             get_name=lambda: "nav",
             sleeping=False,
             device_info={},
+            on_idle_page_opened=lambda: None,
         )
         self.device_config = _CarouselCfg(panels)
         self.controller = {}

@@ -65,6 +65,7 @@ from nspanel_haui import (  # noqa: E402
     _auto_add_unconfigured_devices,
     api,
     async_reload_entry,
+    async_remove_config_entry_device,
     esphome_helpers,
     storage,
 )
@@ -161,6 +162,8 @@ def _entry_with(*devices: dict) -> _Entry:
 
 _PROTECTED = [
     (api.DeviceStatusView, "get"),
+    (api.NotificationsView, "get"),
+    (api.NotificationsView, "delete"),
     (api.PanelConfigView, "get"),
     (api.PanelConfigView, "post"),
     (api.DeviceConfigView, "get"),
@@ -170,6 +173,9 @@ _PROTECTED = [
     (api.DeviceYamlView, "post"),
     (api.DeviceUpdateDisplayView, "post"),
     (api.DeviceUpdateTftView, "post"),
+    (api.DeviceTftReleasesView, "get"),
+    (api.DeviceUpdateFirmwareView, "post"),
+    (api.DeviceFirmwareReleasesView, "get"),
 ]
 
 
@@ -184,6 +190,75 @@ def test_config_endpoints_reject_non_admin_users(view_cls, method):
     assert hass.mock_calls == []
 
 
+
+
+
+class _NotificationController:
+    def __init__(self, notifications):
+        self.notifications = notifications
+
+    def get_notifications(self):
+        return list(self.notifications)
+
+    def remove_notification(self, notification):
+        self.notifications.remove(notification)
+        return True
+
+
+class _NotificationApp:
+    def __init__(self, name, notifications):
+        self.device = types.SimpleNamespace(get_name=lambda: name)
+        self.controller = {"notification": _NotificationController(notifications)}
+
+    async def async_run_on_worker(self, function, *args):
+        return function(*args)
+
+
+def test_notifications_view_returns_queued_notifications():
+    notification = types.SimpleNamespace(
+        title="Doorbell",
+        message="Someone is here",
+        icon="mdi:bell",
+        persistent=True,
+        notif_type="critical",
+    )
+    app = _NotificationApp("kitchen", [notification])
+    hass = types.SimpleNamespace(data={"nspanel_haui": {"entry1": {"kitchen": app}}})
+    request = _Request(hass, admin=True, query={})
+
+    result = asyncio.run(api.NotificationsView().get(request, entry_id="entry1"))
+
+    assert result["body"] == [{
+        "id": str(id(notification)),
+        "device": "kitchen",
+        "title": "Doorbell",
+        "message": "Someone is here",
+        "icon": "mdi:bell",
+        "notif_type": "critical",
+        "persistent": True,
+    }]
+
+
+def test_notifications_view_dismisses_notification_on_worker():
+    notification = types.SimpleNamespace(
+        title="Doorbell",
+        message="Someone is here",
+        icon="mdi:bell",
+        persistent=False,
+        notif_type="info",
+    )
+    app = _NotificationApp("kitchen", [notification])
+    hass = types.SimpleNamespace(data={"nspanel_haui": {"entry1": {"kitchen": app}}})
+    request = _Request(
+        hass,
+        admin=True,
+        query={"device": "kitchen", "id": str(id(notification))},
+    )
+
+    result = asyncio.run(api.NotificationsView().delete(request, entry_id="entry1"))
+
+    assert result["body"] == {"status": "ok"}
+    assert app.controller["notification"].notifications == []
 # --- device add / delete ---------------------------------------------------
 
 
@@ -315,6 +390,35 @@ def test_delete_device_remembers_it_as_removed(monkeypatch):
 
     (saved,) = hass.config_entries.updates
     assert saved["removed_devices"] == ["office"]
+
+
+def test_deleting_device_on_hub_page_removes_it_from_hub(monkeypatch):
+    entry = _entry_with({"name": "kitchen"}, {"name": "office"})
+    hass = _Hass(entry)
+    stored = {"version": 1, "devices": {"kitchen": {}, "office": {}}}
+    saved_store: list = []
+    monkeypatch.setattr(storage, "Store", _fake_store(hass.events, stored, saved_store))
+    device = types.SimpleNamespace(identifiers={("nspanel_haui", "office")})
+
+    assert asyncio.run(async_remove_config_entry_device(hass, entry, device)) is True
+
+    (saved,) = hass.config_entries.updates
+    assert saved["devices"] == [{"name": "kitchen"}]
+    assert saved["removed_devices"] == ["office"]
+    assert saved_store == [{"version": 1, "devices": {"kitchen": {}}}]
+
+
+def test_deleting_stale_device_on_hub_page_leaves_hub_untouched(monkeypatch):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    stored = {"version": 1, "devices": {"kitchen": {}}}
+    monkeypatch.setattr(storage, "Store", _fake_store(hass.events, stored))
+    device = types.SimpleNamespace(identifiers={("nspanel_haui", "office")})
+
+    assert asyncio.run(async_remove_config_entry_device(hass, entry, device)) is True
+
+    assert hass.config_entries.updates == []
+    assert hass.events == []
 
 
 def test_auto_add_skips_removed_devices(monkeypatch):
@@ -485,6 +589,21 @@ class _WorkerApp:
     def install_tft(self, version=None):
         self.calls.append(("install_tft", version))
 
+    def install_tft_url(self, url):
+        self.calls.append(("install_tft_url", url))
+
+    def list_tft_releases(self):
+        self.calls.append("list_tft_releases")
+        return {"releases": ["v0.4.2", "v0.4.1"], "required": "0.4.2", "error": None}
+
+    def install_firmware(self, version=None, url=None):
+        self.calls.append(("install_firmware", version, url))
+        return {"firmware_installing": True, "firmware_install_error": None}
+
+    def list_firmware_releases(self):
+        self.calls.append("list_firmware_releases")
+        return {"releases": ["v0.4.3", "v0.4.2"], "error": None}
+
     async def async_run_on_worker(self, fn, *args):
         self.calls.append("worker")
         return fn(*args)
@@ -624,6 +743,111 @@ def test_firmware_download_empty_release_list_returns_error(monkeypatch):
     assert app.calls == ["worker", "update_display"]
 
 
+def test_firmware_install_runs_on_the_device_worker():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceUpdateFirmwareView().post(
+            _Request(hass, admin=True, body={"device": "kitchen"}), entry_id="entry1"
+        )
+    )
+
+    assert app.calls == ["worker", ("install_firmware", None, None)]
+    assert result["status_code"] == 200
+    assert result["body"]["devices_updated"] == ["kitchen"]
+
+
+def test_firmware_install_reports_controller_errors():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    app.install_firmware = lambda version, url: {
+        "firmware_installing": False,
+        "firmware_install_error": "No firmware update is available",
+    }
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceUpdateFirmwareView().post(
+            _Request(hass, admin=True, body={"device": "kitchen"}), entry_id="entry1"
+        )
+    )
+
+    assert result["status_code"] == 502
+    assert result["body"]["message"] == "No firmware update is available"
+
+
+@pytest.mark.parametrize(
+    ("body", "call"),
+    [
+        pytest.param(
+            {"device": "kitchen", "version": "v0.4.2"},
+            ("install_firmware", "v0.4.2", None),
+            id="release",
+        ),
+        pytest.param(
+            {"device": "kitchen", "url": "http://ha.local/firmware.ota.bin"},
+            ("install_firmware", None, "http://ha.local/firmware.ota.bin"),
+            id="url",
+        ),
+    ],
+)
+def test_firmware_install_passes_the_chosen_release_or_url(body, call):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    asyncio.run(
+        api.DeviceUpdateFirmwareView().post(
+            _Request(hass, admin=True, body=body), entry_id="entry1"
+        )
+    )
+
+    assert app.calls == ["worker", call]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"device": "*", "url": "http://ha.local/firmware.ota.bin"},
+        {"device": "kitchen", "url": "file:///firmware.ota.bin"},
+        {"device": "kitchen", "url": "http://ha.local/firmware.ota.bin", "version": "v0.4.2"},
+    ],
+    ids=["all-devices", "not-http", "with-version"],
+)
+def test_firmware_install_rejects_an_unusable_url(body):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceUpdateFirmwareView().post(
+            _Request(hass, admin=True, body=body), entry_id="entry1"
+        )
+    )
+
+    assert result["status_code"] == 400
+    assert app.calls == []
+
+
+def test_firmware_releases_are_listed_on_the_device_worker():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, query={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceFirmwareReleasesView().get(request, entry_id="entry1"))
+
+    assert app.calls == ["worker", "list_firmware_releases"]
+    assert result["body"]["releases"] == ["v0.4.3", "v0.4.2"]
+
+
 def test_tft_install_runs_on_the_device_worker():
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
@@ -648,6 +872,54 @@ def test_tft_install_passes_the_requested_version():
     asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
 
     assert app.calls == ["worker", ("install_tft", "0.4.0")]
+
+
+def test_tft_install_passes_the_requested_url():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, body={"device": "kitchen", "url": "http://ha.local/x.tft"})
+
+    asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
+
+    assert app.calls == ["worker", ("install_tft_url", "http://ha.local/x.tft")]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"device": "*", "url": "http://ha.local/x.tft"},
+        {"device": "kitchen", "url": "ftp://ha.local/x.tft"},
+        {"device": "kitchen", "url": "http://ha.local/x.tft", "version": "0.4.1"},
+    ],
+    ids=["all-devices", "not-http", "with-version"],
+)
+def test_tft_install_rejects_an_unusable_url(body):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceUpdateTftView().post(_Request(hass, admin=True, body=body), entry_id="entry1")
+    )
+
+    assert result["status_code"] == 400
+    assert app.calls == []
+
+
+def test_tft_releases_are_listed_on_the_device_worker():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, query={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceTftReleasesView().get(request, entry_id="entry1"))
+
+    assert app.calls == ["worker", "list_tft_releases"]
+    assert result["body"]["releases"] == ["v0.4.2", "v0.4.1"]
 
 
 def test_tft_install_includes_the_update_state_in_the_response():
@@ -842,3 +1114,119 @@ def test_panel_save_with_a_kept_config_of_a_removed_device_does_not_reload(monke
 
     assert hass.config_entries.scheduled_reloads == []
     assert app.calls == ["worker", "reload_config"]
+
+@pytest.mark.parametrize("active", [False, True], ids=["disabled-device", "running-device"])
+def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, active):
+    device_id = "ha-device-1"
+    entity_ids = {
+        "IP": "sensor.upstairs_panel_ip",
+        "SSID": "sensor.upstairs_panel_ssid",
+        "RSSI": "sensor.upstairs_panel_rssi",
+    }
+    registry = types.SimpleNamespace(
+        entities={
+            entity_id: types.SimpleNamespace(
+                domain="sensor",
+                platform="esphome",
+                device_id=device_id,
+                original_name=original_name,
+            )
+            for original_name, entity_id in entity_ids.items()
+        }
+    )
+    entity_registry = types.ModuleType("homeassistant.helpers.entity_registry")
+    entity_registry.async_get = lambda hass: registry
+    helpers = sys.modules["homeassistant.helpers"]
+    monkeypatch.setattr(helpers, "entity_registry", entity_registry, raising=False)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", entity_registry)
+    monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: device_id)
+
+    hass = _Hass(_entry_with({"name": "panel"}))
+    hass.states = MagicMock()
+    states = {
+        entity_ids["IP"]: types.SimpleNamespace(state="unavailable"),
+        entity_ids["SSID"]: types.SimpleNamespace(state="HomeNet"),
+        entity_ids["RSSI"]: types.SimpleNamespace(state="-54"),
+    }
+    hass.states.get.side_effect = states.get
+
+    if active:
+        class RunningApp:
+            def get_device_status(self):
+                return {"device_info": esphome_helpers.read_network_entities(hass, "panel")}
+
+        hass.data["nspanel_haui"]["entry1"] = {"panel": RunningApp()}
+
+    request = _Request(hass, admin=True, query={"device": "panel"})
+    result = asyncio.run(api.DeviceStatusView().get(request, "entry1"))
+
+    assert result["status_code"] == 200
+    assert {
+        key: result["body"]["device_info"][key] for key in ("ip", "ssid", "rssi")
+    } == {
+        "ip": "",
+        "ssid": "HomeNet",
+        "rssi": -54.0,
+    }
+
+
+@pytest.mark.parametrize("state", ["unknown", "unavailable", "not-a-number", "NaN"])
+def test_disabled_device_status_keeps_unavailable_wifi_fields_unknown(monkeypatch, state):
+    device_id = "ha-device-1"
+    entity_ids = {
+        "IP": "sensor.room_ip",
+        "SSID": "sensor.room_ssid",
+        "RSSI": "sensor.room_rssi",
+    }
+    registry = types.SimpleNamespace(
+        entities={
+            entity_id: types.SimpleNamespace(
+                domain="sensor",
+                platform="esphome",
+                device_id=device_id,
+                original_name=original_name,
+            )
+            for original_name, entity_id in entity_ids.items()
+        }
+    )
+    entity_registry = types.ModuleType("homeassistant.helpers.entity_registry")
+    entity_registry.async_get = lambda hass: registry
+    helpers = sys.modules["homeassistant.helpers"]
+    monkeypatch.setattr(helpers, "entity_registry", entity_registry, raising=False)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", entity_registry)
+    monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: device_id)
+
+    hass = _Hass(_entry_with({"name": "room"}))
+    hass.states = MagicMock()
+    hass.states.get.side_effect = {
+        entity_ids["IP"]: types.SimpleNamespace(state="10.0.0.8"),
+        entity_ids["SSID"]: types.SimpleNamespace(state="unavailable"),
+        entity_ids["RSSI"]: types.SimpleNamespace(state=state),
+    }.get
+
+    result = asyncio.run(
+        api.DeviceStatusView().get(
+            _Request(hass, admin=True, query={"device": "room"}), "entry1"
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert result["body"]["device_info"]["ip"] == "10.0.0.8"
+    assert result["body"]["device_info"]["ssid"] == ""
+    assert result["body"]["device_info"]["rssi"] is None
+
+
+def test_disabled_device_status_returns_unknown_readings_when_registry_lookup_fails(monkeypatch):
+    monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: None)
+    hass = _Hass(_entry_with({"name": "room"}))
+
+    result = asyncio.run(
+        api.DeviceStatusView().get(
+            _Request(hass, admin=True, query={"device": "room"}), "entry1"
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert result["body"]["device_info"]["ip"] == ""
+    assert result["body"]["device_info"]["ssid"] == ""
+    assert result["body"]["device_info"]["rssi"] is None

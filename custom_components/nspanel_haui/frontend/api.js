@@ -344,19 +344,113 @@ export async function getFirmwareDownload(host) {
  * @param {import('./haui-editor.js').NSPanelEditor} host
  * @param {string} deviceName - device name, or "*" for all devices
  * @param {string} [version] - release version (default: the firmware's yaml_version)
+ * @param {string} [url] - URL of a .tft file instead of a release (single device only)
  * @returns {Promise<{ status: string, devices_updated: string[] }>}
  */
-export async function updateDeviceTft(host, deviceName, version) {
+export async function updateDeviceTft(host, deviceName, version, url) {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));
   }
   const body = { device: deviceName };
   if (version) body.version = version;
+  if (url) body.url = url;
   return request(host, `/api/nspanel_haui/update_tft/${host.entryId}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }, t("Failed to install the TFT"));
+}
+
+/**
+ * List the GitHub releases a device's TFT can be installed from.
+ *
+ * GET /api/nspanel_haui/tft_releases/{entryId}?device={deviceName}
+ *
+ * @param {{ entryId: string, hass: Object }} host
+ * @param {string} deviceName
+ * @returns {Promise<{ releases: string[], required: string|null, error: string|null }>}
+ */
+export async function getTftReleases(host, deviceName) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  return request(
+    host,
+    `/api/nspanel_haui/tft_releases/${host.entryId}?device=${encodeURIComponent(deviceName)}`,
+    undefined,
+    t("Failed to load the TFT releases"),
+  );
+}
+
+/**
+ * Install firmware on one or all devices.
+ *
+ * POST /api/nspanel_haui/update_firmware/{entryId}
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} deviceName - device name, or "*" for all devices
+ * @param {string} [version] - release to install (default: the update HA offers)
+ * @param {string} [url] - URL of a firmware OTA image instead (single device only)
+ * @returns {Promise<{ status: string, devices_updated: string[], update?: Object }>}
+ */
+export async function updateDeviceFirmware(host, deviceName, version, url) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  const body = { device: deviceName };
+  if (version) body.version = version;
+  if (url) body.url = url;
+  return request(host, `/api/nspanel_haui/update_firmware/${host.entryId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }, t("Failed to install firmware"));
+}
+
+/**
+ * List the GitHub releases whose firmware a device can install over the air.
+ *
+ * GET /api/nspanel_haui/firmware_releases/{entryId}?device={deviceName}
+ *
+ * @param {{ entryId: string, hass: Object }} host
+ * @param {string} deviceName
+ * @returns {Promise<{ releases: string[], error: string|null }>}
+ */
+export async function getFirmwareReleases(host, deviceName) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  return request(
+    host,
+    `/api/nspanel_haui/firmware_releases/${host.entryId}?device=${encodeURIComponent(deviceName)}`,
+    undefined,
+    t("Failed to load the firmware releases"),
+  );
+}
+
+/**
+ * Trigger a manual update check on one or all devices.
+ *
+ * POST /api/nspanel_haui/check_update/{entryId}
+ *
+ * Runs on the device worker thread and bypasses the hub-level release cache,
+ * so a user-initiated check always sees the latest GitHub release.
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} deviceName - device name, or "*" for all devices
+ * @returns {Promise<{ status: string, devices_checked: string[], results: Object<string, Object> }>}
+ *   `results` maps each device to its update state plus `latest_release` and `check_error`.
+ */
+export async function checkDeviceUpdate(host, deviceName = "*") {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  return request(host, `/api/nspanel_haui/check_update/${host.entryId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device: deviceName }),
+    }, t("Failed to check for updates"));
 }
 

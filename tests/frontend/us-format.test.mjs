@@ -5,6 +5,7 @@ import {
   DATE_FORMAT_OPTIONS,
   DEVICE_CONFIG_DEFAULTS,
   DISPLAY_MODEL_OPTIONS,
+  LOG_LEVEL_OPTIONS,
   TIME_FORMAT_OPTIONS,
 } from '../../custom_components/nspanel_haui/frontend/constants.js';
 
@@ -38,6 +39,11 @@ test('device config defaults carry the new keys', () => {
   assert.equal(DEVICE_CONFIG_DEFAULTS.date_format, '');
   assert.equal(DEVICE_CONFIG_DEFAULTS.idle_panel_extra, '');
   assert.equal(DEVICE_CONFIG_DEFAULTS.stale_data_seconds, 0);
+  assert.equal(DEVICE_CONFIG_DEFAULTS.log_level, 'INFO');
+  assert.deepEqual(
+    LOG_LEVEL_OPTIONS.map((o) => o.value),
+    ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'],
+  );
   assert.equal(DEVICE_CONFIG_DEFAULTS.use_sleep_schedule, false);
   assert.equal(DEVICE_CONFIG_DEFAULTS.sleep_schedule_start, '');
   assert.equal(DEVICE_CONFIG_DEFAULTS.sleep_schedule_end, '');

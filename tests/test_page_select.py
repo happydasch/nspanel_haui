@@ -7,7 +7,7 @@ _PAGE_ID = 5
 
 class _Device:
     def get(self, key, default=None):
-        return {"debug_level": 0}.get(key, default)
+        return {}.get(key, default)
 
 
 class _DeviceConfig:

@@ -309,7 +309,7 @@ the result alongside the landscape TFT on every release.
 
 2. Cross-check widget names/ids against `haui/page/*.py` `COMPONENTS`
    registries page by page.
-3. Full checks: `pytest tests/`, `ruff check custom_components/`, `mypy`,
+3. Full checks: `pytest tests/`, `ruff check custom_components/ scripts/`, `mypy`,
    and if you touched `frontend/`, `node --test 'tests/frontend/*.test.mjs'`.
 4. If you added user-facing strings: `python scripts/translations/extract_translations.py`.
 5. Automatic release gate: `python scripts/verify_nextion/verify_nextion.py --require-portrait`

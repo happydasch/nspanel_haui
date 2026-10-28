@@ -215,10 +215,14 @@ class NSPanelHAUI(HAAdapter):
         if nav_ctrl is not None:
             nav_ctrl.reload_panels()
 
-        # Restart update controller timer with new interval
+        # Refresh the update controller's options (it reads them from its own
+        # config dict in start_part/check_for_update) and restart its timer.
         update_ctrl = self.controller.get("update")
         if update_ctrl is not None:
             update_ctrl.stop_part()
+            update_cfg = new_config.get("update")
+            if isinstance(update_cfg, dict):
+                update_ctrl.config = update_cfg
             update_ctrl.start_part()
 
     def update_display(self) -> None:
@@ -258,6 +262,72 @@ class NSPanelHAUI(HAAdapter):
                 "last_error": "no update controller",
             }
         return update_ctrl.install_tft(version)
+
+    def list_tft_releases(self) -> dict:
+        """List the GitHub releases that ship this device's TFT, on its worker thread.
+
+        Returns:
+            dict: ``releases``, ``required`` and ``error`` (see
+            ``HAUIUpdateController.list_tft_releases``).
+        """
+        return self.controller["update"].list_tft_releases()
+
+    def install_tft_url(self, url: str) -> dict:
+        """Install the TFT file at ``url`` on this device, on its worker thread.
+
+        Args:
+            url (str): http(s) URL of the ``.tft`` file
+
+        Returns:
+            dict: The update state after the attempt; ``state`` is ``error``
+            when the install could not start.
+        """
+        return self.controller["update"].install_tft_url(url)
+
+    def publish_display_update(self) -> None:
+        """Fire the current TFT update state for the "HAUI Display" entity."""
+        self.controller["update"].publish_display_update()
+
+    def install_firmware(self, version: str | None = None, url: str | None = None) -> dict:
+        """Trigger a firmware install for this device, on its worker thread.
+
+        Args:
+            version (str | None): GitHub release to install instead of the
+                offered update
+            url (str | None): URL of an OTA app image instead of a release
+
+        Returns:
+            dict: The update state (see ``HAUIUpdateController.install_firmware``)
+        """
+        update_ctrl = self.controller.get("update")
+        if update_ctrl is None:
+            self.log("Cannot install firmware: no update controller", level="WARNING")
+            return {
+                "firmware_installing": False,
+                "firmware_install_error": "no update controller",
+            }
+        return update_ctrl.install_firmware(version, url)
+
+    def list_firmware_releases(self) -> dict:
+        """List the releases whose firmware installs over the air, on its worker thread.
+
+        Returns:
+            dict: ``releases`` and ``error`` (see
+            ``HAUIUpdateController.list_firmware_releases``).
+        """
+        return self.controller["update"].list_firmware_releases()
+
+    def check_for_update(self) -> dict:
+        """Run a manual update check for this device, on its worker thread.
+
+        Called via ``async_run_on_worker`` from the REST API.  A manual check
+        bypasses stale failure state and the hub-level release cache.
+
+        Returns:
+            dict: The check result (see
+            ``HAUIUpdateController.check_for_update``).
+        """
+        return self.controller["update"].manual_check_for_update()
 
     # status endpoint support
 
@@ -299,7 +369,7 @@ class NSPanelHAUI(HAAdapter):
         # Read network info from HA entities only (no stale fallback).
         from .esphome_helpers import read_network_entities
 
-        nw = read_network_entities(self.hass, self._runtime_device_name or "", self.find_entity_id)
+        nw = read_network_entities(self.hass, self._runtime_device_name or "")
 
         result["device_info"] = {
             "name": self._runtime_device_name or device_config.get("name", self.name),
@@ -330,7 +400,7 @@ class NSPanelHAUI(HAAdapter):
                 if conn and conn.is_connected and conn.last_connection_time
                 else None
             ),
-            "idle_page_active": bool(nav.idle_panel_active) if nav else False,
+            "idle_page_active": bool(self.device.sleeping) if self.device else False,
         }
 
         # ESPHome transport info

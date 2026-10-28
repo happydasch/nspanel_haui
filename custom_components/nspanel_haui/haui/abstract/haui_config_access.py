@@ -103,28 +103,10 @@ class HAUIConfigAccess:
             args: Optional positional arguments to include in the log message.
             kwargs: Optional keyword arguments to include in the log message.
         """
-        # Gate: drop DEBUG messages when debug_level < 1.
-        # Callers should use self.debug_log() instead of self.log(level="DEBUG"),
-        # but this backstop prevents accidental bypass of the user's setting.
-        if kwargs.get("level", "").upper() == "DEBUG":
-            if self.app.device.get("debug_level") < 1:
-                return
         ascii_encode = kwargs.get("ascii_encode", False)
         if "ascii_encode" in kwargs:
             kwargs.pop("ascii_encode")
         self.app.log(msg, ascii_encode=ascii_encode, **kwargs)
-
-    def debug_log(self, msg: str, min_level: int = 1, **kwargs: Any) -> None:
-        """Log at DEBUG level if the device's debug_level >= min_level.
-
-        Args:
-            msg: The log message.
-            min_level: Minimum debug_level required to emit this log (default 1).
-            **kwargs: Additional keyword arguments passed to self.log().
-        """
-        if self.app.device.get("debug_level") >= min_level:
-            kwargs["level"] = "DEBUG"
-            self.log(msg, **kwargs)
 
     def get_locale(self) -> str:
         """Returns the locale of the config.

@@ -30,6 +30,11 @@ Each entity in the grid can have optional color and appearance overrides. In the
 | **Power Button Color** | Color for the power toggle button |
 | **Show Power Button** | Toggle to show a power on/off button on the tile |
 
+The colour fields accept the same forms as the entity `color` option: a hex
+value, an RGB triplet, an RGB565 integer, a state-keyed JSON object
+(`{"on": "#00ff00", "off": "#ff0000"}`), or a template. State-keyed colours are
+resolved against the entity state and refreshed when the state changes.
+
 ## Display Behavior
 
 - If more than 6 entities are configured, a next-page button appears.

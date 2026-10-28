@@ -27,6 +27,8 @@ class DummyESPHome:
 class _DevStub:
     """Stub for self.app.device required by HAUIBase.debug_log()."""
 
+    sleeping = False
+
     def get(self, key: str, default=0):
         return default
 

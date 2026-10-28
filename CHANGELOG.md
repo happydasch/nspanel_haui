@@ -6,6 +6,194 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
+## [0.4.4] — unreleased
+
+### Planned
+
+- Complete the remaining 0.4.x acceptance passlist on EU and US/portrait
+  hardware, including the new firmware-OTA-to-TFT sequence and buzzer shutdown.
+- Investigate the old-bootloader OTA rollback warning before treating unattended
+  updates as safe.
+- Review notification-enhancement issue [#50](https://github.com/happydasch/nspanel_haui/issues/50)
+  and verify notification behavior across both display models.
+
+See the [v0.4.4 roadmap](ROADMAP.md#v044--hardware-acceptance-and-ota-risk-closure-planned).
+
+## [0.4.3] — 2026-10-28
+
+### Breaking changes
+
+- **TFT installs moved from the firmware to the integration** — the firmware
+  drops the **Update Display** button and the `esphome.<device>_upload_tft`
+  action, and the `tft_update_url_portrait` substitution is no longer used.
+  Install the TFT with the new **HAUI Display** update entity or
+  `nspanel_haui.update_tft` (which now takes an optional `url`).
+  `esphome.<device>_upload_tft_url` remains as the hub's transport. See
+  [Upgrading → TFT install actions](docs/upgrading.md#10-tft-install-actions-moved-to-the-integration).
+
+### Added
+
+- **HAUI Display update entity** — each linked panel gets
+  `update.<device>_haui_display` next to the firmware's **HAUI Firmware**
+  entity. It shows the installed TFT and the TFT the firmware needs, installs
+  it, and stays *installing* (and available) while the upload keeps the device
+  offline. The hub fires `nspanel_haui.display_update_changed` events for it.
+- **Local test firmware releases** — `scripts/dev_release.py` turns a local
+  build into `nspanel_haui_ota.bin` plus `firmware-manifest.json` for Home
+  Assistant's `/local` folder, so firmware updates can be tested without a
+  GitHub tag (which every panel would install). It refuses factory images and
+  builds whose `yaml_version` or manifest URL does not match. See
+  [Release process → local release](docs/release.md#test-firmware-updates-with-a-local-release).
+- **Another firmware release or a custom build can be installed** — the
+  firmware gains an `install_firmware_url` action (ESPHome's
+  `ota.http_request.flash`), and the hub uses it for
+  `nspanel_haui.update_firmware` with `version` or `url` and for the Device
+  Manager's **Install firmware** picker (offered update, releases with an
+  over-the-air image — v0.4.2 and later — or a URL). The hub reads the md5 from
+  the release manifest or downloads a URL to compute it, and refuses factory
+  images. A hand-installed firmware pauses the automatic firmware update until
+  Home Assistant restarts or the offered update is installed. Flash this
+  firmware first; older firmware can only install the offered update.
+- **The editor's Install TFT action picks the TFT** — the Device Manager's
+  **Install TFT** opens a picker in the device row: the version the firmware
+  needs, any GitHub release that ships this display model's TFT, or a URL.
+- **Another TFT release can be installed, older ones included** —
+  `nspanel_haui.update_tft` takes an optional `version`, and the **HAUI
+  Display** entity supports `update.install` with `version`. A TFT installed
+  with `version` or `url` is no longer replaced by the automatic check right
+  after its own reboot; it stays until the firmware version changes or Home
+  Assistant restarts.
+- **`nspanel_haui.update_tft` installs a TFT from a URL** — the optional `url`
+  field replaces calling `esphome.<device>_upload_tft_url` directly and keeps
+  the install tracked; it counts as done once the display reports its version
+  after the upload's reboot.
+
+### Fixed
+
+- **"Return to the home panel after" works with an idle page** — when
+  `timeout_page` was shorter than `auto_navigate_home_timeout`, the idle page
+  opened first, the return-home timer gave up, and waking restored the panel
+  you were on, so the display never got back home. Once the timeout has passed,
+  leaving the idle page now opens the home panel.
+- **Panels can be deleted on the integration page** — the device menu on
+  *Settings → Devices & services → NSPanel HAUI* offered only **Disable**.
+  **Delete** now removes the panel from the hub like **Remove** in the editor's
+  device manager, including its settings and panels.
+- **Buzzer no longer sticks on during firmware updates or reboots (#62)** — the
+  RTTTL player turns a note off only from the ESP32 main loop, and 0.4.2 stopped
+  it only before a TFT upload. A firmware install (the **HAUI Firmware** entity,
+  firmware auto-update, or an ESPHome dashboard OTA) blocks the main loop the
+  same way, and a reboot resets only the CPUs, not the buzzer's LEDC output, so
+  the note playing at that moment kept sounding through the download or the boot.
+  Both OTA platforms' `on_begin` and `esphome: on_shutdown` now run
+  `suspend_activities` too. Flash the updated ESPHome firmware to activate the fix.
+- **Universal-image panels keep their Wi-Fi across firmware updates** — the
+  universal image baked a never-matching Wi-Fi network, and with a network in
+  the YAML ESPHome keys the Wi-Fi entered on the captive portal to the build's
+  config hash. Every firmware update with a changed config (including the
+  **HAUI Firmware** auto-update) forgot it, and the panel fell back to its setup
+  access point. The image now carries no network of its own, so ESPHome uses a
+  fixed key, and a one-time boot step moves Wi-Fi saved by an older build to it.
+- **TFT installs from GitHub releases work again** — GitHub redirects release
+  TFTs to a signed URL of about 870 characters, which overflowed the display
+  component's 512-byte default HTTP TX buffer (`HTTP_CLIENT: Out of buffer`),
+  so every hub TFT install failed before the first byte and timed out after 20
+  minutes. The vendored `nextion` component backports
+  `tft_upload_http_buffer_size_tx` (esphome/esphome#21435) and the firmware sets
+  it to 2048. Update the firmware first; the TFT follows after the reboot.
+- **Check for updates reports its result and installs an outdated TFT** — the
+  editor only said "Checking for updates" and a panel that was already current
+  got no answer, so the check looked broken. It now shows whether the panel is
+  up to date (with the latest release), a firmware update started or is
+  available, a TFT install started, or why the GitHub check failed. The check
+  also runs the TFT version check, which otherwise only ran after a connect.
+- **Firmware builds fetch the nextion patch with the package** — the
+  `external_components` entry for `esphome/nextion_patch` kept ESPHome's
+  default 1-day cache, so a build could combine a fresh `display.yaml` with an
+  older patch and fail with "[tft_upload_http_buffer_size_tx] is an invalid
+  option". It now uses `refresh: 0s`.
+- **The TFT install after a firmware update finds the new release** — a
+  firmware install skips the GitHub release fetch, so the TFT check after its
+  reboot could look up the new version in a release list cached before it was
+  published and fail with "No GitHub release". A cached list without the
+  requested TFT is now refetched once.
+
+- **The idle page exits on one touch when the display is on or dim** — the
+  two-touch wake guard armed while the display was dark stayed armed after the
+  display turned on or dimmed, so leaving the idle page needed two touches even
+  though the screen was visible. The guard is now treated as stale after the
+  wake-touch duplicate window and the first touch exits; "off" keeps the
+  two-touch behavior.
+- **Update checks now run with the shipped defaults** — `check_on_connect`
+  (now `True` by default) and `update_interval` (now `3600` seconds, hourly;
+  `0` still disables) were previously unreachable user settings: the top-level
+  `update` block was never merged into the running configuration, so every
+  device kept the pristine defaults. Per-device update settings are now
+  deep-merged from the device store over the integration defaults.
+- **Firmware auto-updates no longer depend on a TFT update.** The firmware
+  entity is refreshed and checked independently, so a device whose TFT is
+  already current can still install a newer ESPHome firmware. Service failures
+  are reported instead of being marked as a started install.
+- **Firmware updates can be triggered from the editor.** The device action menu
+  offers **Install firmware** when HA reports an update, and the action confirms
+  the manifest state before calling `update.install`.
+- **TFT updates have a device-targeted Home Assistant service.**
+  `nspanel_haui.update_tft` appears once in the HA service list and requires
+  selecting a single NSPanel, then installs the TFT matching that firmware.
+  This avoids guessing which per-device ESPHome upload action belongs to a panel.
+- **The device can fetch GitHub manifests again** — the ESPHome `http_request`
+  RX buffer is raised to 8192 bytes for redirect headers and its TX buffer to
+  2048 bytes for signed redirect request targets (the ESP-IDF defaults are 512
+  bytes).
+- **The editor can check for updates and show firmware availability** — the
+  device action menu has **Check for updates** (bypassing the one-hour
+  hub-level release cache) and the device list shows when the `HAUI Firmware`
+  entity reports an update.
+- **One GitHub request per hub, not per device** — update controllers share a
+  module-level releases cache for an hour, keeping a multi-device hub inside
+  GitHub's unauthenticated rate limit. A manual check bypasses the cache.
+- **Grid tiles resolve state-keyed colours** — a state-keyed or templated
+  `back_color`/`text_color` was passed raw to the colour parser, which renders
+  it black; tiles now resolve those values and refresh their background and
+  text colours when the entity state changes. The editor preview does the same.
+- **Grid power buttons are no longer cut off at the bottom** — a tile refresh
+  that left the power button's own colours unchanged (an attribute update,
+  turning the page) redrew the tile icon, whose box overlaps the bottom of the
+  power button, without redrawing the button. The power button is now redrawn
+  after the icon.
+- **The internal temperature sensor shows up again on the clock and weather
+  panels** — the display looked it up as `sensor.{device_slug}_temperature`,
+  which misses installations where the HAUI device name differs from the
+  ESPHome node name (renames, area-prefixed entity ids). The sensor is now
+  resolved through the entity registry by its ESPHome-authored name
+  (`Temperature`), falling back to the classic id when the registry has no
+  match.
+
+- **The Device Manager's More menu can install the TFT.** **Install TFT** stays
+  available when the panel has not reported its current TFT version; missing
+  firmware/display versions are shown as **Unknown** instead of being hidden.
+
+### Changed
+
+- **Sounds are off by default** — `sound_on_startup` and
+  `sound_on_notification` now default to `False`, so a new panel stays silent:
+  no startup tone, no notification or persistent-notification tones and no
+  timer finish alert. Panels whose device settings were saved in the editor
+  keep their stored values; panels still on the defaults turn silent after the
+  update. Turn them back on under **Device settings → Notifications**.
+- **Optional diagnostics stay out of production by default** — `Uptime`,
+  `Heap Free`, `Heap Max Block`, `Loop Time` and `Reset Reason` are included only
+  by the local development config through `debug.yaml`; the shared production
+  package and universal image omit them. The raw ADC and resistance sensors used
+  for the internal temperature calculation remain `disabled_by_default: true`.
+- The update settings (`check_on_connect`, `update_interval`,
+  `firmware_auto_update`, `auto_install`) are editable per device in the
+  editor's **Updates** section.
+- **Editor dialogs close on a click outside** — Device Settings, the panel
+  editor, Device Colors and the Device Manager now close like the other
+  dialogs when you click the dimmed background or press Escape. Unsaved
+  changes are discarded, as with the close button.
+
 ## [0.4.2] — 2026-10-27
 
 ### Breaking changes

@@ -2,6 +2,10 @@ debug:
   update_interval: 30s          # logs free heap + loop time periodically
 
 sensor:
+  - platform: uptime
+    name: Uptime
+    id: uptime_sensor
+
   - platform: debug
     free:
       name: "Heap Free"         # watch this decline = leak confirmed

@@ -215,18 +215,20 @@ upgrading:
 - **Failed installs report why.** The editor shows a toast when the upload
   command could not be sent or when the update state ends in `error`. The REST
   API returns HTTP 502 for a failed install instead of a silent success.
-- **The buzzer stops before a TFT upload starts.** A playing tune no longer
-  sounds until the reboot. Flash the updated ESPHome firmware to activate this
-  fix.
-- **Firmware auto-update ships the display and firmware together.** When a newer
-  release exists and the device reports an installable firmware update through
-  its `HAUI Firmware` entity, the hub triggers the firmware install first. The
-  device reboots into the new firmware and then installs the matching TFT on the
-  next connect. A TFT upload that is already running is never interrupted: the
-  firmware install waits for it to finish. Set `firmware_auto_update: false` to
-  keep the previous notice-only behaviour. The first firmware that contains this
-  feature must still be flashed manually — the `HAUI Firmware` entity only exists
-  in the new firmware, so an older firmware cannot be updated by the hub.
+- **The buzzer stops before a TFT upload, a firmware update or a reboot.** A
+  playing tune no longer keeps one note sounding through the transfer or the
+  boot. Flash the updated ESPHome firmware to activate this fix.
+- **Firmware auto-update ships the display and firmware together.** The hub
+  refreshes and checks the device's `HAUI Firmware` entity independently of the
+  TFT version, then triggers an available firmware update first. The device
+  reboots into the new firmware and then installs the matching TFT on the next
+  connect. A TFT upload that is already running is never interrupted: the
+  firmware install waits for it to finish. Turn off **Auto-install firmware
+  updates** in the device editor to disable unattended firmware installs; the
+  Device Manager's **Install firmware** action remains available when HA reports
+  an update. The first firmware that contains this feature must still be
+  flashed manually — the `HAUI Firmware` entity only exists in the new firmware,
+  so an older firmware cannot be updated by the hub.
 
 ## 9. Web server is no longer enabled by default
 
@@ -253,3 +255,32 @@ web_server:
 `esphome/nspanel_haui_dev.yaml` keeps the web server for local development. See
 [ESPHome Component → Web server](esphome.md#web-server-optional).
 
+## 10. TFT install actions moved to the integration
+
+Installing the display TFT is now an integration feature, next to the
+firmware's own **HAUI Firmware** update entity:
+
+- Each linked panel gets a **HAUI Display** update entity
+  (`update.<device>_haui_display`). It shows the installed TFT and the TFT the
+  firmware needs; **Install** installs it.
+- `nspanel_haui.update_tft` takes an optional `url` to install a custom or
+  development TFT file.
+
+The firmware drops the matching public pieces. After flashing the new firmware:
+
+| Removed | Use instead |
+|---------|-------------|
+| Button `Update Display` (`button.<device>_update_display`) | **Install** on `update.<device>_haui_display` |
+| Action `esphome.<device>_upload_tft` | `nspanel_haui.update_tft` |
+| Action `esphome.<device>_upload_tft_url` in automations | `nspanel_haui.update_tft` with `url` |
+| Substitution `tft_update_url_portrait` | nothing — the hub picks the portrait TFT by the device's display model |
+
+`esphome.<device>_upload_tft_url` itself still exists: the hub uses it to hand
+the TFT URL to the device. Calling it directly works but bypasses the hub's
+install tracking. A leftover `tft_update_url_portrait` in your device YAML is
+ignored and can be deleted.
+
+The new firmware also fixes TFT installs from GitHub releases, which failed
+with `HTTP_CLIENT: Out of buffer` (see
+[Troubleshooting](troubleshooting.md#firmware-updates-work-tft-installs-stay-installing-and-then-time-out)).
+Update the firmware first; the TFT follows after the reboot.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -137,43 +138,54 @@ def is_haui_device(hass: Any, entry: Any) -> bool:
     return False
 
 
-def read_network_entities(hass: Any, device_name: str, entity_resolver: Any = None) -> dict:
-    """Read WiFi/network info from HA sensor entities for a device.
+def resolve_esphome_entity_id(hass: Any, device_id: str, original_name: str) -> str | None:
+    """Resolve an ESPHome entity by its original name on one HA device."""
+    from homeassistant.helpers import entity_registry as er
 
-    Returns {ip, ssid, rssi} from entity states only.
-    RSSI is float|None; IP and SSID are str, empty if unavailable.
-
-    ESPHome text_sensor entities (wifi_info ip_address, ssid) are
-    registered under the sensor domain in HA (Platform.SENSOR), so
-    lookup uses `sensor.{slug}_ip` etc.  When *entity_resolver* is given
-    (a callable ``(domain, original_name) -> entity_id``, e.g. the app's
-    ``find_entity_id``), each sensor is resolved through the entity
-    registry first so area/device-prefixed ids and device renames work.
-    """
-    from homeassistant.util import slugify
-
-    slug = slugify(device_name)
-
-    def _lookup(name: str) -> str | None:
-        if entity_resolver is not None:
-            found = entity_resolver("sensor", name)
-            if found:
-                return found
-        return f"sensor.{slug}_{name}"
-
-    ip_state = hass.states.get(_lookup("ip"))
-    ssid_state = hass.states.get(_lookup("ssid"))
-    rssi_state = hass.states.get(_lookup("rssi"))
-
-    def _val(state: Any) -> str | None:
-        if state is not None and state.state not in ("unknown", "unavailable", ""):
-            return state.state
+    registry = er.async_get(hass)
+    if registry is None:
         return None
 
-    ip = _val(ip_state) or ""
-    ssid = _val(ssid_state) or ""
-    rssi_raw = _val(rssi_state)
-    rssi = float(rssi_raw) if rssi_raw else None
+    wanted = original_name.casefold()
+    candidates = [
+        entity_id
+        for entity_id, entry in registry.entities.items()
+        if entry.domain == "sensor"
+        and entry.platform == "esphome"
+        and entry.device_id == device_id
+        and (entry.original_name or "").casefold() == wanted
+    ]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def read_network_entities(hass: Any, device_name: str) -> dict[str, str | float | None]:
+    """Read Wi-Fi readings from the ESPHome entities registered to a device.
+
+    Missing or unavailable readings are returned independently: empty strings
+    for IP/SSID and ``None`` for RSSI.
+    """
+    device_id = resolve_ha_device_id(hass, device_name)
+
+    def _value(original_name: str) -> str | None:
+        if device_id is None:
+            return None
+        entity_id = resolve_esphome_entity_id(hass, device_id, original_name)
+        if entity_id is None:
+            return None
+        state = hass.states.get(entity_id)
+        if state is None or state.state in ("unknown", "unavailable", ""):
+            return None
+        return state.state
+
+    ip = _value("IP") or ""
+    ssid = _value("SSID") or ""
+    rssi_raw = _value("RSSI")
+    try:
+        rssi = float(rssi_raw) if rssi_raw is not None else None
+    except ValueError:
+        rssi = None
+    if rssi is not None and not math.isfinite(rssi):
+        rssi = None
 
     return {"ip": ip, "ssid": ssid, "rssi": rssi}
 

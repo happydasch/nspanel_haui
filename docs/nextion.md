@@ -7,23 +7,19 @@ description: Nextion display configuration, HMI editing, and display rendering
 
 ## Installation
 
-To install the TFT file on the display, the device needs to be already flashed with ESPHome.
+To install the TFT file on the display, the device needs to be already flashed with ESPHome
+and added to the integration. The hub installs the TFT the firmware needs when the device
+connects; to install it by hand:
 
-The device will provide a button `Update Display` in the device settings. There are also services
-available.
+- **Using the update entity**:
 
-- **Using a button**:
-
-  - Button: `Update Display`
-    This will load the TFT file from the URL configured on the ESP.
+  - Entity: `HAUI Display` (`update.<device>_haui_display`) — press **Install**.
+    This installs the TFT release the firmware needs.
 
 - **Using a service**:
 
-  - Service: `esphome.<device>_upload_tft`
-    This will load the TFT from the configured URL
-
-  - Service: `esphome.<device>_upload_tft_url`
-    This will load the TFT from the URL provided to the service.
+  - Service: `nspanel_haui.update_tft`
+    This installs the TFT release the firmware needs, or the TFT at the optional `url`.
 
 See the [Services Reference](services.md#tft-display-upload) for full details and examples.
 
@@ -45,7 +41,8 @@ This project uses the stock ESPHome `nextion` display component (with a temporar
 
 - `uart_id`: references the UART bus used for the Nextion display.
 - `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. Hardware sleep only happens without a hub connection; with a hub the display stays awake (at brightness 0) and the hub restores the panel itself.
-- `tft_url`: URL used by `upload_tft` to update the TFT file.
+- `tft_url`: default TFT URL; setting it enables TFT upload support (the hub always passes the URL of the TFT it installs).
+- `tft_upload_http_buffer_size_tx` (`2048`): HTTP TX buffer for the TFT download. GitHub redirects release TFTs to a signed URL of about 870 characters; the ESP-IDF default of 512 bytes cannot hold that request line and the upload fails with `HTTP_CLIENT: Out of buffer`. Comes from the vendored patch until a released ESPHome contains it.
 - `on_setup`: triggered after ESPHome connects to the Nextion.
 - `on_page`: triggered when the display changes pages.
 - `on_touch`: triggered when a touch event happens.
@@ -64,8 +61,7 @@ HA-side batching reduces service-call overhead but does not itself prevent UART 
 
 The repo also exposes these actions via API:
 
-- `upload_tft`
-- `upload_tft_url`
+- `upload_tft_url` (sent by the hub's TFT install)
 - `send_command`
 - `set_brightness`
 - `goto_page`

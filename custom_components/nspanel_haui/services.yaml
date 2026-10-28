@@ -1,3 +1,76 @@
+# ── nspanel_haui.update_tft ──────────────────────────────────
+update_tft:
+  name: Update TFT
+  description: >-
+    Install the TFT release required by this panel's firmware, another release
+    (older ones included), or the TFT file at a URL. Select a single NSPanel
+    device; this service cannot be called for all devices at once.
+  fields:
+    device:
+      name: "Device"
+      description: "NSPanel device whose display should be updated."
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    version:
+      name: "Version"
+      description: >-
+        Optional GitHub release to install instead of the one the firmware
+        needs, e.g. an older release. Cannot be combined with URL.
+      required: false
+      example: "0.4.1"
+      selector:
+        text:
+    url:
+      name: "URL"
+      description: >-
+        Optional http(s) URL of a .tft file to install instead of the GitHub
+        release the firmware needs (custom or development builds). Cannot be
+        combined with Version.
+      required: false
+      example: "http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft"
+      selector:
+        text:
+          type: url
+
+# ── nspanel_haui.update_firmware ─────────────────────────────
+update_firmware:
+  name: Update firmware
+  description: >-
+    Install the firmware update Home Assistant offers for this panel, another
+    GitHub release (older ones included), or the firmware OTA image at a URL.
+    A release or URL install pauses the automatic firmware update until Home
+    Assistant restarts. Select a single NSPanel device.
+  fields:
+    device:
+      name: "Device"
+      description: "NSPanel device whose firmware should be installed."
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    version:
+      name: "Version"
+      description: >-
+        Optional GitHub release to install instead of the offered update, e.g.
+        an older release. Only releases that ship nspanel_haui_ota.bin install
+        over the air. Cannot be combined with URL.
+      required: false
+      example: "0.4.2"
+      selector:
+        text:
+    url:
+      name: "URL"
+      description: >-
+        Optional http(s) URL of a firmware OTA image (firmware.ota.bin, not the
+        factory image) to install. Cannot be combined with Version.
+      required: false
+      example: "http://homeassistant.local:8123/local/nspanel/firmware.ota.bin"
+      selector:
+        text:
+          type: url
+
 # ── nspanel_haui.open_panel ──────────────────────────────────
 open_panel:
   name: Open panel

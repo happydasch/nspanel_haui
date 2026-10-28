@@ -41,6 +41,7 @@ def _install_ha_stubs() -> None:
 _install_ha_stubs()
 
 import pytest  # noqa: E402
+import voluptuous as vol  # noqa: E402
 from nspanel_haui.services import (  # noqa: E402
     DOMAIN,
     SERVICE_CLOSE_PANEL,
@@ -48,6 +49,10 @@ from nspanel_haui.services import (  # noqa: E402
     SERVICE_OPEN_PANEL,
     SERVICE_RESET_LAST_INTERACTION,
     SERVICE_SEND_NOTIFICATION,
+    SERVICE_UPDATE_FIRMWARE,
+    SERVICE_UPDATE_FIRMWARE_SCHEMA,
+    SERVICE_UPDATE_TFT,
+    SERVICE_UPDATE_TFT_SCHEMA,
     SERVICE_WAKEUP,
     _resolve_target_apps,
     async_register_services,
@@ -164,7 +169,7 @@ class TestRegisterServices:
     def test_registers_all_services(self, mock_hass):
         """All services are registered."""
         async_register_services(mock_hass)
-        assert mock_hass.services.async_register.call_count == 6
+        assert mock_hass.services.async_register.call_count == 8
 
     def test_idempotent(self, mock_hass):
         """Second call skips registration (has_service returns True)."""
@@ -184,6 +189,14 @@ class TestRegisterServices:
         assert SERVICE_IDLE in registered
         assert SERVICE_SEND_NOTIFICATION in registered
         assert SERVICE_RESET_LAST_INTERACTION in registered
+        assert SERVICE_UPDATE_TFT in registered
+        assert SERVICE_UPDATE_FIRMWARE in registered
+
+
+def test_update_tft_requires_a_device():
+    """The TFT update service must never default to every registered device."""
+    with pytest.raises(vol.Invalid):
+        SERVICE_UPDATE_TFT_SCHEMA({})
 
 
 # ── Service handler integration tests ───────────────────────────────────
@@ -249,6 +262,107 @@ async def test_close_panel(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_close_panel(mock_hass, call)
 
     mock_nav.close_panel.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_update_tft_targets_selected_device(mock_hass, mock_nav, mock_esphome_ctrl):
+    """update_tft installs the firmware-matched TFT only on the selected device."""
+    target = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
+    other = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_other", name="other")
+    target.install_tft = MagicMock(return_value={"state": "installing"})
+    other.install_tft = MagicMock(return_value={"state": "installing"})
+    mock_hass.data[DOMAIN] = {"entry_1": {"target": target, "other": other}}
+
+    from nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "dev_target"}
+    call.service = SERVICE_UPDATE_TFT
+
+    await _handle_update_tft(mock_hass, call)
+
+    target.install_tft.assert_called_once_with(None)
+    other.install_tft.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_tft_with_url_installs_that_file(mock_hass, mock_nav, mock_esphome_ctrl):
+    """The url field replaces the public ESPHome upload_tft_url action."""
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
+    app.install_tft = MagicMock(return_value={"state": "installing"})
+    app.install_tft_url = MagicMock(return_value={"state": "installing"})
+    mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
+
+    from nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "dev_target", "url": "http://ha.local/nspanel_haui.tft"}
+    call.service = SERVICE_UPDATE_TFT
+
+    await _handle_update_tft(mock_hass, call)
+
+    app.install_tft_url.assert_called_once_with("http://ha.local/nspanel_haui.tft")
+    app.install_tft.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_tft_with_version_installs_that_release(
+    mock_hass, mock_nav, mock_esphome_ctrl
+):
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
+    app.install_tft = MagicMock(return_value={"state": "installing"})
+    mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
+
+    from nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "dev_target", "version": "0.4.1"}
+    call.service = SERVICE_UPDATE_TFT
+
+    await _handle_update_tft(mock_hass, call)
+
+    app.install_tft.assert_called_once_with("0.4.1")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("data", "args"),
+    [
+        pytest.param({}, (None, None), id="offered-update"),
+        pytest.param({"version": "v0.4.2"}, ("v0.4.2", None), id="release"),
+        pytest.param({"url": "http://ha.local/fw.bin"}, (None, "http://ha.local/fw.bin"), id="url"),
+    ],
+)
+async def test_update_firmware_installs_the_chosen_firmware(
+    mock_hass, mock_nav, mock_esphome_ctrl, data, args
+):
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
+    app.install_firmware = MagicMock(return_value={"firmware_install_error": None})
+    mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
+
+    from nspanel_haui.services import _handle_update_firmware
+
+    call = MagicMock()
+    call.data = {"device": "dev_target", **data}
+    call.service = SERVICE_UPDATE_FIRMWARE
+
+    await _handle_update_firmware(mock_hass, call)
+
+    app.install_firmware.assert_called_once_with(*args)
+
+
+def test_update_firmware_takes_a_version_or_a_url_not_both():
+    with pytest.raises(vol.Invalid):
+        SERVICE_UPDATE_FIRMWARE_SCHEMA(
+            {"device": "dev_target", "version": "v0.4.2", "url": "http://ha.local/fw.bin"}
+        )
+
+
+def test_update_tft_takes_a_version_or_a_url_not_both():
+    with pytest.raises(vol.Invalid):
+        SERVICE_UPDATE_TFT_SCHEMA(
+            {"device": "dev_target", "version": "0.4.1", "url": "http://ha.local/x.tft"}
+        )
 
 
 @pytest.mark.asyncio

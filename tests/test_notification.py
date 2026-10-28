@@ -26,6 +26,15 @@ class DummyEntity:
 class _DevStub:
     """Stub for self.app.device required by HAUIBase.debug_log()."""
 
+    def __init__(self, app=None):
+        self._app = app
+
+    @property
+    def sleeping(self):
+        """Mirror HAUIDevice: sleep means the idle page is shown."""
+        navigation = self._app.controller.get("navigation") if self._app else None
+        return getattr(navigation, "idle_panel_active", False) is True
+
     def get(self, key: str, default=0):
         return default
 
@@ -36,7 +45,7 @@ class _DevStub:
 class DummyApp:
     def __init__(self):
         self.controller = {}
-        self.device = _DevStub()
+        self.device = _DevStub(self)
         self.log_calls = []
         self.call_service_calls = []
         self.entity_calls = []
@@ -207,8 +216,22 @@ def test_quiet_hours_apply_when_do_not_disturb_is_on(dummy_app):
     assert device._is_quiet_hours() is True
 
 
-def test_critical_notification_plays_alert_sound(dummy_app):
+def test_notification_is_silent_by_default(dummy_app):
     device = _device(dummy_app)
+    played = []
+    device.play_sound = played.append
+
+    device.process_event(
+        HAUIEvent(
+            NotifEvent.NOTIF_ADD, Notification("Smoke", "Kitchen", "", True, "critical", False)
+        )
+    )
+
+    assert played == []
+
+
+def test_critical_notification_plays_alert_sound(dummy_app):
+    device = _device(dummy_app, sound_on_notification=True)
     played = []
     device.play_sound = played.append
 
@@ -229,7 +252,7 @@ def test_persistent_critical_notification_repeats_alert_sound(dummy_app):
     dummy_app.controller["notification"] = notif_ctrl
     loops = []
     dummy_app.run_every = lambda cb, start, interval: loops.append((cb, interval)) or "loop"
-    device = _device(dummy_app, persistent_sound_interval=7)
+    device = _device(dummy_app, sound_on_notification=True, persistent_sound_interval=7)
     played = []
     device.play_sound = played.append
 
@@ -254,7 +277,7 @@ class LoopbackApp(DummyApp):
 
     def __init__(self):
         super().__init__()
-        self.device = _LocaleDevStub()
+        self.device = _LocaleDevStub(self)
         self.timers = {}
         self.navigation = MagicMock()
         self.controller["navigation"] = self.navigation

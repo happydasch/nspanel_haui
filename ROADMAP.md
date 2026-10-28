@@ -1,14 +1,12 @@
 # Roadmap
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
-shipped on 2026-10-26**, tagged from a green `master` commit and published by
-the release workflow.
+shipped on 2026-10-26 and v0.4.2 on 2026-10-27**, each tagged from a green
+`master` commit and published by the release workflow.
 
-The **dev** branch tracks **0.4.2**: the remaining gate implementation —
-firmware auto-update, version-bump tooling, CI version/translation/Nextion
-checks and the vendored Nextion display-read fix — has all landed there since
-the release (details in [CHANGELOG.md](CHANGELOG.md)). What the gate still needs
-is the hardware confirmation on the passlist below.
+The **dev** branch has the v0.4.3 release prepared. The updated landscape and
+portrait TFTs are in place; the remaining 0.4.x hardware acceptance and OTA risk
+checks are tracked as the **v0.4.4 plan** below.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
@@ -18,11 +16,11 @@ belong in the issue tracker.
 **The 0.4.x install gate comes first.** The binary and TFT install must work
 completely and the base and core functions must be proven on real hardware.
 Nothing in v0.5 or v0.6 starts before that: a broken install or a core regression
-blocks the next minor release, and anything the passlist turns up ships as a
-`0.4.x` patch. After the gate closes, **v0.5** adds multiple TFTs for normal- and
-high-speed updates, stable and controllable manual/auto updates in the frontend,
-and a Device Manager overhaul. **v0.6** adds Display Repair Mode — a simple TFT
-used to repair an existing display.
+blocks the next minor release, and remaining gate work is planned for `0.4.4`.
+After the gate closes, **v0.5** adds multiple TFTs for normal- and high-speed
+updates, stable and controllable manual/auto updates in the frontend, and a
+Device Manager overhaul. **v0.6** adds Display Repair Mode — a simple TFT used to
+repair an existing display.
 
 ---
 
@@ -43,9 +41,10 @@ One job: make the install complete and working. New features wait.
 - **Notification behaviour** — HA persistence and `force_show`, ESPHome
   `send_notification` with `persistent`/`text_size`, long-message paging and
   severity default icons confirmed on hardware.
-- **Confirm recent fixes on hardware** — TFT reinstall (#63), buzzer stop (#62)
-  and portrait weather time (#64) are fixed on dev (0.4.2, see Changelog); the
-  hardware confirmation on the passlist below is what remains.
+- **Recent fixes confirmed on hardware** — issue #62's TFT-upload buzzer fix,
+  the #63 reinstall fix, and the #64 portrait weather alignment fix were
+  confirmed by the reporter on a US/portrait panel running 0.4.2. The broader
+  two-display-model passlist below is still outstanding.
 - **Upgrade paths** — the five renamed 0.3.x device-setting keys migrate
   automatically; saved panels are not migrated and must be re-entered.
 - **Release hygiene** — done on dev: `scripts/bump_version.py` /
@@ -84,6 +83,50 @@ One job: make the install complete and working. New features wait.
 working from the published release, and the portrait device auto-updating
 end-to-end. A failing row ships as a `0.4.x` patch; **v0.5 does not start until
 this gate is green.**
+
+### 0.4.3 — update-trigger fixes
+
+The issues collected while validating 0.4.2 led to these changes on `dev`:
+
+- **Automatic checks and configuration** — per-device update settings are
+  merged over integration defaults; enabled checks run on connect/hourly. Firmware
+  availability is now refreshed and handled independently of TFT release state.
+- **Firmware install failures** — checked service dispatch now distinguishes an
+  accepted `update.install` call from a failed Home Assistant service call, and
+  the install attempt is available from the Device Manager when firmware is
+  offered.
+- **Manifest fetching** — ESPHome HTTP RX/TX buffers are increased for GitHub
+  redirect headers and signed asset request targets.
+- **Frontend status and retry** — the editor shows firmware availability, can
+  refresh update info, and can trigger a firmware install; TFT failures continue
+  to surface as explicit errors rather than silent success.
+- **Release API usage** — release metadata is cached for one hour across the
+  hub's devices; manual checks intentionally bypass the cache.
+- **ESPHome diagnostic defaults** — uptime, heap, loop-time and reset-reason
+  diagnostics are development-only; raw ADC and resistance sensors used by the
+  temperature calculation remain disabled by default.
+
+---
+
+## v0.4.4 — hardware acceptance and OTA risk closure (planned)
+
+**Status: planned, unreleased.** The v0.4.3 code and TFTs are prepared; the
+following items remain before the 0.4.x install gate can close:
+
+- Complete the EU and US/portrait device passlist above, including universal
+  image onboarding, TFT auto-update, notifications, sleep/wakeup, touch, core
+  stability and editor add/remove/configuration flows.
+- Canary-test unattended firmware OTA end to end: install, reboot, verify the
+  matching TFT follows, and confirm the buzzer is silent during OTA and reboot.
+- Investigate the old-bootloader OTA rollback warning; rollback capability is
+  not confirmed and unattended updates should not be treated as rollback-safe.
+- Review open notification-enhancement issue #50 and verify notification
+  behavior on both display models.
+
+Issues #62/#63/#64 remain open on GitHub, but the reporter confirmed their
+specific TFT-upload buzzer, post-reboot TFT-version and portrait weather fixes on
+US/portrait hardware with 0.4.2. Do not treat those specific observations as
+replacing the broader v0.4.4 passlist.
 
 ---
 

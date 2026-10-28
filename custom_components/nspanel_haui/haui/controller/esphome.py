@@ -107,7 +107,7 @@ class HAUIESPHomeController(HAUIBase):
             )
             return
 
-        self.debug_log(f"Publishing command: {bare_cmd}")
+        self.log(f"Publishing command: {bare_cmd}", level="DEBUG")
         self.esphome.publish(bare_cmd, value)
         self.prev_cmd = dedup_key
 
@@ -133,8 +133,9 @@ class HAUIESPHomeController(HAUIBase):
         name = data.get("name", event_name)
         value = data.get("value", "")
 
-        self.debug_log(
+        self.log(
             f"ESPHome event received - name: {name}, value: {str(value)[:100]}",
+            level="DEBUG",
         )
 
         if name not in ALL_RECV:

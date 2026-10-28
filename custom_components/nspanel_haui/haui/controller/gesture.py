@@ -28,7 +28,7 @@ class HAUIGestureController(HAUIBase):
             config (dict): Config for controller
         """
         super().__init__(app, config)
-        self.debug_log(f"Creating Gesture Controller with config: {config}")
+        self.log(f"Creating Gesture Controller with config: {config}", level="DEBUG")
         self._current_seq: dict[int, dict] = {}
 
     # public

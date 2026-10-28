@@ -8,7 +8,7 @@ _ENTITY_ID = "weather.home"
 
 class _Device:
     def get(self, key, default=None):
-        return {"debug_level": 0}.get(key, default)
+        return {}.get(key, default)
 
     def get_slug(self):
         return "panel"
@@ -23,11 +23,14 @@ class _State:
 
 
 class _App:
-    def __init__(self, forecast=None, inside_temp=None):
+    def __init__(self, forecast=None, inside_temp=None, temp_entity_id=None):
         self.device = _Device()
         self.controller = {}
         self.forecast = forecast
         self.inside_temp = inside_temp
+        # Entity id the app's registry lookup would resolve; None lets the
+        # page fall back to the classic sensor.{device_slug}_temperature id.
+        self.temp_entity_id = temp_entity_id
 
     def log(self, msg, **kwargs):
         pass
@@ -35,8 +38,12 @@ class _App:
     def call_service(self, service, **kwargs):
         return {"result": {"response": {_ENTITY_ID: {"forecast": self.forecast}}}}
 
+    def find_entity_id(self, domain, name):
+        return self.temp_entity_id
+
     def get_item(self, entity_id):
-        assert entity_id == "sensor.panel_temperature"
+        expected = self.temp_entity_id or "sensor.panel_temperature"
+        assert entity_id == expected
         return _State(self.inside_temp)
 
 
@@ -103,6 +110,21 @@ def test_home_temp_unavailable_shows_outside_temp_only():
 
 def test_home_temp_shown_when_available():
     page = _weather_page(_App(inside_temp="21.4"), {"temperature": 12})
+    page._show_home_temp = True
+
+    page.update_main_weather()
+
+    home = f"{parse_icon('mdi:home-thermometer')}21°C  "
+    assert f'tMainText.txt="{home}{parse_icon("mdi:thermometer")}12°C"' in page.cmds
+
+
+def test_home_temp_reads_registry_resolved_entity_id():
+    """The sensor is resolved via the entity registry when the device name
+    differs from the ESPHome node name (renames, area-prefixed entity ids)."""
+    page = _weather_page(
+        _App(inside_temp="21.4", temp_entity_id="sensor.nspanel_bedroom_temperature"),
+        {"temperature": 12},
+    )
     page._show_home_temp = True
 
     page.update_main_weather()

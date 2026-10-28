@@ -15,8 +15,8 @@ import { itemDisplay, tileBgColor, tileIconColor } from './utils.js';
  */
 export function simItemTile(item, opts = {}, host) {
   const { icon, name } = itemDisplay(item, host);
-  const bg = tileBgColor(item);
-  const ic = tileIconColor(item);
+  const bg = tileBgColor(item, host);
+  const ic = tileIconColor(item, host);
   const shortName = name.length > 7 ? name.slice(0, 6) + '\u2026' : name;
   const cls = 'pg-preview-tile' + (opts.tileClass ? ' ' + opts.tileClass : '');
   return html`

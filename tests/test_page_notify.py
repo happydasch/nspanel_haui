@@ -5,7 +5,7 @@ from nspanel_haui.haui.page.notify import _FNC_NEXT_PAGE, NotifyPage
 
 class _Device:
     def get(self, key, default=None):
-        return {"debug_level": 0}.get(key, default)
+        return {}.get(key, default)
 
     def get_slug(self):
         return "test_slug"

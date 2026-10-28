@@ -23,11 +23,22 @@ not possible.
 ## What this directory contains
 
 The `nextion/` subdirectory is exactly the stock component at the
-`2026.10.0` tag **plus** [esphome/esphome#17744] cherry-picked on top —
-nothing else.  `nextion.cpp`/`nextion.h` carry the fix (`deliver_queue_response_`,
-`is_raw_get_command`, `RAW_GET_NAME`); every other file is byte-identical to
-the released tag, so the component stays API-compatible with the ESPHome
-version pinned in `requirements-esphome.txt`.
+`2026.10.0` tag **plus** two upstream fixes cherry-picked on top — nothing
+else:
+
+- [esphome/esphome#17744] — numeric-response delivery.  `nextion.cpp`/`nextion.h`
+  carry the fix (`deliver_queue_response_`, `is_raw_get_command`,
+  `RAW_GET_NAME`).
+- [esphome/esphome#21435] (commit `10b569491d`) — the
+  `tft_upload_http_buffer_size_tx` option.  GitHub redirects release TFTs to a
+  signed URL of ~870 characters; the redirected request line overflows the
+  512-byte ESP-IDF default TX buffer (`HTTP_CLIENT: Out of buffer`), so every
+  hub TFT install failed before the first byte.  `display.yaml` sets it to
+  2048.  Touches `base_component.py`, `display.py`, `nextion.h` and
+  `nextion_upload_esp32.cpp`.
+
+Every other file is byte-identical to the released tag, so the component stays
+API-compatible with the ESPHome version pinned in `requirements-esphome.txt`.
 
 Upstream license: ESPHome is MIT/GPL-3.0 dual-licensed (see upstream
 `LICENSE`); keep the upstream copyright and license notices intact when
@@ -36,8 +47,11 @@ modifying these files.
 ## Removal condition
 
 Delete this directory **and** the `external_components` blocks that reference
-it the moment a released ESPHome contains #17744 (2026.11.0).  Then bump
+it the moment a released ESPHome contains both #17744 and #21435 (expected in
+2026.11.0; `display.yaml` keeps `tft_upload_http_buffer_size_tx`, which is then
+a stock option).  Then bump
 `min_version` in `esphome/nspanel_haui/base.yaml` and the pin in
 `requirements-esphome.txt` to that release in the same change.
 
 [esphome/esphome#17744]: https://github.com/esphome/esphome/pull/17744
+[esphome/esphome#21435]: https://github.com/esphome/esphome/pull/21435

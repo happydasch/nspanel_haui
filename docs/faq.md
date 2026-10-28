@@ -13,8 +13,8 @@ Take a look at the [Panel Configuration](configuration/panels.md) reference and 
 The hub installs the TFT the firmware needs automatically when the device connects. To install it by hand:
 
 - In the editor: **Device Manager → Install TFT**
-- Using a button: the device's `Update Display` button
-- Using a service: `esphome.<device>_upload_tft` or `esphome.<device>_upload_tft_url`
+- In Home Assistant: **Install** on the device's `HAUI Display` update entity
+- Using a service: `nspanel_haui.update_tft` (add `url` to install a custom TFT file)
 
 See the [Services Reference](services.md#tft-display-upload) for full details.
 

@@ -48,9 +48,9 @@ buttons at the bottom of the screen, as on the rotated TFT.
 
 Saving a changed model installs the matching TFT right away (the display
 cannot report which layout it runs, so the version check alone would keep the
-old layout). The firmware's **Update Display** button and its `upload_tft`
-action pick the landscape or the portrait file by the same setting, which the
-hub mirrors into the device's *Display Model* number on every connect.
+old layout). The **HAUI Display** update entity and `nspanel_haui.update_tft`
+pick the landscape or the portrait file by the same setting, which the hub
+mirrors into the device's *Display Model* number on every connect.
 
 ## How updates pick the right TFT
 

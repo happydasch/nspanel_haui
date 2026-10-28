@@ -40,56 +40,85 @@ def test_find_esphome_entry_returns_none_for_unknown_or_blank_name():
     assert esphome_helpers.find_esphome_entry(hass, "  ") is None
 
 
+def _network_hass(monkeypatch, values, *, device_id="device-1"):
+    registry_entries = {
+        entity_id: SimpleNamespace(
+            domain="sensor",
+            platform="esphome",
+            device_id=entity_device_id,
+            original_name=name,
+        )
+        for entity_id, (entity_device_id, name) in values.items()
+    }
+    entity_registry = SimpleNamespace(entities=registry_entries)
+    registry_module = types.ModuleType("homeassistant.helpers.entity_registry")
+    registry_module.async_get = lambda hass: entity_registry
+    helpers = sys.modules["homeassistant.helpers"]
+    monkeypatch.setattr(helpers, "entity_registry", registry_module, raising=False)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", registry_module)
+    monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: device_id)
+    hass = MagicMock()
+    return hass
+
+
 def _state(entity_id, value):
     return SimpleNamespace(entity_id=entity_id, state=value)
 
 
-def test_read_network_entities_falls_back_to_slug_ids():
-    hass = MagicMock()
-    hass.states.get.side_effect = lambda eid: {
-        "sensor.nspanel_haui_ip": _state("sensor.nspanel_haui_ip", "10.0.0.5"),
-        "sensor.nspanel_haui_ssid": _state("sensor.nspanel_haui_ssid", "HomeNet"),
-        "sensor.nspanel_haui_rssi": _state("sensor.nspanel_haui_rssi", "-62"),
-    }.get(eid)
+def test_read_network_entities_resolves_prefixed_ids_by_device_and_original_name(monkeypatch):
+    entities = {
+        "sensor.lounge_panel_ip": ("device-1", "IP"),
+        "sensor.lounge_panel_ssid": ("device-1", "SSID"),
+        "sensor.lounge_panel_rssi": ("device-1", "RSSI"),
+        "sensor.other_panel_ip": ("device-2", "IP"),
+    }
+    states = {
+        "sensor.lounge_panel_ip": _state("sensor.lounge_panel_ip", "10.0.0.6"),
+        "sensor.lounge_panel_ssid": _state("sensor.lounge_panel_ssid", "HomeNet"),
+        "sensor.lounge_panel_rssi": _state("sensor.lounge_panel_rssi", "-55"),
+    }
+    hass = _network_hass(monkeypatch, entities)
+    hass.states.get.side_effect = states.get
 
     nw = esphome_helpers.read_network_entities(hass, "nspanel-haui")
-
-    assert nw == {"ip": "10.0.0.5", "ssid": "HomeNet", "rssi": -62.0}
-
-
-def test_read_network_entities_uses_the_registry_resolver_when_given():
-    """Area/device-prefixed ids (fresh installs after a rename) resolve by name."""
-    resolved = {
-        "sensor.salon_nspanel_haui_ip": _state("sensor.salon_nspanel_haui_ip", "10.0.0.6"),
-        "sensor.salon_nspanel_haui_ssid": _state("sensor.salon_nspanel_haui_ssid", "HomeNet"),
-        "sensor.salon_nspanel_haui_rssi": _state("sensor.salon_nspanel_haui_rssi", "-55"),
-    }
-    hass = MagicMock()
-    hass.states.get.side_effect = lambda eid: resolved.get(eid)
-
-    def resolver(domain, original_name):
-        return {
-            "ip": "sensor.salon_nspanel_haui_ip",
-            "ssid": "sensor.salon_nspanel_haui_ssid",
-            "rssi": "sensor.salon_nspanel_haui_rssi",
-        }.get(original_name)
-
-    nw = esphome_helpers.read_network_entities(hass, "nspanel-haui", resolver)
 
     assert nw == {"ip": "10.0.0.6", "ssid": "HomeNet", "rssi": -55.0}
+    assert [args.args[0] for args in hass.states.get.call_args_list] == [
+        "sensor.lounge_panel_ip",
+        "sensor.lounge_panel_ssid",
+        "sensor.lounge_panel_rssi",
+    ]
 
 
-def test_read_network_entities_ignores_unavailable_states():
-    hass = MagicMock()
-    hass.states.get.side_effect = lambda eid: {
-        "sensor.nspanel_haui_ip": _state("sensor.nspanel_haui_ip", "unknown"),
-        "sensor.nspanel_haui_ssid": _state("sensor.nspanel_haui_ssid", "unavailable"),
-        "sensor.nspanel_haui_rssi": None,
-    }.get(eid)
+def test_read_network_entities_handles_each_unavailable_field_independently(monkeypatch):
+    entities = {
+        "sensor.panel_ip": ("device-1", "IP"),
+        "sensor.panel_ssid": ("device-1", "SSID"),
+        "sensor.panel_rssi": ("device-1", "RSSI"),
+    }
+    hass = _network_hass(monkeypatch, entities)
+    hass.states.get.side_effect = {
+        "sensor.panel_ip": _state("sensor.panel_ip", "unavailable"),
+        "sensor.panel_ssid": _state("sensor.panel_ssid", "HomeNet"),
+        "sensor.panel_rssi": _state("sensor.panel_rssi", "not-a-number"),
+    }.get
 
-    nw = esphome_helpers.read_network_entities(hass, "nspanel-haui")
+    assert esphome_helpers.read_network_entities(hass, "panel") == {
+        "ip": "",
+        "ssid": "HomeNet",
+        "rssi": None,
+    }
 
-    assert nw == {"ip": "", "ssid": "", "rssi": None}
+
+def test_read_network_entities_does_not_guess_an_entity_id(monkeypatch):
+    hass = _network_hass(monkeypatch, {})
+
+    assert esphome_helpers.read_network_entities(hass, "panel") == {
+        "ip": "",
+        "ssid": "",
+        "rssi": None,
+    }
+    hass.states.get.assert_not_called()
 
 
 def test_run_on_loop_returns_result_from_the_loop_thread():

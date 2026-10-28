@@ -556,7 +556,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
             value: The slider value (0-100).
         """
         self.log(f"Row slider value {value} for {component.name}")
-        self.debug_log(f"Row slider value {value} from {component.name}")
+        self.log(f"Row slider value {value} from {component.name}", level="DEBUG")
         for _item_id, fnc_item in self._fnc_items.items():
             if fnc_item["fnc_component"] != component:
                 continue

@@ -11,7 +11,7 @@ class _Device:
     """Device settings as the controller reads them (``gesture_sequences`` live)."""
 
     def __init__(self, sequences: list[dict[str, Any]]) -> None:
-        self.config: dict[str, Any] = {"debug_level": 0, "gesture_sequences": sequences}
+        self.config: dict[str, Any] = {"gesture_sequences": sequences}
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.config.get(key, default)

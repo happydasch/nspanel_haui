@@ -26,6 +26,7 @@ import './dialogs/confirm.js';
 import './dialogs/device-config.js';
 import './dialogs/device-info.js';
 import './dialogs/logs.js';
+import './dialogs/notifications.js';
 import './dialogs/device-manager.js';
 import './dialogs/colors.js';
 
@@ -40,6 +41,7 @@ import { HA_ELEMENTS_TIMEOUT_MS, undefinedHaElements, whenHaElementsDefined } fr
 import * as SystemPanels from './system-panels.js';
 import * as ColorsEditor from './colors-editor.js';
 import * as DeviceEvents from './device-events.js';
+import * as Notifications from './notifications.js';
 
 /* ── component ───────────────────────────────────────────────────────────── */
 
@@ -73,6 +75,8 @@ class NSPanelEditor extends LitElement {
       _deviceStatusError: { type: String, state: true },
       _showDeviceInfo: { type: Boolean, state: true },
       _showLogs: { type: Boolean, state: true },
+      _showNotifications: { type: Boolean, state: true },
+      _notifications: { type: Array, state: true },
       _showDeviceManager: { type: Boolean, state: true },
       _showColorsDialog: { type: Boolean, state: true },
       _colorsDialog: { type: Object, state: true },
@@ -121,6 +125,8 @@ class NSPanelEditor extends LitElement {
     this._deviceStatusError = null;
     this._showDeviceInfo = false;
     this._showLogs = false;
+    this._showNotifications = false;
+    this._notifications = [];
     this._showDeviceManager = false;
     this._statusTimer = null;
     this._showColorsDialog = false;
@@ -165,6 +171,7 @@ class NSPanelEditor extends LitElement {
       this.__onDocMouseDown = null;
     }
     stopStatusPolling(this);
+    Notifications.stopNotificationSubscription(this);
     this._clearHaElementsTimer();
     if (this._panelSaveTimer) {
       clearTimeout(this._panelSaveTimer);
@@ -176,6 +183,7 @@ class NSPanelEditor extends LitElement {
     // hass is replaced on every state change, so each load runs once (per
     // language) rather than on every push while it is still pending.
     if (changed.has("hass") && this.hass) {
+      Notifications.subscribeNotifications(this);
       if (!this.__entriesRequested) {
         this.__entriesRequested = true;
         this._loadEntries();
@@ -185,6 +193,9 @@ class NSPanelEditor extends LitElement {
         this.__language = lang;
         this._loadLanguage(lang);
       }
+    }
+    if (changed.has("entryId") && this.entryId) {
+      Notifications.loadNotifications(this);
     }
     if (changed.has("_selectedDevice") && this._selectedDevice) {
       startStatusPolling(this);
@@ -488,6 +499,14 @@ class NSPanelEditor extends LitElement {
           @dialog-closed=${() => { this._showDeviceInfo = false; this.requestUpdate(); }}
         ></nspanel-dialog-device-info>
 
+        <nspanel-dialog-notifications
+          .hass=${this.hass}
+          .open=${this._showNotifications}
+          .notifications=${this._notifications}
+          @dialog-closed=${() => { this._showNotifications = false; this.requestUpdate(); }}
+          @notification-dismiss=${this._onNotificationDismiss}
+        ></nspanel-dialog-notifications>
+
         <nspanel-dialog-logs
           .hass=${this.hass}
           .open=${this._showLogs}
@@ -510,6 +529,8 @@ class NSPanelEditor extends LitElement {
           @scan-devices=${(e) => DeviceEvents.onDeviceManagerScan(this, e)}
           @update-display=${(e) => DeviceEvents.onDeviceManagerUpdateDisplay(this, e)}
           @update-tft=${(e) => DeviceEvents.onDeviceManagerUpdateTft(this, e)}
+          @update-firmware=${(e) => DeviceEvents.onDeviceManagerUpdateFirmware(this, e)}
+          @check-for-update=${(e) => DeviceEvents.onDeviceManagerCheckUpdate(this, e)}
         ></nspanel-dialog-device-manager>
 
         <nspanel-dialog-colors
@@ -556,6 +577,16 @@ class NSPanelEditor extends LitElement {
   }
 
   /* ── colors dialog ────────────────────────────────────────────────── */
+
+  _openNotifications() {
+    this._showNotifications = true;
+    Notifications.loadNotifications(this);
+  }
+
+  _onNotificationDismiss(event) {
+    const notification = event.detail?.notification;
+    if (notification) Notifications.dismissNotification(this, notification);
+  }
 
   _onHeaderColors()                      { return ColorsEditor.openColorsDialog(this); }
   _closeColorsDialog()                   { return ColorsEditor.closeColorsDialog(this); }

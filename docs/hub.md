@@ -243,6 +243,7 @@ This means:
 - **Clicking the device** in the hub page navigates to the ESPHome device page (the ESPHome config entry remains its primary one)
 - The **service device picker** (`integration: nspanel_haui`) only shows ESPHome devices that have HAUI firmware — plain ESPHome devices are excluded
 - When the integration is unloaded, the config entry is cleanly removed from the device
+- **Deleting the device** in the hub page removes it from the hub like **Remove** in the editor (`async_remove_config_entry_device` in `__init__.py`); its settings and panels are deleted
 
 The linking is handled in `_link_esphome_device()` in `__init__.py` and runs both during initial setup and when a device appears later (race condition handling via the device registry listener).
 

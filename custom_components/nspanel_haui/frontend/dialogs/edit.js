@@ -94,7 +94,6 @@ class EditPanelDialog extends HauiDialog {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        .preventScrimClose=${true}
       >
         ${dialogHeader(headerTitle, this._dispatchClose)}
 

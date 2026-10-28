@@ -53,7 +53,7 @@ class HAUINotificationController(HAUIBase):
             config (dict): Config for controller
         """
         super().__init__(app, config)
-        self.debug_log(f"Creating Notification Controller with config: {config}")
+        self.log(f"Creating Notification Controller with config: {config}", level="DEBUG")
         self._notifications: list[Notification] = []
         self._blinker = NotificationBlinker()
         self._blinker_refresh_fn: Callable[[], None] | None = None
@@ -248,8 +248,11 @@ class HAUINotificationController(HAUIBase):
             self.app.cancel_timer(handle)
         self._persistent_alert_handles.clear()
         self._open_popup_notif_id = None
+        notifications = self._notifications.copy()
         self._notifications = []
         self._refresh_list_items()
+        for notification in notifications:
+            self._fire_notification_event("removed", notification)
         event = HAUIEvent(NotifEvent.NOTIF_CLEAR, value=None)
         self.app.callback_event(event)
 
@@ -358,11 +361,11 @@ class HAUINotificationController(HAUIBase):
         """Whether the idle (screensaver) page is currently shown.
 
         Used by the persistent re-alert loop to decide whether it may
-        interrupt what the user is looking at.  The idle page is a page
-        switch owned by navigation, independent of display brightness.
+        interrupt what the user is looking at.  The device is the single
+        authority on the idle (screensaver) state, independent of display
+        brightness.
         """
-        navigation = self.app.controller.get("navigation")
-        return bool(navigation is not None and navigation.idle_panel_active)
+        return bool(self.app.device.sleeping)
 
     def _is_notification_view(self, panel: Any) -> bool:
         """True when ``panel`` is a popup/list opened by this controller.
@@ -471,6 +474,7 @@ class HAUINotificationController(HAUIBase):
             "nspanel_haui.notification",
             {
                 "device": self.app.device.get_name(),
+                "id": str(id(notification)),
                 "state": state,
                 "title": str(notification.title),
                 "message": str(notification.message),

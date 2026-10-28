@@ -304,7 +304,6 @@ class ColorsDialog extends HauiDialog {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        .preventScrimClose=${true}
       >
         ${dialogHeader(t("Device Colors"), this._dispatchClose, this._renderPreview())}
         <div class="dialog-body">

@@ -8,6 +8,7 @@ executor, so code that dispatches there runs callbacks concurrently.
 from __future__ import annotations
 
 import asyncio
+import logging
 import sys
 import threading
 import time
@@ -77,7 +78,11 @@ def env(monkeypatch):
     module.async_call_later = helpers.async_call_later
     module.async_track_time_interval = helpers.async_track_time_interval
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.event", module)
-    monkeypatch.setattr(sys.modules["homeassistant.core"], "callback", lambda f: f)
+    # The stubbed core module may be a restricted/wrapping mock that does not
+    # expose ``callback``; raising=False lets the patch create it either way.
+    monkeypatch.setattr(
+        sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False
+    )
     adapter = HAAdapter(_Hass(loop, pool), "hub")
     yield adapter, loop, helpers
     loop.call_soon_threadsafe(loop.stop)
@@ -231,3 +236,76 @@ def test_callbacks_still_queued_when_the_app_stops_are_dropped(env):
     time.sleep(0.1)
 
     assert calls == []
+def test_listen_state_with_attribute_all_reports_state_pair(env):
+    """attribute="all" listeners receive the primary state as the old/new pair."""
+    adapter, loop, helpers = env
+    calls = []
+    adapter.listen_state(lambda *a: calls.append(a), "light.desk", attribute="all")
+    _on_loop(loop, helpers.state_cbs["light.desk"], _state_event("on"))
+    _settle(adapter, loop, helpers)
+
+    assert calls == [("light.desk", "all", "old", "on", {})]
+
+
+class _ThresholdDevice:
+    """Device stub whose get() resolves the configured log_level."""
+
+    def __init__(self, level):
+        self._level = level
+
+    def get(self, key, default=None):
+        return self._level if key == "log_level" else default
+
+
+def _capture_logger(monkeypatch):
+    """Replace the module logger with a recorder; return the record list."""
+    logs = []
+    monkeypatch.setattr(
+        sys.modules["nspanel_haui.ha_adapter"],
+        "_LOGGER",
+        type("_FakeLogger", (), {"log": lambda self, level, msg, exc_info=None: logs.append((level, msg))})(),
+    )
+    return logs
+
+
+def test_log_threshold_info_drops_debug_before_device_config(env, monkeypatch):
+    """Without a device config the INFO threshold applies, so DEBUG is dropped."""
+    adapter, loop, helpers = env
+    logs = _capture_logger(monkeypatch)
+
+    adapter.log("debug detail", level="DEBUG")
+    adapter.log("lifecycle", level="INFO")
+
+    assert [(level, msg) for level, msg in logs] == [(logging.INFO, "lifecycle")]
+    status = adapter.get_status_logs()
+    assert len(status) == 1
+    assert status[0].endswith("INFO lifecycle")
+
+
+def test_log_threshold_info_filters_debug_for_the_device(env, monkeypatch):
+    """The configured log_level is the per-device emission threshold."""
+    adapter, loop, helpers = env
+    adapter.device = _ThresholdDevice("INFO")
+    logs = _capture_logger(monkeypatch)
+
+    adapter.log("debug detail", level="DEBUG")
+    adapter.log("warning", level="WARNING")
+
+    assert [(level, msg) for level, msg in logs] == [(logging.WARNING, "warning")]
+    assert len(adapter.get_status_logs()) == 1
+
+
+def test_log_threshold_debug_emits_debug_records(env, monkeypatch):
+    """DEBUG threshold lets detailed diagnostics through."""
+    adapter, loop, helpers = env
+    adapter.device = _ThresholdDevice("DEBUG")
+    logs = _capture_logger(monkeypatch)
+
+    adapter.log("debug detail", level="DEBUG")
+    adapter.log("lifecycle", level="INFO")
+
+    assert [(level, msg) for level, msg in logs] == [
+        (logging.DEBUG, "debug detail"),
+        (logging.INFO, "lifecycle"),
+    ]
+    assert len(adapter.get_status_logs()) == 2

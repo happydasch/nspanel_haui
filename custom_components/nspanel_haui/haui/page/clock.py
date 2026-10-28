@@ -323,8 +323,7 @@ class ClockPage(HAUIPage):
 
     def _card_text_inside_temperature(self) -> tuple[str, str]:
         label = self.translate("INSIDE")
-        name_slug = self.app.device.get_slug()
-        temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
+        temp_inside_entity = self.app.get_item(self.get_inside_temp_entity_id())
         try:
             temp = round(float(temp_inside_entity.get_state()), self.TEMP_PRECISION)
         except ValueError, TypeError:
@@ -408,7 +407,6 @@ class ClockPage(HAUIPage):
             return
 
         # set up main weather details
-        name_slug = self.app.device.get_slug()
         icon = self._weather_item.get_icon()
         color = self._weather_item.get_color()
         try:
@@ -420,7 +418,7 @@ class ClockPage(HAUIPage):
             return
         msg = ""
         if self._show_home_temp:
-            temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
+            temp_inside_entity = self.app.get_item(self.get_inside_temp_entity_id())
             try:
                 temp_inside: float | int | None = round(
                     float(temp_inside_entity.get_state()), self.TEMP_PRECISION

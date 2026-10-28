@@ -21,7 +21,7 @@ def test_init_interface_batches_the_entire_word_clock_matrix():
     page._recording = False
     page._rec_cmd_depth = 0
     page._rec_cmd = []
-    page.app = SimpleNamespace(device={"debug_level": 0}, controller={})
+    page.app = SimpleNamespace(device={}, controller={}, log=lambda *a, **k: None)
     batches = []
     page.send_cmds = lambda commands: batches.append(commands)
     page._off_color = 8452

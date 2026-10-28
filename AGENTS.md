@@ -89,8 +89,8 @@ Inside the Hub app, components follow a layered structure:
 | `tests/` | Pytest tests (backend) plus Node test-runner tests in `tests/frontend/`; `conftest.py` stubs `homeassistant` and `dateutil`, so no running HA instance is needed |
 | `docs/` | User documentation: install, configuration, panels, FAQ, ESPHome, Hub, Nextion, Communication, Design, development, troubleshooting |
 | `nextion/` | Nextion display assets (TFT file, HMI source, fonts, images) |
-| `esphome/` | ESPHome device configuration files (`install.yaml`, runtime/dev configs, `secrets.yaml.example`; copy it to the git-ignored `secrets.yaml` for local builds). Requires ESPHome 2026.10 or later (`min_version` in `nspanel_haui/base.yaml`). `nextion_patch/` is a **temporary vendored patched copy of the stock `nextion` component** (the numeric-response fix, esphome#17744, missed the 2026.10.0 release; ships in 2026.11.0) wired in via `external_components` in `nspanel_haui.yaml` (git source) and the universal/dev configs (local source) — delete the dir + override blocks and bump `min_version` + `requirements-esphome.txt` when a released ESPHome contains #17744 |
-| `scripts/` | Development utilities: font generation (`gen_fonts`, `gen_char`), color palettes/wheels, spinner generation, background tile generation (`gen_backgrounds`), editor design grids (`gen_grid`), RGB565 image conversion, Nextion2Text, preview generator, translation extraction, portrait HMI geometry patcher (`gen_portrait`), release version bump (`bump_version`, `bump_tft_version`) |
+| `esphome/` | ESPHome device configuration files (`install.yaml`, runtime/dev configs, `secrets.yaml.example`; copy it to the git-ignored `secrets.yaml` for local builds). Requires ESPHome 2026.10 or later (`min_version` in `nspanel_haui/base.yaml`). `nextion_patch/` is a **temporary vendored patched copy of the stock `nextion` component** (the numeric-response fix, esphome#17744, and the TFT upload `tft_upload_http_buffer_size_tx` option, esphome#21435, both missed the 2026.10.0 release) wired in via `external_components` in `nspanel_haui.yaml` (git source) and the universal/dev configs (local source) — delete the dir + override blocks and bump `min_version` + `requirements-esphome.txt` when a released ESPHome contains both |
+| `scripts/` | Development utilities: font generation (`gen_fonts`, `gen_char`), color palettes/wheels, spinner generation, background tile generation (`gen_backgrounds`), editor design grids (`gen_grid`), RGB565 image conversion, Nextion2Text, preview generator, translation extraction, portrait HMI geometry patcher (`gen_portrait`), release version bump (`bump_version`, `bump_tft_version`), local test firmware release (`dev_release`) |
 | `ref_src/home-assistant/core/` | Home Assistant core checkout - read-only reference for HA API signatures; do not modify |
 | `ref_src/home-assistant/frontend/` | Home Assistant frontend source checkout — read-only reference for HA Lovelace UI patterns; do not modify |
 | `ref_src/esphome/esphome/` | ESPHome source checkout - read-only reference for ESPHome component/API behavior; do not modify |
@@ -137,10 +137,10 @@ pytest tests/
 node --test 'tests/frontend/*.test.mjs'
 
 # Lint Python code
-ruff check custom_components/
+ruff check custom_components/ scripts/
 
 # Lint with auto-fix (this is also the only formatting step; there is no separate formatter in CI)
-ruff check --fix custom_components/
+ruff check --fix custom_components/ scripts/
 
 # Type-check the haui core package
 mypy
@@ -154,7 +154,7 @@ python scripts/translations/extract_translations.py
 ```
 
 **CI:** Three workflows run on push/PR to `master` and `dev`:
-- `tests.yml` - installs dev + docs dependencies, builds docs (`mkdocs build --strict`), runs `pytest tests/`, `ruff check custom_components/` and `mypy` on Python 3.14, and runs the frontend tests on Node 24
+- `tests.yml` - installs dev + docs dependencies, builds docs (`mkdocs build --strict`), runs `pytest tests/`, `ruff check custom_components/ scripts/` and `mypy` on Python 3.14, and runs the frontend tests on Node 24
 - `validate.yml` - runs `hassfest` and `hacs` validators (also on a daily schedule)
 - `docs.yml` - builds docs and deploys to GitHub Pages on `master` when `docs/**` or `mkdocs.yml` changes
 
@@ -647,7 +647,7 @@ Example: `fix(esphome): include device name in discovery fallback`
 2. **Verify docs build** — after updating docs, install `requirements-docs.txt` and run `mkdocs build --strict` from the project root to catch broken links, missing files, or rendering errors. The build must succeed (CI runs the same command).
 3. Run `pytest tests/` — all tests must pass.
 4. Run `node --test 'tests/frontend/*.test.mjs'` when touching `frontend/` — all tests must pass.
-5. Run `ruff check custom_components/` — no lint errors.
+5. Run `ruff check custom_components/ scripts/` — no lint errors.
 6. Run `mypy` — no type errors in `haui/`.
 7. If you changed config flow logic, ensure `tests/test_config_flow.py` covers the change.
 8. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match.

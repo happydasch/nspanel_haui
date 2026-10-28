@@ -1,5 +1,7 @@
 """Tests for HAUIPage._resolve_panel_item."""
 
+import types
+
 from nspanel_haui.haui.abstract.haui_page import HAUIPage
 
 
@@ -13,7 +15,7 @@ class _Panel:
 
 def _page():
     page = HAUIPage.__new__(HAUIPage)
-    page.app = object()
+    page.app = types.SimpleNamespace(log=lambda *a, **k: None)
     return page
 
 

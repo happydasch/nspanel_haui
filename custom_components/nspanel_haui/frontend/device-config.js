@@ -16,7 +16,13 @@ import { clone, DEVICE_CONFIG_DEFAULTS } from './constants.js';
 export function loadDeviceConfig(host, name) {
   const dev = host._panels.devices ? host._panels.devices[name] : undefined;
   const existing = (dev && dev.config) || {};
-  host._deviceConfig = { ...DEVICE_CONFIG_DEFAULTS, ...existing };
+  host._deviceConfig = {
+    ...DEVICE_CONFIG_DEFAULTS,
+    ...existing,
+    // The update block is nested; merge it over its defaults so a partial
+    // stored block still shows the shipped defaults in the editor.
+    update: { ...DEVICE_CONFIG_DEFAULTS.update, ...(existing.update || {}) },
+  };
 }
 
 /* ── open / close ─────────────────────────────────────────────────────────── */

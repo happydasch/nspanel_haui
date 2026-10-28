@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from .device_config import LOG_LEVEL_OPTIONS
 from .mapping.const import GESTURES
 
 if TYPE_CHECKING:
@@ -95,8 +96,8 @@ def _ensure_models() -> None:
         show_notifications_button: bool = True
         reset_interaction_on_button: bool = True
         snapshot_max_age_seconds: int = Field(-1, ge=-1)
-        sound_on_startup: bool = True
-        sound_on_notification: bool = True
+        sound_on_startup: bool = False
+        sound_on_notification: bool = False
         persistent_sound_interval: int = Field(5, ge=1, le=600)
         use_do_not_disturb: bool = False
         quiet_hours_start: str = ""
@@ -117,14 +118,23 @@ def _ensure_models() -> None:
         timeout_dimming: int = Field(10, ge=0, le=3600)
         timeout_page: int = Field(30, ge=0, le=3600)
         timeout_display_off: int = Field(120, ge=0, le=3600)
-        debug_level: int = 0
-        log_items: bool = False
+        log_level: str = "INFO"
         stale_data_seconds: int = Field(0, ge=0, le=86400)
         hub_idle_timeout: int = Field(0, ge=0, le=86400)
         auto_navigate_home_timeout: int = Field(0, ge=0, le=86400)
         color_overrides: dict[str, int] = Field(default_factory=dict)
         gesture_sequences: list[_GestureSequence] = Field(default_factory=list)
         enabled: bool = True
+
+        @field_validator("log_level")
+        @classmethod
+        def _validate_log_level(cls, v: Any) -> str:
+            """Only standard logging levels are accepted; normalize to upper case."""
+            if not isinstance(v, str) or v.upper() not in LOG_LEVEL_OPTIONS:
+                raise ValueError(
+                    f"unsupported log level {v!r}; use one of {LOG_LEVEL_OPTIONS}"
+                )
+            return v.upper()
 
         @field_validator("color_overrides", mode="before")
         @classmethod

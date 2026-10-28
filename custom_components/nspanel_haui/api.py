@@ -18,7 +18,13 @@ from homeassistant.helpers.http import HomeAssistantView
 from .const import DOMAIN
 from .esphome_helpers import lookup_device_registry_name, read_network_entities
 from .haui.config_models import validate_panels
-from .storage import empty_device, empty_store, enabled_device_names, panel_store
+from .storage import (
+    async_remove_device,
+    empty_device,
+    empty_store,
+    enabled_device_names,
+    panel_store,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -209,10 +215,6 @@ class DeviceStatusView(HomeAssistantView):
         """Build minimal status from HA entities for a device without a running app."""
         nw = read_network_entities(hass, dev_name)
 
-        # If none of the WiFi entities exist, the device may not be a real ESPHome device
-        if not nw["ip"] and not nw["ssid"] and nw["rssi"] is None:
-            return None
-
         return {
             "connected": False,
             "connection_state": "disabled",
@@ -231,10 +233,89 @@ class DeviceStatusView(HomeAssistantView):
 
     @staticmethod
     async def _build_entity_status(hass: Any, entry_id: str, dev_name: str) -> dict | None:
-        """Build status for a device from HA entities, running in executor if needed."""
+        """Build status for a configured device from HA entities."""
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if entry is None or not any(
+            device.get("name") == dev_name for device in entry.data.get("devices", [])
+        ):
+            return None
         return await hass.async_add_executor_job(
             DeviceStatusView._build_minimal_device_info, hass, dev_name
         )
+
+
+class NotificationsView(HomeAssistantView):
+    """REST API for reading and dismissing queued device notifications."""
+
+    url = "/api/nspanel_haui/notifications/{entry_id}"
+    name = "api:nspanel_haui:notifications"
+    requires_auth = True
+
+    @require_admin
+    async def get(self, request, entry_id: str):
+        """Return queued notifications for one device or the whole hub entry."""
+        apps = _get_apps(request.app["hass"], entry_id) or {}
+        device_name = _query_device(request)
+        if device_name:
+            app = apps.get(device_name)
+            if app is None:
+                return self.json([], status_code=200)
+            return self.json(await self._read_app_notifications(app))
+
+        notifications = []
+        for app in apps.values():
+            notifications.extend(await self._read_app_notifications(app))
+        return self.json(notifications)
+
+    @require_admin
+    async def delete(self, request, entry_id: str):
+        """Dismiss one queued notification by device name and queue identifier."""
+        device_name = _query_device(request)
+        notification_id = (request.query.get("id") or "").strip()
+        if not device_name or not notification_id:
+            return _error(self, "device and id are required", 400)
+
+        apps = _get_apps(request.app["hass"], entry_id) or {}
+        app = apps.get(device_name)
+        if app is None:
+            return _error(self, "device not found", 404)
+
+        def remove_notification() -> bool:
+            controller = app.controller.get("notification")
+            if controller is None:
+                return False
+            for notification in controller.get_notifications():
+                if str(id(notification)) == notification_id:
+                    return controller.remove_notification(notification)
+            return False
+
+        removed = await app.async_run_on_worker(remove_notification)
+        if not removed:
+            return _error(self, "notification not found", 404)
+        return self.json({"status": "ok"})
+
+    @staticmethod
+    async def _read_app_notifications(app) -> list[dict[str, Any]]:
+        """Read a device's queue on its worker thread and serialize public fields."""
+
+        def read_notifications() -> list[dict[str, Any]]:
+            controller = app.controller.get("notification")
+            if controller is None:
+                return []
+            return [
+                {
+                    "id": str(id(notification)),
+                    "device": app.device.get_name(),
+                    "title": str(notification.title),
+                    "message": str(notification.message),
+                    "icon": notification.icon,
+                    "notif_type": notification.notif_type,
+                    "persistent": notification.persistent,
+                }
+                for notification in controller.get_notifications()
+            ]
+
+        return await app.async_run_on_worker(read_notifications)
 
 
 class PanelTypesView(HomeAssistantView):
@@ -434,28 +515,11 @@ class DeviceConfigView(HomeAssistantView):
         if not entry:
             return _error(self, "Config entry not found", 404)
 
-        # Always remove from config_entry.data["devices"]
         existing_in_ce = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
         if name not in existing_in_ce:
             return _error(self, f'Device "{name}" not found', 404)
 
-        # Remove from panel store only when keep_config is False
-        if not keep_config:
-            store = panel_store(hass, entry_id)
-            panels_data = await store.async_load() or empty_store()
-            had_in_store = name in panels_data.get("devices", {})
-            if had_in_store:
-                panels_data.get("devices", {}).pop(name, None)
-                await store.async_save(panels_data)
-                _LOGGER.debug("Removed device %s from panel store for %s", name, entry_id)
-
-        # The entry's update listener reloads it, stopping the device's app.
-        new_data = dict(entry.data)
-        new_data["devices"] = [d for d in new_data.get("devices", []) if d.get("name") != name]
-        # Keeps auto-add from adding the device straight back while ESPHome still has it.
-        new_data["removed_devices"] = [*entry.data.get("removed_devices", []), name]
-        hass.config_entries.async_update_entry(entry, data=new_data)
-        _LOGGER.debug("Removed device %s from config_entry.data for %s", name, entry_id)
+        await async_remove_device(hass, entry, name, keep_config=keep_config)
 
         return self.json({"status": "ok", "kept_config": keep_config})
 
@@ -541,6 +605,10 @@ class DeviceYamlView(HomeAssistantView):
         from .haui.device_config import DEVICE_CONFIG_FIELDS
 
         known_config = {k: config.get(k) for k in DEVICE_CONFIG_FIELDS if k in config}
+        # The update block is nested and not part of DEVICE_CONFIG_FIELDS, but
+        # it is a valid per-device setting (see _build_config_dict).
+        if isinstance(config.get("update"), dict):
+            known_config["update"] = config["update"]
         error = await _validate_or_400(
             self,
             hass,
@@ -706,15 +774,25 @@ class DeviceUpdateTftView(HomeAssistantView):
         """Install the TFT for the specified device (or all devices).
 
         JSON body may carry an optional ``device`` field (device name, or ``*``
-        for all devices; default ``*``) and an optional ``version`` (the GitHub
-        release version to install; when omitted the version the firmware needs,
-        its ``yaml_version``, is installed).  The install runs on the device's
-        worker thread.
+        for all devices; default ``*``) and either an optional ``version`` (the
+        GitHub release version to install; when omitted the version the
+        firmware needs, its ``yaml_version``, is installed) or an optional
+        ``url`` of a TFT file (single device only).  The install runs on the
+        device's worker thread.
         """
         hass = request.app["hass"]
         body = await request.json() or {}
         device_name = (body.get("device") or "*").strip()
         version = (body.get("version") or "").strip() or None
+        url = (body.get("url") or "").strip() or None
+
+        if url is not None:
+            if version is not None:
+                return _error(self, "Pass either a version or a URL, not both", 400)
+            if device_name == "*":
+                return _error(self, "A URL install needs a single device", 400)
+            if not url.startswith(("http://", "https://")):
+                return _error(self, "The TFT URL must start with http:// or https://", 400)
 
         apps = _get_apps(hass, entry_id)
 
@@ -725,7 +803,10 @@ class DeviceUpdateTftView(HomeAssistantView):
             app = apps.get(device_name)
             if app is None:
                 return _error(self, f'Device "{device_name}" not found', 404)
-            result = await app.async_run_on_worker(app.install_tft, version)
+            if url is not None:
+                result = await app.async_run_on_worker(app.install_tft_url, url)
+            else:
+                result = await app.async_run_on_worker(app.install_tft, version)
             if isinstance(result, dict) and result.get("state") == "error":
                 # The controller records *why* the install could not start
                 # (device disconnected, no yaml_version, no matching release,
@@ -762,3 +843,185 @@ class DeviceUpdateTftView(HomeAssistantView):
                 failed.append({"name": dname, "error": "install failed"})
 
         return self.json({"status": "ok", "devices_updated": updated, "failed": failed})
+
+
+class DeviceTftReleasesView(HomeAssistantView):
+    """REST API endpoint listing the GitHub releases a device's TFT can be installed from."""
+
+    url = "/api/nspanel_haui/tft_releases/{entry_id}"
+    name = "api:nspanel_haui:tft_releases"
+    requires_auth = True
+
+    @require_admin
+    async def get(self, request, entry_id: str):
+        """Return the releases that ship the TFT of the ``device`` query param.
+
+        Runs on the device's worker thread, which shares the hub-level release
+        cache.  Returns ``releases`` (tags, newest first), ``required`` (the
+        firmware's ``yaml_version``) and ``error`` (why GitHub could not be
+        read, or null) for the editor's TFT install picker.
+        """
+        hass = request.app["hass"]
+        device_name = _query_device(request)
+        apps = _get_apps(hass, entry_id)
+        if not isinstance(apps, dict):
+            return _error(self, "No running devices", 400)
+        app = apps.get(device_name)
+        if app is None:
+            return _error(self, f'Device "{device_name}" not found', 404)
+        return self.json(await app.async_run_on_worker(app.list_tft_releases))
+
+
+class DeviceFirmwareReleasesView(HomeAssistantView):
+    """REST API endpoint listing the GitHub releases whose firmware installs over the air."""
+
+    url = "/api/nspanel_haui/firmware_releases/{entry_id}"
+    name = "api:nspanel_haui:firmware_releases"
+    requires_auth = True
+
+    @require_admin
+    async def get(self, request, entry_id: str):
+        """Return the releases the ``device`` query param can flash over the air.
+
+        Runs on the device's worker thread, which shares the hub-level release
+        cache.  Returns ``releases`` (tags, newest first) and ``error`` (why
+        GitHub could not be read, or null) for the editor's firmware picker.
+        """
+        hass = request.app["hass"]
+        device_name = _query_device(request)
+        apps = _get_apps(hass, entry_id)
+        if not isinstance(apps, dict):
+            return _error(self, "No running devices", 400)
+        app = apps.get(device_name)
+        if app is None:
+            return _error(self, f'Device "{device_name}" not found', 404)
+        return self.json(await app.async_run_on_worker(app.list_firmware_releases))
+
+
+class DeviceUpdateFirmwareView(HomeAssistantView):
+    """REST API endpoint to trigger a firmware install on one or all devices."""
+
+    url = "/api/nspanel_haui/update_firmware/{entry_id}"
+    name = "api:nspanel_haui:update_firmware"
+    requires_auth = True
+
+    @require_admin
+    async def post(self, request, entry_id: str):
+        """Manually install the firmware update advertised by a device.
+
+        Without ``version`` / ``url`` the action checks the ESPHome update
+        entity immediately before calling ``update.install``. It remains
+        available when automatic installs are disabled in that device's
+        settings.  An optional ``version`` (GitHub release, older ones
+        included) or ``url`` (OTA app image, single device only) is flashed by
+        the firmware's ``install_firmware_url`` action instead.
+        """
+        hass = request.app["hass"]
+        try:
+            body = await request.json()
+        except ValueError:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+        device_name = (body.get("device") or "*").strip()
+        version = (body.get("version") or "").strip() or None
+        url = (body.get("url") or "").strip() or None
+
+        if url is not None:
+            if version is not None:
+                return _error(self, "Pass either a version or a URL, not both", 400)
+            if device_name == "*":
+                return _error(self, "A URL install needs a single device", 400)
+            if not url.startswith(("http://", "https://")):
+                return _error(self, "The firmware URL must start with http:// or https://", 400)
+
+        apps = _get_apps(hass, entry_id)
+        if not isinstance(apps, dict):
+            return _error(self, "No running devices", 400)
+
+        if device_name and device_name != "*":
+            app = apps.get(device_name)
+            if app is None:
+                return _error(self, f'Device "{device_name}" not found', 404)
+            result = await app.async_run_on_worker(app.install_firmware, version, url)
+            if result.get("firmware_install_error"):
+                return _error(self, result["firmware_install_error"], 502)
+            return self.json(
+                {"status": "ok", "devices_updated": [device_name], "update": result}
+            )
+
+        updated: list[str] = []
+        failed: list[dict[str, str]] = []
+        for dname, dapp in apps.items():
+            try:
+                result = await dapp.async_run_on_worker(dapp.install_firmware, version, None)
+                error = result.get("firmware_install_error")
+                if error:
+                    failed.append({"name": dname, "error": error})
+                else:
+                    updated.append(dname)
+            except Exception:
+                _LOGGER.exception("Failed to install firmware for device '%s'", dname)
+                failed.append({"name": dname, "error": "firmware install failed"})
+
+        return self.json({"status": "ok", "devices_updated": updated, "failed": failed})
+
+
+class DeviceUpdateCheckView(HomeAssistantView):
+    """REST API endpoint to trigger a manual update check on one or all devices."""
+
+    url = "/api/nspanel_haui/check_update/{entry_id}"
+    name = "api:nspanel_haui:check_update"
+    requires_auth = True
+
+    @require_admin
+    async def post(self, request, entry_id: str):
+        """Run a manual update check for the specified device (or all devices).
+
+        JSON body may carry an optional ``device`` field (device name, or ``*``
+        for all devices; default ``*``).  The check runs on the device's worker
+        thread and bypasses the hub-level release cache.  ``results`` maps each
+        checked device to its check result (update state plus
+        ``latest_release`` and ``check_error``) so the editor can report it.
+        """
+        hass = request.app["hass"]
+        try:
+            body = await request.json()
+        except ValueError:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+        device_name = (body.get("device") or "*").strip()
+
+        apps = _get_apps(hass, entry_id)
+
+        if not isinstance(apps, dict):
+            return _error(self, "No running devices", 400)
+
+        if device_name and device_name != "*":
+            app = apps.get(device_name)
+            if app is None:
+                return _error(self, f'Device "{device_name}" not found', 404)
+            result = await app.async_run_on_worker(app.check_for_update)
+            return self.json(
+                {
+                    "status": "ok",
+                    "devices_checked": [device_name],
+                    "results": {device_name: result},
+                }
+            )
+
+        checked: list[str] = []
+        failed: list[dict[str, str]] = []
+        results: dict[str, dict] = {}
+        for dname, dapp in apps.items():
+            try:
+                results[dname] = await dapp.async_run_on_worker(dapp.check_for_update)
+                checked.append(dname)
+            except Exception:
+                _LOGGER.exception("Failed to check for updates on device '%s'", dname)
+                failed.append({"name": dname, "error": "check failed"})
+
+        return self.json(
+            {"status": "ok", "devices_checked": checked, "failed": failed, "results": results}
+        )

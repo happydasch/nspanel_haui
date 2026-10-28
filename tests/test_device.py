@@ -572,15 +572,15 @@ def test_hardware_button_wakes_on_first_press():
     assert device._first_touch_consumed is False
 
 
-def test_two_touch_rearms_when_display_dims_again_on_sleep_screen():
-    """After a wake, the sleep panel stays; when the display goes dark again the
+def test_two_touch_rearms_when_display_turns_off_on_sleep_screen():
+    """After a wake, the sleep panel stays; when the display turns off the
     next touch must only wake it, not exit."""
     device, nav = _wakeup_harness()
     device._first_touch_consumed = True
     device.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))  # wakes only
     device.process_event(HAUIEvent(ESPEvent.DISPLAY_STATE, "on"))
 
-    device.process_event(HAUIEvent(ESPEvent.DISPLAY_STATE, "dim"))
+    device.process_event(HAUIEvent(ESPEvent.DISPLAY_STATE, "off"))
     device.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))
 
     assert len(nav.exit_calls) == 0
@@ -775,13 +775,13 @@ def test_release_event_sets_device_info_key() -> None:
     assert device.device_info.get("button_left") == "0"
 
 
-def test_first_touch_wakes_when_display_dim() -> None:
-    """First touch wakes even when the display is dimmed (does not exit)."""
+def test_first_touch_exits_when_display_dim() -> None:
+    """A dimmed display is visible, so the first touch exits the idle page."""
     device, nav = _wakeup_harness()
     device._first_touch_consumed = True
     device.device_info["display_state"] = "dim"
     device.check_wakeup()
-    assert len(nav.exit_calls) == 0
+    assert len(nav.exit_calls) == 1
     assert device._first_touch_consumed is False
 
 
@@ -1104,6 +1104,7 @@ def test_switching_the_display_model_installs_the_matching_tft() -> None:
     device.sync_config_to_device()
 
     assert installs == [1]
+
 
 def test_touch_start_native_event_calls_wakeup() -> None:
     """The native "1" touch_start triggers the wake decision."""

@@ -135,6 +135,42 @@
           "description": "Przesunięcie w sekundach zastosowane do punktu resetowania."
         }
       }
+    },
+    "update_tft": {
+      "name": "Aktualizuj TFT",
+      "description": "Instaluje wydanie TFT wymagane przez firmware panelu, inne wydanie (także starsze) lub plik TFT spod adresu URL.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Urządzenie NSPanel, którego wyświetlacz ma zostać zaktualizowany."
+        },
+        "version": {
+          "name": "Wersja",
+          "description": "Opcjonalne wydanie GitHub instalowane zamiast wymaganego przez firmware, np. starsze. Nie można łączyć z URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Opcjonalny adres http(s) pliku .tft instalowanego zamiast wydania GitHub wymaganego przez firmware. Nie można łączyć z wersją."
+        }
+      }
+    },
+    "update_firmware": {
+      "name": "Aktualizuj firmware",
+      "description": "Instaluje aktualizację firmware oferowaną przez Home Assistant, inne wydanie GitHub (także starsze) lub obraz OTA firmware spod adresu URL.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Urządzenie NSPanel, którego firmware ma zostać zainstalowany."
+        },
+        "version": {
+          "name": "Wersja",
+          "description": "Opcjonalne wydanie GitHub zamiast oferowanej aktualizacji, np. starsze. Nie można łączyć z URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Opcjonalny adres http(s) obrazu OTA firmware (firmware.ota.bin, nie obraz factory). Nie można łączyć z wersją."
+        }
+      }
     }
   }
 }

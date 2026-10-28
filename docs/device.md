@@ -33,12 +33,16 @@ When `use_auto_page` is enabled and an `idle_panel` is configured, the hub opens
 
 Waking the device works from any state and **never requires an idle page to be configured**:
 
-- With the **idle page shown**, a touch exits it and restores the panel you were on (or the home panel, see below). When the display is on, a single touch is enough (the user can see the screen); when the display is dimmed or off, the first touch only wakes the display and a second touch exits.
+- With the **idle page shown**, a touch exits it and restores the panel you were on (or the home panel, see below). When the display is on or dimmed, a single touch is enough (the user can see the screen); when the display is off, the first touch only wakes the display and a second touch exits.
 - With **no idle page shown**, the first touch just wakes the display (brightness back to full) — there is nothing to exit.
 - A hardware button press always wakes the display and exits the idle page in a single press (when `reset_interaction_on_button` is enabled). A button cannot hit anything on the screen, so it does not need the two-touch protection.
 
-Dimmed / off with idle page shown:
+Off with idle page shown:
     - touch: first touch wakes, second touch exits to home / previous panel
+    - button: wakes and exits to home / previous panel
+
+Dimmed or on with idle page shown:
+    - touch: exits to home / previous panel in a single touch
     - button: wakes and exits to home / previous panel
 
 ### Return Panel after Wakeup
@@ -46,7 +50,8 @@ Dimmed / off with idle page shown:
 When the idle page is exited, the display returns to the panel that was open before it. It goes to the home panel instead when:
 
 - `snapshot_max_age_seconds` is `0` (never restore), or
-- `snapshot_max_age_seconds` is bigger than `0` and more than that many seconds have passed.
+- `snapshot_max_age_seconds` is bigger than `0` and more than that many seconds have passed, or
+- `auto_navigate_home_timeout` passed while the idle page was shown.
 
 The default (`-1`) always restores the previous panel. See
 [Device Configuration](configuration/device.md) for the setting.
@@ -65,7 +70,7 @@ See `switch.nspanel_haui_use_button_interaction` in HA to switch on / off the bu
 
 ### Sounds
 
-The device will play sounds on different occasions. The sounds can be disabled.
+The device can play sounds on different occasions. Both are off by default; enable them in the device settings.
 
 - `sound_on_startup`
 - `sound_on_notification`
@@ -97,3 +102,5 @@ Notifications support an optional icon; when none is supplied, the severity sele
 The HA service and notify entities force-show persistent notifications immediately; the ESPHome actions do not force-show them, but their popup opens about a second after the action (unless a notification popup or list is already open) and re-opens every 60 seconds until dismissed. See [Services](services.md#nspanel_hauisend_notification) for fields and defaults.
 
 See [Popup Notify](panels/popup_notify.md) for full details and usage examples.
+
+The HAUI editor also has a **Notifications** inbox in its header. It shows the notifications currently queued across the hub's devices, updates as notifications arrive or are dismissed, and lets you dismiss an item from the editor; dismissing it removes it from the same queue used by the panel.

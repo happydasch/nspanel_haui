@@ -74,6 +74,9 @@ def test_controller_stop_cancels_running_blink_timer(monkeypatch):
         controller: dict = {}
         device = _Device()
 
+        def log(self, msg, **kwargs):
+            pass
+
         def callback_event(self, event):
             pass
 

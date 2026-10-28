@@ -73,7 +73,8 @@ US/portrait panels, with Wi-Fi left to you at first boot:
 3. The panel boots into its **open access point named after the device**, e.g.
    `nspanel-haui-a1b2c3` (the MAC suffix keeps every panel's AP unique).
    Connect your phone/laptop to it and follow the captive portal to enter your
-   **Wi-Fi name and password**. The device reboots onto your network.
+   **Wi-Fi name and password**. The device reboots onto your network and keeps
+   that Wi-Fi across firmware updates.
 4. In Home Assistant, add the ESPHome device. When asked for the **encryption
    key**, use the fixed key `TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE=`.
 5. Add the device in the **NSPanel HAUI editor** (Device Manager → Scan). The

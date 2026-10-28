@@ -12,7 +12,7 @@ OVERRIDE = 1234
 
 class _Device:
     def get(self, key: str, default: Any = None) -> Any:
-        return {"debug_level": 0}.get(key, default)
+        return {}.get(key, default)
 
 
 class _DeviceConfig:

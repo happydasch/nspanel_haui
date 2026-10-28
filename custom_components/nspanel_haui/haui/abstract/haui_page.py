@@ -399,9 +399,9 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         """
         if self.panel is None:
             return
-        self.debug_log(
+        self.log(
             f"Refreshing panel {self.panel.id}",
-            min_level=2,
+            level="DEBUG",
         )
         with self.rec_cmd:
             self.render_panel(self.panel)
@@ -450,9 +450,9 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
             self.config_panel(panel)
             # call before render for panel
             if self.before_render_panel(panel):
-                self.debug_log(
+                self.log(
                     f"Rendering panel {panel.id}",
-                    min_level=2,
+                    level="DEBUG",
                 )
                 # Render function components (init vis/color/text) and the
                 # panel's display content in one batch so the dedup logic
@@ -580,6 +580,28 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
 
         Override this instead of ``stop_panel``.  No need to call super.
         """
+
+    def get_inside_temp_entity_id(self) -> str:
+        """Resolve this device's internal temperature sensor entity id.
+
+        The classic ``sensor.{device_slug}_temperature`` construction misses
+        installations where the hub's device name differs from the ESPHome
+        node name (renames, or HA's area/device entity-id naming), so prefer
+        the entity registry lookup by the sensor's ESPHome-authored name and
+        fall back to the classic id only when the registry has no match.
+
+        Returns:
+            str: The internal temperature sensor's entity id.
+        """
+        resolver = getattr(self.app, "find_entity_id", None)
+        if resolver is not None:
+            try:
+                resolved = resolver("sensor", "Temperature")
+            except Exception:  # noqa: BLE001 - registry access is best-effort
+                resolved = None
+            if resolved:
+                return resolved
+        return f"sensor.{self.app.device.get_slug()}_temperature"
 
     def _save_auto_state(self) -> dict:
         """Save and disable auto-dimming/page/display-off for popup overlays.
@@ -921,6 +943,10 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
     ) -> str:
         """Adds a item state listener.
 
+        The registered callback logs every entity/attribute change at DEBUG
+        (``entity attribute: old -> new``) before forwarding the unchanged
+        ``(entity_id, attribute, old, new, kwargs)`` arguments to ``callback``.
+
         Args:
             item_id (str): Item ID
             callback (function): Callback
@@ -929,13 +955,23 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         Returns:
             handle (str): Handle
         """
-        handle = self.app.listen_state(callback, item_id, attribute=attribute)
-        self.debug_log(
+
+        def _log_change(
+            event_item: str, event_attr: str, old: Any, new: Any, kwargs: Any
+        ) -> None:
+            self.log(
+                f"Item change: {event_item} {event_attr}: {old!r} -> {new!r}",
+                level="DEBUG",
+            )
+            callback(event_item, event_attr, old, new, kwargs)
+
+        handle = self.app.listen_state(_log_change, item_id, attribute=attribute)
+        self.log(
             f"Adding listener for {item_id},"
             f" attribute={attribute},"
-            f" callback={callback.__name__},"
+            f" callback={getattr(callback, '__name__', str(callback))},"
             f" handle={handle}",
-            min_level=2,
+            level="DEBUG",
         )
         self._handles.append(handle)
         self._listener_meta[handle] = {
@@ -953,11 +989,11 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         """
         if handle in self._handles:
             self.app.cancel_listen_state(handle)
-            self.debug_log(
+            self.log(
                 f"Removing listener,"
                 f" handle={handle},"
                 f" item={self._listener_meta.get(handle, {}).get('item_id', '?')}",
-                min_level=2,
+                level="DEBUG",
             )
             if handle in self._handles:
                 self._handles.remove(handle)
@@ -971,9 +1007,9 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         Args:
             event (HAUIEvent): Event
         """
-        self.debug_log(
+        self.log(
             f"Page process_event: {event.name} value={str(event.value)[:100]}",
-            min_level=2,
+            level="DEBUG",
         )
         # component event
         if event.name == ESPEvent.COMPONENT:

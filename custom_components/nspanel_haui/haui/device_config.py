@@ -20,6 +20,12 @@ LOCALE_OPTIONS: list[tuple[str, str]] = [
     ("fr_FR", "Français"),
 ]
 
+# Standard logging levels offered per device.  The value is the threshold at
+# which this device's app logs are emitted (see HAAdapter.log); DEBUG adds
+# detailed diagnostics (entity state changes, display commands) on top of the
+# routine INFO lifecycle messages.
+LOG_LEVEL_OPTIONS: list[str] = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
+
 DEVICE_CONFIG: dict[str, Any] = {
     "name": "",
     "panels": [{"type": "clock"}],
@@ -54,8 +60,7 @@ DEVICE_CONFIG: dict[str, Any] = {
     # is ready.
     "page_settle_delay": 0.1,
     # logging
-    "log_items": False,
-    "debug_level": 0,
+    "log_level": "INFO",
     # stale-data indicator: when an entity value has not updated for this many
     # seconds, pages render it dimmed with a "…" suffix.  0 = off (default).
     "stale_data_seconds": 0,
@@ -95,10 +100,10 @@ DEVICE_CONFIG: dict[str, Any] = {
     "use_sleep_schedule": False,
     "sleep_schedule_start": "",
     "sleep_schedule_end": "",
-    "sound_on_startup": True,
+    "sound_on_startup": False,
     # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
     "color_overrides": {},
-    "sound_on_notification": True,
+    "sound_on_notification": False,
     "persistent_sound_interval": 5,  # seconds between repeats for persistent notifications
     "use_do_not_disturb": False,  # toggle to enable quiet hours
     "quiet_hours_start": "",  # empty = disabled, format "HH:MM" (24h)
@@ -220,6 +225,21 @@ def merge_store_fields(source: dict, target: dict, fields: list) -> None:
     for field in fields:
         if field in source:
             target[field] = source[field]
+
+
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge *override* into *base* and return *base*.
+
+    Nested dictionaries are merged key-wise so defaults survive when the
+    override only sets a subset. Non-dict values in *override* replace the
+    corresponding value in *base*. *base* is modified in place.
+    """
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(base.get(key), dict):
+            deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
 
 
 def populate_devices_from_store(cfg: dict, store_devices: dict, fields: list) -> None:

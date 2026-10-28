@@ -20,6 +20,11 @@ display:
     command_spacing: 2ms
     # default url
     tft_url: $tft_update_url
+    # GitHub redirects release-asset downloads to a signed URL of ~870
+    # characters.  The redirected request line overflows the 512-byte ESP-IDF
+    # default TX buffer ("HTTP_CLIENT: Out of buffer"), so the hub's TFT
+    # install failed before the first byte (esphome/esphome#21435).
+    tft_upload_http_buffer_size_tx: 2048
 
     on_setup:
       then:

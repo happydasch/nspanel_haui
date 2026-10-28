@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 from ..mapping.const import InternalItemType
 from ..mapping.item_options import ItemOptions
@@ -47,12 +47,6 @@ class HAUIItem(HAUIConfigAccess):
         # prepare the item
         self._prepare_item(self.get("item", None))
 
-    def _dbg(self, msg: str) -> None:
-        """Log a debug message when log_items is enabled in device config."""
-        device = getattr(self.app, "device", None)
-        if device and device.get("log_items"):
-            self.log(msg)
-
     def _prepare_item(self, item_id: str | None) -> None:
         """Prepares internal values from entity.
 
@@ -73,15 +67,16 @@ class HAUIItem(HAUIConfigAccess):
         if self._internal:
             if ":" in item_id:
                 self._internal_data = item_id.split(":", 1)[1]
-            self._dbg(
+            self.log(
                 f"Item: {item_id} ->"
-                f" internal type={self._internal_type} data={self._internal_data!r}"
+                f" internal type={self._internal_type} data={self._internal_data!r}",
+                level="DEBUG",
             )
         else:
             self._item_id = item_id
             self._item_type = item_id.split(".")[0]
             self._entity = HAUIEntity(self.app, item_id)
-            self._dbg(f"Item: {item_id} -> external type={self._item_type}")
+            self.log(f"Item: {item_id} -> external type={self._item_type}", level="DEBUG")
 
     def execute(self) -> None:
         """Executes the item."""
@@ -346,6 +341,42 @@ class HAUIItem(HAUIConfigAccess):
                     name = panel.get_title()
 
         return name or get_item_name(self, "")
+
+    @overload
+    def get_color_field(
+        self, key: str, default: int | str | list | tuple
+    ) -> int | str | list | tuple: ...
+
+    @overload
+    def get_color_field(
+        self, key: str, default: None = None
+    ) -> int | str | list | tuple | None: ...
+
+    def get_color_field(
+        self, key: str, default: int | str | list | tuple | None = None
+    ) -> int | str | list | tuple | None:
+        """Resolve a per-item colour option that may be state-keyed or templated.
+
+        Tile options such as ``text_color`` and ``back_color`` support the same
+        state-dict and Jinja forms as the main ``color`` option.  Resolve them
+        before they reach ``parse_color_value``: a raw dict is treated as an
+        invalid colour (black) by that parser.
+
+        Args:
+            key: Config key to look up.
+            default: Value returned when the item has no override.
+
+        Returns:
+            The resolved colour value (int, string, or list) or ``default``.
+        """
+        value = self.get(key, None)
+        if isinstance(value, dict):
+            value = value.get(self.get_item_state())
+        if isinstance(value, str) and value:
+            value = self.render_template(value)
+        if value is None or value == "":
+            return default
+        return value
 
     def get_color(self) -> int:  # type: ignore[override]
         """Returns the color of the entity.

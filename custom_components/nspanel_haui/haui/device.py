@@ -80,12 +80,18 @@ class HAUIDevice(HAUIBase):
         """
         super().__init__(app, config)
         self.device_info: dict = {}
-        # First-touch guard of the idle page: while the display is
-        # dimmed/off the first touch only wakes it (see check_wakeup).  Set
-        # when the idle page opens (in case the display is not on) and
-        # whenever the display reports dim/off; cleared when a touch exits the
-        # idle page or is consumed as the wake touch.
+        # First-touch guard of the idle page: while the display is **off** the
+        # first touch only wakes it (see check_wakeup).  Set when the idle page
+        # opens (in case the display is off) and whenever the display reports
+        # "off"; cleared when a touch exits the idle page or is consumed as the
+        # wake touch.  A visible display ("on" or "dim") needs only one touch,
+        # so the guard is not armed there.
         self._first_touch_consumed = False
+        # Monotonic timestamp of the last visible ("on" or "dim") display_state
+        # event.  A touch that woke the display may reach the hub after the
+        # display-on event; the guard is consumed as the wake touch only within
+        # TOUCH_DUPLICATE_WINDOW of this timestamp.  Older = stale guard.
+        self._display_on_ts: float = 0.0
         # Monotonic deadline until which TOUCH_START events are treated as
         # leftovers of the touch that opened the idle page (see
         # arm_idle_touch_grace).  0.0 = no grace active.
@@ -398,6 +404,58 @@ class HAUIDevice(HAUIBase):
             self.device_info = device_info
 
     # ------------------------------------------------------------------
+    # Sleep / display-state predicates — the single source of truth
+    # ------------------------------------------------------------------
+
+    @property
+    def display_state(self) -> str:
+        """Display brightness state reported by the firmware: "on", "dim" or "off"."""
+        return str(self.device_info.get("display_state", "off"))
+
+    @property
+    def display_visible(self) -> bool:
+        """Whether the display is visible to the user ("on" or "dim")."""
+        return self.display_state in ("on", "dim")
+
+    @property
+    def display_dark(self) -> bool:
+        """Whether the display is dark ("off")."""
+        return self.display_state == "off"
+
+    @property
+    def sleeping(self) -> bool:
+        """Whether the device is sleeping: the idle page is shown.
+
+        "Sleep" is the hub-side idle page and is independent of display
+        brightness: the display may be dark without an idle page, and the
+        idle page may be shown while the display is visible.  This is the
+        single place that answers "is the device sleeping?"; consumers should
+        not read ``navigation.idle_panel_active`` directly.
+        """
+        navigation = self.app.controller.get("navigation")
+        return bool(navigation is not None and navigation.idle_panel_active)
+
+    @property
+    def needs_wake_touch(self) -> bool:
+        """Whether the next touch only wakes a dark display instead of exiting sleep.
+
+        True while the device sleeps with the display "off".  A visible
+        display ("on" or "dim") leaves the idle page on the first touch.
+        """
+        return self.sleeping and not self.display_visible
+
+    def on_idle_page_opened(self) -> None:
+        """Arm the first-touch guard when the idle page opens.
+
+        Called by the navigation controller whenever the idle page is shown.
+        Only a dark display needs a wake touch before the idle page can be
+        exited; a visible display ("on" or "dim") leaves on the first touch.
+        Touch-initiated entry while the display is visible is protected
+        separately by the idle-touch grace window.
+        """
+        self._first_touch_consumed = not self.display_visible
+
+    # ------------------------------------------------------------------
     # Connection state — delegates to connection controller
     # ------------------------------------------------------------------
 
@@ -501,7 +559,7 @@ class HAUIDevice(HAUIBase):
         try:
             start_time = datetime.strptime(start, "%H:%M").time()
             end_time = datetime.strptime(end, "%H:%M").time()
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             # Not raised: callers decide whether to play a sound, and an exception
             # there would also abort what follows (e.g. the startup navigation).
             self.log(
@@ -536,7 +594,7 @@ class HAUIDevice(HAUIBase):
         try:
             start_time = datetime.strptime(start, "%H:%M").time()
             end_time = datetime.strptime(end, "%H:%M").time()
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             self.log(
                 f"Ignoring sleep schedule: expected HH:MM, got start={start!r} end={end!r}",
                 level="WARNING",
@@ -563,7 +621,7 @@ class HAUIDevice(HAUIBase):
         try:
             start_time = datetime.strptime(start, "%H:%M").time()
             end_time = datetime.strptime(end, "%H:%M").time()
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
         now = (now or datetime.now()).replace(second=0, microsecond=0)
         candidates = [
@@ -701,7 +759,7 @@ class HAUIDevice(HAUIBase):
             name (str): Name of the sound
         """
         if self._is_quiet_hours():
-            self.debug_log(f"Quiet hours active — suppressing sound '{name}'")
+            self.log(f"Quiet hours active — suppressing sound '{name}'", level="DEBUG")
             return
         self.app.controller["esphome"].esphome.publish(ESPAction.PLAY_SOUND, name)
 
@@ -765,11 +823,19 @@ class HAUIDevice(HAUIBase):
                 self.check_wakeup()
             elif now - self._last_native_touch_ts > TOUCH_DUPLICATE_WINDOW:
                 self.check_wakeup()
-        # the display went dark again (e.g. while the idle page stays open),
-        # so the next touch must only wake it: re-arm the two-touch guard
+        # The display went dark again (e.g. while the idle page stays open),
+        # so the next touch must only wake it: re-arm the two-touch guard when
+        # the display turns "off".  "on" and "dim" are both visible states
+        # where a single touch leaves the idle page.  A touch that caused a
+        # dark→visible transition can reach the hub after the display-state
+        # event, so both visible states record the transition time:
+        # check_wakeup() consumes that wake touch within TOUCH_DUPLICATE_WINDOW
+        # and treats an older guard as stale.
         elif event.name == ESPEvent.DISPLAY_STATE:
-            if event.value in ("dim", "off"):
+            if event.value == "off":
                 self._first_touch_consumed = True
+            elif event.value in ("on", "dim"):
+                self._display_on_ts = time.monotonic()
         elif event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT):
             side = "left" if event.name == ESPEvent.BUTTON_LEFT else "right"
             if event.value == "1":  # pressed
@@ -790,7 +856,7 @@ class HAUIDevice(HAUIBase):
             persistent, notif_type = event.value.persistent, event.value.notif_type
             if self.get("sound_on_notification"):
                 if self._is_quiet_hours():
-                    self.debug_log("Quiet hours active — suppressing notification sound")
+                    self.log("Quiet hours active — suppressing notification sound", level="DEBUG")
                 elif persistent:
                     self._start_persistent_sound()
                 else:
@@ -817,18 +883,17 @@ class HAUIDevice(HAUIBase):
         Only while the idle page is actually open: once the idle session was
         exited the window must not swallow the fresh interaction.
         """
-        navigation = self.app.controller["navigation"]
-        if not navigation.idle_panel_active:
+        if not self.sleeping:
             return False
         return time.monotonic() < self._idle_touch_grace_until
 
     def check_wakeup(self) -> None:
         """Exit the idle page on any touch or hardware-button press.
 
-        When the display is already **on** the user can see the screen, so a
+        When the display is **on** or **dim** the user can see the screen, so a
         single touch immediately leaves the idle page (one-touch).  When the
-        display is **off** or **dim** the first touch only wakes the display;
-        the second touch performs the action (two-touch).
+        display is **off** the first touch only wakes the display; the second
+        touch performs the action (two-touch).
 
         A hardware button calls this on both press and release, so a single
         physical press wakes and exits (documented in docs/device.md).
@@ -838,31 +903,36 @@ class HAUIDevice(HAUIBase):
         machine handles brightness when its interaction timer is reset by the
         touch.
         """
-        navigation = self.app.controller["navigation"]
+        navigation = self.app.controller.get("navigation")
+        if navigation is None or not self.sleeping:
+            return
         if not navigation.panel:
             return
-        if not navigation.idle_panel_active:
+
+        if self.display_visible:
+            # A visible display needs only one touch to leave the idle page.
+            # A dark→visible transition caused by a touch can reach the hub
+            # after the display-state event.  Consume that wake touch when it
+            # arrives within TOUCH_DUPLICATE_WINDOW of the transition; an older
+            # armed guard is stale (the display was woken remotely) and a
+            # single touch leaves the idle page.
+            if (
+                self._first_touch_consumed
+                and time.monotonic() - self._display_on_ts <= TOUCH_DUPLICATE_WINDOW
+            ):
+                self._first_touch_consumed = False
+                self.log("Not exiting idle page, just woke up")
+                return
+            self._first_touch_consumed = False
+            navigation.exit_idle_to_prev_or_home(self.config)
             return
 
-        # Determine the display state to decide one-touch vs two-touch.
-        # Values from the device: "on", "dim", "off".
-        display_state = self.device_info.get("display_state", "off")
-
-        # The native touch event can reach the hub after the firmware has
-        # already published the display-on transition. Consume a wake touch
-        # recorded while dark before considering the current display state.
+        # Display is "off" (or not yet known): the first touch only wakes the
+        # display; the second touch exits.
         if self._first_touch_consumed:
             self._first_touch_consumed = False
             self.log("Not exiting idle page, just woke up")
             return
-
-        if display_state == "on":
-            # Display is visible: a single touch exits the idle page.
-            navigation.exit_idle_to_prev_or_home(self.config)
-            return
-
-        # Display is dark and the wake touch was already consumed: this is the
-        # second touch, so exit even if the on-state event has not arrived yet.
         navigation.exit_idle_to_prev_or_home(self.config)
 
     def _on_button_release(self, side: str) -> None:

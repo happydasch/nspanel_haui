@@ -18,7 +18,13 @@ from homeassistant.helpers.http import HomeAssistantView
 from .const import DOMAIN
 from .esphome_helpers import lookup_device_registry_name, read_network_entities
 from .haui.config_models import validate_panels
-from .storage import empty_device, empty_store, enabled_device_names, panel_store
+from .storage import (
+    async_remove_device,
+    empty_device,
+    empty_store,
+    enabled_device_names,
+    panel_store,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -209,10 +215,6 @@ class DeviceStatusView(HomeAssistantView):
         """Build minimal status from HA entities for a device without a running app."""
         nw = read_network_entities(hass, dev_name)
 
-        # If none of the WiFi entities exist, the device may not be a real ESPHome device
-        if not nw["ip"] and not nw["ssid"] and nw["rssi"] is None:
-            return None
-
         return {
             "connected": False,
             "connection_state": "disabled",
@@ -231,10 +233,89 @@ class DeviceStatusView(HomeAssistantView):
 
     @staticmethod
     async def _build_entity_status(hass: Any, entry_id: str, dev_name: str) -> dict | None:
-        """Build status for a device from HA entities, running in executor if needed."""
+        """Build status for a configured device from HA entities."""
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if entry is None or not any(
+            device.get("name") == dev_name for device in entry.data.get("devices", [])
+        ):
+            return None
         return await hass.async_add_executor_job(
             DeviceStatusView._build_minimal_device_info, hass, dev_name
         )
+
+
+class NotificationsView(HomeAssistantView):
+    """REST API for reading and dismissing queued device notifications."""
+
+    url = "/api/nspanel_haui/notifications/{entry_id}"
+    name = "api:nspanel_haui:notifications"
+    requires_auth = True
+
+    @require_admin
+    async def get(self, request, entry_id: str):
+        """Return queued notifications for one device or the whole hub entry."""
+        apps = _get_apps(request.app["hass"], entry_id) or {}
+        device_name = _query_device(request)
+        if device_name:
+            app = apps.get(device_name)
+            if app is None:
+                return self.json([], status_code=200)
+            return self.json(await self._read_app_notifications(app))
+
+        notifications = []
+        for app in apps.values():
+            notifications.extend(await self._read_app_notifications(app))
+        return self.json(notifications)
+
+    @require_admin
+    async def delete(self, request, entry_id: str):
+        """Dismiss one queued notification by device name and queue identifier."""
+        device_name = _query_device(request)
+        notification_id = (request.query.get("id") or "").strip()
+        if not device_name or not notification_id:
+            return _error(self, "device and id are required", 400)
+
+        apps = _get_apps(request.app["hass"], entry_id) or {}
+        app = apps.get(device_name)
+        if app is None:
+            return _error(self, "device not found", 404)
+
+        def remove_notification() -> bool:
+            controller = app.controller.get("notification")
+            if controller is None:
+                return False
+            for notification in controller.get_notifications():
+                if str(id(notification)) == notification_id:
+                    return controller.remove_notification(notification)
+            return False
+
+        removed = await app.async_run_on_worker(remove_notification)
+        if not removed:
+            return _error(self, "notification not found", 404)
+        return self.json({"status": "ok"})
+
+    @staticmethod
+    async def _read_app_notifications(app) -> list[dict[str, Any]]:
+        """Read a device's queue on its worker thread and serialize public fields."""
+
+        def read_notifications() -> list[dict[str, Any]]:
+            controller = app.controller.get("notification")
+            if controller is None:
+                return []
+            return [
+                {
+                    "id": str(id(notification)),
+                    "device": app.device.get_name(),
+                    "title": str(notification.title),
+                    "message": str(notification.message),
+                    "icon": notification.icon,
+                    "notif_type": notification.notif_type,
+                    "persistent": notification.persistent,
+                }
+                for notification in controller.get_notifications()
+            ]
+
+        return await app.async_run_on_worker(read_notifications)
 
 
 class PanelTypesView(HomeAssistantView):
@@ -434,28 +515,11 @@ class DeviceConfigView(HomeAssistantView):
         if not entry:
             return _error(self, "Config entry not found", 404)
 
-        # Always remove from config_entry.data["devices"]
         existing_in_ce = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
         if name not in existing_in_ce:
             return _error(self, f'Device "{name}" not found', 404)
 
-        # Remove from panel store only when keep_config is False
-        if not keep_config:
-            store = panel_store(hass, entry_id)
-            panels_data = await store.async_load() or empty_store()
-            had_in_store = name in panels_data.get("devices", {})
-            if had_in_store:
-                panels_data.get("devices", {}).pop(name, None)
-                await store.async_save(panels_data)
-                _LOGGER.debug("Removed device %s from panel store for %s", name, entry_id)
-
-        # The entry's update listener reloads it, stopping the device's app.
-        new_data = dict(entry.data)
-        new_data["devices"] = [d for d in new_data.get("devices", []) if d.get("name") != name]
-        # Keeps auto-add from adding the device straight back while ESPHome still has it.
-        new_data["removed_devices"] = [*entry.data.get("removed_devices", []), name]
-        hass.config_entries.async_update_entry(entry, data=new_data)
-        _LOGGER.debug("Removed device %s from config_entry.data for %s", name, entry_id)
+        await async_remove_device(hass, entry, name, keep_config=keep_config)
 
         return self.json({"status": "ok", "kept_config": keep_config})
 

@@ -31,7 +31,7 @@ export const DEVICE_CONFIG_DEFAULTS = {
   show_home_button: false,
   show_idle_button: false,
   show_notifications_button: true,
-  debug_level: 0,
+  log_level: "INFO",
   stale_data_seconds: 0,
   reset_interaction_on_button: true,
   snapshot_max_age_seconds: -1,
@@ -82,6 +82,20 @@ export const LOCALE_OPTIONS = [
   { value: "nl_NL", label: "Nederlands" },
   { value: "pl_PL", label: "Polski" },
   { value: "fr_FR", label: "Français" },
+];
+
+/**
+ * Supported log levels for the device config "Log Level" dropdown (mirrors
+ * LOG_LEVEL_OPTIONS in device_config.py).  The value is the threshold at which
+ * this device's app messages are emitted; DEBUG adds detailed diagnostics
+ * (entity state changes, display commands) on top of routine INFO messages.
+ */
+export const LOG_LEVEL_OPTIONS = [
+  { value: "CRITICAL", label: "Critical" },
+  { value: "ERROR", label: "Error" },
+  { value: "WARNING", label: "Warning" },
+  { value: "INFO", label: "Info" },
+  { value: "DEBUG", label: "Debug" },
 ];
 
 /**

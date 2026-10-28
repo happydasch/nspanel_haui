@@ -759,7 +759,7 @@ class HAUIDevice(HAUIBase):
             name (str): Name of the sound
         """
         if self._is_quiet_hours():
-            self.debug_log(f"Quiet hours active — suppressing sound '{name}'")
+            self.log(f"Quiet hours active — suppressing sound '{name}'", level="DEBUG")
             return
         self.app.controller["esphome"].esphome.publish(ESPAction.PLAY_SOUND, name)
 
@@ -856,7 +856,7 @@ class HAUIDevice(HAUIBase):
             persistent, notif_type = event.value.persistent, event.value.notif_type
             if self.get("sound_on_notification"):
                 if self._is_quiet_hours():
-                    self.debug_log("Quiet hours active — suppressing notification sound")
+                    self.log("Quiet hours active — suppressing notification sound", level="DEBUG")
                 elif persistent:
                     self._start_persistent_sound()
                 else:

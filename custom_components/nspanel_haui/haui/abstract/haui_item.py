@@ -47,12 +47,6 @@ class HAUIItem(HAUIConfigAccess):
         # prepare the item
         self._prepare_item(self.get("item", None))
 
-    def _dbg(self, msg: str) -> None:
-        """Log a debug message when log_items is enabled in device config."""
-        device = getattr(self.app, "device", None)
-        if device and device.get("log_items"):
-            self.log(msg)
-
     def _prepare_item(self, item_id: str | None) -> None:
         """Prepares internal values from entity.
 
@@ -73,15 +67,16 @@ class HAUIItem(HAUIConfigAccess):
         if self._internal:
             if ":" in item_id:
                 self._internal_data = item_id.split(":", 1)[1]
-            self._dbg(
+            self.log(
                 f"Item: {item_id} ->"
-                f" internal type={self._internal_type} data={self._internal_data!r}"
+                f" internal type={self._internal_type} data={self._internal_data!r}",
+                level="DEBUG",
             )
         else:
             self._item_id = item_id
             self._item_type = item_id.split(".")[0]
             self._entity = HAUIEntity(self.app, item_id)
-            self._dbg(f"Item: {item_id} -> external type={self._item_type}")
+            self.log(f"Item: {item_id} -> external type={self._item_type}", level="DEBUG")
 
     def execute(self) -> None:
         """Executes the item."""

@@ -52,6 +52,62 @@ re-runs the release workflow for the selected ref and generates
 those tags never ran the automated workflow. Do not "fix" old tags — the
 device-side lookup tolerates both forms.
 
+**Never push a tag to test firmware.** Every `v*` tag becomes a regular
+release, GitHub marks it *latest*, and every panel's **HAUI Firmware** entity
+reads `releases/latest/download/firmware-manifest.json` — so all panels with
+`firmware_auto_update` on install it. Use a
+[local test release](#test-firmware-updates-with-a-local-release) instead.
+
+### Test firmware updates with a local release
+
+`scripts/dev_release.py` turns a local build into the two files a release
+carries for over-the-air updates, written to a folder Home Assistant serves
+(`/config/www/…` is served as `/local/…`): `nspanel_haui_ota.bin` and
+`firmware-manifest.json` (the schema the release workflow writes, with the
+image URL and md5).
+
+1. Build the test panel's firmware with two substitutions, either in its device
+   YAML or on the command line:
+
+    ```bash
+    esphome -s yaml_version 0.4.3-dev1 \
+      -s firmware_manifest_url http://homeassistant.local:8123/local/nspanel/firmware-manifest.json \
+      compile esphome/nspanel_haui_universal.yaml
+    ```
+
+    `yaml_version` must equal the manifest version (ESPHome offers an update
+    whenever they differ, so a mismatch reinstalls forever), and each test
+    release needs a newer one (`-dev1`, `-dev2`, …) because Home Assistant only
+    turns the update entity on for a newer version. The manifest URL keeps the
+    installed test build reading the local manifest; one that reads the
+    GitHub manifest sees the release as an update, and the hub reinstalls the
+    release over it.
+
+2. Write the test release:
+
+    ```bash
+    python scripts/dev_release.py \
+      --image esphome/.esphome/build/nspanel-haui/build/firmware.ota.bin \
+      --version 0.4.3-dev1 \
+      --base-url http://homeassistant.local:8123/local/nspanel \
+      --out /path/to/homeassistant/config/www/nspanel
+    ```
+
+    The script refuses a factory image, an image larger than the app partition,
+    and an image whose embedded `yaml_version` or manifest URL does not match.
+
+3. Flash the first test build once from the ESPHome dashboard (or with
+   `nspanel_haui.update_firmware` and the image `url`). From then on, each
+   newer test release shows up on the panel's **HAUI Firmware** entity, and the
+   hub installs it automatically or with **Device Manager → Install firmware**.
+
+The hub treats `yaml_version` as the TFT version the firmware needs, so a test
+version newer than the installed TFT makes it look for a GitHub release of that
+version and report "No GitHub release". On the test panel, turn off
+`auto_install`, or install a TFT once with `nspanel_haui.update_tft` and `url`
+(it then stays until Home Assistant restarts). To leave the test, flash a build
+without the two substitutions.
+
 ## Branches and cadence
 
 `master` is **release-only**. Normal work never lands there directly: it arrives

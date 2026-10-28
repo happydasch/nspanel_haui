@@ -143,6 +143,26 @@ export const editorStyles = css`
     margin-inline-start: var(--ha-space-6);
   }
 
+  .notifications-button {
+    position: relative;
+    flex-shrink: 0;
+    color: var(--app-header-text-color, var(--sidebar-text-color, #333));
+  }
+
+  .notification-count {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    min-width: 16px;
+    padding: 1px 4px;
+    border-radius: 10px;
+    background: var(--error-color);
+    color: var(--text-primary-color);
+    font-size: 10px;
+    line-height: 14px;
+    text-align: center;
+  }
+
   .menu-toggle-btn {
     --mdc-icon-button-size: 40px;
     flex-shrink: 0;

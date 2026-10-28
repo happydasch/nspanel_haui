@@ -393,6 +393,16 @@ class HAAdapter:
     def log(self, msg: str, **kwargs: Any) -> None:
         level_name = kwargs.get("level", "INFO").upper()
         level = getattr(logging, level_name, logging.INFO)
+        # Per-device threshold: only emit messages at or above the device's
+        # configured log_level.  Before the device config exists (startup,
+        # teardown) the INFO threshold applies so lifecycle messages are safe.
+        threshold = logging.INFO
+        device = getattr(self, "device", None)
+        if device is not None:
+            threshold_name = str(device.get("log_level", "INFO") or "INFO").upper()
+            threshold = getattr(logging, threshold_name, logging.INFO)
+        if level < threshold:
+            return
         exc_info = kwargs.get("exc_info")
         _LOGGER.log(level, msg, exc_info=exc_info)
         # Capture last 100 log lines for the status view
@@ -654,7 +664,9 @@ class HAAdapter:
         def _ha_cb(event: Any) -> None:
             old_state = event.data.get("old_state")
             new_state = event.data.get("new_state")
-            if attribute and attribute not in ("state", None):
+            # "all" listens for any change; report the primary state as the
+            # old/new pair because no single attribute is being tracked.
+            if attribute and attribute not in ("state", "all", None):
                 old = old_state.attributes.get(attribute) if old_state else None
                 new = new_state.attributes.get(attribute) if new_state else None
             else:

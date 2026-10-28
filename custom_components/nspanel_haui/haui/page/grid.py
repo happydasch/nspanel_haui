@@ -334,12 +334,14 @@ class GridPage(PagedItemsMixin, HAUIPage):
             self.set_component_text(name, trim_text(item.get_name(), self.LEN_NAME))
             self.set_component_text_color(ico, item.get_color())
             self.set_component_text(ico, item.get_icon())
-            # make sure to redraw power if visible
             if self.is_power_visible(item):
+                power = getattr(self.COMPONENTS, f"g{idx}_power")
                 _, _, _, _, power_color = self.get_grid_colors(item)
-                self.update_function_component(
-                    getattr(self.COMPONENTS, f"g{idx}_power").name, visible=True, color=power_color
-                )
+                self.update_function_component(power.name, visible=True, color=power_color)
+                # The icon box overlaps the bottom of the power button, so the
+                # icon redraw above clips it; the update above sends nothing
+                # when the power button's own attributes are unchanged.
+                self.send_cmd(f"ref {power.name}")
             else:
                 self.update_function_component(
                     getattr(self.COMPONENTS, f"g{idx}_power").name, visible=False

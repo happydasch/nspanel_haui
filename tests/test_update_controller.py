@@ -145,6 +145,9 @@ def _release(tag, with_tft=True, with_portrait=False):
 class _App:
     hass = None
 
+    def log(self, msg: str, **kwargs) -> None:
+        pass
+
     def __init__(
         self,
         device_info,

@@ -37,6 +37,41 @@ export function isOlderVersion(a, b) {
   return false;
 }
 
+function rssiValue(rssi) {
+  if ((typeof rssi !== "number" && typeof rssi !== "string") || rssi === "") return null;
+  const value = Number(rssi);
+  return Number.isFinite(value) ? value : null;
+}
+
+function rssiLevel(rssi) {
+  const value = rssiValue(rssi);
+  if (value == null) return 0;
+  if (value >= -50) return 4;
+  if (value >= -60) return 3;
+  if (value >= -70) return 2;
+  return 1;
+}
+
+export function rssiStrengthClass(rssi) {
+  const classes = ["wifi-unknown", "wifi-weak", "wifi-fair", "wifi-good", "wifi-excellent"];
+  return classes[rssiLevel(rssi)];
+}
+
+export function rssiIcon(rssi) {
+  const level = rssiLevel(rssi);
+  return level ? `mdi:wifi-strength-${level}` : "mdi:wifi";
+}
+
+export function rssiBarCount(rssi) {
+  return rssiLevel(rssi);
+}
+
+export function fmtRssi(rssi) {
+  const value = rssiValue(rssi);
+  return value == null ? t('Unknown') : `${value} dBm`;
+}
+
+
 export function startStatusPolling(host) {
   if (host._statusTimer && host._statusDevice === host._selectedDevice) return;
   stopStatusPolling(host);

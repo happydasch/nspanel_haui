@@ -65,6 +65,7 @@ from nspanel_haui import (  # noqa: E402
     _auto_add_unconfigured_devices,
     api,
     async_reload_entry,
+    async_remove_config_entry_device,
     esphome_helpers,
     storage,
 )
@@ -161,6 +162,8 @@ def _entry_with(*devices: dict) -> _Entry:
 
 _PROTECTED = [
     (api.DeviceStatusView, "get"),
+    (api.NotificationsView, "get"),
+    (api.NotificationsView, "delete"),
     (api.PanelConfigView, "get"),
     (api.PanelConfigView, "post"),
     (api.DeviceConfigView, "get"),
@@ -187,6 +190,75 @@ def test_config_endpoints_reject_non_admin_users(view_cls, method):
     assert hass.mock_calls == []
 
 
+
+
+
+class _NotificationController:
+    def __init__(self, notifications):
+        self.notifications = notifications
+
+    def get_notifications(self):
+        return list(self.notifications)
+
+    def remove_notification(self, notification):
+        self.notifications.remove(notification)
+        return True
+
+
+class _NotificationApp:
+    def __init__(self, name, notifications):
+        self.device = types.SimpleNamespace(get_name=lambda: name)
+        self.controller = {"notification": _NotificationController(notifications)}
+
+    async def async_run_on_worker(self, function, *args):
+        return function(*args)
+
+
+def test_notifications_view_returns_queued_notifications():
+    notification = types.SimpleNamespace(
+        title="Doorbell",
+        message="Someone is here",
+        icon="mdi:bell",
+        persistent=True,
+        notif_type="critical",
+    )
+    app = _NotificationApp("kitchen", [notification])
+    hass = types.SimpleNamespace(data={"nspanel_haui": {"entry1": {"kitchen": app}}})
+    request = _Request(hass, admin=True, query={})
+
+    result = asyncio.run(api.NotificationsView().get(request, entry_id="entry1"))
+
+    assert result["body"] == [{
+        "id": str(id(notification)),
+        "device": "kitchen",
+        "title": "Doorbell",
+        "message": "Someone is here",
+        "icon": "mdi:bell",
+        "notif_type": "critical",
+        "persistent": True,
+    }]
+
+
+def test_notifications_view_dismisses_notification_on_worker():
+    notification = types.SimpleNamespace(
+        title="Doorbell",
+        message="Someone is here",
+        icon="mdi:bell",
+        persistent=False,
+        notif_type="info",
+    )
+    app = _NotificationApp("kitchen", [notification])
+    hass = types.SimpleNamespace(data={"nspanel_haui": {"entry1": {"kitchen": app}}})
+    request = _Request(
+        hass,
+        admin=True,
+        query={"device": "kitchen", "id": str(id(notification))},
+    )
+
+    result = asyncio.run(api.NotificationsView().delete(request, entry_id="entry1"))
+
+    assert result["body"] == {"status": "ok"}
+    assert app.controller["notification"].notifications == []
 # --- device add / delete ---------------------------------------------------
 
 
@@ -318,6 +390,35 @@ def test_delete_device_remembers_it_as_removed(monkeypatch):
 
     (saved,) = hass.config_entries.updates
     assert saved["removed_devices"] == ["office"]
+
+
+def test_deleting_device_on_hub_page_removes_it_from_hub(monkeypatch):
+    entry = _entry_with({"name": "kitchen"}, {"name": "office"})
+    hass = _Hass(entry)
+    stored = {"version": 1, "devices": {"kitchen": {}, "office": {}}}
+    saved_store: list = []
+    monkeypatch.setattr(storage, "Store", _fake_store(hass.events, stored, saved_store))
+    device = types.SimpleNamespace(identifiers={("nspanel_haui", "office")})
+
+    assert asyncio.run(async_remove_config_entry_device(hass, entry, device)) is True
+
+    (saved,) = hass.config_entries.updates
+    assert saved["devices"] == [{"name": "kitchen"}]
+    assert saved["removed_devices"] == ["office"]
+    assert saved_store == [{"version": 1, "devices": {"kitchen": {}}}]
+
+
+def test_deleting_stale_device_on_hub_page_leaves_hub_untouched(monkeypatch):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    stored = {"version": 1, "devices": {"kitchen": {}}}
+    monkeypatch.setattr(storage, "Store", _fake_store(hass.events, stored))
+    device = types.SimpleNamespace(identifiers={("nspanel_haui", "office")})
+
+    assert asyncio.run(async_remove_config_entry_device(hass, entry, device)) is True
+
+    assert hass.config_entries.updates == []
+    assert hass.events == []
 
 
 def test_auto_add_skips_removed_devices(monkeypatch):
@@ -1013,3 +1114,119 @@ def test_panel_save_with_a_kept_config_of_a_removed_device_does_not_reload(monke
 
     assert hass.config_entries.scheduled_reloads == []
     assert app.calls == ["worker", "reload_config"]
+
+@pytest.mark.parametrize("active", [False, True], ids=["disabled-device", "running-device"])
+def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, active):
+    device_id = "ha-device-1"
+    entity_ids = {
+        "IP": "sensor.upstairs_panel_ip",
+        "SSID": "sensor.upstairs_panel_ssid",
+        "RSSI": "sensor.upstairs_panel_rssi",
+    }
+    registry = types.SimpleNamespace(
+        entities={
+            entity_id: types.SimpleNamespace(
+                domain="sensor",
+                platform="esphome",
+                device_id=device_id,
+                original_name=original_name,
+            )
+            for original_name, entity_id in entity_ids.items()
+        }
+    )
+    entity_registry = types.ModuleType("homeassistant.helpers.entity_registry")
+    entity_registry.async_get = lambda hass: registry
+    helpers = sys.modules["homeassistant.helpers"]
+    monkeypatch.setattr(helpers, "entity_registry", entity_registry, raising=False)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", entity_registry)
+    monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: device_id)
+
+    hass = _Hass(_entry_with({"name": "panel"}))
+    hass.states = MagicMock()
+    states = {
+        entity_ids["IP"]: types.SimpleNamespace(state="unavailable"),
+        entity_ids["SSID"]: types.SimpleNamespace(state="HomeNet"),
+        entity_ids["RSSI"]: types.SimpleNamespace(state="-54"),
+    }
+    hass.states.get.side_effect = states.get
+
+    if active:
+        class RunningApp:
+            def get_device_status(self):
+                return {"device_info": esphome_helpers.read_network_entities(hass, "panel")}
+
+        hass.data["nspanel_haui"]["entry1"] = {"panel": RunningApp()}
+
+    request = _Request(hass, admin=True, query={"device": "panel"})
+    result = asyncio.run(api.DeviceStatusView().get(request, "entry1"))
+
+    assert result["status_code"] == 200
+    assert {
+        key: result["body"]["device_info"][key] for key in ("ip", "ssid", "rssi")
+    } == {
+        "ip": "",
+        "ssid": "HomeNet",
+        "rssi": -54.0,
+    }
+
+
+@pytest.mark.parametrize("state", ["unknown", "unavailable", "not-a-number", "NaN"])
+def test_disabled_device_status_keeps_unavailable_wifi_fields_unknown(monkeypatch, state):
+    device_id = "ha-device-1"
+    entity_ids = {
+        "IP": "sensor.room_ip",
+        "SSID": "sensor.room_ssid",
+        "RSSI": "sensor.room_rssi",
+    }
+    registry = types.SimpleNamespace(
+        entities={
+            entity_id: types.SimpleNamespace(
+                domain="sensor",
+                platform="esphome",
+                device_id=device_id,
+                original_name=original_name,
+            )
+            for original_name, entity_id in entity_ids.items()
+        }
+    )
+    entity_registry = types.ModuleType("homeassistant.helpers.entity_registry")
+    entity_registry.async_get = lambda hass: registry
+    helpers = sys.modules["homeassistant.helpers"]
+    monkeypatch.setattr(helpers, "entity_registry", entity_registry, raising=False)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", entity_registry)
+    monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: device_id)
+
+    hass = _Hass(_entry_with({"name": "room"}))
+    hass.states = MagicMock()
+    hass.states.get.side_effect = {
+        entity_ids["IP"]: types.SimpleNamespace(state="10.0.0.8"),
+        entity_ids["SSID"]: types.SimpleNamespace(state="unavailable"),
+        entity_ids["RSSI"]: types.SimpleNamespace(state=state),
+    }.get
+
+    result = asyncio.run(
+        api.DeviceStatusView().get(
+            _Request(hass, admin=True, query={"device": "room"}), "entry1"
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert result["body"]["device_info"]["ip"] == "10.0.0.8"
+    assert result["body"]["device_info"]["ssid"] == ""
+    assert result["body"]["device_info"]["rssi"] is None
+
+
+def test_disabled_device_status_returns_unknown_readings_when_registry_lookup_fails(monkeypatch):
+    monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: None)
+    hass = _Hass(_entry_with({"name": "room"}))
+
+    result = asyncio.run(
+        api.DeviceStatusView().get(
+            _Request(hass, admin=True, query={"device": "room"}), "entry1"
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert result["body"]["device_info"]["ip"] == ""
+    assert result["body"]["device_info"]["ssid"] == ""
+    assert result["body"]["device_info"]["rssi"] is None

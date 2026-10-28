@@ -134,6 +134,42 @@ def test_add_read_callback_by_name_and_request_text_by_name_together():
     assert calls == ["status text"]
 
 
+def test_add_item_listener_logs_item_change_at_debug_and_forwards_args():
+    """The listener wrapper logs entity changes at DEBUG and preserves the
+    ``(entity_id, attribute, old, new, kwargs)`` callback contract."""
+    page = _bare_page()
+    page._handles = []
+    page._listener_meta = {}
+    registered = {}
+
+    def listen_state(cb, entity_id, attribute=None, **kwargs):
+        registered[entity_id] = (cb, attribute)
+        return f"handle-{entity_id}"
+
+    page.app.listen_state = listen_state
+
+    received = []
+    page.add_item_listener("sensor.temp", lambda *a: received.append(a), attribute="state")
+
+    # Registration itself logs at DEBUG with the original callback name.
+    add_logs = [
+        kw for m, kw in page.app.log_calls if m.startswith("Adding listener for sensor.temp")
+    ]
+    assert add_logs and add_logs[0]["level"] == "DEBUG"
+
+    cb, attr = registered["sensor.temp"]
+    assert attr == "state"
+    cb("sensor.temp", "state", "21", "22", {})
+
+    assert received == [("sensor.temp", "state", "21", "22", {})]
+    change_logs = [
+        m for m, _kw in page.app.log_calls if m.startswith("Item change: sensor.temp")
+    ]
+    assert change_logs[-1] == "Item change: sensor.temp state: '21' -> '22'"
+    assert page._handles == ["handle-sensor.temp"]
+    assert page._listener_meta["handle-sensor.temp"]["callback_name"] == "<lambda>"
+
+
 # --- pending-request guards ------------------------------------------------
 
 
@@ -314,7 +350,7 @@ def test_popup_item_keeps_the_opening_items_overrides():
             return self.config.get(key, default)
 
     page = HAUIPage.__new__(HAUIPage)
-    page.app = types.SimpleNamespace()
+    page.app = types.SimpleNamespace(log=lambda *a, **k: None)
     panel = _Panel(
         {"item_id": "light.bed", "item": "light.bed", "name": "Bedside", "icon": "mdi:lamp"}
     )

@@ -13,6 +13,7 @@ from .const import DOMAIN
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.device_registry import DeviceEntry
 
     from .nspanel_haui import NSPanelHAUI
 
@@ -546,6 +547,23 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     await panel_store(hass, entry.entry_id).async_remove()
 
 
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, config_entry: ConfigEntry, device_entry: DeviceEntry
+) -> bool:
+    """Allow deleting a device on the hub page.
+
+    A device the hub still has is removed from it the way the editor's Remove
+    does; a stale one is left to the device registry.
+    """
+    from .storage import async_remove_device
+
+    configured = {d["name"] for d in config_entry.data.get("devices", []) if "name" in d}
+    for domain, name in device_entry.identifiers:
+        if domain == DOMAIN and name in configured:
+            await async_remove_device(hass, config_entry, name, keep_config=False)
+    return True
+
+
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload entry when its data or options change.
 
@@ -574,6 +592,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         DeviceYamlView,
         FirmwareDownloadView,
         IconSearchView,
+        NotificationsView,
         PanelConfigView,
         PanelTypesView,
         TranslationsView,
@@ -587,6 +606,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.http.register_view(ColorDefaultsView())
     hass.http.register_view(DeviceConfigView())
     hass.http.register_view(DeviceStatusView())
+    hass.http.register_view(NotificationsView())
     hass.http.register_view(DeviceUpdateDisplayView())
     hass.http.register_view(DeviceUpdateTftView())
     hass.http.register_view(DeviceTftReleasesView())

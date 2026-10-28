@@ -399,9 +399,9 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         """
         if self.panel is None:
             return
-        self.debug_log(
+        self.log(
             f"Refreshing panel {self.panel.id}",
-            min_level=2,
+            level="DEBUG",
         )
         with self.rec_cmd:
             self.render_panel(self.panel)
@@ -450,9 +450,9 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
             self.config_panel(panel)
             # call before render for panel
             if self.before_render_panel(panel):
-                self.debug_log(
+                self.log(
                     f"Rendering panel {panel.id}",
-                    min_level=2,
+                    level="DEBUG",
                 )
                 # Render function components (init vis/color/text) and the
                 # panel's display content in one batch so the dedup logic
@@ -943,6 +943,10 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
     ) -> str:
         """Adds a item state listener.
 
+        The registered callback logs every entity/attribute change at DEBUG
+        (``entity attribute: old -> new``) before forwarding the unchanged
+        ``(entity_id, attribute, old, new, kwargs)`` arguments to ``callback``.
+
         Args:
             item_id (str): Item ID
             callback (function): Callback
@@ -951,13 +955,23 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         Returns:
             handle (str): Handle
         """
-        handle = self.app.listen_state(callback, item_id, attribute=attribute)
-        self.debug_log(
+
+        def _log_change(
+            event_item: str, event_attr: str, old: Any, new: Any, kwargs: Any
+        ) -> None:
+            self.log(
+                f"Item change: {event_item} {event_attr}: {old!r} -> {new!r}",
+                level="DEBUG",
+            )
+            callback(event_item, event_attr, old, new, kwargs)
+
+        handle = self.app.listen_state(_log_change, item_id, attribute=attribute)
+        self.log(
             f"Adding listener for {item_id},"
             f" attribute={attribute},"
-            f" callback={callback.__name__},"
+            f" callback={getattr(callback, '__name__', str(callback))},"
             f" handle={handle}",
-            min_level=2,
+            level="DEBUG",
         )
         self._handles.append(handle)
         self._listener_meta[handle] = {
@@ -975,11 +989,11 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         """
         if handle in self._handles:
             self.app.cancel_listen_state(handle)
-            self.debug_log(
+            self.log(
                 f"Removing listener,"
                 f" handle={handle},"
                 f" item={self._listener_meta.get(handle, {}).get('item_id', '?')}",
-                min_level=2,
+                level="DEBUG",
             )
             if handle in self._handles:
                 self._handles.remove(handle)
@@ -993,9 +1007,9 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         Args:
             event (HAUIEvent): Event
         """
-        self.debug_log(
+        self.log(
             f"Page process_event: {event.name} value={str(event.value)[:100]}",
-            min_level=2,
+            level="DEBUG",
         )
         # component event
         if event.name == ESPEvent.COMPONENT:

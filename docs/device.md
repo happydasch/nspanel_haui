@@ -50,7 +50,8 @@ Dimmed or on with idle page shown:
 When the idle page is exited, the display returns to the panel that was open before it. It goes to the home panel instead when:
 
 - `snapshot_max_age_seconds` is `0` (never restore), or
-- `snapshot_max_age_seconds` is bigger than `0` and more than that many seconds have passed.
+- `snapshot_max_age_seconds` is bigger than `0` and more than that many seconds have passed, or
+- `auto_navigate_home_timeout` passed while the idle page was shown.
 
 The default (`-1`) always restores the previous panel. See
 [Device Configuration](configuration/device.md) for the setting.
@@ -101,3 +102,5 @@ Notifications support an optional icon; when none is supplied, the severity sele
 The HA service and notify entities force-show persistent notifications immediately; the ESPHome actions do not force-show them, but their popup opens about a second after the action (unless a notification popup or list is already open) and re-opens every 60 seconds until dismissed. See [Services](services.md#nspanel_hauisend_notification) for fields and defaults.
 
 See [Popup Notify](panels/popup_notify.md) for full details and usage examples.
+
+The HAUI editor also has a **Notifications** inbox in its header. It shows the notifications currently queued across the hub's devices, updates as notifications arrive or are dismissed, and lets you dismiss an item from the editor; dismissing it removes it from the same queue used by the panel.

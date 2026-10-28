@@ -160,19 +160,15 @@ class HAUIBase(HAUIConfigAccess):
             if send_commands and len(commands) > 0:
                 ctx = self._cmd_context()
                 prefix = f"[{ctx}] " if ctx else ""
-                # Level 1: one-line summary for diagnosing partial updates
-                if self.app.device.get("debug_level") >= 1:
-                    self.log(
-                        f"{prefix}Sending {len(commands)} command(s)",
-                        level="DEBUG",
-                    )
-                # Level 2: full command dump
-                if self.app.device.get("debug_level") >= 2:
-                    commands_str = "\n".join(commands)
-                    self.log(
-                        f"{prefix}Commands ({len(commands)}):\n{commands_str}",
-                        level="DEBUG",
-                    )
+                self.log(
+                    f"{prefix}Sending {len(commands)} command(s)",
+                    level="DEBUG",
+                )
+                commands_str = "\n".join(commands)
+                self.log(
+                    f"{prefix}Commands ({len(commands)}):\n{commands_str}",
+                    level="DEBUG",
+                )
                 self.send_cmds(commands)
             return commands
 
@@ -255,10 +251,9 @@ class HAUIBase(HAUIConfigAccess):
             if self._recording:
                 self._rec_cmd.append(cmd)
                 return
-            if self.app.device.get("debug_level") >= 2:
-                ctx = self._cmd_context()
-                prefix = f"[{ctx}] " if ctx else ""
-                self.log(f"{prefix}Command: {cmd}", level="DEBUG")
+            ctx = self._cmd_context()
+            prefix = f"[{ctx}] " if ctx else ""
+            self.log(f"{prefix}Command: {cmd}", level="DEBUG")
             self.app._last_panel_update = datetime.now(UTC).isoformat()
             self.display.send_cmd(cmd)
 
@@ -270,8 +265,7 @@ class HAUIBase(HAUIConfigAccess):
         Args:
             cmds: The commands to send.
         """
-        if self.app.device.get("debug_level") >= 1:
-            self.log(f"send_cmds: {len(cmds)} command(s)", level="DEBUG")
+        self.log(f"send_cmds: {len(cmds)} command(s)", level="DEBUG")
         self.app._last_panel_update = datetime.now(UTC).isoformat()
         self.display.send_cmds(cmds)
 

@@ -44,8 +44,7 @@ def test_device_config_has_all_required_keys() -> None:
         "show_idle_button",
         "show_notifications_button",
         "page_settle_delay",
-        "log_items",
-        "debug_level",
+        "log_level",
         "reset_interaction_on_button",
         "snapshot_max_age_seconds",
         "hub_idle_timeout",
@@ -256,14 +255,12 @@ def test_apply_panel_store_merges_panels() -> None:
 
 def test_apply_panel_store_applies_config_fields() -> None:
     cfg = {"device": {}, "devices": [{"name": "dev-a"}]}
-    store = {"dev-a": {"panels": [], "config": {"log_items": True, "debug_level": 3}}}
-    apply_panel_store(cfg, store, ["log_items", "debug_level"])
+    store = {"dev-a": {"panels": [], "config": {"log_level": "DEBUG"}}}
+    apply_panel_store(cfg, store, ["log_level"])
     # Device entry gets the fields
-    assert cfg["devices"][0]["log_items"] is True
-    assert cfg["devices"][0]["debug_level"] == 3
+    assert cfg["devices"][0]["log_level"] == "DEBUG"
     # cfg["device"] also gets the fields (last-write-wins)
-    assert cfg["device"]["log_items"] is True
-    assert cfg["device"]["debug_level"] == 3
+    assert cfg["device"]["log_level"] == "DEBUG"
 
 
 def test_apply_panel_store_skips_unknown_device() -> None:
@@ -329,3 +326,27 @@ def test_device_config_model_accepts_valid_timer_values() -> None:
     assert model is not None
     assert model.timeout_dimming == 3600
     assert model.auto_navigate_home_timeout == 86400
+
+
+def test_device_config_model_accepts_valid_log_levels() -> None:
+    """Every supported log level validates; values are normalized to upper case."""
+    from nspanel_haui.haui.config_models import validate_device_config
+
+    base = _device_config_base()
+    for level in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
+        model = validate_device_config({**base, "log_level": level})
+        assert model.log_level == level
+    # Lower case is accepted and normalized
+    model = validate_device_config({**base, "log_level": "debug"})
+    assert model.log_level == "DEBUG"
+
+
+def test_device_config_model_rejects_unsupported_log_levels() -> None:
+    """Anything outside the standard levels is rejected."""
+    import pytest
+    from nspanel_haui.haui.config_models import validate_device_config
+
+    base = _device_config_base()
+    for bad in ("", "verbose", "off", "2", 3, None):
+        with pytest.raises(Exception):  # noqa: B017
+            validate_device_config({**base, "log_level": bad})

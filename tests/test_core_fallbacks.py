@@ -36,7 +36,6 @@ def _device(app: _App, start: str, end: str) -> HAUIDevice:
     device = HAUIDevice(
         app,
         {
-            "debug_level": 0,
             "use_do_not_disturb": True,
             "quiet_hours_start": start,
             "quiet_hours_end": end,

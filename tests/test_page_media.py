@@ -21,7 +21,7 @@ _ENTITY_ID = "media_player.kitchen"
 
 class _Device:
     def get(self, key, default=None):
-        return {"debug_level": 0}.get(key, default)
+        return {}.get(key, default)
 
 
 class _DeviceConfig:

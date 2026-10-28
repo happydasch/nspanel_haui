@@ -95,7 +95,7 @@ class HAUIUpdateController(HAUIBase):
             config (dict): Config for controller
         """
         super().__init__(app, config)
-        self.debug_log(f"Creating Update Controller with config: {config}")
+        self.log(f"Creating Update Controller with config: {config}", level="DEBUG")
         self._timer: str | None = None  # timer for update check by interval
         self._timer_delay: str | None = None  # delays the TFT check after a connect
         self._interval = 0  # update check interval

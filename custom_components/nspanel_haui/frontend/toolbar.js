@@ -18,7 +18,6 @@ import {
 } from './device-manager.js';
 import { writeStorage } from './dom-helpers.js';
 import { renderPanelDropdown } from './panel-table.js';
-import { readNetworkInfo } from './network-info.js';
 import { getConnectionStateClass, getConnectionStateLabel } from './device-info.js';
 
 /* ── title header ────────────────────────────────────────────────────────── */
@@ -51,6 +50,15 @@ export function renderTitleHeader(host) {
     <div class="toolbar-header">
       ${renderMenuButton(host)}
       <span class="toolbar-title">${t('NSPanel HAUI')}</span>
+      ${host.entryId ? html`<ha-icon-button
+        class="notifications-button"
+        label=${t('Notifications')}
+        title=${t('Notifications')}
+        @click=${() => host._openNotifications()}
+      >
+        <ha-icon icon="mdi:bell-outline"></ha-icon>
+        ${host._notifications?.length ? html`<span class="notification-count">${host._notifications.length}</span>` : ''}
+      </ha-icon-button>` : ''}
       ${renderDeviceManagerButton(host)}
     </div>
   `;
@@ -106,8 +114,7 @@ export function renderDeviceInfoStrip(host) {
   const label = getConnectionStateLabel(t, connected, connState);
 
   const currentPage = ds?.current_page || "—";
-  const nw = readNetworkInfo(host.hass, host._selectedDevice);
-  const ip = nw && nw.ip ? nw.ip : null;
+  const ip = ds?.device_info?.ip || null;
 
   return html`
     <div class="device-info-strip">

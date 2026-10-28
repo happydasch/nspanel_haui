@@ -20,6 +20,12 @@ LOCALE_OPTIONS: list[tuple[str, str]] = [
     ("fr_FR", "Français"),
 ]
 
+# Standard logging levels offered per device.  The value is the threshold at
+# which this device's app logs are emitted (see HAAdapter.log); DEBUG adds
+# detailed diagnostics (entity state changes, display commands) on top of the
+# routine INFO lifecycle messages.
+LOG_LEVEL_OPTIONS: list[str] = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
+
 DEVICE_CONFIG: dict[str, Any] = {
     "name": "",
     "panels": [{"type": "clock"}],
@@ -54,8 +60,7 @@ DEVICE_CONFIG: dict[str, Any] = {
     # is ready.
     "page_settle_delay": 0.1,
     # logging
-    "log_items": False,
-    "debug_level": 0,
+    "log_level": "INFO",
     # stale-data indicator: when an entity value has not updated for this many
     # seconds, pages render it dimmed with a "…" suffix.  0 = off (default).
     "stale_data_seconds": 0,

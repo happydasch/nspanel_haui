@@ -35,6 +35,12 @@ and follow [Semantic Versioning](https://semver.org/).
   entity. It shows the installed TFT and the TFT the firmware needs, installs
   it, and stays *installing* (and available) while the upload keeps the device
   offline. The hub fires `nspanel_haui.display_update_changed` events for it.
+- **Local test firmware releases** — `scripts/dev_release.py` turns a local
+  build into `nspanel_haui_ota.bin` plus `firmware-manifest.json` for Home
+  Assistant's `/local` folder, so firmware updates can be tested without a
+  GitHub tag (which every panel would install). It refuses factory images and
+  builds whose `yaml_version` or manifest URL does not match. See
+  [Release process → local release](docs/release.md#test-firmware-updates-with-a-local-release).
 - **Another firmware release or a custom build can be installed** — the
   firmware gains an `install_firmware_url` action (ESPHome's
   `ota.http_request.flash`), and the hub uses it for
@@ -61,6 +67,15 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **"Return to the home panel after" works with an idle page** — when
+  `timeout_page` was shorter than `auto_navigate_home_timeout`, the idle page
+  opened first, the return-home timer gave up, and waking restored the panel
+  you were on, so the display never got back home. Once the timeout has passed,
+  leaving the idle page now opens the home panel.
+- **Panels can be deleted on the integration page** — the device menu on
+  *Settings → Devices & services → NSPanel HAUI* offered only **Disable**.
+  **Delete** now removes the panel from the hub like **Remove** in the editor's
+  device manager, including its settings and panels.
 - **Buzzer no longer sticks on during firmware updates or reboots (#62)** — the
   RTTTL player turns a note off only from the ESP32 main loop, and 0.4.2 stopped
   it only before a TFT upload. A firmware install (the **HAUI Firmware** entity,
@@ -138,6 +153,11 @@ and follow [Semantic Versioning](https://semver.org/).
   `back_color`/`text_color` was passed raw to the colour parser, which renders
   it black; tiles now resolve those values and refresh their background and
   text colours when the entity state changes. The editor preview does the same.
+- **Grid power buttons are no longer cut off at the bottom** — a tile refresh
+  that left the power button's own colours unchanged (an attribute update,
+  turning the page) redrew the tile icon, whose box overlaps the bottom of the
+  power button, without redrawing the button. The power button is now redrawn
+  after the icon.
 - **The internal temperature sensor shows up again on the clock and weather
   panels** — the display looked it up as `sensor.{device_slug}_temperature`,
   which misses installations where the HAUI device name differs from the
@@ -161,6 +181,10 @@ and follow [Semantic Versioning](https://semver.org/).
 - The update settings (`check_on_connect`, `update_interval`,
   `firmware_auto_update`, `auto_install`) are editable per device in the
   editor's **Updates** section.
+- **Editor dialogs close on a click outside** — Device Settings, the panel
+  editor, Device Colors and the Device Manager now close like the other
+  dialogs when you click the dimmed background or press Escape. Unsaved
+  changes are discarded, as with the close button.
 
 ## [0.4.2] — 2026-10-27
 

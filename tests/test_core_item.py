@@ -7,10 +7,14 @@ from nspanel_haui.haui.abstract.haui_item import HAUIItem
 
 
 class _App:
-    pass
+    def log(self, msg: str, **kwargs) -> None:
+        pass
 
 
 class _TemplateApp:
+    def log(self, msg: str, **kwargs) -> None:
+        pass
+
     def render_template(self, template: str) -> str:
         return template.replace("{{ 1 + 1 }}", "2")
 

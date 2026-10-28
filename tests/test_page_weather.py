@@ -8,7 +8,7 @@ _ENTITY_ID = "weather.home"
 
 class _Device:
     def get(self, key, default=None):
-        return {"debug_level": 0}.get(key, default)
+        return {}.get(key, default)
 
     def get_slug(self):
         return "panel"

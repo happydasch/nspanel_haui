@@ -369,7 +369,7 @@ class NSPanelHAUI(HAAdapter):
         # Read network info from HA entities only (no stale fallback).
         from .esphome_helpers import read_network_entities
 
-        nw = read_network_entities(self.hass, self._runtime_device_name or "", self.find_entity_id)
+        nw = read_network_entities(self.hass, self._runtime_device_name or "")
 
         result["device_info"] = {
             "name": self._runtime_device_name or device_config.get("name", self.name),

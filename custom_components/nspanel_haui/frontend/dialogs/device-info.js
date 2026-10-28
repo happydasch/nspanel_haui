@@ -8,7 +8,7 @@ import { html } from '../lit-import.js';
 import { dialogHeader } from './dialog-header.js';
 import { HauiDialog } from './haui-dialog.js';
 import { t } from '../localize.js';
-import { readNetworkInfo, rssiStrengthClass, rssiBarCount, fmtRssi } from '../network-info.js';
+import { rssiStrengthClass, rssiBarCount, fmtRssi } from '../device-info.js';
 
 /* ── timestamp formatting ─────────────────────────────────────────── */
 
@@ -357,11 +357,7 @@ class DeviceInfoDialog extends HauiDialog {
     if (!ds) return "";
 
     const di = ds.device_info || {};
-    const deviceName = di.name || "";
-    // Prefer the server-resolved network info (entity-registry based) over the
-    // client-side slug lookup, which misses area/device-prefixed entity ids.
-    const diIp = di.ip;
-    const nw = diIp ? { ip: diIp, ssid: di.ssid || '', rssi: di.rssi } : readNetworkInfo(this.hass, deviceName);
+    const nw = di;
 
     return html`
       <ha-dialog

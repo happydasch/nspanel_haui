@@ -54,7 +54,7 @@ class HAUIConnectionController(HAUIBase):
                 changes with a single ``bool`` argument.
         """
         super().__init__(app, config)
-        self.debug_log(f"Creating Connection Controller with config: {config}")
+        self.log(f"Creating Connection Controller with config: {config}", level="DEBUG")
 
         # State - replaces the old ``self.connected`` boolean
         self._state: ConnectionState = ConnectionState.DISCONNECTED
@@ -406,7 +406,7 @@ class HAUIConnectionController(HAUIBase):
         if isinstance(event.value, str):
             connection_request = json.loads(event.value)
             device.set_device_info(connection_request, append=False)
-            self.debug_log(f"Connection request from device: {connection_request}")
+            self.log(f"Connection request from device: {connection_request}", level="DEBUG")
         self._initiate_handshake("req_connection")
 
     def _handle_res_connection(self, event: HAUIEvent) -> None:
@@ -417,7 +417,10 @@ class HAUIConnectionController(HAUIBase):
                 # Duplicate/retry res_connection after handshake — device
                 # is alive, treat as heartbeat refresh.
                 self._update_last_time()
-                self.debug_log(f"res_connection received in state {self._state.value} (ignored)")
+                self.log(
+                    f"res_connection received in state {self._state.value} (ignored)",
+                    level="DEBUG",
+                )
             else:
                 self.log(
                     f"Unexpected res_connection in state {self._state.value}",
@@ -438,7 +441,7 @@ class HAUIConnectionController(HAUIBase):
                     level="WARNING",
                 )
             device.set_device_info(connection_response, append=True)
-            self.debug_log(f"Connection response from device: {connection_response}")
+            self.log(f"Connection response from device: {connection_response}", level="DEBUG")
         self.send_esphome(ESPRequest.REQ_DEVICE_STATE)
 
     def _handle_res_device_state(self, event: HAUIEvent) -> None:
@@ -451,7 +454,7 @@ class HAUIConnectionController(HAUIBase):
             except json.JSONDecodeError:
                 self.log("Invalid device state JSON", level="WARNING")
         if self._state == ConnectionState.HANDSHAKING:
-            self.debug_log(f"Device state received {event.value}")
+            self.log(f"Device state received {event.value}", level="DEBUG")
             self._set_state(ConnectionState.CONNECTED)
             # Emit a compact INFO summary of key device info
             info = device.device_info
@@ -464,7 +467,7 @@ class HAUIConnectionController(HAUIBase):
                 parts.append(f"page={info['page']}")
             self.log(f"Device connected | {' | '.join(parts)}")
         elif self._state == ConnectionState.CONNECTED:
-            self.debug_log(f"Device state received (replay) {event.value}")
+            self.log(f"Device state received (replay) {event.value}", level="DEBUG")
         else:
             self.log(
                 f"Unexpected res_device_state in state {self._state.value}",

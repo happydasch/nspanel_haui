@@ -56,7 +56,7 @@ class _Device:
     is_portrait = False
 
     def get(self, key, default=None):
-        return {"debug_level": 0}.get(key, default)
+        return {}.get(key, default)
 
     def get_locale(self):
         return "en_US"

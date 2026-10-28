@@ -6,7 +6,7 @@
  * Communicates form changes via CustomEvent.
  */
 import { html, css } from '../lit-import.js';
-import { DATE_FORMAT_OPTIONS, DISPLAY_MODEL_OPTIONS, GESTURE_NAMES, LOCALE_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
+import { DATE_FORMAT_OPTIONS, DISPLAY_MODEL_OPTIONS, GESTURE_NAMES, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
 import { renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
 import { dialogHeader } from './dialog-header.js';
@@ -82,15 +82,6 @@ function formatSelectField(host, baseId, key, cfg, label, options, hint) {
       <div class="field-hint">${hint}</div>
     </div>
   `;
-}
-
-/** Debug level options for the debug_level dropdown (labels resolved at render time). */
-function debugLevelOptions() {
-  return [
-    { value: "0", label: t("Off") },
-    { value: "1", label: t("Basic") },
-    { value: "2", label: t("Verbose") },
-  ];
 }
 
 /** Read a value from the nested `update` config block. */
@@ -199,7 +190,6 @@ class DeviceConfigDialog extends HauiDialog {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        .preventScrimClose=${true}
       >
         ${dialogHeader(t("Device Settings"), this._dispatchClose)}
 
@@ -222,10 +212,8 @@ class DeviceConfigDialog extends HauiDialog {
                 ${selectField(this, "dc-display_model", "display_model", cfg, t("Display Model"), DISPLAY_MODEL_OPTIONS, (v) => v,
                   t("Select the hardware model. EU and US (landscape) use the standard landscape layout; US (portrait) uses the rotated portrait TFT. The update controller downloads the matching TFT for the selected model."))}
 
-              ${selectField(this, "dc-debug_level", "debug_level", cfg, t("Debug Level"), debugLevelOptions(), (v) => parseInt(v, 10),
-                t("Controls the verbosity of diagnostic logging sent to the Home Assistant logs: Off = no debug output, Basic = key lifecycle events, Verbose = all commands and data exchanged with the display"))}
-              ${checkbox(this, "dc-log_items", "log_items", cfg, t("Log item updates"),
-                t("Write every item update of this device to the Home Assistant log. For troubleshooting; leave it off otherwise."))}
+              ${selectField(this, "dc-log_level", "log_level", cfg, t("Log Level"), LOG_LEVEL_OPTIONS, (v) => v,
+                  t("Controls the verbosity of this device's app messages in the Home Assistant log: standard logger thresholds. DEBUG adds detailed diagnostics (entity state changes, display commands) on top of the routine INFO lifecycle messages."))}
               ${intField(this, "dc-stale_data_seconds", "stale_data_seconds", cfg, t("Stale data threshold (seconds)"), 0, 0, 86400,
                 t("When a sensor value has not updated for this many seconds, the row page shows it dimmed with a … suffix so an old value is not mistaken for current. 0 = off."))}
             </div>
@@ -524,7 +512,6 @@ class DeviceConfigDialog extends HauiDialog {
 
           <details class="config-section">
             <summary>${t("Panel Assignments")}</summary>
-            <div class="config-section-body"><summary>${t("Panel Assignments")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">
                 ${t("Choose which panels play the home and idle roles. Leave unset to keep the current panel.")}

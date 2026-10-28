@@ -70,7 +70,7 @@ class FDevice:
     sleeping = False
 
     def __init__(self, home="a"):
-        self._cfg = {"debug_level": 0, "home_panel": home}
+        self._cfg = {"home_panel": home}
 
     def get(self, key, default=None):
         return self._cfg.get(key, default)

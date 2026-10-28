@@ -42,7 +42,7 @@ class FakeDevice:
         self.connected = cfg.pop("connected", True)
         self.device_info = {}
         self.config = {}
-        self._cfg = {"debug_level": 0, **cfg}
+        self._cfg = {**cfg}
         self.check_wakeup_calls = 0
         self._first_touch_consumed = False
 
@@ -472,6 +472,30 @@ def test_close_idle_panel_leaves_idle_session():
     nav._close_panel_impl()
 
     assert nav._idle_panel_active is False
+
+
+def test_nav_home_timeout_on_idle_page_exits_to_home():
+    """With timeout_page shorter than auto_navigate_home_timeout the idle page
+    opens first; once the nav-home timeout has passed, leaving the idle page
+    must go home instead of restoring the panel the idle page covered."""
+    other = DummyPanel("other", key="other")
+    idle = DummyPanel("idle", key="idle")
+    app = FakeApp(FakeDevice(auto_navigate_home_timeout=60))
+    app.device_config = FakeDeviceConfig(other)
+    nav = HAUINavigationController(app, {})
+    opened = []
+    nav.open_home_panel = lambda **kw: opened.append("home")
+    nav.reload_panel = lambda: opened.append("restored")
+    nav._home_panel = DummyPanel("home", key="home")
+    nav.panel = other
+    nav.create_snapshot()
+    nav.panel = nav._idle_panel = idle
+    nav._idle_panel_active = True
+
+    nav._nav_home_timer_callback({})
+    nav.exit_idle_to_prev_or_home({"snapshot_max_age_seconds": -1})
+
+    assert opened == ["home"]
 
 
 # --- BUFFER_OVERFLOW -------------------------------------------------------

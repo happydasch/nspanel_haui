@@ -48,7 +48,11 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
 - **Refresh display** — Re-renders the display.
 - Each row shows the device's online/offline state, firmware and TFT versions,
   IP address and signal strength; a display whose TFT is older than the
-  firmware version is flagged **update pending**.
+  firmware version is flagged **update pending**. Wi-Fi readings are resolved
+  from the ESPHome entity registry and displayed independently; unavailable
+  values are omitted or shown as **Unknown**, and an unknown signal does not
+  mean the device is offline. The **Device Info** dialog shows the IP, SSID and
+  signal readings from the same status data.
 
 The per-device fields:
 
@@ -74,6 +78,7 @@ Every device setting, including `enabled`, and the device's panels are saved in 
 
 - **Saving applies immediately.** Saving in the editor applies the new settings and panels to the running device without a restart. A setting you clear goes back to its default. Enabling or disabling a device reloads the hub.
 - **New devices start enabled.** Devices found through ESPHome discovery are added enabled. A device you disable stays disabled, and a device you remove stays removed until you add it again.
+- **Deleting a device in Home Assistant.** **Delete** in the device's menu on *Settings → Devices & services → NSPanel HAUI* does the same as **Remove** in the device manager: the device leaves the hub, and its settings and panels are deleted.
 - **Upgrading from 0.3.2 or earlier.** Settings that older versions kept in the config entry are not carried over. After updating, check each device's settings in the editor.
 
 ## Device Settings
@@ -89,6 +94,14 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 - `display_model` string
 
   Hardware display model — one of `eu` (default) or `us`. Selects which TFT layout the display needs. The default `eu` covers every landscape-mounted panel (including a US panel mounted landscape, which is functionally identical); `us` is a US panel mounted portrait (buttons below the screen) and needs the rotated portrait TFT. The update controller downloads the matching TFT asset for the selected model. See [Display Models](display-models.md).
+
+- `log_level` string
+
+  Standard logging threshold for this device's app messages in the Home Assistant log, shown in the dropdown as Critical, Error, Warning, Info, or Debug. Default `"INFO"`. `DEBUG` adds detailed diagnostics — entity/attribute state changes and the display commands exchanged with the panel — on top of the routine Info lifecycle messages.
+
+  The threshold sets what the hub *emits*; Home Assistant still decides what is *displayed*: to see Debug records in the HA log, add `logger: custom_components.nspanel_haui: debug` to your [logger configuration](https://www.home-assistant.io/integrations/logger/).
+
+- **Logs** dialog — the **Logs** button in the toolbar opens the last 50 of the 100 most recent in-memory HAUI messages for the selected running device. It is a diagnostic buffer of the hub app, not a complete Home Assistant or ESPHome log viewer: firmware logs and HA messages from other integrations are not included, and the buffer is not written to disk.
 
 ### Display dimming & off
 
@@ -129,14 +142,6 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 - `timeout_page` int
 
   Seconds of inactivity before the idle page opens (`0` = disabled, max `3600` in the editor). Default `30`.
-
-- `debug_level` int
-
-  Diagnostic logging verbosity shown in the dropdown as Off (`0`), Basic (`1`), or Verbose (`2`). Default `0`.
-
-- `log_items` bool
-
-  Log every item update of this device to the Home Assistant log, for troubleshooting. Default `False`.
 
 - `stale_data_seconds` int
 
@@ -249,7 +254,7 @@ shortcuts on top of that.
 
 - `auto_navigate_home_timeout` int
 
-  After this many seconds without interaction on another panel, go back to the home panel. Set it shorter than the dimming and display-off timeouts. `0` = off (default).
+  After this many seconds without interaction on another panel, go back to the home panel. Set it shorter than the dimming and display-off timeouts. When the idle page opens first (`timeout_page` is shorter), the idle page stays, and leaving it goes to the home panel instead of the panel you were on. `0` = off (default).
 
 - `hub_idle_timeout` int
 

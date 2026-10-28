@@ -12,8 +12,7 @@ import { positionContextMenu, onOutsideClick, offOutsideClick } from '../dom-hel
 import * as Toast from '../toast.js';
 import { scanDevices, getFirmwareDownload, getTftReleases, getFirmwareReleases } from '../api.js';
 import { renderSelect } from '../form-fields.js';
-import { readNetworkInfo, rssiIcon, rssiStrengthClass } from '../network-info.js';
-import { isOlderVersion } from '../device-info.js';
+import { rssiIcon, rssiStrengthClass, fmtRssi, isOlderVersion } from '../device-info.js';
 
 /* ── helpers ────────────────────────────────────────────────── */
 
@@ -21,15 +20,10 @@ import { isOlderVersion } from '../device-info.js';
  * Render a compact WiFi icon for the title row.
  */
 function renderWifiIcon(rssi, ssid) {
-  if (rssi == null || rssi === "") {
-    return html`<ha-icon icon="mdi:wifi-off" class="wifi-icon-head wifi-off"
-      title="${t('Offline')}"></ha-icon>`;
-  }
-  const icon = rssiIcon(rssi);
   const colorCls = rssiStrengthClass(rssi);
-  let detail = `${rssi} dBm`;
-  if (ssid) detail += `  ·  ${ssid}`;
-  return html`<ha-icon icon="${icon}" class="wifi-icon-head ${colorCls}" title="${detail}"></ha-icon>`;
+  const detail = [fmtRssi(rssi), ssid].filter(Boolean).join("  ·  ");
+  return html`<ha-icon icon="${rssiIcon(rssi)}" class="wifi-icon-head ${colorCls}"
+    title="${detail}"></ha-icon>`;
 }
 
 /**
@@ -177,7 +171,6 @@ class DeviceManagerDialog extends HauiDialog {
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
-        .preventScrimClose=${true}
       >
         ${dialogHeader(t('Device Manager'), this._dispatchClose)}
         <form @submit=${(e) => e.preventDefault()}>
@@ -287,9 +280,7 @@ class DeviceManagerDialog extends HauiDialog {
     const updateStatus = this._deviceStatuses?.[name]?.update;
     const yaml = di?.yaml_version;
     const tft = di?.tft_version;
-    // Prefer the server-resolved network info (entity-registry based) over the
-    // client-side slug lookup, which misses area/device-prefixed entity ids.
-    const nw = (di?.ip) ? { ip: di.ip, ssid: di.ssid || '', rssi: di.rssi } : readNetworkInfo(this.hass, name);
+    const nw = di || {};
 
     const displayName = dev.friendly_name || name;
 

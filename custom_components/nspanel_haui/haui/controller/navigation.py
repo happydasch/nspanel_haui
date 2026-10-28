@@ -42,7 +42,7 @@ class HAUINavigationController(HAUIBase):
             config (dict): Config for controller
         """
         super().__init__(app, config)
-        self.debug_log(f"Creating Navigation Controller with config: {config}")
+        self.log(f"Creating Navigation Controller with config: {config}", level="DEBUG")
         self.page: HAUIPage | None = None
         self.panel: HAUIPanel | None = None  # current panel config
         self.panel_kwargs: dict[str, Any] = {}  # current panel kwargs
@@ -612,12 +612,15 @@ class HAUINavigationController(HAUIBase):
         """Called when the auto-navigate-home timer fires.
 
         Navigates to the home panel if the current panel differs from the
-        home panel and the device is still connected.  Does nothing if the
-        idle page is active (the user would be disturbed by an unwanted
-        navigation).
+        home panel and the device is still connected.  While the idle page is
+        active it stays on screen, but leaving it goes home: the snapshot of
+        the panel it covered is dropped.
         """
         self._nav_home_timer = None
         if self._idle_panel_active:
+            # The idle page opened first (timeout_page is shorter); restoring
+            # the covered panel on wake would skip the return home entirely.
+            self.unset_snapshot()
             return
         if not self.app.device.connected:
             return
@@ -941,7 +944,10 @@ class HAUINavigationController(HAUIBase):
         interaction-timer reset runs first because it applies across several
         event types (touch/button/gesture).
         """
-        self.debug_log(f"Navigation process_event: {event.name} value={str(event.value)[:100]}")
+        self.log(
+            f"Navigation process_event: {event.name} value={str(event.value)[:100]}",
+            level="DEBUG",
+        )
         self._reset_hub_timers_on_interaction(event)
 
         # Recovery: a touch while a page change is pending means the goto_page
@@ -1002,9 +1008,10 @@ class HAUINavigationController(HAUIBase):
         # mismatch - likely a stale echo of a previous goto.
         # Don't reload; _page_timeout handles real failures.
         if self.page.page_id != event.as_int():
-            self.debug_log(
+            self.log(
                 f"Stale page event {PAGE_MAPPING.get(event.as_int())} "
                 f"received while {PAGE_MAPPING.get(self.page.page_id)} is active, ignoring",
+                level="DEBUG",
             )
             return
         # page not started yet - schedule display_panel after settle delay
@@ -1085,9 +1092,9 @@ class HAUINavigationController(HAUIBase):
         self._last_overflow_ts = now
         if self._overflow_recoveries >= OVERFLOW_RECOVERY_MAX_ATTEMPTS:
             # Recovery is paused; stay quiet until a reset period passes.
-            self.debug_log(
+            self.log(
                 "Nextion buffer overflow while recovery is paused — ignoring",
-                min_level=1,
+                level="DEBUG",
             )
             return
         delay = OVERFLOW_RECOVERY_DELAY * (2**self._overflow_recoveries)

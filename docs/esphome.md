@@ -540,19 +540,15 @@ Buttons provided by the ESP.
 
 ## Diagnostics
 
-Diagnostics related sensors.
+Diagnostics related sensors. The production package and universal release image
+expose the diagnostics used by the integration. The local development config
+also includes `debug.yaml`, which adds uptime and ESPHome debug sensors for
+troubleshooting; these are not included in release firmware. Your own device
+YAML must not duplicate entities that its selected packages already include.
 
 - TFT Version: Version of the TFT file (read from the display)
 - Client Status: `online` / `offline`, the hub connection state
 - WIFI Info: IP, SSID, BSSID and RSSI
-- Uptime: seconds since the last boot
-- Heap Free, Heap Max Block and Loop Time: free heap, largest free heap block
-  and main loop time, every 30 s (`debug.yaml`)
-- Reset Reason: reason of the last reset (`debug.yaml`)
-
-Your own device YAML must not add these entities a second time: ESPHome fails
-with `Duplicate … entity with name '…'` (see
-[Upgrading → Shipped diagnostics](upgrading.md#11-the-firmware-ships-uptime-and-debug-entities)).
 
 ### Exposed sensors (curated set)
 
@@ -570,11 +566,9 @@ only clutter the entity registry.
 | `text_sensor.nspanel_kitchen_client_status` | `online` / `offline`, the hub connection state |
 | `sensor.nspanel_kitchen_brightness` | Current display brightness (the last value the hub set, 0–100) |
 | `sensor.nspanel_kitchen_temperature` | Internal panel temperature (NTC, °C) |
-| `sensor.nspanel_kitchen_uptime` | Seconds since the last boot |
-| `sensor.nspanel_kitchen_heap_free` / `..._heap_max_block` / `..._loop_time` / `..._reset_reason` | Debug diagnostics (`debug.yaml`) |
 
-The temperature chain uses two further sensors (`adc`, `resistance`) that are
-`disabled_by_default: true` — only the final `temperature` sensor is enabled.
+The temperature calculation's `adc` and `resistance` sensors remain
+`disabled_by_default: true`; only the final `temperature` sensor is exposed.
 The hub looks the temperature sensor up through the entity registry by its
 ESPHome-authored name (`Temperature`), so the example id above is only a
 fallback: a renamed device or HA's area-prefixed entity ids (e.g.

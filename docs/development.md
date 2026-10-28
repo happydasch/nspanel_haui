@@ -10,6 +10,42 @@ integration, or contribute to the project.
 
 ---
 
+## Local development deployment
+
+The repository has no separate integration build or frontend development
+server. To run the checked-out code in a Home Assistant test instance, expose
+the integration folder inside that instance's config directory:
+
+```bash
+HA_CONFIG=/path/to/home-assistant/config
+REPO=/path/to/nspanel_haui
+mkdir -p "$HA_CONFIG/custom_components"
+ln -s "$REPO/custom_components/nspanel_haui" \
+  "$HA_CONFIG/custom_components/nspanel_haui"
+```
+
+If an HACS or copied installation already exists at that destination, move it
+aside before creating the link. For containers, the symlink target must also be
+available inside the container; otherwise copy the integration folder into
+`$HA_CONFIG/custom_components/nspanel_haui` instead. Restart Home Assistant
+after Python or frontend changes so it reloads the integration and its versioned
+static assets.
+
+For local ESPHome development, configure the secrets required by
+`esphome/nspanel_haui_dev.yaml` and activate the separate environment with
+`requirements-esphome.txt` installed. Then build and upload to the test panel:
+
+```bash
+esphome run esphome/nspanel_haui_dev.yaml
+```
+
+The dev config includes the optional web server and `debug.yaml` diagnostics.
+Release builds use `esphome/nspanel_haui_universal.yaml`; they do not include the
+dev-only diagnostics. Keep test firmware and test integration instances separate
+from production devices.
+
+---
+
 ## Architecture
 
 The system has three layers:

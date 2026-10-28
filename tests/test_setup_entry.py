@@ -126,7 +126,11 @@ def test_idle_hub_still_sets_up_platforms(monkeypatch):
 
 def _registry_update(monkeypatch, app):
     """Run the session-wide registry listener for a HAUI ESPHome device update."""
-    monkeypatch.setattr(sys.modules["homeassistant.core"], "callback", lambda f: f)
+    # The stubbed core module may be a restricted/wrapping mock that does not
+    # expose ``callback``; raising=False lets the patch create it either way.
+    monkeypatch.setattr(
+        sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False
+    )
     monkeypatch.setattr(nspanel_haui, "_DISCOVERY_INITIALIZED", False)
     monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: "dev1")
     monkeypatch.setattr(esphome_helpers, "is_haui_device", lambda hass, entry: True)
@@ -276,7 +280,9 @@ class _Event:
 
 
 def test_unresolved_device_ignores_events_from_other_devices(monkeypatch):
-    monkeypatch.setattr(sys.modules["homeassistant.core"], "callback", lambda f: f)
+    monkeypatch.setattr(
+        sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False
+    )
     listeners: list = []
     jobs: list = []
     hass = types.SimpleNamespace(

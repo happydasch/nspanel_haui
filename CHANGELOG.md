@@ -6,7 +6,20 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
-## [0.4.3] — unreleased
+## [0.4.4] — unreleased
+
+### Planned
+
+- Complete the remaining 0.4.x acceptance passlist on EU and US/portrait
+  hardware, including the new firmware-OTA-to-TFT sequence and buzzer shutdown.
+- Investigate the old-bootloader OTA rollback warning before treating unattended
+  updates as safe.
+- Review notification-enhancement issue [#50](https://github.com/happydasch/nspanel_haui/issues/50)
+  and verify notification behavior across both display models.
+
+See the [v0.4.4 roadmap](ROADMAP.md#v044--hardware-acceptance-and-ota-risk-closure-planned).
+
+## [0.4.3] — 2026-10-28
 
 ### Breaking changes
 
@@ -17,18 +30,8 @@ and follow [Semantic Versioning](https://semver.org/).
   `nspanel_haui.update_tft` (which now takes an optional `url`).
   `esphome.<device>_upload_tft_url` remains as the hub's transport. See
   [Upgrading → TFT install actions](docs/upgrading.md#10-tft-install-actions-moved-to-the-integration).
-- **The firmware ships uptime and debug entities** — a device YAML that adds
-  an uptime sensor or the `debug` component itself now fails with
-  `Duplicate … entity`. Delete those copies. See
-  [Upgrading → Shipped diagnostics](docs/upgrading.md#11-the-firmware-ships-uptime-and-debug-entities).
 
 ### Added
-
-- **Uptime and debug diagnostics in every firmware** — the shared package and
-  the universal image gain an **Uptime** sensor and the `debug` component's
-  **Heap Free**, **Heap Max Block**, **Loop Time** and **Reset Reason**
-  sensors. Universal-image panels had none of these, because a
-  prebuilt image can't take your own packages.
 
 - **HAUI Display update entity** — each linked panel gets
   `update.<device>_haui_display` next to the firmware's **HAUI Firmware**
@@ -178,6 +181,11 @@ and follow [Semantic Versioning](https://semver.org/).
   timer finish alert. Panels whose device settings were saved in the editor
   keep their stored values; panels still on the defaults turn silent after the
   update. Turn them back on under **Device settings → Notifications**.
+- **Optional diagnostics stay out of production by default** — `Uptime`,
+  `Heap Free`, `Heap Max Block`, `Loop Time` and `Reset Reason` are included only
+  by the local development config through `debug.yaml`; the shared production
+  package and universal image omit them. The raw ADC and resistance sensors used
+  for the internal temperature calculation remain `disabled_by_default: true`.
 - The update settings (`check_on_connect`, `update_interval`,
   `firmware_auto_update`, `auto_install`) are editable per device in the
   editor's **Updates** section.

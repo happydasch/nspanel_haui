@@ -107,19 +107,24 @@ def test_buzzer_is_silenced_before_every_main_loop_stall():
     assert upload.index("script.execute: suspend_activities") < upload.index("upload_tft()")
 
 
-def test_shipped_firmware_carries_the_common_diagnostics():
-    """A prebuilt image can't take the user's own packages, so the universal
-    image would otherwise lack the uptime and debug entities most ESPHome
-    setups add themselves.
-    """
+def test_optional_debug_diagnostics_are_dev_only():
+    """Production packages avoid exposing troubleshooting sensors by default."""
     import yaml
 
+    debug = yaml.safe_load(_read("debug.yaml"))
+    assert any(sensor["platform"] == "uptime" for sensor in debug["sensor"])
+    assert any(sensor["platform"] == "debug" for sensor in debug["sensor"])
+    assert any(sensor["platform"] == "debug" for sensor in debug["text_sensor"])
+
     sensors = yaml.safe_load(_read("sensor.yaml"))["sensor"]
-    assert any(s["platform"] == "uptime" for s in sensors)
+    assert not any(sensor["platform"] == "uptime" for sensor in sensors)
 
     for config in ("nspanel_haui.yaml", "nspanel_haui_universal.yaml"):
         packages = _load_tagged(ROOT.parent / config)["packages"]
-        assert packages["debug"] == "!include"
+        assert "debug" not in packages
+
+    dev_packages = _load_tagged(ROOT.parent / "nspanel_haui_dev.yaml")["packages"]
+    assert dev_packages["debug"] == "!include"
 
 
 def test_universal_image_keeps_its_wifi_across_firmware_updates():

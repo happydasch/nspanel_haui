@@ -78,7 +78,11 @@ def env(monkeypatch):
     module.async_call_later = helpers.async_call_later
     module.async_track_time_interval = helpers.async_track_time_interval
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.event", module)
-    monkeypatch.setattr(sys.modules["homeassistant.core"], "callback", lambda f: f)
+    # The stubbed core module may be a restricted/wrapping mock that does not
+    # expose ``callback``; raising=False lets the patch create it either way.
+    monkeypatch.setattr(
+        sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False
+    )
     adapter = HAAdapter(_Hass(loop, pool), "hub")
     yield adapter, loop, helpers
     loop.call_soon_threadsafe(loop.stop)

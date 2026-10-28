@@ -17,8 +17,18 @@ and follow [Semantic Versioning](https://semver.org/).
   `nspanel_haui.update_tft` (which now takes an optional `url`).
   `esphome.<device>_upload_tft_url` remains as the hub's transport. See
   [Upgrading → TFT install actions](docs/upgrading.md#10-tft-install-actions-moved-to-the-integration).
+- **The firmware ships uptime and debug entities** — a device YAML that adds
+  an uptime sensor or the `debug` component itself now fails with
+  `Duplicate … entity`. Delete those copies. See
+  [Upgrading → Shipped diagnostics](docs/upgrading.md#11-the-firmware-ships-uptime-and-debug-entities).
 
 ### Added
+
+- **Uptime and debug diagnostics in every firmware** — the shared package and
+  the universal image gain an **Uptime** sensor and the `debug` component's
+  **Heap Free**, **Heap Max Block**, **Loop Time** and **Reset Reason**
+  sensors. Universal-image panels had none of these, because a
+  prebuilt image can't take your own packages.
 
 - **HAUI Display update entity** — each linked panel gets
   `update.<device>_haui_display` next to the firmware's **HAUI Firmware**

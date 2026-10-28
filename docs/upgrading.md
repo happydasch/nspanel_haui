@@ -284,3 +284,23 @@ The new firmware also fixes TFT installs from GitHub releases, which failed
 with `HTTP_CLIENT: Out of buffer` (see
 [Troubleshooting](troubleshooting.md#firmware-updates-work-tft-installs-stay-installing-and-then-time-out)).
 Update the firmware first; the TFT follows after the reboot.
+
+## 11. The firmware ships uptime and debug entities
+
+The firmware, the universal image included, now carries the diagnostics most
+ESPHome setups add themselves:
+
+| Entity | Id |
+|--------|----|
+| Sensor `Uptime` | `uptime_sensor` |
+| `debug` component with sensors `Heap Free`, `Heap Max Block`, `Loop Time` and text sensor `Reset Reason` | `debug.yaml` |
+
+If *your own* device YAML adds any of these itself (an uptime sensor, the
+`debug` component or its sensors), the build fails with an error like:
+
+```text
+Duplicate text_sensor entity with name 'Reset Reason' found. Conflicts with entity 'Reset Reason' (id: ) from component 'text_sensor.debug'.
+```
+
+Delete your copies before you build. Where your copies used the names above,
+Home Assistant keeps the existing entities and their history.

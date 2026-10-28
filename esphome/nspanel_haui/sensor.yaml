@@ -258,6 +258,11 @@ sensor:
     id: wifi_rssi
     update_interval: 60s
 
+  # Uptime
+  - platform: uptime
+    name: Uptime
+    id: uptime_sensor
+
   # Internal temperature sensor, ADC value
   - platform: adc
     name: ADC

@@ -107,6 +107,21 @@ def test_buzzer_is_silenced_before_every_main_loop_stall():
     assert upload.index("script.execute: suspend_activities") < upload.index("upload_tft()")
 
 
+def test_shipped_firmware_carries_the_common_diagnostics():
+    """A prebuilt image can't take the user's own packages, so the universal
+    image would otherwise lack the uptime and debug entities most ESPHome
+    setups add themselves.
+    """
+    import yaml
+
+    sensors = yaml.safe_load(_read("sensor.yaml"))["sensor"]
+    assert any(s["platform"] == "uptime" for s in sensors)
+
+    for config in ("nspanel_haui.yaml", "nspanel_haui_universal.yaml"):
+        packages = _load_tagged(ROOT.parent / config)["packages"]
+        assert packages["debug"] == "!include"
+
+
 def test_universal_image_keeps_its_wifi_across_firmware_updates():
     """ESPHome keys the captive-portal Wi-Fi to the config hash when the YAML
     defines a station network, so every firmware update forgot it and the panel

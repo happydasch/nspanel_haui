@@ -545,7 +545,14 @@ Diagnostics related sensors.
 - TFT Version: Version of the TFT file (read from the display)
 - Client Status: `online` / `offline`, the hub connection state
 - WIFI Info: IP, SSID, BSSID and RSSI
-- Reset Reason: reason of the last reset (only with `esphome/nspanel_haui_dev.yaml` / `debug.yaml`)
+- Uptime: seconds since the last boot
+- Heap Free, Heap Max Block and Loop Time: free heap, largest free heap block
+  and main loop time, every 30 s (`debug.yaml`)
+- Reset Reason: reason of the last reset (`debug.yaml`)
+
+Your own device YAML must not add these entities a second time: ESPHome fails
+with `Duplicate … entity with name '…'` (see
+[Upgrading → Shipped diagnostics](upgrading.md#11-the-firmware-ships-uptime-and-debug-entities)).
 
 ### Exposed sensors (curated set)
 
@@ -563,6 +570,8 @@ only clutter the entity registry.
 | `text_sensor.nspanel_kitchen_client_status` | `online` / `offline`, the hub connection state |
 | `sensor.nspanel_kitchen_brightness` | Current display brightness (the last value the hub set, 0–100) |
 | `sensor.nspanel_kitchen_temperature` | Internal panel temperature (NTC, °C) |
+| `sensor.nspanel_kitchen_uptime` | Seconds since the last boot |
+| `sensor.nspanel_kitchen_heap_free` / `..._heap_max_block` / `..._loop_time` / `..._reset_reason` | Debug diagnostics (`debug.yaml`) |
 
 The temperature chain uses two further sensors (`adc`, `resistance`) that are
 `disabled_by_default: true` — only the final `temperature` sensor is enabled.

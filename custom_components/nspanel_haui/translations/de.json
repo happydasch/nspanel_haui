@@ -138,15 +138,19 @@
     },
     "update_tft": {
       "name": "TFT aktualisieren",
-      "description": "Installiert das TFT-Release, das die Firmware des Panels benötigt, oder die TFT-Datei unter einer URL.",
+      "description": "Installiert das TFT-Release, das die Firmware des Panels benötigt, ein anderes Release (auch ältere) oder die TFT-Datei unter einer URL.",
       "fields": {
         "device": {
           "name": "Gerät",
           "description": "NSPanel-Gerät, dessen Display aktualisiert werden soll."
         },
+        "version": {
+          "name": "Version",
+          "description": "Optionales GitHub-Release, das statt des von der Firmware benötigten installiert wird, z. B. ein älteres. Nicht mit URL kombinierbar."
+        },
         "url": {
           "name": "URL",
-          "description": "Optionale http(s)-URL einer .tft-Datei, die statt des von der Firmware benötigten GitHub-Releases installiert wird."
+          "description": "Optionale http(s)-URL einer .tft-Datei, die statt des von der Firmware benötigten GitHub-Releases installiert wird. Nicht mit Version kombinierbar."
         }
       }
     }

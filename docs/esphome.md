@@ -321,6 +321,10 @@ This actions below are defined on the ESP. The communication between the Hub ser
 
 - `play_sound` Action to play a named sound
 
+  A playing tune (from either action) is stopped before a TFT upload, an OTA
+  firmware update or a reboot: those block the main loop the buzzer's notes are
+  switched off from, so the current note would otherwise keep sounding.
+
 - `reset_last_interaction` Action to reset the last interaction value
 
   Takes an `offset` (int); the last interaction value is set to now with that offset applied

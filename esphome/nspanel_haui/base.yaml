@@ -31,6 +31,10 @@ esphome:
   project:
     name: happydasch.nspanel_haui
     version: $yaml_version
+  # A reboot resets only the CPUs, not the LEDC peripheral: a note playing at
+  # that moment keeps sounding through the boot (see ``suspend_activities``).
+  on_shutdown:
+    - script.execute: suspend_activities
 
 # JSON Configuration
 # Required for json::build_json() used in event/sensor/notification scripts
@@ -63,10 +67,16 @@ http_request:
 # Native ESPHome OTA for dashboard/manual flashing, plus HTTP OTA so the device
 # can pull a new image from the release manifest on its own. The hub triggers
 # the install through the firmware update entity below.
+# Both block the main loop for the whole transfer, so active device activities
+# are suspended first (see ``suspend_activities``).
 ota:
   - platform: esphome
     password: $ota_password
+    on_begin:
+      - script.execute: suspend_activities
   - platform: http_request
+    on_begin:
+      - script.execute: suspend_activities
 
 
 # Firmware update entity — published to Home Assistant as "HAUI Firmware" so

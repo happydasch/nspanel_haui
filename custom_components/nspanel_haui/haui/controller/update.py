@@ -107,6 +107,11 @@ class HAUIUpdateController(HAUIBase):
         self._last_install_version: str | None = None
         self._last_install_at: datetime.datetime | None = None
         self._last_install_confirmed = False
+        # yaml_version for which a TFT installed by hand (another release or a
+        # URL) is kept.  The automatic check would otherwise replace an older
+        # TFT right after the reboot that ends its own install.  In memory
+        # only: a Home Assistant restart or a new firmware version lifts it.
+        self._manual_tft_firmware: str | None = None
         # Firmware auto-update bookkeeping.  The install runs on the device and
         # ends in a reboot, so a reconnect means the attempt finished — either
         # way.  While it is in flight the TFT install waits, because the reboot
@@ -561,8 +566,10 @@ class HAUIUpdateController(HAUIBase):
 
         Installs the TFT of the GitHub release ``version``; when ``version`` is
         omitted the firmware's ``yaml_version`` (the version the firmware needs)
-        is installed.  The update runs on the device worker, so this method must
-        be called via ``app.async_run_on_worker``.
+        is installed.  Another release, older ones included, is kept until the
+        firmware's ``yaml_version`` changes (see ``_manual_tft_firmware``).  The
+        update runs on the device worker, so this method must be called via
+        ``app.async_run_on_worker``.
 
         Args:
             version (str | None): Release version to install
@@ -576,8 +583,9 @@ class HAUIUpdateController(HAUIBase):
             self.log("Cannot install the TFT while the device is disconnected", level="WARNING")
             self._set_update_state(UPDATE_STATE_ERROR, error="device disconnected")
             return self.get_update_state()
+        required = (self.app.device.device_info or {}).get("yaml_version")
         if version is None:
-            version = (self.app.device.device_info or {}).get("yaml_version")
+            version = required
         if not version:
             self.log(
                 "No yaml_version reported by the firmware; cannot install the TFT",
@@ -589,16 +597,20 @@ class HAUIUpdateController(HAUIBase):
         # "install not confirmed" guard left over from a previous attempt.
         self._last_install_confirmed = False
         self._last_install_at = None
-        return self.run_update_display(version)
+        result = self.run_update_display(version)
+        if result["state"] == UPDATE_STATE_INSTALLING:
+            matches = self._try_parse_version(version) == self._try_parse_version(required)
+            self._manual_tft_firmware = None if matches else required
+        return result
 
     def install_tft_url(self, url: str) -> dict[str, Any]:
         """Install the TFT file at ``url`` instead of a GitHub release.
 
         For custom or development TFT builds.  The file carries no version the
         hub can check, so the install counts as done once the device reboots
-        after the upload and the display reports any version.  A TFT older than
-        the firmware's ``yaml_version`` is still replaced by the automatic check
-        on that reconnect.  Call via ``app.async_run_on_worker``.
+        after the upload and the display reports any version.  The TFT is kept
+        until the firmware's ``yaml_version`` changes (see
+        ``_manual_tft_firmware``).  Call via ``app.async_run_on_worker``.
 
         Args:
             url (str): http(s) URL of the ``.tft`` file
@@ -615,7 +627,10 @@ class HAUIUpdateController(HAUIBase):
         # _set_update_state keeps the previous version when given None; a URL
         # install must not be confirmed against an earlier release's version.
         self._update_version = None
-        return self._start_tft_upload(url, None)
+        result = self._start_tft_upload(url, None)
+        if result["state"] == UPDATE_STATE_INSTALLING:
+            self._manual_tft_firmware = (self.app.device.device_info or {}).get("yaml_version")
+        return result
 
     # update state (for the editor / Panel Doctor)
 
@@ -734,6 +749,12 @@ class HAUIUpdateController(HAUIBase):
 
     def _install_missing_tft(self, required_version: str, installed_version: str | None) -> None:
         """Install the required TFT automatically, or ask when ``auto_install`` is off."""
+        if self._manual_tft_firmware == required_version:
+            self.log(
+                f"Keeping the TFT installed by hand ({installed_version!r}) until the "
+                f"firmware changes from {required_version}"
+            )
+            return
         if self._firmware_installing:
             # A firmware install reboots the device; a TFT upload now would be
             # cut off mid-transfer.  The version check runs again after the

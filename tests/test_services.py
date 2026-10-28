@@ -278,7 +278,7 @@ async def test_update_tft_targets_selected_device(mock_hass, mock_nav, mock_esph
 
     await _handle_update_tft(mock_hass, call)
 
-    target.install_tft.assert_called_once_with()
+    target.install_tft.assert_called_once_with(None)
     other.install_tft.assert_not_called()
 
 
@@ -300,6 +300,32 @@ async def test_update_tft_with_url_installs_that_file(mock_hass, mock_nav, mock_
 
     app.install_tft_url.assert_called_once_with("http://ha.local/nspanel_haui.tft")
     app.install_tft.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_tft_with_version_installs_that_release(
+    mock_hass, mock_nav, mock_esphome_ctrl
+):
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
+    app.install_tft = MagicMock(return_value={"state": "installing"})
+    mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
+
+    from nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "dev_target", "version": "0.4.1"}
+    call.service = SERVICE_UPDATE_TFT
+
+    await _handle_update_tft(mock_hass, call)
+
+    app.install_tft.assert_called_once_with("0.4.1")
+
+
+def test_update_tft_takes_a_version_or_a_url_not_both():
+    with pytest.raises(vol.Invalid):
+        SERVICE_UPDATE_TFT_SCHEMA(
+            {"device": "dev_target", "version": "0.4.1", "url": "http://ha.local/x.tft"}
+        )
 
 
 @pytest.mark.asyncio

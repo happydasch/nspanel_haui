@@ -20,7 +20,7 @@ class _App:
         self._ha_device_id = "dev1"
         self.install_result = install_result or {"state": "installing"}
         self.dispatched: list = []
-        self.installs = 0
+        self.installs: list = []
 
     def dispatch(self, fn, *args):
         self.dispatched.append(fn)
@@ -28,8 +28,8 @@ class _App:
     def publish_display_update(self):
         pass
 
-    def install_tft(self):
-        self.installs += 1
+    def install_tft(self, version=None):
+        self.installs.append(version)
         return self.install_result
 
     async def async_run_on_worker(self, fn, *args):
@@ -41,7 +41,7 @@ def _import_update(monkeypatch: MonkeyPatch):
     update_mod.UpdateEntity = type("UpdateEntity", (), {})
     update_mod.UpdateDeviceClass = type("UpdateDeviceClass", (), {"FIRMWARE": "firmware"})
     update_mod.UpdateEntityFeature = enum.IntFlag(
-        "UpdateEntityFeature", {"INSTALL": 1, "PROGRESS": 4}
+        "UpdateEntityFeature", {"INSTALL": 1, "SPECIFIC_VERSION": 2, "PROGRESS": 4}
     )
     exceptions = types.ModuleType("homeassistant.exceptions")
     exceptions.HomeAssistantError = _HomeAssistantError
@@ -124,7 +124,18 @@ def test_install_runs_the_hub_tft_install(monkeypatch):
 
     asyncio.run(entity.async_install(None, False))
 
-    assert app.installs == 1
+    assert app.installs == [None]
+
+
+def test_install_with_a_version_installs_that_release(monkeypatch):
+    """update.install with version installs another (e.g. older) release."""
+    update = _import_update(monkeypatch)
+    app = _App()
+    entity = _entity(update, app)
+
+    asyncio.run(entity.async_install("0.4.1", False))
+
+    assert app.installs == ["0.4.1"]
 
 
 def test_install_error_is_raised(monkeypatch):

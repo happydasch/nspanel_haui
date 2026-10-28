@@ -279,7 +279,7 @@ The device editor's **Updates** section controls release checks and automatic in
   After reboot, the TFT follows the version required by the new firmware. Turn
   this off to disable unattended firmware installs; the explicit **Install
   firmware** action remains available when an update is offered.
-- `auto_install` (default `True`) — install the TFT the firmware needs without asking. When off, the display asks first.
+- `auto_install` (default `True`) — install the TFT the firmware needs without asking. When off, the display asks first. A TFT installed by hand with a `version` or `url` ([`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)) is kept until the firmware version changes or Home Assistant restarts.
 
 `tft_filename` (default `nspanel_haui.tft`) and `on_connect_delay` (default `60` seconds before the TFT check after a connect) remain integration defaults and are not exposed in the editor.
 

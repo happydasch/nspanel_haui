@@ -25,6 +25,12 @@ and follow [Semantic Versioning](https://semver.org/).
   entity. It shows the installed TFT and the TFT the firmware needs, installs
   it, and stays *installing* (and available) while the upload keeps the device
   offline. The hub fires `nspanel_haui.display_update_changed` events for it.
+- **Another TFT release can be installed, older ones included** —
+  `nspanel_haui.update_tft` takes an optional `version`, and the **HAUI
+  Display** entity supports `update.install` with `version`. A TFT installed
+  with `version` or `url` is no longer replaced by the automatic check right
+  after its own reboot; it stays until the firmware version changes or Home
+  Assistant restarts.
 - **`nspanel_haui.update_tft` installs a TFT from a URL** — the optional `url`
   field replaces calling `esphome.<device>_upload_tft_url` directly and keeps
   the install tracked; it counts as done once the display reports its version
@@ -32,6 +38,14 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Buzzer no longer sticks on during firmware updates or reboots (#62)** — the
+  RTTTL player turns a note off only from the ESP32 main loop, and 0.4.2 stopped
+  it only before a TFT upload. A firmware install (the **HAUI Firmware** entity,
+  firmware auto-update, or an ESPHome dashboard OTA) blocks the main loop the
+  same way, and a reboot resets only the CPUs, not the buzzer's LEDC output, so
+  the note playing at that moment kept sounding through the download or the boot.
+  Both OTA platforms' `on_begin` and `esphome: on_shutdown` now run
+  `suspend_activities` too. Flash the updated ESPHome firmware to activate the fix.
 - **TFT installs from GitHub releases work again** — GitHub redirects release
   TFTs to a signed URL of about 870 characters, which overflowed the display
   component's 512-byte default HTTP TX buffer (`HTTP_CLIENT: Out of buffer`),

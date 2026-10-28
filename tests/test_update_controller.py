@@ -850,6 +850,71 @@ def test_url_install_is_done_once_the_display_reports_after_the_reboot(monkeypat
     assert ctrl.get_update_state()["state"] == "done"
 
 
+def _reboot_with(ctrl, app, **state):
+    """The upload ends in a reboot; the display then reports ``state``."""
+    ctrl.on_connection_changed(False)
+    app.device.device_info = {**state, "tft_version": ""}
+    ctrl.on_connection_changed(True)
+    ctrl.process_event(_device_state(**state))
+
+
+def test_older_release_install_is_kept_after_its_reboot(monkeypatch):
+    """The automatic check must not replace a TFT the user installed by hand."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        [_release("0.4.2"), _release("0.4.1")],
+    )
+
+    ctrl.install_tft("0.4.1")
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.1.tft")]
+    _reboot_with(ctrl, app, yaml_version="0.4.2", tft_version="0.4.1")
+    assert ctrl.get_update_state()["state"] == "done"
+    ctrl.check_installed_version()
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.1.tft")]
+
+
+def test_url_install_is_kept_after_its_reboot(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, [_release("0.4.2")]
+    )
+
+    ctrl.install_tft_url(DEV_TFT_URL)
+    _reboot_with(ctrl, app, yaml_version="0.4.2", tft_version="0.4.0")
+    ctrl.check_installed_version()
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, DEV_TFT_URL)]
+
+
+def test_a_new_firmware_version_replaces_a_kept_tft(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        [_release("0.4.3"), _release("0.4.2"), _release("0.4.1")],
+    )
+    ctrl.install_tft("0.4.1")
+    _reboot_with(ctrl, app, yaml_version="0.4.2", tft_version="0.4.1")
+
+    # The firmware updates to 0.4.3: the TFT has to follow it again.
+    _reboot_with(ctrl, app, yaml_version="0.4.3", tft_version="0.4.1")
+    ctrl.check_installed_version()
+
+    assert app.published[-1] == (ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.3.tft")
+
+
+def test_installing_the_required_release_ends_keeping_an_older_one(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        [_release("0.4.2"), _release("0.4.1")],
+    )
+    ctrl.install_tft("0.4.1")
+    ctrl.install_tft()
+
+    assert ctrl._manual_tft_firmware is None
+
+
 # --- HAUI Display update entity events ---------------------------------------
 
 

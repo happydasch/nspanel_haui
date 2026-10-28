@@ -138,15 +138,19 @@
     },
     "update_tft": {
       "name": "Aktualizuj TFT",
-      "description": "Instaluje wydanie TFT wymagane przez firmware panelu lub plik TFT spod adresu URL.",
+      "description": "Instaluje wydanie TFT wymagane przez firmware panelu, inne wydanie (także starsze) lub plik TFT spod adresu URL.",
       "fields": {
         "device": {
           "name": "Urządzenie",
           "description": "Urządzenie NSPanel, którego wyświetlacz ma zostać zaktualizowany."
         },
+        "version": {
+          "name": "Wersja",
+          "description": "Opcjonalne wydanie GitHub instalowane zamiast wymaganego przez firmware, np. starsze. Nie można łączyć z URL."
+        },
         "url": {
           "name": "URL",
-          "description": "Opcjonalny adres http(s) pliku .tft instalowanego zamiast wydania GitHub wymaganego przez firmware."
+          "description": "Opcjonalny adres http(s) pliku .tft instalowanego zamiast wydania GitHub wymaganego przez firmware. Nie można łączyć z wersją."
         }
       }
     }

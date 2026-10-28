@@ -49,7 +49,8 @@ SERVICE_DEVICE_ONLY_SCHEMA = vol.Schema(
 SERVICE_UPDATE_TFT_SCHEMA = vol.Schema(
     {
         vol.Required("device"): cv.string,
-        vol.Optional("url"): cv.url,
+        vol.Exclusive("version", "tft_source"): cv.string,
+        vol.Exclusive("url", "tft_source"): cv.url,
     }
 )
 SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
@@ -259,11 +260,12 @@ async def _handle_reset_last_interaction(hass: HomeAssistant, call: ServiceCall)
 
 
 async def _handle_update_tft(hass: HomeAssistant, call: ServiceCall) -> None:
-    """Install the TFT the selected device's firmware needs, or the one at ``url``."""
+    """Install the TFT the device's firmware needs, another release, or the one at ``url``."""
+    version: str | None = call.data.get("version")
     url: str | None = call.data.get("url")
 
     def _update_action(app: Any, dev_name: str) -> None:
-        result = app.install_tft_url(url) if url else app.install_tft()
+        result = app.install_tft_url(url) if url else app.install_tft(version)
         if result.get("state") == "error":
             _LOGGER.error(
                 "update_tft failed for '%s': %s",

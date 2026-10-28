@@ -76,6 +76,26 @@ def test_tft_install_actions_live_in_the_integration():
     assert "id: tft_update" not in _read("button.yaml")
 
 
+def test_buzzer_is_silenced_before_every_main_loop_stall():
+    """rtttl turns a note off only from its loop(); the LEDC keeps sounding it.
+
+    A blocked main loop (TFT upload, firmware OTA) or a reboot (a CPU-only
+    reset leaves the LEDC running until the next boot's setup) left the note
+    playing at that moment sounding continuously (#62).
+    """
+    import yaml
+
+    base = yaml.safe_load(_read("base.yaml"))
+    platforms = {ota["platform"]: ota for ota in base["ota"]}
+    assert set(platforms) == {"esphome", "http_request"}
+    for ota in platforms.values():
+        assert {"script.execute": "suspend_activities"} in ota["on_begin"]
+    assert {"script.execute": "suspend_activities"} in base["esphome"]["on_shutdown"]
+
+    upload = _read("scripts_common.yaml").split("- id: prepare_tft_upload")[1]
+    assert upload.index("script.execute: suspend_activities") < upload.index("upload_tft()")
+
+
 def test_nextion_patch_is_never_older_than_the_package():
     """The package and the patch change together on dev.
 

@@ -215,9 +215,9 @@ upgrading:
 - **Failed installs report why.** The editor shows a toast when the upload
   command could not be sent or when the update state ends in `error`. The REST
   API returns HTTP 502 for a failed install instead of a silent success.
-- **The buzzer stops before a TFT upload starts.** A playing tune no longer
-  sounds until the reboot. Flash the updated ESPHome firmware to activate this
-  fix.
+- **The buzzer stops before a TFT upload, a firmware update or a reboot.** A
+  playing tune no longer keeps one note sounding through the transfer or the
+  boot. Flash the updated ESPHome firmware to activate this fix.
 - **Firmware auto-update ships the display and firmware together.** The hub
   refreshes and checks the device's `HAUI Firmware` entity independently of the
   TFT version, then triggers an available firmware update first. The device

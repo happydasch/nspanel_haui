@@ -17,7 +17,8 @@ an arbitrary URL.
 ### `nspanel_haui.update_tft`
 
 Install the TFT release matching the selected panel's firmware (`yaml_version`),
-or the TFT file at `url`. The device is required, so this action cannot
+another GitHub release (`version`, older ones included), or the TFT file at
+`url`. The device is required, so this action cannot
 accidentally start a TFT upload on every panel in the hub. The service uses
 HAUI's update controller and reports failures in the update state shown in
 Device Info, Device Manager and the panel's **HAUI Display** update entity.
@@ -25,7 +26,8 @@ Device Info, Device Manager and the panel's **HAUI Display** update entity.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `device` | yes | NSPanel device whose display is updated |
-| `url` | no | http(s) URL of a `.tft` file to install instead of the GitHub release the firmware needs |
+| `version` | no | GitHub release to install instead of the one the firmware needs, e.g. `0.4.1`; not combined with `url` |
+| `url` | no | http(s) URL of a `.tft` file to install instead of the GitHub release the firmware needs; not combined with `version` |
 
 **Example automation action:**
 
@@ -33,6 +35,15 @@ Device Info, Device Manager and the panel's **HAUI Display** update entity.
 action: nspanel_haui.update_tft
 data:
   device: "abc123..."
+```
+
+**Install an older release:**
+
+```yaml
+action: nspanel_haui.update_tft
+data:
+  device: "abc123..."
+  version: "0.4.1"
 ```
 
 **Install a custom or development build:**
@@ -47,10 +58,15 @@ data:
 Choose the device in the service's **Device** selector (or pass its device
 registry ID as `device` in YAML). A URL install carries no version the hub can
 check: it counts as done once the device reboots after the upload and the
-display reports its version. A TFT older than the firmware needs is still
-replaced by the automatic check on that reconnect (or the display asks first
-when `auto_install` is off), so install a build whose `system.tftVersion`
-matches the firmware.
+display reports its version.
+
+A TFT installed with `version` or `url` stays on the display: the automatic
+check does not replace it with the TFT the firmware needs, and the display does
+not ask, until the firmware's version changes. The hold lives in memory, so a
+Home Assistant restart lifts it and the automatic check then installs the TFT
+the firmware needs again (or the display asks first when `auto_install` is
+off). Installing without `version` and `url` lifts it too. A TFT that does not
+match the firmware may lack pages or components the firmware uses.
 
 ### HAUI Display update entity
 
@@ -62,7 +78,17 @@ without a URL, and the entity shows *installing* until the display reports the
 new version. It stays available while an install keeps the device offline (the
 upload blocks the ESP32 and ends in a reboot). When the display has not
 reported its version yet, the entity state is unknown; use
-`nspanel_haui.update_tft` to force an install.
+`nspanel_haui.update_tft` to force an install. The entity supports a specific
+version, so `update.install` installs another release, the same as
+`nspanel_haui.update_tft` with `version`:
+
+```yaml
+action: update.install
+target:
+  entity_id: update.nspanel_kitchen_haui_display
+data:
+  version: "0.4.1"
+```
 
 ---
 

@@ -65,7 +65,11 @@ class NSPanelDisplayUpdate(UpdateEntity):
     _attr_has_entity_name = True
     _attr_name = "HAUI Display"
     _attr_device_class = UpdateDeviceClass.FIRMWARE
-    _attr_supported_features = UpdateEntityFeature.INSTALL | UpdateEntityFeature.PROGRESS
+    _attr_supported_features = (
+        UpdateEntityFeature.INSTALL
+        | UpdateEntityFeature.PROGRESS
+        | UpdateEntityFeature.SPECIFIC_VERSION
+    )
     _attr_title = "NSPanel HAUI display"
     _attr_available = False
 
@@ -129,12 +133,12 @@ class NSPanelDisplayUpdate(UpdateEntity):
         self.async_write_ha_state()
 
     async def async_install(self, version: str | None, backup: bool, **kwargs: Any) -> None:
-        """Install the TFT the firmware needs.
+        """Install the TFT the firmware needs, or the GitHub release ``version``.
 
         Raises:
             HomeAssistantError: When the install could not start (device
                 offline, no matching GitHub release, upload command not sent).
         """
-        result = await self._app.async_run_on_worker(self._app.install_tft)
+        result = await self._app.async_run_on_worker(self._app.install_tft, version)
         if result.get("state") == UPDATE_STATE_ERROR:
             raise HomeAssistantError(result.get("last_error") or "TFT update failed")

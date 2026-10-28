@@ -935,26 +935,49 @@ class HAUIUpdateController(HAUIBase):
         self._request_device_state()
         self._start_state_check_timer()
 
-    def manual_check_for_update(self) -> None:
+    def manual_check_for_update(self) -> dict[str, Any]:
         """Trigger a user-initiated update check from the editor.
 
         A manual retry must not be suppressed by leftover failure state from an
         earlier install attempt, and it should bypass the hub-level release
-        cache so the user gets a fresh GitHub answer.  Runs on the device
-        worker, so call via ``app.async_run_on_worker``.
+        cache so the user gets a fresh GitHub answer.  It also runs the TFT
+        version check, which otherwise only runs after a connect, so an
+        outdated TFT is installed (or, with ``auto_install`` off, offered).
+        Runs on the device worker, so call via ``app.async_run_on_worker``.
+
+        Returns:
+            dict: The check result, see ``check_for_update``.
         """
         if not self.app.device.connected:
             self.log("Cannot check for updates while the device is disconnected", level="WARNING")
-            return
-        self._last_install_at = None
-        self._last_install_confirmed = False
-        if self._update_state == UPDATE_STATE_ERROR:
-            self._update_last_error = None
-            self._set_update_state(UPDATE_STATE_IDLE)
-        self.check_for_update(force_refresh=True)
+            return {
+                **self.get_update_state(),
+                "latest_release": None,
+                "check_error": "device disconnected",
+            }
+        # A running upload keeps its bookkeeping: resetting it would let the
+        # TFT check below start a second upload on top of it.
+        installing = self._update_state == UPDATE_STATE_INSTALLING
+        if not installing:
+            self._last_install_at = None
+            self._last_install_confirmed = False
+            if self._update_state == UPDATE_STATE_ERROR:
+                self._update_last_error = None
+                self._set_update_state(UPDATE_STATE_IDLE)
+        result = self.check_for_update(force_refresh=True)
+        if not installing:
+            self.check_installed_version()
+            result.update(self.get_update_state())
+        return result
 
-    def check_for_update(self, force_refresh: bool = False) -> None:
-        """Check the firmware entity and the latest TFT release independently."""
+    def check_for_update(self, force_refresh: bool = False) -> dict[str, Any]:
+        """Check the firmware entity and the latest TFT release independently.
+
+        Returns:
+            dict: ``get_update_state()`` plus ``latest_release`` (tag of the
+            newest GitHub release, None when the release check did not run)
+            and ``check_error`` (why the GitHub release check failed, or None).
+        """
         # Firmware availability is owned by the ESPHome update entity, not by
         # the TFT version. Check it first: a panel can have the newest TFT and
         # still need a newer ESPHome firmware release.
@@ -963,7 +986,7 @@ class HAUIUpdateController(HAUIBase):
         if firmware_refreshed and self._firmware_install_due(firmware_version):
             if self._install_firmware(firmware_version):
                 self._notify_firmware_install(firmware_version)
-                return
+                return {**self.get_update_state(), "latest_release": None, "check_error": None}
 
         try:
             self._update_release_infos(force=force_refresh)
@@ -971,10 +994,15 @@ class HAUIUpdateController(HAUIBase):
             # A GitHub API failure must not interfere with the independent
             # firmware manifest check above.
             self.log(f"Update check failed: {exc}", level="WARNING")
-            return
+            return {**self.get_update_state(), "latest_release": None, "check_error": str(exc)}
         latest_release = self._get_latest_release()
+        result = {
+            **self.get_update_state(),
+            "latest_release": latest_release["tag_name"] if latest_release else None,
+            "check_error": None,
+        }
         if not self._is_update_available() or latest_release is None:
-            return
+            return result
 
         device_info = self.app.device.device_info
         msg = latest_release["name"]
@@ -993,6 +1021,7 @@ class HAUIUpdateController(HAUIBase):
             title=self.translate("Update available"),
             notification=msg,
         )
+        return result
 
     # callback
 

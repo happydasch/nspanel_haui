@@ -220,13 +220,47 @@ export async function onDeviceManagerUpdateFirmware(host, e) {
 export async function onDeviceManagerCheckUpdate(host, e) {
   const name = e.detail?.name;
   if (!name) return;
+  const label = _friendlyName(host, name);
+  let check;
   try {
-    await Api.checkDeviceUpdate(host, name);
-    host._showToast(
-      t('Checking for updates on "{name}"').replace('{name}', _friendlyName(host, name)),
-      "success",
-    );
+    check = (await Api.checkDeviceUpdate(host, name)).results[name];
   } catch (err) {
     host._showToast(err.message || t("Failed to check for updates"), "error");
+    return;
+  }
+  // The hub reports a newer release only on the display; this toast is the
+  // editor's answer to the check.
+  if (check.check_error) {
+    host._showToast(
+      t('Update check failed for "{name}": {error}')
+        .replace('{name}', label).replace('{error}', check.check_error),
+      "error",
+    );
+  } else if (check.firmware_installing) {
+    host._showToast(
+      t('Firmware update {version} started on "{name}"')
+        .replace('{version}', check.firmware_update_version || '').replace('{name}', label),
+      "success",
+    );
+  } else if (check.firmware_update_available) {
+    host._showToast(
+      t('Firmware {version} is available for "{name}"')
+        .replace('{version}', check.firmware_update_version || '').replace('{name}', label),
+      "info",
+    );
+  } else if (check.state === "error") {
+    host._showToast(check.last_error || t("TFT update failed"), "error");
+  } else if (check.state === "checking" || check.state === "installing") {
+    host._showToast(
+      t('Installing TFT {version} on "{name}"')
+        .replace('{version}', check.version || '').replace('{name}', label),
+      "success",
+    );
+  } else {
+    host._showToast(
+      t('"{name}" is up to date (latest release {version})')
+        .replace('{name}', label).replace('{version}', check.latest_release || '-'),
+      "success",
+    );
   }
 }

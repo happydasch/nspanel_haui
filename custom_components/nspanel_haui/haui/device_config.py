@@ -95,10 +95,10 @@ DEVICE_CONFIG: dict[str, Any] = {
     "use_sleep_schedule": False,
     "sleep_schedule_start": "",
     "sleep_schedule_end": "",
-    "sound_on_startup": True,
+    "sound_on_startup": False,
     # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
     "color_overrides": {},
-    "sound_on_notification": True,
+    "sound_on_notification": False,
     "persistent_sound_interval": 5,  # seconds between repeats for persistent notifications
     "use_do_not_disturb": False,  # toggle to enable quiet hours
     "quiet_hours_start": "",  # empty = disabled, format "HH:MM" (24h)

@@ -290,17 +290,17 @@ class NSPanelHAUI(HAAdapter):
             }
         return update_ctrl.install_firmware()
 
-    def check_for_update(self) -> None:
-        """Trigger a manual update check for this device, on its worker thread.
+    def check_for_update(self) -> dict:
+        """Run a manual update check for this device, on its worker thread.
 
         Called via ``async_run_on_worker`` from the REST API.  A manual check
         bypasses stale failure state and the hub-level release cache.
+
+        Returns:
+            dict: The check result (see
+            ``HAUIUpdateController.check_for_update``).
         """
-        update_ctrl = self.controller.get("update")
-        if update_ctrl is None:
-            self.log("Cannot check for updates: no update controller", level="WARNING")
-            return
-        update_ctrl.manual_check_for_update()
+        return self.controller["update"].manual_check_for_update()
 
     # status endpoint support
 

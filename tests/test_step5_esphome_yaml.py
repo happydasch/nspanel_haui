@@ -74,3 +74,15 @@ def test_tft_install_actions_live_in_the_integration():
     assert "- action: upload_tft_url" in api
     assert "- action: upload_tft\n" not in api
     assert "id: tft_update" not in _read("button.yaml")
+
+
+def test_nextion_patch_is_never_older_than_the_package():
+    """The package and the patch change together on dev.
+
+    With the default 1-day cache a build combined a fresh display.yaml with an
+    older patch: "[tft_upload_http_buffer_size_tx] is an invalid option".
+    """
+    package = (ROOT.parent / "nspanel_haui.yaml").read_text()
+    block = package.split("external_components:")[1].split("packages:")[0]
+    assert "path: esphome/nextion_patch" in block
+    assert "refresh: 0s" in block

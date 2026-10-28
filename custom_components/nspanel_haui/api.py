@@ -837,8 +837,9 @@ class DeviceUpdateCheckView(HomeAssistantView):
 
         JSON body may carry an optional ``device`` field (device name, or ``*``
         for all devices; default ``*``).  The check runs on the device's worker
-        thread and bypasses the hub-level release cache; availability is
-        reported through the update state, which the status endpoint exposes.
+        thread and bypasses the hub-level release cache.  ``results`` maps each
+        checked device to its check result (update state plus
+        ``latest_release`` and ``check_error``) so the editor can report it.
         """
         hass = request.app["hass"]
         try:
@@ -858,17 +859,26 @@ class DeviceUpdateCheckView(HomeAssistantView):
             app = apps.get(device_name)
             if app is None:
                 return _error(self, f'Device "{device_name}" not found', 404)
-            await app.async_run_on_worker(app.check_for_update)
-            return self.json({"status": "ok", "devices_checked": [device_name]})
+            result = await app.async_run_on_worker(app.check_for_update)
+            return self.json(
+                {
+                    "status": "ok",
+                    "devices_checked": [device_name],
+                    "results": {device_name: result},
+                }
+            )
 
         checked: list[str] = []
         failed: list[dict[str, str]] = []
+        results: dict[str, dict] = {}
         for dname, dapp in apps.items():
             try:
-                await dapp.async_run_on_worker(dapp.check_for_update)
+                results[dname] = await dapp.async_run_on_worker(dapp.check_for_update)
                 checked.append(dname)
             except Exception:
                 _LOGGER.exception("Failed to check for updates on device '%s'", dname)
                 failed.append({"name": dname, "error": "check failed"})
 
-        return self.json({"status": "ok", "devices_checked": checked, "failed": failed})
+        return self.json(
+            {"status": "ok", "devices_checked": checked, "failed": failed, "results": results}
+        )

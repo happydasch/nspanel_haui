@@ -39,6 +39,17 @@ and follow [Semantic Versioning](https://semver.org/).
   minutes. The vendored `nextion` component backports
   `tft_upload_http_buffer_size_tx` (esphome/esphome#21435) and the firmware sets
   it to 2048. Update the firmware first; the TFT follows after the reboot.
+- **Check for updates reports its result and installs an outdated TFT** — the
+  editor only said "Checking for updates" and a panel that was already current
+  got no answer, so the check looked broken. It now shows whether the panel is
+  up to date (with the latest release), a firmware update started or is
+  available, a TFT install started, or why the GitHub check failed. The check
+  also runs the TFT version check, which otherwise only ran after a connect.
+- **Firmware builds fetch the nextion patch with the package** — the
+  `external_components` entry for `esphome/nextion_patch` kept ESPHome's
+  default 1-day cache, so a build could combine a fresh `display.yaml` with an
+  older patch and fail with "[tft_upload_http_buffer_size_tx] is an invalid
+  option". It now uses `refresh: 0s`.
 - **The TFT install after a firmware update finds the new release** — a
   firmware install skips the GitHub release fetch, so the TFT check after its
   reboot could look up the new version in a release list cached before it was
@@ -97,6 +108,12 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Sounds are off by default** — `sound_on_startup` and
+  `sound_on_notification` now default to `False`, so a new panel stays silent:
+  no startup tone, no notification or persistent-notification tones and no
+  timer finish alert. Panels whose device settings were saved in the editor
+  keep their stored values; panels still on the defaults turn silent after the
+  update. Turn them back on under **Device settings → Notifications**.
 - The update settings (`check_on_connect`, `update_interval`,
   `firmware_auto_update`, `auto_install`) are editable per device in the
   editor's **Updates** section.

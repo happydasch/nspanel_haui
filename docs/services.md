@@ -167,6 +167,9 @@ dismissed.  The queue holds up to 50 notifications; when it is full, the oldest
 one is dropped.  While the idle page is shown, only a `critical` persistent
 notification forces its popup over it; other severities stay queued and appear
 as soon as the user returns to a real panel.
+Notification sounds play only when the device's `sound_on_notification`
+setting is on; it is off by default
+([Device settings → Notifications](configuration/device.md#notifications)).
 When no icon is supplied, the severity selects a default one (`info` →
 `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` →
 `mdi:alert-octagon-outline`).

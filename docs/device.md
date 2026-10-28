@@ -69,7 +69,7 @@ See `switch.nspanel_haui_use_button_interaction` in HA to switch on / off the bu
 
 ### Sounds
 
-The device will play sounds on different occasions. The sounds can be disabled.
+The device can play sounds on different occasions. Both are off by default; enable them in the device settings.
 
 - `sound_on_startup`
 - `sound_on_notification`

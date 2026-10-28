@@ -370,7 +370,8 @@ export async function updateDeviceTft(host, deviceName, version) {
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
  * @param {string} deviceName - device name, or "*" for all devices
- * @returns {Promise<{ status: string, devices_checked: string[] }>}
+ * @returns {Promise<{ status: string, devices_checked: string[], results: Object<string, Object> }>}
+ *   `results` maps each device to its update state plus `latest_release` and `check_error`.
  */
 export async function updateDeviceFirmware(host, deviceName) {
   if (!host.entryId || !host.hass) {

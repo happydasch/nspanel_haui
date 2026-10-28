@@ -181,11 +181,11 @@ shortcuts on top of that.
 
 - `sound_on_startup` bool
 
-  Play a short tone when the display connects to Home Assistant after a restart or power cycle. The tone plays only on a fresh boot — a Wi-Fi reconnect while the device stayed running stays silent (the firmware reports its uptime with the connection request; devices without it fall back to playing on every connect). Default `True`.
+  Play a short tone when the display connects to Home Assistant after a restart or power cycle. The tone plays only on a fresh boot — a Wi-Fi reconnect while the device stayed running stays silent (the firmware reports its uptime with the connection request; devices without it fall back to playing on every connect). Default `False`.
 
 - `sound_on_notification` bool
 
-  Play an alert tone whenever a new notification is received. Notifications of type `critical` use the `alert` sound. Default `True`.
+  Play an alert tone whenever a new notification is received. Notifications of type `critical` use the `alert` sound, and a `persistent` notification repeats its tone until dismissed. The timer panel's finish alert follows this setting too. Default `False`.
 
 - `persistent_sound_interval` int
 
@@ -292,7 +292,11 @@ instead of being retried automatically; press **Install TFT** to retry. The
 Device Manager action menu has **Install firmware** when the `HAUI Firmware`
 entity reports an available update, and **Check for updates** to refresh both
 firmware availability and GitHub release info immediately (bypassing the
-one-hour hub-level release cache).
+one-hour hub-level release cache). The check also compares the display's TFT
+with the version the firmware needs and installs an outdated TFT (or asks on
+the display when `auto_install` is off), and the editor shows its outcome: up
+to date with the latest release, a firmware update started or available, a TFT
+install started, or why the check failed.
 
 ## Global Defaults (not per-device, fixed)
 

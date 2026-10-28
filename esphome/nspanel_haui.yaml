@@ -35,6 +35,9 @@ substitutions:
 # in base.yaml together with it.  `ref` stays `dev` for the whole bridge: dev
 # carries the patch dir first, and the file disappears from both branches in
 # the same cleanup, so master users on this package keep working until then.
+# `refresh: 0s`: the package files and the patch change together on dev, and
+# the default 1-day cache kept an older patch than the package's display.yaml
+# expects ("[tft_upload_http_buffer_size_tx] is an invalid option").
 external_components:
   - source:
       type: git
@@ -42,6 +45,7 @@ external_components:
       ref: dev
       path: esphome/nextion_patch
     components: [nextion]
+    refresh: 0s
 
 packages:
   version: !include nspanel_haui/version.yaml

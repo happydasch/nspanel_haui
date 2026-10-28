@@ -108,7 +108,8 @@ def test_manual_check_clears_failure_state(monkeypatch):
 
     assert ctrl._update_state == update.UPDATE_STATE_IDLE
     assert ctrl._last_install_at is None
-    assert ctrl._last_install_confirmed is False
+    # The check's TFT evaluation then confirms the TFT the firmware needs.
+    assert ctrl._last_install_confirmed is True
 
 
 # --- automatic TFT update ----------------------------------------------------
@@ -727,6 +728,74 @@ def test_reconnect_verification_confirms_a_matching_version(monkeypatch):
     state = ctrl.get_update_state()
     assert state["state"] == "done"
     assert ctrl._last_install_confirmed is True
+
+
+# --- manual update check -----------------------------------------------------
+
+
+def test_manual_check_reports_an_up_to_date_panel(monkeypatch):
+    """The editor needs an answer even when nothing is newer."""
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, [_release("0.4.2")]
+    )
+
+    result = ctrl.manual_check_for_update()
+
+    assert result["latest_release"] == "0.4.2"
+    assert result["check_error"] is None
+    assert result["state"] == "idle"
+    assert app.published == []
+
+
+def test_manual_check_installs_an_outdated_tft(monkeypatch):
+    """Without it an outdated TFT installed only after the next reconnect."""
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.1"}, [_release("0.4.2")]
+    )
+
+    result = ctrl.manual_check_for_update()
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/0.4.2.tft")]
+    assert result["state"] == "installing"
+    assert result["version"] == "0.4.2"
+
+
+def test_manual_check_during_an_install_starts_no_second_upload(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.1"}, [_release("0.4.2")]
+    )
+    ctrl.install_tft()
+    app.published.clear()
+
+    result = ctrl.manual_check_for_update()
+
+    assert app.published == []
+    assert result["state"] == "installing"
+
+
+def test_manual_check_reports_a_github_failure(monkeypatch):
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+
+    def failing_get(url, timeout):
+        raise requests.exceptions.ConnectTimeout("timed out")
+
+    monkeypatch.setattr(update.requests, "get", failing_get)
+
+    result = ctrl.manual_check_for_update()
+
+    assert "timed out" in result["check_error"]
+    assert result["latest_release"] is None
+
+
+def test_manual_check_while_disconnected_reports_it(monkeypatch):
+    ctrl, app, fetches = _updater(
+        monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"}, connected=False
+    )
+
+    result = ctrl.manual_check_for_update()
+
+    assert result["check_error"] == "device disconnected"
+    assert fetches == []
 
 
 # --- TFT install from a URL --------------------------------------------------

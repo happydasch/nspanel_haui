@@ -270,7 +270,7 @@ class TestOptionsToConfigDict:
 
         # fields NOT in store config keep DEFAULT_CONFIG values
         assert result["device"]["button_left_entity"] == ""
-        assert result["device"]["sound_on_startup"] is True
+        assert result["device"]["sound_on_startup"] is False
 
         # name still comes from data, not store
         assert result["device"]["name"] == "nspanel_haui"

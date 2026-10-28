@@ -274,8 +274,9 @@ class DeviceManagerDialog extends HauiDialog {
     const canMoveDown = idx >= 0 && idx < deviceKeys.length - 1;
     const menuOpen = this._deviceMenuIndex === idx;
     const di = this._deviceStatuses?.[name]?.device_info;
-    const yaml = di?.yaml_version || '-';
-    const tft = di?.tft_version || '-';
+    const updateStatus = this._deviceStatuses?.[name]?.update;
+    const yaml = di?.yaml_version;
+    const tft = di?.tft_version;
     // Prefer the server-resolved network info (entity-registry based) over the
     // client-side slug lookup, which misses area/device-prefixed entity ids.
     const nw = (di?.ip) ? { ip: di.ip, ssid: di.ssid || '', rssi: di.rssi } : readNetworkInfo(this.hass, name);
@@ -290,6 +291,10 @@ class DeviceManagerDialog extends HauiDialog {
       'divider',
       { icon: 'mdi:refresh', label: t('Refresh display'), action: () => { this._emit("update-display", { name }); this._closeDeviceMenu(); } },
       { icon: 'mdi:update', label: t('Install TFT'), action: () => { this._emit("update-tft", { name }); this._closeDeviceMenu(); } },
+      ...(updateStatus?.firmware_update_available ? [{
+        icon: 'mdi:chip', label: t('Install firmware'), disabled: updateStatus.firmware_installing,
+        action: () => { this._emit("update-firmware", { name }); this._closeDeviceMenu(); },
+      }] : []),
       { icon: 'mdi:cloud-search-outline', label: t('Check for updates'), action: () => { this._emit("check-for-update", { name }); this._closeDeviceMenu(); } },
       'divider',
       { icon: 'mdi:arrow-up', label: t('Move Up'), disabled: !canMoveUp, action: () => { this._emit("move-device", { name, direction: -1 }); this._closeDeviceMenu(); } },
@@ -312,14 +317,18 @@ class DeviceManagerDialog extends HauiDialog {
             <span class="device-mgr-panel-count">${panelCount} ${panelCount !== 1 ? t('panels') : t('panel')}</span>
           </div>
           <div class="device-mgr-row-details">
-            ${yaml !== '-' ? html`<span class="info-chip" title="${t('ESPHome firmware version')}">${t('Firmware')} ${yaml}</span>` : ''}
-            ${tft !== '-' ? (yaml !== '-' && isOlderVersion(tft, yaml)
+            ${yaml
+              ? html`<span class="info-chip" title="${t('ESPHome firmware version')}">${t('Firmware')} ${yaml}</span>`
+              : html`<span class="info-chip" title="${t('ESPHome firmware version')}">${t('Firmware')} ${t('Unknown')}</span>`}
+            ${tft && yaml && isOlderVersion(tft, yaml)
               ? html`<span class="info-chip info-chip-warn" title="${t('The display is updated automatically to the version the firmware needs')}">${t('Display')} ${tft} · ${t('update pending')}</span>`
-              : html`<span class="info-chip" title="${t('Display (TFT) version')}">${t('Display')} ${tft}</span>`) : ''}
+              : html`<span class="info-chip${tft ? '' : ' info-chip-warn'}" title="${t('Display (TFT) version')}">${t('Display')} ${tft || t('Unknown')}</span>`}
             ${renderUpdateStateChip(this._deviceStatuses?.[name]?.update)}
-            ${this._deviceStatuses?.[name]?.update?.firmware_update_available
-              ? html`<span class="info-chip info-chip-warn" title="${t('The device reports a firmware update available')}">${t('Firmware update available')}</span>`
-              : ''}
+            ${updateStatus?.firmware_installing
+              ? html`<span class="info-chip info-chip-warn" title="${t('Firmware update in progress')}">${t('Installing firmware…')}</span>`
+              : updateStatus?.firmware_update_available
+                ? html`<span class="info-chip info-chip-warn" title="${t('The device reports a firmware update available')}">${t('Firmware update available')}</span>`
+                : ''}
             ${nw.ip ? html`<span class="info-chip" title="${t('IP Address')}">${nw.ip}</span>` : ''}
           </div>
         </div>

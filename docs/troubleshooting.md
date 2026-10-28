@@ -21,6 +21,16 @@ If you're running Home Assistant in Docker with **bridge networking** (the defau
 
 ## TFT Upload Failures
 
+### Firmware updates work, TFT installs stay "installing" and then time out
+
+The ESPHome log shows `HTTP_CLIENT: Out of buffer` and `HTTP failed` right after
+`TFT upload requested`. GitHub redirects release TFTs to a signed URL of about
+870 characters, which does not fit the display component's default 512-byte
+HTTP TX buffer, so the upload fails before the first byte and the device never
+reboots. Update the ESPHome firmware (the **HAUI Firmware** entity, or
+**Device Manager → Install firmware**): it sets `tft_upload_http_buffer_size_tx:
+2048`. The TFT install follows after the reboot.
+
 ### "Reading from UART timed out at byte 0!" or "Upgrade response is 0"
 
 If you are getting errors like these, the easiest way to fix this is using the Nextion Editor and a display connected to 5V, GND, TF-TX, TF-RX to upload a new display file.

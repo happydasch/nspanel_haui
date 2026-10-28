@@ -127,8 +127,7 @@ script:
           id(haui_rtttl).stop();
 
   # Start a TFT upload: suspend active activities first, then set the URL and
-  # hand the blocking upload to the display.  The URL parameter lets all three
-  # upload entry points (button and the two API actions) share this logic.
+  # hand the blocking upload to the display.
   - id: prepare_tft_upload
     parameters:
       url: std::string

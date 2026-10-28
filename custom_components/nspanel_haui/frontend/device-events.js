@@ -198,6 +198,25 @@ export async function onDeviceManagerUpdateTft(host, e) {
   }
 }
 
+export async function onDeviceManagerUpdateFirmware(host, e) {
+  const name = e.detail?.name;
+  if (!name) return;
+  try {
+    const result = await Api.updateDeviceFirmware(host, name);
+    const update = result.update;
+    if (update?.firmware_install_error) {
+      host._showToast(update.firmware_install_error, "error");
+      return;
+    }
+    host._showToast(
+      t('Firmware update started for "{name}"').replace('{name}', _friendlyName(host, name)),
+      "success",
+    );
+  } catch (err) {
+    host._showToast(err.message || t("Failed to install firmware"), "error");
+  }
+}
+
 export async function onDeviceManagerCheckUpdate(host, e) {
   const name = e.detail?.name;
   if (!name) return;

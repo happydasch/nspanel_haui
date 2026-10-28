@@ -20,11 +20,11 @@ esp32:
 esphome:
   # 2026.10.0 is enforced because the configs use APIs from that release; it is
   # NOT the release that fixed the nextion numeric-response delivery (that fix,
-  # esphome/esphome#17744, ships in 2026.11.0).  Until 2026.11.0 the shipped
-  # configs carry esphome/nextion_patch and an external_components override that
-  # applies the fix; bump BOTH min_version and requirements-esphome.txt (and
-  # delete nextion_patch + its override blocks) when a released ESPHome contains
-  # #17744.
+  # esphome/esphome#17744, ships in 2026.11.0).  Until then the shipped configs
+  # carry esphome/nextion_patch and an external_components override that applies
+  # it and the TFT upload TX buffer option (#21435); bump BOTH min_version and
+  # requirements-esphome.txt (and delete nextion_patch + its override blocks)
+  # when a released ESPHome contains #17744 and #21435.
   min_version: 2026.10.0
   name: $name
   friendly_name: $friendly_name
@@ -51,8 +51,11 @@ http_request:
   id: haui_http
   useragent: nspanel-haui
   timeout: 10s
-  # GitHub release-asset redirects use signed request targets larger than the
-  # ESP-IDF 512-byte default, so reserve room for the redirected request line.
+  # GitHub answers release/asset requests with ~5.4 KB of redirect headers.
+  # The 512-byte default RX buffer overflows ("HTTP_CLIENT: Out of buffer"),
+  # so the firmware update entity could never fetch the manifest.  The signed
+  # redirect targets also exceed the default TX buffer, so raise both.
+  buffer_size_rx: 8192
   buffer_size_tx: 2048
 
 

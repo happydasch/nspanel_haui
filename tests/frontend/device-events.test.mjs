@@ -28,6 +28,36 @@ function hostWithStore(panels, serverStore) {
 const kitchen = { config: {}, panels: [] };
 const office = { config: {}, panels: [] };
 
+test('the Device Manager firmware action calls the firmware install endpoint', async () => {
+  const host = makeHost(
+    { devices: { kitchen: { config: {}, panels: [] } } },
+    (method, path, opts) => {
+      assert.equal(method, 'POST');
+      assert.equal(path, '/api/nspanel_haui/update_firmware/entry1');
+      assert.deepEqual(JSON.parse(opts.body), { device: 'kitchen' });
+      return jsonResponse({
+        status: 'ok',
+        update: { firmware_installing: true, firmware_install_error: null },
+      });
+    },
+  );
+
+  await Events.onDeviceManagerUpdateFirmware(host, { detail: { name: 'kitchen' } });
+
+  assert.deepEqual(host.toasts.at(-1), ['success', 'Firmware update started for "kitchen"']);
+});
+
+test('a failed firmware install is shown in the editor', async () => {
+  const host = makeHost(
+    { devices: { kitchen: { config: {}, panels: [] } } },
+    () => jsonResponse({ message: 'No firmware update is available' }, 502),
+  );
+
+  await Events.onDeviceManagerUpdateFirmware(host, { detail: { name: 'kitchen' } });
+
+  assert.deepEqual(host.toasts.at(-1), ['error', 'No firmware update is available']);
+});
+
 test('a device with an empty stored config defaults to enabled', () => {
   const host = hostWithStore({ devices: { kitchen } }, {});
   loadDeviceConfig(host, 'kitchen');

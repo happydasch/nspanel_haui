@@ -60,8 +60,7 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 - `wifi_ssid` (!secret wifi_ssid)
 - `wifi_password` (!secret wifi_password)
 - `ap_password` (!secret ap_password)
-- `tft_update_url` (URL to the ``nspanel_haui.tft`` file, e.g. ``http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft``)
-- `tft_update_url_portrait` (URL to the ``nspanel_haui_portrait.tft`` file, used by the `Update Display` button when `display_model` is 1)
+- `tft_update_url` (default TFT URL of the display component, which enables TFT upload support; the hub always sends the URL of the TFT it installs)
 
 ### Web server (optional)
 
@@ -279,11 +278,11 @@ This actions below are defined on the ESP. The communication between the Hub ser
 
 - `display_off` / `display_on` Actions to put the display into / out of hardware sleep (publish `esphome.display_off` / `esphome.display_on`)
 
-- `upload_tft` Action to update a TFT file
-
-  This will update the nextion display with the tft file
-
 - `upload_tft_url` Action to update a TFT file from URL
+
+  The hub's TFT install sends it. Use `nspanel_haui.update_tft` (optionally
+  with `url`) or the **HAUI Display** update entity instead, they track the
+  install.
 
 - `set_brightness` Action to change the brightness of the display
 
@@ -525,10 +524,6 @@ Temperature related sensor.
 
 Buttons provided by the ESP.
 
-- `Update Display` (`tft_update`)
-
-  This button uploads the tft from a configured url to nextion
-
 - `Restart Display` (`restart_display`, disabled by default)
 
   Restarts the display
@@ -561,6 +556,11 @@ only clutter the entity registry.
 
 The temperature chain uses two further sensors (`adc`, `resistance`) that are
 `disabled_by_default: true` — only the final `temperature` sensor is enabled.
+The hub looks the temperature sensor up through the entity registry by its
+ESPHome-authored name (`Temperature`), so the example id above is only a
+fallback: a renamed device or HA's area-prefixed entity ids (e.g.
+`sensor.nspanel_bedroom_temperature` on a device called "NSPanel Sypialnia")
+do not break the clock and weather panels reading it.
 
 ## Other
 

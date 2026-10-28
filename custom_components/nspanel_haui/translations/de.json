@@ -135,6 +135,20 @@
           "description": "Versatz in Sekunden, der auf den Rücksetzzeitpunkt angewendet wird."
         }
       }
+    },
+    "update_tft": {
+      "name": "TFT aktualisieren",
+      "description": "Installiert das TFT-Release, das die Firmware des Panels benötigt, oder die TFT-Datei unter einer URL.",
+      "fields": {
+        "device": {
+          "name": "Gerät",
+          "description": "NSPanel-Gerät, dessen Display aktualisiert werden soll."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Optionale http(s)-URL einer .tft-Datei, die statt des von der Firmware benötigten GitHub-Releases installiert wird."
+        }
+      }
     }
   }
 }

@@ -170,6 +170,7 @@ _PROTECTED = [
     (api.DeviceYamlView, "post"),
     (api.DeviceUpdateDisplayView, "post"),
     (api.DeviceUpdateTftView, "post"),
+    (api.DeviceUpdateFirmwareView, "post"),
 ]
 
 
@@ -485,6 +486,10 @@ class _WorkerApp:
     def install_tft(self, version=None):
         self.calls.append(("install_tft", version))
 
+    def install_firmware(self):
+        self.calls.append("install_firmware")
+        return {"firmware_installing": True, "firmware_install_error": None}
+
     async def async_run_on_worker(self, fn, *args):
         self.calls.append("worker")
         return fn(*args)
@@ -622,6 +627,43 @@ def test_firmware_download_empty_release_list_returns_error(monkeypatch):
     asyncio.run(api.DeviceUpdateDisplayView().post(request, entry_id="entry1"))
 
     assert app.calls == ["worker", "update_display"]
+
+
+def test_firmware_install_runs_on_the_device_worker():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceUpdateFirmwareView().post(
+            _Request(hass, admin=True, body={"device": "kitchen"}), entry_id="entry1"
+        )
+    )
+
+    assert app.calls == ["worker", "install_firmware"]
+    assert result["status_code"] == 200
+    assert result["body"]["devices_updated"] == ["kitchen"]
+
+
+def test_firmware_install_reports_controller_errors():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    app.install_firmware = lambda: {
+        "firmware_installing": False,
+        "firmware_install_error": "No firmware update is available",
+    }
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceUpdateFirmwareView().post(
+            _Request(hass, admin=True, body={"device": "kitchen"}), entry_id="entry1"
+        )
+    )
+
+    assert result["status_code"] == 502
+    assert result["body"]["message"] == "No firmware update is available"
 
 
 def test_tft_install_runs_on_the_device_worker():

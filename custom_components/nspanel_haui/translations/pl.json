@@ -135,6 +135,20 @@
           "description": "Przesunięcie w sekundach zastosowane do punktu resetowania."
         }
       }
+    },
+    "update_tft": {
+      "name": "Aktualizuj TFT",
+      "description": "Instaluje wydanie TFT wymagane przez firmware panelu lub plik TFT spod adresu URL.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Urządzenie NSPanel, którego wyświetlacz ma zostać zaktualizowany."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Opcjonalny adres http(s) pliku .tft instalowanego zamiast wydania GitHub wymaganego przez firmware."
+        }
+      }
     }
   }
 }

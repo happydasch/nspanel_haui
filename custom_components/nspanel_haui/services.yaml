@@ -1,3 +1,29 @@
+# ── nspanel_haui.update_tft ──────────────────────────────────
+update_tft:
+  name: Update TFT
+  description: >-
+    Install the TFT release required by this panel's firmware, or the TFT file
+    at a URL. Select a single NSPanel device; this service cannot be called for
+    all devices at once.
+  fields:
+    device:
+      name: "Device"
+      description: "NSPanel device whose display should be updated."
+      required: true
+      selector:
+        device:
+          integration: nspanel_haui
+    url:
+      name: "URL"
+      description: >-
+        Optional http(s) URL of a .tft file to install instead of the GitHub
+        release the firmware needs (custom or development builds).
+      required: false
+      example: "http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft"
+      selector:
+        text:
+          type: url
+
 # ── nspanel_haui.open_panel ──────────────────────────────────
 open_panel:
   name: Open panel

@@ -750,12 +750,12 @@ class HAUINavigationController(HAUIBase):
         self._idle_panel_idx += 1
         self._idle_panel = panel
         self._idle_panel_active = True
-        # A dark display needs one wake touch before the idle page can be
-        # exited. Touch-initiated entry while the display is on is protected
-        # separately by the idle-touch grace window.
-        self.app.device._first_touch_consumed = (
-            self.app.device.device_info.get("display_state", "off") != "on"
-        )
+        # The device owns the wake guard: only a dark display needs a wake
+        # touch before the idle page can be exited; a visible display
+        # ("on" or "dim") needs a single touch.  Touch-initiated entry while
+        # the display is visible is protected separately by the idle-touch
+        # grace window.
+        self.app.device.on_idle_page_opened()
         self.open_panel(panel.id, autostart=autostart)
 
     def mark_awake(self) -> None:

@@ -40,11 +40,9 @@ substitutions:
   # Open fallback AP so the user can always join and provision.
   ap_password: ''
 
-  # Custom Update Urls: the Update Display button picks the landscape or the
-  # portrait TFT by the display_model number; the hub's auto-update installs
-  # the matching release asset on its own.
+  # Default TFT URL of the display component; the hub's TFT update installs
+  # the release asset that matches the display_model on its own.
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
-  tft_update_url_portrait: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui_portrait.tft
 
 # Temporary: stock `nextion` in released ESPHome lacks the numeric-response
 # delivery fix (esphome/esphome#17744, ships in 2026.11.0).  Override it with

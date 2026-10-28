@@ -263,6 +263,33 @@ class NSPanelHAUI(HAAdapter):
             }
         return update_ctrl.install_tft(version)
 
+    def install_tft_url(self, url: str) -> dict:
+        """Install the TFT file at ``url`` on this device, on its worker thread.
+
+        Args:
+            url (str): http(s) URL of the ``.tft`` file
+
+        Returns:
+            dict: The update state after the attempt; ``state`` is ``error``
+            when the install could not start.
+        """
+        return self.controller["update"].install_tft_url(url)
+
+    def publish_display_update(self) -> None:
+        """Fire the current TFT update state for the "HAUI Display" entity."""
+        self.controller["update"].publish_display_update()
+
+    def install_firmware(self) -> dict:
+        """Trigger a firmware install for this device, on its worker thread."""
+        update_ctrl = self.controller.get("update")
+        if update_ctrl is None:
+            self.log("Cannot install firmware: no update controller", level="WARNING")
+            return {
+                "firmware_installing": False,
+                "firmware_install_error": "no update controller",
+            }
+        return update_ctrl.install_firmware()
+
     def check_for_update(self) -> None:
         """Trigger a manual update check for this device, on its worker thread.
 
@@ -346,7 +373,7 @@ class NSPanelHAUI(HAAdapter):
                 if conn and conn.is_connected and conn.last_connection_time
                 else None
             ),
-            "idle_page_active": bool(nav.idle_panel_active) if nav else False,
+            "idle_page_active": bool(self.device.sleeping) if self.device else False,
         }
 
         # ESPHome transport info

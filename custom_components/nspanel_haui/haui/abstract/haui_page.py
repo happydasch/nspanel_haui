@@ -581,6 +581,28 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         Override this instead of ``stop_panel``.  No need to call super.
         """
 
+    def get_inside_temp_entity_id(self) -> str:
+        """Resolve this device's internal temperature sensor entity id.
+
+        The classic ``sensor.{device_slug}_temperature`` construction misses
+        installations where the hub's device name differs from the ESPHome
+        node name (renames, or HA's area/device entity-id naming), so prefer
+        the entity registry lookup by the sensor's ESPHome-authored name and
+        fall back to the classic id only when the registry has no match.
+
+        Returns:
+            str: The internal temperature sensor's entity id.
+        """
+        resolver = getattr(self.app, "find_entity_id", None)
+        if resolver is not None:
+            try:
+                resolved = resolver("sensor", "Temperature")
+            except Exception:  # noqa: BLE001 - registry access is best-effort
+                resolved = None
+            if resolved:
+                return resolved
+        return f"sensor.{self.app.device.get_slug()}_temperature"
+
     def _save_auto_state(self) -> dict:
         """Save and disable auto-dimming/page/display-off for popup overlays.
 

@@ -18,10 +18,9 @@ substitutions:
   wifi_ssid: $wifi_ssid
   wifi_password: $wifi_password
   ap_password: $ap_password
-  # Custom Update Urls (landscape and portrait TFT; the Update Display button
-  # and the upload_tft action pick one by the display_model number)
+  # Default TFT URL of the display component (enables TFT upload support);
+  # the hub's TFT update always sends the URL of the TFT it installs
   tft_update_url: $tft_update_url
-  tft_update_url_portrait: $tft_update_url_portrait
 
 # Temporary: the numeric-response delivery fix for the stock `nextion`
 # component (esphome/esphome#17744) merged two days after the 2026.10.0
@@ -29,9 +28,10 @@ substitutions:
 # display read logs "Numeric return but '...' invalid type 0" and the value
 # is dropped.  This overrides the stock component with the patched copy
 # vendored in this repo (esphome/nextion_patch/), which is the 2026.10.0
-# component plus the cherry-picked fix and therefore compiles against
-# ESPHome 2026.10.0.  Remove this whole block AND esphome/nextion_patch/
-# once a released ESPHome contains #17744 (2026.11.0), and bump min_version
+# component plus the cherry-picked fix and the TFT upload TX buffer option
+# (#21435) and therefore compiles against ESPHome 2026.10.0.  Remove this
+# whole block AND esphome/nextion_patch/ once a released ESPHome contains
+# #17744 and #21435 (expected in 2026.11.0), and bump min_version
 # in base.yaml together with it.  `ref` stays `dev` for the whole bridge: dev
 # carries the patch dir first, and the file disappears from both branches in
 # the same cleanup, so master users on this package keep working until then.

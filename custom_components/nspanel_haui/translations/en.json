@@ -135,6 +135,20 @@
           "description": "Offset in seconds applied to the reset point."
         }
       }
+    },
+    "update_tft": {
+      "name": "Update TFT",
+      "description": "Install the TFT release the panel's firmware needs, or the TFT file at a URL.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "NSPanel device whose display should be updated."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Optional http(s) URL of a .tft file to install instead of the GitHub release the firmware needs."
+        }
+      }
     }
   }
 }

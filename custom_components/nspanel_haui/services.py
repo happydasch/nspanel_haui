@@ -31,6 +31,7 @@ SERVICE_WAKEUP = "wakeup"
 SERVICE_IDLE = "idle"
 SERVICE_SEND_NOTIFICATION = "send_notification"
 SERVICE_RESET_LAST_INTERACTION = "reset_last_interaction"
+SERVICE_UPDATE_TFT = "update_tft"
 
 # ── Service schemas ─────────────────────────────────────────
 SERVICE_OPEN_PANEL_SCHEMA = vol.Schema(
@@ -43,6 +44,12 @@ SERVICE_OPEN_PANEL_SCHEMA = vol.Schema(
 SERVICE_DEVICE_ONLY_SCHEMA = vol.Schema(
     {
         vol.Optional("device", default=None): vol.Any(str, None),
+    }
+)
+SERVICE_UPDATE_TFT_SCHEMA = vol.Schema(
+    {
+        vol.Required("device"): cv.string,
+        vol.Optional("url"): cv.url,
     }
 )
 SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
@@ -251,6 +258,22 @@ async def _handle_reset_last_interaction(hass: HomeAssistant, call: ServiceCall)
     await _device_action(hass, call, action=_reset_action)
 
 
+async def _handle_update_tft(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Install the TFT the selected device's firmware needs, or the one at ``url``."""
+    url: str | None = call.data.get("url")
+
+    def _update_action(app: Any, dev_name: str) -> None:
+        result = app.install_tft_url(url) if url else app.install_tft()
+        if result.get("state") == "error":
+            _LOGGER.error(
+                "update_tft failed for '%s': %s",
+                dev_name,
+                result.get("last_error") or "TFT update failed",
+            )
+
+    await _device_action(hass, call, action=_update_action)
+
+
 # ── Registration ─────────────────────────────────────────────
 
 
@@ -270,5 +293,6 @@ def async_register_services(hass: HomeAssistant) -> None:
             SERVICE_RESET_LAST_INTERACTION_SCHEMA,
             _handle_reset_last_interaction,
         ),
+        (SERVICE_UPDATE_TFT, SERVICE_UPDATE_TFT_SCHEMA, _handle_update_tft),
     ):
         hass.services.async_register(DOMAIN, name, partial(handler, hass), schema=schema)

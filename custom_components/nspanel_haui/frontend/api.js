@@ -372,6 +372,17 @@ export async function updateDeviceTft(host, deviceName, version) {
  * @param {string} deviceName - device name, or "*" for all devices
  * @returns {Promise<{ status: string, devices_checked: string[] }>}
  */
+export async function updateDeviceFirmware(host, deviceName) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  return request(host, `/api/nspanel_haui/update_firmware/${host.entryId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ device: deviceName }),
+  }, t("Failed to install firmware"));
+}
+
 export async function checkDeviceUpdate(host, deviceName = "*") {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));

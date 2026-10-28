@@ -88,12 +88,29 @@ export function deviceThemeCss(deviceColors) {
 }
 
 /**
+ * Resolve a tile colour that may be keyed by entity state.
+ * The editor stores state-keyed colours as `{ "on": "#...", "off": "#..." }`,
+ * matching `HAUIItem.get_color_field` on the hub.
+ * @param {*} value - raw colour config value
+ * @param {object} item - item config (for the entity id)
+ * @param {object} [host] - Lit host with `hass.states`
+ */
+function resolveTileColor(value, item, host) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const eid = itemEntityId(item);
+    const state = host?.hass?.states?.[eid]?.state;
+    return state != null ? value[state] : null;
+  }
+  return value;
+}
+
+/**
  * Build a CSS background-color string for a tile given item config fields.
  * Falls back to null (no custom background).
  */
-export function tileBgColor(item) {
+export function tileBgColor(item, host) {
   if (!item) return null;
-  const bc = item.back_color;
+  const bc = resolveTileColor(item.back_color, item, host);
   if (bc != null && bc !== '' && bc !== '0') {
     const css = colorToCss(bc);
     if (css) return css;
@@ -104,11 +121,11 @@ export function tileBgColor(item) {
 /**
  * Build a CSS color string for icon/text in a tile given item config fields.
  */
-export function tileIconColor(item) {
+export function tileIconColor(item, host) {
   if (!item) return null;
   // Check grid-specific text_color override first, then fall back to the
   // standard HAUIItem color override (the same field used by get_color()).
-  const tc = item.text_color || item.color;
+  const tc = resolveTileColor(item.text_color || item.color, item, host);
   if (tc != null && tc !== '' && tc !== '0') {
     const css = colorToCss(tc);
     if (css) return css;

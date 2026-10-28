@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, overload
 
 from ..mapping.const import InternalItemType
 from ..mapping.item_options import ItemOptions
@@ -346,6 +346,42 @@ class HAUIItem(HAUIConfigAccess):
                     name = panel.get_title()
 
         return name or get_item_name(self, "")
+
+    @overload
+    def get_color_field(
+        self, key: str, default: int | str | list | tuple
+    ) -> int | str | list | tuple: ...
+
+    @overload
+    def get_color_field(
+        self, key: str, default: None = None
+    ) -> int | str | list | tuple | None: ...
+
+    def get_color_field(
+        self, key: str, default: int | str | list | tuple | None = None
+    ) -> int | str | list | tuple | None:
+        """Resolve a per-item colour option that may be state-keyed or templated.
+
+        Tile options such as ``text_color`` and ``back_color`` support the same
+        state-dict and Jinja forms as the main ``color`` option.  Resolve them
+        before they reach ``parse_color_value``: a raw dict is treated as an
+        invalid colour (black) by that parser.
+
+        Args:
+            key: Config key to look up.
+            default: Value returned when the item has no override.
+
+        Returns:
+            The resolved colour value (int, string, or list) or ``default``.
+        """
+        value = self.get(key, None)
+        if isinstance(value, dict):
+            value = value.get(self.get_item_state())
+        if isinstance(value, str) and value:
+            value = self.render_template(value)
+        if value is None or value == "":
+            return default
+        return value
 
     def get_color(self) -> int:  # type: ignore[override]
         """Returns the color of the entity.

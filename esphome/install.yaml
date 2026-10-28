@@ -19,9 +19,9 @@ substitutions:
   wifi_password: !secret wifi_password
   ap_password: !secret ap_password
 
-  # Custom Update Urls (landscape and portrait TFT)
+  # Default TFT URL of the display component; the integration installs the
+  # TFT that matches the firmware and the display model on its own
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
-  tft_update_url_portrait: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui_portrait.tft
 
 packages:
   remote_package:

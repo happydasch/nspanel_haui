@@ -390,7 +390,7 @@ class DeviceConfigDialog extends HauiDialog {
                   ${renderToggle("dc-update-auto_install", Boolean(updateValue(cfg, "auto_install", true)), (checked) => setUpdateValue(this, "auto_install", checked))}
                   <label for="dc-update-auto_install">${t("Auto-install TFT updates")}</label>
                 </div>
-                <div class="field-hint">${t("Install an older display TFT automatically when the firmware needs a newer one. When off the display asks first.")}</div>
+                <div class="field-hint">${t("Replace an outdated display TFT automatically when the firmware needs a newer one. When off, the display asks first.")}</div>
               </div>
             </div>
           </details>

@@ -22,10 +22,11 @@ substitutions:
   wifi_password: !secret wifi_password
   ap_password: !secret ap_password
 
-  # Custom Update Urls (landscape and portrait TFT)
+  # Default TFT URL of the display component.  Install a local TFT build
+  # with nspanel_haui.update_tft and its url field, e.g.
+  # http://homeassistant.local:8123/local/nspanel/nspanel_haui_portrait.tft
   #tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
   tft_update_url: http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft
-  tft_update_url_portrait: http://homeassistant.local:8123/local/nspanel/nspanel_haui_portrait.tft
 
 # Temporary: stock `nextion` in released ESPHome lacks the numeric-response
 # delivery fix (esphome/esphome#17744, ships in 2026.11.0).  Override it with

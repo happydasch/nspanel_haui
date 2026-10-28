@@ -8,17 +8,70 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ## [0.4.3] — unreleased
 
+### Breaking changes
+
+- **TFT installs moved from the firmware to the integration** — the firmware
+  drops the **Update Display** button and the `esphome.<device>_upload_tft`
+  action, and the `tft_update_url_portrait` substitution is no longer used.
+  Install the TFT with the new **HAUI Display** update entity or
+  `nspanel_haui.update_tft` (which now takes an optional `url`).
+  `esphome.<device>_upload_tft_url` remains as the hub's transport. See
+  [Upgrading → TFT install actions](docs/upgrading.md#10-tft-install-actions-moved-to-the-integration).
+
+### Added
+
+- **HAUI Display update entity** — each linked panel gets
+  `update.<device>_haui_display` next to the firmware's **HAUI Firmware**
+  entity. It shows the installed TFT and the TFT the firmware needs, installs
+  it, and stays *installing* (and available) while the upload keeps the device
+  offline. The hub fires `nspanel_haui.display_update_changed` events for it.
+- **`nspanel_haui.update_tft` installs a TFT from a URL** — the optional `url`
+  field replaces calling `esphome.<device>_upload_tft_url` directly and keeps
+  the install tracked; it counts as done once the display reports its version
+  after the upload's reboot.
+
 ### Fixed
 
+- **TFT installs from GitHub releases work again** — GitHub redirects release
+  TFTs to a signed URL of about 870 characters, which overflowed the display
+  component's 512-byte default HTTP TX buffer (`HTTP_CLIENT: Out of buffer`),
+  so every hub TFT install failed before the first byte and timed out after 20
+  minutes. The vendored `nextion` component backports
+  `tft_upload_http_buffer_size_tx` (esphome/esphome#21435) and the firmware sets
+  it to 2048. Update the firmware first; the TFT follows after the reboot.
+- **The TFT install after a firmware update finds the new release** — a
+  firmware install skips the GitHub release fetch, so the TFT check after its
+  reboot could look up the new version in a release list cached before it was
+  published and fail with "No GitHub release". A cached list without the
+  requested TFT is now refetched once.
+
+- **The idle page exits on one touch when the display is on or dim** — the
+  two-touch wake guard armed while the display was dark stayed armed after the
+  display turned on or dimmed, so leaving the idle page needed two touches even
+  though the screen was visible. The guard is now treated as stale after the
+  wake-touch duplicate window and the first touch exits; "off" keeps the
+  two-touch behavior.
 - **Update checks now run with the shipped defaults** — `check_on_connect`
   (now `True` by default) and `update_interval` (now `3600` seconds, hourly;
   `0` still disables) were previously unreachable user settings: the top-level
   `update` block was never merged into the running configuration, so every
   device kept the pristine defaults. Per-device update settings are now
   deep-merged from the device store over the integration defaults.
+- **Firmware auto-updates no longer depend on a TFT update.** The firmware
+  entity is refreshed and checked independently, so a device whose TFT is
+  already current can still install a newer ESPHome firmware. Service failures
+  are reported instead of being marked as a started install.
+- **Firmware updates can be triggered from the editor.** The device action menu
+  offers **Install firmware** when HA reports an update, and the action confirms
+  the manifest state before calling `update.install`.
+- **TFT updates have a device-targeted Home Assistant service.**
+  `nspanel_haui.update_tft` appears once in the HA service list and requires
+  selecting a single NSPanel, then installs the TFT matching that firmware.
+  This avoids guessing which per-device ESPHome upload action belongs to a panel.
 - **The device can fetch GitHub manifests again** — the ESPHome `http_request`
-  RX buffer is raised to 8192 bytes so the ~5.4 KB GitHub redirect headers fit
-  instead of the 512-byte default (`HTTP_CLIENT: Out of buffer`).
+  RX buffer is raised to 8192 bytes for redirect headers and its TX buffer to
+  2048 bytes for signed redirect request targets (the ESP-IDF defaults are 512
+  bytes).
 - **The editor can check for updates and show firmware availability** — the
   device action menu has **Check for updates** (bypassing the one-hour
   hub-level release cache) and the device list shows when the `HAUI Firmware`
@@ -26,6 +79,21 @@ and follow [Semantic Versioning](https://semver.org/).
 - **One GitHub request per hub, not per device** — update controllers share a
   module-level releases cache for an hour, keeping a multi-device hub inside
   GitHub's unauthenticated rate limit. A manual check bypasses the cache.
+- **Grid tiles resolve state-keyed colours** — a state-keyed or templated
+  `back_color`/`text_color` was passed raw to the colour parser, which renders
+  it black; tiles now resolve those values and refresh their background and
+  text colours when the entity state changes. The editor preview does the same.
+- **The internal temperature sensor shows up again on the clock and weather
+  panels** — the display looked it up as `sensor.{device_slug}_temperature`,
+  which misses installations where the HAUI device name differs from the
+  ESPHome node name (renames, area-prefixed entity ids). The sensor is now
+  resolved through the entity registry by its ESPHome-authored name
+  (`Temperature`), falling back to the classic id when the registry has no
+  match.
+
+- **The Device Manager's More menu can install the TFT.** **Install TFT** stays
+  available when the panel has not reported its current TFT version; missing
+  firmware/display versions are shown as **Unknown** instead of being hidden.
 
 ### Changed
 

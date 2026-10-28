@@ -14,13 +14,17 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
 - **Scan for devices** — Discovers ESPHome devices on the network that run
   HAUI firmware and offers them for batch-add. Discovered devices are added
   enabled and linked to their ESPHome entry.
-- **Install TFT** — Triggers a TFT install for the selected device immediately
-  (installs stay automatic on connect; this button forces one now). When the
-  install cannot start (device offline, no `yaml_version`, or the GitHub release
-  is unreachable), the editor shows a toast with the reason instead of a success
-  message.  A request that never gets an answer (e.g. the device worker is
-  blocked) times out after 20 seconds and shows a timeout toast instead of
-  doing nothing.
+- **Install TFT** — Open the device's **More** menu and choose **Install TFT**
+  to trigger an install immediately (installs stay automatic on connect; this
+  forces one now), even when the current display TFT version is unknown. The row
+  shows **Display Unknown** / **Firmware Unknown** when those versions are not
+  reported. An install refetches GitHub release metadata when the cached list
+  lacks the firmware-matched TFT, so a list cached before a firmware update
+  cannot hide the matching TFT release. When the install cannot start (device offline,
+  no `yaml_version`, or the GitHub release is unreachable), the editor shows a
+  toast with the reason instead of a success message. A request that never gets
+  an answer (e.g. the device worker is blocked) times out after 20 seconds and
+  shows a timeout toast instead of doing nothing.
 - **Download firmware** — Opens the prebuilt `nspanel_haui.bin` of the latest
   release when one is attached, and explains the build-from-YAML path otherwise.
   This is the manual fallback. Once a device runs firmware that exposes the
@@ -269,12 +273,26 @@ The device editor's **Updates** section controls release checks and automatic in
 
 - `check_on_connect` (default `True`) — run a release check after the device connects.
 - `update_interval` (default `3600` seconds, hourly; `0` disables) — periodic release check.
-- `firmware_auto_update` (default `True`) — when a newer release ships a firmware image, ask Home Assistant to install the device's `HAUI Firmware` update first; the matching TFT follows after the reboot. Turn it off for notice-only behaviour.
+- `firmware_auto_update` (default `True`) — independently checks the device's
+  `HAUI Firmware` update entity and asks Home Assistant to install an offered
+  firmware update. This check does not depend on the TFT being out of date.
+  After reboot, the TFT follows the version required by the new firmware. Turn
+  this off to disable unattended firmware installs; the explicit **Install
+  firmware** action remains available when an update is offered.
 - `auto_install` (default `True`) — install the TFT the firmware needs without asking. When off, the display asks first.
 
 `tft_filename` (default `nspanel_haui.tft`) and `on_connect_delay` (default `60` seconds before the TFT check after a connect) remain integration defaults and are not exposed in the editor.
 
-A TFT install the display never confirms is reported as an error in the editor instead of being retried automatically; press **Install TFT** to retry. The device action menu also has **Check for updates**, which refreshes the release info immediately (bypassing the one-hour hub-level release cache).
+Home Assistant shows the display TFT as the **HAUI Display** update entity next
+to **HAUI Firmware** on the device page; its **Install** runs the same TFT
+install as **Install TFT** (see [Services](../services.md#haui-display-update-entity)).
+
+A TFT install the display never confirms is reported as an error in the editor
+instead of being retried automatically; press **Install TFT** to retry. The
+Device Manager action menu has **Install firmware** when the `HAUI Firmware`
+entity reports an available update, and **Check for updates** to refresh both
+firmware availability and GitHub release info immediately (bypassing the
+one-hour hub-level release cache).
 
 ## Global Defaults (not per-device, fixed)
 

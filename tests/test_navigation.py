@@ -55,6 +55,13 @@ class FakeDevice:
     def check_wakeup(self):
         self.check_wakeup_calls += 1
 
+    def on_idle_page_opened(self):
+        """Mirror HAUIDevice: arm the wake guard only on a dark display."""
+        self._first_touch_consumed = self.device_info.get("display_state", "off") not in (
+            "on",
+            "dim",
+        )
+
 
 class FakeApp:
     def __init__(self, device):
@@ -605,6 +612,21 @@ def test_open_idle_panel_arms_wake_touch_when_display_dark():
     assert device._first_touch_consumed is True
 
 
+def test_open_idle_panel_does_not_arm_wake_touch_when_display_dim():
+    """A dimmed display is visible, so one touch exits the idle page."""
+    device = FakeDevice()
+    device.device_info["display_state"] = "dim"
+    app = FakeApp(device)
+    nav = HAUINavigationController(app, {})
+    app.controller["navigation"] = nav
+    nav._idle_panels = [DummyPanel("sleep")]
+    nav.open_panel = lambda pid, **kw: None
+
+    nav.open_idle_panel()
+
+    assert device._first_touch_consumed is False
+
+
 def test_exit_idle_to_prev_or_home_noops_when_not_idle():
     device = FakeDevice()
     app = FakeApp(device)
@@ -618,6 +640,7 @@ def test_exit_idle_to_prev_or_home_noops_when_not_idle():
     nav.exit_idle_to_prev_or_home({})
 
     assert opened == []  # no navigation away from normal operation
+
 
 def test_stale_page_change_recovery_on_touch() -> None:
     """A touch during a stale page change forces the recovery callback.

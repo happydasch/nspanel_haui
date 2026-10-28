@@ -510,6 +510,7 @@ class NSPanelEditor extends LitElement {
           @scan-devices=${(e) => DeviceEvents.onDeviceManagerScan(this, e)}
           @update-display=${(e) => DeviceEvents.onDeviceManagerUpdateDisplay(this, e)}
           @update-tft=${(e) => DeviceEvents.onDeviceManagerUpdateTft(this, e)}
+          @update-firmware=${(e) => DeviceEvents.onDeviceManagerUpdateFirmware(this, e)}
           @check-for-update=${(e) => DeviceEvents.onDeviceManagerCheckUpdate(this, e)}
         ></nspanel-dialog-device-manager>
 

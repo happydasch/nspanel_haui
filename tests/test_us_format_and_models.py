@@ -122,7 +122,9 @@ def test_open_notification_button_label_is_dismiss():
     app = _NotifApp()
     ctrl = HAUINotificationController(app, {})
     ctrl.app = app
-    app.device = types.SimpleNamespace(get=lambda k, d=None: None, get_name=lambda: "dev")
+    app.device = types.SimpleNamespace(
+        get=lambda k, d=None: None, get_name=lambda: "dev", sleeping=False
+    )
     nav = MagicMock()
     app.controller["navigation"] = nav
     n = Notification("T", "M", "", True, "critical", False)
@@ -135,7 +137,9 @@ def test_open_notification_button_label_is_dismiss():
 def test_notification_ha_event_fired():
     app = _NotifApp()
     ctrl = HAUINotificationController(app, {})
-    app.device = types.SimpleNamespace(get_name=lambda: "kitchen", get=lambda k, d=None: None)
+    app.device = types.SimpleNamespace(
+        get_name=lambda: "kitchen", get=lambda k, d=None: None, sleeping=False
+    )
     ctrl.add_notification("Doorbell", "Someone is here", icon="mdi:bell")
     (event_type, data) = app.fire_event_calls[0]
     assert event_type == "nspanel_haui.notification"
@@ -194,6 +198,7 @@ class _CarouselApp(_App):
             get_name=lambda: "nav",
             sleeping=False,
             device_info={},
+            on_idle_page_opened=lambda: None,
         )
         self.device_config = _CarouselCfg(panels)
         self.controller = {}

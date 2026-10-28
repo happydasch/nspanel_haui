@@ -36,6 +36,70 @@ test('closing a dialog emits dialog-closed', () => {
   assert.deepEqual(events.map((e) => e.type), ['dialog-closed']);
 });
 
+function collectTemplateStrings(value, result = []) {
+  if (typeof value === 'string') result.push(value);
+  else if (Array.isArray(value)) value.forEach((item) => collectTemplateStrings(item, result));
+  else if (value && typeof value === 'object') {
+    if (Array.isArray(value.strings)) collectTemplateStrings(value.strings, result);
+    if (Array.isArray(value.values)) collectTemplateStrings(value.values, result);
+  }
+  return result;
+}
+
+test('the Device Manager offers firmware install only when HA reports an update', () => {
+  const DeviceManager = customElements.get('nspanel-dialog-device-manager');
+  const dlg = Object.create(DeviceManager.prototype);
+  Object.assign(dlg, {
+    devices: { kitchen: { config: {}, panels: [] } },
+    selectedDevice: 'kitchen',
+    _deviceMenuIndex: 0,
+    _deviceStatuses: {
+      kitchen: {
+        device_info: { ip: '192.0.2.1' },
+        update: { firmware_update_available: true },
+      },
+    },
+    hass: {},
+  });
+
+  const labels = collectTemplateStrings(dlg._renderDeviceRow('kitchen')).join(' ');
+  assert.match(labels, /Install firmware/);
+
+  dlg._deviceStatuses = {
+    kitchen: { device_info: { ip: '192.0.2.1' }, update: { firmware_update_available: false } },
+  };
+  assert.doesNotMatch(
+    collectTemplateStrings(dlg._renderDeviceRow('kitchen')).join(' '),
+    /Install firmware/,
+  );
+  dlg._deviceStatuses = {
+    kitchen: {
+      device_info: { ip: '192.0.2.1' },
+      update: { firmware_update_available: true, firmware_installing: true },
+    },
+  };
+  assert.match(
+    collectTemplateStrings(dlg._renderDeviceRow('kitchen')).join(' '),
+    /Installing firmware/,
+  );
+});
+test('the Device Manager keeps TFT install in the More menu when versions are unknown', () => {
+  const DeviceManager = customElements.get('nspanel-dialog-device-manager');
+  const dlg = Object.create(DeviceManager.prototype);
+  Object.assign(dlg, {
+    devices: { haui: { config: {}, panels: [] } },
+    selectedDevice: 'haui',
+    _deviceMenuIndex: 0,
+    _deviceStatuses: { haui: { device_info: {} } },
+    hass: { states: {} },
+  });
+
+  const labels = collectTemplateStrings(dlg._renderDeviceRow('haui')).join(' ');
+  assert.match(labels, /Install TFT/);
+  assert.match(labels, /Display Unknown/);
+  assert.match(labels, /Firmware Unknown/);
+});
+
 test('the Device Manager emits add-device with the detail the editor handler reads', () => {
   const { dlg, events } = dialog('nspanel-dialog-device-manager', { devices: {}, _newDeviceName: 'office' });
   dlg._onAddDevice();

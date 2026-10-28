@@ -33,8 +33,8 @@ export function renderClockPreview(host, panel, _pIdx, _pt) {
     if (item) {
       const { icon, name } = itemDisplay(item, host);
       const shortName = name.length > 6 ? name.slice(0, 5) + '\u2026' : name;
-      const tileBg = tileBgColor(item);
-      const tileIc = tileIconColor(item);
+      const tileBg = tileBgColor(item, host);
+      const tileIc = tileIconColor(item, host);
       return html`
         <div class="pg-preview-clock-entity-btn" style="${tileBg ? `background:${tileBg};` : ''}">
           <ha-icon icon="${icon}" style="${tileIc ? `color:${tileIc};` : ''}"></ha-icon>

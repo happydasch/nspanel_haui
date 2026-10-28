@@ -358,11 +358,11 @@ class HAUINotificationController(HAUIBase):
         """Whether the idle (screensaver) page is currently shown.
 
         Used by the persistent re-alert loop to decide whether it may
-        interrupt what the user is looking at.  The idle page is a page
-        switch owned by navigation, independent of display brightness.
+        interrupt what the user is looking at.  The device is the single
+        authority on the idle (screensaver) state, independent of display
+        brightness.
         """
-        navigation = self.app.controller.get("navigation")
-        return bool(navigation is not None and navigation.idle_panel_active)
+        return bool(self.app.device.sleeping)
 
     def _is_notification_view(self, panel: Any) -> bool:
         """True when ``panel`` is a popup/list opened by this controller.

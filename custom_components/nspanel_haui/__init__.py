@@ -20,7 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
-PLATFORMS: list[str] = ["notify", "sensor"]
+PLATFORMS: list[str] = ["notify", "sensor", "update"]
 
 # Config helpers - moved to haui/device_config.py for single source of truth
 from .haui.device_config import (  # noqa: E402
@@ -567,6 +567,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         DeviceStatusView,
         DeviceUpdateCheckView,
         DeviceUpdateDisplayView,
+        DeviceUpdateFirmwareView,
         DeviceUpdateTftView,
         DeviceYamlView,
         FirmwareDownloadView,
@@ -586,6 +587,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.http.register_view(DeviceStatusView())
     hass.http.register_view(DeviceUpdateDisplayView())
     hass.http.register_view(DeviceUpdateTftView())
+    hass.http.register_view(DeviceUpdateFirmwareView())
     hass.http.register_view(DeviceUpdateCheckView())
     hass.http.register_view(FirmwareDownloadView())
     hass.http.register_view(DeviceYamlView())

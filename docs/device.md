@@ -33,12 +33,16 @@ When `use_auto_page` is enabled and an `idle_panel` is configured, the hub opens
 
 Waking the device works from any state and **never requires an idle page to be configured**:
 
-- With the **idle page shown**, a touch exits it and restores the panel you were on (or the home panel, see below). When the display is on, a single touch is enough (the user can see the screen); when the display is dimmed or off, the first touch only wakes the display and a second touch exits.
+- With the **idle page shown**, a touch exits it and restores the panel you were on (or the home panel, see below). When the display is on or dimmed, a single touch is enough (the user can see the screen); when the display is off, the first touch only wakes the display and a second touch exits.
 - With **no idle page shown**, the first touch just wakes the display (brightness back to full) — there is nothing to exit.
 - A hardware button press always wakes the display and exits the idle page in a single press (when `reset_interaction_on_button` is enabled). A button cannot hit anything on the screen, so it does not need the two-touch protection.
 
-Dimmed / off with idle page shown:
+Off with idle page shown:
     - touch: first touch wakes, second touch exits to home / previous panel
+    - button: wakes and exits to home / previous panel
+
+Dimmed or on with idle page shown:
+    - touch: exits to home / previous panel in a single touch
     - button: wakes and exits to home / previous panel
 
 ### Return Panel after Wakeup

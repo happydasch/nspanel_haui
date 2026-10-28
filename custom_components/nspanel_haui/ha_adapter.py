@@ -555,7 +555,13 @@ class HAAdapter:
 
     # services
 
-    def call_service(self, service: str, return_response: bool = False, **kwargs: Any) -> Any:
+    def call_service(
+        self,
+        service: str,
+        return_response: bool = False,
+        raise_on_error: bool = False,
+        **kwargs: Any,
+    ) -> Any:
         if not isinstance(service, str) or "." not in service.replace("/", "."):
             raise ValueError(f"Invalid service: {service!r}")
         domain, svc = service.replace("/", ".").split(".", 1)
@@ -597,13 +603,18 @@ class HAAdapter:
                 )
                 if return_response and response:
                     return {"result": {"response": response}}
+                return True if raise_on_error else None
             except Exception as exc:  # noqa: BLE001
+                if raise_on_error:
+                    raise
                 _LOGGER.warning("call_service %s/%s error: %s", domain, svc, exc)
-            return None
+                return None
 
         try:
             return _run_on_loop(self._loop, _call(), timeout=30)
         except Exception as exc:  # noqa: BLE001
+            if raise_on_error:
+                raise
             _LOGGER.warning("call_service %s/%s timed out or failed: %s", domain, svc, exc)
             return None
 

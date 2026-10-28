@@ -31,21 +31,12 @@ api:
   # Available actions
   actions:
 
-    # Action to update a TFT file
-    # This will update the nextion display with the tft file for the
-    # layout the display_model number selects (landscape or portrait)
+    # Install the TFT file at ``url``.  The hub's TFT update (the "HAUI
+    # Display" update entity and the nspanel_haui.update_tft action) sends
+    # it; call those instead, they track the install.
     # ``prepare_tft_upload`` suspends active device activities first (see
     # ``suspend_activities``): upload_tft() blocks the main loop for the whole
     # transfer, so a playing rtttl tune would sound until the reboot.
-    - action: upload_tft
-      then:
-        - lambda: |-
-            const char *url = id(display_model).state > 0
-                ? "${tft_update_url_portrait}"
-                : "${tft_update_url}";
-            id(prepare_tft_upload).execute(url);
-
-    # Action to update a TFT file from URL
     - action: upload_tft_url
       variables:
         url: string

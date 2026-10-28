@@ -345,7 +345,6 @@ class WeatherPage(HAUIPage):
             return
 
         # set up main weather details
-        name_slug = self.app.device.get_slug()
         icon = self._weather_item.get_icon()
         color = self._weather_item.get_color()
         temp_outside_str = self._weather_item.get_item_attr("temperature", "")
@@ -365,7 +364,7 @@ class WeatherPage(HAUIPage):
         )
         msg = ""
         if self._show_home_temp:
-            temp_inside_entity = self.app.get_item(f"sensor.{name_slug}_temperature")
+            temp_inside_entity = self.app.get_item(self.get_inside_temp_entity_id())
             temp_inside_state = temp_inside_entity.get_state()
             if temp_inside_state not in (None, "unavailable", "unknown"):
                 temp_inside: float | int = round(float(temp_inside_state), self.TEMP_PRECISION)

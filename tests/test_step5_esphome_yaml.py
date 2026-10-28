@@ -37,7 +37,40 @@ def test_unused_required_tft_version_removed():
     assert "required_tft_version" not in _read("version.yaml")
 
 
+def test_http_request_buffers_fit_github_redirect_headers():
+    """The firmware update entity needs room for GitHub's ~5.4 KB headers."""
+    import re
+
+    base = _read("base.yaml")
+    assert re.search(r"^\s+buffer_size_rx:\s*8192\s*$", base, re.MULTILINE)
+    assert re.search(r"^\s+buffer_size_tx:\s*2048\s*$", base, re.MULTILINE)
+
+
 def test_command_spacing_is_enabled_to_prevent_nextion_rx_overflow():
     import re
 
     assert re.search(r"^\s+command_spacing:\s*2ms\s*$", _read("display.yaml"), re.MULTILINE)
+
+
+def test_tft_upload_tx_buffer_fits_the_github_redirect():
+    """GitHub redirects release TFTs to a ~870-character signed URL.
+
+    The redirected request line overflows the 512-byte ESP-IDF default TX
+    buffer, so every hub TFT install failed before the first byte.
+    """
+    import re
+
+    match = re.search(
+        r"^\s+tft_upload_http_buffer_size_tx:\s*(\d+)\s*$", _read("display.yaml"), re.MULTILINE
+    )
+    assert match and int(match.group(1)) >= 1024
+    upload = (ROOT.parent / "nextion_patch" / "nextion" / "nextion_upload_esp32.cpp").read_text()
+    assert ".buffer_size_tx = this->tft_upload_http_buffer_size_tx_" in upload
+
+
+def test_tft_install_actions_live_in_the_integration():
+    """Only the hub's transport action remains; installs go through nspanel_haui."""
+    api = _read("api.yaml")
+    assert "- action: upload_tft_url" in api
+    assert "- action: upload_tft\n" not in api
+    assert "id: tft_update" not in _read("button.yaml")

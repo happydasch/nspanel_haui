@@ -2,9 +2,10 @@
 # and homeassistant pin different cryptography versions and cannot coexist.
 # Must match min_version in esphome/nspanel_haui/base.yaml.
 # The stock nextion component in released ESPHome lacks the numeric-response
-# delivery fix (esphome/esphome#17744, ships in 2026.11.0); the firmware
-# configs override it with the patched copy in esphome/nextion_patch/, which
-# is tested against this version.  When 2026.11.0 is released, bump this pin
-# AND min_version together and delete esphome/nextion_patch/ + its
+# delivery fix (esphome/esphome#17744) and the TFT upload TX buffer option
+# (esphome/esphome#21435), both expected in 2026.11.0; the firmware configs
+# override it with the patched copy in esphome/nextion_patch/, which is tested
+# against this version.  When a release contains both, bump this pin AND
+# min_version together and delete esphome/nextion_patch/ + its
 # external_components blocks.
 esphome==2026.10.0

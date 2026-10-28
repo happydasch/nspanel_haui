@@ -768,6 +768,62 @@ class DeviceUpdateTftView(HomeAssistantView):
         return self.json({"status": "ok", "devices_updated": updated, "failed": failed})
 
 
+class DeviceUpdateFirmwareView(HomeAssistantView):
+    """REST API endpoint to trigger a firmware install on one or all devices."""
+
+    url = "/api/nspanel_haui/update_firmware/{entry_id}"
+    name = "api:nspanel_haui:update_firmware"
+    requires_auth = True
+
+    @require_admin
+    async def post(self, request, entry_id: str):
+        """Manually install the firmware update advertised by a device.
+
+        The action checks the ESPHome update entity immediately before calling
+        ``update.install``. It remains available when automatic installs are
+        disabled in that device's settings.
+        """
+        hass = request.app["hass"]
+        try:
+            body = await request.json()
+        except ValueError:
+            body = {}
+        if not isinstance(body, dict):
+            body = {}
+        device_name = (body.get("device") or "*").strip()
+
+        apps = _get_apps(hass, entry_id)
+        if not isinstance(apps, dict):
+            return _error(self, "No running devices", 400)
+
+        if device_name and device_name != "*":
+            app = apps.get(device_name)
+            if app is None:
+                return _error(self, f'Device "{device_name}" not found', 404)
+            result = await app.async_run_on_worker(app.install_firmware)
+            if result.get("firmware_install_error"):
+                return _error(self, result["firmware_install_error"], 502)
+            return self.json(
+                {"status": "ok", "devices_updated": [device_name], "update": result}
+            )
+
+        updated: list[str] = []
+        failed: list[dict[str, str]] = []
+        for dname, dapp in apps.items():
+            try:
+                result = await dapp.async_run_on_worker(dapp.install_firmware)
+                error = result.get("firmware_install_error")
+                if error:
+                    failed.append({"name": dname, "error": error})
+                else:
+                    updated.append(dname)
+            except Exception:
+                _LOGGER.exception("Failed to install firmware for device '%s'", dname)
+                failed.append({"name": dname, "error": "firmware install failed"})
+
+        return self.json({"status": "ok", "devices_updated": updated, "failed": failed})
+
+
 class DeviceUpdateCheckView(HomeAssistantView):
     """REST API endpoint to trigger a manual update check on one or all devices."""
 

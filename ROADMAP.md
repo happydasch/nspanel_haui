@@ -4,9 +4,9 @@ Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
 shipped on 2026-10-26 and v0.4.2 on 2026-10-27**, each tagged from a green
 `master` commit and published by the release workflow.
 
-The **dev** branch has the v0.4.3 release prepared. The updated landscape and
-portrait TFTs are in place; the remaining 0.4.x hardware acceptance and OTA risk
-checks are tracked as the **v0.4.4 plan** below.
+**v0.4.3 was released on 2026-10-28.** Its landscape and portrait TFTs are
+published; the remaining 0.4.x hardware acceptance and OTA risk checks are
+tracked as the **v0.4.4 plan** below.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and

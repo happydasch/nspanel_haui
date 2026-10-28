@@ -710,15 +710,25 @@ class DeviceUpdateTftView(HomeAssistantView):
         """Install the TFT for the specified device (or all devices).
 
         JSON body may carry an optional ``device`` field (device name, or ``*``
-        for all devices; default ``*``) and an optional ``version`` (the GitHub
-        release version to install; when omitted the version the firmware needs,
-        its ``yaml_version``, is installed).  The install runs on the device's
-        worker thread.
+        for all devices; default ``*``) and either an optional ``version`` (the
+        GitHub release version to install; when omitted the version the
+        firmware needs, its ``yaml_version``, is installed) or an optional
+        ``url`` of a TFT file (single device only).  The install runs on the
+        device's worker thread.
         """
         hass = request.app["hass"]
         body = await request.json() or {}
         device_name = (body.get("device") or "*").strip()
         version = (body.get("version") or "").strip() or None
+        url = (body.get("url") or "").strip() or None
+
+        if url is not None:
+            if version is not None:
+                return _error(self, "Pass either a version or a URL, not both", 400)
+            if device_name == "*":
+                return _error(self, "A URL install needs a single device", 400)
+            if not url.startswith(("http://", "https://")):
+                return _error(self, "The TFT URL must start with http:// or https://", 400)
 
         apps = _get_apps(hass, entry_id)
 
@@ -729,7 +739,10 @@ class DeviceUpdateTftView(HomeAssistantView):
             app = apps.get(device_name)
             if app is None:
                 return _error(self, f'Device "{device_name}" not found', 404)
-            result = await app.async_run_on_worker(app.install_tft, version)
+            if url is not None:
+                result = await app.async_run_on_worker(app.install_tft_url, url)
+            else:
+                result = await app.async_run_on_worker(app.install_tft, version)
             if isinstance(result, dict) and result.get("state") == "error":
                 # The controller records *why* the install could not start
                 # (device disconnected, no yaml_version, no matching release,
@@ -768,6 +781,59 @@ class DeviceUpdateTftView(HomeAssistantView):
         return self.json({"status": "ok", "devices_updated": updated, "failed": failed})
 
 
+class DeviceTftReleasesView(HomeAssistantView):
+    """REST API endpoint listing the GitHub releases a device's TFT can be installed from."""
+
+    url = "/api/nspanel_haui/tft_releases/{entry_id}"
+    name = "api:nspanel_haui:tft_releases"
+    requires_auth = True
+
+    @require_admin
+    async def get(self, request, entry_id: str):
+        """Return the releases that ship the TFT of the ``device`` query param.
+
+        Runs on the device's worker thread, which shares the hub-level release
+        cache.  Returns ``releases`` (tags, newest first), ``required`` (the
+        firmware's ``yaml_version``) and ``error`` (why GitHub could not be
+        read, or null) for the editor's TFT install picker.
+        """
+        hass = request.app["hass"]
+        device_name = _query_device(request)
+        apps = _get_apps(hass, entry_id)
+        if not isinstance(apps, dict):
+            return _error(self, "No running devices", 400)
+        app = apps.get(device_name)
+        if app is None:
+            return _error(self, f'Device "{device_name}" not found', 404)
+        return self.json(await app.async_run_on_worker(app.list_tft_releases))
+
+
+class DeviceFirmwareReleasesView(HomeAssistantView):
+    """REST API endpoint listing the GitHub releases whose firmware installs over the air."""
+
+    url = "/api/nspanel_haui/firmware_releases/{entry_id}"
+    name = "api:nspanel_haui:firmware_releases"
+    requires_auth = True
+
+    @require_admin
+    async def get(self, request, entry_id: str):
+        """Return the releases the ``device`` query param can flash over the air.
+
+        Runs on the device's worker thread, which shares the hub-level release
+        cache.  Returns ``releases`` (tags, newest first) and ``error`` (why
+        GitHub could not be read, or null) for the editor's firmware picker.
+        """
+        hass = request.app["hass"]
+        device_name = _query_device(request)
+        apps = _get_apps(hass, entry_id)
+        if not isinstance(apps, dict):
+            return _error(self, "No running devices", 400)
+        app = apps.get(device_name)
+        if app is None:
+            return _error(self, f'Device "{device_name}" not found', 404)
+        return self.json(await app.async_run_on_worker(app.list_firmware_releases))
+
+
 class DeviceUpdateFirmwareView(HomeAssistantView):
     """REST API endpoint to trigger a firmware install on one or all devices."""
 
@@ -779,9 +845,12 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
     async def post(self, request, entry_id: str):
         """Manually install the firmware update advertised by a device.
 
-        The action checks the ESPHome update entity immediately before calling
-        ``update.install``. It remains available when automatic installs are
-        disabled in that device's settings.
+        Without ``version`` / ``url`` the action checks the ESPHome update
+        entity immediately before calling ``update.install``. It remains
+        available when automatic installs are disabled in that device's
+        settings.  An optional ``version`` (GitHub release, older ones
+        included) or ``url`` (OTA app image, single device only) is flashed by
+        the firmware's ``install_firmware_url`` action instead.
         """
         hass = request.app["hass"]
         try:
@@ -791,6 +860,16 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
         if not isinstance(body, dict):
             body = {}
         device_name = (body.get("device") or "*").strip()
+        version = (body.get("version") or "").strip() or None
+        url = (body.get("url") or "").strip() or None
+
+        if url is not None:
+            if version is not None:
+                return _error(self, "Pass either a version or a URL, not both", 400)
+            if device_name == "*":
+                return _error(self, "A URL install needs a single device", 400)
+            if not url.startswith(("http://", "https://")):
+                return _error(self, "The firmware URL must start with http:// or https://", 400)
 
         apps = _get_apps(hass, entry_id)
         if not isinstance(apps, dict):
@@ -800,7 +879,7 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
             app = apps.get(device_name)
             if app is None:
                 return _error(self, f'Device "{device_name}" not found', 404)
-            result = await app.async_run_on_worker(app.install_firmware)
+            result = await app.async_run_on_worker(app.install_firmware, version, url)
             if result.get("firmware_install_error"):
                 return _error(self, result["firmware_install_error"], 502)
             return self.json(
@@ -811,7 +890,7 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
         failed: list[dict[str, str]] = []
         for dname, dapp in apps.items():
             try:
-                result = await dapp.async_run_on_worker(dapp.install_firmware)
+                result = await dapp.async_run_on_worker(dapp.install_firmware, version, None)
                 error = result.get("firmware_install_error")
                 if error:
                     failed.append({"name": dname, "error": error})

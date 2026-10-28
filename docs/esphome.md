@@ -39,9 +39,10 @@ To install ESPHome on the device use the config from `esphome/install.yaml`. Edi
 
 **Universal prebuilt firmware:** every release also carries `nspanel_haui.bin`,
 compiled from `esphome/nspanel_haui_universal.yaml`.  That config bakes in
-documented default credentials (no `secrets.yaml` needed) and a never-matching
-Wi-Fi, so the device boots its open access point and is provisioned over the
-captive portal.  See [Installation](install.md) → *Universal image (no YAML)*.
+documented default credentials (no `secrets.yaml` needed) and no Wi-Fi network,
+so the device boots its open access point and is provisioned over the captive
+portal.  The Wi-Fi entered there survives firmware updates.  See
+[Installation](install.md) → *Universal image (no YAML)*.
 `name_add_mac_suffix: true` appends the last six MAC digits at runtime, so one
 binary installs any number of panels with unique names and access points.
 
@@ -277,6 +278,11 @@ This actions below are defined on the ESP. The communication between the Hub ser
 - `send_commands` Action to send multiple commands (`commands`: string array) to the nextion display
 
 - `display_off` / `display_on` Actions to put the display into / out of hardware sleep (publish `esphome.display_off` / `esphome.display_on`)
+
+- `install_firmware_url` Action to flash the firmware OTA image at `url` with its `md5sum`
+
+  The hub sends it to install another release or a custom build
+  (`nspanel_haui.update_firmware`, the editor's **Install firmware** picker).
 
 - `upload_tft_url` Action to update a TFT file from URL
 

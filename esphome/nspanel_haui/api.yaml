@@ -43,6 +43,22 @@ api:
       then:
         - lambda: id(prepare_tft_upload).execute(url);
 
+    # Install the firmware app image at ``url`` (the OTA image
+    # nspanel_haui_ota.bin, not the factory image); ``md5sum`` is its checksum
+    # (``md5`` itself is taken by ESPHome's md5 component).
+    # The hub sends it to install another release, older ones included, or a
+    # custom build (nspanel_haui.update_firmware, the editor's Install
+    # firmware picker); the update entity installs the latest release.
+    - action: install_firmware_url
+      variables:
+        url: string
+        md5sum: string
+      then:
+        - script.execute: suspend_activities
+        - ota.http_request.flash:
+            url: !lambda return url;
+            md5: !lambda return md5sum;
+
     # Batch send_commands - receives string array, sends each to display
     - action: send_commands
       variables:

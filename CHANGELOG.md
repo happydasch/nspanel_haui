@@ -25,6 +25,19 @@ and follow [Semantic Versioning](https://semver.org/).
   entity. It shows the installed TFT and the TFT the firmware needs, installs
   it, and stays *installing* (and available) while the upload keeps the device
   offline. The hub fires `nspanel_haui.display_update_changed` events for it.
+- **Another firmware release or a custom build can be installed** — the
+  firmware gains an `install_firmware_url` action (ESPHome's
+  `ota.http_request.flash`), and the hub uses it for
+  `nspanel_haui.update_firmware` with `version` or `url` and for the Device
+  Manager's **Install firmware** picker (offered update, releases with an
+  over-the-air image — v0.4.2 and later — or a URL). The hub reads the md5 from
+  the release manifest or downloads a URL to compute it, and refuses factory
+  images. A hand-installed firmware pauses the automatic firmware update until
+  Home Assistant restarts or the offered update is installed. Flash this
+  firmware first; older firmware can only install the offered update.
+- **The editor's Install TFT action picks the TFT** — the Device Manager's
+  **Install TFT** opens a picker in the device row: the version the firmware
+  needs, any GitHub release that ships this display model's TFT, or a URL.
 - **Another TFT release can be installed, older ones included** —
   `nspanel_haui.update_tft` takes an optional `version`, and the **HAUI
   Display** entity supports `update.install` with `version`. A TFT installed
@@ -46,6 +59,13 @@ and follow [Semantic Versioning](https://semver.org/).
   the note playing at that moment kept sounding through the download or the boot.
   Both OTA platforms' `on_begin` and `esphome: on_shutdown` now run
   `suspend_activities` too. Flash the updated ESPHome firmware to activate the fix.
+- **Universal-image panels keep their Wi-Fi across firmware updates** — the
+  universal image baked a never-matching Wi-Fi network, and with a network in
+  the YAML ESPHome keys the Wi-Fi entered on the captive portal to the build's
+  config hash. Every firmware update with a changed config (including the
+  **HAUI Firmware** auto-update) forgot it, and the panel fell back to its setup
+  access point. The image now carries no network of its own, so ESPHome uses a
+  fixed key, and a one-time boot step moves Wi-Fi saved by an older build to it.
 - **TFT installs from GitHub releases work again** — GitHub redirects release
   TFTs to a signed URL of about 870 characters, which overflowed the display
   component's 512-byte default HTTP TX buffer (`HTTP_CLIENT: Out of buffer`),

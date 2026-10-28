@@ -70,6 +70,10 @@ image*; the asset contract and CI rules are in
   appends the last six MAC digits at runtime, so every panel gets a unique
   hostname, mDNS name and setup access point from the same `.bin`. Runtime
   *credential* adoption (Improv-style onboarding) is post-0.4.
+- **The image carries no Wi-Fi network.** With a network in the YAML, ESPHome
+  keys the captive-portal Wi-Fi to the build's config hash, and every firmware
+  update with a changed config forgets it. Without one it uses a fixed key; an
+  `on_boot` step moves Wi-Fi saved by builds before 0.4.3 there.
 - **The credentials are public** (API key, OTA password, web credentials).
   Anyone on the LAN can reflash the panel. Use `install.yaml` + secrets when
   that is not acceptable.

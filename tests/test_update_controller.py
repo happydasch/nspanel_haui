@@ -1,6 +1,7 @@
 """Tests for the GitHub release fetch in the update controller."""
 
 import datetime
+import hashlib
 
 import pytest
 import requests
@@ -915,6 +916,32 @@ def test_installing_the_required_release_ends_keeping_an_older_one(monkeypatch):
     assert ctrl._manual_tft_firmware is None
 
 
+def test_release_list_holds_only_releases_with_this_devices_tft(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.2"},
+        [_release("0.4.1"), _release("0.4.2"), _release("0.3.0", with_tft=False), _release("x")],
+    )
+
+    result = ctrl.list_tft_releases()
+
+    assert result == {"releases": ["0.4.2", "0.4.1"], "required": "0.4.2", "error": None}
+
+
+def test_release_list_reports_a_github_failure(monkeypatch):
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+
+    def failing_get(url, timeout):
+        raise requests.exceptions.ConnectTimeout("timed out")
+
+    monkeypatch.setattr(update.requests, "get", failing_get)
+
+    result = ctrl.list_tft_releases()
+
+    assert result["releases"] == []
+    assert "timed out" in result["error"]
+
+
 # --- HAUI Display update entity events ---------------------------------------
 
 
@@ -958,6 +985,163 @@ def test_install_state_changes_are_published(monkeypatch):
 
 
 # --- firmware auto-update ----------------------------------------------------
+
+
+# --- firmware from another release or a URL ----------------------------------
+
+OTA_IMAGE = bytes([update.ESP_IMAGE_MAGIC]) + b"app image"
+FACTORY_IMAGE = b"\xff" * 16
+
+
+def _firmware_release(tag):
+    base = f"https://dl/{tag}"
+    return {
+        "tag_name": tag,
+        "name": f"Release {tag}",
+        "body": "",
+        "assets": [
+            {"name": "nspanel_haui.bin", "browser_download_url": f"{base}/factory.bin"},
+            {"name": "nspanel_haui_ota.bin", "browser_download_url": f"{base}/ota.bin"},
+            {"name": "firmware-manifest.json", "browser_download_url": f"{base}/manifest.json"},
+        ],
+    }
+
+
+class _Download:
+    def __init__(self, body):
+        self._body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def raise_for_status(self):
+        pass
+
+    def iter_content(self, chunk_size):
+        for i in range(0, len(self._body), chunk_size):
+            yield self._body[i : i + chunk_size]
+
+
+def _firmware_updater(monkeypatch, releases, downloads=None, **kwargs):
+    """An updater whose GitHub API, manifests and image downloads are faked."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.3"},
+        firmware_entity="update.nspanel_haui_haui_firmware",
+        **kwargs,
+    )
+    fetched: list = []
+
+    def fake_get(url, timeout, stream=False):
+        fetched.append(url)
+        if url == HAUIUpdateController.RELEASES_URL:
+            return _Response(list(releases))
+        if url.endswith("/manifest.json"):
+            tag = url.split("/")[-2]
+            return _Response(
+                {"builds": [{"ota": {"path": f"https://dl/{tag}/ota.bin", "md5": f"md5-{tag}"}}]}
+            )
+        return _Download((downloads or {})[url])
+
+    monkeypatch.setattr(update.requests, "get", fake_get)
+    return ctrl, app, fetched
+
+
+def test_firmware_release_list_holds_only_over_the_air_releases(monkeypatch):
+    older = _release("0.4.1")  # factory image only: never offered over the air
+    older["assets"].append({"name": "nspanel_haui.bin", "browser_download_url": "x"})
+    ctrl, app, _ = _firmware_updater(
+        monkeypatch, [_firmware_release("v0.4.2"), older, _firmware_release("v0.4.3")]
+    )
+
+    assert ctrl.list_firmware_releases() == {"releases": ["v0.4.3", "v0.4.2"], "error": None}
+
+
+def test_firmware_release_install_flashes_the_manifest_image(monkeypatch):
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
+
+    state = ctrl.install_firmware("v0.4.2")
+
+    assert app.published == [
+        (
+            ESPAction.INSTALL_FIRMWARE_URL,
+            {"url": "https://dl/v0.4.2/ota.bin", "md5sum": "md5-v0.4.2"},
+        )
+    ]
+    assert state["firmware_installing"] is True
+    assert state["firmware_install_error"] is None
+    assert app.calls == []  # update.install is not used for another release
+
+
+def test_firmware_release_without_ota_image_is_refused(monkeypatch):
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_release("0.4.1")])
+
+    state = ctrl.install_firmware("0.4.1")
+
+    assert app.published == []
+    assert "ships no over-the-air firmware" in state["firmware_install_error"]
+
+
+def test_firmware_url_install_sends_the_md5_of_the_image(monkeypatch):
+    url = "http://ha.local/firmware.ota.bin"
+    ctrl, app, _ = _firmware_updater(monkeypatch, [], downloads={url: OTA_IMAGE})
+
+    ctrl.install_firmware(url=url)
+
+    md5 = hashlib.md5(OTA_IMAGE, usedforsecurity=False).hexdigest()
+    assert app.published == [(ESPAction.INSTALL_FIRMWARE_URL, {"url": url, "md5sum": md5})]
+
+
+@pytest.mark.parametrize(
+    ("image", "error"),
+    [
+        pytest.param(FACTORY_IMAGE, "not the factory image", id="factory-image"),
+        pytest.param(OTA_IMAGE + b"\0" * update.FIRMWARE_MAX_BYTES, "app partition", id="too-big"),
+    ],
+)
+def test_firmware_url_install_refuses_an_unusable_image(monkeypatch, image, error):
+    url = "http://ha.local/firmware.bin"
+    ctrl, app, _ = _firmware_updater(monkeypatch, [], downloads={url: image})
+
+    state = ctrl.install_firmware(url=url)
+
+    assert app.published == []
+    assert error in state["firmware_install_error"]
+
+
+def test_firmware_without_the_install_action_reports_it(monkeypatch):
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
+    app.controller["esphome"].esphome.publish = lambda action, value: False
+
+    state = ctrl.install_firmware("v0.4.2")
+
+    assert "install_firmware_url action" in state["firmware_install_error"]
+    assert state["firmware_installing"] is False
+
+
+def test_hand_installed_firmware_pauses_the_automatic_update(monkeypatch):
+    """Otherwise the next check reinstalls the latest release over it."""
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
+    ctrl.install_firmware("v0.4.2")
+    ctrl.on_connection_changed(False)
+    ctrl.on_connection_changed(True)  # rebooted into 0.4.2; HA offers 0.4.3
+
+    assert ctrl._firmware_install_due("0.4.3") is False
+
+
+def test_installing_the_offered_firmware_ends_the_pause(monkeypatch):
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
+    ctrl.install_firmware("v0.4.2")
+    ctrl.on_connection_changed(False)
+    ctrl.on_connection_changed(True)
+
+    ctrl.install_firmware()
+
+    assert ctrl._manual_firmware is False
+    assert ("update.install", {"entity_id": "update.nspanel_haui_haui_firmware"}) in app.calls
 
 
 def test_firmware_install_due_when_entity_reports_an_update(monkeypatch):

@@ -153,6 +153,24 @@
           "description": "Opcjonalny adres http(s) pliku .tft instalowanego zamiast wydania GitHub wymaganego przez firmware. Nie można łączyć z wersją."
         }
       }
+    },
+    "update_firmware": {
+      "name": "Aktualizuj firmware",
+      "description": "Instaluje aktualizację firmware oferowaną przez Home Assistant, inne wydanie GitHub (także starsze) lub obraz OTA firmware spod adresu URL.",
+      "fields": {
+        "device": {
+          "name": "Urządzenie",
+          "description": "Urządzenie NSPanel, którego firmware ma zostać zainstalowany."
+        },
+        "version": {
+          "name": "Wersja",
+          "description": "Opcjonalne wydanie GitHub zamiast oferowanej aktualizacji, np. starsze. Nie można łączyć z URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Opcjonalny adres http(s) obrazu OTA firmware (firmware.ota.bin, nie obraz factory). Nie można łączyć z wersją."
+        }
+      }
     }
   }
 }

@@ -90,15 +90,59 @@ data:
   version: "0.4.1"
 ```
 
+### `nspanel_haui.update_firmware`
+
+Install the firmware update Home Assistant offers on the panel's **HAUI
+Firmware** entity, another GitHub release (`version`, older ones included), or
+the firmware OTA image at `url`. The device is required.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `device` | yes | NSPanel device whose firmware is installed |
+| `version` | no | GitHub release to install instead of the offered update, e.g. `0.4.2`; not combined with `url` |
+| `url` | no | http(s) URL of a firmware OTA image (`firmware.ota.bin` / `nspanel_haui_ota.bin`); not combined with `version` |
+
+```yaml
+action: nspanel_haui.update_firmware
+data:
+  device: "abc123..."
+  version: "0.4.2"
+```
+
+Without `version` and `url` the action installs the offered update through the
+HAUI Firmware entity, like the entity's own **Install**. With `version` or
+`url` the firmware's `install_firmware_url` action downloads and flashes the
+image itself:
+
+- **Releases:** only releases that ship `nspanel_haui_ota.bin` and
+  `firmware-manifest.json` (v0.4.2 and later) install over the air; the hub
+  reads the image's md5 from the manifest. Older releases ship only the
+  factory image (`nspanel_haui.bin`), which an over-the-air update must not
+  write — flash those with the ESPHome dashboard or a cable.
+- **URLs:** the Home Assistant host downloads the file first to compute the md5
+  the flash needs, and refuses a factory image or a file larger than the app
+  partition. The panel must reach the URL too.
+- **The panel's current firmware needs the `install_firmware_url` action.**
+  Firmware without it (0.4.2 and older) can only install the offered update;
+  install the latest firmware first.
+- **Automatic firmware updates pause** after a release or URL install, so
+  `firmware_auto_update` does not reinstall the latest release on the next
+  check. The pause lives in memory: a Home Assistant restart or installing the
+  offered update ends it.
+
+Installing older firmware leaves the TFT alone: the automatic TFT check treats
+a newer TFT as up to date. Install the matching TFT with
+`nspanel_haui.update_tft` and `version` when you go back a release.
+
 ---
 
 ## Navigation & Display Control
 
 These six services are registered under the `nspanel_haui` domain. The
 `device` field is optional for these navigation and notification services; when
-it is omitted, they apply to all HAUI-connected devices. `update_tft` is
-separate and requires selecting one device, so a display upload cannot
-accidentally start on every panel. The selector is filtered to NSPanel HAUI
+it is omitted, they apply to all HAUI-connected devices. `update_tft` and
+`update_firmware` are separate and require selecting one device, so an install
+cannot accidentally start on every panel. The selector is filtered to NSPanel HAUI
 devices.
 
 ### `nspanel_haui.open_panel`

@@ -170,7 +170,9 @@ _PROTECTED = [
     (api.DeviceYamlView, "post"),
     (api.DeviceUpdateDisplayView, "post"),
     (api.DeviceUpdateTftView, "post"),
+    (api.DeviceTftReleasesView, "get"),
     (api.DeviceUpdateFirmwareView, "post"),
+    (api.DeviceFirmwareReleasesView, "get"),
 ]
 
 
@@ -486,9 +488,20 @@ class _WorkerApp:
     def install_tft(self, version=None):
         self.calls.append(("install_tft", version))
 
-    def install_firmware(self):
-        self.calls.append("install_firmware")
+    def install_tft_url(self, url):
+        self.calls.append(("install_tft_url", url))
+
+    def list_tft_releases(self):
+        self.calls.append("list_tft_releases")
+        return {"releases": ["v0.4.2", "v0.4.1"], "required": "0.4.2", "error": None}
+
+    def install_firmware(self, version=None, url=None):
+        self.calls.append(("install_firmware", version, url))
         return {"firmware_installing": True, "firmware_install_error": None}
+
+    def list_firmware_releases(self):
+        self.calls.append("list_firmware_releases")
+        return {"releases": ["v0.4.3", "v0.4.2"], "error": None}
 
     async def async_run_on_worker(self, fn, *args):
         self.calls.append("worker")
@@ -641,7 +654,7 @@ def test_firmware_install_runs_on_the_device_worker():
         )
     )
 
-    assert app.calls == ["worker", "install_firmware"]
+    assert app.calls == ["worker", ("install_firmware", None, None)]
     assert result["status_code"] == 200
     assert result["body"]["devices_updated"] == ["kitchen"]
 
@@ -650,7 +663,7 @@ def test_firmware_install_reports_controller_errors():
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
     app = _WorkerApp()
-    app.install_firmware = lambda: {
+    app.install_firmware = lambda version, url: {
         "firmware_installing": False,
         "firmware_install_error": "No firmware update is available",
     }
@@ -664,6 +677,74 @@ def test_firmware_install_reports_controller_errors():
 
     assert result["status_code"] == 502
     assert result["body"]["message"] == "No firmware update is available"
+
+
+@pytest.mark.parametrize(
+    ("body", "call"),
+    [
+        pytest.param(
+            {"device": "kitchen", "version": "v0.4.2"},
+            ("install_firmware", "v0.4.2", None),
+            id="release",
+        ),
+        pytest.param(
+            {"device": "kitchen", "url": "http://ha.local/firmware.ota.bin"},
+            ("install_firmware", None, "http://ha.local/firmware.ota.bin"),
+            id="url",
+        ),
+    ],
+)
+def test_firmware_install_passes_the_chosen_release_or_url(body, call):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    asyncio.run(
+        api.DeviceUpdateFirmwareView().post(
+            _Request(hass, admin=True, body=body), entry_id="entry1"
+        )
+    )
+
+    assert app.calls == ["worker", call]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"device": "*", "url": "http://ha.local/firmware.ota.bin"},
+        {"device": "kitchen", "url": "file:///firmware.ota.bin"},
+        {"device": "kitchen", "url": "http://ha.local/firmware.ota.bin", "version": "v0.4.2"},
+    ],
+    ids=["all-devices", "not-http", "with-version"],
+)
+def test_firmware_install_rejects_an_unusable_url(body):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceUpdateFirmwareView().post(
+            _Request(hass, admin=True, body=body), entry_id="entry1"
+        )
+    )
+
+    assert result["status_code"] == 400
+    assert app.calls == []
+
+
+def test_firmware_releases_are_listed_on_the_device_worker():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, query={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceFirmwareReleasesView().get(request, entry_id="entry1"))
+
+    assert app.calls == ["worker", "list_firmware_releases"]
+    assert result["body"]["releases"] == ["v0.4.3", "v0.4.2"]
 
 
 def test_tft_install_runs_on_the_device_worker():
@@ -690,6 +771,54 @@ def test_tft_install_passes_the_requested_version():
     asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
 
     assert app.calls == ["worker", ("install_tft", "0.4.0")]
+
+
+def test_tft_install_passes_the_requested_url():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, body={"device": "kitchen", "url": "http://ha.local/x.tft"})
+
+    asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
+
+    assert app.calls == ["worker", ("install_tft_url", "http://ha.local/x.tft")]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"device": "*", "url": "http://ha.local/x.tft"},
+        {"device": "kitchen", "url": "ftp://ha.local/x.tft"},
+        {"device": "kitchen", "url": "http://ha.local/x.tft", "version": "0.4.1"},
+    ],
+    ids=["all-devices", "not-http", "with-version"],
+)
+def test_tft_install_rejects_an_unusable_url(body):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceUpdateTftView().post(_Request(hass, admin=True, body=body), entry_id="entry1")
+    )
+
+    assert result["status_code"] == 400
+    assert app.calls == []
+
+
+def test_tft_releases_are_listed_on_the_device_worker():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, query={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceTftReleasesView().get(request, entry_id="entry1"))
+
+    assert app.calls == ["worker", "list_tft_releases"]
+    assert result["body"]["releases"] == ["v0.4.2", "v0.4.1"]
 
 
 def test_tft_install_includes_the_update_state_in_the_response():

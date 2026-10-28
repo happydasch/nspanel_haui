@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import hashlib
 import threading
 import time
 from typing import TYPE_CHECKING, Any
@@ -43,6 +44,17 @@ VERIFY_MAX_REFRESHES = 2
 # failed trigger is retried at most once an hour.
 FIRMWARE_ENTITY_NAME = "HAUI Firmware"
 FIRMWARE_RETRY_SECONDS = 60 * 60
+
+# Another firmware release or a custom build is flashed by the firmware's
+# ``install_firmware_url`` action.  A release qualifies when it ships the OTA
+# app image and the manifest holding its md5; ``nspanel_haui.bin`` is the full
+# factory image, which an over-the-air update must never write.
+FIRMWARE_OTA_ASSET = "nspanel_haui_ota.bin"
+FIRMWARE_MANIFEST_ASSET = "firmware-manifest.json"
+# App partition size of the shipped partition table, and the first byte of an
+# ESP32 app image (a factory image starts with 0xFF padding instead).
+FIRMWARE_MAX_BYTES = 0x1C0000
+ESP_IMAGE_MAGIC = 0xE9
 
 # Hub-level release cache.  Every device has its own controller, but the
 # GitHub releases page is identical for all of them; without a shared cache a
@@ -120,6 +132,11 @@ class HAUIUpdateController(HAUIBase):
         self._firmware_install_version: str | None = None
         self._firmware_install_at: datetime.datetime | None = None
         self._firmware_install_error: str | None = None
+        # A firmware installed by hand (another release or a URL) pauses the
+        # automatic firmware update, which would otherwise reinstall the latest
+        # release on the next check.  In memory only: a Home Assistant restart
+        # or installing the offered update ends it.
+        self._manual_firmware = False
 
     # internal timers for version checks
 
@@ -407,6 +424,8 @@ class HAUIUpdateController(HAUIBase):
         """
         if not self.get("firmware_auto_update", True):
             return False
+        if self._manual_firmware:
+            return False
         if self._update_state == UPDATE_STATE_INSTALLING:
             return False  # never reboot the device mid TFT upload
         if self._firmware_installing and self._firmware_install_at is not None:
@@ -445,12 +464,145 @@ class HAUIUpdateController(HAUIBase):
         self.log(f"Firmware update to {version} started")
         return True
 
-    def install_firmware(self) -> dict[str, Any]:
-        """Manually install the firmware currently offered by Home Assistant.
+    def list_firmware_releases(self) -> dict[str, Any]:
+        """List the GitHub releases whose firmware installs over the air, newest first.
 
-        The manual editor action is explicit and is not disabled by the
-        ``firmware_auto_update`` setting. It refreshes the update entity first
-        and refuses to reboot during a TFT upload.
+        For the editor's firmware install picker.  Call via
+        ``app.async_run_on_worker``.
+
+        Returns:
+            dict: ``releases`` (release tags) and ``error`` (why the release
+            list could not be fetched, or None)
+        """
+        try:
+            self._update_release_infos()
+        except RuntimeError as exc:
+            return {"releases": [], "error": str(exc)}
+        releases = []
+        for release in self._release_infos:
+            version = self._try_parse_version(release.get("tag_name"))
+            names = {asset.get("name") for asset in release.get("assets", [])}
+            if version is not None and {FIRMWARE_OTA_ASSET, FIRMWARE_MANIFEST_ASSET} <= names:
+                releases.append((version, release["tag_name"]))
+        releases.sort(reverse=True)
+        return {"releases": [tag for _version, tag in releases], "error": None}
+
+    def _release_firmware(self, version: str) -> tuple[str, str]:
+        """Return the OTA image URL and md5 of the GitHub release ``version``.
+
+        Raises:
+            RuntimeError: When the release, its manifest or its image is missing
+        """
+        self._update_release_infos()
+        release = self._find_release(version)
+        if release is None:
+            # The cache may predate the release, as for the TFT.
+            self._update_release_infos(force=True)
+            release = self._find_release(version)
+        if release is None:
+            raise RuntimeError(f"No GitHub release {version}")
+        manifest_url = next(
+            (
+                asset["browser_download_url"]
+                for asset in release.get("assets", [])
+                if asset.get("name") == FIRMWARE_MANIFEST_ASSET
+            ),
+            None,
+        )
+        if manifest_url is None:
+            raise RuntimeError(
+                f"Release {version} ships no over-the-air firmware ({FIRMWARE_MANIFEST_ASSET})"
+            )
+        try:
+            ota = requests.get(manifest_url, timeout=10).json()["builds"][0]["ota"]
+            return ota["path"], ota["md5"]
+        except (requests.exceptions.RequestException, ValueError, LookupError, TypeError) as exc:
+            raise RuntimeError(
+                f"Could not read the firmware manifest of release {version}: {exc}"
+            ) from exc
+
+    def _url_firmware_md5(self, url: str) -> str:
+        """Download the firmware image at ``url`` and return its md5.
+
+        The device downloads the file itself; the hub reads it first for the
+        md5 the flash action needs, and to refuse a factory image or a file
+        that does not fit the app partition before the device touches it.
+
+        Raises:
+            RuntimeError: When the file cannot be read or is no app image
+        """
+        digest = hashlib.md5(usedforsecurity=False)
+        size = 0
+        first = b""
+        try:
+            with requests.get(url, timeout=30, stream=True) as resp:
+                resp.raise_for_status()
+                for chunk in resp.iter_content(chunk_size=65536):
+                    if not first:
+                        first = chunk[:1]
+                    size += len(chunk)
+                    if size > FIRMWARE_MAX_BYTES:
+                        raise RuntimeError(
+                            f"{url} is larger than the {FIRMWARE_MAX_BYTES} byte app partition"
+                        )
+                    digest.update(chunk)
+        except requests.exceptions.RequestException as exc:
+            raise RuntimeError(f"Could not download {url}: {exc}") from exc
+        if first != bytes([ESP_IMAGE_MAGIC]):
+            raise RuntimeError(
+                f"{url} is no ESP32 app image; use the OTA image "
+                f"({FIRMWARE_OTA_ASSET} or firmware.ota.bin), not the factory image"
+            )
+        return digest.hexdigest()
+
+    def _flash_firmware(self, version: str | None, url: str | None) -> dict[str, Any]:
+        """Flash the release ``version`` or the image at ``url`` with the firmware's action."""
+        try:
+            if url is None:
+                if version is None:
+                    raise RuntimeError("Pass a version or a URL")
+                url, md5 = self._release_firmware(version)
+            else:
+                md5 = self._url_firmware_md5(url)
+        except RuntimeError as exc:
+            self._firmware_install_error = str(exc)
+            self.log(f"Firmware install failed: {exc}", level="ERROR")
+            return self.get_update_state()
+        published = self.app.controller["esphome"].esphome.publish(
+            ESPAction.INSTALL_FIRMWARE_URL, {"url": url, "md5sum": md5}
+        )
+        if not published:
+            self._firmware_install_error = (
+                "Could not send the firmware install command; the panel's firmware needs "
+                "the install_firmware_url action, so install the latest firmware first"
+            )
+            return self.get_update_state()
+        label = version or url
+        self._firmware_installing = True
+        self._firmware_install_version = label
+        self._firmware_install_at = datetime.datetime.now(tz=datetime.UTC)
+        self._manual_firmware = True
+        self.log(f"Firmware install of {label} started")
+        self._notify_firmware_install(label)
+        return self.get_update_state()
+
+    def install_firmware(
+        self, version: str | None = None, url: str | None = None
+    ) -> dict[str, Any]:
+        """Manually install the firmware offered by Home Assistant, another release or a URL.
+
+        Without ``version`` and ``url`` it installs the update Home Assistant
+        offers on the device's HAUI Firmware entity; the manual action is not
+        disabled by the ``firmware_auto_update`` setting.  ``version`` (a
+        GitHub release with an over-the-air image, older ones included) or
+        ``url`` (an OTA app image) is flashed by the firmware's
+        ``install_firmware_url`` action instead, and pauses the automatic
+        firmware update until Home Assistant restarts or the offered update is
+        installed.  Refuses to reboot during a TFT upload.
+
+        Args:
+            version (str | None): GitHub release to install
+            url (str | None): http(s) URL of an OTA app image
 
         Returns:
             dict: Current update status, with ``firmware_install_error`` set when
@@ -464,6 +616,9 @@ class HAUIUpdateController(HAUIBase):
             return self.get_update_state()
         if self._firmware_installing:
             return self.get_update_state()
+        self._firmware_install_error = None
+        if version is not None or url is not None:
+            return self._flash_firmware(version, url)
         if not self._find_firmware_update_entity():
             self._firmware_install_error = (
                 "Firmware update entity not found; flash the updated ESPHome firmware first"
@@ -479,6 +634,7 @@ class HAUIUpdateController(HAUIBase):
         version = self._firmware_update_version()
         if not self._install_firmware(version):
             return self.get_update_state()
+        self._manual_firmware = False
         self._notify_firmware_install(version)
         return self.get_update_state()
 
@@ -602,6 +758,31 @@ class HAUIUpdateController(HAUIBase):
             matches = self._try_parse_version(version) == self._try_parse_version(required)
             self._manual_tft_firmware = None if matches else required
         return result
+
+    def list_tft_releases(self) -> dict[str, Any]:
+        """List the GitHub releases that ship this device's TFT, newest first.
+
+        For the editor's TFT install picker.  Call via
+        ``app.async_run_on_worker``.
+
+        Returns:
+            dict: ``releases`` (release tags), ``required`` (the firmware's
+            ``yaml_version``) and ``error`` (why the release list could not be
+            fetched, or None)
+        """
+        required = (self.app.device.device_info or {}).get("yaml_version")
+        try:
+            self._update_release_infos()
+        except RuntimeError as exc:
+            return {"releases": [], "required": required, "error": str(exc)}
+        releases = []
+        for release in self._release_infos:
+            version = self._try_parse_version(release.get("tag_name"))
+            if version is not None and self._get_update_url(release) is not None:
+                releases.append((version, release["tag_name"]))
+        releases.sort(reverse=True)
+        tags = [tag for _version, tag in releases]
+        return {"releases": tags, "required": required, "error": None}
 
     def install_tft_url(self, url: str) -> dict[str, Any]:
         """Install the TFT file at ``url`` instead of a GitHub release.

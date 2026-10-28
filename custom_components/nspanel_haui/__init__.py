@@ -564,7 +564,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     from .api import (
         ColorDefaultsView,
         DeviceConfigView,
+        DeviceFirmwareReleasesView,
         DeviceStatusView,
+        DeviceTftReleasesView,
         DeviceUpdateCheckView,
         DeviceUpdateDisplayView,
         DeviceUpdateFirmwareView,
@@ -587,7 +589,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.http.register_view(DeviceStatusView())
     hass.http.register_view(DeviceUpdateDisplayView())
     hass.http.register_view(DeviceUpdateTftView())
+    hass.http.register_view(DeviceTftReleasesView())
     hass.http.register_view(DeviceUpdateFirmwareView())
+    hass.http.register_view(DeviceFirmwareReleasesView())
     hass.http.register_view(DeviceUpdateCheckView())
     hass.http.register_view(FirmwareDownloadView())
     hass.http.register_view(DeviceYamlView())

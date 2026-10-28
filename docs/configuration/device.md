@@ -16,7 +16,12 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
   enabled and linked to their ESPHome entry.
 - **Install TFT** — Open the device's **More** menu and choose **Install TFT**
   to trigger an install immediately (installs stay automatic on connect; this
-  forces one now), even when the current display TFT version is unknown. The row
+  forces one now), even when the current display TFT version is unknown. A
+  picker opens in the device's row: **Version the firmware needs** (the
+  default), any GitHub release that ships this display model's TFT (older ones
+  included), or **From URL** for a custom or development build. Another
+  release or a URL stays on the display until the firmware version changes or
+  Home Assistant restarts (see [`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)). The row
   shows **Display Unknown** / **Firmware Unknown** when those versions are not
   reported. An install refetches GitHub release metadata when the cached list
   lacks the firmware-matched TFT, so a list cached before a firmware update
@@ -278,7 +283,9 @@ The device editor's **Updates** section controls release checks and automatic in
   firmware update. This check does not depend on the TFT being out of date.
   After reboot, the TFT follows the version required by the new firmware. Turn
   this off to disable unattended firmware installs; the explicit **Install
-  firmware** action remains available when an update is offered.
+  firmware** action stays available. Installing another release or a URL by
+  hand pauses this check until Home Assistant restarts or the offered update is
+  installed (see [`nspanel_haui.update_firmware`](../services.md#nspanel_hauiupdate_firmware)).
 - `auto_install` (default `True`) — install the TFT the firmware needs without asking. When off, the display asks first. A TFT installed by hand with a `version` or `url` ([`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)) is kept until the firmware version changes or Home Assistant restarts.
 
 `tft_filename` (default `nspanel_haui.tft`) and `on_connect_delay` (default `60` seconds before the TFT check after a connect) remain integration defaults and are not exposed in the editor.
@@ -289,8 +296,11 @@ install as **Install TFT** (see [Services](../services.md#haui-display-update-en
 
 A TFT install the display never confirms is reported as an error in the editor
 instead of being retried automatically; press **Install TFT** to retry. The
-Device Manager action menu has **Install firmware** when the `HAUI Firmware`
-entity reports an available update, and **Check for updates** to refresh both
+Device Manager action menu has **Install firmware**, which opens the same kind
+of picker as **Install TFT**: the update the `HAUI Firmware` entity offers (when
+there is one), any release that ships an over-the-air image (v0.4.2 and later,
+older ones included), or **From URL** for a firmware OTA image. It also has
+**Check for updates** to refresh both
 firmware availability and GitHub release info immediately (bypassing the
 one-hour hub-level release cache). The check also compares the display's TFT
 with the version the firmware needs and installs an outdated TFT (or asks on

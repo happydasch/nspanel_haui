@@ -153,6 +153,24 @@
           "description": "Optionale http(s)-URL einer .tft-Datei, die statt des von der Firmware benötigten GitHub-Releases installiert wird. Nicht mit Version kombinierbar."
         }
       }
+    },
+    "update_firmware": {
+      "name": "Firmware aktualisieren",
+      "description": "Installiert das von Home Assistant angebotene Firmware-Update, ein anderes GitHub-Release (auch ältere) oder das Firmware-OTA-Image unter einer URL.",
+      "fields": {
+        "device": {
+          "name": "Gerät",
+          "description": "NSPanel-Gerät, dessen Firmware installiert werden soll."
+        },
+        "version": {
+          "name": "Version",
+          "description": "Optionales GitHub-Release statt des angebotenen Updates, z. B. ein älteres. Nicht mit URL kombinierbar."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Optionale http(s)-URL eines Firmware-OTA-Images (firmware.ota.bin, nicht das Factory-Image). Nicht mit Version kombinierbar."
+        }
+      }
     }
   }
 }

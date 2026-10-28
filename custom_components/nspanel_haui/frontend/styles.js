@@ -468,6 +468,16 @@ export const editorStyles = css`
     width: 100%;
   }
 
+  .device-mgr-tft-form {
+    margin: 8px 0 0;
+    cursor: default;
+  }
+
+  .device-mgr-tft-form .native-select {
+    display: block;
+    width: 100%;
+  }
+
   .device-mgr-add-actions {
     display: flex;
     gap: 8px;

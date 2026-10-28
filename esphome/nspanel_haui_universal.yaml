@@ -9,8 +9,8 @@
 #
 #   1. Flash the compiled `nspanel_haui.bin` (web.esphome.io / wired).
 #   2. The device boots its open AP — named after the device, e.g.
-#      "nspanel-haui-a1b2c3" (captive portal) — because the baked Wi-Fi
-#      credentials never match.
+#      "nspanel-haui-a1b2c3" (captive portal) — because the image carries no
+#      Wi-Fi network of its own.
 #   3. Join the AP, enter your Wi-Fi — ESPHome stores it and reboots.
 #   4. In Home Assistant, add the ESPHome device with the fixed API key below.
 #   5. Add the device in the HAUI editor; the hub links and configures it.
@@ -34,9 +34,10 @@ substitutions:
   # credentials are baked in.
   ota_password: 'nspanel-haui'
   api_encryption_key: 'TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE='
-  # Never-matching Wi-Fi: forces the fallback access point + captive portal.
-  wifi_ssid: 'NSPanel-HAUI-Setup'
-  wifi_password: 'nspanel-haui-setup'
+  # Read by base.yaml's station network, which the wifi block below removes;
+  # defined only so the package resolves without warnings.
+  wifi_ssid: ''
+  wifi_password: ''
   # Open fallback AP so the user can always join and provision.
   ap_password: ''
 
@@ -60,11 +61,74 @@ external_components:
 # installs any number of panels without colliding on mDNS or entity ids.
 esphome:
   name_add_mac_suffix: true
+  includes:
+    - <nvs.h>
+  # Builds before 0.4.3 baked a never-matching station network, so ESPHome
+  # keyed the Wi-Fi entered on the captive portal to that build's config hash
+  # and the next firmware update forgot it.  Without a station network ESPHome
+  # uses the fixed key below (WiFiComponent::start(), wifi_component.cpp —
+  # re-check it when bumping ESPHome); copy Wi-Fi saved by an older build there
+  # once, before WiFi's setup (priority 250) reads it.
+  on_boot:
+    priority: 800
+    then:
+      - lambda: |-
+          static constexpr uint32_t SAVED_WIFI_KEY = 88491487UL;
+          auto pref = global_preferences->make_preference<wifi::SavedWifiSettings>(SAVED_WIFI_KEY, true);
+          wifi::SavedWifiSettings saved{};
+          if (pref.load(&saved)) {
+            return;
+          }
+          // save_wifi_sta() strncpy's both strings into a zeroed record, so a
+          // saved record is two zero-padded strings; nothing else this
+          // firmware stores looks like that.
+          auto padded = [](const char *text, size_t size, bool allow_empty) {
+            size_t len = strnlen(text, size);
+            if (len == size || (len == 0 && !allow_empty)) {
+              return false;
+            }
+            for (size_t i = len; i < size; i++) {
+              if (text[i] != '\0') {
+                return false;
+              }
+            }
+            return true;
+          };
+          bool found = false;
+          // "esphome" is the NVS namespace of ESPHome's ESP32 preferences.
+          nvs_iterator_t it = nullptr;
+          esp_err_t err = nvs_entry_find(NVS_DEFAULT_PART_NAME, "esphome", NVS_TYPE_BLOB, &it);
+          while (err == ESP_OK) {
+            nvs_entry_info_t info;
+            nvs_entry_info(it, &info);
+            wifi::SavedWifiSettings candidate{};
+            size_t len = 0;
+            if (nvs_get_blob(global_preferences->nvs_handle, info.key, nullptr, &len) == ESP_OK &&
+                len == sizeof(saved) &&
+                nvs_get_blob(global_preferences->nvs_handle, info.key, &candidate, &len) == ESP_OK &&
+                padded(candidate.ssid, sizeof(candidate.ssid), false) &&
+                padded(candidate.password, sizeof(candidate.password), true)) {
+              ESP_LOGI("haui", "Found Wi-Fi '%s' saved by an older build (key %s)", candidate.ssid, info.key);
+              saved = candidate;
+              found = true;
+            }
+            err = nvs_entry_next(&it);
+          }
+          nvs_release_iterator(it);
+          if (found) {
+            pref.save(&saved);
+            global_preferences->sync();
+            ESP_LOGI("haui", "Moved saved Wi-Fi '%s' to the key firmware updates keep", saved.ssid);
+          }
 
 # Drop the compile-time AP SSID from base.yaml so the firmware names the access
 # point after the (suffix-carrying) device name instead.  A fixed SSID would
 # collide as soon as two panels run this image on the same LAN.
+# Drop the station network too: the Wi-Fi comes from the captive portal, and
+# only without a network of its own does ESPHome keep it across updates.
 wifi:
+  ssid: !remove
+  password: !remove
   ap:
     ssid: !remove
 

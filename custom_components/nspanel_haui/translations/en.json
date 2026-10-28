@@ -153,6 +153,24 @@
           "description": "Optional http(s) URL of a .tft file to install instead of the GitHub release the firmware needs. Cannot be combined with Version."
         }
       }
+    },
+    "update_firmware": {
+      "name": "Update firmware",
+      "description": "Install the firmware update Home Assistant offers for the panel, another GitHub release (older ones included), or the firmware OTA image at a URL.",
+      "fields": {
+        "device": {
+          "name": "Device",
+          "description": "NSPanel device whose firmware should be installed."
+        },
+        "version": {
+          "name": "Version",
+          "description": "Optional GitHub release to install instead of the offered update, e.g. an older release. Cannot be combined with URL."
+        },
+        "url": {
+          "name": "URL",
+          "description": "Optional http(s) URL of a firmware OTA image (firmware.ota.bin, not the factory image). Cannot be combined with Version."
+        }
+      }
     }
   }
 }

@@ -166,7 +166,7 @@ export async function onDeviceManagerUpdateTft(host, e) {
   const name = e.detail?.name;
   if (!name) return;
   try {
-    const result = await Api.updateDeviceTft(host, name);
+    const result = await Api.updateDeviceTft(host, name, e.detail.version, e.detail.url);
     // Single-device failures are returned as HTTP errors and land in the
     // catch below; the `*` path aggregates failures server-side.  A body with
     // a 200 but an error update state is only possible by contract change on
@@ -202,7 +202,7 @@ export async function onDeviceManagerUpdateFirmware(host, e) {
   const name = e.detail?.name;
   if (!name) return;
   try {
-    const result = await Api.updateDeviceFirmware(host, name);
+    const result = await Api.updateDeviceFirmware(host, name, e.detail.version, e.detail.url);
     const update = result.update;
     if (update?.firmware_install_error) {
       host._showToast(update.firmware_install_error, "error");

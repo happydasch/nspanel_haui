@@ -43,6 +43,7 @@ class ESPAction(StrEnum):
     GOTO_PAGE = "goto_page"
     SET_BRIGHTNESS = "set_brightness"
     UPLOAD_TFT_URL = "upload_tft_url"
+    INSTALL_FIRMWARE_URL = "install_firmware_url"
     PLAY_RTTTL = "play_rtttl"
     PLAY_SOUND = "play_sound"
     RESET_LAST_INTERACTION = "reset_last_interaction"

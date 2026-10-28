@@ -263,6 +263,15 @@ class NSPanelHAUI(HAAdapter):
             }
         return update_ctrl.install_tft(version)
 
+    def list_tft_releases(self) -> dict:
+        """List the GitHub releases that ship this device's TFT, on its worker thread.
+
+        Returns:
+            dict: ``releases``, ``required`` and ``error`` (see
+            ``HAUIUpdateController.list_tft_releases``).
+        """
+        return self.controller["update"].list_tft_releases()
+
     def install_tft_url(self, url: str) -> dict:
         """Install the TFT file at ``url`` on this device, on its worker thread.
 
@@ -279,8 +288,17 @@ class NSPanelHAUI(HAAdapter):
         """Fire the current TFT update state for the "HAUI Display" entity."""
         self.controller["update"].publish_display_update()
 
-    def install_firmware(self) -> dict:
-        """Trigger a firmware install for this device, on its worker thread."""
+    def install_firmware(self, version: str | None = None, url: str | None = None) -> dict:
+        """Trigger a firmware install for this device, on its worker thread.
+
+        Args:
+            version (str | None): GitHub release to install instead of the
+                offered update
+            url (str | None): URL of an OTA app image instead of a release
+
+        Returns:
+            dict: The update state (see ``HAUIUpdateController.install_firmware``)
+        """
         update_ctrl = self.controller.get("update")
         if update_ctrl is None:
             self.log("Cannot install firmware: no update controller", level="WARNING")
@@ -288,7 +306,16 @@ class NSPanelHAUI(HAAdapter):
                 "firmware_installing": False,
                 "firmware_install_error": "no update controller",
             }
-        return update_ctrl.install_firmware()
+        return update_ctrl.install_firmware(version, url)
+
+    def list_firmware_releases(self) -> dict:
+        """List the releases whose firmware installs over the air, on its worker thread.
+
+        Returns:
+            dict: ``releases`` and ``error`` (see
+            ``HAUIUpdateController.list_firmware_releases``).
+        """
+        return self.controller["update"].list_firmware_releases()
 
     def check_for_update(self) -> dict:
         """Run a manual update check for this device, on its worker thread.

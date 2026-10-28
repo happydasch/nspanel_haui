@@ -9,6 +9,17 @@ def _read(name: str) -> str:
     return (ROOT / name).read_text()
 
 
+def _load_tagged(path: Path) -> dict:
+    """Parse ESPHome YAML, keeping custom tags (``!remove`` …) as ``"!<tag>"``."""
+    import yaml
+
+    class Loader(yaml.SafeLoader):
+        pass
+
+    Loader.add_multi_constructor("!", lambda loader, suffix, node: f"!{suffix}")
+    return yaml.load(path.read_text(), Loader=Loader)  # noqa: S506 - SafeLoader subclass
+
+
 def test_hub_availability_reset_on_last_client_disconnect():
     api = _read("api.yaml")
     disconnected = api.split("on_client_disconnected:")[1].split("actions:")[0]
@@ -96,6 +107,25 @@ def test_buzzer_is_silenced_before_every_main_loop_stall():
     assert upload.index("script.execute: suspend_activities") < upload.index("upload_tft()")
 
 
+def test_universal_image_keeps_its_wifi_across_firmware_updates():
+    """ESPHome keys the captive-portal Wi-Fi to the config hash when the YAML
+    defines a station network, so every firmware update forgot it and the panel
+    fell back to its setup access point.  Without one it uses a fixed key; a
+    boot migration (before WiFi's setup at priority 250) moves Wi-Fi saved by
+    older builds there.
+    """
+    universal = _load_tagged(ROOT.parent / "nspanel_haui_universal.yaml")
+    assert universal["wifi"]["ssid"] == "!remove"
+    assert universal["wifi"]["password"] == "!remove"
+
+    boot = universal["esphome"]["on_boot"]
+    assert boot["priority"] > 250
+    migrate = boot["then"][0]["lambda"]
+    assert "88491487UL" in migrate
+    assert "sizeof(saved)" in migrate
+    assert "<nvs.h>" in universal["esphome"]["includes"]
+
+
 def test_nextion_patch_is_never_older_than_the_package():
     """The package and the patch change together on dev.
 
@@ -106,3 +136,13 @@ def test_nextion_patch_is_never_older_than_the_package():
     block = package.split("external_components:")[1].split("packages:")[0]
     assert "path: esphome/nextion_patch" in block
     assert "refresh: 0s" in block
+
+
+def test_firmware_can_be_flashed_from_a_url():
+    """The hub installs other releases and custom builds through this action."""
+    api = _read("api.yaml")
+    block = api.split("- action: install_firmware_url")[1].split("- action:")[0]
+    assert "md5sum: string" in block
+    assert "ota.http_request.flash:" in block
+    assert "md5: !lambda return md5sum;" in block
+    assert "platform: http_request" in _read("base.yaml")

@@ -311,6 +311,7 @@
     "Last Disconnect": "",
     "Last Panel Update": "",
     "Leave empty to use the NSPanel's internal temperature sensor.": "",
+    "Leave empty to use the theme color.": "",
     "Left Button - Use Relay": "",
     "Left Button Entity": "",
     "Light": "",

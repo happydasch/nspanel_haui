@@ -699,6 +699,7 @@
     "Language for the word clock text matrix.": "Sprache für die Wortuhr-Textmatrix.",
     "Last Disconnect": "Letzte Trennung",
     "Last Panel Update": "Letzte Panel-Aktualisierung",
+    "Leave empty to use the NSPanel's internal temperature sensor.": "Leer lassen, um den internen Temperatursensor des NSPanel zu verwenden.",
     "Leave empty to use the theme color.": "Leer lassen, um die Designfarbe zu verwenden.",
     "Left Button - Use Relay": "Linke Taste - Relais verwenden",
     "Left Button Entity": "Linke Taste Entität",

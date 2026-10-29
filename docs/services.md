@@ -150,7 +150,16 @@ the image itself:
 - **Automatic firmware updates pause** after a release or URL install, so
   `firmware_auto_update` does not reinstall the latest release on the next
   check. The pause lives in memory: a Home Assistant restart or installing the
+  offered update ends it.- **Automatic firmware updates pause** after a release or URL install, so
+  `firmware_auto_update` does not reinstall the latest release on the next
+  check. The pause lives in memory: a Home Assistant restart or installing the
   offered update ends it.
+- **Build variants are never crossed.** Only releases whose manifest
+  `variant` matches the panel's reported one are offered, listed in the
+  editor's firmware picker, or installed by `version`. A panel built from
+  `esphome/install.yaml` (variant `custom`) is therefore refused the public
+  universal release image; flash custom builds with `url` (see
+  [Firmware build variants in the device Updates section](configuration/device.md#updates)).
 
 Installing older firmware leaves the TFT alone: the automatic TFT check treats
 a newer TFT as up to date. Install the matching TFT with
@@ -249,10 +258,12 @@ data:
 ### `nspanel_haui.send_notification`
 
 Show a notification on the panel with a title, message, severity level, and
-icon.  Notifications stay in the queue until they are dismissed on the panel
-(or replaced/cleared) — there is no automatic dismissal.  `persistent` loops
+icon.  Notifications stay in the queue until they are dismissed on the panel,
+replaced, or cleared — unless a `timeout` is given, which auto-dismisses the
+notification after that many seconds.  `persistent` loops
 the alert sound and re-opens the popup about every 60 seconds until dismissed;
-it opens immediately.  `force_show` also opens the popup immediately, but never
+it opens immediately and `timeout` still applies to it.  `force_show` also opens
+the popup immediately, but never
 takes the place of a notification popup or list that is already on screen: the
 new notification waits in the queue and opens when the current one is
 dismissed.  The queue holds up to 50 notifications; when it is full, the oldest
@@ -267,19 +278,20 @@ When no icon is supplied, the severity selects a default one (`info` →
 `mdi:alert-octagon-outline`).
 See [Notifications](device.md#notifications) for how notifications are
 viewed and dismissed on the panel.  The ESPHome firmware also exposes
-`send_notification` action (title/message/icon + optional persistent/text_size), but this service is
+`send_notification` action (title/message/icon + optional persistent/text_size, no severity/force-show/timeout), but this service is
 the recommended path because it also carries severity and force-show.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `device` | no | all devices | Target NSPanel device |
 | `title` | yes | — | Notification headline |
-| `message` | no | `""` | Body text (can be empty for a title-only alert) |
+| `message` | no | `""` | Body text (can be empty for a title-only alert). Line breaks (`\n`) render as line breaks on the display |
 | `icon` | no | severity default | Material Design Icon (e.g. `"mdi:bell"`). When omitted, the `type` selects the default icon |
 | `type` | no | `"info"` | Severity level — `"info"`, `"warning"`, or `"critical"`. Sets the icon colour in the popup; `critical` also plays the `alert` sound instead of `notification` |
-| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel. While the idle page is shown, only a `critical` persistent notification interrupts it |
+| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel. While the idle page is shown, only a `critical` persistent notification interrupts it. A `timeout` still ends it |
 | `force_show` | no | `false` | When `true`, opens the notification panel immediately, unless a notification popup or list is already open — then it waits in the queue |
 | `text_size` | no | `"auto"` | Popup body text size — `"auto"` (chosen from the message length) or a font size `1`-`3` |
+| `timeout` | no | — (none) | Seconds until the notification auto-dismisses. Left out (or `0`) it stays queued until dismissed on the panel |
 
 Sending a notification with the same title and message as one that is still
 queued replaces it: the queued copy is removed (firing a `removed` event), the

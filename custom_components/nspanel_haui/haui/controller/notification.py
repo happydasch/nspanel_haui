@@ -23,6 +23,9 @@ class Notification(NamedTuple):
     notif_type: str
     force_show: bool = False
     text_size: str | int = "auto"
+    # Seconds after which the notification auto-dismisses.  None/0 = it stays
+    # queued until dismissed (the default; notifications never auto-close).
+    timeout: int | None = None
 
 
 class HAUINotificationController(HAUIBase):
@@ -68,6 +71,8 @@ class HAUINotificationController(HAUIBase):
         self._advance_handle: str | None = None
         # Periodic re-alert timers for persistent notifications, keyed by id().
         self._persistent_alert_handles: dict[str, str] = {}
+        # Auto-dismiss timers for notifications with a ``timeout``, keyed by id().
+        self._timeout_handles: dict[str, str] = {}
         # Stable reference to the notification selection callback: bound
         # methods compare by identity, and each attribute access creates a
         # new object, so a stored bound method must be compared against the
@@ -83,6 +88,9 @@ class HAUINotificationController(HAUIBase):
         for handle in self._persistent_alert_handles.values():
             self.app.cancel_timer(handle)
         self._persistent_alert_handles.clear()
+        for handle in self._timeout_handles.values():
+            self.app.cancel_timer(handle)
+        self._timeout_handles.clear()
 
     def send_notification(
         self,
@@ -93,6 +101,7 @@ class HAUINotificationController(HAUIBase):
         notif_type: str = NotifType.INFO,
         force_show: bool = False,
         text_size: str | int = "auto",
+        timeout: int | None = None,
     ) -> None:
         """Send a notification to the panel.
 
@@ -114,6 +123,9 @@ class HAUINotificationController(HAUIBase):
         text_size: str or int, optional
             Popup body text size: "auto" (default; chosen from the message
             length) or a font size 1-3.
+        timeout: int or None, optional
+            Seconds until the notification auto-dismisses.  None/0 (default)
+            keeps it queued until dismissed.
         """
 
         self.log(f"Sending notification: title={title!r} persistent={persistent} type={notif_type}")
@@ -125,6 +137,7 @@ class HAUINotificationController(HAUIBase):
             notif_type,
             force_show,
             text_size,
+            timeout,
         )
 
     # notifications
@@ -138,6 +151,7 @@ class HAUINotificationController(HAUIBase):
         notif_type: str = NotifType.INFO,
         force_show: bool = False,
         text_size: str | int = "auto",
+        timeout: int | None = None,
     ) -> Notification:
         # A repeat replaces the queued copy so it alerts again.
         for existing in self._notifications:
@@ -166,6 +180,7 @@ class HAUINotificationController(HAUIBase):
             notif_type,
             force_show,
             text_size,
+            timeout,
         )
         self._notifications.append(notification)
         self._refresh_list_items()
@@ -189,7 +204,50 @@ class HAUINotificationController(HAUIBase):
         if notification.persistent:
             self._start_persistent_alert(notification)
 
+        # An explicit timeout auto-dismisses the notification (persistent or
+        # not); without one the notification stays queued until dismissed.
+        if timeout and int(timeout) > 0:
+            self._start_timeout(notification)
+
         return notification
+
+    def _start_timeout(self, notification: Notification) -> None:
+        """Arm auto-dismissal of ``notification`` after its ``timeout``.
+
+        On expiry the notification leaves the queue through the normal removal
+        path (events, list refresh, persistent-alert cleanup included); when
+        its own popup is the one on screen it is closed so the queue player
+        opens the next queued notification in its place.
+        """
+        notif_id = str(id(notification))
+        delay = int(notification.timeout or 0)
+
+        def _expire(_data: Any = None) -> None:
+            self._timeout_handles.pop(notif_id, None)
+            for stored in self._notifications:
+                if str(id(stored)) == notif_id:
+                    self._expire_notification(stored, notif_id)
+                    break
+
+        handle = self.app.run_in(_expire, delay)
+        self._timeout_handles[notif_id] = handle
+
+    def _expire_notification(self, notification: Notification, notif_id: str) -> None:
+        """Remove an auto-dismissed notification and un-show its popup if active.
+
+        The popup is closed only when it is *this* notification's popup (a
+        queued notification must expire without disturbing another open popup
+        or list).  Closing it fires the popup's close callback, which — with
+        the notification already gone from the queue — arms the queue advance.
+        """
+        self._remove(notification)
+        if not self._notification_view_open():
+            return
+        if self._open_popup_notif_id == notif_id:
+            navigation = self.app.controller.get("navigation")
+            if navigation is not None:
+                self.log("Notification timed out while shown; closing its popup")
+                navigation.close_panel()
 
     def _start_persistent_alert(self, notification: Notification) -> None:
         """Re-open a persistent notification's popup until it is dismissed.
@@ -247,6 +305,10 @@ class HAUINotificationController(HAUIBase):
         for handle in self._persistent_alert_handles.values():
             self.app.cancel_timer(handle)
         self._persistent_alert_handles.clear()
+        # Stop the auto-dismiss timers of timed notifications.
+        for handle in self._timeout_handles.values():
+            self.app.cancel_timer(handle)
+        self._timeout_handles.clear()
         self._open_popup_notif_id = None
         notifications = self._notifications.copy()
         self._notifications = []
@@ -258,10 +320,14 @@ class HAUINotificationController(HAUIBase):
 
     def _remove(self, notification: Notification) -> None:
         """Remove a queued notification, given the stored instance."""
-        # Stop the periodic re-alert loop for this notification, if any.
+        # Stop the periodic re-alert loop and the auto-dismiss timer for this
+        # notification, if any.
         handle = self._persistent_alert_handles.pop(str(id(notification)), None)
         if handle is not None:
             self.app.cancel_timer(handle)
+        timeout_handle = self._timeout_handles.pop(str(id(notification)), None)
+        if timeout_handle is not None:
+            self.app.cancel_timer(timeout_handle)
         self._notifications.remove(notification)
         self._refresh_list_items()
         # If the notification list is displayed, drop the removed item and
@@ -534,6 +600,8 @@ class HAUINotificationController(HAUIBase):
             notif_type = notification.get("notif_type", NotifType.INFO)
             force_show = notification.get("force_show", False)
             text_size = notification.get("text_size", "auto")
+            timeout = notification.get("timeout")
+            timeout = int(timeout) if timeout is not None else None
             self.add_notification(
                 title,
                 message,
@@ -542,6 +610,7 @@ class HAUINotificationController(HAUIBase):
                 notif_type,
                 force_show,
                 text_size,
+                timeout,
             )
         # Also forward notification lifecycle events to the shared blinker
         # so pages don't need to handle them individually.

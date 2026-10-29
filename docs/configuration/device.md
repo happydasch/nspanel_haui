@@ -34,7 +34,7 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
   release when one is attached, and explains the build-from-YAML path otherwise.
   This is the manual fallback. Once a device runs firmware with the
   `install_firmware_url` action (0.4.3 and later) and `firmware_auto_update` is
-  on (the default), the hub installs a newer firmware release itself and the
+  on, the hub installs a newer firmware release itself and the
   matching TFT follows after the reboot. Older firmware has to be flashed once
   manually through ESPHome.
 - **Install TFT retry** — After an install that the display never confirms
@@ -291,6 +291,17 @@ The device editor's **Updates** section controls release checks and automatic in
   another release or a URL by hand pauses this check until Home Assistant
   restarts or the offered update is installed (see
   [`nspanel_haui.update_firmware`](../services.md#nspanel_hauiupdate_firmware)).
+- **Firmware build variants** — the hub only offers or installs firmware whose
+  manifest `variant` matches the one the device reports. The prebuilt release
+  image is `universal`; a build from
+  [`esphome/install.yaml`](../install.md) (or the dev config) reports
+  `custom`. A custom panel is therefore never offered the public universal
+  image (`firmware_auto_update`, the **HAUI Firmware** entity and the editor's
+  firmware picker all withhold it), so its API/OTA credentials cannot be
+  silently replaced. Flash a custom build with **Install firmware → From URL**
+  instead. Firmware older than 0.4.4 reports no variant and is treated the
+  same: it is not offered the release image — flash the new firmware once
+  manually (ESPHome or From URL) and the hub can update it afterwards.
 - `firmware_manifest_url` (default: the `firmware-manifest.json` of the latest
   GitHub release) — the manifest that names the firmware the **HAUI Firmware**
   entity offers: its version, image URL and md5. Leave the editor field empty

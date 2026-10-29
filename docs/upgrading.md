@@ -293,7 +293,16 @@ on the ESPHome side only the ESPHome integration's stock **Firmware** entity
 
 - The hub reads the release's `firmware-manifest.json` itself and installs a
   newer firmware through the firmware's `install_firmware_url` action —
+  automatically with `firmware_auto_update`, or with **Install** on the entity.- The hub reads the release's `firmware-manifest.json` itself and installs a
+  newer firmware through the firmware's `install_firmware_url` action —
   automatically with `firmware_auto_update`, or with **Install** on the entity.
+- **Build variants are never crossed.** The release manifest names its variant
+  (`"variant": "universal"`); the device reports the one it runs
+  (`firmware_variant` in the state: `custom` for `install.yaml`/dev builds).
+  The hub only offers, lists or installs a release whose variant matches the
+  panel's, and treats both unknowns as incompatible, so a custom build is
+  never flashed the public universal image. Custom builds update through
+  **Install firmware → From URL**.
 - The manifest is a device setting: **Firmware manifest URL** in the device
   editor's Updates section (`update.firmware_manifest_url`, see
   [Device settings](configuration/device.md#updates)) replaces the
@@ -305,7 +314,8 @@ integration:
 
 | Panel firmware | What to do |
 |----------------|------------|
-| 0.4.3 | Nothing: the hub installs the new firmware through `install_firmware_url`. |
+| 0.4.4 and later | Nothing: the hub installs the new firmware through `install_firmware_url`. |
+| 0.4.3 | Flash **once** by hand: firmware 0.4.3 does not report its build variant yet, and the hub withholds the release image from panels with an unknown variant (a custom 0.4.3 build must not be silently replaced by the universal one). Use the ESPHome dashboard, or the editor's **Install firmware → From URL** with a release `nspanel_haui_ota.bin`. After the reboot the panel reports its variant and the hub can update it again. |
 | 0.4.2 | The hub cannot install firmware on it — 0.4.2 has no `install_firmware_url` action. Press **Install** once on the firmware's own ESPHome entity (`update.<device>_haui_firmware`), or flash the new firmware through ESPHome. |
 | 0.4.1 and older | Flash the new firmware through ESPHome, as before. |
 

@@ -45,6 +45,12 @@ With the prepared and connected device it is now possible to install ESPHome on 
    - `ota_password` / `api_encryption_key` — from step 2
    - `ap_password` — fallback access point password
 
+   This build reports itself as a **custom** firmware variant (see
+   [Firmware updates in the device settings](configuration/device.md#updates)):
+   the hub never offers or installs the public universal release image on it,
+   so your credentials stay yours. Flash newer firmware with **Install firmware
+   → From URL** (a built `firmware.ota.bin`) or ESPHome.
+
    You can set these directly in the file or in the ESPHome dashboard's **Secrets** (the keys are listed in [`secrets.yaml.example`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/secrets.yaml.example)).
 
    The ESPHome **web server is optional and off by default** (it costs flash

@@ -19,7 +19,14 @@ and follow [Semantic Versioning](https://semver.org/).
   lacks that action) must be updated once by hand. A test panel that followed
   local test releases through the substitution needs the new **Firmware
   manifest URL** device setting instead. See
-  [Upgrading → Firmware updates](docs/upgrading.md#11-firmware-updates-moved-to-the-integration).
+  [Upgrading → Firmware updates](docs/upgrading.md#11-firmware-updates-moved-to-the-integration).- **Firmware build variants fail closed** — a custom build from
+  `esphome/install.yaml` (or the dev config) reports its variant and is never
+  offered or installed the public universal release image, whose baked
+  credentials would silently replace the panel's own. Panels whose firmware
+  does not report a variant (0.4.3 and earlier) are treated the same: flash
+  the new release once by hand (ESPHome or **Install firmware → From URL**),
+  then the hub can update them again. The release manifest carries
+  `"variant": "universal"`, the device state `firmware_variant`.
 
 ### Added
 
@@ -38,7 +45,15 @@ and follow [Semantic Versioning](https://semver.org/).
 
 - **Inside temperature sensor picker** — clock and weather panels can use any
   `sensor` entity for the inside temperature; leave empty for the NSPanel's
+  internal sensor.- **Inside temperature sensor picker** — clock and weather panels can use any
+  `sensor` entity for the inside temperature; leave empty for the NSPanel's
   internal sensor.
+- **Notification line breaks** — multi-line notification text now renders its
+  line breaks on the display instead of breaking the display command.
+- **Optional notification auto-dismiss** — `nspanel_haui.send_notification`
+  accepts a `timeout` (seconds); on expiry the notification leaves the queue
+  and, when its popup is up, the queue advances. Without a timeout nothing
+  auto-dismisses, so the behavior stays exactly as before.
 
 ### Fixed
 

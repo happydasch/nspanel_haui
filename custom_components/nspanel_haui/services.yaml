@@ -162,9 +162,10 @@ send_notification:
   name: Send notification
   description: >-
     Show a notification on the panel with a title, message and icon.
-    Optionally auto-dismiss after a timeout, or make it persistent so
-    the alert sound loops until the notification is dismissed or its
-    timeout expires.
+    By default it stays queued until dismissed on the panel.  Set a
+    timeout to auto-dismiss it after that many seconds, or persistent
+    to loop the alert sound until it is dismissed (or its timeout
+    expires).
   fields:
     device:
       name: "Device"
@@ -211,10 +212,9 @@ send_notification:
     timeout:
       name: "Timeout"
       description: >-
-        Seconds until the notification auto-dismisses.  0 (default)
-        keeps it on screen until dismissed.
+        Seconds until the notification auto-dismisses.  Leave empty
+        (default) to keep it queued until dismissed on the panel.
       required: false
-      default: 0
       example: 10
       selector:
         number:
@@ -225,8 +225,9 @@ send_notification:
     persistent:
       name: "Persistent"
       description: >-
-        When on, the alert sound loops until the notification is
-        dismissed on the panel.
+        When on, the notification opens immediately and the alert sound
+        loops until the notification is dismissed on the panel (or its
+        timeout expires).
       required: false
       default: false
       selector:
@@ -234,12 +235,28 @@ send_notification:
     force_show:
       name: "Force show"
       description: >-
-        When on, immediately opens the notification panel even if
-        another panel is currently displayed.
+        When on, opens the notification panel immediately.  If a
+        notification popup or list is already open, the new
+        notification waits in the queue instead of ripping it away.
+        Persistent notifications force-show even when this is off.
       required: false
       default: false
       selector:
         boolean:
+    text_size:
+      name: "Text size"
+      description: >-
+        Popup body text size — "auto" (chosen from the message length)
+        or a font size 1-3.
+      required: false
+      default: "auto"
+      selector:
+        select:
+          options:
+            - "auto"
+            - "1"
+            - "2"
+            - "3"
 
 # ── nspanel_haui.reset_last_interaction ──────────────────────
 reset_last_interaction:

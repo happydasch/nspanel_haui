@@ -19,6 +19,15 @@ and follow [Semantic Versioning](https://semver.org/).
 
 See the [v0.4.4 roadmap](ROADMAP.md#v044--hardware-acceptance-and-ota-risk-closure-planned).
 
+### Added
+
+- **Alarm panel action-button options** — an **Action buttons** section in the
+  alarm panel editor: **Hidden arm modes** leaves supported modes off the
+  buttons (e.g. no *Home*), **Show action icons** puts the target state's icon
+  before each label (left out when icon and label exceed the 10-byte button
+  text), and text/background colours for the arm and the disarm buttons
+  (empty = theme colours).
+
 ## [0.4.3] — 2026-10-28
 
 ### Breaking changes

@@ -123,3 +123,62 @@ def test_popup_controls_item_passed_by_id():
     page.callback_action(None, AlarmPage.COMPONENTS.b2_fnc)
 
     assert entity.calls == [("alarm_arm_away", {})]
+
+
+ARM_HOME_AWAY_NIGHT = 1 | 2 | 4
+
+
+def _show_with(panel_cfg, state="disarmed", features=ARM_HOME_AWAY_NIGHT):
+    entity = _Entity(state, {"friendly_name": "Home", "supported_features": features})
+    app = _App({ENTITY_ID: entity})
+    panel = HAUIPanel(app, {"type": "alarm", "item": {"item": ENTITY_ID}, **panel_cfg})
+    page = AlarmPage(app, {"page_id": 17})
+    page.set_panel(panel)
+    return app, page, entity
+
+
+def test_hidden_arm_modes_are_not_offered():
+    app, page, entity = _show_with({"hidden_arm_modes": ["home"]})
+
+    assert 'b1Fnc.txt="Away"' in app.cmds
+    assert 'b2Fnc.txt="Night"' in app.cmds
+    assert "vis b3Fnc,0" in app.cmds
+
+    page.callback_action(None, AlarmPage.COMPONENTS.b1_fnc)
+    assert entity.calls == [("alarm_arm_away", {})]
+
+
+def test_action_icons_prefix_labels_that_fit():
+    app, page, _entity = _show_with({"action_icons": True})
+
+    night_icon = AlarmPage._ALARM_ICONS["armed_night"]
+    assert f'b3Fnc.txt="{night_icon} Night"' in app.cmds
+
+
+def test_action_icon_is_left_out_when_the_label_does_not_fit():
+    app, page, _entity = _show_with({"action_icons": True}, state="armed_away")
+
+    # "Disarm" + icon (3 bytes) + space = 10 bytes: fits
+    disarm_icon = AlarmPage._ALARM_ICONS["disarmed"]
+    assert f'b1Fnc.txt="{disarm_icon} Disarm"' in app.cmds
+
+    page._show_action_button(AlarmPage.COMPONENTS.b2_fnc, "alarm_disarm", "Désarmer")
+    assert 'b2Fnc.txt="Désarmer"' in app.cmds
+
+
+def test_disarm_button_colors_apply_only_to_disarm():
+    app, page, _entity = _show_with(
+        {"disarm_button_color": 65535, "disarm_button_back_color": 3334}, state="armed_away"
+    )
+
+    assert "b1Fnc.pco=65535" in app.cmds
+    assert "b1Fnc.bco=3334" in app.cmds
+
+
+def test_arm_button_colors_keep_theme_when_unset():
+    app, page, _entity = _show_with({"arm_button_color": "", "arm_button_back_color": None})
+    themed_app, _page, _e = _show_with({})
+
+    assert [c for c in app.cmds if c.startswith("b1Fnc.")] == [
+        c for c in themed_app.cmds if c.startswith("b1Fnc.")
+    ]

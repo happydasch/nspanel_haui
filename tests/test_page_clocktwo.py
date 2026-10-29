@@ -53,3 +53,20 @@ def test_intro_text_full_hour_default_matches_descriptor():
     words, _ = page.get_words_from_time(datetime.datetime(2026, 1, 1, 15, 0))
 
     assert ("it-is" in words) is option.default
+
+
+def test_dark_display_keeps_the_word_clock_current():
+    """The dark display is awake; see test_page_clock."""
+    page = ClockTwoPage.__new__(ClockTwoPage)
+    page._rec_cmd_lock = threading.RLock()
+    page._recording = False
+    page._rec_cmd_depth = 0
+    page._rec_cmd = []
+    page.app = SimpleNamespace(device=SimpleNamespace(device_info={"display_state": "off"}))
+    page.send_cmds = lambda commands: None
+    updated = []
+    page.update_interface = lambda: updated.append(True)
+
+    page.callback_update_time({})
+
+    assert updated == [True]

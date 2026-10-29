@@ -125,6 +125,18 @@ def test_popup_controls_item_passed_by_id():
     assert entity.calls == [("alarm_arm_away", {})]
 
 
+def test_dark_display_keeps_the_alarm_state_current():
+    """The dark display is awake; see test_page_clock."""
+    app, page, entity = _show({"item": {"item": ENTITY_ID}})
+    app.device.device_info = {"display_state": "off"}
+    app.cmds.clear()
+    entity.state = "armed_away"
+
+    page.callback_alarm_state(ENTITY_ID, "state", "disarmed", "armed_away", {})
+
+    assert 'tTitle.txt="Armed away"' in app.cmds
+
+
 ARM_HOME_AWAY_NIGHT = 1 | 2 | 4
 
 

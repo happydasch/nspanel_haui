@@ -110,6 +110,14 @@ class ClockPage(HAUIPage):
                 section=_("Weather"),
             ),
             PageOption(
+                key="inside_temp_item",
+                kind="item",
+                domain="sensor",
+                label=_("Inside temperature sensor"),
+                description=_("Leave empty to use the NSPanel's internal temperature sensor."),
+                section=_("Temperature"),
+            ),
+            PageOption(
                 key="weather_icons",
                 kind="select",
                 default="color",
@@ -323,9 +331,11 @@ class ClockPage(HAUIPage):
 
     def _card_text_inside_temperature(self) -> tuple[str, str]:
         label = self.translate("INSIDE")
-        temp_inside_entity = self.app.get_item(self.get_inside_temp_entity_id())
+        state = self.app.get_item(self.get_inside_temp_entity_id(self.panel)).get_state()
+        if state in (None, "", "unavailable", "unknown"):
+            return "--°C", label
         try:
-            temp = round(float(temp_inside_entity.get_state()), self.TEMP_PRECISION)
+            temp = round(float(state), self.TEMP_PRECISION)
         except ValueError, TypeError:
             return "--°C", label
         unit = self._temp_unit if self._weather_item is not None else "°C"
@@ -358,6 +368,9 @@ class ClockPage(HAUIPage):
 
     def _tick(self, _data: dict | None = None) -> None:
         """Called every second. Advance cycle card when interval elapses."""
+        # Only the card animation pauses while dark.  Content callbacks keep
+        # drawing: with a hub connected the Nextion stays awake at brightness
+        # 0, and a wake touch lights the backlight before the hub can redraw.
         if self.app.device.device_info.get("display_state") == "off":
             return
         self._card_timer += 1
@@ -410,37 +423,46 @@ class ClockPage(HAUIPage):
         icon = self._weather_item.get_icon()
         color = self._weather_item.get_color()
         try:
-            temp_outside = round(
-                float(self._weather_item.get_item_attr("temperature", "")),
-                self.TEMP_PRECISION,
+            temp_outside_str = self._weather_item.get_item_attr("temperature", "")
+            temp_outside = (
+                None
+                if not temp_outside_str
+                else round(float(temp_outside_str), self.TEMP_PRECISION)
             )
         except ValueError, TypeError:
-            return
+            temp_outside = None
         msg = ""
         if self._show_home_temp:
-            temp_inside_entity = self.app.get_item(self.get_inside_temp_entity_id())
-            try:
-                temp_inside: float | int | None = round(
-                    float(temp_inside_entity.get_state()), self.TEMP_PRECISION
-                )
-            except ValueError, TypeError:
-                temp_inside = None
-            if temp_inside is not None:
-                if not self.TEMP_PRECISION:
-                    temp_inside = int(temp_inside)
-                msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
-        if not self.TEMP_PRECISION:
-            temp_outside = int(temp_outside)
-        msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
+            temp_inside_state = self.app.get_item(
+                self.get_inside_temp_entity_id(self.panel)
+            ).get_state()
+            if temp_inside_state not in (None, "", "unavailable", "unknown"):
+                try:
+                    temp_inside: float | int | None = round(
+                        float(temp_inside_state), self.TEMP_PRECISION
+                    )
+                except ValueError, TypeError:
+                    temp_inside = None
+                if temp_inside is not None:
+                    if not self.TEMP_PRECISION:
+                        temp_inside = int(temp_inside)
+                    msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
+        if temp_outside is not None:
+            if not self.TEMP_PRECISION:
+                temp_outside = int(temp_outside)
+            msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
         msg_sub = self._weather_item.get_item_attr("pressure", "")
         if msg_sub:
             pressure_unit = self._weather_item.get_item_attr("pressure_unit")
             msg_sub = f"{msg_sub}{pressure_unit}"
+        # Hide the text widgets only when there is nothing to show at all; the
+        # weather icon stays visible either way.
+        has_text = bool(msg or msg_sub)
         self.update_function_component(
-            self.COMPONENTS.t_main_text[1], text=msg, visible=self._show_temp
+            self.COMPONENTS.t_main_text[1], text=msg, visible=self._show_temp and has_text
         )
         self.update_function_component(
-            self.COMPONENTS.t_sub_text[1], text=msg_sub, visible=self._show_temp
+            self.COMPONENTS.t_sub_text[1], text=msg_sub, visible=self._show_temp and has_text
         )
         self.update_function_component(
             self.COMPONENTS.t_main_icon[1],
@@ -510,8 +532,6 @@ class ClockPage(HAUIPage):
     # callback
 
     def callback_update_time(self, cb_args: dict[str, Any]) -> None:
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         with self.rec_cmd:
             self._render_cycle_card()
 
@@ -522,8 +542,6 @@ class ClockPage(HAUIPage):
     def callback_weather(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
     ) -> None:
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         with self.rec_cmd:
             self.update_main_weather()
 

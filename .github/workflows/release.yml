@@ -81,10 +81,11 @@ jobs:
           ls -lh nspanel_haui.bin nspanel_haui_ota.bin
 
       - name: Generate the firmware update manifest
-        # The device's `update: platform: http_request` entity polls this
-        # manifest; it must use the ESPHome web-tools schema
-        # (name/version/builds[].ota) with an absolute download URL and the
-        # image's md5.  Only tag pushes get a manifest: a workflow_dispatch
+        # The hub's HAUI Firmware update entity reads this manifest
+        # (releases/latest/download/firmware-manifest.json) and the editor's
+        # firmware picker reads it per release; it uses the ESPHome web-tools
+        # schema (name/version/builds[].ota) with an absolute download URL and
+        # the image's md5.  Only tag pushes get a manifest: a workflow_dispatch
         # run would otherwise advertise a branch name as the "version" and
         # every panel would try to update to it.
         if: startsWith(github.ref, 'refs/tags/v')

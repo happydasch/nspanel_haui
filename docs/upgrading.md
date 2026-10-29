@@ -48,8 +48,9 @@ integration + old firmware, or vice versa) publishes events the other side no
 longer understands. After updating the integration, the display installs the
 matching TFT automatically on first connect (or asks, depending on
 `auto_install`), but the firmware binary itself must be flashed for this first
-upgrade. After that the device's `HAUI Firmware` update entity can install later
-firmware releases through Home Assistant.
+upgrade. After that the hub's **HAUI Firmware** update entity installs later
+firmware releases (see
+[Firmware updates moved to the integration](#11-firmware-updates-moved-to-the-integration)).
 
 ## 4. What changed
 
@@ -219,16 +220,15 @@ upgrading:
   playing tune no longer keeps one note sounding through the transfer or the
   boot. Flash the updated ESPHome firmware to activate this fix.
 - **Firmware auto-update ships the display and firmware together.** The hub
-  refreshes and checks the device's `HAUI Firmware` entity independently of the
-  TFT version, then triggers an available firmware update first. The device
-  reboots into the new firmware and then installs the matching TFT on the next
-  connect. A TFT upload that is already running is never interrupted: the
-  firmware install waits for it to finish. Turn off **Auto-install firmware
-  updates** in the device editor to disable unattended firmware installs; the
-  Device Manager's **Install firmware** action remains available when HA reports
-  an update. The first firmware that contains this feature must still be
-  flashed manually — the `HAUI Firmware` entity only exists in the new firmware,
-  so an older firmware cannot be updated by the hub.
+  reads the firmware manifest independently of the TFT version, then installs
+  an available firmware update first. The device reboots into the new firmware
+  and then installs the matching TFT on the next connect. A TFT upload that is
+  already running is never interrupted: the firmware install waits for it to
+  finish. Automatic firmware installs are disabled by default; enable **Auto-install
+  firmware updates** in the device editor to allow unattended installs. The
+  Device Manager's **Install firmware** action remains available either way. The first
+  firmware with the `install_firmware_url` action (0.4.3) must still be flashed
+  manually — older firmware cannot be updated by the hub.
 
 ## 9. Web server is no longer enabled by default
 
@@ -257,8 +257,7 @@ web_server:
 
 ## 10. TFT install actions moved to the integration
 
-Installing the display TFT is now an integration feature, next to the
-firmware's own **HAUI Firmware** update entity:
+Installing the display TFT is now an integration feature:
 
 - Each linked panel gets a **HAUI Display** update entity
   (`update.<device>_haui_display`). It shows the installed TFT and the TFT the
@@ -284,3 +283,43 @@ The new firmware also fixes TFT installs from GitHub releases, which failed
 with `HTTP_CLIENT: Out of buffer` (see
 [Troubleshooting](troubleshooting.md#firmware-updates-work-tft-installs-stay-installing-and-then-time-out)).
 Update the firmware first; the TFT follows after the reboot.
+
+## 11. Firmware updates moved to the integration
+
+The **HAUI Firmware** update entity now belongs to the integration, next to
+**HAUI Display**. The firmware no longer declares an update entity of its own;
+on the ESPHome side only the ESPHome integration's stock **Firmware** entity
+(for the ESPHome dashboard) remains.
+
+- The hub reads the release's `firmware-manifest.json` itself and installs a
+  newer firmware through the firmware's `install_firmware_url` action —
+  automatically with `firmware_auto_update`, or with **Install** on the entity.
+- The manifest is a device setting: **Firmware manifest URL** in the device
+  editor's Updates section (`update.firmware_manifest_url`, see
+  [Device settings](configuration/device.md#updates)) replaces the
+  `firmware_manifest_url` substitution. A leftover substitution in your device
+  YAML is ignored and can be deleted.
+
+What happens depends on the firmware the panel runs when you update the
+integration:
+
+| Panel firmware | What to do |
+|----------------|------------|
+| 0.4.3 | Nothing: the hub installs the new firmware through `install_firmware_url`. |
+| 0.4.2 | The hub cannot install firmware on it — 0.4.2 has no `install_firmware_url` action. Press **Install** once on the firmware's own ESPHome entity (`update.<device>_haui_firmware`), or flash the new firmware through ESPHome. |
+| 0.4.1 and older | Flash the new firmware through ESPHome, as before. |
+
+**Entity id.** While the panel still runs firmware with its own **HAUI
+Firmware** entity, that entity holds `update.<device>_haui_firmware` and Home
+Assistant registers the hub's entity as `update.<device>_haui_firmware_2`.
+ESPHome removes its entity once the panel reboots into the new firmware; the
+next Home Assistant restart renames the hub's entity to
+`update.<device>_haui_firmware`, so automations keep working.
+
+**Test panels.** A panel that follows
+[local test releases](release.md#test-firmware-updates-with-a-local-release)
+through the `firmware_manifest_url` substitution needs its **Firmware
+manifest URL** set to the same URL in the device editor before you update the
+integration — or turn off **Auto-install firmware updates** for it. Otherwise
+the hub reads the GitHub manifest and installs a newer release over the test
+build.

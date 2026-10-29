@@ -131,3 +131,69 @@ def test_home_temp_reads_registry_resolved_entity_id():
 
     home = f"{parse_icon('mdi:home-thermometer')}21°C  "
     assert f'tMainText.txt="{home}{parse_icon("mdi:thermometer")}12°C"' in page.cmds
+
+
+class _Panel:
+    def __init__(self, config):
+        self.config = config
+
+    def get(self, key, default=None):
+        return self.config.get(key, default)
+
+
+class _OverrideApp(_App):
+    def __init__(self):
+        super().__init__(inside_temp="22.7")
+        self.requested = []
+
+    def find_entity_id(self, domain, name):
+        raise AssertionError("override must skip the registry lookup")
+
+    def get_item(self, entity_id):
+        self.requested.append(entity_id)
+        return _State(self.inside_temp)
+
+
+def test_home_temp_shown_when_outside_temp_missing():
+    """A missing outside temperature must not hide the inside temperature."""
+    page = _weather_page(_App(inside_temp="21.4"), {"temperature": ""})
+    page._show_home_temp = True
+
+    page.update_main_weather()
+
+    home = f"{parse_icon('mdi:home-thermometer')}21°C  "
+    assert f'tMainText.txt="{home}"' in page.cmds
+    assert parse_icon("mdi:thermometer") not in "".join(page.cmds)
+
+
+def test_configured_inside_temp_sensor_used():
+    """A panel-level inside_temp_item overrides the internal sensor."""
+    app = _OverrideApp()
+    page = _weather_page(app, {"temperature": 12})
+    page._show_home_temp = True
+    page.panel = _Panel({"inside_temp_item": {"item": "sensor.office_temperature"}})
+
+    page.update_main_weather()
+
+    assert app.requested == ["sensor.office_temperature"]
+    home = f"{parse_icon('mdi:home-thermometer')}23°C  "
+    assert f'tMainText.txt="{home}{parse_icon("mdi:thermometer")}12°C"' in page.cmds
+
+
+def test_dark_display_keeps_the_weather_page_current():
+    """The dark display is awake; see test_dark_display_keeps_the_clock_current."""
+    page = _weather_page(_App(), {})
+    page.app.device.device_info = {"display_state": "off"}
+    page.started = True
+    updated = []
+    page.update_time = lambda: updated.append("time")
+    page.update_date = lambda: updated.append("date")
+    page.update_main_weather = lambda: updated.append("weather")
+    page.render_info_panels = lambda: None
+    page.render_forecast = lambda: None
+
+    page.callback_update_time({})
+    page.callback_update_date({})
+    page.callback_weather(_ENTITY_ID, "temperature", 10, 11, {})
+
+    assert updated == ["time", "date", "weather"]

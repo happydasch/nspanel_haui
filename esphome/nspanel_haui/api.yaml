@@ -46,9 +46,10 @@ api:
     # Install the firmware app image at ``url`` (the OTA image
     # nspanel_haui_ota.bin, not the factory image); ``md5sum`` is its checksum
     # (``md5`` itself is taken by ESPHome's md5 component).
-    # The hub sends it to install another release, older ones included, or a
+    # The hub sends it for every firmware install: the update its "HAUI
+    # Firmware" entity offers, another release (older ones included) or a
     # custom build (nspanel_haui.update_firmware, the editor's Install
-    # firmware picker); the update entity installs the latest release.
+    # firmware picker); call those instead, they track the install.
     - action: install_firmware_url
       variables:
         url: string

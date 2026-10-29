@@ -11,7 +11,6 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE_URL = "http://homeassistant.local:8123/local/nspanel"
-MANIFEST_URL = f"{BASE_URL}/firmware-manifest.json"
 
 
 def _load():
@@ -27,9 +26,9 @@ def _load():
 dev_release = _load()
 
 
-def _image(version="0.4.3-dev1", manifest_url=MANIFEST_URL, first=b"\xe9"):
-    """A fake app image carrying the strings a real build embeds."""
-    return first + b"\0app\0" + version.encode() + b"\0" + manifest_url.encode() + b"\0rest"
+def _image(version="0.4.3-dev1", first=b"\xe9"):
+    """A fake app image carrying the version string a real build embeds."""
+    return first + b"\0app\0" + version.encode() + b"\0rest"
 
 
 def _write(tmp_path, data):
@@ -68,11 +67,6 @@ def test_release_writes_the_image_and_a_matching_manifest(tmp_path):
         pytest.param(_image(first=b"\xff"), "not the factory image", id="factory-image"),
         pytest.param(_image(version="0.4.2"), "yaml_version: '0.4.3-dev1'", id="other-version"),
         pytest.param(
-            _image(manifest_url="https://github.com/x/firmware-manifest.json"),
-            f"firmware_manifest_url: {MANIFEST_URL}",
-            id="github-manifest",
-        ),
-        pytest.param(
             _image() + b"\0" * dev_release.FIRMWARE_MAX_BYTES, "app partition", id="too-big"
         ),
     ],
@@ -98,4 +92,4 @@ def test_main_reports_a_refused_image(tmp_path, capsys):
 
 def test_a_version_only_matches_as_a_whole_string():
     """``0.4.3`` must not match inside ``0.4.3-dev1``."""
-    assert dev_release.check_image(_image(version="0.4.3-dev1"), "0.4.3", MANIFEST_URL)
+    assert dev_release.check_image(_image(version="0.4.3-dev1"), "0.4.3")

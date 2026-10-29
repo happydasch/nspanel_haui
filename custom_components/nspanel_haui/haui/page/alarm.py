@@ -390,8 +390,6 @@ class AlarmPage(HAUIPage):
     def callback_alarm_state(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: Any
     ) -> None:
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         with self.rec_cmd:
             # a state transition means any in-progress code entry is done
             if old != new:

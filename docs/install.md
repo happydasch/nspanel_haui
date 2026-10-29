@@ -109,7 +109,7 @@ See [Configuration Details](configuration/README.md) for all available options a
 
 The display needs a custom interface which is provided in a TFT file. About a minute after the device connects to the Hub App, the Hub App compares the display's TFT version with the version the ESPHome firmware needs. If the display has an older TFT (or none), the matching TFT file is downloaded from the GitHub release with that version and installed automatically. The display is busy for a few minutes while the file is transferred.
 
-After an update that changes the firmware version, update the ESPHome firmware first; the matching TFT then follows on the next connect. Once the device runs firmware with the `HAUI Firmware` update entity, the hub can trigger future firmware updates through Home Assistant; the first flash onto older firmware remains a manual ESPHome step.
+After an update that changes the firmware version, update the ESPHome firmware first; the matching TFT then follows on the next connect. Once the device runs firmware 0.4.3 or later, the hub's **HAUI Firmware** update entity installs future firmware releases; the first flash onto older firmware remains a manual ESPHome step.
 
 The installation process can also be executed manually. See [Nextion Display](nextion.md) for details.
 

@@ -166,3 +166,19 @@ def test_firmware_can_be_flashed_from_a_url():
     assert "ota.http_request.flash:" in block
     assert "md5: !lambda return md5sum;" in block
     assert "platform: http_request" in _read("base.yaml")
+
+
+def test_firmware_declares_no_update_entity_of_its_own():
+    """The hub's HAUI Firmware entity owns firmware updates; ESPHome keeps only its stock one."""
+    base = _read("base.yaml")
+    assert "\nupdate:" not in base
+    assert "firmware_manifest_url" not in base
+
+
+def test_display_model_uses_numeric_input_instead_of_slider():
+    import yaml
+
+    numbers = yaml.safe_load(_read("number.yaml"))["number"]
+    display_model = next(number for number in numbers if number["id"] == "display_model")
+    assert display_model["mode"] == "box"
+

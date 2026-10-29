@@ -8,14 +8,60 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ## [0.4.4] — unreleased
 
+### Breaking changes
+
+- **Firmware updates moved from the firmware to the integration** — the
+  firmware drops its `update: platform: http_request` **HAUI Firmware** entity
+  and the `firmware_manifest_url` substitution; ESPHome keeps only its stock
+  dashboard update entity. The integration now provides the **HAUI Firmware**
+  entity, reads the release manifest itself and installs through the
+  firmware's `install_firmware_url` action, so panels on firmware 0.4.2 (which
+  lacks that action) must be updated once by hand. A test panel that followed
+  local test releases through the substitution needs the new **Firmware
+  manifest URL** device setting instead. See
+  [Upgrading → Firmware updates](docs/upgrading.md#11-firmware-updates-moved-to-the-integration).
+
+### Added
+
+- **HAUI Firmware update entity in the integration** — each linked panel gets
+  `update.<device>_haui_firmware` next to **HAUI Display**: installed version
+  `yaml_version`, latest version from the firmware manifest, *installing* (and
+  available) while the panel flashes and reboots. The hub fires
+  `nspanel_haui.firmware_update_changed` events for it. An install that does
+  not end in a reboot within ten minutes, or a reboot into the old version, is
+  reported as an error instead of staying *installing*. The entity id the
+  firmware's own entity held is reclaimed once ESPHome removed that entity.
+- **Firmware manifest URL setting** — `update.firmware_manifest_url` (device
+  editor → Updates) names the manifest the HAUI Firmware entity follows;
+  empty means the latest GitHub release. Test panels point it at the manifest
+  `scripts/dev_release.py` writes.
+
+- **Inside temperature sensor picker** — clock and weather panels can use any
+  `sensor` entity for the inside temperature; leave empty for the NSPanel's
+  internal sensor.
+
+### Fixed
+
+- **Internal temperature on clock/weather panels** — the registry lookup now
+  works in production (Home Assistant's `HomeAssistant` object has no
+  `helpers` attribute; use `homeassistant.helpers.entity_registry`), and the
+  home temperature stays visible when the weather entity has no temperature
+  attribute.
+- **Stale time after waking the display** — clock, word clock, weather and
+  alarm pages keep updating while the display is off (the Nextion stays awake
+  at brightness 0 with the hub connected), so a wake touch shows the current
+  time and states instead of those from when the display turned off.
+
 ### Planned
 
 - Complete the remaining 0.4.x acceptance passlist on EU and US/portrait
   hardware, including the new firmware-OTA-to-TFT sequence and buzzer shutdown.
 - Investigate the old-bootloader OTA rollback warning before treating unattended
   updates as safe.
-- Review notification-enhancement issue [#50](https://github.com/happydasch/nspanel_haui/issues/50)
-  and verify notification behavior across both display models.
+- Notification-enhancement issue [#50](https://github.com/happydasch/nspanel_haui/issues/50)
+  remains documentation-only: notification behavior is tracked and verified on
+  both display models during this pass; no font-size or other notification
+  implementation is planned.
 
 See the [v0.4.4 roadmap](ROADMAP.md#v044--hardware-acceptance-and-ota-risk-closure-planned).
 

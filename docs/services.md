@@ -68,10 +68,31 @@ the firmware needs again (or the display asks first when `auto_install` is
 off). Installing without `version` and `url` lifts it too. A TFT that does not
 match the firmware may lack pages or components the firmware uses.
 
+### HAUI Firmware update entity
+
+Every linked panel has an `update.<device>_haui_firmware` entity. Its installed
+version is the firmware's `yaml_version`, its latest version the one the
+firmware manifest names: by default the `firmware-manifest.json` of the latest
+GitHub release, or the device's
+[`firmware_manifest_url`](configuration/device.md#updates). The hub reads the
+manifest on startup, when the URL changes and on every release check.
+**Install** runs the same install as `nspanel_haui.update_firmware` without
+`version` and `url`: the panel downloads the image, flashes it and reboots,
+and the entity shows *installing* until it reconnects. It stays available
+while the install keeps the device offline. An install that does not end in a
+reboot within ten minutes, or a reboot into the old version, is reported as an
+error in the Device Manager. The entity supports a specific version, the same
+as `nspanel_haui.update_firmware` with `version`.
+
+When the ESPHome dashboard is set up, the ESPHome integration adds its own
+**Firmware** update entity to the device (disabled by default). It recompiles
+your device YAML in the dashboard and is independent of the hub's firmware
+updates.
+
 ### HAUI Display update entity
 
 Every linked panel has an `update.<device>_haui_display` entity next to the
-firmware's **HAUI Firmware** entity on the same device page. Its installed
+**HAUI Firmware** entity on the same device page. Its installed
 version is the TFT the display reports, its latest version the TFT the firmware
 needs. **Install** runs the same TFT update as `nspanel_haui.update_tft`
 without a URL, and the entity shows *installing* until the display reports the
@@ -92,9 +113,9 @@ data:
 
 ### `nspanel_haui.update_firmware`
 
-Install the firmware update Home Assistant offers on the panel's **HAUI
-Firmware** entity, another GitHub release (`version`, older ones included), or
-the firmware OTA image at `url`. The device is required.
+Install the firmware update the panel's **HAUI Firmware** entity offers,
+another GitHub release (`version`, older ones included), or the firmware OTA
+image at `url`. The device is required.
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -109,22 +130,23 @@ data:
   version: "0.4.2"
 ```
 
-Without `version` and `url` the action installs the offered update through the
-HAUI Firmware entity, like the entity's own **Install**. With `version` or
-`url` the firmware's `install_firmware_url` action downloads and flashes the
-image itself:
+Without `version` and `url` the action re-reads the firmware manifest and
+installs the offered update, like the entity's own **Install**. Every install
+runs the firmware's `install_firmware_url` action, which downloads and flashes
+the image itself:
 
 - **Releases:** only releases that ship `nspanel_haui_ota.bin` and
   `firmware-manifest.json` (v0.4.2 and later) install over the air; the hub
-  reads the image's md5 from the manifest. Older releases ship only the
+  reads the image's md5 from the manifest. A `version` equal to the one the
+  manifest offers installs from the manifest, so a test release works too. Older releases ship only the
   factory image (`nspanel_haui.bin`), which an over-the-air update must not
   write — flash those with the ESPHome dashboard or a cable.
 - **URLs:** the Home Assistant host downloads the file first to compute the md5
   the flash needs, and refuses a factory image or a file larger than the app
   partition. The panel must reach the URL too.
-- **The panel's current firmware needs the `install_firmware_url` action.**
-  Firmware without it (0.4.2 and older) can only install the offered update;
-  install the latest firmware first.
+- **The panel's current firmware needs the `install_firmware_url` action**
+  (0.4.3 and later). Flash newer firmware once through ESPHome on a panel that
+  runs 0.4.2 or older (see [Upgrading](upgrading.md)).
 - **Automatic firmware updates pause** after a release or URL install, so
   `firmware_auto_update` does not reinstall the latest release on the next
   check. The pause lives in memory: a Home Assistant restart or installing the

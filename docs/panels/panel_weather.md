@@ -46,7 +46,11 @@ Toggle the main weather icon on/off.
 
 ### Show Temperature
 
-Toggle the main temperature text. When **Show Home Temperature** is also enabled, the NSPanel's internal temperature is shown alongside the weather.
+Toggle the main temperature text. When **Show Home Temperature** is also enabled, the inside temperature is shown alongside the weather.
+
+### Inside Temperature Sensor
+
+**Show Home Temperature** reads the *Inside temperature sensor* picker. Leave it empty to use the NSPanel's internal NTC temperature sensor (looked up through the entity registry); pick any `sensor` entity to use that value instead — e.g. a room sensor — on this panel.
 
 ### Weather Icon Color
 

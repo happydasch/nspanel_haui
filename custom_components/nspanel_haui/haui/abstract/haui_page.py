@@ -581,18 +581,31 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         Override this instead of ``stop_panel``.  No need to call super.
         """
 
-    def get_inside_temp_entity_id(self) -> str:
-        """Resolve this device's internal temperature sensor entity id.
+    def get_inside_temp_entity_id(self, panel: HAUIPanel | None = None) -> str:
+        """Resolve the entity id for the "inside temperature" display value.
 
-        The classic ``sensor.{device_slug}_temperature`` construction misses
-        installations where the hub's device name differs from the ESPHome
-        node name (renames, or HA's area/device entity-id naming), so prefer
-        the entity registry lookup by the sensor's ESPHome-authored name and
-        fall back to the classic id only when the registry has no match.
+        A panel-level ``inside_temp_item`` override (clock/weather panel
+        config) replaces the device's own internal temperature sensor with an
+        arbitrary sensor entity.  Without an override, the classic
+        ``sensor.{device_slug}_temperature`` construction misses installations
+        where the hub's device name differs from the ESPHome node name
+        (renames, or HA's area/device entity-id naming), so prefer the entity
+        registry lookup by the sensor's ESPHome-authored name and fall back to
+        the classic id only when the registry has no match.
+
+        Args:
+            panel: The panel whose ``inside_temp_item`` override to honour.
 
         Returns:
-            str: The internal temperature sensor's entity id.
+            str: The inside-temperature sensor's entity id.
         """
+        if panel is not None:
+            override = panel.get("inside_temp_item", None)
+            if isinstance(override, list):
+                override = override[0] if override else None
+            override_id = self._extract_entity_id(override)
+            if override_id:
+                return override_id
         resolver = getattr(self.app, "find_entity_id", None)
         if resolver is not None:
             try:

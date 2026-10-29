@@ -141,16 +141,26 @@ projects, so the hub addresses either TFT with the same `COMPONENTS`.
   buttons to a bottom bar; grids re-flow (grid 2 × 3, select 2 × 6, rows with
   their controls under the name line).
 
-### Firmware OTA goes through the device's update entity
+### Firmware OTA goes through the hub's update entity
 
-The firmware declares an `update: platform: http_request` component named
-**HAUI Firmware**, so Home Assistant's ESPHome integration exposes it as a normal
-update entity and the hub can install a firmware update without the ESPHome
-dashboard. The device pulls the image over HTTP, reboots, and then installs the
-matching TFT. The first flash onto firmware that predates the update entity is
-still a manual step (dashboard → Update → Install), because an older image cannot
-update itself; the editor's **Download firmware** button remains the manual
-fallback.
+The integration's **HAUI Firmware** update entity (`update.py`, driven by the
+update controller) reads the firmware manifest at the device's
+`firmware_manifest_url` — by default the one of the latest GitHub release — and
+installs a newer firmware through the firmware's `install_firmware_url` action
+(`ota.http_request.flash` with the image URL and md5). The device pulls the
+image over HTTP, reboots, and then installs the matching TFT. The firmware
+declares no update entity of its own, so the ESPHome side shows only the
+ESPHome integration's stock dashboard entity. The first flash onto firmware
+without the install action (0.4.2 and older) is still a manual step, because
+the hub cannot reach it; the editor's **Download firmware** button remains the
+manual fallback.
+
+To test or debug firmware updates without a GitHub release, write a
+[local test release](release.md#test-firmware-updates-with-a-local-release)
+and point the test panel's **Firmware manifest URL** at it, or install a build
+directly with `nspanel_haui.update_firmware` and `url`. The hub logs every
+manifest read, install start and outcome (a reboot into the old version, or no
+reboot within ten minutes), and the Device Manager shows the install error.
 
 ### Release assets and gates
 

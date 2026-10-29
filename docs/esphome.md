@@ -46,7 +46,7 @@ portal.  The Wi-Fi entered there survives firmware updates.  See
 `name_add_mac_suffix: true` appends the last six MAC digits at runtime, so one
 binary installs any number of panels with unique names and access points.
 
-If the device shows up in Home Assistant you can manually install the TFT file by pressing the `Update Display` button. Otherwise the Hub app installs the TFT version the firmware needs about a minute after the device connects (see [Installation](install.md#5-step-install-tft-file)).
+If the device shows up in Home Assistant you can manually install the TFT file with **Install** on its **HAUI Display** update entity. Otherwise the Hub app installs the TFT version the firmware needs about a minute after the device connects (see [Installation](install.md#5-step-install-tft-file)).
 
 See [Nextion](nextion.md) for more details about the display.
 
@@ -281,8 +281,12 @@ This actions below are defined on the ESP. The communication between the Hub ser
 
 - `install_firmware_url` Action to flash the firmware OTA image at `url` with its `md5sum`
 
-  The hub sends it to install another release or a custom build
+  The hub sends it for every firmware install: the update the **HAUI
+  Firmware** update entity offers, another release or a custom build
   (`nspanel_haui.update_firmware`, the editor's **Install firmware** picker).
+  Use those instead, they track the install. The firmware has no update entity
+  of its own; the hub reads the release manifest (see
+  [Services → HAUI Firmware update entity](services.md#haui-firmware-update-entity)).
 
 - `upload_tft_url` Action to update a TFT file from URL
 
@@ -573,7 +577,9 @@ The hub looks the temperature sensor up through the entity registry by its
 ESPHome-authored name (`Temperature`), so the example id above is only a
 fallback: a renamed device or HA's area-prefixed entity ids (e.g.
 `sensor.nspanel_bedroom_temperature` on a device called "NSPanel Sypialnia")
-do not break the clock and weather panels reading it.
+do not break the clock and weather panels reading it. A clock/weather panel can
+also override the sensor per panel with the editor's **Inside temperature
+sensor** picker, e.g. to show a room sensor's value instead.
 
 ## Other
 

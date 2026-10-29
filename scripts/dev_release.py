@@ -2,9 +2,9 @@
 """Turn a local firmware build into a test release served by Home Assistant.
 
 Test firmware must not go through GitHub: the release workflow publishes every
-``v*`` tag as the latest release, and every panel's HAUI Firmware entity reads
-``releases/latest/download/firmware-manifest.json`` and installs it.  This
-script instead writes the two files a release carries for over-the-air
+``v*`` tag as the latest release, and the HAUI Firmware entity of every panel
+reads ``releases/latest/download/firmware-manifest.json`` and installs it.
+This script instead writes the two files a release carries for over-the-air
 updates into a folder Home Assistant serves (``/config/www`` is served as
 ``/local``):
 
@@ -12,22 +12,20 @@ updates into a folder Home Assistant serves (``/config/www`` is served as
 - ``firmware-manifest.json`` — the schema the release workflow writes
   (name / version / builds[].ota with the absolute image URL and its md5)
 
-Build the test panel's firmware with two substitutions, and the script refuses
-an image that lacks either:
+Point the test panel's *Firmware manifest URL* (device editor → Updates) at
+the written manifest; its HAUI Firmware entity then offers each newer test
+release, and the hub installs it like a GitHub release.
 
-- ``yaml_version`` equal to ``--version``: ESPHome offers an update whenever
-  the manifest version differs from the running build's, so a mismatch would
-  install the image over and over.  Each test release needs a newer version
-  (``0.4.3-dev1``, ``0.4.3-dev2``, ...), because Home Assistant only turns the
-  update entity on for a newer version.
-- ``firmware_manifest_url`` pointing at the written manifest: a build that
-  still reads the GitHub manifest sees the release as an update, and the hub
-  reinstalls the release over the test build.
+Build the firmware with ``yaml_version`` equal to ``--version``; the script
+refuses an image without it.  The hub offers the manifest's firmware whenever
+its version is newer than the one the panel runs, so an image that reports an
+older version would be installed over and over.  Each test release needs a newer version
+(``0.4.4-dev1``, ``0.4.4-dev2``, ...), because the hub only offers a newer one.
 
 Usage:
     python scripts/dev_release.py \\
         --image esphome/.esphome/build/nspanel-test/build/firmware.ota.bin \\
-        --version 0.4.3-dev1 \\
+        --version 0.4.4-dev1 \\
         --base-url http://homeassistant.local:8123/local/nspanel \\
         --out /Volumes/config/www/nspanel
 
@@ -52,7 +50,7 @@ FIRMWARE_MAX_BYTES = 0x1C0000
 ESP_IMAGE_MAGIC = 0xE9
 
 
-def check_image(data: bytes, version: str, manifest_url: str) -> str | None:
+def check_image(data: bytes, version: str) -> str | None:
     """Return why ``data`` cannot be released as ``version``, or None when it can."""
     if not data or data[0] != ESP_IMAGE_MAGIC:
         return (
@@ -65,15 +63,8 @@ def check_image(data: bytes, version: str, manifest_url: str) -> str | None:
     if b"\0" + version.encode() + b"\0" not in data:
         return (
             f"the image does not contain version {version!r}; build it with "
-            f"yaml_version: '{version}' (ESPHome reinstalls a build whose version "
-            "differs from the manifest)"
-        )
-    # Without it the installed build reads the GitHub manifest again, sees the
-    # release version as an update and the hub reinstalls the release over it.
-    if b"\0" + manifest_url.encode() + b"\0" not in data:
-        return (
-            f"the image does not read {manifest_url}; build it with "
-            f"firmware_manifest_url: {manifest_url}"
+            f"yaml_version: '{version}' (the hub reinstalls a build whose version "
+            "is older than the manifest's)"
         )
     return None
 
@@ -97,7 +88,7 @@ def release(image: Path, version: str, base_url: str, out: Path) -> tuple[Path, 
         raise ValueError(f"--base-url must start with http:// or https:// ({base_url!r})")
     base_url = base_url.rstrip("/")
     data = image.read_bytes()
-    problem = check_image(data, version, f"{base_url}/{MANIFEST_NAME}")
+    problem = check_image(data, version)
     if problem:
         raise ValueError(f"{image}: {problem}")
     out.mkdir(parents=True, exist_ok=True)
@@ -118,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--image", type=Path, required=True, help="firmware.ota.bin of the build")
     parser.add_argument(
-        "--version", required=True, help="the build's yaml_version, e.g. 0.4.3-dev1"
+        "--version", required=True, help="the build's yaml_version, e.g. 0.4.4-dev1"
     )
     parser.add_argument(
         "--base-url",
@@ -138,9 +129,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {image_out}")
     print(f"wrote {manifest_out}")
     print()
-    print("The HAUI Firmware entity of a panel running an earlier test build offers it;")
-    print("install it there or with Device Manager → Install firmware, or flash it with")
-    print(f"nspanel_haui.update_firmware and url: {base_url}/{IMAGE_NAME}")
+    print("With its Firmware manifest URL (device editor → Updates) set to")
+    print(f"{base_url}/{MANIFEST_NAME}, the HAUI Firmware entity of a test panel")
+    print("running an earlier test build offers it; install it there or with Device")
+    print("Manager → Install firmware, or flash it with nspanel_haui.update_firmware")
+    print(f"and url: {base_url}/{IMAGE_NAME}")
     return 0
 
 

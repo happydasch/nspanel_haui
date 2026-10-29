@@ -520,7 +520,9 @@ class HAAdapter:
         unreliable for entities added after a rename.  The entity registry
         keeps the ESPHome-authored ``original_name``, so look the entity up
         there instead: prefer the entity on this app's linked device and fall
-        back to the sole candidate when the device link is missing.
+        back to the sole candidate when the device link is missing.  Disabled
+        entries (renamed/replaced entities leave a disabled copy behind) are
+        only considered when no enabled candidate exists.
 
         Args:
             domain: Entity domain (e.g. ``"number"``).
@@ -529,10 +531,16 @@ class HAAdapter:
         Returns:
             Entity id, or None when no candidate resolves.
         """
+        # Home Assistant's HomeAssistant object has no ``.helpers``
+        # attribute; the registry is reached through the helper module
+        # directly.  Keep the ``hass.helpers`` path for the test stubs.
         helpers = getattr(self.hass, "helpers", None)
-        if helpers is None or not hasattr(helpers, "entity_registry"):
-            return None
-        registry = helpers.entity_registry.async_get(self.hass)
+        if helpers is not None and hasattr(helpers, "entity_registry"):
+            registry = helpers.entity_registry.async_get(self.hass)
+        else:
+            from homeassistant.helpers import entity_registry as er
+
+            registry = er.async_get(self.hass)
         if registry is None:
             return None
         wanted = (original_name or "").lower()
@@ -545,11 +553,19 @@ class HAAdapter:
         ]
         if not candidates:
             return None
+        # Prefer enabled entries: a renamed/replaced entity leaves a disabled
+        # copy behind, which would otherwise shadow the live candidate.
+        enabled_candidates = [
+            entity_id
+            for entity_id in candidates
+            if getattr(registry.entities[entity_id], "disabled_by", None) is None
+        ]
+        pool = enabled_candidates or candidates
         linked_device_id = getattr(self, "_ha_device_id", None)
-        for entity_id in candidates:
+        for entity_id in pool:
             if registry.entities[entity_id].device_id == linked_device_id:
                 return entity_id
-        return candidates[0] if len(candidates) == 1 else None
+        return pool[0] if len(pool) == 1 else None
 
     def get_temperature_unit(self) -> str:
         """Return HA's temperature unit ("°C" or "°F").

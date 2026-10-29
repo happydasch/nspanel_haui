@@ -1,10 +1,6 @@
 ---
 substitutions:
   log_level: INFO
-  # Firmware update manifest. The release workflow regenerates it and attaches
-  # it to every GitHub release; ``releases/latest/download`` always serves the
-  # newest release, so this URL stays valid across versions.
-  firmware_manifest_url: https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json
 
 
 # ESP Configuration
@@ -49,24 +45,25 @@ logger:
   level: $log_level
 
 
-# HTTP client — used by the HTTP OTA platform and the firmware update entity to
-# fetch the release manifest and the firmware image from GitHub.
+# HTTP client — used by the HTTP OTA platform to fetch the firmware image the
+# hub names (``install_firmware_url``), usually from a GitHub release.
 http_request:
   id: haui_http
   useragent: nspanel-haui
   timeout: 10s
   # GitHub answers release/asset requests with ~5.4 KB of redirect headers.
   # The 512-byte default RX buffer overflows ("HTTP_CLIENT: Out of buffer"),
-  # so the firmware update entity could never fetch the manifest.  The signed
-  # redirect targets also exceed the default TX buffer, so raise both.
+  # so a release image could never be downloaded.  The signed redirect targets
+  # also exceed the default TX buffer, so raise both.
   buffer_size_rx: 8192
   buffer_size_tx: 2048
 
 
 # OTA Configuration
 # Native ESPHome OTA for dashboard/manual flashing, plus HTTP OTA so the device
-# can pull a new image from the release manifest on its own. The hub triggers
-# the install through the firmware update entity below.
+# can pull a new image on its own.  The firmware update itself lives in the
+# hub: its "HAUI Firmware" entity reads the release manifest and starts the
+# install through the ``install_firmware_url`` action (api.yaml).
 # Both block the main loop for the whole transfer, so active device activities
 # are suspended first (see ``suspend_activities``).
 ota:
@@ -77,18 +74,6 @@ ota:
   - platform: http_request
     on_begin:
       - script.execute: suspend_activities
-
-
-# Firmware update entity — published to Home Assistant as "HAUI Firmware" so
-# the hub can trigger ``update.install`` when a new release ships. The manifest
-# carries the version, the download URL and the md5 of the released .bin.
-update:
-  - platform: http_request
-    id: haui_firmware_update
-    name: HAUI Firmware
-    device_class: firmware
-    source: $firmware_manifest_url
-    update_interval: 6h
 
 
 # WIFI Configuration

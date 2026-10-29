@@ -120,8 +120,38 @@ following items remain before the 0.4.x install gate can close:
   matching TFT follows, and confirm the buzzer is silent during OTA and reboot.
 - Investigate the old-bootloader OTA rollback warning; rollback capability is
   not confirmed and unattended updates should not be treated as rollback-safe.
-- Review open notification-enhancement issue #50 and verify notification
-  behavior on both display models.
+- Issue #50 (notification enhancements) stays documentation-only: notification
+  behavior is tracked and verified on both display models during this pass; no
+  font-size or other notification implementation is planned.
+- Internal temperature on clock/weather panels — make the entity-registry
+  lookup work in production (lazy entity-registry import) and add an optional
+  per-page **Inside temperature sensor** picker (default: NSPanel internal
+  sensor).
+
+- **ESPHome vs. HAUI sensor ownership review** — inventory the ESPHome sensor
+  entities and HAUI sensor platform, then make the boundary explicit:
+  - ESPHome owns device-side measurements and hardware/transport state
+    (for example, internal temperature, Wi-Fi signal, touch/button state and
+    display brightness). Keep request/response values, page-number updates and
+    interaction tracking that only support the protocol internal; expose only
+    stable device telemetry or diagnostics.
+  - HAUI owns Home Assistant concepts derived from hub behavior. Its **Current
+    page** sensor is the user-facing page/panel state, including panel type and
+    title; the internal ESPHome `Page` template is its event source, not a
+    second public page sensor. The clock/weather temperature picker selects an
+    existing sensor entity and does not create another temperature sensor.
+  - Move the **HAUI Firmware** update entity and its release-manifest check and
+    install orchestration into the `nspanel_haui` integration. ESPHome should
+    expose only its stock ESPHome update entity, not a second firmware updater
+    for HAUI. *Implemented on dev (0.4.4):* the integration owns the entity and
+    reads the manifest (per-device `firmware_manifest_url`, so test panels can
+    follow local test releases); the firmware drops its `update:` block.
+    Verify firmware OTA and TFT-update sequencing on hardware after the move.
+  - Check for genuine duplicates in exposed state and availability (including
+    ESPHome **Client Status** versus HAUI connection availability). Consolidate
+    only signals with the same meaning and lifecycle; retain distinct device
+    telemetry and HAUI-derived state. Document the chosen owner and verify
+    entity visibility, names and update/unavailable behavior.
 
 Issues #62/#63/#64 remain open on GitHub, but the reporter confirmed their
 specific TFT-upload buzzer, post-reboot TFT-version and portrait weather fixes on
@@ -132,7 +162,8 @@ replacing the broader v0.4.4 passlist.
 
 ## v0.5 — Multiple TFTs, update control & Device Manager overhaul
 
-Three pillars, after the 0.4.x gate closes.
+Three pillars plus planned frontend, notification and device-settings work, after
+the 0.4.x gate closes.
 
 ### Multiple TFTs
 
@@ -181,11 +212,55 @@ per-device version and action state in the list.
 
 ### Remaining editor polish
 
-After the update and Device Manager work: panel list improvements (drag-reorder,
-inline rename, duplicate — reorder works through the row menu today), edit-panel
-sidebar cleanup, a "create from template" flow, inline form validation feedback,
-preview renderer unification and dead-code pruning, keyboard-navigable modals,
-and an accessibility pass (labels, ARIA, contrast).
+Folded into the general frontend rework below, after the update work: panel-list
+improvements (drag-reorder, inline rename, duplicate — reorder works through the
+row menu today), edit-panel sidebar cleanup, a "create from template" flow, inline
+form validation feedback, preview renderer unification and dead-code pruning,
+keyboard-navigable modals, and an accessibility pass (labels, ARIA, contrast).
+
+### Frontend rework, notifications & device settings (planned)
+
+Planned beyond the three pillars above; no v0.5 code starts before the 0.4.x
+gate closes. Each phase ships on its own.
+
+- **General frontend rework** — the panel and device requirements are known now,
+  so rebuild the editor as one coherent app instead of layering patches on the
+  original screen set: a shell over one observable store and view modules,
+  dialogs and forms on the vendored Lit components, a responsive layout with
+  keyboard-navigable modals, and an editor/preview split view. This supersedes
+  the incremental patchwork the editor-polish items above describe, which land
+  here instead. The static, unauthenticated, no-build-step serving contract
+  stays — that is how `editor_panel.py` serves `frontend/` — so the rework is
+  structural, not a framework or bundler swap.
+- **Notifications** — add grouping and priority ordering to the controller plus a
+  read-only queue/history API and a Notification Center in the editor. The
+  service, `notify.*` and ESPHome entry points keep working, and the "never
+  auto-dismiss" and critical force-show rules stay unchanged.
+- **Device settings** — expose the existing per-device settings (speed,
+  orientation, brightness, idle behaviour, notification defaults, update policy)
+  through scoped read/update endpoints and a settings tab, stored per device and
+  defaulted on load. The Device Manager section above gains that tab; its bulk
+  actions and per-device state stay as planned there.
+- **Panel editors** — split-view preview built on the existing preview renderers,
+  "create from template", inline rename/duplicate/reorder and field-level
+  validation, replacing the generic toast with per-field feedback.
+
+**Phasing:** API and data foundation with no UI change, then the general frontend
+rework at behaviour parity (editor-polish items included), then Device Manager and
+device settings, then panel editors, then the notification UX, then polish and
+hardening.
+
+### Deferred follow-ups
+
+- **Shared text-style abstraction for panel options** (Discussion #57 follow-up) —
+  the configurable alarm keypad styling shipped in v0.4.0 as the `keypad_font`,
+  `keypad_bg_color` and `keypad_text_color` options with a one-off
+  `_style_keypad()` helper. Generalising that into a shared text-style option
+  trio plus apply helper for every page type is deferred: start only after the
+  0.4.x acceptance gate closes and the compatibility cleanup lands — the vendored
+  `esphome/nextion_patch/` and its `external_components` blocks removed, and
+  `min_version`/`requirements-esphome.txt` bumped once a released ESPHome carries
+  esphome#17744 and #21435 (expected 2026.11.0).
 
 ---
 

@@ -6,7 +6,7 @@
  * Communicates form changes via CustomEvent.
  */
 import { html, css } from '../lit-import.js';
-import { DATE_FORMAT_OPTIONS, DISPLAY_MODEL_OPTIONS, GESTURE_NAMES, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
+import { DATE_FORMAT_OPTIONS, DEFAULT_FIRMWARE_MANIFEST_URL, DISPLAY_MODEL_OPTIONS, GESTURE_NAMES, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
 import { renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
 import { dialogHeader } from './dialog-header.js';
@@ -368,10 +368,22 @@ class DeviceConfigDialog extends HauiDialog {
               </div>
               <div class="checkbox-wrap">
                 <div class="checkbox-row">
-                  ${renderToggle("dc-update-firmware_auto_update", Boolean(updateValue(cfg, "firmware_auto_update", true)), (checked) => setUpdateValue(this, "firmware_auto_update", checked))}
+                  ${renderToggle("dc-update-firmware_auto_update", Boolean(updateValue(cfg, "firmware_auto_update", false)), (checked) => setUpdateValue(this, "firmware_auto_update", checked))}
                   <label for="dc-update-firmware_auto_update">${t("Auto-install firmware updates")}</label>
                 </div>
                 <div class="field-hint">${t("Install a newer firmware when the release ships one. The matching TFT follows after the device reboots.")}</div>
+              </div>
+              <div class="form-group">
+                <label for="dc-update-firmware_manifest_url">${t("Firmware manifest URL")}</label>
+                <input
+                  id="dc-update-firmware_manifest_url"
+                  class="native-input"
+                  type="url"
+                  placeholder=${DEFAULT_FIRMWARE_MANIFEST_URL}
+                  .value=${String(updateValue(cfg, "firmware_manifest_url", ""))}
+                  @input=${(e) => setUpdateValue(this, "firmware_manifest_url", e.target.value.trim() || undefined)}
+                />
+                <div class="field-hint">${t("The manifest names the firmware the HAUI Firmware entity offers. Leave empty for the latest GitHub release; point a test panel at the manifest of a local test release to follow test builds.")}</div>
               </div>
               <div class="checkbox-wrap">
                 <div class="checkbox-row">

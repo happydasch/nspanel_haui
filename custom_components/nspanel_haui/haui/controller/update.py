@@ -58,6 +58,16 @@ FIRMWARE_UPDATE_EVENT = "nspanel_haui.firmware_update_changed"
 # over-the-air update must never write.
 FIRMWARE_OTA_ASSET = "nspanel_haui_ota.bin"
 FIRMWARE_MANIFEST_ASSET = "firmware-manifest.json"
+# The firmware build variants that the release manifest and the device state
+# identify each other with.  The release workflow builds the prebuilt image
+# from ``esphome/nspanel_haui_universal.yaml`` and its manifest says
+# ``universal``; an ``install.yaml``/``nspanel_haui_dev.yaml`` build reports
+# ``custom``.  The hub refuses to offer or install a manifest whose variant
+# does not match the one the device reports (and treats both unknowns as
+# incompatible): flashing the universal image onto a custom build would
+# silently replace the user's credentials with the public universal ones.
+FIRMWARE_VARIANT_UNIVERSAL = "universal"
+FIRMWARE_VARIANT_CUSTOM = "custom"
 # App partition size of the shipped partition table, and the first byte of an
 # ESP32 app image (a factory image starts with 0xFF padding instead).
 FIRMWARE_MAX_BYTES = 0x1C0000
@@ -383,10 +393,14 @@ class HAUIUpdateController(HAUIBase):
 
         The manifest uses the ESPHome web-tools schema the release workflow
         writes (``version`` and ``builds[0].ota`` with ``path`` and ``md5``);
-        a relative ``path`` is resolved against the manifest URL.
+        a relative ``path`` is resolved against the manifest URL.  The
+        optional ``variant`` names the build variant the image was compiled
+        from (``universal`` for the release image, ``custom`` for a build
+        from ``install.yaml``); a manifest without one is treated as unknown.
 
         Returns:
-            dict: ``version``, ``url`` (of the OTA app image) and ``md5``
+            dict: ``version``, ``url`` (of the OTA app image), ``md5`` and
+            ``variant`` ("" when the manifest names none)
 
         Raises:
             RuntimeError: When the manifest cannot be read
@@ -398,6 +412,7 @@ class HAUIUpdateController(HAUIBase):
                 "version": str(manifest["version"]),
                 "url": urljoin(url, ota["path"]),
                 "md5": ota["md5"],
+                "variant": str(manifest.get("variant") or ""),
             }
         except (requests.exceptions.RequestException, ValueError, LookupError, TypeError) as exc:
             raise RuntimeError(f"Could not read the firmware manifest {url}: {exc}") from exc
@@ -425,19 +440,70 @@ class HAUIUpdateController(HAUIBase):
         first_v = self._try_parse_version(first)
         return first_v is not None and first_v == self._try_parse_version(second)
 
-    def _firmware_update_available(self) -> bool:
-        """True when the manifest offers a newer firmware than the device runs."""
+    def _firmware_variant_compatible(self, manifest_variant: str | None) -> bool:
+        """Whether the manifest's firmware may be installed on this panel.
+
+        Both sides must report the same known variant.  A device whose
+        firmware does not report its variant (pre-0.4.4 builds) and a
+        manifest without a ``variant`` both fail closed: flashing the
+        universal release image onto a custom build — whose OTA and API
+        credentials differ from the public universal ones — must never
+        happen, not even when the user only gets the upgrade *offered*.
+        """
+        device_variant = (self.app.device.device_info or {}).get("firmware_variant")
+        return bool(device_variant) and bool(manifest_variant) and device_variant == manifest_variant
+
+    def _firmware_variant_mismatch_reason(self) -> str | None:
+        """Explain why the manifest's firmware is not offered on this panel.
+
+        Returns:
+            str | None: A user-facing reason, or None when the manifest is
+            compatible (or there is no manifest to judge).
+        """
         if self._firmware_manifest is None:
-            return False
-        latest = self._try_parse_version(self._firmware_manifest["version"])
+            return None
+        manifest_variant = self._firmware_manifest.get("variant")
+        if self._firmware_variant_compatible(manifest_variant):
+            return None
+        device_variant = (self.app.device.device_info or {}).get("firmware_variant")
+        if not device_variant:
+            return (
+                "The panel's firmware does not report its build variant; flash the "
+                "offered release once manually (ESPHome or Install firmware → From URL) "
+                "and the hub can update it afterwards"
+            )
+        if not manifest_variant:
+            return (
+                "The firmware manifest names no build variant; point "
+                "firmware_manifest_url at the manifest of a recent release"
+            )
+        return (
+            f"The firmware manifest offers the {manifest_variant!r} build but this "
+            f"panel runs the {device_variant!r} one; they are not interchangeable"
+        )
+
+    def _firmware_update_available(self) -> bool:
+        """True when the manifest offers a newer firmware for *this* panel.
+
+        A newer version alone is not enough: the manifest's build variant must
+        match the one the device reports, or the update is withheld entirely.
+        """
+        latest = self._try_parse_version(self._firmware_update_version())
         installed = self._try_parse_version(
             (self.app.device.device_info or {}).get("yaml_version")
         )
         return latest is not None and installed is not None and latest > installed
 
     def _firmware_update_version(self) -> str | None:
-        """Return the firmware version the manifest offers."""
+        """Return the firmware version the manifest offers this panel.
+
+        None when there is no manifest or its build variant does not match the
+        panel's: a custom build must never be shown the universal release as an
+        update (the HAUI Firmware entity reports no compatible release then).
+        """
         if self._firmware_manifest is None:
+            return None
+        if not self._firmware_variant_compatible(self._firmware_manifest.get("variant")):
             return None
         return self._firmware_manifest["version"]
 
@@ -467,6 +533,12 @@ class HAUIUpdateController(HAUIBase):
     def list_firmware_releases(self) -> dict[str, Any]:
         """List the GitHub releases whose firmware installs over the air, newest first.
 
+        Only releases whose manifest's build variant matches the panel's are
+        listed: a custom ``install.yaml`` build must never be handed the
+        universal image by the picker.  A device that reports no variant (or a
+        release whose manifest cannot be read / names no variant) is left out —
+        the editor still offers the explicit **From URL** path for those.
+
         For the editor's firmware install picker.  Call via
         ``app.async_run_on_worker``.
 
@@ -478,11 +550,29 @@ class HAUIUpdateController(HAUIBase):
             self._update_release_infos()
         except RuntimeError as exc:
             return {"releases": [], "error": str(exc)}
+        device_variant = (self.app.device.device_info or {}).get("firmware_variant")
         releases = []
-        for release in self._release_infos:
-            version = self._try_parse_version(release.get("tag_name"))
-            names = {asset.get("name") for asset in release.get("assets", [])}
-            if version is not None and {FIRMWARE_OTA_ASSET, FIRMWARE_MANIFEST_ASSET} <= names:
+        if device_variant:
+            for release in self._release_infos:
+                version = self._try_parse_version(release.get("tag_name"))
+                if version is None:
+                    continue
+                manifest_url = next(
+                    (
+                        asset["browser_download_url"]
+                        for asset in release.get("assets", [])
+                        if asset.get("name") == FIRMWARE_MANIFEST_ASSET
+                    ),
+                    None,
+                )
+                if manifest_url is None:
+                    continue
+                try:
+                    manifest = self._read_firmware_manifest(manifest_url)
+                except RuntimeError:
+                    continue  # unreadable manifest: fail closed for this release
+                if manifest.get("variant") != device_variant:
+                    continue
                 releases.append((version, release["tag_name"]))
         releases.sort(reverse=True)
         return {"releases": [tag for _version, tag in releases], "error": None}
@@ -490,8 +580,13 @@ class HAUIUpdateController(HAUIBase):
     def _release_firmware(self, version: str) -> tuple[str, str]:
         """Return the OTA image URL and md5 of the GitHub release ``version``.
 
+        Only releases whose manifest's build variant matches the panel's are
+        installable: an explicit release pick on a custom build must not flash
+        the universal image either.
+
         Raises:
-            RuntimeError: When the release, its manifest or its image is missing
+            RuntimeError: When the release, its manifest or its image is missing,
+                or the release's build variant does not match the panel's
         """
         self._update_release_infos()
         release = self._find_release(version)
@@ -514,6 +609,20 @@ class HAUIUpdateController(HAUIBase):
                 f"Release {version} ships no over-the-air firmware ({FIRMWARE_MANIFEST_ASSET})"
             )
         manifest = self._read_firmware_manifest(manifest_url)
+        if not self._firmware_variant_compatible(manifest.get("variant")):
+            raise RuntimeError(
+                "Release {version} is a {variant} build but this panel runs {device}{tip}".format(
+                    version=version,
+                    variant=manifest.get("variant") or "unknown-variant",
+                    device=(self.app.device.device_info or {}).get("firmware_variant")
+                    or "an unknown build",
+                    tip=(
+                        "; the variants are not interchangeable"
+                        if manifest.get("variant")
+                        else "; its manifest names no variant"
+                    ),
+                )
+            )
         return manifest["url"], manifest["md5"]
 
     def _url_firmware_md5(self, url: str) -> str:
@@ -664,7 +773,10 @@ class HAUIUpdateController(HAUIBase):
                     )
                     return self.get_update_state()
                 if not self._firmware_update_available():
-                    self._firmware_install_error = "No firmware update is available"
+                    self._firmware_install_error = (
+                        self._firmware_variant_mismatch_reason()
+                        or "No firmware update is available"
+                    )
                     return self.get_update_state()
             if manifest is not None and (
                 version is None or self._same_version(version, manifest["version"])

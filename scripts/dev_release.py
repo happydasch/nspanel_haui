@@ -86,7 +86,9 @@ def build_manifest(version: str, image_url: str, md5: str, variant: str = "custo
     }
 
 
-def release(image: Path, version: str, base_url: str, out: Path, variant: str = "custom") -> tuple[Path, Path]:
+def release(
+    image: Path, version: str, base_url: str, out: Path, variant: str = "custom"
+) -> tuple[Path, Path]:
     """Copy ``image`` into ``out`` and write its manifest next to it.
 
     Raises:

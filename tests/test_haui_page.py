@@ -333,30 +333,34 @@ def test_request_component_text_sends_req_txt():
 # --- set_component_text newline encoding -------------------------------------
 
 
-def test_set_component_text_encodes_newlines_as_nextion_breaks():
-    """.txt values carry the \r escape, never raw CR/LF bytes (bad framing)."""
+def test_set_component_text_encodes_newlines():
+    """.txt values carry the escaped line-break sequence, never raw CR/LF bytes."""
     page = _bare_page()
     cmds: list[str] = []
     page.send_cmd = cmds.append
     comp = Component(9, "tText")
 
+    # Plain single-line text is sent unchanged.
     page.set_component_text(comp, "plain")
     assert cmds == ['tText.txt="plain"']
 
+    # A logical newline (how chunk_text joins pages) becomes the
+    # Nextion line-break escape, never a raw LF inside the command.
     cmds.clear()
-    # chunk_text pages join lines with a newline; translated popup bodies use CRLF.
-    page.set_component_text(comp, "line1\nline2")
-    assert cmds == ['tText.txt="line1\rline2"']
+    page.set_component_text(comp, "line1" + chr(10) + "line2")
+    r = chr(92)
+    assert cmds == ['tText.txt="line1' + r + 'rline2"']
 
+    # CRLF (translated popup bodies) collapses to the same single line break.
     cmds.clear()
-    page.set_component_text(comp, "line1\r\nline2")
-    assert cmds == ['tText.txt="line1\rline2"']
+    page.set_component_text(comp, "line1" + chr(13) + chr(10) + "line2")
+    assert cmds == ['tText.txt="line1' + r + 'rline2"']
 
+    # Already-escaped text (callers writing Nextion escape sequences directly)
+    # must survive untouched.
     cmds.clear()
-    # An already-escaped "\r" sequence (callers writing Nextion escape text
-    # directly) must survive untouched.
-    page.set_component_text(comp, "one\rtwo")
-    assert cmds == ['tText.txt="one\rtwo"']
+    page.set_component_text(comp, "one" + r + "rtwo")
+    assert cmds == ['tText.txt="one' + r + 'rtwo"']
 
 
 def test_notification_pages_keep_the_regression_guard():
@@ -366,9 +370,10 @@ def test_notification_pages_keep_the_regression_guard():
     page.send_cmd = cmds.append
     comp = Component(9, "tText")
 
-    page.set_component_text(comp, "first page\nsecond line")
-    assert "\n" not in cmds[0]
-    assert cmds[0] == 'tText.txt="first page\rsecond line"'
+    page.set_component_text(comp, "first page" + chr(10) + "second line")
+    r = chr(92)
+    assert r + "n" not in cmds[0]
+    assert cmds[0] == 'tText.txt="first page' + r + 'rsecond line"'
 
 
 def test_extract_component_name_handles_component_and_string():

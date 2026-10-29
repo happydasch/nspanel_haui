@@ -451,7 +451,9 @@ class HAUIUpdateController(HAUIBase):
         happen, not even when the user only gets the upgrade *offered*.
         """
         device_variant = (self.app.device.device_info or {}).get("firmware_variant")
-        return bool(device_variant) and bool(manifest_variant) and device_variant == manifest_variant
+        return bool(device_variant) and bool(manifest_variant) and (
+            device_variant == manifest_variant
+        )
 
     def _firmware_variant_mismatch_reason(self) -> str | None:
         """Explain why the manifest's firmware is not offered on this panel.

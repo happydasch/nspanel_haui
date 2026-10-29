@@ -555,7 +555,8 @@ class HAUIUpdateController(HAUIBase):
         if device_variant:
             for release in self._release_infos:
                 version = self._try_parse_version(release.get("tag_name"))
-                if version is None:
+                names = {asset.get("name") for asset in release.get("assets", [])}
+                if version is None or {FIRMWARE_OTA_ASSET, FIRMWARE_MANIFEST_ASSET} > names:
                     continue
                 manifest_url = next(
                     (

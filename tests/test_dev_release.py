@@ -49,6 +49,7 @@ def test_release_writes_the_image_and_a_matching_manifest(tmp_path):
     assert json.loads(manifest_out.read_text()) == {
         "name": "NSPanel HAUI",
         "version": "0.4.3-dev1",
+        "variant": "custom",
         "builds": [
             {
                 "chipFamily": "ESP32",
@@ -88,6 +89,26 @@ def test_main_reports_a_refused_image(tmp_path, capsys):
 
     assert code == 1
     assert "factory image" in capsys.readouterr().err
+
+
+def test_release_manifest_can_name_a_universal_build(tmp_path):
+    manifest = dev_release.build_manifest(
+        "0.4.4", "http://x/nspanel_haui_ota.bin", "abc", variant="universal"
+    )
+    assert manifest["variant"] == "universal"
+
+
+def test_main_accepts_a_variant_override(tmp_path, capsys):
+    image = _write(tmp_path, _image(version="0.4.3-dev1"))
+
+    code = dev_release.main(
+        ["--image", str(image), "--version", "0.4.3-dev1", "--base-url", BASE_URL,
+         "--variant", "universal", "--out", str(tmp_path / "www")]
+    )
+
+    assert code == 0
+    manifest = json.loads((tmp_path / "www" / "firmware-manifest.json").read_text())
+    assert manifest["variant"] == "universal"
 
 
 def test_a_version_only_matches_as_a_whole_string():

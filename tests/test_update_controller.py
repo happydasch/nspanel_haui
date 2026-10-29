@@ -202,6 +202,7 @@ def _manifest(version, path=None):
     return {
         "name": "NSPanel HAUI",
         "version": version,
+        "variant": "universal",
         "builds": [
             {"ota": {"path": path or f"https://dl/fw/{version}/ota.bin", "md5": f"md5-{version}"}}
         ],
@@ -222,16 +223,19 @@ def _updater(
 
     ``manifest`` is served at the configured ``firmware_manifest_url`` — a
     version string or a raw manifest; without it that URL serves no manifest.
-    ``fetches`` records the GitHub release list requests only.
+    ``fetches`` records the GitHub release list requests only.  The device
+    reports the universal build variant by default (override with
+    ``firmware_variant`` in ``device_info``; pass ``""`` for no variant).
     """
-    app = _App(device_info, connected, display_model)
+    merged_info = {"firmware_variant": "universal", **device_info}
+    app = _App(merged_info, connected, display_model)
     config = {**DEFAULT_CONFIG["update"], **config}
     ctrl = HAUIUpdateController(app, config)
     ctrl.log = lambda *a, **kw: None
     ctrl.translate = lambda text: text
     ctrl.get_color = lambda key: 0
     fetches: list = []
-    served = {"manifest": manifest}
+    served = {"manifest": manifest, "release_manifests": {}}
 
     def fake_get(url, timeout, stream=False):
         if url == config["firmware_manifest_url"]:
@@ -243,7 +247,10 @@ def _updater(
             return _Response(current or {})
         if url.endswith("/manifest.json"):  # a release's manifest, see _firmware_release
             tag = url.split("/")[-2]
-            return _Response(_manifest(tag, f"https://dl/{tag}/ota.bin"))
+            current = served["release_manifests"].get(tag, _manifest(tag, f"https://dl/{tag}/ota.bin"))
+            if isinstance(current, Exception):
+                raise current
+            return _Response(current)
         if downloads and url in downloads:
             return _Download(downloads[url])
         fetches.append(url)
@@ -1072,7 +1079,135 @@ def test_start_reads_the_manifest_and_a_changed_url_reads_it_again(monkeypatch):
     assert _firmware_events(app)[-1]["latest_version"] is None
 
 
-# --- automatic firmware update -----------------------------------------------
+def test_custom_device_is_never_offered_the_universal_manifest(monkeypatch):
+    """A custom install.yaml build must not see the public universal image as an update."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.3", "firmware_variant": "custom"},
+        manifest="0.4.4",
+    )
+
+    ctrl.check_for_update()
+
+    state = ctrl.get_update_state()
+    assert state["firmware_update_available"] is False
+    assert state["firmware_update_version"] is None
+    assert _firmware_events(app)[-1]["latest_version"] is None
+
+
+def test_custom_device_manual_install_of_the_offered_manifest_is_refused(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.3", "firmware_variant": "custom"},
+        manifest="0.4.4",
+    )
+
+    state = ctrl.install_firmware()
+
+    assert app.published == []
+    assert "custom" in state["firmware_install_error"]
+    assert "universal" in state["firmware_install_error"]
+
+
+def test_device_without_a_reported_variant_fails_closed(monkeypatch):
+    """Pre-0.4.4 firmware reports no variant: never flash it the universal image."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.3", "firmware_variant": ""},
+        manifest="0.4.4",
+    )
+
+    ctrl.check_for_update()
+
+    assert ctrl.get_update_state()["firmware_update_available"] is False
+    state = ctrl.install_firmware()
+    assert app.published == []
+    assert "does not report its build variant" in state["firmware_install_error"]
+
+
+def test_a_manifest_without_a_variant_fails_closed(monkeypatch):
+    manifest = {k: v for k, v in _manifest("0.4.4").items() if k != "variant"}
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.3"},
+        manifest=manifest,
+    )
+
+    ctrl.check_for_update()
+
+    assert ctrl.get_update_state()["firmware_update_available"] is False
+    state = ctrl.install_firmware()
+    assert app.published == []
+    assert "names no build variant" in state["firmware_install_error"]
+
+
+def test_custom_device_release_install_refused_and_url_install_allowed(monkeypatch):
+    """The editor picker release path fails closed; an explicit URL still installs."""
+    url = "http://ha.local/firmware.ota.bin"
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.3", "firmware_variant": "custom"},
+        [_firmware_release("v0.4.4")],
+        downloads={url: OTA_IMAGE},
+    )
+
+    state = ctrl.install_firmware("v0.4.4")
+
+    assert app.published == []
+    assert "not interchangeable" in state["firmware_install_error"]
+
+    state = ctrl.install_firmware(url=url)
+    md5 = hashlib.md5(OTA_IMAGE, usedforsecurity=False).hexdigest()
+    assert app.published == [(ESPAction.INSTALL_FIRMWARE_URL, {"url": url, "md5sum": md5})]
+    assert state["firmware_install_error"] is None
+
+
+def test_firmware_release_list_filters_by_variant(monkeypatch):
+    """A custom panel's picker lists no universal releases (From URL stays available)."""
+    release = _firmware_release("v0.4.4")
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.3", "firmware_variant": "custom"},
+        [release],
+    )
+
+    assert ctrl.list_firmware_releases() == {"releases": [], "error": None}
+
+
+def test_firmware_release_list_skips_unreadable_manifests(monkeypatch):
+    """A release whose manifest cannot be read is dropped, not offered by guess."""
+    ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
+    app.served["release_manifests"]["v0.4.2"] = requests.exceptions.ConnectTimeout(
+        "timed out"
+    )
+
+    assert ctrl.list_firmware_releases() == {"releases": [], "error": None}
+
+
+def test_firmware_release_list_matches_a_custom_manifest_variant(monkeypatch):
+    """A test release built for the custom variant is offered to a custom panel."""
+    release = _firmware_release("v0.4.4")
+    custom_manifest = {**_manifest("0.4.4", "https://dl/v0.4.4/custom.bin"), "variant": "custom"}
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.3", "tft_version": "0.4.3", "firmware_variant": "custom"},
+        [release],
+    )
+    app.served["release_manifests"]["v0.4.4"] = custom_manifest
+
+    assert ctrl.list_firmware_releases() == {"releases": ["v0.4.4"], "error": None}
+
+    state = ctrl.install_firmware("v0.4.4")
+    assert app.published == [
+        (
+            ESPAction.INSTALL_FIRMWARE_URL,
+            {"url": "https://dl/v0.4.4/custom.bin", "md5sum": "md5-0.4.4"},
+        )
+    ]
+    assert state["firmware_install_error"] is None
+
+
+# --- automatic firmware update -----------------------------------------------# --- automatic firmware update -----------------------------------------------
 
 
 def test_check_for_update_installs_the_offered_firmware_first(monkeypatch):

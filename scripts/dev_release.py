@@ -69,16 +69,24 @@ def check_image(data: bytes, version: str) -> str | None:
     return None
 
 
-def build_manifest(version: str, image_url: str, md5: str) -> dict:
-    """The manifest in the schema the release workflow writes."""
+def build_manifest(version: str, image_url: str, md5: str, variant: str = "custom") -> dict:
+    """The manifest in the schema the release workflow writes.
+
+    ``variant`` mirrors what the running firmware reports as its build
+    identity (``custom`` for a build from ``install.yaml``/``nspanel_haui_dev.yaml``;
+    the GitHub release workflow writes ``universal`` for the prebuilt image).
+    The hub refuses to install a manifest whose variant does not match the
+    panel's, so a test release must name the variant of the panel that follows it.
+    """
     return {
         "name": "NSPanel HAUI",
         "version": version,
+        "variant": variant,
         "builds": [{"chipFamily": "ESP32", "ota": {"path": image_url, "md5": md5}}],
     }
 
 
-def release(image: Path, version: str, base_url: str, out: Path) -> tuple[Path, Path]:
+def release(image: Path, version: str, base_url: str, out: Path, variant: str = "custom") -> tuple[Path, Path]:
     """Copy ``image`` into ``out`` and write its manifest next to it.
 
     Raises:
@@ -99,6 +107,7 @@ def release(image: Path, version: str, base_url: str, out: Path) -> tuple[Path, 
         version,
         f"{base_url}/{IMAGE_NAME}",
         hashlib.md5(data, usedforsecurity=False).hexdigest(),
+        variant,
     )
     manifest_out = out / MANIFEST_NAME
     manifest_out.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
@@ -119,11 +128,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--out", type=Path, required=True, help="output folder, e.g. Home Assistant's www/nspanel"
     )
+    parser.add_argument(
+        "--variant",
+        default="custom",
+        help="build variant the panel reports (universal for the prebuilt image, "
+        "custom otherwise); only matching variants can install the release",
+    )
     args = parser.parse_args(argv)
     try:
-        image_out, manifest_out = release(args.image, args.version, args.base_url, args.out)
+        image_out, manifest_out = release(
+            args.image, args.version, args.base_url, args.out, args.variant
+        )
     except (OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
+        return 1
         return 1
     base_url = args.base_url.rstrip("/")
     print(f"wrote {image_out}")

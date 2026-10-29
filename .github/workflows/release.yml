@@ -85,7 +85,11 @@ jobs:
         # (releases/latest/download/firmware-manifest.json) and the editor's
         # firmware picker reads it per release; it uses the ESPHome web-tools
         # schema (name/version/builds[].ota) with an absolute download URL and
-        # the image's md5.  Only tag pushes get a manifest: a workflow_dispatch
+        # the image's md5.  ``variant: universal`` names the build (the image
+        # compiles from nspanel_haui_universal.yaml with public credentials):
+        # the hub only offers it to panels whose device state reports the same
+        # variant, so a custom install.yaml build is never flashed with it.
+        # Only tag pushes get a manifest: a workflow_dispatch
         # run would otherwise advertise a branch name as the "version" and
         # every panel would try to update to it.
         if: startsWith(github.ref, 'refs/tags/v')
@@ -99,6 +103,7 @@ jobs:
           manifest = {
               "name": "NSPanel HAUI",
               "version": tag.lstrip("v"),
+              "variant": "universal",
               "builds": [
                   {
                       "chipFamily": "ESP32",

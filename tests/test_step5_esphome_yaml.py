@@ -175,6 +175,29 @@ def test_firmware_declares_no_update_entity_of_its_own():
     assert "firmware_manifest_url" not in base
 
 
+def test_firmware_build_variant_is_reported_and_never_universal_for_custom_builds():
+    """The device state names its build variant; a custom build never claims universal.
+
+    The hub refuses to offer or install a firmware manifest whose ``variant``
+    does not match the reported one, so the universal release image must only
+    ever be published by the universal config.
+    """
+    import re
+
+    for script in ("publish_connection_request", "publish_device_info", "publish_device_state"):
+        block = _read("scripts_event.yaml").split(f"- id: {script}")[1].split("- id:")[0]
+        assert 'root["firmware_variant"]' in block
+
+    package = (ROOT.parent / "nspanel_haui.yaml").read_text()
+    assert "firmware_variant: 'custom'" in package
+
+    dev = (ROOT.parent / "nspanel_haui_dev.yaml").read_text()
+    assert "firmware_variant: 'custom'" in dev
+
+    universal = (ROOT.parent / "nspanel_haui_universal.yaml").read_text()
+    assert "firmware_variant: 'universal'" in universal
+
+
 def test_display_model_uses_numeric_input_instead_of_slider():
     import yaml
 

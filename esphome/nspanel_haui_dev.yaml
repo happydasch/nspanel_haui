@@ -22,6 +22,10 @@ substitutions:
   wifi_password: !secret wifi_password
   ap_password: !secret ap_password
 
+  # Custom build identity (see nspanel_haui.yaml): the hub refuses to install
+  # the universal release image on it.
+  firmware_variant: 'custom'
+
   # Default TFT URL of the display component.  Install a local TFT build
   # with nspanel_haui.update_tft and its url field, e.g.
   # http://homeassistant.local:8123/local/nspanel/nspanel_haui_portrait.tft

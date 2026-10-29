@@ -41,6 +41,11 @@ substitutions:
   # Open fallback AP so the user can always join and provision.
   ap_password: ''
 
+  # Build identity reported in the device state.  This image is the prebuilt
+  # release firmware with the documented public credentials; the hub only
+  # offers/installs it on panels whose reported variant matches (`universal`).
+  firmware_variant: 'universal'
+
   # Default TFT URL of the display component; the hub's TFT update installs
   # the release asset that matches the display_model on its own.
   tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft

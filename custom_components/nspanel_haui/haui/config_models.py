@@ -105,6 +105,13 @@ def _ensure_models() -> None:
         use_sleep_schedule: bool = False
         sleep_schedule_start: str = ""
         sleep_schedule_end: str = ""
+        use_night_mode: bool = False
+        night_mode_start: str = ""
+        night_mode_end: str = ""
+        brightness_full: int = Field(50, ge=0, le=100)
+        brightness_dimmed: int = Field(20, ge=0, le=100)
+        night_brightness_full: int = Field(5, ge=0, le=100)
+        night_brightness_dimmed: int = Field(5, ge=0, le=100)
         use_relay_left: bool = True
         use_relay_right: bool = True
         use_auto_dimming: bool = True
@@ -118,6 +125,8 @@ def _ensure_models() -> None:
         timeout_dimming: int = Field(10, ge=0, le=3600)
         timeout_page: int = Field(30, ge=0, le=3600)
         timeout_display_off: int = Field(120, ge=0, le=3600)
+        night_timeout_page: int = Field(15, ge=0, le=3600)
+        night_timeout_display_off: int = Field(30, ge=0, le=3600)
         log_level: str = "INFO"
         stale_data_seconds: int = Field(0, ge=0, le=86400)
         hub_idle_timeout: int = Field(0, ge=0, le=86400)

@@ -8,6 +8,13 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ## [0.4.4] — unreleased
 
+### Added
+
+- **Night mode** — a daily time window (device settings → Night mode) with its
+  own screen brightness (full and dimmed) and its own page and display-off
+  timeouts, pushed to the device by the hub at each window boundary. Replaces
+  automations that rewrite the brightness and timeout numbers by the clock.
+
 ### Planned
 
 - Complete the remaining 0.4.x acceptance passlist on EU and US/portrait

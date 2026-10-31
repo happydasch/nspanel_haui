@@ -1140,3 +1140,141 @@ def test_touch_start_poller_fallback_when_native_lost() -> None:
     device.process_event(HAUIEvent(ESPEvent.TOUCH_START, ""))
 
     assert len(nav.exit_calls) == 1
+
+
+# --- night mode ----------------------------------------------------------------
+
+
+def _night_numbers() -> dict[str, _Number]:
+    return {
+        "number.nspanel_haui_timeout_page": _Number("30"),
+        "number.nspanel_haui_timeout_display_off": _Number("120"),
+        "number.nspanel_haui_brightness_full": _Number("50"),
+        "number.nspanel_haui_brightness_dimmed": _Number("20"),
+    }
+
+
+_NIGHT_CFG = {
+    "name": "nspanel_haui",
+    "timeout_page": 30,
+    "timeout_display_off": 120,
+    "brightness_full": 30,
+    "brightness_dimmed": 20,
+    "night_brightness_full": 2,
+    "night_brightness_dimmed": 1,
+    "night_timeout_page": 15,
+    "night_timeout_display_off": 25,
+}
+
+
+def test_night_mode_inactive_when_disabled_or_malformed() -> None:
+    app = DummyApp()
+    assert (
+        _schedule_device(
+            app, use_night_mode=False, night_mode_start="22:00", night_mode_end="06:00"
+        )._night_mode_active()
+        is None
+    )
+    assert (
+        _schedule_device(
+            app, use_night_mode=True, night_mode_start="22:00", night_mode_end=""
+        )._night_mode_active()
+        is None
+    )
+    assert (
+        _schedule_device(
+            app, use_night_mode=True, night_mode_start="late", night_mode_end="06:00"
+        )._night_mode_active()
+        is None
+    )
+
+
+def test_night_mode_active_inside_and_outside_window() -> None:
+    device = _schedule_device(
+        DummyApp(), use_night_mode=True, night_mode_start="22:00", night_mode_end="06:00"
+    )
+    assert device._night_mode_active(datetime(2026, 1, 1, 23, 0)) is True
+    assert device._night_mode_active(datetime(2026, 1, 1, 5, 0)) is True
+    assert device._night_mode_active(datetime(2026, 1, 1, 12, 0)) is False
+
+
+def test_behavior_sync_inside_night_window_pushes_night_values() -> None:
+    numbers = _night_numbers()
+    device = HAUIDevice(
+        _SwitchApp(numbers),
+        {
+            **_NIGHT_CFG,
+            "use_night_mode": True,
+            "night_mode_start": (datetime.now() - timedelta(hours=1)).strftime("%H:%M"),
+            "night_mode_end": _one_hour_from_now(),
+        },
+    )
+
+    device._sync_behavior_config()
+
+    assert numbers["number.nspanel_haui_timeout_page"].state == 15
+    assert numbers["number.nspanel_haui_timeout_display_off"].state == 25
+    assert numbers["number.nspanel_haui_brightness_full"].state == 2
+    assert numbers["number.nspanel_haui_brightness_dimmed"].state == 1
+
+
+def test_behavior_sync_outside_night_window_pushes_day_values() -> None:
+    numbers = _night_numbers()
+    # the device still holds the night values from the previous window
+    numbers["number.nspanel_haui_timeout_page"].state = "15"
+    numbers["number.nspanel_haui_timeout_display_off"].state = "25"
+    numbers["number.nspanel_haui_brightness_dimmed"].state = "1"
+    device = HAUIDevice(
+        _SwitchApp(numbers),
+        {
+            **_NIGHT_CFG,
+            "use_night_mode": True,
+            # start == end, one hour ahead: never contains the current minute
+            "night_mode_start": _one_hour_from_now(),
+            "night_mode_end": _one_hour_from_now(),
+        },
+    )
+
+    device._sync_behavior_config()
+
+    assert numbers["number.nspanel_haui_timeout_page"].state == 30
+    assert numbers["number.nspanel_haui_timeout_display_off"].state == 120
+    assert numbers["number.nspanel_haui_brightness_full"].state == 30
+    assert numbers["number.nspanel_haui_brightness_dimmed"].state == 20
+
+
+def test_behavior_sync_without_night_mode_leaves_brightness_alone() -> None:
+    numbers = _night_numbers()
+    device = HAUIDevice(_SwitchApp(numbers), {**_NIGHT_CFG, "use_night_mode": False})
+
+    device._sync_behavior_config()
+
+    assert numbers["number.nspanel_haui_timeout_page"].state == "30"
+    assert numbers["number.nspanel_haui_brightness_full"].state == "50"
+    assert numbers["number.nspanel_haui_brightness_dimmed"].state == "20"
+
+
+def test_next_schedule_boundary_includes_night_window() -> None:
+    device = _schedule_device(
+        DummyApp(),
+        use_sleep_schedule=True,
+        sleep_schedule_start="23:00",
+        sleep_schedule_end="07:00",
+        use_night_mode=True,
+        night_mode_start="21:30",
+        night_mode_end="06:30",
+    )
+    now = datetime(2026, 1, 1, 12, 0)
+    assert device._next_schedule_boundary(now) == datetime(2026, 1, 1, 21, 30)
+    assert device._next_schedule_boundary(datetime(2026, 1, 2, 6, 0)) == datetime(
+        2026, 1, 2, 6, 30
+    )
+
+
+def test_next_schedule_boundary_night_mode_only() -> None:
+    device = _schedule_device(
+        DummyApp(), use_night_mode=True, night_mode_start="22:00", night_mode_end="06:00"
+    )
+    assert device._next_schedule_boundary(datetime(2026, 1, 1, 23, 0)) == datetime(
+        2026, 1, 2, 6, 0
+    )

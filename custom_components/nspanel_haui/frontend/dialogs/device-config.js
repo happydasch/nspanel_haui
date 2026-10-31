@@ -283,6 +283,58 @@ class DeviceConfigDialog extends HauiDialog {
           </details>
 
           <details class="config-section">
+            <summary>${t("Night mode")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("Uses a darker screen and shorter timeouts during a time window, for example in a bedroom at night. While enabled, the hub also sets the screen brightness outside the window.")}
+              </p>
+                ${checkbox(this, "dc-use_night_mode", "use_night_mode", cfg, t("Night mode"),
+                  t("Inside the time window below, the night brightness and timeouts replace the regular ones. Outside it, the day brightness and the regular timeouts apply."))}
+                ${cfg.use_night_mode ? html`
+                  <div class="form-group">
+                    <label>${t("Night mode window")}</label>
+                    <div class="time-range-row">
+                      <input
+                        id="dc-night_mode_start"
+                        type="time"
+                        class="native-input"
+                        .value=${String(cfg.night_mode_start ?? "")}
+                        @input=${(e) => {
+                          this._deviceConfigForm = { ...this._deviceConfigForm, night_mode_start: e.target.value };
+                          this.requestUpdate();
+                        }}
+                      />
+                      <span class="time-range-sep">&ndash;</span>
+                      <input
+                        id="dc-night_mode_end"
+                        type="time"
+                        class="native-input"
+                        .value=${String(cfg.night_mode_end ?? "")}
+                        @input=${(e) => {
+                          this._deviceConfigForm = { ...this._deviceConfigForm, night_mode_end: e.target.value };
+                          this.requestUpdate();
+                        }}
+                      />
+                    </div>
+                    <div class="field-hint">${t("Overnight ranges such as 22:00–07:00 are supported.")}</div>
+                  </div>
+                  ${intField(this, "dc-brightness_full", "brightness_full", cfg, t("Day brightness (%)"), 50, 0, 100,
+                    t("Screen brightness outside the night window."))}
+                  ${intField(this, "dc-brightness_dimmed", "brightness_dimmed", cfg, t("Day dimmed brightness (%)"), 20, 0, 100,
+                    t("Brightness after the dimming timeout, outside the night window."))}
+                  ${intField(this, "dc-night_brightness_full", "night_brightness_full", cfg, t("Night brightness (%)"), 5, 0, 100,
+                    t("Screen brightness inside the night window."))}
+                  ${intField(this, "dc-night_brightness_dimmed", "night_brightness_dimmed", cfg, t("Night dimmed brightness (%)"), 5, 0, 100,
+                    t("Brightness after the dimming timeout, inside the night window. Keep it at or below the night brightness."))}
+                  ${intField(this, "dc-night_timeout_page", "night_timeout_page", cfg, t("Night page timeout (seconds)"), 15, 0, 3600,
+                    t("Replaces the page timeout inside the night window (0 = disabled, max 3600)."))}
+                  ${intField(this, "dc-night_timeout_display_off", "night_timeout_display_off", cfg, t("Night display-off timeout (seconds)"), 30, 0, 3600,
+                    t("Replaces the display-off timeout inside the night window (0 = disabled, max 3600)."))}
+                ` : ""}
+            </div>
+          </details>
+
+          <details class="config-section">
             <summary>${t("Hardware Buttons")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">

@@ -100,6 +100,21 @@ DEVICE_CONFIG: dict[str, Any] = {
     "use_sleep_schedule": False,
     "sleep_schedule_start": "",
     "sleep_schedule_end": "",
+    # Night mode: inside the window below the night brightness and the night
+    # page/display-off timeouts are pushed to the device instead of the regular
+    # ones (overnight ranges supported, same wall-clock semantics as above).
+    # While enabled the hub also owns the screen brightness: brightness_full /
+    # brightness_dimmed apply outside the window.  Disabled, the hub leaves the
+    # device's Brightness Full / Brightness Dimmed numbers alone.
+    "use_night_mode": False,
+    "night_mode_start": "",
+    "night_mode_end": "",
+    "brightness_full": 50,
+    "brightness_dimmed": 20,
+    "night_brightness_full": 5,
+    "night_brightness_dimmed": 5,
+    "night_timeout_page": 15,
+    "night_timeout_display_off": 30,
     "sound_on_startup": False,
     # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
     "color_overrides": {},

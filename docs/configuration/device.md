@@ -133,6 +133,28 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 
   End of the display-off schedule window in `HH:MM` 24-hour format. Only used when `use_sleep_schedule` is enabled. Supports overnight ranges. If either start or end is empty, or a value is not in `HH:MM` format, the schedule is inactive and `use_auto_display_off` is used as-is. Default empty.
 
+### Night mode
+
+- `use_night_mode` bool
+
+  Enable a daily **night mode**: inside the window below the hub pushes the night brightness and the night page/display-off timeouts to the device instead of the regular `timeout_page` / `timeout_display_off`; outside it the day brightness and the regular timeouts apply. While enabled the hub owns the device's **Brightness Full** and **Brightness Dimmed** numbers; disabled, it leaves them alone. Values are re-applied on every start, reconnect and setting save, and at each window boundary. Writing these numbers restarts the firmware's inactivity timer, so the screen wakes up briefly at each boundary. Default `False`.
+
+- `night_mode_start` / `night_mode_end` string
+
+  Night window in `HH:MM` 24-hour format. Supports overnight ranges (e.g. `22:00`–`07:00`). If either value is empty or not in `HH:MM` format, night mode is inactive (the malformed case is logged as a warning). Default empty.
+
+- `brightness_full` / `brightness_dimmed` int
+
+  Day screen brightness in percent, full and after `timeout_dimming`. Only used when `use_night_mode` is enabled. Defaults `50` / `20`.
+
+- `night_brightness_full` / `night_brightness_dimmed` int
+
+  Night screen brightness in percent, full and after `timeout_dimming`. Keep the dimmed value at or below the full one, otherwise the screen brightens when it dims. Defaults `5` / `5`.
+
+- `night_timeout_page` / `night_timeout_display_off` int
+
+  Replace `timeout_page` and `timeout_display_off` inside the night window (`0` = disabled, max `3600`). Defaults `15` / `30`.
+
 ### Automatic page switching
 
 - `use_auto_page` bool

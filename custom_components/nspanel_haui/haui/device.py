@@ -294,16 +294,33 @@ class HAUIDevice(HAUIBase):
             "timeout_dimming",
             self._resolve_esp_entity("number", f"number.{slug}_timeout_dimming", "Timeout Dimming"),
         )
+        # Night mode swaps in its own page/display-off timeouts and owns the
+        # screen brightness (day values outside the window, night values inside).
+        night = self._night_mode_active()
         self._sync_config_number(
-            "timeout_page",
+            "night_timeout_page" if night else "timeout_page",
             self._resolve_esp_entity("number", f"number.{slug}_timeout_page", "Timeout Page"),
         )
         self._sync_config_number(
-            "timeout_display_off",
+            "night_timeout_display_off" if night else "timeout_display_off",
             self._resolve_esp_entity(
                 "number", f"number.{slug}_timeout_display_off", "Timeout Display-Off"
             ),
         )
+        if night is not None:
+            prefix = "night_" if night else ""
+            self._sync_config_number(
+                f"{prefix}brightness_full",
+                self._resolve_esp_entity(
+                    "number", f"number.{slug}_brightness_full", "Brightness Full"
+                ),
+            )
+            self._sync_config_number(
+                f"{prefix}brightness_dimmed",
+                self._resolve_esp_entity(
+                    "number", f"number.{slug}_brightness_dimmed", "Brightness Dimmed"
+                ),
+            )
         self._sync_display_model()
 
     def _sync_display_model(self) -> None:
@@ -602,39 +619,86 @@ class HAUIDevice(HAUIBase):
             return None
         return _time_in_window((now or datetime.now()).time(), start_time, end_time)
 
-    def _next_schedule_boundary(self, now: datetime | None = None) -> datetime | None:
-        """When the sleep-schedule window next changes state.
+    def _schedule_window(
+        self, enabled_key: str, start_key: str, end_key: str
+    ) -> tuple[dt_time, dt_time] | None:
+        """The ``(start, end)`` times of an enabled, complete and valid window.
+
+        Returns None when the window is disabled, incomplete or malformed.
+        """
+        if not self.get(enabled_key, False):
+            return None
+        start = self.get(start_key, "")
+        end = self.get(end_key, "")
+        if not start or not end:
+            return None
+        try:
+            return (
+                datetime.strptime(start, "%H:%M").time(),
+                datetime.strptime(end, "%H:%M").time(),
+            )
+        except ValueError, TypeError:
+            return None
+
+    def _night_mode_active(self, now: datetime | None = None) -> bool | None:
+        """Whether the night-mode window is currently active.
+
+        Inside the window the night brightness and page/display-off timeouts
+        are pushed to the device; outside it the regular values (and the
+        day brightness) are.  Supports overnight ranges.
 
         Args:
             now: Injectable clock for tests (defaults to ``datetime.now()``).
 
         Returns:
-            datetime: The next future window boundary (start or end), or None
-                when no timer should be armed (schedule inactive/invalid).
+            bool: True while inside the window, False while outside.
+            None: Night mode disabled, window incomplete, or times malformed —
+                the regular timeouts apply and brightness is left alone.
         """
-        if not self.get("use_sleep_schedule", False):
+        window = self._schedule_window("use_night_mode", "night_mode_start", "night_mode_end")
+        if window is None:
+            if self.get("use_night_mode", False):
+                self.log(
+                    "Ignoring night mode: expected HH:MM, got "
+                    f"start={self.get('night_mode_start', '')!r} "
+                    f"end={self.get('night_mode_end', '')!r}",
+                    level="WARNING",
+                )
             return None
-        start = self.get("sleep_schedule_start", "")
-        end = self.get("sleep_schedule_end", "")
-        if not start or not end:
-            return None
-        try:
-            start_time = datetime.strptime(start, "%H:%M").time()
-            end_time = datetime.strptime(end, "%H:%M").time()
-        except ValueError, TypeError:
+        return _time_in_window((now or datetime.now()).time(), *window)
+
+    def _next_schedule_boundary(self, now: datetime | None = None) -> datetime | None:
+        """When the sleep-schedule or night-mode window next changes state.
+
+        Args:
+            now: Injectable clock for tests (defaults to ``datetime.now()``).
+
+        Returns:
+            datetime: The next future window boundary (start or end of either
+                window), or None when no timer should be armed (both windows
+                inactive/invalid).
+        """
+        times: list[dt_time] = []
+        for keys in (
+            ("use_sleep_schedule", "sleep_schedule_start", "sleep_schedule_end"),
+            ("use_night_mode", "night_mode_start", "night_mode_end"),
+        ):
+            window = self._schedule_window(*keys)
+            if window is not None:
+                times.extend(window)
+        if not times:
             return None
         now = (now or datetime.now()).replace(second=0, microsecond=0)
         candidates = [
-            datetime.combine(now.date(), start_time),
-            datetime.combine(now.date(), end_time),
-            datetime.combine(now.date() + timedelta(days=1), start_time),
-            datetime.combine(now.date() + timedelta(days=1), end_time),
+            datetime.combine(now.date() + timedelta(days=day), boundary)
+            for day in (0, 1)
+            for boundary in times
         ]
         future = [candidate for candidate in candidates if candidate > now]
         return min(future) if future else None
 
     def _arm_display_off_schedule_timer(self) -> None:
-        """(Re)schedule the flip of ``use_auto_display_off`` at the next boundary."""
+        """(Re)schedule the behavior re-sync at the next sleep/night window boundary."""
         self._cancel_timer("_schedule_timer")
         boundary = self._next_schedule_boundary()
         if boundary is None:
@@ -645,14 +709,14 @@ class HAUIDevice(HAUIBase):
         self._schedule_timer = self.app.run_in(self._display_off_schedule_callback, max(delay, 1))
 
     def _display_off_schedule_callback(self, _kwargs: Any) -> None:
-        """A window boundary passed: re-push ``use_auto_display_off``, re-arm.
+        """A window boundary passed: re-push the behavior settings, re-arm.
 
         ``sync_config_to_device`` is not called here on purpose - the boundary
         flip only needs the behavior sync, and a full sync would also re-run
         ``_install_tft_on_model_change`` bookkeeping.
         """
         self._schedule_timer = None
-        if not self.get("use_sleep_schedule", False):
+        if not (self.get("use_sleep_schedule", False) or self.get("use_night_mode", False)):
             return
         self._sync_behavior_config()
         self._arm_display_off_schedule_timer()

@@ -68,10 +68,31 @@ the firmware needs again (or the display asks first when `auto_install` is
 off). Installing without `version` and `url` lifts it too. A TFT that does not
 match the firmware may lack pages or components the firmware uses.
 
+### HAUI Firmware update entity
+
+Every linked panel has an `update.<device>_haui_firmware` entity. Its installed
+version is the firmware's `yaml_version`, its latest version the one the
+firmware manifest names: by default the `firmware-manifest.json` of the latest
+GitHub release, or the device's
+[`firmware_manifest_url`](configuration/device.md#updates). The hub reads the
+manifest on startup, when the URL changes and on every release check.
+**Install** runs the same install as `nspanel_haui.update_firmware` without
+`version` and `url`: the panel downloads the image, flashes it and reboots,
+and the entity shows *installing* until it reconnects. It stays available
+while the install keeps the device offline. An install that does not end in a
+reboot within ten minutes, or a reboot into the old version, is reported as an
+error in the Device Manager. The entity supports a specific version, the same
+as `nspanel_haui.update_firmware` with `version`.
+
+When the ESPHome dashboard is set up, the ESPHome integration adds its own
+**Firmware** update entity to the device (disabled by default). It recompiles
+your device YAML in the dashboard and is independent of the hub's firmware
+updates.
+
 ### HAUI Display update entity
 
 Every linked panel has an `update.<device>_haui_display` entity next to the
-firmware's **HAUI Firmware** entity on the same device page. Its installed
+**HAUI Firmware** entity on the same device page. Its installed
 version is the TFT the display reports, its latest version the TFT the firmware
 needs. **Install** runs the same TFT update as `nspanel_haui.update_tft`
 without a URL, and the entity shows *installing* until the display reports the
@@ -92,9 +113,9 @@ data:
 
 ### `nspanel_haui.update_firmware`
 
-Install the firmware update Home Assistant offers on the panel's **HAUI
-Firmware** entity, another GitHub release (`version`, older ones included), or
-the firmware OTA image at `url`. The device is required.
+Install the firmware update the panel's **HAUI Firmware** entity offers,
+another GitHub release (`version`, older ones included), or the firmware OTA
+image at `url`. The device is required.
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -109,26 +130,36 @@ data:
   version: "0.4.2"
 ```
 
-Without `version` and `url` the action installs the offered update through the
-HAUI Firmware entity, like the entity's own **Install**. With `version` or
-`url` the firmware's `install_firmware_url` action downloads and flashes the
-image itself:
+Without `version` and `url` the action re-reads the firmware manifest and
+installs the offered update, like the entity's own **Install**. Every install
+runs the firmware's `install_firmware_url` action, which downloads and flashes
+the image itself:
 
 - **Releases:** only releases that ship `nspanel_haui_ota.bin` and
   `firmware-manifest.json` (v0.4.2 and later) install over the air; the hub
-  reads the image's md5 from the manifest. Older releases ship only the
+  reads the image's md5 from the manifest. A `version` equal to the one the
+  manifest offers installs from the manifest, so a test release works too. Older releases ship only the
   factory image (`nspanel_haui.bin`), which an over-the-air update must not
   write — flash those with the ESPHome dashboard or a cable.
 - **URLs:** the Home Assistant host downloads the file first to compute the md5
   the flash needs, and refuses a factory image or a file larger than the app
   partition. The panel must reach the URL too.
-- **The panel's current firmware needs the `install_firmware_url` action.**
-  Firmware without it (0.4.2 and older) can only install the offered update;
-  install the latest firmware first.
+- **The panel's current firmware needs the `install_firmware_url` action**
+  (0.4.3 and later). Flash newer firmware once through ESPHome on a panel that
+  runs 0.4.2 or older (see [Upgrading](upgrading.md)).
 - **Automatic firmware updates pause** after a release or URL install, so
   `firmware_auto_update` does not reinstall the latest release on the next
   check. The pause lives in memory: a Home Assistant restart or installing the
+  offered update ends it.- **Automatic firmware updates pause** after a release or URL install, so
+  `firmware_auto_update` does not reinstall the latest release on the next
+  check. The pause lives in memory: a Home Assistant restart or installing the
   offered update ends it.
+- **Build variants are never crossed.** Only releases whose manifest
+  `variant` matches the panel's reported one are offered, listed in the
+  editor's firmware picker, or installed by `version`. A panel built from
+  `esphome/install.yaml` (variant `custom`) is therefore refused the public
+  universal release image; flash custom builds with `url` (see
+  [Firmware build variants in the device Updates section](configuration/device.md#updates)).
 
 Installing older firmware leaves the TFT alone: the automatic TFT check treats
 a newer TFT as up to date. Install the matching TFT with
@@ -227,10 +258,12 @@ data:
 ### `nspanel_haui.send_notification`
 
 Show a notification on the panel with a title, message, severity level, and
-icon.  Notifications stay in the queue until they are dismissed on the panel
-(or replaced/cleared) — there is no automatic dismissal.  `persistent` loops
+icon.  Notifications stay in the queue until they are dismissed on the panel,
+replaced, or cleared — unless a `timeout` is given, which auto-dismisses the
+notification after that many seconds.  `persistent` loops
 the alert sound and re-opens the popup about every 60 seconds until dismissed;
-it opens immediately.  `force_show` also opens the popup immediately, but never
+it opens immediately and `timeout` still applies to it.  `force_show` also opens
+the popup immediately, but never
 takes the place of a notification popup or list that is already on screen: the
 new notification waits in the queue and opens when the current one is
 dismissed.  The queue holds up to 50 notifications; when it is full, the oldest
@@ -245,19 +278,20 @@ When no icon is supplied, the severity selects a default one (`info` →
 `mdi:alert-octagon-outline`).
 See [Notifications](device.md#notifications) for how notifications are
 viewed and dismissed on the panel.  The ESPHome firmware also exposes
-`send_notification` action (title/message/icon + optional persistent/text_size), but this service is
+`send_notification` action (title/message/icon + optional persistent/text_size, no severity/force-show/timeout), but this service is
 the recommended path because it also carries severity and force-show.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `device` | no | all devices | Target NSPanel device |
 | `title` | yes | — | Notification headline |
-| `message` | no | `""` | Body text (can be empty for a title-only alert) |
+| `message` | no | `""` | Body text (can be empty for a title-only alert). Line breaks (`\n`) render as line breaks on the display |
 | `icon` | no | severity default | Material Design Icon (e.g. `"mdi:bell"`). When omitted, the `type` selects the default icon |
 | `type` | no | `"info"` | Severity level — `"info"`, `"warning"`, or `"critical"`. Sets the icon colour in the popup; `critical` also plays the `alert` sound instead of `notification` |
-| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel. While the idle page is shown, only a `critical` persistent notification interrupts it |
+| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel. While the idle page is shown, only a `critical` persistent notification interrupts it. A `timeout` still ends it |
 | `force_show` | no | `false` | When `true`, opens the notification panel immediately, unless a notification popup or list is already open — then it waits in the queue |
 | `text_size` | no | `"auto"` | Popup body text size — `"auto"` (chosen from the message length) or a font size `1`-`3` |
+| `timeout` | no | — (none) | Seconds until the notification auto-dismisses. Left out (or `0`) it stays queued until dismissed on the panel |
 
 Sending a notification with the same title and message as one that is still
 queued replaces it: the queued copy is removed (firing a `removed` event), the

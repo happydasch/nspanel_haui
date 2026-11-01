@@ -288,12 +288,16 @@ class NSPanelHAUI(HAAdapter):
         """Fire the current TFT update state for the "HAUI Display" entity."""
         self.controller["update"].publish_display_update()
 
+    def publish_firmware_update(self) -> None:
+        """Fire the current firmware update state for the "HAUI Firmware" entity."""
+        self.controller["update"].publish_firmware_update()
+
     def install_firmware(self, version: str | None = None, url: str | None = None) -> dict:
         """Trigger a firmware install for this device, on its worker thread.
 
         Args:
-            version (str | None): GitHub release to install instead of the
-                offered update
+            version (str | None): Version to install instead of the offered
+                update: the manifest's or a GitHub release
             url (str | None): URL of an OTA app image instead of a release
 
         Returns:

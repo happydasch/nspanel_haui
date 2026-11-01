@@ -907,14 +907,15 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
 
     @require_admin
     async def post(self, request, entry_id: str):
-        """Manually install the firmware update advertised by a device.
+        """Manually install the firmware update offered to a device.
 
-        Without ``version`` / ``url`` the action checks the ESPHome update
-        entity immediately before calling ``update.install``. It remains
+        Without ``version`` / ``url`` the action re-reads the device's firmware
+        manifest and installs the newer firmware it names.  It remains
         available when automatic installs are disabled in that device's
         settings.  An optional ``version`` (GitHub release, older ones
-        included) or ``url`` (OTA app image, single device only) is flashed by
-        the firmware's ``install_firmware_url`` action instead.
+        included) or ``url`` (OTA app image, single device only) installs that
+        image instead; every install runs the firmware's
+        ``install_firmware_url`` action.
         """
         hass = request.app["hass"]
         try:

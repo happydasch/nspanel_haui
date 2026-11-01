@@ -61,15 +61,21 @@ export const DEVICE_CONFIG_DEFAULTS = {
   date_format: "",
   date_format_locale: "",
   color_overrides: {},
-  // Mirrors DEFAULT_CONFIG["update"] in Python.  Checks run by default so a
-  // device that is never opened in the editor still receives updates.
+  // Mirrors DEFAULT_CONFIG["update"] in Python. Checks run by default so update
+  // offers are found even when a device is never opened in the editor.
   update: {
     check_on_connect: true,
     update_interval: 3600,
-    firmware_auto_update: true,
+    firmware_auto_update: false,
     auto_install: true,
   },
 };
+
+// Mirrors DEFAULT_CONFIG["update"]["firmware_manifest_url"] in Python.  It is
+// not part of DEVICE_CONFIG_DEFAULTS: the store holds the URL only when a
+// device overrides it (a test panel following local test releases).
+export const DEFAULT_FIRMWARE_MANIFEST_URL =
+  "https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json";
 
 /**
  * Supported locale options for the device config locale dropdown.

@@ -3,6 +3,7 @@
 import pytest
 from nspanel_haui.haui.abstract import haui_page
 from nspanel_haui.haui.page.clock import ClockPage
+from nspanel_haui.haui.utils.icon import parse_icon
 
 
 class _Device:
@@ -172,3 +173,101 @@ def test_inside_temp_card_reads_the_resolved_sensor():
         main_text, sub_text = page._card_text_inside_temperature()
 
         assert (main_text, sub_text) == ("21°C", "INSIDE")
+
+
+def test_inside_temp_card_uses_configured_sensor():
+    """A panel-level inside_temp_item overrides the internal sensor lookup."""
+
+    class _State:
+        def __init__(self, state):
+            self.state = state
+
+        def get_state(self):
+            return self.state
+
+    class _ConfiguredApp(_App):
+        def __init__(self):
+            self.device = _Device()
+            self.controller = {}
+            self.requested = []
+
+        def find_entity_id(self, domain, name):
+            raise AssertionError("override must skip the registry lookup")
+
+        def get_item(self, entity_id):
+            self.requested.append(entity_id)
+            return _State("23.1")
+
+    app = _ConfiguredApp()
+    page = ClockPage(app, {"page_id": 7})
+    page.translate = lambda key: "INSIDE"
+    page.panel = _Panel({"inside_temp_item": {"item": "sensor.office_temperature"}})
+
+    main_text, sub_text = page._card_text_inside_temperature()
+
+    assert app.requested == ["sensor.office_temperature"]
+    assert (main_text, sub_text) == ("23°C", "INSIDE")
+
+
+def test_outside_temp_missing_keeps_home_temp():
+    """The clock header keeps the inside temperature when the weather entity
+    has no temperature attribute."""
+
+    class _State:
+        def get_state(self):
+            return "21.4"
+
+    class _TempApp(_App):
+        def __init__(self):
+            self.device = _Device()
+            self.controller = {}
+            self.temp_entity_id = None
+
+        def find_entity_id(self, domain, name):
+            return self.temp_entity_id
+
+        def get_item(self, entity_id):
+            assert entity_id == "sensor.panel_temperature"
+            return _State()
+
+    class _NoTempWeather(_Item):
+        def get_item_attr(self, attr, default=None):
+            if attr == "temperature":
+                return ""
+            return super().get_item_attr(attr, default)
+
+    page = ClockPage(_TempApp(), {"page_id": 7})
+    page.cmds = []
+    page.send_cmd = page.cmds.append
+    page.get_color = lambda key: 0
+    page._weather_item = _NoTempWeather({"item": "weather.home"})
+    page._show_home_temp = True
+    page._weather_icons_mode = "monochrome"
+    for name in ["t_main_text", "t_sub_text", "t_main_icon"]:
+        component = getattr(ClockPage.COMPONENTS, name)
+        page.set_function_component(component, component.name)
+
+    page.update_main_weather()
+
+    home = f"{parse_icon('mdi:home-thermometer')}21°C  "
+    assert f'tMainText.txt="{home}"' in page.cmds
+    assert f'{parse_icon("mdi:thermometer")}' not in "".join(page.cmds)
+
+
+def test_dark_display_keeps_the_clock_current(monkeypatch):
+    """With the hub connected the Nextion stays awake at brightness 0 while the
+    display is "off", and a wake touch lights the backlight before the hub could
+    redraw: time and weather must keep updating so the page is current on wake.
+    Only the card-cycle animation pauses."""
+    page = _show(monkeypatch)
+    page.app.device.device_info = {"display_state": "off"}
+    updated = []
+    page._render_cycle_card = lambda: updated.append("time")
+    page.update_main_weather = lambda: updated.append("weather")
+
+    page.callback_update_time({})
+    page.callback_weather("weather.home", "temperature", 10, 11, {})
+    page._tick()
+
+    assert updated == ["time", "weather"]
+    assert page._card_timer == 0

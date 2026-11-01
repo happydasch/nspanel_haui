@@ -18,6 +18,11 @@ substitutions:
   wifi_ssid: $wifi_ssid
   wifi_password: $wifi_password
   ap_password: $ap_password
+  # Build identity reported in the device state.  This package builds a custom
+  # firmware with the user's own credentials; the prebuilt release image
+  # (nspanel_haui_universal.yaml) overrides it with `universal`.  The hub
+  # refuses to flash a manifest whose variant does not match the reported one.
+  firmware_variant: 'custom'
   # Default TFT URL of the display component (enables TFT upload support);
   # the hub's TFT update always sends the URL of the TFT it installs
   tft_update_url: $tft_update_url

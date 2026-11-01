@@ -80,6 +80,14 @@ class WeatherPage(HAUIPage):
                 section=_("Weather"),
             ),
             PageOption(
+                key="inside_temp_item",
+                kind="item",
+                domain="sensor",
+                label=_("Inside temperature sensor"),
+                description=_("Leave empty to use the NSPanel's internal temperature sensor."),
+                section=_("Temperature"),
+            ),
+            PageOption(
                 key="forecast_type",
                 kind="select",
                 default="",
@@ -347,37 +355,44 @@ class WeatherPage(HAUIPage):
         # set up main weather details
         icon = self._weather_item.get_icon()
         color = self._weather_item.get_color()
-        temp_outside_str = self._weather_item.get_item_attr("temperature", "")
-        if not temp_outside_str:
-            self.update_function_component(
-                self.COMPONENTS.t_main_icon[1],
-                icon=icon,
-                color=None if self._weather_icons_mode == "monochrome" else color,
-                visible=self._show_weather,
+        try:
+            temp_outside_str = self._weather_item.get_item_attr("temperature", "")
+            temp_outside = (
+                None
+                if not temp_outside_str
+                else round(float(temp_outside_str), self.TEMP_PRECISION)
             )
-            self.update_function_component(self.COMPONENTS.t_main_text[1], visible=False)
-            self.update_function_component(self.COMPONENTS.t_sub_text[1], visible=False)
-            return
-        temp_outside = round(
-            float(temp_outside_str),
-            self.TEMP_PRECISION,
-        )
+        except ValueError, TypeError:
+            temp_outside = None
         msg = ""
         if self._show_home_temp:
-            temp_inside_entity = self.app.get_item(self.get_inside_temp_entity_id())
-            temp_inside_state = temp_inside_entity.get_state()
-            if temp_inside_state not in (None, "unavailable", "unknown"):
-                temp_inside: float | int = round(float(temp_inside_state), self.TEMP_PRECISION)
-                if not self.TEMP_PRECISION:
-                    temp_inside = int(temp_inside)
-                msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
-        if not self.TEMP_PRECISION:
-            temp_outside = int(temp_outside)
-        msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
-        msg_sub = self._weather_item.get_item_attr("pressure", "")
-        if msg_sub:
-            pressure_unit = self._weather_item.get_item_attr("pressure_unit")
-            msg_sub = f"{msg_sub}{pressure_unit}"
+            temp_inside_state = self.app.get_item(
+                self.get_inside_temp_entity_id(self.panel)
+            ).get_state()
+            if temp_inside_state not in (None, "", "unavailable", "unknown"):
+                try:
+                    temp_inside: float | int | None = round(
+                        float(temp_inside_state), self.TEMP_PRECISION
+                    )
+                except ValueError, TypeError:
+                    temp_inside = None
+                if temp_inside is not None:
+                    if not self.TEMP_PRECISION:
+                        temp_inside = int(temp_inside)
+                    msg = f"{parse_icon('mdi:home-thermometer')}{temp_inside}{self._temp_unit}  "
+        if temp_outside is not None:
+            if not self.TEMP_PRECISION:
+                temp_outside = int(temp_outside)
+            msg = f"{msg}{parse_icon('mdi:thermometer')}{temp_outside}{self._temp_unit}"
+        msg_sub = ""
+        if temp_outside is not None:
+            msg_sub = self._weather_item.get_item_attr("pressure", "")
+            if msg_sub:
+                pressure_unit = self._weather_item.get_item_attr("pressure_unit")
+                msg_sub = f"{msg_sub}{pressure_unit}"
+        # Hide the text widgets only when there is nothing to show at all; the
+        # weather icon stays visible either way.
+        has_text = bool(msg or msg_sub)
         self.update_function_component(
             self.COMPONENTS.t_main_icon[1],
             icon=icon,
@@ -385,10 +400,10 @@ class WeatherPage(HAUIPage):
             visible=self._show_weather,
         )
         self.update_function_component(
-            self.COMPONENTS.t_main_text[1], text=msg, visible=self._show_temp
+            self.COMPONENTS.t_main_text[1], text=msg, visible=self._show_temp and has_text
         )
         self.update_function_component(
-            self.COMPONENTS.t_sub_text[1], text=msg_sub, visible=self._show_temp
+            self.COMPONENTS.t_sub_text[1], text=msg_sub, visible=self._show_temp and has_text
         )
 
     def update_forecast(self, idx: int, data: dict) -> None:
@@ -469,23 +484,17 @@ class WeatherPage(HAUIPage):
     def callback_update_time(self, cb_args: Any) -> None:
         if not self.started:
             return
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         self.update_time()
         self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
 
     def callback_update_date(self, cb_args: Any) -> None:
         if not self.started:
             return
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         self.update_date()
 
     def callback_weather(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
     ) -> None:
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         self.update_main_weather()
         self.render_info_panels()
         self.render_forecast()

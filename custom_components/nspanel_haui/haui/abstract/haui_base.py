@@ -278,7 +278,14 @@ class HAUIBase(HAUIConfigAccess):
         """
         if not component:
             return
-        self.send_cmd(f'{component.name}.txt="{text!s}"')
+        # Nextion renders the two-character ``\r`` sequence inside a ``.txt``
+        # command as a line break.  Multi-line texts (notification pages joined
+        # with logical newlines, translated popup bodies with ``\r\n``) must be
+        # sent as that escape: a raw CR/LF byte would end up inside the quoted
+        # serial command and break the framing.  Already-escaped ``\r`` text is
+        # left untouched.
+        command_text = str(text).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\r")
+        self.send_cmd(f'{component.name}.txt="{command_text}"')
 
     def set_component_value(self, component: Component, value: int) -> None:
         """Sends a command to set the value of a component.

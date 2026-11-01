@@ -49,6 +49,7 @@ from nspanel_haui.services import (  # noqa: E402
     SERVICE_OPEN_PANEL,
     SERVICE_RESET_LAST_INTERACTION,
     SERVICE_SEND_NOTIFICATION,
+    SERVICE_SEND_NOTIFICATION_SCHEMA,
     SERVICE_UPDATE_FIRMWARE,
     SERVICE_UPDATE_FIRMWARE_SCHEMA,
     SERVICE_UPDATE_TFT,
@@ -430,6 +431,7 @@ async def test_send_notification_passes_all_fields_to_controller(
         notif_type="critical",
         force_show=True,
         text_size="auto",
+        timeout=None,
     )
     mock_esphome_ctrl.esphome.publish.assert_not_called()
 
@@ -457,7 +459,64 @@ async def test_send_notification_text_size_passthrough(mock_hass, mock_nav, mock
         notif_type="info",
         force_show=False,
         text_size=2,
+        timeout=None,
     )
+
+
+@pytest.mark.asyncio
+async def test_send_notification_timeout_passthrough(mock_hass, mock_nav, mock_esphome_ctrl):
+    """The service forwards an explicit timeout; the controller auto-dismisses."""
+    app = _make_app(mock_nav, mock_esphome_ctrl)
+    notif_ctrl = MagicMock()
+    app.controller["notification"] = notif_ctrl
+    mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
+
+    from nspanel_haui.services import _handle_send_notification
+
+    call = MagicMock()
+    call.data = {"title": "Door", "message": "open", "timeout": 10}
+
+    await _handle_send_notification(mock_hass, call)
+
+    notif_ctrl.send_notification.assert_called_once_with(
+        title="Door",
+        message="open",
+        icon="",
+        persistent=False,
+        notif_type="info",
+        force_show=False,
+        text_size="auto",
+        timeout=10,
+    )
+
+
+def test_send_notification_schema_accepts_a_timeout():
+    """services.yaml documents the timeout field; the schema must accept it."""
+    data = SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "timeout": 10})
+    assert data["timeout"] == 10
+
+
+@pytest.mark.parametrize("bad", [-1, "soon"])
+def test_send_notification_schema_rejects_invalid_timeouts(bad):
+    with pytest.raises(vol.Invalid):
+        SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "timeout": bad})
+
+
+def test_send_notification_service_metadata_and_schema_agree():
+    """services.yaml and SERVICE_SEND_NOTIFICATION_SCHEMA must not drift.
+
+    Every field the service documents must be accepted by the schema and vice
+    versa, so the UI the user sees always maps to a valid service call.
+    """
+    import yaml
+    from pathlib import Path
+
+    services = Path(__file__).resolve().parent.parent / "custom_components" / \
+        "nspanel_haui" / "services.yaml"
+    metadata = yaml.safe_load(services.read_text())["send_notification"]
+    yaml_fields = set(metadata["fields"])
+    schema_fields = {marker.schema for marker in SERVICE_SEND_NOTIFICATION_SCHEMA.schema}
+    assert yaml_fields == schema_fields
 
 
 @pytest.mark.asyncio

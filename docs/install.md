@@ -45,6 +45,12 @@ With the prepared and connected device it is now possible to install ESPHome on 
    - `ota_password` / `api_encryption_key` — from step 2
    - `ap_password` — fallback access point password
 
+   This build reports itself as a **custom** firmware variant (see
+   [Firmware updates in the device settings](configuration/device.md#updates)):
+   the hub never offers or installs the public universal release image on it,
+   so your credentials stay yours. Flash newer firmware with **Install firmware
+   → From URL** (a built `firmware.ota.bin`) or ESPHome.
+
    You can set these directly in the file or in the ESPHome dashboard's **Secrets** (the keys are listed in [`secrets.yaml.example`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/secrets.yaml.example)).
 
    The ESPHome **web server is optional and off by default** (it costs flash
@@ -109,7 +115,7 @@ See [Configuration Details](configuration/README.md) for all available options a
 
 The display needs a custom interface which is provided in a TFT file. About a minute after the device connects to the Hub App, the Hub App compares the display's TFT version with the version the ESPHome firmware needs. If the display has an older TFT (or none), the matching TFT file is downloaded from the GitHub release with that version and installed automatically. The display is busy for a few minutes while the file is transferred.
 
-After an update that changes the firmware version, update the ESPHome firmware first; the matching TFT then follows on the next connect. Once the device runs firmware with the `HAUI Firmware` update entity, the hub can trigger future firmware updates through Home Assistant; the first flash onto older firmware remains a manual ESPHome step.
+After an update that changes the firmware version, update the ESPHome firmware first; the matching TFT then follows on the next connect. Once the device runs firmware 0.4.3 or later, the hub's **HAUI Firmware** update entity installs future firmware releases; the first flash onto older firmware remains a manual ESPHome step.
 
 The installation process can also be executed manually. See [Nextion Display](nextion.md) for details.
 

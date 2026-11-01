@@ -569,8 +569,6 @@ class ClockTwoPage(HAUIPage):
     # callback
 
     def callback_update_time(self, cb_args: dict[str, Any]) -> None:
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         # Batch matrix update commands so they don't interleave with a panel
         # render in progress on another executor thread.
         with self.rec_cmd:

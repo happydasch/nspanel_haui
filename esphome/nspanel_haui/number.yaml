@@ -9,6 +9,7 @@ number:
   - platform: template
     name: Display Model
     id: display_model
+    mode: box
     entity_category: config
     min_value: 0
     max_value: 1

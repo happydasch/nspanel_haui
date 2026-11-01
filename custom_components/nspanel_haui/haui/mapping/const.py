@@ -193,10 +193,18 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "on_connect_delay": 60,  # Defaults to 60 sec, delay before checking for updates on connect
         # set to 0 to disable, set to 3600 for hourly checks
         "update_interval": 3600,
-        # install a newer firmware automatically when the release ships one; the
-        # TFT the new firmware needs follows after the device reboots. Only runs
-        # when update checks are enabled (check_on_connect or update_interval).
-        "firmware_auto_update": True,
+        # Install a newer firmware automatically when the release ships one; the
+        # TFT the new firmware needs follows after the device reboots. Disabled
+        # by default; only runs when update checks are enabled (check_on_connect
+        # or update_interval).
+        "firmware_auto_update": False,
+        # Manifest naming the firmware the HAUI Firmware entity offers.  Point a
+        # test panel at a local manifest (scripts/dev_release.py) to follow
+        # test releases instead of GitHub's latest release.
+        "firmware_manifest_url": (
+            "https://github.com/happydasch/nspanel_haui/releases/latest/download/"
+            "firmware-manifest.json"
+        ),
     },
     # gesture related settings
     "gesture": {},

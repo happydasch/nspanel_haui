@@ -302,10 +302,8 @@ class TestOptionsToConfigDict:
         assert result["update"]["update_interval"] == 60
         assert result["update"]["check_on_connect"] is False
         # Keys the store does not override keep the shipped defaults.
-        assert (
-            result["update"]["firmware_auto_update"]
-            == DEFAULT_CONFIG["update"]["firmware_auto_update"]
-        )
+        assert result["update"]["firmware_auto_update"] is False
+        assert result["update"]["firmware_auto_update"] == DEFAULT_CONFIG["update"]["firmware_auto_update"]
         assert result["update"]["tft_filename"] == DEFAULT_CONFIG["update"]["tft_filename"]
 
     def test_device_config_home_sleep_keys(self):

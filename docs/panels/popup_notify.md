@@ -17,14 +17,19 @@ The text size follows the message length: messages under 50 characters use a lar
 
 This popup is opened by the integration and cannot be configured in the panel editor. Parameters when opening it programmatically:
 
-- `notification`, `title` — Message text and title.
+- `notification`, `title` — Message text and title. Line breaks in the message (`\n`) render as line breaks on the display.
 - `icon` (optional) — Always shown. When provided, the text is shown in a narrower column beside the icon. When omitted, the severity default icon is used (`info` → `mdi:information-outline`, etc.).
 - `btn_left`, `btn_right` (optional) — Button labels; a button is shown only when set. Colors via `btn_left_color`, `btn_left_back_color` and the `btn_right_*` equivalents.
 - `notif_type` — `info` (default), `warning` or `critical`; sets the icon color (override with `icon_color`).
 - `text_size` — `auto` (default, by message length) or a font size 1-3. The per-notification `text_size` field on the service/actions overrides this panel value.
-- `close_timeout` — Automatically close after this many seconds. 0 = no auto-close.
 - `close_on_button` — Close when a button is pressed. Default: true.
 - `button_callback_fnc`, `close_callback_fnc` — Callbacks.
+
+Queued-notification popups (opened by the service/entities) are never closed
+automatically: the hub opens them without a `close_timeout`, so they stay up
+until dismissed on the panel — or until their optional `timeout` expires. A
+programmatic `open_panel` popup (an ad-hoc notify) can still pass
+`close_timeout` to close itself after a number of seconds.
 
 ## Using the service
 

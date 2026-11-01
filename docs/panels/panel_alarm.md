@@ -38,3 +38,8 @@ In the **panel editor**, set:
   - **Keypad font size** — Font ID for the keypad digits (0-7, larger = bigger text). Default: `2`.
   - **Keypad button background** — Background color of each key. Default: the theme's page background (`4226`), so the keys sit flat on the page.
   - **Keypad text color** — Color of the keypad digits. Default: the theme's component text (`65535`).
+- **Action buttons** section — the four bottom buttons:
+  - **Hidden arm modes** — Arm modes that are never offered, even when the entity supports them (`home`, `away`, `night`, `vacation`, `custom_bypass`). Default: none. The remaining supported modes move up into the freed slots.
+  - **Show action icons** — Puts the icon of the state an action leads to (e.g. the night icon on *Night*) before its label. An action button holds at most 10 bytes of text and an icon takes 3 bytes plus a space, so the icon is left out for labels that would not fit (e.g. French *Désarmer*). Default: off.
+  - **Arm button text color** / **Arm button background** — Colors of the arm mode buttons. Empty: the theme's button colors.
+  - **Disarm button text color** / **Disarm button background** — Colors of the disarm button. Empty: the theme's button colors.

@@ -8,13 +8,11 @@ binary_sensor:
     name: Touch
     id: touch
     internal: false
-    entity_category: diagnostic
 
   #  Physical hardware button below display to toggle relay
   - platform: gpio
     name: Button Left
     id: button_left
-    entity_category: diagnostic
     pin:
       number: 14
       inverted: true
@@ -50,7 +48,6 @@ binary_sensor:
     pin:
       number: 27
       inverted: true
-    entity_category: diagnostic
     # Debounce both edges so on_press fires exactly once per physical press.
     filters:
       - delayed_on_off: 10ms

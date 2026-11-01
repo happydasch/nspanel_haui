@@ -127,11 +127,14 @@ async def _link_esphome_device(
 ) -> None:
     """Link the ESPHome device to the nspanel_haui integration.
 
-    Adds an ``nspanel_haui`` identifier to the existing ESPHome device entry and
-    attaches our config entry so the device shows up in the nspanel_haui hub
-    page. The device selector (integration: nspanel_haui) in services.yaml
-    matches the extra identifier, and clicking the device in the hub page goes to
-    the ESPHome device (its primary config entry).
+    Adds an ``nspanel_haui`` identifier to the existing ESPHome device entry.
+    The device selector (integration: nspanel_haui) in services.yaml matches
+    the extra identifier.
+
+    A device now belongs to a single config entry (the ESPHome one), so our
+    config entry is no longer attached: ``add_config_entry_id`` is deprecated
+    (breaks in HA 2027.8) and only records a pending move, and
+    ``new_config_entry_id`` would take the device away from ESPHome.
 
     Safe to call when the device is already linked (idempotent).
     """
@@ -143,18 +146,10 @@ async def _link_esphome_device(
         return
 
     nspanel_identifier = ("nspanel_haui", dev_name)
-    has_identifier = nspanel_identifier in esphome_dev.identifiers
-    has_config_entry = esphome_dev.config_entry_id == entry.entry_id
-
-    if has_identifier and has_config_entry:
+    if nspanel_identifier in esphome_dev.identifiers:
         return  # already linked
 
-    kwargs: dict[str, Any] = {}
-    if not has_identifier:
-        kwargs["merge_identifiers"] = {nspanel_identifier}
-    if not has_config_entry:
-        kwargs["add_config_entry_id"] = entry.entry_id
-    dev_reg.async_update_device(ha_device_id, **kwargs)
+    dev_reg.async_update_device(ha_device_id, merge_identifiers={nspanel_identifier})
 
 
 async def _create_app(
@@ -520,23 +515,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for _device_name, app in apps.items():
         if not await _stop_app(app):
             errors = True
-        # Remove our config_entry_id from the ESPHome device so it no
-        # longer shows in the nspanel_haui hub page.
-        if app._ha_device_id:
-            try:
-                from homeassistant.helpers import device_registry as dr
-
-                dev_reg = dr.async_get(hass)
-                dev_reg.async_update_device(
-                    app._ha_device_id,
-                    remove_config_entry_id=entry.entry_id,
-                )
-            except Exception:
-                _LOGGER.debug(
-                    "Could not remove config entry from device '%s'",
-                    _device_name,
-                    exc_info=True,
-                )
     return not errors
 
 

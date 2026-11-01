@@ -547,6 +547,7 @@ class HAUINotificationController(HAUIBase):
                 "icon": notification.icon,
                 "notif_type": notification.notif_type,
                 "persistent": notification.persistent,
+                "timeout": notification.timeout,
             },
         )
 

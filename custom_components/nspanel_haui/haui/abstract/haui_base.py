@@ -54,6 +54,13 @@ class HAUIBase(HAUIConfigAccess):
         self._rec_cmd: list[str] = []
         self._rec_cmd_lock = threading.RLock()
 
+    def find_esphome_entity_id(self, domain: str, original_name: str) -> str | None:
+        """Resolve a linked ESPHome entity through the HA adapter registry."""
+        resolver = getattr(self.app, "find_entity_id", None)
+        if not callable(resolver):
+            return None
+        return resolver(domain, original_name)
+
     # lifecycle
 
     def start(self) -> None:

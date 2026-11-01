@@ -366,9 +366,12 @@ class WeatherPage(HAUIPage):
             temp_outside = None
         msg = ""
         if self._show_home_temp:
-            temp_inside_state = self.app.get_item(
-                self.get_inside_temp_entity_id(self.panel)
-            ).get_state()
+            inside_temp_id = self.get_inside_temp_entity_id(self.panel)
+            temp_inside_state = (
+                self.app.get_item(inside_temp_id).get_state()
+                if inside_temp_id is not None
+                else None
+            )
             if temp_inside_state not in (None, "", "unavailable", "unknown"):
                 try:
                     temp_inside: float | int | None = round(

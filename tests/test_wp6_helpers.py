@@ -45,10 +45,11 @@ def _network_hass(monkeypatch, values, *, device_id="device-1"):
         entity_id: SimpleNamespace(
             domain="sensor",
             platform="esphome",
-            device_id=entity_device_id,
-            original_name=name,
+            device_id=entry_values[0],
+            original_name=entry_values[1],
+            disabled_by=entry_values[2] if len(entry_values) > 2 else None,
         )
-        for entity_id, (entity_device_id, name) in values.items()
+        for entity_id, entry_values in values.items()
     }
     entity_registry = SimpleNamespace(entities=registry_entries)
     registry_module = types.ModuleType("homeassistant.helpers.entity_registry")
@@ -88,6 +89,19 @@ def test_read_network_entities_resolves_prefixed_ids_by_device_and_original_name
         "sensor.lounge_panel_ssid",
         "sensor.lounge_panel_rssi",
     ]
+
+
+def test_read_network_entities_ignores_disabled_renamed_copy(monkeypatch):
+    entities = {
+        "sensor.old_panel_ip": ("device-1", "IP", "integration"),
+        "sensor.area_panel_ip": ("device-1", "IP"),
+    }
+    hass = _network_hass(monkeypatch, entities)
+    hass.states.get.side_effect = {
+        "sensor.area_panel_ip": _state("sensor.area_panel_ip", "10.0.0.6"),
+    }.get
+
+    assert esphome_helpers.read_network_entities(hass, "panel")["ip"] == "10.0.0.6"
 
 
 def test_read_network_entities_handles_each_unavailable_field_independently(monkeypatch):

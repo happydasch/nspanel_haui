@@ -213,7 +213,8 @@ send_notification:
       name: "Timeout"
       description: >-
         Seconds until the notification auto-dismisses.  Leave empty
-        (default) to keep it queued until dismissed on the panel.
+        (default), or enter 0, to keep it queued until dismissed on the panel.
+        Valid timeout values are 1–3600 seconds.
       required: false
       example: 10
       selector:

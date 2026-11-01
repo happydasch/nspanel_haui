@@ -169,6 +169,17 @@ def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
     assert event.value == expected_value
 
 
+def test_notification_event_includes_timeout(dummy_app):
+    """Automations can distinguish a timed notification from one that stays queued."""
+    controller = HAUINotificationController(dummy_app, {})
+
+    controller.send_notification("Door", "open", timeout=15)
+
+    event_type, payload = dummy_app.fire_event_calls[-1]
+    assert event_type == "nspanel_haui.notification"
+    assert payload["timeout"] == 15
+
+
 def test_device_play_sound_on_notification_event(dummy_app):
     """Test that a notification event triggers a sound when enabled in config."""
     device = _device(dummy_app, sound_on_notification=True)

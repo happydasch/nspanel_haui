@@ -162,8 +162,8 @@ function renderHealthSection(ds, di) {
             <span class="di-info-value">${uptime != null ? fmtInterval(uptime) : "—"}</span>
           </div>
           <div class="di-info-cell">
-            <span class="di-info-label">${t("State")}</span>
-            <span class="di-info-value">${idlePage ? t("Idle page") : t("Active")}</span>
+            <span class="di-info-label">${t("Page Mode")}</span>
+            <span class="di-info-value">${idlePage ? t("Idle page") : t("Regular page")}</span>
           </div>
           <div class="di-info-cell">
             <span class="di-info-label">${t("Last Disconnect")}</span>

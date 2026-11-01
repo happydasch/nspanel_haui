@@ -114,7 +114,7 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 
 - `use_auto_display_off` bool
 
-  When enabled, the display turns off (brightness to zero) after `timeout_display_off` seconds of inactivity. This is a display-brightness behavior of the firmware; it never requires a page switch and needs no idle page configured. A touch or button press wakes the display again. Default `True`.
+  When enabled, the display turns off (brightness to zero) after `timeout_display_off` seconds of inactivity. This is a display-brightness behavior of the firmware; it never requires a page switch and needs no idle page configured. A touch, or a hardware-button press when `reset_interaction_on_button` is enabled, wakes the display again. Default `True`.
 
 - `timeout_display_off` int
 
@@ -136,7 +136,7 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 
 - `use_auto_page` bool
 
-  When enabled, the hub switches to the configured idle page (`idle_panel`) after `timeout_page` seconds of inactivity. This only changes the shown page — it neither dims nor turns the display off (use `use_auto_display_off` for that). A touch or button press returns to the panel you were on. Default `True`.
+  When enabled, the hub switches to the configured idle page (`idle_panel`) after `timeout_page` seconds of inactivity. This only changes the shown page — it neither dims nor turns the display off (use `use_auto_display_off` for that). A touch, or a hardware-button press when `reset_interaction_on_button` is enabled, exits the idle page and restores the previous panel. Default `True`.
 
 - `timeout_page` int
 
@@ -238,7 +238,7 @@ shortcuts on top of that.
 
 - `reset_interaction_on_button` bool
 
-  Whether hardware button presses reset the idle/interaction timer (and wake the display). When `False`, button presses only toggle the relay/entity and don't count as user interaction. Default `True`.
+  When enabled (default), a hardware button press resets the idle/interaction timer, wakes the display, and exits the idle page. When `False`, the button still toggles its relay or entity but does not wake the display or count as user interaction.
 
 ### Idle & Wake Behavior
 
@@ -305,10 +305,11 @@ The device editor's **Updates** section controls release checks and automatic in
 - `firmware_manifest_url` (default: the `firmware-manifest.json` of the latest
   GitHub release) — the manifest that names the firmware the **HAUI Firmware**
   entity offers: its version, image URL and md5. Leave the editor field empty
-  for the default. Point a test panel at the manifest of a
-  [local test release](../release.md#test-firmware-updates-with-a-local-release)
-  so it follows test builds instead of GitHub releases. A changed URL is read
-  as soon as the settings are saved.
+  for the default. Point a universal test panel at the
+  [published dev manifest](../release.md#published-development-firmware), or a
+  custom test panel at a [local test release](../release.md#test-firmware-updates-with-a-local-release),
+  so it follows test builds instead of stable GitHub releases. A changed URL is
+  read as soon as the settings are saved.
 - `auto_install` (default `True`) — install the TFT the firmware needs without asking. When off, the display asks first. A TFT installed by hand with a `version` or `url` ([`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)) is kept until the firmware version changes or Home Assistant restarts.
 
 `tft_filename` (default `nspanel_haui.tft`) and `on_connect_delay` (default `60` seconds before the TFT check after a connect) remain integration defaults and are not exposed in the editor.

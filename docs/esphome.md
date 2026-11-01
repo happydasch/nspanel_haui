@@ -544,26 +544,36 @@ Buttons provided by the ESP.
 
 ## Diagnostics
 
-Diagnostics related sensors. The production package and universal release image
-expose the diagnostics used by the integration. The local development config
-also includes `debug.yaml`, which adds uptime and ESPHome debug sensors for
-troubleshooting; these are not included in release firmware. Your own device
-YAML must not duplicate entities that its selected packages already include.
+The production package and universal release image expose the diagnostic HA
+entities used by the integration. The local development config also includes
+`debug.yaml`, which adds uptime and ESPHome debug entities for troubleshooting;
+these are not included in release firmware. Your own device YAML must not
+duplicate entities that its selected packages already include.
 
-- TFT Version: Version of the TFT file (read from the display)
-- Client Status: `online` / `offline`, the hub connection state
-- WIFI Info: IP, SSID, BSSID and RSSI
+- `Client Status`: `online` / `offline`, the hub connection state
+- WiFi information: IP, SSID and RSSI; BSSID is disabled by default
+- `TFT Version`: read by the firmware from the display and sent to the hub via
+  the device-state protocol; it is not exposed as a Home Assistant entity
 
 ### Exposed sensors (curated set)
 
-Only these ESPHome entities are exposed to Home Assistant.  Everything else
-(`page`, `touch_x`, `touch_y`, `last_interaction`, `tft_version`,
-`req_val_component`, `req_txt_component`, `res_txt`, `res_val`) stays
-`internal: true` — it exists only for the firmware ↔ hub pipeline and would
-only clutter the entity registry.
+ESPHome `id:` values identify components inside the firmware; they are not
+Home Assistant entity IDs. A component marked `internal: true` remains usable
+by ESPHome automations but is not exposed to Home Assistant. The following
+entities are exposed by `esphome/nspanel_haui/sensor.yaml` by default. The
+example entity IDs are illustrative: Home Assistant may assign different IDs
+based on device naming, areas or later renames.
 
-| Entity (device `nspanel_kitchen`) | Purpose |
-|-----------------------------------|---------|
+When a sensor value is needed by both firmware and HAUI, keep the ESPHome
+`id:` for firmware references and expose the sensor to Home Assistant (do not
+mark it `internal: true`). HAUI then resolves the entity by its domain and
+ESPHome-authored name on the linked device; it does not derive the HA entity ID
+from the ESPHome `id:` or the device slug. Keep components internal only when
+the value is firmware-only, or when it is exchanged through the existing
+ESPHome ↔ hub event/device-state protocol instead of an HA entity.
+
+| Example entity ID (device `nspanel_kitchen`) | Purpose |
+|----------------------------------------------|---------|
 | `binary_sensor.nspanel_kitchen_touch` | A touch is currently active on the display |
 | `binary_sensor.nspanel_kitchen_button_left` / `..._button_right` | Physical relay buttons (diagnostic) |
 | `sensor.nspanel_kitchen_ip` / `..._ssid` / `..._rssi` | WiFi/network info; also read by the editor's Device Manager |
@@ -571,16 +581,21 @@ only clutter the entity registry.
 | `sensor.nspanel_kitchen_brightness` | Current display brightness (the last value the hub set, 0–100) |
 | `sensor.nspanel_kitchen_temperature` | Internal panel temperature (NTC, °C) |
 
-The temperature calculation's `adc` and `resistance` sensors remain
-`disabled_by_default: true`; only the final `temperature` sensor is exposed.
-The hub looks the temperature sensor up through the entity registry by its
-ESPHome-authored name (`Temperature`), so the example id above is only a
-fallback: a renamed device or HA's area-prefixed entity ids (e.g.
-`sensor.nspanel_bedroom_temperature` on a device called "NSPanel Sypialnia")
-do not break the clock and weather panels reading it. A clock/weather panel can
-also override the sensor per panel with the editor's **Inside temperature
-sensor** picker, e.g. to show a room sensor's value instead.
+The firmware-only readback and interaction components `page`, `touch_x`,
+`touch_y`, `last_interaction`, `tft_version`, `req_val_component`,
+`req_txt_component`, `res_txt` and `res_val` are marked `internal: true`. They
+support the firmware ↔ hub pipeline and are not Home Assistant entities. The
+WiFi BSSID and the temperature calculation's `adc` and `resistance` sensors
+are instead `disabled_by_default: true`; they are not enabled as entities by
+default, but are not marked internal.
 
+The hub resolves the built-in temperature entity through the entity registry
+using ESPHome's authored name (`Temperature`), so the example entity ID above
+is not a stable identifier. A renamed device or HA area-prefixed entity ID
+(e.g. `sensor.nspanel_bedroom_temperature` on a device called "NSPanel
+Sypialnia") does not break the clock and weather panels. A clock/weather panel
+can also override the sensor per panel with the editor's **Inside temperature
+sensor** picker, e.g. to show a room sensor's value instead.
 ## Other
 
 For number and text retrieval the internal sensors `req_txt_component`,

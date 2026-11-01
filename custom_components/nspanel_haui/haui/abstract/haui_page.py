@@ -581,23 +581,19 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         Override this instead of ``stop_panel``.  No need to call super.
         """
 
-    def get_inside_temp_entity_id(self, panel: HAUIPanel | None = None) -> str:
-        """Resolve the entity id for the "inside temperature" display value.
+    def get_inside_temp_entity_id(self, panel: HAUIPanel | None = None) -> str | None:
+        """Resolve the entity id for the inside-temperature display value.
 
         A panel-level ``inside_temp_item`` override (clock/weather panel
-        config) replaces the device's own internal temperature sensor with an
-        arbitrary sensor entity.  Without an override, the classic
-        ``sensor.{device_slug}_temperature`` construction misses installations
-        where the hub's device name differs from the ESPHome node name
-        (renames, or HA's area/device entity-id naming), so prefer the entity
-        registry lookup by the sensor's ESPHome-authored name and fall back to
-        the classic id only when the registry has no match.
+        config) replaces the device's own temperature sensor. Without an
+        override, resolve the firmware sensor by its ESPHome-authored name on
+        this device rather than guessing an HA entity ID from the hub slug.
 
         Args:
             panel: The panel whose ``inside_temp_item`` override to honour.
 
         Returns:
-            str: The inside-temperature sensor's entity id.
+            The selected entity id, or None when no sensor resolves.
         """
         if panel is not None:
             override = panel.get("inside_temp_item", None)
@@ -606,48 +602,33 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
             override_id = self._extract_entity_id(override)
             if override_id:
                 return override_id
-        resolver = getattr(self.app, "find_entity_id", None)
-        if resolver is not None:
-            try:
-                resolved = resolver("sensor", "Temperature")
-            except Exception:  # noqa: BLE001 - registry access is best-effort
-                resolved = None
-            if resolved:
-                return resolved
-        return f"sensor.{self.app.device.get_slug()}_temperature"
+        return self.find_esphome_entity_id("sensor", "Temperature")
 
-    def _save_auto_state(self) -> dict:
-        """Save and disable auto-dimming/page/display-off for popup overlays.
-
-        Returns the saved states dict, which must be passed to the passed to
-        ``_restore_auto_state()`` on cleanup.
-        """
-        slug = self.app.device.get_slug()
-        states: dict = {}
-        for key, suffix in (
-            ("auto_dimming", "use_auto_dimming"),
-            ("auto_page", "use_auto_page"),
-            ("auto_display_off", "use_auto_display_off"),
+    def _save_auto_state(self) -> dict[str, tuple[Any, bool]]:
+        """Save and disable available firmware auto switches for a popup."""
+        states: dict[str, tuple[Any, bool]] = {}
+        for key, name in (
+            ("auto_dimming", "Use Auto-Dimming"),
+            ("auto_page", "Use Auto-Page"),
+            ("auto_display_off", "Use Auto Display-Off"),
         ):
-            item = self.app.get_item(f"switch.{slug}_{suffix}")
-            states[key] = item.get_state() == "on"
+            entity_id = self.find_esphome_entity_id("switch", name)
+            if entity_id is None or not self.app.item_exists(entity_id):
+                continue
+            item = self.app.get_item(entity_id)
+            enabled = item.get_state() == "on"
+            states[key] = (item, enabled)
             item.turn_off()
         return states
 
-    def _restore_auto_state(self, states: dict) -> None:
-        """Restore previously saved auto-dimming/page/display-off states.
+    def _restore_auto_state(self, states: dict[str, tuple[Any, bool]]) -> None:
+        """Restore the resolved firmware auto switches saved for a popup.
 
         Args:
-            states: The dict returned by ``_save_auto_state()``.
+            states: The mapping returned by ``_save_auto_state()``.
         """
-        slug = self.app.device.get_slug()
-        for key, suffix in (
-            ("auto_dimming", "use_auto_dimming"),
-            ("auto_page", "use_auto_page"),
-            ("auto_display_off", "use_auto_display_off"),
-        ):
-            if states.get(key):
-                item = self.app.get_item(f"switch.{slug}_{suffix}")
+        for item, enabled in states.values():
+            if enabled and self.app.item_exists(item.entity_id):
                 item.turn_on()
 
     # gesture-buffer helpers

@@ -155,12 +155,14 @@ without the install action (0.4.2 and older) is still a manual step, because
 the hub cannot reach it; the editor's **Download firmware** button remains the
 manual fallback.
 
-To test or debug firmware updates without a GitHub release, write a
-[local test release](release.md#test-firmware-updates-with-a-local-release)
-and point the test panel's **Firmware manifest URL** at it, or install a build
-directly with `nspanel_haui.update_firmware` and `url`. The hub logs every
-manifest read, install start and outcome (a reboot into the old version, or no
-reboot within ten minutes), and the Device Manager shows the install error.
+For your own `custom` firmware, follow
+[Your custom firmware: choose `dev` or `master`](release.md#your-custom-firmware-choose-dev-or-master)
+to build the checked-out branch with a commit-identifying version and publish it
+to a local manifest. For the CI-built universal `dev` image, set the test panel's
+**Firmware manifest URL** to the
+[published dev manifest](release.md#published-development-firmware).
+The hub logs manifest reads, install starts and outcomes; the Device Manager
+shows install errors.
 
 ### Release assets and gates
 

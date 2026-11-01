@@ -141,9 +141,7 @@ def test_item_buttons_follow_their_entities_state(monkeypatch):
 
 
 def test_inside_temp_card_reads_the_resolved_sensor():
-    """The inside-temp cycle card resolves the sensor via the entity registry
-    when the device name differs from the ESPHome node name, and falls back to
-    the classic sensor.{slug}_temperature id otherwise."""
+    """The inside-temp cycle card resolves by registry and shows unavailable if absent."""
 
     class _State:
         def __init__(self, state):
@@ -162,17 +160,20 @@ def test_inside_temp_card_reads_the_resolved_sensor():
             return self.temp_entity_id
 
         def get_item(self, entity_id):
-            expected = self.temp_entity_id or "sensor.panel_temperature"
-            assert entity_id == expected
+            assert self.temp_entity_id is not None
+            assert entity_id == self.temp_entity_id
             return _State("21.4")
 
-    for temp_entity_id in (None, "sensor.nspanel_bedroom_temperature"):
+    for temp_entity_id, expected_text in (
+        (None, "--°C"),
+        ("sensor.nspanel_bedroom_temperature", "21°C"),
+    ):
         page = ClockPage(_TempApp(temp_entity_id), {"page_id": 7})
         page.translate = lambda key: "INSIDE"
 
         main_text, sub_text = page._card_text_inside_temperature()
 
-        assert (main_text, sub_text) == ("21°C", "INSIDE")
+        assert (main_text, sub_text) == (expected_text, "INSIDE")
 
 
 def test_inside_temp_card_uses_configured_sensor():
@@ -221,7 +222,7 @@ def test_outside_temp_missing_keeps_home_temp():
         def __init__(self):
             self.device = _Device()
             self.controller = {}
-            self.temp_entity_id = None
+            self.temp_entity_id = "sensor.panel_temperature"
 
         def find_entity_id(self, domain, name):
             return self.temp_entity_id

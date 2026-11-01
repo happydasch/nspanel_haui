@@ -16,11 +16,16 @@ Point the test panel's *Firmware manifest URL* (device editor → Updates) at
 the written manifest; its HAUI Firmware entity then offers each newer test
 release, and the hub installs it like a GitHub release.
 
-Build the firmware with ``yaml_version`` equal to ``--version``; the script
-refuses an image without it.  The hub offers the manifest's firmware whenever
-its version is newer than the one the panel runs, so an image that reports an
-older version would be installed over and over.  Each test release needs a newer version
-(``0.4.4-dev1``, ``0.4.4-dev2``, ...), because the hub only offers a newer one.
+Build the firmware with ``yaml_version`` equal to ``--version`` and
+``firmware_variant`` equal to ``--variant`` (default ``custom``). The script
+checks both embedded values before writing the manifest. Use
+``--variant universal`` only for an image built from
+``nspanel_haui_universal.yaml``.
+
+The hub offers the manifest's firmware only when its version is newer than
+what the panel runs, so a build reporting an older version would be installed
+over and over. Each test release needs a newer version (``0.4.4-dev1``,
+``0.4.4-dev2``, ...).
 
 Usage:
     python scripts/dev_release.py \\
@@ -48,10 +53,13 @@ MANIFEST_NAME = "firmware-manifest.json"
 # factory image starts with 0xFF padding and must never be written over the air).
 FIRMWARE_MAX_BYTES = 0x1C0000
 ESP_IMAGE_MAGIC = 0xE9
+FIRMWARE_VARIANTS = frozenset({"custom", "universal"})
 
 
-def check_image(data: bytes, version: str) -> str | None:
-    """Return why ``data`` cannot be released as ``version``, or None when it can."""
+def check_image(data: bytes, version: str, variant: str = "custom") -> str | None:
+    """Return why ``data`` cannot be released as ``version``/``variant``."""
+    if variant not in FIRMWARE_VARIANTS:
+        return f"unknown firmware variant {variant!r}; choose one of {sorted(FIRMWARE_VARIANTS)}"
     if not data or data[0] != ESP_IMAGE_MAGIC:
         return (
             "not an ESP32 app image; use the OTA image (firmware.ota.bin), "
@@ -66,6 +74,14 @@ def check_image(data: bytes, version: str) -> str | None:
             f"yaml_version: '{version}' (the hub reinstalls a build whose version "
             "is older than the manifest's)"
         )
+    # The build embeds firmware_variant as a C string.  Do not allow a
+    # mismatched manifest label: the hub relies on this value to prevent a
+    # universal image replacing a custom panel's credentials (or vice versa).
+    if b"\0" + variant.encode() + b"\0" not in data:
+        return (
+            f"the image does not report firmware_variant {variant!r}; build it with "
+            f"firmware_variant: '{variant}' (the manifest must match the running firmware)"
+        )
     return None
 
 
@@ -77,7 +93,12 @@ def build_manifest(version: str, image_url: str, md5: str, variant: str = "custo
     the GitHub release workflow writes ``universal`` for the prebuilt image).
     The hub refuses to install a manifest whose variant does not match the
     panel's, so a test release must name the variant of the panel that follows it.
+
+    Raises:
+        ValueError: If ``variant`` is not one the hub recognizes.
     """
+    if variant not in FIRMWARE_VARIANTS:
+        raise ValueError(f"unknown firmware variant {variant!r}")
     return {
         "name": "NSPanel HAUI",
         "version": version,
@@ -98,7 +119,7 @@ def release(
         raise ValueError(f"--base-url must start with http:// or https:// ({base_url!r})")
     base_url = base_url.rstrip("/")
     data = image.read_bytes()
-    problem = check_image(data, version)
+    problem = check_image(data, version, variant)
     if problem:
         raise ValueError(f"{image}: {problem}")
     out.mkdir(parents=True, exist_ok=True)
@@ -132,9 +153,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--variant",
+        choices=sorted(FIRMWARE_VARIANTS),
         default="custom",
-        help="build variant the panel reports (universal for the prebuilt image, "
-        "custom otherwise); only matching variants can install the release",
+        help="build variant embedded in the firmware image (default: custom)",
     )
     args = parser.parse_args(argv)
     try:

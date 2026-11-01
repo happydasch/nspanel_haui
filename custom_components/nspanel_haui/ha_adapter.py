@@ -513,56 +513,48 @@ class HAAdapter:
         return ItemProxy(self.hass, self._loop, entity_id, proxy=self)
 
     def find_entity_id(self, domain: str, original_name: str) -> str | None:
-        """Resolve an ESPHome entity id via the entity registry.
+        """Resolve an enabled ESPHome entity on this app's linked device.
 
-        Home Assistant's entity-id naming (e.g. an ``{area}_{device}_{entity}``
-        pattern) and device renames make ``{node}_{entity}``-style ids
-        unreliable for entities added after a rename.  The entity registry
-        keeps the ESPHome-authored ``original_name``, so look the entity up
-        there instead: prefer the entity on this app's linked device and fall
-        back to the sole candidate when the device link is missing.  Disabled
-        entries (renamed/replaced entities leave a disabled copy behind) are
-        only considered when no enabled candidate exists.
+        Home Assistant assigns entity IDs from its current device/area naming,
+        so resolve by the original name authored in the ESPHome YAML rather
+        than constructing an ID from the hub's device slug. Registry access and
+        iteration stay on HA's event loop; haui/ calls this synchronously from
+        the app worker thread.
 
         Args:
             domain: Entity domain (e.g. ``"number"``).
             original_name: The name the ESPHome YAML authored (e.g. ``"Display Model"``).
 
         Returns:
-            Entity id, or None when no candidate resolves.
+            Entity id, or None when no unique candidate resolves.
         """
-        # hass.helpers was removed from Home Assistant: use the helper module.
-        try:
+        async def _resolve() -> str | None:
             from homeassistant.helpers import entity_registry as er
 
             registry = er.async_get(self.hass)
-        except Exception:  # noqa: BLE001 - registry not loaded (tests, early boot)
-            return None
-        if registry is None:
-            return None
-        wanted = (original_name or "").lower()
-        candidates = [
-            entity_id
-            for entity_id, entry in registry.entities.items()
-            if entry.domain == domain
-            and entry.platform == "esphome"
-            and (entry.original_name or "").lower() == wanted
-        ]
-        if not candidates:
-            return None
-        # Prefer enabled entries: a renamed/replaced entity leaves a disabled
-        # copy behind, which would otherwise shadow the live candidate.
-        enabled_candidates = [
-            entity_id
-            for entity_id in candidates
-            if getattr(registry.entities[entity_id], "disabled_by", None) is None
-        ]
-        pool = enabled_candidates or candidates
-        linked_device_id = getattr(self, "_ha_device_id", None)
-        for entity_id in pool:
-            if registry.entities[entity_id].device_id == linked_device_id:
-                return entity_id
-        return pool[0] if len(pool) == 1 else None
+            if registry is None:
+                return None
+            wanted = (original_name or "").casefold()
+            candidates = [
+                (entity_id, entry)
+                for entity_id, entry in registry.entities.items()
+                if entry.domain == domain
+                and entry.platform == "esphome"
+                and (entry.original_name or "").casefold() == wanted
+                and getattr(entry, "disabled_by", None) is None
+            ]
+            linked_device_id = getattr(self, "_ha_device_id", None)
+            if linked_device_id is not None:
+                candidates = [
+                    (entity_id, entry)
+                    for entity_id, entry in candidates
+                    if entry.device_id == linked_device_id
+                ]
+            if len(candidates) != 1:
+                return None
+            return candidates[0][0]
+
+        return _run_on_loop(self._loop, _resolve())
 
     def get_temperature_unit(self) -> str:
         """Return HA's temperature unit ("°C" or "°F").

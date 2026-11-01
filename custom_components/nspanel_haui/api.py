@@ -179,7 +179,7 @@ class DeviceStatusView(HomeAssistantView):
         if device_name:
             app = apps.get(device_name)
             if app is not None:
-                return self.json(app.get_device_status())
+                return self.json(await self._build_running_status(hass, app, device_name))
             # Device may be disabled or pending — read from HA entities
             status = await self._build_entity_status(hass, entry_id, device_name)
             if status is not None:
@@ -202,13 +202,23 @@ class DeviceStatusView(HomeAssistantView):
                 continue
             app = apps.get(dev_name)
             if app is not None:
-                result[dev_name] = app.get_device_status()
+                result[dev_name] = await self._build_running_status(hass, app, dev_name)
             else:
                 status = await self._build_entity_status(hass, entry_id, dev_name)
                 if status is not None:
                     result[dev_name] = status
 
         return self.json({"devices": result})
+
+    @staticmethod
+    async def _build_running_status(hass: Any, app: Any, device_name: str) -> dict:
+        """Combine HA-loop entity readings with an app-worker status snapshot."""
+        # HA's registries and entity states are event-loop-owned; obtain only
+        # the app's mutable runtime snapshot on its worker.
+        network_info = read_network_entities(hass, device_name)
+        status = await app.async_run_on_worker(app.get_device_status)
+        status["device_info"].update(network_info)
+        return status
 
     @staticmethod
     def _build_minimal_device_info(hass: Any, dev_name: str) -> dict | None:
@@ -239,9 +249,9 @@ class DeviceStatusView(HomeAssistantView):
             device.get("name") == dev_name for device in entry.data.get("devices", [])
         ):
             return None
-        return await hass.async_add_executor_job(
-            DeviceStatusView._build_minimal_device_info, hass, dev_name
-        )
+        # Registry and state access is Home Assistant event-loop work; do not
+        # send this helper to the executor.
+        return DeviceStatusView._build_minimal_device_info(hass, dev_name)
 
 
 class NotificationsView(HomeAssistantView):

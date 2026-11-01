@@ -193,6 +193,21 @@ On state transitions:
 
 The callback propagates to `HAUIDevice.on_connection_changed()`, which handles navigation (open sys_system on first connect, restore panel on reconnect).
 
+## Device Status and Details
+
+The editor's Device Info dialog and device list refresh status by polling the authenticated
+`/api/nspanel_haui/status/{entry_id}` endpoint every five seconds while open. This is separate
+from the `HAUIConnectionController`: that controller owns the device handshake and heartbeats,
+not editor data refresh, and the integration does not use Home Assistant's
+`DataUpdateCoordinator` for this status view.
+
+For an enabled device, the API gathers mutable runtime details (connection, current page,
+listeners and timers) on that device app's worker. It reads Wi-Fi readings from the linked
+ESPHome entities on Home Assistant's event loop and combines them into the response. Disabled
+devices have no running app, so the API returns a minimal status using only available HA entity
+readings. In Device Info, **Page Mode** means whether the hub is showing the configured idle
+page or a regular page; it does not describe display brightness (`on`, `dim` or `off`).
+
 ## Navigation
 
 The navigation is kept simple. There are navigateable panels and non-navigateable panels. Panels that are not navigateable will be kept in a stack when opened so that it is possible to return to the last navigateable item.
@@ -246,6 +261,38 @@ This means:
 - **Deleting the device** in the hub page removes it from the hub like **Remove** in the editor (`async_remove_config_entry_device` in `__init__.py`); its settings and panels are deleted
 
 The linking is handled in `_link_esphome_device()` in `__init__.py` and runs both during initial setup and when a device appears later (race condition handling via the device registry listener).
+
+### Accessing sensor entities
+
+An ESPHome YAML `id:` is a firmware-side component reference, not a Home
+Assistant entity ID. Components marked `internal: true` are available to ESPHome
+automations but are not exposed as HA entities. If both the firmware and HAUI
+need a sensor value, keep its ESPHome `id:` and expose the sensor (do not mark
+it internal). If HAUI needs a value that should not be exposed as an entity,
+send it through the existing ESPHome ↔ hub event/device-state protocol instead.
+
+For sensors explicitly selected in HAUI configuration, use the configured
+entity ID. For a built-in ESPHome entity, resolve it through
+`HAAdapter.find_entity_id()` using its HA domain and ESPHome-authored original
+name, then read it through the adapter:
+
+```python
+entity_id = self.app.find_entity_id("sensor", "Temperature")
+if entity_id is not None:
+    state = self.app.get_item(entity_id).get_state()
+```
+
+The same registry lookup pattern is used for the built-in temperature sensor,
+firmware-backed settings and the editor's IP/SSID/RSSI diagnostics. Resolve
+against the linked HA device and skip an operation when no unique enabled
+entity matches; do not substitute an ID guessed from another device. The
+adapter marshals its entity-registry read onto Home Assistant's event loop.
+
+Do not derive an HA entity ID from the ESPHome `id:` or the HAUI device slug:
+HA may assign area-prefixed IDs, and entity IDs can differ after device renames.
+If the registry has no unique enabled match on the linked device, treat the
+entity as unavailable: do not read or write a guessed ID. HAUI's built-in
+inside-temperature display shows its unavailable value in that case.
 
 ## Available Panels
 

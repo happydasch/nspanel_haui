@@ -496,10 +496,15 @@ def test_send_notification_schema_accepts_a_timeout():
     assert data["timeout"] == 10
 
 
-@pytest.mark.parametrize("bad", [-1, "soon"])
+@pytest.mark.parametrize("bad", [-1, 3601, "soon"])
 def test_send_notification_schema_rejects_invalid_timeouts(bad):
     with pytest.raises(vol.Invalid):
         SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "timeout": bad})
+
+
+def test_send_notification_schema_accepts_the_maximum_timeout():
+    data = SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "timeout": 3600})
+    assert data["timeout"] == 3600
 
 
 def test_send_notification_service_metadata_and_schema_agree():
@@ -508,8 +513,9 @@ def test_send_notification_service_metadata_and_schema_agree():
     Every field the service documents must be accepted by the schema and vice
     versa, so the UI the user sees always maps to a valid service call.
     """
-    import yaml
     from pathlib import Path
+
+    import yaml
 
     services = Path(__file__).resolve().parent.parent / "custom_components" / \
         "nspanel_haui" / "services.yaml"

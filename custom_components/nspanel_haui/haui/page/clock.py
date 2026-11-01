@@ -331,7 +331,10 @@ class ClockPage(HAUIPage):
 
     def _card_text_inside_temperature(self) -> tuple[str, str]:
         label = self.translate("INSIDE")
-        state = self.app.get_item(self.get_inside_temp_entity_id(self.panel)).get_state()
+        entity_id = self.get_inside_temp_entity_id(self.panel)
+        if entity_id is None:
+            return "--°C", label
+        state = self.app.get_item(entity_id).get_state()
         if state in (None, "", "unavailable", "unknown"):
             return "--°C", label
         try:
@@ -433,9 +436,12 @@ class ClockPage(HAUIPage):
             temp_outside = None
         msg = ""
         if self._show_home_temp:
-            temp_inside_state = self.app.get_item(
-                self.get_inside_temp_entity_id(self.panel)
-            ).get_state()
+            inside_temp_id = self.get_inside_temp_entity_id(self.panel)
+            temp_inside_state = (
+                self.app.get_item(inside_temp_id).get_state()
+                if inside_temp_id is not None
+                else None
+            )
             if temp_inside_state not in (None, "", "unavailable", "unknown"):
                 try:
                     temp_inside: float | int | None = round(

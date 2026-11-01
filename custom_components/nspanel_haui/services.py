@@ -76,7 +76,7 @@ SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
             "auto", vol.All(vol.Coerce(int), vol.Range(min=1, max=3))
         ),
         vol.Optional("timeout", default=None): vol.Any(
-            None, vol.All(vol.Coerce(int), vol.Range(min=0))
+            None, vol.All(vol.Coerce(int), vol.Range(min=0, max=3600))
         ),
     }
 )

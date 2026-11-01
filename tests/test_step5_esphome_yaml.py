@@ -182,8 +182,6 @@ def test_firmware_build_variant_is_reported_and_never_universal_for_custom_build
     does not match the reported one, so the universal release image must only
     ever be published by the universal config.
     """
-    import re
-
     for script in ("publish_connection_request", "publish_device_info", "publish_device_state"):
         block = _read("scripts_event.yaml").split(f"- id: {script}")[1].split("- id:")[0]
         assert 'root["firmware_variant"]' in block
@@ -196,6 +194,19 @@ def test_firmware_build_variant_is_reported_and_never_universal_for_custom_build
 
     universal = (ROOT.parent / "nspanel_haui_universal.yaml").read_text()
     assert "firmware_variant: 'universal'" in universal
+
+
+def test_display_timeout_changes_do_not_reset_last_interaction():
+    import yaml
+
+    numbers = yaml.safe_load(_read("number.yaml"))["number"]
+    for timeout_id in ("timeout_dim", "timeout_display_off"):
+        number = next(number for number in numbers if number["id"] == timeout_id)
+        assert "on_value" not in number
+
+    interval = _read("interval.yaml")
+    assert "id(check_display_state).execute();" in interval
+    assert "id(check_display).execute();" in interval
 
 
 def test_display_model_uses_numeric_input_instead_of_slider():

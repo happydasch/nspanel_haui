@@ -172,6 +172,7 @@ def test_notification_clear_publishes_removal_events():
                 "icon": "mdi:bell",
                 "notif_type": "info",
                 "persistent": False,
+                "timeout": None,
             },
         )
     ]

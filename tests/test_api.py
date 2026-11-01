@@ -1134,8 +1134,13 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
             for original_name, entity_id in entity_ids.items()
         }
     )
+
+    def get_registry(hass):
+        asyncio.get_running_loop()
+        return registry
+
     entity_registry = types.ModuleType("homeassistant.helpers.entity_registry")
-    entity_registry.async_get = lambda hass: registry
+    entity_registry.async_get = get_registry
     helpers = sys.modules["homeassistant.helpers"]
     monkeypatch.setattr(helpers, "entity_registry", entity_registry, raising=False)
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", entity_registry)
@@ -1148,14 +1153,32 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
         entity_ids["SSID"]: types.SimpleNamespace(state="HomeNet"),
         entity_ids["RSSI"]: types.SimpleNamespace(state="-54"),
     }
-    hass.states.get.side_effect = states.get
+    def get_state(entity_id):
+        asyncio.get_running_loop()
+        return states.get(entity_id)
+
+    hass.states.get.side_effect = get_state
 
     if active:
         class RunningApp:
-            def get_device_status(self):
-                return {"device_info": esphome_helpers.read_network_entities(hass, "panel")}
+            worker_calls = 0
 
-        hass.data["nspanel_haui"]["entry1"] = {"panel": RunningApp()}
+            def get_device_status(self):
+                return {
+                    "device_info": {
+                        "ip": "stale",
+                        "ssid": "stale",
+                        "rssi": 0,
+                        "yaml_version": "1.2.3",
+                    }
+                }
+
+            async def async_run_on_worker(self, callback):
+                self.worker_calls += 1
+                return callback()
+
+        running_app = RunningApp()
+        hass.data["nspanel_haui"]["entry1"] = {"panel": running_app}
 
     request = _Request(hass, admin=True, query={"device": "panel"})
     result = asyncio.run(api.DeviceStatusView().get(request, "entry1"))
@@ -1168,6 +1191,9 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
         "ssid": "HomeNet",
         "rssi": -54.0,
     }
+    if active:
+        assert running_app.worker_calls == 1
+        assert result["body"]["device_info"]["yaml_version"] == "1.2.3"
 
 
 @pytest.mark.parametrize("state", ["unknown", "unavailable", "not-a-number", "NaN"])

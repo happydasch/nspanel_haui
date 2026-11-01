@@ -199,8 +199,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # or update_interval).
         "firmware_auto_update": False,
         # Manifest naming the firmware the HAUI Firmware entity offers.  Point a
-        # test panel at a local manifest (scripts/dev_release.py) to follow
-        # test releases instead of GitHub's latest release.
+        # test panel at a local manifest (scripts/dev_release.py) or the
+        # published dev manifest to follow test builds instead of latest stable.
         "firmware_manifest_url": (
             "https://github.com/happydasch/nspanel_haui/releases/latest/download/"
             "firmware-manifest.json"

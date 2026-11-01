@@ -154,6 +154,7 @@ def resolve_esphome_entity_id(hass: Any, device_id: str, original_name: str) -> 
         and entry.platform == "esphome"
         and entry.device_id == device_id
         and (entry.original_name or "").casefold() == wanted
+        and getattr(entry, "disabled_by", None) is None
     ]
     return candidates[0] if len(candidates) == 1 else None
 

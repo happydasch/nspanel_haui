@@ -293,8 +293,6 @@ on the ESPHome side only the ESPHome integration's stock **Firmware** entity
 
 - The hub reads the release's `firmware-manifest.json` itself and installs a
   newer firmware through the firmware's `install_firmware_url` action —
-  automatically with `firmware_auto_update`, or with **Install** on the entity.- The hub reads the release's `firmware-manifest.json` itself and installs a
-  newer firmware through the firmware's `install_firmware_url` action —
   automatically with `firmware_auto_update`, or with **Install** on the entity.
 - **Build variants are never crossed.** The release manifest names its variant
   (`"variant": "universal"`); the device reports the one it runs

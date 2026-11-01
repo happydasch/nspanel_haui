@@ -101,7 +101,7 @@ test('the health section surfaces versions, uptime, state and disconnect info', 
   assert.ok(out.includes('Health'));
   assert.ok(out.includes('0.4.0'));
   assert.ok(out.includes('2m'), out); // 125 s formatted as 2m
-  assert.ok(out.includes('Active'));
+  assert.ok(out.includes('Regular page'));
 
   const off = markup(renderHealthSection(
     { connected: false },

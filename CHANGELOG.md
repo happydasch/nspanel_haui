@@ -19,7 +19,8 @@ and follow [Semantic Versioning](https://semver.org/).
   lacks that action) must be updated once by hand. A test panel that followed
   local test releases through the substitution needs the new **Firmware
   manifest URL** device setting instead. See
-  [Upgrading → Firmware updates](docs/upgrading.md#11-firmware-updates-moved-to-the-integration).- **Firmware build variants fail closed** — a custom build from
+  [Upgrading → Firmware updates](docs/upgrading.md#11-firmware-updates-moved-to-the-integration).
+- **Firmware build variants fail closed** — a custom build from
   `esphome/install.yaml` (or the dev config) reports its variant and is never
   offered or installed the public universal release image, whose baked
   credentials would silently replace the panel's own. Panels whose firmware
@@ -44,8 +45,6 @@ and follow [Semantic Versioning](https://semver.org/).
   `scripts/dev_release.py` writes.
 
 - **Inside temperature sensor picker** — clock and weather panels can use any
-  `sensor` entity for the inside temperature; leave empty for the NSPanel's
-  internal sensor.- **Inside temperature sensor picker** — clock and weather panels can use any
   `sensor` entity for the inside temperature; leave empty for the NSPanel's
   internal sensor.
 - **Notification line breaks** — multi-line notification text now renders its

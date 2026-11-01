@@ -1,0 +1,170 @@
+name: Development Firmware
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dev-firmware
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install ESPHome
+        run: pip install -r requirements-esphome.txt
+
+      - name: Set the development firmware version
+        # Use the next patch line so every dev build is newer than the current
+        # stable version, while a later stable X.Y.(Z+1) sorts after its .devN.
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+
+          manifest = json.loads(Path("custom_components/nspanel_haui/manifest.json").read_text())
+          match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", manifest["version"])
+          if match is None:
+              raise SystemExit(f"Expected a stable X.Y.Z version, got {manifest['version']!r}")
+          major, minor, patch = map(int, match.groups())
+          version = f"{major}.{minor}.{patch + 1}.dev{os.environ['GITHUB_RUN_NUMBER']}+g{os.environ['GITHUB_SHA'][:7]}"
+          version_file = Path("esphome/nspanel_haui/version.yaml")
+          source = version_file.read_text()
+          source, count = re.subn(
+              r"(?m)^(  yaml_version: )'[^']+'$",
+              rf"\g<1>'{version}'",
+              source,
+          )
+          if count != 1:
+              raise SystemExit(f"Expected one yaml_version in {version_file}, found {count}")
+          version_file.write_text(source)
+          tag = f"dev-{os.environ['GITHUB_RUN_NUMBER']}-{os.environ['GITHUB_SHA'][:7]}"
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"DEV_VERSION={version}\nDEV_TAG={tag}\n")
+          print(f"Building {version} from {os.environ['GITHUB_SHA']}")
+          PY
+
+      - name: Validate and compile the universal firmware
+        run: |
+          esphome config esphome/nspanel_haui_universal.yaml
+          esphome compile esphome/nspanel_haui_universal.yaml
+          BIN=$(find esphome/.esphome -name firmware.factory.bin -path "*nspanel-haui*" | head -1)
+          if [ -z "$BIN" ]; then
+            echo "firmware.factory.bin not found after compile" >&2
+            exit 1
+          fi
+          cp "$BIN" nspanel_haui.bin
+          OTA="$(dirname "$BIN")/firmware.ota.bin"
+          if [ ! -f "$OTA" ]; then
+            echo "firmware.ota.bin not found after compile" >&2
+            exit 1
+          fi
+          cp "$OTA" nspanel_haui_ota.bin
+
+      - name: Generate the firmware manifest and commit notes
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          DEV_VERSION: ${{ env.DEV_VERSION }}
+          DEV_TAG: ${{ env.DEV_TAG }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, subprocess
+          from pathlib import Path
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          commit = os.environ["GITHUB_SHA"]
+          tag = os.environ["DEV_TAG"]
+          with open("nspanel_haui_ota.bin", "rb") as image:
+              md5 = hashlib.md5(image.read(), usedforsecurity=False).hexdigest()
+          manifest = {
+              "name": "NSPanel HAUI Development",
+              "version": os.environ["DEV_VERSION"],
+              "variant": "universal",
+              "builds": [{
+                  "chipFamily": "ESP32",
+                  "ota": {
+                      "path": f"https://github.com/{repo}/releases/download/{tag}/nspanel_haui_ota.bin",
+                      "md5": md5,
+                  },
+              }],
+          }
+          Path("firmware-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          before = os.environ["PUSH_BEFORE"]
+          zero_sha = "0" * len(before)
+          if before and before != zero_sha:
+              commit_range = f"{before}..{commit}"
+              changes = subprocess.check_output(
+                  ["git", "diff", "--stat", "--no-renames", before, commit], text=True
+              ).strip()
+          else:
+              commit_range = commit
+              changes = subprocess.check_output(
+                  ["git", "show", "--format=", "--stat", "--no-renames", commit], text=True
+              ).strip()
+          commits = subprocess.check_output(
+              ["git", "log", "--reverse", "--format=%H%x09%s", commit_range], text=True
+          ).strip().splitlines()
+          notes = [
+              f"Development firmware `{os.environ['DEV_VERSION']}`",
+              "",
+              f"Build commit: [`{commit[:7]}`](https://github.com/{repo}/commit/{commit})",
+              "Firmware variant: `universal` (for universal test panels only).",
+              "",
+              "## Commits in this push",
+          ]
+          notes.extend(
+              f"- [`{sha[:7]}`](https://github.com/{repo}/commit/{sha}) {subject}"
+              for sha, subject in (line.split(chr(9), 1) for line in commits)
+          )
+          if changes:
+              notes.extend(["", "## Changed files", "```text", changes, "```"])
+          Path("dev-release-notes.md").write_text("\n".join(notes) + "\n")
+          PY
+
+      - name: Publish versioned development prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.DEV_TAG }}
+          target_commitish: ${{ github.sha }}
+          name: NSPanel HAUI ${{ env.DEV_VERSION }}
+          body_path: dev-release-notes.md
+          prerelease: true
+          make_latest: false
+          files: |
+            nspanel_haui.bin
+            nspanel_haui_ota.bin
+            firmware-manifest.json
+
+      - name: Update the fixed development manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST_DEV_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/dev" --jq .sha)
+          if [ "$LATEST_DEV_SHA" != "$GITHUB_SHA" ]; then
+            echo "A newer dev commit exists; keeping the previous manifest until its build succeeds."
+            exit 0
+          fi
+          if ! gh release view dev-latest >/dev/null 2>&1; then
+            gh release create dev-latest \
+              --target dev \
+              --prerelease \
+              --title "NSPanel HAUI latest development firmware" \
+              --notes "Stable manifest URL for the latest successful dev-branch firmware build."
+          fi
+          gh release upload dev-latest firmware-manifest.json --clobber

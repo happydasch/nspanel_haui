@@ -12,18 +12,22 @@ class _Device:
 
 
 class _Item:
-    def __init__(self):
+    def __init__(self, entity_id):
+        self.entity_id = entity_id
+        self.state = "on"
         self.turned_off = 0
         self.turned_on = 0
 
     def get_state(self):
-        return "off"
+        return self.state
 
     def turn_off(self):
         self.turned_off += 1
+        self.state = "off"
 
     def turn_on(self):
         self.turned_on += 1
+        self.state = "on"
 
 
 class _App:
@@ -36,8 +40,23 @@ class _App:
     def log(self, msg, **kwargs):
         pass
 
+    def find_entity_id(self, domain, original_name):
+        names = {
+            "Use Auto-Dimming": "switch.area_panel_use_auto_dimming",
+            "Use Auto-Page": "switch.area_panel_use_auto_page",
+            "Use Auto Display-Off": "switch.area_panel_use_auto_display_off",
+        }
+        return names.get(original_name) if domain == "switch" else None
+
+    def item_exists(self, entity_id):
+        return entity_id in {
+            "switch.area_panel_use_auto_dimming",
+            "switch.area_panel_use_auto_page",
+            "switch.area_panel_use_auto_display_off",
+        }
+
     def get_item(self, entity_id):
-        return self.items.setdefault(entity_id, _Item())
+        return self.items.setdefault(entity_id, _Item(entity_id))
 
 
 class _Panel:
@@ -145,16 +164,16 @@ def test_next_page_button_does_not_advance_past_last_page():
 def test_stop_panel_restores_auto_state_without_timer():
     page = _build_page("A" * 60)
     page.render_panel(_Panel())
-    page._saved_auto = {"auto_dimming": True, "auto_page": True, "auto_display_off": True}
+    page._saved_auto = page._save_auto_state()
     closed = []
     page._close_callback_fnc = lambda: closed.append(True)
 
     page._stop_panel(_Panel())
 
     assert closed == [True]
-    assert page.app.items["switch.test_slug_use_auto_page"].turned_on == 1
-    assert page.app.items["switch.test_slug_use_auto_dimming"].turned_on == 1
-    assert page.app.items["switch.test_slug_use_auto_display_off"].turned_on == 1
+    assert page.app.items["switch.area_panel_use_auto_page"].turned_on == 1
+    assert page.app.items["switch.area_panel_use_auto_dimming"].turned_on == 1
+    assert page.app.items["switch.area_panel_use_auto_display_off"].turned_on == 1
 
 
 def test_critical_type_colours_icon_differently():

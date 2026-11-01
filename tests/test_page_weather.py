@@ -23,13 +23,11 @@ class _State:
 
 
 class _App:
-    def __init__(self, forecast=None, inside_temp=None, temp_entity_id=None):
+    def __init__(self, forecast=None, inside_temp=None, temp_entity_id="sensor.panel_temperature"):
         self.device = _Device()
         self.controller = {}
         self.forecast = forecast
         self.inside_temp = inside_temp
-        # Entity id the app's registry lookup would resolve; None lets the
-        # page fall back to the classic sensor.{device_slug}_temperature id.
         self.temp_entity_id = temp_entity_id
 
     def log(self, msg, **kwargs):
@@ -42,8 +40,7 @@ class _App:
         return self.temp_entity_id
 
     def get_item(self, entity_id):
-        expected = self.temp_entity_id or "sensor.panel_temperature"
-        assert entity_id == expected
+        assert entity_id == self.temp_entity_id
         return _State(self.inside_temp)
 
 
@@ -101,6 +98,17 @@ def test_short_forecast_clears_unused_slots():
 
 def test_home_temp_unavailable_shows_outside_temp_only():
     page = _weather_page(_App(inside_temp="unavailable"), {"temperature": 12})
+    page._show_home_temp = True
+
+    page.update_main_weather()
+
+    assert f'tMainText.txt="{parse_icon("mdi:thermometer")}12°C"' in page.cmds
+
+
+def test_home_temp_missing_entity_shows_outside_temp_only():
+    page = _weather_page(
+        _App(inside_temp="21.4", temp_entity_id=None), {"temperature": 12}
+    )
     page._show_home_temp = True
 
     page.update_main_weather()

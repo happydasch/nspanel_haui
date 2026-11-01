@@ -256,11 +256,22 @@ class _RelayApp(DummyApp):
         return self.relays[entity_id]
 
 
-def test_toggle_button_uses_default_relay_entity_from_device_slug() -> None:
-    """Without a button_*_entity the toggle targets switch.{slug}_relay_{side}."""
+    def find_entity_id(self, domain, original_name):
+        relay_side = {"Relay Left": "left", "Relay Right": "right"}.get(original_name)
+        if domain == "switch" and relay_side:
+            candidate = f"switch.living_room_panel_relay_{relay_side}"
+            return candidate if candidate in self.relays else None
+        return None
+
+
+def test_toggle_button_uses_registry_resolved_default_relay_entity() -> None:
+    """Unconfigured button actions resolve the matching relay on this device."""
     left, right = _RelayItem(), _RelayItem()
     app = _RelayApp(
-        {"switch.nspanel_living_relay_left": left, "switch.nspanel_living_relay_right": right},
+        {
+            "switch.living_room_panel_relay_left": left,
+            "switch.living_room_panel_relay_right": right,
+        },
         "nspanel_living",
     )
     device = HAUIDevice(
@@ -280,6 +291,30 @@ def test_toggle_button_uses_default_relay_entity_from_device_slug() -> None:
 
     assert left.calls == ["toggle"]
     assert right.calls == ["toggle"]
+
+
+def test_default_relay_is_resolved_when_registry_becomes_available_later() -> None:
+    relay = _RelayItem()
+    app = _RelayApp({"switch.living_room_panel_relay_left": relay}, "nspanel_living")
+    app.registry_ready = False
+    original_resolve = app.find_entity_id
+    app.find_entity_id = lambda domain, name: (
+        original_resolve(domain, name) if app.registry_ready else None
+    )
+    device = HAUIDevice(
+        app,
+        {
+            "name": "NSPanel-Living",
+            "button_left_entity": "",
+            "use_relay_left": False,
+        },
+    )
+
+    device._register_callbacks()
+    app.registry_ready = True
+    device.toggle_left_button_state()
+
+    assert relay.calls == ["toggle"]
 
 
 def test_toggle_button_prefers_configured_entity_and_skips_hardware_relay() -> None:
@@ -824,7 +859,28 @@ class _SwitchApp(DummyApp):
         return self.switches[entity_id]
 
     def find_entity_id(self, domain, original_name):
-        return getattr(self, "_resolved_entity", None)
+        resolved = getattr(self, "_resolved_entity", None)
+        if resolved:
+            return resolved
+        suffixes = {
+            ("switch", "Use Button Interaction"): "use_button_interaction",
+            ("switch", "Use Auto-Dimming"): "use_auto_dimming",
+            ("switch", "Use Auto-Page"): "use_auto_page",
+            ("switch", "Use Auto Display-Off"): "use_auto_display_off",
+            ("switch", "Use Relay Left"): "use_relay_left",
+            ("switch", "Use Relay Right"): "use_relay_right",
+            ("switch", "Relay Left"): "relay_left",
+            ("switch", "Relay Right"): "relay_right",
+            ("number", "Display Model"): "display_model",
+            ("number", "Timeout Dimming"): "timeout_dimming",
+            ("number", "Timeout Page"): "timeout_page",
+            ("number", "Timeout Display-Off"): "timeout_display_off",
+            ("number", "Brightness Full"): "brightness_full",
+            ("number", "Brightness Dimmed"): "brightness_dimmed",
+        }
+        suffix = suffixes.get((domain, original_name))
+        entity_id = f"{domain}.{self.device_slug}_{suffix}" if suffix else None
+        return entity_id if entity_id in self.switches else None
 
 
 def test_sync_config_switch_turns_off_switch_on_when_hub_enabled() -> None:
@@ -964,8 +1020,8 @@ def test_display_model_sync_uses_the_registry_resolved_entity_id() -> None:
     assert number.state == 1
 
 
-def test_display_model_sync_falls_back_to_the_slug_id_without_a_resolver() -> None:
-    """Clean installs without a registry resolver keep using number.<slug>_display_model."""
+def test_display_model_sync_does_not_guess_a_slug_id_without_a_resolver() -> None:
+    """A missing registry match must not guess an ESPHome entity id."""
     number = _Number("0")
     app = _SwitchApp({"number.nspanel_haui_display_model": number})
     app.find_entity_id = None
@@ -973,7 +1029,7 @@ def test_display_model_sync_falls_back_to_the_slug_id_without_a_resolver() -> No
 
     device._sync_display_model()
 
-    assert number.state == 1
+    assert number.state == "0"
 
 
 def test_display_model_sync_is_a_noop_when_no_entity_resolves() -> None:

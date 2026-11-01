@@ -150,9 +150,6 @@ the image itself:
 - **Automatic firmware updates pause** after a release or URL install, so
   `firmware_auto_update` does not reinstall the latest release on the next
   check. The pause lives in memory: a Home Assistant restart or installing the
-  offered update ends it.- **Automatic firmware updates pause** after a release or URL install, so
-  `firmware_auto_update` does not reinstall the latest release on the next
-  check. The pause lives in memory: a Home Assistant restart or installing the
   offered update ends it.
 - **Build variants are never crossed.** Only releases whose manifest
   `variant` matches the panel's reported one are offered, listed in the
@@ -291,7 +288,7 @@ the recommended path because it also carries severity and force-show.
 | `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel. While the idle page is shown, only a `critical` persistent notification interrupts it. A `timeout` still ends it |
 | `force_show` | no | `false` | When `true`, opens the notification panel immediately, unless a notification popup or list is already open — then it waits in the queue |
 | `text_size` | no | `"auto"` | Popup body text size — `"auto"` (chosen from the message length) or a font size `1`-`3` |
-| `timeout` | no | — (none) | Seconds until the notification auto-dismisses. Left out (or `0`) it stays queued until dismissed on the panel |
+| `timeout` | no | — (none) | Seconds until the notification auto-dismisses (1–3600). Left out (or `0`) it stays queued until dismissed on the panel |
 
 Sending a notification with the same title and message as one that is still
 queued replaces it: the queued copy is removed (firing a `removed` event), the
@@ -566,7 +563,7 @@ Assistant event bus** so automations can react to what happens on the panel.
 | Event | Payload | When |
 |-------|---------|------|
 | `nspanel_haui.page_changed` | `device`, `action` (`opened`/`closed`), `panel` (key), `type`, `title`, `page` (Nextion page name) | Whenever a panel is opened through the render pipeline or closed |
-| `nspanel_haui.notification` | `device`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent` | Whenever a notification is queued or dismissed |
+| `nspanel_haui.notification` | `device`, `id`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `timeout` (seconds or `null`) | Whenever a notification is queued or dismissed |
 | `nspanel_haui.connection_changed` | `device`, `connected` (bool) | Whenever the hub's connection to the panel device changes |
 | `nspanel_haui.display_update_changed` | `device`, `connected`, `installed_version` (TFT), `latest_version` (TFT the firmware needs), `state` (`idle`/`checking`/`installing`/`done`/`error`), `last_error` | Whenever the display's TFT version or the TFT update state changes (drives the **HAUI Display** update entity) |
 

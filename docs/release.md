@@ -80,10 +80,100 @@ reads `releases/latest/download/firmware-manifest.json` — so all panels with
 `firmware_auto_update` on install it. Use a
 [local test release](#test-firmware-updates-with-a-local-release) instead.
 
-`dev` is not an automatic prerelease channel: no workflow builds or publishes
-it, so there are no public GitHub prerelease builds to point testers at. Test
-firmware reaches panels only through the local test release below (or a manual
-flash of a source build).
+Development firmware is now built and published on every successful push to
+`dev`. The CI prerelease channel described below is separate from the local
+workflow used for private/custom builds.
+
+### Published development firmware
+
+Every successful push to `dev` builds the CI-safe universal image and publishes a
+GitHub prerelease tagged with the workflow run and source commit. Its version is
+based on the next patch release (for example, `0.4.4.dev123+gabcdef1`), so each
+successful push has a distinct update version and its notes link to the build
+commit, enumerate commits included in that push, and list changed files. The
+prereleases retain the version history. A fixed manifest URL follows the latest
+successful build:
+
+```text
+https://github.com/happydasch/nspanel_haui/releases/download/dev-latest/firmware-manifest.json
+```
+
+Set a **universal test panel's** **Firmware manifest URL** to that address to
+follow `dev`; leave the setting empty on production panels. These CI images use
+the documented public universal credentials and have `firmware_variant: universal`.
+They are not compatible with devices running a private/custom build (`custom`):
+keep building those from your own ESPHome config and use the local test-release
+workflow below. The dev firmware version will not have a matching stable TFT
+release until the next tagged release, so leave display auto-install disabled on
+the test panel unless you are also testing a matching TFT.
+
+The prerelease notes show the exact commit and changed-file summary. Use the
+commit link to inspect the full diff; the canonical release changelog remains
+`CHANGELOG.md` and is still prepared for stable releases.
+
+### Your custom firmware: choose `dev` or `master`
+
+The published CI dev image is `universal`; it cannot replace firmware reporting
+`firmware_variant: custom`. For your own panel, build the local custom config
+from the branch you want to test, then use the local-manifest flow below. This
+keeps your credentials and lets you compare branch builds without publishing a
+custom image publicly.
+
+1. Commit the changes you want included, then select and update the source
+   branch. The build records `HEAD`, so do not build with uncommitted source
+   changes if you want the version to identify exactly what was installed.
+
+   ```bash
+   git switch dev       # work in progress
+   git pull --ff-only origin dev
+   # Or choose the released source instead:
+   # git switch master
+   # git pull --ff-only origin master
+   git status --short   # review the worktree before building
+   git log -1 --oneline
+   ```
+
+   The repository's `esphome/secrets.yaml` is tracked with placeholders. If you
+   put local credentials there for this build, keep them unstaged and never
+   commit them; the file itself is tracked.
+
+   `esphome/nspanel_haui_dev.yaml` builds the checked-out repository source with
+   your local `esphome/secrets.yaml`. If you build through `esphome/install.yaml`
+   instead, its `remote_package.ref` is `master` by default; change that local
+   value to `dev` when testing `dev`, and back to `master` for the released
+   source. Do not commit a machine-specific branch override.
+
+2. Give every installed test build a higher prerelease number, and include both
+   the source branch and short commit hash. For example, if `0.4.3` is the
+   current stable release and `0.4.4` is next, use `dev1`, `dev2`, `dev3`, …
+   across both branches (increment for every new build):
+
+   ```bash
+   SOURCE=dev                         # use master when building master
+   BUILD=1                            # next unused number; keep increasing it
+   SHA=$(git rev-parse --short HEAD)
+   VERSION="0.4.4.dev${BUILD}+${SOURCE}.g${SHA}"
+   esphome -s yaml_version "$VERSION" compile esphome/nspanel_haui_dev.yaml
+   ```
+
+   The version distinguishes `dev` from `master` and its hash points to the
+   exact committed source (`git show <hash>`). The increasing `.devN` is
+   important: the hub offers only a version newer than the one already
+   installed. Do not reuse a number, even when switching branches. Replace
+   `0.4.4` with the next planned stable version when the release line changes.
+   The **HAUI Firmware** entity shows this as the installed version, making the
+   branch, build order, and source commit visible in Home Assistant.
+
+3. Follow the local-release steps below, passing this same `VERSION` to
+   `scripts/dev_release.py` and `--variant custom`. Set the test panel's
+   **Firmware manifest URL** to the local manifest. Keep display auto-install
+   off unless you have also built and installed the matching TFT.
+
+A custom build from an older `master` commit can have a lower version than the
+`dev` build already installed. The update entity will not offer that downgrade;
+use the direct URL install for an intentional return to an older build. The
+normal release image/manifest remains `universal` and is not an OTA route for a
+custom panel.
 
 ### Test firmware updates with a local release
 
@@ -114,11 +204,15 @@ image URL and md5).
       --image esphome/.esphome/build/nspanel-haui/build/firmware.ota.bin \
       --version 0.4.4-dev1 \
       --base-url http://homeassistant.local:8123/local/nspanel \
+      --variant universal \
       --out /path/to/homeassistant/config/www/nspanel
     ```
 
     The script refuses a factory image, an image larger than the app partition,
-    and an image whose embedded `yaml_version` does not match.
+    an image whose embedded `yaml_version` does not match, and a manifest
+    variant different from the one embedded in the image. The example above
+    builds the universal config, so pass `--variant universal`; custom builds
+    from `install.yaml` or `nspanel_haui_dev.yaml` use the default `custom`.
 
 3. In the device editor's **Updates** section, set the test panel's
    **Firmware manifest URL** to the written manifest
@@ -157,7 +251,9 @@ CI was green on its source branch.
   PR with the always-running CI checks green.
 - `dev` — integration branch, the target for all day-to-day work, and the
   repository's **default branch**, so new PRs base on it automatically. CI runs
-  here on every push and PR.
+  here on every push and PR; each push also builds a versioned universal dev
+  firmware prerelease with commit-linked notes (see
+  [Published development firmware](#published-development-firmware)).
 - Feature branches — branch off `dev`, open the PR against `dev`.
 - Hotfix branches — branch off `master` only when a released version needs a
   patch that cannot wait for the next `dev` cycle; PR into `master`, tag, then

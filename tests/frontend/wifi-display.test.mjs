@@ -70,8 +70,16 @@ test('Device Info keeps partial readings and renders malformed RSSI as unknown',
   const markup = collect(dialog.render()).join(' ');
   assert.match(markup, /10\.0\.0\.8/);
   assert.match(markup, /Unknown/);
+  assert.match(markup, /Page Mode/);
+  assert.match(markup, /Regular page/);
+
   assert.doesNotMatch(markup, /NaN/);
   assert.doesNotMatch(markup, /mdi:wifi-off/);
+
+  dialog.deviceStatus.device_info.idle_page_active = true;
+  const idleMarkup = collect(dialog.render()).join(' ');
+  assert.match(idleMarkup, /Idle page/);
+  assert.doesNotMatch(idleMarkup, /Regular page/);
 });
 
 test('toolbar reads its IP from the backend status without entity-id lookup', () => {

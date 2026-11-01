@@ -12,7 +12,8 @@ from nspanel_haui.haui.page.settings import SettingsPage
 
 
 class _Switch:
-    def __init__(self, state):
+    def __init__(self, state, entity_id):
+        self.entity_id = entity_id
         self.state = state
 
     def get_state(self):
@@ -37,9 +38,20 @@ class _Number:
 
 
 class _App:
-    def __init__(self, items, name="panel", slug="panel"):
+    def __init__(self, items, name="panel", slug="panel", entity_ids=None):
         self.items = items
         self.device = type("Device", (), {"get_name": lambda s: name, "get_slug": lambda s: slug})()
+        self.entity_ids = entity_ids or {
+            "Use Auto-Dimming": f"switch.{slug}_use_auto_dimming",
+            "Use Auto-Page": f"switch.{slug}_use_auto_page",
+            "Use Auto Display-Off": f"switch.{slug}_use_auto_display_off",
+        }
+
+    def find_entity_id(self, domain, original_name):
+        return self.entity_ids.get(original_name) if domain == "switch" else None
+
+    def item_exists(self, entity_id):
+        return entity_id in self.items
 
     def get_item(self, entity_id):
         return self.items[entity_id]
@@ -48,11 +60,16 @@ class _App:
         pass
 
 
-def _switches(dimming, page, sleeping, slug="panel"):
+def _switches(dimming, page, sleeping, slug="panel", entity_ids=None):
+    ids = entity_ids or {
+        "Use Auto-Dimming": f"switch.{slug}_use_auto_dimming",
+        "Use Auto-Page": f"switch.{slug}_use_auto_page",
+        "Use Auto Display-Off": f"switch.{slug}_use_auto_display_off",
+    }
     return {
-        f"switch.{slug}_use_auto_dimming": _Switch(dimming),
-        f"switch.{slug}_use_auto_page": _Switch(page),
-        f"switch.{slug}_use_auto_display_off": _Switch(sleeping),
+        ids["Use Auto-Dimming"]: _Switch(dimming, ids["Use Auto-Dimming"]),
+        ids["Use Auto-Page"]: _Switch(page, ids["Use Auto-Page"]),
+        ids["Use Auto Display-Off"]: _Switch(sleeping, ids["Use Auto Display-Off"]),
     }
 
 
@@ -172,22 +189,28 @@ def test_settings_page_close_restores_auto_dimming_that_was_on():
     assert _states(items)["switch.panel_use_auto_dimming"] == "on"
 
 
-def test_popup_auto_state_uses_device_slug_not_raw_name():
-    """A device named "NSPanel-Living" owns switch.nspanel_living_use_auto_*."""
-    items = _switches(dimming="on", page="on", sleeping="off", slug="nspanel_living")
+def test_popup_auto_state_uses_registry_entity_ids_after_device_rename():
+    entity_ids = {
+        "Use Auto-Dimming": "switch.area_panel_auto_dimming",
+        "Use Auto-Page": "switch.area_panel_auto_page",
+        "Use Auto Display-Off": "switch.area_panel_auto_display_off",
+    }
+    items = _switches(
+        dimming="on", page="on", sleeping="off", entity_ids=entity_ids
+    )
     page = HAUIPage.__new__(HAUIPage)
-    page.app = _App(items, name="NSPanel-Living", slug="nspanel_living")
+    page.app = _App(items, name="NSPanel-Living", slug="nspanel_living", entity_ids=entity_ids)
 
     saved = page._save_auto_state()
     assert _states(items) == {
-        "switch.nspanel_living_use_auto_dimming": "off",
-        "switch.nspanel_living_use_auto_page": "off",
-        "switch.nspanel_living_use_auto_display_off": "off",
+        "switch.area_panel_auto_dimming": "off",
+        "switch.area_panel_auto_page": "off",
+        "switch.area_panel_auto_display_off": "off",
     }
     page._restore_auto_state(saved)
 
     assert _states(items) == {
-        "switch.nspanel_living_use_auto_dimming": "on",
-        "switch.nspanel_living_use_auto_page": "on",
-        "switch.nspanel_living_use_auto_display_off": "off",
+        "switch.area_panel_auto_dimming": "on",
+        "switch.area_panel_auto_page": "on",
+        "switch.area_panel_auto_display_off": "off",
     }

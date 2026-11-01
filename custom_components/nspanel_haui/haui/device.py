@@ -134,14 +134,12 @@ class HAUIDevice(HAUIBase):
 
     def _register_callbacks(self) -> None:
         """Resolves the relay entity each physical button toggles."""
-        for i in ["left", "right"]:
-            button = getattr(self, f"_btn_{i}_info")  # button info dict
-            entity_id = self.get(f"button_{i}_entity")  # the entity to control
-            # no entity id set, use relay
+        for side in ("left", "right"):
+            button = getattr(self, f"_btn_{side}_info")
+            entity_id = self.get(f"button_{side}_entity", None)
             if not entity_id:
-                # default button entity - hardware relay
-                slug = self.get_slug()
-                entity_id = f"switch.{slug}_relay_{i}"
+                name = f"Relay {side.title()}"
+                entity_id = self._resolve_esp_entity("switch", name)
             button["item_id"] = entity_id
 
     def _cancel_callbacks(self) -> None:
@@ -149,35 +147,14 @@ class HAUIDevice(HAUIBase):
         for i in ["left", "right"]:
             getattr(self, f"_btn_{i}_info")["item_id"] = None
 
-    def _resolve_esp_entity(self, domain: str, fallback_id: str, name: str) -> str:
-        """Resolve an ESPHome entity id, preferring the entity registry.
-
-        Home Assistant's entity-id naming (area/device prefixed ids) and
-        device renames produce ids that do not match the ``{slug}_{name}``
-        pattern, so every config-sync target is resolved through the registry
-        by its ESPHome-authored *name* first and only falls back to the
-        classic ``{domain}.{slug}_{name}`` id when the registry is
-        unavailable or nothing matches.
-
-        Args:
-            domain: Entity domain (``"switch"``, ``"number"``, ...).
-            fallback_id: The classic ``{domain}.{slug}_{name}`` entity id.
-            name: The name the ESPHome YAML authored (e.g. ``"Display Model"``).
-
-        Returns:
-            str: The resolved entity id, or the fallback id.
-        """
-        resolver = getattr(self.app, "find_entity_id", None)
-        if resolver is not None:
-            resolved = resolver(domain, name)
-            if resolved:
-                return resolved
-        return fallback_id
+    def _resolve_esp_entity(self, domain: str, name: str) -> str | None:
+        """Resolve a built-in ESPHome entity on this device by its authored name."""
+        return self.find_esphome_entity_id(domain, name)
 
     def _sync_config_switch(
         self,
         hub_key: str,
-        switch_entity_id: str,
+        switch_entity_id: str | None,
         hub_value: bool | None = None,
         reason: str = "",
     ) -> None:
@@ -195,7 +172,7 @@ class HAUIDevice(HAUIBase):
                 (used for the clock-driven sleep schedule).
             reason: Optional log reason replacing the "hub config" explanation.
         """
-        if not self.app.item_exists(switch_entity_id):
+        if not switch_entity_id or not self.app.item_exists(switch_entity_id):
             return
         if hub_value is None:
             hub_value = self.get(hub_key, True)
@@ -208,9 +185,9 @@ class HAUIDevice(HAUIBase):
             self.log(f"Syncing {switch_entity_id} OFF ({reason or f'hub config {hub_key}=False'})")
             item.turn_off()
 
-    def _sync_config_number(self, hub_key: str, number_entity_id: str) -> None:
-        """Sync a hub config number with the device's ESPHome number entity."""
-        if not self.app.item_exists(number_entity_id):
+    def _sync_config_number(self, hub_key: str, number_entity_id: str | None) -> None:
+        """Sync a hub config number with its resolved ESPHome number entity."""
+        if not number_entity_id or not self.app.item_exists(number_entity_id):
             return
         hub_value = self.get(hub_key, 0)
         item = self.app.get_item(number_entity_id)
@@ -231,11 +208,7 @@ class HAUIDevice(HAUIBase):
         """
         self._sync_config_switch(
             "reset_interaction_on_button",
-            self._resolve_esp_entity(
-                "switch",
-                f"switch.{self.get_slug()}_use_button_interaction",
-                "Use Button Interaction",
-            ),
+            self._resolve_esp_entity("switch", "Use Button Interaction"),
         )
 
     def _sync_relay_config(self) -> None:
@@ -246,29 +219,25 @@ class HAUIDevice(HAUIBase):
         ``use_relay_left``/``use_relay_right`` switches using
         ``RESTORE_DEFAULT_ON``) acts differently.
         """
-        slug = self.get_slug()
         self._sync_config_switch(
             "use_relay_left",
-            self._resolve_esp_entity("switch", f"switch.{slug}_use_relay_left", "Use Relay Left"),
+            self._resolve_esp_entity("switch", "Use Relay Left"),
         )
         self._sync_config_switch(
             "use_relay_right",
-            self._resolve_esp_entity("switch", f"switch.{slug}_use_relay_right", "Use Relay Right"),
+            self._resolve_esp_entity("switch", "Use Relay Right"),
         )
 
     # part
     def _sync_behavior_config(self) -> None:
         """Sync hub config auto-* and timeout fields with ESPHome switches/numbers."""
-        slug = self.get_slug()
         self._sync_config_switch(
             "use_auto_dimming",
-            self._resolve_esp_entity(
-                "switch", f"switch.{slug}_use_auto_dimming", "Use Auto-Dimming"
-            ),
+            self._resolve_esp_entity("switch", "Use Auto-Dimming"),
         )
         self._sync_config_switch(
             "use_auto_page",
-            self._resolve_esp_entity("switch", f"switch.{slug}_use_auto_page", "Use Auto-Page"),
+            self._resolve_esp_entity("switch", "Use Auto-Page"),
         )
         # use_auto_display_off can be overridden by the display-off schedule: inside
         # the configured window the display may turn off, outside it never may.  A
@@ -280,9 +249,7 @@ class HAUIDevice(HAUIBase):
             display_off = schedule_active
         self._sync_config_switch(
             "use_auto_display_off",
-            self._resolve_esp_entity(
-                "switch", f"switch.{slug}_use_auto_display_off", "Use Auto Display-Off"
-            ),
+            self._resolve_esp_entity("switch", "Use Auto Display-Off"),
             hub_value=display_off,
             reason=(
                 f"sleep schedule {'active' if schedule_active else 'inactive'}"
@@ -292,36 +259,27 @@ class HAUIDevice(HAUIBase):
         )
         self._sync_config_number(
             "timeout_dimming",
-            self._resolve_esp_entity("number", f"number.{slug}_timeout_dimming", "Timeout Dimming"),
+            self._resolve_esp_entity("number", "Timeout Dimming"),
         )
         self._sync_config_number(
             "timeout_page",
-            self._resolve_esp_entity("number", f"number.{slug}_timeout_page", "Timeout Page"),
+            self._resolve_esp_entity("number", "Timeout Page"),
         )
         self._sync_config_number(
             "timeout_display_off",
-            self._resolve_esp_entity(
-                "number", f"number.{slug}_timeout_display_off", "Timeout Display-Off"
-            ),
+            self._resolve_esp_entity("number", "Timeout Display-Off"),
         )
         self._sync_display_model()
 
     def _sync_display_model(self) -> None:
-        """Sync hub config ``display_model`` with the firmware's gesture size.
+        """Sync the hub's display model with the firmware's gesture size.
 
         The gesture script derives its touch dimensions from the model
-        (``display_model`` number: 0 = landscape, 1 = portrait).  The hub
-        config uses names; translate them so the firmware stays in step.
-
-        The number entity is resolved through the entity registry by its
-        ESPHome name first — Home Assistant's entity-id naming (area/device
-        prefixed ids) and device renames can produce ids that do not match
-        ``number.{slug}_display_model`` — and falls back to that classic id.
+        (``display_model`` number: 0 = landscape, 1 = portrait). The ESPHome
+        number entity is resolved by its authored name on this linked device.
         """
-        number_entity_id = self._resolve_esp_entity(
-            "number", f"number.{self.get_slug()}_display_model", "Display Model"
-        )
-        if not self.app.item_exists(number_entity_id):
+        number_entity_id = self._resolve_esp_entity("number", "Display Model")
+        if not number_entity_id or not self.app.item_exists(number_entity_id):
             return
         value = 1 if self.is_portrait else 0
         item = self.app.get_item(number_entity_id)
@@ -955,7 +913,13 @@ class HAUIDevice(HAUIBase):
             self.check_wakeup()
 
     def _toggle_button_state(self, side: str) -> None:
-        entity_id = getattr(self, f"_btn_{side}_info")["item_id"]
+        button = getattr(self, f"_btn_{side}_info")
+        entity_id = button["item_id"]
+        if not entity_id or not self.app.item_exists(entity_id):
+            if self.get(f"button_{side}_entity", None):
+                return
+            entity_id = self._resolve_esp_entity("switch", f"Relay {side.title()}")
+            button["item_id"] = entity_id
         if not entity_id or not self.app.item_exists(entity_id):
             return
         if not self.get(f"use_relay_{side}", True):

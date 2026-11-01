@@ -370,18 +370,13 @@ class NSPanelHAUI(HAAdapter):
         if update_ctrl is not None:
             result["update"] = update_ctrl.get_update_state()
 
-        # Read network info from HA entities only (no stale fallback).
-        from .esphome_helpers import read_network_entities
-
-        nw = read_network_entities(self.hass, self._runtime_device_name or "")
-
         result["device_info"] = {
             "name": self._runtime_device_name or device_config.get("name", self.name),
             "tft_version": runtime_info.get("tft_version") or "",
             "yaml_version": runtime_info.get("yaml_version") or "",
-            "ip": nw["ip"],
-            "ssid": nw["ssid"],
-            "rssi": nw["rssi"],
+            "ip": "",
+            "ssid": "",
+            "rssi": None,
             "last_panel_update": self._last_panel_update,
             "last_connection": (
                 datetime.datetime.fromtimestamp(

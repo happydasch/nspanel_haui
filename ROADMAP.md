@@ -19,8 +19,8 @@ Nothing in v0.5 or v0.6 starts before that: a broken install or a core regressio
 blocks the next minor release, and remaining gate work is planned for `0.4.4`.
 After the gate closes, **v0.5** adds multiple TFTs for normal- and high-speed
 updates, stable and controllable manual/auto updates in the frontend, and a
-Device Manager overhaul. **v0.6** adds Display Repair Mode — a simple TFT used to
-repair an existing display.
+Device Manager overhaul. **v0.6** adds Display Repair Mode and Home Assistant
+hub settings; multi-hub support remains subject to a needs decision.
 
 ---
 
@@ -305,12 +305,9 @@ models and both speed variants.
 
 ### Hub management
 
-- **Hub settings / options flow** — the hub has no settings today (its name is
-  hard-coded and no options flow exists); allow renaming and updating settings
-  after creation.
-- **Multi-hub support** — only one hub is allowed today
-  (`single_instance_allowed`); allow several entries with their own devices and
-  settings.
+- **Hub settings in Home Assistant** — add an integration options flow so the
+  hub can be renamed and genuinely hub-scoped settings can be changed after
+  setup. Keep per-device settings in the editor.
 
 ### Platform maturity
 
@@ -333,6 +330,10 @@ models and both speed variants.
 
 ## Deferred / needs decision
 
+- **Need for multiple hub entries** — the current model discovers and manages
+  all eligible NSPanels under one hub, with settings scoped per device. No
+  separate multi-hub use case is established yet, so retain the single-instance
+  flow unless a concrete need for independent fleets/configuration is identified.
 - **Trim the HACS download** (`export-ignore` the Nextion binaries) — HACS users
   would lose the HMI sources.
 - **Runtime credential adoption for the universal image** — post-0.4; baked

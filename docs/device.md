@@ -19,7 +19,7 @@ device under Device Settings → Gestures (see
 
 ### Display State Dimmed, Off and On
 
-The display brightness is managed by the ESPHome firmware: `on` at full brightness, `dimmed` after `timeout_dimming` seconds of inactivity (when `use_auto_dimming` is enabled), and `off` (brightness zero) after `timeout_display_off` seconds (when `use_auto_display_off` is enabled). Every touch or hardware button press resets the interaction timer and the brightness returns to full. The dimmed/off state is purely a brightness behavior — it never switches pages and needs no panel configured.
+The display brightness is managed by the ESPHome firmware: `on` at full brightness, `dim` after `timeout_dimming` seconds of inactivity (when `use_auto_dimming` is enabled), and `off` (brightness zero) after `timeout_display_off` seconds (when `use_auto_display_off` is enabled). Every touch resets the interaction timer; a hardware button press does so when `reset_interaction_on_button` is enabled (the default). These interactions restore full brightness. Changing either timeout recalculates the display state against the existing interaction timer; changing a timeout does not count as an interaction. The dimmed/off state is purely a brightness behavior — it never switches pages and needs no panel configured.
 
 When a **display-off schedule** is configured (`use_sleep_schedule` plus `sleep_schedule_start`/`sleep_schedule_end`, see [Device Configuration](configuration/device.md#display-dimming-off)), the off-after-`timeout_display_off` behavior only applies inside the configured window (e.g. at night). Outside the window the display never turns off automatically — it only dims, so the idle page stays visible around the clock. The hub drives `switch.<device>_use_auto_display_off` by the clock and re-applies it on start, reconnect, setting changes and at every window boundary, so no automation is needed to keep the switch in the right state.
 
@@ -58,13 +58,11 @@ The default (`-1`) always restores the previous panel. See
 
 ### Hardware Buttons
 
-The device can either control the internal relays or toggle an entity.
-Use `use_relay_left` / `use_relay_right` to control whether the left/right
-button toggles its internal relay (default `true`) or a configured entity.
+The device can either control the internal relays or toggle an entity. Use `use_relay_left` / `use_relay_right` to control whether the left/right button toggles its internal relay (default `true`) or a configured entity.
 
-It is also possible to completely disable the hardware buttons to be used for checking interactions and change the display state and / or to prevent the display from waking up.
+When `reset_interaction_on_button` is enabled (the default), a hardware button press resets the interaction timer and wakes the display; it also exits the idle page. When disabled, the button still toggles its configured relay or entity, but it does not reset the timer, wake the display, or exit the idle page.
 
-When `reset_interaction_on_button` is enabled (the default), the display wakes immediately on button **press** — there is no need to hold the button until release. The internal relay toggles on press (in the ESPHome firmware); a configured entity toggles on release, so a held button does not spam toggles.
+The ESPHome firmware toggles an internal relay on button **press**. When a button is assigned to a Home Assistant entity instead, the hub toggles that entity on release, so holding the button does not repeat the toggle.
 
 See `switch.nspanel_haui_use_button_interaction` in HA to switch on / off the button interaction.
 

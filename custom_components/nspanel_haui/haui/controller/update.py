@@ -553,12 +553,13 @@ class HAUIUpdateController(HAUIBase):
         except RuntimeError as exc:
             return {"releases": [], "error": str(exc)}
         device_variant = (self.app.device.device_info or {}).get("firmware_variant")
+        required_assets = {FIRMWARE_OTA_ASSET, FIRMWARE_MANIFEST_ASSET}
         releases = []
         if device_variant:
             for release in self._release_infos:
                 version = self._try_parse_version(release.get("tag_name"))
                 names = {asset.get("name") for asset in release.get("assets", [])}
-                if version is None or {FIRMWARE_OTA_ASSET, FIRMWARE_MANIFEST_ASSET} > names:
+                if version is None or not required_assets.issubset(names):
                     continue
                 manifest_url = next(
                     (

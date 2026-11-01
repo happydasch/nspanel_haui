@@ -7,11 +7,30 @@ Assistant uses area/device-prefixed entity ids or the device was renamed, so
 
 from __future__ import annotations
 
+import asyncio
 import sys
+import threading
 import types
 
 import pytest
 from nspanel_haui.ha_adapter import HAAdapter
+
+_test_loop = None
+
+
+@pytest.fixture(autouse=True)
+def loop_in_thread():
+    global _test_loop
+    _test_loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=_test_loop.run_forever, daemon=True)
+    thread.start()
+    try:
+        yield _test_loop
+    finally:
+        _test_loop.call_soon_threadsafe(_test_loop.stop)
+        thread.join()
+        _test_loop.close()
+        _test_loop = None
 
 
 class _Entry:
@@ -46,6 +65,7 @@ def _patch_entity_registry(monkeypatch):
 def _adapter(entities, device_id="dev-1"):
     adapter = HAAdapter.__new__(HAAdapter)
     adapter.hass = _Hass(entities)
+    adapter._loop = _test_loop
     adapter._ha_device_id = device_id
     return adapter
 
@@ -136,25 +156,41 @@ def test_prefers_enabled_candidate_over_disabled_copy():
     )
 
 
-def test_falls_back_to_a_sole_disabled_candidate():
+def test_ignores_a_sole_disabled_candidate():
     entities = {
         "sensor.nspanel_bedroom_temperature": _Entry(
             "sensor", "esphome", "Temperature", "dev-1", disabled_by="integration"
         )
     }
-    assert _adapter(entities).find_entity_id("sensor", "Temperature") == (
-        "sensor.nspanel_bedroom_temperature"
+    assert _adapter(entities).find_entity_id("sensor", "Temperature") is None
+
+
+def test_does_not_resolve_to_another_device_when_linked_entity_is_missing():
+    entities = {
+        "sensor.other_panel_temperature": _Entry(
+            "sensor", "esphome", "Temperature", "dev-2"
+        )
+    }
+    assert _adapter(entities, device_id="dev-1").find_entity_id("sensor", "Temperature") is None
+
+
+def test_resolves_a_sole_candidate_when_no_device_is_linked():
+    entities = {
+        "sensor.other_panel_temperature": _Entry(
+            "sensor", "esphome", "Temperature", "dev-2"
+        )
+    }
+    assert _adapter(entities, device_id=None).find_entity_id("sensor", "Temperature") == (
+        "sensor.other_panel_temperature"
     )
 
 
 def test_production_registry_path_without_hass_helpers(monkeypatch):
     """The HomeAssistant object has no ``.helpers`` attribute.
 
-    Production goes through ``homeassistant.helpers.entity_registry`` directly;
-    the helper-module path above exists only for tests.
+    Production looks up the registry through ``homeassistant.helpers.entity_registry``.
     """
-    import sys
-    import types
+    import homeassistant.helpers
 
     entities = {
         "sensor.area_nspanel_temperature": _Entry(
@@ -164,12 +200,14 @@ def test_production_registry_path_without_hass_helpers(monkeypatch):
     er_module = types.ModuleType("homeassistant.helpers.entity_registry")
     er_module.async_get = lambda hass: _Registry(entities)
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", er_module)
+    monkeypatch.setattr(homeassistant.helpers, "entity_registry", er_module, raising=False)
 
     class _HassWithoutHelpers:
         pass
 
     adapter = HAAdapter.__new__(HAAdapter)
     adapter.hass = _HassWithoutHelpers()
+    adapter._loop = _test_loop
     adapter._ha_device_id = "dev-1"
 
     assert adapter.find_entity_id("sensor", "Temperature") == "sensor.area_nspanel_temperature"

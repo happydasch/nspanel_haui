@@ -1,8 +1,9 @@
-from esphome import automation
 import esphome.codegen as cg
-from esphome.components import switch
 import esphome.config_validation as cv
+from esphome.components import switch
 from esphome.const import CONF_ID, CONF_STATE
+
+from esphome import automation
 
 from .. import CONF_NEXTION_ID, CONF_PUBLISH_STATE, CONF_SEND_TO_NEXTION, nextion_ns
 from ..base_component import (
@@ -42,9 +43,7 @@ automation.register_apply_action(
             cv.Required(CONF_ID): cv.use_id(NextionSwitch),
             cv.Required(CONF_STATE): cv.templatable(cv.boolean),
             cv.Optional(CONF_PUBLISH_STATE, default="true"): cv.templatable(cv.boolean),
-            cv.Optional(CONF_SEND_TO_NEXTION, default="true"): cv.templatable(
-                cv.boolean
-            ),
+            cv.Optional(CONF_SEND_TO_NEXTION, default="true"): cv.templatable(cv.boolean),
         }
     ),
     automation.ApplyCall(

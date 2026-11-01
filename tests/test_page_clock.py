@@ -252,7 +252,7 @@ def test_outside_temp_missing_keeps_home_temp():
 
     home = f"{parse_icon('mdi:home-thermometer')}21°C  "
     assert f'tMainText.txt="{home}"' in page.cmds
-    assert f'{parse_icon("mdi:thermometer")}' not in "".join(page.cmds)
+    assert f"{parse_icon('mdi:thermometer')}" not in "".join(page.cmds)
 
 
 def test_dark_display_keeps_the_clock_current(monkeypatch):

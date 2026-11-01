@@ -950,9 +950,7 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
             handle (str): Handle
         """
 
-        def _log_change(
-            event_item: str, event_attr: str, old: Any, new: Any, kwargs: Any
-        ) -> None:
+        def _log_change(event_item: str, event_attr: str, old: Any, new: Any, kwargs: Any) -> None:
             self.log(
                 f"Item change: {event_item} {event_attr}: {old!r} -> {new!r}",
                 level="DEBUG",

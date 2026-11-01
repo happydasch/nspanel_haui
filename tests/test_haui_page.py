@@ -162,9 +162,7 @@ def test_add_item_listener_logs_item_change_at_debug_and_forwards_args():
     cb("sensor.temp", "state", "21", "22", {})
 
     assert received == [("sensor.temp", "state", "21", "22", {})]
-    change_logs = [
-        m for m, _kw in page.app.log_calls if m.startswith("Item change: sensor.temp")
-    ]
+    change_logs = [m for m, _kw in page.app.log_calls if m.startswith("Item change: sensor.temp")]
     assert change_logs[-1] == "Item change: sensor.temp state: '21' -> '22'"
     assert page._handles == ["handle-sensor.temp"]
     assert page._listener_meta["handle-sensor.temp"]["callback_name"] == "<lambda>"

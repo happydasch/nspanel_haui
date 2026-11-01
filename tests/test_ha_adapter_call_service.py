@@ -37,9 +37,12 @@ def test_strict_service_dispatch_confirms_call_and_promotes_entity_target(monkey
     services = _Services()
     adapter = _adapter(monkeypatch, services)
 
-    assert adapter.call_service(
-        "update.install", entity_id="update.haui_firmware", raise_on_error=True
-    ) is True
+    assert (
+        adapter.call_service(
+            "update.install", entity_id="update.haui_firmware", raise_on_error=True
+        )
+        is True
+    )
     assert services.calls == [
         (
             "update",
@@ -67,4 +70,3 @@ def test_normal_service_dispatch_keeps_best_effort_behavior(monkeypatch):
     adapter = _adapter(monkeypatch, _Services(RuntimeError("service unavailable")))
 
     assert adapter.call_service("light.turn_on", entity_id="light.kitchen") is None
-

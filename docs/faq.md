@@ -28,11 +28,13 @@ See [Sleep Errors](troubleshooting.md#display-off-errors). The log entry is harm
 
 ## The display should change its brightness over the day
 
-Add an automation in Home Assistant that sets the panel's `number.<device>_brightness_full` and `number.<device>_brightness_dimmed` entities, for example dimmed to 55 % from sunrise and to 20 % from sunset.
+Use **Day/Night Profiles** in Device Settings → Day/Night Profiles. Choose a fixed local clock window or Home Assistant sunrise/sunset with independent minute offsets, then set Day and Night brightness, dimming, page, idle-page and display-off behavior. When enabled, the hub owns those brightness/ramp values and replaces the usual time-of-day automations. The separate **Sleep schedule** can still restrict when display-off is allowed; when that schedule is valid, its window overrides the profiles' auto-display-off toggle. See [Day/Night profiles](configuration/device.md#daynight-profiles) and [Display dimming & off](configuration/device.md#display-dimming-off).
+
+With the Day/Night schedule **disabled**, the ESPHome brightness sliders remain manual and the usual automation that writes `number.<device>_brightness_full` / `number.<device>_brightness_dimmed` still works.
 
 ## The display should turn off completely only at night
 
-Set a **display-off schedule** under Device Settings → Display dimming & off: enable *Sleep schedule* and pick the window (e.g. `22:00`–`07:00`, overnight ranges supported). During the day the display only dims and the idle page stays visible; at night it turns off completely after the display-off timeout and wakes on touch. The hub drives `switch.<device>_use_auto_display_off` by the clock, so automations that toggle that switch (which previously fought the hub's own sync after reconnects and restarts) are no longer needed.
+Set a **display-off schedule** under Device Settings → Display dimming & off: enable *Sleep schedule* and pick the window (e.g. `22:00`–`07:00`, overnight ranges supported). During the day the display only dims and the idle page stays visible; at night it turns off completely after the display-off timeout and wakes on touch. The hub drives `switch.<device>_use_auto_display_off` by the clock, so automations that toggle that switch (which previously fought the hub's own sync after reconnects and restarts) are no longer needed. This schedule is independent of the Day/Night profile selector and takes precedence for effective display-off; see [Day/Night profiles](configuration/device.md#daynight-profiles).
 
 ## My NSPanel devices are not discovered
 

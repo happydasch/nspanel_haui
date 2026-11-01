@@ -190,7 +190,7 @@ class YourPanelPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="yourpanel",
         page_name="yourpanel",
-        page_id=42,                        # unique numeric page ID
+        page_id=42,  # unique numeric page ID
         label=_("Your Panel"),
         description=_("Description of your panel."),
         icon="mdi:your-icon",

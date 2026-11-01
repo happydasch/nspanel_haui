@@ -264,9 +264,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
             text_color = item.get_color_field("text_color", text_color)
             back_color = item.get_color_field("back_color", back_color)
             color_pressed = item.get_color_field("color_pressed", color_pressed)
-            back_color_pressed = item.get_color_field(
-                "back_color_pressed", back_color_pressed
-            )
+            back_color_pressed = item.get_color_field("back_color_pressed", back_color_pressed)
             power_color = item.get_color_field("power_color", power_color)
             if not self.is_item_active(item):
                 power_color = back_color_pressed

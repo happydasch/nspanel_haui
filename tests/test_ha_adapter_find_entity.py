@@ -147,9 +147,7 @@ def test_prefers_enabled_candidate_over_disabled_copy():
         "sensor.salon_nspanel_temperature": _Entry(
             "sensor", "esphome", "Temperature", "dev-1", disabled_by="integration"
         ),
-        "sensor.nspanel_bedroom_temperature": _Entry(
-            "sensor", "esphome", "Temperature", "dev-1"
-        ),
+        "sensor.nspanel_bedroom_temperature": _Entry("sensor", "esphome", "Temperature", "dev-1"),
     }
     assert _adapter(entities).find_entity_id("sensor", "Temperature") == (
         "sensor.nspanel_bedroom_temperature"
@@ -167,18 +165,14 @@ def test_ignores_a_sole_disabled_candidate():
 
 def test_does_not_resolve_to_another_device_when_linked_entity_is_missing():
     entities = {
-        "sensor.other_panel_temperature": _Entry(
-            "sensor", "esphome", "Temperature", "dev-2"
-        )
+        "sensor.other_panel_temperature": _Entry("sensor", "esphome", "Temperature", "dev-2")
     }
     assert _adapter(entities, device_id="dev-1").find_entity_id("sensor", "Temperature") is None
 
 
 def test_resolves_a_sole_candidate_when_no_device_is_linked():
     entities = {
-        "sensor.other_panel_temperature": _Entry(
-            "sensor", "esphome", "Temperature", "dev-2"
-        )
+        "sensor.other_panel_temperature": _Entry("sensor", "esphome", "Temperature", "dev-2")
     }
     assert _adapter(entities, device_id=None).find_entity_id("sensor", "Temperature") == (
         "sensor.other_panel_temperature"
@@ -193,9 +187,7 @@ def test_production_registry_path_without_hass_helpers(monkeypatch):
     import homeassistant.helpers
 
     entities = {
-        "sensor.area_nspanel_temperature": _Entry(
-            "sensor", "esphome", "Temperature", "dev-1"
-        )
+        "sensor.area_nspanel_temperature": _Entry("sensor", "esphome", "Temperature", "dev-1")
     }
     er_module = types.ModuleType("homeassistant.helpers.entity_registry")
     er_module.async_get = lambda hass: _Registry(entities)

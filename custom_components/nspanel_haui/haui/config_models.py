@@ -105,6 +105,25 @@ def _ensure_models() -> None:
         use_sleep_schedule: bool = False
         sleep_schedule_start: str = ""
         sleep_schedule_end: str = ""
+        day_night_schedule_mode: str = Field("off", pattern="^(off|fixed|sun)$")
+        day_night_start: str = "21:00"
+        day_night_end: str = "07:00"
+        day_night_sunset_offset: int = Field(0, ge=-720, le=720)
+        day_night_sunrise_offset: int = Field(0, ge=-720, le=720)
+        day_night_profiles_initialized: bool = False
+        day_brightness_full: int | None = Field(None, ge=0, le=100)
+        day_brightness_dimmed: int | None = Field(None, ge=0, le=100)
+        day_duration_dim: float | None = Field(None, ge=0, le=5)
+        night_use_auto_dimming: bool = True
+        night_timeout_dimming: int = Field(10, ge=0, le=3600)
+        night_duration_dim: float = Field(2, ge=0, le=5)
+        night_use_auto_page: bool = True
+        night_timeout_page: int = Field(30, ge=0, le=3600)
+        night_idle_panel: str = ""
+        night_use_auto_display_off: bool = True
+        night_timeout_display_off: int = Field(120, ge=0, le=3600)
+        night_brightness_full: int = Field(50, ge=0, le=100)
+        night_brightness_dimmed: int = Field(20, ge=0, le=100)
         use_relay_left: bool = True
         use_relay_right: bool = True
         use_auto_dimming: bool = True
@@ -126,14 +145,24 @@ def _ensure_models() -> None:
         gesture_sequences: list[_GestureSequence] = Field(default_factory=list)
         enabled: bool = True
 
+        @model_validator(mode="after")
+        def _brightness_ranges(self) -> _DeviceConfig:
+            for full_key, dimmed_key in (
+                ("day_brightness_full", "day_brightness_dimmed"),
+                ("night_brightness_full", "night_brightness_dimmed"),
+            ):
+                full = getattr(self, full_key)
+                dimmed = getattr(self, dimmed_key)
+                if full is not None and dimmed is not None and dimmed > full:
+                    raise ValueError(f"{dimmed_key} cannot exceed {full_key}")
+            return self
+
         @field_validator("log_level")
         @classmethod
         def _validate_log_level(cls, v: Any) -> str:
             """Only standard logging levels are accepted; normalize to upper case."""
             if not isinstance(v, str) or v.upper() not in LOG_LEVEL_OPTIONS:
-                raise ValueError(
-                    f"unsupported log level {v!r}; use one of {LOG_LEVEL_OPTIONS}"
-                )
+                raise ValueError(f"unsupported log level {v!r}; use one of {LOG_LEVEL_OPTIONS}")
             return v.upper()
 
         @field_validator("color_overrides", mode="before")

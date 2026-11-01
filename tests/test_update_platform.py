@@ -228,9 +228,7 @@ FIRMWARE_UID = "entry1_kitchen_firmware_update"
 
 def test_setup_reclaims_the_firmware_entity_id_once_esphome_dropped_its_entity(monkeypatch):
     update = _import_update(monkeypatch)
-    hass = _hass(
-        update, {"kitchen": _App()}, {"update.kitchen_haui_firmware_2": FIRMWARE_UID}
-    )
+    hass = _hass(update, {"kitchen": _App()}, {"update.kitchen_haui_firmware_2": FIRMWARE_UID})
 
     _setup(update, hass)
 

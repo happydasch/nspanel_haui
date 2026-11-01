@@ -47,7 +47,25 @@ function intField(host, id, key, cfg, label, fallback, min, max, hint) {
       <div class="field-hint">${hint}</div>
     </div>
   `;
-}/**
+}
+
+function decimalField(host, id, key, cfg, label, fallback, min, max, hint) {
+  return html`
+    <div class="form-group">
+      <label for=${id}>${label}</label>
+      ${renderNumberInput(id, cfg[key] ?? fallback, (raw) => {
+        const value = Number(raw);
+        host._deviceConfigForm = {
+          ...host._deviceConfigForm,
+          [key]: Number.isFinite(value) ? Math.max(min, Math.min(value, max)) : min,
+        };
+      }, { min, max, step: 0.1 })}
+      <div class="field-hint">${hint}</div>
+    </div>
+  `;
+}
+
+/**
  * Render a preset select with an optional free-text strftime field.
  *
  * The select carries the preset options plus a "__custom__" entry; picking it
@@ -266,6 +284,106 @@ class DeviceConfigDialog extends HauiDialog {
                     <div class="field-hint">${t("The display turns off only within this time window. Overnight ranges such as 22:00–07:00 are supported. Leave both fields empty to keep the Auto display-off setting.")}</div>
                   </div>
                 ` : ""}
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>${t("Day/Night Profiles")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("When scheduling is enabled, the hub applies the active profile's brightness, dim-ramp, auto switches, and timeouts on startup, reconnect, save, and schedule changes. With scheduling disabled, brightness and dim-ramp values remain manual in ESPHome; the existing switches and timeouts remain the Day settings.")}
+              </p>
+              ${selectField(this, "dc-day_night_schedule_mode", "day_night_schedule_mode", cfg,
+                t("Schedule"), [
+                  { value: "off", label: t("Disabled") },
+                  { value: "fixed", label: t("Fixed clock") },
+                  { value: "sun", label: t("Sunrise / sunset") },
+                ], (v) => v,
+                t("Choose fixed local times or Home Assistant's sunrise and sunset for this device. A valid Sleep schedule remains authoritative for whether automatic display-off is allowed."))}
+
+              ${cfg.day_night_schedule_mode === "fixed" ? html`
+                <div class="form-group">
+                  <label>${t("Night schedule")}</label>
+                  <div class="time-range-row">
+                    <input
+                      id="dc-day_night_start"
+                      type="time"
+                      class="native-input"
+                      .value=${String(cfg.day_night_start ?? "21:00")}
+                      @input=${(e) => {
+                        this._deviceConfigForm = { ...this._deviceConfigForm, day_night_start: e.target.value };
+                      }}
+                    />
+                    <span class="time-range-sep">&ndash;</span>
+                    <input
+                      id="dc-day_night_end"
+                      type="time"
+                      class="native-input"
+                      .value=${String(cfg.day_night_end ?? "07:00")}
+                      @input=${(e) => {
+                        this._deviceConfigForm = { ...this._deviceConfigForm, day_night_end: e.target.value };
+                      }}
+                    />
+                  </div>
+                  <div class="field-hint">${t("Night is active inside this window. Overnight ranges are supported; start and end must differ. Invalid settings use the Day profile.")}</div>
+                </div>
+              ` : ""}
+
+              ${cfg.day_night_schedule_mode === "sun" ? html`
+                ${intField(this, "dc-day_night_sunset_offset", "day_night_sunset_offset", cfg,
+                  t("Sunset offset (minutes)"), 0, -720, 720,
+                  t("Start Night this many minutes before or after sunset; negative values are before the event."))}
+                ${intField(this, "dc-day_night_sunrise_offset", "day_night_sunrise_offset", cfg,
+                  t("Sunrise offset (minutes)"), 0, -720, 720,
+                  t("End Night this many minutes before or after sunrise; negative values are before the event."))}
+              ` : ""}
+
+              ${cfg.day_night_schedule_mode !== "off" ? html`
+                <div class="section-divider"></div>
+                <h4>${t("Day profile")}</h4>
+                ${intField(this, "dc-day_brightness_full", "day_brightness_full", cfg,
+                  t("Full brightness (%)"), 50, 0, 100,
+                  t("Preserved from the device's restored brightness on first activation unless you set a value here."))}
+                ${intField(this, "dc-day_brightness_dimmed", "day_brightness_dimmed", cfg,
+                  t("Dimmed brightness (%)"), 20, 0, 100,
+                  t("Must be less than or equal to full brightness."))}
+                ${decimalField(this, "dc-day_duration_dim", "day_duration_dim", cfg,
+                  t("Dim ramp duration (seconds)"), 2, 0, 5,
+                  t("The dimming transition duration; firmware range is 0–5 seconds."))}
+                <p class="field-hint">
+                  ${t("Day auto-dimming, page, and display-off toggles and timeouts are the existing settings in the sections above and below.")}
+                </p>
+
+                <div class="section-divider"></div>
+                <h4>${t("Night profile")}</h4>
+                ${checkbox(this, "dc-night_use_auto_dimming", "night_use_auto_dimming", cfg,
+                  t("Auto dimming"), t("Enable automatic dimming during Night."))}
+                ${intField(this, "dc-night_timeout_dimming", "night_timeout_dimming", cfg,
+                  t("Dimming timeout (seconds)"), 10, 0, 3600,
+                  t("Seconds of inactivity before dimming during Night."))}
+                ${decimalField(this, "dc-night_duration_dim", "night_duration_dim", cfg,
+                  t("Dim ramp duration (seconds)"), 2, 0, 5,
+                  t("The Night dimming transition duration; firmware range is 0–5 seconds."))}
+                ${intField(this, "dc-night_brightness_full", "night_brightness_full", cfg,
+                  t("Full brightness (%)"), 50, 0, 100,
+                  t("Night full brightness. Must be greater than or equal to dimmed brightness."))}
+                ${intField(this, "dc-night_brightness_dimmed", "night_brightness_dimmed", cfg,
+                  t("Dimmed brightness (%)"), 20, 0, 100,
+                  t("Night dimmed brightness. Must be less than or equal to full brightness."))}
+                ${checkbox(this, "dc-night_use_auto_page", "night_use_auto_page", cfg,
+                  t("Auto page"), t("Enable automatic page switching during Night."))}
+                ${intField(this, "dc-night_timeout_page", "night_timeout_page", cfg,
+                  t("Page timeout (seconds)"), 30, 0, 3600,
+                  t("Seconds of inactivity before the Night idle page opens."))}
+                ${selectField(this, "dc-night_idle_panel", "night_idle_panel", cfg,
+                  t("Night idle page"), panelOptions, (v) => v,
+                  t("Choose the idle page used during Night. None keeps the current page when the timeout is reached."))}
+                ${checkbox(this, "dc-night_use_auto_display_off", "night_use_auto_display_off", cfg,
+                  t("Auto display off"), t("Allow automatic display-off according to the Night profile."))}
+                ${intField(this, "dc-night_timeout_display_off", "night_timeout_display_off", cfg,
+                  t("Display-off timeout (seconds)"), 120, 0, 3600,
+                  t("Seconds of inactivity before the display turns off during Night."))}
+              ` : ""}
             </div>
           </details>
 

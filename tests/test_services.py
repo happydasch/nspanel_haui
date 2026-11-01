@@ -517,8 +517,12 @@ def test_send_notification_service_metadata_and_schema_agree():
 
     import yaml
 
-    services = Path(__file__).resolve().parent.parent / "custom_components" / \
-        "nspanel_haui" / "services.yaml"
+    services = (
+        Path(__file__).resolve().parent.parent
+        / "custom_components"
+        / "nspanel_haui"
+        / "services.yaml"
+    )
     metadata = yaml.safe_load(services.read_text())["send_notification"]
     yaml_fields = set(metadata["fields"])
     schema_fields = {marker.schema for marker in SERVICE_SEND_NOTIFICATION_SCHEMA.schema}

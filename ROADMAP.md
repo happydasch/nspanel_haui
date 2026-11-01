@@ -26,7 +26,7 @@ hub settings; multi-hub support remains subject to a needs decision.
 
 ## v0.4.x — finishing the binary and TFT install (current focus)
 
-One job: make the install complete and working. New features wait.
+Primary job: close the install gate. The focused Day/Night Profiles item below is the only new v0.4.x feature; broader work waits.
 
 - **Universal binary** — flashes and runs; TFT installs and auto-updates
   end-to-end on both display models; base and core functions work on real EU and
@@ -38,6 +38,11 @@ One job: make the install complete and working. New features wait.
 - **Sleep / idle behaviour** — touch wakes the panel, the `wakeup` service works
   reliably, and state survives sleep/wake cycles. *Known gap: touch-to-wake and
   idle-panel transitions are not reliable yet.*
+- **Day/Night Profiles** — focused v0.4.x support for fixed-clock and
+  sunrise/sunset Day/Night profiles covering display brightness, dimming,
+  automatic-page/idle target and display-off behavior. This replaces common
+  time-of-day brightness/timeout automations; it does not complete or change the
+  broader v0.5 Device settings API/tab described below.
 - **Notification behaviour** — HA persistence and `force_show`, ESPHome
   `send_notification` with `persistent`/`text_size`, long-message paging and
   severity default icons confirmed on hardware.

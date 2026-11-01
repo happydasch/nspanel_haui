@@ -122,7 +122,7 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 
 - `use_sleep_schedule` bool
 
-  Enable a daily **display-off schedule** that drives `use_auto_display_off` by the clock: inside the window below the display may turn off after `timeout_display_off` seconds of inactivity; outside it the display never turns off automatically — it only dims (`use_auto_dimming`) while the idle page stays visible. While enabled, the window overrides the `use_auto_display_off` toggle. The hub applies the clock value itself on every start, reconnect and setting save, and at each window boundary, so no automation is needed to keep `switch.<device>_use_auto_display_off` in the right state during the day — this is the native replacement for automations that toggle it. Default `False`.
+  Enable a daily **display-off schedule** that drives the effective `use_auto_display_off` setting by the clock: inside the window below the display may turn off after the active profile's display-off timeout; outside it the display never turns off automatically — it only dims while the idle page stays visible. When Day/Night Profiles are enabled, this window overrides the active profile's `use_auto_display_off` toggle. The hub applies the clock value itself on every start, reconnect and setting save, and at each window boundary, so no automation is needed to keep `switch.<device>_use_auto_display_off` in the right state during the day — this is the native replacement for automations that toggle it. Default `False`.
 
 - `sleep_schedule_start` string
 
@@ -131,6 +131,35 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 - `sleep_schedule_end` string
 
   End of the display-off schedule window in `HH:MM` 24-hour format. Only used when `use_sleep_schedule` is enabled. Supports overnight ranges. If either start or end is empty, or a value is not in `HH:MM` format, the schedule is inactive and `use_auto_display_off` is used as-is. Default empty.
+
+
+### Day/Night profiles
+
+The **Day/Night Profiles** section can automatically select two complete display-behavior profiles. `day_night_schedule_mode` is `off` (default), `fixed`, or `sun`. When off, existing brightness and dim-ramp values remain manual in the ESPHome Settings page; the hub does not sync them. When enabled, the hub owns the active profile's brightness and dim-ramp settings and reapplies it at startup, reconnect, settings save, and each schedule boundary.
+
+- `day_night_schedule_mode` string
+
+  `off` (default) leaves Day/Night scheduling disabled. `fixed` selects Night within a local clock window; `sun` selects Night from sunset to sunrise using Home Assistant's location and timezone.
+
+- `day_night_start` / `day_night_end` string
+
+  Fixed-clock Night start and end in `HH:MM` (24-hour) format. Defaults are `21:00` and `07:00`; overnight windows are supported. Night includes the start time and ends immediately before the configured end time. Empty, invalid, or identical times log a warning and use Day.
+
+- `day_night_sunset_offset` / `day_night_sunrise_offset` int
+
+  Solar schedule offsets in minutes (`-720` to `720`, default `0`). Positive values are after the event and negative values are before it. If Home Assistant cannot calculate both events for the configured location (for example, during polar day/night), the hub logs the error and safely applies Day until solar events are available again.
+
+- `day_night_profiles_initialized` bool
+
+  Integration-managed migration marker (default `False`). The hub sets it after it has adopted restored ESPHome brightness/ramp values or confirmed explicit Day values; it is not an editor setting.
+
+**Day profile:** the existing `use_auto_dimming`, `timeout_dimming`, `use_auto_page`, `timeout_page`, `idle_panel`, `use_auto_display_off`, and `timeout_display_off` settings are the Day values. The additional brightness/ramp values are `day_brightness_full` (0–100%), `day_brightness_dimmed` (0–100%), and `day_duration_dim` (0–5 seconds). Dimmed brightness must not exceed full brightness. On first activation, unset Day brightness and ramp values are adopted from the device's restored ESPHome numbers and saved, so existing manual settings are preserved. If an adopted brightness would violate the dimmed/full relationship, only the unset value is adjusted (dimmed is clamped to full, or full is raised to dimmed); explicit Day values are preserved. If restored ESPHome values are not yet available, the hub waits before marking migration complete or applying Day brightness/ramp.
+
+**Night profile:** configure `night_use_auto_dimming`, `night_timeout_dimming`, `night_duration_dim`, `night_use_auto_page`, `night_timeout_page`, `night_idle_panel`, `night_use_auto_display_off`, `night_timeout_display_off`, `night_brightness_full`, and `night_brightness_dimmed`. Their initial values match the firmware's standard settings (auto toggles enabled, dim/page/display-off timeouts 10/30/120 seconds, brightness 50/20%, ramp 2 seconds). Brightness is constrained to 0–100%, ramp to 0–5 seconds, and timeouts to 0–3600 seconds. An empty `night_idle_panel` means stay on the current page when automatic page switching fires.
+
+The separate `use_sleep_schedule` remains authoritative for effective automatic display-off when its window is valid: it allows display-off inside its window and prevents it outside, overriding either profile's `use_auto_display_off` value. Invalid/incomplete sleep windows continue to leave the profile's auto display-off setting in charge.
+
+Profile timeouts are applied without counting as a touch. Firmware brightness and ramp number callbacks recalculate the inactivity baseline, so when a profile change writes those values the display may briefly change brightness before settling; a timeout-only change does not do this. This feature replaces time-of-day automations that write brightness and behavior timeout entities.
 
 ### Automatic page switching
 

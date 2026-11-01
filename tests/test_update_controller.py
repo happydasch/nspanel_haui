@@ -165,9 +165,7 @@ class _App:
         self.timers: dict = {}
         esphome = types.SimpleNamespace(
             publish=lambda action, value: self.published.append((action, value)) or True,
-            send_cmd=lambda cmd, value="", force=False: self.requests.append(
-                (cmd, value, force)
-            ),
+            send_cmd=lambda cmd, value="", force=False: self.requests.append((cmd, value, force)),
         )
         navigation = types.SimpleNamespace(
             open_panel=lambda key, **kw: self.opened.append((key, kw)), close_panel=lambda: None
@@ -247,7 +245,9 @@ def _updater(
             return _Response(current or {})
         if url.endswith("/manifest.json"):  # a release's manifest, see _firmware_release
             tag = url.split("/")[-2]
-            current = served["release_manifests"].get(tag, _manifest(tag, f"https://dl/{tag}/ota.bin"))
+            current = served["release_manifests"].get(
+                tag, _manifest(tag, f"https://dl/{tag}/ota.bin")
+            )
             if isinstance(current, Exception):
                 raise current
             return _Response(current)
@@ -650,9 +650,7 @@ def test_publish_failure_marks_the_install_as_failed(monkeypatch):
 
 
 def test_invalid_yaml_version_is_an_error_not_a_0_0_0_install(monkeypatch):
-    ctrl, app, _ = _updater(
-        monkeypatch, {"yaml_version": "not-a-version", "tft_version": "0.4.0"}
-    )
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "not-a-version", "tft_version": "0.4.0"})
 
     ctrl.check_installed_version()
 
@@ -1177,9 +1175,7 @@ def test_firmware_release_list_filters_by_variant(monkeypatch):
 def test_firmware_release_list_skips_unreadable_manifests(monkeypatch):
     """A release whose manifest cannot be read is dropped, not offered by guess."""
     ctrl, app, _ = _firmware_updater(monkeypatch, [_firmware_release("v0.4.2")])
-    app.served["release_manifests"]["v0.4.2"] = requests.exceptions.ConnectTimeout(
-        "timed out"
-    )
+    app.served["release_manifests"]["v0.4.2"] = requests.exceptions.ConnectTimeout("timed out")
 
     assert ctrl.list_firmware_releases() == {"releases": [], "error": None}
 
@@ -1207,7 +1203,7 @@ def test_firmware_release_list_matches_a_custom_manifest_variant(monkeypatch):
     assert state["firmware_install_error"] is None
 
 
-# --- automatic firmware update -----------------------------------------------# --- automatic firmware update -----------------------------------------------
+# --- automatic firmware update -----------------------------------------------
 
 
 def test_check_for_update_installs_the_offered_firmware_first(monkeypatch):

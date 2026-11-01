@@ -451,8 +451,8 @@ class HAUIUpdateController(HAUIBase):
         happen, not even when the user only gets the upgrade *offered*.
         """
         device_variant = (self.app.device.device_info or {}).get("firmware_variant")
-        return bool(device_variant) and bool(manifest_variant) and (
-            device_variant == manifest_variant
+        return (
+            bool(device_variant) and bool(manifest_variant) and (device_variant == manifest_variant)
         )
 
     def _firmware_variant_mismatch_reason(self) -> str | None:
@@ -491,9 +491,7 @@ class HAUIUpdateController(HAUIBase):
         match the one the device reports, or the update is withheld entirely.
         """
         latest = self._try_parse_version(self._firmware_update_version())
-        installed = self._try_parse_version(
-            (self.app.device.device_info or {}).get("yaml_version")
-        )
+        installed = self._try_parse_version((self.app.device.device_info or {}).get("yaml_version"))
         return latest is not None and installed is not None and latest > installed
 
     def _firmware_update_version(self) -> str | None:
@@ -725,9 +723,7 @@ class HAUIUpdateController(HAUIBase):
         self._cancel_timer("_firmware_install_timer")
         label = self._firmware_install_version
         installed = (self.app.device.device_info or {}).get("yaml_version")
-        if self._try_parse_version(label) is not None and not self._same_version(
-            label, installed
-        ):
+        if self._try_parse_version(label) is not None and not self._same_version(label, installed):
             self._firmware_install_error = (
                 f"Firmware install of {label} failed: the panel still runs {installed}"
             )
@@ -804,8 +800,7 @@ class HAUIUpdateController(HAUIBase):
     def _notify_firmware_install(self, version: str | None) -> None:
         """Tell the user on the display that a firmware update is installing."""
         msg = self.translate(
-            "A new firmware release is installing. The display updates after "
-            "the device reboots."
+            "A new firmware release is installing. The display updates after the device reboots."
         )
         msg += "\r\n\r\n"
         msg += self.translate("Version:")
@@ -874,9 +869,7 @@ class HAUIUpdateController(HAUIBase):
         Returns:
             dict: The update state after the attempt (``get_update_state()``)
         """
-        published = self.app.controller["esphome"].esphome.publish(
-            ESPAction.UPLOAD_TFT_URL, url
-        )
+        published = self.app.controller["esphome"].esphome.publish(ESPAction.UPLOAD_TFT_URL, url)
         if not published:
             msg = "Could not send the TFT upload command; check the ESPHome connection"
             self.log(msg, level="ERROR")
@@ -1120,9 +1113,7 @@ class HAUIUpdateController(HAUIBase):
             self.log("Firmware update in flight; TFT install deferred until it finishes")
             return
         if self.get("auto_install", True):
-            self.log(
-                f"TFT {installed_version!r} is older than {required_version}, installing"
-            )
+            self.log(f"TFT {installed_version!r} is older than {required_version}, installing")
             self.run_update_display(required_version)
             return
         msg = self.translate("Your TFT-version is outdated.")
@@ -1163,9 +1154,7 @@ class HAUIUpdateController(HAUIBase):
 
     def _state_check_timer_callback(self, kwargs: dict[str, Any]) -> None:
         self._state_check_timer = None
-        self._evaluate_installed_version(
-            self.app.device.device_info or {}, refresh_answered=False
-        )
+        self._evaluate_installed_version(self.app.device.device_info or {}, refresh_answered=False)
 
     def _evaluate_installed_version(
         self, device_info: dict[str, Any], refresh_answered: bool = True
@@ -1186,15 +1175,12 @@ class HAUIUpdateController(HAUIBase):
                 "The firmware reported an invalid yaml_version; TFT not checked",
                 level="WARNING",
             )
-            self._set_update_state(
-                UPDATE_STATE_ERROR, version=self._update_version, error=msg
-            )
+            self._set_update_state(UPDATE_STATE_ERROR, version=self._update_version, error=msg)
             return
         installed = self._try_parse_version(installed_version)
         if not refresh_answered and installed is None:
             self.log(
-                "Could not read the installed TFT version (no device-state answer); "
-                "not installing",
+                "Could not read the installed TFT version (no device-state answer); not installing",
                 level="WARNING",
             )
             return
@@ -1222,9 +1208,7 @@ class HAUIUpdateController(HAUIBase):
         if self._install_verify_timer is not None:
             # A reconnect right after an install: the bounded verification
             # window owns the outcome.  Re-read once more instead of guessing.
-            self.log(
-                "TFT version still unknown after reconnect; verifying the install"
-            )
+            self.log("TFT version still unknown after reconnect; verifying the install")
             self._request_device_state()
             return
         if self._recent_unconfirmed_install(required_version):

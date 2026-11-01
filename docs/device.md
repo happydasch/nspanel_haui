@@ -23,6 +23,8 @@ The display brightness is managed by the ESPHome firmware: `on` at full brightne
 
 When a **display-off schedule** is configured (`use_sleep_schedule` plus `sleep_schedule_start`/`sleep_schedule_end`, see [Device Configuration](configuration/device.md#display-dimming-off)), the off-after-`timeout_display_off` behavior only applies inside the configured window (e.g. at night). Outside the window the display never turns off automatically — it only dims, so the idle page stays visible around the clock. The hub drives `switch.<device>_use_auto_display_off` by the clock and re-applies it on start, reconnect, setting changes and at every window boundary, so no automation is needed to keep the switch in the right state.
 
+**Day/Night Profiles** can also select different brightness, dimming/page/display-off timeouts, and idle-page destinations by a fixed local window or sunrise/sunset schedule. For fixed windows, Night starts at the configured start time and ends immediately before the end time; the profile schedule does not change the independent Sleep schedule's precedence. See [Device Configuration](configuration/device.md#daynight-profiles) for the profile values and first-activation migration behavior.
+
 Separate from the brightness is **automatic page switching**: when `use_auto_page` is enabled, the hub opens the configured idle page (`idle_panel`) after `timeout_page` seconds of inactivity, without dimming or turning the display off.
 
 ### Idle Page

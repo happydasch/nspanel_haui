@@ -195,9 +195,7 @@ def test_popup_auto_state_uses_registry_entity_ids_after_device_rename():
         "Use Auto-Page": "switch.area_panel_auto_page",
         "Use Auto Display-Off": "switch.area_panel_auto_display_off",
     }
-    items = _switches(
-        dimming="on", page="on", sleeping="off", entity_ids=entity_ids
-    )
+    items = _switches(dimming="on", page="on", sleeping="off", entity_ids=entity_ids)
     page = HAUIPage.__new__(HAUIPage)
     page.app = _App(items, name="NSPanel-Living", slug="nspanel_living", entity_ids=entity_ids)
 

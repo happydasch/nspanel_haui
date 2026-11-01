@@ -90,8 +90,16 @@ def test_main_reports_a_refused_image(tmp_path, capsys):
     image = _write(tmp_path, _image(first=b"\xff"))
 
     code = dev_release.main(
-        ["--image", str(image), "--version", "0.4.3-dev1", "--base-url", BASE_URL,
-         "--out", str(tmp_path / "www")]
+        [
+            "--image",
+            str(image),
+            "--version",
+            "0.4.3-dev1",
+            "--base-url",
+            BASE_URL,
+            "--out",
+            str(tmp_path / "www"),
+        ]
     )
 
     assert code == 1
@@ -109,8 +117,18 @@ def test_main_accepts_a_variant_override(tmp_path, capsys):
     image = _write(tmp_path, _image(version="0.4.3-dev1", variant="universal"))
 
     code = dev_release.main(
-        ["--image", str(image), "--version", "0.4.3-dev1", "--base-url", BASE_URL,
-         "--variant", "universal", "--out", str(tmp_path / "www")]
+        [
+            "--image",
+            str(image),
+            "--version",
+            "0.4.3-dev1",
+            "--base-url",
+            BASE_URL,
+            "--variant",
+            "universal",
+            "--out",
+            str(tmp_path / "www"),
+        ]
     )
 
     assert code == 0

@@ -80,9 +80,7 @@ def env(monkeypatch):
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.event", module)
     # The stubbed core module may be a restricted/wrapping mock that does not
     # expose ``callback``; raising=False lets the patch create it either way.
-    monkeypatch.setattr(
-        sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False
-    )
+    monkeypatch.setattr(sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False)
     adapter = HAAdapter(_Hass(loop, pool), "hub")
     yield adapter, loop, helpers
     loop.call_soon_threadsafe(loop.stop)
@@ -236,6 +234,8 @@ def test_callbacks_still_queued_when_the_app_stops_are_dropped(env):
     time.sleep(0.1)
 
     assert calls == []
+
+
 def test_listen_state_with_attribute_all_reports_state_pair(env):
     """attribute="all" listeners receive the primary state as the old/new pair."""
     adapter, loop, helpers = env
@@ -245,6 +245,28 @@ def test_listen_state_with_attribute_all_reports_state_pair(env):
     _settle(adapter, loop, helpers)
 
     assert calls == [("light.desk", "all", "old", "on", {})]
+
+
+def test_solar_profile_state_rejects_locations_without_solar_events(env, monkeypatch):
+    from datetime import UTC, datetime
+
+    adapter, _, _ = env
+    const_module = types.ModuleType("homeassistant.const")
+    const_module.SUN_EVENT_SUNRISE = "sunrise"
+    const_module.SUN_EVENT_SUNSET = "sunset"
+    monkeypatch.setitem(sys.modules, "homeassistant.const", const_module)
+
+    sun_module = types.ModuleType("homeassistant.helpers.sun")
+    sun_module.get_astral_event_date = lambda hass, event, date: None
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.sun", sun_module)
+
+    util_module = sys.modules.get("homeassistant.util") or types.ModuleType("homeassistant.util")
+    util_module.dt = types.SimpleNamespace(now=lambda: datetime(2026, 6, 21, 12, 0, tzinfo=UTC))
+    monkeypatch.setitem(sys.modules, "homeassistant.util", util_module)
+    monkeypatch.setattr(sys.modules["homeassistant"], "util", util_module, raising=False)
+
+    with pytest.raises(ValueError, match="cannot calculate both sunrise and sunset"):
+        adapter.get_solar_profile_state(0, 0)
 
 
 class _ThresholdDevice:
@@ -263,7 +285,11 @@ def _capture_logger(monkeypatch):
     monkeypatch.setattr(
         sys.modules["nspanel_haui.ha_adapter"],
         "_LOGGER",
-        type("_FakeLogger", (), {"log": lambda self, level, msg, exc_info=None: logs.append((level, msg))})(),
+        type(
+            "_FakeLogger",
+            (),
+            {"log": lambda self, level, msg, exc_info=None: logs.append((level, msg))},
+        )(),
     )
     return logs
 

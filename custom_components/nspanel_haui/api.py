@@ -97,17 +97,41 @@ async def _push_panels(hass: Any, entry_id: str, data: dict) -> dict:
         hass.config_entries.async_schedule_reload(entry_id)
         return {"status": "ok", "reloaded": True}
 
+    profile_migration_saved = False
     for device_name, app in apps.items():
-        if app.device_config:
-            try:
-                cfg = _build_config_dict(entry.data, data, device_name=device_name)
-                await app.async_run_on_worker(app.reload_config, cfg)
-            except Exception:
-                _LOGGER.exception(
-                    "Failed to push panel update to device '%s' for entry %s",
-                    device_name,
-                    entry_id,
-                )
+        if not app.device_config:
+            continue
+        try:
+            cfg = _build_config_dict(entry.data, data, device_name=device_name)
+            await app.async_run_on_worker(app.reload_config, cfg)
+            profile_config = await app.async_run_on_worker(app.device.get_config)
+            if not profile_config.get("day_night_profiles_initialized"):
+                continue
+            from .haui.device_config import find_store_device
+
+            store_device = find_store_device(data.get("devices", {}), device_name)
+            if store_device is None:
+                continue
+            stored_config = store_device.setdefault("config", {})
+            for key in (
+                "day_brightness_full",
+                "day_brightness_dimmed",
+                "day_duration_dim",
+                "day_night_profiles_initialized",
+            ):
+                value = profile_config[key]
+                if stored_config.get(key) != value:
+                    stored_config[key] = value
+                    profile_migration_saved = True
+        except Exception:
+            _LOGGER.exception(
+                "Failed to push panel update to device '%s' for entry %s",
+                device_name,
+                entry_id,
+            )
+
+    if profile_migration_saved:
+        await panel_store(hass, entry_id).async_save(data)
 
     return {"status": "ok"}
 
@@ -740,7 +764,7 @@ class FirmwareDownloadView(HomeAssistantView):
             try:
                 resp = requests.get(HAUIUpdateController.RELEASES_URL, timeout=5)
                 json_decoded = resp.json()
-            except (requests.exceptions.RequestException, ValueError):
+            except requests.exceptions.RequestException, ValueError:
                 # Network failure, a non-JSON body (GitHub rate limit page), …
                 return None
             return json_decoded if isinstance(json_decoded, list) else None
@@ -827,9 +851,7 @@ class DeviceUpdateTftView(HomeAssistantView):
                     result.get("last_error") or "TFT update failed",
                     502,
                 )
-            return self.json(
-                {"status": "ok", "devices_updated": [device_name], "update": result}
-            )
+            return self.json({"status": "ok", "devices_updated": [device_name], "update": result})
 
         # Update all devices
         updated: list[str] = []
@@ -957,9 +979,7 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
             result = await app.async_run_on_worker(app.install_firmware, version, url)
             if result.get("firmware_install_error"):
                 return _error(self, result["firmware_install_error"], 502)
-            return self.json(
-                {"status": "ok", "devices_updated": [device_name], "update": result}
-            )
+            return self.json({"status": "ok", "devices_updated": [device_name], "update": result})
 
         updated: list[str] = []
         failed: list[dict[str, str]] = []

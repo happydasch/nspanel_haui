@@ -58,6 +58,7 @@ class HAUINavigationController(HAUIBase):
         self._idle_panel: HAUIPanel | None = None  # current idle page
         self._idle_panels: list[HAUIPanel] = []  # carousel, cycles on each entry
         self._idle_panel_idx = 0  # next carousel index
+        self._idle_profile_night: bool | None = None
         # True while the idle page is the displayed panel.  This is the
         # only hub session state around display idle: opening the page enters
         # it, any user input / navigation away from the page leaves it.  The
@@ -128,8 +129,12 @@ class HAUINavigationController(HAUIBase):
         Resetting the carousel cursor when the configured list changes makes
         repeated reloads resume at the first entry instead of mid-list.
         """
-        idle_keys = self.app.device.get("idle_panel", "") or ""
-        extra = self.app.device.get("idle_panel_extra", "") or ""
+        if self._idle_profile_night:
+            idle_keys = self.app.device.get("night_idle_panel", "") or ""
+            extra = ""
+        else:
+            idle_keys = self.app.device.get("idle_panel", "") or ""
+            extra = self.app.device.get("idle_panel_extra", "") or ""
         candidates: list[str] = []
         if isinstance(idle_keys, list):
             candidates = [k for k in idle_keys if k]
@@ -152,8 +157,13 @@ class HAUINavigationController(HAUIBase):
         self._idle_panel = self._idle_panels[0] if self._idle_panels else None
         if log:
             if not self._idle_panels:
-                if self.app.device.get("idle_panel"):
-                    self.log(f"Idle panel key '{self.app.device.get('idle_panel')}' not found")
+                idle_key = (
+                    self.app.device.get("night_idle_panel", "")
+                    if self._idle_profile_night
+                    else self.app.device.get("idle_panel", "")
+                )
+                if idle_key:
+                    self.log(f"Idle panel key '{idle_key}' not found")
             else:
                 self.log(
                     "Idle panel carousel: "
@@ -164,6 +174,13 @@ class HAUINavigationController(HAUIBase):
         """Starts the part."""
         self._resolve_special_panels(log=True)
         self.log(f"Panels used for navigation: {', '.join([str(x) for x in self._ids])}")
+
+    def set_idle_profile(self, is_night: bool | None) -> None:
+        """Select the Day or Night idle destination without disturbing the current page."""
+        if self._idle_profile_night == is_night:
+            return
+        self._idle_profile_night = is_night
+        self._resolve_idle_panels(log=is_night is True)
 
     def stop_part(self) -> None:
         """Stops the part.

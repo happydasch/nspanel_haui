@@ -106,9 +106,7 @@ def test_home_temp_unavailable_shows_outside_temp_only():
 
 
 def test_home_temp_missing_entity_shows_outside_temp_only():
-    page = _weather_page(
-        _App(inside_temp="21.4", temp_entity_id=None), {"temperature": 12}
-    )
+    page = _weather_page(_App(inside_temp="21.4", temp_entity_id=None), {"temperature": 12})
     page._show_home_temp = True
 
     page.update_main_weather()

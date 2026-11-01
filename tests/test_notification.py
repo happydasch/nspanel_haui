@@ -762,7 +762,8 @@ def test_timeout_removes_the_notification_and_fires_the_removed_event(loop_ctrl)
     assert ctrl.get_notifications() == []
     assert ctrl.blinker.new_notifications is False
     removed = [
-        data for event_type, data in app.fire_event_calls[before:]
+        data
+        for event_type, data in app.fire_event_calls[before:]
         if event_type == "nspanel_haui.notification"
     ]
     assert removed and removed[0]["state"] == "removed"

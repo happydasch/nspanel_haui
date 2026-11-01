@@ -1,8 +1,9 @@
-from esphome import automation
 import esphome.codegen as cg
-from esphome.components import text_sensor
 import esphome.config_validation as cv
+from esphome.components import text_sensor
 from esphome.const import CONF_ID, CONF_STATE
+
+from esphome import automation
 
 from .. import CONF_NEXTION_ID, CONF_PUBLISH_STATE, CONF_SEND_TO_NEXTION, nextion_ns
 from ..base_component import CONFIG_TEXT_COMPONENT_SCHEMA, setup_component_core_
@@ -38,9 +39,7 @@ automation.register_apply_action(
             cv.Required(CONF_ID): cv.use_id(NextionTextSensor),
             cv.Required(CONF_STATE): cv.templatable(cv.string_strict),
             cv.Optional(CONF_PUBLISH_STATE, default="true"): cv.templatable(cv.boolean),
-            cv.Optional(CONF_SEND_TO_NEXTION, default="true"): cv.templatable(
-                cv.boolean
-            ),
+            cv.Optional(CONF_SEND_TO_NEXTION, default="true"): cv.templatable(cv.boolean),
         }
     ),
     automation.ApplyCall(

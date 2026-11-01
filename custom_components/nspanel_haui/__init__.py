@@ -186,6 +186,40 @@ async def _create_app(
     app._last_panel_update = (
         panels.get("devices", {}).get(dev_name, {}).get("last_panel_update") if panels else None
     )
+    from .storage import empty_store, panel_store
+
+    async def _persist_day_profile(values: dict[str, Any]) -> None:
+        from .haui.device_config import find_store_device
+
+        store = panel_store(hass, entry.entry_id)
+        store_data = await store.async_load() or empty_store()
+        store_device = find_store_device(store_data.get("devices", {}), dev_name)
+        if store_device is None:
+            return
+        store_config = store_device.setdefault("config", {})
+        if any(store_config.get(key) != value for key, value in values.items()):
+            store_config.update(values)
+            await store.async_save(store_data)
+
+    def _schedule_day_profile_persist(values: dict[str, Any]) -> None:
+        import asyncio
+
+        future = asyncio.run_coroutine_threadsafe(_persist_day_profile(values), hass.loop)
+
+        def _log_failure(done: Any) -> None:
+            if done.cancelled():
+                return
+            error = done.exception()
+            if error is not None:
+                _LOGGER.error(
+                    "Failed to persist adopted Day profile for '%s'",
+                    dev_name,
+                    exc_info=error,
+                )
+
+        future.add_done_callback(_log_failure)
+
+    app.persist_day_profile = _schedule_day_profile_persist
     await app.async_run_on_worker(app.initialize)
 
     # Link the ESPHome device to our integration so it shows in the hub page

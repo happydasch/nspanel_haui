@@ -120,8 +120,7 @@ def bump_hmi(path: Path, version: str, check: bool = False) -> tuple[bool, str]:
     if check:
         return (
             False,
-            f"{path.name}: would set {TARGET_WIDGET}.{TXT_NAME} "
-            f"{current!r} -> {version!r}",
+            f"{path.name}: would set {TARGET_WIDGET}.{TXT_NAME} {current!r} -> {version!r}",
         )
     old_crc = gp.block_crc(bytes(raw[block.start : block.end]))
     raw[value_off : value_off + len(version)] = version.encode("iso_8859_1")

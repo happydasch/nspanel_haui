@@ -43,6 +43,13 @@ and follow [Semantic Versioning](https://semver.org/).
   editor → Updates) names the manifest the HAUI Firmware entity follows;
   empty means the latest GitHub release. Test panels point it at the manifest
   `scripts/dev_release.py` writes.
+- **Day/Night Profiles** — each device can select Day and Night display settings
+  by a fixed local window or Home Assistant sunrise/sunset with minute offsets.
+  Profiles cover brightness, dimming, page/idle target and display-off behavior;
+  the independent Sleep schedule keeps its existing precedence. Existing
+  brightness/ramp values are adopted on first activation, and when scheduling is
+  disabled those ESPHome values remain manual. See
+  [Device Configuration](docs/configuration/device.md#daynight-profiles).
 
 - **Inside temperature sensor picker** — clock and weather panels can use any
   `sensor` entity for the inside temperature; leave empty for the NSPanel's

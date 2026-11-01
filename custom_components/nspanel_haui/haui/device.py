@@ -49,17 +49,23 @@ TOUCH_DUPLICATE_WINDOW: float = 1.5
 STARTUP_SOUND_MAX_UPTIME_SECONDS = 120
 
 
-def _time_in_window(now_time: dt_time, start_time: dt_time, end_time: dt_time) -> bool:
-    """Whether *now_time* falls inside the ``[start, end]`` wall-clock window.
-
-    A window where ``start <= end`` is a same-day window; a window where
-    ``start > end`` spans midnight (e.g. 22:00-06:00).  Boundaries are
-    inclusive.  Both quiet hours and the sleep schedule use this comparison.
-    """
-    if start_time <= end_time:
-        return start_time <= now_time <= end_time
-    # overnight range
-    return now_time >= start_time or now_time <= end_time
+def _time_in_window(
+    now_time: dt_time,
+    start_time: dt_time,
+    end_time: dt_time,
+    *,
+    inclusive_end: bool = True,
+) -> bool:
+    """Whether *now_time* falls inside the same-day or overnight window."""
+    if inclusive_end:
+        if start_time <= end_time:
+            return start_time <= now_time <= end_time
+        return now_time >= start_time or now_time <= end_time
+    if start_time < end_time:
+        return start_time <= now_time < end_time
+    if start_time > end_time:
+        return now_time >= start_time or now_time < end_time
+    return False
 
 
 class HAUIDevice(HAUIBase):
@@ -110,8 +116,9 @@ class HAUIDevice(HAUIBase):
             "item_id": None,
         }
         self._persistent_sound_handle: str | None = None
-        # run_in handle of the sleep-schedule boundary timer (None = not armed).
         self._schedule_timer: str | None = None
+        self._solar_listener: str | None = None
+        self._solar_tracking_offsets: tuple[int, int] | None = None
 
     # prepare and update
 
@@ -185,16 +192,189 @@ class HAUIDevice(HAUIBase):
             self.log(f"Syncing {switch_entity_id} OFF ({reason or f'hub config {hub_key}=False'})")
             item.turn_off()
 
-    def _sync_config_number(self, hub_key: str, number_entity_id: str | None) -> None:
-        """Sync a hub config number with its resolved ESPHome number entity."""
-        if not number_entity_id or not self.app.item_exists(number_entity_id):
+    def _adopt_day_profile_values(self) -> None:
+        """Capture restored firmware brightness/ramp values before profiles own them."""
+        if self.get("day_night_profiles_initialized", False):
             return
-        hub_value = self.get(hub_key, 0)
-        item = self.app.get_item(number_entity_id)
+        missing = {
+            config_key
+            for config_key in ("day_brightness_full", "day_brightness_dimmed", "day_duration_dim")
+            if self.get(config_key, None) is None
+        }
+        if not missing:
+            full = self.get("day_brightness_full", None)
+            dimmed = self.get("day_brightness_dimmed", None)
+            if full is not None and dimmed is not None and dimmed > full:
+                self.log(
+                    "Cannot initialize Day profile: dimmed brightness exceeds full brightness",
+                    level="WARNING",
+                )
+                return
+            self.config["day_night_profiles_initialized"] = True
+            self._persist_day_profile_values()
+            return
+        values: dict[str, float] = {}
+        entity_names = {
+            "day_brightness_full": "Brightness Full",
+            "day_brightness_dimmed": "Brightness Dimmed",
+            "day_duration_dim": "Duration Dimming",
+        }
+        for config_key in missing:
+            entity_name = entity_names[config_key]
+            entity_id = self._resolve_esp_entity("number", entity_name)
+            if not entity_id or not self.app.item_exists(entity_id):
+                return
+            state = self.app.get_item(entity_id).get_state()
+            if state in (None, "unavailable", "unknown"):
+                return
+            try:
+                values[config_key] = float(state)
+            except TypeError, ValueError:
+                self.log(
+                    f"Cannot adopt {entity_name}: invalid firmware value {state!r}",
+                    level="WARNING",
+                )
+                return
+        adopted = {
+            key: round(value) if key != "day_duration_dim" else value
+            for key, value in values.items()
+        }
+        full = adopted.get("day_brightness_full", self.get("day_brightness_full", None))
+        dimmed = adopted.get("day_brightness_dimmed", self.get("day_brightness_dimmed", None))
+        if full is not None and dimmed is not None and dimmed > full:
+            if "day_brightness_dimmed" in missing:
+                adopted["day_brightness_dimmed"] = int(full)
+                self.log(
+                    "Clamping restored Day dimmed brightness to the configured full brightness",
+                    level="WARNING",
+                )
+            elif "day_brightness_full" in missing:
+                adopted["day_brightness_full"] = int(dimmed)
+                self.log(
+                    "Raising restored Day full brightness to the configured dimmed brightness",
+                    level="WARNING",
+                )
+            else:
+                self.log(
+                    "Cannot initialize Day profile: dimmed brightness exceeds full brightness",
+                    level="WARNING",
+                )
+                return
+        self.config.update(adopted)
+        self.config["day_night_profiles_initialized"] = True
+        self._persist_day_profile_values()
+        self.log("Captured restored firmware brightness and dim-ramp values for the Day profile")
+
+    def _persist_day_profile_values(self) -> None:
+        """Persist migrated values through the integration's config-store bridge."""
+        persist = getattr(self.app, "persist_day_profile", None)
+        if callable(persist):
+            persist(
+                {
+                    key: self.get(key)
+                    for key in (
+                        "day_brightness_full",
+                        "day_brightness_dimmed",
+                        "day_duration_dim",
+                        "day_night_profiles_initialized",
+                    )
+                }
+            )
+
+    def _profile_is_night(self, now: datetime | None = None) -> bool:
+        """Return whether the enabled Day/Night schedule currently selects Night."""
+        mode = self.get("day_night_schedule_mode", "off")
+        if mode == "off":
+            return False
+        if mode == "fixed":
+            try:
+                start = datetime.strptime(self.get("day_night_start", ""), "%H:%M").time()
+                end = datetime.strptime(self.get("day_night_end", ""), "%H:%M").time()
+            except ValueError, TypeError:
+                self.log(
+                    "Invalid Day/Night clock window; applying the Day profile", level="WARNING"
+                )
+                return False
+            if start == end:
+                self.log(
+                    "Day/Night start and end must differ; applying the Day profile",
+                    level="WARNING",
+                )
+                return False
+            return _time_in_window((now or self.app.now()).time(), start, end, inclusive_end=False)
+        if mode == "sun":
+            try:
+                return self.app.get_solar_profile_state(
+                    int(self.get("day_night_sunset_offset", 0)),
+                    int(self.get("day_night_sunrise_offset", 0)),
+                )
+            except Exception as exc:  # noqa: BLE001
+                self.log(
+                    f"Solar Day/Night schedule unavailable; applying the Day profile: {exc}",
+                    level="WARNING",
+                )
+                return False
+        self.log(
+            f"Unknown Day/Night schedule mode {mode!r}; applying the Day profile",
+            level="WARNING",
+        )
+        return False
+
+    def _sync_profile_number(
+        self, config_key: str, entity_name: str, *, optional: bool = False
+    ) -> None:
+        value = self.get(config_key, None)
+        if optional and value is None:
+            return
+        entity_id = self._resolve_esp_entity("number", entity_name)
+        self._sync_config_number_value(value, entity_id)
+
+    def _sync_config_number_value(self, value: float | int | None, entity_id: str | None) -> None:
+        if value is None or not entity_id or not self.app.item_exists(entity_id):
+            return
+        item = self.app.get_item(entity_id)
         current = item.get_state()
-        if current is not None and current != "unavailable" and float(current) != hub_value:
-            self.log(f"Syncing {number_entity_id} to {hub_value} (hub config {hub_key})")
-            item.set_state(state=hub_value)
+        if (
+            current is not None
+            and current not in ("unavailable", "unknown")
+            and float(current) != value
+        ):
+            self.log(f"Syncing {entity_id} to {value} (Day/Night profile)")
+            item.set_state(state=value)
+
+    def _configure_solar_tracking(self) -> None:
+        """Register or remove HA solar listeners to match the active schedule mode."""
+        mode = self.get("day_night_schedule_mode", "off")
+        offsets = (
+            int(self.get("day_night_sunset_offset", 0)),
+            int(self.get("day_night_sunrise_offset", 0)),
+        )
+        if mode == "sun" and self._solar_tracking_offsets != offsets:
+            if self._solar_listener is not None:
+                self.app.cancel_sun_events(self._solar_listener)
+                self._solar_listener = None
+            try:
+                self._solar_listener = self.app.listen_sun_events(
+                    self._solar_event_callback,
+                    self._solar_event_callback,
+                    self._solar_config_callback,
+                    sunset_offset=offsets[0],
+                    sunrise_offset=offsets[1],
+                )
+                self._solar_tracking_offsets = offsets
+            except Exception as exc:  # noqa: BLE001
+                self.log(f"Could not register solar schedule listeners: {exc}", level="WARNING")
+        elif mode != "sun" and self._solar_listener is not None:
+            self.app.cancel_sun_events(self._solar_listener)
+            self._solar_listener = None
+            self._solar_tracking_offsets = None
+
+    def _solar_event_callback(self) -> None:
+        self._sync_behavior_config()
+
+    def _solar_config_callback(self) -> None:
+        self._configure_solar_tracking()
+        self._sync_behavior_config()
 
     def _sync_button_interaction(self) -> None:
         """Sync the hub's ``reset_interaction_on_button`` with the device's switch.
@@ -230,21 +410,27 @@ class HAUIDevice(HAUIBase):
 
     # part
     def _sync_behavior_config(self) -> None:
-        """Sync hub config auto-* and timeout fields with ESPHome switches/numbers."""
+        """Sync the active Day/Night profile with ESPHome switches and numbers."""
+        mode = self.get("day_night_schedule_mode", "off")
+        if mode != "off":
+            self._adopt_day_profile_values()
+        is_night = self._profile_is_night() if mode != "off" else False
+        prefix = "night_" if is_night else ""
+
         self._sync_config_switch(
             "use_auto_dimming",
             self._resolve_esp_entity("switch", "Use Auto-Dimming"),
+            hub_value=self.get(f"{prefix}use_auto_dimming", True),
         )
         self._sync_config_switch(
             "use_auto_page",
             self._resolve_esp_entity("switch", "Use Auto-Page"),
+            hub_value=self.get(f"{prefix}use_auto_page", True),
         )
-        # use_auto_display_off can be overridden by the display-off schedule: inside
-        # the configured window the display may turn off, outside it never may.  A
-        # schedule that is disabled/incomplete/malformed leaves the static
-        # toggle in charge (_display_off_schedule_active returns None).
-        display_off = self.get("use_auto_display_off", True)
+        # Preserve the existing sleep-schedule behavior: when valid it owns the
+        # effective auto-off switch; otherwise the active profile owns it.
         schedule_active = self._display_off_schedule_active()
+        display_off = self.get(f"{prefix}use_auto_display_off", True)
         if schedule_active is not None:
             display_off = schedule_active
         self._sync_config_switch(
@@ -254,21 +440,34 @@ class HAUIDevice(HAUIBase):
             reason=(
                 f"sleep schedule {'active' if schedule_active else 'inactive'}"
                 if schedule_active is not None
-                else ""
+                else f"{'Night' if is_night else 'Day'} profile"
             ),
         )
-        self._sync_config_number(
-            "timeout_dimming",
-            self._resolve_esp_entity("number", "Timeout Dimming"),
-        )
-        self._sync_config_number(
-            "timeout_page",
-            self._resolve_esp_entity("number", "Timeout Page"),
-        )
-        self._sync_config_number(
-            "timeout_display_off",
-            self._resolve_esp_entity("number", "Timeout Display-Off"),
-        )
+        for config_key, entity_name in (
+            (f"{prefix}timeout_dimming", "Timeout Dimming"),
+            (f"{prefix}timeout_page", "Timeout Page"),
+            (f"{prefix}timeout_display_off", "Timeout Display-Off"),
+        ):
+            self._sync_profile_number(config_key, entity_name)
+        if mode != "off" and self.get("day_night_profiles_initialized", False):
+            self._sync_profile_number(
+                "night_duration_dim" if is_night else "day_duration_dim",
+                "Duration Dimming",
+                optional=not is_night,
+            )
+            self._sync_profile_number(
+                "night_brightness_full" if is_night else "day_brightness_full",
+                "Brightness Full",
+                optional=not is_night,
+            )
+            self._sync_profile_number(
+                "night_brightness_dimmed" if is_night else "day_brightness_dimmed",
+                "Brightness Dimmed",
+                optional=not is_night,
+            )
+        navigation = self.app.controller.get("navigation")
+        if navigation is not None:
+            navigation.set_idle_profile(is_night if mode != "off" else None)
         self._sync_display_model()
 
     def _sync_display_model(self) -> None:
@@ -326,11 +525,11 @@ class HAUIDevice(HAUIBase):
         """
         self._sync_button_interaction()
         self._sync_relay_config()
+        self._configure_solar_tracking()
         self._sync_behavior_config()
         self._install_tft_on_model_change()
-        # Re-arm the sleep-schedule boundary timer whenever settings are pushed
-        # (start, connect, reconnect, setting save via reload_config) so a
-        # changed window takes effect without waiting for the next boundary.
+        # Re-arm fixed-clock and display-off boundaries after start, reconnect
+        # and settings saves so the new profile takes effect immediately.
         self._arm_display_off_schedule_timer()
 
     def start_part(self) -> None:
@@ -345,6 +544,10 @@ class HAUIDevice(HAUIBase):
         self.log("Device is stopping")
         self._cancel_callbacks()
         self._cancel_timer("_schedule_timer")
+        if self._solar_listener is not None:
+            self.app.cancel_sun_events(self._solar_listener)
+            self._solar_listener = None
+            self._solar_tracking_offsets = None
         self._stop_persistent_sound()
 
     # public
@@ -558,59 +761,55 @@ class HAUIDevice(HAUIBase):
                 level="WARNING",
             )
             return None
-        return _time_in_window((now or datetime.now()).time(), start_time, end_time)
+        return _time_in_window((now or self.app.now()).time(), start_time, end_time)
 
     def _next_schedule_boundary(self, now: datetime | None = None) -> datetime | None:
-        """When the sleep-schedule window next changes state.
-
-        Args:
-            now: Injectable clock for tests (defaults to ``datetime.now()``).
-
-        Returns:
-            datetime: The next future window boundary (start or end), or None
-                when no timer should be armed (schedule inactive/invalid).
-        """
-        if not self.get("use_sleep_schedule", False):
-            return None
-        start = self.get("sleep_schedule_start", "")
-        end = self.get("sleep_schedule_end", "")
-        if not start or not end:
-            return None
-        try:
-            start_time = datetime.strptime(start, "%H:%M").time()
-            end_time = datetime.strptime(end, "%H:%M").time()
-        except ValueError, TypeError:
-            return None
-        now = (now or datetime.now()).replace(second=0, microsecond=0)
+        """Return the next fixed-profile or sleep-schedule clock boundary."""
+        now = (now or self.app.now()).replace(second=0, microsecond=0)
+        windows: list[tuple[dt_time, dt_time]] = []
+        for enabled, start_key, end_key in (
+            (self.get("use_sleep_schedule", False), "sleep_schedule_start", "sleep_schedule_end"),
+            (
+                self.get("day_night_schedule_mode", "off") == "fixed",
+                "day_night_start",
+                "day_night_end",
+            ),
+        ):
+            if not enabled:
+                continue
+            start, end = self.get(start_key, ""), self.get(end_key, "")
+            try:
+                start_time = datetime.strptime(start, "%H:%M").time()
+                end_time = datetime.strptime(end, "%H:%M").time()
+            except ValueError, TypeError:
+                continue
+            if start_time != end_time:
+                windows.append((start_time, end_time))
         candidates = [
-            datetime.combine(now.date(), start_time),
-            datetime.combine(now.date(), end_time),
-            datetime.combine(now.date() + timedelta(days=1), start_time),
-            datetime.combine(now.date() + timedelta(days=1), end_time),
+            datetime.combine(now.date() + timedelta(days=day), boundary, tzinfo=now.tzinfo)
+            for day in (0, 1)
+            for window in windows
+            for boundary in window
         ]
         future = [candidate for candidate in candidates if candidate > now]
         return min(future) if future else None
 
     def _arm_display_off_schedule_timer(self) -> None:
-        """(Re)schedule the flip of ``use_auto_display_off`` at the next boundary."""
+        """Arm the next fixed clock boundary for profiles or display-off gating."""
         self._cancel_timer("_schedule_timer")
         boundary = self._next_schedule_boundary()
         if boundary is None:
             return
-        delay = (boundary - datetime.now()).total_seconds()
-        # run_in fires the callback ``delay`` seconds later; arm it to run just
-        # after the boundary so the clock-driven value is already the new one.
+        delay = (boundary - self.app.now()).total_seconds()
         self._schedule_timer = self.app.run_in(self._display_off_schedule_callback, max(delay, 1))
 
     def _display_off_schedule_callback(self, _kwargs: Any) -> None:
-        """A window boundary passed: re-push ``use_auto_display_off``, re-arm.
-
-        ``sync_config_to_device`` is not called here on purpose - the boundary
-        flip only needs the behavior sync, and a full sync would also re-run
-        ``_install_tft_on_model_change`` bookkeeping.
-        """
+        """A schedule boundary passed: re-sync the active profile and re-arm."""
         self._schedule_timer = None
-        if not self.get("use_sleep_schedule", False):
+        if (
+            not self.get("use_sleep_schedule", False)
+            and self.get("day_night_schedule_mode", "off") != "fixed"
+        ):
             return
         self._sync_behavior_config()
         self._arm_display_off_schedule_timer()

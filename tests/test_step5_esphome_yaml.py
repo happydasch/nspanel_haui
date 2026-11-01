@@ -215,4 +215,3 @@ def test_display_model_uses_numeric_input_instead_of_slider():
     numbers = yaml.safe_load(_read("number.yaml"))["number"]
     display_model = next(number for number in numbers if number["id"] == "display_model")
     assert display_model["mode"] == "box"
-

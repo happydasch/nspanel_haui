@@ -178,6 +178,7 @@ Use `Component` (NamedTuple with `.id` and `.name`) and `ComponentRegistry` inst
 from typing import ClassVar
 from ..abstract.component import Component, ComponentRegistry
 
+
 class HAUIPage:
     COMPONENTS: ClassVar[ComponentRegistry] = ComponentRegistry(
         fnc_left_pri=Component(3, "bFncLPri"),
@@ -211,8 +212,8 @@ class CoverPage(HAUIPage):
 ```python
 self.set_component_text(self.COMPONENTS.title, "Hello")
 self.set_component_text(self.COMPONENTS.t_info, "42%")
-component.name   # instead of component[1]
-component.id     # instead of component[0]
+component.name  # instead of component[1]
+component.id  # instead of component[0]
 ```
 
 **Naming convention:** Use snake_case purpose-based names (e.g., `title`, `btn_up`, `t_time`, `t_main_icon`), not Nextion widget identifiers.
@@ -476,12 +477,16 @@ Classes are **open for extension, closed for modification**. The panel type syst
 ```python
 # mapping/panel.py — closed for modification of registration logic
 _page_classes: list[type] = [
-    AboutPage, AlarmPage, ..., WeatherPage,  # ← add new class here
+    AboutPage,
+    AlarmPage,
+    ...,
+    WeatherPage,  # ← add new class here
 ]
+
 
 def _build_panel_mapping() -> dict[str, tuple[str, type]]:
     mapping = {}
-    for cls in _page_classes:                     # open for new entries
+    for cls in _page_classes:  # open for new entries
         d = getattr(cls, "DESCRIPTOR", None)
         if d is not None:
             mapping[d.type_key] = (d.page_name, cls)
@@ -491,7 +496,7 @@ def _build_panel_mapping() -> dict[str, tuple[str, type]]:
 **Extending components** on a page subclass:
 ```python
 class MyPage(HAUIPage):
-    COMPONENTS = HAUIPage.COMPONENTS.merge(   # extend, don't redefine
+    COMPONENTS = HAUIPage.COMPONENTS.merge(  # extend, don't redefine
         title=Component(2, "tTitle"),
         my_slider=Component(7, "hSlider"),
     )
@@ -510,7 +515,7 @@ Subtypes must be substitutable for their base types. All page classes implement 
 
 ```python
 # Navigation controller treats any page identically
-page.render_panel(panel)      # works for GridPage, ClimatePage, LightPage, etc.
+page.render_panel(panel)  # works for GridPage, ClimatePage, LightPage, etc.
 page.start_panel(panel)
 page.stop_panel(panel)
 ```
@@ -528,8 +533,7 @@ Many specific interfaces are better than one general interface. The codebase use
 
 **1. Mixins for page behavior:**
 ```python
-class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
-    ...
+class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase): ...
 ```
 Each mixin depends only on a small set of expected attributes, not the full `HAUIPage` surface. The `if TYPE_CHECKING:` block in each mixin declares only what it needs:
 
@@ -538,6 +542,7 @@ class ComponentMixin:
     if TYPE_CHECKING:
         app: NSPanelHAUI
         _callbacks: list[tuple[Component, Callable]]
+
         def send_cmd(self, cmd: str) -> None: ...
         def log(self, msg: str, **kwargs: Any) -> None: ...
         def render_template(self, template: str, parse_icons: bool = True) -> str: ...

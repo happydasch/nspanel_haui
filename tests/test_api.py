@@ -190,9 +190,6 @@ def test_config_endpoints_reject_non_admin_users(view_cls, method):
     assert hass.mock_calls == []
 
 
-
-
-
 class _NotificationController:
     def __init__(self, notifications):
         self.notifications = notifications
@@ -228,15 +225,17 @@ def test_notifications_view_returns_queued_notifications():
 
     result = asyncio.run(api.NotificationsView().get(request, entry_id="entry1"))
 
-    assert result["body"] == [{
-        "id": str(id(notification)),
-        "device": "kitchen",
-        "title": "Doorbell",
-        "message": "Someone is here",
-        "icon": "mdi:bell",
-        "notif_type": "critical",
-        "persistent": True,
-    }]
+    assert result["body"] == [
+        {
+            "id": str(id(notification)),
+            "device": "kitchen",
+            "title": "Doorbell",
+            "message": "Someone is here",
+            "icon": "mdi:bell",
+            "notif_type": "critical",
+            "persistent": True,
+        }
+    ]
 
 
 def test_notifications_view_dismisses_notification_on_worker():
@@ -259,6 +258,8 @@ def test_notifications_view_dismisses_notification_on_worker():
 
     assert result["body"] == {"status": "ok"}
     assert app.controller["notification"].notifications == []
+
+
 # --- device add / delete ---------------------------------------------------
 
 
@@ -951,8 +952,12 @@ class _StatefulTftApp(_WorkerApp):
 def test_tft_install_reports_why_it_could_not_start():
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
-    state = {"state": "error", "version": "0.4.1", "started_at": None,
-             "last_error": "device disconnected"}
+    state = {
+        "state": "error",
+        "version": "0.4.1",
+        "started_at": None,
+        "last_error": "device disconnected",
+    }
     hass.data["nspanel_haui"]["entry1"] = {"kitchen": _StatefulTftApp(state)}
     request = _Request(hass, admin=True, body={"device": "kitchen"})
 
@@ -995,8 +1000,12 @@ def test_tft_install_all_devices_reports_failures_separately():
     hass.data["nspanel_haui"]["entry1"] = {
         "kitchen": _WorkerApp(),
         "office": _StatefulTftApp(
-            {"state": "error", "version": None, "started_at": None,
-             "last_error": "no yaml_version reported"}
+            {
+                "state": "error",
+                "version": None,
+                "started_at": None,
+                "last_error": "no yaml_version reported",
+            }
         ),
     }
     request = _Request(hass, admin=True, body={"device": "*"})
@@ -1115,6 +1124,7 @@ def test_panel_save_with_a_kept_config_of_a_removed_device_does_not_reload(monke
     assert hass.config_entries.scheduled_reloads == []
     assert app.calls == ["worker", "reload_config"]
 
+
 @pytest.mark.parametrize("active", [False, True], ids=["disabled-device", "running-device"])
 def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, active):
     device_id = "ha-device-1"
@@ -1153,6 +1163,7 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
         entity_ids["SSID"]: types.SimpleNamespace(state="HomeNet"),
         entity_ids["RSSI"]: types.SimpleNamespace(state="-54"),
     }
+
     def get_state(entity_id):
         asyncio.get_running_loop()
         return states.get(entity_id)
@@ -1160,6 +1171,7 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
     hass.states.get.side_effect = get_state
 
     if active:
+
         class RunningApp:
             worker_calls = 0
 
@@ -1184,9 +1196,7 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
     result = asyncio.run(api.DeviceStatusView().get(request, "entry1"))
 
     assert result["status_code"] == 200
-    assert {
-        key: result["body"]["device_info"][key] for key in ("ip", "ssid", "rssi")
-    } == {
+    assert {key: result["body"]["device_info"][key] for key in ("ip", "ssid", "rssi")} == {
         "ip": "",
         "ssid": "HomeNet",
         "rssi": -54.0,
@@ -1231,9 +1241,7 @@ def test_disabled_device_status_keeps_unavailable_wifi_fields_unknown(monkeypatc
     }.get
 
     result = asyncio.run(
-        api.DeviceStatusView().get(
-            _Request(hass, admin=True, query={"device": "room"}), "entry1"
-        )
+        api.DeviceStatusView().get(_Request(hass, admin=True, query={"device": "room"}), "entry1")
     )
 
     assert result["status_code"] == 200
@@ -1247,9 +1255,7 @@ def test_disabled_device_status_returns_unknown_readings_when_registry_lookup_fa
     hass = _Hass(_entry_with({"name": "room"}))
 
     result = asyncio.run(
-        api.DeviceStatusView().get(
-            _Request(hass, admin=True, query={"device": "room"}), "entry1"
-        )
+        api.DeviceStatusView().get(_Request(hass, admin=True, query={"device": "room"}), "entry1")
     )
 
     assert result["status_code"] == 200

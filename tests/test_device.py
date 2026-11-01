@@ -1,6 +1,7 @@
 import time
 from datetime import datetime, timedelta
 from datetime import time as dt_time
+from unittest.mock import Mock
 
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.device import HAUIDevice, _time_in_window
@@ -23,10 +24,14 @@ class DummyNavigation:
         self._current_nav = None
         self._home_panel = None
         self._idle_panel_active = False
+        self.idle_profile = None
 
     @property
     def idle_panel_active(self):
         return self._idle_panel_active
+
+    def set_idle_profile(self, is_night):
+        self.idle_profile = is_night
 
     def cancel_timeouts(self):
         pass
@@ -71,6 +76,9 @@ class DummyApp:
             "esphome": DummyESPHomeController(),
         }
         self.service_calls = []
+
+    def now(self):
+        return datetime.now()
 
     def item_exists(self, entity_id):
         return False
@@ -254,7 +262,6 @@ class _RelayApp(DummyApp):
 
     def get_item(self, entity_id):
         return self.relays[entity_id]
-
 
     def find_entity_id(self, domain, original_name):
         relay_side = {"Relay Left": "left", "Relay Right": "right"}.get(original_name)
@@ -1196,3 +1203,360 @@ def test_touch_start_poller_fallback_when_native_lost() -> None:
     device.process_event(HAUIEvent(ESPEvent.TOUCH_START, ""))
 
     assert len(nav.exit_calls) == 1
+
+
+def test_fixed_day_night_window_supports_overnight_ranges() -> None:
+    device = HAUIDevice(
+        DummyApp(),
+        {
+            "day_night_schedule_mode": "fixed",
+            "day_night_start": "22:00",
+            "day_night_end": "06:00",
+        },
+    )
+
+    assert device._profile_is_night(datetime(2026, 1, 1, 23, 0)) is True
+    assert device._profile_is_night(datetime(2026, 1, 2, 5, 59)) is True
+    assert device._profile_is_night(datetime(2026, 1, 2, 12, 0)) is False
+    assert device._profile_is_night(datetime(2026, 1, 1, 22, 0)) is True
+    assert device._profile_is_night(datetime(2026, 1, 2, 6, 0)) is False
+
+
+def test_invalid_fixed_schedule_falls_back_to_day() -> None:
+    device = HAUIDevice(
+        DummyApp(),
+        {"day_night_schedule_mode": "fixed", "day_night_start": "bad", "day_night_end": "07:00"},
+    )
+
+    assert device._profile_is_night(datetime(2026, 1, 1, 23, 0)) is False
+
+
+def test_profile_boundary_callback_runs_without_sleep_schedule() -> None:
+    device = HAUIDevice(
+        DummyApp(),
+        {
+            "day_night_schedule_mode": "fixed",
+            "day_night_start": "22:00",
+            "day_night_end": "06:00",
+            "use_sleep_schedule": False,
+        },
+    )
+    device._sync_behavior_config = Mock()
+    device._arm_display_off_schedule_timer = Mock()
+
+    device._display_off_schedule_callback({})
+
+    device._sync_behavior_config.assert_called_once_with()
+    device._arm_display_off_schedule_timer.assert_called_once_with()
+
+
+def test_day_profile_migration_adopts_restored_firmware_values() -> None:
+    numbers = {
+        "number.nspanel_haui_brightness_full": _Number("67"),
+        "number.nspanel_haui_brightness_dimmed": _Number("13"),
+        "number.nspanel_haui_duration_dim": _Number("1.5"),
+    }
+    app = _SwitchApp(numbers)
+    name_to_id = {
+        "Brightness Full": "number.nspanel_haui_brightness_full",
+        "Brightness Dimmed": "number.nspanel_haui_brightness_dimmed",
+        "Duration Dimming": "number.nspanel_haui_duration_dim",
+    }
+    app.find_entity_id = lambda domain, name: name_to_id.get(name)
+    device = HAUIDevice(
+        app,
+        {
+            "day_night_schedule_mode": "fixed",
+            "day_brightness_full": None,
+            "day_brightness_dimmed": None,
+            "day_duration_dim": None,
+            "day_night_profiles_initialized": False,
+        },
+    )
+
+    device._adopt_day_profile_values()
+
+    assert device.get("day_brightness_full") == 67
+    assert device.get("day_brightness_dimmed") == 13
+    assert device.get("day_duration_dim") == 1.5
+    assert device.get("day_night_profiles_initialized") is True
+
+
+def test_day_profile_migration_preserves_explicit_brightness_without_invalid_pair() -> None:
+    numbers = {
+        "number.nspanel_haui_brightness_full": _Number("10"),
+        "number.nspanel_haui_brightness_dimmed": _Number("20"),
+        "number.nspanel_haui_duration_dim": _Number("1.5"),
+    }
+    app = _SwitchApp(numbers)
+    name_to_id = {
+        "Brightness Full": "number.nspanel_haui_brightness_full",
+        "Brightness Dimmed": "number.nspanel_haui_brightness_dimmed",
+        "Duration Dimming": "number.nspanel_haui_duration_dim",
+    }
+    app.find_entity_id = lambda domain, name: name_to_id.get(name)
+    device = HAUIDevice(
+        app,
+        {
+            "day_brightness_full": 10,
+            "day_brightness_dimmed": None,
+            "day_duration_dim": None,
+            "day_night_profiles_initialized": False,
+        },
+    )
+
+    device._adopt_day_profile_values()
+
+    assert device.get("day_brightness_full") == 10
+    assert device.get("day_brightness_dimmed") == 10
+    assert device.get("day_night_profiles_initialized") is True
+
+
+def test_day_profile_migration_keeps_explicit_dimmed_brightness() -> None:
+    numbers = {
+        "number.nspanel_haui_brightness_full": _Number("10"),
+        "number.nspanel_haui_duration_dim": _Number("1.5"),
+    }
+    app = _SwitchApp(numbers)
+    name_to_id = {
+        "Brightness Full": "number.nspanel_haui_brightness_full",
+        "Duration Dimming": "number.nspanel_haui_duration_dim",
+    }
+    app.find_entity_id = lambda domain, name: name_to_id.get(name)
+    device = HAUIDevice(
+        app,
+        {
+            "day_brightness_full": None,
+            "day_brightness_dimmed": 20,
+            "day_duration_dim": None,
+            "day_night_profiles_initialized": False,
+        },
+    )
+
+    device._adopt_day_profile_values()
+
+    assert device.get("day_brightness_full") == 20
+    assert device.get("day_brightness_dimmed") == 20
+    assert device.get("day_night_profiles_initialized") is True
+
+
+def test_disabled_profiles_leave_manual_brightness_and_ramp_untouched() -> None:
+    ids = {
+        ("number", "Brightness Full"): "number.device_brightness_full",
+        ("number", "Brightness Dimmed"): "number.device_brightness_dimmed",
+        ("number", "Duration Dimming"): "number.device_duration_dim",
+    }
+    items = {
+        "number.device_brightness_full": _Number("41"),
+        "number.device_brightness_dimmed": _Number("7"),
+        "number.device_duration_dim": _Number("3"),
+    }
+    app = _SwitchApp(items)
+    app.find_entity_id = lambda domain, name: ids.get((domain, name))
+    device = HAUIDevice(
+        app,
+        {
+            "day_night_schedule_mode": "off",
+            "day_night_profiles_initialized": True,
+            "day_brightness_full": 80,
+            "day_brightness_dimmed": 20,
+            "day_duration_dim": 1,
+        },
+    )
+
+    device._sync_behavior_config()
+
+    assert items["number.device_brightness_full"].state == "41"
+    assert items["number.device_brightness_dimmed"].state == "7"
+    assert items["number.device_duration_dim"].state == "3"
+
+
+def test_night_profile_syncs_behavior_brightness_ramp_and_idle_target() -> None:
+    ids = {
+        ("switch", "Use Auto-Dimming"): "switch.device_dimming",
+        ("switch", "Use Auto-Page"): "switch.device_page",
+        ("switch", "Use Auto Display-Off"): "switch.device_off",
+        ("number", "Timeout Dimming"): "number.device_timeout_dim",
+        ("number", "Timeout Page"): "number.device_timeout_page",
+        ("number", "Timeout Display-Off"): "number.device_timeout_off",
+        ("number", "Brightness Full"): "number.device_brightness_full",
+        ("number", "Brightness Dimmed"): "number.device_brightness_dimmed",
+        ("number", "Duration Dimming"): "number.device_duration_dim",
+    }
+    items = {
+        "switch.device_dimming": _Switch("on"),
+        "switch.device_page": _Switch("on"),
+        "switch.device_off": _Switch("on"),
+        "number.device_timeout_dim": _Number("10"),
+        "number.device_timeout_page": _Number("30"),
+        "number.device_timeout_off": _Number("120"),
+        "number.device_brightness_full": _Number("50"),
+        "number.device_brightness_dimmed": _Number("20"),
+        "number.device_duration_dim": _Number("2"),
+    }
+    app = _SwitchApp(items)
+    app.find_entity_id = lambda domain, name: ids.get((domain, name))
+    now = datetime.now()
+    device = HAUIDevice(
+        app,
+        {
+            "day_night_schedule_mode": "fixed",
+            "day_night_start": (now - timedelta(hours=1)).strftime("%H:%M"),
+            "day_night_end": (now + timedelta(hours=1)).strftime("%H:%M"),
+            "day_night_profiles_initialized": True,
+            "day_brightness_full": 65,
+            "day_brightness_dimmed": 18,
+            "day_duration_dim": 1.2,
+            "use_auto_dimming": True,
+            "use_auto_page": True,
+            "use_auto_display_off": True,
+            "timeout_dimming": 10,
+            "timeout_page": 30,
+            "timeout_display_off": 120,
+            "night_use_auto_dimming": False,
+            "night_use_auto_page": False,
+            "night_use_auto_display_off": False,
+            "night_timeout_dimming": 45,
+            "night_timeout_page": 90,
+            "night_timeout_display_off": 300,
+            "night_brightness_full": 12,
+            "night_brightness_dimmed": 2,
+            "night_duration_dim": 0.5,
+            "night_idle_panel": "night_clock",
+        },
+    )
+
+    device._sync_behavior_config()
+
+    assert items["switch.device_dimming"].state == "off"
+    assert items["switch.device_page"].state == "off"
+    assert items["switch.device_off"].state == "off"
+    assert items["number.device_timeout_dim"].state == 45
+    assert items["number.device_timeout_page"].state == 90
+    assert items["number.device_timeout_off"].state == 300
+    assert items["number.device_brightness_full"].state == 12
+    assert items["number.device_brightness_dimmed"].state == 2
+    assert items["number.device_duration_dim"].state == 0.5
+    assert app.controller["navigation"].idle_profile is True
+
+    device.config["day_night_start"] = (now + timedelta(hours=3)).strftime("%H:%M")
+    device.config["day_night_end"] = (now + timedelta(hours=5)).strftime("%H:%M")
+    device._sync_behavior_config()
+    assert items["number.device_brightness_full"].state == 65
+    assert items["number.device_brightness_dimmed"].state == 18
+    assert items["number.device_duration_dim"].state == 1.2
+    assert items["switch.device_dimming"].state == "on"
+    assert app.controller["navigation"].idle_profile is False
+
+
+def test_sleep_schedule_overrides_profile_display_off_setting() -> None:
+    display_off = _Switch("on")
+    app = _SwitchApp({"switch.nspanel_haui_use_auto_display_off": display_off})
+    device = HAUIDevice(
+        app,
+        {
+            "day_night_schedule_mode": "fixed",
+            "day_night_start": "00:00",
+            "day_night_end": "00:01",
+            "night_use_auto_display_off": True,
+            "use_sleep_schedule": True,
+            **_window_around_now(offset_before=3600, offset_after=3600),
+        },
+    )
+
+    device._sync_behavior_config()
+
+    assert display_off.state == "on"
+
+
+def test_explicit_day_profile_values_are_not_replaced_during_migration() -> None:
+    device = HAUIDevice(
+        DummyApp(),
+        {
+            "day_brightness_full": 81,
+            "day_brightness_dimmed": 17,
+            "day_duration_dim": 1.4,
+            "day_night_profiles_initialized": False,
+        },
+    )
+
+    device._adopt_day_profile_values()
+
+    assert device.get("day_brightness_full") == 81
+    assert device.get("day_brightness_dimmed") == 17
+    assert device.get("day_duration_dim") == 1.4
+    assert device.get("day_night_profiles_initialized") is True
+
+
+def test_solar_schedule_failure_uses_day_profile() -> None:
+    class SolarFailureApp(DummyApp):
+        def get_solar_profile_state(self, sunset_offset, sunrise_offset):
+            raise ValueError("sunset unavailable at this location")
+
+    device = HAUIDevice(
+        SolarFailureApp(),
+        {
+            "day_night_schedule_mode": "sun",
+            "night_brightness_full": 8,
+            "day_brightness_full": 55,
+            "day_night_profiles_initialized": True,
+        },
+    )
+
+    assert device._profile_is_night() is False
+
+
+def test_solar_schedule_registers_recalculates_and_unsubscribes() -> None:
+    class SolarApp(_SwitchApp):
+        def __init__(self):
+            super().__init__({})
+            self.night = False
+            self.registered = None
+            self.cancelled = []
+
+        def get_solar_profile_state(self, sunset_offset, sunrise_offset):
+            return self.night
+
+        def listen_sun_events(
+            self,
+            sunset_callback,
+            sunrise_callback,
+            config_callback,
+            *,
+            sunset_offset,
+            sunrise_offset,
+        ):
+            self.registered = (
+                sunset_callback,
+                sunrise_callback,
+                config_callback,
+                sunset_offset,
+                sunrise_offset,
+            )
+            return "solar-listener"
+
+        def cancel_sun_events(self, handle):
+            self.cancelled.append(handle)
+
+    app = SolarApp()
+    device = HAUIDevice(
+        app,
+        {
+            "day_night_schedule_mode": "sun",
+            "day_night_sunset_offset": 25,
+            "day_night_sunrise_offset": -10,
+        },
+    )
+
+    device.sync_config_to_device()
+    assert app.registered[3:] == (25, -10)
+    app.night = True
+    app.registered[0]()
+    assert app.controller["navigation"].idle_profile is True
+
+    app.night = False
+    app.registered[2]()
+    assert app.controller["navigation"].idle_profile is False
+
+    device.stop_part()
+    assert app.cancelled == ["solar-listener"]

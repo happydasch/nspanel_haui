@@ -61,10 +61,7 @@ def check_image(data: bytes, version: str, variant: str = "custom") -> str | Non
     if variant not in FIRMWARE_VARIANTS:
         return f"unknown firmware variant {variant!r}; choose one of {sorted(FIRMWARE_VARIANTS)}"
     if not data or data[0] != ESP_IMAGE_MAGIC:
-        return (
-            "not an ESP32 app image; use the OTA image (firmware.ota.bin), "
-            "not the factory image"
-        )
+        return "not an ESP32 app image; use the OTA image (firmware.ota.bin), not the factory image"
     if len(data) > FIRMWARE_MAX_BYTES:
         return f"{len(data)} bytes do not fit the {FIRMWARE_MAX_BYTES} byte app partition"
     # The build embeds its yaml_version as a C string (ESPHOME_PROJECT_VERSION).

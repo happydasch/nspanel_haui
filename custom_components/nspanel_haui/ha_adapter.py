@@ -531,16 +531,13 @@ class HAAdapter:
         Returns:
             Entity id, or None when no candidate resolves.
         """
-        # Home Assistant's HomeAssistant object has no ``.helpers``
-        # attribute; the registry is reached through the helper module
-        # directly.  Keep the ``hass.helpers`` path for the test stubs.
-        helpers = getattr(self.hass, "helpers", None)
-        if helpers is not None and hasattr(helpers, "entity_registry"):
-            registry = helpers.entity_registry.async_get(self.hass)
-        else:
+        # hass.helpers was removed from Home Assistant: use the helper module.
+        try:
             from homeassistant.helpers import entity_registry as er
 
             registry = er.async_get(self.hass)
+        except Exception:  # noqa: BLE001 - registry not loaded (tests, early boot)
+            return None
         if registry is None:
             return None
         wanted = (original_name or "").lower()

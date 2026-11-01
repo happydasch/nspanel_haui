@@ -7,6 +7,10 @@ Assistant uses area/device-prefixed entity ids or the device was renamed, so
 
 from __future__ import annotations
 
+import sys
+import types
+
+import pytest
 from nspanel_haui.ha_adapter import HAAdapter
 
 
@@ -25,17 +29,17 @@ class _Registry:
 
 class _Hass:
     def __init__(self, entities):
-        self.helpers = type(
-            "H",
-            (),
-            {
-                "entity_registry": type(
-                    "ER",
-                    (),
-                    {"async_get": staticmethod(lambda hass: _Registry(entities))},
-                )()
-            },
-        )()
+        self.registry = _Registry(entities)
+
+
+@pytest.fixture(autouse=True)
+def _patch_entity_registry(monkeypatch):
+    import homeassistant.helpers
+
+    er = types.ModuleType("homeassistant.helpers.entity_registry")
+    er.async_get = lambda hass: hass.registry
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", er)
+    monkeypatch.setattr(homeassistant.helpers, "entity_registry", er, raising=False)
 
 
 def _adapter(entities, device_id="dev-1"):

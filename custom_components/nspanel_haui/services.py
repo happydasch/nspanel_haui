@@ -75,6 +75,9 @@ SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
         vol.Optional("text_size", default="auto"): vol.Any(
             "auto", vol.All(vol.Coerce(int), vol.Range(min=1, max=3))
         ),
+        vol.Optional("timeout", default=None): vol.Any(
+            None, vol.All(vol.Coerce(int), vol.Range(min=0))
+        ),
     }
 )
 SERVICE_RESET_LAST_INTERACTION_SCHEMA = vol.Schema(
@@ -253,6 +256,7 @@ async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> N
             notif_type=call.data.get("type", NotifType.INFO),
             force_show=force_show,
             text_size=call.data.get("text_size", "auto"),
+            timeout=call.data.get("timeout"),
         )
 
     await _device_action(hass, call, action=_notify_action)

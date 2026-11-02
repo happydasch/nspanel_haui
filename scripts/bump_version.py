@@ -21,10 +21,16 @@ HMI binaries.  A longer or shorter version would resize the attribute record and
 shift the rest of the page block, so the script refuses it — use the Nextion
 Editor for a length-changing bump.
 
+A release that ships the *previous* TFT unchanged (a hotfix whose display file
+did not change) must use ``--text-only``: the HMI ``tftVersion`` keeps its old
+value and the compiled TFTs stay byte-identical.  The release gate then
+tolerates the HMI/integration version mismatch (see
+``verify_nextion.py --allow-tft-version-mismatch``).
+
 Usage:
     python scripts/bump_version.py 0.5.0            # bump every source
     python scripts/bump_version.py 0.5.0 --check    # report without writing
-    python scripts/bump_version.py 0.5.0 --text-only  # skip the HMI binaries
+    python scripts/bump_version.py 0.5.0 --text-only  # keep the TFTs at the previous version
 
 Exit code 0 when every source carries the requested version (or was updated),
 1 when a source needs a manual edit (length-changing HMI bump, missing widget).

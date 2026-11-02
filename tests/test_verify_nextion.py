@@ -13,6 +13,7 @@ from verify_nextion import (  # noqa: E402
     check_sendme_parity,
     check_t_time_sendme,
     check_tft_version,
+    gate_tft_version,
     parse_dump,
 )
 
@@ -101,6 +102,13 @@ def test_tft_version_mismatch_fails():
     ok, msg = check_tft_version(page, "0.4.0")
     assert not ok
     assert "0.3.3" in msg
+
+
+def test_tft_version_mismatch_can_be_allowed():
+    """--allow-tft-version-mismatch turns a mismatch into a warning, not a fail."""
+    assert gate_tft_version(True, "matches", allow_mismatch=True) == ("PASS", False)
+    assert gate_tft_version(False, "mismatch", allow_mismatch=True) == ("SKIP", False)
+    assert gate_tft_version(False, "mismatch", allow_mismatch=False) == ("FAIL", True)
 
 
 def test_portrait_required_when_missing(tmp_path):

@@ -63,6 +63,19 @@ no tooling generates them.
 for same-length versions (`0.4.2` → `0.4.3`); a length-changing bump needs the
 Nextion Editor (see [step 2](#2-version-bump)).
 
+**Shipping unchanged TFTs:** a release may keep the previous TFT binaries (a
+hotfix whose display file did not change). Bump with `scripts/bump_version.py
+<version> --text-only` so the HMI `system.tftVersion` — and with it the compiled
+TFTs — stays at the previous version, and set the repository variable
+`TFT_VERSION_PIN` to that version (for example, `0.4.3`). CI's version-source
+check and release gate then tolerate the HMI/integration version mismatch and
+report it as a warning (`verify_nextion.py --allow-tft-version-mismatch`).
+Delete the variable again when a release bumps the TFTs. Panels keep the pinned
+TFT: the display reports the old version, and an automatic firmware update to
+the new version causes one TFT install attempt that cannot confirm. The hub
+then disables auto-reinstall and the **HAUI Display** entity asks for a manual
+retry until a later release ships a matching newer TFT.
+
 **Tags:** use `vX.Y.Z`. The workflow itself is not branch-restricted: any
 `v*` tag push starts `release.yml`, wherever it is pushed. That tags are only
 ever cut on `master` is **policy**, not enforcement — keep tagging green
@@ -88,7 +101,7 @@ workflow used for private/custom builds.
 
 Every successful push to `dev` builds the CI-safe universal image and publishes a
 GitHub prerelease tagged with the workflow run and source commit. Its version is
-based on the next patch release (for example, `0.4.4.dev123+gabcdef1`), so each
+based on the next patch release (for example, `0.4.5.dev123+gabcdef1`), so each
 successful push has a distinct update version and its notes link to the build
 commit, enumerate commits included in that push, and list changed files. The
 prereleases retain the version history. A fixed manifest URL follows the latest
@@ -145,14 +158,14 @@ custom image publicly.
 
 2. Give every installed test build a higher prerelease number, and include both
    the source branch and short commit hash. For example, if `0.4.3` is the
-   current stable release and `0.4.4` is next, use `dev1`, `dev2`, `dev3`, …
+   current stable release and `0.4.5` is next, use `dev1`, `dev2`, `dev3`, …
    across both branches (increment for every new build):
 
    ```bash
    SOURCE=dev                         # use master when building master
    BUILD=1                            # next unused number; keep increasing it
    SHA=$(git rev-parse --short HEAD)
-   VERSION="0.4.4.dev${BUILD}+${SOURCE}.g${SHA}"
+   VERSION="0.4.5.dev${BUILD}+${SOURCE}.g${SHA}"
    esphome -s yaml_version "$VERSION" compile esphome/nspanel_haui_dev.yaml
    ```
 
@@ -160,7 +173,7 @@ custom image publicly.
    exact committed source (`git show <hash>`). The increasing `.devN` is
    important: the hub offers only a version newer than the one already
    installed. Do not reuse a number, even when switching branches. Replace
-   `0.4.4` with the next planned stable version when the release line changes.
+   `0.4.5` with the next planned stable version when the release line changes.
    The **HAUI Firmware** entity shows this as the installed version, making the
    branch, build order, and source commit visible in Home Assistant.
 
@@ -187,7 +200,7 @@ image URL and md5).
    device YAML or on the command line:
 
     ```bash
-    esphome -s yaml_version 0.4.4-dev1 \
+    esphome -s yaml_version 0.4.5-dev1 \
       compile esphome/nspanel_haui_universal.yaml
     ```
 
@@ -202,7 +215,7 @@ image URL and md5).
     ```bash
     python scripts/dev_release.py \
       --image esphome/.esphome/build/nspanel-haui/build/firmware.ota.bin \
-      --version 0.4.4-dev1 \
+      --version 0.4.5-dev1 \
       --base-url http://homeassistant.local:8123/local/nspanel \
       --variant universal \
       --out /path/to/homeassistant/config/www/nspanel

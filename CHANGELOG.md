@@ -6,7 +6,22 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
-## [0.4.4] — unreleased
+## [0.4.4] — 2026-11-02
+
+### Fixed
+
+- **Notification `timeout` accepted by the service schema (#78)** — the
+  released service metadata advertised `timeout`, but the runtime schema
+  rejected it with "not a valid option". The service now accepts and forwards
+  the timeout, and the notification controller auto-dismisses timed
+  notifications. Without a timeout, notifications continue to stay queued
+  until dismissed, replaced or cleared. Thanks to [@liviusefu](https://github.com/liviusefu)
+  for reporting the issue.
+
+The TFT display files are unchanged from 0.4.3; panels keep their installed
+TFT until a later release updates it.
+
+## [0.4.5] — unreleased
 
 ### Breaking changes
 
@@ -84,7 +99,7 @@ and follow [Semantic Versioning](https://semver.org/).
   both display models during this pass; no font-size or other notification
   implementation is planned.
 
-See the [v0.4.4 roadmap](ROADMAP.md#v044--hardware-acceptance-and-ota-risk-closure-planned).
+See the [v0.4.5 roadmap](ROADMAP.md#v045--hardware-acceptance-and-ota-risk-closure-planned).
 
 ### Added
 

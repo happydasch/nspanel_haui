@@ -50,14 +50,31 @@ jobs:
         # manifest.json is the source of truth.  bump_version.py --check fails
         # when pyproject.toml, version.yaml or either HMI's system.tftVersion
         # disagrees — the drift previously only surfaced in the release gate.
+        # A release that ships the previous TFT unchanged sets the
+        # TFT_VERSION_PIN repository variable (to the pinned TFT version) and
+        # the HMI/tftVersion expectation is skipped here — delete the variable
+        # again when a release bumps the TFTs.
         run: |
           VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
-          python3 scripts/bump_version.py "$VERSION" --check
+          TFT_FLAG=""
+          if [ -n "${{ vars.TFT_VERSION_PIN }}" ]; then
+            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; skipping the HMI/tftVersion check"
+            TFT_FLAG="--text-only"
+          fi
+          python3 scripts/bump_version.py "$VERSION" $TFT_FLAG --check
 
       - name: Validate Nextion assets
         # Runs the release gate on every push/PR so a stale HMI (tftVersion,
         # Send Component ID, portrait assets) fails early instead of at the tag.
-        run: python3 scripts/verify_nextion/verify_nextion.py --require-portrait
+        # With TFT_VERSION_PIN set (release ships the previous TFT unchanged)
+        # a tftVersion mismatch is tolerated as a warning.
+        run: |
+          TFT_FLAG=""
+          if [ -n "${{ vars.TFT_VERSION_PIN }}" ]; then
+            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; tolerating a tftVersion mismatch"
+            TFT_FLAG="--allow-tft-version-mismatch"
+          fi
+          python3 scripts/verify_nextion/verify_nextion.py --require-portrait $TFT_FLAG
 
       - name: Run tests
         run: pytest tests/

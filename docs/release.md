@@ -46,7 +46,18 @@ Also update the `CHANGELOG.md` heading and release date by hand.
 `scripts/bump_version.py --check` is the dry run CI uses to fail on drift, and
 `tests/test_bump_version.py` covers the script.
 
-**Tags:** use `vX.Y.Z`. A `v*` tag push starts `release.yml`. Manual dispatch
+**Shipping unchanged TFTs:** a release may keep the previous TFT binaries (a
+hotfix whose display file did not change). Bump with `--text-only` so the HMI
+`system.tftVersion` — and with it the compiled TFTs — stays at the previous
+version, and set the repository variable `TFT_VERSION_PIN` to that version
+(e.g. `0.4.3`). CI (tests.yml) and the release gate then tolerate the
+HMI/integration version mismatch and report it as a warning
+(`verify_nextion.py --allow-tft-version-mismatch`) instead of failing. Delete
+the variable again when a release bumps the TFTs. Panels keep the pinned TFT:
+the display reports the old version and the update controller does not
+auto-reinstall it; an automatic firmware update to such a release runs one TFT
+install that cannot confirm and leaves the **HAUI Display** entity asking for a
+manual retry until a release ships a matching newer TFT.**Tags:** use `vX.Y.Z`. A `v*` tag push starts `release.yml`. Manual dispatch
 re-runs the release workflow for the selected ref and generates
 `firmware-manifest.json` only when that ref is a `v*` tag. Older history is tagged without the prefix (`0.3.2`, `0.3.1`);
 those tags never ran the automated workflow. Do not "fix" old tags — the

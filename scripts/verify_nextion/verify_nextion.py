@@ -6,6 +6,10 @@ Checks the Nextion2Text dump of ``nextion/nspanel_haui.HMI``:
   must advance the card (v0.4 regression this gate exists for).
 * ``system.tftVersion`` matches the integration version in
   ``custom_components/nspanel_haui/manifest.json`` (or ``--expected-version``).
+* ``--allow-tft-version-mismatch`` turns a ``system.tftVersion`` that does not
+  match the integration version into a warning instead of a failure — for a
+  release that ships the previous TFT unchanged (the display then keeps
+  reporting the old version until a later release bumps it).
 * ``nextion/nspanel_haui_portrait.HMI`` / ``.tft`` exist when
   ``--require-portrait`` is given — the US portrait release asset — and the
   portrait HMI reports touches exactly like the landscape one (``clock.tTime``
@@ -17,7 +21,7 @@ cannot be published until the Nextion Editor tasks landed.
 
 Usage:
     python scripts/verify_nextion/verify_nextion.py [--hmi PATH] [--dump DIR] \\
-        [--expected-version X.Y.Z] [--require-portrait]
+        [--expected-version X.Y.Z] [--require-portrait] [--allow-tft-version-mismatch]
 
 The parser/checks live in importable functions so tests can drive fake dumps.
 """
@@ -240,12 +244,38 @@ def check_portrait(hmi: Path, landscape_dump: Path) -> tuple[bool, str]:
     return True, "portrait HMI and TFT present, distinct and rotated"
 
 
+def gate_tft_version(ok: bool, msg: str, allow_mismatch: bool) -> tuple[str, bool]:
+    """Verdict for the ``system.tftVersion`` gate check.
+
+    ``allow_mismatch`` — a release that ships the previous TFT unchanged —
+    turns a mismatch into a warning: the gate continues, and it is reported
+    as ``[SKIP]`` instead of failing.
+
+    Returns:
+        ``(label, fail)``: ``label`` is ``PASS``, ``FAIL`` or ``SKIP`` and
+        ``fail`` is True when the check must fail the gate.
+    """
+    if ok:
+        return "PASS", False
+    if allow_mismatch:
+        return "SKIP", False
+    return "FAIL", True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--hmi", type=Path, default=DEFAULT_HMI)
     parser.add_argument("--dump", type=Path, default=DEFAULT_DUMP)
     parser.add_argument("--expected-version", default=None)
     parser.add_argument("--require-portrait", action="store_true")
+    parser.add_argument(
+        "--allow-tft-version-mismatch",
+        action="store_true",
+        help=(
+            "Report a system.tftVersion mismatch as a warning instead of "
+            "failing the gate (a release that ships the previous TFT unchanged)"
+        ),
+    )
     args = parser.parse_args()
 
     expected = args.expected_version
@@ -296,9 +326,15 @@ def main() -> int:
     if not ok:
         failures.append(msg)
     ok, msg = check_tft_version(pages.get("system"), expected)
-    print(f"[{'PASS' if ok else 'FAIL'}] system.tftVersion: {msg}")
-    if not ok:
+    label, fail = gate_tft_version(ok, msg, args.allow_tft_version_mismatch)
+    print(f"[{label}] system.tftVersion: {msg}")
+    if fail:
         failures.append(msg)
+    elif label == "SKIP":
+        print(
+            f"WARNING: {msg} — the release ships the previous TFT unchanged "
+            "(--allow-tft-version-mismatch)"
+        )
     if args.require_portrait:
         ok, msg = check_portrait(args.hmi, args.dump)
         print(f"[{'PASS' if ok else 'FAIL'}] portrait asset: {msg}")

@@ -1,12 +1,13 @@
 # Roadmap
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
-shipped on 2026-10-26 and v0.4.2 on 2026-10-27**, each tagged from a green
-`master` commit and published by the release workflow.
+shipped on 2026-10-26, v0.4.2 on 2026-10-27 and v0.4.3 on 2026-10-28**, each
+tagged from a green `master` commit and published by the release workflow.
+**v0.4.4 shipped on 2026-11-02** as a hotfix (the notification `timeout` fix,
+issue #78) with the TFT display files unchanged.
 
-The **dev** branch has the v0.4.3 release prepared. The updated landscape and
-portrait TFTs are in place; the remaining 0.4.x hardware acceptance and OTA risk
-checks are tracked as the **v0.4.4 plan** below.
+The remaining 0.4.x hardware acceptance and OTA risk checks are tracked as the
+**v0.4.5 plan** below.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
@@ -16,7 +17,7 @@ belong in the issue tracker.
 **The 0.4.x install gate comes first.** The binary and TFT install must work
 completely and the base and core functions must be proven on real hardware.
 Nothing in v0.5 or v0.6 starts before that: a broken install or a core regression
-blocks the next minor release, and remaining gate work is planned for `0.4.4`.
+blocks the next minor release, and remaining gate work is planned for `0.4.5`.
 After the gate closes, **v0.5** adds multiple TFTs for normal- and high-speed
 updates, stable and controllable manual/auto updates in the frontend, and a
 Device Manager overhaul. **v0.6** adds Display Repair Mode — a simple TFT used to
@@ -108,10 +109,22 @@ The issues collected while validating 0.4.2 led to these changes on `dev`:
 
 ---
 
-## v0.4.4 — hardware acceptance and OTA risk closure (planned)
+## v0.4.4 — notification `timeout` hotfix (shipped 2026-11-02)
 
-**Status: planned, unreleased.** The v0.4.3 code and TFTs are prepared; the
-following items remain before the 0.4.x install gate can close:
+**Status: shipped.** v0.4.4 accepts the `timeout` field on
+`nspanel_haui.send_notification` again (issue #78): the notification can
+auto-dismiss after that many seconds, closing its popup and advancing the
+queue when it was the one on screen. The TFT display files are unchanged from
+0.4.3, so panels keep their installed TFT.
+
+The 0.4.x install gate remains open — see **v0.4.5** below.
+
+---
+
+## v0.4.5 — hardware acceptance and OTA risk closure (planned)
+
+**Status: planned.** The following items remain before the 0.4.x install gate
+can close:
 
 - Complete the EU and US/portrait device passlist above, including universal
   image onboarding, TFT auto-update, notifications, sleep/wakeup, touch, core
@@ -126,7 +139,7 @@ following items remain before the 0.4.x install gate can close:
 Issues #62/#63/#64 remain open on GitHub, but the reporter confirmed their
 specific TFT-upload buzzer, post-reboot TFT-version and portrait weather fixes on
 US/portrait hardware with 0.4.2. Do not treat those specific observations as
-replacing the broader v0.4.4 passlist.
+replacing the broader v0.4.5 passlist.
 
 ---
 

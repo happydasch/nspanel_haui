@@ -6,18 +6,7 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
-## [0.4.4] — unreleased
-
-### Planned
-
-- Complete the remaining 0.4.x acceptance passlist on EU and US/portrait
-  hardware, including the new firmware-OTA-to-TFT sequence and buzzer shutdown.
-- Investigate the old-bootloader OTA rollback warning before treating unattended
-  updates as safe.
-- Review notification-enhancement issue [#50](https://github.com/happydasch/nspanel_haui/issues/50)
-  and verify notification behavior across both display models.
-
-See the [v0.4.4 roadmap](ROADMAP.md#v044--hardware-acceptance-and-ota-risk-closure-planned).
+## [0.4.4] — 2026-11-02
 
 ### Fixed
 
@@ -30,6 +19,9 @@ See the [v0.4.4 roadmap](ROADMAP.md#v044--hardware-acceptance-and-ota-risk-closu
   many seconds and advances the queue when its popup was the one on screen.
   Without a timeout nothing auto-dismisses, so the previous behavior is
   unchanged.
+
+The TFT display files are unchanged from 0.4.3 — panels keep their installed
+TFT until a later release updates it.
 
 ## [0.4.3] — 2026-10-28
 

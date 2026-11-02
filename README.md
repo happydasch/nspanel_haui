@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/github/license/happydasch/nspanel_haui?style=for-the-badge)](LICENSE)
 
 <p align="center">
-  <img src="docs/assets/hero-banner.svg" alt="NSPanel HAUI Hero" width="100%">
+  <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/hero-banner.svg" alt="NSPanel HAUI Hero" width="100%">
 </p>
 
 <p align="center">
@@ -35,7 +35,7 @@
 Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
 
 <p align="center">
-  <img src="docs/assets/diagrams/install-flow.svg" alt="Installation Flow" width="100%">
+  <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/diagrams/install-flow.svg" alt="Installation Flow" width="100%">
 </p>
 
 
@@ -97,19 +97,19 @@ Recent additions to NSPanel HAUI:
 
 See the [Panels Overview](docs/panels/README.md) for details.
 
-- <a href="docs/panels/panel_grid.md"><img src="docs/assets/previews/panel-grid.svg" alt="Grid Panel" width="80"></a> **[Grid](docs/panels/panel_grid.md)** (`grid`) — Up to 6 entities in a scrollable grid layout. Color overrides, power buttons.
-- <a href="docs/panels/panel_row.md"><img src="docs/assets/previews/panel-row.svg" alt="Row Panel" width="80"></a> **[Row](docs/panels/panel_row.md)** (`row`) — Up to 5 entities as stacked rows. Compact, text-focused layout.
-- <a href="docs/panels/panel_light.md"><img src="docs/assets/previews/panel-light.svg" alt="Light Panel" width="80"></a> **[Light](docs/panels/panel_light.md)** (`light`) — Full light control: brightness, color temp, RGB color wheel, effects.
-- <a href="docs/panels/panel_climate.md"><img src="docs/assets/previews/panel-climate.svg" alt="Climate Panel" width="80"></a> **[Climate](docs/panels/panel_climate.md)** (`climate`) — HVAC control: temperature, modes, fan speed, swing, presets.
-- <a href="docs/panels/panel_cover.md"><img src="docs/assets/previews/panel-cover.svg" alt="Cover Panel" width="80"></a> **[Cover](docs/panels/panel_cover.md)** (`cover`) — Open/close/stop with vertical position slider. Blinds, garages, curtains.
-- <a href="docs/panels/panel_media.md"><img src="docs/assets/previews/panel-media.svg" alt="Media Panel" width="80"></a> **[Media](docs/panels/panel_media.md)** (`media`) — Media player controls, volume, queue. Supports TV, speakers, receivers.
-- <a href="docs/panels/panel_vacuum.md"><img src="docs/assets/previews/panel-vacuum.svg" alt="Vacuum Panel" width="80"></a> **[Vacuum](docs/panels/panel_vacuum.md)** (`vacuum`) — Start/stop, return to dock, fan speed, locate. Up to 6 secondary items.
-- <a href="docs/panels/panel_timer.md"><img src="docs/assets/previews/panel-timer.svg" alt="Timer Panel" width="80"></a> **[Timer](docs/panels/panel_timer.md)** (`timer`) — Local countdown timer with start/pause/stop. Uses display-local time.
-- <a href="docs/panels/panel_alarm.md"><img src="docs/assets/previews/panel-alarm.svg" alt="Alarm Panel" width="80"></a> **[Alarm](docs/panels/panel_alarm.md)** (`alarm`) — Numeric keypad for alarm code entry. Arm/disarm with mode buttons.
-- <a href="docs/panels/panel_qr.md"><img src="docs/assets/previews/panel-qr.svg" alt="QR Panel" width="80"></a> **[QR Code](docs/panels/panel_qr.md)** (`qr`) — Display QR codes for Wi-Fi, URLs, or custom text. Great for guest networks.
-- <a href="docs/panels/panel_weather.md"><img src="docs/assets/previews/panel-weather.svg" alt="Weather Panel" width="80"></a> **[Weather](docs/panels/panel_weather.md)** (`weather`) — Screensaver-ready weather display. Forecast, backgrounds, info items.
-- <a href="docs/panels/panel_clock.md"><img src="docs/assets/previews/panel-clock.svg" alt="Clock Panel" width="80"></a> **[Clock](docs/panels/panel_clock.md)** (`clock`) — Large time/date display. Optional weather, entity buttons, backgrounds.
-- <a href="docs/panels/panel_clocktwo.md"><img src="docs/assets/previews/panel-clocktwo.svg" alt="ClockTwo Panel" width="80"></a> **[ClockTwo](docs/panels/panel_clocktwo.md)** (`clocktwo`) — Word clock — the time spelled out on a letter grid. Minimalist screensaver.
+- <a href="docs/panels/panel_grid.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-grid.svg" alt="Grid Panel" width="80"></a> **[Grid](docs/panels/panel_grid.md)** (`grid`) — Up to 6 entities in a scrollable grid layout. Color overrides, power buttons.
+- <a href="docs/panels/panel_row.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-row.svg" alt="Row Panel" width="80"></a> **[Row](docs/panels/panel_row.md)** (`row`) — Up to 5 entities as stacked rows. Compact, text-focused layout.
+- <a href="docs/panels/panel_light.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-light.svg" alt="Light Panel" width="80"></a> **[Light](docs/panels/panel_light.md)** (`light`) — Full light control: brightness, color temp, RGB color wheel, effects.
+- <a href="docs/panels/panel_climate.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-climate.svg" alt="Climate Panel" width="80"></a> **[Climate](docs/panels/panel_climate.md)** (`climate`) — HVAC control: temperature, modes, fan speed, swing, presets.
+- <a href="docs/panels/panel_cover.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-cover.svg" alt="Cover Panel" width="80"></a> **[Cover](docs/panels/panel_cover.md)** (`cover`) — Open/close/stop with vertical position slider. Blinds, garages, curtains.
+- <a href="docs/panels/panel_media.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-media.svg" alt="Media Panel" width="80"></a> **[Media](docs/panels/panel_media.md)** (`media`) — Media player controls, volume, queue. Supports TV, speakers, receivers.
+- <a href="docs/panels/panel_vacuum.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-vacuum.svg" alt="Vacuum Panel" width="80"></a> **[Vacuum](docs/panels/panel_vacuum.md)** (`vacuum`) — Start/stop, return to dock, fan speed, locate. Up to 6 secondary items.
+- <a href="docs/panels/panel_timer.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-timer.svg" alt="Timer Panel" width="80"></a> **[Timer](docs/panels/panel_timer.md)** (`timer`) — Local countdown timer with start/pause/stop. Uses display-local time.
+- <a href="docs/panels/panel_alarm.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-alarm.svg" alt="Alarm Panel" width="80"></a> **[Alarm](docs/panels/panel_alarm.md)** (`alarm`) — Numeric keypad for alarm code entry. Arm/disarm with mode buttons.
+- <a href="docs/panels/panel_qr.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-qr.svg" alt="QR Panel" width="80"></a> **[QR Code](docs/panels/panel_qr.md)** (`qr`) — Display QR codes for Wi-Fi, URLs, or custom text. Great for guest networks.
+- <a href="docs/panels/panel_weather.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-weather.svg" alt="Weather Panel" width="80"></a> **[Weather](docs/panels/panel_weather.md)** (`weather`) — Screensaver-ready weather display. Forecast, backgrounds, info items.
+- <a href="docs/panels/panel_clock.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-clock.svg" alt="Clock Panel" width="80"></a> **[Clock](docs/panels/panel_clock.md)** (`clock`) — Large time/date display. Optional weather, entity buttons, backgrounds.
+- <a href="docs/panels/panel_clocktwo.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-clocktwo.svg" alt="ClockTwo Panel" width="80"></a> **[ClockTwo](docs/panels/panel_clocktwo.md)** (`clocktwo`) — Word clock — the time spelled out on a letter grid. Minimalist screensaver.
 
 ---
 
@@ -118,7 +118,7 @@ See the [Panels Overview](docs/panels/README.md) for details.
 NSPanel HAUI ships with a **fully integrated web frontend** — a custom Lovelace panel that runs inside Home Assistant and provides a visual, point-and-click interface for configuring everything on your NSPanel.
 
 <p align="center">
-  <img src="docs/assets/frontend-preview.svg" alt="Web Frontend Editor Preview" width="100%">
+  <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/frontend-preview.svg" alt="Web Frontend Editor Preview" width="100%">
 </p>
 
 | Capability | What you can do |
@@ -155,7 +155,7 @@ All device settings — panels, entities, gestures, dimming, display-off schedul
 NSPanel HAUI uses a three-layer architecture:
 
 <p align="center">
-  <img src="docs/assets/diagrams/architecture.svg" alt="Architecture Diagram" width="100%">
+  <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/diagrams/architecture.svg" alt="Architecture Diagram" width="100%">
 </p>
 
 - **HAUI** (`NSPanelHAUI`, hub that runs in HA) — Reads entity states, renders display commands, manages navigation

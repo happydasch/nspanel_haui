@@ -255,28 +255,29 @@ data:
 ### `nspanel_haui.send_notification`
 
 Show a notification on the panel with a title, message, severity level, and
-icon.  Notifications stay in the queue until they are dismissed on the panel,
+icon. Notifications stay in the queue until they are dismissed on the panel,
 replaced, or cleared — unless a `timeout` is given, which auto-dismisses the
-notification after that many seconds.  `persistent` loops
-the alert sound and re-opens the popup about every 60 seconds until dismissed;
-it opens immediately and `timeout` still applies to it.  `force_show` also opens
-the popup immediately, but never
-takes the place of a notification popup or list that is already on screen: the
-new notification waits in the queue and opens when the current one is
-dismissed.  The queue holds up to 50 notifications; when it is full, the oldest
-one is dropped.  While the idle page is shown, only a `critical` persistent
-notification forces its popup over it; other severities stay queued and appear
-as soon as the user returns to a real panel.
-Notification sounds play only when the device's `sound_on_notification`
-setting is on; it is off by default
+notification that many seconds after it is queued (including while it waits in
+the queue). Omitting `timeout` or setting it to `0` disables auto-dismissal.
+`persistent` loops the alert sound and re-opens the popup about every 60 seconds
+until dismissed or timed out; it opens immediately and `timeout` still applies
+to it. `force_show` also opens the popup immediately, but never takes the place
+of a notification popup or list that is already on screen: the new notification
+waits in the queue and opens when the current one is dismissed. The queue holds
+up to 50 notifications; when it is full, the oldest one is dropped. While the
+idle page is shown, only a `critical` persistent notification forces its popup
+over it; other severities stay queued and appear as soon as the user returns to
+a real panel. Notification sounds play only when the device's
+`sound_on_notification` setting is on; it is off by default
 ([Device settings → Notifications](configuration/device.md#notifications)).
 When no icon is supplied, the severity selects a default one (`info` →
 `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` →
-`mdi:alert-octagon-outline`).
-See [Notifications](device.md#notifications) for how notifications are
-viewed and dismissed on the panel.  The ESPHome firmware also exposes
-`send_notification` action (title/message/icon + optional persistent/text_size, no severity/force-show/timeout), but this service is
-the recommended path because it also carries severity and force-show.
+`mdi:alert-octagon-outline`). See [Notifications](device.md#notifications) for
+how notifications are viewed and dismissed on the panel. The ESPHome firmware
+also exposes a `send_notification` action (title/message/icon + optional
+persistent/text_size, without severity/force-show/timeout); standard `notify`
+entities also have no timeout field. Use this service when those options are
+needed.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
@@ -285,10 +286,10 @@ the recommended path because it also carries severity and force-show.
 | `message` | no | `""` | Body text (can be empty for a title-only alert). Line breaks (`\n`) render as line breaks on the display |
 | `icon` | no | severity default | Material Design Icon (e.g. `"mdi:bell"`). When omitted, the `type` selects the default icon |
 | `type` | no | `"info"` | Severity level — `"info"`, `"warning"`, or `"critical"`. Sets the icon colour in the popup; `critical` also plays the `alert` sound instead of `notification` |
-| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel. While the idle page is shown, only a `critical` persistent notification interrupts it. A `timeout` still ends it |
+| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel or its timeout expires. While the idle page is shown, only a `critical` persistent notification interrupts it |
 | `force_show` | no | `false` | When `true`, opens the notification panel immediately, unless a notification popup or list is already open — then it waits in the queue |
 | `text_size` | no | `"auto"` | Popup body text size — `"auto"` (chosen from the message length) or a font size `1`-`3` |
-| `timeout` | no | — (none) | Seconds until the notification auto-dismisses (1–3600). Left out (or `0`) it stays queued until dismissed on the panel |
+| `timeout` | no | — (none) | Seconds from queueing until the notification auto-dismisses, even if it has not yet been shown (1–3600). Left out or set to `0`, it stays queued until dismissed on the panel |
 
 Sending a notification with the same title and message as one that is still
 queued replaces it: the queued copy is removed (firing a `removed` event), the
@@ -343,7 +344,7 @@ Two entities are created per device:
 | `notify.<device_name>_persistent_notification` | Persistent notification (sound loops until dismissed on the panel; opens immediately) |
 
 `notify.send_message` only takes a title and a message, so these entities
-cannot set a severity, or force-show — use
+cannot set a severity, force-show, or timeout — use
 `nspanel_haui.send_notification` for those. When no title is given, "Home Assistant"
 is used. The entities are only created once the device is linked to its ESPHome
 device.
@@ -432,6 +433,19 @@ fields:
     default: true
     selector:
       boolean:
+  timeout:
+    name: Auto-dismiss after
+    description: >-
+      Optional timeout in seconds, counted from when the notification is queued.
+      A notification can expire while waiting to be shown. Use 0 to keep it
+      until dismissed on the panel.
+    default: 0
+    selector:
+      number:
+        min: 0
+        max: 3600
+        unit_of_measurement: s
+        mode: box
 variables:
   nspanel_devices:
     salon: "0123abcd..."   # ESPHome device-registry ID of the panel
@@ -448,15 +462,16 @@ sequence:
       icon: "{{ icon | default('') }}"
       persistent: "{{ persistent | default(false) | bool }}"
       force_show: "{{ force_show | default(true) | bool }}"
+      timeout: "{{ timeout | default(0) | int(0) }}"
 mode: single
 ```
 
-The service accepts `type`, `icon`, `persistent` and `force_show`, so one
-script covers the full range of behaviour: an info popup (the defaults), a
-warning with a custom icon, or a critical alert that loops the sound and
-re-opens the popup periodically until dismissed. Expose the script to the
-conversation agent; the LLM reads its description and field descriptions when
-deciding how to call it.
+The service accepts `type`, `icon`, `persistent`, `force_show` and `timeout`,
+so one script covers the full range of behaviour: an info popup (the defaults),
+a warning with a custom icon, or a critical alert that loops the sound and
+re-opens the popup periodically until dismissed or timed out. Expose the script
+to the conversation agent; the LLM reads its description and field descriptions
+when deciding how to call it.
 
 ---
 
@@ -563,7 +578,7 @@ Assistant event bus** so automations can react to what happens on the panel.
 | Event | Payload | When |
 |-------|---------|------|
 | `nspanel_haui.page_changed` | `device`, `action` (`opened`/`closed`), `panel` (key), `type`, `title`, `page` (Nextion page name) | Whenever a panel is opened through the render pipeline or closed |
-| `nspanel_haui.notification` | `device`, `id`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `timeout` (seconds or `null`) | Whenever a notification is queued or dismissed |
+| `nspanel_haui.notification` | `device`, `id`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `timeout` (seconds or `null`) | Whenever a notification is queued or removed (dismissed, expired, replaced, cleared, or dropped from a full queue) |
 | `nspanel_haui.connection_changed` | `device`, `connected` (bool) | Whenever the hub's connection to the panel device changes |
 | `nspanel_haui.display_update_changed` | `device`, `connected`, `installed_version` (TFT), `latest_version` (TFT the firmware needs), `state` (`idle`/`checking`/`installing`/`done`/`error`), `last_error` | Whenever the display's TFT version or the TFT update state changes (drives the **HAUI Display** update entity) |
 

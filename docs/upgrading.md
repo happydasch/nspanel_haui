@@ -103,21 +103,19 @@ The four notification actions are **one action** now:
 | Old | Use instead |
 |-----|-------------|
 | `send_notification` | `send_notification` (with optional variables, see below) |
-| `send_notification_with_timeout` | `send_notification` (timeouts no longer exist — notifications stay until dismissed) |
+| `send_notification_with_timeout` | `send_notification` (the ESPHome action no longer accepts a timeout; use the HA service for optional auto-dismiss) |
 | `send_notification_persistent` | `send_notification` with `persistent: true` |
-| `send_notification_persistent_with_timeout` | `send_notification` with `persistent: true` (timeouts no longer exist) |
+| `send_notification_persistent_with_timeout` | `send_notification` with `persistent: true`; use the HA service if it also needs a timeout |
 
-Optional variables on `send_notification`: `persistent` (bool; loops the
-alert sound until dismissed), `text_size` (`"auto"` or a font size 1-3).
-
-**Notification `timeout` was removed.** Notifications no longer auto-dismiss:
-an entry stays in the queue until it is dismissed on the panel, replaced by an
-identical title+message, or cleared. The `timeout` field on
-`nspanel_haui.send_notification`, the `send_notification` action and the
-`nspanel_haui.notification` event is gone — remove it from automations and
-scripts. For alerts that must not be missed, use `persistent: true` instead
-(it loops the alert sound and re-opens the popup periodically until the
-notification is dismissed).
+Optional variables on the ESPHome `send_notification` action are `persistent`
+(bool; loops the alert sound) and `text_size` (`"auto"` or a font size 1–3).
+The integration service `nspanel_haui.send_notification` separately supports an
+optional `timeout` from 1–3600 seconds. Its countdown begins when the
+notification is queued, including while it waits to be shown; omit the field or
+set it to `0` to keep it until dismissed. Standard `notify` entities and the
+ESPHome action do not expose a timeout. The `nspanel_haui.notification` event
+includes the notification's `timeout` value (seconds, or `null` when unset).
+See [Services](services.md#nspanel_hauisend_notification) for details.
 
 ### ESP events
 

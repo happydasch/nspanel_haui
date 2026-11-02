@@ -175,6 +175,21 @@ replacing the broader v0.4.5 passlist.
 
 ---
 
+## v0.4.5 — encrypted native OTA (planned)
+
+**Status: planned, unreleased.**
+
+- **Encrypted native OTA** (issue #81) — replace the `ota` `password` in
+  `esphome/nspanel_haui/base.yaml` with `encryption` keyed by the existing
+  `api_encryption_key`, so builds no longer warn that a password wastes flash
+  and RAM. Preserve the `on_begin` suspend hook and the separate
+  `http_request` OTA platform that the firmware auto-update action uses.
+  Update the surrounding configs (`install.yaml`, dev/universal variants,
+  `secrets.yaml.example`) and document the migration for panels already flashed
+  with the password-protected config, plus the ESPHome docs.
+
+---
+
 ## v0.5 — Multiple TFTs, update control & Device Manager overhaul
 
 Three pillars plus planned frontend, notification and device-settings work, after

@@ -25,11 +25,13 @@ This popup is opened by the integration and cannot be configured in the panel ed
 - `close_on_button` — Close when a button is pressed. Default: true.
 - `button_callback_fnc`, `close_callback_fnc` — Callbacks.
 
-Queued-notification popups (opened by the service/entities) are never closed
-automatically: the hub opens them without a `close_timeout`, so they stay up
-until dismissed on the panel — or until their optional `timeout` expires. A
-programmatic `open_panel` popup (an ad-hoc notify) can still pass
-`close_timeout` to close itself after a number of seconds.
+Queued-notification popups do not use the popup's generic `close_timeout`.
+Navigating away from a popup does not dismiss its notification; it stays queued
+until dismissed or until its optional `timeout` expires. The notification
+timeout countdown begins when the item is queued, not when its popup opens, and
+expiry removes it from the queue (opening the next queued notification when
+appropriate). A programmatic `open_panel` popup that is not a queued notification
+can still use `close_timeout` to close itself after a number of seconds.
 
 ## Using the service
 

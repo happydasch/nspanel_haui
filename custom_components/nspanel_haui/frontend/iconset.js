@@ -53,35 +53,44 @@ const registerIcons = () => {
   });
 };
 
-// <ha-icon> resolves a custom icon exactly once, when its `icon` property is
-// first set. Sidebar and dashboard icons render while the page boots, and this
-// module is loaded through an asynchronous import() (add_extra_js_url), so on
-// a cold cache an icon can resolve "haui:" before the set is registered. HA
-// then falls back to <iron-icon>, which renders nothing, and never retries.
-// Re-trigger such icons now that the set is in place, and again whenever a
-// panel becomes ready (the sidebar mounts with the first panel).
-const healHauiIcons = () => {
-  const healRoot = (root) => {
-    root.querySelectorAll("ha-icon").forEach((element) => {
-      const icon = element.icon;
-      if (
-        typeof icon === "string" &&
-        icon.startsWith("haui:") &&
-        element._legacy
-      ) {
-        element.icon = undefined;
-        element.icon = icon;
-      }
-    });
-    root.querySelectorAll("*").forEach((element) => {
-      if (element.shadowRoot) {
-        healRoot(element.shadowRoot);
-      }
-    });
-  };
-  healRoot(document);
+const observedRoots = new WeakSet();
+
+const watchRoot = (root) => {
+  if (observedRoots.has(root)) {
+    return;
+  }
+  observedRoots.add(root);
+  new MutationObserver(() => healRoot(root)).observe(root, {
+    childList: true,
+    subtree: true,
+  });
 };
+
+const healRoot = (root) => {
+  root.querySelectorAll("ha-icon").forEach((element) => {
+    const icon = element.icon;
+    if (
+      typeof icon === "string" &&
+      icon.startsWith("haui:") &&
+      element._legacy
+    ) {
+      // HA keeps its legacy fallback after the icon set becomes available.
+      element._legacy = false;
+      element.icon = undefined;
+      element.icon = icon;
+    }
+  });
+  root.querySelectorAll("*").forEach((element) => {
+    if (element.shadowRoot) {
+      healRoot(element.shadowRoot);
+      watchRoot(element.shadowRoot);
+    }
+  });
+};
+
+const healHauiIcons = () => healRoot(document);
 
 registerIcons();
 healHauiIcons();
+watchRoot(document);
 window.addEventListener("hass-panel-ready", healHauiIcons);

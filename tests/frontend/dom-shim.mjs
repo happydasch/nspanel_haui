@@ -1,6 +1,9 @@
 // Minimal browser globals so the vendored Lit bundle can be imported in Node.
 // Import this before any editor module that pulls in Lit.
 globalThis.HTMLElement ??= class {};
+globalThis.MutationObserver ??= class {
+  observe() {}
+};
 if (!globalThis.customElements) {
   // Records definitions so tests can reach element classes by tag name, and
   // define HA's elements to simulate HA loading them.

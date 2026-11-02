@@ -32,20 +32,33 @@ const healthy = makeIcon(HAUi_ICON, false); // resolved before this module ran
 const otherSet = makeIcon('mdi:home', false); // not a haui icon
 const brokenInShadow = makeIcon(HAUi_ICON, true); // sidebar renders in shadow DOM
 
+const icons = [broken, healthy, otherSet];
+const shadowIcons = [brokenInShadow];
+
 const shadowHost = {
   shadowRoot: {
     querySelectorAll: (selector) =>
-      selector === 'ha-icon' ? [brokenInShadow] : [],
+      selector === 'ha-icon' ? shadowIcons : [],
   },
 };
 
 const eventHandlers = new Map();
+const observers = [];
 
 globalThis.document = {
   querySelectorAll: (selector) => {
-    if (selector === 'ha-icon') return [broken, healthy, otherSet];
+    if (selector === 'ha-icon') return icons;
     return [shadowHost];
   },
+};
+globalThis.MutationObserver = class {
+  constructor(callback) {
+    this.callback = callback;
+    observers.push(this);
+  }
+  observe(root) {
+    this.root = root;
+  }
 };
 globalThis.addEventListener = (type, handler) => {
   eventHandlers.set(type, handler);
@@ -71,12 +84,30 @@ test('registers the icon set on window.customIconsets', async () => {
 test('repairs haui icons that fell back to the legacy icon', () => {
   assert.deepEqual(broken.assignments, [undefined, HAUi_ICON]);
   assert.deepEqual(brokenInShadow.assignments, [undefined, HAUi_ICON]);
+  assert.equal(broken._legacy, false);
+  assert.equal(brokenInShadow._legacy, false);
   assert.deepEqual(healthy.assignments, []);
   assert.deepEqual(otherSet.assignments, []);
 });
 
+test('repairs newly-mounted icons in document and shadow roots', () => {
+  const late = makeIcon(HAUi_ICON, true);
+  const lateInShadow = makeIcon(HAUi_ICON, true);
+  icons.push(late);
+  shadowIcons.push(lateInShadow);
+
+  observers.find((observer) => observer.root === document).callback();
+  observers.find((observer) => observer.root === shadowHost.shadowRoot).callback();
+
+  assert.deepEqual(late.assignments, [undefined, HAUi_ICON]);
+  assert.deepEqual(lateInShadow.assignments, [undefined, HAUi_ICON]);
+  assert.equal(late._legacy, false);
+  assert.equal(lateInShadow._legacy, false);
+});
+
 test('repairs again when a panel becomes ready', () => {
   broken.assignments.length = 0;
+  broken._legacy = true;
   const onPanelReady = eventHandlers.get('hass-panel-ready');
   assert.ok(onPanelReady, 'listens for hass-panel-ready');
   onPanelReady();

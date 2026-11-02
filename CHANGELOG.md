@@ -19,6 +19,18 @@ and follow [Semantic Versioning](https://semver.org/).
 
 See the [v0.4.4 roadmap](ROADMAP.md#v044--hardware-acceptance-and-ota-risk-closure-planned).
 
+### Fixed
+
+- **Notification `timeout` accepted by the service schema (#78)** — the
+  release schema rejected the `timeout` field that `services.yaml` advertised,
+  so `nspanel_haui.send_notification` failed with "not a valid option at
+  'timeout'" even when a timeout was given. The schema now accepts it (a
+  whole number of seconds; `0` disables it) and forwards it to the
+  notification controller, which auto-dismisses the notification after that
+  many seconds and advances the queue when its popup was the one on screen.
+  Without a timeout nothing auto-dismisses, so the previous behavior is
+  unchanged.
+
 ## [0.4.3] — 2026-10-28
 
 ### Breaking changes

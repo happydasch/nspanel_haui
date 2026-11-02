@@ -165,7 +165,7 @@ def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
     assert len(dummy_app.callback_event_calls) == 1
     event = dummy_app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, False, "info", False, "auto")
+    expected_value = (title, message, icon, False, "info", False, "auto", None)
     assert event.value == expected_value
 
 
@@ -722,3 +722,101 @@ def test_non_critical_persistent_alert_shows_when_not_idle(loop_ctrl):
     ticks[0]({})
     assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
     assert nav.opens[-1][1]["title"] == "Laundry"
+
+
+# --- optional auto-dismiss timeout -------------------------------------------
+
+
+def _expire_timers(app):
+    """The auto-dismiss callbacks currently armed."""
+    return [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_expire"]
+
+
+def test_without_a_timeout_no_auto_dismiss_timer_is_armed(loop_ctrl):
+    """Notifications stay queued until dismissed unless a timeout is given."""
+    app, ctrl = loop_ctrl
+    ctrl.add_notification("Door", "open", force_show=True)
+
+    assert _expire_timers(app) == []
+
+
+def test_timeout_removes_the_notification_and_fires_the_removed_event(loop_ctrl):
+    app, ctrl = loop_ctrl
+    ctrl.add_notification("Door", "open", timeout=5)
+    before = len(app.fire_event_calls)
+
+    (expire,) = _expire_timers(app)
+    expire({})
+
+    assert ctrl.get_notifications() == []
+    assert ctrl.blinker.new_notifications is False
+    removed = [
+        data for event_type, data in app.fire_event_calls[before:]
+        if event_type == "nspanel_haui.notification"
+    ]
+    assert removed and removed[0]["state"] == "removed"
+
+
+def test_timed_popup_expires_closes_and_the_queue_advances(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    ctrl.add_notification("First", "1", force_show=True, timeout=5)
+    ctrl.add_notification("Second", "2", force_show=True)
+    first = nav.opens[0][1]
+
+    (expire,) = _expire_timers(app)
+    expire({})
+
+    assert [n.title for n in ctrl.get_notifications()] == ["Second"]
+    assert nav.current is None  # the timed-out popup was closed
+    first["close_callback_fnc"]()  # the page stop calls it in the real flow
+    advance = _advance_timers(app)
+    assert advance, "expired popup must arm the queue advance"
+    advance[0]({})
+    assert nav.opens[-1][0] == SysPanelKey.POPUP_NOTIFY
+    assert nav.opens[-1][1]["title"] == "Second"
+
+
+def test_queued_timeout_does_not_disturb_an_open_popup(loop_ctrl):
+    app, ctrl = loop_ctrl
+    _, _, nav = _queue_player(app)
+    ctrl.add_notification("First", "1", force_show=True)
+    ctrl.add_notification("Second", "2", timeout=3)
+
+    (expire,) = _expire_timers(app)
+    expire({})
+
+    assert [n.title for n in ctrl.get_notifications()] == ["First"]
+    assert len(nav.opens) == 1  # the open popup stays on screen
+
+
+def test_removing_a_timed_notification_cancels_its_timer(loop_ctrl):
+    app, ctrl = loop_ctrl
+    notification = ctrl.add_notification("Door", "open", timeout=5)
+    assert _expire_timers(app)
+
+    ctrl.remove_notification(notification)
+
+    assert _expire_timers(app) == []
+
+
+def test_clear_cancels_all_timeout_timers(loop_ctrl):
+    app, ctrl = loop_ctrl
+    ctrl.add_notification("One", "1", timeout=5)
+    ctrl.add_notification("Two", "2", timeout=5)
+
+    ctrl.clear_notifications()
+
+    assert _expire_timers(app) == []
+
+
+def test_a_timeout_may_expire_a_persistent_notification(loop_ctrl):
+    """An explicit timeout overrides the persistent never-dismiss behavior."""
+    app, ctrl = loop_ctrl
+    ctrl.add_notification("Smoke", "Kitchen", persistent=True, timeout=5)
+
+    (expire,) = _expire_timers(app)
+    expire({})
+
+    assert ctrl.get_notifications() == []
+    assert ctrl.has_persistent_notifications() is False

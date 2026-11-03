@@ -297,3 +297,21 @@ inside-temperature display shows its unavailable value in that case.
 ## Available Panels
 
 Panels are configured representations of a page. A page can have multiple panels, like the alarm page, which is used for alarm activation and the unlock popup. There can be multiple panels using the same page. All panels can have a custom key defined, which is used for navigation. See [Panels Overview](panels/README.md) for more details about the different panels.
+
+## Virtual Panel (Live Preview)
+
+The editor's [live preview](configuration/README.md#the-live-preview) runs a second `NSPanelHAUI` app per open preview, built from the device's stored config the same way setup builds it. Only the transport and the entity layer differ, so every page, controller and lifecycle hook is the real one.
+
+| Part | File | Role |
+|------|------|------|
+| `VirtualNSPanelHAUI` | `virtual_panel.py` | Reads states through the sandbox, routes service calls, suppresses HA bus events, uses an inert update controller |
+| `VirtualESPHomeProxy` | `virtual_panel.py` | Stands in for `ESPHomeProxy` and the firmware: answers the connection handshake, sends heartbeats, forwards display commands, page changes, brightness and sounds to the browser; refuses TFT and firmware uploads |
+| `Sandbox` | `sandbox.py` | Simulated entity states over the real ones; simulates the common services (on/off, light, cover, climate, media, lock, alarm, vacuum, number/select/text, button, timer) |
+| `VirtualPanelSession` | `virtual_panel.py` | Owns one virtual app for an open preview |
+| WebSocket commands | `websocket_api.py` | `nspanel_haui/virtual_panel/subscribe`, `/event` and `/configure` (admin only, at most four sessions) |
+
+The browser end lives in `frontend/virtual/`: `nextion-script.js` runs the HMI's event code and the hub's display commands, `nextion-display.js` holds the display state, `nextion-view.js` renders it, `touch-input.js` turns pointer input into the firmware's `esphome.component`, `touch_start`/`touch_end` and `gesture` events, `qr-encode.js` draws QR widgets and `virtual-panel-session.js` connects it all to the WebSocket. Slider values come back the way the firmware returns them: the hub's `req_val`/`req_txt` go to the browser, which answers with `esphome.read_response`.
+
+In sandbox mode every non-query service call is simulated; queries with `return_response` (such as `weather.get_forecasts`) always reach Home Assistant. In live mode calls reach Home Assistant, except calls targeting an entity of the real device (from the entity registry), which stay simulated. The browser can inject only the events a person causes on a panel: component touches, raw touches, gestures, hardware buttons, the idle timeout and read responses.
+
+The page layouts are exported from both HMI files by `scripts/gen_virtual_layout/gen_virtual_layout.py` (see [Scripts for display](nextion.md#scripts-for-display)).

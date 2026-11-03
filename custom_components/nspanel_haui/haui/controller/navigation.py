@@ -733,6 +733,22 @@ class HAUINavigationController(HAUIBase):
         panel_id = self._ids[idx - 1] if idx > 0 else self._ids[-1]
         self.open_panel(panel_id)
 
+    def go_back(self) -> None:
+        """Return to the panel the current one was opened from, else to the home panel.
+
+        A panel outside navigation sits on the stack, so closing it returns to
+        where it was opened from. A navigation panel has no history (it was
+        reached by swiping or as home), so it goes to the home panel.
+        """
+        if self._stack and self.panel is not None and self._stack[-1][0].id == self.panel.id:
+            self.close_panel()
+        elif self._home_panel is not None and (
+            self.panel is None or self.panel.id != self._home_panel.id
+        ):
+            self.open_home_panel()
+        else:
+            self.log("Go back: already on the home panel")
+
     def open_home_panel(self, autostart: bool = False) -> None:
         """Opens the home panel.
 

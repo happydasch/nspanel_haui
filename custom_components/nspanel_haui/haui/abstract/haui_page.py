@@ -73,6 +73,15 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
     # the touch end.
     DRAG_SUPPRESS_DURATION: ClassVar[float] = 1.5
 
+    # Long press to go back (panel option ``long_press_back``, for pages
+    # without header buttons). Touch start/end come from the firmware's
+    # 200 ms touch poll, which quantizes the duration: 0.8 s catches a
+    # one-second hold. A tap is too short for the poll to report reliably,
+    # so a long press is the gesture the poll can detect.
+    LONG_PRESS_SECONDS: ClassVar[float] = 0.8
+    # Most a long press may move (display pixels) and still count.
+    LONG_PRESS_SLOP: ClassVar[int] = 30
+
     # How long a read request stays "pending" before a lost read_response no longer
     # counts as "in flight" (see request_component_value).  A read_response that
     # arrives after the timeout is dropped so a stale response can't overwrite
@@ -129,6 +138,8 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         self._suppress_gesture_timer: str | None = None
         self._pending_drag_callback: tuple[int, int, HAUIEvent] | None = None
         self._drag_flush_timer: str | None = None
+        # start of the current touch, for long press to go back
+        self._touch_started_at: float | None = None
         # read-request plumbing (REQ_VAL / REQ_TXT for slider/value reads).
         # Tracks a single pending read request: only one can be in-flight
         # at a time because the ESP32 has a single ``req_val_component`` /
@@ -687,6 +698,26 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         """Whether swipe gestures are currently suppressed (slider drag)."""
         return self._suppress_gesture
 
+    def _check_long_press_back(self, event: HAUIEvent) -> None:
+        """Go back after a long press, when the panel enables ``long_press_back``.
+
+        ``event`` is TOUCH_END with "x1,y1,x2,y2": the touch's start and end.
+        """
+        started, self._touch_started_at = self._touch_started_at, None
+        if started is None or self.panel is None or not self.panel.get("long_press_back", False):
+            return
+        if time.monotonic() - started < self.LONG_PRESS_SECONDS:
+            return
+        try:
+            x1, y1, x2, y2 = (int(v) for v in event.as_str().split(","))
+        except ValueError:
+            self.log(f"Long press: unexpected touch_end value {event.as_str()!r}", level="WARNING")
+            return
+        if abs(x2 - x1) > self.LONG_PRESS_SLOP or abs(y2 - y1) > self.LONG_PRESS_SLOP:
+            return
+        self.log("Long press: going back")
+        self.app.controller["navigation"].go_back()
+
     def _flush_pending_drag_callback(self) -> None:
         """Dispatch a deferred slider-release callback.
 
@@ -1018,9 +1049,14 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
             now = time.monotonic()
             if self._pending_read_request is not None and now >= self._pending_read_request.expiry:
                 self._pending_read_request = None
+            # A touch on a widget that sends its id reports touch_start twice
+            # (Nextion event and touch poll); the first one starts the touch.
+            if self._touch_started_at is None:
+                self._touch_started_at = now
         # touch end — flush any deferred slider-release callback
         elif event.name == ESPEvent.TOUCH_END:
             self._flush_pending_drag_callback()
+            self._check_long_press_back(event)
         # read response — route to registered slider / text handler
         elif event.name == ESPResponse.READ_RESPONSE:
             self._process_read_response(event)

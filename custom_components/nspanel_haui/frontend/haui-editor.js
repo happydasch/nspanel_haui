@@ -29,6 +29,7 @@ import './dialogs/logs.js';
 import './dialogs/notifications.js';
 import './dialogs/device-manager.js';
 import './dialogs/colors.js';
+import './dialogs/live-preview.js';
 
 import { positionContextMenu, readStorage } from './dom-helpers.js';
 import { selectDevice } from './device-manager.js';
@@ -75,6 +76,7 @@ class NSPanelEditor extends LitElement {
       _deviceStatusError: { type: String, state: true },
       _showDeviceInfo: { type: Boolean, state: true },
       _showLogs: { type: Boolean, state: true },
+      _showLivePreview: { type: Boolean, state: true },
       _showNotifications: { type: Boolean, state: true },
       _notifications: { type: Array, state: true },
       _showDeviceManager: { type: Boolean, state: true },
@@ -125,6 +127,7 @@ class NSPanelEditor extends LitElement {
     this._deviceStatusError = null;
     this._showDeviceInfo = false;
     this._showLogs = false;
+    this._showLivePreview = false;
     this._showNotifications = false;
     this._notifications = [];
     this._showDeviceManager = false;
@@ -325,6 +328,13 @@ class NSPanelEditor extends LitElement {
 
   _toggleHeaderMenu() {
     this._actionsMenuIndex = this._actionsMenuIndex === '__header__' ? null : '__header__';
+    this.requestUpdate();
+  }
+
+  _onHeaderLivePreview() {
+    this._actionsMenuIndex = null;
+    if (!this._selectedDevice) return;
+    this._showLivePreview = true;
     this.requestUpdate();
   }
 
@@ -532,6 +542,14 @@ class NSPanelEditor extends LitElement {
           @update-firmware=${(e) => DeviceEvents.onDeviceManagerUpdateFirmware(this, e)}
           @check-for-update=${(e) => DeviceEvents.onDeviceManagerCheckUpdate(this, e)}
         ></nspanel-dialog-device-manager>
+
+        <nspanel-dialog-live-preview
+          .hass=${this.hass}
+          .open=${this._showLivePreview}
+          .entryId=${this.entryId}
+          .device=${this._selectedDevice}
+          @dialog-closed=${() => { this._showLivePreview = false; this.requestUpdate(); }}
+        ></nspanel-dialog-live-preview>
 
         <nspanel-dialog-colors
           .hass=${this.hass}

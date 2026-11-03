@@ -142,3 +142,10 @@ see `scripts` in the root directory for different scripts.
 
 - Font generation
 - Image generation
+- Virtual panel layouts: after every HMI change run
+  `python scripts/gen_virtual_layout/gen_virtual_layout.py`. It exports both
+  HMI files' pages, widgets and event code to
+  `custom_components/nspanel_haui/frontend/virtual/layout_<orientation>.json`
+  for the editor's [live preview](configuration/README.md#the-live-preview),
+  together with the pictures (as WebP, from `nextion/images`). `--check`, run
+  by the test suite, fails while a layout is out of date.

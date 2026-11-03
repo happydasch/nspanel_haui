@@ -156,6 +156,9 @@ PANEL_CONFIG: dict[str, Any] = {
     "type": None,  # panel type
     "title": "",  # user-facing display name
     "show_in_navigation": True,  # whether this panel appears in navigation
+    # long press anywhere goes back (pages without header buttons, see
+    # HAUIPage._check_long_press_back)
+    "long_press_back": False,
     "key": None,  # internal identifier
     # show_home_button, show_idle_button, show_notifications_button
     # are not defined here - HAUIPanel.show_button() already falls back

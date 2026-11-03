@@ -101,7 +101,9 @@ class NSPanelHAUI(HAAdapter):
         self.controller["notification"] = HAUINotificationController(
             self, self.device_config.get("notification", {})
         )
-        self.controller["update"] = HAUIUpdateController(self, self.device_config.get("update"))
+        self.controller["update"] = self._create_update_controller(
+            self.device_config.get("update")
+        )
         self.controller["gesture"] = HAUIGestureController(self, self.device_config.get("gesture"))
 
         self.log(
@@ -110,6 +112,11 @@ class NSPanelHAUI(HAAdapter):
         )
 
         self.start()
+
+    def _create_update_controller(self, config: dict[str, Any]) -> HAUIUpdateController:
+        # Overridden by the editor's virtual panel, which must never check for
+        # or install firmware/TFT updates.
+        return HAUIUpdateController(self, config)
 
     # lifecycle
 

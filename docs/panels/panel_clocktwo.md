@@ -51,3 +51,7 @@ Toggle to enable AM/PM display (Default: Off). Only works with the English langu
 ### Show Notifications
 
 Toggle the notifications icon on/off.
+
+### Leaving the Panel
+
+This page has no header buttons. Swipe left or right from a screen edge to change panel, or enable **Long press to go back** (*Advanced* section): holding anywhere for about a second then goes back to the panel this one was opened from, or to the home panel. See [Standard Fields](../configuration/panels.md#standard-fields).

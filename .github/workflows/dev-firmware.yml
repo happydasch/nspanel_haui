@@ -54,18 +54,16 @@ jobs:
               raise SystemExit(f"Expected a stable X.Y.Z version, got {manifest['version']!r}")
           major, minor, patch = map(int, match.groups())
           version = f"{major}.{minor}.{patch + 1}.dev{os.environ['GITHUB_RUN_NUMBER']}+g{os.environ['GITHUB_SHA'][:7]}"
-          try:
-              from packaging.version import InvalidVersion, Version
-          except ImportError:
-              raise SystemExit("packaging is not installed; run 'pip install packaging' first")
-          try:
-              parsed = Version(version)
-          except InvalidVersion:
-              raise SystemExit(f"{version} is not a valid PEP 440 version")
-          if parsed <= Version(f"{major}.{minor}.{patch}"):
-              raise SystemExit(f"{version} is not newer than {manifest['version']}")
-          if "-" in version:
-              raise SystemExit(f"{version} contains a '-' separator; dev builds must use '+'")
+          # Validate against the exact PEP 440 dev-release shape instead of
+          # importing ``packaging``: that library is not a declared dependency
+          # anywhere in the repo (neither ESPHome nor the dev requirements pull
+          # it in), and importing it here broke every dev build with
+          # "packaging is not installed". The pattern covers what the version
+          # check needs — parseable by AwesomeVersion, no ``-`` separator, and a
+          # local ``+g<sha>`` segment the version list can sort.
+          expected = rf"{major}\.{minor}\.{patch + 1}\.dev\d+\+g[0-9a-f]{{7}}"
+          if re.fullmatch(expected, version) is None:
+              raise SystemExit(f"{version} does not match the expected PEP 440 shape {expected}")
           version_file = Path("esphome/nspanel_haui/version.yaml")
           source = version_file.read_text()
           source, count = re.subn(

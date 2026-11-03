@@ -122,7 +122,7 @@ test('a hub read request is answered with the widget value', async () => {
   });
 });
 
-test('hardware buttons, idle timeout, live mode and sandbox reset', async () => {
+test('hardware buttons, idle timeout and live mode', async () => {
   const { hass, push, resolveLayout, session } = await started();
   push({ type: 'started', session_id: 'abc', portrait: false });
   resolveLayout();
@@ -131,10 +131,9 @@ test('hardware buttons, idle timeout, live mode and sandbox reset', async () => 
   await session.pressButton('left');
   await session.idleTimeout();
   await session.setLive(true);
-  await session.resetSandbox();
 
-  assert.deepEqual(hass.calls.map(c => c.name ?? c.live ?? c.reset_sandbox), [
-    'esphome.button_left', 'esphome.button_left', 'esphome.timeout', true, true,
+  assert.deepEqual(hass.calls.map(c => c.name ?? c.live), [
+    'esphome.button_left', 'esphome.button_left', 'esphome.timeout', true,
   ]);
   assert.deepEqual(hass.calls.slice(0, 2).map(c => c.value), ['1', '0']);
   assert.equal(session.live, true);
@@ -177,4 +176,16 @@ test('hub errors are reported', async () => {
   const { push } = await started({ onError: msg => errors.push(msg) });
   push({ type: 'error', message: 'start_failed' });
   assert.deepEqual(errors, ['start_failed']);
+});
+
+test('the hub\'s idle page state is tracked', async () => {
+  const { push, resolveLayout, session } = await started();
+  push({ type: 'started', session_id: 'abc', portrait: false });
+  resolveLayout();
+  await flush();
+  assert.equal(session.idle, false);
+  push({ type: 'idle', active: true });
+  assert.equal(session.idle, true);
+  push({ type: 'idle', active: false });
+  assert.equal(session.idle, false);
 });

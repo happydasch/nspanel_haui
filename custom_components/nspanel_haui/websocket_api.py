@@ -7,7 +7,7 @@
 - ``nspanel_haui/virtual_panel/event`` injects a touch, swipe, hardware button
   or idle timeout.
 - ``nspanel_haui/virtual_panel/configure`` switches between sandbox and live
-  mode and resets the sandbox.
+  mode.
 
 Admin only, like the editor itself: live mode controls real entities.
 """
@@ -34,14 +34,25 @@ def _sessions(hass: Any) -> dict[str, Any]:
 
 
 async def _protected_entities(hass: Any, ha_device_id: str | None) -> frozenset[str]:
-    """Entity ids of the real device itself; a preview never changes them."""
+    """Entity ids of the real device's settings; a preview never changes them.
+
+    The relay switches are left out: in live mode the preview's hardware
+    buttons switch the real relays, as the panel's buttons do.
+    """
     if ha_device_id is None:
         return frozenset()
     from homeassistant.helpers import entity_registry as er
 
+    from .virtual_panel import RELAY_ENTITY_NAMES
+
     registry = er.async_get(hass)
     entries = er.async_entries_for_device(registry, ha_device_id, include_disabled_entities=True)
-    return frozenset(entry.entity_id for entry in entries)
+    relays = set(RELAY_ENTITY_NAMES.values())
+    return frozenset(
+        entry.entity_id
+        for entry in entries
+        if getattr(entry, "original_name", None) not in relays
+    )
 
 
 @websocket_api.websocket_command(
@@ -152,8 +163,7 @@ async def ws_event(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     {
         vol.Required("type"): "nspanel_haui/virtual_panel/configure",
         vol.Required("session_id"): str,
-        vol.Optional("live"): bool,
-        vol.Optional("reset_sandbox", default=False): bool,
+        vol.Required("live"): bool,
     }
 )
 @websocket_api.require_admin
@@ -162,10 +172,7 @@ async def ws_configure(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     session = _get_session(hass, connection, msg)
     if session is None:
         return
-    if "live" in msg:
-        session.set_live(msg["live"])
-    if msg["reset_sandbox"]:
-        session.reset_sandbox()
+    session.set_live(msg["live"])
     connection.send_result(msg["id"])
 
 

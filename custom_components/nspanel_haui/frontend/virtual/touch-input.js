@@ -71,6 +71,24 @@ function contains(comp, x, y) {
   return x >= a.x && x < a.x + a.w && y >= a.y && y < a.y + a.h;
 }
 
+/**
+ * The entity shown at (x, y): the topmost visible widget the hub links to an
+ * entity, else the page's main entity (key "#page", haui_page.PAGE_ENTITY_KEY).
+ *
+ * @param {NextionDisplay} display
+ * @param {Object<string, string>} entityMap - widget name -> entity id, from the hub
+ * @returns {string|null}
+ */
+export function entityAt(display, entityMap, x, y) {
+  const hits = [...display.components.values()]
+    .filter(c => c.id !== 0 && !c.hidden && c.attrs.w !== undefined && contains(c, x, y))
+    .sort((a, b) => b.id - a.id);
+  for (const comp of hits) {
+    if (entityMap[comp.name]) return entityMap[comp.name];
+  }
+  return entityMap['#page'] || null;
+}
+
 export class TouchInput {
   /**
    * @param {NextionDisplay} display

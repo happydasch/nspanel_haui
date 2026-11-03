@@ -10,8 +10,10 @@ browser:
   from the editor as the same ``esphome.*`` events the firmware publishes.
 - ``VirtualNSPanelHAUI`` reads entity states through a ``Sandbox``. In sandbox
   mode every service call changes only simulated state; in live mode calls
-  reach Home Assistant, except calls to the real device's own entities
-  (relays, auto-dimming, brightness numbers), which always stay simulated.
+  reach Home Assistant, except calls to the real device's settings entities
+  (auto-dimming, brightness numbers, ...), which always stay simulated. The
+  relays are switched for real in live mode: the hardware buttons do that on
+  the panel.
 - The app never fires HA bus events, never persists to the panel store and
   never checks for or installs firmware/TFT updates.
 
@@ -53,6 +55,11 @@ BROWSER_EVENTS: frozenset[str] = frozenset(
         ESPResponse.READ_RESPONSE,
     }
 )
+
+# The firmware's relay switches (esphome/nspanel_haui/switch.yaml). The
+# hardware buttons switch them in relay mode, so unlike the device's settings
+# entities they are switched for real in live mode.
+RELAY_ENTITY_NAMES: dict[str, str] = {"left": "Relay Left", "right": "Relay Right"}
 
 # Same value as the firmware's ``$heartbeat_interval`` substitution.
 HEARTBEAT_INTERVAL = 5
@@ -103,6 +110,8 @@ class VirtualESPHomeProxy:
         self._listeners: list[Callable] = []
         self._heartbeat_handle: str | None = None
         self._page: int = 0
+        self._idle = False
+        self._entities: dict[str, str] = {}
 
     # ESPHomeProxy interface
 
@@ -147,7 +156,30 @@ class VirtualESPHomeProxy:
             # hub_heartbeat, reset_last_interaction, ...: nothing on a virtual
             # device answers or needs them.
             _LOGGER.debug("Virtual panel ignored '%s'", name)
+        self._report_idle()
+        self._report_entities()
         return True
+
+    def _report_entities(self) -> None:
+        """Tell the browser which widgets show which entity, when that changes."""
+        navigation = self._app.controller.get("navigation")
+        page = navigation.page if navigation is not None else None
+        entities = page.entity_map() if page is not None and page.panel is not None else {}
+        if entities != self._entities:
+            self._entities = entities
+            self._sink({"type": "entities", "map": entities})
+
+    def _report_idle(self) -> None:
+        """Tell the browser when the idle page starts or ends.
+
+        Entering and leaving the idle page always draws a page, so checking
+        after every display output catches each change.
+        """
+        navigation = self._app.controller.get("navigation")
+        idle = bool(navigation is not None and navigation.idle_panel_active)
+        if idle != self._idle:
+            self._idle = idle
+            self._sink({"type": "idle", "active": idle})
 
     # firmware side
 
@@ -302,6 +334,21 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         self.simulate_service(domain, svc, entity_ids, service_data or {})
         return True if raise_on_error else None
 
+    def press_hardware_button(self, side: str) -> None:
+        """Do what the firmware does on a hardware button press: toggle its relay in relay mode.
+
+        On the device the firmware switches the relay itself (sensor.yaml,
+        ``on_press``), so the hub never sees it; the virtual device does it
+        through the relay's switch entity, simulated or real by mode.
+        """
+        if not self.device.get(f"use_relay_{side}", True):
+            return
+        entity_id = self.device.find_esphome_entity_id("switch", RELAY_ENTITY_NAMES[side])
+        if entity_id is None:
+            self.log(f"Virtual panel: no {RELAY_ENTITY_NAMES[side]} switch on the device")
+            return
+        self.call_service("switch/toggle", target={"entity_id": entity_id})
+
     # sandbox
 
     def simulate_service(
@@ -405,9 +452,16 @@ class VirtualPanelSession:
         if name not in BROWSER_EVENTS:
             raise ValueError(f"Event not allowed from the preview: {name}")
         self.app.virtual_esphome.emit(name, value)
+        if name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT) and value == "1":
+            side = "left" if name == ESPEvent.BUTTON_LEFT else "right"
+            self.app.dispatch(self.app.press_hardware_button, side)
 
     def set_live(self, live: bool) -> None:
-        self.app.live = live
+        """Switch between sandbox and live mode.
 
-    def reset_sandbox(self) -> None:
-        self.app.dispatch(self.app.reset_sandbox)
+        Going live drops the simulated states: they would otherwise keep
+        overriding the real states the live calls change.
+        """
+        self.app.live = live
+        if live:
+            self.app.dispatch(self.app.reset_sandbox)

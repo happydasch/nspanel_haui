@@ -62,7 +62,6 @@ class _FakeSession:
         self.started = self.stopped = False
         self.events = []
         self.live = kwargs["live"]
-        self.resets = 0
         _FakeSession.instances.append(self)
 
     async def async_start(self):
@@ -80,9 +79,6 @@ class _FakeSession:
 
     def set_live(self, live):
         self.live = live
-
-    def reset_sandbox(self):
-        self.resets += 1
 
 
 @pytest.fixture
@@ -231,26 +227,32 @@ def test_event_forwards_allowed_events_and_rejects_others(ws):
     assert conn.errors == [(3, "invalid_event"), (4, "not_found")]
 
 
-def test_configure_switches_mode_and_resets_the_sandbox(ws):
+def test_configure_switches_the_mode(ws):
     conn = _Connection()
 
     async def body(hass):
         await _subscribe(ws, hass, conn)
         sid = _FakeSession.instances[0].id
         await ws.ws_configure(
-            hass, conn, {"id": 2, "session_id": sid, "live": True, "reset_sandbox": True}
+            hass, conn, {"id": 2, "session_id": sid, "live": True}
         )
 
     _run(body)
     session = _FakeSession.instances[0]
     assert session.live is True
-    assert session.resets == 1
     assert conn.results == [1, 2]
 
 
 def test_protected_entities_are_the_real_devices_own(ws, monkeypatch):
     registry = types.ModuleType("homeassistant.helpers.entity_registry")
-    entries = {"dev1": [types.SimpleNamespace(entity_id="switch.kitchen_relay_1")]}
+    entry = types.SimpleNamespace
+    entries = {
+        "dev1": [
+            entry(entity_id="switch.kitchen_use_auto_dim", original_name="Use Auto-Dimming"),
+            entry(entity_id="switch.kitchen_relay_left", original_name="Relay Left"),
+            entry(entity_id="switch.kitchen_relay_right", original_name="Relay Right"),
+        ]
+    }
     registry.async_get = lambda hass: "registry"
     registry.async_entries_for_device = lambda reg, device_id, include_disabled_entities: (
         entries[device_id]
@@ -260,6 +262,7 @@ def test_protected_entities_are_the_real_devices_own(ws, monkeypatch):
 
     async def body(hass):
         assert await ws._protected_entities(hass, None) == frozenset()
-        assert await ws._protected_entities(hass, "dev1") == {"switch.kitchen_relay_1"}
+        # The relays are left out: live mode switches them for real.
+        assert await ws._protected_entities(hass, "dev1") == {"switch.kitchen_use_auto_dim"}
 
     _run(body)

@@ -207,3 +207,71 @@ test('pages without header buttons offer long press to go back', () => {
   assert.match(renderEditDialog('weather'), /Long press to go back/);
   assert.doesNotMatch(renderEditDialog('grid'), /Long press to go back/);
 });
+
+test('the idle timeout button looks selected while the idle page is shown', async () => {
+  const { dlg } = makeDialog({ open: true });
+  dlg.updated(new Map([['open', false]]));
+  await flush();
+  // Only the idle timeout button binds its appearance; the others are static.
+  const markup = () => collect(dlg.render()).join(' ');
+  assert.doesNotMatch(markup(), /\baccent\b/);
+  dlg._session.idle = true;
+  assert.match(markup(), /\baccent\b/);
+  dlg._session.idle = false;
+  assert.doesNotMatch(markup(), /\baccent\b/);
+  dlg._stopSession();
+});
+
+/** The tooltip's two position declarations (its style's interpolated values). */
+function tooltipStyle(dlg) {
+  return dlg._renderTooltip().values.slice(0, 2);
+}
+
+test('hovering a linked widget shows its entity; leaving or pressing hides it', async () => {
+  const { dlg } = makeDialog({ open: true });
+  dlg.hass.states = { 'light.lamp': { attributes: { friendly_name: 'Lamp' } } };
+  dlg.updated(new Map([['open', false]]));
+  await flush();
+  const session = dlg._session;
+  session.display = {
+    layout: { width: 480, height: 320, visible_width: 450 },
+    components: new Map([['b', { id: 1, name: 'b', hidden: false, attrs: { x: 0, y: 0, w: 225, h: 160 } }]]),
+    component: id => (id === 0 ? { name: 'grid' } : null),
+  };
+  session.entityMap = { b: 'light.lamp' };
+  const rect = { left: 0, top: 0, width: 900, height: 640 };
+  dlg.renderRoot = { querySelector: () => ({ getBoundingClientRect: () => rect }) };
+
+  // Off by default: no tooltip until "Show entities" is switched on.
+  dlg._onPointerMove({ pointerId: 7, pointerType: 'mouse', clientX: 100, clientY: 100 });
+  assert.equal(dlg._hover, null);
+  dlg._setShowEntities(true);
+
+  dlg._onPointerMove({ pointerId: 7, pointerType: 'mouse', clientX: 100, clientY: 100 });
+  assert.equal(dlg._hover.entityId, 'light.lamp');
+  assert.deepEqual(tooltipStyle(dlg), ['left:114px;', 'top:114px;']);
+  const tip = collect(dlg._renderTooltip()).join(' ');
+  assert.match(tip, /Lamp/);
+  assert.match(tip, /light\.lamp/);
+
+  // nothing linked there
+  dlg._onPointerMove({ pointerId: 7, pointerType: 'mouse', clientX: 800, clientY: 600 });
+  assert.equal(dlg._hover, null);
+  // touch input never shows it
+  dlg._onPointerMove({ pointerId: 8, pointerType: 'touch', clientX: 100, clientY: 100 });
+  assert.equal(dlg._hover, null);
+
+  // switching it off hides a shown tooltip
+  dlg._onPointerMove({ pointerId: 7, pointerType: 'mouse', clientX: 100, clientY: 100 });
+  dlg._setShowEntities(false);
+  assert.equal(dlg._hover, null);
+  dlg._stopSession();
+});
+
+test('near the right or bottom edge the tooltip flips to the cursor\'s other side', async () => {
+  const { dlg } = makeDialog({ open: true });
+  dlg._hover = { entityId: 'light.lamp', x: 800, y: 600, width: 900, height: 640 };
+  assert.deepEqual(tooltipStyle(dlg), ['right:114px;', 'bottom:54px;']);
+  dlg._hover = { entityId: 'light.lamp', x: 800, y: 100, width: 900, height: 640 };
+  assert.deepEqual(tooltipStyle(dlg), ['right:114px;', 'top:114px;']);
+});

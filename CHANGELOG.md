@@ -103,8 +103,10 @@ TFT until a later release updates it.
   device, rendered from the real hub code: tap, drag and swipe with mouse or
   finger, press the hardware buttons, trigger the idle timeout. **Sandbox
   mode** (the default) simulates every entity change; **Live mode** calls Home
-  Assistant, except for the panel's own relays and settings. The preview fires
-  no events for automations and never installs updates.
+  Assistant, including the panel's relays from the hardware buttons, except
+  for the panel's settings. A **Show entities** switch names the entity under
+  the mouse. The preview fires no events for automations and never installs
+  updates.
 - **Long press to go back** — Clock, ClockTwo and Weather panels have no
   header buttons and could only be left by swiping. The new **Long press to go
   back** panel option (Advanced section) goes back on a one-second hold

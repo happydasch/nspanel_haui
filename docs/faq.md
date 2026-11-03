@@ -30,9 +30,11 @@ is stable) and are published only on the dev channel — switch the device's
 at the [published dev manifest](release.md#published-development-firmware).
 Dev firmware ships no display TFT, so the **HAUI Display** entity offers no
 update until a stable release matches. A panel that reports a version like
-`dev-3-f243f33` (an old dev release tag used as `yaml_version`) is not a valid
-version: the hub withholds firmware offers until it is reflashed with a
-parseable build (see [Release](release.md#published-development-firmware)).
+`dev-3-f243f33` — the old `dev-<run>-<sha>` tag scheme, used as `yaml_version`
+by dev builds up to 0.4.4 — is not a valid version: the hub withholds firmware
+offers until it is reflashed with a parseable build (see
+[Release](release.md#published-development-firmware)). Current dev releases are
+tagged with their PEP 440 version (for example `0.4.5.dev123+gabcdef1`).
 
 ## Update is not possible
 

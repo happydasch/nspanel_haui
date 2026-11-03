@@ -38,6 +38,10 @@ from .sandbox import Sandbox
 
 _LOGGER = logging.getLogger(__name__)
 
+# Protocol 2 adds optional entity-map and idle-state messages. Older open editor
+# modules do not understand these message types, so don't send them to those clients.
+_METADATA_PROTOCOL_VERSION = 2
+
 # Sink for messages to the browser; must be safe to call from any thread.
 Sink = Callable[[dict[str, Any]], None]
 
@@ -425,8 +429,10 @@ class VirtualPanelSession:
         device_info: dict[str, Any] | None = None,
         protected_entities: frozenset[str] = frozenset(),
         live: bool = False,
+        protocol_version: int = _METADATA_PROTOCOL_VERSION,
     ) -> None:
         self.id = uuid.uuid4().hex
+        self.protocol_version = protocol_version
         info = {
             "name": device_name,
             "friendly_name": device_name,
@@ -439,13 +445,22 @@ class VirtualPanelSession:
             "firmware_variant": "",
         }
         info.update({k: v for k, v in (device_info or {}).items() if k in info and v})
+
+        def _compatible_sink(message: dict[str, Any]) -> None:
+            if (
+                self.protocol_version < _METADATA_PROTOCOL_VERSION
+                and message.get("type") in {"entities", "idle"}
+            ):
+                return
+            sink(message)
+
         self.app = VirtualNSPanelHAUI(
             hass,
             f"virtual_{self.id[:8]}",
             config_args,
             runtime_device_name=device_name,
             ha_device_id=ha_device_id,
-            sink=sink,
+            sink=_compatible_sink,
             device_info=info,
             protected_entities=protected_entities,
             live=live,

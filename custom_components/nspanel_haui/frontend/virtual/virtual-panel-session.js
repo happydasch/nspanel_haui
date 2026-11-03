@@ -72,6 +72,7 @@ export class VirtualPanelSession {
         entry_id: this.entryId,
         device: this.device,
         live: this.live,
+        protocol_version: 2,
       },
     );
   }

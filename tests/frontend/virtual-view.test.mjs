@@ -26,6 +26,7 @@ function flat(v) {
 }
 
 const LIGHTBULB = '';
+const BLINDS_HORIZONTAL = '\uFA2A';
 const ctx = {
   iconName: ch => (ch === LIGHTBULB ? 'lightbulb' : null),
   pictureUrl: id => `pictures/landscape/${id}.webp`,
@@ -44,6 +45,12 @@ test('text splits into plain and icon segments', () => {
   ]);
   assert.deepEqual(textSegments('', ctx.iconName), [{ icon: null, char: '' }]);
   assert.deepEqual(textSegments('', ctx.iconName), []);
+});
+
+test('icons mapped outside the private-use range still resolve by name', () => {
+  assert.deepEqual(textSegments(BLINDS_HORIZONTAL, () => 'blinds-horizontal'), [
+    { icon: 'blinds-horizontal', char: BLINDS_HORIZONTAL },
+  ]);
 });
 
 test('xfloat values use their decimals', () => {

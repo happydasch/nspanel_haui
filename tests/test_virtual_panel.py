@@ -162,6 +162,23 @@ def test_reset_sandbox_restores_real_state_without_changing_mode(session, env):
     assert session.app.live is True
     assert env.services.calls == []
 
+
+def test_old_protocol_does_not_receive_entity_or_idle_metadata(env):
+    messages: list[dict] = []
+    session = VirtualPanelSession(env, "kitchen", _config(), messages.append, protocol_version=1)
+    _run(env, session.async_start())
+    _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+
+    proxy = session.app.virtual_esphome
+    proxy._sink({"type": "entities", "map": {"g1Overlay": "light.lamp"}})
+    proxy._sink({"type": "idle", "active": True})
+    proxy._sink({"type": "page", "page": GRID_PAGE_ID})
+
+    assert {"type": "page", "page": GRID_PAGE_ID} in messages
+    assert not any(message["type"] in {"entities", "idle"} for message in messages)
+    _run(env, session.async_stop())
+
+
 def test_live_mode_calls_home_assistant(session, env):
     session.set_live(True)
     _tap_power(session)

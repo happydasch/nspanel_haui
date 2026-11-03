@@ -72,6 +72,7 @@ test('opening starts a session for the selected device; closing stops it', async
     entry_id: 'entry1',
     device: 'kitchen',
     live: false,
+    protocol_version: 2,
   });
 
   dlg.open = false;

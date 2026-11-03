@@ -40,10 +40,11 @@ export function textSegments(text, iconName) {
   const segments = [];
   let plain = '';
   for (const ch of String(text ?? '')) {
-    if (isIconChar(ch)) {
+    const icon = iconName(ch);
+    if (isIconChar(ch) || icon) {
       if (plain) segments.push({ text: plain });
       plain = '';
-      segments.push({ icon: iconName(ch), char: ch });
+      segments.push({ icon, char: ch });
     } else {
       plain += ch;
     }

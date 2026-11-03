@@ -59,6 +59,7 @@ test('subscribes for the device and loads the layout of its orientation', async 
     entry_id: 'entry1',
     device: 'kitchen',
     live: true,
+    protocol_version: 2,
   });
   push({ type: 'started', session_id: 'abc', portrait: true, live: true });
   resolveLayout();
@@ -185,6 +186,17 @@ test('stop unsubscribes and ignores later output', async () => {
   assert.notEqual(session.display.page?.name, 'grid');
   await session.sendEvent('esphome.touch_start', '');
   assert.deepEqual(hass.calls, []);
+});
+
+test('entity-map metadata is accepted by the current protocol', async () => {
+  const { push, resolveLayout, session } = await started();
+  push({ type: 'started', session_id: 'abc', portrait: false });
+  resolveLayout();
+  await flush();
+
+  push({ type: 'entities', map: { g1Overlay: 'light.lamp' } });
+
+  assert.deepEqual(session.entityMap, { g1Overlay: 'light.lamp' });
 });
 
 test('hub errors are reported', async () => {

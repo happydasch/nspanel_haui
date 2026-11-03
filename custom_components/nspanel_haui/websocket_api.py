@@ -61,6 +61,7 @@ async def _protected_entities(hass: Any, ha_device_id: str | None) -> frozenset[
         vol.Required("entry_id"): str,
         vol.Required("device"): str,
         vol.Optional("live", default=False): bool,
+        vol.Optional("protocol_version", default=1): int,
     }
 )
 @websocket_api.require_admin
@@ -105,6 +106,7 @@ async def ws_subscribe(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
         device_info=device_info,
         protected_entities=await _protected_entities(hass, ha_device_id),
         live=msg["live"],
+        protocol_version=msg.get("protocol_version", 1),
     )
     sessions[session.id] = session
 

@@ -123,8 +123,12 @@ class _Hass:
         self.tasks.append(self.loop.create_task(coro))
 
 
-def _subscribe(ws, hass, conn, msg_id=1, device="kitchen", entry_id="entry1"):
+def _subscribe(
+    ws, hass, conn, msg_id=1, device="kitchen", entry_id="entry1", protocol_version=None
+):
     msg = {"id": msg_id, "entry_id": entry_id, "device": device, "live": False}
+    if protocol_version is not None:
+        msg["protocol_version"] = protocol_version
     return ws.ws_subscribe(hass, conn, msg)
 
 
@@ -169,6 +173,7 @@ def test_subscribe_starts_a_session_and_unsubscribe_stops_it(ws):
         await _subscribe(ws, hass, conn)
         session = _FakeSession.instances[0]
         assert session.started
+        assert session.kwargs["protocol_version"] == 1
         assert ws._sessions(hass) == {session.id: session}
         session.sink({"type": "page", "page": 9})
         await asyncio.sleep(0)
@@ -186,6 +191,17 @@ def test_subscribe_starts_a_session_and_unsubscribe_stops_it(ws):
         "live": False,
     }
     assert {"type": "page", "page": 9} in conn.events
+
+
+
+def test_subscribe_passes_current_protocol_version_to_session(ws):
+    conn = _Connection()
+
+    async def body(hass):
+        await _subscribe(ws, hass, conn, protocol_version=2)
+        assert _FakeSession.instances[0].kwargs["protocol_version"] == 2
+
+    _run(body)
 
 
 def test_subscribe_limits_concurrent_sessions(ws):

@@ -35,6 +35,14 @@ jobs:
         # Home Assistant compares installed/latest with AwesomeVersion, and an
         # unparseable yaml_version (for example a ``dev-<run>-<sha>`` release
         # tag) makes it fall back to "update available" on every check.
+        #
+        # The same string is the release tag, the integration manifest version
+        # and the firmware yaml_version. HACS reads the release tag as the
+        # available version and the installed copy's manifest ``version`` as the
+        # installed one; with a ``dev-<run>-<sha>`` tag the comparison fell back
+        # to string inequality, so an installed dev build kept offering itself
+        # as an update. Keeping both identical (and PEP 440) makes HACS order
+        # dev releases and only offer a build that is actually newer.
         run: |
           python3 - <<'PY'
           import json, os, re
@@ -68,9 +76,18 @@ jobs:
           if count != 1:
               raise SystemExit(f"Expected one yaml_version in {version_file}, found {count}")
           version_file.write_text(source)
-          tag = f"dev-{os.environ['GITHUB_RUN_NUMBER']}-{os.environ['GITHUB_SHA'][:7]}"
+          manifest_file = Path("custom_components/nspanel_haui/manifest.json")
+          source = manifest_file.read_text()
+          source, count = re.subn(
+              r'(?m)^(  "version": )"[^"]+"(,?)$',
+              lambda m: f'{m.group(1)}"{version}"{m.group(2)}',
+              source,
+          )
+          if count != 1:
+              raise SystemExit(f"Expected one version in {manifest_file}, found {count}")
+          manifest_file.write_text(source)
           with open(os.environ["GITHUB_ENV"], "a") as env:
-              env.write(f"DEV_VERSION={version}\nDEV_TAG={tag}\n")
+              env.write(f"DEV_VERSION={version}\n")
           print(f"Building {version} from {os.environ['GITHUB_SHA']}")
           PY
 
@@ -101,7 +118,6 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           DEV_VERSION: ${{ env.DEV_VERSION }}
-          DEV_TAG: ${{ env.DEV_TAG }}
         run: |
           python3 - <<'PY'
           import hashlib, json, os, subprocess
@@ -109,7 +125,7 @@ jobs:
 
           repo = os.environ["GITHUB_REPOSITORY"]
           commit = os.environ["GITHUB_SHA"]
-          tag = os.environ["DEV_TAG"]
+          tag = os.environ["DEV_VERSION"]
           with open("nspanel_haui_ota.bin", "rb") as image:
               md5 = hashlib.md5(image.read(), usedforsecurity=False).hexdigest()
           manifest = {
@@ -160,7 +176,10 @@ jobs:
       - name: Publish versioned development prerelease
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.DEV_TAG }}
+          # The tag *is* the PEP 440 dev version, so HACS (which reads release
+          # tags as versions) can order dev releases and compare them with the
+          # manifest version of an installed dev build.
+          tag_name: ${{ env.DEV_VERSION }}
           target_commitish: ${{ github.sha }}
           name: NSPanel HAUI ${{ env.DEV_VERSION }}
           body_path: dev-release-notes.md

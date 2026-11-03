@@ -117,6 +117,15 @@ TFT until a later release updates it.
   `helpers` attribute; use `homeassistant.helpers.entity_registry`), and the
   home temperature stays visible when the weather entity has no temperature
   attribute.
+- **HACS versioning of dev releases** — a `dev` prerelease is now tagged with
+  its PEP 440 version (for example `0.4.5.dev123+gabcdef1`) instead of
+  `dev-<run>-<sha>`, and the same string is written into the released
+  `manifest.json`. HACS reads release tags as available versions and the
+  installed copy's manifest `version` as the installed one, so the old
+  unparseable tags compared by plain string inequality: an installed dev build
+  kept offering itself as an update and dev releases were listed without a
+  usable order. Dev releases now compare (and sort) correctly; already
+  installed `dev-*` builds are offered the next versioned dev release once.
 - **Stale time after waking the display** — clock, word clock, weather and
   alarm pages keep updating while the display is off (the Nextion stays awake
   at brightness 0 with the hub connected), so a wake touch shows the current

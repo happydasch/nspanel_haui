@@ -100,16 +100,27 @@ workflow used for private/custom builds.
 ### Published development firmware
 
 Every successful push to `dev` builds the CI-safe universal image and publishes a
-GitHub prerelease tagged with the workflow run and source commit. Its version is
-based on the next patch release (for example, `0.4.5.dev123+gabcdef1`), so each
-successful push has a distinct update version and its notes link to the build
-commit, enumerate commits included in that push, and list changed files. The
-prereleases retain the version history. A fixed manifest URL follows the latest
-successful build:
+GitHub prerelease whose tag is the release version. Its version is based on the
+next patch release (for example, `0.4.5.dev123+gabcdef1`), so each successful push
+has a distinct update version and its notes link to the build commit, enumerate
+commits included in that push, and list changed files. The prereleases retain the
+version history. The same string is written into the release's
+`custom_components/nspanel_haui/manifest.json`, so HACS (which reads release tags
+as *available* versions and the installed copy's manifest `version` as the
+*installed* one) can order dev releases and only offers a build that is actually
+newer than the one installed. Both must be a valid PEP 440 version with no `-`
+separator: for an unparseable pair such as the old `dev-<run>-<sha>` tags, HACS
+falls back to plain string inequality and keeps offering the installed build as
+an update forever. A fixed manifest URL follows the latest successful build:
 
 ```text
 https://github.com/happydasch/nspanel_haui/releases/download/dev-latest/firmware-manifest.json
 ```
+
+That fixed URL comes from the `dev-latest` release, which only holds the moving
+firmware manifest — it is a dev-branch snapshot, not a version to install. When
+choosing a version in HACS, pick the pre-release whose tag is the version (for
+example `0.4.5.dev123+gabcdef1`), not `dev-latest`.
 
 Set a **universal test panel's** **Firmware update channel** to **dev** (or
 point its **Firmware manifest URL** at the address above) to follow `dev`;

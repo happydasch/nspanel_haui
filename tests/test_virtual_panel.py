@@ -149,7 +149,6 @@ def test_sandbox_tap_changes_only_simulated_state(session, env):
     _wait(lambda: any(c.startswith("g1") for c in _commands(session.messages)))
 
 
-
 def test_reset_sandbox_restores_real_state_without_changing_mode(session, env):
     _tap_power(session)
     _wait(lambda: session.app.sandbox.get("light.lamp").state == "on")
@@ -189,7 +188,6 @@ def test_live_mode_calls_home_assistant(session, env):
     assert not session.app.sandbox.is_simulated("light.lamp")
 
 
-
 @pytest.mark.parametrize("selector", ["area_id", "device_id", "floor_id", "label_id"])
 @pytest.mark.parametrize("return_response", [False, True])
 def test_live_mode_refuses_unresolved_service_target_selectors(
@@ -204,6 +202,7 @@ def test_live_mode_refuses_unresolved_service_target_selectors(
 
     assert env.services.calls == []
     assert session.app.sandbox.simulated_ids() == []
+
 
 def test_live_mode_still_sandboxes_the_real_devices_own_entities(env):
     messages: list[dict] = []
@@ -363,11 +362,7 @@ def _relay_session(env, live, use_relay=True):
     grid = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
     cfg = nspanel_haui._build_config_dict(
         {"name": "Hub", "devices": [{"name": "kitchen"}]},
-        {
-            "devices": {
-                "kitchen": {"config": {"use_relay_left": use_relay}, "panels": [grid]}
-            }
-        },
+        {"devices": {"kitchen": {"config": {"use_relay_left": use_relay}, "panels": [grid]}}},
         device_name="kitchen",
     )
     messages: list[dict] = []

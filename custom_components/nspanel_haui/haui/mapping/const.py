@@ -125,8 +125,7 @@ class FirmwareUpdateChannel(StrEnum):
 # the development workflow keeps on the newest successful dev build.
 FIRMWARE_MANIFEST_URLS: dict[str, str] = {
     FirmwareUpdateChannel.STABLE: (
-        "https://github.com/happydasch/nspanel_haui/releases/latest/download/"
-        "firmware-manifest.json"
+        "https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json"
     ),
     FirmwareUpdateChannel.DEV: (
         "https://github.com/happydasch/nspanel_haui/releases/download/"

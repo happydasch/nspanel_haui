@@ -18,15 +18,12 @@ function flat(v) {
 
 function hostFor(displayModel, panels = [{ type: 'grid', key: 'grid_0', items: [] }]) {
   const host = makeHost({ devices: { kitchen: { config: {}, panels } } }, () => { throw new Error('no fetch'); });
-  host._panelTypes = [{ type_key: 'grid', label: 'Grid', icon: 'mdi:view-grid' }];
+  host._panelTypes = [{ type_key: 'grid', label: 'Grid', icon: 'mdi:view-grid', page_id: 9 }];
   host._deviceConfig = { display_model: displayModel };
   host.__navPanelsOpen = true;
   host.__hiddenPanelsOpen = false;
   return host;
 }
-
-/** The simulated header bar of the first card (between the header and the screen markup). */
-const headerOf = (out) => out.slice(out.indexOf('pg-card-preview-header'), out.indexOf('pg-card-preview-screen'));
 
 test('the display model decides whether a device uses the portrait layout', () => {
   assert.equal(isPortraitModel('us'), true);
@@ -35,25 +32,27 @@ test('the display model decides whether a device uses the portrait layout', () =
   assert.equal(isPortraitModel(undefined), false);
 });
 
-test('portrait devices get the 320x480 frame with the function buttons in a bottom bar', () => {
+test('portrait devices mount the simulator frame in portrait', () => {
   const out = flat(renderPanelGrid(hostFor('us')));
   assert.match(out, /pg-card-preview--portrait/);
-  assert.doesNotMatch(headerOf(out), /pg-sim-btn-group/);
-  const footer = out.slice(out.indexOf('pg-card-preview-footer'));
-  assert.match(footer, /pg-sim-btn-group-left[\s\S]*mdi:chevron-left/);
-  assert.match(footer, /pg-sim-btn-group-right[\s\S]*mdi:chevron-right/);
+  assert.match(out, /nspanel-simulator-frame[\s\S]*\.portrait=true/);
 });
 
-test('landscape devices keep the function buttons in the header', () => {
+test('landscape devices mount the simulator frame without portrait', () => {
   const out = flat(renderPanelGrid(hostFor('eu')));
-  assert.doesNotMatch(out, /pg-card-preview--portrait|pg-card-preview-footer/);
-  assert.match(headerOf(out), /pg-sim-btn-group-left[\s\S]*mdi:chevron-left/);
+  assert.doesNotMatch(out, /pg-card-preview--portrait/);
+  assert.match(out, /nspanel-simulator-frame/);
 });
 
-test('system panel cards follow the device display model too', () => {
-  const sp = { type: 'system', key: 'sys_system', label: 'System', has_header: true };
+test('the simulator preview draws no duplicate fake header/footer chrome', () => {
+  const out = flat(renderPanelGrid(hostFor('eu')));
+  assert.doesNotMatch(out, /pg-card-preview-header|pg-card-preview-footer|pg-card-preview--with-header/);
+});
+
+test('system panel cards mount the simulator frame too', () => {
+  const sp = { type: 'system', key: 'sys_system', label: 'System', has_header: true, page_id: 0 };
   const portrait = flat(renderSystemPanelCard(hostFor('us'), sp));
-  assert.match(portrait, /pg-card-preview--portrait[\s\S]*pg-card-preview-footer/);
+  assert.match(portrait, /pg-card-preview--portrait[\s\S]*nspanel-simulator-frame/);
   const landscape = flat(renderSystemPanelCard(hostFor('eu'), sp));
-  assert.doesNotMatch(landscape, /pg-card-preview--portrait/);
+  assert.match(landscape, /nspanel-simulator-frame/);
 });

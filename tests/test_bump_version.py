@@ -208,9 +208,7 @@ def test_bump_script_rejects_bad_version():
     assert bump_version.main(["not-a-version"]) == 2
 
 
-def test_bump_script_changes_tft_sources_only_with_tft_update(
-    version_files, monkeypatch
-):
+def test_bump_script_changes_tft_sources_only_with_tft_update(version_files, monkeypatch):
     manifest, _pyproject, version_yaml = version_files
     hmi_calls = []
     monkeypatch.setattr(

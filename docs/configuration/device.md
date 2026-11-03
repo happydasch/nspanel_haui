@@ -46,8 +46,9 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
   uploaded to forever.
 - **Refresh display** — Re-renders the display.
 - Each row shows the device's online/offline state, firmware and TFT versions,
-  IP address and signal strength; a display whose TFT is older than the
-  firmware version is flagged **update pending**. Wi-Fi readings are resolved
+  IP address and signal strength; a display whose TFT is older than the TFT
+  version the firmware requires (its `tft_required_version`, which need not
+  match the firmware version) is flagged **update pending**. Wi-Fi readings are resolved
   from the ESPHome entity registry and displayed independently; unavailable
   values are omitted or shown as **Unknown**, and an unknown signal does not
   mean the device is offline. The **Device Info** dialog shows the IP, SSID and

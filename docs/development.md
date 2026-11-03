@@ -46,6 +46,24 @@ from production devices.
 
 ---
 
+## Git hooks
+
+A repository-local pre-commit hook can keep the generated virtual display assets
+in sync and catch portrait HMI geometry drift before a commit. Install it from
+the repository checkout:
+
+```bash
+scripts/git_hooks/install.sh
+```
+
+The hook runs `scripts/gen_virtual_layout/gen_virtual_layout.py`, stages only its
+outputs (`layout_*.json`, `icon_map.json`, and `pictures/`), then runs
+`python scripts/gen_portrait/gen_portrait.py --check`. It never rewrites either
+HMI. The project `.venv` is preferred; otherwise it uses `python3` from `PATH`.
+Install the development dependencies first (`pip install -r requirements-dev.txt`)
+so both generators can run. The hook is opt-in per checkout; to remove its local
+configuration, run `git config --unset core.hooksPath`.
+
 ## Architecture
 
 The system has three layers:

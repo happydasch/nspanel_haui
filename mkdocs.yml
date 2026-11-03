@@ -1,3 +1,4 @@
+# Zensical reads this MkDocs-compatible config; local and CI builds use `zensical`.
 site_name: NSPanel HAUI
 site_url: https://happydasch.github.io/nspanel_haui/
 repo_url: https://github.com/happydasch/nspanel_haui
@@ -9,7 +10,7 @@ site_author: happydasch
 copyright: Copyright &copy; 2024-2026 happydasch
 
 theme:
-  name: material
+  variant: classic
   language: en
   features:
     - navigation.tabs
@@ -38,8 +39,6 @@ theme:
 
 plugins:
   - search
-  - git-revision-date-localized:
-      enable_creation_date: true
 
 markdown_extensions:
   - admonition
@@ -56,8 +55,8 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji
-      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:zensical.extensions.emoji.twemoji
+      emoji_generator: !!python/name:zensical.extensions.emoji.to_svg
   - toc:
       permalink: true
 

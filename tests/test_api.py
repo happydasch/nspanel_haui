@@ -1182,6 +1182,8 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
                         "ssid": "stale",
                         "rssi": 0,
                         "yaml_version": "1.2.3",
+                        "tft_version": "0.4.2",
+                        "tft_required_version": "0.4.3",
                     }
                 }
 
@@ -1204,6 +1206,10 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
     if active:
         assert running_app.worker_calls == 1
         assert result["body"]["device_info"]["yaml_version"] == "1.2.3"
+        # Running-device status carries the firmware-declared TFT requirement,
+        # distinct from the installed TFT and the firmware ``yaml_version``.
+        assert result["body"]["device_info"]["tft_version"] == "0.4.2"
+        assert result["body"]["device_info"]["tft_required_version"] == "0.4.3"
 
 
 @pytest.mark.parametrize("state", ["unknown", "unavailable", "not-a-number", "NaN"])

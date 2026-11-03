@@ -154,8 +154,9 @@ No Python changes are needed unless you also change the object name or id.
    `page_id`/`page_name` matching the editor, `label`/`description` via `_()`).
 5. Register it in `haui/mapping/panel.py` (`_page_classes` list) — the
    registration logic itself is closed for modification.
-6. Add a preview renderer (`scripts/gen_preview/gen_preview.py --type <key>`),
-   document the panel in `docs/panels/panel_<key>.md`, and run the checks.
+6. Set `DESCRIPTOR.page_id` to the physical Nextion page — the editor's shared
+   Nextion-simulator preview resolves it automatically. Document the panel in
+   `docs/panels/panel_<key>.md` and run the checks.
 
 ## 6. Fonts and images
 
@@ -254,15 +255,11 @@ the result alongside the landscape TFT on every release.
 4. Compile (`Build`) → `nextion/nspanel_haui_portrait.tft`.
 5. Re-dump the portrait HMI and diff the component names against the Python
    registries.
-6. Mirror the portrait widget geometry into the editor's panel previews, or
-   a portrait device keeps showing landscape placement. The previews follow
-   the device's `display_model`: `frontend/previews/registry.js` stamps
-   `portrait` on every preview result, `frontend/panel-card.js` then draws
-   the 320 × 480 frame with the function buttons in a bottom bar, and the
-   orientation-specific rules live under `.pg-card-preview--portrait` in
-   `frontend/styles/preview/*.js` (a renderer can also branch on
-   `isPortraitDevice(host)` from `frontend/previews/utils.js`, as the word
-   clock does). Re-check each preview with a portrait device selected.
+6. Nothing to mirror for the editor: the panel previews are rendered by the
+   shared Nextion simulator from the generated layouts
+   (`frontend/virtual/layout_<orientation>.json`, refreshed by
+   `gen_virtual_layout.py`), so a portrait device automatically gets the
+   portrait page. Re-check a preview with a portrait device selected.
 
 ### 7.2 Keeping both variants in sync
 

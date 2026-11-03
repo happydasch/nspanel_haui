@@ -14,7 +14,7 @@
 
 - [ ] Base branch is `dev` (features and fixes) or `master` (hotfix of a released version)
 - [ ] Docs in `docs/` updated for behaviour, options or defaults that changed
-- [ ] `mkdocs build --strict` passes
+- [ ] `zensical build --strict` passes
 - [ ] `pytest tests/` passes
 - [ ] `node --test 'tests/frontend/*.test.mjs'` passes (frontend changes only)
 - [ ] `ruff check custom_components/` is clean

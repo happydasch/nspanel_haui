@@ -333,8 +333,7 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         protected_target = any(eid in self._protected for eid in entity_ids)
         if self.live and target is not None and any(key != "entity_id" for key in target):
             self.log(
-                f"Live preview refused {domain}.{svc}: "
-                "target selectors cannot be checked safely",
+                f"Live preview refused {domain}.{svc}: target selectors cannot be checked safely",
                 level="WARNING",
             )
             return None
@@ -447,10 +446,10 @@ class VirtualPanelSession:
         info.update({k: v for k, v in (device_info or {}).items() if k in info and v})
 
         def _compatible_sink(message: dict[str, Any]) -> None:
-            if (
-                self.protocol_version < _METADATA_PROTOCOL_VERSION
-                and message.get("type") in {"entities", "idle"}
-            ):
+            if self.protocol_version < _METADATA_PROTOCOL_VERSION and message.get("type") in {
+                "entities",
+                "idle",
+            }:
                 return
             sink(message)
 

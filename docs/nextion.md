@@ -142,10 +142,23 @@ see `scripts` in the root directory for different scripts.
 
 - Font generation
 - Image generation
-- Virtual panel layouts: after every HMI change run
+- Virtual panel assets: after every HMI change run
   `python scripts/gen_virtual_layout/gen_virtual_layout.py`. It exports both
   HMI files' pages, widgets and event code to
-  `custom_components/nspanel_haui/frontend/virtual/layout_<orientation>.json`
-  for the editor's [live preview](configuration/README.md#the-live-preview),
-  together with the pictures (as WebP, from `nextion/images`). `--check`, run
-  by the test suite, fails while a layout is out of date.
+  `custom_components/nspanel_haui/frontend/virtual/layout_<orientation>.json`,
+  the icon-character→MDI map to `icon_map.json` and the pictures (as WebP, from
+  `nextion/images`). These feed the editor's
+  [live preview](configuration/README.md#the-live-preview) and the panel-card
+  previews alike — both render the real HMI pages through the shared Nextion
+  simulator. `--check`, run by the test suite, fails while the layouts or the
+  icon map are out of date.
+- Panel preview state: `python scripts/gen_preview_state/gen_preview_state.py`
+  boots the real hub on the virtual panel and records exactly what it sends to
+  each page into `frontend/virtual/preview_state.json`, so the panel-card
+  previews show the hub's own display output instead of guessed state. `--check`
+  (run by CI) fails while the snapshot is out of date. `gen_virtual_layout.py`
+  and `gen_preview_state.py` depend on the shared Home Assistant import stubs in
+  `scripts/_ha_stubs.py`.
+- Preview coverage: `python scripts/check_preview_coverage.py` (also run by the
+  test suite) confirms every exposed panel — user types, system panels and
+  popup aliases — still resolves to a physical page in both preview layouts.

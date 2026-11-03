@@ -125,6 +125,19 @@ and follow [Semantic Versioning](https://semver.org/).
   at brightness 0 with the hub connected), so a wake touch shows the current
   time and states instead of those from when the display turned off.
 
+- **Firmware update notice compared the display TFT by mistake** — the
+  "Update available" popup on the panel compared the newest GitHub release
+  with the installed display `tft_version` instead of the installed firmware
+  `yaml_version` (they can differ on firmware-only releases). It now compares
+  like for like, so an up-to-date display can no longer hide a firmware update
+  (nor a stale display invent one), and the version line shows
+  `yaml_version → release`.
+- **An unparseable firmware-manifest version is withheld from the HAUI
+  Firmware entity** — Home Assistant falls back to "update available" when it
+  cannot compare an offered version, so an incomparable manifest `version`
+  would surface as an update on every check. It is now reported as unknown
+  (no update) instead.
+
 ### Planned
 
 - Complete the remaining 0.4.x acceptance passlist on EU and US/portrait

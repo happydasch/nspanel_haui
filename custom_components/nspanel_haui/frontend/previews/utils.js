@@ -4,7 +4,7 @@
  * Shared utility functions for panel preview renderers.
  */
 import { t } from '../localize.js';
-import { colorToCss } from '../color-utils.js';
+import { colorToCss, hexToRgb565, parseRgbListToHex } from '../color-utils.js';
 import { isPortraitModel } from '../constants.js';
 
 /**
@@ -15,16 +15,6 @@ import { isPortraitModel } from '../constants.js';
  */
 export function isPortraitDevice(host) {
   return isPortraitModel(host && host._deviceConfig && host._deviceConfig.display_model);
-}
-
-/**
- * Pick a background class for the screen based on the panel's `background` option.
- * Returns a CSS class string (e.g. 'pg-preview-bg-spring') or empty string.
- */
-export function backgroundClass(panel) {
-  const bg = panel && panel.background;
-  if (!bg || bg === 'default') return '';
-  return 'pg-preview-bg-' + bg;
 }
 
 /**
@@ -49,10 +39,55 @@ const DEFAULT_COLORS = {
   header_text: 65535,
   header_accent: 62694,
   component_text: 65535,
+  component_pressed: 12678,
+  text_disabled: 12678,
   component_active: 19773,
   component_accent: 62694,
   component_background: 10565,
+  // Entity state colours (`haui/mapping/color.py`), used for icons/buttons.
+  entity_on: 65222,
+  entity_off: 17299,
+  entity_unavailable: 29582,
 };
+
+/** States the hub treats as "on" (`haui/utils/item.py` `_ON_STATES`). */
+const ON_STATES = new Set(['on', 'unlocked', 'above_horizon', 'home', 'active']);
+
+/**
+ * The colour the hub gives an item's icon: its `color` override, else the
+ * entity's state colour (on / off / unavailable), else the palette text colour.
+ *
+ * @param {object} item
+ * @param {object} [host]
+ * @param {object} palette
+ * @returns {number}
+ */
+export function itemStateColor(item, host, palette) {
+  const override = itemColorRgb565(item, 'color', host);
+  if (override != null) return override;
+  const state = itemEntityState(item, host);
+  if (!state) return palette.text;
+  if (state === 'unavailable') return palette.entity_unavailable;
+  return ON_STATES.has(state) ? palette.entity_on : palette.entity_off;
+}
+
+/**
+ * The device's palette as RGB565 ints (defaults merged with `color_overrides`),
+ * matching the hub's `get_color(key)`. Previews need the concrete values the
+ * hub sends so an item without a colour override renders like the device.
+ *
+ * @param {object} host - the Lit element instance (carries _deviceConfig)
+ * @returns {object.<string, number>}
+ */
+export function devicePalette(host) {
+  const overrides = (host && host._deviceConfig && host._deviceConfig.color_overrides) || {};
+  const palette = {};
+  for (const [key, value] of Object.entries(DEFAULT_COLORS)) {
+    const override = overrides[key];
+    palette[key] = override === undefined || override === null ? value : Number(override);
+  }
+  return palette;
+}
 
 /**
  * Build a merged device colour palette from defaults + persisted overrides.
@@ -71,6 +106,107 @@ export function getDeviceColors(host) {
 }
 
 /**
+ * Resolve an item colour option to an RGB565 int, mirroring the hub's
+ * `HAUIItem.get_color_field`: a state-keyed dict picks the entry for the
+ * entity's current state, and the value itself may be an RGB565 int, a
+ * "#rrggbb" string, an "[r,g,b]" string or an [r, g, b] array — the editor's
+ * colour picker keeps whichever form the field already had.
+ *
+ * @param {object} item - item config
+ * @param {string} key  - option key (text_color, back_color, …)
+ * @param {object} [host] - Lit host with `hass.states`
+ * @returns {number|null} RGB565 value, or null when the item has no override
+ */
+export function itemColorRgb565(item, key, host) {
+  if (!item) return null;
+  let value = item[key];
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    // State-keyed colour. Without a known state (the entity is not loaded yet)
+    // fall back to the most representative entry rather than dropping the
+    // colour entirely.
+    value = value[itemEntityState(item, host)]
+      ?? value.on ?? value.off ?? Object.values(value)[0];
+  }
+  if (value == null || value === '') return null;
+  if (typeof value === 'number') return value > 0 ? value : null;
+  const hex = parseRgbListToHex(value);
+  return hex ? hexToRgb565(hex) : null;
+}
+
+/** The entity state an item's keyed options resolve against (or ''). */
+export function itemEntityState(item, host) {
+  const eid = itemEntityId(item);
+  const state = eid ? host?.hass?.states?.[eid]?.state : null;
+  return state == null ? '' : String(state);
+}
+
+/**
+ * How the hub renders an item's row detail (`RowPage.get_item_display_type`):
+ * `cover` (three buttons), `button`, `slider`, `timer`, `toggle`, else `text`.
+ *
+ * @param {object} item - item config
+ * @returns {'cover'|'button'|'slider'|'timer'|'toggle'|'text'}
+ */
+export function itemDisplayType(item) {
+  if (!item) return 'text';
+  const raw = item.item;
+  if (typeof raw === 'string') {
+    // Internal items are encoded as "text:…" / "navigate:…" / "action:…".
+    if (raw.startsWith('text:')) return 'text';
+    if (raw.startsWith('navigate:') || raw.startsWith('action:')) return 'button';
+  }
+  const domain = itemEntityId(item).split('.')[0];
+  if (domain === 'cover') return 'cover';
+  if (['button', 'input_button', 'scene', 'script', 'lock', 'vacuum'].includes(domain)) {
+    return 'button';
+  }
+  if (['number', 'input_number'].includes(domain)) return 'slider';
+  if (domain === 'timer') return 'timer';
+  if (['switch', 'input_boolean', 'automation', 'light'].includes(domain)) return 'toggle';
+  return 'text';
+}
+
+/** The entity's `supported_features` bitmask, or null when it is unknown. */
+export function itemSupportedFeatures(item, host) {
+  const eid = itemEntityId(item);
+  const attributes = eid ? host?.hass?.states?.[eid]?.attributes : null;
+  const features = attributes ? attributes.supported_features : null;
+  return typeof features === 'number' ? features : null;
+}
+
+/**
+ * Map the device palette's default colour values to the user's overrides.
+ *
+ * The preview snapshot replays the hub's commands, which carry palette values
+ * from the defaults. Returning `{defaultRgb565: overrideRgb565}` lets the
+ * simulator swap them so a preview matches the device's configured colours.
+ *
+ * @param {object} host - the Lit element instance (carries _deviceConfig)
+ * @returns {object.<number, number>}
+ */
+export function colorSubstitutions(host) {
+  const overrides = (host && host._deviceConfig && host._deviceConfig.color_overrides) || {};
+  // Several palette keys can share a default value (header_text and
+  // component_text are both white): only substitute when every key with that
+  // value ends up the same, otherwise the command's colour is ambiguous.
+  const keysByValue = new Map();
+  for (const [key, value] of Object.entries(DEFAULT_COLORS)) {
+    if (!keysByValue.has(value)) keysByValue.set(value, []);
+    keysByValue.get(value).push(key);
+  }
+  const map = {};
+  for (const [value, keys] of keysByValue) {
+    const targets = new Set(keys.map((key) => {
+      const override = overrides[key];
+      return override === undefined || override === null ? Number(value) : Number(override);
+    }));
+    const [only] = targets;
+    if (targets.size === 1 && only !== Number(value)) map[value] = only;
+  }
+  return map;
+}
+
+/**
  * Build an inline style string that sets the device-theme CSS custom properties.
  * Applying this on the preview container lets all `var(--primary-text-color, ...)`
  * references resolve to the device's colour scheme automatically.
@@ -85,52 +221,6 @@ export function deviceThemeCss(deviceColors) {
     '--primary-color:' + (deviceColors.component_active || '#4fc3f7'),
     '--accent-color:' + (deviceColors.header_accent || '#f69d31'),
   ].join(';');
-}
-
-/**
- * Resolve a tile colour that may be keyed by entity state.
- * The editor stores state-keyed colours as `{ "on": "#...", "off": "#..." }`,
- * matching `HAUIItem.get_color_field` on the hub.
- * @param {*} value - raw colour config value
- * @param {object} item - item config (for the entity id)
- * @param {object} [host] - Lit host with `hass.states`
- */
-function resolveTileColor(value, item, host) {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    const eid = itemEntityId(item);
-    const state = host?.hass?.states?.[eid]?.state;
-    return state != null ? value[state] : null;
-  }
-  return value;
-}
-
-/**
- * Build a CSS background-color string for a tile given item config fields.
- * Falls back to null (no custom background).
- */
-export function tileBgColor(item, host) {
-  if (!item) return null;
-  const bc = resolveTileColor(item.back_color, item, host);
-  if (bc != null && bc !== '' && bc !== '0') {
-    const css = colorToCss(bc);
-    if (css) return css;
-  }
-  return null;
-}
-
-/**
- * Build a CSS color string for icon/text in a tile given item config fields.
- */
-export function tileIconColor(item, host) {
-  if (!item) return null;
-  // Check grid-specific text_color override first, then fall back to the
-  // standard HAUIItem color override (the same field used by get_color()).
-  const tc = resolveTileColor(item.text_color || item.color, item, host);
-  if (tc != null && tc !== '' && tc !== '0') {
-    const css = colorToCss(tc);
-    if (css) return css;
-  }
-  return null;
 }
 
 /**

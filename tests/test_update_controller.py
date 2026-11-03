@@ -317,9 +317,7 @@ def test_outdated_tft_installs_the_version_the_firmware_needs(monkeypatch):
     # The only GitHub call is the release notice check; the TFT comes from the
     # firmware manifest, not from a release lookup.
     assert fetches == [HAUIUpdateController.RELEASES_URL]
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
 
 
 def test_outdated_tft_without_auto_install_asks_and_installs_on_confirm(monkeypatch):
@@ -336,9 +334,7 @@ def test_outdated_tft_without_auto_install_asks_and_installs_on_confirm(monkeypa
     ((key, kwargs),) = app.opened
     assert key == SysPanelKey.POPUP_NOTIFY
     kwargs["button_callback_fnc"](False, True)
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
 
 
 def test_current_tft_needs_no_update(monkeypatch):
@@ -386,9 +382,7 @@ def test_a_firmware_only_release_uses_its_declared_tft_version(monkeypatch):
 
     ctrl.check_installed_version()
 
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.4/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.4/nspanel_haui.tft")]
 
 
 def test_a_manifest_without_a_tft_block_installs_nothing(monkeypatch):
@@ -444,9 +438,7 @@ def test_tft_install_reports_state_transitions(monkeypatch):
 
     result = ctrl.install_tft("0.4.0")
 
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
     state = ctrl.get_update_state()
     assert state["state"] == "installing"
     assert state["version"] == "0.4.0"
@@ -469,9 +461,7 @@ def test_tft_install_defaults_to_the_firmwares_required_tft_version(monkeypatch)
 
     result = ctrl.install_tft()
 
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
     assert ctrl.get_update_state()["version"] == "0.4.0"
     assert result["state"] == "installing"
 
@@ -484,9 +474,7 @@ def test_a_tft_install_loads_the_manifest_when_it_was_never_read(monkeypatch):
 
     result = ctrl.install_tft()
 
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.2/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.2/nspanel_haui.tft")]
     assert result["state"] == "installing"
 
 
@@ -626,9 +614,7 @@ def test_landscape_model_keeps_the_landscape_asset(monkeypatch):
     ctrl.on_connection_changed(True)
     _fire_timers(app)
 
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
 
 
 def test_unknown_display_model_uses_the_landscape_asset(monkeypatch):
@@ -643,9 +629,7 @@ def test_unknown_display_model_uses_the_landscape_asset(monkeypatch):
     ctrl.on_connection_changed(True)
     _fire_timers(app)
 
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
 
 
 def test_a_manifest_without_the_portrait_asset_offers_nothing_to_a_us_panel(monkeypatch):
@@ -717,9 +701,7 @@ def test_refresh_response_with_the_matching_version_confirms_the_install(monkeyp
 
     assert ctrl.get_update_state()["state"] == "done"
     assert ctrl._last_install_confirmed is True
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
 
 
 def test_refresh_timeout_with_empty_version_installs_nothing(monkeypatch):
@@ -749,9 +731,7 @@ def test_successful_empty_refresh_installs_the_missing_tft_once(monkeypatch):
     ctrl.check_installed_version()
     ctrl.process_event(_device_state(yaml_version="0.4.0", tft_version=""))
 
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
 
 
 def test_unconfirmed_recent_install_is_not_auto_retried(monkeypatch):
@@ -890,9 +870,7 @@ def test_manual_check_installs_an_outdated_tft(monkeypatch):
 
     result = ctrl.manual_check_for_update()
 
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.2/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.2/nspanel_haui.tft")]
     assert result["state"] == "installing"
     assert result["version"] == "0.4.2"
 
@@ -1439,6 +1417,42 @@ def test_check_for_update_only_notifies_without_a_firmware_update(monkeypatch):
     assert "Update available" in kwargs["title"]
 
 
+def test_the_update_notice_compares_the_firmware_not_the_tft(monkeypatch):
+    """A display newer than the installed *firmware* must not hide a release.
+
+    The GitHub release is a firmware release, so the notice compares it with
+    the installed ``yaml_version`` — never the display ``tft_version``.
+    """
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.5.0"},
+        [_release("0.4.1")],
+        manifest="0.4.0",
+    )
+
+    ctrl.check_for_update()
+
+    assert app.opened, "a newer firmware must be announced even when the TFT is newer"
+    ((key, kwargs),) = app.opened
+    assert key == SysPanelKey.POPUP_NOTIFY
+    assert "Update available" in kwargs["title"]
+    assert "0.4.0 -> 0.4.1" in kwargs["notification"]
+
+
+def test_a_stale_tft_does_not_invent_a_firmware_update(monkeypatch):
+    """A display older than the firmware must not surface a same-version release."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.5.0", "tft_version": "0.4.0"},
+        [_release("0.5.0")],
+        manifest="0.5.0",
+    )
+
+    ctrl.check_for_update()
+
+    assert app.opened == []
+
+
 def test_stable_channel_ignores_github_prereleases_in_update_notifications(monkeypatch):
     stable = _release("0.4.4")
     prerelease = _release("0.4.5.dev1", prerelease=True)
@@ -1796,9 +1810,7 @@ def test_firmware_reboot_defers_then_starts_the_required_tft_install(monkeypatch
     ctrl.on_connection_changed(True)
     ctrl.check_installed_version()
 
-    assert app.published == [
-        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.3/nspanel_haui.tft")
-    ]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.3/nspanel_haui.tft")]
     assert ctrl.get_update_state()["state"] == update.UPDATE_STATE_INSTALLING
     assert ctrl.get_update_state()["version"] == "0.4.3"
 
@@ -1829,6 +1841,7 @@ def test_reconnect_clears_the_firmware_install_flag(monkeypatch):
 
 
 # --- version comparison matches Home Assistant (AwesomeVersion) --------------
+
 
 def test_a_next_patch_dev_build_is_newer_than_the_stable_release(monkeypatch):
     """The plan's core rule: 0.4.5.devN > stable 0.4.4, so dev firmware updates."""
@@ -1892,6 +1905,11 @@ def test_an_invalid_installed_version_is_withheld_not_offered(monkeypatch):
 
 
 def test_an_unparseable_manifest_version_is_withheld_too(monkeypatch):
+    """An incomparable manifest ``version`` must not reach the HA update entity.
+
+    Home Assistant falls back to "update available" when it cannot compare two
+    versions, so an unparsable latest would offer the update on every check.
+    """
     ctrl, app, _ = _updater(
         monkeypatch,
         {"yaml_version": "0.4.4", "tft_version": "0.4.4"},
@@ -1900,10 +1918,16 @@ def test_an_unparseable_manifest_version_is_withheld_too(monkeypatch):
 
     ctrl.check_for_update()
 
-    assert ctrl.get_update_state()["firmware_update_available"] is False
+    state = ctrl.get_update_state()
+    assert state["firmware_update_available"] is False
+    # Withheld from the entity as well, not just from the internal availability
+    # check, so the "HAUI Firmware" entity cannot show an incomparable update.
+    assert state["firmware_update_version"] is None
+    assert _firmware_events(app)[-1]["latest_version"] is None
 
 
 # --- firmware update channel -------------------------------------------------
+
 
 def _updater_with_channel(monkeypatch, channel, **kwargs):
     return _updater(
@@ -1919,8 +1943,10 @@ def test_the_dev_channel_resolves_to_the_published_dev_manifest(monkeypatch):
 
     url = ctrl._resolve_firmware_manifest_url()
 
-    assert url == "https://github.com/happydasch/nspanel_haui/releases/download/" \
+    assert (
+        url == "https://github.com/happydasch/nspanel_haui/releases/download/"
         "dev-latest/firmware-manifest.json"
+    )
 
 
 def test_the_stable_channel_resolves_to_releases_latest(monkeypatch):

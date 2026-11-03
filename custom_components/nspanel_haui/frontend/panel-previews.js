@@ -1,64 +1,36 @@
 /**
- * NSPanel HAUI - Panel preview renderers.
+ * NSPanel HAUI - Panel card preview.
  *
- * Registry for custom panel previews shown in the grid view card body.
- * Each panel type can register a renderer; if none is registered the
- * default fallback (icon only) is used.
+ * One shared renderer draws every panel-card preview (user panels, system
+ * panels and popup aliases, in both orientations): the Nextion simulator
+ * (`previews/simulator-frame.js`). It loads the real virtual-panel layout and
+ * icon-map assets, jumps to the panel type's physical HMI page, replays the
+ * hub's own display output, overlays the configured panel's content and renders
+ * the whole page scaled to the card.
  *
- * This module provides reusable visual primitives (simItemTile,
- * simSlider, etc.) and per-panel-type renderers that compose them
- * to give a meaningful visual hint of the panel layout and config.
+ * There are no per-type preview renderers and no registration step: a panel
+ * type only needs `PageDescriptor.page_id` (see AGENTS.md).
  */
-import { registerPanelPreview, renderPanelPreview } from './previews/registry.js';
-import { renderGridPreview } from './previews/grid.js';
-import { renderRowPreview } from './previews/row.js';
-import { renderLightPreview } from './previews/light.js';
-import { renderClimatePreview } from './previews/climate.js';
-import { renderMediaPreview } from './previews/media.js';
-import { renderCoverPreview } from './previews/cover.js';
-import { renderVacuumPreview } from './previews/vacuum.js';
-import { renderTimerPreview } from './previews/timer.js';
-import { renderAlarmPreview, renderUnlockPreview } from './previews/alarm.js';
-import { renderClockPreview, renderClockTwoPreview } from './previews/clock.js';
-import { renderWeatherPreview } from './previews/weather.js';
-import { renderQRPreview } from './previews/qr.js';
-import { renderNotifyPreview } from './previews/notify.js';
-import { renderSelectPreview } from './previews/select.js';
-import { renderSettingsPreview } from './previews/settings.js';
-import { renderAboutPreview } from './previews/about.js';
-import { renderSystemPreview } from './previews/system.js';
-import { renderBlankPreview } from './previews/blank.js';
+import { getDeviceColors, deviceThemeCss, isPortraitDevice } from './previews/utils.js';
+import { renderSimulatorPreview } from './previews/simulator-frame.js';
 
-export { registerPanelPreview, renderPanelPreview };
-
-/* ── Register all preview renderers ────────────────────────────── */
-registerPanelPreview('grid', renderGridPreview);
-registerPanelPreview('row', renderRowPreview);
-registerPanelPreview('light', renderLightPreview);
-registerPanelPreview('climate', renderClimatePreview);
-registerPanelPreview('media', renderMediaPreview);
-registerPanelPreview('cover', renderCoverPreview);
-registerPanelPreview('vacuum', renderVacuumPreview);
-registerPanelPreview('timer', renderTimerPreview);
-registerPanelPreview('alarm', renderAlarmPreview);
-registerPanelPreview('clock', renderClockPreview);
-registerPanelPreview('clocktwo', renderClockTwoPreview);
-registerPanelPreview('weather', renderWeatherPreview);
-registerPanelPreview('qr', renderQRPreview);
-registerPanelPreview('notify', renderNotifyPreview);
-registerPanelPreview('select', renderSelectPreview);
-registerPanelPreview('system_settings', renderSettingsPreview);
-registerPanelPreview('system_about', renderAboutPreview);
-registerPanelPreview('system', renderSystemPreview);
-registerPanelPreview('blank', renderBlankPreview);
-// Popup aliases share renderers with their base types (handled via panel.type)
-registerPanelPreview('popup_unlock', renderUnlockPreview);
-registerPanelPreview('popup_alarm', renderAlarmPreview);
-registerPanelPreview('popup_notify', renderNotifyPreview);
-registerPanelPreview('popup_select', renderSelectPreview);
-registerPanelPreview('popup_light', renderLightPreview);
-registerPanelPreview('popup_media_player', renderMediaPreview);
-registerPanelPreview('popup_vacuum', renderVacuumPreview);
-registerPanelPreview('popup_climate', renderClimatePreview);
-registerPanelPreview('popup_timer', renderTimerPreview);
-registerPanelPreview('popup_cover', renderCoverPreview);
+/**
+ * Build the preview result the card chrome consumes.
+ *
+ * @param {object} host - the Lit element instance
+ * @param {object} panel - the panel config (user panel) or system panel entry
+ * @param {number} panelIndex - index of the panel in the panels array (-1 for system)
+ * @param {object|null} panelType - matched panel type descriptor / system entry
+ * @returns {{content, hasHeader, deviceStyle, deviceColors, portrait}}
+ */
+export function renderPanelPreview(host, panel, panelIndex, panelType) {
+  const colors = getDeviceColors(host);
+  return {
+    content: renderSimulatorPreview(host, panel, panelIndex, panelType),
+    // The HMI page draws its own header and function buttons.
+    hasHeader: false,
+    deviceStyle: deviceThemeCss(colors),
+    deviceColors: colors,
+    portrait: isPortraitDevice(host),
+  };
+}

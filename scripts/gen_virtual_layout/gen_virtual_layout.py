@@ -31,16 +31,18 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts" / "nextion2text"))
-sys.path.insert(0, str(ROOT / "scripts" / "gen_preview"))
+sys.path.insert(0, str(ROOT / "scripts"))
 
-import gen_preview  # noqa: E402,F401  (installs the homeassistant stubs on import)
+import _ha_stubs  # noqa: E402,F401  (installs the homeassistant stubs on import)
 import Nextion2Text  # noqa: E402
 
 from custom_components.nspanel_haui.haui.mapping.background import BACKGROUNDS  # noqa: E402
+from custom_components.nspanel_haui.haui.mapping.icon_mapping import ICON_MAPPING  # noqa: E402
 from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING  # noqa: E402
 
 NEXTION = ROOT / "nextion"
 OUT_DIR = ROOT / "custom_components" / "nspanel_haui" / "frontend" / "virtual"
+ICON_MAP_FILE = OUT_DIR / "icon_map.json"
 
 HMI_FILES = {
     "landscape": (NEXTION / "nspanel_haui.HMI", 480, 320),
@@ -162,9 +164,7 @@ def build_layout(orientation: str) -> dict[str, Any]:
         "visible_width": VISIBLE_WIDTH[orientation],
         "fonts": _fonts(hmi.raw),
         "globals": _globals(_utf8(hmi.programS)),
-        "pictures": {
-            str(pic): f"pictures/{orientation}/{pic}.webp" for pic in sorted(PICTURES)
-        },
+        "pictures": {str(pic): f"pictures/{orientation}/{pic}.webp" for pic in sorted(PICTURES)},
         "pages": dict(sorted(pages.items(), key=lambda kv: int(kv[0]))),
     }
 
@@ -205,6 +205,19 @@ def _render(layout: dict[str, Any]) -> str:
     return json.dumps(layout, ensure_ascii=False, separators=(",", ":"), sort_keys=False) + "\n"
 
 
+def _icon_map() -> dict[str, str]:
+    """Reverse the display font's name→char mapping into the char→name JSON the
+    editors render icons with (same logic as api.py's IconCharsView)."""
+    chars: dict[str, str] = {}
+    for icon_name, char in ICON_MAPPING.items():
+        chars.setdefault(char, icon_name)
+    return chars
+
+
+def _render_icon_map() -> str:
+    return json.dumps(_icon_map(), ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--check", action="store_true", help="fail when a layout is out of date")
@@ -224,6 +237,15 @@ def main(argv: list[str] | None = None) -> int:
             write_pictures(orientation)
             problems += check_pictures(orientation)
             print(f"wrote {out.relative_to(ROOT)}")
+
+    icon_text = _render_icon_map()
+    if args.check:
+        if not ICON_MAP_FILE.exists() or ICON_MAP_FILE.read_text(encoding="utf-8") != icon_text:
+            problems.append(f"{ICON_MAP_FILE.relative_to(ROOT)} is out of date")
+    else:
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        ICON_MAP_FILE.write_text(icon_text, encoding="utf-8")
+        print(f"wrote {ICON_MAP_FILE.relative_to(ROOT)}")
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems and args.check:

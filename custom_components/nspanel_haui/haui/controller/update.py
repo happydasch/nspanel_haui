@@ -48,6 +48,7 @@ def _version_is_newer_cmp(latest: str, installed: str) -> bool:
         return parse(latest) > parse(installed)
     return bool(AwesomeVersion(latest) > installed)
 
+
 # TFT update states reported to the editor.  There is no byte-level progress
 # signal from the display, so only coarse transitions are exposed:
 # idle -> checking -> installing -> done, or error at any point.
@@ -279,10 +280,7 @@ class HAUIUpdateController(HAUIBase):
         """
         if latest is None or installed is None:
             return None
-        if (
-            self._try_parse_version(latest) is None
-            or self._try_parse_version(installed) is None
-        ):
+        if self._try_parse_version(latest) is None or self._try_parse_version(installed) is None:
             return None
         try:
             return _version_is_newer_cmp(latest, installed)
@@ -417,9 +415,12 @@ class HAUIUpdateController(HAUIBase):
     def _is_update_available(self) -> bool:
         """Returns if a update is available.
 
-        Compares the installed TFT with the newest GitHub release; both must
-        parse, and the comparison follows Home Assistant's own semantics (see
-        ``_version_is_newer``).
+        Compares the installed firmware (``yaml_version``) with the newest
+        GitHub release; both must parse, and the comparison follows Home
+        Assistant's own semantics (see ``_version_is_newer``).  The release is
+        a firmware release, so the display TFT (``tft_version``) never
+        participates: an up-to-date display must not hide a firmware update,
+        nor a stale display invent one.
 
         Returns:
             bool: True if an update is available, False if not
@@ -429,9 +430,7 @@ class HAUIUpdateController(HAUIBase):
         if device_info is None or latest_release is None:
             return False
         return (
-            self._version_is_newer(
-                latest_release.get("tag_name"), device_info.get("tft_version")
-            )
+            self._version_is_newer(latest_release.get("tag_name"), device_info.get("yaml_version"))
             is True
         )
 
@@ -616,15 +615,23 @@ class HAUIUpdateController(HAUIBase):
         """Return the firmware version the manifest offers this panel.
 
         None when there is no manifest, its build variant does not match the
-        panel's, or the installed version does not parse: a custom build must
-        never be shown the universal release as an update, and an unparseable
-        installed version must not reach Home Assistant's comparison (which
-        would offer the update on every check — the HAUI Firmware entity
-        reports no compatible release then).
+        panel's, the installed version does not parse, or the manifest's own
+        version does not parse: a custom build must never be shown the
+        universal release as an update, and an unparseable version must not
+        reach Home Assistant's comparison (which would offer the update on
+        every check — the HAUI Firmware entity reports no compatible release
+        then).
         """
         if self._firmware_manifest is None or self._firmware_update_reason() is not None:
             return None
-        return self._firmware_manifest["version"]
+        version = self._firmware_manifest["version"]
+        if self._try_parse_version(version) is None:
+            # An unparsable manifest version must not surface as ``latest``:
+            # Home Assistant falls back to "update available" when it cannot
+            # compare two versions, so an incomparable latest would read as an
+            # update on every check.
+            return None
+        return version
 
     def _firmware_install_due(self) -> bool:
         """Whether an automatic firmware install should be started now.
@@ -894,8 +901,7 @@ class HAUIUpdateController(HAUIBase):
                     return self.get_update_state()
                 if not self._firmware_update_available():
                     self._firmware_install_error = (
-                        self._firmware_update_reason()
-                        or "No firmware update is available"
+                        self._firmware_update_reason() or "No firmware update is available"
                     )
                     return self.get_update_state()
             if manifest is not None and (
@@ -1084,9 +1090,7 @@ class HAUIUpdateController(HAUIBase):
         if self._firmware_manifest is None:
             self._refresh_firmware_manifest()
         manifest = self._firmware_manifest
-        releases = (
-            [manifest["tft_version"]] if manifest and manifest.get("tft_version") else []
-        )
+        releases = [manifest["tft_version"]] if manifest and manifest.get("tft_version") else []
         error = (
             None
             if manifest is not None
@@ -1516,7 +1520,7 @@ class HAUIUpdateController(HAUIBase):
         return result
 
     def check_for_update(self, force_refresh: bool = False) -> dict[str, Any]:
-        """Check the firmware manifest and the latest TFT release independently.
+        """Check the firmware manifest and the latest firmware release independently.
 
         Returns:
             dict: ``get_update_state()`` plus ``latest_release`` (tag of the
@@ -1557,7 +1561,7 @@ class HAUIUpdateController(HAUIBase):
         msg += trim_text(latest_release["body"], 200)
         msg += "\r\n\r\n"
         msg += self.translate("Version:")
-        msg += f" {device_info.get('tft_version', '0.0.0')} -> {latest_release['tag_name']}"
+        msg += f" {device_info.get('yaml_version') or 'unknown'} -> {latest_release['tag_name']}"
         msg += "\r\n\r\n"
         msg += self.translate("Update the integration and the ESPHome firmware to install it.")
         msg += "\r\n\r\n"

@@ -36,7 +36,7 @@ jobs:
         run: pip install -r requirements-docs.txt
 
       - name: Build docs
-        run: mkdocs build --strict
+        run: zensical build --strict
 
       - name: Check icon cheatsheet is up to date
         run: |

@@ -106,7 +106,9 @@ function renderPanelCard(host, p, panels, isNavPanel) {
         titleFallback: isOverride ? '' : (pt ? pt.label : t('Unnamed')),
         key: p.key,
         badges,
-        hasHeader: pt ? pt.has_header !== false : true,
+        hasHeader: previewResult.hasHeader !== undefined
+          ? previewResult.hasHeader
+          : (pt ? pt.has_header !== false : true),
         headerButtons,
         preview: previewResult,
         description: pt ? pt.description : '',

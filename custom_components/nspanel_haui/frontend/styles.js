@@ -15,7 +15,6 @@ import { css } from './lit-import.js';
 import { panelGridStyles } from './styles/panel-grid-styles.js';
 import { panelTableStyles } from './styles/panel-table-styles.js';
 import { panelCommonStyles } from './styles/panel-common-styles.js';
-import { panelPreviewStyles } from './styles/panel-preview-styles.js';
 import { colorPickerStyles } from './styles/color-picker-styles.js';
 import { dropdownStyles } from './styles/dropdown-styles.js';
 import { itemListStyles } from './styles/item-list-styles.js';
@@ -105,7 +104,7 @@ export const haStyleDialog = css`
  * and ha-button provide those.
  */
 export const editorStyles = css`
-  ${panelGridStyles}${panelTableStyles}${panelCommonStyles}${panelPreviewStyles}
+  ${panelGridStyles}${panelTableStyles}${panelCommonStyles}
   ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}
   .container {
     display: flex;

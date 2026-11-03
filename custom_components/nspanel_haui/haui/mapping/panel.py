@@ -234,6 +234,7 @@ def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
                     "icon": d.icon,
                     "has_header": d.has_header,
                     "can_show_popup": d.can_show_popup,
+                    "page_id": d.page_id,
                     "item_options": [_serialize_option(o, language) for o in d.item_options],
                     "components": _serialize_components(cls),
                     "options": [_serialize_option(o, language) for o in d.options],
@@ -263,6 +264,7 @@ def get_system_panel_entries(language: str = "en") -> list[dict]:
                         "icon": d.icon,
                         "has_header": d.has_header,
                         "can_show_popup": d.can_show_popup,
+                        "page_id": d.page_id,
                         "components": _serialize_components(cls),
                     }
                 )

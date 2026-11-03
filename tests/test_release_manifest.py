@@ -43,8 +43,7 @@ def test_manifest_keeps_the_embedded_tft_version_when_pinned(tmp_path):
     assert manifest["version"] == "0.4.4"
     assert manifest["tft"]["version"] == "0.4.3"
     assert manifest["tft"]["assets"]["eu"] == {
-        "path": "https://github.com/example/nspanel-haui/releases/download/"
-        "v0.4.4/nspanel_haui.tft",
+        "path": "https://github.com/example/nspanel-haui/releases/download/v0.4.4/nspanel_haui.tft",
         "md5": hashlib.md5(b"landscape TFT", usedforsecurity=False).hexdigest(),
     }
 

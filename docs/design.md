@@ -269,32 +269,26 @@ _page_classes: list[type] = [
 
 If the panel has a popup variant, set `popup_alias_for="<parent_type_key>"` (different class on the same Nextion page) or `can_show_popup=True` on its `DESCRIPTOR`; no manual registration is needed.
 
-### Step 5 — Preview Renderer
+### Step 5 — Preview
 
-The editor grid view shows a visual preview of each panel. Add one for your new type.
+The editor grid view previews every panel with one shared Nextion simulator, so
+there is nothing to write for a new type: give `DESCRIPTOR.page_id` the physical
+Nextion page id and the preview resolves it automatically (it loads the real
+layout, replays the hub's display output and overlays the panel config).
 
-**Generate a stub:**
+If the page renders values the hub derives at runtime that the preview cannot
+know (e.g. one panel per popup), add the page to `TARGETS` in
+`scripts/gen_preview_state/gen_preview_state.py` and regenerate the snapshot:
+
 ```bash
-python scripts/gen_preview/gen_preview.py --type yourpanel
+python scripts/gen_preview_state/gen_preview_state.py
 ```
 
-This creates `frontend/previews/yourpanel.js` with a placeholder renderer that lists all Nextion components and panel options as comments.
-
-**Fill in the visual layout** — edit `frontend/previews/yourpanel.js` to compose actual visual content using primitives from `primitives.js` and styles from `styles/preview/common.js`. See existing renderers (e.g., `grid.js`, `clock.js`) as reference.
-
-**Add preview CSS** (if needed) — create `frontend/styles/preview/yourpanel.js` exporting a Lit `css` tagged template, then import and reference it in `frontend/styles/panel-preview-styles.js`.
-
-**Register** — the generator adds the import and `registerPanelPreview` line in `frontend/panel-previews.js` automatically. If creating manually, add:
-
-```javascript
-import { renderYourPanelPreview } from './previews/yourpanel.js';
-// ... then in the registration block:
-registerPanelPreview('yourpanel', renderYourPanelPreview);
-```
-
-**Verify coverage:**
+**Verify coverage** — every exposed panel (user types, system panels, popup
+aliases) must resolve to a physical page present in both generated layouts
+(run by `tests/test_preview_coverage.py` with the rest of the suite):
 ```bash
-python scripts/gen_preview/gen_preview.py --check-missing
+python scripts/check_preview_coverage.py
 ```
 
 ### Step 6 — Panel Documentation
@@ -364,10 +358,7 @@ See [Services Reference](services.md) for TFT upload instructions.
 | 2 | — | Run `nextion2text` to inspect widget IDs |
 | 3 | `custom_components/nspanel_haui/haui/page/<yourpanel>.py` | **Create** |
 | 4 | `custom_components/nspanel_haui/haui/mapping/panel.py` | Edit (import + register) |
-| 5 | `frontend/previews/<yourpanel>.js` | **Create** (or use `gen_preview.py`) |
-| 5 | `frontend/panel-previews.js` | Edit (import + register) |
-| 5 | `frontend/styles/preview/<yourpanel>.js` | **Create** (optional, if custom CSS needed) |
-| 5 | `frontend/styles/panel-preview-styles.js` | Edit (optional) |
+| 5 | `PageDescriptor.page_id` in the page class | Set the physical HMI page id (preview is automatic) |
 | 6 | `docs/panels/panel_<yourpanel>.md` | **Create** |
 | 6 | `docs/panels/README.md` | Edit (add to overview) |
 | 7 | `haui/locale/*.json` | Run `extract_translations.py`, fill in blanks |

@@ -101,9 +101,7 @@ class NSPanelHAUI(HAAdapter):
         self.controller["notification"] = HAUINotificationController(
             self, self.device_config.get("notification", {})
         )
-        self.controller["update"] = self._create_update_controller(
-            self.device_config.get("update")
-        )
+        self.controller["update"] = self._create_update_controller(self.device_config.get("update"))
         self.controller["gesture"] = HAUIGestureController(self, self.device_config.get("gesture"))
 
         self.log(
@@ -381,6 +379,7 @@ class NSPanelHAUI(HAAdapter):
         result["device_info"] = {
             "name": self._runtime_device_name or device_config.get("name", self.name),
             "tft_version": runtime_info.get("tft_version") or "",
+            "tft_required_version": runtime_info.get("tft_required_version") or "",
             "yaml_version": runtime_info.get("yaml_version") or "",
             "ip": "",
             "ssid": "",

@@ -49,9 +49,7 @@ async def _protected_entities(hass: Any, ha_device_id: str | None) -> frozenset[
     entries = er.async_entries_for_device(registry, ha_device_id, include_disabled_entities=True)
     relays = set(RELAY_ENTITY_NAMES.values())
     return frozenset(
-        entry.entity_id
-        for entry in entries
-        if getattr(entry, "original_name", None) not in relays
+        entry.entity_id for entry in entries if getattr(entry, "original_name", None) not in relays
     )
 
 

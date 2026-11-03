@@ -193,7 +193,6 @@ def test_subscribe_starts_a_session_and_unsubscribe_stops_it(ws):
     assert {"type": "page", "page": 9} in conn.events
 
 
-
 def test_subscribe_passes_current_protocol_version_to_session(ws):
     conn = _Connection()
 
@@ -253,15 +252,12 @@ def test_configure_switches_the_mode(ws):
     async def body(hass):
         await _subscribe(ws, hass, conn)
         sid = _FakeSession.instances[0].id
-        await ws.ws_configure(
-            hass, conn, {"id": 2, "session_id": sid, "live": True}
-        )
+        await ws.ws_configure(hass, conn, {"id": 2, "session_id": sid, "live": True})
 
     _run(body)
     session = _FakeSession.instances[0]
     assert session.live is True
     assert conn.results == [1, 2]
-
 
 
 def test_configure_accepts_reset_without_a_live_field(ws):
@@ -286,6 +282,7 @@ def test_configure_accepts_reset_without_a_live_field(ws):
     assert session.reset_count == 1
     assert conn.results == [1, 2]
 
+
 def test_protected_entities_are_the_real_devices_own(ws, monkeypatch):
     registry = types.ModuleType("homeassistant.helpers.entity_registry")
     entry = types.SimpleNamespace
@@ -297,9 +294,9 @@ def test_protected_entities_are_the_real_devices_own(ws, monkeypatch):
         ]
     }
     registry.async_get = lambda hass: "registry"
-    registry.async_entries_for_device = lambda reg, device_id, include_disabled_entities: (
-        entries[device_id]
-    )
+    registry.async_entries_for_device = lambda reg, device_id, include_disabled_entities: entries[
+        device_id
+    ]
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", registry)
     monkeypatch.setattr(sys.modules["homeassistant.helpers"], "entity_registry", registry, False)
 

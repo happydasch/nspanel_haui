@@ -75,7 +75,9 @@ export function renderSystemPanelCard(host, sp) {
         title: sp.label,
         key: sp.key,
         badges,
-        hasHeader: sp.has_header !== false,
+        hasHeader: previewResult.hasHeader !== undefined
+          ? previewResult.hasHeader
+          : (sp.has_header !== false),
         headerButtons,
         preview: previewResult,
         description: sp.description,

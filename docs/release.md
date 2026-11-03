@@ -350,8 +350,8 @@ no alias is kept as a fallback, so the upgrade guide is the only migration path.
 
 | Workflow | Triggers | What it enforces |
 |----------|----------|------------------|
-| `tests.yml` | pushes/PRs to `master`, `dev` | `mkdocs build --strict`; icon cheatsheet, translation and version-source freshness; Nextion asset gate (`verify_nextion.py --require-portrait`); `pytest tests/`; `ruff check custom_components/ scripts/`; `mypy`; `node --test 'tests/frontend/*.test.mjs'`; `esphome config esphome/nspanel_haui_universal.yaml` |
-| `docs.yml` | docs/mkdocs changes on pushes/PRs to `master`, `dev`; manual dispatch | `mkdocs build --strict`; deploys Pages from `master` only |
+| `tests.yml` | pushes/PRs to `master`, `dev` | `zensical build --strict`; icon cheatsheet, translation and version-source freshness; Nextion asset gate (`verify_nextion.py --require-portrait`); `pytest tests/`; `ruff check custom_components/ scripts/`; `mypy`; `node --test 'tests/frontend/*.test.mjs'`; `esphome config esphome/nspanel_haui_universal.yaml` |
+| `docs.yml` | docs, docs-tooling or config changes on pushes/PRs to `master`, `dev`; manual dispatch | `zensical build --strict`; deploys Pages from `master` only |
 | `validate.yml` | pushes/PRs to `master`, `dev`; nightly; manual dispatch | hassfest and HACS validation |
 | `release.yml` | `v*` tags; manual dispatch | tag vs `manifest.json` version; Nextion release gate (`verify_nextion.py --require-portrait` and `gen_portrait.py --check`); ESPHome config + compile; firmware manifest (tag refs only); prepared release notes; asset upload |
 
@@ -375,7 +375,7 @@ tag; release prep is not finished until they pass on the final commit.
 
 ```bash
 # Documentation and generated assets
-mkdocs build --strict
+zensical build --strict
 python3 scripts/gen_fonts/gen_cheatsheet.py && git diff --exit-code -- docs/cheatsheet.html
 python3 scripts/translations/extract_translations.py && git diff --exit-code -- custom_components/nspanel_haui/haui/locale scripts/translations/translate.json
 
@@ -412,6 +412,10 @@ pinned toolchain from `requirements-esphome.txt`.
   does not start until every row is green.
 - Freeze features; only fixes land from here.
 - Decide the version number and check for pending breaking changes.
+
+Before release work, install the repository's [optional pre-commit
+checks](development.md#git-hooks) so virtual-layout assets are regenerated and
+portrait layout drift is caught before CI.
 
 ### 2. Version bump
 
@@ -458,8 +462,8 @@ script above calls it for `--tft-update`. Both are importable and covered by
    widget coverage, so an attribute-only change fails the gate until the HMI
    is regenerated.
 4. The Nextion gates are part of [Run the same gates locally](#run-the-same-gates-locally).
-   Also run `python3 scripts/gen_preview/gen_preview.py --check-missing` to
-   confirm every panel type has a preview renderer.
+   Also run `python3 scripts/check_preview_coverage.py` to confirm every
+   exposed panel still resolves to a physical page in both preview layouts.
 
 ### 4. Docs and firmware
 

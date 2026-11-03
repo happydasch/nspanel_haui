@@ -40,7 +40,11 @@ Home Assistant version in a GitHub issue.
 
 ## The Panel List
 
-The panel list shows all panels configured for this device. Each panel shows its type, title, and key. From this list you can:
+The panel list shows all panels configured for this device. It defaults to a
+grid of cards, each with a preview of the panel's real display page — drawn by
+the shared Nextion simulator in the device's orientation on top of the panel's
+type, title, and key. A compact **list** view is available from the toolbar.
+From this list you can:
 
 - **Add** a new panel — choose a type from the dropdown
 - **Edit** a panel — click the panel name to open the panel editor

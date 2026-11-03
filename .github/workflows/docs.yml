@@ -6,11 +6,13 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "requirements-docs.txt"
   pull_request:
     branches: [master, dev]
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "requirements-docs.txt"
   workflow_dispatch:
 
 permissions:
@@ -43,7 +45,7 @@ jobs:
           pip install -r requirements-docs.txt
 
       - name: Build site
-        run: mkdocs build --strict
+        run: zensical build --strict
 
       - name: Upload artifact
         if: github.ref == 'refs/heads/master'

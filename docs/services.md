@@ -262,9 +262,9 @@ over it; other severities stay queued and appear as soon as the user returns to
 a real panel. Notification sounds play only when the device's
 `sound_on_notification` setting is on; it is off by default
 ([Device settings → Notifications](configuration/device.md#notifications)).
-When no icon is supplied, the severity selects a default one (`info` →
-`mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` →
-`mdi:alert-octagon-outline`). See [Notifications](device.md#notifications) for
+When no icon is supplied, the popup shows no icon and the message body uses the
+full text width; the severity still colours the icon when one is set. See
+[Notifications](device.md#notifications) for
 how notifications are viewed and dismissed on the panel. The ESPHome firmware
 also exposes a `send_notification` action (title/message/icon/persistent/text_size,
 all required — ESPHome 2026.10 has no optional action variables — and without
@@ -276,7 +276,7 @@ field. Use this service when those options are needed.
 | `device` | no | all devices | Target NSPanel device |
 | `title` | yes | — | Notification headline |
 | `message` | no | `""` | Body text (can be empty for a title-only alert). Line breaks (`\n`) render as line breaks on the display |
-| `icon` | no | severity default | Material Design Icon (e.g. `"mdi:bell"`). When omitted, the `type` selects the default icon |
+| `icon` | no | `""` | Material Design Icon (e.g. `"mdi:bell"`). When omitted, no icon is shown on the popup |
 | `type` | no | `"info"` | Severity level — `"info"`, `"warning"`, or `"critical"`. Sets the icon colour in the popup; `critical` also plays the `alert` sound instead of `notification` |
 | `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel or its timeout expires. While the idle page is shown, only a `critical` persistent notification interrupts it |
 | `force_show` | no | `false` | When `true`, opens the notification panel immediately, unless a notification popup or list is already open — then it waits in the queue |
@@ -399,7 +399,7 @@ fields:
   type:
     name: Severity
     description: >-
-      info (default), warning or critical. Sets the icon and colour;
+      info (default), warning or critical. Colours the icon when shown;
       critical plays the alert sound.
     default: info
     selector:
@@ -407,7 +407,7 @@ fields:
         options: [info, warning, critical]
   icon:
     name: Icon
-    description: Material Design icon (e.g. mdi:bell). Empty = severity default icon.
+    description: Material Design icon (e.g. mdi:bell). Empty = no icon shown.
     default: ""
     selector:
       icon:

@@ -100,8 +100,8 @@ def _build_page(notification: str, notif_type: str = "info") -> NotifyPage:
     page._text_size = "auto"
     page._notif_type = notif_type
     page.set_function_component(
-        page.COMPONENTS.fnc_left_sec,
-        page.FNC_BTN_L_SEC,
+        page.COMPONENTS.fnc_right_sec,
+        page.FNC_BTN_R_SEC,
         _FNC_NEXT_PAGE,
         icon="\ue900",
         color=0,
@@ -117,8 +117,8 @@ def test_short_message_does_not_show_next_page_button():
 
     commands = " ".join(page.cmds)
     assert "tText.font=3" in commands
-    assert "vis bFncLSec,0" in commands
-    assert "vis bFncLSec,1" not in commands
+    assert "vis bFncRSec,0" in commands
+    assert "vis bFncRSec,1" not in commands
     assert not hasattr(page, "_page_handle")
 
 
@@ -130,7 +130,7 @@ def test_long_message_shows_next_page_button_without_timer():
     commands = " ".join(page.cmds)
     assert "tText.font=2" in commands
     assert page._total_pages == 2
-    assert "vis bFncLSec,1" in commands
+    assert "vis bFncRSec,1" in commands
     assert not hasattr(page, "_page_handle")
 
 
@@ -140,23 +140,23 @@ def test_next_page_button_advances_manually():
     assert page._total_pages == 2
 
     page.cmds.clear()
-    page.callback_function_component(page.FNC_BTN_L_SEC, _FNC_NEXT_PAGE)
+    page.callback_function_component(page.FNC_BTN_R_SEC, _FNC_NEXT_PAGE)
 
     commands = " ".join(page.cmds)
     assert "AAAAAAAAAAAAAAAA" in commands
     assert "tTitle.txt=" in commands
     assert "(2/2)" in commands
     # final page: button hidden again
-    assert "vis bFncLSec,0" in commands
+    assert "vis bFncRSec,0" in commands
 
 
 def test_next_page_button_does_not_advance_past_last_page():
     page = _build_page("A" * 60)
     page.render_panel(_Panel())
-    page.callback_function_component(page.FNC_BTN_L_SEC, _FNC_NEXT_PAGE)
+    page.callback_function_component(page.FNC_BTN_R_SEC, _FNC_NEXT_PAGE)
 
     page.cmds.clear()
-    page.callback_function_component(page.FNC_BTN_L_SEC, _FNC_NEXT_PAGE)
+    page.callback_function_component(page.FNC_BTN_R_SEC, _FNC_NEXT_PAGE)
 
     assert "tText.txt=" not in " ".join(page.cmds)
 
@@ -189,3 +189,26 @@ def test_critical_type_colours_icon_differently():
     page.render_panel(_Panel())
 
     assert "tIcon.pco=3" in " ".join(page.cmds)
+
+
+def test_no_icon_hides_icon_component():
+    page = _build_page("Short message")
+    page._icon = ""
+
+    page.render_panel(_Panel())
+
+    commands = " ".join(page.cmds)
+    assert "vis tIcon,0" in commands
+    assert "tIcon.txt=" not in commands
+    assert "tIcon.pco=" not in commands
+
+
+def test_long_message_small_font_pages_correctly():
+    # len >= 150 => font 1 (24px, most chars/line): 22 chars x 4 lines = 88/page.
+    page = _build_page("A" * 200)
+
+    page.render_panel(_Panel())
+
+    assert "tText.font=1" in " ".join(page.cmds)
+    assert page._total_pages == 3
+    assert "vis bFncRSec,1" in " ".join(page.cmds)

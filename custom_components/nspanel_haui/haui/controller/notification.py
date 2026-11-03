@@ -9,7 +9,6 @@ if TYPE_CHECKING:
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import ESPResponse, NotifEvent, NotifType, SysPanelKey
-from ..mapping.icons import DEFAULT_NOTIF_ICON_FALLBACK, DEFAULT_NOTIF_ICONS
 from ..utils.notification_blinker import NotificationBlinker
 
 
@@ -165,12 +164,6 @@ class HAUINotificationController(HAUIBase):
             oldest = self._notifications[0]
             self.log(f"Notification queue full, dropping oldest: {oldest.title!r}")
             self._remove(oldest)
-
-        # Give every notification a visible icon when the caller does not
-        # supply one.  Without this the popup renders without an icon and the
-        # notification looks like a plain text box.
-        if not icon:
-            icon = DEFAULT_NOTIF_ICONS.get(notif_type, DEFAULT_NOTIF_ICON_FALLBACK)
 
         notification = Notification(
             title,

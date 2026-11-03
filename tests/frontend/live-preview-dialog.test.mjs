@@ -103,6 +103,16 @@ test('a closed dialog renders nothing and a starting one says so', async () => {
   assert.match(markup, /Sandbox mode: touches change simulated states only/);
   assert.match(markup, /Left button/);
 });
+test('reset and entity controls are available at every preview width', () => {
+  for (const narrow of [false, true]) {
+    const { dlg } = makeDialog({ open: true });
+    dlg.narrow = narrow;
+    const markup = collect(dlg.render()).join(' ');
+    assert.match(markup, /Reset sandbox/);
+    assert.match(markup, /vp-show-entities/);
+  }
+});
+
 
 test('a started session renders the screen and maps pointer input to touches', async () => {
   const { dlg } = makeDialog({ open: true });

@@ -324,12 +324,27 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         raise_on_error: bool = False,
         **kwargs: Any,
     ) -> Any:
-        if return_response:
-            # Queries such as weather/get_forecasts change nothing.
-            return super().call_service(service, return_response, raise_on_error, **kwargs)
         domain, svc, service_data, target = self._split_service_call(service, dict(kwargs))
         entity_ids = _target_entity_ids(target)
-        if self.live and not any(eid in self._protected for eid in entity_ids):
+        protected_target = any(eid in self._protected for eid in entity_ids)
+        if self.live and target is not None and any(key != "entity_id" for key in target):
+            self.log(
+                f"Live preview refused {domain}.{svc}: "
+                "target selectors cannot be checked safely",
+                level="WARNING",
+            )
+            return None
+        if return_response:
+            # Queries such as weather/get_forecasts change nothing. Do not let a
+            # response-bearing call bypass protection for device settings.
+            if self.live and protected_target:
+                self.log(
+                    f"Live preview refused response call {domain}.{svc} to a protected entity",
+                    level="WARNING",
+                )
+                return None
+            return super().call_service(service, return_response, raise_on_error, **kwargs)
+        if self.live and not protected_target:
             return super().call_service(service, return_response, raise_on_error, **kwargs)
         self.simulate_service(domain, svc, entity_ids, service_data or {})
         return True if raise_on_error else None
@@ -455,6 +470,10 @@ class VirtualPanelSession:
         if name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT) and value == "1":
             side = "left" if name == ESPEvent.BUTTON_LEFT else "right"
             self.app.dispatch(self.app.press_hardware_button, side)
+
+    def reset_sandbox(self) -> None:
+        """Clear simulated states without changing preview mode."""
+        self.app.dispatch(self.app.reset_sandbox)
 
     def set_live(self, live: bool) -> None:
         """Switch between sandbox and live mode.

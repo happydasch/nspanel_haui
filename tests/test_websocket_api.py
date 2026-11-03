@@ -8,6 +8,7 @@ import sys
 import types
 
 import pytest
+import voluptuous as vol
 
 _storage_stub = types.ModuleType("homeassistant.helpers.storage")
 _storage_stub.Store = object
@@ -79,6 +80,9 @@ class _FakeSession:
 
     def set_live(self, live):
         self.live = live
+
+    def reset_sandbox(self):
+        self.reset_count = getattr(self, "reset_count", 0) + 1
 
 
 @pytest.fixture
@@ -242,6 +246,29 @@ def test_configure_switches_the_mode(ws):
     assert session.live is True
     assert conn.results == [1, 2]
 
+
+
+def test_configure_accepts_reset_without_a_live_field(ws):
+    conn = _Connection()
+
+    async def body(hass):
+        await _subscribe(ws, hass, conn)
+        session = _FakeSession.instances[0]
+        msg = vol.Schema(ws.ws_configure.schema)(
+            {
+                "type": "nspanel_haui/virtual_panel/configure",
+                "session_id": session.id,
+                "reset_sandbox": True,
+            }
+        )
+        msg["id"] = 2
+        await ws.ws_configure(hass, conn, msg)
+
+    _run(body)
+    session = _FakeSession.instances[0]
+    assert session.live is False
+    assert session.reset_count == 1
+    assert conn.results == [1, 2]
 
 def test_protected_entities_are_the_real_devices_own(ws, monkeypatch):
     registry = types.ModuleType("homeassistant.helpers.entity_registry")

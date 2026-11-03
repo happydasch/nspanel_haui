@@ -4,6 +4,7 @@ Lives outside ``frontend/`` because that whole directory is served as
 static files without authentication; it should hold only browser assets.
 """
 
+import hashlib
 import logging
 from pathlib import Path
 
@@ -19,15 +20,27 @@ STATIC_URL_PREFIX = "/nspanel_haui_frontend"
 PANEL_URL_PATH = "nspanel-haui"
 
 
+def _frontend_asset_version() -> str:
+    """Return the integration version plus a digest of the served frontend assets."""
+    digest = hashlib.sha256()
+    for asset in sorted(FRONTEND_DIR.rglob("*")):
+        if not asset.is_file():
+            continue
+        digest.update(asset.relative_to(FRONTEND_DIR).as_posix().encode())
+        digest.update(b"\0")
+        with asset.open("rb") as file:
+            digest.update(file.read())
+    return f"{get_version()}-{digest.hexdigest()[:12]}"
+
+
 async def async_register_frontend(hass) -> None:
     """Register the HAUI Editor frontend and sidebar panel."""
     if hass.data.get("nspanel_haui_frontend_registered"):
         return
 
-    # The version is part of the path so an upgrade changes every module URL,
-    # including the editor's relative imports, and browsers cannot mix a cached
-    # old module with new ones.
-    version = await hass.async_add_executor_job(get_version)
+    # The content digest changes the URL even for frontend fixes between releases,
+    # so an open browser cannot keep an older module against a newer backend.
+    version = await hass.async_add_executor_job(_frontend_asset_version)
     static_url_path = f"{STATIC_URL_PREFIX}/{version}"
 
     await hass.http.async_register_static_paths(

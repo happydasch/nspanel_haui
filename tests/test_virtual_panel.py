@@ -149,6 +149,19 @@ def test_sandbox_tap_changes_only_simulated_state(session, env):
     _wait(lambda: any(c.startswith("g1") for c in _commands(session.messages)))
 
 
+
+def test_reset_sandbox_restores_real_state_without_changing_mode(session, env):
+    _tap_power(session)
+    _wait(lambda: session.app.sandbox.get("light.lamp").state == "on")
+    session.app.live = True
+
+    session.app.reset_sandbox()
+
+    _wait(lambda: not session.app.sandbox.is_simulated("light.lamp"))
+    assert session.app.sandbox.get("light.lamp").state == "off"
+    assert session.app.live is True
+    assert env.services.calls == []
+
 def test_live_mode_calls_home_assistant(session, env):
     session.set_live(True)
     _tap_power(session)
@@ -158,6 +171,22 @@ def test_live_mode_calls_home_assistant(session, env):
     assert (domain, service, target) == ("light", "turn_on", {"entity_id": "light.lamp"})
     assert not session.app.sandbox.is_simulated("light.lamp")
 
+
+
+@pytest.mark.parametrize("selector", ["area_id", "device_id", "floor_id", "label_id"])
+@pytest.mark.parametrize("return_response", [False, True])
+def test_live_mode_refuses_unresolved_service_target_selectors(
+    session, env, selector, return_response
+):
+    session.app.live = True
+    session.app._protected = frozenset({"switch.kitchen_use_auto_dim"})
+
+    session.app.call_service(
+        "switch.turn_off", target={selector: "panel-target"}, return_response=return_response
+    )
+
+    assert env.services.calls == []
+    assert session.app.sandbox.simulated_ids() == []
 
 def test_live_mode_still_sandboxes_the_real_devices_own_entities(env):
     messages: list[dict] = []

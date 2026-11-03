@@ -857,6 +857,7 @@
     "Replace an outdated display TFT automatically when the firmware needs a newer one. When off, the display asks first.": "Vervang een verouderd scherm-TFT automatisch wanneer de firmware een nieuwer TFT nodig heeft. Indien uitgeschakeld vraagt het scherm eerst.",
     "Request timed out; the device may be busy. Check the Home Assistant logs": "Time-out van verzoek; het apparaat is mogelijk bezet. Controleer de Home Assistant-logboeken",
     "Reset all": "Alles resetten",
+    "Reset sandbox": "Sandbox resetten",
     "Reset to default": "Terug naar standaard",
     "Return to the home panel after (seconds)": "Terug naar het startpaneel na (seconden)",
     "Review the upgrade guide before updating.": "Raadpleeg de upgradegids voordat u bijwerkt.",

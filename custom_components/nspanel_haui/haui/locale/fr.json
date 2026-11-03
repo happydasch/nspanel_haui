@@ -857,6 +857,7 @@
     "Replace an outdated display TFT automatically when the firmware needs a newer one. When off, the display asks first.": "Remplace automatiquement un TFT d'écran obsolète lorsque le firmware en exige un plus récent. Si désactivé, l'écran demande d'abord.",
     "Request timed out; the device may be busy. Check the Home Assistant logs": "La requête a expiré ; l'appareil est peut-être occupé. Consultez les journaux Home Assistant",
     "Reset all": "Tout réinitialiser",
+    "Reset sandbox": "Réinitialiser le bac à sable",
     "Reset to default": "Réinitialiser par défaut",
     "Return to the home panel after (seconds)": "Retour au panneau d'accueil après (secondes)",
     "Review the upgrade guide before updating.": "Consultez le guide de mise à niveau avant la mise à jour.",

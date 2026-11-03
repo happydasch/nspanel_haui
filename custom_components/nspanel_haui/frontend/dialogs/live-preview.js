@@ -322,6 +322,14 @@ class LivePreviewDialog extends HauiDialog {
     `;
   }
 
+  async _resetSandbox() {
+    try {
+      await this._session.resetSandbox();
+    } catch (err) {
+      this._error = err?.message || String(err);
+    }
+  }
+
   async _setLive(live) {
     try {
       await this._session.setLive(live);
@@ -405,6 +413,14 @@ class LivePreviewDialog extends HauiDialog {
               ${renderToggle('vp-show-entities', this._showEntities, v => this._setShowEntities(v), { disabled: !ready })}
               ${t('Show entities')}
             </label>
+            <ha-button
+              appearance="plain"
+              ?disabled=${!ready || !session.sandboxEntities.length}
+              @click=${this._resetSandbox}
+            >
+              <ha-icon slot="start" icon="mdi:restore"></ha-icon>
+              ${t('Reset sandbox')}
+            </ha-button>
             <ha-button
               appearance=${session?.idle ? 'accent' : 'plain'}
               aria-pressed=${session?.idle ? 'true' : 'false'}

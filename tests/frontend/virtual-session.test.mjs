@@ -139,6 +139,22 @@ test('hardware buttons, idle timeout and live mode', async () => {
   assert.equal(session.live, true);
 });
 
+test('resetting the sandbox does not change the current preview mode', async () => {
+  const { hass, push, resolveLayout, session } = await started({ live: true });
+  push({ type: 'started', session_id: 'abc', portrait: false });
+  resolveLayout();
+  await flush();
+
+  await session.resetSandbox();
+
+  assert.equal(session.live, true);
+  assert.deepEqual(hass.calls.at(-1), {
+    type: 'nspanel_haui/virtual_panel/configure',
+    session_id: 'abc',
+    reset_sandbox: true,
+  });
+});
+
 test('brightness and sandbox messages update the session state', async () => {
   const updates = [];
   const actions = [];

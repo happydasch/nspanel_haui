@@ -64,7 +64,7 @@ def registered(monkeypatch):
 
 def test_frontend_urls_carry_the_integration_version(registered):
     """Browsers must fetch new modules after an upgrade, including relative imports."""
-    base = f"/nspanel_haui_frontend/{get_version()}"
+    base = f"/nspanel_haui_frontend/{editor_panel._frontend_asset_version()}"
 
     assert [p.url_path for p in registered.hass.static_paths] == [base]
     assert registered.panel["module_url"] == f"{base}/haui-editor.js"
@@ -72,5 +72,19 @@ def test_frontend_urls_carry_the_integration_version(registered):
 
 
 def test_version_is_read_off_the_event_loop(registered):
-    """get_version reads manifest.json, which HA flags as blocking I/O on the loop."""
-    assert get_version in registered.hass.executor_jobs
+    """Version and asset digest require file I/O, so both are read off-loop."""
+    assert editor_panel._frontend_asset_version in registered.hass.executor_jobs
+
+
+def test_frontend_asset_version_changes_when_a_served_file_changes(monkeypatch, tmp_path):
+    asset = tmp_path / "haui-editor.js"
+    asset.write_text("old frontend", encoding="utf-8")
+    monkeypatch.setattr(editor_panel, "FRONTEND_DIR", tmp_path)
+    old_version = editor_panel._frontend_asset_version()
+
+    asset.write_text("new frontend", encoding="utf-8")
+    new_version = editor_panel._frontend_asset_version()
+
+    assert old_version.startswith(f"{get_version()}-")
+    assert new_version.startswith(f"{get_version()}-")
+    assert new_version != old_version

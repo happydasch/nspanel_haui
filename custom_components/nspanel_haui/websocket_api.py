@@ -163,7 +163,8 @@ async def ws_event(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     {
         vol.Required("type"): "nspanel_haui/virtual_panel/configure",
         vol.Required("session_id"): str,
-        vol.Required("live"): bool,
+        vol.Optional("live"): bool,
+        vol.Optional("reset_sandbox", default=False): bool,
     }
 )
 @websocket_api.require_admin
@@ -172,7 +173,10 @@ async def ws_configure(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     session = _get_session(hass, connection, msg)
     if session is None:
         return
-    session.set_live(msg["live"])
+    if "live" in msg:
+        session.set_live(msg["live"])
+    if msg.get("reset_sandbox", False):
+        session.reset_sandbox()
     connection.send_result(msg["id"])
 
 

@@ -507,6 +507,11 @@ before it is green.
   smoke test of the exact published artifacts.
 - Announce; link the changelog and the update warning.
 - Merge `master` back into `dev`, then open the next `CHANGELOG.md` section.
+  Because `dev` carries the latest dev version (e.g. `0.5.0.dev12+g…`) while
+  `master` carries the released stable `X.Y.Z`, the merge-back now conflicts in
+  `custom_components/nspanel_haui/manifest.json` and
+  `esphome/nspanel_haui/version.yaml`; resolve both to the stable version so the
+  next dev build derives `X.Y.(Z+1)` again.
 
 ### 7. Rollback
 

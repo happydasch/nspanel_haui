@@ -218,4 +218,12 @@ export class VirtualPanelSession {
     this.live = live;
     this.onUpdate();
   }
+  /** Clear simulated entity changes without changing preview mode. */
+  async resetSandbox() {
+    await this.hass.callWS({
+      type: 'nspanel_haui/virtual_panel/configure',
+      session_id: this.sessionId,
+      reset_sandbox: true,
+    });
+  }
 }

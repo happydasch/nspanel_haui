@@ -468,6 +468,7 @@
     "Replace an outdated display TFT automatically when the firmware needs a newer one. When off, the display asks first.": "",
     "Request timed out; the device may be busy. Check the Home Assistant logs": "",
     "Reset all": "",
+    "Reset sandbox": "",
     "Reset to default": "",
     "Return to the home panel after (seconds)": "",
     "Review the upgrade guide before updating.": "",

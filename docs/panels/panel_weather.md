@@ -59,3 +59,7 @@ Choose **Color** (default) to color the main and forecast icons by condition, or
 ### Show Notifications
 
 When enabled, the main weather icon blinks as a notification bell while there are new notifications. When all notifications have been read but some are still queued, the bell stays visible statically so the queue is not overlooked. Tapping the icon opens the queued notifications.
+
+### Leaving the Panel
+
+This page has no header buttons. Swipe left or right from a screen edge to change panel, or enable **Long press to go back** (*Advanced* section): holding anywhere for about a second then goes back to the panel this one was opened from, or to the home panel. See [Standard Fields](../configuration/panels.md#standard-fields).

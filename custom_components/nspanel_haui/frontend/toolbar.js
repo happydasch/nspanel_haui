@@ -143,6 +143,14 @@ export function renderDeviceInfoStrip(host) {
       <span class="pl-spacer"></span>
       ${!host.narrow ? html`
       <ha-icon-button
+        title=${t('Live preview')}
+        label=${t('Live preview')}
+        ?disabled=${!host._selectedDevice}
+        @click=${() => host._onHeaderLivePreview()}
+      >
+        <ha-icon icon="mdi:television-play"></ha-icon>
+      </ha-icon-button>
+      <ha-icon-button
         title=${t('Colors')}
         label=${t('Colors')}
         @click=${() => host._onHeaderColors()}
@@ -168,6 +176,7 @@ export function renderDeviceInfoStrip(host) {
         ${host._actionsMenuIndex === '__header__'
           ? renderPanelDropdown(host, null, [
               { icon: 'mdi:information-outline', label: t('Info'), disabled: !host._selectedDevice, action: () => { host._showDeviceInfo = true; host.requestUpdate(); } },
+              { icon: 'mdi:television-play', label: t('Live preview'), disabled: !host._selectedDevice, action: () => host._onHeaderLivePreview() },
               'divider',
               { icon: 'mdi:palette-outline', label: t('Colors'), disabled: !host._selectedDevice, action: () => host._onHeaderColors() },
               { icon: 'mdi:cog-outline', label: t('Settings'), disabled: !host._selectedDevice, action: () => host._onHeaderSettings() },

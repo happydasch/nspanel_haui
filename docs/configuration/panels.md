@@ -19,6 +19,7 @@ Every panel has these fields in the editor:
 | `title` | Display name shown on the panel header. Falls back to the panel type's label (e.g. `Grid`) if left empty. |
 | `key` | A unique identifier used to reference this panel in navigation actions and popup overrides. Must be unique across all panels on the device. |
 | `show_in_navigation` | Boolean toggle (default **on**). When enabled, the panel appears in the navigation bar. When disabled, the panel is hidden from navigation — use this for subpanels, detail views, and popups. |
+| `long_press_back` | **Long press to go back** (default **off**), offered only for panel types without header buttons (Clock, ClockTwo, Weather), which can otherwise only be left by swiping. When enabled, holding anywhere for about a second goes back: to the panel this one was opened from, or to the home panel. A long press rather than a tap or double tap because the firmware polls touches every 200 ms, too slowly to catch quick taps reliably. |
 | `unlock_code` | **Panel pin** in the editor. A numeric PIN code. When set, the panel requires this code before it can be accessed. The input is masked as a password field. |
 
 ### Type-Specific Options

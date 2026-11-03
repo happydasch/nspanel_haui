@@ -14,6 +14,7 @@ const DIALOGS = [
   'nspanel-dialog-logs',
   'nspanel-dialog-device-manager',
   'nspanel-dialog-colors',
+  'nspanel-dialog-live-preview',
 ];
 
 /** A dialog instance without Lit's constructor (which needs a real DOM), recording its events. */

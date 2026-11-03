@@ -122,6 +122,29 @@ test('the Device Manager compares TFT status with the required TFT version', () 
   assert.match(labels, /update pending/);
 });
 
+test('the Device Manager does not infer a required TFT version from firmware version', () => {
+  const DeviceManager = customElements.get('nspanel-dialog-device-manager');
+  const dlg = Object.create(DeviceManager.prototype);
+  Object.assign(dlg, {
+    devices: { kitchen: { config: {}, panels: [] } },
+    selectedDevice: 'kitchen',
+    _deviceMenuIndex: -1,
+    hass: {},
+    _deviceStatuses: {
+      kitchen: {
+        device_info: {
+          yaml_version: '0.4.5.dev13+g5c57c0',
+          tft_version: '0.4.3',
+        },
+      },
+    },
+  });
+
+  const labels = collectTemplateStrings(dlg._renderDeviceRow('kitchen')).join(' ');
+  assert.match(labels, /Display 0\.4\.3/);
+  assert.doesNotMatch(labels, /update pending/);
+});
+
 test('the Device Manager emits add-device with the detail the editor handler reads', () => {
   const { dlg, events } = dialog('nspanel-dialog-device-manager', { devices: {}, _newDeviceName: 'office' });
   dlg._onAddDevice();

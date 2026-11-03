@@ -237,7 +237,11 @@ def _updater(
     reports the universal build variant by default (override with
     ``firmware_variant`` in ``device_info``; pass ``""`` for no variant).
     """
-    merged_info = {"firmware_variant": "universal", **device_info}
+    merged_info = {
+        "firmware_variant": "universal",
+        "tft_required_version": device_info.get("yaml_version"),
+        **device_info,
+    }
     app = _App(merged_info, connected, display_model)
     config = {**DEFAULT_CONFIG["update"], **config}
     ctrl = HAUIUpdateController(app, config)
@@ -347,6 +351,23 @@ def test_current_tft_needs_no_update(monkeypatch):
     ctrl.check_installed_version()
 
     assert (app.published, app.opened, fetches) == ([], [], [])
+
+
+def test_tft_is_not_assumed_to_match_firmware_version(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {
+            "yaml_version": "0.4.5",
+            "tft_version": "0.4.3",
+        },
+        manifest="0.4.5",
+    )
+    app.device.device_info.pop("tft_required_version")
+
+    ctrl.check_installed_version()
+
+    assert app.published == []
+    assert ctrl.get_update_state()["state"] == "idle"
 
 
 def test_a_firmware_only_release_uses_its_declared_tft_version(monkeypatch):
@@ -767,7 +788,7 @@ def test_publish_failure_marks_the_install_as_failed(monkeypatch):
     assert ctrl._last_install_confirmed is False
 
 
-def test_invalid_yaml_version_is_an_error_not_a_0_0_0_install(monkeypatch):
+def test_invalid_required_tft_version_is_an_error_not_a_0_0_0_install(monkeypatch):
     ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "not-a-version", "tft_version": "0.4.0"})
 
     ctrl.check_installed_version()
@@ -775,7 +796,7 @@ def test_invalid_yaml_version_is_an_error_not_a_0_0_0_install(monkeypatch):
     assert app.published == []
     state = ctrl.get_update_state()
     assert state["state"] == "error"
-    assert "invalid yaml_version" in state["last_error"]
+    assert "invalid tft_required_version" in state["last_error"]
 
 
 def test_check_for_update_survives_a_github_failure(monkeypatch):
@@ -972,6 +993,7 @@ def test_url_install_is_done_once_the_display_reports_after_the_reboot(monkeypat
 
 def _reboot_with(ctrl, app, **state):
     """The upload ends in a reboot; the display then reports ``state``."""
+    state.setdefault("tft_required_version", state.get("yaml_version"))
     ctrl.on_connection_changed(False)
     app.device.device_info = {**state, "tft_version": ""}
     ctrl.on_connection_changed(True)

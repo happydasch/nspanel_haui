@@ -279,7 +279,7 @@ class DeviceManagerDialog extends HauiDialog {
     const di = this._deviceStatuses?.[name]?.device_info;
     const updateStatus = this._deviceStatuses?.[name]?.update;
     const yaml = di?.yaml_version;
-    const requiredTft = di?.tft_required_version || yaml;
+    const requiredTft = di?.tft_required_version;
     const tft = di?.tft_version;
     const nw = di || {};
 

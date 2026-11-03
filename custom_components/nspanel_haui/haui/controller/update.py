@@ -518,9 +518,8 @@ class HAUIUpdateController(HAUIBase):
         return first_v is not None and first_v == self._try_parse_version(second)
 
     def _required_tft_version(self, device_info: dict[str, Any]) -> str | None:
-        """Return the TFT version declared by firmware, supporting older firmware."""
-        key = "tft_required_version"
-        version = device_info.get(key) if key in device_info else device_info.get("yaml_version")
+        """Return the TFT version explicitly declared by the firmware."""
+        version = device_info.get("tft_required_version")
         return version if isinstance(version, str) and version else None
 
     def _firmware_variant_compatible(self, manifest_variant: str | None) -> bool:
@@ -1323,14 +1322,14 @@ class HAUIUpdateController(HAUIBase):
         firmware_version = device_info.get("yaml_version")
         required_version = self._required_tft_version(device_info)
         installed_version = device_info.get("tft_version")
+        if required_version is None:
+            self.log("The firmware did not report a required TFT version; TFT not checked")
+            return
         required = self._try_parse_version(required_version)
-        if required is None or not isinstance(required_version, str):
-            version_field = (
-                "tft_required_version" if "tft_required_version" in device_info else "yaml_version"
-            )
-            msg = f"invalid {version_field} {required_version!r}"
+        if required is None:
+            msg = f"invalid tft_required_version {required_version!r}"
             self.log(
-                f"The firmware reported an invalid {version_field}; TFT not checked",
+                "The firmware reported an invalid tft_required_version; TFT not checked",
                 level="WARNING",
             )
             self._set_update_state(UPDATE_STATE_ERROR, version=self._update_version, error=msg)
@@ -1452,7 +1451,7 @@ class HAUIUpdateController(HAUIBase):
         self._start_install_verify_timer()
 
     def check_installed_version(self) -> None:
-        """Updates the TFT when it is older than ``tft_required_version`` (or legacy yaml_version).
+        """Updates the TFT when it is older than the firmware-reported ``tft_required_version``.
 
         The firmware publishes ``tft_version`` only in response to
         ``req_device_state``; the handshake reads it before the display

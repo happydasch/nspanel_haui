@@ -515,6 +515,9 @@ The Device Manager shows the same versions inline per device, using **Unknown**
 when firmware or display version has not been reported. A display whose TFT is
 older than `tft_required_version` is flagged **update pending**.
 
+If firmware has not reported `tft_required_version`, the manager does not infer one
+from `yaml_version` and does not flag the display as pending.
+
 The status payload is only as fresh as the last poll.  When a panel has been
 disconnected too long for the poll to succeed, the dialog keeps showing the
 last received snapshot — treat readings shown there as potentially stale if the

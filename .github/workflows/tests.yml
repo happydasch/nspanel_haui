@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [master, dev]
 
+# New commits supersede CI for the same branch or pull request.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   tests:
     runs-on: ubuntu-latest

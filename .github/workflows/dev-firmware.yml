@@ -31,6 +31,11 @@ jobs:
       - name: Set the development firmware version
         # Use the next patch line so every dev build is newer than the current
         # stable version, while a later stable X.Y.(Z+1) sorts after its .devN.
+        # The ``dev`` branch carries the previous dev version (this workflow
+        # commits it back to the branch), so the derivation accepts either a
+        # stable manifest (a fresh branch or a master merge-back) — deriving the
+        # next patch — or an existing ``X.Y.Z.devN`` — keeping the same X.Y.Z
+        # base, since no stable X.Y.Z has been released yet.
         # The version must be a valid PEP 440 version with no ``-`` separators:
         # Home Assistant compares installed/latest with AwesomeVersion, and an
         # unparseable yaml_version (for example a ``dev-<run>-<sha>`` release
@@ -49,11 +54,23 @@ jobs:
           from pathlib import Path
 
           manifest = json.loads(Path("custom_components/nspanel_haui/manifest.json").read_text())
-          match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", manifest["version"])
-          if match is None:
-              raise SystemExit(f"Expected a stable X.Y.Z version, got {manifest['version']!r}")
-          major, minor, patch = map(int, match.groups())
-          version = f"{major}.{minor}.{patch + 1}.dev{os.environ['GITHUB_RUN_NUMBER']}+g{os.environ['GITHUB_SHA'][:7]}"
+          stable = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", manifest["version"])
+          # A previous dev release committed onto the branch: X.Y.Z.devN(+local).
+          dev_prev = re.fullmatch(
+              r"(\d+)\.(\d+)\.(\d+)\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?",
+              manifest["version"],
+          )
+          if stable:
+              major, minor, patch = map(int, stable.groups())
+              base = f"{major}.{minor}.{patch + 1}"
+          elif dev_prev:
+              base = f"{dev_prev.group(1)}.{dev_prev.group(2)}.{dev_prev.group(3)}"
+          else:
+              raise SystemExit(
+                  "Expected a stable X.Y.Z or a previous dev version, "
+                  f"got {manifest['version']!r}"
+              )
+          version = f"{base}.dev{os.environ['GITHUB_RUN_NUMBER']}+g{os.environ['GITHUB_SHA'][:7]}"
           # Validate against the exact PEP 440 dev-release shape instead of
           # importing ``packaging``: that library is not a declared dependency
           # anywhere in the repo (neither ESPHome nor the dev requirements pull
@@ -61,9 +78,9 @@ jobs:
           # "packaging is not installed". The pattern covers what the version
           # check needs — parseable by AwesomeVersion, no ``-`` separator, and a
           # local ``+g<sha>`` segment the version list can sort.
-          expected = rf"{major}\.{minor}\.{patch + 1}\.dev\d+\+g[0-9a-f]{{7}}"
-          if re.fullmatch(expected, version) is None:
-              raise SystemExit(f"{version} does not match the expected PEP 440 shape {expected}")
+          expected = re.compile(rf"^{re.escape(base)}\.dev\d+\+g[0-9a-f]{{7}}$")
+          if expected.fullmatch(version) is None:
+              raise SystemExit(f"{version} does not match the expected PEP 440 shape {expected.pattern}")
           version_file = Path("esphome/nspanel_haui/version.yaml")
           source = version_file.read_text()
           source, count = re.subn(
@@ -171,21 +188,37 @@ jobs:
           Path("dev-release-notes.md").write_text("\n".join(notes) + "\n")
           PY
 
-      - name: Tag the versioned source tree
+      - name: Tag the versioned source tree and publish it to dev
         # HACS downloads the *source archive of the tag* (not the release
         # assets), and reads the installed version from its manifest.json. The
         # bumped manifest therefore has to be in a commit the tag points at;
         # tagging the pushed commit alone would ship the unmodified stable
         # manifest and HACS would keep showing the stable version as installed.
-        # The tag commit is never merged into dev — dev keeps the stable version
-        # so the next run can derive the next dev version from it.
+        #
+        # The same versioned commit is pushed onto the ``dev`` branch, so the
+        # branch's tracked version.yaml carries the dev version instead of
+        # lagging on the last stable release (the old tag-only commit left dev
+        # stale). The next run derives the next dev version from that X.Y.Z.devN
+        # directly, and HACS never prints an out-of-date installed version.
+        # ``[skip ci]`` keeps this push to dev from re-triggering this workflow;
+        # the run number and commit are part of the version, so re-runs replace
+        # an equivalent commit/tag.
         env:
           DEV_VERSION: ${{ env.DEV_VERSION }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add custom_components/nspanel_haui/manifest.json esphome/nspanel_haui/version.yaml
-          git commit -m "chore(release): development firmware ${DEV_VERSION}"
+          git commit -m "chore(release): development firmware ${DEV_VERSION} [skip ci]"
+          VERSION_COMMIT=$(git rev-parse HEAD)
+          echo "VERSION_COMMIT=${VERSION_COMMIT}" >> "$GITHUB_ENV"
+          # Publish to the dev branch first; a non-force push fails (rather than
+          # clobbering) if a concurrent commit raced in. The version commit's
+          # parent is the just-pushed HEAD, so when it wins dev advances exactly
+          # one release commit. Rejection is not fatal: the tagged release below
+          # still carries the versioned commit, and dev-latest (compared against
+          # VERSION_COMMIT) simply skips until that newer commit's own build.
+          git push origin "HEAD:refs/heads/dev" || echo "dev branch raced; the version commit ships in the tagged release only"
           git tag "${DEV_VERSION}"
           # --force keeps a re-run of the same build idempotent: run number and
           # commit are part of the version, so the tag can only be replaced by
@@ -213,7 +246,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           LATEST_DEV_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/dev" --jq .sha)
-          if [ "$LATEST_DEV_SHA" != "$GITHUB_SHA" ]; then
+          # dev now advances by the version commit (this build's), so compare
+          # against that rather than the build base.
+          if [ "$LATEST_DEV_SHA" != "${{ env.VERSION_COMMIT }}" ]; then
             echo "A newer dev commit exists; keeping the previous manifest until its build succeeds."
             exit 0
           fi

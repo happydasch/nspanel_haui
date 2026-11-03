@@ -44,7 +44,12 @@ or the hub withholds the update (fail closed).
 Semantic Versioning. `custom_components/nspanel_haui/manifest.json` is the
 source of truth; `haui/version.py` reads it at runtime. `scripts/bump_version.py`
 updates firmware version sources every time; `--tft-update` additionally updates
-the display version sources:
+the display version sources. A development version (`X.Y.Z.devN`, optionally
+with a `+local` build segment such as the `.dev<run>+g<sha>` the dev-release CI
+publishes) is a firmware-only bump in that same shape: it updates
+`manifest.json` and the firmware `yaml_version` but leaves `pyproject.toml`,
+`tft_version` and the HMI binaries at their stable values, because the dev
+channel ships no display TFT:
 
 1. `custom_components/nspanel_haui/manifest.json` — source of truth.
 2. `pyproject.toml` — packaging mirror.
@@ -112,9 +117,14 @@ the firmware's `esphome/nspanel_haui/version.yaml`), commits those two files as
 `chore(release): development firmware <version>` and tags that commit. HACS
 downloads the *source archive of the tag* and reads the installed version from its
 manifest, so tagging the plain branch commit would ship the stable version and
-HACS would report it as installed forever. That release commit is never merged
-into `dev` — `dev` keeps the stable version, which is what the next run derives
-`X.Y.(Z+1)` from.
+HACS would report it as installed forever. That same versioned commit is pushed
+back onto the `dev` branch (its `[skip ci]` trailer keeps GitHub from
+re-triggering the workflow on that push), so the branch's tracked `version.yaml`
+carries the released dev version instead of lagging on the last stable release.
+The next run derives the next dev version from that
+`X.Y.Z.devN`: it keeps the same `X.Y.Z` base (no stable `X.Y.Z` has shipped yet)
+and only advances the run number, and jumps to `X.Y.(Z+1).devN` again once the
+master merge-back has returned `dev` to a stable manifest.
 
 HACS reads release tags as *available* versions and the installed copy's manifest
 `version` as the *installed* one, so it can order dev releases and only offers a

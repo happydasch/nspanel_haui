@@ -8,6 +8,12 @@ a TFT update. The script always updates the integration, firmware and
 ``yaml_version`` sources; pass ``--tft-update`` to also update ``tft_version``
 and both HMI ``system.tftVersion`` values.
 
+A development version (``X.Y.Z.devN``, optionally with a ``+local`` build
+segment such as the ``.dev<run>+g<sha>`` the dev-release CI publishes) is a
+firmware-only bump in that same shape: it updates ``manifest.json`` and the
+firmware ``yaml_version`` but leaves ``pyproject.toml``, ``tft_version`` and the
+HMI binaries at their stable values — the dev channel ships no display TFT.
+
 ``CHANGELOG.md`` is *not* edited: its heading carries the release date and its
 content comes from the commits, so the maintainer writes it by hand.
 
@@ -20,6 +26,7 @@ Usage:
     python scripts/bump_version.py 0.5.0                     # firmware-only release
     python scripts/bump_version.py 0.5.0 --tft-update        # release with a TFT update
     python scripts/bump_version.py 0.5.0 --check --tft-update  # dry run
+    python scripts/bump_version.py 0.5.0.dev3+gabc1234       # dev firmware bump
 
 Exit code 0 when every selected source carries the requested version (or was
 updated), 1 when a source needs a manual edit (length-changing HMI bump, missing
@@ -40,6 +47,23 @@ VERSION_YAML = ROOT / "esphome" / "nspanel_haui" / "version.yaml"
 
 sys.path.insert(0, str(ROOT / "scripts"))
 import bump_tft_version as hmi  # noqa: E402
+
+_STABLE_RE = re.compile(r"\d+\.\d+\.\d+")
+# Development versions in the PEP 440 shape the dev-release CI publishes:
+# ``X.Y.Z.dev<N>`` optionally with a ``+local`` build segment (the workflow uses
+# ``.dev<run>+g<sha>``, local test releases use plain ``.dev<N>``). The base
+# ``X.Y.Z`` is the *next* patch line, so ``.devN`` sorts above the current
+# stable and below the eventual ``X.Y.Z`` final.
+_DEV_RE = re.compile(r"\d+\.\d+\.\d+\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?")
+
+
+def _version_kind(version: str) -> str | None:
+    """Classify ``version`` as ``"stable"``, ``"dev"`` or ``None`` (invalid)."""
+    if _STABLE_RE.fullmatch(version):
+        return "stable"
+    if _DEV_RE.fullmatch(version):
+        return "dev"
+    return None
 
 
 def _display(path: Path) -> str:
@@ -68,17 +92,30 @@ def _replace_in_file(path: Path, pattern: str, replacement: str, check: bool) ->
 
 
 def bump_text_sources(version: str, check: bool, tft_update: bool = False) -> bool:
-    """Update firmware version sources and, when requested, the TFT version."""
+    """Update firmware version sources and, when requested, the TFT version.
+
+    A stable ``X.Y.Z`` version updates ``manifest.json``, ``pyproject.toml``
+    and the firmware ``yaml_version``. A development version (``X.Y.Z.devN``,
+    optionally with a ``+local`` build segment) is a firmware-only bump in the
+    shape the dev-release CI writes: ``manifest.json`` and the firmware
+    ``yaml_version`` advance, while ``pyproject.toml``, ``tft_version`` and the
+    HMI binaries stay at their stable values because the dev channel ships no
+    display TFT.
+    """
     ok = True
+    dev = _version_kind(version) == "dev"
     sources = [
         (MANIFEST, r'("version"\s*:\s*)"[^"]*"', rf'\g<1>"{version}"'),
-        (PYPROJECT, r'(?m)^(version\s*=\s*)"[^"]*"', rf'\g<1>"{version}"'),
         (VERSION_YAML, r"(?m)^(\s*yaml_version:\s*)'[^']*'", rf"\g<1>'{version}'"),
     ]
-    if tft_update:
-        sources.append(
-            (VERSION_YAML, r"(?m)^(\s*tft_version:\s*)'[^']*'", rf"\g<1>'{version}'")
-        )
+    if not dev:
+        sources.insert(1, (PYPROJECT, r'(?m)^(version\s*=\s*)"[^"]*"', rf'\g<1>"{version}"'))
+        if tft_update:
+            sources.append(
+                (VERSION_YAML, r"(?m)^(\s*tft_version:\s*)'[^']*'", rf"\g<1>'{version}'")
+            )
+    elif tft_update:
+        print("note: development version: leaving TFT sources unchanged")
     for path, pattern, replacement in sources:
         changed, message = _replace_in_file(path, pattern, replacement, check)
         print(("[OK] " if changed else "[FAIL] ") + message)
@@ -122,12 +159,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     version = args.version.strip()
-    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
-        print(f"error: version must look like X.Y.Z, got {version!r}", file=sys.stderr)
+    kind = _version_kind(version)
+    if kind is None:
+        print(
+            "error: version must be stable (X.Y.Z) or a dev version "
+            f"(X.Y.Z.devN[+local]); got {version!r}",
+            file=sys.stderr,
+        )
         return 2
 
     ok = bump_text_sources(version, args.check, tft_update=args.tft_update)
-    if args.tft_update:
+    # Only a stable bump can advance the TFT sources: a dev version must never
+    # move tft_version or the HMI binaries (the dev channel ships no display TFT).
+    if args.tft_update and kind == "stable":
         ok = bump_hmis(version, args.check) and ok
     if args.check:
         print("\n--check: nothing was written.")

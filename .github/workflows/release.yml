@@ -9,6 +9,12 @@ on:
 permissions:
   contents: write
 
+# A newer release run supersedes an older one, even across tags. This can cancel
+# a release mid-build or publication; that tradeoff is intentional.
+concurrency:
+  group: release
+  cancel-in-progress: true
+
 jobs:
   release:
     runs-on: ubuntu-latest

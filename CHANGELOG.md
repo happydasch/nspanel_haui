@@ -6,21 +6,6 @@ The format relies on [Conventional Commits](https://www.conventionalcommits.org/
 for the messages this changelog is built from; releases are tagged `vX.Y.Z`
 and follow [Semantic Versioning](https://semver.org/).
 
-## [0.4.4] — 2026-11-02
-
-### Fixed
-
-- **Notification `timeout` accepted by the service schema (#78)** — the
-  released service metadata advertised `timeout`, but the runtime schema
-  rejected it with "not a valid option". The service now accepts and forwards
-  the timeout, and the notification controller auto-dismisses timed
-  notifications. Without a timeout, notifications continue to stay queued
-  until dismissed, replaced or cleared. Thanks to [@liviusefu](https://github.com/liviusefu)
-  for reporting the issue.
-
-The TFT display files are unchanged from 0.4.3; panels keep their installed
-TFT until a later release updates it.
-
 ## [0.4.5] — unreleased
 
 ### Breaking changes
@@ -111,6 +96,12 @@ TFT until a later release updates it.
   header buttons and could only be left by swiping. The new **Long press to go
   back** panel option (Advanced section) goes back on a one-second hold
   anywhere: to the panel this one was opened from, or to the home panel.
+- **Alarm panel action-button options** — an **Action buttons** section in the
+  alarm panel editor: **Hidden arm modes** leaves supported modes off the
+  buttons (e.g. no *Home*), **Show action icons** puts the target state's icon
+  before each label (left out when icon and label exceed the 10-byte button
+  text), and text/background colours for the arm and the disarm buttons
+  (empty = theme colours).
 
 ### Fixed
 
@@ -145,16 +136,29 @@ TFT until a later release updates it.
   both display models during this pass; no font-size or other notification
   implementation is planned.
 
-See the [v0.4.5 roadmap](ROADMAP.md#v045--hardware-acceptance-and-ota-risk-closure-planned).
+See the [v0.4.5 roadmap](ROADMAP.md#v045--hardware-acceptance-and-ota-risk-closure-in-progress).
 
-### Added
+### Contributors
 
-- **Alarm panel action-button options** — an **Action buttons** section in the
-  alarm panel editor: **Hidden arm modes** leaves supported modes off the
-  buttons (e.g. no *Home*), **Show action icons** puts the target state's icon
-  before each label (left out when icon and label exceed the 10-byte button
-  text), and text/background colours for the arm and the disarm buttons
-  (empty = theme colours).
+Thanks to [@jameshiscott](https://github.com/jameshiscott) for the live preview
+in the editor ([#85](https://github.com/happydasch/nspanel_haui/pull/85),
+[#86](https://github.com/happydasch/nspanel_haui/pull/86)) and the **Long press
+to go back** panel option.
+
+## [0.4.4] — 2026-11-02
+
+### Fixed
+
+- **Notification `timeout` accepted by the service schema (#78)** — the
+  released service metadata advertised `timeout`, but the runtime schema
+  rejected it with "not a valid option". The service now accepts and forwards
+  the timeout, and the notification controller auto-dismisses timed
+  notifications. Without a timeout, notifications continue to stay queued
+  until dismissed, replaced or cleared. Thanks to [@liviusefu](https://github.com/liviusefu)
+  for reporting the issue.
+
+The TFT display files are unchanged from 0.4.3; panels keep their installed
+TFT until a later release updates it.
 
 ## [0.4.3] — 2026-10-28
 

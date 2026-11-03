@@ -87,6 +87,45 @@ def test_check_mode_reports_change_without_writing(version_files):
     assert "yaml_version: '0.4.1'" in version_yaml.read_text()
 
 
+def test_dev_version_updates_manifest_and_yaml_but_not_pyproject_or_tft(
+    version_files,
+):
+    """A dev bump mirrors the dev-release CI: manifest + yaml_version advance,
+    while pyproject.toml and tft_version stay at the last stable version."""
+    manifest, pyproject, version_yaml = version_files
+    assert bump_version.bump_text_sources("0.4.5.dev7+gabc1234", check=False) is True
+    assert json.loads(manifest.read_text())["version"] == "0.4.5.dev7+gabc1234"
+    assert "yaml_version: '0.4.5.dev7+gabc1234'" in version_yaml.read_text()
+    assert 'version = "0.4.1"' in pyproject.read_text()
+    assert "tft_version: '0.4.1'" in version_yaml.read_text()
+
+
+def test_dev_version_accepts_plain_local(version_files):
+    """The local test-release shape (``.devN`` without a ``+local``) is valid too."""
+    manifest, _pyproject, version_yaml = version_files
+    assert bump_version.bump_text_sources("0.4.5.dev7", check=False) is True
+    assert json.loads(manifest.read_text())["version"] == "0.4.5.dev7"
+    assert "yaml_version: '0.4.5.dev7'" in version_yaml.read_text()
+
+
+def test_dev_bump_never_touches_tft_or_hmis(version_files, monkeypatch):
+    manifest, pyproject, version_yaml = version_files
+    hmi_calls = []
+    monkeypatch.setattr(
+        bump_version,
+        "bump_hmis",
+        lambda version, check: hmi_calls.append((version, check)) or True,
+    )
+    # Even with --tft-update requested, a dev version must not move the TFT:
+    # the dev channel ships no display TFT, and tftVersion stays stable X.Y.Z.
+    assert bump_version.main(["0.4.5.dev3+gabc1234", "--tft-update"]) == 0
+    assert json.loads(manifest.read_text())["version"] == "0.4.5.dev3+gabc1234"
+    assert "yaml_version: '0.4.5.dev3+gabc1234'" in version_yaml.read_text()
+    assert "tft_version: '0.4.1'" in version_yaml.read_text()
+    assert 'version = "0.4.1"' in pyproject.read_text()
+    assert hmi_calls == []
+
+
 def test_tft_version_bumps_only_for_a_tft_update(version_files):
     manifest, _pyproject, version_yaml = version_files
     assert bump_version.bump_text_sources("0.4.2", check=False) is True

@@ -7,7 +7,10 @@ by the release workflow. v0.4.4 is a notification-timeout hotfix; its TFT
 display files are unchanged from 0.4.3.
 
 The remaining 0.4.x hardware acceptance and OTA risk checks are tracked as the
-**v0.4.5 plan** below.
+**v0.4.5 plan** below. The 0.4.5 feature set — including the live panel preview
+contributed in [#85](https://github.com/happydasch/nspanel_haui/pull/85) and
+[#86](https://github.com/happydasch/nspanel_haui/pull/86) — is already on `dev`;
+the release waits on the hardware passlist.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
@@ -27,7 +30,8 @@ hub settings; multi-hub support remains subject to a needs decision.
 
 ## v0.4.x — finishing the binary and TFT install (current focus)
 
-Primary job: close the install gate. The focused Day/Night Profiles item below is the only new v0.4.x feature; broader work waits.
+Primary job: close the install gate. Beyond the focused v0.4.x items below and
+the live preview contributed for 0.4.5, broader work waits.
 
 - **Universal binary** — flashes and runs; TFT installs and auto-updates
   end-to-end on both display models; base and core functions work on real EU and
@@ -123,16 +127,29 @@ their installed TFT.
 
 ---
 
-## v0.4.5 — hardware acceptance and OTA risk closure (planned)
+## v0.4.5 — hardware acceptance and OTA risk closure (in progress)
 
-**Status: planned.** The following items remain before the 0.4.x install gate
-can close:
+**Status: in progress.** The 0.4.5 feature set is on `dev` — see the
+[0.4.5 changelog](CHANGELOG.md#045--unreleased) for the full list. It includes
+the live panel preview in the editor ([#85](https://github.com/happydasch/nspanel_haui/pull/85),
+[#86](https://github.com/happydasch/nspanel_haui/pull/86)) with its **Show
+entities** tooltip, relay-switching hardware buttons and idle highlight, plus
+**Long press to go back**, Day/Night Profiles, the inside-temperature sensor
+picker, notification line breaks and auto-dismiss timeout, the firmware-to-
+integration update move, alarm action-button options and versioned dev releases.
+
+The following items remain before the 0.4.x install gate can close:
 
 - Complete the EU and US/portrait device passlist above, including universal
   image onboarding, TFT auto-update, notifications, sleep/wakeup, touch, core
   stability and editor add/remove/configuration flows.
 - Canary-test unattended firmware OTA end to end: install, reboot, verify the
   matching TFT follows, and confirm the buzzer is silent during OTA and reboot.
+- **TFT assets in releases and git** — both display TFTs
+  (`nextion/nspanel_haui.tft`, `nextion/nspanel_haui_portrait.tft`) are
+  committed to git and attached to every GitHub release, so the update
+  controller and manual installs can fetch them. Confirm both assets are
+  present on the published release and keep them in git through 0.5.
 - Investigate the old-bootloader OTA rollback warning; rollback capability is
   not confirmed and unattended updates should not be treated as rollback-safe.
 - **Encrypted native OTA** (issue #81) — replace the `ota` `password` in
@@ -146,10 +163,6 @@ can close:
 - Issue #50 (notification enhancements) stays documentation-only: notification
   behavior is tracked and verified on both display models during this pass; no
   font-size or other notification implementation is planned.
-- Internal temperature on clock/weather panels — make the entity-registry
-  lookup work in production (lazy entity-registry import) and add an optional
-  per-page **Inside temperature sensor** picker (default: NSPanel internal
-  sensor).
 
 **Update-flow and notification polish (reported on hardware during this pass):**
 
@@ -158,12 +171,6 @@ can close:
   instead of fragmented pages.
 - Notifications — icon-less notifications should use the whole notification
   space (currently they do not fill the area meant for an icon).
-- Notifications — the notification `timeout` should work again (regression;
-  see the 0.4.4 hotfix).
-- Update — make automatic firmware update optional rather than always-on;
-  keep the manual HAUI Firmware update entity.
-- Update — make a release without a TFT possible (decouple the firmware and
-  TFT so a firmware-only build can be released/installed).
 - Update — notify only once per available update and do not pester/overload
   the display with repeated update notifications.
 
@@ -182,7 +189,7 @@ can close:
   - Move the **HAUI Firmware** update entity and its release-manifest check and
     install orchestration into the `nspanel_haui` integration. ESPHome should
     expose only its stock ESPHome update entity, not a second firmware updater
-    for HAUI. *Implemented on dev (0.4.4):* the integration owns the entity and
+    for HAUI. *Implemented on dev (0.4.5):* the integration owns the entity and
     reads the manifest (per-device `firmware_manifest_url`, so test panels can
     follow local test releases); the firmware drops its `update:` block.
     Verify firmware OTA and TFT-update sequencing on hardware after the move.
@@ -345,7 +352,9 @@ Open items from the release-process review (runbook and known risks in
   edits still need the Editor or an extended patch spec (0.5+).
 - Portrait layout as a build-time rotation instead of a second committed HMI
   (0.5+).
-- Git LFS or release-only storage for the TFT binaries (0.5+).
+- TFT binaries stay committed to git and attached to releases (addressed in
+  0.4.x); Git LFS or release-only storage is deferred until repo/zip size
+  becomes a problem.
 
 ---
 

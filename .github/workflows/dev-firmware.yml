@@ -171,6 +171,27 @@ jobs:
           Path("dev-release-notes.md").write_text("\n".join(notes) + "\n")
           PY
 
+      - name: Tag the versioned source tree
+        # HACS downloads the *source archive of the tag* (not the release
+        # assets), and reads the installed version from its manifest.json. The
+        # bumped manifest therefore has to be in a commit the tag points at;
+        # tagging the pushed commit alone would ship the unmodified stable
+        # manifest and HACS would keep showing the stable version as installed.
+        # The tag commit is never merged into dev — dev keeps the stable version
+        # so the next run can derive the next dev version from it.
+        env:
+          DEV_VERSION: ${{ env.DEV_VERSION }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add custom_components/nspanel_haui/manifest.json esphome/nspanel_haui/version.yaml
+          git commit -m "chore(release): development firmware ${DEV_VERSION}"
+          git tag "${DEV_VERSION}"
+          # --force keeps a re-run of the same build idempotent: run number and
+          # commit are part of the version, so the tag can only be replaced by
+          # an equivalent one.
+          git push --force origin "refs/tags/${DEV_VERSION}"
+
       - name: Publish versioned development prerelease
         uses: softprops/action-gh-release@v2
         with:
@@ -178,7 +199,6 @@ jobs:
           # tags as versions) can order dev releases and compare them with the
           # manifest version of an installed dev build.
           tag_name: ${{ env.DEV_VERSION }}
-          target_commitish: ${{ github.sha }}
           name: NSPanel HAUI ${{ env.DEV_VERSION }}
           body_path: dev-release-notes.md
           prerelease: true

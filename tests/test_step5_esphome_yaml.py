@@ -44,6 +44,14 @@ def test_web_server_is_optional_and_off_by_default():
     assert "web_username" not in universal
 
 
+def test_firmware_reports_required_tft_version_separately():
+    version = _read("version.yaml")
+    state_script = _read("scripts_event.yaml")
+    assert "tft_version:" in version
+    assert 'auto tft_required_version = "$tft_version";' in state_script
+    assert 'root["tft_required_version"] = tft_required_version;' in state_script
+
+
 def test_unused_required_tft_version_removed():
     assert "required_tft_version" not in _read("version.yaml")
 

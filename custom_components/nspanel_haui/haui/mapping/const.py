@@ -107,6 +107,34 @@ class NotifType(StrEnum):
     CRITICAL = "critical"
 
 
+class FirmwareUpdateChannel(StrEnum):
+    """Firmware manifest channel the update controller follows by default.
+
+    ``stable`` points at GitHub's ``releases/latest`` (which excludes
+    prereleases); ``dev`` at the fixed ``dev-latest`` release the development
+    workflow clobbers with the newest successful dev-branch build.  An
+    explicit ``firmware_manifest_url`` always overrides the channel.
+    """
+
+    STABLE = "stable"
+    DEV = "dev"
+
+
+# Manifest URL for each ``FirmwareUpdateChannel``.  The stable channel reads
+# GitHub's ``releases/latest``; the dev channel the fixed ``dev-latest`` release
+# the development workflow keeps on the newest successful dev build.
+FIRMWARE_MANIFEST_URLS: dict[str, str] = {
+    FirmwareUpdateChannel.STABLE: (
+        "https://github.com/happydasch/nspanel_haui/releases/latest/download/"
+        "firmware-manifest.json"
+    ),
+    FirmwareUpdateChannel.DEV: (
+        "https://github.com/happydasch/nspanel_haui/releases/download/"
+        "dev-latest/firmware-manifest.json"
+    ),
+}
+
+
 class NotifEvent(StrEnum):
     """Notification events handled by the hub."""
 
@@ -198,13 +226,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # by default; only runs when update checks are enabled (check_on_connect
         # or update_interval).
         "firmware_auto_update": False,
-        # Manifest naming the firmware the HAUI Firmware entity offers.  Point a
-        # test panel at a local manifest (scripts/dev_release.py) or the
-        # published dev manifest to follow test builds instead of latest stable.
-        "firmware_manifest_url": (
-            "https://github.com/happydasch/nspanel_haui/releases/latest/download/"
-            "firmware-manifest.json"
-        ),
+        # Manifest naming the firmware the HAUI Firmware entity offers.  The
+        # channel decides which manifest is followed when ``firmware_manifest_url``
+        # is left empty (stable releases by default; ``dev`` follows the
+        # published development firmware); an explicit URL always wins.
+        "firmware_update_channel": FirmwareUpdateChannel.STABLE,
+        "firmware_manifest_url": FIRMWARE_MANIFEST_URLS[FirmwareUpdateChannel.STABLE],
     },
     # gesture related settings
     "gesture": {},

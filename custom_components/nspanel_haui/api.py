@@ -256,6 +256,7 @@ class DeviceStatusView(HomeAssistantView):
             "device_info": {
                 "name": dev_name,
                 "tft_version": "",
+                "tft_required_version": "",
                 "yaml_version": "",
                 "ip": nw["ip"],
                 "ssid": nw["ssid"],
@@ -809,10 +810,10 @@ class DeviceUpdateTftView(HomeAssistantView):
 
         JSON body may carry an optional ``device`` field (device name, or ``*``
         for all devices; default ``*``) and either an optional ``version`` (the
-        GitHub release version to install; when omitted the version the
-        firmware needs, its ``yaml_version``, is installed) or an optional
-        ``url`` of a TFT file (single device only).  The install runs on the
-        device's worker thread.
+        TFT version the firmware's manifest ships; when omitted the manifest's
+        TFT for the device's display model is installed) or an optional ``url``
+        of a TFT file (single device only).  The install runs on the device's
+        worker thread.
         """
         hass = request.app["hass"]
         body = await request.json() or {}
@@ -843,9 +844,9 @@ class DeviceUpdateTftView(HomeAssistantView):
                 result = await app.async_run_on_worker(app.install_tft, version)
             if isinstance(result, dict) and result.get("state") == "error":
                 # The controller records *why* the install could not start
-                # (device disconnected, no yaml_version, no matching release,
-                # GitHub fetch failure).  Surface that to the editor instead of
-                # a success response that never installs anything.
+                # (device disconnected, no required TFT version, no TFT in the
+                # manifest, unreadable manifest).  Surface that to the editor
+                # instead of a success response that never installs anything.
                 return _error(
                     self,
                     result.get("last_error") or "TFT update failed",
@@ -878,7 +879,7 @@ class DeviceUpdateTftView(HomeAssistantView):
 
 
 class DeviceTftReleasesView(HomeAssistantView):
-    """REST API endpoint listing the GitHub releases a device's TFT can be installed from."""
+    """REST API endpoint listing the TFT versions a device can install."""
 
     url = "/api/nspanel_haui/tft_releases/{entry_id}"
     name = "api:nspanel_haui:tft_releases"
@@ -886,12 +887,13 @@ class DeviceTftReleasesView(HomeAssistantView):
 
     @require_admin
     async def get(self, request, entry_id: str):
-        """Return the releases that ship the TFT of the ``device`` query param.
+        """Return the TFT versions the ``device`` query param can install.
 
-        Runs on the device's worker thread, which shares the hub-level release
-        cache.  Returns ``releases`` (tags, newest first), ``required`` (the
-        firmware's ``yaml_version``) and ``error`` (why GitHub could not be
-        read, or null) for the editor's TFT install picker.
+        Runs on the device's worker thread.  Returns ``releases`` (the TFT
+        version the firmware's manifest ships, if any), ``required`` (the
+        version the firmware requires (``tft_required_version``), and ``error`` (why the manifest
+        could not be read) for the editor's TFT install picker.  The display TFT comes from the
+        manifest; use the From URL path for other versions.
         """
         hass = request.app["hass"]
         device_name = _query_device(request)

@@ -92,6 +92,35 @@ test('the Device Manager keeps TFT install in the More menu when versions are un
   assert.match(labels, /Firmware Unknown/);
 });
 
+test('the Device Manager compares TFT status with the required TFT version', () => {
+  const DeviceManager = customElements.get('nspanel-dialog-device-manager');
+  const dlg = Object.create(DeviceManager.prototype);
+  Object.assign(dlg, {
+    devices: { kitchen: { config: {}, panels: [] } },
+    selectedDevice: 'kitchen',
+    _deviceMenuIndex: -1,
+    hass: {},
+  });
+
+  dlg._deviceStatuses = {
+    kitchen: {
+      device_info: {
+        yaml_version: '0.4.4',
+        tft_required_version: '0.4.3',
+        tft_version: '0.4.3',
+      },
+    },
+  };
+  let labels = collectTemplateStrings(dlg._renderDeviceRow('kitchen')).join(' ');
+  assert.match(labels, /Firmware 0\.4\.4/);
+  assert.match(labels, /Display 0\.4\.3/);
+  assert.doesNotMatch(labels, /update pending/);
+
+  dlg._deviceStatuses.kitchen.device_info.tft_version = '0.4.2';
+  labels = collectTemplateStrings(dlg._renderDeviceRow('kitchen')).join(' ');
+  assert.match(labels, /update pending/);
+});
+
 test('the Device Manager emits add-device with the detail the editor handler reads', () => {
   const { dlg, events } = dialog('nspanel-dialog-device-manager', { devices: {}, _newDeviceName: 'office' });
   dlg._onAddDevice();

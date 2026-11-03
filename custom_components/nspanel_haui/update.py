@@ -8,9 +8,12 @@ Exposes two update entities per panel:
   latest GitHub release's).  Installing flashes the manifest's image with the
   firmware's ``install_firmware_url`` action.
 - "HAUI Display" — the display TFT.  The installed version is the TFT the
-  display reports, the latest version the TFT the firmware needs (its
-  ``yaml_version``).  Installing runs the hub's TFT update: the device
-  downloads the matching GitHub release TFT and flashes the display.
+  display reports, the latest version the TFT the firmware's manifest names in
+  its ``tft`` block (the one the firmware needs).  A manifest without a ``tft``
+  block (dev firmware ships no display TFT) reports the installed TFT as the
+  latest, so no update is offered.  Installing runs the hub's TFT update: the
+  device downloads the manifest's TFT for its display model and flashes the
+  display.
 
 State arrives as events that the update controller fires on every version or
 update-state change, so no polling or worker round-trip is needed.
@@ -223,11 +226,11 @@ class NSPanelDisplayUpdate(_NSPanelUpdate):
         return self._update_state == UPDATE_STATE_INSTALLING
 
     async def async_install(self, version: str | None, backup: bool, **kwargs: Any) -> None:
-        """Install the TFT the firmware needs, or the GitHub release ``version``.
+        """Install the TFT the firmware's manifest names, or the manifest ``version``.
 
         Raises:
             HomeAssistantError: When the install could not start (device
-                offline, no matching GitHub release, upload command not sent).
+                offline, no TFT in the manifest, upload command not sent).
         """
         result = await self._app.async_run_on_worker(self._app.install_tft, version)
         if result.get("state") == UPDATE_STATE_ERROR:

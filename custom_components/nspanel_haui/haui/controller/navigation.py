@@ -59,12 +59,14 @@ class HAUINavigationController(HAUIBase):
         self._idle_panels: list[HAUIPanel] = []  # carousel, cycles on each entry
         self._idle_panel_idx = 0  # next carousel index
         self._idle_profile_night: bool | None = None
-        # True while the idle page is the displayed panel.  This is the
-        # only hub session state around display idle: opening the page enters
-        # it, any user input / navigation away from the page leaves it.  The
-        # display off state itself lives in the firmware (brightness/state
+        # True while the idle page is the displayed panel. A stacked overlay
+        # can suspend this session and resume it when the stack returns to idle.
+        # The display off state itself lives in the firmware (brightness/state
         # machine) and never requires a page switch.
         self._idle_panel_active = False
+        # An overlay opened from the idle page suspends its session until the
+        # overlay stack returns to that page.
+        self._idle_panel_suspended = False
         self._page_timeout: str | None = None  # Timer for switching pages
         # Monotonic time the pending page change was requested.  A touch while
         # this is stale means the goto_page command was lost, so we re-send it.
@@ -412,13 +414,17 @@ class HAUINavigationController(HAUIBase):
             self._open_home_fallback()
             return
 
-        # Opening any panel other than the idle page is a wake input:
-        # leave the idle session so the next page-timeout doesn't yank the
-        # user back to the idle page and touch handling doesn't treat the new
-        # panel as an idle screen.  Covers gestures, function buttons, the
-        # open_panel service and connect/reconnect restore alike.
-        if self._idle_panel_active and self._idle_panel and panel.id != self._idle_panel.id:
+        # An overlay opened from idle suspends the session so touches on the
+        # overlay do not wake through it; closing back to idle resumes it.
+        if self._idle_panel_suspended and self._idle_panel and panel.id == self._idle_panel.id:
+            self._idle_panel_suspended = False
+            self._idle_panel_active = True
+            self.app.device.on_idle_page_opened()
+        elif self._idle_panel_active and self._idle_panel and panel.id != self._idle_panel.id:
+            self._idle_panel_suspended = not panel.show_in_navigation()
             self._idle_panel_active = False
+        elif self._idle_panel_suspended and panel.show_in_navigation():
+            self._idle_panel_suspended = False
         page_id = get_page_id_for_panel(panel.get_type())
         page_class = get_page_class_for_panel(panel.get_type())
         if page_id is None or page_class is None:
@@ -787,6 +793,7 @@ class HAUINavigationController(HAUIBase):
         reset.
         """
         self._idle_panel_active = False
+        self._idle_panel_suspended = False
 
     def exit_idle_to_prev_or_home(self, config: dict | None) -> None:
         """Exit the idle page: restore the prior panel or open home.

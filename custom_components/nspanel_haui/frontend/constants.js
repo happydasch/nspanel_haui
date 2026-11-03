@@ -86,15 +86,27 @@ export const DEVICE_CONFIG_DEFAULTS = {
     check_on_connect: true,
     update_interval: 3600,
     firmware_auto_update: false,
+    firmware_update_channel: "stable",
     auto_install: true,
   },
 };
 
-// Mirrors DEFAULT_CONFIG["update"]["firmware_manifest_url"] in Python.  It is
-// not part of DEVICE_CONFIG_DEFAULTS: the store holds the URL only when a
-// device overrides it (a test panel following local test releases).
+// Mirrors DEFAULT_CONFIG["update"]["firmware_manifest_url"] in Python (the
+// stable channel's manifest).  It is not part of DEVICE_CONFIG_DEFAULTS: the
+// store holds the URL only when a device overrides it (a test panel following
+// a local test release).
 export const DEFAULT_FIRMWARE_MANIFEST_URL =
   "https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json";
+
+// The fixed dev manifest (mirrors FIRMWARE_MANIFEST_URLS["dev"] in Python):
+// the development workflow keeps this release on the newest successful dev
+// build, so a device on the dev channel always follows it.
+export const DEV_FIRMWARE_MANIFEST_URL =
+  "https://github.com/happydasch/nspanel_haui/releases/download/dev-latest/firmware-manifest.json";
+
+// Mirrors FirmwareUpdateChannel in Python — the channel the HAUI Firmware
+// entity follows when firmware_manifest_url is left empty.
+export const FIRMWARE_UPDATE_CHANNELS = ["stable", "dev"];
 
 /**
  * Supported locale options for the device config locale dropdown.

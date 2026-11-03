@@ -106,12 +106,14 @@ script:
           ESP_LOGD("haui", "Script: publish_device_info");
           auto device_version = std::string(ESPHOME_VERSION);
           auto yaml_version = "$yaml_version";
+          auto tft_required_version = "$tft_version";
           auto firmware_variant = "$firmware_variant";
           const json::json_build_t payload = [
-              device_version, yaml_version, firmware_variant
+              device_version, yaml_version, tft_required_version, firmware_variant
           ](JsonObject root) {
             root["device_version"] = device_version;
             root["yaml_version"] = yaml_version;
+            root["tft_required_version"] = tft_required_version;
             root["firmware_variant"] = firmware_variant;
           };
           std::string payload_str = json::build_json(payload);
@@ -141,13 +143,14 @@ script:
               : display_state_int == 1 ? "dim" : "off";
           auto tft_version_str = id(tft_version).state;
           auto yaml_version = "$yaml_version";
+          auto tft_required_version = "$tft_version";
           auto firmware_variant = "$firmware_variant";
           auto wifi_ssid_str = id(wifi_ssid).state;
           float wifi_rssi_val = id(wifi_rssi).state;
           const json::json_build_t payload = [
               page_val, brightness_val, button_left_val, button_right_val,
               relay_left_val, relay_right_val, use_relay_left_val, use_relay_right_val,
-              display_state_val, yaml_version, tft_version_str,
+              display_state_val, yaml_version, tft_version_str, tft_required_version,
               wifi_ssid_str, wifi_rssi_val, firmware_variant
           ](JsonObject root) {
             root["page"] = page_val;
@@ -161,6 +164,7 @@ script:
             root["display_state"] = display_state_val;
             root["yaml_version"] = yaml_version;
             root["tft_version"] = tft_version_str;
+            root["tft_required_version"] = tft_required_version;
             root["ssid"] = wifi_ssid_str;
             root["rssi"] = wifi_rssi_val;
             root["firmware_variant"] = firmware_variant;

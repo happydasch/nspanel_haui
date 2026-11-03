@@ -159,8 +159,9 @@ For your own `custom` firmware, follow
 [Your custom firmware: choose `dev` or `master`](release.md#your-custom-firmware-choose-dev-or-master)
 to build the checked-out branch with a commit-identifying version and publish it
 to a local manifest. For the CI-built universal `dev` image, set the test panel's
-**Firmware manifest URL** to the
-[published dev manifest](release.md#published-development-firmware).
+**Firmware update channel** to `dev` (or point its **Firmware manifest URL** at
+the
+[published dev manifest](release.md#published-development-firmware)).
 The hub logs manifest reads, install starts and outcomes; the Device Manager
 shows install errors.
 

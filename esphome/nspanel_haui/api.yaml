@@ -200,9 +200,11 @@ api:
         - script.execute: publish_haui_discover
 
 
-    # Action to send a notification
-    # ``persistent`` and ``text_size`` are optional; omitted values fall back
-    # to false / "" (the client applies the defaults).
+    # Action to send a notification.
+    # ESPHome 2026.10 has no optional action variables, so every parameter is
+    # required: pass an empty ``icon`` when no icon is wanted and ``false`` /
+    # ``"auto"`` for the defaults.  (The HA service and notify entities expose
+    # the same fields as optional.)
     - action: send_notification
       variables:
         title: string

@@ -47,18 +47,16 @@ jobs:
           git diff --exit-code -- custom_components/nspanel_haui/haui/locale scripts/translations/translate.json
 
       - name: Check version sources agree
-        # manifest.json is the source of truth.  bump_version.py --check fails
-        # when pyproject.toml, version.yaml or either HMI's system.tftVersion
-        # disagrees — the drift previously only surfaced in the release gate.
-        # A release that ships the previous TFT unchanged sets the
-        # TFT_VERSION_PIN repository variable (to the pinned TFT version) and
-        # the HMI/tftVersion expectation is skipped here — delete the variable
-        # again when a release bumps the TFTs.
+        # manifest.json is the source of truth. bump_version.py --check fails
+        # when pyproject.toml, firmware yaml_version or the selected TFT sources
+        # disagree. TFT releases include --tft-update; firmware-only releases
+        # leave tft_version/HMI unchanged. TFT_VERSION_PIN is kept for the HMI
+        # release-gate override when those TFTs are carried forward unchanged.
         run: |
           VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
-          TFT_FLAG=""
+          TFT_FLAG="--tft-update"
           if [ -n "${{ vars.TFT_VERSION_PIN }}" ]; then
-            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; skipping the HMI/tftVersion check"
+            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; checking firmware versions only"
             TFT_FLAG="--text-only"
           fi
           python3 scripts/bump_version.py "$VERSION" $TFT_FLAG --check

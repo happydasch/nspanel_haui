@@ -135,6 +135,14 @@ can close:
   matching TFT follows, and confirm the buzzer is silent during OTA and reboot.
 - Investigate the old-bootloader OTA rollback warning; rollback capability is
   not confirmed and unattended updates should not be treated as rollback-safe.
+- **Encrypted native OTA** (issue #81) — replace the `ota` `password` in
+  `esphome/nspanel_haui/base.yaml` with `encryption` keyed by the existing
+  `api_encryption_key`, so builds no longer warn that a password wastes flash
+  and RAM. Preserve the `on_begin` suspend hook and the separate
+  `http_request` OTA platform that the firmware auto-update action uses.
+  Update the surrounding configs (`install.yaml`, dev/universal variants,
+  `secrets.yaml.example`) and document the migration for panels already flashed
+  with the password-protected config, plus the ESPHome docs.
 - Issue #50 (notification enhancements) stays documentation-only: notification
   behavior is tracked and verified on both display models during this pass; no
   font-size or other notification implementation is planned.
@@ -142,6 +150,22 @@ can close:
   lookup work in production (lazy entity-registry import) and add an optional
   per-page **Inside temperature sensor** picker (default: NSPanel internal
   sensor).
+
+**Update-flow and notification polish (reported on hardware during this pass):**
+
+- Notifications — when an update is available the message shows as a lot of
+  pages of split/chunked text with no complete text; show the full text
+  instead of fragmented pages.
+- Notifications — icon-less notifications should use the whole notification
+  space (currently they do not fill the area meant for an icon).
+- Notifications — the notification `timeout` should work again (regression;
+  see the 0.4.4 hotfix).
+- Update — make automatic firmware update optional rather than always-on;
+  keep the manual HAUI Firmware update entity.
+- Update — make a release without a TFT possible (decouple the firmware and
+  TFT so a firmware-only build can be released/installed).
+- Update — notify only once per available update and do not pester/overload
+  the display with repeated update notifications.
 
 - **ESPHome vs. HAUI sensor ownership review** — inventory the ESPHome sensor
   entities and HAUI sensor platform, then make the boundary explicit:
@@ -175,18 +199,31 @@ replacing the broader v0.4.5 passlist.
 
 ---
 
-## v0.4.5 — encrypted native OTA (planned)
+## v0.4.6 — dim/idle display wake flash (planned)
 
-**Status: planned, unreleased.**
+**Status: planned.**
 
-- **Encrypted native OTA** (issue #81) — replace the `ota` `password` in
-  `esphome/nspanel_haui/base.yaml` with `encryption` keyed by the existing
-  `api_encryption_key`, so builds no longer warn that a password wastes flash
-  and RAM. Preserve the `on_begin` suspend hook and the separate
-  `http_request` OTA platform that the firmware auto-update action uses.
-  Update the surrounding configs (`install.yaml`, dev/universal variants,
-  `secrets.yaml.example`) and document the migration for panels already flashed
-  with the password-protected config, plus the ESPHome docs.
+- **Periodic full-brightness flash while the display is dimmed or on the
+  idle screen** — the panel periodically jumps to full brightness and then
+  fades back to the dim value.  Every reconnect re-flashes it: the hub's
+  connection controller re-sends ``reset_last_interaction`` on each
+  transition into CONNECTED (`connection.py:_on_entering_connected`), and
+  the firmware's ``check_display`` computes brightness from time since
+  ``last_interaction``, so the reset snaps the backlight to
+  ``brightness_full`` before the normal ramp fades it back to
+  ``brightness_dim``.  The reconnects come from missed heartbeats; the
+  auto-update link is that the update controller's synchronous GitHub
+  manifest request (`requests.get`, timeout 10 s) runs on the same worker
+  thread as the hub→device heartbeat timer, so a slow update check can
+  delay the heartbeat long enough for the device's 2×interval timeout to
+  trip and reconnect.
+- **Fix direction** — skip the reconnect ``reset_last_interaction`` when
+  the display is not visible (``display_state`` is ``dim``/``off``): the
+  device-side display-state machine already keeps the screen dimmed/off, so
+  a reconnect must not force a full-brightness ramp.  Keep the update
+  manifest/release reads from stalling the worker's heartbeat processing
+  (off-thread fetch or a bounded non-blocking update check) so a slow
+  GitHub round-trip cannot trigger the reconnect in the first place.
 
 ---
 

@@ -15,8 +15,38 @@ if TYPE_CHECKING:
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
-from ..mapping.const import ESPAction, ESPRequest, ESPResponse, SysPanelKey
+from ..mapping.const import (
+    FIRMWARE_MANIFEST_URLS,
+    ESPAction,
+    ESPRequest,
+    ESPResponse,
+    FirmwareUpdateChannel,
+    SysPanelKey,
+)
 from ..utils.text import trim_text
+
+# The update model mirrors Home Assistant's own version comparison
+# (``AwesomeVersion``, see ``homeassistant.components.update.entity``) so the
+# hub's decision and the HAUI update entities can never disagree.  ``awesomeversion``
+# ships with Home Assistant; the packaging fallback only covers a bare
+# environment without it (production and CI always take the AwesomeVersion
+# branch, because requirements-dev.txt pins homeassistant, which depends on it).
+try:
+    from awesomeversion import AwesomeVersion, AwesomeVersionCompareException
+except ImportError:  # pragma: no cover - Home Assistant always ships awesomeversion
+    AwesomeVersion = None  # type: ignore[assignment,misc]
+    AwesomeVersionCompareException = Exception  # type: ignore[assignment,misc]
+
+
+def _version_is_newer_cmp(latest: str, installed: str) -> bool:
+    """Whether ``latest`` is strictly newer than ``installed`` (HA semantics).
+
+    Raises:
+        AwesomeVersionCompareException: When the versions cannot be compared
+    """
+    if AwesomeVersion is None:  # pragma: no cover - packaging fallback
+        return parse(latest) > parse(installed)
+    return bool(AwesomeVersion(latest) > installed)
 
 # TFT update states reported to the editor.  There is no byte-level progress
 # signal from the display, so only coarse transitions are exposed:
@@ -40,10 +70,12 @@ VERIFY_REFRESH_SECONDS = 60
 VERIFY_MAX_REFRESHES = 2
 
 # Firmware update.  The hub reads the firmware manifest at the device's
-# ``firmware_manifest_url`` (by default the one of the latest GitHub release)
-# and, when it names a newer version, flashes its image with the firmware's
-# ``install_firmware_url`` action; the TFT the new firmware needs follows after
-# the reboot.  A failed automatic install is retried at most once an hour.
+# ``firmware_manifest_url`` (by default the one of the ``firmware_update_channel``:
+# the latest stable GitHub release, or the published dev firmware) and, when it
+# names a newer version, flashes its image with the firmware's
+# ``install_firmware_url`` action; the display TFT the new firmware's manifest
+# ships follows after the reboot.  A failed automatic install is retried at
+# most once an hour.
 FIRMWARE_RETRY_SECONDS = 60 * 60
 # The device downloads and flashes the image, then reboots.  An install that
 # has not ended in a reconnect after this long failed without a reboot.
@@ -88,17 +120,19 @@ _release_cache_lock = threading.Lock()
 class HAUIUpdateController(HAUIBase):
     """Update Controller
 
-    Keeps the display's TFT file at the version the firmware needs.
+    Keeps the display's TFT file at the version the firmware's manifest ships
+    (``manifest.tft``; a manifest without a ``tft`` block — dev firmware ships
+    none — needs no display update), and offers/installs the firmware the
+    manifest at ``firmware_manifest_url`` names.
 
     - On every connect (after ``on_connect_delay`` seconds) the installed TFT
-      version is compared with the firmware's ``yaml_version``. An older TFT is
-      replaced with the TFT of the GitHub release with that version: right away
-      when ``auto_install`` is on (the default), otherwise after the user
-      confirms on the display.
+      version is compared with the TFT the firmware's manifest ships. An older
+      TFT is replaced right away when ``auto_install`` is on (the default),
+      otherwise after the user confirms on the display.
     - Optionally (``check_on_connect`` or ``update_interval`` > 0) the display
-      shows a notice when a newer release exists. It never installs that TFT: it
-      has to match the integration and the firmware, so it follows once those are
-      updated.
+      shows a notice when a newer GitHub release exists; the TFT installs only
+      via the firmware's manifest, so the notice keeps pointing at the
+      integration/firmware update that ships the matching TFT.
     """
 
     # hard-coded url for haui releases on github; a page holds every release
@@ -201,7 +235,7 @@ class HAUIUpdateController(HAUIBase):
         self._start_timer()
         # On start and whenever a config reload changed the URL, so the HAUI
         # Firmware entity shows what the configured manifest offers right away.
-        if self.get("firmware_manifest_url") != self._firmware_manifest_url:
+        if self._resolve_firmware_manifest_url() != self._firmware_manifest_url:
             self._refresh_firmware_manifest()
 
     def stop_part(self) -> None:
@@ -230,6 +264,48 @@ class HAUIUpdateController(HAUIBase):
             return parse(version)
         except InvalidVersion:
             return None
+
+    def _version_is_newer(self, latest: str | None, installed: str | None) -> bool | None:
+        """Whether ``latest`` is strictly newer than ``installed``.
+
+        Uses the same comparison Home Assistant applies to update entities
+        (``AwesomeVersion``), so the hub never offers — or auto-installs —
+        a firmware Home Assistant itself would consider older.  Returns None
+        when either side does not parse as a version, or AwesomeVersion cannot
+        compare them: an *unknown* version is never a reason to install.  In
+        particular a same-base stable release over an installed dev build
+        (``0.4.4`` over ``0.4.4.dev3+g...``) compares as not newer, so the
+        dev build is never downgraded automatically.
+        """
+        if latest is None or installed is None:
+            return None
+        if (
+            self._try_parse_version(latest) is None
+            or self._try_parse_version(installed) is None
+        ):
+            return None
+        try:
+            return _version_is_newer_cmp(latest, installed)
+        except AwesomeVersionCompareException:
+            # Home Assistant falls back to "update available" here; the hub
+            # treats an incomparable version as unknown instead (see above).
+            return None
+
+    def _resolve_firmware_manifest_url(self) -> str:
+        """The manifest URL this device follows: the explicit override, or the channel's.
+
+        ``firmware_manifest_url`` stays the explicit override (local/custom
+        manifests); the shipped default value — the stable channel's URL — is
+        not an override, so the ``firmware_update_channel`` decides whenever
+        the setting was left empty in the editor (the store only holds an
+        override anyway).
+        """
+        explicit = (self.get("firmware_manifest_url") or "").strip()
+        default = FIRMWARE_MANIFEST_URLS[FirmwareUpdateChannel.STABLE]
+        if explicit and explicit != default:
+            return explicit
+        channel = str(self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE))
+        return FIRMWARE_MANIFEST_URLS.get(channel, default)
 
     def _update_release_infos(self, force: bool = False) -> None:
         """Updates the release informations.
@@ -332,46 +408,12 @@ class HAUIUpdateController(HAUIBase):
                 return release
         return None
 
-    def _get_tft_filename(self) -> str:
-        """Resolve the TFT asset filename for this device's display model.
-
-        ``update.tft_filename`` remains an explicit override; when it is left
-        at the generic default, the device's ``display_model`` decides which
-        release asset to install (EU and US-landscape share the landscape
-        TFT, the US portrait model needs the rotated one).
-        """
-        from ..device_config import tft_filename_for_model
-        from ..mapping.const import DEFAULT_CONFIG
-
-        configured = self.get("tft_filename")
-        default = DEFAULT_CONFIG["update"].get("tft_filename", "nspanel_haui.tft")
-        if configured and configured != default:
-            return configured
-        return tft_filename_for_model(self.app.device.display_model)
-
-    def _get_update_url(self, release_info: dict[str, Any] | None) -> str | None:
-        """Returns the update url to the tft file from given release.
-
-        Args:
-            release_info (dict): Release info
-
-        Returns:
-            None|str: Update url
-        """
-        if release_info is None:
-            return None
-        tft_filename = self._get_tft_filename()
-        assets = release_info["assets"]
-        tft_file_asset = None
-        for asset in assets:
-            if asset["name"] == tft_filename:
-                tft_file_asset = asset
-        if tft_file_asset is None:
-            return None
-        return tft_file_asset["browser_download_url"]
-
     def _is_update_available(self) -> bool:
         """Returns if a update is available.
+
+        Compares the installed TFT with the newest GitHub release; both must
+        parse, and the comparison follows Home Assistant's own semantics (see
+        ``_version_is_newer``).
 
         Returns:
             bool: True if an update is available, False if not
@@ -380,11 +422,12 @@ class HAUIUpdateController(HAUIBase):
         latest_release = self._get_latest_release()
         if device_info is None or latest_release is None:
             return False
-        current_version = self._try_parse_version(device_info.get("tft_version"))
-        latest_version = self._try_parse_version(latest_release.get("tag_name"))
-        if current_version is None or latest_version is None:
-            return False
-        return current_version < latest_version
+        return (
+            self._version_is_newer(
+                latest_release.get("tag_name"), device_info.get("tft_version")
+            )
+            is True
+        )
 
     # firmware update
 
@@ -397,10 +440,17 @@ class HAUIUpdateController(HAUIBase):
         optional ``variant`` names the build variant the image was compiled
         from (``universal`` for the release image, ``custom`` for a build
         from ``install.yaml``); a manifest without one is treated as unknown.
+        The optional ``tft`` block names the display TFT of the release
+        (``version`` plus per-``display_model`` ``assets``); the asset for
+        this device's model is resolved here, so a manifest without a ``tft``
+        block (dev firmware ships no TFT) yields an empty ``tft_version`` /
+        ``tft_url`` and the display stays on its current TFT.
 
         Returns:
-            dict: ``version``, ``url`` (of the OTA app image), ``md5`` and
-            ``variant`` ("" when the manifest names none)
+            dict: ``version``, ``url`` (of the OTA app image), ``md5``,
+            ``variant`` ("" when the manifest names none), ``tft_version``
+            and ``tft_url`` ("" when the manifest ships no display TFT for
+            this device's model)
 
         Raises:
             RuntimeError: When the manifest cannot be read
@@ -408,12 +458,33 @@ class HAUIUpdateController(HAUIBase):
         try:
             manifest = requests.get(url, timeout=10).json()
             ota = manifest["builds"][0]["ota"]
-            return {
+            info = {
                 "version": str(manifest["version"]),
                 "url": urljoin(url, ota["path"]),
                 "md5": ota["md5"],
                 "variant": str(manifest.get("variant") or ""),
+                "tft_version": "",
+                "tft_url": "",
             }
+            tft = manifest.get("tft")
+            if isinstance(tft, dict):
+                assets = tft.get("assets")
+                asset = None
+                if isinstance(assets, dict):
+                    model = str(self.app.device.display_model or "").lower()
+                    if model not in ("eu", "us"):
+                        model = "eu"  # unknown model: default to the landscape layout
+                    asset = assets.get(model) if model in assets else None
+                # A bare string path or a {"path": ...} object are both accepted.
+                tft_path: Any = asset if isinstance(asset, str) else None
+                if isinstance(asset, dict):
+                    tft_path = asset.get("path")
+                if isinstance(tft_path, str) and tft_path:
+                    info["tft_url"] = urljoin(url, tft_path)
+                    tft_version = tft.get("version")
+                    if isinstance(tft_version, str) and tft_version:
+                        info["tft_version"] = tft_version
+            return info
         except (requests.exceptions.RequestException, ValueError, LookupError, TypeError) as exc:
             raise RuntimeError(f"Could not read the firmware manifest {url}: {exc}") from exc
 
@@ -424,7 +495,7 @@ class HAUIUpdateController(HAUIBase):
         after the URL changed, the old manifest would offer a firmware the
         panel is no longer meant to follow.
         """
-        url = self.get("firmware_manifest_url")
+        url = self._resolve_firmware_manifest_url()
         self._firmware_manifest_url = url
         try:
             if not url:
@@ -439,6 +510,12 @@ class HAUIUpdateController(HAUIBase):
         """Whether two version strings name the same version (``v`` prefix ignored)."""
         first_v = self._try_parse_version(first)
         return first_v is not None and first_v == self._try_parse_version(second)
+
+    def _required_tft_version(self, device_info: dict[str, Any]) -> str | None:
+        """Return the TFT version declared by firmware, supporting older firmware."""
+        key = "tft_required_version"
+        version = device_info.get(key) if key in device_info else device_info.get("yaml_version")
+        return version if isinstance(version, str) and version else None
 
     def _firmware_variant_compatible(self, manifest_variant: str | None) -> bool:
         """Whether the manifest's firmware may be installed on this panel.
@@ -484,26 +561,63 @@ class HAUIUpdateController(HAUIBase):
             f"panel runs the {device_variant!r} one; they are not interchangeable"
         )
 
+    def _invalid_installed_reason(self) -> str | None:
+        """Explain an unparseable ``yaml_version`` reported by the panel.
+
+        Home Assistant's update entity falls back to "update available" when it
+        cannot compare two versions, so an invalid installed version would make
+        it offer the manifest's firmware on every check.  The hub withholds the
+        offer instead and reports the installed version as unknown.
+
+        Returns:
+            str | None: A user-facing reason, or None when the version parses
+        """
+        installed = (self.app.device.device_info or {}).get("yaml_version")
+        if self._try_parse_version(installed) is not None:
+            return None
+        if not installed:
+            return "The panel has not reported its firmware version yet"
+        return (
+            f"The panel reports an invalid firmware version {installed!r}; "
+            "Home Assistant cannot compare it (it would offer an update on every "
+            "check), so the hub withholds the offer. Reinstall the firmware with a "
+            "parseable version (a release or a next-patch X.Y.(Z+1).devN build)"
+        )
+
+    def _firmware_update_reason(self) -> str | None:
+        """Explain why the manifest's firmware is not offered on this panel.
+
+        Returns:
+            str | None: A user-facing reason, or None when the manifest offers
+            this panel an update (or there is no manifest to judge).
+        """
+        if self._firmware_manifest is None:
+            return None
+        return self._firmware_variant_mismatch_reason() or self._invalid_installed_reason()
+
     def _firmware_update_available(self) -> bool:
         """True when the manifest offers a newer firmware for *this* panel.
 
         A newer version alone is not enough: the manifest's build variant must
-        match the one the device reports, or the update is withheld entirely.
+        match the one the device reports (and the installed version must parse),
+        or the update is withheld entirely.  The comparison follows Home
+        Assistant's own semantics (``_version_is_newer``), so the hub never
+        offers a firmware the HAUI Firmware entity would not offer either.
         """
-        latest = self._try_parse_version(self._firmware_update_version())
-        installed = self._try_parse_version((self.app.device.device_info or {}).get("yaml_version"))
-        return latest is not None and installed is not None and latest > installed
+        installed = (self.app.device.device_info or {}).get("yaml_version")
+        return self._version_is_newer(self._firmware_update_version(), installed) is True
 
     def _firmware_update_version(self) -> str | None:
         """Return the firmware version the manifest offers this panel.
 
-        None when there is no manifest or its build variant does not match the
-        panel's: a custom build must never be shown the universal release as an
-        update (the HAUI Firmware entity reports no compatible release then).
+        None when there is no manifest, its build variant does not match the
+        panel's, or the installed version does not parse: a custom build must
+        never be shown the universal release as an update, and an unparseable
+        installed version must not reach Home Assistant's comparison (which
+        would offer the update on every check — the HAUI Firmware entity
+        reports no compatible release then).
         """
-        if self._firmware_manifest is None:
-            return None
-        if not self._firmware_variant_compatible(self._firmware_manifest.get("variant")):
+        if self._firmware_manifest is None or self._firmware_update_reason() is not None:
             return None
         return self._firmware_manifest["version"]
 
@@ -737,14 +851,15 @@ class HAUIUpdateController(HAUIBase):
         """Install the offered firmware, another release or the image at a URL.
 
         Without ``version`` and ``url`` it installs the firmware the manifest
-        at ``firmware_manifest_url`` offers, when it is newer than the one the
-        device runs; the manual install is not disabled by the
-        ``firmware_auto_update`` setting.  ``version`` installs that manifest
-        version, or else the GitHub release ``version`` (one with an
-        over-the-air image, older ones included); ``url`` installs an OTA app
-        image.  Installing anything but the manifest's firmware pauses the
-        automatic firmware update until Home Assistant restarts or the offered
-        update is installed.  Refuses to reboot during a TFT upload.
+        at ``firmware_manifest_url`` (or the ``firmware_update_channel``)
+        offers, when it is newer than the one the device runs; the manual
+        install is not disabled by the ``firmware_auto_update`` setting.
+        ``version`` installs that manifest version, or else the GitHub release
+        ``version`` (one with an over-the-air image, older ones included);
+        ``url`` installs an OTA app image.  Installing anything but the
+        manifest's firmware pauses the automatic firmware update until Home
+        Assistant restarts or the offered update is installed.  Refuses to
+        reboot during a TFT upload.
 
         Args:
             version (str | None): Version to install
@@ -769,12 +884,12 @@ class HAUIUpdateController(HAUIBase):
             if version is None:
                 if manifest is None:
                     self._firmware_install_error = (
-                        f"Could not read the firmware manifest {self.get('firmware_manifest_url')}"
+                        f"Could not read the firmware manifest {self._firmware_manifest_url}"
                     )
                     return self.get_update_state()
                 if not self._firmware_update_available():
                     self._firmware_install_error = (
-                        self._firmware_variant_mismatch_reason()
+                        self._firmware_update_reason()
                         or "No firmware update is available"
                     )
                     return self.get_update_state()
@@ -827,10 +942,17 @@ class HAUIUpdateController(HAUIBase):
         )
 
     def run_update_display(self, version: str) -> dict[str, Any]:
-        """Installs the TFT file of the GitHub release ``version`` on the display.
+        """Installs the TFT file the firmware manifest ships for this display model.
+
+        The manifest is the single TFT source: the release workflow names the
+        display TFT of the release in its ``tft`` block, and the asset for the
+        device's ``display_model`` is resolved against the manifest URL.  A
+        manifest without a ``tft`` block (dev firmware ships none) installs
+        nothing; the TFT then comes from a URL (``install_tft_url``).
 
         Args:
-            version (str): Release version, the firmware's ``yaml_version``
+            version (str): TFT version required by the firmware's ``tft_version``
+            substitution; it must equal the version the manifest's TFT block names
 
         Returns:
             dict: The update state after the attempt (``get_update_state()``);
@@ -838,26 +960,33 @@ class HAUIUpdateController(HAUIBase):
             ``last_error`` to report the outcome to the user.
         """
         self._set_update_state(UPDATE_STATE_CHECKING, version=version)
-        try:
-            self._update_release_infos()
-            update_url = self._get_update_url(self._find_release(version))
-            if update_url is None:
-                # The shared cache can predate the release the firmware was
-                # just updated to: a firmware install skips the release fetch,
-                # so the TFT check after its reboot would miss the new release.
-                self._update_release_infos(force=True)
-                update_url = self._get_update_url(self._find_release(version))
-        except RuntimeError as exc:
-            self.log(f"TFT update failed: {exc}", level="ERROR")
-            self._set_update_state(UPDATE_STATE_ERROR, version=version, error=str(exc))
-            return self.get_update_state()
-        if update_url is None:
-            msg = f"No GitHub release {version} with {self._get_tft_filename()}; TFT not updated"
+        if self._firmware_manifest is None:
+            self._refresh_firmware_manifest()
+        manifest = self._firmware_manifest
+        tft_version = (manifest or {}).get("tft_version") or None
+        tft_url = (manifest or {}).get("tft_url") or None
+        if manifest is None or not tft_url or self._try_parse_version(tft_version) is None:
+            msg = (
+                f"The firmware manifest at {self._firmware_manifest_url} ships no TFT "
+                f"for version {version}; dev firmware publishes no display TFT. "
+                "Install the TFT from a URL instead"
+                if manifest is not None
+                else f"Could not read the firmware manifest {self._firmware_manifest_url}"
+            )
             self.log(msg, level="WARNING")
             self._set_update_state(UPDATE_STATE_ERROR, version=version, error=msg)
             return self.get_update_state()
-        self.log(f"Installing TFT {version} from {update_url}")
-        return self._start_tft_upload(update_url, version)
+        if not self._same_version(version, tft_version):
+            msg = (
+                f"The firmware manifest ships the {tft_version} TFT, not one for "
+                f"{version}; the display TFT follows the manifest. Install the TFT "
+                "from a URL to use another version"
+            )
+            self.log(msg, level="WARNING")
+            self._set_update_state(UPDATE_STATE_ERROR, version=version, error=msg)
+            return self.get_update_state()
+        self.log(f"Installing TFT {version} from {tft_url}")
+        return self._start_tft_upload(tft_url, version)
 
     def _start_tft_upload(self, url: str, version: str | None) -> dict[str, Any]:
         """Send the TFT at ``url`` to the device and track the install.
@@ -890,15 +1019,16 @@ class HAUIUpdateController(HAUIBase):
     def install_tft(self, version: str | None = None) -> dict[str, Any]:
         """Trigger a TFT install from the editor.
 
-        Installs the TFT of the GitHub release ``version``; when ``version`` is
-        omitted the firmware's ``yaml_version`` (the version the firmware needs)
-        is installed.  Another release, older ones included, is kept until the
-        firmware's ``yaml_version`` changes (see ``_manual_tft_firmware``).  The
-        update runs on the device worker, so this method must be called via
+        Installs the TFT the firmware manifest ships (the release's ``tft``
+        block for this device's display model); when ``version`` is omitted the
+        manifest's TFT version — the one the firmware needs — is installed.
+        A manifest without a ``tft`` block (dev firmware ships none) installs
+        nothing; install the TFT from a URL for those.  The update runs on the
+        device worker, so this method must be called via
         ``app.async_run_on_worker``.
 
         Args:
-            version (str | None): Release version to install
+            version (str | None): Manifest TFT version to install
 
         Returns:
             dict: The update state after the attempt; ``state`` is
@@ -909,15 +1039,17 @@ class HAUIUpdateController(HAUIBase):
             self.log("Cannot install the TFT while the device is disconnected", level="WARNING")
             self._set_update_state(UPDATE_STATE_ERROR, error="device disconnected")
             return self.get_update_state()
-        required = (self.app.device.device_info or {}).get("yaml_version")
+        device_info = self.app.device.device_info or {}
+        firmware_version = device_info.get("yaml_version")
+        required = self._required_tft_version(device_info)
         if version is None:
             version = required
         if not version:
             self.log(
-                "No yaml_version reported by the firmware; cannot install the TFT",
+                "No TFT version requirement reported by the firmware; cannot install the TFT",
                 level="WARNING",
             )
-            self._set_update_state(UPDATE_STATE_ERROR, error="no yaml_version reported")
+            self._set_update_state(UPDATE_STATE_ERROR, error="no TFT version requirement reported")
             return self.get_update_state()
         # A manual retry starts a fresh attempt: it must not be blocked by the
         # "install not confirmed" guard left over from a previous attempt.
@@ -925,37 +1057,40 @@ class HAUIUpdateController(HAUIBase):
         self._last_install_at = None
         result = self.run_update_display(version)
         if result["state"] == UPDATE_STATE_INSTALLING:
-            matches = self._try_parse_version(version) == self._try_parse_version(required)
-            self._manual_tft_firmware = None if matches else required
+            matches = self._same_version(version, required)
+            self._manual_tft_firmware = None if matches else firmware_version
         return result
 
     def list_tft_releases(self) -> dict[str, Any]:
-        """List the GitHub releases that ship this device's TFT, newest first.
+        """List the TFT versions this panel can install, newest first.
 
-        For the editor's TFT install picker.  Call via
+        The TFT comes from the firmware manifest now (one update path), so the
+        only selectable version is the manifest's TFT — the one the firmware
+        needs; a manifest without a ``tft`` block lists none and the From URL
+        path stays available.  For the editor's TFT install picker.  Call via
         ``app.async_run_on_worker``.
 
         Returns:
-            dict: ``releases`` (release tags), ``required`` (the firmware's
-            ``yaml_version``) and ``error`` (why the release list could not be
-            fetched, or None)
+            dict: ``releases`` (the manifest's TFT version, if any),
+            ``required`` (the firmware's ``tft_version``) and ``error`` (why
+            the manifest could not be read, or None)
         """
-        required = (self.app.device.device_info or {}).get("yaml_version")
-        try:
-            self._update_release_infos()
-        except RuntimeError as exc:
-            return {"releases": [], "required": required, "error": str(exc)}
-        releases = []
-        for release in self._release_infos:
-            version = self._try_parse_version(release.get("tag_name"))
-            if version is not None and self._get_update_url(release) is not None:
-                releases.append((version, release["tag_name"]))
-        releases.sort(reverse=True)
-        tags = [tag for _version, tag in releases]
-        return {"releases": tags, "required": required, "error": None}
+        required = self._required_tft_version(self.app.device.device_info or {})
+        if self._firmware_manifest is None:
+            self._refresh_firmware_manifest()
+        manifest = self._firmware_manifest
+        releases = (
+            [manifest["tft_version"]] if manifest and manifest.get("tft_version") else []
+        )
+        error = (
+            None
+            if manifest is not None
+            else f"Could not read the firmware manifest {self._firmware_manifest_url}"
+        )
+        return {"releases": releases, "required": required, "error": error}
 
     def install_tft_url(self, url: str) -> dict[str, Any]:
-        """Install the TFT file at ``url`` instead of a GitHub release.
+        """Install the TFT file at ``url`` instead of the manifest's.
 
         For custom or development TFT builds.  The file carries no version the
         hub can check, so the install counts as done once the device reboots
@@ -1012,15 +1147,25 @@ class HAUIUpdateController(HAUIBase):
         self.publish_display_update()
 
     def publish_display_update(self) -> None:
-        """Fire the TFT versions and update state for the "HAUI Display" entity."""
+        """Fire the TFT versions and update state for the "HAUI Display" entity.
+
+        The latest version is the TFT the firmware manifest ships; without a
+        ``tft`` block (dev firmware ships none) there is no display update, so
+        the installed TFT is reported instead — the entity then shows itself up
+        to date instead of offering an install the manifest cannot serve.
+        """
         device_info = self.app.device.device_info or {}
+        manifest = self._firmware_manifest or {}
+        manifest_tft = manifest.get("tft_version") or None
         self.app.fire_event(
             DISPLAY_UPDATE_EVENT,
             {
                 "device": self.app.device.get_name(),
                 "connected": self.app.device.connected,
                 "installed_version": device_info.get("tft_version") or None,
-                "latest_version": device_info.get("yaml_version") or None,
+                "latest_version": (
+                    manifest_tft if manifest_tft else (device_info.get("tft_version") or None)
+                ),
                 "state": self._update_state,
                 "last_error": self._update_last_error,
             },
@@ -1042,6 +1187,7 @@ class HAUIUpdateController(HAUIBase):
             "last_error": self._update_last_error,
             "firmware_update_available": self._firmware_update_available(),
             "firmware_update_version": self._firmware_update_version(),
+            "firmware_update_reason": self._firmware_update_reason(),
             "firmware_installing": self._firmware_installing,
             "firmware_install_error": self._firmware_install_error,
         }
@@ -1068,8 +1214,8 @@ class HAUIUpdateController(HAUIBase):
         if requested_v is None:
             if self._install_verify_timer is None:
                 return  # no reboot yet: the upload has not finished
-        elif installed_v < requested_v:
-            return
+        elif self._version_is_newer(requested, installed) is True:
+            return  # the display still reports an older TFT
         self._set_update_state(UPDATE_STATE_DONE, version=requested)
         self._last_install_confirmed = True
         self._cancel_timer("_install_verify_timer")
@@ -1098,18 +1244,20 @@ class HAUIUpdateController(HAUIBase):
         self._cancel_timer("_install_verify_timer")
         self._cancel_timer("_install_timeout_timer")
 
-    def _install_missing_tft(self, required_version: str, installed_version: str | None) -> None:
+    def _install_missing_tft(
+        self, required_version: str, installed_version: str | None, firmware_version: str | None
+    ) -> None:
         """Install the required TFT automatically, or ask when ``auto_install`` is off."""
-        if self._manual_tft_firmware == required_version:
+        if self._manual_tft_firmware is not None and self._manual_tft_firmware == firmware_version:
             self.log(
                 f"Keeping the TFT installed by hand ({installed_version!r}) until the "
-                f"firmware changes from {required_version}"
+                f"firmware changes from {firmware_version}"
             )
             return
         if self._firmware_installing:
             # A firmware install reboots the device; a TFT upload now would be
             # cut off mid-transfer.  The version check runs again after the
-            # reconnect, when the new firmware's yaml_version decides the TFT.
+            # reconnect, when the new firmware's tft_version decides the TFT.
             self.log("Firmware update in flight; TFT install deferred until it finishes")
             return
         if self.get("auto_install", True):
@@ -1166,16 +1314,34 @@ class HAUIUpdateController(HAUIBase):
         never auto-installed, because the display may simply still be reading
         it.  Known versions are evaluated either way.
         """
-        required_version = device_info.get("yaml_version")
+        firmware_version = device_info.get("yaml_version")
+        required_version = self._required_tft_version(device_info)
         installed_version = device_info.get("tft_version")
         required = self._try_parse_version(required_version)
         if required is None or not isinstance(required_version, str):
-            msg = f"invalid yaml_version {required_version!r}"
+            version_field = (
+                "tft_required_version" if "tft_required_version" in device_info else "yaml_version"
+            )
+            msg = f"invalid {version_field} {required_version!r}"
             self.log(
-                "The firmware reported an invalid yaml_version; TFT not checked",
+                f"The firmware reported an invalid {version_field}; TFT not checked",
                 level="WARNING",
             )
             self._set_update_state(UPDATE_STATE_ERROR, version=self._update_version, error=msg)
+            return
+        # The manifest only has the TFT asset for its declared TFT version.
+        # It must match the version this firmware requires, which can differ
+        # from ``yaml_version`` on firmware-only releases. A manifest without
+        # ``tft`` cannot serve a display update; in that case the display keeps
+        # its current TFT.
+        manifest_tft = (self._firmware_manifest or {}).get("tft_version") or None
+        if self._try_parse_version(manifest_tft) is None or not self._same_version(
+            required_version, manifest_tft
+        ):
+            self.log(
+                f"The firmware manifest ships no TFT for {required_version}; "
+                f"the display stays on its current TFT"
+            )
             return
         installed = self._try_parse_version(installed_version)
         if not refresh_answered and installed is None:
@@ -1189,12 +1355,23 @@ class HAUIUpdateController(HAUIBase):
                 f"Checking installed version: required={required_version} "
                 f"installed={installed_version}"
             )
-            if installed >= required:
+            newer = self._version_is_newer(required_version, installed_version)
+            if newer is False:
                 self.log("Installed TFT version is up to date")
                 self._mark_done_if_installed()
                 self._last_install_confirmed = True
                 self._cancel_timer("_install_verify_timer")
                 self._cancel_timer("_install_timeout_timer")
+                return
+            if newer is None:
+                # Parseable under packaging but AwesomeVersion (which Home
+                # Assistant uses) cannot compare them: treat as unknown, never
+                # install on a guess.
+                self.log(
+                    f"TFT versions {required_version!r} and {installed_version!r} "
+                    "cannot be compared; not installing",
+                    level="WARNING",
+                )
                 return
             if self._recent_unconfirmed_install(required_version):
                 self._set_install_failed(
@@ -1202,7 +1379,7 @@ class HAUIUpdateController(HAUIBase):
                     "(auto-reinstall is disabled while unconfirmed)"
                 )
                 return
-            self._install_missing_tft(required_version, installed_version)
+            self._install_missing_tft(required_version, installed_version, firmware_version)
             return
         # The refresh answered but the display still has no version.
         if self._install_verify_timer is not None:
@@ -1218,7 +1395,7 @@ class HAUIUpdateController(HAUIBase):
             )
             return
         self.log(f"TFT version unknown, installing {required_version}")
-        self._install_missing_tft(required_version, installed_version)
+        self._install_missing_tft(required_version, installed_version, firmware_version)
 
     # install timing (the upload reboots the device, so confirmation is async)
 
@@ -1269,7 +1446,7 @@ class HAUIUpdateController(HAUIBase):
         self._start_install_verify_timer()
 
     def check_installed_version(self) -> None:
-        """Updates the TFT when it is older than the version the firmware needs.
+        """Updates the TFT when it is older than ``tft_required_version`` (or legacy yaml_version).
 
         The firmware publishes ``tft_version`` only in response to
         ``req_device_state``; the handshake reads it before the display
@@ -1282,7 +1459,7 @@ class HAUIUpdateController(HAUIBase):
             return
         device_info = self.app.device.device_info or {}
         installed_version = device_info.get("tft_version")
-        required_version = device_info.get("yaml_version")
+        required_version = self._required_tft_version(device_info)
         self.log(
             f"Checking installed version: required={required_version} installed={installed_version}"
         )
@@ -1394,7 +1571,8 @@ class HAUIUpdateController(HAUIBase):
         """Schedules the TFT check on connect and cancels it on disconnect.
 
         Called by the app once the connection handshake is complete, so the
-        device info holds ``tft_version`` and ``yaml_version``.
+        device info holds ``tft_version``, ``tft_required_version`` and
+        ``yaml_version``.
 
         A disconnect while ``installing`` is expected — the upload ends in a
         reboot — so that state is kept (the install timeout started at install
@@ -1462,12 +1640,12 @@ class HAUIUpdateController(HAUIBase):
             event (HAUIEvent): Event
         """
 
-        # device info received (device_version, yaml_version)
+        # device info received (device_version, yaml_version, tft_required_version)
         if event.name == ESPResponse.RES_DEVICE_INFO:
             device_info = event.as_json()
             self.app.device.set_device_info(device_info, append=True)
 
-        # device state received (includes yaml_version, tft_version)
+        # device state received (includes yaml_version, tft_required_version and tft_version)
         if event.name == ESPResponse.RES_DEVICE_STATE:
             device_state = event.as_json()
             self.app.device.set_device_info(device_state, append=True)

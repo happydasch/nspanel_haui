@@ -25,6 +25,15 @@ TFT until a later release updates it.
 
 ### Breaking changes
 
+- **The display TFT follows the firmware manifest (one update path)** — the
+  manifest each release ships now carries a `tft` block (version + per display
+  model asset); the **HAUI Display** entity and the TFT install actions read
+  it instead of looking up a matching GitHub release. The editor's TFT picker
+  therefore lists only the manifest's TFT (plus **From URL**); installing an
+  older release's TFT by version is no longer possible — use **From URL** for
+  that. A manifest without a `tft` block (dev firmware ships no display TFT)
+  offers no display update at all instead of failing to find a release.
+
 - **Firmware updates moved from the firmware to the integration** — the
   firmware drops its `update: platform: http_request` **HAUI Firmware** entity
   and the `firmware_manifest_url` substitution; ESPHome keeps only its stock
@@ -56,8 +65,22 @@ TFT until a later release updates it.
   firmware's own entity held is reclaimed once ESPHome removed that entity.
 - **Firmware manifest URL setting** — `update.firmware_manifest_url` (device
   editor → Updates) names the manifest the HAUI Firmware entity follows;
-  empty means the latest GitHub release. Test panels point it at the manifest
-  `scripts/dev_release.py` writes.
+  empty means the channel's manifest (see next bullet). Test panels point it
+  at the manifest `scripts/dev_release.py` writes.
+- **Firmware update channel setting** — `update.firmware_update_channel`
+  (`stable` or `dev`, default `stable`) picks the manifest the HAUI Firmware
+  entity follows when the URL is empty: the latest stable GitHub release, or
+  the published dev firmware (`dev-latest`). The manifest URL still overrides
+  the channel.
+- **Firmware version comparison matches Home Assistant** — the hub compares
+  versions with the same `AwesomeVersion` semantics the HAUI Firmware/HAUI
+  Display entities use, so the two never disagree: an established same-base
+  stable release is never offered or auto-installed over a dev build, and an
+  unparseable installed version (for example an old `dev-<run>-<sha>` build)
+  is withheld as unknown instead of being re-offered on every check. Dev
+  builds are validated to report a parseable next-patch version
+  (`X.Y.(Z+1).dev<run>+g<sha>`).
+
 - **Day/Night Profiles** — each device can select Day and Night display settings
   by a fixed local window or Home Assistant sunrise/sunset with minute offsets.
   Profiles cover brightness, dimming, page/idle target and display-off behavior;

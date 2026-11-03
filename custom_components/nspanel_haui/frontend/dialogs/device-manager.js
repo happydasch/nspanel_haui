@@ -279,6 +279,7 @@ class DeviceManagerDialog extends HauiDialog {
     const di = this._deviceStatuses?.[name]?.device_info;
     const updateStatus = this._deviceStatuses?.[name]?.update;
     const yaml = di?.yaml_version;
+    const requiredTft = di?.tft_required_version || yaml;
     const tft = di?.tft_version;
     const nw = di || {};
 
@@ -322,7 +323,7 @@ class DeviceManagerDialog extends HauiDialog {
             ${yaml
               ? html`<span class="info-chip" title="${t('ESPHome firmware version')}">${t('Firmware')} ${yaml}</span>`
               : html`<span class="info-chip" title="${t('ESPHome firmware version')}">${t('Firmware')} ${t('Unknown')}</span>`}
-            ${tft && yaml && isOlderVersion(tft, yaml)
+            ${tft && requiredTft && isOlderVersion(tft, requiredTft)
               ? html`<span class="info-chip info-chip-warn" title="${t('The display is updated automatically to the version the firmware needs')}">${t('Display')} ${tft} · ${t('update pending')}</span>`
               : html`<span class="info-chip${tft ? '' : ' info-chip-warn'}" title="${t('Display (TFT) version')}">${t('Display')} ${tft || t('Unknown')}</span>`}
             ${renderUpdateStateChip(this._deviceStatuses?.[name]?.update)}

@@ -343,7 +343,7 @@ export async function getFirmwareDownload(host) {
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
  * @param {string} deviceName - device name, or "*" for all devices
- * @param {string} [version] - release version (default: the firmware's yaml_version)
+ * @param {string} [version] - release version (default: the firmware's required TFT version)
  * @param {string} [url] - URL of a .tft file instead of a release (single device only)
  * @returns {Promise<{ status: string, devices_updated: string[] }>}
  */

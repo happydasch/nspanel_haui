@@ -55,9 +55,9 @@ mirrors into the device's *Display Model* number on every connect.
 ## How updates pick the right TFT
 
 The auto-update controller downloads the display firmware (the `.tft` file)
-matching the **integration version the firmware needs** from the GitHub
-release.  When a device's `display_model` is set, the controller asks the
-release for the matching asset:
+matching the firmware's **`tft_required_version`** from its release manifest.
+When a device's `display_model` is set, the controller asks the release for the
+matching asset:
 
 | `display_model` | Asset requested |
 |-----------------|-----------------|

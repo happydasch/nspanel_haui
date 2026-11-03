@@ -242,10 +242,11 @@ class NSPanelHAUI(HAAdapter):
         """Trigger a TFT install for this device, on its worker thread.
 
         Called via ``async_run_on_worker`` from the REST API; ``version``
-        defaults to the version the firmware needs (``yaml_version``).
+        defaults to the TFT the firmware's manifest ships (the one the firmware
+        needs).
 
         Args:
-            version (str | None): Release version to install
+            version (str | None): Manifest TFT version to install
 
         Returns:
             dict: The update state after the attempt (see
@@ -264,7 +265,7 @@ class NSPanelHAUI(HAAdapter):
         return update_ctrl.install_tft(version)
 
     def list_tft_releases(self) -> dict:
-        """List the GitHub releases that ship this device's TFT, on its worker thread.
+        """List the TFT versions this device's manifest ships, on its worker thread.
 
         Returns:
             dict: ``releases``, ``required`` and ``error`` (see

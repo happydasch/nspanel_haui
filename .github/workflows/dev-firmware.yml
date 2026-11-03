@@ -31,6 +31,10 @@ jobs:
       - name: Set the development firmware version
         # Use the next patch line so every dev build is newer than the current
         # stable version, while a later stable X.Y.(Z+1) sorts after its .devN.
+        # The version must be a valid PEP 440 version with no ``-`` separators:
+        # Home Assistant compares installed/latest with AwesomeVersion, and an
+        # unparseable yaml_version (for example a ``dev-<run>-<sha>`` release
+        # tag) makes it fall back to "update available" on every check.
         run: |
           python3 - <<'PY'
           import json, os, re
@@ -42,6 +46,18 @@ jobs:
               raise SystemExit(f"Expected a stable X.Y.Z version, got {manifest['version']!r}")
           major, minor, patch = map(int, match.groups())
           version = f"{major}.{minor}.{patch + 1}.dev{os.environ['GITHUB_RUN_NUMBER']}+g{os.environ['GITHUB_SHA'][:7]}"
+          try:
+              from packaging.version import InvalidVersion, Version
+          except ImportError:
+              raise SystemExit("packaging is not installed; run 'pip install packaging' first")
+          try:
+              parsed = Version(version)
+          except InvalidVersion:
+              raise SystemExit(f"{version} is not a valid PEP 440 version")
+          if parsed <= Version(f"{major}.{minor}.{patch}"):
+              raise SystemExit(f"{version} is not newer than {manifest['version']}")
+          if "-" in version:
+              raise SystemExit(f"{version} contains a '-' separator; dev builds must use '+'")
           version_file = Path("esphome/nspanel_haui/version.yaml")
           source = version_file.read_text()
           source, count = re.subn(
@@ -76,6 +92,10 @@ jobs:
           cp "$OTA" nspanel_haui_ota.bin
 
       - name: Generate the firmware manifest and commit notes
+        # The manifest deliberately carries no ``tft`` block: dev firmware
+        # ships no display TFT, and a manifest without one tells the hub that
+        # no display update is needed (the HAUI Display entity stays on the
+        # installed TFT instead of offering a release that cannot be found).
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}

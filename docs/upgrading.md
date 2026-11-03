@@ -328,4 +328,32 @@ through the `firmware_manifest_url` substitution needs its **Firmware
 manifest URL** set to the same URL in the device editor before you update the
 integration — or turn off **Auto-install firmware updates** for it. Otherwise
 the hub reads the GitHub manifest and installs a newer release over the test
-build.
+build.## 12. Display TFT updates come from the firmware manifest
+
+The display TFT is now part of the firmware's update path: every release
+manifest carries a `tft` block (version + per display model asset), and the
+**HAUI Display** entity, the automatic TFT check and **Install TFT** read it
+instead of looking up a matching GitHub release.
+
+- **The editor's TFT picker lists only the manifest's TFT** (the one the
+  firmware needs) plus **From URL**. Installing another release's TFT by
+  version (`nspanel_haui.update_tft` with `version`, or
+  `update.install` with `version`) is no longer possible — install a
+  different TFT from a URL instead.
+- **A manifest without a `tft` block needs no display update.** Dev firmware
+  publishes no display TFT, so its manifest names none: the **HAUI Display**
+  entity then reports the installed TFT and offers nothing. Installing a dev
+  build no longer errors with "No GitHub release …; TFT not updated"; the
+  display simply keeps the TFT it has.
+- **Version comparisons now match Home Assistant.** The hub compares versions
+  with the same rules as Home Assistant's update entities, so the offered
+  firmware and the entity agree. A same-base stable release is no longer
+  offered or auto-installed over an installed dev build, and a firmware that
+  reports an unparseable version (for example an old `dev-<run>-<sha>` local
+  build tag) is withheld as unknown instead of being offered as an update on
+  every check. Rebuild such a panel with a parseable version (a release tag,
+  or a next-patch `X.Y.(Z+1).devN+...` build).
+- **New device setting:** `firmware_update_channel` (`stable`/`dev`) in the
+  editor's Updates section picks the manifest when the URL is empty — the
+  latest stable release, or the published dev firmware. An explicit
+  **Firmware manifest URL** still overrides it.

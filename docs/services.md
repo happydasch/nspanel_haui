@@ -16,9 +16,9 @@ an arbitrary URL.
 
 ### `nspanel_haui.update_tft`
 
-Install the TFT release matching the selected panel's firmware (`yaml_version`),
-another GitHub release (`version`, older ones included), or the TFT file at
-`url`. The device is required, so this action cannot
+Install the TFT the selected panel's firmware manifest ships (its `tft` block,
+matched to the device's display model; this is the TFT the firmware needs), or
+the TFT file at `url`. The device is required, so this action cannot
 accidentally start a TFT upload on every panel in the hub. The service uses
 HAUI's update controller and reports failures in the update state shown in
 Device Info, Device Manager and the panel's **HAUI Display** update entity.
@@ -26,8 +26,8 @@ Device Info, Device Manager and the panel's **HAUI Display** update entity.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `device` | yes | NSPanel device whose display is updated |
-| `version` | no | GitHub release to install instead of the one the firmware needs, e.g. `0.4.1`; not combined with `url` |
-| `url` | no | http(s) URL of a `.tft` file to install instead of the GitHub release the firmware needs; not combined with `version` |
+| `version` | no | The manifest's TFT version, i.e. the one the firmware needs; must match the manifest's `tft.version`, not combined with `url` |
+| `url` | no | http(s) URL of a `.tft` file to install instead of the manifest's (custom, development or older TFT builds); not combined with `version` |
 
 **Example automation action:**
 
@@ -35,15 +35,6 @@ Device Info, Device Manager and the panel's **HAUI Display** update entity.
 action: nspanel_haui.update_tft
 data:
   device: "abc123..."
-```
-
-**Install an older release:**
-
-```yaml
-action: nspanel_haui.update_tft
-data:
-  device: "abc123..."
-  version: "0.4.1"
 ```
 
 **Install a custom or development build:**
@@ -60,11 +51,11 @@ registry ID as `device` in YAML). A URL install carries no version the hub can
 check: it counts as done once the device reboots after the upload and the
 display reports its version.
 
-A TFT installed with `version` or `url` stays on the display: the automatic
-check does not replace it with the TFT the firmware needs, and the display does
+A TFT installed with `url` stays on the display: the automatic
+check does not replace it with the TFT the firmware's manifest ships, and the display does
 not ask, until the firmware's version changes. The hold lives in memory, so a
-Home Assistant restart lifts it and the automatic check then installs the TFT
-the firmware needs again (or the display asks first when `auto_install` is
+Home Assistant restart lifts it and the automatic check then installs the
+manifest's TFT again (or the display asks first when `auto_install` is
 off). Installing without `version` and `url` lifts it too. A TFT that does not
 match the firmware may lack pages or components the firmware uses.
 
@@ -93,22 +84,23 @@ updates.
 
 Every linked panel has an `update.<device>_haui_display` entity next to the
 **HAUI Firmware** entity on the same device page. Its installed
-version is the TFT the display reports, its latest version the TFT the firmware
-needs. **Install** runs the same TFT update as `nspanel_haui.update_tft`
+version is the TFT the display reports, its latest version the TFT the
+firmware's manifest names (its `tft` block, for the device's display model).
+A manifest without a `tft` block — dev firmware ships no display TFT — reports
+the installed TFT as the latest, so the entity offers no update. **Install**
+runs the same TFT update as `nspanel_haui.update_tft`
 without a URL, and the entity shows *installing* until the display reports the
 new version. It stays available while an install keeps the device offline (the
 upload blocks the ESP32 and ends in a reboot). When the display has not
 reported its version yet, the entity state is unknown; use
 `nspanel_haui.update_tft` to force an install. The entity supports a specific
-version, so `update.install` installs another release, the same as
-`nspanel_haui.update_tft` with `version`:
+version, the same as `nspanel_haui.update_tft` with `version` (the manifest's
+TFT version):
 
 ```yaml
 action: update.install
 target:
   entity_id: update.nspanel_kitchen_haui_display
-data:
-  version: "0.4.1"
 ```
 
 ### `nspanel_haui.update_firmware`
@@ -274,10 +266,10 @@ When no icon is supplied, the severity selects a default one (`info` →
 `mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` →
 `mdi:alert-octagon-outline`). See [Notifications](device.md#notifications) for
 how notifications are viewed and dismissed on the panel. The ESPHome firmware
-also exposes a `send_notification` action (title/message/icon + optional
-persistent/text_size, without severity/force-show/timeout); standard `notify`
-entities also have no timeout field. Use this service when those options are
-needed.
+also exposes a `send_notification` action (title/message/icon/persistent/text_size,
+all required — ESPHome 2026.10 has no optional action variables — and without
+severity/force-show/timeout); standard `notify` entities also have no timeout
+field. Use this service when those options are needed.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
@@ -516,12 +508,12 @@ connected panel, polled every few seconds from the device status API:
 | `idle_page_active` | `true` when the idle page is shown — the editor shows **Idle page** / **Active** |
 | `last_disconnect_reason` | Why the connection dropped last (e.g. `heartbeat timeout`), if known |
 | `disconnected_since` | When the device went offline that last time |
-| `tft_version` / `yaml_version` | Display TFT version installed vs the version the firmware needs |
+| `tft_version` / `tft_required_version` | Display TFT version installed vs the version required by firmware |
 | `update` | TFT update state while an install runs: `checking`, `installing`, `done`, or `error` (with `version`, `started_at`, `last_error`) |
 
 The Device Manager shows the same versions inline per device, using **Unknown**
 when firmware or display version has not been reported. A display whose TFT is
-older than the firmware version is flagged **update pending**.
+older than `tft_required_version` is flagged **update pending**.
 
 The status payload is only as fresh as the last poll.  When a panel has been
 disconnected too long for the poll to succeed, the dialog keeps showing the

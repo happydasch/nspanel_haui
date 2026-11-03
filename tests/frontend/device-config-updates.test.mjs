@@ -4,7 +4,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
-import { DEFAULT_FIRMWARE_MANIFEST_URL } from '../../custom_components/nspanel_haui/frontend/constants.js';
+import {
+  DEFAULT_FIRMWARE_MANIFEST_URL,
+  DEV_FIRMWARE_MANIFEST_URL,
+} from '../../custom_components/nspanel_haui/frontend/constants.js';
 
 /** A dialog instance without Lit's constructor (which needs a real DOM). */
 function dialog(form) {
@@ -55,6 +58,37 @@ test('the firmware manifest URL is stored only while it overrides the default', 
   field(dlg, 'dc-update-firmware_manifest_url').onInput({ target: { value: '' } });
   const saved = JSON.parse(JSON.stringify(dlg._deviceConfigForm.update));
   assert.deepEqual(saved, { firmware_auto_update: true }, 'an empty field falls back to the default');
+});
+
+test('the firmware update channel selects the dev manifest and stores the channel', () => {
+  const dlg = dialog({ update: { firmware_auto_update: true } });
+
+  // The URL placeholder follows the channel; the select stores its value.
+  assert.equal(field(dlg, 'dc-update-firmware_manifest_url').placeholder, DEFAULT_FIRMWARE_MANIFEST_URL);
+
+  const findChange = (tpl, id) => {
+    for (let i = 0; i < tpl.strings.length; i++) {
+      const idMatch = tpl.strings[i].includes(`id="${id}"`) ||
+        (tpl.strings[i].includes("id=") && tpl.values[i] === id);
+      if (!idMatch) continue;
+      for (let j = i; j < tpl.strings.length; j++) {
+        if (tpl.strings[j].trimEnd().endsWith('@change=')) return tpl.values[j];
+      }
+    }
+    for (const value of tpl.values) {
+      if (value?.strings && value?.values) {
+        const result = findChange(value, id);
+        if (result !== undefined) return result;
+      }
+    }
+    return undefined;
+  };
+
+  findChange(dlg.render(), 'dc-update-firmware_update_channel')({ target: { value: 'dev' } });
+  assert.equal(dlg._deviceConfigForm.update.firmware_update_channel, 'dev');
+  assert.equal(field(dlg, 'dc-update-firmware_manifest_url').placeholder, DEV_FIRMWARE_MANIFEST_URL);
+  // The URL stays empty: the channel decides, the store holds no URL.
+  assert.equal(dlg._deviceConfigForm.update.firmware_manifest_url, undefined);
 });
 
 test('Day/Night profile fields keep schedule, brightness, timeouts and idle target in the saved form', () => {

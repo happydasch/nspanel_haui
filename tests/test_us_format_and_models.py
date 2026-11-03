@@ -66,24 +66,6 @@ def test_tft_filename_for_model_mapping():
     assert tft_filename_for_model("bogus") == "nspanel_haui.tft"
 
 
-def test_update_controller_tft_filename_uses_display_model():
-    app = _App(device_cfg={"display_model": "us"})
-    ctrl = _update_ctrl(app)
-    assert ctrl._get_tft_filename() == "nspanel_haui_portrait.tft"
-
-
-def test_update_controller_tft_filename_explicit_override_wins():
-    app = _App(device_cfg={"display_model": "us"})
-    ctrl = _update_ctrl(app, config={"tft_filename": "custom.tft"})
-    assert ctrl._get_tft_filename() == "custom.tft"
-
-
-def test_update_controller_tft_filename_default_model():
-    app = _App(device_cfg={})
-    ctrl = _update_ctrl(app)
-    assert ctrl._get_tft_filename() == "nspanel_haui.tft"
-
-
 def _update_ctrl(app, config=None):
     ctrl = HAUIUpdateController.__new__(HAUIUpdateController)
     ctrl.config = app.device_config

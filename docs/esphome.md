@@ -116,7 +116,7 @@ The primary events used for connection management:
 - **`esphome.heartbeat`** - Device→Hub heartbeat. Published every `heartbeat_interval` seconds (5s by default) when `hub_connection = true`. Value: empty string.
 - **`esphome.req_connection`** - Device→Hub connection request. Published when disconnected and hub is available. Value: JSON with `yaml_version`, `name`, `friendly_name`, `ip`, `ssid`, `rssi` and `uptime`.
 - **`esphome.res_connection`** - Device→Hub connection response. Published after receiving `hub_connection_response`. Value: JSON with `heartbeat_interval`.
-- **`esphome.res_device_state`** - Device→Hub state response. Published after receiving `req_device_state`. Value: JSON with `page`, `brightness`, `button_left`, `button_right`, `relay_left`, `relay_right`, `use_relay_left`, `use_relay_right`, `display_state`, `yaml_version`, `tft_version`, `ssid` and `rssi`.
+- **`esphome.res_device_state`** - Device→Hub state response. Published after receiving `req_device_state`. Value: JSON with `page`, `brightness`, `button_left`, `button_right`, `relay_left`, `relay_right`, `use_relay_left`, `use_relay_right`, `display_state`, `yaml_version` (firmware), `tft_required_version` (TFT required by that firmware), `tft_version` (installed display), `ssid` and `rssi`.
 
 ### Actions
 
@@ -172,7 +172,7 @@ These are commands that are being executed on the ESP.
 - `goto_page` Sets the active page on display
 - `send_notification` Sends a notification to the display
 
-  Parameters: `title` (string), `message` (string), `icon` (string - optional; when empty, the notification uses its severity's default icon — these actions default to `info`, so the info icon is used). Optional: `persistent` (bool; loops the alert sound and re-opens the popup about every 60 seconds until dismissed, default `false`) and `text_size` (`"auto"` or a font size 1-3, default `"auto"`).
+  Parameters: `title` (string), `message` (string), `icon` (string; pass `""` to use the severity default icon — these actions default to `info`, so the info icon is used), `persistent` (bool; loops the alert sound and re-opens the popup about every 60 seconds until dismissed) and `text_size` (`"auto"` or a font size 1-3). All parameters are required on the ESPHome action because ESPHome 2026.10 has no optional action variables: pass `false` for `persistent` and `"auto"` for `text_size` to get the defaults. The HA service and notify entities expose the same fields as optional.
 
   The action does not expose severity or force-show fields; `persistent` loops the sound and re-opens the popup periodically without force-showing it. The first re-open comes about a second after the action; if a notification popup or list is already open, the re-open waits until it is dismissed. Because the action cannot set a severity, its alerts default to `info` and never re-open over the idle page.
 
@@ -341,7 +341,7 @@ This actions below are defined on the ESP. The communication between the Hub ser
 
 - `send_notification` Action to send a notification to a display
 
-  Parameters: `title`, `message`, `icon`; optional `persistent` (bool; loops the alert sound and re-opens the popup about every 60 seconds until dismissed) and `text_size` (`"auto"` or a font size 1-3). `persistent` does not force-show the popup; the first re-open comes about a second after the action.
+  Parameters: `title`, `message`, `icon`, `persistent` (bool; loops the alert sound and re-opens the popup about every 60 seconds until dismissed) and `text_size` (`"auto"` or a font size 1-3). All parameters are required because ESPHome 2026.10 has no optional action variables — pass `false` for `persistent` and `"auto"` for `text_size` to get the defaults. `persistent` does not force-show the popup; the first re-open comes about a second after the action.
 
 - `req_val` / `req_txt` Actions to read a number / text value from the display (parameter `name`)
 

@@ -74,9 +74,11 @@ test('the Device Manager stops polling when the editor is removed', async (t) =>
 
 import { isOlderVersion } from '../../custom_components/nspanel_haui/frontend/device-info.js';
 
-test('a display TFT older than the firmware version counts as an update pending', () => {
-  assert.equal(isOlderVersion('0.3.3', '0.4.0'), true);
-  assert.equal(isOlderVersion('0.4.0', '0.4.0'), false);
+test('a display TFT is compared with its required version, not firmware version', () => {
+  assert.equal(isOlderVersion('0.4.2', '0.4.3'), true);
+  assert.equal(isOlderVersion('0.4.3', '0.4.3'), false);
+  // Firmware-only releases may advance yaml_version while reusing the same TFT.
+  assert.equal(isOlderVersion('0.4.3', '0.4.4'), true);
   assert.equal(isOlderVersion('0.4.1', '0.4'), false);
   assert.equal(isOlderVersion('0.3.10', '0.3.9'), false);
 });

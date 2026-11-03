@@ -1,9 +1,9 @@
 """Tests for the release version-bump tooling.
 
-``scripts/bump_version.py`` updates the four version sources that must agree
-(manifest, pyproject, ESPHome ``version.yaml`` and the HMI ``tftVersion`` text).
-These tests drive it against temporary copies so the repository files are never
-touched, and verify the text sources plus the HMI binary edit.
+``scripts/bump_version.py`` updates integration and firmware versions on every
+release, but updates ESPHome ``tft_version`` and HMI ``tftVersion`` only when
+``--tft-update`` is requested. These tests drive it against temporary copies so
+the repository files are never touched.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ def version_files(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     version_yaml.write_text(
-        "---\nsubstitutions:\n  yaml_version: '0.4.1'\n",
+        "---\nsubstitutions:\n  yaml_version: '0.4.1'\n  tft_version: '0.4.1'\n",
         encoding="utf-8",
     )
     monkeypatch.setattr(bump_version, "MANIFEST", manifest)
@@ -66,6 +66,7 @@ def test_text_sources_bump_to_new_version(version_files):
     assert json.loads(manifest.read_text())["version"] == "0.4.2"
     assert 'version = "0.4.2"' in pyproject.read_text()
     assert "yaml_version: '0.4.2'" in version_yaml.read_text()
+    assert "tft_version: '0.4.1'" in version_yaml.read_text()
 
 
 def test_text_sources_are_idempotent(version_files):
@@ -75,6 +76,7 @@ def test_text_sources_are_idempotent(version_files):
     assert json.loads(manifest.read_text())["version"] == "0.4.2"
     assert 'version = "0.4.2"' in pyproject.read_text()
     assert "yaml_version: '0.4.2'" in version_yaml.read_text()
+    assert "tft_version: '0.4.1'" in version_yaml.read_text()
 
 
 def test_check_mode_reports_change_without_writing(version_files):
@@ -83,6 +85,18 @@ def test_check_mode_reports_change_without_writing(version_files):
     assert json.loads(manifest.read_text())["version"] == "0.4.1"
     assert 'version = "0.4.1"' in pyproject.read_text()
     assert "yaml_version: '0.4.1'" in version_yaml.read_text()
+
+
+def test_tft_version_bumps_only_for_a_tft_update(version_files):
+    manifest, _pyproject, version_yaml = version_files
+    assert bump_version.bump_text_sources("0.4.2", check=False) is True
+    assert "yaml_version: '0.4.2'" in version_yaml.read_text()
+    assert "tft_version: '0.4.1'" in version_yaml.read_text()
+
+    assert bump_version.bump_text_sources("0.4.2", check=False, tft_update=True) is True
+    assert json.loads(manifest.read_text())["version"] == "0.4.2"
+    assert "yaml_version: '0.4.2'" in version_yaml.read_text()
+    assert "tft_version: '0.4.2'" in version_yaml.read_text()
 
 
 def test_missing_pattern_fails(version_files, monkeypatch):
@@ -153,6 +167,28 @@ def test_hmi_bump_check_mode_does_not_write(hmi_copies):
 def test_bump_script_rejects_bad_version():
     assert bump_version.main(["1.2"]) == 2
     assert bump_version.main(["not-a-version"]) == 2
+
+
+def test_bump_script_changes_tft_sources_only_with_tft_update(
+    version_files, monkeypatch
+):
+    manifest, _pyproject, version_yaml = version_files
+    hmi_calls = []
+    monkeypatch.setattr(
+        bump_version,
+        "bump_hmis",
+        lambda version, check: hmi_calls.append((version, check)) or True,
+    )
+
+    assert bump_version.main(["0.4.2"]) == 0
+    assert "yaml_version: '0.4.2'" in version_yaml.read_text()
+    assert "tft_version: '0.4.1'" in version_yaml.read_text()
+    assert hmi_calls == []
+
+    assert bump_version.main(["0.4.2", "--tft-update"]) == 0
+    assert json.loads(manifest.read_text())["version"] == "0.4.2"
+    assert "tft_version: '0.4.2'" in version_yaml.read_text()
+    assert hmi_calls == [("0.4.2", False)]
 
 
 def test_bump_script_text_only(tmp_path, monkeypatch, version_files):

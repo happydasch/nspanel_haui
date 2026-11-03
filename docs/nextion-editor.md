@@ -314,12 +314,14 @@ the result alongside the landscape TFT on every release.
 4. If you added user-facing strings: `python scripts/translations/extract_translations.py`.
 5. Automatic release gate: `python scripts/verify_nextion/verify_nextion.py --require-portrait`
    fails the release until (a) `clock.tTime` has **Send Component ID** enabled,
-   (b) `system.tftVersion` matches `manifest.json`, and (c) the portrait
-   HMI/TFT exist.  Run it locally after every HMI edit; the release workflow
-   runs it too.  For a release, set the version first with
-   `python scripts/bump_version.py X.Y.Z` — it edits the HMI `tftVersion`
-   text directly (same-length versions only) so you do not have to type it in
-   the Nextion Editor.  A length-changing version still needs the Editor.
+   (b) `system.tftVersion` matches the integration version when the release
+   includes a TFT update, and (c) the portrait HMI/TFT exist. Run it locally
+after HMI changes; the release workflow runs it too. For every release, run
+`python scripts/bump_version.py X.Y.Z`; add `--tft-update` when the release
+includes new TFT files. This keeps the firmware version moving independently
+from the TFT requirement. That flag edits the HMI `tftVersion` text directly
+(same-length versions only), so you do not have to type it in the Nextion
+Editor. A length-changing TFT version still needs the Editor.
 6. On-device test per model: page renders completely, all widgets hit-test
    correctly, gestures behave (see §7.3 for portrait), auto-update installs the
    right TFT for `display_model: us`.

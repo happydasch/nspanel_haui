@@ -313,13 +313,20 @@ The device editor's **Updates** section controls release checks and automatic in
 - `update_interval` (default `3600` seconds, hourly; `0` disables) — periodic release check.
 - `firmware_auto_update` (default `False`) — when enabled, on every release
   check installs the firmware the manifest offers when it is newer than the one
-  the device runs (see `firmware_manifest_url`). This check does not depend on
-  the TFT being out of date. After reboot, the TFT follows the version required
-  by the new firmware. Enable this to allow unattended firmware installs; the
-  explicit **Install firmware** action stays available either way. Installing
-  another release or a URL by hand pauses this check until Home Assistant
-  restarts or the offered update is installed (see
+  the device runs (see `firmware_update_channel`/`firmware_manifest_url`).
+  This check does not depend on the TFT being out of date. After reboot, the
+  display TFT follows the new firmware's manifest. Enable this to allow
+  unattended firmware installs; the explicit **Install firmware** action stays
+  available either way. Installing another release or a URL by hand pauses this
+  check until Home Assistant restarts or the offered update is installed (see
   [`nspanel_haui.update_firmware`](../services.md#nspanel_hauiupdate_firmware)).
+- `firmware_update_channel` (`stable` or `dev`, default `stable`) — which
+  firmware manifest the **HAUI Firmware** entity follows when
+  `firmware_manifest_url` is empty: the latest stable GitHub release, or the
+  [published development firmware](../release.md#published-development-firmware)
+  (`dev-latest`). Pointing a universal test panel at `dev` makes it follow
+  every successful `dev`-branch build; the entity then never shows an older
+  "latest" than the installed dev build.
 - **Firmware build variants** — the hub only offers or installs firmware whose
   manifest `variant` matches the one the device reports. The prebuilt release
   image is `universal`; a build from
@@ -331,17 +338,28 @@ The device editor's **Updates** section controls release checks and automatic in
   instead. Firmware older than 0.4.4 reports no variant and is treated the
   same: it is not offered the release image — flash the new firmware once
   manually (ESPHome or From URL) and the hub can update it afterwards.
-- `firmware_manifest_url` (default: the `firmware-manifest.json` of the latest
-  GitHub release) — the manifest that names the firmware the **HAUI Firmware**
-  entity offers: its version, image URL and md5. Leave the editor field empty
-  for the default. Point a universal test panel at the
-  [published dev manifest](../release.md#published-development-firmware), or a
-  custom test panel at a [local test release](../release.md#test-firmware-updates-with-a-local-release),
-  so it follows test builds instead of stable GitHub releases. A changed URL is
-  read as soon as the settings are saved.
-- `auto_install` (default `True`) — install the TFT the firmware needs without asking. When off, the display asks first. A TFT installed by hand with a `version` or `url` ([`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)) is kept until the firmware version changes or Home Assistant restarts.
+- `firmware_manifest_url` (empty by default) — the manifest that names the
+  firmware the **HAUI Firmware** entity offers: its version, image URL and md5
+  (plus the display TFT, see below). Leave the editor field empty for the
+  channel selected above. A URL here always overrides the channel — point a
+  custom test panel at a
+  [local test release](../release.md#test-firmware-updates-with-a-local-release)
+  to follow test builds instead. A changed URL (or channel) is read as soon as
+  the settings are saved.
+- `auto_install` (default `True`) — install the TFT the firmware's manifest
+  ships without asking. When off, the display asks first. A TFT installed by
+  hand with a URL ([`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft))
+  is kept until the firmware version changes or Home Assistant restarts.
 
-`tft_filename` (default `nspanel_haui.tft`) and `on_connect_delay` (default `60` seconds before the TFT check after a connect) remain integration defaults and are not exposed in the editor.
+The display TFT is part of the firmware's manifest (`tft` block): the **HAUI
+Display** entity offers the TFT the manifest names for the device's display
+model, and installing it downloads the manifest's asset. A manifest without a
+`tft` block — dev firmware ships no display TFT — offers no display update at
+all: the entity reports the installed TFT and stays up to date instead of
+offering a release that cannot be found.
+
+`on_connect_delay` (default `60` seconds before the TFT check after a connect)
+remains an integration default and is not exposed in the editor.
 
 Home Assistant shows the firmware as the **HAUI Firmware** update entity and
 the display TFT as the **HAUI Display** update entity on the device page. Their
@@ -351,16 +369,17 @@ the display TFT as the **HAUI Display** update entity on the device page. Their
 A TFT install the display never confirms is reported as an error in the editor
 instead of being retried automatically; press **Install TFT** to retry. The
 Device Manager action menu has **Install firmware**, which opens the same kind
-of picker as **Install TFT**: the update the **HAUI Firmware** entity offers (when
-there is one), any release that ships an over-the-air image (v0.4.2 and later,
-older ones included), or **From URL** for a firmware OTA image. It also has
-**Check for updates** to refresh both
+of picker as **Install TFT**: the update the **HAUI Firmware** entity offers
+(when there is one), any release that ships an over-the-air image (v0.4.2 and
+later, older ones included), or **From URL** for a firmware OTA image. The TFT
+picker lists the TFT the firmware's manifest ships (plus **From URL** for a
+custom or development TFT). **Check for updates** refreshes both
 firmware availability and GitHub release info immediately (bypassing the
 one-hour hub-level release cache). The check also compares the display's TFT
-with the version the firmware needs and installs an outdated TFT (or asks on
-the display when `auto_install` is off), and the editor shows its outcome: up
-to date with the latest release, a firmware update started or available, a TFT
-install started, or why the check failed.
+with the one the firmware's manifest ships and installs an outdated TFT (or
+asks on the display when `auto_install` is off), and the editor shows its
+outcome: up to date with the latest release, a firmware update started or
+available, a TFT install started, or why the check failed.
 
 ## Global Defaults (not per-device, fixed)
 

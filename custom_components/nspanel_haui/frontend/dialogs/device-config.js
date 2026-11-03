@@ -6,7 +6,7 @@
  * Communicates form changes via CustomEvent.
  */
 import { html, css } from '../lit-import.js';
-import { DATE_FORMAT_OPTIONS, DEFAULT_FIRMWARE_MANIFEST_URL, DISPLAY_MODEL_OPTIONS, GESTURE_NAMES, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
+import { DATE_FORMAT_OPTIONS, DEFAULT_FIRMWARE_MANIFEST_URL, DEV_FIRMWARE_MANIFEST_URL, DISPLAY_MODEL_OPTIONS, FIRMWARE_UPDATE_CHANNELS, GESTURE_NAMES, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
 import { renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
 import { dialogHeader } from './dialog-header.js';
@@ -492,16 +492,21 @@ class DeviceConfigDialog extends HauiDialog {
                 <div class="field-hint">${t("Install a newer firmware when the release ships one. The matching TFT follows after the device reboots.")}</div>
               </div>
               <div class="form-group">
+                <label for="dc-update-firmware_update_channel">${t("Firmware update channel")}</label>
+                ${renderSelect("dc-update-firmware_update_channel", String(updateValue(cfg, "firmware_update_channel", "stable")), FIRMWARE_UPDATE_CHANNELS.map((v) => [v, v === "dev" ? t("Dev firmware (dev-latest)") : t("Stable releases")]), (v) => setUpdateValue(this, "firmware_update_channel", v))}
+                <div class="field-hint">${t("Which firmware the HAUI Firmware entity follows when the URL below is empty: stable releases, or the published development firmware.")}</div>
+              </div>
+              <div class="form-group">
                 <label for="dc-update-firmware_manifest_url">${t("Firmware manifest URL")}</label>
                 <input
                   id="dc-update-firmware_manifest_url"
                   class="native-input"
                   type="url"
-                  placeholder=${DEFAULT_FIRMWARE_MANIFEST_URL}
+                  placeholder=${updateValue(cfg, "firmware_update_channel", "stable") === "dev" ? DEV_FIRMWARE_MANIFEST_URL : DEFAULT_FIRMWARE_MANIFEST_URL}
                   .value=${String(updateValue(cfg, "firmware_manifest_url", ""))}
                   @input=${(e) => setUpdateValue(this, "firmware_manifest_url", e.target.value.trim() || undefined)}
                 />
-                <div class="field-hint">${t("The manifest names the firmware the HAUI Firmware entity offers. Leave empty for the latest GitHub release; point a test panel at the manifest of a local test release to follow test builds.")}</div>
+                <div class="field-hint">${t("The manifest names the firmware the HAUI Firmware entity offers. Leave empty to follow the channel above; a URL here overrides it (e.g. point a test panel at the manifest of a local test release to follow test builds).")}</div>
               </div>
               <div class="checkbox-wrap">
                 <div class="checkbox-row">

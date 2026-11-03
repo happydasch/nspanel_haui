@@ -20,6 +20,22 @@ See the [Services Reference](services.md#tft-display-upload) for full details.
 
 ## Update is not possible
 
+## Dev firmware looks older than the installed version
+
+A panel running development firmware shows an older **latest version** (or an
+update it cannot install) when it still follows the stable channel. Dev builds
+are pre-releases of the *next* patch line (`0.4.5.dev123+gabcdef1` when `0.4.4`
+is stable) and are published only on the dev channel — switch the device's
+**Firmware update channel** to **dev**, or point its **Firmware manifest URL**
+at the [published dev manifest](release.md#published-development-firmware).
+Dev firmware ships no display TFT, so the **HAUI Display** entity offers no
+update until a stable release matches. A panel that reports a version like
+`dev-3-f243f33` (an old dev release tag used as `yaml_version`) is not a valid
+version: the hub withholds firmware offers until it is reflashed with a
+parseable build (see [Release](release.md#published-development-firmware)).
+
+## Update is not possible
+
 See [TFT Upload Failures](troubleshooting.md#tft-upload-failures).
 
 ## Error on sleep

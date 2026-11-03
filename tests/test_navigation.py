@@ -345,10 +345,10 @@ class OpenPage:
 
 class FakeDeviceConfig:
     def __init__(self, panel):
-        self._panel = panel
+        self._panels = panel if isinstance(panel, dict) else {panel.id: panel}
 
     def get_panel(self, panel_id):
-        return self._panel
+        return self._panels.get(panel_id)
 
 
 def _make_nav_for_open(panel, page_id):
@@ -439,6 +439,60 @@ def test_navigate_away_from_idle_panel_leaves_idle_session():
         nav._open_panel_impl("p1")
 
     assert nav._idle_panel_active is False
+    assert nav._idle_panel_suspended is False
+
+
+def test_notification_overlay_close_restores_idle_session():
+    """Closing a notification stack shown from idle returns to idle and still wakes."""
+    idle = OpenPanel("idle", panel_type="grid", nav_panel=False)
+    notification_list = OpenPanel("notification_list", panel_type="popup_select", nav_panel=False)
+    notification = OpenPanel("notification", panel_type="popup_notify", nav_panel=False)
+    nav = _make_nav_for_open(idle, page_id=3)
+    nav.app.device_config = FakeDeviceConfig(
+        {panel.id: panel for panel in (idle, notification_list, notification)}
+    )
+    nav.app.device.device_info["display_state"] = "dim"
+    nav._idle_panel = idle
+    nav._idle_panel_active = True
+    nav.panel = idle
+    nav.page = FakePage(page_id=3, started=True)
+    nav._stack = [(idle, {})]
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=4),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._open_panel_impl(notification_list.id)
+
+    assert nav._idle_panel_active is False
+    assert nav._idle_panel_suspended is True
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=5),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._open_panel_impl(notification.id)
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=4),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._close_panel_impl()
+
+    assert nav.panel is notification_list
+    assert nav._idle_panel_active is False
+    assert nav._idle_panel_suspended is True
+
+    with (
+        patch.object(nav_module, "get_page_id_for_panel", return_value=3),
+        patch.object(nav_module, "get_page_class_for_panel", return_value=OpenPage),
+    ):
+        nav._close_panel_impl()
+
+    assert nav.panel is idle
+    assert nav._idle_panel_active is True
+    assert nav._idle_panel_suspended is False
+    assert nav.app.device._first_touch_consumed is False
 
 
 def test_open_idle_panel_itself_keeps_idle_session():

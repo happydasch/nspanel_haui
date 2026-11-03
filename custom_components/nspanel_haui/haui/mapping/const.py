@@ -108,12 +108,12 @@ class NotifType(StrEnum):
 
 
 class FirmwareUpdateChannel(StrEnum):
-    """Firmware manifest channel the update controller follows by default.
+    """Release channel used by the update controller.
 
     ``stable`` points at GitHub's ``releases/latest`` (which excludes
-    prereleases); ``dev`` at the fixed ``dev-latest`` release the development
-    workflow clobbers with the newest successful dev-branch build.  An
-    explicit ``firmware_manifest_url`` always overrides the channel.
+    prereleases) and suppresses GitHub prerelease notifications; ``dev`` points
+    at the fixed ``dev-latest`` release and allows prerelease notifications.  An
+    explicit ``firmware_manifest_url`` always overrides the manifest URL.
     """
 
     STABLE = "stable"

@@ -379,19 +379,25 @@ class HAUIUpdateController(HAUIBase):
                 _release_cache = (time.monotonic(), json_decoded)
 
     def _get_latest_release(self) -> dict[str, Any] | None:
-        """Returns the latest available release dict.
+        """Returns the latest release allowed by the configured channel.
 
-        Releases whose tag does not parse as a version are skipped, so an
-        odd tag can neither break the comparison nor surface as ``0.0.0``.
+        Stable excludes GitHub-marked prereleases and prerelease version tags;
+        the dev channel considers them. Releases whose tag does not parse as a
+        version are skipped, so an odd tag can neither break the comparison nor
+        surface as ``0.0.0``.
 
         Returns:
             None|dict: Release info
         """
         latest_release = None
         latest_version: Version | None = None
+        channel = str(self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE))
+        include_prereleases = channel == FirmwareUpdateChannel.DEV
         for release in self._release_infos:
             version = self._try_parse_version(release.get("tag_name"))
             if version is None:
+                continue
+            if not include_prereleases and (release.get("prerelease") or version.is_prerelease):
                 continue
             if latest_version is None or version > latest_version:
                 latest_release = release

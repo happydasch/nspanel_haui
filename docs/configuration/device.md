@@ -324,9 +324,10 @@ The device editor's **Updates** section controls release checks and automatic in
   firmware manifest the **HAUI Firmware** entity follows when
   `firmware_manifest_url` is empty: the latest stable GitHub release, or the
   [published development firmware](../release.md#published-development-firmware)
-  (`dev-latest`). Pointing a universal test panel at `dev` makes it follow
-  every successful `dev`-branch build; the entity then never shows an older
-  "latest" than the installed dev build.
+  (`dev-latest`). It also controls GitHub release notifications: `stable` ignores
+  prereleases, while `dev` considers them. Pointing a universal test panel at
+  `dev` makes it follow every successful `dev`-branch build; the entity then
+  never shows an older "latest" than the installed dev build.
 - **Firmware build variants** — the hub only offers or installs firmware whose
   manifest `variant` matches the one the device reports. The prebuilt release
   image is `universal`; a build from

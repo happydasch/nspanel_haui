@@ -124,12 +124,13 @@ from nspanel_haui.haui.mapping.const import (  # noqa: E402
 )
 
 
-def _release(tag, with_tft=True):
+def _release(tag, with_tft=True, prerelease=False):
     assets = [{"name": "nspanel_haui.tft", "browser_download_url": f"https://dl/{tag}.tft"}]
     return {
         "tag_name": tag,
         "name": f"Release {tag}",
         "body": "",
+        "prerelease": prerelease,
         "assets": assets if with_tft else [],
     }
 
@@ -1416,6 +1417,24 @@ def test_check_for_update_only_notifies_without_a_firmware_update(monkeypatch):
     assert "Update available" in kwargs["title"]
 
 
+def test_stable_channel_ignores_github_prereleases_in_update_notifications(monkeypatch):
+    stable = _release("0.4.4")
+    prerelease = _release("0.4.5.dev1", prerelease=True)
+    github_prerelease = _release("0.4.6", prerelease=True)
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.4", "tft_version": "0.4.4"},
+        [github_prerelease, prerelease, stable],
+        manifest="0.4.4",
+        firmware_update_channel="stable",
+    )
+
+    result = ctrl.check_for_update()
+
+    assert result["latest_release"] == "0.4.4"
+    assert app.opened == []
+
+
 def test_on_connect_installs_firmware_before_checking_for_a_tft_upload(monkeypatch):
     ctrl, app, _ = _updater(
         monkeypatch,
@@ -1888,6 +1907,16 @@ def test_the_stable_channel_resolves_to_releases_latest(monkeypatch):
     assert (
         ctrl._resolve_firmware_manifest_url() == DEFAULT_CONFIG["update"]["firmware_manifest_url"]
     )
+
+
+def test_dev_channel_includes_prereleases_in_release_selection(monkeypatch):
+    ctrl, _, _ = _updater_with_channel(monkeypatch, "dev")
+    ctrl._release_infos = [
+        _release("0.4.5.dev1", prerelease=True),
+        _release("0.4.4"),
+    ]
+
+    assert ctrl._get_latest_release()["tag_name"] == "0.4.5.dev1"
 
 
 def test_an_explicit_manifest_url_overrides_the_channel(monkeypatch):

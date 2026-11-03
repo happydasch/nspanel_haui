@@ -162,6 +162,8 @@ def _bare_page(page_id=1):
     page._fnc_items = {}
     page._read_callbacks = {}
     page._pending_read_request = None
+    page._touch_started_at = None
+    page.panel = None
     page.send_esphome = lambda *a, **kw: page.app.sent_esphome.append((a, kw))
     return page
 

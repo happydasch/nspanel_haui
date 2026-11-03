@@ -98,6 +98,17 @@ TFT until a later release updates it.
   accepts a `timeout` (seconds); on expiry the notification leaves the queue
   and, when its popup is up, the queue advances. Without a timeout nothing
   auto-dismisses, so the behavior stays exactly as before.
+- **Live preview in the editor** — the new **Live preview** button
+  (`mdi:television-play`) opens an interactive virtual panel for the selected
+  device, rendered from the real hub code: tap, drag and swipe with mouse or
+  finger, press the hardware buttons, trigger the idle timeout. **Sandbox
+  mode** (the default) simulates every entity change; **Live mode** calls Home
+  Assistant, except for the panel's own relays and settings. The preview fires
+  no events for automations and never installs updates.
+- **Long press to go back** — Clock, ClockTwo and Weather panels have no
+  header buttons and could only be left by swiping. The new **Long press to go
+  back** panel option (Advanced section) goes back on a one-second hold
+  anywhere: to the panel this one was opened from, or to the home panel.
 
 ### Fixed
 

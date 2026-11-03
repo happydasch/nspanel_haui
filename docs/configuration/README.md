@@ -89,6 +89,18 @@ See [Device Configuration](device.md) for full details.
 
 Opened from its own button (separate from Device Settings). Lets you override individual entries of the built-in color palette per device.
 
+## The Live Preview
+
+Opened with the **Live preview** button (TV with a play symbol) in the device toolbar, or **Live preview** in the device actions menu. It shows the selected device's panels exactly as the hub drives them: the preview runs a virtual copy of the device on the real hub code, with its saved panels and settings, the current entity states and the display model's layout (landscape or portrait).
+
+- **Touch** — click or tap a widget, drag sliders and swipe from the screen edges with the mouse or a finger. Touches, swipes and slider values reach the hub the way the panel's firmware reports them.
+- **Hardware buttons** — **Left button** and **Right button** below the screen press the panel's two physical buttons.
+- **Idle timeout** — switches to the idle page as if the display's inactivity timer had run out.
+- **Sandbox mode** (default) — every action changes only a simulated state, shown on the preview; your lights and switches are not touched. **Reset sandbox** returns every entity to its real state.
+- **Live mode** — actions call Home Assistant like the real panel does. Calls to the panel's own entities (relays, auto-dimming, brightness and the other device settings) always stay simulated, so a preview cannot reconfigure the panel.
+
+The preview never fires `nspanel_haui.*` events, so automations reacting to the real panel do not see it, and it never checks for or installs firmware or TFT updates. Up to four previews can be open at the same time. Save panel changes before opening the preview: it uses the stored configuration.
+
 ## See Also
 
 - [Panels Overview](../panels/README.md) — All panel types with descriptions

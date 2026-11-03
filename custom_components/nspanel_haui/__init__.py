@@ -603,6 +603,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         DeviceUpdateTftView,
         DeviceYamlView,
         FirmwareDownloadView,
+        IconCharsView,
         IconSearchView,
         NotificationsView,
         PanelConfigView,
@@ -611,6 +612,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     )
     from .editor_panel import async_register_frontend
     from .services import async_register_services
+    from .websocket_api import async_register_websocket_commands
 
     hass.http.register_view(TranslationsView())
     hass.http.register_view(PanelConfigView())
@@ -628,8 +630,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.http.register_view(FirmwareDownloadView())
     hass.http.register_view(DeviceYamlView())
     hass.http.register_view(IconSearchView())
+    hass.http.register_view(IconCharsView())
     await async_register_frontend(hass)
     async_register_services(hass)
+    async_register_websocket_commands(hass)
 
     _LOGGER.info(
         "NSPanel HAUI integration loaded (hubs=%d)",

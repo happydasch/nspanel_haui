@@ -14,6 +14,7 @@ const DIALOGS = [
   'nspanel-dialog-logs',
   'nspanel-dialog-device-manager',
   'nspanel-dialog-colors',
+  'nspanel-dialog-live-preview',
 ];
 
 function shouldUpdate(tag, open, changed) {

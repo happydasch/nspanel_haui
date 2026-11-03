@@ -196,6 +196,22 @@ class EditPanelDialog extends HauiDialog {
                 <span class="field-hint">${t("When unchecked, panel is only reachable via stack (item actions, gestures, or as the home/idle panel)")}</span>
               </div>
 
+              ${descriptor?.has_header === false ? html`
+              <div class="form-group">
+                <div class="checkbox-row">
+                  ${renderToggle("fld-long-press-back", ep.data.long_press_back === true, (checked) => {
+                    this._editingPanel = {
+                      ...this._editingPanel,
+                      data: { ...this._editingPanel.data, long_press_back: checked },
+                    };
+                    this.requestUpdate();
+                  })}
+                  <label for="fld-long-press-back">${t('Long press to go back')}</label>
+                </div>
+                <span class="field-hint">${t('This page has no navigation buttons. Hold anywhere for about a second to go back to the panel it was opened from, or to the home panel.')}</span>
+              </div>
+              ` : ""}
+
               <div class="form-group">
                 <label for="fld-close-timeout">${t('Close automatically after (seconds)')}</label>
                 ${renderNumberInput("fld-close-timeout", ep.data.close_timeout ?? 0, (raw) => {

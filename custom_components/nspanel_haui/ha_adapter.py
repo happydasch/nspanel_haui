@@ -572,13 +572,15 @@ class HAAdapter:
 
     # services
 
-    def call_service(
-        self,
-        service: str,
-        return_response: bool = False,
-        raise_on_error: bool = False,
-        **kwargs: Any,
-    ) -> Any:
+    @staticmethod
+    def _split_service_call(
+        service: str, kwargs: dict[str, Any]
+    ) -> tuple[str, str, Any, dict[str, Any] | None]:
+        """Parse a ``call_service`` request into ``(domain, service, data, target)``.
+
+        Raises:
+            ValueError: If ``service`` is not ``domain.service`` (or ``domain/service``).
+        """
         if not isinstance(service, str) or "." not in service.replace("/", "."):
             raise ValueError(f"Invalid service: {service!r}")
         domain, svc = service.replace("/", ".").split(".", 1)
@@ -607,6 +609,16 @@ class HAAdapter:
         # A call without a target goes through as well: services like
         # script.<name> or notify.<name> take none, and HA reports the error for
         # an entity service that needs one.
+        return domain, svc, service_data, target
+
+    def call_service(
+        self,
+        service: str,
+        return_response: bool = False,
+        raise_on_error: bool = False,
+        **kwargs: Any,
+    ) -> Any:
+        domain, svc, service_data, target = self._split_service_call(service, kwargs)
 
         async def _call() -> Any:
             try:

@@ -104,14 +104,25 @@ GitHub prerelease whose tag is the release version. Its version is based on the
 next patch release (for example, `0.4.5.dev123+gabcdef1`), so each successful push
 has a distinct update version and its notes link to the build commit, enumerate
 commits included in that push, and list changed files. The prereleases retain the
-version history. The same string is written into the release's
-`custom_components/nspanel_haui/manifest.json`, so HACS (which reads release tags
-as *available* versions and the installed copy's manifest `version` as the
-*installed* one) can order dev releases and only offers a build that is actually
-newer than the one installed. Both must be a valid PEP 440 version with no `-`
-separator: for an unparseable pair such as the old `dev-<run>-<sha>` tags, HACS
-falls back to plain string inequality and keeps offering the installed build as
-an update forever. A fixed manifest URL follows the latest successful build:
+version history.
+
+The tag points at a small release commit that carries the version: the workflow
+writes the dev version into `custom_components/nspanel_haui/manifest.json` (and
+the firmware's `esphome/nspanel_haui/version.yaml`), commits those two files as
+`chore(release): development firmware <version>` and tags that commit. HACS
+downloads the *source archive of the tag* and reads the installed version from its
+manifest, so tagging the plain branch commit would ship the stable version and
+HACS would report it as installed forever. That release commit is never merged
+into `dev` — `dev` keeps the stable version, which is what the next run derives
+`X.Y.(Z+1)` from.
+
+HACS reads release tags as *available* versions and the installed copy's manifest
+`version` as the *installed* one, so it can order dev releases and only offers a
+build that is actually newer than the one installed. Both must be a valid PEP 440
+version with no `-` separator: for an unparseable pair such as the old
+`dev-<run>-<sha>` tags, HACS falls back to plain string inequality and keeps
+offering the installed build as an update forever. A fixed manifest URL follows
+the latest successful build:
 
 ```text
 https://github.com/happydasch/nspanel_haui/releases/download/dev-latest/firmware-manifest.json

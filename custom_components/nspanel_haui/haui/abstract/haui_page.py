@@ -19,6 +19,9 @@ from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, NotifEvent, SysPa
 from .mixins.component_mixin import ComponentMixin
 from .mixins.function_btn_mixin import FunctionButtonMixin
 
+# entity_map() key of the panel's main entity; Nextion widget names cannot hold "#".
+PAGE_ENTITY_KEY = "#page"
+
 
 @dataclass
 class _PendingReadRequest:
@@ -821,6 +824,37 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         if isinstance(value, dict):
             return value.get("item")
         return value
+
+    def entity_map(self) -> dict[str, str]:
+        """Widget name -> entity id of the entities this page shows.
+
+        Used by the editor's live preview to name the entity under the mouse.
+        Covers the panel's main ``item`` (keyed ``PAGE_ENTITY_KEY``: it applies
+        anywhere on the page), function components with an item
+        (header buttons, clock entity buttons) and the grid/row tiles (keyed by
+        each tile's overlay).
+        """
+        result: dict[str, str] = {}
+
+        def add(component: Any, item: HAUIItem | None) -> None:
+            entity_id = item.get_item_id() if item is not None else ""
+            if not entity_id or not self.app.item_exists(entity_id):
+                return
+            name = getattr(component, "name", None)
+            if name is None and isinstance(component, tuple | list):
+                name = component[1]
+            if name:
+                result[name] = entity_id
+
+        if self.panel is not None:
+            main = self._extract_entity_id(self.panel.get("item", None))
+            if main and self.app.item_exists(main):
+                result[PAGE_ENTITY_KEY] = main
+        for fnc in self._fnc_items.values():
+            add(fnc.get("fnc_component"), fnc.get("fnc_args", {}).get("item"))
+        for component, item in getattr(self, "_active_items", {}).items():
+            add(component, item)
+        return result
 
     def _entity_ids(self, values: list) -> list[str]:
         """Entity IDs of the string-or-dict config values that have one."""

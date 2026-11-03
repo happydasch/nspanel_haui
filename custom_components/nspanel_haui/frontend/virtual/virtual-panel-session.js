@@ -49,6 +49,10 @@ export class VirtualPanelSession {
     this.display = null;
     this.touch = null;
     this.brightness = 100;
+    // Whether the hub shows the idle page (automatic page switching).
+    this.idle = false;
+    // Widget name -> entity id on the current page, for the hover tooltip.
+    this.entityMap = {};
     this.sandboxEntities = [];
     this.iconChars = {};
     this._queue = [];
@@ -154,6 +158,13 @@ export class VirtualPanelSession {
         this.sandboxEntities = message.entities;
         this.onUpdate();
         break;
+      case 'idle':
+        this.idle = Boolean(message.active);
+        this.onUpdate();
+        break;
+      case 'entities':
+        this.entityMap = message.map;
+        break;
       default:
         this.onError(`unknown message type ${message.type}`);
     }
@@ -197,6 +208,7 @@ export class VirtualPanelSession {
     return this.sendEvent('esphome.timeout', 'page');
   }
 
+  /** Switch between sandbox and live mode; going live drops the simulated states. */
   async setLive(live) {
     await this.hass.callWS({
       type: 'nspanel_haui/virtual_panel/configure',
@@ -205,13 +217,5 @@ export class VirtualPanelSession {
     });
     this.live = live;
     this.onUpdate();
-  }
-
-  async resetSandbox() {
-    await this.hass.callWS({
-      type: 'nspanel_haui/virtual_panel/configure',
-      session_id: this.sessionId,
-      reset_sandbox: true,
-    });
   }
 }

@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { NextionDisplay } from '../../custom_components/nspanel_haui/frontend/virtual/nextion-display.js';
 import {
   detectGesture,
+  entityAt,
   toDisplayCoords,
   TouchInput,
 } from '../../custom_components/nspanel_haui/frontend/virtual/touch-input.js';
@@ -142,4 +143,20 @@ test('a new press first releases a touch that never ended', () => {
   assert.deepEqual(sent.map(([n]) => n), [
     'esphome.touch_start', 'esphome.touch_end', 'esphome.touch_start',
   ]);
+});
+
+test('the entity under the mouse: the topmost linked widget, else the page entity', () => {
+  const { display } = setup('grid');
+  display.exec(['vis g1Overlay,1', 'vis g1Name,1', 'vis g1Power,1']);
+  const map = { g1Overlay: 'light.lamp', '#page': 'sensor.page' };
+  // over the tile's name: the overlay above it links the entity
+  assert.equal(entityAt(display, map, 40, 150), 'light.lamp');
+  // over the power button, which links nothing itself: still the tile below
+  assert.equal(entityAt(display, map, 120, 70), 'light.lamp');
+  // elsewhere on the page: the page's own entity
+  assert.equal(entityAt(display, map, 300, 300), 'sensor.page');
+  assert.equal(entityAt(display, {}, 300, 300), null);
+  // hidden widgets link nothing
+  display.exec('vis g1Overlay,0');
+  assert.equal(entityAt(display, { g1Overlay: 'light.lamp' }, 40, 150), null);
 });

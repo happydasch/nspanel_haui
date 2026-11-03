@@ -13,7 +13,7 @@ import { HauiDialog } from './haui-dialog.js';
 import { renderToggle } from '../form-fields.js';
 import { t } from '../localize.js';
 import { renderDisplay } from '../virtual/nextion-view.js';
-import { toDisplayCoords } from '../virtual/touch-input.js';
+import { entityAt, toDisplayCoords } from '../virtual/touch-input.js';
 import { VirtualPanelSession } from '../virtual/virtual-panel-session.js';
 import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
 
@@ -23,6 +23,10 @@ const MAX_SCALE = 1.5;
 const MAX_HEIGHT_SHARE = 0.6;
 // How long the "playing sound" hint stays.
 const SOUND_HINT_MS = 2000;
+// Entity tooltip: distance from the cursor, and the share of the frame past
+// which it flips to the cursor's other side.
+const TOOLTIP_OFFSET = 14;
+const TOOLTIP_FLIP_SHARE = 0.6;
 
 class LivePreviewDialog extends HauiDialog {
   static get properties() {
@@ -33,6 +37,8 @@ class LivePreviewDialog extends HauiDialog {
       _stageWidth: { state: true },
       _sound: { state: true },
       _displayOff: { state: true },
+      _hover: { state: true },
+      _showEntities: { state: true },
     };
   }
 
@@ -126,6 +132,25 @@ class LivePreviewDialog extends HauiDialog {
       .vp-error {
         color: var(--error-color);
       }
+      .vp-tooltip {
+        position: absolute;
+        z-index: 2;
+        max-width: 260px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.85);
+        color: #fff;
+        font-size: 0.85em;
+        line-height: 1.35;
+        pointer-events: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .vp-tooltip .vp-tooltip-id {
+        opacity: 0.7;
+        font-family: var(--code-font-family, monospace);
+      }
     `,
   ];
 
@@ -138,6 +163,8 @@ class LivePreviewDialog extends HauiDialog {
     this._stageWidth = 0;
     this._sound = '';
     this._displayOff = false;
+    this._hover = null;
+    this._showEntities = false;
     this._pointerId = null;
     this._soundTimer = null;
     this._resizeObserver = null;
@@ -188,6 +215,7 @@ class LivePreviewDialog extends HauiDialog {
     const session = this._session;
     this._session = null;
     this._pointerId = null;
+    this._hover = null;
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
     if (session) session.stop().catch(() => {});
@@ -220,6 +248,7 @@ class LivePreviewDialog extends HauiDialog {
   _onPointerDown(e) {
     if (!this._session?.ready || this._pointerId !== null) return;
     e.preventDefault();
+    this._hover = null;
     e.currentTarget.setPointerCapture(e.pointerId);
     this._pointerId = e.pointerId;
     const { x, y } = this._coords(e);
@@ -227,7 +256,10 @@ class LivePreviewDialog extends HauiDialog {
   }
 
   _onPointerMove(e) {
-    if (e.pointerId !== this._pointerId) return;
+    if (e.pointerId !== this._pointerId) {
+      if (this._pointerId === null && e.pointerType === 'mouse') this._updateHover(e);
+      return;
+    }
     const { x, y } = this._coords(e);
     this._session.touch.move(x, y);
   }
@@ -245,17 +277,54 @@ class LivePreviewDialog extends HauiDialog {
     this._session.touch.cancel();
   }
 
+  /** Name the entity under the mouse, if the widget there shows one. */
+  _updateHover(e) {
+    const session = this._session;
+    if (!session?.ready || !this._showEntities) return;
+    const { x, y } = this._coords(e);
+    const entityId = entityAt(session.display, session.entityMap, x, y);
+    if (!entityId) {
+      this._hover = null;
+      return;
+    }
+    const bezel = this.renderRoot.querySelector('.vp-bezel').getBoundingClientRect();
+    this._hover = {
+      entityId,
+      x: e.clientX - bezel.left,
+      y: e.clientY - bezel.top,
+      width: bezel.width,
+      height: bezel.height,
+    };
+  }
+
+  _setShowEntities(show) {
+    this._showEntities = show;
+    if (!show) this._hover = null;
+  }
+
+  _renderTooltip() {
+    const hover = this._hover;
+    if (!hover) return nothing;
+    const name = this.hass?.states?.[hover.entityId]?.attributes?.friendly_name;
+    // Keep it inside the frame: left of the cursor on the right side, above it
+    // near the bottom.
+    const horizontal = hover.x > hover.width * TOOLTIP_FLIP_SHARE
+      ? `right:${hover.width - hover.x + TOOLTIP_OFFSET}px;`
+      : `left:${hover.x + TOOLTIP_OFFSET}px;`;
+    const vertical = hover.y > hover.height * TOOLTIP_FLIP_SHARE
+      ? `bottom:${hover.height - hover.y + TOOLTIP_OFFSET}px;`
+      : `top:${hover.y + TOOLTIP_OFFSET}px;`;
+    return html`
+      <div class="vp-tooltip" style="${horizontal}${vertical}">
+        ${name ? html`<div>${name}</div>` : nothing}
+        <div class="vp-tooltip-id">${hover.entityId}</div>
+      </div>
+    `;
+  }
+
   async _setLive(live) {
     try {
       await this._session.setLive(live);
-    } catch (err) {
-      this._error = err?.message || String(err);
-    }
-  }
-
-  async _resetSandbox() {
-    try {
-      await this._session.resetSandbox();
     } catch (err) {
       this._error = err?.message || String(err);
     }
@@ -280,6 +349,7 @@ class LivePreviewDialog extends HauiDialog {
         @pointermove=${this._onPointerMove}
         @pointerup=${this._onPointerUp}
         @pointercancel=${this._onPointerCancel}
+        @pointerleave=${() => { this._hover = null; }}
         @contextmenu=${e => e.preventDefault()}
       >
         <div style="transform:scale(${scale});transform-origin:0 0;">
@@ -331,22 +401,23 @@ class LivePreviewDialog extends HauiDialog {
               ${renderToggle('vp-live', live, v => this._setLive(v), { disabled: !ready })}
               ${t('Live mode')}
             </label>
+            <label class="vp-mode">
+              ${renderToggle('vp-show-entities', this._showEntities, v => this._setShowEntities(v), { disabled: !ready })}
+              ${t('Show entities')}
+            </label>
             <ha-button
-              appearance="plain"
-              ?disabled=${!ready || !session.sandboxEntities.length}
-              @click=${this._resetSandbox}
+              appearance=${session?.idle ? 'accent' : 'plain'}
+              aria-pressed=${session?.idle ? 'true' : 'false'}
+              ?disabled=${!ready}
+              @click=${() => session.idleTimeout()}
             >
-              <ha-icon slot="start" icon="mdi:restore"></ha-icon>
-              ${t('Reset sandbox')}
-            </ha-button>
-            <ha-button appearance="plain" ?disabled=${!ready} @click=${() => session.idleTimeout()}>
               <ha-icon slot="start" icon="mdi:timer-sand"></ha-icon>
               ${t('Idle timeout')}
             </ha-button>
           </div>
           <p class="vp-hint ${live ? 'live' : ''}">
             ${live
-              ? t('Live mode: touches switch your real devices. The panel\'s own relays and settings stay simulated.')
+              ? t('Live mode: touches and the hardware buttons switch your real devices, including the panel\'s relays. The panel\'s settings stay simulated.')
               : t('Sandbox mode: touches change simulated states only; your devices are not switched.')}
           </p>
 
@@ -355,6 +426,7 @@ class LivePreviewDialog extends HauiDialog {
               ${ready
                 ? this._renderScreen(session)
                 : html`<div class="vp-loading" style="width:450px;max-width:70vw;height:300px;">${t('Starting the live preview…')}</div>`}
+              ${this._renderTooltip()}
             </div>
             <div class="vp-hw-buttons">
               <button class="vp-hw" ?disabled=${!ready} @click=${() => session.pressButton('left')}>

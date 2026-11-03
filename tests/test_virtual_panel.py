@@ -179,11 +179,11 @@ def test_live_mode_still_sandboxes_the_real_devices_own_entities(env):
     _run(env, sess.async_stop())
 
 
-def test_reset_sandbox_restores_the_real_state(session, env):
+def test_going_live_drops_the_simulated_states(session, env):
     _tap_power(session)
     _wait(lambda: session.app.sandbox.is_simulated("light.lamp"))
 
-    session.reset_sandbox()
+    session.set_live(True)
 
     _wait(lambda: {"type": "sandbox", "entities": []} in session.messages)
     assert session.app.sandbox.get("light.lamp").state == "off"
@@ -276,6 +276,118 @@ def test_a_long_press_on_a_clock_goes_back_home(env):
     sess.send_event(ESPEvent.TOUCH_END, "200,150,202,151")
 
     _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+    _run(env, sess.async_stop())
+
+
+def test_the_browser_is_told_when_the_idle_page_starts_and_ends(env):
+    grid = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
+    clock = {"type": "clock", "key": "clock_0", "show_in_navigation": False}
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"home_panel": "grid_0", "idle_panel": "clock_0"},
+                    "panels": [grid, clock],
+                }
+            }
+        },
+        device_name="kitchen",
+    )
+    messages: list[dict] = []
+    sess = VirtualPanelSession(env, "kitchen", cfg, messages.append)
+    _run(env, sess.async_start())
+    _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+    _wait(lambda: sess.app.controller["navigation"].page.started)
+    assert not any(m["type"] == "idle" for m in messages)
+
+    sess.send_event(ESPEvent.TIMEOUT, "page")
+    _wait(lambda: {"type": "idle", "active": True} in messages)
+    _wait(lambda: {"type": "page", "page": 7} in messages)
+    _wait(lambda: sess.app.controller["navigation"].page.started)
+
+    # Past the idle-touch grace window: a touch leaves the idle page.
+    time.sleep(1.2)
+    sess.send_event(ESPEvent.TOUCH_START, "")
+    _wait(lambda: {"type": "idle", "active": False} in messages)
+    _run(env, sess.async_stop())
+
+
+def _relay_session(env, live, use_relay=True):
+    grid = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {"config": {"use_relay_left": use_relay}, "panels": [grid]}
+            }
+        },
+        device_name="kitchen",
+    )
+    messages: list[dict] = []
+    sess = VirtualPanelSession(env, "kitchen", cfg, messages.append, live=live)
+    _run(env, sess.async_start())
+    _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+    relays = {"Relay Left": "switch.kitchen_relay_left"}
+    sess.app.device.find_esphome_entity_id = lambda domain, name: relays.get(name)
+    return sess
+
+
+def test_a_hardware_button_toggles_its_relay_in_the_sandbox(env):
+    sess = _relay_session(env, live=False)
+    sess.send_event(ESPEvent.BUTTON_LEFT, "1")
+    sess.send_event(ESPEvent.BUTTON_LEFT, "0")
+    _wait(lambda: sess.app.sandbox.is_simulated("switch.kitchen_relay_left"))
+    assert sess.app.sandbox.get("switch.kitchen_relay_left").state == "on"
+    assert env.services.calls == []
+    _run(env, sess.async_stop())
+
+
+def test_a_hardware_button_switches_the_real_relay_in_live_mode(env):
+    sess = _relay_session(env, live=True)
+    sess.send_event(ESPEvent.BUTTON_LEFT, "1")
+    sess.send_event(ESPEvent.BUTTON_LEFT, "0")
+    _wait(lambda: env.services.calls)
+    domain, service, _data, target = env.services.calls[0]
+    assert (domain, service, target) == (
+        "switch",
+        "toggle",
+        {"entity_id": "switch.kitchen_relay_left"},
+    )
+    _run(env, sess.async_stop())
+
+
+def test_without_relay_mode_the_button_leaves_the_relay_alone(env):
+    sess = _relay_session(env, live=False, use_relay=False)
+    sess.send_event(ESPEvent.BUTTON_LEFT, "1")
+    sess.send_event(ESPEvent.BUTTON_LEFT, "0")
+    time.sleep(0.3)
+    assert not sess.app.sandbox.is_simulated("switch.kitchen_relay_left")
+    _run(env, sess.async_stop())
+
+
+def test_the_browser_learns_which_widgets_show_which_entity(env):
+    env._states["weather.home"] = _State("rainy", {"temperature": 14.6})
+    grid = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
+    clock = {
+        "type": "clock",
+        "key": "clock_0",
+        "item": {"item": "weather.home"},
+        "items": [{"item": "light.lamp"}],
+    }
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {"devices": {"kitchen": {"config": {"home_panel": "grid_0"}, "panels": [grid, clock]}}},
+        device_name="kitchen",
+    )
+    messages: list[dict] = []
+    sess = VirtualPanelSession(env, "kitchen", cfg, messages.append)
+    _run(env, sess.async_start())
+    _wait(lambda: {"type": "entities", "map": {"g1Overlay": "light.lamp"}} in messages)
+
+    sess.send_event(ESPEvent.GESTURE, "swipe_left")
+    clock_map = {"#page": "weather.home", "bEntity1": "light.lamp"}
+    _wait(lambda: {"type": "entities", "map": clock_map} in messages)
     _run(env, sess.async_stop())
 
 

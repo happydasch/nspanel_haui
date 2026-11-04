@@ -1951,15 +1951,30 @@ def _updater_with_channel(monkeypatch, channel, **kwargs):
     )
 
 
-def test_the_dev_channel_resolves_to_the_published_dev_manifest(monkeypatch):
-    ctrl, app, _ = _updater_with_channel(monkeypatch, "dev")
-
-    url = ctrl._resolve_firmware_manifest_url()
-
-    assert (
-        url == "https://github.com/happydasch/nspanel_haui/releases/download/"
-        "dev-latest/firmware-manifest.json"
+def test_the_dev_channel_follows_the_newest_release_with_a_manifest(monkeypatch):
+    dev = {**_firmware_release("0.4.5.dev3"), "prerelease": True}
+    # Released, but its assets are still uploading.
+    uploading = {"tag_name": "0.4.5.dev4", "name": "", "body": "", "prerelease": True}
+    ctrl, app, _ = _updater_with_channel(
+        monkeypatch, "dev", releases=[_firmware_release("v0.4.4"), dev, uploading]
     )
+
+    assert ctrl._resolve_firmware_manifest_url() == "https://dl/0.4.5.dev3/manifest.json"
+    ctrl.start_part()
+    assert _firmware_events(app)[-1]["latest_version"] == "0.4.5.dev3"
+
+
+def test_a_failed_dev_release_lookup_clears_the_manifest(monkeypatch):
+    ctrl, app, _ = _updater_with_channel(
+        monkeypatch, "dev", releases=[_release("0.4.5.dev3", prerelease=True)]
+    )
+
+    ctrl.start_part()
+
+    assert ctrl._firmware_manifest is None
+    # Unresolved, so the next start looks the URL up again.
+    assert ctrl._firmware_manifest_url is None
+    assert ctrl.list_tft_releases()["error"] == "No GitHub release ships a firmware-manifest.json"
 
 
 def test_the_stable_channel_resolves_to_releases_latest(monkeypatch):

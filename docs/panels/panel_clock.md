@@ -5,7 +5,7 @@ description: Clock panel — screensaver with time, date, weather, and cycle car
 
 # Panel Clock
 
-![](../assets/previews/panel-clock.svg)
+<img src="../assets/screens/landscape/clock.png" alt="clock panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/clock.png" alt="clock panel, portrait" width="142" height="213">
 
 ## About
 

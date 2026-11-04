@@ -252,15 +252,15 @@ export function renderSystemPanels(host, viewMode) {
   `;
 
   return html`
-    ${systemPanels.length ? renderGroup(
-      systemPanels, host.__systemPanelsOpen, 'haui_systemPanelsOpen',
-      (open) => { host.__systemPanelsOpen = open; },
-      t('System Panels ({count} panels)')
-    ) : ''}
     ${popupPanels.length ? renderGroup(
       popupPanels, host.__popupPanelsOpen, 'haui_popupPanelsOpen',
       (open) => { host.__popupPanelsOpen = open; },
       t('Popups ({count} panels)')
+    ) : ''}
+    ${systemPanels.length ? renderGroup(
+      systemPanels, host.__systemPanelsOpen, 'haui_systemPanelsOpen',
+      (open) => { host.__systemPanelsOpen = open; },
+      t('System Panels ({count} panels)')
     ) : ''}
   `;
 }

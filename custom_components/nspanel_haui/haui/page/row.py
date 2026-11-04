@@ -288,6 +288,9 @@ class RowPage(PagedItemsMixin, HAUIPage):
                     elif detail_visible == "toggle":
                         if n == "toggle":
                             show = True
+                            # dual-state: bco is the off state, bco2 the on state
+                            back_color = self.get_color("component_background")
+                            back_color_pressed = self.get_color("component_active")
                     # 'SLIDER', 'SLIDER_TXT' value slider
                     elif detail_visible == "slider":
                         if n in ["slider", "slider_txt"]:

@@ -297,7 +297,7 @@ Opened from its own dialog (separate from Device Settings). Lets you override in
 
   RGB565 color values keyed by color name. Unknown keys are ignored (logged) and values are clamped to `0`-`65535`. Default `{}` (empty).
 
-  **Background: solid colour vs picture.** Pages without a picture background are cleared with the `background` colour on every panel switch (`cls <RGB565>`), so the device-level override applies there. About, Clock, Clock Two, System and Weather are *picture-background* pages: they keep their pre-rendered picture (on Clock, Clock Two and Weather the one selected by the panel's `background` option) and skip the colour clear entirely. On those pages neither the `background` override nor the header colours apply — the compiled picture and its palette win. This is by design (the picture is the background); to change their look, change the picture or edit the HMI. The remaining `COLORS` entries still theme the cards, buttons and text on solid pages as usual.
+  **Background: solid colour vs picture.** Pages without a picture background are cleared with the `background` colour on every panel switch (`cls <RGB565>`), so the device-level override applies there. The widgets the HMI draws in the page colour (texts, icons, flat buttons, row and settings labels) take the overridden `background` too, and every button's pressed state takes `component_pressed`; the hub reads which widgets those are from `haui/mapping/theme_widgets.json`, exported from the HMI by `scripts/gen_virtual_layout/gen_virtual_layout.py`. Slider tracks, a toggle's off state and the media progress bar take `component_background`. About, Clock, Clock Two, System and Weather are *picture-background* pages: they keep their pre-rendered picture (on Clock, Clock Two and Weather the one selected by the panel's `background` option) and skip the colour clear entirely. On those pages neither the `background` override nor the header colours apply — the compiled picture and its palette win. This is by design (the picture is the background); to change their look, change the picture or edit the HMI. The remaining `COLORS` entries still theme the cards, buttons and text on solid pages as usual.
 
 ## Fields not yet exposed in the editor
 
@@ -324,8 +324,9 @@ The device editor's **Updates** section controls release checks and automatic in
 - `firmware_update_channel` (`stable` or `dev`, default `stable`) — which
   firmware manifest the **HAUI Firmware** entity follows when
   `firmware_manifest_url` is empty: the latest stable GitHub release, or the
-  [published development firmware](../release.md#published-development-firmware)
-  (`dev-latest`). It also controls GitHub release notifications: `stable` ignores
+  newest [published development firmware](../release.md#published-development-firmware)
+  (the newest release in the GitHub release list, dev prereleases included). It
+  also controls GitHub release notifications: `stable` ignores
   prereleases, while `dev` considers them. Pointing a universal test panel at
   `dev` makes it follow every successful `dev`-branch build; the entity then
   never shows an older "latest" than the installed dev build.

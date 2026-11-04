@@ -165,6 +165,7 @@ class ClimatePage(HAUIPage):
                 component.name,
                 fnc_name,
                 color=self.get_color("component_active"),
+                back_color_pressed=self.get_color("component_pressed"),
                 icon=icon,
                 visible=False,
             )

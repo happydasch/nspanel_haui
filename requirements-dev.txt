@@ -18,4 +18,6 @@ pydantic>=2.7
 types-requests
 types-python-dateutil
 voluptuous>=0.14.2
+# Freezes the clock for the screen overview (scripts/preview_gallery).
+time-machine>=2.16
 aiohttp>=3.11

@@ -5,7 +5,7 @@ description: Climate panel — HVAC control with temperature setpoint and mode s
 
 # Panel Climate
 
-![](../assets/previews/panel-climate.svg)
+<img src="../assets/screens/landscape/climate.png" alt="climate panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/climate.png" alt="climate panel, portrait" width="142" height="213">
 
 ## About
 

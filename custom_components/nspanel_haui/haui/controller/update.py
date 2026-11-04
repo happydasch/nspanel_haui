@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..mapping.const import (
-    FIRMWARE_MANIFEST_URLS,
+    FIRMWARE_MANIFEST_URL,
     ESPAction,
     ESPRequest,
     ESPResponse,
@@ -72,7 +72,7 @@ VERIFY_MAX_REFRESHES = 2
 
 # Firmware update.  The hub reads the firmware manifest at the device's
 # ``firmware_manifest_url`` (by default the one of the ``firmware_update_channel``:
-# the latest stable GitHub release, or the published dev firmware) and, when it
+# the latest stable GitHub release, or the newest dev prerelease) and, when it
 # names a newer version, flashes its image with the firmware's
 # ``install_firmware_url`` action; the display TFT the new firmware's manifest
 # ships follows after the reboot.  A failed automatic install is retried at
@@ -177,9 +177,11 @@ class HAUIUpdateController(HAUIBase):
         # only: a Home Assistant restart or a new firmware version lifts it.
         self._manual_tft_firmware: str | None = None
         # The manifest read last (``version``, ``url``, ``md5``) and the URL it
-        # was read from; None when the read failed.
+        # was read from; None when the read failed, with the reason in
+        # ``_firmware_manifest_error``.
         self._firmware_manifest: dict[str, str] | None = None
         self._firmware_manifest_url: str | None = None
+        self._firmware_manifest_error: str | None = None
         # Firmware install bookkeeping.  The install runs on the device and
         # ends in a reboot, so a reconnect means the attempt finished — either
         # way.  While it is in flight the TFT install waits, because the reboot
@@ -236,8 +238,7 @@ class HAUIUpdateController(HAUIBase):
         self._start_timer()
         # On start and whenever a config reload changed the URL, so the HAUI
         # Firmware entity shows what the configured manifest offers right away.
-        if self._resolve_firmware_manifest_url() != self._firmware_manifest_url:
-            self._refresh_firmware_manifest()
+        self._refresh_firmware_manifest(only_if_changed=True)
 
     def stop_part(self) -> None:
         """Stops the part."""
@@ -291,21 +292,36 @@ class HAUIUpdateController(HAUIBase):
             # treats an incomparable version as unknown instead (see above).
             return None
 
-    def _resolve_firmware_manifest_url(self) -> str:
+    def _resolve_firmware_manifest_url(self, force: bool = False) -> str:
         """The manifest URL this device follows: the explicit override, or the channel's.
 
         ``firmware_manifest_url`` stays the explicit override (local/custom
         manifests); the shipped default value — the stable channel's URL — is
         not an override, so the ``firmware_update_channel`` decides whenever
         the setting was left empty in the editor (the store only holds an
-        override anyway).
+        override anyway).  The dev channel has no fixed URL: it follows the
+        manifest of the newest release in the GitHub release list, dev
+        prereleases included (``force`` bypasses the release cache).
+
+        Raises:
+            RuntimeError: When the dev channel's release list cannot be fetched
+                or none of its releases ships a firmware manifest
         """
         explicit = (self.get("firmware_manifest_url") or "").strip()
-        default = FIRMWARE_MANIFEST_URLS[FirmwareUpdateChannel.STABLE]
-        if explicit and explicit != default:
+        if explicit and explicit != FIRMWARE_MANIFEST_URL:
             return explicit
         channel = str(self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE))
-        return FIRMWARE_MANIFEST_URLS.get(channel, default)
+        if channel != FirmwareUpdateChannel.DEV:
+            return FIRMWARE_MANIFEST_URL
+        self._update_release_infos(force=force)
+        release = self._get_latest_release(asset=FIRMWARE_MANIFEST_ASSET)
+        if release is None:
+            raise RuntimeError(f"No GitHub release ships a {FIRMWARE_MANIFEST_ASSET}")
+        return next(
+            asset["browser_download_url"]
+            for asset in release["assets"]
+            if asset.get("name") == FIRMWARE_MANIFEST_ASSET
+        )
 
     def _update_release_infos(self, force: bool = False) -> None:
         """Updates the release informations.
@@ -378,13 +394,16 @@ class HAUIUpdateController(HAUIBase):
             if cacheable:
                 _release_cache = (time.monotonic(), json_decoded)
 
-    def _get_latest_release(self) -> dict[str, Any] | None:
+    def _get_latest_release(self, asset: str | None = None) -> dict[str, Any] | None:
         """Returns the latest release allowed by the configured channel.
 
         Stable excludes GitHub-marked prereleases and prerelease version tags;
         the dev channel considers them. Releases whose tag does not parse as a
         version are skipped, so an odd tag can neither break the comparison nor
         surface as ``0.0.0``.
+
+        Args:
+            asset (str | None): Only consider releases that ship this asset
 
         Returns:
             None|dict: Release info
@@ -398,6 +417,10 @@ class HAUIUpdateController(HAUIBase):
             if version is None:
                 continue
             if not include_prereleases and (release.get("prerelease") or version.is_prerelease):
+                continue
+            if asset is not None and not any(
+                item.get("name") == asset for item in release.get("assets", [])
+            ):
                 continue
             if latest_version is None or version > latest_version:
                 latest_release = release
@@ -495,21 +518,33 @@ class HAUIUpdateController(HAUIBase):
         except (requests.exceptions.RequestException, ValueError, LookupError, TypeError) as exc:
             raise RuntimeError(f"Could not read the firmware manifest {url}: {exc}") from exc
 
-    def _refresh_firmware_manifest(self) -> None:
+    def _refresh_firmware_manifest(
+        self, force: bool = False, only_if_changed: bool = False
+    ) -> None:
         """Read the manifest at ``firmware_manifest_url`` and publish the result.
 
         A failed read clears the manifest instead of keeping the previous one:
         after the URL changed, the old manifest would offer a firmware the
         panel is no longer meant to follow.
+
+        Args:
+            force (bool): Bypass the release cache the dev channel resolves from
+            only_if_changed (bool): Skip the read when the URL is the one read last
         """
-        url = self._resolve_firmware_manifest_url()
-        self._firmware_manifest_url = url
+        previous_url = self._firmware_manifest_url
+        # None until the URL resolves, so a failed dev-channel lookup is never
+        # mistaken for an unchanged URL on the next start.
+        self._firmware_manifest_url = None
         try:
-            if not url:
-                raise RuntimeError("No firmware manifest URL is configured")
+            url = self._resolve_firmware_manifest_url(force=force)
+            self._firmware_manifest_url = url
+            if only_if_changed and url == previous_url:
+                return
             self._firmware_manifest = self._read_firmware_manifest(url)
+            self._firmware_manifest_error = None
         except RuntimeError as exc:
             self._firmware_manifest = None
+            self._firmware_manifest_error = str(exc)
             self.log(f"Firmware update check failed: {exc}", level="WARNING")
         self.publish_firmware_update()
 
@@ -897,9 +932,7 @@ class HAUIUpdateController(HAUIBase):
             manifest = self._firmware_manifest
             if version is None:
                 if manifest is None:
-                    self._firmware_install_error = (
-                        f"Could not read the firmware manifest {self._firmware_manifest_url}"
-                    )
+                    self._firmware_install_error = self._firmware_manifest_error
                     return self.get_update_state()
                 if not self._firmware_update_available():
                     self._firmware_install_error = (
@@ -984,7 +1017,7 @@ class HAUIUpdateController(HAUIBase):
                 f"for version {version}; dev firmware publishes no display TFT. "
                 "Install the TFT from a URL instead"
                 if manifest is not None
-                else f"Could not read the firmware manifest {self._firmware_manifest_url}"
+                else str(self._firmware_manifest_error)
             )
             self.log(msg, level="WARNING")
             self._set_update_state(UPDATE_STATE_ERROR, version=version, error=msg)
@@ -1093,11 +1126,7 @@ class HAUIUpdateController(HAUIBase):
             self._refresh_firmware_manifest()
         manifest = self._firmware_manifest
         releases = [manifest["tft_version"]] if manifest and manifest.get("tft_version") else []
-        error = (
-            None
-            if manifest is not None
-            else f"Could not read the firmware manifest {self._firmware_manifest_url}"
-        )
+        error = None if manifest is not None else self._firmware_manifest_error
         return {"releases": releases, "required": required, "error": error}
 
     def install_tft_url(self, url: str) -> dict[str, Any]:
@@ -1532,7 +1561,7 @@ class HAUIUpdateController(HAUIBase):
         # Firmware availability comes from the firmware manifest, not from the
         # TFT version. Check it first: a panel can have the newest TFT and
         # still need a newer ESPHome firmware release.
-        self._refresh_firmware_manifest()
+        self._refresh_firmware_manifest(force=force_refresh)
         manifest = self._firmware_manifest
         if manifest is not None and self._firmware_install_due():
             state = self._start_firmware_install(

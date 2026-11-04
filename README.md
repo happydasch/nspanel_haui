@@ -66,6 +66,7 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
 
 Recent additions to NSPanel HAUI:
 
+- **Live preview and exact panel cards** — the editor runs a virtual copy of each panel on the real hub code: try it in a sandbox or control your home live, and see every panel card exactly as the display draws it. Live preview and simulator by [@jameshiscott](https://github.com/jameshiscott). See [Live preview and Nextion simulator](#live-preview-and-nextion-simulator).
 - **US portrait support** — the US NSPanel mounted vertically gets its own rotated TFT layout. Pick `European (standard)` or `US (portrait)` per device in the editor; edge-swipe gestures use the installed model's touch dimensions. See [Display Models](docs/configuration/display-models.md).
 - **Display-off schedule** — a daily window (overnight ranges supported) during which the display may turn off after `timeout_display_off` seconds of inactivity; outside the window it only dims. The hub applies the schedule itself, so no automation is needed. See [Device Configuration](docs/configuration/device.md).
 - **Quiet hours (Do Not Disturb)** — silence all notification sounds during a daily window while notifications are still queued and shown.
@@ -78,61 +79,97 @@ Recent additions to NSPanel HAUI:
 
 ## Features
 
-- 🧩 **13 Panel Types** — Grid, light, climate, cover, media, weather, and more
-- ✋ **Touch + Gestures** — Swipe navigation, gesture sequences, tap interactions
-- 🎨 **Full Customization** — Per-entity colors, icons, backgrounds, themes
-- 🌙 **Auto-Dimming** — Smart display-off/wake, daily off schedule, screensaver
-- ✏️ **Visual Editor** — Built-in Lovelace panel with live previews, reordering, color pickers
-- 🌐 **Multi-Language** — English, German, Dutch, Polish, French
-- 🔔 **Notifications** — Sound alerts, toasts, persistent alerts, notification queue
-- 🔒 **Panel Locking** — PIN-protected unlock for sensitive controls
-- ⚡ **ESPHome Native API** — Fast, reliable communication with the display
-- 🕐 **Screensaver Modes** — Clock, weather, clock-two (text) display modes
-- 🎛️ **Hardware Buttons** — Physical rocker switch support with custom actions
-- 📱 **QR Code Display** — Show Wi-Fi details, URLs, or text as QR codes
+**On the display**
+
+- 🧩 **13 panel types** — grid, row, light, climate, cover, media, vacuum, alarm, timer, QR, weather, clock and word clock, plus popups for lights, covers, climate, media, vacuum, alarm and timers
+- 📐 **Landscape and portrait** — the EU panel and the upright US panel each get their own display layout
+- ✋ **Touch and gestures** — tap, slide, swipe through panels, named gesture sequences, long press to go back
+- 🌙 **Screensavers and dimming** — clock, weather or word clock as idle page (also as a carousel), auto-dimming, display-off schedule, day/night profiles
+- 🔔 **Notifications** — a queue with severities, persistent alerts that keep sounding until dismissed, quiet hours
+- 🔒 **Panel PINs** — lock sensitive panels behind a code
+- 🎛️ **Hardware buttons** — switch the built-in relays or any entity
+- 🎨 **Colours and icons** — theme colours, per-item colour and icon overrides, background pictures
+- 🌐 **Five languages** — English, German, Dutch, Polish and French
+
+**In Home Assistant**
+
+- ✏️ **Visual editor** — configure everything from the sidebar, no YAML needed
+- 🖥️ **Live preview** — an interactive virtual panel running on the real hub code, with a sandbox that leaves your home untouched
+- 🃏 **Exact previews** — every panel card shows exactly what the display will show, in landscape or portrait
+- 🔄 **Updates** — firmware and display updates as Home Assistant update entities, on the stable or dev channel
+- 🔍 **Discovery** — finds new panels on your network
+- ⚡ **Local push** — ESPHome native API, no cloud
 
 ---
 
 ## Available Panels
 
-See the [Panels Overview](docs/panels/README.md) for details.
+Every screenshot below is rendered by the integration itself (see [Screen renderer](#live-preview-and-nextion-simulator)). Click a panel for its documentation, or open the **[Screens overview](https://happydasch.github.io/nspanel_haui/screens.html)** for every panel, popup and system screen in both layouts.
 
-- <a href="docs/panels/panel_grid.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-grid.svg" alt="Grid Panel" width="80"></a> **[Grid](docs/panels/panel_grid.md)** (`grid`) — Up to 6 entities in a scrollable grid layout. Color overrides, power buttons.
-- <a href="docs/panels/panel_row.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-row.svg" alt="Row Panel" width="80"></a> **[Row](docs/panels/panel_row.md)** (`row`) — Up to 5 entities as stacked rows. Compact, text-focused layout.
-- <a href="docs/panels/panel_light.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-light.svg" alt="Light Panel" width="80"></a> **[Light](docs/panels/panel_light.md)** (`light`) — Full light control: brightness, color temp, RGB color wheel, effects.
-- <a href="docs/panels/panel_climate.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-climate.svg" alt="Climate Panel" width="80"></a> **[Climate](docs/panels/panel_climate.md)** (`climate`) — HVAC control: temperature, modes, fan speed, swing, presets.
-- <a href="docs/panels/panel_cover.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-cover.svg" alt="Cover Panel" width="80"></a> **[Cover](docs/panels/panel_cover.md)** (`cover`) — Open/close/stop with vertical position slider. Blinds, garages, curtains.
-- <a href="docs/panels/panel_media.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-media.svg" alt="Media Panel" width="80"></a> **[Media](docs/panels/panel_media.md)** (`media`) — Media player controls, volume, queue. Supports TV, speakers, receivers.
-- <a href="docs/panels/panel_vacuum.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-vacuum.svg" alt="Vacuum Panel" width="80"></a> **[Vacuum](docs/panels/panel_vacuum.md)** (`vacuum`) — Start/stop, return to dock, fan speed, locate. Up to 6 secondary items.
-- <a href="docs/panels/panel_timer.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-timer.svg" alt="Timer Panel" width="80"></a> **[Timer](docs/panels/panel_timer.md)** (`timer`) — Local countdown timer with start/pause/stop. Uses display-local time.
-- <a href="docs/panels/panel_alarm.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-alarm.svg" alt="Alarm Panel" width="80"></a> **[Alarm](docs/panels/panel_alarm.md)** (`alarm`) — Numeric keypad for alarm code entry. Arm/disarm with mode buttons.
-- <a href="docs/panels/panel_qr.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-qr.svg" alt="QR Panel" width="80"></a> **[QR Code](docs/panels/panel_qr.md)** (`qr`) — Display QR codes for Wi-Fi, URLs, or custom text. Great for guest networks.
-- <a href="docs/panels/panel_weather.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-weather.svg" alt="Weather Panel" width="80"></a> **[Weather](docs/panels/panel_weather.md)** (`weather`) — Screensaver-ready weather display. Forecast, backgrounds, info items.
-- <a href="docs/panels/panel_clock.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-clock.svg" alt="Clock Panel" width="80"></a> **[Clock](docs/panels/panel_clock.md)** (`clock`) — Large time/date display. Optional weather, entity buttons, backgrounds.
-- <a href="docs/panels/panel_clocktwo.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/previews/panel-clocktwo.svg" alt="ClockTwo Panel" width="80"></a> **[ClockTwo](docs/panels/panel_clocktwo.md)** (`clocktwo`) — Word clock — the time spelled out on a letter grid. Minimalist screensaver.
+<table>
+<tr>
+<td align="center" width="33%"><a href="docs/panels/panel_grid.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/grid.png" alt="Grid panel" width="225"></a><br><b><a href="docs/panels/panel_grid.md">Grid</a></b> · <code>grid</code><br><sub>Up to 6 entities as tiles, paged, with colour overrides and power buttons.</sub></td>
+<td align="center" width="33%"><a href="docs/panels/panel_row.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/row.png" alt="Row panel" width="225"></a><br><b><a href="docs/panels/panel_row.md">Row</a></b> · <code>row</code><br><sub>Up to 5 entities as rows, each with a control that suits the entity.</sub></td>
+<td align="center" width="33%"><a href="docs/panels/panel_light.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/light.png" alt="Light panel" width="225"></a><br><b><a href="docs/panels/panel_light.md">Light</a></b> · <code>light</code><br><sub>Brightness, colour temperature, colour wheel and effects.</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="docs/panels/panel_climate.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/climate.png" alt="Climate panel" width="225"></a><br><b><a href="docs/panels/panel_climate.md">Climate</a></b> · <code>climate</code><br><sub>Setpoints, HVAC modes, fan speed, swing and presets.</sub></td>
+<td align="center" width="33%"><a href="docs/panels/panel_cover.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/cover.png" alt="Cover panel" width="225"></a><br><b><a href="docs/panels/panel_cover.md">Cover</a></b> · <code>cover</code><br><sub>Open, stop and close with a position slider.</sub></td>
+<td align="center" width="33%"><a href="docs/panels/panel_media.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/media.png" alt="Media panel" width="225"></a><br><b><a href="docs/panels/panel_media.md">Media</a></b> · <code>media</code><br><sub>Playback, volume and track info for TVs, speakers and receivers.</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="docs/panels/panel_vacuum.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/vacuum.png" alt="Vacuum panel" width="225"></a><br><b><a href="docs/panels/panel_vacuum.md">Vacuum</a></b> · <code>vacuum</code><br><sub>Start, stop, dock, fan speed and locate, plus up to 6 extra items.</sub></td>
+<td align="center" width="33%"><a href="docs/panels/panel_alarm.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/alarm.png" alt="Alarm panel" width="225"></a><br><b><a href="docs/panels/panel_alarm.md">Alarm</a></b> · <code>alarm</code><br><sub>Keypad for the alarm code with arm and disarm modes.</sub></td>
+<td align="center" width="33%"><a href="docs/panels/panel_timer.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/timer.png" alt="Timer panel" width="225"></a><br><b><a href="docs/panels/panel_timer.md">Timer</a></b> · <code>timer</code><br><sub>Countdown timer with start, pause and stop.</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="docs/panels/panel_qr.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/qr.png" alt="QR Code panel" width="225"></a><br><b><a href="docs/panels/panel_qr.md">QR Code</a></b> · <code>qr</code><br><sub>Wi-Fi details, a URL or any text as a QR code.</sub></td>
+<td align="center" width="33%"><a href="docs/panels/panel_weather.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/weather.png" alt="Weather panel" width="225"></a><br><b><a href="docs/panels/panel_weather.md">Weather</a></b> · <code>weather</code><br><sub>Forecast, time and date. Ready to use as screensaver.</sub></td>
+<td align="center" width="33%"><a href="docs/panels/panel_clock.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/clock.png" alt="Clock panel" width="225"></a><br><b><a href="docs/panels/panel_clock.md">Clock</a></b> · <code>clock</code><br><sub>Large time and date with weather and entity buttons.</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><a href="docs/panels/panel_clocktwo.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/clocktwo.png" alt="ClockTwo panel" width="225"></a><br><b><a href="docs/panels/panel_clocktwo.md">ClockTwo</a></b> · <code>clocktwo</code><br><sub>Word clock: the time spelled out on a letter grid.</sub></td>
+<td align="center" width="33%"><a href="docs/panels/README.md#popups"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/landscape/popup_notify.png" alt="Notification popup" width="225"></a><br><b><a href="docs/panels/README.md#popups">Popups</a></b><br><sub>Notifications, selections, PIN unlock and a popup for every entity panel.</sub></td>
+<td align="center" width="33%"><a href="docs/configuration/display-models.md"><img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/screens/portrait/grid.png" alt="Grid panel in portrait" height="160"></a><br><b><a href="docs/configuration/display-models.md">US portrait</a></b><br><sub>Every screen also has its own upright layout for the US panel.</sub></td>
+</tr>
+</table>
+
+See the [Panels Overview](docs/panels/README.md) for options and details.
 
 ---
 
 ## Web Frontend Editor
 
-NSPanel HAUI ships with a **fully integrated web frontend** — a custom Lovelace panel that runs inside Home Assistant and provides a visual, point-and-click interface for configuring everything on your NSPanel.
+Everything is configured in a visual editor inside Home Assistant: open **NSPanel HAUI** in the sidebar (administrators only). It is there as soon as the integration is added, with nothing extra to install and no YAML to write.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/frontend-preview.svg" alt="Web Frontend Editor Preview" width="100%">
 </p>
 
-| Capability | What you can do |
-|------------|-----------------|
-| **Panel management** | Add, remove and reorder panels. Each panel type (grid, light, climate, etc.) gets a visual **live preview** showing how it will look on the actual display. |
-| **Entity assignment** | Pick entities from a searchable HA entity picker. Configure per-entity icons, display names, colors, and overrides. |
-| **Color editing** | Full color picker for device-level theme colors and per-item overrides. |
-| **Gesture & navigation** | Configure swipe directions, physical button actions, and auto-dimming behavior. |
-| **Multi-device** | Manage multiple NSPanels from a single Lovelace panel. Switch between devices and their settings. |
-| **Real-time status** | Live device connection status, uptime, firmware versions, and log viewer — all from the frontend. |
+### Live preview and Nextion simulator
 
-The frontend is **automatically available** once the integration is added — no separate installation step needed. Open it from **NSPanel HAUI** in the Home Assistant sidebar (administrators only).
+The editor shows your panels exactly as the display shows them, not as a mockup. A Nextion simulator built from the real display layout, landscape and portrait, runs the display's own page code and replays the commands the hub sends to the device. Because the hub renders every screen itself, entity values, translations, templates, the clock, the weather forecast and colour overrides are the same as on the real panel.
 
-Behind the scenes, the frontend communicates with the HAUI hub app through a REST API (`/api/nspanel_haui/...`) and the Home Assistant custom panel system. The frontend code lives in `custom_components/nspanel_haui/frontend/` and is written in vanilla JavaScript using Lit for components.
+- **Live preview** — a virtual copy of each device, running on the real hub code. Tap, drag and swipe with the mouse or a finger, press the hardware buttons and trigger the idle page. **Sandbox mode** simulates every action, so nothing in your home changes; **Live mode** controls the real entities. **Show entities** names the entity under the pointer.
+- **Exact panel cards** — every card in the panel list, system panels and popups included, is drawn by the hub, and unsaved edits show right away.
+- **Screen renderer** — the same renderer produces the screenshots in this README and the [Screens overview](https://happydasch.github.io/nspanel_haui/screens.html). CI regenerates them after every dev build, so the documentation always shows the current screens.
+
+The live preview and the Nextion simulator were created by **James Hiscott** ([@jameshiscott](https://github.com/jameshiscott)). Thank you!
+
+See [The Live Preview](docs/configuration/README.md#the-live-preview) for how to use it.
+
+### Everything else in the editor
+
+| Area | What you can do |
+|------|-----------------|
+| **Panels** | Add, edit, reorder and delete panels in a grid or list view, and customise every popup. |
+| **Items** | Pick entities from a searchable entity picker; override name, icon, colour, value and state per item. |
+| **Device settings** | Display model, dimming, idle page, day/night profiles, display-off schedule, gestures, hardware buttons, sounds, quiet hours, time and date formats. |
+| **Colours** | Override any colour of the built-in palette per device. |
+| **Devices** | Device Manager: find panels on the network, add, enable or remove them, and see connection, firmware and display versions. Manage several NSPanels from one place. |
+| **Diagnostics** | Device info, log viewer, notification queue, YAML import and export. |
+
+Behind the scenes the editor talks to the hub through a REST API (`/api/nspanel_haui/...`) and Home Assistant's WebSocket API (live preview and panel cards). It lives in `custom_components/nspanel_haui/frontend/` and is written in vanilla JavaScript with Lit.
 
 ---
 
@@ -173,7 +210,7 @@ For detailed architecture information, see the [Communication Overview](docs/com
 The full index — end-user guides and developer references — is at
 **[docs/README.md](docs/README.md)**. Highlights:
 
-- [Installation](docs/install.md) · [Quick Start](docs/get-started.md) · [Configuration](docs/configuration/README.md) · [Panels](docs/panels/README.md) · [Icons](https://happydasch.github.io/nspanel_haui/cheatsheet.html)
+- [Installation](docs/install.md) · [Quick Start](docs/get-started.md) · [Configuration](docs/configuration/README.md) · [Panels](docs/panels/README.md) · [Icons](https://happydasch.github.io/nspanel_haui/cheatsheet.html) · [Screens](https://happydasch.github.io/nspanel_haui/screens.html)
 - [FAQ](docs/faq.md) · [Troubleshooting](docs/troubleshooting.md) · [Services](docs/services.md) · [Examples](docs/examples.md)
 - [Development](docs/development.md) · [Design](docs/design.md) · [Communication](docs/communication.md) · [ESPHome](docs/esphome.md) · [Hub](docs/hub.md) · [Nextion](docs/nextion.md)
 

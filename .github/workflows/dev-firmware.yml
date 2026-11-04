@@ -223,14 +223,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add custom_components/nspanel_haui/manifest.json esphome/nspanel_haui/version.yaml
           git commit -m "chore(release): development firmware ${DEV_VERSION} [skip ci]"
-          VERSION_COMMIT=$(git rev-parse HEAD)
-          echo "VERSION_COMMIT=${VERSION_COMMIT}" >> "$GITHUB_ENV"
           # Publish to the dev branch first; a non-force push fails (rather than
           # clobbering) if a concurrent commit raced in. The version commit's
           # parent is the just-pushed HEAD, so when it wins dev advances exactly
           # one release commit. Rejection is not fatal: the tagged release below
-          # still carries the versioned commit, and dev-latest (compared against
-          # VERSION_COMMIT) simply skips until that newer commit's own build.
+          # still carries the versioned commit.
           git push origin "HEAD:refs/heads/dev" || echo "dev branch raced; the version commit ships in the tagged release only"
           git tag "${DEV_VERSION}"
           # --force keeps a re-run of the same build idempotent: a re-run keeps
@@ -268,32 +265,12 @@ jobs:
             nspanel_haui_ota.bin
             firmware-manifest.json
 
-      - name: Update the fixed development manifest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          LATEST_DEV_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/dev" --jq .sha)
-          # dev now advances by the version commit (this build's), so compare
-          # against that rather than the build base.
-          if [ "$LATEST_DEV_SHA" != "${{ env.VERSION_COMMIT }}" ]; then
-            echo "A newer dev commit exists; keeping the previous manifest until its build succeeds."
-            exit 0
-          fi
-          if ! gh release view dev-latest >/dev/null 2>&1; then
-            gh release create dev-latest \
-              --target dev \
-              --prerelease \
-              --title "NSPanel HAUI latest development firmware" \
-              --notes "Stable manifest URL for the latest successful dev-branch firmware build."
-          fi
-          gh release upload dev-latest firmware-manifest.json --clobber
-
       - name: Prune old development prereleases
         # HACS reads only the newest 30 releases, the hub's release check the
         # newest 100 (RELEASES_URL). One prerelease per push would push the
         # latest stable release out of both: HACS then finds no stable version
         # and a fresh install falls back to the default branch (dev). Keep the
-        # newest dev builds only; stable releases and dev-latest never match.
+        # newest dev builds only; stable releases never match.
         env:
           GH_TOKEN: ${{ github.token }}
           KEEP: 10

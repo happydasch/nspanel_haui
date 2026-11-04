@@ -26,8 +26,9 @@ A panel running development firmware shows an older **latest version** (or an
 update it cannot install) when it still follows the stable channel. Dev builds
 are pre-releases of the *next* patch line (`0.4.5.dev123` when `0.4.4`
 is stable) and are published only on the dev channel — switch the device's
-**Firmware update channel** to **dev**, or point its **Firmware manifest URL**
-at the [published dev manifest](release.md#published-development-firmware).
+**Firmware update channel** to **dev** and leave its **Firmware manifest URL**
+empty; the hub then follows the newest
+[published dev prerelease](release.md#published-development-firmware).
 Dev firmware ships no display TFT, so the **HAUI Display** entity offers no
 update until a stable release matches. A panel that reports a version like
 `dev-3-f243f33` — the old `dev-<run>-<sha>` tag scheme, used as `yaml_version`

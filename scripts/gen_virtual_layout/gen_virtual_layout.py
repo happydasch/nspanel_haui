@@ -10,7 +10,9 @@ written as WebP next to it (``pictures/<orientation>/<id>.webp``) from the
 source PNGs in ``nextion/images``: the HMI stores pictures in the Nextion's own
 compressed format. It also writes the fonts' glyph widths to
 ``custom_components/nspanel_haui/haui/mapping/font_metrics.json``, which the hub
-fits text with.
+fits text with, and the widgets each solid-colour page compiles with a theme
+colour to ``custom_components/nspanel_haui/haui/mapping/theme_widgets.json``,
+which the hub recolours with the device's colour overrides.
 
 Run it after every HMI change; ``--check`` (run by the test suite) fails when a
 layout file is out of date.
@@ -39,6 +41,7 @@ import _ha_stubs  # noqa: E402,F401  (installs the homeassistant stubs on import
 import Nextion2Text  # noqa: E402
 
 from custom_components.nspanel_haui.haui.mapping.background import BACKGROUNDS  # noqa: E402
+from custom_components.nspanel_haui.haui.mapping.color import COLORS  # noqa: E402
 from custom_components.nspanel_haui.haui.mapping.icon_mapping import ICON_MAPPING  # noqa: E402
 from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING  # noqa: E402
 
@@ -47,6 +50,10 @@ OUT_DIR = ROOT / "custom_components" / "nspanel_haui" / "frontend" / "virtual"
 ICON_MAP_FILE = OUT_DIR / "icon_map.json"
 # Glyph widths for the hub's text fitting (haui/utils/text.py).
 FONT_METRICS_FILE = ROOT / "custom_components/nspanel_haui/haui/mapping/font_metrics.json"
+# Widgets compiled with a theme colour, for the hub's colour overrides (HAUIPage).
+THEME_WIDGETS_FILE = ROOT / "custom_components/nspanel_haui/haui/mapping/theme_widgets.json"
+TYPE_PAGE = 121
+STA_SOLID = 1  # background fill: solid colour (`bco`/`bco2`)
 
 HMI_FILES = {
     "landscape": (NEXTION / "nspanel_haui.HMI", 480, 320),
@@ -151,6 +158,46 @@ def _render_font_metrics() -> tuple[str, list[str]]:
     return text, problems
 
 
+def _theme_widgets(layout: dict[str, Any]) -> dict[str, Any]:
+    """Per solid-colour page and theme colour key: the widgets compiled with it.
+
+    ``background`` is the page's own colour, filling its flat widgets (``bco``)
+    and the pressed state of flat-pressed buttons (``bco2``);
+    ``component_pressed`` is the palette's pressed colour the buttons' ``bco2``
+    is compiled with. Picture-background pages are left out: the hub never
+    recolours them.
+    """
+    pages: dict[str, Any] = {}
+    for page in layout["pages"].values():
+        comps = page["components"]
+        page_attrs = next(c for c in comps if c["type"] == TYPE_PAGE)["attrs"]
+        if page_attrs["sta"] != STA_SOLID:
+            continue
+        solid = [c for c in comps if c["type"] != TYPE_PAGE and c["attrs"].get("sta") == STA_SOLID]
+        themed = {
+            "background": (page_attrs["bco"], ("bco", "bco2")),
+            "component_pressed": (COLORS["component_pressed"], ("bco2",)),
+        }
+        pages[page["name"]] = {
+            key: {
+                "color": color,
+                "attrs": {
+                    attr: [c["name"] for c in solid if c["attrs"].get(attr) == color]
+                    for attr in attrs
+                },
+            }
+            for key, (color, attrs) in themed.items()
+        }
+    return dict(sorted(pages.items()))
+
+
+def _render_theme_widgets(layouts: list[dict[str, Any]]) -> tuple[str, list[str]]:
+    """The hub's theme widgets file, and a problem when the HMIs disagree."""
+    widgets = [_theme_widgets(layout) for layout in layouts]
+    problems = [] if all(w == widgets[0] for w in widgets) else ["the HMIs' theme colours differ"]
+    return json.dumps({"pages": widgets[0]}, separators=(",", ":")) + "\n", problems
+
+
 def _picture_sizes(raw: bytes) -> list[tuple[int, int]]:
     sizes = []
     for obj in Nextion2Text.HMIHeader(raw).content:
@@ -196,7 +243,7 @@ def build_layout(orientation: str) -> dict[str, Any]:
     pages: dict[str, Any] = {}
     for page in hmi.pages:
         comps = sorted((_component(c) for c in page.components), key=lambda c: c["id"])
-        page_comp = next(c for c in comps if c["type"] == 121)
+        page_comp = next(c for c in comps if c["type"] == TYPE_PAGE)
         name = page_comp["name"]
         if name not in page_ids:
             raise SystemExit(f"{path.name}: page '{name}' has no page id in PAGE_MAPPING")
@@ -271,8 +318,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     problems: list[str] = []
+    layouts = []
     for orientation in HMI_FILES:
-        text = _render(build_layout(orientation))
+        layouts.append(build_layout(orientation))
+        text = _render(layouts[-1])
         out = OUT_DIR / f"layout_{orientation}.json"
         if args.check:
             if not out.exists() or out.read_text(encoding="utf-8") != text:
@@ -305,6 +354,18 @@ def main(argv: list[str] | None = None) -> int:
     else:
         FONT_METRICS_FILE.write_text(metrics_text, encoding="utf-8")
         print(f"wrote {FONT_METRICS_FILE.relative_to(ROOT)}")
+
+    widgets_text, widgets_problems = _render_theme_widgets(layouts)
+    problems += widgets_problems
+    if args.check:
+        if (
+            not THEME_WIDGETS_FILE.exists()
+            or THEME_WIDGETS_FILE.read_text(encoding="utf-8") != widgets_text
+        ):
+            problems.append(f"{THEME_WIDGETS_FILE.relative_to(ROOT)} is out of date")
+    else:
+        THEME_WIDGETS_FILE.write_text(widgets_text, encoding="utf-8")
+        print(f"wrote {THEME_WIDGETS_FILE.relative_to(ROOT)}")
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems and args.check:

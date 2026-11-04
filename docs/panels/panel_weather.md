@@ -5,7 +5,7 @@ description: Weather panel — screensaver with weather and info items
 
 # Panel Weather
 
-![](../assets/previews/panel-weather.svg)
+<img src="../assets/screens/landscape/weather.png" alt="weather panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/weather.png" alt="weather panel, portrait" width="142" height="213">
 
 ## About
 

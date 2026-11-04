@@ -4,10 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
-import {
-  DEFAULT_FIRMWARE_MANIFEST_URL,
-  DEV_FIRMWARE_MANIFEST_URL,
-} from '../../custom_components/nspanel_haui/frontend/constants.js';
+import { DEFAULT_FIRMWARE_MANIFEST_URL } from '../../custom_components/nspanel_haui/frontend/constants.js';
 
 /** A dialog instance without Lit's constructor (which needs a real DOM). */
 function dialog(form) {
@@ -86,7 +83,8 @@ test('the firmware update channel selects the dev manifest and stores the channe
 
   findChange(dlg.render(), 'dc-update-firmware_update_channel')({ target: { value: 'dev' } });
   assert.equal(dlg._deviceConfigForm.update.firmware_update_channel, 'dev');
-  assert.equal(field(dlg, 'dc-update-firmware_manifest_url').placeholder, DEV_FIRMWARE_MANIFEST_URL);
+  // The dev channel has no fixed manifest URL to show.
+  assert.equal(field(dlg, 'dc-update-firmware_manifest_url').placeholder, '');
   // The URL stays empty: the channel decides, the store holds no URL.
   assert.equal(dlg._deviceConfigForm.update.firmware_manifest_url, undefined);
 });

@@ -5,7 +5,7 @@ description: Grid panel — multi-entity tiles with color overrides and paginati
 
 # Panel Grid
 
-![](../assets/previews/panel-grid.svg)
+<img src="../assets/screens/landscape/grid.png" alt="grid panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/grid.png" alt="grid panel, portrait" width="142" height="213">
 
 ## About
 

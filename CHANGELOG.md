@@ -51,6 +51,13 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Screens overview** — [`docs/screens.html`](docs/screens.html) shows
+  every panel, popup and system screen in the landscape and portrait layout,
+  rendered by the hub itself with sample data. The new **Screens** workflow
+  regenerates the page and its PNGs (`docs/assets/screens/`) after each dev
+  firmware build and commits them when a screen changed
+  (`gen_preview_gallery.py --docs`). The README, the panel overview and the
+  panel pages show these screenshots instead of the hand-drawn previews.
 - **Every popup can be edited** — the editor's System Panels section offers
   **Edit** on every popup (`popup_*`), no longer only six entity popups
   (`popup_alarm`, `popup_timer`, Notify, Select and Unlock were missing). An
@@ -76,8 +83,8 @@ and follow [Semantic Versioning](https://semver.org/).
 - **Firmware update channel setting** — `update.firmware_update_channel`
   (`stable` or `dev`, default `stable`) picks the manifest the HAUI Firmware
   entity follows when the URL is empty: the latest stable GitHub release, or
-  the published dev firmware (`dev-latest`). The manifest URL still overrides
-  the channel.
+  the newest release in the GitHub release list, dev prereleases included.
+  The manifest URL still overrides the channel.
 - **Firmware version comparison matches Home Assistant** — the hub compares
   versions with the same `AwesomeVersion` semantics the HAUI Firmware/HAUI
   Display entities use, so the two never disagree: a final release is offered
@@ -140,6 +147,30 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Panels follow the `background` colour override** — the hub cleared the
+  page with the overridden `background`, but the HMI draws every flat widget
+  (texts, icons, flat buttons) in its own page colour, so on the row,
+  settings, notification, climate, timer, cover, light, media, vacuum, QR and
+  alarm/unlock pages those widgets stayed dark grey boxes on the themed page.
+  The hub now gives them the theme's `background` too; which widgets the HMI
+  compiles with a theme colour is exported to
+  `haui/mapping/theme_widgets.json`. The alarm keypad's **Keypad button
+  background** and **Keypad text color** now default to the theme's
+  `background` and `component_text` instead of the fixed default palette.
+- **Controls follow `component_background`** — slider tracks, the row
+  toggles' off state and the media progress bar kept the HMI's fixed grey, so
+  the **Component → Background** color did nothing on content pages. They now
+  use it (the toggles' on state uses `component_active`). With the default
+  theme these tracks are one step darker than before ([40, 40, 40] instead of
+  [49, 49, 49]), matching the documented page < header < cards < pressed steps.
+- **Pressed buttons follow `component_pressed`** — the header buttons, flat
+  buttons (timer arrows, alarm keys, media and cover controls, select and row
+  buttons) and the highlighted climate mode and light function tiles kept the
+  HMI's compiled pressed grey, so overriding **Component → Pressed** changed
+  almost nothing. Their pressed state now uses it. The climate setpoint arrows
+  and the vacuum entity buttons, which pressed to a lighter grey
+  ([115, 115, 115]) left over from before the dark theme, press like every
+  other button now.
 - **An open notification is no longer replaced by the next one** — the hub
   recognised its notification popup and list by the panel type
   (`popup_notify`), but those panels have the page's type (`notify`,

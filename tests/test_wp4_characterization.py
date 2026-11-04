@@ -427,7 +427,8 @@ def _next_page_id(page):
 def test_row_and_grid_paging(cls):
     entities = _items()
     keys = list(entities)
-    app, page = _show(cls, 20, {"type": cls.DESCRIPTOR.type_key, "items": _entries(keys)}, entities)
+    panel_cfg = {"type": cls.DESCRIPTOR.type_key, "items": _entries(keys)}
+    app, page = _show(cls, cls.DESCRIPTOR.page_id, panel_cfg, entities)
     page_name = cls.DESCRIPTOR.type_key
     steps = []
     for _ in range(3):
@@ -455,7 +456,7 @@ def test_row_cover_rows():
     entities = _items()
     app, page = _show(
         RowPage,
-        20,
+        RowPage.DESCRIPTOR.page_id,
         {"type": "row", "items": _entries(["cover.a", "cover.b", "light.c", "switch.d"])},
         entities,
     )

@@ -29,6 +29,9 @@ sys.path.insert(0, str(ROOT / "scripts" / "preview_gallery"))
 import sample_world  # noqa: E402
 
 REPLAY = ROOT / "tests" / "frontend" / "replay-renders.mjs"
+# Theme colours unlike the HMI's own: a blue page, a dark blue for control
+# backgrounds (slider tracks, toggles off, progress bars) and a pressed blue.
+THEMED_COLORS = {"background": 4479, "component_background": 2114, "component_pressed": 6463}
 
 
 @pytest.fixture
@@ -47,30 +50,45 @@ def hub_loop(monkeypatch):
     thread.join(timeout=2)
 
 
-@pytest.mark.parametrize(
-    ("display_model", "orientation"), [("eu", "landscape"), ("us", "portrait")]
-)
-def test_every_card_renders_on_the_hub_and_replays_in_the_browser(
-    hub_loop, tmp_path, display_model, orientation
-):
+def _replay(tmp_path: Path, orientation: str, renders: dict, *flags: str) -> None:
     node = shutil.which("node")
     if node is None:
         pytest.fail("Node 22+ is required to replay the hub's renders (see AGENTS.md)")
-
-    renders = sample_world.render_every_card(hub_loop, display_model)
-
-    assert len(renders) == len(get_user_panel_type_descriptors()) + len(get_system_panel_entries())
-    assert [name for name, render in renders.items() if not render["commands"]] == []
     path = tmp_path / "renders.json"
     path.write_text(json.dumps(renders), encoding="utf-8")
     result = subprocess.run(
-        [node, str(REPLAY), orientation, str(path)],
+        [node, str(REPLAY), orientation, str(path), *flags],
         capture_output=True,
         text=True,
         timeout=60,
         check=False,
     )
     assert result.returncode == 0, result.stderr or result.stdout
+
+
+@pytest.mark.parametrize(
+    ("display_model", "orientation"), [("eu", "landscape"), ("us", "portrait")]
+)
+def test_every_card_renders_on_the_hub_and_replays_in_the_browser(
+    hub_loop, tmp_path, display_model, orientation
+):
+    renders = sample_world.render_every_card(hub_loop, display_model)
+
+    assert len(renders) == len(get_user_panel_type_descriptors()) + len(get_system_panel_entries())
+    assert [name for name, render in renders.items() if not render["commands"]] == []
+    _replay(tmp_path, orientation, renders)
+
+
+@pytest.mark.parametrize(
+    ("display_model", "orientation"), [("eu", "landscape"), ("us", "portrait")]
+)
+def test_every_card_follows_the_background_colours(hub_loop, tmp_path, display_model, orientation):
+    """Compiled theme colours follow the device: page, pressed and control backgrounds."""
+    renders = sample_world.render_every_card(
+        hub_loop, display_model, {"color_overrides": THEMED_COLORS}
+    )
+
+    _replay(tmp_path, orientation, renders, "--themed-colors")
 
 
 def test_unlock_card_shows_its_keypad_and_title(hub_loop):

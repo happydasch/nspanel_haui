@@ -5,7 +5,7 @@ description: Row panel — stacked entity rows with per-type controls
 
 # Panel Row
 
-![](../assets/previews/panel-row.svg)
+<img src="../assets/screens/landscape/row.png" alt="row panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/row.png" alt="row panel, portrait" width="142" height="213">
 
 ## About
 

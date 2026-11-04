@@ -196,6 +196,7 @@ class VacuumPage(HAUIPage):
                 item=item,
                 icon=icon,
                 color=color,
+                back_color_pressed=self.get_color("component_pressed"),
                 visible=visible,
             )
 

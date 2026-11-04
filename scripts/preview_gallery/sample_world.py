@@ -334,12 +334,16 @@ def install_runtime_stubs(
 
 
 def render_every_card(
-    loop: asyncio.AbstractEventLoop, display_model: str
+    loop: asyncio.AbstractEventLoop,
+    display_model: str,
+    device_settings: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Render every panel card for a device of ``display_model`` (``eu``, ``us``).
 
     User cards render their sample panel (or a bare panel of the type), system
     cards the device's configured panel by key, as the editor sends them.
+    ``device_settings`` are stored device settings laid over the sample ones
+    (for example ``color_overrides``).
 
     Returns:
         Card name (type key or system key) -> ``{page, before, commands}``.
@@ -354,7 +358,11 @@ def render_every_card(
     store = {
         "devices": {
             "kitchen": {
-                "config": {"home_panel": "grid_0", "display_model": display_model},
+                "config": {
+                    "home_panel": "grid_0",
+                    "display_model": display_model,
+                    **(device_settings or {}),
+                },
                 "panels": PANELS,
             }
         }

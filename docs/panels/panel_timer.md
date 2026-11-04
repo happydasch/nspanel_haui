@@ -5,7 +5,7 @@ description: Timer panel — local countdown timer and stopwatch
 
 # Panel Timer
 
-![](../assets/previews/panel-timer.svg)
+<img src="../assets/screens/landscape/timer.png" alt="timer panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/timer.png" alt="timer panel, portrait" width="142" height="213">
 
 ## About
 

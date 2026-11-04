@@ -5,7 +5,7 @@ description: ClockTwo panel — minimalist clock with written text display
 
 # Panel ClockTwo
 
-![](../assets/previews/panel-clocktwo.svg)
+<img src="../assets/screens/landscape/clocktwo.png" alt="clocktwo panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/clocktwo.png" alt="clocktwo panel, portrait" width="142" height="213">
 
 ## About
 

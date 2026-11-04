@@ -5,7 +5,7 @@ description: Light panel — full control for a single light entity
 
 # Panel Light
 
-![](../assets/previews/panel-light.svg)
+<img src="../assets/screens/landscape/light.png" alt="light panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/light.png" alt="light panel, portrait" width="142" height="213">
 
 ## About
 

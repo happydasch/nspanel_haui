@@ -15,6 +15,7 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.color import theme_widgets
 from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, NotifEvent, PopupPanelKey
 from .mixins.component_mixin import ComponentMixin
 from .mixins.function_btn_mixin import FunctionButtonMixin
@@ -499,6 +500,7 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         """
         if not self.PICTURE_BACKGROUND:
             self.send_cmd(f"cls {self.get_color('background')}")
+            self._apply_theme_widgets()
             # apply header colours to the header background (if the page has one)
             try:
                 header_comp = self.COMPONENTS.header
@@ -515,6 +517,25 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
             else:
                 self.set_component_text_color(title_comp, self.get_color("header_text"))
                 self.set_component_back_color(title_comp, self.get_color("header_background"))
+
+    def _apply_theme_widgets(self) -> None:
+        """Repaint the widgets the HMI compiles with a theme colour that is overridden.
+
+        The TFTs bake the default ``background`` into every flat widget (texts,
+        icons, flat buttons) and the default ``component_pressed`` into the
+        buttons' pressed state; ``cls`` repaints only the page, so with an
+        overridden colour those widgets would keep the compiled one. Writes the
+        page makes later in the batch (item colours, pressed states) still win.
+        """
+        from ..mapping.panel import PAGE_MAPPING
+
+        for key, widgets in theme_widgets()[PAGE_MAPPING[self.page_id]].items():
+            color = self.get_color(key)
+            if color == widgets["color"]:
+                continue
+            for attr, names in widgets["attrs"].items():
+                for name in names:
+                    self.send_cmd(f"{name}.{attr}={color}")
 
     def config_panel(self, panel: HAUIPanel) -> None:
         """Configures the currently set panel.
@@ -1131,18 +1152,20 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
                 self.update_function_component(notif_slot, color=color, visible=visible)
 
     def set_slider_color(self, slider: Component, show_toggle: bool = True) -> None:
-        """Set the slider handle color to ``component_active_dark``.
+        """Set the slider track to ``component_background`` and its handle color.
 
-        Sliders on NSPanel displays use ``.pco`` for the handle/foreground
-        color.  Call this once per render cycle after showing the slider
-        so the handle appears in the configured dark-accent shade.  Sliders
-        compiled without a cursor (light, cover, row) show no handle at all.
+        Sliders on NSPanel displays use ``.bco`` for the unfilled track and
+        ``.pco`` for the handle/foreground color.  Call this once per render
+        cycle after showing the slider so both follow the device theme.
+        Sliders compiled without a cursor (light, cover, row) show no handle
+        at all.
 
         Args:
             slider: The slider ``Component`` to colour.
             show_toggle: True for a primary control (dark-accent handle), False
                 for a secondary one (``component_pressed`` handle).
         """
+        self.set_component_back_color(slider, self.get_color("component_background"))
         if show_toggle:
             self.set_component_text_color(slider, self.get_color("component_active_dark"))
         else:

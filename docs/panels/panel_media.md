@@ -5,7 +5,7 @@ description: Media panel — media player controls with grouping and favorites
 
 # Panel Media
 
-![](../assets/previews/panel-media.svg)
+<img src="../assets/screens/landscape/media.png" alt="media panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/media.png" alt="media panel, portrait" width="142" height="213">
 
 ## About
 

@@ -7,15 +7,13 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import ALARM_COLORS, COLORS
+from ..mapping.color import ALARM_COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_PASSWORD
 from ..utils.icon import get_icon
 
-# keypad styling defaults, shared by the descriptor options and the runtime helper
+# keypad font default, shared by the descriptor option and the runtime helper
 _KEYPAD_FONT_DEFAULT = 2
-_KEYPAD_BG_DEFAULT = COLORS["background"]
-_KEYPAD_TEXT_DEFAULT = COLORS["component_text"]
 
 # The action buttons (b1Fnc-b4Fnc) hold at most 10 bytes of text in both HMIs.
 _ACTION_TEXT_MAX_BYTES = 10
@@ -47,16 +45,15 @@ class AlarmPage(HAUIPage):
             PageOption(
                 key="keypad_bg_color",
                 kind="color",
-                default=_KEYPAD_BG_DEFAULT,
                 label=_("Keypad button background"),
-                description=_("Background color of each keypad digit (button-like appearance)."),
+                description=_("Leave empty to use the theme color."),
                 section=_("Keypad"),
             ),
             PageOption(
                 key="keypad_text_color",
                 kind="color",
-                default=_KEYPAD_TEXT_DEFAULT,
                 label=_("Keypad text color"),
+                description=_("Leave empty to use the theme color."),
                 section=_("Keypad"),
             ),
             PageOption(
@@ -275,13 +272,19 @@ class AlarmPage(HAUIPage):
     def _style_keypad(self, panel: HAUIPanel) -> None:
         """Apply the configured font and colors to every keypad button once.
 
-        Values fall back to the descriptor defaults for panels saved before the
-        keypad options existed (including the unlock popup, which is a system
-        panel and has no options of its own).
+        Unset colors use the theme's ``background`` and ``component_text``, so
+        the keys follow the device's color overrides; the font falls back to
+        the descriptor default for panels saved before the keypad options
+        existed (including the unlock popup, which is a system panel and has no
+        options of its own).
         """
         font = panel.get("keypad_font", _KEYPAD_FONT_DEFAULT)
-        bg_color = panel.get("keypad_bg_color", _KEYPAD_BG_DEFAULT)
-        text_color = panel.get("keypad_text_color", _KEYPAD_TEXT_DEFAULT)
+        bg_color = panel.get("keypad_bg_color", None)
+        if bg_color in (None, ""):
+            bg_color = self.get_color("background")
+        text_color = panel.get("keypad_text_color", None)
+        if text_color in (None, ""):
+            text_color = self.get_color("component_text")
         with self.rec_cmd:
             for comp in self._keypad_buttons:
                 self.send_cmd(f"{comp.name}.font={font}")

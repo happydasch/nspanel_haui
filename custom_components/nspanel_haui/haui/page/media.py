@@ -274,7 +274,7 @@ class MediaPage(HAUIPage):
             self.COMPONENTS.j_progress[1],
             "progress",
             color=self.get_color("text_inactive"),
-            back_color=self.get_color("text_disabled"),
+            back_color=self.get_color("component_background"),
             value=0,
         )
         # source button

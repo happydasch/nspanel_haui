@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import functools
+import json
+import os
+
 COLORS = {
     # default colors
     # 0.4 dark theme: page < header < cards < pressed, each one step lighter,
@@ -109,3 +115,21 @@ def make_color_theme(overrides: dict[str, int] | None = None) -> ColorTheme:
         overrides: A dict mapping color keys to RGB565 ints, or ``None``.
     """
     return ColorTheme(overrides)
+
+
+_THEME_WIDGETS_FILE = os.path.join(os.path.dirname(__file__), "theme_widgets.json")
+
+
+@functools.cache
+def theme_widgets() -> dict[str, dict[str, dict]]:
+    """Widgets each solid-colour Nextion page compiles with a theme colour.
+
+    Page name -> ``COLORS`` key -> ``{"color": <compiled RGB565>, "attrs":
+    {"bco": [names], "bco2": [names]}}``: the widgets whose ``bco`` / ``bco2``
+    the TFTs compile with that key's colour. ``theme_widgets.json`` is exported
+    from the HMI by ``scripts/gen_virtual_layout/gen_virtual_layout.py``; read
+    on first use.
+    """
+    with open(_THEME_WIDGETS_FILE, encoding="utf-8") as widgets_file:
+        pages: dict[str, dict[str, dict]] = json.load(widgets_file)["pages"]
+    return pages

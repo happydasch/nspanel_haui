@@ -132,27 +132,22 @@ class FirmwareUpdateChannel(StrEnum):
     """Release channel used by the update controller.
 
     ``stable`` points at GitHub's ``releases/latest`` (which excludes
-    prereleases) and suppresses GitHub prerelease notifications; ``dev`` points
-    at the fixed ``dev-latest`` release and allows prerelease notifications.  An
-    explicit ``firmware_manifest_url`` always overrides the manifest URL.
+    prereleases) and suppresses GitHub prerelease notifications; ``dev`` follows
+    the manifest of the newest GitHub release, versioned dev prereleases
+    included, and allows prerelease notifications.  An explicit
+    ``firmware_manifest_url`` always overrides the manifest URL.
     """
 
     STABLE = "stable"
     DEV = "dev"
 
 
-# Manifest URL for each ``FirmwareUpdateChannel``.  The stable channel reads
-# GitHub's ``releases/latest``; the dev channel the fixed ``dev-latest`` release
-# the development workflow keeps on the newest successful dev build.
-FIRMWARE_MANIFEST_URLS: dict[str, str] = {
-    FirmwareUpdateChannel.STABLE: (
-        "https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json"
-    ),
-    FirmwareUpdateChannel.DEV: (
-        "https://github.com/happydasch/nspanel_haui/releases/download/"
-        "dev-latest/firmware-manifest.json"
-    ),
-}
+# The stable channel's manifest: GitHub's ``releases/latest`` skips prereleases.
+# The dev channel has no fixed URL; the update controller picks the newest
+# release from the GitHub release list.
+FIRMWARE_MANIFEST_URL = (
+    "https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json"
+)
 
 
 class NotifEvent(StrEnum):
@@ -252,9 +247,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # Manifest naming the firmware the HAUI Firmware entity offers.  The
         # channel decides which manifest is followed when ``firmware_manifest_url``
         # is left empty (stable releases by default; ``dev`` follows the
-        # published development firmware); an explicit URL always wins.
+        # newest dev prerelease); an explicit URL always wins.
         "firmware_update_channel": FirmwareUpdateChannel.STABLE,
-        "firmware_manifest_url": FIRMWARE_MANIFEST_URLS[FirmwareUpdateChannel.STABLE],
+        "firmware_manifest_url": FIRMWARE_MANIFEST_URL,
     },
     # gesture related settings
     "gesture": {},

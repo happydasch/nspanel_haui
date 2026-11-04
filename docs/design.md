@@ -69,6 +69,8 @@ colour renders them neutral.
   background. Runtime repainting must preserve that: text-bearing widgets
   (tiles, row names/icons, select and notify buttons, keypad keys) are painted
   with `background`, never `component_background`, so they stay flat on the page.
+  The hub repaints those widgets when `background` is overridden; which ones
+  they are is exported from the HMI to `haui/mapping/theme_widgets.json`.
 
   **RGB** `#101010` / [16, 16, 16]
   **RGB565** 4226
@@ -89,6 +91,10 @@ colour renders them neutral.
   **RGB565** 29582
 
 - **Text Disabled / Component Pressed**
+
+  Every button's pressed state (`bco2`) and the highlighted tile of a
+  dual-state button are compiled with this colour; the hub repaints them when
+  `component_pressed` is overridden (`haui/mapping/theme_widgets.json`).
 
   **RGB** `#313131` / [49, 49, 49]
   **RGB565** 12678
@@ -117,9 +123,10 @@ colour renders them neutral.
 
 - **Component Background**
 
-  Raised surfaces only — header buttons, pressed states and slider tracks.
-  Not a fill for text-bearing widgets; those use the page **Background Color**
-  (see above).
+  Control backgrounds: slider tracks, a toggle's off state and the empty part
+  of a progress bar. The TFTs compile those at [49, 49, 49]; the hub paints
+  them with this colour when it shows the control. Not a fill for
+  text-bearing widgets; those use the page **Background Color** (see above).
 
   **RGB** `#282828` / [40, 40, 40]
   **RGB565** 10565
@@ -290,6 +297,14 @@ pytest tests/test_card_renders.py
 python scripts/preview_gallery/gen_preview_gallery.py --serve   # or --png
 ```
 
+The same sample cards make up the [Screens overview](screens.html):
+`gen_preview_gallery.py --docs` writes one PNG per card and orientation to
+`docs/assets/screens/` and the page `docs/screens.html`. The **Screens** workflow
+(`.github/workflows/screens.yml`) runs it after every dev firmware build and
+commits the result to `dev` when a screen changed, so a new panel type shows up
+there without further work. Every render runs at a fixed time, so the clock
+screens stay the same from one run to the next.
+
 **Verify coverage** — every exposed panel (user types, system panels, popup
 aliases) must resolve to a physical page present in both generated layouts
 (run by `tests/test_preview_coverage.py` with the rest of the suite):
@@ -328,7 +343,7 @@ Describe the layout and what each widget displays.
 Describe any interactive behavior, gestures, or special states.
 ```
 
-Add the new panel to the overview table in `docs/panels/README.md` and optionally to the index in `docs/README.md`. Consider adding an SVG preview to `assets/previews/` for the README table.
+Add the new panel to the overview table in `docs/panels/README.md` and optionally to the index in `docs/README.md`. Its screenshots (`assets/screens/<orientation>/<type>.png`, used by the README, the overview table and the panel pages) and its entry in the [Screens overview](screens.html) are generated once its sample panel is in `scripts/preview_gallery/sample_world.py`.
 
 ### Step 7 — Translations
 

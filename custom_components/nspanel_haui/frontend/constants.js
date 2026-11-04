@@ -98,12 +98,6 @@ export const DEVICE_CONFIG_DEFAULTS = {
 export const DEFAULT_FIRMWARE_MANIFEST_URL =
   "https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json";
 
-// The fixed dev manifest (mirrors FIRMWARE_MANIFEST_URLS["dev"] in Python):
-// the development workflow keeps this release on the newest successful dev
-// build, so a device on the dev channel always follows it.
-export const DEV_FIRMWARE_MANIFEST_URL =
-  "https://github.com/happydasch/nspanel_haui/releases/download/dev-latest/firmware-manifest.json";
-
 // Mirrors FirmwareUpdateChannel in Python — the channel the HAUI Firmware
 // entity follows when firmware_manifest_url is left empty.
 export const FIRMWARE_UPDATE_CHANNELS = ["stable", "dev"];

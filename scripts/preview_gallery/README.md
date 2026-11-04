@@ -16,6 +16,7 @@ Run from the repository root:
 python scripts/preview_gallery/gen_preview_gallery.py           # render only
 python scripts/preview_gallery/gen_preview_gallery.py --serve   # render and open the gallery
 python scripts/preview_gallery/gen_preview_gallery.py --png     # render and write one PNG per card
+python scripts/preview_gallery/gen_preview_gallery.py --docs    # render and write the docs screen overview
 ```
 
 - `--serve` starts a local server (default port `8765`) and prints the gallery
@@ -23,7 +24,16 @@ python scripts/preview_gallery/gen_preview_gallery.py --png     # render and wri
 - `--png` screenshots each card alone at the display's resolution. It needs
   Node 22+ and Chrome or Chromium; pass `--chrome PATH` if the browser is not
   found automatically.
+- `--docs` writes the same PNGs to `docs/assets/screens/<orientation>/<card>.png`
+  and the overview page `docs/screens.html`. The `Screens` workflow
+  (`.github/workflows/screens.yml`) runs it after each dev firmware build and
+  commits the result to `dev` when a screen changed; don't edit those files by
+  hand.
 - `--port N` changes the gallery port.
+
+Every render runs at a fixed time (`time-machine`, in `requirements-dev.txt`),
+so the clock screens, and with them the committed PNGs, stay the same from one
+run to the next.
 
 ## Output
 

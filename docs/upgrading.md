@@ -359,7 +359,7 @@ instead of looking up a matching GitHub release.
   offered normally.
 - **New device setting:** `firmware_update_channel` (`stable`/`dev`) in the
   editor's Updates section picks the manifest when the URL is empty — the
-  latest stable release, or the published dev firmware. An explicit
+  latest stable release, or the newest dev prerelease. An explicit
   **Firmware manifest URL** still overrides it.
 
 ## 12. Native OTA is encrypted with the API key

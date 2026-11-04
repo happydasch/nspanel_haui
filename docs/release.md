@@ -150,21 +150,16 @@ HACS reads release tags as *available* versions and the installed copy's manifes
 build that is actually newer than the one installed. Both must be a valid PEP 440
 version with no `-` separator: for an unparseable pair such as the old
 `dev-<run>-<sha>` tags, HACS falls back to plain string inequality and keeps
-offering the installed build as an update forever. A fixed manifest URL follows
-the latest successful build:
+offering the installed build as an update forever.
 
-```text
-https://github.com/happydasch/nspanel_haui/releases/download/dev-latest/firmware-manifest.json
-```
+There is no fixed dev manifest URL. The hub's **dev** update channel reads the
+GitHub release list (the same cached list its release check uses, refreshed at
+most hourly or on a manual check) and follows the `firmware-manifest.json` of the
+newest release in it, dev prereleases included. A stable release supersedes the
+dev builds of its version.
 
-That fixed URL comes from the `dev-latest` release, which only holds the moving
-firmware manifest — it is a dev-branch snapshot, not a version to install. When
-choosing a version in HACS, pick the pre-release whose tag is the version (for
-example `0.4.5.dev123`), not `dev-latest`.
-
-Set a **universal test panel's** **Firmware update channel** to **dev** (or
-point its **Firmware manifest URL** at the address above) to follow `dev`;
-leave both empty on production panels. These CI images use
+Set a **universal test panel's** **Firmware update channel** to **dev** to
+follow `dev`; leave it on **stable** on production panels. These CI images use
 the documented public universal credentials and have `firmware_variant: universal`.
 They are not compatible with devices running a private/custom build (`custom`):
 keep building those from your own ESPHome config and use the local test-release
@@ -391,6 +386,7 @@ no alias is kept as a fallback, so the upgrade guide is the only migration path.
 | `tests.yml` | pushes/PRs to `master`, `dev` | `zensical build --strict`; icon cheatsheet, translation and version-source freshness; Nextion asset gate (`verify_nextion.py --require-portrait`); `pytest tests/`; `ruff check custom_components/ scripts/`; `mypy`; `node --test 'tests/frontend/*.test.mjs'`; `esphome config esphome/nspanel_haui_universal.yaml` |
 | `docs.yml` | docs, docs-tooling or config changes on pushes/PRs to `master`, `dev`; manual dispatch | `zensical build --strict`; deploys Pages from `master` only |
 | `validate.yml` | pushes/PRs to `master`, `dev`; nightly; manual dispatch | hassfest and HACS validation |
+| `screens.yml` | each completed `Development Firmware` run on `dev`; manual dispatch | regenerates the screen overview (`gen_preview_gallery.py --docs`: `docs/screens.html`, `docs/assets/screens/`) and commits it to `dev` with `[skip ci]` when it changed |
 | `release.yml` | `v*` tags; manual dispatch | tag vs `manifest.json` version; Nextion release gate (`verify_nextion.py --require-portrait` and `gen_portrait.py --check`); ESPHome config + compile; firmware manifest (tag refs only); prepared release notes; asset upload |
 
 **Release-only checks:** the tag-vs-`manifest.json` version check,

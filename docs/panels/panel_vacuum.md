@@ -5,7 +5,7 @@ description: Vacuum panel — robot vacuum control with secondary items
 
 # Panel Vacuum
 
-![](../assets/previews/panel-vacuum.svg)
+<img src="../assets/screens/landscape/vacuum.png" alt="vacuum panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/vacuum.png" alt="vacuum panel, portrait" width="142" height="213">
 
 ## About
 

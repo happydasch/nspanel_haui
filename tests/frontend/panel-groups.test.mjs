@@ -26,7 +26,7 @@ function hostFor(panels, extra = {}) {
 const summaries = (out) => [...out.matchAll(/<summary class="group-title">([^<]*)<\/summary>/g)].map((m) => m[1]);
 const open = (out) => [...out.matchAll(/<details class="panel-group" \?open=(\S*)/g)].map((m) => m[1]);
 
-test('system panels and popups are listed in separate groups', () => {
+test('popups and, last, the fixed system panels are listed in separate groups', () => {
   const host = hostFor([], {
     _panels: {
       devices: { kitchen: { config: {}, panels: [] } },
@@ -40,7 +40,7 @@ test('system panels and popups are listed in separate groups', () => {
     __popupPanelsOpen: true,
   });
   const out = flat(renderSystemPanels(host, 'list'));
-  assert.deepEqual(summaries(out), ['System Panels (1 panels)', 'Popups (2 panels)']);
+  assert.deepEqual(summaries(out), ['Popups (2 panels)', 'System Panels (1 panels)']);
 });
 
 for (const [name, render] of [['table', renderPanelTable], ['grid', renderPanelGrid]]) {

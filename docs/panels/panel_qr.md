@@ -5,7 +5,7 @@ description: QR Code panel — display Wi-Fi QR codes, URLs, or custom text
 
 # Panel QR-Code
 
-![](../assets/previews/panel-qr.svg)
+<img src="../assets/screens/landscape/qr.png" alt="qr panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/qr.png" alt="qr panel, portrait" width="142" height="213">
 
 ## About
 

@@ -403,7 +403,7 @@ These events will be sent out when the device have some page related events.
 - `page` (0 - 255)
   The page that is being displayed
 
-- `Current Page` (text sensor, diagnostic)
+- `Current Page` (text sensor)
 
   The Nextion page name the display shows (e.g. `grid`, `weather`, `light`,
   `clock`), published whenever the display reports a page change. An entity

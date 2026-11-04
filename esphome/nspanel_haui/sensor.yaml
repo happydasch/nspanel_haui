@@ -147,7 +147,6 @@ text_sensor:
     name: Current Page
     id: current_page
     icon: mdi:view-dashboard-outline
-    entity_category: diagnostic
     update_interval: never
 
   # Client Status (ESPHome)

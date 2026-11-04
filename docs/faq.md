@@ -24,7 +24,7 @@ See the [Services Reference](services.md#tft-display-upload) for full details.
 
 A panel running development firmware shows an older **latest version** (or an
 update it cannot install) when it still follows the stable channel. Dev builds
-are pre-releases of the *next* patch line (`0.4.5.dev123+gabcdef1` when `0.4.4`
+are pre-releases of the *next* patch line (`0.4.5.dev123` when `0.4.4`
 is stable) and are published only on the dev channel — switch the device's
 **Firmware update channel** to **dev**, or point its **Firmware manifest URL**
 at the [published dev manifest](release.md#published-development-firmware).
@@ -34,7 +34,11 @@ update until a stable release matches. A panel that reports a version like
 by dev builds up to 0.4.4 — is not a valid version: the hub withholds firmware
 offers until it is reflashed with a parseable build (see
 [Release](release.md#published-development-firmware)). Current dev releases are
-tagged with their PEP 440 version (for example `0.4.5.dev123+gabcdef1`).
+tagged with their PEP 440 version (for example `0.4.5.dev123`). A panel on a
+build published before 2026-11-04 (`0.4.5.dev16+g778f2ce` style) is not offered
+newer dev builds or the final release, because Home Assistant sorts the
+`+g<sha>` segment above them: install a newer build once with **Install
+firmware** and its version.
 
 ## Update is not possible
 

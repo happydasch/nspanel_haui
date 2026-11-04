@@ -23,6 +23,7 @@ from ..page.unlock import UnlockPage
 from ..page.vacuum import VacuumPage
 from ..page.weather import WeatherPage
 from ..utils.text import get_translation
+from .const import HUB_DRIVEN_PANELS
 from .descriptor import PageDescriptor, PageOption
 
 # ── Page class registry ──────────────────────────────────────────────────
@@ -118,15 +119,23 @@ def _build_page_mapping() -> dict[int, str]:
 PAGE_MAPPING: dict[int, str] = _build_page_mapping()
 
 
-# ── SYS_PANEL_MAPPING: derived from PANEL_MAPPING descriptors ─────────────
+# ── SYS_PANEL_MAPPING / POPUP_PANEL_MAPPING: derived from PANEL_MAPPING ───
 
 
-def _build_sys_panel_mapping() -> dict[str, str]:
-    """Build SYS_PANEL_MAPPING from PANEL_MAPPING descriptors.
+def _build_sys_panel_mappings() -> tuple[dict[str, str], dict[str, str]]:
+    """Build SYS_PANEL_MAPPING and POPUP_PANEL_MAPPING from PANEL_MAPPING descriptors.
 
-    ``sys_key -> type_key`` for system pages and popup aliases.
+    Both map ``sys_key -> type_key``. The system pages register under
+    ``sys_panel_default["key"]``; one starting with ``popup_`` (notify, select,
+    unlock) is a popup. The popup aliases of the entity pages are popups under
+    their own key.
+
+    Returns:
+        tuple: The fixed system panels (System, Blank, Settings, About) and the
+        popups, which are the only system panels that can be edited.
     """
-    mapping: dict[str, str] = {}
+    sys_panels: dict[str, str] = {}
+    popups: dict[str, str] = {}
     for type_key, (_, cls) in PANEL_MAPPING.items():
         d = getattr(cls, "DESCRIPTOR", None)
         if d is None:
@@ -136,25 +145,25 @@ def _build_sys_panel_mapping() -> dict[str, str]:
         if d.is_system and d.sys_panel_default and type_key == d.type_key:
             sys_key = d.sys_panel_default.get("key")
             if sys_key:
-                mapping[sys_key] = type_key
+                (popups if sys_key.startswith("popup_") else sys_panels)[sys_key] = type_key
         # Popup aliases: identity mapping (sys_key == type_key)
         # Only for non-system entries — system pages register via the if branch above
         elif type_key != d.type_key and not d.is_system:
-            mapping[type_key] = type_key
-    return mapping
+            popups[type_key] = type_key
+    return sys_panels, popups
 
 
-SYS_PANEL_MAPPING: dict[str, str] = _build_sys_panel_mapping()
+SYS_PANEL_MAPPING, POPUP_PANEL_MAPPING = _build_sys_panel_mappings()
 
 
 # ── Derived config builders ───────────────────────────────────────────────
 
 
 def build_sys_panels_defaults() -> list[dict]:
-    """Build the DEFAULT_CONFIG["sys_panels"] list from SYS_PANEL_MAPPING.
+    """Build the DEFAULT_CONFIG["sys_panels"] list: system panels and popups.
 
-    Iterates ``SYS_PANEL_MAPPING`` (the authoritative list of system panel keys)
-    and for each entry looks up the page class in ``PANEL_MAPPING``:
+    Iterates ``SYS_PANEL_MAPPING`` and ``POPUP_PANEL_MAPPING`` (the authoritative
+    lists of system panel keys) and for each entry looks up the page class in ``PANEL_MAPPING``:
     - If the page class's ``DESCRIPTOR.sys_panel_default`` is set, that dict
       is used (with ``type`` patched in).
     - Otherwise a minimal default with ``show_in_navigation=False`` is generated.
@@ -162,7 +171,7 @@ def build_sys_panels_defaults() -> list[dict]:
     defaults: list[dict] = []
     seen_keys: set[str] = set()
 
-    for sys_key, type_key in SYS_PANEL_MAPPING.items():
+    for sys_key, type_key in (SYS_PANEL_MAPPING | POPUP_PANEL_MAPPING).items():
         if sys_key in seen_keys:
             continue
         seen_keys.add(sys_key)
@@ -244,13 +253,13 @@ def get_user_panel_type_descriptors(language: str = "en") -> list[dict]:
 
 
 def get_system_panel_entries(language: str = "en") -> list[dict]:
-    """Return all system panel entries (sys pages + popups) keyed by SYS_PANEL_MAPPING.
+    """Return all system panel entries: the system pages, then the popups.
 
     When ``language`` is provided, string fields (label, description) are translated
     before being returned.
     """
     result: list[dict] = []
-    for sys_key, type_key in SYS_PANEL_MAPPING.items():
+    for sys_key, type_key in (SYS_PANEL_MAPPING | POPUP_PANEL_MAPPING).items():
         if type_key in PANEL_MAPPING:
             _, cls = PANEL_MAPPING[type_key]
             d = getattr(cls, "DESCRIPTOR", None)
@@ -264,6 +273,8 @@ def get_system_panel_entries(language: str = "en") -> list[dict]:
                         "icon": d.icon,
                         "has_header": d.has_header,
                         "can_show_popup": d.can_show_popup,
+                        "editable": sys_key in POPUP_PANEL_MAPPING,
+                        "hub_driven": sys_key in HUB_DRIVEN_PANELS,
                         "page_id": d.page_id,
                         "components": _serialize_components(cls),
                     }

@@ -224,4 +224,5 @@ def test_device_notify_method_integration():
     event = app.callback_event_calls[0]
     assert event.name == "notif_add"
     expected_value = (title, message, icon, False, "info", False, "auto", None)
-    assert event.value == expected_value
+    assert event.value[:-1] == expected_value
+    assert event.value.notif_id

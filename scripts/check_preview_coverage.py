@@ -53,6 +53,7 @@ def check_coverage() -> int:
     from custom_components.nspanel_haui.haui.mapping.panel import (
         PAGE_MAPPING,
         PANEL_MAPPING,
+        POPUP_PANEL_MAPPING,
         SYS_PANEL_MAPPING,
         get_system_panel_entries,
         get_user_panel_type_descriptors,
@@ -92,9 +93,10 @@ def check_coverage() -> int:
             problems.append(f"PANEL_MAPPING['{type_key}'] has no physical page (page_id={pid})")
 
     # 5. Every system panel key resolves to a registered type.
-    for sys_key, type_key in SYS_PANEL_MAPPING.items():
+    sys_mapping = SYS_PANEL_MAPPING | POPUP_PANEL_MAPPING
+    for sys_key, type_key in sys_mapping.items():
         if type_key not in PANEL_MAPPING:
-            problems.append(f"SYS_PANEL_MAPPING['{sys_key}'] -> unknown type '{type_key}'")
+            problems.append(f"system panel '{sys_key}' -> unknown type '{type_key}'")
 
     for problem in sorted(set(problems)):
         print(problem, file=sys.stderr)
@@ -103,7 +105,7 @@ def check_coverage() -> int:
         return 1
     print(
         f"✓ {len(PAGE_MAPPING)} physical pages, {len(PANEL_MAPPING)} type keys "
-        f"and {len(SYS_PANEL_MAPPING)} system keys resolve to a page in both layouts."
+        f"and {len(sys_mapping)} system keys resolve to a page in both layouts."
     )
     return 0
 

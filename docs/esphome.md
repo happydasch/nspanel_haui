@@ -172,7 +172,7 @@ These are commands that are being executed on the ESP.
 - `goto_page` Sets the active page on display
 - `send_notification` Sends a notification to the display
 
-  Parameters: `title` (string), `message` (string), `icon` (string; pass `""` to use the severity default icon — these actions default to `info`, so the info icon is used), `persistent` (bool; loops the alert sound and re-opens the popup about every 60 seconds until dismissed) and `text_size` (`"auto"` or a font size 1-3). All parameters are required on the ESPHome action because ESPHome 2026.10 has no optional action variables: pass `false` for `persistent` and `"auto"` for `text_size` to get the defaults. The HA service and notify entities expose the same fields as optional.
+  Parameters: `title` (string), `message` (string), `icon` (string; pass `""` for no icon), `persistent` (bool; loops the alert sound and re-opens the popup about every 60 seconds until dismissed) and `text_size` (`"auto"` or a font size 1-3). All parameters are required on the ESPHome action because ESPHome 2026.10 has no optional action variables: pass `false` for `persistent` and `"auto"` for `text_size` to get the defaults. The HA service and notify entities expose the same fields as optional.
 
   The action does not expose severity or force-show fields; `persistent` loops the sound and re-opens the popup periodically without force-showing it. The first re-open comes about a second after the action; if a notification popup or list is already open, the re-open waits until it is dismissed. Because the action cannot set a severity, its alerts default to `info` and never re-open over the idle page.
 

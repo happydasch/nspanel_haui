@@ -342,7 +342,7 @@ def test_set_component_text_encodes_newlines():
     page.set_component_text(comp, "plain")
     assert cmds == ['tText.txt="plain"']
 
-    # A logical newline (how chunk_text joins pages) becomes the
+    # A logical newline (how fit_text joins page lines) becomes the
     # Nextion line-break escape, never a raw LF inside the command.
     cmds.clear()
     page.set_component_text(comp, "line1" + chr(10) + "line2")
@@ -359,6 +359,28 @@ def test_set_component_text_encodes_newlines():
     cmds.clear()
     page.set_component_text(comp, "one" + r + "rtwo")
     assert cmds == ['tText.txt="one' + r + 'rtwo"']
+
+
+def test_set_component_text_escapes_quotes_and_backslashes():
+    """A quote or backslash in the text must not end the Nextion literal early."""
+    page = _bare_page()
+    cmds: list[str] = []
+    page.send_cmd = cmds.append
+    comp = Component(9, "tText")
+    r = chr(92)
+
+    page.set_component_text(comp, 'He said "hi"')
+    assert cmds == ['tText.txt="He said ' + r + '"hi' + r + '""']
+
+    # A trailing backslash would otherwise escape the closing quote.
+    cmds.clear()
+    page.set_component_text(comp, "C:" + r)
+    assert cmds == ['tText.txt="C:' + r + r + '"']
+
+    # A backslash-quote in the text stays both characters.
+    cmds.clear()
+    page.set_component_text(comp, "a" + r + '"b')
+    assert cmds == ['tText.txt="a' + r + r + r + '"b"']
 
 
 def test_notification_pages_keep_the_regression_guard():

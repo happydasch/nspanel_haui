@@ -15,6 +15,7 @@ from ..mapping.icon_mapping import WEATHER_MAPPING
 from ..mapping.icons import ICO_MESSAGE
 from ..utils.datetime import format_datetime, get_date_localized, get_time_localized
 from ..utils.icon import get_icon, parse_icon
+from ..utils.value import format_number
 from .clock_common import apply_background, release_ticks, subscribe_ticks
 
 
@@ -357,9 +358,10 @@ class WeatherPage(HAUIPage):
         color = self._weather_item.get_color()
         try:
             temp_outside_str = self._weather_item.get_item_attr("temperature", "")
+            # compare against empty values: 0 °C is falsy but a real temperature
             temp_outside = (
                 None
-                if not temp_outside_str
+                if temp_outside_str in (None, "")
                 else round(float(temp_outside_str), self.TEMP_PRECISION)
             )
         except ValueError, TypeError:
@@ -392,7 +394,7 @@ class WeatherPage(HAUIPage):
             msg_sub = self._weather_item.get_item_attr("pressure", "")
             if msg_sub:
                 pressure_unit = self._weather_item.get_item_attr("pressure_unit")
-                msg_sub = f"{msg_sub}{pressure_unit}"
+                msg_sub = f"{format_number(msg_sub)}{pressure_unit}"
         # Hide the text widgets only when there is nothing to show at all; the
         # weather icon stays visible either way.
         has_text = bool(msg or msg_sub)

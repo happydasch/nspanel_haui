@@ -262,8 +262,9 @@ over it; other severities stay queued and appear as soon as the user returns to
 a real panel. Notification sounds play only when the device's
 `sound_on_notification` setting is on; it is off by default
 ([Device settings → Notifications](configuration/device.md#notifications)).
-When no icon is supplied, the popup shows no icon and the message body uses the
-full text width; the severity still colours the icon when one is set. See
+When no icon is supplied, the popup shows no icon and the message uses the full
+text width, so more of it fits on each page. The severity colours the icon when
+one is set, so without an icon it is not visible on the popup. See
 [Notifications](device.md#notifications) for
 how notifications are viewed and dismissed on the panel. The ESPHome firmware
 also exposes a `send_notification` action (title/message/icon/persistent/text_size,
@@ -280,7 +281,7 @@ field. Use this service when those options are needed.
 | `type` | no | `"info"` | Severity level — `"info"`, `"warning"`, or `"critical"`. Sets the icon colour in the popup; `critical` also plays the `alert` sound instead of `notification` |
 | `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel or its timeout expires. While the idle page is shown, only a `critical` persistent notification interrupts it |
 | `force_show` | no | `false` | When `true`, opens the notification panel immediately, unless a notification popup or list is already open — then it waits in the queue |
-| `text_size` | no | `"auto"` | Popup body text size — `"auto"` (chosen from the message length) or a font size `1`-`3` |
+| `text_size` | no | `"auto"` | Popup body text size — `"auto"` (the largest font that fits the whole message on one page) or a font size `1`-`3`; text that does not fit is paged |
 | `timeout` | no | — (none) | Seconds from queueing until the notification auto-dismisses, even if it has not yet been shown (1–3600). Left out or set to `0`, it stays queued until dismissed on the panel |
 
 Sending a notification with the same title and message as one that is still
@@ -573,7 +574,7 @@ Assistant event bus** so automations can react to what happens on the panel.
 | Event | Payload | When |
 |-------|---------|------|
 | `nspanel_haui.page_changed` | `device`, `action` (`opened`/`closed`), `panel` (key), `type`, `title`, `page` (Nextion page name) | Whenever a panel is opened through the render pipeline or closed |
-| `nspanel_haui.notification` | `device`, `id`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `timeout` (seconds or `null`) | Whenever a notification is queued or removed (dismissed, expired, replaced, cleared, or dropped from a full queue) |
+| `nspanel_haui.notification` | `device`, `id` (unique per notification; a repeat that replaces a queued copy gets a new one), `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `timeout` (seconds or `null`) | Whenever a notification is queued or removed (dismissed, expired, replaced, cleared, or dropped from a full queue) |
 | `nspanel_haui.connection_changed` | `device`, `connected` (bool) | Whenever the hub's connection to the panel device changes |
 | `nspanel_haui.display_update_changed` | `device`, `connected`, `installed_version` (TFT), `latest_version` (TFT the firmware needs), `state` (`idle`/`checking`/`installing`/`done`/`error`), `last_error` | Whenever the display's TFT version or the TFT update state changes (drives the **HAUI Display** update entity) |
 

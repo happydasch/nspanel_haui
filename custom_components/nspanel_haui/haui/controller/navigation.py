@@ -14,7 +14,7 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import ESPCommand, ESPEvent, SysPanelKey
+from ..mapping.const import ESPCommand, ESPEvent, PopupPanelKey
 from ..mapping.panel import PAGE_MAPPING
 from ..utils.page import get_page_class_for_panel, get_page_id_for_panel
 
@@ -477,7 +477,7 @@ class HAUINavigationController(HAUIBase):
             # lock new panel
             panel.set_state("locked", True)
             # open the unlock panel with the panel to unlock as a param
-            self._open_panel_impl(SysPanelKey.POPUP_UNLOCK, unlock_panel=panel, autostart=True)
+            self._open_panel_impl(PopupPanelKey.POPUP_UNLOCK, unlock_panel=panel, autostart=True)
             return
 
         # extract optional force flag before passing to goto_page

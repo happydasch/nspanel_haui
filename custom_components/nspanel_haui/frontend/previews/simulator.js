@@ -50,15 +50,6 @@ export function pictureUrlFor(orientation, id) {
   return new URL(`../virtual/pictures/${orientation}/${id}.webp`, MODULE_URL).href;
 }
 
-/** Build an icon name-to-character lookup for the simulated display. */
-export function buildIconCharMap(iconMap) {
-  const byName = {};
-  for (const [character, name] of Object.entries(iconMap || {})) {
-    if (!(name in byName)) byName[name] = character;
-  }
-  return byName;
-}
-
 /** Static previews never advance timers. */
 export function noopScheduler() {
   return { every: () => 0, cancel() {} };

@@ -59,6 +59,40 @@ def migrate_device_config_keys(device_config: dict) -> bool:
     return modified
 
 
+def drop_fixed_sys_overrides(device_name: str, device_data: dict) -> bool:
+    """Remove stored edits of system panels that can no longer be edited.
+
+    Earlier versions let every system panel be edited; now only the popups can.
+    An edited System, Blank, Settings or About panel is dropped, so the
+    built-in one is back.
+
+    Args:
+        device_name: Name of the device, for the log.
+        device_data: One device of the panel store.
+
+    Returns:
+        True when any panel was removed.
+    """
+    from .haui.mapping.panel import SYS_PANEL_MAPPING
+
+    panels = device_data.get("panels", [])
+    kept = []
+    for panel in panels:
+        key = panel.get("key")
+        if key in SYS_PANEL_MAPPING:
+            _LOGGER.warning(
+                "Removed the edited system panel %s of %s: only popups can be edited",
+                key,
+                device_name,
+            )
+            continue
+        kept.append(panel)
+    if len(kept) == len(panels):
+        return False
+    device_data["panels"] = kept
+    return True
+
+
 def panel_store(hass: Any, entry_id: str) -> Store:
     """Return the HA Store holding the panel config of one config entry."""
     return Store(hass, PANEL_STORE_VERSION, f"nspanel_haui.{entry_id}_panels")
@@ -162,11 +196,13 @@ class PanelStorage:
         # entry: the store holds the same shape either way).  One-time, then
         # idempotent — see DEVICE_CONFIG_KEY_RENAMES.
         modified = False
-        for dev_data in result.get("devices", {}).values():
+        for dev_name, dev_data in result.get("devices", {}).items():
             if not isinstance(dev_data, dict):
                 continue
             config = dev_data.get("config")
             if isinstance(config, dict) and migrate_device_config_keys(config):
+                modified = True
+            if drop_fixed_sys_overrides(dev_name, dev_data):
                 modified = True
 
         if modified:

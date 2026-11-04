@@ -300,15 +300,17 @@ Panels are configured representations of a page. A page can have multiple panels
 
 ## Virtual Panel (Live Preview)
 
-The editor's [live preview](configuration/README.md#the-live-preview) runs a second `NSPanelHAUI` app per open preview, built from the device's stored config the same way setup builds it. Only the transport and the entity layer differ, so every page, controller and lifecycle hook is the real one.
+The editor's [live preview](configuration/README.md#the-live-preview) and its panel cards run on one second `NSPanelHAUI` app per device, built from the device's stored config the same way setup builds it. Only the transport and the entity layer differ, so every page, controller and lifecycle hook is the real one. The app starts on first use, follows every save (`api._push_panels`) and stops after ten minutes without a viewer or a card render, or when the hub entry unloads.
 
 | Part | File | Role |
 |------|------|------|
 | `VirtualNSPanelHAUI` | `virtual_panel.py` | Reads states through the sandbox, routes service calls, suppresses HA bus events, uses an inert update controller |
 | `VirtualESPHomeProxy` | `virtual_panel.py` | Stands in for `ESPHomeProxy` and the firmware: answers the connection handshake, sends heartbeats, forwards display commands, page changes, brightness and sounds to the browser; refuses TFT and firmware uploads |
 | `Sandbox` | `sandbox.py` | Simulated entity states over the real ones; simulates the common services (on/off, light, cover, climate, media, lock, alarm, vacuum, number/select/text, button, timer) |
-| `VirtualPanelSession` | `virtual_panel.py` | Owns one virtual app for an open preview |
-| WebSocket commands | `websocket_api.py` | `nspanel_haui/virtual_panel/subscribe`, `/event` and `/configure` (admin only, at most four sessions) |
+| `VirtualPanelHost` | `virtual_panel.py` | Owns a device's virtual app: fans its display output out to every live-preview viewer (a late viewer gets the current panel redrawn) and renders panel cards |
+| WebSocket commands | `websocket_api.py` | `nspanel_haui/virtual_panel/subscribe`, `/event`, `/configure` and `/render` (admin only) |
+
+**Panel cards** (`/render`, `VirtualPanelHost.async_render`) run one panel's page through its real lifecycle (`create_panel`, `start_panel`, `render_panel`, stop) on the shared app, isolated from the live display: the page sees a view of the app whose ESPHome controller records the display output, whose navigation ignores every action and which makes only service calls that return data (such as `weather.get_forecasts`). The result is `{"page", "before", "commands"}` — `before` is what the hub sends before switching to the page (its picture background) — and the editor replays it in the Nextion simulator. A user card renders the editor's config (unsaved edits included), a system card the device's configured panel by `key`. Popups open with `PageDescriptor.preview_kwargs` (an example notification, sample choices, a panel to unlock) or, for entity popups (recognised by their system key, so an edited one too), an entity of their `item` option's domain: the first one that is on, else the first one that is off.
 
 The browser end lives in `frontend/virtual/`: `nextion-script.js` runs the HMI's event code and the hub's display commands, `nextion-display.js` holds the display state, `nextion-view.js` renders it, `touch-input.js` turns pointer input into the firmware's `esphome.component`, `touch_start`/`touch_end` and `gesture` events, `qr-encode.js` draws QR widgets and `virtual-panel-session.js` connects it all to the WebSocket. Slider values come back the way the firmware returns them: the hub's `req_val`/`req_txt` go to the browser, which answers with `esphome.read_response`.
 

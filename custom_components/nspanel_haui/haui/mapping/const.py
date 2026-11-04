@@ -51,7 +51,7 @@ class ESPAction(StrEnum):
 
 
 class SysPanelKey(StrEnum):
-    """Well-known system panel keys used across the integration.
+    """Keys of the fixed system panels (``SYS_PANEL_MAPPING``); they cannot be edited.
 
     Each member's value is the panel key passed to ``navigation.open_panel()``.
     Using this enum instead of raw strings prevents typos and enables code
@@ -63,6 +63,13 @@ class SysPanelKey(StrEnum):
     SYS_ABOUT = "sys_about"
     SYS_BLANK = "sys_blank"
 
+
+class PopupPanelKey(StrEnum):
+    """Keys of the popups (``POPUP_PANEL_MAPPING``), the system panels that can be edited.
+
+    Each member's value is the panel key passed to ``navigation.open_panel()``.
+    """
+
     POPUP_NOTIFY = "popup_notify"
     POPUP_SELECT = "popup_select"
     POPUP_LIGHT = "popup_light"
@@ -72,6 +79,20 @@ class SysPanelKey(StrEnum):
     POPUP_COVER = "popup_cover"
     POPUP_UNLOCK = "popup_unlock"
     POPUP_ALARM = "popup_alarm"
+    POPUP_TIMER = "popup_timer"
+
+
+# Popups whose content and lifetime the hub controls: notifications, selection
+# lists and the unlock popup. An edited copy keeps neither a PIN (a PIN on Unlock
+# would re-open Unlock forever) nor an auto-close (it would close queued
+# notifications).
+HUB_DRIVEN_PANELS: frozenset[str] = frozenset(
+    {
+        PopupPanelKey.POPUP_NOTIFY,
+        PopupPanelKey.POPUP_SELECT,
+        PopupPanelKey.POPUP_UNLOCK,
+    }
+)
 
 
 class ESPResponse(StrEnum):

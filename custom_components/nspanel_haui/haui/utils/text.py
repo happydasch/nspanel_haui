@@ -1,8 +1,9 @@
+import functools
 import json
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, NamedTuple
 
 from ..utils.icon import get_icon
 
@@ -124,47 +125,103 @@ def trim_text(text: str, num_chr: int, suffix: str = "..") -> str:
         return text
 
 
-def chunk_text(text: str, chars_per_line: int, lines: int) -> list[str]:
-    """Split *text* into pages fitting a Nextion text widget.
+class TextBox(NamedTuple):
+    """Drawing area of a Nextion text widget, from its HMI attributes."""
 
-    Respects embedded ``\\r\\n`` line breaks; wraps longer lines at
-    ``chars_per_line``; each returned page holds at most ``chars_per_line*lines``
-    characters.
+    width: int  # w, px
+    height: int  # h, px
+    border: int  # borderw, px
+    max_len: int  # txt_maxl: bytes the widget stores
+
+
+_FONT_METRICS_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), "mapping", "font_metrics.json"
+)
+
+
+@functools.cache
+def _font_metrics() -> dict[int, tuple[int, tuple[int, ...]]]:
+    """Line height and glyph widths per display font.
+
+    ``font_metrics.json`` is exported from the HMI fonts by
+    ``scripts/gen_virtual_layout/gen_virtual_layout.py``; read on first use.
     """
-    if not text:
+    with open(_FONT_METRICS_FILE, encoding="utf-8") as metrics_file:
+        fonts = json.load(metrics_file)["fonts"]
+    return {font["id"]: (font["height"], tuple(font["widths"])) for font in fonts}
+
+
+def text_width(text: str, font: int) -> int:
+    """Width in px of *text* drawn in display font *font*.
+
+    A character without a text glyph (an icon, or one the font lacks) counts as
+    wide as the line is high: icons are square, and no text glyph is wider.
+    """
+    height, widths = _font_metrics()[font]
+    return sum(widths[cp] if (cp := ord(char)) < len(widths) else height for char in text)
+
+
+def _wrap_line(line: str, font: int, width: int) -> list[str]:
+    """Word-wrap one line to *width* px; a word wider than a line breaks where it overflows."""
+    space = text_width(" ", font)
+    lines: list[str] = []
+    current: str | None = None
+    current_width = 0
+    for word in line.split(" "):
+        word_width = text_width(word, font)
+        if current is not None and current_width + space + word_width <= width:
+            current += " " + word
+            current_width += space + word_width
+            continue
+        if current is not None:
+            lines.append(current)
+        while word_width > width:
+            used = cut = 0
+            while cut < len(word) and used + (char_width := text_width(word[cut], font)) <= width:
+                used += char_width
+                cut += 1
+            cut = max(cut, 1)
+            lines.append(word[:cut])
+            word = word[cut:]
+            word_width = text_width(word, font)
+        current, current_width = word, word_width
+    lines.append(current or "")
+    return lines
+
+
+def _stored_len(lines: list[str]) -> int:
+    """Bytes a widget stores for *lines*: UTF-8 text, each line break as CR LF."""
+    return len("\n".join(lines).encode("utf-8")) + len(lines) - 1
+
+
+def fit_text(text: str, font: int, box: TextBox) -> list[str]:
+    """Wrap *text* as the display draws it in *box* and split it into pages.
+
+    Lines are wrapped by the font's glyph widths, so the display never wraps
+    them again and a page shows exactly its lines.  A page holds as many lines
+    as the box is tall and no more bytes than the widget stores.  The display's
+    inset inside a text widget is not documented: the border width is kept
+    clear on every side.  Embedded line breaks (``\\n``, ``\\r\\n``) are kept.
+    """
+    if not text.strip():
         return []
+    height, _widths = _font_metrics()[font]
+    width = box.width - 2 * box.border
+    max_lines = max(1, (box.height - 2 * box.border) // height)
 
-    # Normalize line endings
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    logical_lines = text.split("\n")
+    lines: list[str] = []
+    for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
+        lines += _wrap_line(line.rstrip(), font, width)
 
-    wrapped_lines = []
-    for line in logical_lines:
-        line = line.rstrip()
-        while len(line) > chars_per_line:
-            break_at = line.rfind(" ", 0, chars_per_line)
-            if break_at == -1:
-                break_at = chars_per_line
-            wrapped_lines.append(line[:break_at].rstrip())
-            line = line[break_at:].lstrip()
-        wrapped_lines.append(line)
-
-    pages: list[str] = []
-    current_page: list[str] = []
-    max_len = chars_per_line * lines
-
-    for line in wrapped_lines:
-        candidate = "\n".join(current_page + [line])
-        if len(candidate) > max_len and current_page:
-            pages.append("\n".join(current_page).strip())
-            current_page = [line]
-        else:
-            current_page.append(line)
-
-    if current_page:
-        pages.append("\n".join(current_page).strip())
-
-    while pages and not pages[-1]:
-        pages.pop()
-
-    return pages
+    pages: list[list[str]] = []
+    page: list[str] = []
+    for line in lines:
+        if page and (len(page) == max_lines or _stored_len([*page, line]) > box.max_len):
+            pages.append(page)
+            page = []
+        # A blank line at the top of a page would only waste one of its lines.
+        if page or line:
+            page.append(line)
+    if page:
+        pages.append(page)
+    return ["\n".join(page).rstrip() for page in pages]

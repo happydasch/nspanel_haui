@@ -147,7 +147,7 @@ def test_notification_clear_publishes_removal_events():
             "nspanel_haui.notification",
             {
                 "device": "kitchen",
-                "id": str(id(notification)),
+                "id": notification.notif_id,
                 "state": "removed",
                 "title": "Doorbell",
                 "message": "Someone is here",

@@ -11,6 +11,7 @@ from ..mapping.icon_mapping import (
 )
 from .color import rgb565_to_rgb, rgb_brightness, rgb_to_rgb565
 from .icon import get_icon, get_icon_name_by_state
+from .value import format_number
 
 _ColorGetter = Callable[[str], int]
 
@@ -271,7 +272,8 @@ def get_item_icon(haui_item: HAUIItem, default_icon: str) -> str:
 def _value_weather(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:
     temp_unit = haui_item.get_item_attr("temperature_unit", "°C")
     temp = haui_item.get_item_attr("temperature", "")
-    return f"{temp}{temp_unit}" if temp else ""
+    # compare against empty values: 0 °C is falsy but a real temperature
+    return "" if temp in (None, "") else f"{format_number(temp)}{temp_unit}"
 
 
 def _value_button(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:

@@ -8,6 +8,7 @@ from ..mapping.descriptor import PageDescriptor, _
 
 
 class SystemPage(HAUIPage):
+    PICTURE_BACKGROUND = True
     DESCRIPTOR = PageDescriptor(
         type_key="system",
         page_name="system",

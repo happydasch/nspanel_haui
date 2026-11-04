@@ -10,7 +10,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import MediaPlayerFeatures as F
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_NEXT,
@@ -551,7 +551,7 @@ class MediaPage(HAUIPage):
         # show popup
         if len(selection) > 0:
             navigation.open_panel(
-                SysPanelKey.POPUP_SELECT,
+                PopupPanelKey.POPUP_SELECT,
                 title=self.translate("Select source"),
                 selected=source,
                 items=selection,
@@ -590,7 +590,7 @@ class MediaPage(HAUIPage):
         # show popup
         if len(selection) > 0:
             navigation.open_panel(
-                SysPanelKey.POPUP_SELECT,
+                PopupPanelKey.POPUP_SELECT,
                 title=self.translate("Select media"),
                 items=selection,
                 select_mode="default",
@@ -627,7 +627,7 @@ class MediaPage(HAUIPage):
         # show popup
         if len(items) > 0:
             navigation.open_panel(
-                SysPanelKey.POPUP_SELECT,
+                PopupPanelKey.POPUP_SELECT,
                 title=self.translate("Select group members"),
                 items=items,
                 selected=group_members,

@@ -21,7 +21,7 @@ from ..mapping.const import (
     ESPRequest,
     ESPResponse,
     FirmwareUpdateChannel,
-    SysPanelKey,
+    PopupPanelKey,
 )
 from ..utils.text import trim_text
 
@@ -273,10 +273,12 @@ class HAUIUpdateController(HAUIBase):
         (``AwesomeVersion``), so the hub never offers — or auto-installs —
         a firmware Home Assistant itself would consider older.  Returns None
         when either side does not parse as a version, or AwesomeVersion cannot
-        compare them: an *unknown* version is never a reason to install.  In
-        particular a same-base stable release over an installed dev build
-        (``0.4.4`` over ``0.4.4.dev3+g...``) compares as not newer, so the
-        dev build is never downgraded automatically.
+        compare them: an *unknown* version is never a reason to install.  A
+        final release is newer than its dev builds (``0.4.5`` over
+        ``0.4.5.dev3``).  AwesomeVersion sorts a ``+local`` build
+        (``0.4.5.dev3+g<sha>``, published before dev versions dropped the
+        segment) above the final release and later plain dev builds, and the
+        hub mirrors that rather than disagree with the entity.
         """
         if latest is None or installed is None:
             return None
@@ -932,7 +934,7 @@ class HAUIUpdateController(HAUIBase):
         msg += self.translate("Version:")
         msg += f" {version}"
         self.app.controller["navigation"].open_panel(
-            SysPanelKey.POPUP_NOTIFY,
+            PopupPanelKey.POPUP_NOTIFY,
             icon="mdi:package-down",
             title=self.translate("Firmware update"),
             notification=msg,
@@ -1278,7 +1280,7 @@ class HAUIUpdateController(HAUIBase):
         msg += self.translate("Do you want to update?")
         navigation = self.app.controller["navigation"]
         navigation.open_panel(
-            SysPanelKey.POPUP_NOTIFY,
+            PopupPanelKey.POPUP_NOTIFY,
             icon="mdi:message-question",
             title=self.translate("Outdated TFT-Version"),
             btn_left_color=self.get_color("component_active"),
@@ -1567,7 +1569,7 @@ class HAUIUpdateController(HAUIBase):
         msg += "\r\n\r\n"
         msg += self.translate("Review the upgrade guide before updating.")
         self.app.controller["navigation"].open_panel(
-            SysPanelKey.POPUP_NOTIFY,
+            PopupPanelKey.POPUP_NOTIFY,
             icon="mdi:message-alert",
             title=self.translate("Update available"),
             notification=msg,
@@ -1628,7 +1630,7 @@ class HAUIUpdateController(HAUIBase):
         if btn_right:
             msg = self.translate("Please wait while the update is starting")
             navigation.open_panel(
-                SysPanelKey.POPUP_NOTIFY,
+                PopupPanelKey.POPUP_NOTIFY,
                 icon="mdi:message-cog",
                 title=self.translate("Starting Update"),
                 notification=msg,

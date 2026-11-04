@@ -255,6 +255,49 @@ def test_outside_temp_missing_keeps_home_temp():
     assert f"{parse_icon('mdi:thermometer')}" not in "".join(page.cmds)
 
 
+def test_first_card_shows_the_configured_weather_temperature(monkeypatch):
+    """The first card renders after the weather item is set: never "--°C" on
+    the first open, never the previous panel's weather on a later one."""
+    monkeypatch.setattr(haui_page, "HAUIItem", lambda app, config: _Item(config))
+    page = ClockPage(_App(), {"page_id": 7})
+    page.cmds = []
+    page.send_cmd = page.cmds.append
+    page.get_color = lambda key: 0
+    page.translate = lambda text: text
+    page.app.get_timezone = lambda: "UTC"
+    panel = _Panel(
+        {"item": {"item": "weather.home"}, "show_time_time": False, "show_time_date": False}
+    )
+
+    page.start_panel(panel)
+    page.render_panel(panel)
+
+    assert 'tTime.txt="10°C"' in page.cmds
+    assert 'tDate.txt="OUTSIDE"' in page.cmds
+
+
+def test_outside_temp_of_zero_degrees_is_shown():
+    """0 °C is a temperature, not a missing value."""
+
+    class _FreezingWeather(_Item):
+        def get_item_attr(self, attr, default=None):
+            return {"temperature": 0.0}.get(attr, default)
+
+    page = ClockPage(_App(), {"page_id": 7})
+    page.cmds = []
+    page.send_cmd = page.cmds.append
+    page.get_color = lambda key: 0
+    page._weather_item = _FreezingWeather({"item": "weather.home"})
+    page._weather_icons_mode = "monochrome"
+    for name in ["t_main_text", "t_sub_text", "t_main_icon"]:
+        component = getattr(ClockPage.COMPONENTS, name)
+        page.set_function_component(component, component.name)
+
+    page.update_main_weather()
+
+    assert f'tMainText.txt="{parse_icon("mdi:thermometer")}0°C"' in page.cmds
+
+
 def test_dark_display_keeps_the_clock_current(monkeypatch):
     """With the hub connected the Nextion stays awake at brightness 0 while the
     display is "off", and a wake touch lights the backlight before the hub could

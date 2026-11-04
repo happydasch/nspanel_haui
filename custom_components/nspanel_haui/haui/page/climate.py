@@ -9,11 +9,12 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import ClimateFeatures
 from ..mapping.color import CLIMATE_COLORS
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icon_mapping import CLIMATE_MAPPING
 from ..mapping.icons import ICO_DOWN, ICO_FAN, ICO_NAV_UP, ICO_POWER, ICO_PRESET, ICO_SWING
 from ..utils.icon import get_icon
+from ..utils.value import format_number
 
 
 class ClimatePage(HAUIPage):
@@ -300,7 +301,7 @@ class ClimatePage(HAUIPage):
             self.COMPONENTS.t_unit_2,
         ):
             self.set_component_text(component, unit)
-        self.set_component_text(self.COMPONENTS.t_temp, f"{current_temp}{unit}")
+        self.set_component_text(self.COMPONENTS.t_temp, f"{format_number(current_temp)}{unit}")
 
     def update_hvac_modes(self, item: HAUIItem) -> None:
         hvac_mode = item.get_item_state()
@@ -411,7 +412,7 @@ class ClimatePage(HAUIPage):
         ]
         if len(modes) > 0:
             self.app.controller["navigation"].open_panel(
-                SysPanelKey.POPUP_SELECT,
+                PopupPanelKey.POPUP_SELECT,
                 title=title,
                 items=modes,
                 selected=item.get_item_attr(mode, ""),

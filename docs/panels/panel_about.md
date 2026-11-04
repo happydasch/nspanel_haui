@@ -14,4 +14,4 @@ The about panel displays information about the panel and app. It shows version i
 - Version of YAML File
 - Version of Hub
 
-**This panel is a system panel and should not be added manually.**
+**This panel is a system panel: it cannot be added or edited.**

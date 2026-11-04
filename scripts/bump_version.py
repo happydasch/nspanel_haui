@@ -8,9 +8,8 @@ a TFT update. The script always updates the integration, firmware and
 ``yaml_version`` sources; pass ``--tft-update`` to also update ``tft_version``
 and both HMI ``system.tftVersion`` values.
 
-A development version (``X.Y.Z.devN``, optionally with a ``+local`` build
-segment such as the ``.dev<run>+g<sha>`` the dev-release CI publishes) is a
-firmware-only bump in that same shape: it updates ``manifest.json`` and the
+A development version (``X.Y.Z.devN``, the ``.dev<run>`` shape the dev-release
+CI publishes) is a firmware-only bump: it updates ``manifest.json`` and the
 firmware ``yaml_version`` but leaves ``pyproject.toml``, ``tft_version`` and the
 HMI binaries at their stable values — the dev channel ships no display TFT.
 
@@ -26,7 +25,7 @@ Usage:
     python scripts/bump_version.py 0.5.0                     # firmware-only release
     python scripts/bump_version.py 0.5.0 --tft-update        # release with a TFT update
     python scripts/bump_version.py 0.5.0 --check --tft-update  # dry run
-    python scripts/bump_version.py 0.5.0.dev3+gabc1234       # dev firmware bump
+    python scripts/bump_version.py 0.5.0.dev3                # dev firmware bump
 
 Exit code 0 when every selected source carries the requested version (or was
 updated), 1 when a source needs a manual edit (length-changing HMI bump, missing
@@ -50,10 +49,11 @@ import bump_tft_version as hmi  # noqa: E402
 
 _STABLE_RE = re.compile(r"\d+\.\d+\.\d+")
 # Development versions in the PEP 440 shape the dev-release CI publishes:
-# ``X.Y.Z.dev<N>`` optionally with a ``+local`` build segment (the workflow uses
-# ``.dev<run>+g<sha>``, local test releases use plain ``.dev<N>``). The base
-# ``X.Y.Z`` is the *next* patch line, so ``.devN`` sorts above the current
-# stable and below the eventual ``X.Y.Z`` final.
+# ``X.Y.Z.dev<N>``. The base ``X.Y.Z`` is the *next* patch line, so ``.devN``
+# sorts above the current stable and below the eventual ``X.Y.Z`` final. A
+# ``+local`` segment is still accepted because dev builds published before
+# 2026-11-04 carry one (``.dev<run>+g<sha>``) and the branch's version check
+# must pass on them; never publish one: AwesomeVersion sorts it above the final.
 _DEV_RE = re.compile(r"\d+\.\d+\.\d+\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?")
 
 
@@ -95,9 +95,9 @@ def bump_text_sources(version: str, check: bool, tft_update: bool = False) -> bo
     """Update firmware version sources and, when requested, the TFT version.
 
     A stable ``X.Y.Z`` version updates ``manifest.json``, ``pyproject.toml``
-    and the firmware ``yaml_version``. A development version (``X.Y.Z.devN``,
-    optionally with a ``+local`` build segment) is a firmware-only bump in the
-    shape the dev-release CI writes: ``manifest.json`` and the firmware
+    and the firmware ``yaml_version``. A development version (``X.Y.Z.devN``)
+    is a firmware-only bump in the shape the dev-release CI writes:
+    ``manifest.json`` and the firmware
     ``yaml_version`` advance, while ``pyproject.toml``, ``tft_version`` and the
     HMI binaries stay at their stable values because the dev channel ships no
     display TFT.
@@ -162,8 +162,7 @@ def main(argv: list[str] | None = None) -> int:
     kind = _version_kind(version)
     if kind is None:
         print(
-            "error: version must be stable (X.Y.Z) or a dev version "
-            f"(X.Y.Z.devN[+local]); got {version!r}",
+            f"error: version must be stable (X.Y.Z) or a dev version (X.Y.Z.devN); got {version!r}",
             file=sys.stderr,
         )
         return 2

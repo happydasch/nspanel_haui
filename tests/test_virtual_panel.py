@@ -17,7 +17,7 @@ import types
 import nspanel_haui
 import pytest
 from nspanel_haui.haui.mapping.const import ESPEvent
-from nspanel_haui.virtual_panel import InertUpdateController, VirtualPanelSession
+from nspanel_haui.virtual_panel import InertUpdateController, VirtualPanelHost
 
 GRID_PAGE_ID = 9
 G1_POWER = 12
@@ -42,7 +42,10 @@ class _Hass:
     def __init__(self, loop, states):
         self.loop = loop
         self._states = states
-        self.states = types.SimpleNamespace(get=self._states.get)
+        self.states = types.SimpleNamespace(
+            get=self._states.get,
+            async_entity_ids=lambda domain: [e for e in self._states if e.startswith(f"{domain}.")],
+        )
         self.services = _Services()
         self.fired = []
         self.bus = types.SimpleNamespace(
@@ -110,6 +113,16 @@ def _run(hass, coro):
     return asyncio.run_coroutine_threadsafe(coro, hass.loop).result(timeout=5)
 
 
+def _open(env, config, sink, *, protocol_version=2, **kwargs):
+    """Start the device's virtual app and attach one live-preview viewer to it."""
+    host = VirtualPanelHost(env, "kitchen", config, **kwargs)
+    _run(env, host.async_start())
+    env.loop.call_soon_threadsafe(
+        lambda: host.attach("viewer", sink, protocol_version=protocol_version)
+    )
+    return host
+
+
 def _commands(messages):
     return [c for m in messages if m["type"] == "commands" for c in m["commands"]]
 
@@ -117,9 +130,8 @@ def _commands(messages):
 @pytest.fixture
 def session(env):
     messages: list[dict] = []
-    sess = VirtualPanelSession(env, "kitchen", _config(), messages.append)
+    sess = _open(env, _config(), messages.append)
     sess.messages = messages
-    _run(env, sess.async_start())
     _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
     _wait(lambda: any(c.startswith("g1Name.txt=") for c in _commands(messages)))
     yield sess
@@ -164,8 +176,7 @@ def test_reset_sandbox_restores_real_state_without_changing_mode(session, env):
 
 def test_old_protocol_does_not_receive_entity_or_idle_metadata(env):
     messages: list[dict] = []
-    session = VirtualPanelSession(env, "kitchen", _config(), messages.append, protocol_version=1)
-    _run(env, session.async_start())
+    session = _open(env, _config(), messages.append, protocol_version=1)
     _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
 
     proxy = session.app.virtual_esphome
@@ -206,15 +217,13 @@ def test_live_mode_refuses_unresolved_service_target_selectors(
 
 def test_live_mode_still_sandboxes_the_real_devices_own_entities(env):
     messages: list[dict] = []
-    sess = VirtualPanelSession(
+    sess = _open(
         env,
-        "kitchen",
         _config(),
         messages.append,
         protected_entities=frozenset({"light.lamp"}),
         live=True,
     )
-    _run(env, sess.async_start())
     _wait(lambda: any(c.startswith("g1Name.txt=") for c in _commands(messages)))
     sess.messages = messages
     _tap_power(sess)
@@ -276,8 +285,7 @@ def test_a_slider_release_reads_the_value_from_the_browser_and_applies_it(env):
         device_name="kitchen",
     )
     messages: list[dict] = []
-    sess = VirtualPanelSession(env, "kitchen", cfg, messages.append)
-    _run(env, sess.async_start())
+    sess = _open(env, cfg, messages.append)
     _wait(lambda: {"type": "page", "page": 13} in messages)
     _wait(lambda: any(c.startswith("hBrightness.val=") for c in _commands(messages)))
     slider = sess.app.controller["navigation"].page.COMPONENTS.h_brightness
@@ -306,8 +314,7 @@ def test_a_long_press_on_a_clock_goes_back_home(env):
         device_name="kitchen",
     )
     messages: list[dict] = []
-    sess = VirtualPanelSession(env, "kitchen", cfg, messages.append)
-    _run(env, sess.async_start())
+    sess = _open(env, cfg, messages.append)
     _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
     _wait(lambda: sess.app.controller["navigation"].page.started)
 
@@ -340,8 +347,7 @@ def test_the_browser_is_told_when_the_idle_page_starts_and_ends(env):
         device_name="kitchen",
     )
     messages: list[dict] = []
-    sess = VirtualPanelSession(env, "kitchen", cfg, messages.append)
-    _run(env, sess.async_start())
+    sess = _open(env, cfg, messages.append)
     _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
     _wait(lambda: sess.app.controller["navigation"].page.started)
     assert not any(m["type"] == "idle" for m in messages)
@@ -366,8 +372,7 @@ def _relay_session(env, live, use_relay=True):
         device_name="kitchen",
     )
     messages: list[dict] = []
-    sess = VirtualPanelSession(env, "kitchen", cfg, messages.append, live=live)
-    _run(env, sess.async_start())
+    sess = _open(env, cfg, messages.append, live=live)
     _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
     relays = {"Relay Left": "switch.kitchen_relay_left"}
     sess.app.device.find_esphome_entity_id = lambda domain, name: relays.get(name)
@@ -422,8 +427,7 @@ def test_the_browser_learns_which_widgets_show_which_entity(env):
         device_name="kitchen",
     )
     messages: list[dict] = []
-    sess = VirtualPanelSession(env, "kitchen", cfg, messages.append)
-    _run(env, sess.async_start())
+    sess = _open(env, cfg, messages.append)
     _wait(lambda: {"type": "entities", "map": {"g1Overlay": "light.lamp"}} in messages)
 
     sess.send_event(ESPEvent.GESTURE, "swipe_left")
@@ -434,11 +438,93 @@ def test_the_browser_learns_which_widgets_show_which_entity(env):
 
 def test_stop_cancels_every_listener_and_timer(env):
     messages: list[dict] = []
-    sess = VirtualPanelSession(env, "kitchen", _config(), messages.append)
-    _run(env, sess.async_start())
+    sess = _open(env, _config(), messages.append)
     _wait(lambda: any(c.startswith("g1Name.txt=") for c in _commands(messages)))
 
     _run(env, sess.async_stop())
 
     assert sess.app._state_handles == {}
     assert sess.app._timer_handles == {}
+
+
+# one app per device: late viewers and panel cards
+
+
+def test_a_late_viewer_gets_the_current_panel_drawn(session, env):
+    late: list[dict] = []
+    env.loop.call_soon_threadsafe(lambda: session.attach("late", late.append))
+
+    _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in late)
+    _wait(lambda: 'g1Name.txt="Lamp"' in _commands(late))
+    assert {"type": "sandbox", "entities": []} in late
+
+
+def test_a_card_render_never_moves_the_live_display(session, env):
+    navigation = session.app.controller["navigation"]
+    live_panel = navigation.panel
+    session.messages.clear()
+    card = {"type": "light", "key": "desk", "title": "Desk", "item": {"item": "light.lamp"}}
+
+    result = _run(env, session.async_render(card))
+
+    assert result["page"] == 13
+    # The light page titles itself with the entity's name, as on the panel.
+    assert 'tTitle.txt="Lamp"' in result["commands"]
+    assert navigation.panel is live_panel
+    assert session.messages == []
+
+
+def test_a_card_render_changes_no_state(session, env):
+    card = {"type": "grid", "key": "rooms", "items": [{"item": "light.lamp"}]}
+
+    _run(env, session.async_render(card))
+
+    assert env.services.calls == []
+    assert not session.app.sandbox.is_simulated("light.lamp")
+
+
+def test_an_entity_popup_card_opens_for_an_entity_of_its_domain(session, env):
+    result = _run(env, session.async_render({"type": "popup_light", "key": "popup_light"}))
+
+    assert result["page"] == 13
+    assert 'tTitle.txt="Lamp"' in result["commands"]
+
+
+def test_an_edited_entity_popup_card_still_opens_for_an_entity_of_its_domain(session, env):
+    # The editor saves an edited entity popup with the user type (popup_light → light).
+    result = _run(env, session.async_render({"type": "light", "key": "popup_light"}))
+
+    assert result["page"] == 13
+    assert 'tTitle.txt="Lamp"' in result["commands"]
+
+
+def test_an_entity_popup_card_prefers_an_entity_that_is_on(session, env):
+    env._states["light.attic"] = _State("unavailable", {"friendly_name": "Attic"})
+    env._states["light.porch"] = _State("on", {"friendly_name": "Porch"})
+
+    result = _run(env, session.async_render({"type": "popup_light", "key": "popup_light"}))
+
+    assert 'tTitle.txt="Porch"' in result["commands"]
+
+
+def test_an_entity_popup_card_prefers_an_off_entity_to_an_unavailable_one(session, env):
+    env._states["light.attic"] = _State("unavailable", {"friendly_name": "Attic"})
+
+    result = _run(env, session.async_render({"type": "popup_light", "key": "popup_light"}))
+
+    assert 'tTitle.txt="Lamp"' in result["commands"]
+
+
+def test_a_popup_card_shows_its_descriptor_sample(session, env):
+    result = _run(env, session.async_render({"type": "notify", "key": "popup_notify"}))
+
+    assert any("Example notification" in command for command in result["commands"])
+
+
+def test_a_system_panel_renders_with_its_configured_defaults(session, env):
+    config = _run(env, session.async_configured_panel("popup_notify"))
+
+    assert config["key"] == "popup_notify"
+    assert config["show_in_navigation"] is False
+    with pytest.raises(ValueError):
+        _run(env, session.async_configured_panel("nope"))

@@ -43,7 +43,12 @@ Home Assistant version in a GitHub issue.
 The panel list shows all panels configured for this device. It defaults to a
 grid of cards, each with a preview of the panel's real display page — drawn by
 the shared Nextion simulator in the device's orientation on top of the panel's
-type, title, and key. A compact **list** view is available from the toolbar.
+type, title, and key. Cards show the configured entities with their current
+states (for example the clock and weather panels' weather icon and temperatures,
+and the weather panel's forecast row, as their settings allow) and the selected
+device's own details on the About
+card (name, IP address, TFT and firmware versions). A compact **list** view is
+available from the toolbar.
 From this list you can:
 
 - **Add** a new panel — choose a type from the dropdown
@@ -104,7 +109,9 @@ Opened with the **Live preview** button (TV with a play symbol) in the device to
 - **Sandbox mode** (default) — every action changes only a simulated state, shown on the preview; your lights and switches are not touched. **Reset sandbox** clears simulated changes and restores the real entity states without changing preview mode.
 - **Live mode** — actions call Home Assistant like the real panel does, and in relay mode the **Left button** / **Right button** switch the panel's real relays (its ESPHome **Relay Left** / **Relay Right** switches). Calls to the panel's settings (auto-dimming, brightness and the other device settings) always stay simulated, so a preview cannot reconfigure the panel. Switching Live mode on drops the sandbox's simulated states, so the preview shows the real ones.
 
-The preview never fires `nspanel_haui.*` events, so automations reacting to the real panel do not see it, and it never checks for or installs firmware or TFT updates. Up to four previews can be open at the same time. Save panel changes before opening the preview: it uses the stored configuration.
+The preview never fires `nspanel_haui.*` events, so automations reacting to the real panel do not see it, and it never checks for or installs firmware or TFT updates. A device has one virtual copy: previews opened in several browser tabs show the same screen, and switching Sandbox or Live mode in one switches it for all of them. The preview uses the saved configuration and follows every save right away.
+
+The panel cards in the editor are drawn by the same virtual copy: each card shows its panel the way the hub draws it on the device — entity values, translations, templates, the clock, the weather forecast — including edits that are not saved yet. A popup's card shows it opened for a sample: an entity of its domain (one that is on, if there is one), an example notification or selection. Rendering a card never changes what an open preview shows.
 
 ## See Also
 

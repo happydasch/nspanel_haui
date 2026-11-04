@@ -14,4 +14,4 @@ The settings panel provides on-device settings for the display:
 
 While the panel is open, auto-dimming is turned off; it is restored when you leave.
 
-**This panel is a system panel and should not be added manually.**
+**This panel is a system panel: it cannot be added or edited.**

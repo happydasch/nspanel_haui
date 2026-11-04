@@ -185,8 +185,9 @@ export const DATE_FORMAT_OPTIONS = [
 ];
 
 /**
- * Map popup system type keys to their underlying user-facing type keys.
- * Only panels in this map are editable via the Edit dropdown.
+ * Map entity popup types to the user panel type whose form edits them; an
+ * edited popup is saved as that type under the popup's key. Other system
+ * panels are edited with their own type.
  */
 export const POPUP_TO_USER_TYPE = {
   popup_light: "light",
@@ -195,4 +196,5 @@ export const POPUP_TO_USER_TYPE = {
   popup_cover: "cover",
   popup_vacuum: "vacuum",
   popup_timer: "timer",
+  popup_alarm: "alarm",
 };

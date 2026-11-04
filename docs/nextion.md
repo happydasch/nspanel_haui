@@ -152,13 +152,10 @@ see `scripts` in the root directory for different scripts.
   previews alike — both render the real HMI pages through the shared Nextion
   simulator. `--check`, run by the test suite, fails while the layouts or the
   icon map are out of date.
-- Panel preview state: `python scripts/gen_preview_state/gen_preview_state.py`
-  boots the real hub on the virtual panel and records exactly what it sends to
-  each page into `frontend/virtual/preview_state.json`, so the panel-card
-  previews show the hub's own display output instead of guessed state. `--check`
-  (run by CI) fails while the snapshot is out of date. `gen_virtual_layout.py`
-  and `gen_preview_state.py` depend on the shared Home Assistant import stubs in
-  `scripts/_ha_stubs.py`.
+  `gen_virtual_layout.py` depends on the shared Home Assistant import stubs in
+  `scripts/_ha_stubs.py`. The panel cards themselves are the hub's own render;
+  `tests/test_card_renders.py` replays a render of every panel type in these
+  layouts.
 - Preview coverage: `python scripts/check_preview_coverage.py` (also run by the
   test suite) confirms every exposed panel — user types, system panels and
   popup aliases — still resolves to a physical page in both preview layouts.

@@ -36,7 +36,12 @@ function stripComment(line) {
   let inString = false;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
-    if (ch === '"' && line[i - 1] !== '\\') inString = !inString;
+    // Inside a literal a backslash escapes the next character (\r, \", \\).
+    if (inString && ch === '\\') {
+      i++;
+      continue;
+    }
+    if (ch === '"') inString = !inString;
     if (!inString && ch === '/' && line[i + 1] === '/') return line.slice(0, i);
   }
   return line;
@@ -226,7 +231,12 @@ function splitArgs(args) {
   let current = '';
   for (let i = 0; i < args.length; i++) {
     const ch = args[i];
-    if (ch === '"' && args[i - 1] !== '\\') inString = !inString;
+    if (inString && ch === '\\' && i + 1 < args.length) {
+      current += ch + args[i + 1];
+      i++;
+      continue;
+    }
+    if (ch === '"') inString = !inString;
     if (!inString && ch === '[') depth++;
     if (!inString && ch === ']') depth--;
     if (!inString && depth === 0 && ch === ',') {
@@ -240,6 +250,11 @@ function splitArgs(args) {
   return out;
 }
 
+/** The text of a Nextion string literal: \r is a line break, \" and \\ the characters. */
+function unescapeText(literal) {
+  return literal.replace(/\\(["\\r])/g, (_, ch) => (ch === 'r' ? '\n' : ch));
+}
+
 /** Commands whose first argument names a widget (not a value to evaluate). */
 const NAMED_FIRST_ARG = new Set(['vis', 'click', 'tsw', 'ref', 'page']);
 
@@ -248,7 +263,7 @@ function runStatement(text, host) {
   // characters the expression tokenizer would reject, so take them verbatim.
   const txt = /^([\w.[\]]+)\.txt="(.*)"$/s.exec(text);
   if (txt && !/[^\\]"\s*\+/.test(text)) {
-    host.setAttr(resolveRef(`${txt[1]}.txt`, host), txt[2].replace(/\\r/g, '\n').replace(/\\"/g, '"'));
+    host.setAttr(resolveRef(`${txt[1]}.txt`, host), unescapeText(txt[2]));
     return;
   }
   const assign = ASSIGN_RE.exec(text);

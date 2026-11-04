@@ -160,6 +160,25 @@ class _OverrideApp(_App):
         return _State(self.inside_temp)
 
 
+def test_outside_temp_of_zero_degrees_is_shown():
+    """0 °C is a temperature, not a missing value."""
+    page = _weather_page(_App(), {"temperature": 0.0, "pressure": 1012, "pressure_unit": "hPa"})
+
+    page.update_main_weather()
+
+    assert f'tMainText.txt="{parse_icon("mdi:thermometer")}0°C"' in page.cmds
+    assert 'tSubText.txt="1012hPa"' in page.cmds
+
+
+def test_whole_pressure_prints_without_a_trailing_zero():
+    """HA reports pressure as a float; 1012.0 prints like 1012, as the preview shows it."""
+    page = _weather_page(_App(), {"temperature": 5, "pressure": 1012.0, "pressure_unit": "hPa"})
+
+    page.update_main_weather()
+
+    assert 'tSubText.txt="1012hPa"' in page.cmds
+
+
 def test_home_temp_shown_when_outside_temp_missing():
     """A missing outside temperature must not hide the inside temperature."""
     page = _weather_page(_App(inside_temp="21.4"), {"temperature": ""})

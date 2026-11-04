@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import threading
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
@@ -285,13 +286,17 @@ class HAUIBase(HAUIConfigAccess):
         """
         if not component:
             return
-        # Nextion renders the two-character ``\r`` sequence inside a ``.txt``
-        # command as a line break.  Multi-line texts (notification pages joined
-        # with logical newlines, translated popup bodies with ``\r\n``) must be
-        # sent as that escape: a raw CR/LF byte would end up inside the quoted
-        # serial command and break the framing.  Already-escaped ``\r`` text is
-        # left untouched.
-        command_text = str(text).replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\r")
+        # Nextion string literals know three escapes: ``\r`` (line break),
+        # ``\"`` and ``\\``.  Multi-line texts (notification pages joined with
+        # logical newlines, translated popup bodies with ``\r\n``) must be sent
+        # as ``\r``: a raw CR/LF byte would end up inside the quoted serial
+        # command and break the framing.  A quote or a backslash in the text
+        # (user messages, entity names) would end the literal early or escape
+        # its closing quote, so both are escaped.  An already-escaped ``\r``
+        # is left untouched, so configured texts can still force a line break.
+        command_text = str(text).replace("\r\n", "\n").replace("\r", "\n")
+        command_text = re.sub(r"\\(?!r)", r"\\\\", command_text).replace('"', '\\"')
+        command_text = command_text.replace("\n", "\\r")
         self.send_cmd(f'{component.name}.txt="{command_text}"')
 
     def set_component_value(self, component: Component, value: int) -> None:

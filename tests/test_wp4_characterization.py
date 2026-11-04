@@ -424,24 +424,6 @@ def _next_page_id(page):
 
 
 @pytest.mark.parametrize("cls", [RowPage, GridPage])
-def test_row_and_grid_reopen_at_first_page(cls):
-    entities = _items()
-    keys = list(entities)
-    app = _App(entities)
-    page = cls(app, {"page_id": cls.DESCRIPTOR.page_id})
-    panel = HAUIPanel(app, {"type": cls.DESCRIPTOR.type_key, "items": _entries(keys)})
-    page.set_panel(panel)
-
-    page.callback_function_component(_next_page_id(page), "next_page")
-    assert page._current_page == 1
-    assert panel.get_state("current_page") == 1
-
-    page.set_panel(panel)
-    assert page._current_page == 0
-    assert panel.get_state("current_page") == 0
-
-
-@pytest.mark.parametrize("cls", [RowPage, GridPage])
 def test_row_and_grid_paging(cls):
     entities = _items()
     keys = list(entities)
@@ -578,6 +560,24 @@ def test_unlock_update_components():
         page._input = value
         page.update_components()
     _check("unlock_update", recorded)
+
+
+def test_unlock_popup_takes_the_guarded_header_without_joining_navigation():
+    """Guarding a navigation panel, the unlock popup shows its prev/next but stays
+    out of navigation: navigation keeps it on the stack above the locked panel,
+    on every opening (a stale navigation state made it the current nav panel)."""
+    app = _App({})
+    locked = HAUIPanel(app, {"type": "grid", "key": "locked", "unlock_code": "12"})
+    popup = HAUIPanel(
+        app, {"type": "popup_unlock", "key": "popup_unlock", "show_in_navigation": False}
+    )
+    popup.apply_kwargs({"unlock_panel": locked})
+    page = UnlockPage(app, {"page_id": 17})
+    page.set_panel(popup)
+
+    assert page._fnc_items[page.FNC_BTN_L_PRI]["fnc_name"] == page.FNC_TYPE_NAV_PREV
+    assert page._fnc_items[page.FNC_BTN_R_PRI]["fnc_name"] == page.FNC_TYPE_NAV_NEXT
+    assert popup.show_in_navigation() is False
 
 
 # light

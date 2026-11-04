@@ -41,6 +41,12 @@ jobs:
         # unparseable yaml_version (for example a ``dev-<run>-<sha>`` release
         # tag) makes it fall back to "update available" on every check.
         #
+        # The version carries no ``+local`` segment (the commit lives in the
+        # release name and notes): AwesomeVersion sorts ``0.4.5.dev16+g<sha>``
+        # *above* the final ``0.4.5`` and above a later ``0.4.5.dev17``, so
+        # neither Home Assistant nor HACS would ever offer the release that
+        # supersedes such a build. The run number alone keeps versions unique.
+        #
         # The same string is the release tag, the integration manifest version
         # and the firmware yaml_version. HACS reads the release tag as the
         # available version and the installed copy's manifest ``version`` as the
@@ -55,7 +61,9 @@ jobs:
 
           manifest = json.loads(Path("custom_components/nspanel_haui/manifest.json").read_text())
           stable = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", manifest["version"])
-          # A previous dev release committed onto the branch: X.Y.Z.devN(+local).
+          # A previous dev release committed onto the branch: X.Y.Z.devN. The
+          # optional +local segment only accepts versions published before the
+          # segment was dropped.
           dev_prev = re.fullmatch(
               r"(\d+)\.(\d+)\.(\d+)\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?",
               manifest["version"],
@@ -70,15 +78,15 @@ jobs:
                   "Expected a stable X.Y.Z or a previous dev version, "
                   f"got {manifest['version']!r}"
               )
-          version = f"{base}.dev{os.environ['GITHUB_RUN_NUMBER']}+g{os.environ['GITHUB_SHA'][:7]}"
+          version = f"{base}.dev{os.environ['GITHUB_RUN_NUMBER']}"
           # Validate against the exact PEP 440 dev-release shape instead of
           # importing ``packaging``: that library is not a declared dependency
           # anywhere in the repo (neither ESPHome nor the dev requirements pull
           # it in), and importing it here broke every dev build with
           # "packaging is not installed". The pattern covers what the version
-          # check needs — parseable by AwesomeVersion, no ``-`` separator, and a
-          # local ``+g<sha>`` segment the version list can sort.
-          expected = re.compile(rf"^{re.escape(base)}\.dev\d+\+g[0-9a-f]{{7}}$")
+          # check needs — parseable by AwesomeVersion, no ``-`` separator, and
+          # no ``+local`` segment (see above).
+          expected = re.compile(rf"^{re.escape(base)}\.dev\d+$")
           if expected.fullmatch(version) is None:
               raise SystemExit(f"{version} does not match the expected PEP 440 shape {expected.pattern}")
           version_file = Path("esphome/nspanel_haui/version.yaml")
@@ -103,6 +111,7 @@ jobs:
           manifest_file.write_text(source)
           with open(os.environ["GITHUB_ENV"], "a") as env:
               env.write(f"DEV_VERSION={version}\n")
+              env.write(f"DEV_SHA={os.environ['GITHUB_SHA'][:7]}\n")
           print(f"Building {version} from {os.environ['GITHUB_SHA']}")
           PY
 
@@ -201,8 +210,12 @@ jobs:
         # stale). The next run derives the next dev version from that X.Y.Z.devN
         # directly, and HACS never prints an out-of-date installed version.
         # ``[skip ci]`` keeps this push to dev from re-triggering this workflow;
-        # the run number and commit are part of the version, so re-runs replace
-        # an equivalent commit/tag.
+        # a re-run keeps its run number (the version) and builds the same
+        # commit, so it replaces an equivalent commit/tag.
+        #
+        # Because dev's tip is always this ``[skip ci]`` commit, a PR from dev
+        # never runs its checks: cut release prep on a ``release/X.Y.Z`` branch
+        # (docs/release.md, "Branches and cadence").
         env:
           DEV_VERSION: ${{ env.DEV_VERSION }}
         run: |
@@ -220,9 +233,9 @@ jobs:
           # VERSION_COMMIT) simply skips until that newer commit's own build.
           git push origin "HEAD:refs/heads/dev" || echo "dev branch raced; the version commit ships in the tagged release only"
           git tag "${DEV_VERSION}"
-          # --force keeps a re-run of the same build idempotent: run number and
-          # commit are part of the version, so the tag can only be replaced by
-          # an equivalent one.
+          # --force keeps a re-run of the same build idempotent: a re-run keeps
+          # the run number and commit, so the tag can only be replaced by an
+          # equivalent one.
           git push --force origin "refs/tags/${DEV_VERSION}"
 
       - name: Publish versioned development prerelease
@@ -232,7 +245,7 @@ jobs:
           # tags as versions) can order dev releases and compare them with the
           # manifest version of an installed dev build.
           tag_name: ${{ env.DEV_VERSION }}
-          name: NSPanel HAUI ${{ env.DEV_VERSION }}
+          name: NSPanel HAUI ${{ env.DEV_VERSION }} (${{ env.DEV_SHA }})
           body_path: dev-release-notes.md
           prerelease: true
           make_latest: false
@@ -260,3 +273,24 @@ jobs:
               --notes "Stable manifest URL for the latest successful dev-branch firmware build."
           fi
           gh release upload dev-latest firmware-manifest.json --clobber
+
+      - name: Prune old development prereleases
+        # HACS reads only the newest 30 releases, the hub's release check the
+        # newest 100 (RELEASES_URL). One prerelease per push would push the
+        # latest stable release out of both: HACS then finds no stable version
+        # and a fresh install falls back to the default branch (dev). Keep the
+        # newest dev builds only; stable releases and dev-latest never match.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: 10
+        run: |
+          set -o pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '.[] | select(.prerelease and (.tag_name | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.dev[0-9]+([+][0-9A-Za-z.]+)?$"))) | [.created_at, .tag_name] | @tsv' \
+            | sort -r \
+            | tail -n +$((KEEP + 1)) \
+            | cut -f2 \
+            | while read -r tag; do
+                echo "Deleting development prerelease ${tag}"
+                gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+              done

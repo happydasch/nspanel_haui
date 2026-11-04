@@ -40,6 +40,16 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Every popup can be edited** — the editor's System Panels section offers
+  **Edit** on every popup (`popup_*`), no longer only six entity popups
+  (`popup_alarm`, `popup_timer`, Notify, Select and Unlock were missing). An
+  edited popup keeps the built-in defaults it does not set, keeps its key and
+  never joins navigation. On the popups the hub drives (Notify, Select,
+  Unlock) the editor hides **Panel pin** and **Close automatically after** and
+  the hub ignores them: a PIN on Unlock would re-open Unlock forever. System,
+  Blank, Settings and About stay fixed: their cards are read-only, the API
+  refuses a panel saved under their key, and the store drops one an earlier
+  dev build saved (logged as a warning).
 - **HAUI Firmware update entity in the integration** — each linked panel gets
   `update.<device>_haui_firmware` next to **HAUI Display**: installed version
   `yaml_version`, latest version from the firmware manifest, *installing* (and
@@ -59,12 +69,11 @@ and follow [Semantic Versioning](https://semver.org/).
   the channel.
 - **Firmware version comparison matches Home Assistant** — the hub compares
   versions with the same `AwesomeVersion` semantics the HAUI Firmware/HAUI
-  Display entities use, so the two never disagree: an established same-base
-  stable release is never offered or auto-installed over a dev build, and an
-  unparseable installed version (for example an old `dev-<run>-<sha>` build)
-  is withheld as unknown instead of being re-offered on every check. Dev
-  builds are validated to report a parseable next-patch version
-  (`X.Y.(Z+1).dev<run>+g<sha>`).
+  Display entities use, so the two never disagree: a final release is offered
+  over its dev builds (`0.4.5` over `0.4.5.dev3`), and an unparseable
+  installed version (for example an old `dev-<run>-<sha>` build) is withheld
+  as unknown instead of being re-offered on every check. Dev builds are
+  validated to report a parseable next-patch version (`X.Y.(Z+1).dev<run>`).
 
 - **Day/Night Profiles** — each device can select Day and Night display settings
   by a fixed local window or Home Assistant sunrise/sunset with minute offsets.
@@ -91,7 +100,19 @@ and follow [Semantic Versioning](https://semver.org/).
   Assistant, including the panel's relays from the hardware buttons, except
   for the panel's settings. A **Show entities** switch names the entity under
   the mouse. The preview fires no events for automations and never installs
-  updates.
+  updates. A device has one virtual copy, shared by its open previews and its
+  panel cards; it follows every save.
+- **Panel cards drawn by the hub** — every panel card (user panels, system
+  panels, popup aliases, landscape and portrait) shows its panel exactly as the
+  device does: the hub renders the panel and the card replays the hub's
+  display output in the Nextion simulator, built from the real HMI layout.
+  Entity values, translations in the device's language, templates, the clock,
+  the weather forecast and colour overrides are the hub's own; unsaved edits
+  show right away, and a popup's card opens it for a sample (an entity of its
+  domain, one that is on if there is one, an example notification or
+  selection). The dozens of per-type preview renderers and the browser-side
+  copy of the hub's rendering are gone: a new panel type needs only a correct
+  `PageDescriptor.page_id`.
 - **Long press to go back** — Clock, ClockTwo and Weather panels have no
   header buttons and could only be left by swiping. The new **Long press to go
   back** panel option (Advanced section) goes back on a one-second hold
@@ -105,13 +126,50 @@ and follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **An open notification is no longer replaced by the next one** — the hub
+  recognised its notification popup and list by the panel type
+  (`popup_notify`), but those panels have the page's type (`notify`,
+  `select`), so the check never matched on a device: a force-show
+  notification opened over the one being read, and the open list did not
+  refresh when a notification arrived. The check now uses the panel key.
+- **Stacked panels show the up arrow** — a cover, light, climate, media,
+  vacuum, timer or alarm panel outside navigation was treated as a popup
+  because its page *can* pop up, so its header showed home instead of the up
+  arrow (and no home button). It now gets up + home like a stacked grid; only
+  the system popups (`popup_*`, About, Settings) keep the popup header.
+- **The unlock popup shows its keypad and title again** — the alarm page hides
+  its keypad when it loads and the alarm panel shows it again, but the unlock
+  popup on the same page did not, so a PIN-protected panel opened onto an
+  empty screen with no way to enter the PIN. Its title also stayed empty when
+  the locked panel has none: the system panel's empty title replaced the
+  **Unlock Panel** fallback. Guarding a navigation panel with the home button
+  on, its header showed home in place of the previous-panel button; it now
+  shows the guarded panel's previous, home and next buttons. Those buttons
+  (and swiping) also work every time now: the popup kept the guarded panel's
+  navigation state after it closed, so from its second opening on navigation
+  took the popup itself for the current panel and previous/next did nothing.
 - **Internal temperature on clock/weather panels** — the registry lookup now
   works in production (Home Assistant's `HomeAssistant` object has no
   `helpers` attribute; use `homeassistant.helpers.entity_registry`), and the
   home temperature stays visible when the weather entity has no temperature
   attribute.
+- **Light power button no longer turns black** — an on/off or brightness-only
+  light reports no `rgb_color`, so its centre power button was drawn black
+  (invisible on the dark theme) while the light was on. It now uses the
+  `entity_on` colour.
+- **Clock and weather panels show 0 °C** — an outside temperature of exactly
+  0 °C was treated as missing, so the temperature (and on the weather panel
+  the pressure) disappeared at freezing point. A weather entity shown as a
+  row or info value had the same problem.
+- **Clock temperature card on opening** — a clock whose first card is the
+  outside or inside temperature drew it before reading the panel's weather
+  entity: `--°C` on the first open, the previous panel's weather afterwards.
+- **Whole numbers without ".0"** — the weather pressure, the climate current
+  temperature and a weather entity's row value print `1012hPa` / `21°C`
+  instead of `1012.0hPa` / `21.0°C`, so the panel and the editor preview
+  show the same text.
 - **HACS versioning of dev releases** — a `dev` prerelease is now tagged with
-  its PEP 440 version (for example `0.4.5.dev123+gabcdef1`) instead of
+  its PEP 440 version (for example `0.4.5.dev123`) instead of
   `dev-<run>-<sha>`, and the tag points at a release commit that carries that
   same version in the integration `manifest.json`. HACS reads release tags as
   available versions and the installed copy's manifest `version` as the
@@ -119,7 +177,12 @@ and follow [Semantic Versioning](https://semver.org/).
   inequality: an installed dev build kept offering itself as an update and dev
   releases were listed without a usable order. Dev releases now compare (and
   sort) correctly; already installed `dev-*` builds are offered the next
-  versioned dev release once.
+  versioned dev release once. The version carries no `+g<sha>` build segment
+  (the commit is in the release name): AwesomeVersion sorts such a build above
+  its final release and above later plain dev builds, so it would never be
+  offered either. Dev builds published with the segment before 2026-11-04 need
+  one manual install of a newer build. Only the newest 10 dev prereleases are
+  kept, so the latest stable release stays within the 30 releases HACS reads.
 - **Stale time after waking the display** — clock, word clock, weather and
   alarm pages keep updating while the display is off (the Nextion stays awake
   at brightness 0 with the hub connected), so a wake touch shows the current
@@ -137,6 +200,43 @@ and follow [Semantic Versioning](https://semver.org/).
   cannot compare an offered version, so an incomparable manifest `version`
   would surface as an update on every check. It is now reported as unknown
   (no update) instead.
+- **Notification popups no longer keep the display lit** — a queued
+  notification popup suspended auto-dimming and auto display-off until it was
+  dismissed, so a notification at night switched a dark panel on at full
+  brightness and left it on. It now only holds off the automatic page switch;
+  the display dims and turns off on its normal timers. A force-shown
+  notification and a persistent alert's re-opened popup wake the display
+  explicitly, except during quiet hours.
+- **Persistent alert sound and quiet hours** — a persistent notification that
+  arrived during quiet hours never started its repeating sound, not even after
+  quiet hours ended, and one that arrived before them kept sounding through
+  them. The repeat now always runs and is silent inside quiet hours.
+- **Notification indicator blink runs on the hub's worker** — the blink timer
+  ran page code on a thread of its own, racing page switches; it now uses the
+  app's timers and skips blink ticks while the display is off.
+- **Notification text fits the popup** — paging counted characters with
+  guessed per-line figures, so short lines (e.g. the "Entity unavailable"
+  text) overflowed the text box while ordinary messages were split across
+  pages they did not need ("Someone is at the front door" took two pages at
+  the large font). Text is now wrapped with the display fonts' real glyph
+  widths (exported from the HMI to `haui/mapping/font_metrics.json`), a page
+  holds the lines the box is tall and no more than the widget stores, and the
+  automatic text size picks the largest font that fits the whole message on
+  one page.
+- **Notification ids are unique** — the `id` in `nspanel_haui.notification`
+  events and the editor inbox was a Python object id, which is reused as soon
+  as a notification is freed, so automations could mix notifications up and a
+  stale inbox could dismiss the wrong one.
+- **Notifications without an icon use the full text width** — since the
+  severity default icon was dropped, an icon-less popup left the icon's area
+  empty and kept the message in its narrow column. The message now fills the
+  full-width text box (the full height in portrait), so more fits per page.
+- **Quotes and backslashes in display text** — text was sent to the display
+  without escaping, so a `"` in a notification, title or entity name ended the
+  command's string early and the text (or the whole command) was lost, and a
+  trailing `\` swallowed the closing quote. Both are now escaped as the Nextion
+  expects (`\"`, `\\`); a `\r` written into a configured text still forces a
+  line break. The editor's live preview decodes the same escapes.
 
 ### Planned
 

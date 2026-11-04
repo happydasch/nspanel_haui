@@ -232,7 +232,7 @@ shortcuts on top of that.
 
 - `use_do_not_disturb` bool
 
-  Enable quiet hours to silence all sounds during the time window set below. Notifications are still queued and shown. Default `False`.
+  Enable quiet hours to silence all sounds during the time window set below. Notifications are still queued and shown, but do not wake the display; a persistent notification's repeating tone pauses until quiet hours end. Default `False`.
 
 - `quiet_hours_start` string
 
@@ -297,7 +297,7 @@ Opened from its own dialog (separate from Device Settings). Lets you override in
 
   RGB565 color values keyed by color name. Unknown keys are ignored (logged) and values are clamped to `0`-`65535`. Default `{}` (empty).
 
-  **Background: solid colour vs picture.** Pages without a picture background are cleared with the `background` colour on every panel switch (`cls <RGB565>`), so the device-level override applies there. About, Clock, Clock Two and Weather are *picture-background* pages: they keep the pre-rendered picture selected by the panel's `background` option and skip the colour clear entirely. On those pages neither the `background` override nor the header colours apply — the compiled picture and its palette win. This is by design (the picture is the background); to change their look, change the picture or edit the HMI. The remaining `COLORS` entries still theme the cards, buttons and text on solid pages as usual.
+  **Background: solid colour vs picture.** Pages without a picture background are cleared with the `background` colour on every panel switch (`cls <RGB565>`), so the device-level override applies there. About, Clock, Clock Two, System and Weather are *picture-background* pages: they keep their pre-rendered picture (on Clock, Clock Two and Weather the one selected by the panel's `background` option) and skip the colour clear entirely. On those pages neither the `background` override nor the header colours apply — the compiled picture and its palette win. This is by design (the picture is the background); to change their look, change the picture or edit the HMI. The remaining `COLORS` entries still theme the cards, buttons and text on solid pages as usual.
 
 ## Fields not yet exposed in the editor
 

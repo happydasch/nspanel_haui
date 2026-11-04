@@ -7,7 +7,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import VacuumFeatures
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_BATTERY,
@@ -278,7 +278,7 @@ class VacuumPage(HAUIPage):
             ]
             if len(speeds) > 0:
                 self.app.controller["navigation"].open_panel(
-                    SysPanelKey.POPUP_SELECT,
+                    PopupPanelKey.POPUP_SELECT,
                     title=self.translate("Select Fan Speed"),
                     items=speeds,
                     selected=item.get_item_attr("fan_speed", ""),

@@ -4,8 +4,11 @@ popup aliases."""
 
 from __future__ import annotations
 
+from nspanel_haui.haui.mapping.const import PopupPanelKey, SysPanelKey
 from nspanel_haui.haui.mapping.panel import (
     PAGE_MAPPING,
+    POPUP_PANEL_MAPPING,
+    SYS_PANEL_MAPPING,
     get_system_panel_entries,
     get_user_panel_type_descriptors,
 )
@@ -52,3 +55,29 @@ def test_popup_unlock_uses_the_alarm_physical_page():
 def test_page_id_matches_the_hub_page_mapping():
     for descriptor in get_user_panel_type_descriptors():
         assert PAGE_MAPPING[descriptor["page_id"]]
+
+
+def test_system_panel_entries_flag_hub_driven_panels():
+    """The editor hides PIN and auto-close for the panels the hub drives."""
+    driven = {e["key"] for e in get_system_panel_entries() if e["hub_driven"]}
+    assert driven == {"popup_notify", "popup_select", "popup_unlock"}
+
+
+def test_system_panels_and_popups_are_mapped_apart():
+    """System, Blank, Settings and About are the fixed system panels; every
+    ``popup_*`` key is a popup, the system popups (notify, select, unlock) too.
+    The key enums list exactly the panels each mapping registers."""
+    assert set(SYS_PANEL_MAPPING) == set(SysPanelKey)
+    assert set(SysPanelKey) == {"sys_system", "sys_blank", "sys_settings", "sys_about"}
+    assert set(POPUP_PANEL_MAPPING) == set(PopupPanelKey)
+    assert all(key.startswith("popup_") for key in PopupPanelKey)
+    assert POPUP_PANEL_MAPPING[PopupPanelKey.POPUP_NOTIFY] == "notify"
+
+
+def test_only_popup_system_panels_are_editable():
+    """The editor edits the popups only; System, Blank, Settings and About are fixed."""
+    entries = get_system_panel_entries()
+    editable = {e["key"] for e in entries if e["editable"]}
+    fixed = {e["key"] for e in entries if not e["editable"]}
+    assert editable == {e["key"] for e in entries if e["key"].startswith("popup_")}
+    assert fixed == {"sys_system", "sys_blank", "sys_settings", "sys_about"}

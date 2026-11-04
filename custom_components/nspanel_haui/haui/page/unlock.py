@@ -3,7 +3,7 @@ from __future__ import annotations
 from ..abstract.component import Component
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 from ..mapping.icons import ICO_LOCKED, ICO_PASSWORD
 from .alarm import AlarmPage
@@ -18,12 +18,14 @@ class UnlockPage(AlarmPage):
         description=_("PIN unlock overlay for locked panels."),
         is_system=True,
         sys_panel_default={
-            "key": SysPanelKey.POPUP_UNLOCK,
+            "key": PopupPanelKey.POPUP_UNLOCK,
             "show_in_navigation": False,
         },
         popup_alias_for="alarm",
         can_show_popup=True,
         icon="mdi:lock-outline",
+        # The panel to unlock; a card render turns the config into a panel.
+        preview_kwargs={"unlock_panel": {"unlock_code": "1234"}},
     )
 
     _title = ""
@@ -34,7 +36,8 @@ class UnlockPage(AlarmPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # store panel infos
         self._unlock_panel = unlock_panel = panel.get("unlock_panel", None)
-        self._title = panel.get("title", self.translate("Unlock Panel"))
+        # The system panel's default title is "", not missing.
+        self._title = panel.get("title") or self.translate("Unlock Panel")
         # lock right secondary function button
         lock_btn = {
             "fnc_component": AlarmPage.COMPONENTS.fnc_right_sec,
@@ -57,8 +60,10 @@ class UnlockPage(AlarmPage):
             )
 
             # set components
+            # the alarm page's load event hides the keypad
             for c in self._keypad_buttons:
                 self.on_release(c, self.callback_keypad)
+                self.show_component(c)
             # match the alarm keypad's button styling
             self._style_keypad(panel)
             self.on_release(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
@@ -73,13 +78,15 @@ class UnlockPage(AlarmPage):
 
             # prepare unlock panel using config from locked panel
             if unlock_panel:
-                # override the unlock popup's navigation state to match the panel it is protecting
-                panel.set_state("show_in_navigation", unlock_panel.show_in_navigation())
                 self._title = unlock_panel.get_title(self._title)
                 self._unlock_code = unlock_panel.get("unlock_code")
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
+        # The header follows the panel it guards (prev/next in navigation). Not
+        # as the popup's own state: navigation reads that on the next opening
+        # and would make the popup the current navigation panel.
+        self._auto_assign_fncs(
+            panel, show_in_nav=unlock_panel.show_in_navigation() if unlock_panel else None
+        )
 
     def before_render_panel(self, panel: HAUIPanel) -> bool:
         # check if unlock panel is available

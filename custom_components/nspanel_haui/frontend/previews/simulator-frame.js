@@ -2,25 +2,17 @@
  * NSPanel HAUI - Lit element that renders a full HMI page preview via the
  * shared Nextion simulator and preview generator.
  *
- * Used as the default panel-card preview renderer for every panel type,
- * system panel and popup alias. It asynchronously loads the layout + icon-map
- * assets (memoised), builds a seeded NextionDisplay, and re-renders itself
- * when the assets arrive or the card width changes (scaled to fit while
- * preserving the device orientation).
- *
- * The static preview opens no VirtualPanelSession and no WebSocket — it only
- * fetches the committed layout/icon-map JSON and picture assets.
+ * Used as the panel-card preview renderer for every panel type, system panel
+ * and popup alias. It asynchronously loads the layout + icon-map assets
+ * (memoised) and the hub's render of the panel (`loadPanelRender`), replays it
+ * in a NextionDisplay, and re-renders itself when the assets arrive or the card
+ * width changes (scaled to fit while preserving the device orientation).
  */
 import { LitElement, html, css } from '../lit-import.js';
 import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
-import { colorSubstitutions, isPortraitDevice } from './utils.js';
+import { isPortraitDevice } from './utils.js';
+import { buildPreviewDisplay, loadPanelRender, previewRenderKey } from './previewer.js';
 import {
-  buildPreviewDisplay,
-  loadPreviewState,
-  resolvePageId,
-} from './previewer.js';
-import {
-  buildIconCharMap,
   loadIconMap,
   loadLayout,
   pictureUrlFor,
@@ -31,21 +23,25 @@ import {
 const DEFAULT_WIDTH = 240;
 
 /**
- * The registered renderer function returned by the preview registry for every
- * panel type. It mounts a `<haui-simulator-frame>` that does the async work.
+ * The preview of every panel card (`panel-previews.js`): mounts a
+ * `<nspanel-simulator-frame>` that does the async work.
  */
-export function renderSimulatorPreview(host, panel, _pIdx, panelType) {
+export function renderSimulatorPreview(host, panel, pIdx, panelType) {
   return html`
     <nspanel-simulator-frame
       .host=${host} .panel=${panel} .type=${panelType}
       .portrait=${isPortraitDevice(host)}
+      .byKey=${pIdx < 0}
+      .renderKey=${previewRenderKey(host)}
     ></nspanel-simulator-frame>`;
 }
 
 /**
- * Inject asset loaders applied by default (tests only). `layout(orientation)`
- * returns the parsed layout JSON, `icon()` the char→name map.
- * @param {{layout: Function, icon: Function}|null} loaders
+ * Inject asset loaders applied by default (tests and the card gallery,
+ * scripts/preview_gallery). `layout(orientation)` returns the parsed layout
+ * JSON, `icon()` the char→name map and the optional `render(panel, byKey)` the
+ * hub's render of the frame's panel.
+ * @param {{layout: Function, icon: Function, render?: Function}|null} loaders
  */
 export function setSimulatorLoaders(loaders) {
   globalThis.__HAUI_SIM_LOADERS = loaders || null;
@@ -62,6 +58,11 @@ export class SimulatorFrameElement extends LitElement {
       panel: { type: Object },
       type: { type: Object },
       portrait: { type: Boolean },
+      // System panel cards render the device's configured panel by its key.
+      byKey: { type: Boolean },
+      // The saved device settings and panels live on the same host object:
+      // this key changes when what the hub renders with does.
+      renderKey: { type: String },
     };
   }
 
@@ -83,14 +84,18 @@ export class SimulatorFrameElement extends LitElement {
         left: 0;
         top: 0;
       }
+      /* Holds the card's shape until the render arrives: the layouts'
+         visible sizes (layout_landscape.json, layout_portrait.json). */
       .pg-sim-loading {
         display: flex;
         align-items: center;
         justify-content: center;
-        justify-self: stretch;
-        min-height: 120px;
+        aspect-ratio: 450 / 320;
         color: var(--secondary-text-color, #999);
         opacity: 0.6;
+      }
+      .pg-sim-loading.portrait {
+        aspect-ratio: 320 / 480;
       }
     `];
   }
@@ -101,9 +106,10 @@ export class SimulatorFrameElement extends LitElement {
     this.panel = null;
     this.type = null;
     this.portrait = false;
+    this.byKey = false;
+    this.renderKey = '';
     this._display = null;
     this._iconMap = null;
-    this._byName = null;
     this._scale = null;
     this._containerWidth = null;
     this._error = null;
@@ -128,9 +134,9 @@ export class SimulatorFrameElement extends LitElement {
 
   updated(changed) {
     // The editor reuses a frame when a card re-renders; rebuild when the panel,
-    // page type, host or orientation changed.
+    // page type, host, orientation or what the hub renders with changed.
     if (!this._started) return;
-    for (const key of ['panel', 'type', 'host', 'portrait']) {
+    for (const key of ['panel', 'type', 'host', 'portrait', 'byKey', 'renderKey']) {
       if (changed.has(key)) {
         this._start(true);
         return;
@@ -151,34 +157,27 @@ export class SimulatorFrameElement extends LitElement {
     return {
       layout: (o) => (injected ? injected.layout(o) : loadLayout(o)),
       icon: () => (injected ? injected.icon() : loadIconMap()),
-      state: () => (injected ? injected.state() : loadPreviewState()),
+      render: () => (injected
+        ? injected.render?.(this.panel, this.byKey) ?? null
+        : loadPanelRender(this.host, this.panel, this.byKey)),
     };
   }
 
   async _start(force = false) {
     if (this._started && !force) return;
     this._started = true;
-    const { layout, icon, state } = this._loaders();
+    this._error = null;
+    const { layout, icon, render } = this._loaders();
     const orientation = this.portrait ? 'portrait' : 'landscape';
     try {
-      const [layoutObj, iconMap, previewState] = await Promise.all([
-        layout(orientation), icon(), state(),
-      ]);
+      const [layoutObj, iconMap, rendered] =
+        await Promise.all([layout(orientation), icon(), render()]);
       this._iconMap = iconMap;
-      this._byName = buildIconCharMap(iconMap);
-      this._display = buildPreviewDisplay(
-        layoutObj,
-        resolvePageId(this.panel, this.type),
-        this.panel,
-        this.type,
-        {
-          byName: this._byName,
-          host: this.host,
-          portrait: this.portrait,
-          state: previewState,
-          colorMap: colorSubstitutions(this.host),
-        },
-      );
+      // No render yet (no device selected, editor still loading): the
+      // placeholder stays until the render key changes and a render arrives.
+      this._display = rendered
+        ? buildPreviewDisplay(layoutObj, rendered.page, { render: rendered })
+        : null;
     } catch (err) {
       this._error = (err && err.message) || String(err);
     }
@@ -187,28 +186,35 @@ export class SimulatorFrameElement extends LitElement {
   }
 
   _measure() {
-    if (!this._containerWidth && typeof this.getBoundingClientRect === 'function') {
+    if (typeof this.getBoundingClientRect === 'function') {
       try {
-        const w = this.getBoundingClientRect().width;
-        if (w) this._containerWidth = w;
+        const width = this.getBoundingClientRect().width;
+        if (width > 0) this._containerWidth = width;
       } catch (_e) { /* not mounted */ }
     }
     if (this._display && this._containerWidth) {
-      this._scale = this._containerWidth / this._display.layout.visible_width;
-      this.requestUpdate();
+      const scale = this._containerWidth / this._display.layout.visible_width;
+      if (scale !== this._scale) {
+        this._scale = scale;
+        this.requestUpdate();
+      }
     }
   }
 
   render() {
+    const orientation = this.portrait ? 'portrait' : 'landscape';
     if (this._error) {
-      return html`<div class="pg-sim-loading"><ha-icon icon="mdi:alert-outline"></ha-icon></div>`;
+      return html`<div class="pg-sim-loading ${orientation}" title=${this._error}>
+        <ha-icon icon="mdi:alert-outline"></ha-icon>
+      </div>`;
     }
     if (!this._display) {
-      return html`<div class="pg-sim-loading"><ha-icon icon="mdi:progress-clock"></ha-icon></div>`;
+      return html`<div class="pg-sim-loading ${orientation}">
+        <ha-icon icon="mdi:progress-clock"></ha-icon>
+      </div>`;
     }
     const w = this._display.layout.visible_width;
     const scale = this._scale != null ? this._scale : DEFAULT_WIDTH / w;
-    const orientation = this.portrait ? 'portrait' : 'landscape';
     return renderSimulatorScreen(this._display, {
       iconName: (ch) => (this._iconMap ? this._iconMap[ch] || null : null),
       pictureUrl: (id) => pictureUrlFor(orientation, id),

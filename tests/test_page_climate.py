@@ -175,6 +175,14 @@ def test_temperatures_show_the_home_assistant_unit():
     assert 'tTemp.txt="68.5°F"' in app.cmds
 
 
+def test_whole_current_temperature_prints_without_a_trailing_zero():
+    """21.0 and 21 print alike: the editor preview cannot tell them apart."""
+    entity = _climate(current_temperature=21.0)
+    app, _page = _show(entity)
+
+    assert 'tTemp.txt="21°C"' in app.cmds
+
+
 def test_step_is_clamped_to_entity_range():
     entity = _climate(temperature=34.8)
     _app, page = _show(entity)

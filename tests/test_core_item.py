@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from nspanel_haui.haui.abstract import haui_item
 from nspanel_haui.haui.abstract.haui_item import HAUIItem
+from nspanel_haui.haui.utils import item as item_utils
 
 
 class _App:
@@ -49,6 +50,21 @@ def test_navigate_item_data_is_panel_key() -> None:
 
     assert item.get_internal_type() == "navigate"
     assert item.get_internal_data() == "popup_timer"
+
+
+def test_weather_value_shows_zero_degrees_and_whole_floats_plainly() -> None:
+    class _Weather:
+        def __init__(self, attrs: dict) -> None:
+            self.attrs = attrs
+
+        def get_item_attr(self, attr: str, default=None):
+            return self.attrs.get(attr, default)
+
+    value = item_utils._value_weather
+    assert value(None, "sunny", _Weather({"temperature": 0.0})) == "0°C"
+    assert value(None, "sunny", _Weather({"temperature": 21.0, "temperature_unit": "°F"})) == "21°F"
+    assert value(None, "sunny", _Weather({"temperature": 21.5})) == "21.5°C"
+    assert value(None, "sunny", _Weather({})) == ""
 
 
 def test_zero_value_override_is_kept() -> None:

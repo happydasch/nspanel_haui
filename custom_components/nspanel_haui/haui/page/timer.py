@@ -6,7 +6,7 @@ from typing import Any
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_PAUSE,
@@ -413,7 +413,7 @@ class TimerPage(HAUIPage):
             msg = self.translate("Timer has finished.")
             # open notification
             navigation.open_panel(
-                SysPanelKey.POPUP_NOTIFY,
+                PopupPanelKey.POPUP_NOTIFY,
                 title=self.translate("Timer finished"),
                 btn_right=self.translate("Close"),
                 icon=ICO_TIMER_FINISHED,

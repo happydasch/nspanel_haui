@@ -34,14 +34,19 @@ test('the display model decides whether a device uses the portrait layout', () =
 
 test('portrait devices mount the simulator frame in portrait', () => {
   const out = flat(renderPanelGrid(hostFor('us')));
-  assert.match(out, /pg-card-preview--portrait/);
   assert.match(out, /nspanel-simulator-frame[\s\S]*\.portrait=true/);
 });
 
 test('landscape devices mount the simulator frame without portrait', () => {
   const out = flat(renderPanelGrid(hostFor('eu')));
-  assert.doesNotMatch(out, /pg-card-preview--portrait/);
-  assert.match(out, /nspanel-simulator-frame/);
+  assert.match(out, /nspanel-simulator-frame[\s\S]*\.portrait=false/);
+});
+
+test('the card preview box has no size or padding of its own', () => {
+  // The frame takes its layout's aspect ratio, so the box can never be a
+  // different shape than the display it holds.
+  const out = flat(renderPanelGrid(hostFor('eu')));
+  assert.match(out, /<div class="pg-card-preview" @click=\[fn\]>\s*<nspanel-simulator-frame/);
 });
 
 test('the simulator preview draws no duplicate fake header/footer chrome', () => {
@@ -52,7 +57,7 @@ test('the simulator preview draws no duplicate fake header/footer chrome', () =>
 test('system panel cards mount the simulator frame too', () => {
   const sp = { type: 'system', key: 'sys_system', label: 'System', has_header: true, page_id: 0 };
   const portrait = flat(renderSystemPanelCard(hostFor('us'), sp));
-  assert.match(portrait, /pg-card-preview--portrait[\s\S]*nspanel-simulator-frame/);
+  assert.match(portrait, /nspanel-simulator-frame[\s\S]*\.portrait=true/);
   const landscape = flat(renderSystemPanelCard(hostFor('eu'), sp));
   assert.match(landscape, /nspanel-simulator-frame/);
 });

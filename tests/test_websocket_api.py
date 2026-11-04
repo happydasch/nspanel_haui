@@ -51,27 +51,44 @@ class _Connection:
         self.events.append(message["event"])
 
 
-class _FakeSession:
+class _FakeHost:
     instances: list = []
     fail_start = False
 
-    def __init__(self, hass, device, cfg, sink, **kwargs):
-        self.id = f"s{len(_FakeSession.instances)}"
+    def __init__(self, hass, device, cfg, **kwargs):
         self.device = device
+        self.cfg = cfg
         self.kwargs = kwargs
-        self.sink = sink
         self.started = self.stopped = False
+        self.viewers = {}
         self.events = []
-        self.live = kwargs["live"]
-        _FakeSession.instances.append(self)
+        self.renders = []
+        self.reloads = []
+        self.reset_count = 0
+        self.live = False
+        self.app = types.SimpleNamespace(device=types.SimpleNamespace(get=lambda key: None))
+        _FakeHost.instances.append(self)
+
+    @property
+    def viewer_count(self):
+        return len(self.viewers)
 
     async def async_start(self):
-        if _FakeSession.fail_start:
+        if _FakeHost.fail_start:
             raise RuntimeError("boom")
         self.started = True
 
     async def async_stop(self):
         self.stopped = True
+
+    async def async_reload(self, cfg):
+        self.reloads.append(cfg)
+
+    def attach(self, viewer_id, sink, *, protocol_version):
+        self.viewers[viewer_id] = (sink, protocol_version)
+
+    def detach(self, viewer_id):
+        return self.viewers.pop(viewer_id, None) is not None
 
     def send_event(self, name, value):
         if name != "esphome.component":
@@ -82,7 +99,18 @@ class _FakeSession:
         self.live = live
 
     def reset_sandbox(self):
-        self.reset_count = getattr(self, "reset_count", 0) + 1
+        self.reset_count += 1
+
+    async def async_configured_panel(self, key):
+        if key != "popup_notify":
+            raise ValueError(f"Unknown panel key: {key!r}")
+        return {"type": "notify", "key": key, "show_in_navigation": False}
+
+    async def async_render(self, panel, kwargs=None):
+        if panel.get("type") == "bogus":
+            raise ValueError("Unknown panel type: 'bogus'")
+        self.renders.append((panel, kwargs))
+        return {"page": 9, "before": [], "commands": ["cls 4226"]}
 
 
 @pytest.fixture
@@ -101,9 +129,9 @@ def ws(monkeypatch):
 
     monkeypatch.setattr(storage, "panel_store", lambda hass, entry_id: _Store())
     monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: None)
-    monkeypatch.setattr(virtual_panel, "VirtualPanelSession", _FakeSession)
-    _FakeSession.instances = []
-    _FakeSession.fail_start = False
+    monkeypatch.setattr(virtual_panel, "VirtualPanelHost", _FakeHost)
+    _FakeHost.instances = []
+    _FakeHost.fail_start = False
     return module
 
 
@@ -112,11 +140,11 @@ class _Hass:
         self.loop = loop
         self.data = {}
         self.tasks = []
-        entry = types.SimpleNamespace(
+        self.entry = types.SimpleNamespace(
             entry_id="entry1", data={"name": "Hub", "devices": [{"name": "kitchen"}]}
         )
         self.config_entries = types.SimpleNamespace(
-            async_get_entry=lambda entry_id: entry if entry_id == "entry1" else None
+            async_get_entry=lambda entry_id: self.entry if entry_id == "entry1" else None
         )
 
     def async_create_task(self, coro):
@@ -130,6 +158,13 @@ def _subscribe(
     if protocol_version is not None:
         msg["protocol_version"] = protocol_version
     return ws.ws_subscribe(hass, conn, msg)
+
+
+def _render(ws, hass, conn, panel, msg_id=1, device="kitchen", entry_id="entry1", **target):
+    msg = {"id": msg_id, "entry_id": entry_id, "device": device, **target}
+    if panel is not None:
+        msg["panel"] = panel
+    return ws.ws_render(hass, conn, msg)
 
 
 def _run(coro_fn):
@@ -151,80 +186,149 @@ def test_all_commands_are_registered(ws):
         "nspanel_haui/virtual_panel/subscribe",
         "nspanel_haui/virtual_panel/event",
         "nspanel_haui/virtual_panel/configure",
+        "nspanel_haui/virtual_panel/render",
     ]
 
 
 @pytest.mark.parametrize(("entry_id", "device"), [("nope", "kitchen"), ("entry1", "garage")])
-def test_subscribe_rejects_unknown_hub_or_device(ws, entry_id, device):
+def test_subscribe_and_render_reject_unknown_hub_or_device(ws, entry_id, device):
     conn = _Connection()
 
     async def body(hass):
         await _subscribe(ws, hass, conn, device=device, entry_id=entry_id)
+        await _render(ws, hass, conn, {"type": "grid"}, msg_id=2, device=device, entry_id=entry_id)
 
     _run(body)
-    assert conn.errors == [(1, "not_found")]
-    assert _FakeSession.instances == []
+    assert conn.errors == [(1, "not_found"), (2, "not_found")]
+    assert _FakeHost.instances == []
 
 
-def test_subscribe_starts_a_session_and_unsubscribe_stops_it(ws):
+def test_subscribe_attaches_a_viewer_and_unsubscribe_detaches_it(ws):
     conn = _Connection()
 
     async def body(hass):
         await _subscribe(ws, hass, conn)
-        session = _FakeSession.instances[0]
-        assert session.started
-        assert session.kwargs["protocol_version"] == 1
-        assert ws._sessions(hass) == {session.id: session}
-        session.sink({"type": "page", "page": 9})
+        host = _FakeHost.instances[0]
+        assert host.started
+        [(viewer_id, (sink, protocol_version))] = host.viewers.items()
+        assert protocol_version == 1
+        sink({"type": "page", "page": 9})
         await asyncio.sleep(0)
         conn.subscriptions[1]()
-        assert ws._sessions(hass) == {}
+        assert host.viewers == {}
+        # The app outlives the viewer: panel cards and the next preview use it.
+        assert not host.stopped
+        assert conn.events[0] == {
+            "type": "started",
+            "session_id": viewer_id,
+            "portrait": False,
+            "live": False,
+        }
 
     _run(body)
-    session = _FakeSession.instances[0]
-    assert session.stopped
     assert conn.results == [1]
-    assert conn.events[0] == {
-        "type": "started",
-        "session_id": session.id,
-        "portrait": False,
-        "live": False,
-    }
     assert {"type": "page", "page": 9} in conn.events
 
 
-def test_subscribe_passes_current_protocol_version_to_session(ws):
+def test_subscribe_passes_current_protocol_version_to_the_viewer(ws):
     conn = _Connection()
 
     async def body(hass):
         await _subscribe(ws, hass, conn, protocol_version=2)
-        assert _FakeSession.instances[0].kwargs["protocol_version"] == 2
+        [(_sink, protocol_version)] = _FakeHost.instances[0].viewers.values()
+        assert protocol_version == 2
 
     _run(body)
 
 
-def test_subscribe_limits_concurrent_sessions(ws):
+def test_previews_and_cards_of_a_device_share_one_app(ws):
     conn = _Connection()
 
     async def body(hass):
-        for msg_id in range(ws.MAX_SESSIONS + 1):
-            await _subscribe(ws, hass, conn, msg_id=msg_id)
+        await asyncio.gather(
+            _subscribe(ws, hass, conn, msg_id=1),
+            _subscribe(ws, hass, conn, msg_id=2),
+            _render(ws, hass, conn, {"type": "grid", "key": "rooms"}, msg_id=3),
+        )
 
     _run(body)
-    assert len(_FakeSession.instances) == ws.MAX_SESSIONS
-    assert conn.errors == [(ws.MAX_SESSIONS, "too_many_sessions")]
+    [host] = _FakeHost.instances
+    assert host.viewer_count == 2
+    assert host.renders == [({"type": "grid", "key": "rooms"}, None)]
 
 
-def test_a_session_that_fails_to_start_is_dropped(ws):
-    _FakeSession.fail_start = True
+def test_an_app_that_fails_to_start_is_retried_by_the_next_use(ws):
+    _FakeHost.fail_start = True
     conn = _Connection()
 
     async def body(hass):
         await _subscribe(ws, hass, conn)
-        assert ws._sessions(hass) == {}
+        _FakeHost.fail_start = False
+        await _subscribe(ws, hass, conn, msg_id=2)
 
     _run(body)
     assert {"type": "error", "message": "start_failed"} in conn.events
+    assert [host.started for host in _FakeHost.instances] == [False, True]
+
+
+def test_an_idle_app_without_viewers_stops(ws):
+    conn = _Connection()
+
+    async def body(hass):
+        await _render(ws, hass, conn, {"type": "grid", "key": "rooms"})
+        await _subscribe(ws, hass, conn, msg_id=2)
+        hosts = ws._hosts(hass)
+        hosts._idle_check(("entry1", "kitchen"))
+        assert not _FakeHost.instances[0].stopped  # a viewer is attached
+        conn.subscriptions[2]()
+        hosts._idle_check(("entry1", "kitchen"))
+
+    _run(body)
+    assert _FakeHost.instances[0].stopped
+
+
+def test_render_returns_the_hub_output_and_reports_a_bad_panel(ws):
+    conn = _Connection()
+    results = []
+    conn.send_result = lambda msg_id, result=None: results.append((msg_id, result))
+
+    async def body(hass):
+        await _render(ws, hass, conn, {"type": "grid", "key": "rooms"})
+        await _render(ws, hass, conn, {"type": "bogus", "key": "x"}, msg_id=2)
+
+    _run(body)
+    assert results == [(1, {"page": 9, "before": [], "commands": ["cls 4226"]})]
+    assert conn.errors == [(2, "invalid_panel")]
+
+
+def test_render_by_key_uses_the_devices_configured_panel(ws):
+    conn = _Connection()
+
+    async def body(hass):
+        await _render(ws, hass, conn, None, key="popup_notify")
+        await _render(ws, hass, conn, None, msg_id=2, key="nope")
+        await _render(ws, hass, conn, None, msg_id=3)
+
+    _run(body)
+    assert _FakeHost.instances[0].renders == [
+        ({"type": "notify", "key": "popup_notify", "show_in_navigation": False}, None)
+    ]
+    assert conn.errors == [(2, "invalid_panel"), (3, "invalid_format")]
+
+
+def test_a_save_reloads_the_hubs_apps_and_unload_stops_them(ws):
+    conn = _Connection()
+    store = {"devices": {"kitchen": {"config": {"home_panel": "rooms"}, "panels": []}}}
+
+    async def body(hass):
+        await _render(ws, hass, conn, {"type": "grid", "key": "rooms"})
+        await ws.async_reload_hosts(hass, "entry1", store)
+        host = _FakeHost.instances[0]
+        assert host.reloads[0]["device"]["home_panel"] == "rooms"
+        await ws.async_stop_hosts(hass, "entry1")
+        assert host.stopped
+
+    _run(body)
 
 
 def test_event_forwards_allowed_events_and_rejects_others(ws):
@@ -232,7 +336,7 @@ def test_event_forwards_allowed_events_and_rejects_others(ws):
 
     async def body(hass):
         await _subscribe(ws, hass, conn)
-        sid = _FakeSession.instances[0].id
+        [sid] = _FakeHost.instances[0].viewers
         await ws.ws_event(
             hass, conn, {"id": 2, "session_id": sid, "name": "esphome.component", "value": "9,12,0"}
         )
@@ -242,7 +346,7 @@ def test_event_forwards_allowed_events_and_rejects_others(ws):
         await ws.ws_event(hass, conn, {"id": 4, "session_id": "gone", "name": "x", "value": ""})
 
     _run(body)
-    assert _FakeSession.instances[0].events == [("esphome.component", "9,12,0")]
+    assert _FakeHost.instances[0].events == [("esphome.component", "9,12,0")]
     assert conn.errors == [(3, "invalid_event"), (4, "not_found")]
 
 
@@ -251,12 +355,11 @@ def test_configure_switches_the_mode(ws):
 
     async def body(hass):
         await _subscribe(ws, hass, conn)
-        sid = _FakeSession.instances[0].id
+        [sid] = _FakeHost.instances[0].viewers
         await ws.ws_configure(hass, conn, {"id": 2, "session_id": sid, "live": True})
 
     _run(body)
-    session = _FakeSession.instances[0]
-    assert session.live is True
+    assert _FakeHost.instances[0].live is True
     assert conn.results == [1, 2]
 
 
@@ -265,11 +368,11 @@ def test_configure_accepts_reset_without_a_live_field(ws):
 
     async def body(hass):
         await _subscribe(ws, hass, conn)
-        session = _FakeSession.instances[0]
+        [sid] = _FakeHost.instances[0].viewers
         msg = vol.Schema(ws.ws_configure.schema)(
             {
                 "type": "nspanel_haui/virtual_panel/configure",
-                "session_id": session.id,
+                "session_id": sid,
                 "reset_sandbox": True,
             }
         )
@@ -277,9 +380,9 @@ def test_configure_accepts_reset_without_a_live_field(ws):
         await ws.ws_configure(hass, conn, msg)
 
     _run(body)
-    session = _FakeSession.instances[0]
-    assert session.live is False
-    assert session.reset_count == 1
+    host = _FakeHost.instances[0]
+    assert host.live is False
+    assert host.reset_count == 1
     assert conn.results == [1, 2]
 
 

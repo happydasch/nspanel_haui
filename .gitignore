@@ -21,3 +21,6 @@ esphome/secrets.yaml
 
 esphome/.esphome/
 .venv314/
+
+# Card gallery output (scripts/preview_gallery/gen_preview_gallery.py)
+scripts/preview_gallery/out/

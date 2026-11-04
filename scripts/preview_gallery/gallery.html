@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NSPanel HAUI card gallery</title>
+  <style>
+    /* The fonts Home Assistant provides inside the editor. */
+    @font-face { font-family: Roboto; font-weight: 300; src: url(../gen_fonts/Roboto/Roboto-Light.ttf); }
+    @font-face { font-family: Roboto; font-weight: 400; src: url(../gen_fonts/Roboto/Roboto-Regular.ttf); }
+    @font-face { font-family: Roboto; font-weight: 700; src: url(../gen_fonts/Roboto/Roboto-Bold.ttf); }
+    @font-face {
+      font-family: "Material Design Icons";
+      src: url(out/mdi/materialdesignicons-webfont.woff2) format("woff2");
+    }
+    body {
+      margin: 0;
+      padding: 16px;
+      background: #1c1c1c;
+      color: #e1e1e1;
+      font-family: Roboto, sans-serif;
+    }
+    h1 { font-weight: 400; font-size: 20px; margin: 0 0 4px; }
+    h2 { font-weight: 400; font-size: 16px; margin: 24px 0 8px; text-transform: capitalize; }
+    p { margin: 0; color: #9e9e9e; font-size: 13px; }
+    .cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+    .cards.portrait { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+    figure { margin: 0; }
+    figure a { display: block; text-decoration: none; }
+    figcaption { margin-top: 6px; font-size: 13px; color: #9e9e9e; }
+    /* One card alone at the display's resolution (the PNG capture). */
+    body.single { padding: 0; background: #000; }
+    body.single > :not(div) { display: none; }
+  </style>
+</head>
+<body>
+  <h1>NSPanel HAUI card gallery</h1>
+  <p>Every panel card as the hub renders it with sample data. Click a card for its native size.</p>
+  <main></main>
+  <script type="module" src="gallery.js"></script>
+</body>
+</html>

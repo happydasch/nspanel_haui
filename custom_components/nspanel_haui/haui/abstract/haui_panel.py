@@ -43,25 +43,30 @@ class HAUIPanel(HAUIConfigAccess):
         """
         return self.get("type")
 
-    def can_show_popup(self) -> bool:
-        """Returns True if this panel type supports popup overlay display.
+    def is_popup(self) -> bool:
+        """Returns True if this panel is shown as a popup overlay.
 
-        Single-entity panels (light, climate, media, cover, vacuum, timer)
-        and system popup panels return True. Multi-entity panels (grid, row,
-        clock, weather) and blank/system pages return False — they display
-        as full-page subpanels when show_in_navigation is False.
+        Popups are the system panels whose page can pop up: the entity popups
+        (``popup_cover``, ``popup_light``, ...), the notify/select/unlock
+        popups and About/Settings. They are recognised by their system key,
+        because the editor saves an edited entity popup with the user type
+        (``popup_cover`` → ``cover``). A user panel of a type that can pop up,
+        e.g. a cover panel outside navigation, is a stacked subpanel like a
+        grid, not a popup.
 
         Returns:
-            bool: True if the panel's page class has can_show_popup set
+            bool: True if the panel is a popup
         """
-        from ..mapping.panel import PANEL_MAPPING
+        from ..mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
 
-        entry = PANEL_MAPPING.get(self.get_type())
-        if entry is None:
+        key = self.get("key", None)
+        if key in POPUP_PANEL_MAPPING:
+            return True
+        sys_type = SYS_PANEL_MAPPING.get(key)
+        if sys_type is None:
             return False
-        cls = entry[1]
-        d = getattr(cls, "DESCRIPTOR", None)
-        return d.can_show_popup if d is not None else False
+        d = getattr(PANEL_MAPPING[sys_type][1], "DESCRIPTOR", None)
+        return d is not None and d.can_show_popup
 
     def show_in_navigation(self) -> bool:
         """Returns True if this panel should appear in the navigation cycle.
@@ -136,6 +141,10 @@ class HAUIPanel(HAUIConfigAccess):
     def show_notifications_button(self) -> bool:
         """Returns True if notifications button should be shown."""
         return self.show_button("notifications")
+
+    def get_default_config(self) -> dict:
+        """The panel's config without the kwargs of the last time it was opened."""
+        return deepcopy(self._default_config)
 
     def apply_kwargs(self, kwargs: dict) -> None:
         """Reset panel config to defaults and apply navigation kwargs.

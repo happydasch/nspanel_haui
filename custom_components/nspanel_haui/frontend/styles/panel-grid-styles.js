@@ -31,6 +31,15 @@ export const panelGridStyles = css`
     border-color: var(--primary-color, #03a9f4);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
+  /* System panels other than the popups cannot be edited. */
+  .pg-card-readonly:hover {
+    border-color: var(--divider-color, #e0e0e0);
+    box-shadow: none;
+  }
+  .pg-card-readonly .pg-card-top-row,
+  .pg-card-readonly .pg-card-preview {
+    cursor: default;
+  }
 
   .pg-card-top-row {
     display: flex;
@@ -99,109 +108,14 @@ export const panelGridStyles = css`
     position: static;
   }
 
+  /* No size of its own: the simulator frame takes the aspect ratio of the
+     layout it draws, so the display always fills the box edge to edge. */
   .pg-card-preview {
-    container-type: inline-size;
-    display: flex;
-    flex-direction: column;
     width: 100%;
     border-radius: 8px;
-    background: var(--card-background-color, #2a2a2a);
+    background: #000;
     cursor: pointer;
     overflow: hidden;
-  }
-  .pg-card-preview-header {
-    display: flex;
-    align-items: center;
-    padding: 5px 5px;
-    background: rgba(0, 0, 0, 0.45);
-    flex-shrink: 0;
-    position: relative;
-  }
-  .pg-sim-btn-group {
-    display: flex;
-    gap: 3px;
-    z-index: 1;
-  }
-  .pg-sim-btn {
-    width: 20px;
-    height: 20px;
-    border-radius: 3px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .pg-sim-btn ha-icon {
-    --mdc-icon-size: 14px;
-    color: #fff;
-    display: flex;
-  }
-  .pg-sim-btn ha-icon.icon-accent {
-    color: var(--accent-color, var(--primary-color, #4fc3f7));
-  }
-  .pg-sim-btn.active ha-icon {
-    color: var(--primary-color, #4fc3f7);
-  }
-  .pg-sim-btn-group-right {
-    margin-left: auto;
-  }
-  .pg-sim-title {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.85em;
-    font-weight: 500;
-    color: #fff;
-    opacity: 0.85;
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 50%;
-    pointer-events: none;
-  }
-  .pg-card-preview-screen {
-    display: flex;
-    align-items: stretch;
-    justify-content: center;
-    flex: 1;
-    padding: 0 4px 4px;
-    background: rgba(0, 0, 0, 0.12);
-  }
-  .pg-card-preview--with-header {
-    aspect-ratio: 3 / 2;
-  }
-  .pg-card-preview--with-header .pg-card-preview-screen {
-    border-radius: 0;
-  }
-  .pg-card-preview:not(.pg-card-preview--with-header) {
-    aspect-ratio: 3 / 2;
-  }
-  /* Portrait TFT (320x480): taller frame, function buttons in a bottom bar */
-  .pg-card-preview.pg-card-preview--portrait {
-    aspect-ratio: 2 / 3;
-  }
-  .pg-card-preview-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 5px 5px;
-    background: rgba(0, 0, 0, 0.45);
-    flex-shrink: 0;
-  }
-  .pg-card-preview-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    width: 100%;
-    max-width: 100%;
-    flex: 1;
-    align-self: stretch;
-  }
-  .pg-card-preview-icon {
-    --mdc-icon-size: 32px;
-    color: var(--primary-color, #4fc3f7);
   }
   .pg-card-preview-desc {
     font-size: 0.82em;
@@ -212,10 +126,6 @@ export const panelGridStyles = css`
     flex: 1;
     min-width: 0;
     max-width: 100%;
-  }
-
-  .pg-sys-card {
-    /* Minimal: card visuals without edit/dropdown chrome */
   }
 
   .pg-card-title {

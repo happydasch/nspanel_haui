@@ -7,7 +7,6 @@
 import { html } from './lit-import.js';
 import { renderBadges, computeFilteredPanels, getPanelMoveState, getSystemPanelKeys } from './panel-utils.js';
 import { renderSystemPanelCard } from './panel-sys-grid.js';
-import { POPUP_TO_USER_TYPE } from './constants.js';
 import { t } from './localize.js';
 import { writeStorage } from './dom-helpers.js';
 
@@ -95,15 +94,6 @@ export function renderPanelDropdown(host, pIdx, items, onClose) {
     </div>`;
 }
 
-/**
- * Check if a system panel is editable (i.e. has a corresponding user-facing type).
- * @param {object} sysPanel - system panel entry
- * @returns {boolean}
- */
-export function isSysPanelEditable(sysPanel) {
-  return !!POPUP_TO_USER_TYPE[sysPanel.type];
-}
-
 function renderPanelRow(host, p, panels, isNavPanel) {
   const { pIdx, canMoveUp, canMoveDown } = getPanelMoveState(p, panels, isNavPanel, getSystemPanelKeys(host));
   const dc = host._deviceConfig || {};
@@ -157,8 +147,7 @@ function renderPanelRow(host, p, panels, isNavPanel) {
 
 function renderSystemPanelRow(host, sp) {
   const dc = host._deviceConfig || {};
-  const editable = isSysPanelEditable(sp);
-  const hasOverride = editable && host._devicePanels().some(p => p.key === sp.key);
+  const hasOverride = sp.editable && host._devicePanels().some(p => p.key === sp.key);
   const badges = renderBadges(sp, dc, hasOverride);
 
   return html`
@@ -170,12 +159,12 @@ function renderSystemPanelRow(host, sp) {
         ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}
       </div>
       <span class="pl-actions">
-        ${editable ? html`
-          ${hasOverride ? html`
-            <ha-icon-button title=${t('Reset to default')} @click=${() => host._resetSysPanelOverride(sp.key)}>
-              <ha-icon icon="mdi:restore"></ha-icon>
-            </ha-icon-button>
-          ` : ''}
+        ${hasOverride ? html`
+          <ha-icon-button title=${t('Reset to default')} @click=${() => host._resetSysPanelOverride(sp.key)}>
+            <ha-icon icon="mdi:restore"></ha-icon>
+          </ha-icon-button>
+        ` : ''}
+        ${sp.editable ? html`
           <ha-icon-button title=${t('Edit System Panel')} @click=${() => host._openSysPanelEdit(sp)}>
             <ha-icon icon="mdi:pencil-outline"></ha-icon>
           </ha-icon-button>

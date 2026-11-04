@@ -106,6 +106,20 @@ test('hub text writes keep their text verbatim, with \\r as a line break', () =>
   assert.equal(host.widgets.tText.txt, '50% // not a comment\nnext line');
 });
 
+test('hub text writes decode escaped quotes and backslashes like the display', () => {
+  const host = makeHost({ tText: { txt: '' } });
+  // The hub escapes " and \ (haui_base.set_component_text).
+  runScript('tText.txt="He said \\"hi\\" // still text"', host);
+  assert.equal(host.widgets.tText.txt, 'He said "hi" // still text');
+
+  runScript('tText.txt="C:\\\\"', host);
+  assert.equal(host.widgets.tText.txt, 'C:\\');
+
+  // An escaped backslash before r is a backslash and an r, not a line break.
+  runScript('tText.txt="a\\\\rb"', host);
+  assert.equal(host.widgets.tText.txt, 'a\\rb');
+});
+
 test('commands evaluate their value arguments', () => {
   const host = makeHost({ hSpinner: { x: 155, y: 80 } });
   runScript('vis tMsg1,1\nclick g1Btn,0\nxpic hSpinner.x,hSpinner.y,140,140,0,0,10', host);

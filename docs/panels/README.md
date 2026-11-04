@@ -76,13 +76,13 @@ Overlay panels used for temporary interactions.
 | [Notify](popup_notify.md) | `popup_notify` | Ad-hoc notification popup with optional action buttons. |
 | [Select](popup_select.md) | `popup_select` | Selection list popup for choosing values (fan speeds, presets, etc.). |
 
-Popup variants of entity panels (`popup_light`, `popup_media_player`, `popup_vacuum`, `popup_climate`, `popup_timer`, `popup_cover`, `popup_alarm`) mirror their main panel layout.
+Popup variants of entity panels (`popup_light`, `popup_media_player`, `popup_vacuum`, `popup_climate`, `popup_timer`, `popup_cover`, `popup_alarm`) mirror their main panel layout. They and the other popups (Notify, Select, Unlock) can be edited in the editor's **System Panels** section (see [System Panel Overrides](../configuration/panels.md#system-panel-overrides)). A panel you add yourself is never a popup: out of navigation it is a stacked panel with an up button, whatever its type (see [Stacked Panels and Popups](../configuration/panels.md#stacked-panels-and-popups)).
 
 ---
 
 ## System Panels
 
-Always available, no configuration needed.
+Always available, no configuration needed. Unlike the popups above they cannot be edited.
 
 | Panel | Type | Description |
 |-------|------|-------------|

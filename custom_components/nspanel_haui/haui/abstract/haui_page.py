@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -15,7 +15,7 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, NotifEvent, SysPanelKey
+from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, NotifEvent, PopupPanelKey
 from .mixins.component_mixin import ComponentMixin
 from .mixins.function_btn_mixin import FunctionButtonMixin
 
@@ -98,12 +98,12 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
     # items reach it through ``popup_key``.  mapping/panel.py derives the popup
     # aliases of the domain pages from it.
     DEFAULT_POPUPS: ClassVar[dict[str, str]] = {
-        "light": SysPanelKey.POPUP_LIGHT,
-        "media_player": SysPanelKey.POPUP_MEDIA_PLAYER,
-        "vacuum": SysPanelKey.POPUP_VACUUM,
-        "cover": SysPanelKey.POPUP_COVER,
-        "climate": SysPanelKey.POPUP_CLIMATE,
-        "alarm_control_panel": SysPanelKey.POPUP_ALARM,
+        "light": PopupPanelKey.POPUP_LIGHT,
+        "media_player": PopupPanelKey.POPUP_MEDIA_PLAYER,
+        "vacuum": PopupPanelKey.POPUP_VACUUM,
+        "cover": PopupPanelKey.POPUP_COVER,
+        "climate": PopupPanelKey.POPUP_CLIMATE,
+        "alarm_control_panel": PopupPanelKey.POPUP_ALARM,
     }
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any] | None = None) -> None:
@@ -618,14 +618,21 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
                 return override_id
         return self.find_esphome_entity_id("sensor", "Temperature")
 
-    def _save_auto_state(self) -> dict[str, tuple[Any, bool]]:
-        """Save and disable available firmware auto switches for a popup."""
+    def _save_auto_state(self, keys: Collection[str] | None = None) -> dict[str, tuple[Any, bool]]:
+        """Save and disable available firmware auto switches for a popup.
+
+        Args:
+            keys: The switches to suspend (``auto_dimming``, ``auto_page``,
+                ``auto_display_off``); all of them when omitted.
+        """
         states: dict[str, tuple[Any, bool]] = {}
         for key, name in (
             ("auto_dimming", "Use Auto-Dimming"),
             ("auto_page", "Use Auto-Page"),
             ("auto_display_off", "Use Auto Display-Off"),
         ):
+            if keys is not None and key not in keys:
+                continue
             entity_id = self.find_esphome_entity_id("switch", name)
             if entity_id is None or not self.app.item_exists(entity_id):
                 continue
@@ -934,7 +941,7 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
             msg += item.get_item_id()
             # open notification
             navigation.open_panel(
-                SysPanelKey.POPUP_NOTIFY,
+                PopupPanelKey.POPUP_NOTIFY,
                 title=self.translate("Entity unavailable"),
                 btn_right=self.translate("Close"),
                 icon=item.get_icon(),

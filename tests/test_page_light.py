@@ -11,7 +11,7 @@ import pytest
 from nspanel_haui.haui.abstract import haui_entity
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.mapping.const import ESPResponse, SysPanelKey
+from nspanel_haui.haui.mapping.const import ESPResponse, PopupPanelKey
 from nspanel_haui.haui.page.light import LightPage
 
 
@@ -177,6 +177,15 @@ def test_popup_controls_item_passed_by_id():
     assert entity.calls == [("turn_on", {})]
 
 
+def test_power_button_of_an_on_off_light_uses_the_entity_on_color():
+    """On/off lights report no rgb_color; the power button must not turn black."""
+    entity = _Entity("on", {"friendly_name": "Hall", "supported_color_modes": ["onoff"]})
+    app, page = _show(entity)
+
+    assert f"bPower.pco={page.get_color('entity_on')}" in app.cmds
+    assert "vis bPower,1" in app.cmds
+
+
 # color temperature
 
 
@@ -238,10 +247,10 @@ def test_effect_button_opens_effect_selection():
     page.callback_light_function_button(None, BTN_EFFECT)
 
     ((key, kwargs),) = app.opened
-    assert key == SysPanelKey.POPUP_SELECT
+    assert key == PopupPanelKey.POPUP_SELECT
     assert [e["value"] for e in kwargs["items"]] == ["None", "Rainbow"]
     # the popup replaces the light page, so nothing may be drawn after it opens
-    assert app.cmds[-1] == f"<open {SysPanelKey.POPUP_SELECT}>"
+    assert app.cmds[-1] == f"<open {PopupPanelKey.POPUP_SELECT}>"
 
     kwargs["selection_callback_fnc"]("Rainbow")
     assert entity.calls == [("turn_on", {"effect": "Rainbow"})]

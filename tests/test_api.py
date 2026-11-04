@@ -218,6 +218,7 @@ def test_notifications_view_returns_queued_notifications():
         icon="mdi:bell",
         persistent=True,
         notif_type="critical",
+        notif_id="a1",
     )
     app = _NotificationApp("kitchen", [notification])
     hass = types.SimpleNamespace(data={"nspanel_haui": {"entry1": {"kitchen": app}}})
@@ -227,7 +228,7 @@ def test_notifications_view_returns_queued_notifications():
 
     assert result["body"] == [
         {
-            "id": str(id(notification)),
+            "id": "a1",
             "device": "kitchen",
             "title": "Doorbell",
             "message": "Someone is here",
@@ -245,13 +246,14 @@ def test_notifications_view_dismisses_notification_on_worker():
         icon="mdi:bell",
         persistent=False,
         notif_type="info",
+        notif_id="b2",
     )
     app = _NotificationApp("kitchen", [notification])
     hass = types.SimpleNamespace(data={"nspanel_haui": {"entry1": {"kitchen": app}}})
     request = _Request(
         hass,
         admin=True,
-        query={"device": "kitchen", "id": str(id(notification))},
+        query={"device": "kitchen", "id": "b2"},
     )
 
     result = asyncio.run(api.NotificationsView().delete(request, entry_id="entry1"))
@@ -503,6 +505,22 @@ def test_panel_save_rejects_empty_device_config_values(monkeypatch):
     hass = _Hass(entry)
     saved = _use_store(monkeypatch, hass)
     body = {"version": 1, "devices": {"kitchen": {"config": {"locale": None}, "panels": []}}}
+
+    result = asyncio.run(
+        api.PanelConfigView().post(_Request(hass, admin=True, body=body), "entry1")
+    )
+
+    assert result["status_code"] == 400
+    assert saved == []
+
+
+def test_panel_save_rejects_edits_of_fixed_system_panels(monkeypatch):
+    """Only popups can be edited; a panel under the Settings key is refused."""
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    saved = _use_store(monkeypatch, hass)
+    panels = [{"type": "system_settings", "key": "sys_settings", "show_in_navigation": False}]
+    body = {"version": 1, "devices": {"kitchen": {"config": {}, "panels": panels}}}
 
     result = asyncio.run(
         api.PanelConfigView().post(_Request(hass, admin=True, body=body), "entry1")
@@ -1132,6 +1150,7 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
         "IP": "sensor.upstairs_panel_ip",
         "SSID": "sensor.upstairs_panel_ssid",
         "RSSI": "sensor.upstairs_panel_rssi",
+        "Temperature": "sensor.upstairs_panel_temperature",
     }
     registry = types.SimpleNamespace(
         entities={
@@ -1203,6 +1222,8 @@ def test_device_status_reads_wifi_fields_from_the_device_registry(monkeypatch, a
         "ssid": "HomeNet",
         "rssi": -54.0,
     }
+    # The editor preview shows this sensor as the clock/weather inside temperature.
+    assert result["body"]["device_info"]["temperature_entity_id"] == entity_ids["Temperature"]
     if active:
         assert running_app.worker_calls == 1
         assert result["body"]["device_info"]["yaml_version"] == "1.2.3"

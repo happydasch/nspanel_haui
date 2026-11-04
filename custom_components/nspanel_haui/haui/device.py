@@ -10,7 +10,7 @@ from .abstract.haui_event import HAUIEvent
 from .controller.notification import Notification
 from .device_config import is_portrait_model
 from .mapping.const import ESPAction, ESPEvent, NotifEvent, NotifType
-from .mapping.panel import PANEL_MAPPING, SYS_PANEL_MAPPING
+from .mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
 
 if TYPE_CHECKING:
     from ..nspanel_haui import NSPanelHAUI
@@ -131,7 +131,7 @@ class HAUIDevice(HAUIBase):
         config = self.app.device_config
         # check if all sys_panels are valid
         chk_sys_panels = [x.get("key") for x in config.get("sys_panels", [])]
-        for panel_key in SYS_PANEL_MAPPING.keys():
+        for panel_key in SYS_PANEL_MAPPING | POPUP_PANEL_MAPPING:
             if panel_key not in chk_sys_panels:
                 raise ValueError(f"Missing sys_panel {panel_key} in config")
         for panel in config.get_panels():
@@ -830,6 +830,18 @@ class HAUIDevice(HAUIBase):
             title, message, icon, persistent, notif_type, force_show
         )
 
+    def wake_for_notification(self) -> None:
+        """Wake the display for a notification popup that opened on its own.
+
+        Quiet hours keep the display dark: the popup stays open, so it is what
+        the user sees on the next touch.  The display then dims and turns off
+        on its normal timers.
+        """
+        if self._is_quiet_hours():
+            self.log("Quiet hours active — not waking the display", level="DEBUG")
+            return
+        self.app.controller["esphome"].esphome.publish(ESPAction.RESET_LAST_INTERACTION, "0")
+
     def get_locale(self) -> str:
         """Returns the device locale.
 
@@ -1012,10 +1024,12 @@ class HAUIDevice(HAUIBase):
                 raise TypeError(f"Notification event value must be a Notification: {event.value!r}")
             persistent, notif_type = event.value.persistent, event.value.notif_type
             if self.get("sound_on_notification"):
-                if self._is_quiet_hours():
-                    self.log("Quiet hours active — suppressing notification sound", level="DEBUG")
-                elif persistent:
+                if persistent:
+                    # Started even inside quiet hours: the loop stays silent
+                    # there and sounds once they end, until dismissed.
                     self._start_persistent_sound()
+                elif self._is_quiet_hours():
+                    self.log("Quiet hours active — suppressing notification sound", level="DEBUG")
                 else:
                     self.play_sound(_notification_sound(notif_type))
         elif (
@@ -1131,9 +1145,14 @@ class HAUIDevice(HAUIBase):
             return _notification_sound(NotifType.CRITICAL)
         return _notification_sound(NotifType.INFO)
 
+    def _play_persistent_sound(self) -> None:
+        """Play one round of the persistent alert, unless quiet hours are active."""
+        if not self._is_quiet_hours():
+            self.play_sound(self._persistent_sound())
+
     def _persistent_sound_callback(self, kwargs: Any) -> None:
         if self.app.controller["notification"].has_persistent_notifications():
-            self.play_sound(self._persistent_sound())
+            self._play_persistent_sound()
         else:
             self._stop_persistent_sound()
 
@@ -1141,7 +1160,7 @@ class HAUIDevice(HAUIBase):
         if self._persistent_sound_handle is not None:
             return
         interval = self.get("persistent_sound_interval")
-        self.play_sound(self._persistent_sound())
+        self._play_persistent_sound()
         self._persistent_sound_handle = self.app.run_every(
             self._persistent_sound_callback, f"now+{interval}", interval
         )

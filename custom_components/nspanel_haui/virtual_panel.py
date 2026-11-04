@@ -17,21 +17,29 @@ browser:
 - The app never fires HA bus events, never persists to the panel store and
   never checks for or installs firmware/TFT updates.
 
-``VirtualPanelSession`` owns one virtual app for the lifetime of an open
-preview (see ``websocket_api.py``).
+``VirtualPanelHost`` owns the one virtual app of a device (see
+``websocket_api.py``). Every open live preview of the device is a viewer of
+that app, and the editor's panel cards are rendered on it too: each card runs
+its panel's page in isolation (``_PanelRender``), so a card never moves what a
+viewer sees.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-import uuid
+import threading
 from collections.abc import Callable
 from typing import Any
 
 from .ha_adapter import ItemProxy
+from .haui.abstract.haui_panel import HAUIPanel
 from .haui.controller.update import HAUIUpdateController
-from .haui.mapping.const import ESP_NS_EVENT, ESPEvent, ESPResponse, ServerRequest
+from .haui.mapping.const import ESP_NS_EVENT, ESPCommand, ESPEvent, ESPResponse, ServerRequest
+from .haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
+from .haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
+from .haui.utils.text import get_translation
 from .haui.version import get_version
 from .nspanel_haui import NSPanelHAUI
 from .sandbox import Sandbox
@@ -116,6 +124,16 @@ class VirtualESPHomeProxy:
         self._page: int = 0
         self._idle = False
         self._entities: dict[str, str] = {}
+
+    @property
+    def idle(self) -> bool:
+        """Whether the idle page shows, as last reported to the browser."""
+        return self._idle
+
+    @property
+    def entities(self) -> dict[str, str]:
+        """Widget name -> entity id, as last reported to the browser."""
+        return dict(self._entities)
 
     # ESPHomeProxy interface
 
@@ -414,24 +432,240 @@ def _target_entity_ids(target: dict[str, Any] | None) -> list[str]:
     return [ids] if isinstance(ids, str) else list(ids)
 
 
-class VirtualPanelSession:
-    """One open live preview: a virtual app for one device and its browser sink."""
+def _translated(value: Any, locale: str) -> Any:
+    """A preview kwarg in the device's language: display text and lists of it."""
+    if isinstance(value, str):
+        return get_translation(value, locale)
+    if isinstance(value, list):
+        return [get_translation(v, locale) if isinstance(v, str) else v for v in value]
+    return value
+
+
+def _sample_rank(state: Any) -> int:
+    """How well an entity shows what its popup can do: on, then off, then no state."""
+    if state.state in ("unavailable", "unknown"):
+        return 2
+    return 1 if state.state == "off" else 0
+
+
+def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
+    """The sample context a popup's card opens it with; call from the event loop.
+
+    See ``PageDescriptor.preview_kwargs``. An entity popup (``popup_<page>``)
+    opens for an entity of its ``item`` option's domain, as a tap on such an
+    entity would: the first one that is on, else the first one that is off.
+    """
+    panel_type = str(panel_config.get("type", ""))
+    mapping = PANEL_MAPPING.get(panel_type)
+    if mapping is None:
+        return {}
+    descriptor = mapping[1].DESCRIPTOR
+    kwargs = {
+        key: value
+        for key, value in (descriptor.preview_kwargs or {}).items()
+        if key not in panel_config
+    }
+    # Known by its system key: an edited entity popup is saved with the user
+    # type (popup_light → light).
+    entity_popup = panel_config.get("key") in POPUP_PANEL_MAPPING
+    if entity_popup and "item" not in panel_config and "item_id" not in panel_config:
+        domain = next((o.domain for o in descriptor.options if o.key == "item"), None)
+        entity_ids = sorted(hass.states.async_entity_ids(domain)) if domain else []
+        if entity_ids:
+            entity_id = min(entity_ids, key=lambda e: _sample_rank(hass.states.get(e)))
+            kwargs.update(item=entity_id, item_id=entity_id)
+    return kwargs
+
+
+def _send_compatible(sink: Sink, protocol_version: int, message: dict[str, Any]) -> None:
+    """Send to one viewer, without the metadata messages its protocol predates."""
+    if protocol_version < _METADATA_PROTOCOL_VERSION and message.get("type") in {
+        "entities",
+        "idle",
+    }:
+        return
+    sink(message)
+
+
+class _RecordingESPHome:
+    """The ESPHome controller as a card render sees it: display output is recorded.
+
+    Page switches, sounds and value requests belong to the live display and are
+    dropped.
+    """
+
+    def __init__(self) -> None:
+        self.commands: list[str] = []
+
+    def send_cmd(self, cmd: str, value: Any = "", force: bool = False) -> None:
+        name = cmd if cmd.startswith("esphome.") else f"esphome.{cmd}"
+        if name == ESPCommand.SEND_COMMAND:
+            self.commands.append(value)
+        elif name == ESPCommand.SEND_COMMANDS:
+            self.commands.extend(value)
+
+    def reset_prev_cmd(self) -> None:
+        pass
+
+
+class _RenderNavigation:
+    """Navigation as a card render sees it: no action moves the live display."""
+
+    page = None
+    panel = None
+    idle_panel_active = False
+
+    def open_panel(self, *args: Any, **kwargs: Any) -> None:
+        pass
+
+    close_panel = open_home_panel = reload_panel = refresh_panel = go_back = open_panel
+    open_prev_panel = open_next_panel = open_idle_panel = exit_idle_to_prev_or_home = open_panel
+
+
+class _RenderBlinker:
+    """The shared notification blinker; a refresh redraws the render's own page."""
+
+    def __init__(self, notification: _RenderNotification) -> None:
+        self._notification = notification
+
+    @property
+    def new_notifications(self) -> bool:
+        return bool(self._notification.real.blinker.new_notifications)
+
+    def refresh(self) -> None:
+        if self._notification.refresh_fn is not None:
+            self._notification.refresh_fn()
+
+
+class _RenderNotification:
+    """Notification state of the shared app; the indicator draws on the render page.
+
+    Registering the blinker callback here keeps the live page's callback.
+    """
+
+    def __init__(self, real: Any) -> None:
+        self.real = real
+        self.refresh_fn: Callable[[], None] | None = None
+        self.blinker = _RenderBlinker(self)
+
+    def has_notifications(self) -> bool:
+        return bool(self.real.has_notifications())
+
+    def set_blinker_callback(self, refresh_fn: Callable[[], None]) -> None:
+        self.refresh_fn = refresh_fn
+
+    def clear_blinker_callback(self) -> None:
+        self.refresh_fn = None
+
+    def open_notifications(self) -> None:
+        pass
+
+
+class _RenderApp:
+    """The shared virtual app as one card render sees it.
+
+    Reads (config, entity states, translations, timers) go to the app. Display
+    output is recorded, navigation does nothing and only service calls that
+    return data, such as weather forecasts, are made: a card changes nothing.
+    """
+
+    def __init__(self, app: VirtualNSPanelHAUI, esphome: _RecordingESPHome) -> None:
+        self._app = app
+        self.controller = {
+            **app.controller,
+            "esphome": esphome,
+            "navigation": _RenderNavigation(),
+            "notification": _RenderNotification(app.controller["notification"]),
+        }
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._app, name)
+
+    def get_item(self, entity_id: str) -> SandboxItemProxy:
+        # Item service calls come back through this view, so they are filtered too.
+        return SandboxItemProxy(self, entity_id)  # type: ignore[arg-type]
+
+    def call_service(
+        self,
+        service: str,
+        return_response: bool = False,
+        raise_on_error: bool = False,
+        **kwargs: Any,
+    ) -> Any:
+        if not return_response:
+            _LOGGER.debug("Card render skipped service call %s", service)
+            return None
+        return self._app.call_service(service, return_response, raise_on_error, **kwargs)
+
+
+class _PanelRender:
+    """One panel rendered on a page of its own; create, start and stop on the app's worker.
+
+    The page runs its full lifecycle as navigation would drive it. Commands sent
+    while the panel is created come ``before`` the page switch, as on the device
+    (a picture background must be set before the page loads); the rest follow it.
+    """
+
+    def __init__(
+        self, app: VirtualNSPanelHAUI, panel_config: dict[str, Any], kwargs: dict[str, Any]
+    ) -> None:
+        panel_type = panel_config.get("type", "")
+        page_id = get_page_id_for_panel(panel_type)
+        page_class = get_page_class_for_panel(panel_type)
+        if page_id is None or page_class is None:
+            raise ValueError(f"Unknown panel type: {panel_type!r}")
+        self.page_id = page_id
+        self._esphome = _RecordingESPHome()
+        view = _RenderApp(app, self._esphome)
+        locale = app.device.get_locale()
+        kwargs = {key: _translated(value, locale) for key, value in kwargs.items()}
+        if isinstance(kwargs.get("unlock_panel"), dict):
+            # Navigation passes the panel to unlock as a panel object.
+            kwargs["unlock_panel"] = HAUIPanel(view, kwargs["unlock_panel"])  # type: ignore[arg-type]
+        self._panel = HAUIPanel(view, panel_config)  # type: ignore[arg-type]
+        self._panel.apply_kwargs(kwargs)
+        self._page = page_class(view, {"page_id": page_id})  # type: ignore[arg-type]
+        self.before: list[str] = []
+
+    @property
+    def commands(self) -> list[str]:
+        return self._esphome.commands
+
+    def start(self) -> None:
+        self._page.create_panel(self._panel)
+        self.before = list(self._esphome.commands)
+        self._esphome.commands.clear()
+        self._page.start()
+        self._page.set_panel(self._panel)
+
+    def stop(self) -> None:
+        # set_panel(None) stops the panel: its listeners, timers and debounces.
+        self._page.set_panel(None)
+        self._page.stop()
+
+
+class VirtualPanelHost:
+    """The editor's virtual panel for one device: one app for every preview.
+
+    Live previews attach as viewers: each sees the app's display output and can
+    touch it. Panel cards render single panels in isolation on the same app.
+    The sandbox/live mode belongs to the app, so it is shared by all viewers.
+    """
 
     def __init__(
         self,
         hass: Any,
         device_name: str,
         config_args: dict,
-        sink: Sink,
         *,
         ha_device_id: str | None = None,
         device_info: dict[str, Any] | None = None,
         protected_entities: frozenset[str] = frozenset(),
         live: bool = False,
-        protocol_version: int = _METADATA_PROTOCOL_VERSION,
     ) -> None:
-        self.id = uuid.uuid4().hex
-        self.protocol_version = protocol_version
+        self._viewers: dict[str, tuple[Sink, int]] = {}
+        self._viewers_lock = threading.Lock()
+        self._connected = False
         info = {
             "name": device_name,
             "friendly_name": device_name,
@@ -444,33 +678,129 @@ class VirtualPanelSession:
             "firmware_variant": "",
         }
         info.update({k: v for k, v in (device_info or {}).items() if k in info and v})
-
-        def _compatible_sink(message: dict[str, Any]) -> None:
-            if self.protocol_version < _METADATA_PROTOCOL_VERSION and message.get("type") in {
-                "entities",
-                "idle",
-            }:
-                return
-            sink(message)
-
         self.app = VirtualNSPanelHAUI(
             hass,
-            f"virtual_{self.id[:8]}",
+            f"virtual_{device_name}",
             config_args,
             runtime_device_name=device_name,
             ha_device_id=ha_device_id,
-            sink=_compatible_sink,
+            sink=self._broadcast,
             device_info=info,
             protected_entities=protected_entities,
             live=live,
         )
 
     async def async_start(self) -> None:
+        """Initialize the app. Its display boots when the first viewer attaches."""
         await self.app.async_run_on_worker(self.app.initialize)
-        self.app.virtual_esphome.connect()
 
     async def async_stop(self) -> None:
         await self.app.async_run_on_worker(self.app.stop)
+
+    async def async_reload(self, config_args: dict) -> None:
+        """Apply a saved config, as a save does on the device's own app."""
+        await self.app.async_run_on_worker(self.app.reload_config, config_args)
+
+    # viewers (live previews)
+
+    @property
+    def viewer_count(self) -> int:
+        with self._viewers_lock:
+            return len(self._viewers)
+
+    def attach(
+        self, viewer_id: str, sink: Sink, *, protocol_version: int = _METADATA_PROTOCOL_VERSION
+    ) -> None:
+        """Add a live-preview viewer; call from the event loop.
+
+        The first viewer boots the display. A later one starts blank, so the
+        current panel is drawn again (for every viewer) and the viewer learns
+        the idle, entity and sandbox state it missed.
+        """
+        with self._viewers_lock:
+            self._viewers[viewer_id] = (sink, protocol_version)
+        if self._connected:
+            self.app.dispatch(self._redraw_for, sink, protocol_version)
+        else:
+            self._connected = True
+            self.app.virtual_esphome.connect()
+
+    def detach(self, viewer_id: str) -> bool:
+        """Remove a viewer; returns whether it was attached."""
+        with self._viewers_lock:
+            return self._viewers.pop(viewer_id, None) is not None
+
+    def has_viewer(self, viewer_id: str) -> bool:
+        with self._viewers_lock:
+            return viewer_id in self._viewers
+
+    def _broadcast(self, message: dict[str, Any]) -> None:
+        with self._viewers_lock:
+            viewers = list(self._viewers.values())
+        for sink, protocol_version in viewers:
+            _send_compatible(sink, protocol_version, message)
+
+    def _redraw_for(self, sink: Sink, protocol_version: int) -> None:
+        proxy = self.app.virtual_esphome
+        _send_compatible(sink, protocol_version, {"type": "idle", "active": proxy.idle})
+        _send_compatible(sink, protocol_version, {"type": "entities", "map": proxy.entities})
+        sink({"type": "sandbox", "entities": self.app.sandbox.simulated_ids()})
+        navigation = self.app.controller["navigation"]
+        if navigation.panel is not None:
+            navigation.reload_panel()
+
+    # panel cards
+
+    async def async_configured_panel(self, key: str) -> dict[str, Any]:
+        """The device's panel with this key as the hub opens it.
+
+        System panels come with their defaults, or the saved override of them.
+
+        Raises:
+            ValueError: If the device has no panel with this key.
+        """
+
+        def _config() -> dict[str, Any]:
+            panel = self.app.device_config.get_panel(key)
+            if panel is None:
+                raise ValueError(f"Unknown panel key: {key!r}")
+            return panel.get_default_config()
+
+        return await self.app.async_run_on_worker(_config)
+
+    async def async_render(
+        self,
+        panel_config: dict[str, Any],
+        kwargs: dict[str, Any] | None = None,
+        *,
+        settle: float = 0.3,
+        timeout: float = 3.0,
+    ) -> dict[str, Any]:
+        """Render one panel as its card shows it, without touching the live display.
+
+        Delayed output (debounced item updates) is collected until the page
+        has been quiet for ``settle`` seconds, at most ``timeout`` seconds.
+
+        Returns:
+            ``{"page": id, "before": [...], "commands": [...]}``: the commands
+            sent before the page switch and those that draw the page.
+        """
+        kwargs = {**preview_kwargs(self.app.hass, panel_config), **(kwargs or {})}
+        render = await self.app.async_run_on_worker(_PanelRender, self.app, panel_config, kwargs)
+        loop = asyncio.get_running_loop()
+        try:
+            await self.app.async_run_on_worker(render.start)
+            deadline = loop.time() + timeout
+            count, quiet_since = len(render.commands), loop.time()
+            while loop.time() < deadline:
+                await asyncio.sleep(0.05)
+                if len(render.commands) != count:
+                    count, quiet_since = len(render.commands), loop.time()
+                elif loop.time() - quiet_since >= settle:
+                    break
+        finally:
+            await self.app.async_run_on_worker(render.stop)
+        return {"page": render.page_id, "before": render.before, "commands": list(render.commands)}
 
     def send_event(self, name: str, value: str) -> None:
         """Inject a device event from the browser.

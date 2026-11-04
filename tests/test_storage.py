@@ -145,3 +145,25 @@ def test_load_does_not_save_when_nothing_to_migrate() -> None:
 
     assert _load(ps) == payload
     assert store.saved == []
+
+
+def test_load_drops_edits_of_fixed_system_panels() -> None:
+    """Only popups can be edited: a stored edit of Settings (or another fixed
+    system panel) is removed on load, popup edits and user panels stay."""
+    cover = {"type": "cover", "key": "popup_cover", "title": "Blinds"}
+    grid = {"type": "grid", "key": "grid_0", "items": []}
+    payload = {
+        "version": 1,
+        "devices": {
+            "Salon": {
+                "config": {},
+                "panels": [{"type": "system_settings", "key": "sys_settings"}, cover, grid],
+            },
+        },
+    }
+    store = _FakeStore(payload)
+
+    result = _load(_make_storage(store))
+
+    assert result["devices"]["Salon"]["panels"] == [cover, grid]
+    assert store.saved[-1]["devices"]["Salon"]["panels"] == [cover, grid]

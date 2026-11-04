@@ -44,9 +44,8 @@ or the hub withholds the update (fail closed).
 Semantic Versioning. `custom_components/nspanel_haui/manifest.json` is the
 source of truth; `haui/version.py` reads it at runtime. `scripts/bump_version.py`
 updates firmware version sources every time; `--tft-update` additionally updates
-the display version sources. A development version (`X.Y.Z.devN`, optionally
-with a `+local` build segment such as the `.dev<run>+g<sha>` the dev-release CI
-publishes) is a firmware-only bump in that same shape: it updates
+the display version sources. A development version (`X.Y.Z.devN`, the
+`.dev<run>` shape the dev-release CI publishes) is a firmware-only bump: it updates
 `manifest.json` and the firmware `yaml_version` but leaves `pyproject.toml`,
 `tft_version` and the HMI binaries at their stable values, because the dev
 channel ships no display TFT:
@@ -106,10 +105,22 @@ workflow used for private/custom builds.
 
 Every successful push to `dev` builds the CI-safe universal image and publishes a
 GitHub prerelease whose tag is the release version. Its version is based on the
-next patch release (for example, `0.4.5.dev123+gabcdef1`), so each successful push
-has a distinct update version and its notes link to the build commit, enumerate
-commits included in that push, and list changed files. The prereleases retain the
-version history.
+next patch release plus the workflow run number (for example, `0.4.5.dev123`), so
+each successful push has a distinct update version. The release name adds the
+short commit (`NSPanel HAUI 0.4.5.dev123 (abcdef1)`) and its notes link to the
+build commit, enumerate commits included in that push, and list changed files.
+Only the newest 10 dev prereleases are kept; the workflow deletes older ones
+together with their tags, because HACS reads only the newest 30 releases and
+would otherwise lose the latest stable release (a fresh HACS install then falls
+back to the default branch, `dev`).
+
+The version deliberately carries no `+g<sha>` build segment. Home Assistant and
+HACS compare versions with AwesomeVersion, which sorts `0.4.5.dev16+g778f2ce`
+*above* the final `0.4.5` and above a later `0.4.5.dev17`, so a build with that
+segment is never offered the release that supersedes it. Builds published
+before 2026-11-04 carry the segment: a panel or HACS install on one of them needs
+one manual install of a newer build (HACS: pick the version; panel: **Install
+firmware** with that version), after which updates are offered normally.
 
 The tag points at a small release commit that carries the version: the workflow
 writes the dev version into `custom_components/nspanel_haui/manifest.json` (and
@@ -121,6 +132,9 @@ HACS would report it as installed forever. That same versioned commit is pushed
 back onto the `dev` branch (its `[skip ci]` trailer keeps GitHub from
 re-triggering the workflow on that push), so the branch's tracked `version.yaml`
 carries the released dev version instead of lagging on the last stable release.
+As a consequence the tip of `dev` is always a bot `[skip ci]` commit, so release
+prep happens on a `release/X.Y.Z` branch (see
+[Branches and cadence](#branches-and-cadence)).
 The next run derives the next dev version from that
 `X.Y.Z.devN`: it keeps the same `X.Y.Z` base (no stable `X.Y.Z` has shipped yet)
 and only advances the run number, and jumps to `X.Y.(Z+1).devN` again once the
@@ -141,7 +155,7 @@ https://github.com/happydasch/nspanel_haui/releases/download/dev-latest/firmware
 That fixed URL comes from the `dev-latest` release, which only holds the moving
 firmware manifest — it is a dev-branch snapshot, not a version to install. When
 choosing a version in HACS, pick the pre-release whose tag is the version (for
-example `0.4.5.dev123+gabcdef1`), not `dev-latest`.
+example `0.4.5.dev123`), not `dev-latest`.
 
 Set a **universal test panel's** **Firmware update channel** to **dev** (or
 point its **Firmware manifest URL** at the address above) to follow `dev`;
@@ -293,12 +307,12 @@ build, or install a release with `nspanel_haui.update_firmware` and `version`.
 ## Branches and cadence
 
 `master` is **release-only**. Normal work never lands there directly: it arrives
-through a merge from `dev`. A release hotfix may branch from `master` when a
-patch cannot wait for the next `dev` cycle. Every tag is cut from a commit whose
-CI was green on its source branch.
+through a `release/X.Y.Z` branch cut from `dev`. A release hotfix may branch
+from `master` when a patch cannot wait for the next `dev` cycle. Every tag is
+cut from a commit whose CI was green on its source branch.
 
-- `master` — release branch. Receives merges from `dev`; release hotfixes branch
-  from `master` only when a patch cannot wait. Every tag `vX.Y.Z` is cut from a
+- `master` — release branch. Receives release branches cut from `dev`; release
+  hotfixes branch from `master` only when a patch cannot wait. Every tag `vX.Y.Z` is cut from a
   green commit here. GitHub Pages deploys from this branch and HACS users
   install from its releases. Protected by the "Protect master (release-only)"
   ruleset: no direct pushes, no force-pushes, no deletion, and a merge needs a
@@ -309,14 +323,33 @@ CI was green on its source branch.
   firmware prerelease with commit-linked notes (see
   [Published development firmware](#published-development-firmware)).
 - Feature branches — branch off `dev`, open the PR against `dev`.
+- Release branches — `release/X.Y.Z`, cut from `dev` for release prep and merged
+  into `master` through a PR.
 - Hotfix branches — branch off `master` only when a released version needs a
   patch that cannot wait for the next `dev` cycle; PR into `master`, tag, then
   merge `master` back into `dev`.
 
-The cycle in one line: feature → PR into `dev` → release prep on `dev` (version
-bump, CHANGELOG, release notes, TFTs) → PR `dev` → `master` → tag on `master` →
-`release.yml` publishes → merge `master` back into `dev` → open the next
-CHANGELOG section.
+The cycle in one line: feature → PR into `dev` → cut `release/X.Y.Z` from `dev`
+→ release prep there (version bump, CHANGELOG, release notes, TFTs) → PR
+`release/X.Y.Z` → `master` → tag on `master` → `release.yml` publishes → merge
+`master` back into `dev` → open the next CHANGELOG section.
+
+**Why release prep never happens on `dev`:** every push to `dev` makes the
+development-firmware workflow commit the next dev version back onto the branch
+([Published development firmware](#published-development-firmware)). That
+breaks a release PR straight from `dev` twice over:
+
+- The stable version bump is overwritten within minutes: `dev` reads `X.Y.Z`
+  and the bot commits `X.Y.(Z+1).devN` on top, so the tag check in
+  `release.yml` fails.
+- The tip of `dev` is always the bot's `[skip ci]` commit, pushed with the
+  workflow token. GitHub runs no `push` or `pull_request` workflows for a PR
+  whose head commit says `[skip ci]`, so the PR's required checks never report
+  and the `master` ruleset (no bypass actors) blocks the merge.
+
+A `release/X.Y.Z` branch avoids both: no workflow commits to it, and its head is
+your own commit, so the PR's checks run. It starts with the dev version on it;
+`scripts/bump_version.py X.Y.Z` sets the stable version there.
 
 Commits use [Conventional Commits](https://www.conventionalcommits.org/)
 (`feat`, `fix`, `docs`, … with an optional scope), so the merged history reads
@@ -328,8 +361,8 @@ tooling generates any of them.
 
 Enforcement: the `master` ruleset blocks direct pushes, force-pushes and branch
 deletion, and requires a pull request whose always-running checks are green
-before merge. It has **no bypass actors**, so the release merge from `dev` goes
-through a PR like everything else. Tags are unaffected: the ruleset does not
+before merge. It has **no bypass actors**, so the release merge goes through a
+PR like everything else. Tags are unaffected: the ruleset does not
 gate them, and `release.yml` fires on any `v*` tag pushed anywhere (see
 [Versioning and tag policy](#versioning-and-tag-policy)) — that tags are cut on
 green `master` commits is policy, not workflow enforcement. To add an escape
@@ -419,7 +452,15 @@ portrait layout drift is caught before CI.
 
 ### 2. Version bump
 
-Run the bump script. The firmware version advances on every release, but the
+Cut the release branch from an up-to-date `dev` (it carries the bot's dev
+version, which the bump replaces):
+
+```bash
+git switch dev && git pull
+git switch -c release/0.5.0
+```
+
+Run the bump script on that branch. The firmware version advances on every release, but the
 TFT version changes only when the release includes a display update:
 
 ```bash
@@ -470,7 +511,7 @@ script above calls it for `--tft-update`. Both are importable and covered by
 - Update user-facing docs for behaviour changes (install, services, display
   models).
 - Breaking changes: write the `docs/upgrading.md` entry and the CHANGELOG
-  "Breaking changes" section during release prep on `dev`.
+  "Breaking changes" section during release prep on the release branch.
 - Verify the universal firmware still validates:
   `esphome config esphome/nspanel_haui_universal.yaml`.
 - The universal binary serves **any number of panels**: the MAC suffix gives
@@ -480,8 +521,8 @@ script above calls it for `--tft-update`. Both are importable and covered by
 ### 5. Release notes and tagging
 
 Prepare the GitHub release body in `.github/release-notes/<tag>.md` (for example
-`.github/release-notes/v0.4.2.md`) during release prep on `dev`, before the merge
-to `master`. Because `master` takes no direct commits, the merge carries the file
+`.github/release-notes/v0.4.2.md`) during release prep on the release branch,
+before the merge to `master`. Because `master` takes no direct commits, the merge carries the file
 to the tagged commit. `release.yml` publishes it as the release body and falls
 back to the changelog pointer when no file exists. Keep the changelog as the
 canonical notes and summarise them here: highlights, anything to do before
@@ -511,7 +552,7 @@ before it is green.
   smoke test of the exact published artifacts.
 - Announce; link the changelog and the update warning.
 - Merge `master` back into `dev`, then open the next `CHANGELOG.md` section.
-  Because `dev` carries the latest dev version (e.g. `0.5.0.dev12+g…`) while
+  Because `dev` carries the latest dev version (e.g. `0.5.0.dev12`) while
   `master` carries the released stable `X.Y.Z`, the merge-back now conflicts in
   `custom_components/nspanel_haui/manifest.json` and
   `esphome/nspanel_haui/version.yaml`; resolve both to the stable version so the

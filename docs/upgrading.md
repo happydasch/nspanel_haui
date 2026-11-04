@@ -347,12 +347,16 @@ instead of looking up a matching GitHub release.
   display simply keeps the TFT it has.
 - **Version comparisons now match Home Assistant.** The hub compares versions
   with the same rules as Home Assistant's update entities, so the offered
-  firmware and the entity agree. A same-base stable release is no longer
-  offered or auto-installed over an installed dev build, and a firmware that
-  reports an unparseable version (for example an old `dev-<run>-<sha>` local
-  build tag) is withheld as unknown instead of being offered as an update on
-  every check. Rebuild such a panel with a parseable version (a release tag,
-  or a next-patch `X.Y.(Z+1).devN+...` build).
+  firmware and the entity agree. A final release is offered over its dev
+  builds (`0.4.5` over `0.4.5.dev3`), and a firmware that reports an
+  unparseable version (for example an old `dev-<run>-<sha>` local build tag)
+  is withheld as unknown instead of being offered as an update on every check.
+  Rebuild such a panel with a parseable version (a release tag, or a
+  next-patch `X.Y.(Z+1).devN` build). Dev builds published before 2026-11-04
+  carry a `+g<sha>` segment that Home Assistant sorts above the final release
+  and above later dev builds: install a newer build once by hand (**Install
+  firmware** with its version; in HACS pick the version), then updates are
+  offered normally.
 - **New device setting:** `firmware_update_channel` (`stable`/`dev`) in the
   editor's Updates section picks the manifest when the URL is empty — the
   latest stable release, or the published dev firmware. An explicit

@@ -249,8 +249,8 @@ send_notification:
     text_size:
       name: "Text size"
       description: >-
-        Popup body text size — "auto" (chosen from the message length)
-        or a font size 1-3.
+        Popup body text size — "auto" (the largest font that fits the
+        whole message on one page) or a font size 1-3.
       required: false
       default: "auto"
       selector:

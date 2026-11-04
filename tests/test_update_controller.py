@@ -120,7 +120,7 @@ from nspanel_haui.haui.mapping.const import (  # noqa: E402
     DEFAULT_CONFIG,
     ESPAction,
     ESPResponse,
-    SysPanelKey,
+    PopupPanelKey,
 )
 
 
@@ -332,7 +332,7 @@ def test_outdated_tft_without_auto_install_asks_and_installs_on_confirm(monkeypa
 
     assert app.published == []
     ((key, kwargs),) = app.opened
-    assert key == SysPanelKey.POPUP_NOTIFY
+    assert key == PopupPanelKey.POPUP_NOTIFY
     kwargs["button_callback_fnc"](False, True)
     assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.0/nspanel_haui.tft")]
 
@@ -389,8 +389,8 @@ def test_a_manifest_without_a_tft_block_installs_nothing(monkeypatch):
     """Dev firmware ships no display TFT: the check must not even try to install."""
     ctrl, app, _ = _updater(
         monkeypatch,
-        {"yaml_version": "0.4.5.dev3+gabcdef1", "tft_version": "0.4.4"},
-        manifest=_manifest("0.4.5.dev3+gabcdef1", tft=False),
+        {"yaml_version": "0.4.5.dev3", "tft_version": "0.4.4"},
+        manifest=_manifest("0.4.5.dev3", tft=False),
     )
 
     ctrl.check_installed_version()
@@ -425,7 +425,7 @@ def test_new_release_check_only_notifies(monkeypatch):
 
     assert app.published == []
     ((key, kwargs),) = app.opened
-    assert key == SysPanelKey.POPUP_NOTIFY
+    assert key == PopupPanelKey.POPUP_NOTIFY
     assert "button_callback_fnc" not in kwargs
 
 
@@ -1116,8 +1116,8 @@ def test_a_manifest_without_a_tft_offers_no_display_update(monkeypatch):
     """A dev manifest ships no TFT: the entity reports the installed TFT as latest."""
     ctrl, app, _ = _updater(
         monkeypatch,
-        {"yaml_version": "0.4.5.dev3+gabcdef1", "tft_version": "0.4.4"},
-        manifest=_manifest("0.4.5.dev3+gabcdef1", tft=False),
+        {"yaml_version": "0.4.5.dev3", "tft_version": "0.4.4"},
+        manifest=_manifest("0.4.5.dev3", tft=False),
     )
 
     ctrl.publish_display_update()
@@ -1394,7 +1394,7 @@ def test_check_for_update_installs_the_offered_firmware_first(monkeypatch):
     ]
     assert fetches == []  # the TFT follows after the reboot
     ((key, kwargs),) = app.opened
-    assert key == SysPanelKey.POPUP_NOTIFY
+    assert key == PopupPanelKey.POPUP_NOTIFY
     assert "Firmware update" in kwargs["title"]
     assert ctrl._firmware_installing is True
     assert ctrl._manual_firmware is False
@@ -1413,7 +1413,7 @@ def test_check_for_update_only_notifies_without_a_firmware_update(monkeypatch):
 
     assert app.published == []
     ((key, kwargs),) = app.opened
-    assert key == SysPanelKey.POPUP_NOTIFY
+    assert key == PopupPanelKey.POPUP_NOTIFY
     assert "Update available" in kwargs["title"]
 
 
@@ -1434,7 +1434,7 @@ def test_the_update_notice_compares_the_firmware_not_the_tft(monkeypatch):
 
     assert app.opened, "a newer firmware must be announced even when the TFT is newer"
     ((key, kwargs),) = app.opened
-    assert key == SysPanelKey.POPUP_NOTIFY
+    assert key == PopupPanelKey.POPUP_NOTIFY
     assert "Update available" in kwargs["title"]
     assert "0.4.0 -> 0.4.1" in kwargs["notification"]
 
@@ -1848,7 +1848,7 @@ def test_a_next_patch_dev_build_is_newer_than_the_stable_release(monkeypatch):
     ctrl, app, _ = _updater(
         monkeypatch,
         {"yaml_version": "0.4.4", "tft_version": "0.4.4"},
-        manifest="0.4.5.dev3+gabcdef1",
+        manifest="0.4.5.dev3",
         firmware_auto_update=True,
     )
 
@@ -1856,27 +1856,40 @@ def test_a_next_patch_dev_build_is_newer_than_the_stable_release(monkeypatch):
 
     state = ctrl.get_update_state()
     assert state["firmware_update_available"] is True
-    assert state["firmware_update_version"] == "0.4.5.dev3+gabcdef1"
-    assert app.published[0][1]["url"] == "https://dl/fw/0.4.5.dev3+gabcdef1/ota.bin"
+    assert state["firmware_update_version"] == "0.4.5.dev3"
+    assert app.published[0][1]["url"] == "https://dl/fw/0.4.5.dev3/ota.bin"
 
 
-def test_a_same_base_stable_is_never_offered_over_an_installed_dev_build(monkeypatch):
-    """0.4.4 is not newer than 0.4.4.dev3+g...: no offer and no auto-install."""
+def test_the_final_release_supersedes_its_dev_builds(monkeypatch):
+    """0.4.5 is newer than 0.4.5.dev3: a panel on a dev build gets the release."""
     ctrl, app, _ = _updater(
         monkeypatch,
-        {"yaml_version": "0.4.4.dev3+gabcdef1", "tft_version": "0.4.4"},
-        manifest="0.4.4",
+        {"yaml_version": "0.4.5.dev3", "tft_version": "0.4.4"},
+        manifest="0.4.5",
         firmware_auto_update=True,
     )
 
     ctrl.check_for_update()
 
-    state = ctrl.get_update_state()
-    assert state["firmware_update_available"] is False
+    assert ctrl.get_update_state()["firmware_update_available"] is True
+    assert app.published[0][1]["url"] == "https://dl/fw/0.4.5/ota.bin"
+
+
+def test_a_local_segment_dev_build_is_never_offered_its_final_release(monkeypatch):
+    """Why dev versions carry no ``+g<sha>``: AwesomeVersion sorts such a build
+    above its final release, and the hub mirrors Home Assistant's comparison.
+    """
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.5.dev3+gabcdef1", "tft_version": "0.4.4"},
+        manifest="0.4.5",
+        firmware_auto_update=True,
+    )
+
+    ctrl.check_for_update()
+
+    assert ctrl.get_update_state()["firmware_update_available"] is False
     assert app.published == []
-    # The manifest's version is reported, but the entity offers no update
-    # (AwesomeVersion compares 0.4.4 as not newer than 0.4.4.dev3+g...).
-    assert _firmware_events(app)[-1]["latest_version"] == "0.4.4"
 
 
 def test_an_invalid_installed_version_is_withheld_not_offered(monkeypatch):
@@ -1979,10 +1992,10 @@ def test_a_channel_switch_refreshes_the_manifest_on_start(monkeypatch):
     """start_part compares the *resolved* URL, so switching channel re-reads it."""
     url = "http://ha.local/local/firmware-manifest.json"
     ctrl, app, _ = _updater_with_channel(
-        monkeypatch, "dev", manifest="0.4.4.dev2+gabcdef1", firmware_manifest_url=url
+        monkeypatch, "dev", manifest="0.4.4.dev2", firmware_manifest_url=url
     )
     ctrl.start_part()
-    assert _firmware_events(app)[-1]["latest_version"] == "0.4.4.dev2+gabcdef1"
+    assert _firmware_events(app)[-1]["latest_version"] == "0.4.4.dev2"
 
     ctrl.stop_part()
     # Drop the override: the stable channel now resolves to the GitHub URL,

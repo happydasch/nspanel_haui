@@ -7,7 +7,7 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import ESPEvent, SysPanelKey
+from ..mapping.const import ESPEvent, PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_BRIGHTNESS, ICO_COLOR, ICO_COLOR_TEMP, ICO_EFFECT, ICO_POWER
 from ..utils.color import color_to_rect_pos, rect_pos_to_color
@@ -333,7 +333,7 @@ class LightPage(HAUIPage):
                 name = no_effect
             effects.append({"value": value, "name": name})
         navigation.open_panel(
-            SysPanelKey.POPUP_SELECT,
+            PopupPanelKey.POPUP_SELECT,
             title=self.translate("Select effect"),
             items=effects,
             selection_callback_fnc=self.callback_effect,
@@ -474,7 +474,8 @@ class LightPage(HAUIPage):
         # show on / off button only if there is nothing active
         if self._light_item.get_item_state() == "on":
             rgb_color = self._light_item.get_item_attr("rgb_color")
-            color = self.parse_color(rgb_color)
+            # on/off and brightness-only lights report no rgb_color
+            color = self.parse_color(rgb_color) if rgb_color else self.get_color("entity_on")
         else:
             color = self.get_color("entity_unavailable")
         if self._current_light_function is None:

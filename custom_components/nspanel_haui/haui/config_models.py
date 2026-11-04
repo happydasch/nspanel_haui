@@ -259,9 +259,19 @@ def validate_panels(panels_data: dict) -> BaseModel:
 
     Ensures the panels dict has valid panel definitions and that
     each device's ``config`` sub-object has correct field types.
+
+    Raises:
+        ValueError: A panel uses the key of a system panel that is not a popup;
+            only popups can be edited.
     """
+    from .mapping.panel import SYS_PANEL_MAPPING
+
     all_panels = []
     for dev_data in panels_data.get("devices", {}).values():
+        for panel in dev_data.get("panels", []):
+            key = panel.get("key") if isinstance(panel, dict) else None
+            if key in SYS_PANEL_MAPPING:
+                raise ValueError(f"System panel {key} cannot be edited")
         all_panels.extend(dev_data.get("panels", []))
         if "config" in dev_data:
             validate_device_config(dev_data["config"])

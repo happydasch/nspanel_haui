@@ -159,6 +159,17 @@ def resolve_esphome_entity_id(hass: Any, device_id: str, original_name: str) -> 
     return candidates[0] if len(candidates) == 1 else None
 
 
+def resolve_temperature_entity_id(hass: Any, device_name: str) -> str | None:
+    """The device's own temperature sensor: the clock/weather inside temperature.
+
+    Same rule as ``HAUIPage.get_inside_temp_entity_id`` without a panel override.
+    """
+    device_id = resolve_ha_device_id(hass, device_name)
+    if device_id is None:
+        return None
+    return resolve_esphome_entity_id(hass, device_id, "Temperature")
+
+
 def read_network_entities(hass: Any, device_name: str) -> dict[str, str | float | None]:
     """Read Wi-Fi readings from the ESPHome entities registered to a device.
 

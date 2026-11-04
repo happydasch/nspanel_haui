@@ -289,8 +289,23 @@ per-device version and action state in the list.
 Folded into the general frontend rework below, after the update work: panel-list
 improvements (drag-reorder, inline rename, duplicate — reorder works through the
 row menu today), edit-panel sidebar cleanup, a "create from template" flow, inline
-form validation feedback, preview renderer unification and dead-code pruning,
-keyboard-navigable modals, and an accessibility pass (labels, ARIA, contrast).
+form validation feedback, keyboard-navigable modals, and an accessibility pass
+(labels, ARIA, contrast). The preview renderers were unified in 0.4.5: every card
+is the hub's own render.
+
+### Component cleanup & colour overrides
+
+`color_overrides` reach only the colours the hub sends as commands: a widget the
+hub never colours keeps the HMI's compiled palette value on the device. Since
+0.4.5 the editor's panel cards replay the hub's own render, so they show exactly
+that — recolouring layout colours in the browser would show a panel the device
+never draws. Fix it where it happens, folded into the general frontend rework:
+
+- Audit both HMIs for widgets that take a palette colour only from the compiled
+  layout (page backgrounds, header and label widgets) and have the hub send
+  their colour when it renders the page; cards follow without frontend work.
+- Replace the simulator frame's hardcoded `#000` card background
+  (`.pg-sim` in `frontend/previews/simulator-frame.js`) with the device theme.
 
 ### Frontend rework, notifications & device settings (planned)
 
@@ -315,7 +330,8 @@ gate closes. Each phase ships on its own.
   through scoped read/update endpoints and a settings tab, stored per device and
   defaulted on load. The Device Manager section above gains that tab; its bulk
   actions and per-device state stay as planned there.
-- **Panel editors** — split-view preview built on the existing preview renderers,
+- **Panel editors** — split-view preview built on the hub's card render
+  (`nspanel_haui/virtual_panel/render`, which already draws unsaved edits),
   "create from template", inline rename/duplicate/reorder and field-level
   validation, replacing the generic toast with per-field feedback.
 
@@ -323,6 +339,28 @@ gate closes. Each phase ships on its own.
 rework at behaviour parity (editor-polish items included), then Device Manager and
 device settings, then panel editors, then the notification UX, then polish and
 hardening.
+
+### Live preview: keep the Sandbox/Live toggle in sync
+
+Since 0.4.5 every open live preview of a device and its panel cards run on one
+virtual app (`VirtualPanelHost` in `virtual_panel.py`), so Sandbox/Live mode
+belongs to the device, not to a preview. Switching the mode in one browser tab —
+or opening a preview, which applies that tab's mode — changes it for every open
+preview of the device, but the other tabs' toggles keep showing their old mode: a
+tab can read **Sandbox** while its taps already call Home Assistant.
+
+- Broadcast the mode to every viewer when it changes (a `{"type": "mode",
+  "live": …}` message from `VirtualPanelHost.set_live`, also sent right after
+  `started`), and have `virtual-panel-session.js` and the live-preview dialog
+  update the toggle from it.
+- Opening a preview joins the device's current mode instead of imposing the
+  tab's default, so a second tab never switches a live preview back to sandbox.
+- Bump the WebSocket protocol version; older open editors simply don't receive
+  the new message.
+
+**Acceptance:** with two previews of one device open, switching the mode in
+either updates both toggles at once; a newly opened preview shows the device's
+current mode; no tab ever shows a mode the app is not in.
 
 ### Deferred follow-ups
 

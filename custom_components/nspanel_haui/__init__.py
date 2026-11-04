@@ -540,6 +540,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
 
+    from .websocket_api import async_stop_hosts
+
+    await async_stop_hosts(hass, entry.entry_id)
     apps: dict | None = hass.data[DOMAIN].pop(entry.entry_id, None)
 
     if apps is None:

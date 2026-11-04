@@ -413,7 +413,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
     # Auto-assignment
     # ------------------------------------------------------------------
 
-    def _auto_assign_fncs(self, panel: HAUIPanel) -> None:
+    def _auto_assign_fncs(self, panel: HAUIPanel, show_in_nav: bool | None = None) -> None:
         """Auto-assign default function types to header buttons that have no explicit assignment.
 
         This is called once per ``config_panel()`` cycle.  Only buttons whose
@@ -423,11 +423,16 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
 
         Args:
             panel (HAUIPanel): Current panel
+            show_in_nav (bool, optional): Navigation state the header follows
+                instead of the panel's own. The unlock popup passes the state
+                of the panel it guards: in navigation it gets that panel's
+                header, not a popup's, while navigation keeps it on the stack.
         """
         home_key = self.app.device.get("home_panel")
-        for fnc_id, fnc_item in self._fnc_items.items():
+        if show_in_nav is None:
             show_in_nav = panel.show_in_navigation()
-            is_popup = panel.can_show_popup()
+        is_popup = panel.is_popup() and not show_in_nav
+        for fnc_id, fnc_item in self._fnc_items.items():
             if fnc_item["fnc_name"] is None:
                 # left primary: popup with home button => HOME, navigation => PREV, otherwise => UP
                 if fnc_id == self.FNC_BTN_L_PRI:

@@ -8,7 +8,9 @@ every page (by the hub's page id) with its widgets' attributes and event code,
 the fonts and the global variables. The pictures the pages reference are
 written as WebP next to it (``pictures/<orientation>/<id>.webp``) from the
 source PNGs in ``nextion/images``: the HMI stores pictures in the Nextion's own
-compressed format.
+compressed format. It also writes the fonts' glyph widths to
+``custom_components/nspanel_haui/haui/mapping/font_metrics.json``, which the hub
+fits text with.
 
 Run it after every HMI change; ``--check`` (run by the test suite) fails when a
 layout file is out of date.
@@ -43,6 +45,8 @@ from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING  # no
 NEXTION = ROOT / "nextion"
 OUT_DIR = ROOT / "custom_components" / "nspanel_haui" / "frontend" / "virtual"
 ICON_MAP_FILE = OUT_DIR / "icon_map.json"
+# Glyph widths for the hub's text fitting (haui/utils/text.py).
+FONT_METRICS_FILE = ROOT / "custom_components/nspanel_haui/haui/mapping/font_metrics.json"
 
 HMI_FILES = {
     "landscape": (NEXTION / "nspanel_haui.HMI", 480, 320),
@@ -102,6 +106,49 @@ def _fonts(raw: bytes) -> list[dict[str, Any]]:
         fonts.append({"size": height, "family": "Roboto", "weight": weight})
     fonts.sort(key=lambda f: f["size"])
     return [{"id": i, **font} for i, font in enumerate(fonts)]
+
+
+def _font_metrics(raw: bytes) -> list[dict[str, Any]]:
+    """Glyph advance widths of every font's text characters (below the icon range).
+
+    The hub wraps and pages text with them as the display draws it
+    (``haui/utils/text.py`` ``fit_text``).  Same ids as ``_fonts``.  A ZI v5
+    font is a 0x2C-byte header (height at 7, glyph count at 0x0C, the length of
+    the name + encoding strings at 0x11), those strings, then one 10-byte entry
+    per glyph: codepoint u16, width, kerning left/right, data offset u24 (from
+    the table start), data length u16.
+    """
+    fonts = []
+    for obj in Nextion2Text.HMIHeader(raw).content:
+        if not obj.name.endswith(".zi"):
+            continue
+        base = obj.start
+        height = raw[base + 7]
+        count = struct.unpack_from("<I", raw, base + 0x0C)[0]
+        table = base + 0x2C + raw[base + 0x11]
+        if int.from_bytes(raw[table + 5 : table + 8], "little") != count * 10:
+            raise ValueError(f"{obj.name}: unexpected ZI glyph table layout")
+        widths = []
+        for index in range(count):
+            codepoint, width, kern_left, kern_right = struct.unpack_from(
+                "<HBBB", raw, table + index * 10
+            )
+            if codepoint >= 0xE000:
+                break
+            if codepoint != index or kern_left or kern_right:
+                raise ValueError(f"{obj.name}: text glyphs are not a plain 0..n range")
+            widths.append(width)
+        fonts.append({"height": height, "widths": widths})
+    fonts.sort(key=lambda f: f["height"])
+    return [{"id": i, **font} for i, font in enumerate(fonts)]
+
+
+def _render_font_metrics() -> tuple[str, list[str]]:
+    """The hub's font metrics file, and a problem when the HMIs' fonts differ."""
+    metrics = [_font_metrics(path.read_bytes()) for path, _w, _h in HMI_FILES.values()]
+    problems = [] if all(m == metrics[0] for m in metrics) else ["the HMIs' fonts differ"]
+    text = json.dumps({"fonts": metrics[0]}, separators=(",", ":")) + "\n"
+    return text, problems
 
 
 def _picture_sizes(raw: bytes) -> list[tuple[int, int]]:
@@ -246,6 +293,18 @@ def main(argv: list[str] | None = None) -> int:
         OUT_DIR.mkdir(parents=True, exist_ok=True)
         ICON_MAP_FILE.write_text(icon_text, encoding="utf-8")
         print(f"wrote {ICON_MAP_FILE.relative_to(ROOT)}")
+
+    metrics_text, metrics_problems = _render_font_metrics()
+    problems += metrics_problems
+    if args.check:
+        if (
+            not FONT_METRICS_FILE.exists()
+            or FONT_METRICS_FILE.read_text(encoding="utf-8") != metrics_text
+        ):
+            problems.append(f"{FONT_METRICS_FILE.relative_to(ROOT)} is out of date")
+    else:
+        FONT_METRICS_FILE.write_text(metrics_text, encoding="utf-8")
+        print(f"wrote {FONT_METRICS_FILE.relative_to(ROOT)}")
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems and args.check:

@@ -16,7 +16,11 @@ from homeassistant.components.http.decorators import require_admin
 from homeassistant.helpers.http import HomeAssistantView
 
 from .const import DOMAIN
-from .esphome_helpers import lookup_device_registry_name, read_network_entities
+from .esphome_helpers import (
+    lookup_device_registry_name,
+    read_network_entities,
+    resolve_temperature_entity_id,
+)
 from .haui.config_models import validate_panels
 from .storage import (
     async_remove_device,
@@ -66,10 +70,13 @@ async def _push_panels(hass: Any, entry_id: str, data: dict) -> dict:
     Reloads the entry when the set of enabled devices changed (notify entities
     are created per running device at setup) or no apps are running; otherwise
     rebuilds each device's runtime config the way setup does and applies it on
-    the app's worker.
+    the app's worker. The editor's virtual apps (live preview, panel cards)
+    get the saved config too.
     """
     from . import _build_config_dict
+    from .websocket_api import async_reload_hosts
 
+    await async_reload_hosts(hass, entry_id, data)
     apps = _get_apps(hass, entry_id)
 
     if apps is None:
@@ -242,6 +249,9 @@ class DeviceStatusView(HomeAssistantView):
         network_info = read_network_entities(hass, device_name)
         status = await app.async_run_on_worker(app.get_device_status)
         status["device_info"].update(network_info)
+        status["device_info"]["temperature_entity_id"] = resolve_temperature_entity_id(
+            hass, device_name
+        )
         return status
 
     @staticmethod
@@ -261,6 +271,7 @@ class DeviceStatusView(HomeAssistantView):
                 "ip": nw["ip"],
                 "ssid": nw["ssid"],
                 "rssi": nw["rssi"],
+                "temperature_entity_id": resolve_temperature_entity_id(hass, dev_name),
                 "last_panel_update": None,
                 "last_connection": None,
             },
@@ -320,7 +331,7 @@ class NotificationsView(HomeAssistantView):
             if controller is None:
                 return False
             for notification in controller.get_notifications():
-                if str(id(notification)) == notification_id:
+                if notification.notif_id == notification_id:
                     return controller.remove_notification(notification)
             return False
 
@@ -339,7 +350,7 @@ class NotificationsView(HomeAssistantView):
                 return []
             return [
                 {
-                    "id": str(id(notification)),
+                    "id": notification.notif_id,
                     "device": app.device.get_name(),
                     "title": str(notification.title),
                     "message": str(notification.message),

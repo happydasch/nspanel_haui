@@ -1,6 +1,6 @@
 ---
 substitutions:
   # Version of this yaml config file (source of truth: manifest.json)
-  yaml_version: '0.4.5.dev20'
+  yaml_version: '0.4.5.dev22'
   # Display TFT version required by this firmware; bump only with --tft-update.
   tft_version: '0.4.3'

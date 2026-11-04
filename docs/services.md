@@ -539,8 +539,13 @@ The firmware still exposes one ESPHome action, `esphome.<device>_upload_tft_url`
 (`url`): it is the transport the hub uses to hand the TFT URL to the device,
 because the ESP32 has to download the file and stream it to the display. Calling
 it directly bypasses the hub's install tracking — use `nspanel_haui.update_tft`
-with `url` instead. The former `esphome.<device>_upload_tft` action and the
-**Update Display** button are gone (see [Upgrading](upgrading.md#10-tft-install-actions-moved-to-the-integration)).
+with `url` instead. The former `esphome.<device>_upload_tft` action is gone (see
+[Upgrading](upgrading.md#10-tft-install-actions-moved-to-the-integration)).
+
+The firmware's **Update Display** button (disabled by default; enable it on the
+ESPHome device page) installs the TFT at the firmware's `tft_update_url` without
+the hub, so its install is not tracked either. See
+[ESPHome → Buttons](esphome.md#buttons).
 
 GitHub serves release TFTs through a redirect to a signed URL of about 870
 characters. The firmware's display component reserves a 2048-byte HTTP TX

@@ -367,7 +367,7 @@ The compiled display firmware (`nextion/nspanel_haui.tft`) is a **release asset*
 
 1. Open `nextion/nspanel_haui.HMI` in the Nextion Editor.
 2. Compile and export the `.tft` file to `nextion/nspanel_haui.tft`.
-3. Upload it to the device via the **Update Display** service or button in Home Assistant.
+3. Upload it to the device with the `nspanel_haui.update_tft` action (`url`) or the firmware's **Update Display** button (disabled by default) in Home Assistant.
 
 See [Services Reference](services.md) for TFT upload instructions.
 

@@ -267,7 +267,6 @@ The firmware drops the matching public pieces. After flashing the new firmware:
 
 | Removed | Use instead |
 |---------|-------------|
-| Button `Update Display` (`button.<device>_update_display`) | **Install** on `update.<device>_haui_display` |
 | Action `esphome.<device>_upload_tft` | `nspanel_haui.update_tft` |
 | Action `esphome.<device>_upload_tft_url` in automations | `nspanel_haui.update_tft` with `url` |
 | Substitution `tft_update_url_portrait` | nothing — the hub picks the portrait TFT by the device's display model |
@@ -276,6 +275,10 @@ The firmware drops the matching public pieces. After flashing the new firmware:
 the TFT URL to the device. Calling it directly works but bypasses the hub's
 install tracking. A leftover `tft_update_url_portrait` in your device YAML is
 ignored and can be deleted.
+
+The **Update Display** button (`button.<device>_update_display`), removed in
+0.4.3, is back in 0.4.5 but disabled by default. It installs the TFT without
+the hub's tracking, so prefer **Install** on `update.<device>_haui_display`.
 
 The new firmware also fixes TFT installs from GitHub releases, which failed
 with `HTTP_CLIENT: Out of buffer` (see

@@ -151,6 +151,11 @@ and follow [Semantic Versioning](https://semver.org/).
   before each label (left out when icon and label exceed the 10-byte button
   text), and text/background colours for the arm and the disarm buttons
   (empty = theme colours).
+- **Update Display button is back, disabled by default** — the firmware's
+  **Update Display** button (removed in 0.4.3) installs the TFT at
+  `tft_update_url` again, the portrait asset on a portrait panel, without the
+  hub's install tracking. **Screen Power** is now disabled by default as well,
+  like **Restart Display**; entities already enabled stay enabled.
 
 ### Fixed
 

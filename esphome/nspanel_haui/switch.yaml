@@ -8,6 +8,7 @@ switch:
     name: Screen Power
     id: screen_power
     entity_category: config
+    disabled_by_default: true
     restore_mode: ALWAYS_ON
     internal: false  # used only for the screen to stay on
     pin:

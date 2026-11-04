@@ -604,6 +604,21 @@ Buttons provided by the ESP.
 
   Restarts the display
 
+- `Update Display` (`update_display`, disabled by default)
+
+  Installs the TFT at the firmware's `tft_update_url`; a portrait panel
+  (`display_model` 1) gets `nspanel_haui_portrait.tft` from the same location.
+  It works without the integration but the install is not tracked: prefer the
+  hub's **HAUI Display** update entity (see
+  [TFT Display Upload](services.md#tft-display-upload)).
+
+## Switches
+
+- `Screen Power` (`screen_power`, disabled by default)
+
+  Powers the display. It is on after every boot; turning it off leaves the
+  screen without power until it is turned on again or the device restarts.
+
 ## Diagnostics
 
 The production package and universal release image expose the diagnostic HA

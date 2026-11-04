@@ -92,7 +92,26 @@ def test_tft_install_actions_live_in_the_integration():
     api = _read("api.yaml")
     assert "- action: upload_tft_url" in api
     assert "- action: upload_tft\n" not in api
-    assert "id: tft_update" not in _read("button.yaml")
+
+
+def test_maintenance_entities_are_disabled_by_default():
+    """Update Display, Restart Display and Screen Power are rarely needed."""
+    import yaml
+
+    entities = {
+        e["id"]: e
+        for name in ("button.yaml", "switch.yaml")
+        for e in next(iter(yaml.safe_load(_read(name)).values()))
+    }
+    for entity_id in ("update_display", "restart_display", "screen_power"):
+        assert entities[entity_id]["disabled_by_default"] is True, entity_id
+
+    # The button installs through the same script as the hub, so the buzzer
+    # is silenced first, and picks the portrait asset by the display model.
+    press = entities["update_display"]["on_press"][0]["lambda"]
+    assert "id(prepare_tft_upload).execute(url);" in press
+    assert "id(display_model).state > 0" in press
+    assert '"nspanel_haui_portrait.tft"' in press
 
 
 def test_buzzer_is_silenced_before_every_main_loop_stall():

@@ -245,3 +245,17 @@ def test_display_model_uses_numeric_input_instead_of_slider():
     numbers = yaml.safe_load(_read("number.yaml"))["number"]
     display_model = next(number for number in numbers if number["id"] == "display_model")
     assert display_model["mode"] == "box"
+
+
+def test_current_page_sensor_names_match_the_hub_page_mapping():
+    """The firmware names the shown page itself; its table must follow the HMI."""
+    import re
+
+    from nspanel_haui.haui.mapping.panel import PAGE_MAPPING
+
+    sensors = _read("sensor.yaml")
+    table = re.search(r"PAGE_NAMES\[\] = \{(.*?)\};", sensors, re.DOTALL)
+    assert table is not None
+    names = re.findall(r'"([^"]+)"', table.group(1))
+    assert names == [PAGE_MAPPING[page_id] for page_id in range(len(PAGE_MAPPING))]
+    assert "id(current_page).publish_state(" in sensors

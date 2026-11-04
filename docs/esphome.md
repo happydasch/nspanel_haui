@@ -403,6 +403,19 @@ These events will be sent out when the device have some page related events.
 - `page` (0 - 255)
   The page that is being displayed
 
+- `Current Page` (text sensor, diagnostic)
+
+  The Nextion page name the display shows (e.g. `grid`, `weather`, `light`,
+  `clock`), published whenever the display reports a page change. An entity
+  popup reports its page (`light` for the light popup). The value comes from
+  the display itself, so it stays available while the hub is disconnected.
+
+  ```yaml
+  trigger:
+    - platform: state
+      entity_id: sensor.nspanel_kitchen_current_page
+  ```
+
 - `timeout_page` (0 - 3600)
 
   Page switch timeout, will be restored on reboot
@@ -627,6 +640,7 @@ ESPHome ↔ hub event/device-state protocol instead of an HA entity.
 | `binary_sensor.nspanel_kitchen_button_left` / `..._button_right` | Physical relay buttons (diagnostic) |
 | `sensor.nspanel_kitchen_ip` / `..._ssid` / `..._rssi` | WiFi/network info; also read by the editor's Device Manager |
 | `text_sensor.nspanel_kitchen_client_status` | `online` / `offline`, the hub connection state |
+| `sensor.nspanel_kitchen_current_page` | Nextion page name the display shows (see [Page](#page)) |
 | `sensor.nspanel_kitchen_brightness` | Current display brightness (the last value the hub set, 0–100) |
 | `sensor.nspanel_kitchen_temperature` | Internal panel temperature (NTC, °C) |
 

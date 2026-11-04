@@ -108,7 +108,7 @@ def _climate() -> dict[str, Rect]:
             "bSwing": (12, 207, 50, 50),
             # single set-point: up / number / down stacked vertically
             "bUp": (140, 92, 60, 50),
-            "xSet": (70, 146, 200, 112),
+            "xSet": (60, 146, 200, 112),
             "tUnit": (270, 166, 32, 32),
             "bDown": (140, 262, 60, 50),
             # dual set-point: two stacked blocks, up/down to the right

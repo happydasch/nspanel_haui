@@ -48,6 +48,13 @@ and follow [Semantic Versioning](https://semver.org/).
   now fails validation. See
   [ESPHome → Encrypted native OTA](docs/esphome.md#encrypted-native-ota)
   ([#81](https://github.com/happydasch/nspanel_haui/issues/81)).
+- **The Current Page sensor moved to the firmware** — the firmware's
+  **Current Page** text sensor replaces the integration's sensor platform. Its
+  value is still the Nextion page name. Delete the old, now unavailable
+  `sensor.<device>_current_page` entity so the firmware's entity can take that
+  ID (otherwise it becomes `..._2`). The `panel`, `type` and `title` attributes
+  are gone; use the `nspanel_haui.page_changed` event for those. See
+  [Upgrading → Current Page sensor](docs/upgrading.md#13-the-current-page-sensor-moved-to-the-firmware).
 
 ### Added
 

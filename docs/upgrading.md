@@ -372,3 +372,18 @@ older firmware need one wireless install with a migration block, and a
 `password:` on the `ota: platform: esphome` block of your own YAML now fails
 validation. See
 [ESPHome Component → Encrypted native OTA](esphome.md#encrypted-native-ota).
+
+## 13. The Current Page sensor moved to the firmware
+
+The firmware now provides the **Current Page** sensor; the integration's
+sensor platform is gone. The value is still the Nextion page name the display
+shows (`grid`, `weather`, `light`, …), and it no longer turns unavailable while
+the hub is disconnected, because it comes from the display.
+
+- The integration's old sensor stays in the entity registry as unavailable.
+  Delete it under **Settings → Devices & services → Entities**, so the
+  firmware's entity can take `sensor.<device>_current_page`; if the firmware
+  connected first, rename its `..._current_page_2` entity back.
+- The `panel`, `type` and `title` attributes are gone. Automations that read
+  them trigger on the `nspanel_haui.page_changed` event instead, which carries
+  the same fields (see [Services → HA Events](services.md#ha-events-automation-triggers)).

@@ -21,7 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
-PLATFORMS: list[str] = ["notify", "sensor", "update"]
+PLATFORMS: list[str] = ["notify", "update"]
 
 # Config helpers - moved to haui/device_config.py for single source of truth
 from .haui.device_config import (  # noqa: E402

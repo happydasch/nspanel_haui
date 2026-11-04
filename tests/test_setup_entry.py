@@ -124,6 +124,10 @@ def test_idle_hub_still_sets_up_platforms(monkeypatch):
     assert hass.config_entries.forwarded == [nspanel_haui.PLATFORMS]
 
 
+def test_hub_provides_no_sensor_platform():
+    assert "sensor" not in nspanel_haui.PLATFORMS
+
+
 def _registry_update(monkeypatch, app):
     """Run the session-wide registry listener for a HAUI ESPHome device update."""
     # The stubbed core module may be a restricted/wrapping mock that does not

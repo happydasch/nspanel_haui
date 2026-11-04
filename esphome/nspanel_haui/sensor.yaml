@@ -142,6 +142,14 @@ text_sensor:
       disabled_by_default: true
       id: wifi_bssid
 
+  # Current page, by Nextion page name (published by the page sensor below)
+  - platform: template
+    name: Current Page
+    id: current_page
+    icon: mdi:view-dashboard-outline
+    entity_category: diagnostic
+    update_interval: never
+
   # Client Status (ESPHome)
   # Server status (hub_availability) is now set via native API
   # on_client_connected / on_client_disconnected triggers
@@ -188,7 +196,21 @@ sensor:
     on_value:
       then:
         - lambda: |-
-            id(publish_event_native).execute("esphome.page", std::to_string((uint8_t)x));
+            uint8_t page_id = (uint8_t)x;
+            id(publish_event_native).execute("esphome.page", std::to_string(page_id));
+            // Nextion page names by page id; must match the HMI page order
+            // (tests/test_esphome_yaml.py checks it against the hub).
+            static const char *const PAGE_NAMES[] = {
+              "system", "blank", "about", "settings", "notify", "select",
+              "weather", "clock", "clocktwo", "grid", "row", "qr", "timer",
+              "light", "media", "vacuum", "climate", "alarm", "cover",
+            };
+            if (page_id < sizeof(PAGE_NAMES) / sizeof(PAGE_NAMES[0])) {
+              id(current_page).publish_state(PAGE_NAMES[page_id]);
+            } else {
+              ESP_LOGW("haui", "Unknown display page id: %d", page_id);
+              id(current_page).publish_state(std::to_string(page_id));
+            }
 
   # Touch X coordinates
   - platform: nextion

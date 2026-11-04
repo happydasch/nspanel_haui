@@ -212,6 +212,11 @@ replacing the broader v0.4.5 passlist.
 
 **Status: planned.**
 
+- **Portrait HMI page fixes** — use the shared panel preview added in 0.4.5 to
+  reproduce and debug portrait-only page rendering issues, then fix the portrait
+  HMI so every page renders with the intended layout, backgrounds and colors.
+  Keep the landscape/portrait component and geometry parity checks green, and
+  verify the fixes by reviewing the affected pages in the simulator.
 - **Periodic full-brightness flash while the display is dimmed or on the
   idle screen** — the panel periodically jumps to full brightness and then
   fades back to the dim value.  Every reconnect re-flashes it: the hub's

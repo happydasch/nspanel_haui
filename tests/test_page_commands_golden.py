@@ -2,10 +2,10 @@
 
 Each scenario runs a page's full ``set_panel`` lifecycle against a fake app
 and compares the exact commands, service calls and popup requests with
-``wp4_golden.json``.  The golden file was recorded before the page
+``page_commands_golden.json``.  The golden file was recorded before the page
 de-duplication refactor, so it guards that the refactor changes no output.
 
-Regenerate deliberately with ``WP4_REGEN=1 pytest tests/test_wp4_characterization.py``.
+Regenerate deliberately with ``PAGE_COMMANDS_REGEN=1 pytest tests/test_page_commands_golden.py``.
 """
 
 import json
@@ -33,7 +33,7 @@ from nspanel_haui.haui.page.timer import TimerPage
 from nspanel_haui.haui.page.unlock import UnlockPage
 from nspanel_haui.haui.page.vacuum import VacuumPage
 
-GOLDEN = Path(__file__).with_name("wp4_golden.json")
+GOLDEN = Path(__file__).with_name("page_commands_golden.json")
 _RECORDED: dict[str, object] = {}
 
 
@@ -151,13 +151,13 @@ def _sync_service_calls(monkeypatch):
 @pytest.fixture(scope="module", autouse=True)
 def _golden():
     yield
-    if os.environ.get("WP4_REGEN"):
+    if os.environ.get("PAGE_COMMANDS_REGEN"):
         GOLDEN.write_text(json.dumps(_RECORDED, indent=1, sort_keys=True) + "\n")
 
 
 def _check(name, value):
     value = json.loads(json.dumps(value))
-    if os.environ.get("WP4_REGEN"):
+    if os.environ.get("PAGE_COMMANDS_REGEN"):
         _RECORDED[name] = value
         return
     golden = json.loads(GOLDEN.read_text())

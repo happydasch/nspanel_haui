@@ -470,30 +470,11 @@ when deciding how to call it.
 
 ## Current Page Sensor
 
-Each device exposes a **`sensor.<device_name>_current_page`** diagnostic
-sensor whose value is the Nextion page name currently shown on the display
-(e.g. `grid`, `weather`, `popup_light`, `clock`).  It is updated by the hub's
-`nspanel_haui.page_changed` events, so no polling is needed; when the panel
-device goes offline the sensor becomes unavailable and returns when the
-connection is restored.
-
-Attributes carry the panel context for automation templates:
-
-| Attribute | Meaning |
-|-----------|---------|
-| `panel` | Panel key of the shown panel (empty for system popups) |
-| `type` | Panel type (e.g. `grid`) |
-| `title` | Panel display title |
-
-**Example automation trigger (page changed):**
-
-```yaml
-trigger:
-  - platform: state
-    entity_id: sensor.nspanel_kitchen_current_page
-```
-
-The entity is only created once the device is linked to its ESPHome device.
+The firmware provides the **Current Page** sensor
+(`sensor.<device_name>_current_page`), see
+[ESPHome Component → Page](esphome.md#page). For the panel key, type and
+title of the shown panel, trigger on the
+[`nspanel_haui.page_changed`](#ha-events-automation-triggers) event instead.
 
 ---
 

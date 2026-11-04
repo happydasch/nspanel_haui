@@ -13,13 +13,15 @@ import {
   applyPreviewState,
   substituteColors,
   buildPreviewDisplay,
-  buildIconCharMap,
   loadPreviewState,
   previewStateFor,
+  resolvePageId,
+} from '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
+import {
+  buildIconCharMap,
   loadIconMap,
   loadLayout,
   renderSimulatorScreen,
-  resolvePageId,
 } from '../../custom_components/nspanel_haui/frontend/previews/simulator.js';
 
 const ICON_MAP = JSON.parse(readFileSync(
@@ -178,6 +180,164 @@ test('a page without snapshot falls back to representative seeding', () => {
     type: 'grid', items: [{ item: 'light.a', name: 'Lamp', icon: 'mdi:lightbulb' }],
   }, null, { host: {}, byName: BY_NAME, state: {} });
   assert.equal(d.component('g1Name').attrs.txt, 'Lamp');
+});
+
+test('configured climate, cover and light states overlay snapshots and fallback seeds', () => {
+  const warnings = [];
+  const host = {
+    hass: {
+      states: {
+        'climate.office': {
+          state: 'heat',
+          attributes: {
+            current_temperature: 20.5,
+            temperature: 22,
+            temperature_unit: '°C',
+            hvac_modes: ['off', 'heat'],
+          },
+        },
+        'cover.blind': {
+          state: 'opening',
+          attributes: { current_position: 40, supported_features: 15 },
+        },
+        'light.desk': {
+          state: 'on',
+          attributes: {
+            brightness: 128,
+            supported_color_modes: ['brightness', 'color_temp'],
+            min_color_temp_kelvin: 200,
+            max_color_temp_kelvin: 500,
+            color_temp_kelvin: 320,
+          },
+        },
+      },
+    },
+  };
+  const build = (id, type, panel) => buildPreviewDisplay(
+    layout('landscape'), id, { type, ...panel }, null,
+    { state: {}, host, byName: BY_NAME, onWarn: (message) => warnings.push(message) },
+  );
+
+  const climate = build(16, 'climate', { item: 'climate.office' });
+  assert.equal(climate.component('tTemp').attrs.txt, '20.5°C');
+  assert.equal(climate.component('xSet').attrs.val, 220);
+  assert.equal(climate.component('xSet1').hidden, true);
+  assert.equal(climate.component('btMode2').attrs.val, 1);
+  assert.equal(climate.component('btMode3').hidden, true);
+
+  const cover = build(18, 'cover', { item: 'cover.blind' });
+  assert.equal(cover.component('hVertPos').attrs.val, 40);
+  assert.equal(cover.component('tInfo').attrs.txt, '40%');
+  assert.equal(cover.component('bStop').hidden, false);
+
+  const light = build(13, 'light', { item: 'light.desk' });
+  assert.equal(light.component('hBrightness').attrs.val, 50);
+  assert.equal(light.component('hBrightness').hidden, false);
+  assert.equal(light.component('hColorTemp').hidden, true, 'only the default brightness control is active');
+  assert.equal(light.component('tInfo').attrs.txt, '50%');
+  assert.deepEqual(warnings, []);
+});
+
+test('weather options and configured sensors replace sample content', () => {
+  const d = buildPreviewDisplay(layout('landscape'), 6, {
+    type: 'weather',
+    item: 'weather.home',
+    inside_temp_item: 'sensor.inside',
+    show_home_temp: true,
+    show_weather: false,
+    show_temp: false,
+    forecast_type: '',
+    info_items: [{ item: 'sensor.humidity', name: 'Humidity', icon: 'mdi:water-percent' }],
+  }, null, {
+    state: PREVIEW_STATE,
+    byName: BY_NAME,
+    host: {
+      hass: {
+        states: {
+          'weather.home': {
+            state: 'sunny',
+            attributes: { temperature: 21, temperature_unit: '°C', pressure: 1012, pressure_unit: 'hPa' },
+          },
+          'sensor.inside': { state: '18' },
+          'sensor.humidity': { state: '45' },
+        },
+      },
+    },
+  });
+  assert.equal(d.component('tMainIcon').hidden, true);
+  assert.equal(d.component('tMainText').hidden, true);
+  assert.equal(d.component('tSubText').hidden, true);
+  assert.equal(d.component('f1Name').hidden, true);
+  assert.equal(d.component('d1Val').attrs.txt, '45');
+  assert.equal(d.component('tMainText').attrs.txt, '18°C  21°C');
+});
+
+test('alarm options style the keypad and hide configured arm modes', () => {
+  const d = buildPreviewDisplay(layout('landscape'), 17, {
+    type: 'alarm',
+    item: 'alarm_control_panel.home',
+    keypad_font: 3,
+    keypad_bg_color: '#ff0000',
+    keypad_text_color: '#00ff00',
+    hidden_arm_modes: ['away'],
+    arm_button_color: '#0000ff',
+  }, null, {
+    state: PREVIEW_STATE,
+    host: {
+      hass: {
+        states: {
+          'alarm_control_panel.home': { state: 'disarmed', attributes: { supported_features: 7 } },
+        },
+      },
+    },
+  });
+  assert.equal(d.component('bKey1').attrs.font, 3);
+  assert.equal(d.component('bKey1').attrs.bco, 63488);
+  assert.equal(d.component('bKey1').attrs.pco, 2016);
+  assert.equal(d.component('tTitle').attrs.txt, 'disarmed');
+  assert.equal(d.component('b1Fnc').attrs.txt, 'Home');
+  assert.equal(d.component('b2Fnc').attrs.txt, 'Night');
+  assert.equal(d.component('b3Fnc').hidden, true);
+  assert.equal(d.component('b1Fnc').attrs.pco, 31);
+});
+
+test('select popup uses its invocation items and selection, not the snapshot sample', () => {
+  const d = buildPreviewDisplay(layout('landscape'), 5, {
+    type: 'select',
+    title: 'Choose mode',
+    select_mode: 'full',
+    multiple: false,
+    selected: 'heat',
+    items: [
+      { value: 'heat', name: 'Heating' },
+      { value: 'cool', name: 'Cooling' },
+    ],
+  }, null, { state: PREVIEW_STATE, host: {} });
+  assert.equal(d.component('tTitle').attrs.txt, 'Choose mode');
+  assert.equal(d.component('bSelFull1').attrs.txt, 'Heating');
+  assert.equal(d.component('bSelFull1').attrs.pco, 62694);
+  assert.equal(d.component('bSelFull2').attrs.txt, 'Cooling');
+  assert.equal(d.component('bSelFull2').attrs.pco, 19773);
+  assert.equal(d.component('bSelFull3').hidden, true);
+  assert.equal(d.component('bSel1').hidden, true);
+
+  const sample = buildPreviewDisplay(layout('landscape'), 5, { type: 'select' }, null, {
+    state: PREVIEW_STATE, host: {},
+  });
+  assert.ok(!sample.component('bSelFull1').hidden || !sample.component('bSel1').hidden);
+});
+
+test('clocktwo panel colors and notification visibility overlay the snapshot', () => {
+  const d = buildPreviewDisplay(layout('landscape'), 8, {
+    type: 'clocktwo',
+    off_color: '#000000',
+    letter_color: '#ff0000',
+    special_color: '#00ff00',
+    show_notifications: false,
+  }, null, { state: PREVIEW_STATE, host: {} });
+  assert.equal(d.component('l1').attrs.pco, 63488);
+  assert.equal(d.component('s1').attrs.pco, 2016);
+  assert.equal(d.component('tNotif').hidden, true);
 });
 
 test('previewStateFor resolves entries by page id and applyPreviewState reports misses', () => {
@@ -354,11 +514,131 @@ test('clock entity buttons show the configured items', () => {
   }
 });
 
-test('the qr page encodes the configured Wi-Fi credentials', () => {
+test('the QR page shows configured credentials in small mode by default', () => {
   const d = buildPreviewDisplay(layout('landscape'), 11, {
     type: 'qr', essid: 'HomeNet', password: 'secret',
-  }, null, { state: PREVIEW_STATE, host: {} });
-  assert.equal(d.component('qrCode').attrs.txt, 'WIFI:S:HomeNet;T:WPA;P:secret;;');
+  }, null, { state: PREVIEW_STATE, host: {}, byName: BY_NAME });
+  const code = 'WIFI:S:HomeNet;T:WPA;P:secret;;';
+  assert.equal(d.component('qrCode').attrs.txt, code);
+  assert.equal(d.component('qrCodeBig').attrs.txt, code);
+  assert.equal(d.component('qrCode').hidden, false);
+  assert.equal(d.component('qrCodeBig').hidden, true);
+  for (const name of ['q1Icon', 'q1Title', 'q1Text', 'q1TextAdd', 'q2Icon', 'q2Title', 'q2Text', 'q2TextAdd']) {
+    assert.equal(d.component(name).hidden, false, `${name} visible in small mode`);
+  }
+  assert.equal(d.component('q1Text').attrs.txt, 'HomeNet');
+  assert.equal(d.component('q2Text').attrs.txt, 'secret');
+});
+
+test('the QR page honors start_big_qr and hides detail widgets', () => {
+  const d = buildPreviewDisplay(layout('landscape'), 11, {
+    type: 'qr', essid: 'HomeNet', password: 'secret', start_big_qr: true,
+  }, null, { state: PREVIEW_STATE, host: {}, byName: BY_NAME });
+  const code = 'WIFI:S:HomeNet;T:WPA;P:secret;;';
+  assert.equal(d.component('qrCode').attrs.txt, code);
+  assert.equal(d.component('qrCodeBig').attrs.txt, code);
+  assert.equal(d.component('qrCode').hidden, true);
+  assert.equal(d.component('qrCodeBig').hidden, false);
+  for (const name of ['q1Icon', 'q1Title', 'q1Text', 'q1TextAdd', 'q2Icon', 'q2Title', 'q2Text', 'q2TextAdd']) {
+    assert.equal(d.component(name).hidden, true, `${name} hidden in big mode`);
+  }
+});
+
+test('QR detail widgets stay hidden when show_info is disabled', () => {
+  const d = buildPreviewDisplay(layout('landscape'), 11, {
+    type: 'qr', essid: 'HomeNet', show_info: false,
+  }, null, { state: PREVIEW_STATE, host: {}, byName: BY_NAME });
+  assert.equal(d.component('qrCode').hidden, false);
+  for (const name of ['q1Icon', 'q1Title', 'q1Text', 'q1TextAdd', 'q2Icon', 'q2Title', 'q2Text', 'q2TextAdd']) {
+    assert.equal(d.component(name).hidden, true, `${name} hidden when show_info is false`);
+  }
+});
+
+test('QR header icons follow the configured navigation mode', () => {
+  const navigable = {
+    type: 'qr', key: 'wifi', show_in_navigation: true, essid: 'HomeNet',
+  };
+  const navHost = {
+    _deviceConfig: {},
+    _devicePanels: () => [navigable, { type: 'grid', key: 'rooms' }],
+  };
+  const nav = buildPreviewDisplay(layout('landscape'), 11, navigable, null, {
+    state: PREVIEW_STATE, host: navHost, byName: BY_NAME,
+  });
+  assert.equal(ICON_MAP[nav.component('bFncLPri').attrs.txt], 'chevron-left');
+  assert.equal(ICON_MAP[nav.component('bFncRPri').attrs.txt], 'chevron-right');
+  assert.equal(nav.component('bFncLPri').hidden, false);
+  assert.equal(nav.component('bFncRPri').hidden, false);
+
+  const nonNavigable = { ...navigable, show_in_navigation: false };
+  const nonNavHost = {
+    _deviceConfig: {},
+    _devicePanels: () => [nonNavigable, { key: 'rooms' }, { key: 'weather' }],
+  };
+  const nonNav = buildPreviewDisplay(layout('landscape'), 11, nonNavigable, null, {
+    state: PREVIEW_STATE, host: nonNavHost, byName: BY_NAME,
+  });
+  assert.equal(ICON_MAP[nonNav.component('bFncLPri').attrs.txt], 'chevron-up');
+  assert.equal(ICON_MAP[nonNav.component('bFncRPri').attrs.txt], 'close');
+  assert.equal(nonNav.component('bFncLPri').hidden, false);
+  assert.equal(nonNav.component('bFncRPri').hidden, false);
+});
+
+test('the big QR zoom button keeps the header accent color', () => {
+  const panel = { type: 'qr', key: 'wifi', start_big_qr: true, essid: 'HomeNet' };
+  const host = {
+    _deviceConfig: { color_overrides: { component_text: 63488, header_text: 65535, header_accent: 2016 } },
+    _devicePanels: () => [panel, { key: 'rooms' }],
+  };
+  const d = buildPreviewDisplay(layout('landscape'), 11, panel, null, {
+    state: PREVIEW_STATE, host, byName: BY_NAME,
+  });
+  assert.equal(ICON_MAP[d.component('bFncRSec').attrs.txt], 'loupe');
+  assert.equal(d.component('bFncRSec').attrs.pco, 2016);
+});
+
+test('a single navigation panel promotes secondary actions into primary slots', () => {
+  const panel = { type: 'qr', key: 'wifi', show_in_navigation: true, essid: 'HomeNet' };
+  const host = { _deviceConfig: {}, _devicePanels: () => [panel] };
+  const d = buildPreviewDisplay(layout('landscape'), 11, panel, null, {
+    state: PREVIEW_STATE, host, byName: BY_NAME,
+  });
+  assert.equal(ICON_MAP[d.component('bFncRPri').attrs.txt], 'loupe');
+  assert.equal(d.component('bFncRPri').hidden, false);
+  assert.equal(d.component('bFncRSec').hidden, true);
+  assert.equal(d.component('bFncLPri').hidden, true);
+  assert.equal(d.component('bFncLSec').hidden, true);
+});
+
+test('popup-capable pages and paginated grids use their configured header slots', () => {
+  const lightPanel = {
+    type: 'light', key: 'desk', show_in_navigation: true, show_home_button: true,
+  };
+  const lightHost = {
+    _deviceConfig: {},
+    _devicePanels: () => [lightPanel, { key: 'rooms' }],
+  };
+  const light = buildPreviewDisplay(layout('landscape'), 13, lightPanel, {
+    type_key: 'light', can_show_popup: true,
+  }, { state: PREVIEW_STATE, host: lightHost, byName: BY_NAME });
+  assert.equal(ICON_MAP[light.component('bFncLPri').attrs.txt], 'home-outline');
+  assert.equal(light.component('bFncLPri').hidden, false);
+  assert.equal(light.component('bFncLSec').hidden, true);
+
+  const gridPanel = {
+    type: 'grid', key: 'rooms', show_in_navigation: true,
+    items: Array.from({ length: 7 }, (_, i) => ({ item: `light.room_${i}`, name: `Room ${i}` })),
+  };
+  const gridHost = {
+    _deviceConfig: {},
+    _devicePanels: () => [gridPanel, { key: 'wifi' }],
+  };
+  const grid = buildPreviewDisplay(layout('landscape'), 9, gridPanel, null, {
+    state: PREVIEW_STATE, host: gridHost, byName: BY_NAME,
+  });
+  assert.equal(ICON_MAP[grid.component('bFncRPri').attrs.txt], 'chevron-right');
+  assert.equal(ICON_MAP[grid.component('bFncRSec').attrs.txt], 'chevron-double-down');
+  assert.equal(grid.component('bFncRSec').hidden, false);
 });
 
 test('media source buttons show the configured items', () => {

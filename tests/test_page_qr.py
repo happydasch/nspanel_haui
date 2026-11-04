@@ -28,6 +28,22 @@ def _render(config, items):
     return page
 
 
+def test_big_qr_zoom_button_uses_header_accent_color() -> None:
+    page = QRPage.__new__(QRPage)
+    colors = {"component_text": 123, "header_accent": 456}
+    updates = []
+    page._is_big = True
+    page._has_text = False
+    page.hide_component = lambda component: None
+    page.show_component = lambda component: None
+    page.get_color = lambda key: colors[key]
+    page.update_function_component = lambda fnc_id, **kwargs: updates.append((fnc_id, kwargs))
+
+    page._apply_zoom_state()
+
+    assert updates == [(page.FNC_BTN_R_SEC, {"visible": True, "color": colors["header_accent"]})]
+
+
 def test_configured_items_replace_network_text():
     """Show network info applies only when no custom items are configured."""
     assert _render({"show_info": True}, ["item"]).rendered == ["items"]

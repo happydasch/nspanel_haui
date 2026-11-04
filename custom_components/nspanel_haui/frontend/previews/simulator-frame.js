@@ -1,6 +1,6 @@
 /**
  * NSPanel HAUI - Lit element that renders a full HMI page preview via the
- * shared Nextion simulator (previews/simulator.js).
+ * shared Nextion simulator and preview generator.
  *
  * Used as the default panel-card preview renderer for every panel type,
  * system panel and popup alias. It asynchronously loads the layout + icon-map
@@ -16,13 +16,15 @@ import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
 import { colorSubstitutions, isPortraitDevice } from './utils.js';
 import {
   buildPreviewDisplay,
+  loadPreviewState,
+  resolvePageId,
+} from './previewer.js';
+import {
   buildIconCharMap,
   loadIconMap,
   loadLayout,
-  loadPreviewState,
   pictureUrlFor,
   renderSimulatorScreen,
-  resolvePageId,
 } from './simulator.js';
 
 /** Fallback card width (px) used until the container is measured. */

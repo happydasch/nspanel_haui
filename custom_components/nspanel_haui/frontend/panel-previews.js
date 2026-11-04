@@ -3,7 +3,8 @@
  *
  * One shared renderer draws every panel-card preview (user panels, system
  * panels and popup aliases, in both orientations): the Nextion simulator
- * (`previews/simulator-frame.js`). It loads the real virtual-panel layout and
+ * frame and preview generator (`previews/simulator-frame.js` and
+ * `previews/previewer.js`). It loads the real virtual-panel layout and
  * icon-map assets, jumps to the panel type's physical HMI page, replays the
  * hub's own display output, overlays the configured panel's content and renders
  * the whole page scaled to the card.

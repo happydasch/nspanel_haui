@@ -424,6 +424,24 @@ def _next_page_id(page):
 
 
 @pytest.mark.parametrize("cls", [RowPage, GridPage])
+def test_row_and_grid_reopen_at_first_page(cls):
+    entities = _items()
+    keys = list(entities)
+    app = _App(entities)
+    page = cls(app, {"page_id": cls.DESCRIPTOR.page_id})
+    panel = HAUIPanel(app, {"type": cls.DESCRIPTOR.type_key, "items": _entries(keys)})
+    page.set_panel(panel)
+
+    page.callback_function_component(_next_page_id(page), "next_page")
+    assert page._current_page == 1
+    assert panel.get_state("current_page") == 1
+
+    page.set_panel(panel)
+    assert page._current_page == 0
+    assert panel.get_state("current_page") == 0
+
+
+@pytest.mark.parametrize("cls", [RowPage, GridPage])
 def test_row_and_grid_paging(cls):
     entities = _items()
     keys = list(entities)

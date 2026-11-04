@@ -10,6 +10,9 @@ esp32:
     type: esp-idf
     advanced:
       minimum_chip_revision: "3.0"
+      # The NSPanel's flash runs on ESP-IDF's generic driver (the boot log names
+      # it); dropping the unused vendor drivers frees their IRAM.
+      flash_chip: generic
 
 
 # ESPHome Configuration

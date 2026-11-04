@@ -139,6 +139,11 @@ The next run derives the next dev version from that
 `X.Y.Z.devN`: it keeps the same `X.Y.Z` base (no stable `X.Y.Z` has shipped yet)
 and only advances the run number, and jumps to `X.Y.(Z+1).devN` again once the
 master merge-back has returned `dev` to a stable manifest.
+The tag push is retried a few times, because a GitHub Git Operations incident
+can reject it (`remote: fatal error in commit_refs`) after the version commit
+already reached `dev`. If it still fails, `dev` carries a version that has no
+release. Nothing needs repairing: the next push to `dev` builds and publishes the
+next run number.
 
 HACS reads release tags as *available* versions and the installed copy's manifest
 `version` as the *installed* one, so it can order dev releases and only offers a

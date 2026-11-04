@@ -236,7 +236,21 @@ jobs:
           # --force keeps a re-run of the same build idempotent: a re-run keeps
           # the run number and commit, so the tag can only be replaced by an
           # equivalent one.
-          git push --force origin "refs/tags/${DEV_VERSION}"
+          #
+          # Retried because GitHub Git Operations incidents reject ref updates
+          # intermittently ("remote: fatal error in commit_refs", 0.4.5.dev18):
+          # by now the build is done and dev already carries the version, so a
+          # single rejection would leave dev on a version that has no release.
+          attempt=1
+          until git push --force origin "refs/tags/${DEV_VERSION}"; do
+            if [ "$attempt" -ge 5 ]; then
+              echo "Tag push failed ${attempt} times; giving up" >&2
+              exit 1
+            fi
+            echo "Tag push failed (attempt ${attempt}); retrying in $((attempt * 30))s"
+            sleep $((attempt * 30))
+            attempt=$((attempt + 1))
+          done
 
       - name: Publish versioned development prerelease
         uses: softprops/action-gh-release@v2

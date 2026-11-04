@@ -141,9 +141,7 @@ def write_pngs(renders: dict[str, dict[str, Any]], chrome: str, url: str, target
     jobs = []
     for orientation, cards in renders.items():
         layout_path = (
-            ROOT
-            / "custom_components/nspanel_haui/frontend/virtual"
-            / f"layout_{orientation}.json"
+            ROOT / "custom_components/nspanel_haui/frontend/virtual" / f"layout_{orientation}.json"
         )
         layout = json.loads(layout_path.read_text(encoding="utf-8"))
         jobs.extend(
@@ -236,9 +234,7 @@ def write_screens_page(renders: dict[str, dict[str, Any]], path: Path) -> None:
     sections = []
     for orientation, cards in renders.items():
         layout_path = (
-            ROOT
-            / "custom_components/nspanel_haui/frontend/virtual"
-            / f"layout_{orientation}.json"
+            ROOT / "custom_components/nspanel_haui/frontend/virtual" / f"layout_{orientation}.json"
         )
         layout = json.loads(layout_path.read_text(encoding="utf-8"))
         width, height = layout["visible_width"], layout["height"]

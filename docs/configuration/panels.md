@@ -55,8 +55,9 @@ The only difference is the header buttons the hub fills in automatically:
 
 ### System Panel Overrides
 
-The **System Panels** section of the editor lists the built-in panels. Only the
-popups (`popup_*`) can be edited: **Edit** saves a panel under the popup's key
+The editor lists the fixed built-in panels in the **System Panels** section and
+the editable popups (`popup_*`) in the **Popups** section. Only the popups can
+be edited: **Edit** saves a panel under the popup's key
 that replaces the built-in one on this device; it is marked **Edited**, and
 **Reset to default** deletes it and brings the built-in popup back. **System**,
 **Blank**, **Settings** and **About** are fixed and shown read-only; the hub

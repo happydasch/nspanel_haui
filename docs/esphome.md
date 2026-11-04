@@ -56,12 +56,57 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 
 - `heartbeat_interval` (5)
 - `name` (nspanel-haui)
-- `ota_password` (!secret ota_password)
-- `api_encryption_key` (!secret api_encryption_key)
+- `api_encryption_key` (!secret api_encryption_key; also encrypts native OTA, see below)
 - `wifi_ssid` (!secret wifi_ssid)
 - `wifi_password` (!secret wifi_password)
 - `ap_password` (!secret ap_password)
 - `tft_update_url` (default TFT URL of the display component, which enables TFT upload support; the hub always sends the URL of the TFT it installs)
+
+### Encrypted native OTA
+
+Wireless installs from ESPHome (the dashboard's **Install → Wirelessly**,
+`esphome run`, `esphome upload`) go through the native OTA platform. It is
+encrypted with the device's API key: `base.yaml` sets a bare `encryption:`
+block, which inherits `api_encryption_key`. There is no OTA password; next to
+an API key ESPHome warns that one "wastes significant flash and RAM".
+
+Nothing else changes. The `on_begin` hook that suspends device activities still
+runs before every OTA, and the separate `http_request` OTA platform, which the
+hub's **HAUI Firmware** entity installs through, stays as it is. Wired flashing
+and the hub's firmware updates do not use the native OTA platform at all.
+
+**Panels flashed with the password config.** The next wireless install depends
+on the firmware the panel runs:
+
+| Panel firmware | Next wireless install |
+|----------------|-----------------------|
+| Built with ESPHome 2026.9 or later (every HAUI 0.4 release) | Nothing to do. That firmware already offers encryption with the API key and skips the password prompt for an encrypted upload. |
+| Built with an older ESPHome (HAUI 0.3.x and earlier) | The upload stops with "the device did not offer encryption; refusing to send the image in plaintext". Install once with the migration block below. |
+
+For that one install, add the migration block to your device YAML (the file
+that includes `nspanel_haui.yaml` as a package), with the password the panel
+was flashed with:
+
+```yaml
+ota:
+  - platform: esphome
+    password: !secret ota_password
+    encryption:
+      allow_plaintext_upload: true
+```
+
+ESPHome merges it into the package's OTA block and logs "Found and merged
+multiple configurations for ota platform esphome". The upload answers the old
+firmware's password prompt in plaintext; the new firmware has no password and
+accepts encrypted uploads only. **Delete the block after the install.** Left in
+place, `allow_plaintext_upload` lets someone on the network downgrade a later
+upload to plaintext.
+
+**Leftovers.** An `ota_password` substitution or secret in your device YAML is
+no longer used and can be deleted. A `password:` you added to the
+`ota: platform: esphome` block of your own YAML now fails validation ("'password'
+cannot be combined with 'encryption'"): remove it, or keep it only together
+with `allow_plaintext_upload` for the migration install.
 
 ### Web server (optional)
 
@@ -84,6 +129,10 @@ web_server:
 Then flash that build. `esphome/nspanel_haui_dev.yaml` enables the web server
 for local development and reads `web_username` / `web_password` from
 `secrets.yaml`.
+
+The web UI's firmware upload (`/update`) is plain HTTP and not covered by
+[OTA encryption](#encrypted-native-ota); ESPHome warns about it when it builds.
+Add `ota: false` to the `web_server:` block to turn that upload off.
 
 ## Communication
 

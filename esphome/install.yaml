@@ -10,7 +10,7 @@ substitutions:
 
 
   # Accounts and Passwords
-  ota_password: !secret ota_password
+  # The api key also encrypts native OTA uploads; there is no OTA password
   api_encryption_key: !secret api_encryption_key
   # The ESPHome web server is optional and disabled by default (see
   # nspanel_haui/base.yaml). To enable it, uncomment the web_server block at

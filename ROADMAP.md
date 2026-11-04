@@ -133,10 +133,13 @@ their installed TFT.
 [0.4.5 changelog](CHANGELOG.md#045--unreleased) for the full list. It includes
 the live panel preview in the editor ([#85](https://github.com/happydasch/nspanel_haui/pull/85),
 [#86](https://github.com/happydasch/nspanel_haui/pull/86)) with its **Show
-entities** tooltip, relay-switching hardware buttons and idle highlight, plus
-**Long press to go back**, Day/Night Profiles, the inside-temperature sensor
-picker, notification line breaks and auto-dismiss timeout, the firmware-to-
-integration update move, alarm action-button options and versioned dev releases.
+entities** tooltip, relay-switching hardware buttons, idle highlight and
+**Reset sandbox**, plus **Panel cards drawn by the hub** (every card replays the
+hub's own render), **Every popup can be edited**, **Long press to go back**,
+Day/Night Profiles, the inside-temperature sensor picker, notification line
+breaks, auto-dismiss timeout and the notification text/icon/paging fixes, the
+firmware-to-integration update move, alarm action-button options and versioned
+dev releases.
 
 The following items remain before the 0.4.x install gate can close:
 
@@ -152,27 +155,26 @@ The following items remain before the 0.4.x install gate can close:
   present on the published release and keep them in git through 0.5.
 - Investigate the old-bootloader OTA rollback warning; rollback capability is
   not confirmed and unattended updates should not be treated as rollback-safe.
-- **Encrypted native OTA** (issue #81) — replace the `ota` `password` in
-  `esphome/nspanel_haui/base.yaml` with `encryption` keyed by the existing
-  `api_encryption_key`, so builds no longer warn that a password wastes flash
-  and RAM. Preserve the `on_begin` suspend hook and the separate
-  `http_request` OTA platform that the firmware auto-update action uses.
-  Update the surrounding configs (`install.yaml`, dev/universal variants,
-  `secrets.yaml.example`) and document the migration for panels already flashed
-  with the password-protected config, plus the ESPHome docs.
+- **Encrypted native OTA** (issue #81) — implemented on `dev`: native OTA is
+  encrypted with `api_encryption_key` instead of a password, and the migration
+  is documented in [ESPHome → Encrypted native OTA](docs/esphome.md#encrypted-native-ota).
+  Remaining: one wireless ESPHome install onto a panel that runs a 0.4
+  password build, to confirm on hardware that the encrypted upload needs no
+  migration step.
 - Issue #50 (notification enhancements) stays documentation-only: notification
   behavior is tracked and verified on both display models during this pass; no
   font-size or other notification implementation is planned.
 
 **Update-flow and notification polish (reported on hardware during this pass):**
 
-- Notifications — when an update is available the message shows as a lot of
-  pages of split/chunked text with no complete text; show the full text
-  instead of fragmented pages.
-- Notifications — icon-less notifications should use the whole notification
-  space (currently they do not fill the area meant for an icon).
+- Notifications — full text instead of fragmented pages: **done on dev** (text
+  is wrapped with the display fonts' real glyph widths and the automatic size
+  fits the message on one page).
+- Notifications — icon-less notifications use the whole notification space:
+  **done on dev** (no severity default icon; the message fills the full-width
+  box).
 - Update — notify only once per available update and do not pester/overload
-  the display with repeated update notifications.
+  the display with repeated update notifications. *Still open.*
 
 - **ESPHome vs. HAUI sensor ownership review** — inventory the ESPHome sensor
   entities and HAUI sensor platform, then make the boundary explicit:

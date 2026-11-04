@@ -37,12 +37,12 @@ With the prepared and connected device it is now possible to install ESPHome on 
 
 1. **Get the config**: Use [`esphome/install.yaml`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/install.yaml) as a starting point. Copy its content into the ESPHome dashboard and adjust the values.
 
-2. **Create a new device**: In the ESPHome dashboard, create a new device. Set the device name to your chosen hostname (default: `nspanel-haui`). Store the generated OTA password and API encryption key.
+2. **Create a new device**: In the ESPHome dashboard, create a new device. Set the device name to your chosen hostname (default: `nspanel-haui`). Store the generated API encryption key; it also encrypts wireless installs, so the firmware uses no OTA password (see [Encrypted native OTA](esphome.md#encrypted-native-ota)).
 
 3. **Edit configuration**: Replace the generated config with the content of `install.yaml`. Only the substitution values need editing:
    - `name` — host and device name
    - `wifi_ssid` / `wifi_password` — Wi-Fi credentials
-   - `ota_password` / `api_encryption_key` — from step 2
+   - `api_encryption_key` — from step 2
    - `ap_password` — fallback access point password
 
    This build reports itself as a **custom** firmware variant (see
@@ -92,9 +92,9 @@ US/portrait panels, with Wi-Fi left to you at first boot:
   appends the last six MAC digits at runtime, so each panel gets a unique
   hostname, mDNS name and setup access point — no per-device YAML edit or local
   ESPHome build.  Repeat the five steps for every panel.
-- The baked API key and OTA password are documented and public.  If you don't
-  want LAN peers to reflash the panel, use the per-device YAML build with your
-  own secrets instead.
+- The baked API key is documented and public, and it also authenticates
+  wireless ESPHome installs.  If you don't want LAN peers to reflash the panel,
+  use the per-device YAML build with your own secrets instead.
 - The universal image does **not** run the ESPHome web server (see
   [Web server (optional)](esphome.md#web-server-optional)). Build your own YAML
   from `esphome/install.yaml` if you want the web UI.

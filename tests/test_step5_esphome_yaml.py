@@ -115,6 +115,28 @@ def test_buzzer_is_silenced_before_every_main_loop_stall():
     assert upload.index("script.execute: suspend_activities") < upload.index("upload_tft()")
 
 
+def test_native_ota_is_encrypted_with_the_api_key():
+    """ESPHome warns that an OTA password next to an api key wastes flash and
+    RAM (#81).  A bare ``encryption:`` inherits ``api_encryption_key``.
+    """
+    import yaml
+
+    base = yaml.safe_load(_read("base.yaml"))
+    native = next(ota for ota in base["ota"] if ota["platform"] == "esphome")
+    assert "encryption" in native and native["encryption"] is None
+    assert "password" not in native
+
+    configs = (
+        "install.yaml",
+        "nspanel_haui.yaml",
+        "nspanel_haui_dev.yaml",
+        "nspanel_haui_universal.yaml",
+        "secrets.yaml.example",
+    )
+    for config in configs:
+        assert "ota_password" not in (ROOT.parent / config).read_text(), config
+
+
 def test_optional_debug_diagnostics_are_dev_only():
     """Production packages avoid exposing troubleshooting sensors by default."""
     import yaml

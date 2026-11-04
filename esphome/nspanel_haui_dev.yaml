@@ -14,7 +14,7 @@ substitutions:
   name: nspanel-haui  # this name is also used for hostname
 
   # Accounts and Passwords
-  ota_password: !secret ota_password
+  # The api key also encrypts native OTA uploads (base.yaml)
   api_encryption_key: !secret api_encryption_key
   web_username: !secret web_username
   web_password: !secret web_password

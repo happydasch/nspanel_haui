@@ -3,7 +3,7 @@ import './dom-shim.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { renderPanelTable } from '../../custom_components/nspanel_haui/frontend/panel-table.js';
+import { renderPanelTable, renderSystemPanels } from '../../custom_components/nspanel_haui/frontend/panel-table.js';
 import { renderPanelGrid } from '../../custom_components/nspanel_haui/frontend/panel-grid.js';
 import { makeHost } from './fake-host.mjs';
 
@@ -25,6 +25,23 @@ function hostFor(panels, extra = {}) {
 
 const summaries = (out) => [...out.matchAll(/<summary class="group-title">([^<]*)<\/summary>/g)].map((m) => m[1]);
 const open = (out) => [...out.matchAll(/<details class="panel-group" \?open=(\S*)/g)].map((m) => m[1]);
+
+test('system panels and popups are listed in separate groups', () => {
+  const host = hostFor([], {
+    _panels: {
+      devices: { kitchen: { config: {}, panels: [] } },
+      system_panels: [
+        { key: 'sys_settings', label: 'Settings', editable: false },
+        { key: 'popup_cover', label: 'Cover', editable: true },
+        { key: 'popup_notify', label: 'Notification', editable: true },
+      ],
+    },
+    __systemPanelsOpen: false,
+    __popupPanelsOpen: true,
+  });
+  const out = flat(renderSystemPanels(host, 'list'));
+  assert.deepEqual(summaries(out), ['System Panels (1 panels)', 'Popups (2 panels)']);
+});
 
 for (const [name, render] of [['table', renderPanelTable], ['grid', renderPanelGrid]]) {
   test(`${name} view lists navigation and non-navigation groups with counts`, () => {

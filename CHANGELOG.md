@@ -37,6 +37,17 @@ and follow [Semantic Versioning](https://semver.org/).
   the new release once by hand (ESPHome or **Install firmware → From URL**),
   then the hub can update them again. The release manifest carries
   `"variant": "universal"`, the device state `firmware_variant`.
+- **Native OTA is encrypted with the API key** — the `ota: platform: esphome`
+  block uses `encryption:` (inheriting `api_encryption_key`) instead of
+  `password: $ota_password`, so builds no longer warn that the password wastes
+  flash and RAM; the `ota_password` substitution and secret are gone. The
+  `on_begin` suspend hook and the `http_request` OTA platform are unchanged.
+  Firmware built with ESPHome 2026.9 or later (every 0.4 release) already
+  accepts the encrypted upload; older firmware needs one install with
+  `allow_plaintext_upload`, and a `password:` on the OTA block of your own YAML
+  now fails validation. See
+  [ESPHome → Encrypted native OTA](docs/esphome.md#encrypted-native-ota)
+  ([#81](https://github.com/happydasch/nspanel_haui/issues/81)).
 
 ### Added
 
@@ -102,6 +113,9 @@ and follow [Semantic Versioning](https://semver.org/).
   the mouse. The preview fires no events for automations and never installs
   updates. A device has one virtual copy, shared by its open previews and its
   panel cards; it follows every save.
+- **Reset sandbox** — the live preview's **Reset sandbox** button restores every
+  simulated entity to its starting state without leaving sandbox mode, so a
+  preview can be replayed from the beginning.
 - **Panel cards drawn by the hub** — every panel card (user panels, system
   panels, popup aliases, landscape and portrait) shows its panel exactly as the
   device does: the hub renders the panel and the card replays the hub's
@@ -200,6 +214,16 @@ and follow [Semantic Versioning](https://semver.org/).
   cannot compare an offered version, so an incomparable manifest `version`
   would surface as an update on every check. It is now reported as unknown
   (no update) instead.
+- **TFT updates no longer infer the required version from the firmware** — a
+  firmware that did not report `tft_required_version` was treated as requiring
+  its own `yaml_version`, so a display could be flagged outdated (or updated)
+  on a guess. The hub now checks the TFT only when the firmware reports
+  `tft_required_version`; the Device Manager shows **Unknown** instead of
+  inventing a version.
+- **Notification paging keeps the dismiss button** — the manual next-page
+  button moved from the left-secondary to the inner-right header slot, so the
+  outer-right **Dismiss** button stays available on buttonless notification
+  popups (update notices, entity-unavailable, timer).
 - **Notification popups no longer keep the display lit** — a queued
   notification popup suspended auto-dimming and auto display-off until it was
   dismissed, so a notification at night switched a dark panel on at full

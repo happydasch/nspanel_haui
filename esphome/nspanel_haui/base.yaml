@@ -66,9 +66,12 @@ http_request:
 # install through the ``install_firmware_url`` action (api.yaml).
 # Both block the main loop for the whole transfer, so active device activities
 # are suspended first (see ``suspend_activities``).
+# Native OTA is encrypted with the api key (a bare ``encryption:`` inherits
+# ``api_encryption_key``) instead of a password, which costs flash and RAM.
+# Panels still on a password build: docs/esphome.md, "Encrypted native OTA".
 ota:
   - platform: esphome
-    password: $ota_password
+    encryption:
     on_begin:
       - script.execute: suspend_activities
   - platform: http_request

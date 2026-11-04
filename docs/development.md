@@ -128,8 +128,8 @@ image*; the asset contract and CI rules are in
   keys the captive-portal Wi-Fi to the build's config hash, and every firmware
   update with a changed config forgets it. Without one it uses a fixed key; an
   `on_boot` step moves Wi-Fi saved by builds before 0.4.3 there.
-- **The credentials are public** (API key, OTA password, web credentials).
-  Anyone on the LAN can reflash the panel. Use `install.yaml` + secrets when
+- **The credentials are public** (the API key, which also encrypts native
+  OTA). Anyone on the LAN can reflash the panel. Use `install.yaml` + secrets when
   that is not acceptable.
 - **Entity ids after a rename/area assignment** are resolved through HA's entity
   registry (by ESPHome-authored name), so the hub works with the universal

@@ -361,3 +361,14 @@ instead of looking up a matching GitHub release.
   editor's Updates section picks the manifest when the URL is empty — the
   latest stable release, or the published dev firmware. An explicit
   **Firmware manifest URL** still overrides it.
+
+## 12. Native OTA is encrypted with the API key
+
+The firmware's native OTA platform (wireless installs from ESPHome) is now
+encrypted with the API key instead of protected by a password, so the
+`ota_password` substitution and secret are gone. Panels on HAUI 0.4 firmware
+need nothing: their firmware already accepts the encrypted upload. Panels on
+older firmware need one wireless install with a migration block, and a
+`password:` on the `ota: platform: esphome` block of your own YAML now fails
+validation. See
+[ESPHome Component → Encrypted native OTA](esphome.md#encrypted-native-ota).

@@ -820,6 +820,7 @@
     "Pop-up notification panel with icon and optional buttons.": "Panneau de notification contextuel avec icône et boutons optionnels.",
     "Popup key": "Clé du panneau contextuel",
     "Popup override": "Remplacement du panneau contextuel",
+    "Popups ({count} panels)": "",
     "Power button color": "Couleur du bouton marche/arrêt",
     "Preserved from the device's restored brightness on first activation unless you set a value here.": "Les valeurs de luminosité restaurées de l’appareil sont conservées à la première activation, sauf si vous définissez une valeur ici.",
     "Presets": "Préréglages",

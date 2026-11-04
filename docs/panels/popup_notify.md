@@ -15,7 +15,7 @@ The text size is the largest font — large, medium or small — at which the wh
 
 ## How to configure
 
-This popup is opened by the integration. In the editor's **System Panels** section only its title can be changed (see [System Panel Overrides](../configuration/panels.md#system-panel-overrides)). Parameters when opening it programmatically:
+This popup is opened by the integration. In the editor's **Popups** section only its title can be changed (see [System Panel Overrides](../configuration/panels.md#system-panel-overrides)). Parameters when opening it programmatically:
 
 - `notification`, `title` — Message text and title. Line breaks in the message (`\n`) render as line breaks on the display.
 - `icon` (optional) — Shown only when set, beside the text (above it in portrait). When omitted, no icon is displayed and the text uses the icon's area too: the full width in landscape, the full height in portrait, so more text fits on each page. The severity colours the icon when one is shown.

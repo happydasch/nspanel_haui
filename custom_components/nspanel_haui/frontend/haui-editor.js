@@ -120,6 +120,7 @@ class NSPanelEditor extends LitElement {
     this._cardMenuKey = null;
     this._dialogVersion = 0;
     this.__systemPanelsOpen = readStorage('haui_systemPanelsOpen', '') === 'true';
+    this.__popupPanelsOpen = readStorage('haui_popupPanelsOpen', '') !== 'false';
     this.__navPanelsOpen = readStorage('haui_navPanelsOpen', '') !== 'false';
     this.__hiddenPanelsOpen = readStorage('haui_hiddenPanelsOpen', '') !== 'false';
 

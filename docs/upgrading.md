@@ -277,9 +277,11 @@ the TFT URL to the device. Calling it directly works but bypasses the hub's
 install tracking. A leftover `tft_update_url_portrait` in your device YAML is
 ignored and can be deleted.
 
-The **Update Display** button (`button.<device>_update_display`), removed in
-0.4.3, is back in 0.4.5 but disabled by default. It installs the TFT without
-the hub's tracking, so prefer **Install** on `update.<device>_haui_display`.
+The **Update Display** button (`button.<device>_update_display`) and the
+`tft_update_url` substitution are gone: TFT management is exclusively the
+hub's — **Install** on `update.<device>_haui_display`,
+`nspanel_haui.update_tft`, or **Device Manager → Install TFT**. A leftover
+`tft_update_url` in your device YAML is ignored and can be deleted.
 
 The new firmware also fixes TFT installs from GitHub releases, which failed
 with `HTTP_CLIENT: Out of buffer` (see

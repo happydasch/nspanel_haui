@@ -12,29 +12,3 @@ button:
       then:
         - lambda: |-
             id(haui_disp).soft_reset();
-
-  # Update Display: install the TFT at `tft_update_url` from the firmware
-  # alone.  Unlike the hub's HAUI Display update entity it does not track the
-  # install, but it also works without the integration.  A portrait panel
-  # (display_model 1) gets the portrait asset next to it, the same name the
-  # hub picks (DISPLAY_MODEL_TFT_FILENAME).
-  - platform: template
-    name: Update Display
-    id: update_display
-    icon: mdi:file-sync
-    entity_category: config
-    disabled_by_default: true
-    on_press:
-      - lambda: |-
-          std::string url = "${tft_update_url}";
-          if (id(display_model).state > 0) {
-            const std::string landscape = "nspanel_haui.tft";
-            const size_t pos = url.rfind(landscape);
-            if (pos == std::string::npos) {
-              ESP_LOGW("haui", "Portrait display, but tft_update_url names no %s; installing it as is",
-                       landscape.c_str());
-            } else {
-              url.replace(pos, landscape.size(), "nspanel_haui_portrait.tft");
-            }
-          }
-          id(prepare_tft_upload).execute(url);

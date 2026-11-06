@@ -93,6 +93,16 @@ def test_tft_install_actions_live_in_the_integration():
     assert "- action: upload_tft_url" in api
     assert "- action: upload_tft\n" not in api
 
+    # The standalone Update Display button and its tft_update_url substitution
+    # are gone; the display component keeps a fixed tft_url literal only because
+    # the vendored component validates it next to tft_upload_http_buffer_size_tx.
+    for config in ("install.yaml", "nspanel_haui.yaml", "nspanel_haui_dev.yaml",
+                   "nspanel_haui_universal.yaml"):
+        assert "tft_update_url" not in (ROOT.parent / config).read_text(), config
+    display = _read("display.yaml")
+    assert "tft_url:" in display
+    assert "${tft_update_url}" not in display
+
 
 def test_firmware_drops_protocol_the_hub_never_uses():
     """Discovery uses the device registry and the device state carries the versions."""
@@ -105,7 +115,7 @@ def test_firmware_drops_protocol_the_hub_never_uses():
 
 
 def test_maintenance_entities_are_disabled_by_default():
-    """Update Display, Restart Display and Screen Power are rarely needed."""
+    """Restart Display and Screen Power are rarely needed."""
     import yaml
 
     entities = {
@@ -113,15 +123,13 @@ def test_maintenance_entities_are_disabled_by_default():
         for name in ("button.yaml", "switch.yaml")
         for e in next(iter(yaml.safe_load(_read(name)).values()))
     }
-    for entity_id in ("update_display", "restart_display", "screen_power"):
+    for entity_id in ("restart_display", "screen_power"):
+        assert entity_id in entities, f"button '{entity_id}' missing"
         assert entities[entity_id]["disabled_by_default"] is True, entity_id
 
-    # The button installs through the same script as the hub, so the buzzer
-    # is silenced first, and picks the portrait asset by the display model.
-    press = entities["update_display"]["on_press"][0]["lambda"]
-    assert "id(prepare_tft_upload).execute(url);" in press
-    assert "id(display_model).state > 0" in press
-    assert '"nspanel_haui_portrait.tft"' in press
+    # The standalone Update Display button was removed: TFT management belongs
+    # to the hub (the HAUI Display update entity and Device Manager flow).
+    assert "update_display" not in entities
 
 
 def test_buzzer_is_silenced_before_every_main_loop_stall():

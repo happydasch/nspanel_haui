@@ -34,6 +34,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The services raise an error when their `device` matches no running panel,
   instead of logging a warning and doing nothing
   ([Upgrading](docs/upgrading.md#18-services-fail-on-a-device-that-is-no-panel)).
+- The standalone firmware **Update Display** button and the `tft_update_url`
+  substitution are gone; TFT management is the hub's **HAUI Display** update
+  entity, `nspanel_haui.update_tft`, or **Device Manager → Install TFT**
+  ([Upgrading](docs/upgrading.md#10-tft-install-actions-moved-to-the-integration)).
 
 ### Added
 
@@ -55,7 +59,6 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - **Long press to go back** option for Clock, ClockTwo and Weather panels.
 - Alarm panel action-button options: hidden arm modes, action icons and button
   colours ([#75](https://github.com/happydasch/nspanel_haui/pull/75)).
-- The firmware's **Update Display** button is back, disabled by default.
 - **Current Page Number** sensor (the Nextion page id); it and **Current
   Page** are disabled by default ([ESPHome](docs/esphome.md#page)).
 

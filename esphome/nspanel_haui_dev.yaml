@@ -26,10 +26,6 @@ substitutions:
   # the universal release image on it.
   firmware_variant: 'custom'
 
-  # Default TFT URL of the display component.  Install a local TFT build
-  # with nspanel_haui.update_tft and its url field, e.g.
-  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
-
 # Temporary: stock `nextion` in released ESPHome lacks the numeric-response
 # delivery fix (esphome/esphome#17744, ships in 2026.11.0).  Override it with
 # the patched component vendored next to this file (see nextion_patch/README).

@@ -60,7 +60,6 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 - `wifi_ssid` (!secret wifi_ssid)
 - `wifi_password` (!secret wifi_password)
 - `ap_password` (!secret ap_password)
-- `tft_update_url` (default TFT URL of the display component, which enables TFT upload support; the hub always sends the URL of the TFT it installs)
 
 ### Encrypted native OTA
 
@@ -590,14 +589,6 @@ Buttons provided by the ESP.
 - `Restart Display` (`restart_display`, disabled by default)
 
   Restarts the display
-
-- `Update Display` (`update_display`, disabled by default)
-
-  Installs the TFT at the firmware's `tft_update_url`; a portrait panel
-  (`display_model` 1) gets `nspanel_haui_portrait.tft` from the same location.
-  It works without the integration but the install is not tracked: prefer the
-  hub's **HAUI Display** update entity (see
-  [TFT Display Upload](services.md#tft-display-upload)).
 
 ## Switches
 

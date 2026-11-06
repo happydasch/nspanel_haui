@@ -41,7 +41,10 @@ This project uses the stock ESPHome `nextion` display component (with a temporar
 
 - `uart_id`: references the UART bus used for the Nextion display.
 - `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. Hardware sleep only happens without a hub connection; with a hub the display stays awake (at brightness 0) and the hub restores the panel itself.
-- `tft_url`: default TFT URL; setting it enables TFT upload support (the hub always passes the URL of the TFT it installs).
+- `tft_url`: a fixed literal the display component requires next to
+  `tft_upload_http_buffer_size_tx` (its validation refuses that option without it).
+  The hub always passes the URL of the TFT it installs, so this value is only a
+  compile-time default and is never used at runtime.
 - `tft_upload_http_buffer_size_tx` (`2048`): HTTP TX buffer for the TFT download. GitHub redirects release TFTs to a signed URL of about 870 characters; the ESP-IDF default of 512 bytes cannot hold that request line and the upload fails with `HTTP_CLIENT: Out of buffer`. Comes from the vendored patch until a released ESPHome contains it.
 - `on_setup`: triggered after ESPHome connects to the Nextion.
 - `on_page`: triggered when the display changes pages.

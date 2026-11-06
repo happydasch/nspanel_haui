@@ -109,8 +109,8 @@ class TimerPage(HAUIPage):
             visible = not self.is_timer_active()
             self.set_function_component(
                 x,
-                x[1],
-                fnc_name=x[1],
+                x.name,
+                fnc_name=x.name,
                 color=self.get_color("component_active"),
                 visible=visible,
             )
@@ -120,7 +120,7 @@ class TimerPage(HAUIPage):
             (self.COMPONENTS.btn_start, "start_timer"),
             (self.COMPONENTS.btn_stop, "stop_timer"),
         ]:
-            self.set_function_component(ctrl, ctrl[1], fnc_name=ctrl_name, visible=False)
+            self.set_function_component(ctrl, ctrl.name, fnc_name=ctrl_name, visible=False)
 
         # display
         self.set_function_component(
@@ -144,9 +144,6 @@ class TimerPage(HAUIPage):
             visible=True,
             color=self.get_color("component_text"),
         )
-
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._handle_update_display is not None:
@@ -337,7 +334,7 @@ class TimerPage(HAUIPage):
                     else:
                         enabled = False
             self.update_function_component(
-                x[1],
+                x.name,
                 update_fnc_name=fnc_name,
                 visible=True,
                 icon=icon,
@@ -356,7 +353,7 @@ class TimerPage(HAUIPage):
             self.COMPONENTS.btn_down_3,
             self.COMPONENTS.btn_down_4,
         ]:
-            self.update_function_component(x[1], visible=visible)
+            self.update_function_component(x.name, visible=visible)
 
     # callback
 

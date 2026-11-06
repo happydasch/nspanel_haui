@@ -145,12 +145,107 @@ test('the Device Manager does not infer a required TFT version from firmware ver
   assert.doesNotMatch(labels, /update pending/);
 });
 
-test('the Device Manager emits add-device with the detail the editor handler reads', () => {
-  const { dlg, events } = dialog('nspanel-dialog-device-manager', { devices: {}, _newDeviceName: 'office' });
-  dlg._onAddDevice();
-  assert.equal(events.length, 1);
-  assert.equal(events[0].type, 'add-device');
-  assert.deepEqual(events[0].detail, { device: { name: 'office', esphome_device_id: '' } });
+/** The row menu's items as `{ label: disabled }`. */
+function menuItems(value, result = {}) {
+  if (Array.isArray(value)) value.forEach((item) => menuItems(item, result));
+  else if (value && typeof value === 'object' && Array.isArray(value.values)) {
+    if (value.strings.join('').includes('device-mgr-dropdown-item')) {
+      result[value.values[4]] = Boolean(value.values[1]);
+    }
+    menuItems(value.values, result);
+  }
+  return result;
+}
+
+test('a disabled device offers no action that needs its running app', () => {
+  const { dlg } = dialog('nspanel-dialog-device-manager', {
+    devices: { kitchen: { config: { enabled: false }, panels: [] } },
+    _deviceMenuIndex: 0,
+    _deviceStatuses: {},
+  });
+
+  const items = menuItems(dlg._renderDeviceRow('kitchen'));
+  for (const label of ['Refresh display', 'Install TFT', 'Install firmware', 'Check for updates']) {
+    assert.equal(items[label], true, label);
+  }
+  for (const label of ['Enable', 'Settings', 'Remove']) {
+    assert.equal(items[label], false, label);
+  }
+});
+
+/** Click the row menu item labelled `label`. */
+function clickMenuItem(value, label) {
+  if (Array.isArray(value)) return value.some((item) => clickMenuItem(item, label));
+  if (!value || typeof value !== 'object' || !Array.isArray(value.values)) return false;
+  if (value.strings.join('').includes('device-mgr-dropdown-item') && value.values[4] === label) {
+    value.values[2]({ stopPropagation() {} });
+    return true;
+  }
+  return clickMenuItem(value.values, label);
+}
+
+test('Remove asks for confirmation before the device is removed', () => {
+  const { dlg, events } = dialog('nspanel-dialog-device-manager', {
+    devices: { kitchen: { config: {}, panels: [], friendly_name: 'Kitchen Panel' } },
+    _deviceMenuIndex: 0,
+    _deviceStatuses: {},
+  });
+
+  assert.ok(clickMenuItem(dlg._renderDeviceRow('kitchen'), 'Remove'));
+  assert.equal(events.length, 0);
+  assert.equal(dlg._removeTarget, 'kitchen');
+  assert.match(dlg._removeParams.message, /Remove Kitchen Panel from the hub\?/);
+
+  dlg._confirmRemove();
+  assert.deepEqual(events.map((e) => [e.type, e.detail]), [['remove-device', { name: 'kitchen' }]]);
+  assert.equal(dlg._removeTarget, null);
+  assert.equal(dlg._removeParams, null);
+});
+
+test('closing the Device Manager drops a removal waiting for confirmation', () => {
+  const { dlg, events } = dialog('nspanel-dialog-device-manager', {
+    devices: { kitchen: { config: {}, panels: [] } },
+    _removeTarget: 'kitchen',
+    open: false,
+  });
+
+  dlg.updated(new Map([['open', true]]));
+
+  assert.equal(dlg._removeTarget, null);
+  assert.equal(events.length, 0);
+});
+
+test('the TFT picker of a row names the required TFT version, not the firmware version', () => {
+  const { dlg } = picker('tft', { releases: [] });
+  dlg._deviceStatuses = {
+    haui: { device_info: { yaml_version: '0.4.5', tft_required_version: '0.4.3' } },
+  };
+  const labels = collectTemplateStrings(dlg._renderDeviceRow('haui')).join(' ');
+  assert.match(labels, /Version the firmware needs \(0\.4\.3\)/);
+});
+
+test('the TFT picker does not list the required version twice', () => {
+  const { dlg } = picker('tft', { releases: ['0.4.2'] });
+  const strings = collectTemplateStrings(dlg._renderPicker('haui', '0.4.2', {}));
+  assert.ok(strings.includes('Version the firmware needs (0.4.2)'));
+  assert.ok(!strings.includes('0.4.2'));
+});
+
+test('scan results leave out devices that are already configured', () => {
+  const { dlg, events } = dialog('nspanel-dialog-device-manager', {
+    devices: { kitchen: { config: {}, panels: [] } },
+    _deviceStatuses: {},
+    _scannedDevices: [{ name: 'kitchen' }, { name: 'office' }],
+    _scanError: '',
+  });
+
+  const labels = collectTemplateStrings(dlg.render()).join(' ');
+  assert.match(labels, /Discovered Devices/);
+  assert.match(labels, /office/);
+
+  dlg.devices = { ...dlg.devices, office: { config: {}, panels: [] } };
+  assert.doesNotMatch(collectTemplateStrings(dlg.render()).join(' '), /Discovered Devices/);
+  assert.equal(events.length, 0);
 });
 
 function picker(kind, props = {}) {

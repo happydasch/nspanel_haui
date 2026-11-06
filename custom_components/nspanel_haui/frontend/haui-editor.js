@@ -32,7 +32,7 @@ import './dialogs/colors.js';
 import './dialogs/live-preview.js';
 
 import { positionContextMenu, readStorage } from './dom-helpers.js';
-import { selectDevice } from './device-manager.js';
+import { selectDevice, importDeviceYaml, exportDeviceYaml } from './device-manager.js';
 import { renderPanelTable, renderSystemPanels, renderEmptyCard } from './panel-table.js';
 import { renderPanelGrid } from './panel-grid.js';
 import { renderTitleHeader, renderDeviceInfoStrip, renderPanelToolbar, renderToolbarActions, renderFooter } from './toolbar.js';
@@ -349,12 +349,12 @@ class NSPanelEditor extends LitElement {
 
   _onHeaderImportYaml() {
     this._actionsMenuIndex = null;
-    DeviceEvents.onDeviceManagerImportYaml(this);
+    importDeviceYaml(this);
   }
 
   _onHeaderExportYaml() {
     this._actionsMenuIndex = null;
-    DeviceEvents.onDeviceManagerExportYaml(this);
+    exportDeviceYaml(this);
   }
 
 

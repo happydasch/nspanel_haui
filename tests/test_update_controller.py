@@ -2,6 +2,8 @@
 
 import datetime
 import hashlib
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 import requests
@@ -27,6 +29,7 @@ class _Response:
 
 def _controller():
     ctrl = HAUIUpdateController.__new__(HAUIUpdateController)
+    ctrl.app = types.SimpleNamespace(run_off_worker=lambda fn, *args, timeout=60.0: fn(*args))
     ctrl._req_fetch = False
     ctrl._release_infos = []
     ctrl.log = lambda *a, **kw: None
@@ -92,24 +95,27 @@ def test_release_fetch_bypasses_the_cache_when_forced(monkeypatch):
     assert len(calls) == 2
 
 
-def test_manual_check_clears_failure_state(monkeypatch):
-    """A manual check resets error/install guards before evaluating."""
+def test_manual_check_preserves_failure_and_retry_state(monkeypatch):
+    """A status refresh must not reset failures or start a TFT retry."""
     ctrl, app, _ = _updater(
         monkeypatch,
-        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        {"yaml_version": "0.4.1", "tft_version": "0.3.9"},
         [_release("0.4.2")],
         manifest="0.4.1",
     )
+    failed_at = datetime.datetime.now(tz=datetime.UTC)
     ctrl._update_state = update.UPDATE_STATE_ERROR
-    ctrl._last_install_at = datetime.datetime.now(tz=datetime.UTC)
+    ctrl._update_last_error = "previous TFT failure"
+    ctrl._last_install_at = failed_at
     ctrl._last_install_confirmed = False
 
     ctrl.manual_check_for_update()
 
-    assert ctrl._update_state == update.UPDATE_STATE_IDLE
-    assert ctrl._last_install_at is None
-    # The check's TFT evaluation then confirms the TFT the firmware needs.
-    assert ctrl._last_install_confirmed is True
+    assert ctrl._update_state == update.UPDATE_STATE_ERROR
+    assert ctrl._update_last_error == "previous TFT failure"
+    assert ctrl._last_install_at == failed_at
+    assert ctrl._last_install_confirmed is False
+    assert app.published == []
 
 
 # --- automatic TFT update ----------------------------------------------------
@@ -143,6 +149,7 @@ class _App:
 
     def __init__(self, device_info, connected=True, display_model="eu"):
         self.events: list = []
+        self.run_off_worker = lambda func, *args, timeout=None: func(*args)
         self.device = types.SimpleNamespace(
             device_info=device_info,
             connected=connected,
@@ -187,6 +194,21 @@ class _App:
 
     def cancel_timer(self, handle):
         self.timers.pop(handle, None)
+
+    def run_off_worker(self, fn, *args, timeout=60.0):
+        """Mirror HAAdapter: blocking I/O runs off the worker (inline here)."""
+        return fn(*args)
+    def submit_off_worker(self, fn, *args, on_done=None):
+        try:
+            result = fn(*args)
+        except BaseException as exc:
+            if on_done is None:
+                raise
+            on_done(None, exc)
+        else:
+            if on_done is not None:
+                on_done(result, None)
+
 
 
 def _manifest(version, path=None, tft=True):
@@ -805,7 +827,7 @@ def test_reconnect_verification_times_out_into_an_error(monkeypatch):
     app.published.clear()
     app.requests.clear()
     # The post-reboot handshake knows nothing about the TFT yet.
-    app.device.device_info = {"yaml_version": "0.4.0", "tft_version": ""}
+    app.device.device_info = {"yaml_version": "0.4.0", "tft_version": "", "uptime": 0}
     ctrl.on_connection_changed(True)  # the device reconnected
     app.requests.clear()
 
@@ -831,6 +853,7 @@ def test_reconnect_verification_confirms_a_matching_version(monkeypatch):
 
     ctrl.install_tft("0.4.0")
     ctrl.on_connection_changed(False)
+    app.device.device_info["uptime"] = 0
     ctrl.on_connection_changed(True)
 
     ctrl.process_event(_device_state(yaml_version="0.4.0", tft_version="0.4.0"))
@@ -841,6 +864,269 @@ def test_reconnect_verification_confirms_a_matching_version(monkeypatch):
 
 
 # --- manual update check -----------------------------------------------------
+
+
+def test_a_tft_manifest_mismatch_is_visible_and_does_not_install(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {
+            "yaml_version": "0.4.2",
+            "tft_required_version": "0.4.2",
+            "tft_version": "0.4.0",
+        },
+        manifest="0.4.1",
+    )
+
+    ctrl.check_installed_version()
+
+    state = ctrl.get_update_state()
+    assert "TFT required by firmware: 0.4.2" in state["tft_update_reason"]
+    assert "manifest provides: 0.4.1" in state["tft_update_reason"]
+    assert state["state"] == update.UPDATE_STATE_IDLE
+    assert app.published == []
+    assert _display_events(app)[-1]["update_reason"] == state["tft_update_reason"]
+
+
+def test_automatic_firmware_failure_is_published(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        manifest="0.4.2",
+    )
+    ctrl._start_firmware_install("https://dl/fw.bin", "md5", "0.4.2", manual=False)
+
+    ctrl._firmware_install_timer_callback({})
+
+    state = ctrl.get_update_state()
+    assert "did not reboot" in state["firmware_install_error"]
+    event = _firmware_events(app)[-1]
+    assert event["last_error"] == state["firmware_install_error"]
+
+
+def test_async_check_submits_fetch_and_applies_result_only_in_completion(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        manifest="0.4.2",
+    )
+    jobs = []
+
+    def capture(func, *args, on_done=None):
+        jobs.append((func, args, on_done))
+
+    app.submit_off_worker = capture
+    completed = []
+    ctrl.start_async_check(allow_auto_install=False, on_complete=completed.append)
+
+    assert len(jobs) == 1
+    assert completed == []
+    assert ctrl._firmware_manifest["version"] == "0.4.2"
+
+    fetch, args, callback = jobs.pop()
+    fetched = fetch(*args)
+    callback(fetched, None)
+
+    assert completed[0]["firmware_update_available"] is True
+    assert ctrl._firmware_manifest["version"] == "0.4.2"
+
+
+def test_async_check_keeps_the_device_worker_available_during_slow_fetch(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        manifest="0.4.2",
+    )
+    original_fetch = update._fetch_update_inputs
+    fetch_started = threading.Event()
+    release_fetch = threading.Event()
+    applied = threading.Event()
+    worker = ThreadPoolExecutor(max_workers=1)
+    io = ThreadPoolExecutor(max_workers=1)
+
+    def slow_fetch(*args):
+        fetch_started.set()
+        if not release_fetch.wait(5):
+            raise TimeoutError("test fetch not released")
+        return original_fetch(*args)
+
+    def submit_off_worker(func, *args, on_done=None):
+        future = io.submit(func, *args)
+
+        def deliver(done):
+            try:
+                result = done.result()
+            except BaseException as exc:
+                worker.submit(on_done, None, exc)
+            else:
+                worker.submit(on_done, result, None)
+
+        future.add_done_callback(deliver)
+
+    monkeypatch.setattr(update, "_fetch_update_inputs", slow_fetch)
+    app.submit_off_worker = submit_off_worker
+    try:
+        started = worker.submit(
+            lambda: ctrl.start_async_check(
+                allow_auto_install=False,
+                on_complete=lambda _result: applied.set(),
+            )
+        )
+        started.result(timeout=1)
+        assert fetch_started.wait(1)
+
+        heartbeat = worker.submit(lambda: "worker still responsive")
+        assert heartbeat.result(timeout=1) == "worker still responsive"
+
+        release_fetch.set()
+        assert applied.wait(2)
+    finally:
+        release_fetch.set()
+        worker.shutdown(wait=True)
+        io.shutdown(wait=True)
+
+
+def test_async_firmware_install_keeps_the_worker_available_during_image_fetch(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        manifest="0.4.2",
+    )
+    original_fetch = update._fetch_firmware_install_inputs
+    fetch_started = threading.Event()
+    release_fetch = threading.Event()
+    completed = threading.Event()
+    worker = ThreadPoolExecutor(max_workers=1)
+    io = ThreadPoolExecutor(max_workers=1)
+
+    def slow_fetch(*args):
+        fetch_started.set()
+        if not release_fetch.wait(5):
+            raise TimeoutError("test fetch not released")
+        return original_fetch(*args)
+
+    def submit_off_worker(func, *args, on_done=None):
+        future = io.submit(func, *args)
+
+        def deliver(done):
+            try:
+                result = done.result()
+            except BaseException as exc:
+                worker.submit(on_done, None, exc)
+            else:
+                worker.submit(on_done, result, None)
+
+        future.add_done_callback(deliver)
+
+    monkeypatch.setattr(update, "_fetch_firmware_install_inputs", slow_fetch)
+    app.submit_off_worker = submit_off_worker
+    try:
+        started = worker.submit(
+            lambda: ctrl.start_async_firmware_install(
+                None, None, lambda _result: completed.set()
+            )
+        )
+        started.result(timeout=1)
+        assert fetch_started.wait(1)
+
+        heartbeat = worker.submit(lambda: "worker still responsive")
+        assert heartbeat.result(timeout=1) == "worker still responsive"
+
+        release_fetch.set()
+        assert completed.wait(2)
+        assert ctrl._firmware_installing is True
+    finally:
+        release_fetch.set()
+        worker.shutdown(wait=True)
+        io.shutdown(wait=True)
+
+
+def test_update_check_does_not_invalidate_an_inflight_firmware_install(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        manifest="0.4.2",
+    )
+    jobs = []
+    app.submit_off_worker = lambda func, *args, on_done=None: jobs.append((func, args, on_done))
+    completed = []
+
+    ctrl.start_async_firmware_install(None, None, completed.append)
+    install_job = jobs.pop()
+    install_result = install_job[0](*install_job[1])
+    ctrl.start_async_check(allow_auto_install=False)
+    check_job = jobs.pop()
+
+    install_job[2](install_result, None)
+
+    assert ctrl._firmware_installing is True
+    assert completed[-1]["firmware_installing"] is True
+    check_job[2](check_job[0](*check_job[1]), None)
+    assert ctrl._firmware_installing is True
+
+
+def test_async_tft_install_fetches_the_manifest_before_uploading(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_required_version": "0.4.2", "tft_version": "0.4.1"},
+        manifest="0.4.2",
+    )
+    jobs = []
+    app.submit_off_worker = lambda func, *args, on_done=None: jobs.append((func, args, on_done))
+    completed = []
+
+    ctrl.start_async_tft_install(None, None, completed.append)
+
+    assert app.published == []
+    fetch, args, callback = jobs.pop()
+    callback(fetch(*args), None)
+
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.2/nspanel_haui.tft")]
+    assert completed[-1]["state"] == update.UPDATE_STATE_INSTALLING
+
+
+def test_async_check_ignores_stale_fetch_completion(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        manifest="0.4.2",
+    )
+    jobs = []
+    app.submit_off_worker = lambda func, *args, on_done=None: jobs.append((func, args, on_done))
+
+    ctrl.start_async_check(allow_auto_install=False)
+    first = jobs.pop()
+    old_inputs = first[0](*first[1])
+    app.served["manifest"] = _manifest("0.4.4")
+    ctrl.start_async_check(allow_auto_install=False)
+    second = jobs.pop()
+    new_inputs = second[0](*second[1])
+
+    second[2](new_inputs, None)
+    first[2](old_inputs, None)
+
+    assert ctrl._firmware_manifest["version"] == "0.4.4"
+
+
+def test_unload_invalidates_an_inflight_update_fetch(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        manifest="0.4.2",
+    )
+    jobs = []
+    app.submit_off_worker = lambda func, *args, on_done=None: jobs.append((func, args, on_done))
+    ctrl.start_async_check(allow_auto_install=False)
+    fetch, args, callback = jobs.pop()
+    fetched = fetch(*args)
+    ctrl.stop_part()
+
+    callback(fetched, None)
+
+    assert ctrl._firmware_manifest["version"] == "0.4.2"
+    assert ctrl._firmware_installing is False
 
 
 def test_manual_check_reports_an_up_to_date_panel(monkeypatch):
@@ -860,8 +1146,8 @@ def test_manual_check_reports_an_up_to_date_panel(monkeypatch):
     assert app.published == []
 
 
-def test_manual_check_installs_an_outdated_tft(monkeypatch):
-    """Without it an outdated TFT installed only after the next reconnect."""
+def test_manual_check_does_not_install_an_outdated_tft(monkeypatch):
+    """A manual status check reports offers but never starts an upload."""
     ctrl, app, _ = _updater(
         monkeypatch,
         {"yaml_version": "0.4.2", "tft_version": "0.4.1"},
@@ -870,9 +1156,100 @@ def test_manual_check_installs_an_outdated_tft(monkeypatch):
 
     result = ctrl.manual_check_for_update()
 
-    assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.2/nspanel_haui.tft")]
-    assert result["state"] == "installing"
-    assert result["version"] == "0.4.2"
+    assert app.published == []
+    assert result["state"] == "idle"
+    assert result["tft_update_reason"] is None
+
+
+def test_manual_check_does_not_auto_install_firmware(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        manifest="0.4.2",
+        firmware_auto_update=True,
+    )
+
+    result = ctrl.manual_check_for_update()
+
+    assert result["firmware_update_available"] is True
+    assert result["firmware_installing"] is False
+    assert app.published == []
+
+
+def test_periodic_check_while_disconnected_does_not_fetch_or_install(monkeypatch):
+    ctrl, app, fetches = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        [_release("0.4.2")],
+        connected=False,
+        manifest="0.4.2",
+        firmware_auto_update=True,
+    )
+
+    ctrl.callback_timer()
+
+    assert fetches == []
+    assert app.published == []
+    assert ctrl._firmware_installing is False
+
+
+def test_stop_part_cancels_install_tracking_on_unload(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        manifest="0.4.2",
+    )
+    ctrl.start_part()
+    ctrl._update_state = update.UPDATE_STATE_INSTALLING
+    ctrl._start_install_timeout_timer()
+    ctrl._start_install_verify_timer()
+    ctrl._start_firmware_install("https://dl/fw.bin", "md5", "0.4.2", manual=False)
+
+    ctrl.stop_part()
+
+    assert ctrl._firmware_installing is False
+    assert ctrl._install_timeout_timer is None
+    assert ctrl._install_verify_timer is None
+    assert ctrl._firmware_install_timer is None
+    assert app.timers == {}
+
+
+def test_reload_options_preserves_tft_install_verification(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.2", "tft_version": "0.4.1"},
+        manifest="0.4.2",
+    )
+    ctrl.start_part()
+    ctrl._update_state = update.UPDATE_STATE_INSTALLING
+    ctrl._pending_state_check = True
+    ctrl._start_install_timeout_timer()
+    ctrl._start_install_verify_timer()
+    install_timers = (ctrl._install_timeout_timer, ctrl._install_verify_timer)
+
+    ctrl.reload_options({**ctrl.config, "update_interval": ctrl.config["update_interval"] + 60})
+
+    assert ctrl._update_state == update.UPDATE_STATE_INSTALLING
+    assert ctrl._pending_state_check is True
+    assert (ctrl._install_timeout_timer, ctrl._install_verify_timer) == install_timers
+    assert all(timer in app.timers for timer in install_timers)
+
+
+def test_reload_options_preserves_firmware_install_timeout(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.1"},
+        manifest="0.4.2",
+    )
+    ctrl._start_firmware_install("https://dl/fw.bin", "md5", "0.4.2", manual=False)
+    install_timer = ctrl._firmware_install_timer
+
+    ctrl.reload_options({**ctrl.config, "update_interval": ctrl.config["update_interval"] + 60})
+
+    assert ctrl._firmware_installing is True
+    assert ctrl._firmware_install_timer == install_timer
+    assert install_timer in app.timers
 
 
 def test_manual_check_during_an_install_starts_no_second_upload(monkeypatch):
@@ -962,8 +1339,56 @@ def test_url_install_is_done_once_the_display_reports_after_the_reboot(monkeypat
 
     ctrl.install_tft_url(DEV_TFT_URL)
     ctrl.on_connection_changed(False)  # the upload rebooted the device
-    app.device.device_info = {"yaml_version": "0.4.2", "tft_version": ""}
+    app.device.device_info = {"yaml_version": "0.4.2", "tft_version": "", "uptime": 0}
     ctrl.on_connection_changed(True)
+    ctrl.process_event(_device_state(yaml_version="0.4.2", tft_version="0.4.2"))
+
+    assert ctrl.get_update_state()["state"] == "done"
+
+
+def test_reboot_check_fails_closed_without_uptime(monkeypatch):
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+    app.device.device_info.pop("uptime", None)
+
+    assert ctrl._rebooted_since(datetime.datetime.now(tz=datetime.UTC)) is False
+    assert ctrl._rebooted_since(None) is False
+    app.device.device_info["uptime"] = "unknown"
+    assert ctrl._rebooted_since(datetime.datetime.now(tz=datetime.UTC)) is False
+
+
+def _reconnect_after_upload(ctrl, app, minutes, uptime):
+    """The upload ran ``minutes``; the device then reconnects reporting ``uptime`` seconds."""
+    ctrl._last_install_at -= datetime.timedelta(minutes=minutes)
+    ctrl.on_connection_changed(False)
+    app.device.device_info = {
+        "yaml_version": "0.4.2",
+        "tft_required_version": "0.4.2",
+        "tft_version": "0.4.2",
+        "uptime": uptime,
+    }
+    ctrl.on_connection_changed(True)
+
+
+def test_a_reconnect_without_a_reboot_fails_the_url_install(monkeypatch):
+    """A failed upload lets the device run on: it reconnects without rebooting."""
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+    ctrl.install_tft_url(DEV_TFT_URL)
+
+    _reconnect_after_upload(ctrl, app, minutes=13, uptime=6 * 60 * 60)
+    ctrl.process_event(_device_state(yaml_version="0.4.2", tft_version="0.4.2"))
+
+    state = ctrl.get_update_state()
+    assert state["state"] == "error"
+    assert "did not reboot" in state["last_error"]
+    assert app.published == [(ESPAction.UPLOAD_TFT_URL, DEV_TFT_URL)]
+
+
+def test_a_reconnect_after_the_upload_reboot_verifies_the_url_install(monkeypatch):
+    ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
+    ctrl.install_tft_url(DEV_TFT_URL)
+
+    _reconnect_after_upload(ctrl, app, minutes=13, uptime=5)
+    assert ctrl.get_update_state()["state"] == "installing"
     ctrl.process_event(_device_state(yaml_version="0.4.2", tft_version="0.4.2"))
 
     assert ctrl.get_update_state()["state"] == "done"
@@ -1057,6 +1482,24 @@ def _display_events(app):
     return [data for event_type, data in app.events if event_type == update.DISPLAY_UPDATE_EVENT]
 
 
+def test_update_events_and_status_share_the_controller_snapshot(monkeypatch):
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.1", "tft_version": "0.4.0"},
+        manifest="0.4.2",
+    )
+
+    snapshot = ctrl.get_update_snapshot()
+    status = ctrl.get_update_state()
+    ctrl.publish_display_update()
+    ctrl.publish_firmware_update()
+
+    assert status["firmware_update_version"] == snapshot["firmware"]["latest_version"]
+    assert status["firmware_update_available"] == snapshot["firmware"]["available"]
+    assert _display_events(app)[-1]["installed_version"] == snapshot["display"]["installed_version"]
+    assert _firmware_events(app)[-1]["latest_version"] == snapshot["firmware"]["latest_version"]
+
+
 def test_device_state_publishes_the_display_versions(monkeypatch):
     ctrl, app, _ = _updater(
         monkeypatch,
@@ -1073,6 +1516,7 @@ def test_device_state_publishes_the_display_versions(monkeypatch):
         "latest_version": "0.4.2",  # the manifest's TFT
         "state": "idle",
         "last_error": None,
+        "update_reason": None,
     }
 
 
@@ -1166,6 +1610,8 @@ def test_the_manifest_offers_a_newer_firmware(monkeypatch):
         "installed_version": "0.4.2",
         "latest_version": "0.4.3",
         "installing": False,
+        "reason": None,
+        "last_error": None,
     }
 
 
@@ -1410,11 +1856,16 @@ def test_check_for_update_only_notifies_without_a_firmware_update(monkeypatch):
     )
 
     ctrl.check_for_update()
+    ctrl.check_for_update()
 
     assert app.published == []
+    assert len(app.opened) == 1
     ((key, kwargs),) = app.opened
     assert key == PopupPanelKey.POPUP_NOTIFY
-    assert "Update available" in kwargs["title"]
+    assert "configured firmware manifest" in kwargs["notification"]
+
+
+    assert "Firmware update available" in kwargs["title"]
 
 
 def test_the_update_notice_compares_the_firmware_not_the_tft(monkeypatch):
@@ -1435,8 +1886,8 @@ def test_the_update_notice_compares_the_firmware_not_the_tft(monkeypatch):
     assert app.opened, "a newer firmware must be announced even when the TFT is newer"
     ((key, kwargs),) = app.opened
     assert key == PopupPanelKey.POPUP_NOTIFY
-    assert "Update available" in kwargs["title"]
-    assert "0.4.0 -> 0.4.1" in kwargs["notification"]
+    assert "Firmware update available" in kwargs["title"]
+    assert "Firmware release: 0.4.1" in kwargs["notification"]
 
 
 def test_a_stale_tft_does_not_invent_a_firmware_update(monkeypatch):
@@ -1760,6 +2211,7 @@ def test_reconnect_with_the_new_version_finishes_the_install(monkeypatch):
     ctrl.on_connection_changed(False)
 
     ctrl.app.device.device_info["yaml_version"] = "0.4.4"
+    ctrl.app.device.device_info["uptime"] = 0
     ctrl.on_connection_changed(True)
 
     state = ctrl.get_update_state()
@@ -1774,6 +2226,7 @@ def test_reconnect_with_the_old_version_reports_a_failed_install(monkeypatch):
     ctrl.install_firmware()
     ctrl.on_connection_changed(False)
 
+    ctrl.app.device.device_info["uptime"] = 0
     ctrl.on_connection_changed(True)
 
     state = ctrl.get_update_state()
@@ -1781,6 +2234,39 @@ def test_reconnect_with_the_old_version_reports_a_failed_install(monkeypatch):
     assert state["firmware_install_error"] == (
         "Firmware install of 0.4.4 failed: the panel still runs 0.4.3"
     )
+
+
+def _reconnect_after_firmware_install(ctrl, minutes, uptime):
+    """The install ran ``minutes``; the device then reconnects reporting ``uptime`` seconds."""
+    ctrl._firmware_install_at -= datetime.timedelta(minutes=minutes)
+    ctrl.on_connection_changed(False)
+    ctrl.app.device.device_info["uptime"] = uptime
+    ctrl.on_connection_changed(True)
+
+
+def test_a_reconnect_without_a_reboot_fails_the_firmware_url_install(monkeypatch):
+    """A failed download lets the device run on: it reconnects without rebooting."""
+    url = "http://ha.local/firmware.ota.bin"
+    ctrl, app, _ = _firmware_updater(monkeypatch, downloads={url: OTA_IMAGE})
+    ctrl.install_firmware(url=url)
+
+    _reconnect_after_firmware_install(ctrl, minutes=3, uptime=6 * 60 * 60)
+
+    state = ctrl.get_update_state()
+    assert state["firmware_installing"] is False
+    assert "did not reboot" in state["firmware_install_error"]
+
+
+def test_a_reconnect_after_the_reboot_finishes_the_firmware_url_install(monkeypatch):
+    url = "http://ha.local/firmware.ota.bin"
+    ctrl, app, _ = _firmware_updater(monkeypatch, downloads={url: OTA_IMAGE})
+    ctrl.install_firmware(url=url)
+
+    _reconnect_after_firmware_install(ctrl, minutes=3, uptime=5)
+
+    state = ctrl.get_update_state()
+    assert state["firmware_installing"] is False
+    assert state["firmware_install_error"] is None
 
 
 def test_an_install_without_a_reboot_times_out(monkeypatch):

@@ -255,11 +255,17 @@ def test_firmware_build_variant_is_reported_and_never_universal_for_custom_build
     assert "firmware_variant: 'universal'" in universal
 
 
-def test_display_timeout_changes_do_not_reset_last_interaction():
+def test_display_setting_changes_do_not_reset_last_interaction():
     import yaml
 
     numbers = yaml.safe_load(_read("number.yaml"))["number"]
-    for timeout_id in ("timeout_dim", "timeout_display_off"):
+    for timeout_id in (
+        "brightness_full",
+        "brightness_dim",
+        "duration_dim",
+        "timeout_dim",
+        "timeout_display_off",
+    ):
         number = next(number for number in numbers if number["id"] == timeout_id)
         assert "on_value" not in number
 
@@ -268,6 +274,53 @@ def test_display_timeout_changes_do_not_reset_last_interaction():
     assert "id(check_display).execute();" in interval
 
 
+
+
+def test_last_interaction_uses_one_rollover_safe_clock():
+    import yaml
+
+    globals_config = yaml.safe_load(_read("globals.yaml"))["globals"]
+    clock = next(value for value in globals_config if value["id"] == "last_interaction_ms")
+    assert clock["type"] == "uint32_t"
+    assert clock["restore_value"] is False
+    initialized = next(
+        value for value in globals_config if value["id"] == "interaction_timer_initialized"
+    )
+    assert initialized["type"] == "bool"
+    assert initialized["initial_value"] == "false"
+
+
+    interval = _read("interval.yaml")
+    assert "id(interaction_age_ms) = millis() - id(last_interaction_ms);" in interval
+    assert "if (!id(interaction_timer_initialized))" in interval
+    assert "id(last_interaction_ms) = millis();" in interval
+    assert interval.index("interaction_age_ms") < interval.index("check_display_state")
+
+    display = _read("scripts_display.yaml")
+    interaction = _read("scripts_interaction.yaml")
+    assert display.count("id(interaction_age_ms) / 1000.0f") == 2
+    assert "id(interaction_age_ms) / 1000.0f" in interaction
+    assert "millis() / 100" not in display + interaction
+    assert "update_last_interaction" not in display + interaction
+    assert (
+        "id(last_interaction_ms) = millis() - static_cast<uint32_t>(offset) * 1000U;"
+        in interaction
+    )
+    assert "id: reset_interaction_timer" in interaction
+    interaction_state = _read("scripts_interaction.yaml")
+    assert "id(reset_interaction_timer).execute(0);" in interaction_state
+    assert "if (is_touch)" in interaction_state
+    touch_sensors = (
+        _read("sensor.yaml")
+        .split("# Touch X coordinates")[1]
+        .split("# Brightness of display")[0]
+    )
+    assert "reset_interaction_timer" not in touch_sensors
+
+    # Connection changes, config changes, and serial recovery are not activity.
+    assert "reset_last_interaction" not in _read("scripts_connection.yaml")
+    assert "reset_last_interaction" not in display
+    assert "reset_last_interaction" not in _read("display.yaml").split("on_buffer_overflow:")[1]
 def test_display_model_uses_numeric_input_instead_of_slider():
     import yaml
 
@@ -288,3 +341,15 @@ def test_current_page_sensor_names_match_the_hub_page_mapping():
     names = re.findall(r'"([^"]+)"', table.group(1))
     assert names == [PAGE_MAPPING[page_id] for page_id in range(len(PAGE_MAPPING))]
     assert "id(current_page).publish_state(" in sensors
+
+
+def test_current_page_sensors_are_exposed_but_disabled_by_default():
+    import yaml
+
+    config = yaml.safe_load(_read("sensor.yaml"))
+    current_page = next(s for s in config["text_sensor"] if s.get("id") == "current_page")
+    page_number = next(s for s in config["sensor"] if s.get("id") == "page")
+    for sensor in (current_page, page_number):
+        assert sensor["disabled_by_default"] is True
+        assert not sensor.get("internal", False)
+    assert page_number["name"] == "Current Page Number"

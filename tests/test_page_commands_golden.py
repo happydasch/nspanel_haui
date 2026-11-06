@@ -23,6 +23,7 @@ from nspanel_haui.haui.features import (
     MediaPlayerFeatures,
     VacuumFeatures,
 )
+from nspanel_haui.haui.mapping.color import ColorTheme
 from nspanel_haui.haui.page.alarm import AlarmPage
 from nspanel_haui.haui.page.climate import ClimatePage
 from nspanel_haui.haui.page.cover import CoverPage
@@ -90,6 +91,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
+        self.color_theme = ColorTheme({})
         controller = _Controller()
         self.navigation = _Navigation()
         self.controller = {

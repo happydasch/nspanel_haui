@@ -108,10 +108,8 @@ def empty_device() -> dict:
     return {"config": {}, "panels": []}
 
 
-async def async_remove_device(
-    hass: Any, entry: ConfigEntry, name: str, *, keep_config: bool
-) -> None:
-    """Remove a device from the hub.
+async def async_remove_device(hass: Any, entry: ConfigEntry, name: str) -> None:
+    """Remove a device from the hub, together with its settings and panels.
 
     The entry's update listener reloads the hub, which stops the device's app.
 
@@ -119,15 +117,13 @@ async def async_remove_device(
         hass: Home Assistant instance.
         entry: The hub's config entry.
         name: Name of the device to remove.
-        keep_config: Leave the device's settings and panels in the store.
     """
-    if not keep_config:
-        store = panel_store(hass, entry.entry_id)
-        panels_data = await store.async_load() or empty_store()
-        if name in panels_data.get("devices", {}):
-            panels_data["devices"].pop(name)
-            await store.async_save(panels_data)
-            _LOGGER.debug("Removed device %s from panel store for %s", name, entry.entry_id)
+    store = panel_store(hass, entry.entry_id)
+    panels_data = await store.async_load() or empty_store()
+    if name in panels_data.get("devices", {}):
+        panels_data["devices"].pop(name)
+        await store.async_save(panels_data)
+        _LOGGER.debug("Removed device %s from panel store for %s", name, entry.entry_id)
 
     new_data = dict(entry.data)
     new_data["devices"] = [d for d in new_data.get("devices", []) if d.get("name") != name]
@@ -141,7 +137,8 @@ def enabled_device_names(entry_data: dict, store_data: dict) -> list[str]:
     """Return the devices of the hub that should run, in config-entry order.
 
     A device runs when the config entry lists it and its store settings don't
-    disable it. Store-only devices (removed with "keep config") never run.
+    disable it. Store-only devices (settings without a config-entry record)
+    never run.
 
     Args:
         entry_data: Config-entry data (device identities).

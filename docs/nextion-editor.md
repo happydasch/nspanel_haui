@@ -75,6 +75,21 @@ Example: if the HMI page `clock` has widget `tTime` with id `3`, Python has
 - **Prepare the page in `Preinitialize`** (hide unused widgets, set picture
   backgrounds, clear text). The hub cannot touch the display before the page
   is shown.
+- **A solid-colour page paints itself in the theme in `Preinitialize`.** The
+  hub sets the theme globals declared in `Program.s` (`thmBg`, `thmHdrBg`,
+  `thmHdrTxt`, `thmPressed`, `thmCompBg`, defaults = the `COLORS` palette)
+  before every page switch, and the page assigns them to its own `bco` and to
+  every widget colour compiled with a theme colour. The code is generated from
+  the page's widgets:
+
+  ```bash
+  python scripts/gen_virtual_layout/gen_virtual_layout.py --theme-code grid
+  ```
+
+  Paste it right after `sendme` in both HMIs, and paste it again whenever a
+  widget compiled with a theme colour is added, removed or recoloured:
+  `gen_virtual_layout.py --check` (run by the test suite) fails while a page's
+  code is missing or stale.
 - **Enable `Send Component ID`** on any touch event the hub needs to react
   to (buttons, sliders, keypad keys). Without it the hub receives no
   component event for the widget.
@@ -147,7 +162,8 @@ No Python changes are needed unless you also change the object name or id.
 
 1. In the editor: add a page, give it a **unique page id** and a **page name**
    (e.g. `dehumidifier`).
-2. In its `Preinitialize`, send `sendme` and prepare the page state.
+2. In its `Preinitialize`, send `sendme` and prepare the page state; on a
+   solid-colour page, paste its theme code after `sendme` (see the hard rules).
 3. Add all widgets; enable `Send Component ID` on the interactive ones.
 4. In Python, create `haui/page/dehumidifier.py` with a `HAUIPage` subclass,
    a `COMPONENTS` registry, and a `DESCRIPTOR` (unique `type_key`,
@@ -353,10 +369,9 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
    It writes the preview layouts (`frontend/virtual/layout_landscape.json`,
    `layout_portrait.json`), `icon_map.json`, the preview pictures
    (`frontend/virtual/pictures/`, WebP from `nextion/images/`), the font widths
-   the hub fits text with (`haui/mapping/font_metrics.json`) and the widgets
-   compiled with a theme colour (`haui/mapping/theme_widgets.json`). The
-   optional [pre-commit hook](development.md#git-hooks) runs it on every
-   commit.
+   the hub fits text with (`haui/mapping/font_metrics.json`), and checks every
+   solid-colour page's theme code (see the hard rules). The optional
+   [pre-commit hook](development.md#git-hooks) runs it on every commit.
 7. **Update Python when ids or names changed.** Dump both HMIs and compare
    each page with its `COMPONENTS` registry in `haui/page/*.py`:
 

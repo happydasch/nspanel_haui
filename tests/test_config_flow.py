@@ -307,7 +307,6 @@ class TestOptionsToConfigDict:
             result["update"]["firmware_auto_update"]
             == DEFAULT_CONFIG["update"]["firmware_auto_update"]
         )
-        assert result["update"]["tft_filename"] == DEFAULT_CONFIG["update"]["tft_filename"]
 
     def test_device_config_home_sleep_keys(self):
         """Device config carries home/sleep panel key references."""

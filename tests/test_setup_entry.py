@@ -15,6 +15,7 @@ sys.modules.setdefault("homeassistant.helpers.storage", _storage_stub)
 import nspanel_haui  # noqa: E402
 from nspanel_haui import esphome_helpers, storage  # noqa: E402
 from nspanel_haui.ha_adapter import ESPHomeProxy  # noqa: E402
+from nspanel_haui.haui.mapping.color import ColorTheme  # noqa: E402
 from nspanel_haui.nspanel_haui import NSPanelHAUI  # noqa: E402
 
 # --- setup ----------------------------------------------------------------
@@ -211,7 +212,7 @@ def test_setup_starts_only_enabled_devices_listed_in_the_entry(monkeypatch):
         "devices": {
             "kitchen": {"config": {}, "panels": []},
             "office": {"config": {"enabled": False}, "panels": []},
-            # Removed with "keep config": settings stay, the device stays removed.
+            # Store-only (no config-entry record): settings stay, the device does not run.
             "garage": {"config": {}, "panels": []},
         },
     }
@@ -329,11 +330,23 @@ class _DeviceConfig:
     _panels: list = []
 
 
-def _reload(saved_config: dict):
+class _Navigation:
+    """Records the background colour of the theme each reload sees."""
+
+    def __init__(self, app) -> None:
+        self.app = app
+        self.reloads: list[int] = []
+
+    def reload_panels(self) -> None:
+        self.reloads.append(self.app.color_theme.get("background"))
+
+
+def _reload(saved_config: dict, overrides: dict | None = None):
     app = NSPanelHAUI.__new__(NSPanelHAUI)
     app.device_config = _DeviceConfig()
     app.device = _Device()
-    app.controller = {}
+    app.controller = {"navigation": _Navigation(app)}
+    app.color_theme = ColorTheme(overrides or {})
     app._runtime_device_name = "kitchen"
     app.log = lambda *a, **kw: None
     cfg = nspanel_haui._build_config_dict(
@@ -351,7 +364,14 @@ def test_reload_config_clamps_saved_color_overrides_like_startup():
     app = _reload(saved)
 
     assert app.device.config["color_overrides"] == {"background": 65535, "text": 123}
-    assert app._color_theme.get("background") == 65535
+    assert app.color_theme.get("background") == 65535
+
+
+def test_reload_config_applies_the_new_theme_before_navigation_reloads():
+    """Navigation loads the page again when the theme it paints while loading changed."""
+    app = _reload({"color_overrides": {"background": 0}}, overrides={"background": 1})
+
+    assert app.controller["navigation"].reloads == [0]
 
 
 def test_reload_config_resets_a_setting_removed_from_the_store_to_its_default():

@@ -83,7 +83,6 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
     * :class:`~haui.page.component_mixin.ComponentMixin` methods
     """
 
-    # internal function button ids
     def get_color(self, key: str) -> int:
         """Provided by ``HAUIBase`` at runtime via MRO (mixin + base class).
 
@@ -181,11 +180,15 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
     def get_button_colors(self, active: bool) -> tuple:
         """Returns default colors for buttons.
 
+        Buttons sit flat on the page background, which the page's theme code
+        paints while it loads; only the pressed state lifts, and a disabled
+        button stays flat when pressed.
+
         Args:
             active (bool): is the button active
 
         Returns:
-            tuple: (color, color_pressed, back_color, back_color_pressed)
+            tuple: (color, color_pressed, back_color_pressed)
         """
         if active:
             color = self.get_color("component_active")
@@ -195,26 +198,19 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             color = self.get_color("text_disabled")
             color_pressed = self.get_color("text_disabled")
             back_color_pressed = self.get_color("background")
-        # buttons sit flat on the page background; only the pressed state lifts
-        back_color = self.get_color("background")
-        return color, color_pressed, back_color, back_color_pressed
+        return color, color_pressed, back_color_pressed
 
-    def button_color_args(self, active: bool, *, back_color: bool = False) -> dict:
+    def button_color_args(self, active: bool) -> dict:
         """Returns ``update_function_component`` color kwargs for a button.
 
         Args:
             active (bool): is the button active
-            back_color (bool): also include ``back_color`` (most callers only
-                restyle the pressed background)
 
         Returns:
-            dict: color, color_pressed, back_color_pressed (and back_color)
+            dict: color, color_pressed, back_color_pressed
         """
-        color, color_pressed, back, back_pressed = self.get_button_colors(active)
-        args = {"color": color, "color_pressed": color_pressed, "back_color_pressed": back_pressed}
-        if back_color:
-            args["back_color"] = back
-        return args
+        color, color_pressed, back_pressed = self.get_button_colors(active)
+        return {"color": color, "color_pressed": color_pressed, "back_color_pressed": back_pressed}
 
     # ------------------------------------------------------------------
     # Function component registration
@@ -468,17 +464,6 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                     fnc_item["fnc_args"]["visible"] = False
                 else:
                     fnc_item["fnc_args"]["visible"] = True
-            # Set background color for header buttons (visible, non-content slots)
-            # so they retain their header bar background even after removing the
-            # universal default in update_function_component.
-            fnc_ids_header = (
-                self.FNC_BTN_L_PRI,
-                self.FNC_BTN_L_SEC,
-                self.FNC_BTN_R_PRI,
-                self.FNC_BTN_R_SEC,
-            )
-            if fnc_id in fnc_ids_header and fnc_item["fnc_args"].get("back_color") is None:
-                fnc_item["fnc_args"]["back_color"] = self.get_color("header_background")
 
         # Notification indicator: the main loop granted it right_sec only when
         # that slot was free.  A page that claimed both right slots (grid/row

@@ -221,8 +221,7 @@ export function renderDisplay(display, ctx) {
     return html`<div class="vp-screen" style="${size}background:#000;"></div>`;
   }
   const pageComp = display.component(0);
-  // The hub's `cls <colour>` paints the page background before the widgets
-  // are drawn on top (haui_page._apply_background).
+  // A `cls <colour>` fills the page before the widgets are drawn on top.
   const pageBg = display.fill !== null
     ? `background:${color(display.fill)};`
     : backgroundStyle(pageComp.attrs, { x: 0, y: 0 }, ctx.pictureUrl) || 'background:#000;';

@@ -283,14 +283,17 @@ class HAUINavigationController(HAUIBase):
         self.log("Navigation panel references reloaded")
 
         # Re-render currently displayed panel so config changes take effect.
-        # If page type unchanged, set_panel reapplies new config in place.
-        # If type changed (or page missing), do a full open_panel.
+        # set_panel reapplies the new config in place on the loaded page; a
+        # full open_panel loads the page again when its type changed (or the
+        # page is missing) or when the page reads something else while it
+        # loads (theme colours, background picture).
         if self.panel is not None:
             new_page_id = get_page_id_for_panel(self.panel.get_type())
             if (
                 self.page is not None
                 and new_page_id is not None
                 and self.page.page_id == new_page_id
+                and self.page.is_loaded_for(self.panel)
             ):
                 self.display_panel(self.panel)
             else:
@@ -501,8 +504,8 @@ class HAUINavigationController(HAUIBase):
         )
         self.page = page_class(self.app, {"page_id": page_id})
 
-        # notify about panel creation early in process
-        self.page.create_panel(panel)
+        # the theme colours and whatever else the page reads while it loads
+        self.page.prepare_page_load(panel)
 
         # set new page for panel
         self.goto_page(page_id, force=force)
@@ -1152,9 +1155,9 @@ class HAUINavigationController(HAUIBase):
     def _buffer_overflow_recover(self, _kwargs: dict[str, Any]) -> None:
         """Re-render the current panel after a buffer overflow.
 
-        Uses refresh_panel (render only — no cls / full-page ref) instead of
-        a full set_panel so the recovery batch is smaller than the batch that
-        overflowed and cannot re-trigger the overflow by itself.
+        Uses refresh_panel (render only) instead of a full set_panel so the
+        recovery batch is smaller than the batch that overflowed and cannot
+        re-trigger the overflow by itself.
         """
         self._buffer_overflow_timer = None
         if self.panel is None or self.page is None:

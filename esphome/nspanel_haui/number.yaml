@@ -30,12 +30,6 @@ number:
     initial_value: 50.0
     restore_value: true
     optimistic: true
-    on_value:
-      then:
-        - lambda: |-
-            // reset last interaction, this way the currently set brightness
-            // is updated
-            id(update_last_interaction).execute(-1, 0);
 
   # Screen brightness when dimmed down
   - platform: template
@@ -49,11 +43,6 @@ number:
     initial_value: 20.0
     restore_value: true
     optimistic: true
-    on_value:
-      then:
-        - lambda: |-
-            //  reset last interaction, set offset to end of dimming
-            id(update_last_interaction).execute(-1, id(timeout_dim).state + id(duration_dim).state);
 
   # Screen brightness when dimmed down
   - platform: template
@@ -67,11 +56,6 @@ number:
     initial_value: 2.0
     restore_value: true
     optimistic: true
-    on_value:
-      then:
-        - lambda: |-
-            //  reset last interaction, set offset to begin of dimming
-            id(update_last_interaction).execute(-1, id(timeout_dim).state - 0.1);
 
   # Dim timeout
   - platform: template

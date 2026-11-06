@@ -24,7 +24,7 @@ binary_sensor:
         - lambda: |-
             id(publish_event_native).execute("esphome.button_left", "1");
             if (id(use_button_interaction).state) {
-              id(update_last_interaction).execute(-1, 0);
+              id(reset_interaction_timer).execute(0);
             }
         # Toggle the relay on the press (down) edge so the action always fires,
         # regardless of how long the button is held. The previous on_click
@@ -56,7 +56,7 @@ binary_sensor:
         - lambda: |-
             id(publish_event_native).execute("esphome.button_right", "1");
             if (id(use_button_interaction).state) {
-              id(update_last_interaction).execute(-1, 0);
+              id(reset_interaction_timer).execute(0);
             }
         # Toggle the relay on the press (down) edge so the action always fires,
         # regardless of how long the button is held. The previous on_click
@@ -148,6 +148,7 @@ text_sensor:
     id: current_page
     icon: mdi:view-dashboard-outline
     update_interval: never
+    disabled_by_default: true
 
   # Client Status (ESPHome)
   # Server status (hub_availability) is now set via native API
@@ -184,14 +185,15 @@ sensor:
             auto payload_str = json::build_json(payload);
             id(publish_event_native).execute("esphome.read_response", payload_str);
           }
-  # Current page
+  # Current page, by Nextion page id
   # this sensor will get updated when a page change event occured
   - platform: template
-    name: Page
+    name: Current Page Number
     id: page
-    internal: true
+    icon: mdi:numeric
     accuracy_decimals: 0
     update_interval: never
+    disabled_by_default: true
     on_value:
       then:
         - lambda: |-
@@ -225,7 +227,6 @@ sensor:
       - lambda: |-
           // make sure to compare numbers
           if (id(touch_x).state != x) {
-            id(update_last_interaction).execute(-1, 0);
             return x;
           } else {
             return {};
@@ -245,7 +246,6 @@ sensor:
       - lambda: |-
           // make sure to compare numbers
           if (int(id(touch_y).state) != int(x)) {
-            id(update_last_interaction).execute(-1, 0);
             return x;
           } else {
             return {};
@@ -258,17 +258,6 @@ sensor:
     internal: false
     accuracy_decimals: 0
     update_interval: never
-
-  # Last Interaction
-  - platform: template
-    name: Last Interaction
-    id: last_interaction
-    update_interval: never
-    accuracy_decimals: 0
-    internal: true  # don't expose too much updates
-    on_value:
-        - lambda: |-
-            id(update_last_interaction).execute(x, 0);
 
   # WIFI Signal stregth
   - platform: wifi_signal

@@ -207,6 +207,8 @@ export class NextionDisplay {
 
   setAttr(ref, value) {
     if (ref.global !== undefined) {
+      // The display rejects a variable its Program.s does not declare.
+      if (!(ref.global in this.globals)) throw new Error(`unknown variable ${ref.global}`);
       this.globals[ref.global] = value;
       return;
     }

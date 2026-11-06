@@ -7,11 +7,15 @@
 // the layout or the replay raises a warning the bare page load does not: the
 // hub sent something the simulator cannot run, so its card would be wrong.
 // With --themed-colors the renders come from a device whose `background`,
-// `component_background` and `component_pressed` differ from the HMI's
-// colours, so a visible widget still drawn in its page's HMI colour (`bco`, or
-// `bco2` when pressed), still pressed in the HMI's pressed colour, or a visible
-// slider, progress bar or toggle still on its own HMI `bco` (track, empty part,
-// off state), did not follow the theme.
+// `header_background`, `component_background` and `component_pressed` differ
+// from the HMI's colours, so a visible widget still drawn in its page's HMI
+// colour (`bco`, or `bco2` when pressed), still pressed in the HMI's pressed
+// colour, or a visible slider, progress bar or toggle still on its own HMI
+// `bco` (track, empty part, off state), did not follow the theme. The page must
+// also load in the theme: right after the page switch, before the page's
+// commands, no solid page or visible widget may show the HMI's background or
+// header colour — the theme the hub sends ahead of the page switch is painted
+// by the page's Preinitialize code, so no colour change is visible.
 import './dom-shim.mjs';
 
 import { readFileSync } from 'node:fs';
@@ -31,6 +35,7 @@ const STA_SOLID = 1;
 // Pressed greys the TFTs compile into `bco2`: the default `component_pressed`, and
 // the lighter grey some buttons kept from before the 0.4 dark theme.
 const HMI_PRESSED = new Set([12678, 29582]);
+const HMI_HEADER_BACKGROUND = 6339;
 
 const failures = [];
 for (const [name, render] of Object.entries(renders)) {
@@ -49,6 +54,18 @@ for (const [name, render] of Object.entries(renders)) {
   if (themedColors) {
     const hmi = new Map(layout.pages[render.page].components.map((c) => [c.name, c.attrs]));
     const page = layout.pages[render.page].components.find((c) => c.type === TYPE_PAGE).attrs;
+    if (page.sta === STA_SOLID) {
+      const loaded = buildPreviewDisplay(layout, render.page, { render: { ...render, commands: [] } });
+      const hmiColours = new Set([page.bco, HMI_HEADER_BACKGROUND]);
+      const flashing = [...loaded.components.values()].filter((comp) => (
+        comp.type === TYPE_PAGE
+          ? (loaded.fill ?? comp.attrs.bco) === page.bco
+          : !comp.hidden && comp.attrs.sta === STA_SOLID && hmiColours.has(comp.attrs.bco)
+      ));
+      if (flashing.length) {
+        failures.push(`${name}: loads in the HMI colours on ${flashing.map((c) => c.name).join(', ')}`);
+      }
+    }
     const visible = [...display.components.values()].filter(
       (comp) => comp.type !== TYPE_PAGE && !comp.hidden,
     );

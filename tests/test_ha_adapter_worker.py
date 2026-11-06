@@ -221,6 +221,241 @@ def test_interval_cancelled_before_its_first_fire_never_starts(env):
     assert helpers.intervals == []
     assert calls == []
 
+def test_loop_side_timer_fires_while_worker_busy(env):
+    """A timer registered with ``on_loop=True`` (the hub heartbeat) fires on
+    the event loop even while the worker is blocked — it must never queue
+    behind a render burst or a slow update check."""
+    adapter, loop, helpers = env
+    release = threading.Event()
+    started = threading.Event()
+    worker_thread: dict = {}
+
+    def busy(*_args):
+        worker_thread["id"] = threading.get_ident()
+        started.set()
+        release.wait(5)
+
+    adapter.listen_state(busy, "sensor.busy")
+    _on_loop(loop, helpers.state_cbs["sensor.busy"], _state_event("busy"))
+    assert started.wait(5)
+
+    fired = threading.Event()
+    cb_info: dict = {}
+
+    def heartbeat(kwargs):
+        cb_info["id"] = threading.get_ident()
+        cb_info["worker_still_busy"] = not release.is_set()
+        fired.set()
+
+    adapter.run_every(heartbeat, "now+0", 10, on_loop=True)
+    _on_loop(loop, helpers.later[-1], None)
+
+    assert fired.wait(5)
+    assert cb_info["worker_still_busy"] is True
+    assert cb_info["id"] != worker_thread["id"]
+    release.set()
+    _settle(adapter, loop, helpers)
+
+
+def test_detached_publish_returns_immediately_while_worker_busy(env):
+    """``publish_detached`` never waits for the app worker: the heartbeat calls
+    it from the event loop and must return at once even when the worker sits
+    in a long render."""
+    adapter, loop, helpers = env
+    proxy = adapter.get_plugin_api("ESPHome", device_name="kitchen", device_id="dev1")
+    release = _occupy_worker(adapter, loop, helpers)
+
+    start = time.monotonic()
+    proxy.publish_detached("send_command", "x")
+    elapsed = time.monotonic() - start
+
+    release.set()
+    _settle(adapter, loop, helpers)
+
+    assert elapsed < 1.0
+
+def test_run_off_worker_runs_the_callable_on_another_thread(env):
+    """Blocking work (HTTP, disk) must never execute on the app's worker."""
+    adapter, loop, helpers = env
+    seen: dict = {}
+
+    def blocking():
+        seen["thread"] = threading.get_ident()
+        return "done"
+
+    worker_thread: dict = {}
+    result: dict = {}
+
+    def on_worker():
+        worker_thread["id"] = threading.get_ident()
+        result["value"] = adapter.run_off_worker(blocking, timeout=5)
+
+    adapter._worker.submit(on_worker).result(10)
+
+    assert result["value"] == "done"
+    assert seen["thread"] != worker_thread["id"]
+
+
+def test_run_off_worker_times_out_and_logs(env):
+    """A hung request cannot hold the worker past the call's own timeout."""
+    adapter, loop, helpers = env
+    release = threading.Event()
+    logged: list = []
+    adapter.log = lambda msg, **kw: logged.append((msg, kw))
+
+    def hung():
+        release.wait(5)
+
+    def on_worker():
+        with pytest.raises(TimeoutError):
+            adapter.run_off_worker(hung, timeout=0.05)
+
+    try:
+        adapter._worker.submit(on_worker).result(10)
+    finally:
+        release.set()
+
+    assert any("timed out" in msg for msg, _kw in logged)
+
+
+def test_submit_off_worker_delivers_the_result_on_the_worker(env):
+    """Fire-and-forget I/O hands its result back on the worker, so the caller
+    keeps app state single-threaded while the request runs off-thread."""
+    adapter, loop, helpers = env
+    io_thread: dict = {}
+    delivered = threading.Event()
+    seen: dict = {}
+
+    def fetch():
+        io_thread["id"] = threading.get_ident()
+        return "payload"
+
+    def apply(result, error):
+        seen["result"] = result
+        seen["error"] = error
+        seen["thread"] = threading.get_ident()
+        delivered.set()
+
+    adapter.submit_off_worker(fetch, on_done=apply)
+
+    assert delivered.wait(5)
+    assert seen["result"] == "payload" and seen["error"] is None
+    # Applied on the worker, produced on the I/O pool.
+    assert seen["thread"] != io_thread["id"]
+
+
+def test_submit_off_worker_reports_an_error_to_the_callback(env):
+    adapter, loop, helpers = env
+    delivered = threading.Event()
+    seen: dict = {}
+
+    def boom():
+        raise RuntimeError("network down")
+
+    def apply(result, error):
+        seen["result"] = result
+        seen["error"] = error
+        delivered.set()
+
+    adapter.submit_off_worker(boom, on_done=apply)
+
+    assert delivered.wait(5)
+    assert seen["result"] is None
+    assert isinstance(seen["error"], RuntimeError)
+
+
+def test_stop_shuts_the_io_pool_down(env):
+    """A stopped app leaves no I/O threads behind to apply stale results."""
+    adapter, loop, helpers = env
+    adapter.stop()
+
+    with pytest.raises(RuntimeError):
+        adapter.run_off_worker(lambda: None, timeout=1)
+
+def test_update_check_http_runs_off_the_worker(env, monkeypatch):
+    """The hourly GitHub read must not execute on the worker's thread.
+
+    It used to: a slow response blocked the worker, which then starved the
+    hub→device heartbeat and the panel disconnected and woke its display.
+    """
+    adapter, loop, helpers = env
+    from nspanel_haui.haui.controller import update as update_module
+    from nspanel_haui.haui.controller.update import HAUIUpdateController
+
+    seen: dict = {}
+
+    class _Response:
+        def json(self):
+            return []
+
+    def fake_get(url, timeout):
+        seen["thread"] = threading.get_ident()
+        seen["thread_name"] = threading.current_thread().name
+        return _Response()
+
+    monkeypatch.setattr(update_module.requests, "get", fake_get)
+    monkeypatch.setattr(update_module, "_release_cache", None, raising=False)
+
+    ctrl = HAUIUpdateController.__new__(HAUIUpdateController)
+    ctrl.app = adapter
+    ctrl._req_fetch = False
+    ctrl._release_infos = []
+    ctrl.log = lambda *a, **kw: None
+
+    caller: dict = {}
+
+    def on_worker():
+        caller["id"] = threading.get_ident()
+        ctrl._update_release_infos()
+
+    adapter._worker.submit(on_worker).result(10)
+
+    assert "thread" in seen, "the release list was never fetched"
+    assert seen["thread"] != caller["id"]
+    # It ran on the app's I/O pool, not just on some other thread.
+    assert "_io" in seen["thread_name"]
+
+def test_slow_update_fetch_keeps_the_heartbeat_beating(env):
+    """End-to-end encoding of the reported bug.
+
+    While the update check waits for a slow GitHub response the hub→device
+    heartbeat must keep firing; it used to sit behind that same work, the
+    device timed the hub out and woke its display at full brightness.
+    """
+    adapter, loop, helpers = env
+    beats: list = []
+    adapter.run_every(lambda kwargs: beats.append(1), "now+0", 0.05, on_loop=True)
+    _on_loop(loop, helpers.later[-1], None)
+    interval_cb = helpers.intervals[-1]
+    first_beats = len(beats)
+
+    release = threading.Event()
+    started = threading.Event()
+
+    def slow_fetch():
+        started.set()
+        release.wait(5)
+
+    def on_worker():
+        adapter.run_off_worker(slow_fetch, timeout=5)
+
+    worker = adapter._worker.submit(on_worker)
+    try:
+        assert started.wait(5)
+        # Fire the interval the way HA's scheduler would while the worker is
+        # still waiting for the fetch; each fire returns immediately.
+        for _ in range(3):
+            _on_loop(loop, interval_cb, None)
+    finally:
+        release.set()
+    worker.result(10)
+
+    assert len(beats) - first_beats == 3
+
+
+
+
+
 
 def test_callbacks_still_queued_when_the_app_stops_are_dropped(env):
     adapter, loop, helpers = env

@@ -1,10 +1,10 @@
 import { getLanguage, t } from './localize.js';
 /**
- * NSPanel HAUI - data loading helpers.
- * Loads config entries, panels and panel types.
+ * NSPanel HAUI - REST API client for the editor.
  *
- * Simplified to single-hub: loadEntries picks the first nspanel_haui entry
- * and auto-loads panels. No multi-entry discovery or device scanning.
+ * Single hub: loadEntries picks the first nspanel_haui entry and loads its
+ * panels. The rest wraps the hub's REST views (status, YAML, devices, display
+ * refresh, TFT/firmware installs, update checks).
  */
 
 export async function loadEntries(host) {
@@ -278,25 +278,20 @@ export async function addDevice(host, device) {
 }
 
 /**
- * Remove a device from the config entry.
+ * Remove a device from the hub, together with its settings and panels.
  *
  * DELETE /api/nspanel_haui/devices/{entryId}?name={name}
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
  * @param {string} name - device name to remove
- * @param {boolean} [keepConfig=false] - keep panel config in store
- * @returns {Promise<{ status: string, kept_config: boolean }>}
+ * @returns {Promise<{ status: string }>}
  */
-export async function removeDevice(host, name, keepConfig = false) {
+export async function removeDevice(host, name) {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));
   }
   return request(host, `/api/nspanel_haui/devices/${host.entryId}?name=${encodeURIComponent(name)}`,
-    {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keep_config: keepConfig }),
-    }, t("Failed to remove device"));
+    { method: "DELETE" }, t("Failed to remove device"));
 }
 
 /**
@@ -318,8 +313,10 @@ export async function refreshDeviceDisplay(host, deviceName) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device: deviceName }),
     }, t("Failed to refresh display"));
-}/**
- * Resolve the prebuilt firmware (.bin) download link of the latest release.
+}
+
+/**
+ * Resolve the prebuilt firmware (.bin) download link of the latest stable release.
  *
  * GET /api/nspanel_haui/firmware
  *
@@ -336,7 +333,6 @@ export async function getFirmwareDownload(host) {
 }
 
 /**
- * Trigger a TFT install on one or all devices./**
  * Trigger a TFT install on one or all devices.
  *
  * POST /api/nspanel_haui/update_tft/{entryId}

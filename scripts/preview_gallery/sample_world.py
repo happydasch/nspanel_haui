@@ -154,7 +154,6 @@ FIRMWARE_ENTITIES: list[tuple[str, str, str]] = [
     ("sensor", "Brightness", "sensor.kitchen_brightness"),
     ("sensor", "Uptime", "sensor.kitchen_uptime"),
     ("sensor", "RSSI", "sensor.kitchen_rssi"),
-    ("sensor", "Last Interaction", "sensor.kitchen_last_interaction"),
     ("number", "Display Model", "number.kitchen_display_model"),
     ("number", "Brightness Full", "number.kitchen_brightness_full"),
     ("number", "Brightness Dimmed", "number.kitchen_brightness_dimmed"),
@@ -186,7 +185,6 @@ FIRMWARE_STATES: dict[str, tuple[str, dict[str, Any]]] = {
     "sensor.kitchen_brightness": ("60", {"friendly_name": "Brightness"}),
     "sensor.kitchen_uptime": ("3600", {"friendly_name": "Uptime"}),
     "sensor.kitchen_rssi": ("-58", {"friendly_name": "RSSI"}),
-    "sensor.kitchen_last_interaction": ("0", {"friendly_name": "Last Interaction"}),
     "number.kitchen_brightness_full": (
         "60",
         {"friendly_name": "Brightness Full", "min": 0, "max": 100, "step": 1},

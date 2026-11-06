@@ -164,16 +164,13 @@ class GridPage(PagedItemsMixin, HAUIPage):
             name = getattr(self.COMPONENTS, f"g{i + 1}_name")
             power_btn_callbacks[power] = self.callback_power_buttons
             grid_ovl_callbacks[ovl] = self.callback_grid_entries
-            self.set_function_component(power, power[1], row_index=i, visible=False)
-            self.set_function_component(ovl, ovl[1], row_index=i, visible=False, no_color=True)
-            self.set_function_component(btn, btn[1], row_index=i, visible=False)
-            self.set_function_component(ico, ico[1], row_index=i, visible=False)
-            self.set_function_component(name, name[1], row_index=i, visible=False)
+            self.set_function_component(power, power.name, row_index=i, visible=False)
+            self.set_function_component(ovl, ovl.name, row_index=i, visible=False, no_color=True)
+            self.set_function_component(btn, btn.name, row_index=i, visible=False)
+            self.set_function_component(ico, ico.name, row_index=i, visible=False)
+            self.set_function_component(name, name.name, row_index=i, visible=False)
         self.on_release(power_btn_callbacks)
         self.on_release(grid_ovl_callbacks)
-
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.COMPONENTS.title, panel.get_title())
@@ -297,15 +294,15 @@ class GridPage(PagedItemsMixin, HAUIPage):
                 btn_args["back_color_pressed"] = back_color_pressed
                 if power_visible:
                     power_args["back_color_pressed"] = back_color_pressed
-            self.update_function_component(ico[1], None, **ico_args)
-            self.update_function_component(name[1], None, **name_args)
-            self.update_function_component(btn[1], None, **btn_args)
-            self.update_function_component(ovl[1], None, **ovl_args)
+            self.update_function_component(ico.name, None, **ico_args)
+            self.update_function_component(name.name, None, **name_args)
+            self.update_function_component(btn.name, None, **btn_args)
+            self.update_function_component(ovl.name, None, **ovl_args)
             self.update_grid_entry(idx)
-            self.update_function_component(power[1], None, **power_args)
+            self.update_function_component(power.name, None, **power_args)
         else:
             for x in [btn, ico, name, ovl, power]:
-                self.update_function_component(x[1], visible=False)
+                self.update_function_component(x.name, visible=False)
 
     def update_grid_entry(self, idx: int) -> None:
         # update a single button

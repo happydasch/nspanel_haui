@@ -111,6 +111,24 @@ class HAUIESPHomeController(HAUIBase):
         self.esphome.publish(bare_cmd, value)
         self.prev_cmd = dedup_key
 
+    def publish_detached(self, cmd: str, value: str | dict | list = "") -> None:
+        """Send a command without waiting for it and without touching the worker.
+
+        Same command names as ``send_cmd`` (the ``esphome.`` prefix is
+        stripped), but the command is executed fire-and-forget straight on the
+        event loop: it neither waits for the device nor queues behind work on
+        the app's worker thread. Only for high-frequency liveness traffic —
+        the hub→device heartbeat — which must not be delayed by renders or
+        update checks.
+
+        Args:
+            cmd (str): Command name (with or without esphome. prefix).
+            value: Value for command.
+        """
+        if value is None:
+            value = ""
+        self.esphome.publish_detached(cmd.removeprefix("esphome."), value)
+
     def reset_prev_cmd(self) -> None:
         """Clear the previous-command cache so the next render is never suppressed.
 

@@ -15,7 +15,7 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import theme_widgets
+from ..mapping.color import COLORS
 from ..mapping.const import ESPEvent, ESPRequest, ESPResponse, NotifEvent, PopupPanelKey
 from .mixins.component_mixin import ComponentMixin
 from .mixins.function_btn_mixin import FunctionButtonMixin
@@ -54,11 +54,6 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         fnc_right_pri=Component(5, "bFncRPri"),
         fnc_right_sec=Component(6, "bFncRSec"),
     )
-
-    # Pages that use pre-rendered picture backgrounds (clock, clocktwo, weather)
-    # should set this to ``True`` so the base class skips the ``fill`` background
-    # command (picture-background pages handle their own background).
-    PICTURE_BACKGROUND: ClassVar[bool] = False
 
     # Pages with non-standard color palettes (about, clock, clocktwo, weather)
     # should set this to ``False`` so user-defined color overrides are bypassed
@@ -110,11 +105,10 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any] | None = None) -> None:
         super().__init__(app, config)
         self.page_id = int(self.get("page_id"))
-        # Read by get_color(). Set here rather than in start_panel(): pages override
-        # start_panel() without calling super(), and _apply_background() runs first.
-        self._use_system_colors: bool = type(self).USE_SYSTEM_COLORS
         # current panel
         self.panel: HAUIPanel | None = None
+        # what prepare_page_load() sent ahead of the page switch
+        self._load_commands: list[str] | None = None
         # function items, components
         self._fnc_items: dict = {}
         # component callbacks: list for press events (button_state != 0),
@@ -401,9 +395,16 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         self._read_callbacks.clear()
         self._pending_read_request = None
         self.set_panel(None)
-        # clean up item handles
-        for handle in self._handles.copy():
-            self.remove_item_listener(handle)
+
+    def get_color(self, key: str) -> int:
+        """Return the device's theme colour, or the default on an own-palette page.
+
+        Args:
+            key: A key from the ``COLORS`` dict (e.g. ``"background"``).
+        """
+        if not self.USE_SYSTEM_COLORS:
+            return COLORS[key]
+        return super().get_color(key)
 
     # panel functionality
 
@@ -430,19 +431,17 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         Args:
             panel (HAUIPanel): The panel to set.
         """
+        from ..mapping.panel import PAGE_MAPPING
+
         # prepare panel
         if self.panel is not None:
             self.stop_panel(self.panel)
         self.panel = panel
         if panel is None:
-            from ..mapping.panel import PAGE_MAPPING
-
             self.log(f"Page {PAGE_MAPPING.get(self.page_id)} | closed")
             return
         panel_key = panel.get("key", "")
         panel_type = panel.get_type()
-        from ..mapping.panel import PAGE_MAPPING
-
         self.log(f"Page {PAGE_MAPPING.get(self.page_id)} | Panel: {panel_key} ({panel_type})")
 
         # Batch ALL commands from start_panel, config_panel, and render_panel
@@ -454,11 +453,6 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         rendered = False
         self._fnc_items = {}
         with self.rec_cmd:
-            # apply background colour FIRST — before start_panel/config/render —
-            # so that component vis/text commands that follow don't get painted
-            # over by the screen clear.
-            self._apply_background()
-
             self.start_panel(panel)
 
             # call config for panel
@@ -491,97 +485,89 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
         for fnc_id in self._fnc_items:
             self.update_function_component(fnc_id)
 
-    def _apply_background(self) -> None:
-        """Apply background colour and header/title colours at the START of a
-        panel transition, before any component setup or render commands.
-
-        Picture-background pages (``PICTURE_BACKGROUND = True``) handle their
-        own background via pre-compiled assets; ``cls`` would overwrite them.
-        """
-        if not self.PICTURE_BACKGROUND:
-            self.send_cmd(f"cls {self.get_color('background')}")
-            self._apply_theme_widgets()
-            # apply header colours to the header background (if the page has one)
-            try:
-                header_comp = self.COMPONENTS.header
-            except AttributeError:
-                pass
-            else:
-                self.set_component_back_color(header_comp, self.get_color("header_background"))
-
-            # apply header colours to the title component (if the page has one)
-            try:
-                title_comp = self.COMPONENTS.title
-            except AttributeError:
-                pass
-            else:
-                self.set_component_text_color(title_comp, self.get_color("header_text"))
-                self.set_component_back_color(title_comp, self.get_color("header_background"))
-
-    def _apply_theme_widgets(self) -> None:
-        """Repaint the widgets the HMI compiles with a theme colour that is overridden.
-
-        The TFTs bake the default ``background`` into every flat widget (texts,
-        icons, flat buttons) and the default ``component_pressed`` into the
-        buttons' pressed state; ``cls`` repaints only the page, so with an
-        overridden colour those widgets would keep the compiled one. Writes the
-        page makes later in the batch (item colours, pressed states) still win.
-        """
-        from ..mapping.panel import PAGE_MAPPING
-
-        for key, widgets in theme_widgets()[PAGE_MAPPING[self.page_id]].items():
-            color = self.get_color(key)
-            if color == widgets["color"]:
-                continue
-            for attr, names in widgets["attrs"].items():
-                for name in names:
-                    self.send_cmd(f"{name}.{attr}={color}")
-
     def config_panel(self, panel: HAUIPanel) -> None:
-        """Configures the currently set panel.
+        """Sets up the header buttons and registers the function components.
+
+        Header slots ``start_panel`` registered without a function get the
+        default one for ``header_panel(panel)`` (``_auto_assign_fncs``).
 
         Args:
             panel (HAUIPanel): Current panel
         """
+        header = (self.FNC_BTN_L_PRI, self.FNC_BTN_L_SEC, self.FNC_BTN_R_PRI, self.FNC_BTN_R_SEC)
+        if any(fnc_id in self._fnc_items for fnc_id in header):
+            self._auto_assign_fncs(self.header_panel(panel))
+
+        # special case, single nav panel
+        # swap secondary buttons with primary buttons, since nav is not used
+        nav_panels = self.app.device_config.get_panels(True)
+        if len(nav_panels) <= 1:
+            self._swap_slots_if_single_nav(self.FNC_BTN_L_PRI, self.FNC_BTN_L_SEC)
+            self._swap_slots_if_single_nav(self.FNC_BTN_R_PRI, self.FNC_BTN_R_SEC)
+
+        # register function items (rendering deferred to render batch)
+        self._fnc_id_by_component.clear()
+        for fnc_id, fnc_item in self._fnc_items.items():
+            comp = fnc_item["fnc_component"]
+            # Function buttons act on release (callback_function_components
+            # ignores presses).  Register only when the page did not bind
+            # the component itself: ``start_panel`` may already hold the
+            # slot (e.g. the media page's volume slider is both a drag
+            # control and a ``set_volume`` fnc item), and then the page's
+            # callback owns the release.
+            if comp.id not in self._callback_map:
+                self.on_release(
+                    comp,
+                    lambda event, component: self.callback_function_components(event, component, 0),
+                )
+            self._fnc_id_by_component[comp.id] = fnc_id
+
+    def header_panel(self, panel: HAUIPanel) -> HAUIPanel:
+        """The panel whose navigation state picks the default header buttons.
+
+        Args:
+            panel (HAUIPanel): Current panel
+        """
+        return panel
+
+    def page_load_commands(self, panel: HAUIPanel) -> list[str]:
+        """The commands the display reads while it loads this page for ``panel``.
+
+        The display runs a page's Preinitialize code before it draws the page:
+        the solid-colour pages paint themselves from the theme globals there.
+        A page whose load code reads more (a picture background) extends this.
+
+        Args:
+            panel (HAUIPanel): Panel the page is loaded for
+        """
+        # The device's theme, not get_color(): own-palette pages read none of
+        # it, and the globals outlive this page on the display.
+        return self.app.color_theme.display_commands()
+
+    def prepare_page_load(self, panel: HAUIPanel) -> None:
+        """Send ``page_load_commands()``; call right before goto_page.
+
+        They must reach the display ahead of the page command, or the page
+        shows its compiled look first and changes when the hub repaints it.
+
+        Args:
+            panel (HAUIPanel): Panel the page is loaded for
+        """
+        self._load_commands = self.page_load_commands(panel)
         with self.rec_cmd:
-            # Background is applied by ``_apply_background()`` at the start of
-            # the ``set_panel`` batch (before ``start_panel``), so ``cls`` does
-            # not paint over the component commands that follow.
+            for cmd in self._load_commands:
+                self.send_cmd(cmd)
 
-            # special case, single nav panel
-            # swap secondary buttons with primary buttons, since nav is not used
-            nav_panels = self.app.device_config.get_panels(True)
-            if len(nav_panels) <= 1:
-                self._swap_slots_if_single_nav(self.FNC_BTN_L_PRI, self.FNC_BTN_L_SEC)
-                self._swap_slots_if_single_nav(self.FNC_BTN_R_PRI, self.FNC_BTN_R_SEC)
+    def is_loaded_for(self, panel: HAUIPanel) -> bool:
+        """Whether the display loaded this page with what ``panel`` reads while loading.
 
-            # register function items (rendering deferred to render batch)
-            self._fnc_id_by_component.clear()
-            for fnc_id, fnc_item in self._fnc_items.items():
-                comp = fnc_item["fnc_component"]
-                # Function buttons act on release (callback_function_components
-                # ignores presses).  Register only when the page did not bind
-                # the component itself: ``start_panel`` may already hold the
-                # slot (e.g. the media page's volume slider is both a drag
-                # control and a ``set_volume`` fnc item), and then the page's
-                # callback owns the release.
-                if comp.id not in self._callback_map:
-                    self.on_release(
-                        comp,
-                        lambda event, component, fnc_id=fnc_id: self.callback_function_components(
-                            event, component, 0
-                        ),
-                    )
-                self._fnc_id_by_component[comp.id] = fnc_id
-
-    def create_panel(self, panel: HAUIPanel) -> None:
-        """Called when a new panel is created.
-
-        This method should be overwritten in the page.
+        Only then can the page show ``panel`` without loading again: the load
+        code painted the theme and background ``panel`` needs.
 
         Args:
-            panel (HAUIPanel): Current panel
+            panel (HAUIPanel): Panel to show on the loaded page
         """
+        return self._load_commands == self.page_load_commands(panel)
 
     def start_panel(self, panel: HAUIPanel) -> None:
         """Called when a panel is started.
@@ -1145,27 +1131,25 @@ class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase):
                         break
             if notif_slot is not None:
                 notification = self.app.controller["notification"]
-                visible = notification.has_notifications()
-                color = (
-                    self.get_color("header_accent") if visible else self.get_color("component_text")
+                self.update_function_component(
+                    notif_slot,
+                    color=self.get_color("header_accent"),
+                    visible=notification.has_notifications(),
                 )
-                self.update_function_component(notif_slot, color=color, visible=visible)
 
     def set_slider_color(self, slider: Component, show_toggle: bool = True) -> None:
-        """Set the slider track to ``component_background`` and its handle color.
+        """Set the slider's handle color.
 
-        Sliders on NSPanel displays use ``.bco`` for the unfilled track and
-        ``.pco`` for the handle/foreground color.  Call this once per render
-        cycle after showing the slider so both follow the device theme.
-        Sliders compiled without a cursor (light, cover, row) show no handle
-        at all.
+        Sliders on NSPanel displays use ``.bco`` for the unfilled track, which
+        the page's theme code paints in ``component_background`` while it
+        loads, and ``.pco`` for the handle/foreground color. Sliders compiled
+        without a cursor (light, cover, row) show no handle at all.
 
         Args:
             slider: The slider ``Component`` to colour.
             show_toggle: True for a primary control (dark-accent handle), False
                 for a secondary one (``component_pressed`` handle).
         """
-        self.set_component_back_color(slider, self.get_color("component_background"))
         if show_toggle:
             self.set_component_text_color(slider, self.get_color("component_active_dark"))
         else:

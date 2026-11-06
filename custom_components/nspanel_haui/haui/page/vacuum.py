@@ -139,9 +139,6 @@ class VacuumPage(HAUIPage):
         # set title
         self._title = self._panel_title(panel, item, self.translate("Vacuum"))
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_vacuum_item()
 
@@ -191,7 +188,7 @@ class VacuumPage(HAUIPage):
             component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
             self.set_function_component(
                 component,
-                component[1],
+                component.name,
                 "item",
                 item=item,
                 icon=icon,

@@ -123,7 +123,7 @@ To edit the HMI file, no special care is needed. Following are some helpful info
 
 All pages need to send a `sendme` in `Preinitialize`. This is needed to know of a page change event.
 
-Prepare the page in the `Preinitialize` event because the Hub App cannot control the display at this stage. Only after a page is shown, it is possible to change anything or interact with it.
+Prepare the page in the `Preinitialize` event because the Hub App cannot control the display at this stage. Only after a page is shown, it is possible to change anything or interact with it. What the page needs from the hub to load correctly goes into global variables the hub sets before the page switch: the theme colours (`Program.s` globals the solid-colour pages paint themselves from, see [Nextion Editor](nextion-editor.md#hard-rules)) and the picture background of the clock and weather pages.
 
 If you want to process any click events, you need to enable `Send Component ID` on the event to be used.
 

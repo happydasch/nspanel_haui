@@ -9,6 +9,7 @@ import pytest
 from nspanel_haui.haui.abstract import haui_entity
 from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from nspanel_haui.haui.features import VacuumFeatures
+from nspanel_haui.haui.mapping.color import ColorTheme
 from nspanel_haui.haui.page.vacuum import VacuumPage
 from nspanel_haui.haui.utils.icon import get_icon
 
@@ -53,6 +54,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
+        self.color_theme = ColorTheme({})
         self.listeners = []
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}

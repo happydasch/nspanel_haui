@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 from unittest.mock import MagicMock
 
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
@@ -10,7 +11,7 @@ from nspanel_haui.haui.controller.connection import (
     ConnectionState,
     HAUIConnectionController,
 )
-from nspanel_haui.haui.mapping.const import ESPResponse, ServerRequest, ServerResponse
+from nspanel_haui.haui.mapping.const import ESPAction, ESPResponse, ServerRequest, ServerResponse
 
 # ── test helpers ──────────────────────────────────────────────────────────────
 
@@ -18,12 +19,17 @@ from nspanel_haui.haui.mapping.const import ESPResponse, ServerRequest, ServerRe
 class DummyESPHomeController:
     def __init__(self, parent_app=None):
         self.sent_cmds: list = []
+        self.detached: list = []
         self._parent = parent_app
 
     def send_cmd(self, name: str, value: str = "", force: bool = False) -> None:
         self.sent_cmds.append((name, value, force))
         if self._parent is not None:
             self._parent.sent_esphome.append((name, value, force))
+
+    def publish_detached(self, cmd: str, value: Any = "") -> None:
+        """Mirror HAUIESPHomeController: strips the ``esphome.`` prefix."""
+        self.detached.append((cmd.removeprefix("esphome."), value))
 
 
 class DummyDevice:
@@ -65,14 +71,14 @@ class DummyApp:
     def get(self, key: str, default=None):
         return default
 
-    def run_every(self, cb: callable, start: str, interval: float) -> str:
+    def run_every(self, cb: callable, start: str, interval: float, **kwargs: Any) -> str:
         handle = f"t{len(self.timers)}"
-        self.timers[handle] = cb
+        self.timers[handle] = (cb, kwargs)
         return handle
 
     def run_in(self, cb: callable, delay: float) -> str:
         handle = f"t{len(self.timers)}"
-        self.timers[handle] = cb
+        self.timers[handle] = (cb, {})
         return handle
 
     def cancel_timer(self, handle: str) -> None:
@@ -156,6 +162,9 @@ class TestConnectionStateMachine:
         # Should have sent hub_connection_initialized
         expected = ServerResponse.HUB_CONNECTION_INITIALIZED
         assert any(name == expected for name, _, _ in app.sent_esphome)
+        assert not any(
+            name == ESPAction.RESET_LAST_INTERACTION for name, _, _ in app.sent_esphome
+        )
 
     def test_timeout_when_connected_transitions_to_disconnected(self):
         _, cb, ctrl = make_controller()
@@ -327,3 +336,84 @@ def test_disconnect_records_reason_and_timestamp():
     ctrl._set_state(ConnectionState.CONNECTED)
     assert ctrl.last_disconnect_reason is None
     assert ctrl.disconnected_since is None
+
+class TestHubHeartbeat:
+    """Regression: a busy app worker delayed the hub→device heartbeat, the
+    device force-disconnected the hub and woke the display to full brightness
+    on its own. The heartbeat must therefore never touch the worker thread."""
+
+    def _heartbeat_timers(self, app, ctrl):
+        return [(cb, kw) for cb, kw in app.timers.values() if cb == ctrl._send_hub_heartbeat]
+
+    def test_heartbeat_timer_is_loop_side_and_detached(self):
+        app, _, ctrl = make_controller()
+
+        ctrl._start_heartbeat_timer()
+
+        # Registered as a repeating timer that runs on the event loop.
+        timers = self._heartbeat_timers(app, ctrl)
+        assert timers
+        (timer_cb, kwargs) = timers[0]
+        assert kwargs.get("on_loop") is True
+
+        # Firing sends the heartbeat fire-and-forget, never via the worker.
+        timer_cb({})
+        esp = app.controller["esphome"]
+        # The firmware action is bare ``hub_heartbeat``; the prefixed constant
+        # must be stripped on the way out, or the device never finds the action.
+        assert esp.detached == [("hub_heartbeat", "")]
+        # Nothing queued on the worker send path.
+        assert app.sent_esphome == []
+
+    def test_heartbeat_timer_restarts_without_duplicating(self):
+        app, _, ctrl = make_controller()
+
+        ctrl._start_heartbeat_timer()
+        assert len(self._heartbeat_timers(app, ctrl)) == 1
+        ctrl._start_heartbeat_timer()
+        assert len(self._heartbeat_timers(app, ctrl)) == 1
+
+        ctrl._stop_heartbeat_timer()
+        assert len(self._heartbeat_timers(app, ctrl)) == 0
+
+    def test_heartbeat_skips_send_when_esphome_controller_missing(self):
+        app, _, ctrl = make_controller()
+        app.controller.pop("esphome")
+
+        ctrl._send_hub_heartbeat({})
+
+        assert app.sent_esphome == []
+
+
+class _StubProxy:
+    """Records what reaches the ESPHome proxy (the real transport boundary)."""
+
+    def __init__(self):
+        self.published: list = []
+        self.detached: list = []
+
+    def publish(self, name: str, value: Any = "") -> bool:
+        self.published.append((name, value))
+        return True
+
+    def publish_detached(self, name: str, value: Any = "") -> None:
+        self.detached.append((name, value))
+
+
+def test_controller_publishes_the_bare_heartbeat_action_name():
+    """The heartbeat must reach the device as ``hub_heartbeat``, not
+    ``esphome.hub_heartbeat``: ESPHome matches its user services by the bare
+    action name, so a prefixed name is dropped as "service not found" and the
+    panel force-disconnects the hub — the display wake this fix prevents."""
+    from nspanel_haui.haui.controller.esphome import HAUIESPHomeController
+
+    proxy = _StubProxy()
+    ctrl = HAUIESPHomeController(DummyApp(), {"device_name": "kitchen"}, proxy, lambda event: None)
+
+    ctrl.publish_detached(ServerResponse.HUB_HEARTBEAT)
+
+    assert proxy.detached == [("hub_heartbeat", "")]
+    # Detached means detached: it must not go through the blocking publish path.
+    assert proxy.published == []
+
+

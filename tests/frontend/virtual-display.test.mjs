@@ -57,12 +57,37 @@ for (const orientation of ORIENTATIONS) {
 test('a picture page takes its background from the global set before the page loads', () => {
   const { display } = makeDisplay();
   // The hub sets the page's global background variable, then switches page
-  // (clock_common.apply_background).
+  // (clock_common.background_commands).
   display.exec('clock.background.val=5');
   display.gotoPage('clock');
   assert.equal(display.component('clock').attrs.pic, 5);
   assert.equal(display.component('tTime').attrs.picc, 5);
   assert.equal(display.component('pGrid').hidden, true);
+});
+
+test('a solid page loads in the theme set before the page switch', () => {
+  const { display } = makeDisplay();
+  // HAUIPage.prepare_page_load sends the theme globals, then the page switches;
+  // the page's Preinitialize code paints itself with them before it is drawn.
+  display.exec(['thmBg=4479', 'thmHdrBg=4228', 'thmPressed=6463']);
+  display.gotoPage('grid');
+  assert.equal(display.fill, null);
+  assert.equal(display.component('grid').attrs.bco, 4479);
+  assert.equal(display.component('g1Name').attrs.bco, 4479);
+  assert.equal(display.component('g1Btn').attrs.bco2, 6463);
+  assert.equal(display.component('tHeader').attrs.bco, 4228);
+});
+
+test('an assignment to an undeclared variable is refused, as on the display', () => {
+  const warnings = [];
+  const display = new NextionDisplay(loadLayout('landscape'), {
+    scheduler: fakeScheduler(),
+    onWarn: (message) => warnings.push(message),
+  });
+  display.exec('noSuchVar=1');
+  assert.equal('noSuchVar' in display.globals, false);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /unknown variable noSuchVar/);
 });
 
 test('global-scope widgets keep their values across page changes', () => {

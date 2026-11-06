@@ -122,9 +122,6 @@ class LightPage(HAUIPage):
             title = item.get_name()
         self._title = title
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
     def render_panel(self, panel: HAUIPanel) -> None:
         # set basic panel info
         self.set_component_text(self.COMPONENTS.title, self._title)

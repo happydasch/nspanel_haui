@@ -263,8 +263,6 @@ class AlarmPage(HAUIPage):
         for comp in self._action_buttons:
             self.on_release(comp, self.callback_action)
             self.set_function_component(comp, comp.name, comp.name, visible=False)
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_components()
@@ -285,11 +283,10 @@ class AlarmPage(HAUIPage):
         text_color = panel.get("keypad_text_color", None)
         if text_color in (None, ""):
             text_color = self.get_color("component_text")
-        with self.rec_cmd:
-            for comp in self._keypad_buttons:
-                self.send_cmd(f"{comp.name}.font={font}")
-                self.set_component_back_color(comp, bg_color)
-                self.set_component_text_color(comp, text_color)
+        for comp in self._keypad_buttons:
+            self.send_cmd(f"{comp.name}.font={font}")
+            self.set_component_back_color(comp, bg_color)
+            self.set_component_text_color(comp, text_color)
 
     # rendering
 
@@ -361,7 +358,8 @@ class AlarmPage(HAUIPage):
             with_icon = f"{icon} {label}" if icon else label
             if len(with_icon.encode()) <= _ACTION_TEXT_MAX_BYTES:
                 text = with_icon
-        color_args = self.button_color_args(True, back_color=True)
+        # One button shows disarm or an arm mode, each with its own back color.
+        color_args = {**self.button_color_args(True), "back_color": self.get_color("background")}
         prefix = "disarm" if service == "alarm_disarm" else "arm"
         if panel is not None:
             color = panel.get(f"{prefix}_button_color", None)

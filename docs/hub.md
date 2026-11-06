@@ -76,13 +76,13 @@ The panel represents a configured page. The panel contains the configuration and
 
 The lifetime of a panel is:
 
-- **create_panel**(panel)
-
-page start ..
-
 - **prepare()** (optional) — set instance attribute defaults, called during `__init__()`
+- **page_load_commands**(panel) — what the display reads while it loads the page (the theme colours, a picture background); `prepare_page_load()` sends it right before the page switch
+
+page loaded ..
+
 - **start_panel**(panel)
-- **config_panel**(panel)
+- **config_panel**(panel) — gives the header buttons `start_panel` registered without a function their default one (navigation, home or idle, unlock or notifications)
 - **before_render_panel**(panel)
   -> if True, panel can be rendered
   -> if False, panel will not be rendered
@@ -97,8 +97,8 @@ sequenceDiagram
     Page->>Page: prepare()
     Note over Page: instance attributes set
 
-    Page->>Panel: create_panel(panel)
-    Note over Panel: panel config loaded
+    Page->>Panel: page_load_commands(panel)
+    Note over Page: sent before the page switch
 
     Page->>Panel: start_panel(panel)
     Page->>Panel: config_panel(panel)
@@ -123,6 +123,8 @@ sequenceDiagram
 While a panel is active, it can be refreshed using:
 
 - **refresh_panel()** — re-renders the currently set panel by calling render_panel. This will not be triggered automatically.
+
+A saved config shows the current panel again on the loaded page (`start_panel` and `render_panel` run again on the same page instance) as long as `is_loaded_for(panel)` holds, that is, the page would read the same `page_load_commands`; otherwise navigation loads the page again.
 
 ### Item
 
@@ -188,7 +190,7 @@ Any event received while in DISCONNECTED (except `req_connection`, `res_connecti
 ### Connection State Callbacks
 
 On state transitions:
-- **CONNECTED**: Sends `hub_connection_initialized`, `reset_last_interaction`, starts timers, invokes `callback_connection(True)`
+- **CONNECTED**: Sends `hub_connection_initialized`, starts timers, invokes `callback_connection(True)`; the firmware's inactivity timer is unchanged
 - **DISCONNECTED** (from CONNECTED): Sends `hub_connection_closed`, stops timers, invokes `callback_connection(False)`
 
 The callback propagates to `HAUIDevice.on_connection_changed()`, which handles navigation (open sys_system on first connect, restore panel on reconnect).
@@ -310,7 +312,7 @@ The editor's [live preview](configuration/README.md#the-live-preview) and its pa
 | `VirtualPanelHost` | `virtual_panel.py` | Owns a device's virtual app: fans its display output out to every live-preview viewer (a late viewer gets the current panel redrawn) and renders panel cards |
 | WebSocket commands | `websocket_api.py` | `nspanel_haui/virtual_panel/subscribe`, `/event`, `/configure` and `/render` (admin only) |
 
-**Panel cards** (`/render`, `VirtualPanelHost.async_render`) run one panel's page through its real lifecycle (`create_panel`, `start_panel`, `render_panel`, stop) on the shared app, isolated from the live display: the page sees a view of the app whose ESPHome controller records the display output, whose navigation ignores every action and which makes only service calls that return data (such as `weather.get_forecasts`). The result is `{"page", "before", "commands"}` — `before` is what the hub sends before switching to the page (its picture background) — and the editor replays it in the Nextion simulator. A user card renders the editor's config (unsaved edits included), a system card the device's configured panel by `key`. Popups open with `PageDescriptor.preview_kwargs` (an example notification, sample choices, a panel to unlock) or, for entity popups (recognised by their system key, so an edited one too), an entity of their `item` option's domain: the first one that is on, else the first one that is off.
+**Panel cards** (`/render`, `VirtualPanelHost.async_render`) run one panel's page through its real lifecycle (`prepare_page_load`, `start_panel`, `render_panel`, stop) on the shared app, isolated from the live display: the page sees a view of the app whose ESPHome controller records the display output, whose navigation ignores every action and which makes only service calls that return data (such as `weather.get_forecasts`). The result is `{"page", "before", "commands"}` — `before` is what the hub sends before switching to the page (the theme colours and its picture background) — and the editor replays it in the Nextion simulator. A user card renders the editor's config (unsaved edits included), a system card the device's configured panel by `key`. Popups open with `PageDescriptor.preview_kwargs` (an example notification, sample choices, a panel to unlock) or, for entity popups (recognised by their system key, so an edited one too), an entity of their `item` option's domain: the first one that is on, else the first one that is off.
 
 The browser end lives in `frontend/virtual/`: `nextion-script.js` runs the HMI's event code and the hub's display commands, `nextion-display.js` holds the display state, `nextion-view.js` renders it, `touch-input.js` turns pointer input into the firmware's `esphome.component`, `touch_start`/`touch_end` and `gesture` events, `qr-encode.js` draws QR widgets and `virtual-panel-session.js` connects it all to the WebSocket. Slider values come back the way the firmware returns them: the hub's `req_val`/`req_txt` go to the browser, which answers with `esphome.read_response`.
 

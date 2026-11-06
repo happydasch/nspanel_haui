@@ -10,16 +10,22 @@ written as WebP next to it (``pictures/<orientation>/<id>.webp``) from the
 source PNGs in ``nextion/images``: the HMI stores pictures in the Nextion's own
 compressed format. It also writes the fonts' glyph widths to
 ``custom_components/nspanel_haui/haui/mapping/font_metrics.json``, which the hub
-fits text with, and the widgets each solid-colour page compiles with a theme
-colour to ``custom_components/nspanel_haui/haui/mapping/theme_widgets.json``,
-which the hub recolours with the device's colour overrides.
+fits text with.
+
+It checks the theme code of the solid-colour pages, too: each such page paints
+itself in the device's theme in its Preinitialize event, from the Program.s
+globals the hub sets before every page switch (``THEME_GLOBALS``), so no colour
+changes after the page is shown. ``--theme-code`` prints the code each page
+needs, generated from the colours its widgets are compiled with; paste it into
+the page's Preinitialize event in both HMIs.
 
 Run it after every HMI change; ``--check`` (run by the test suite) fails when a
-layout file is out of date.
+layout file is out of date or a page's theme code is missing or stale.
 
 Usage::
 
     python scripts/gen_virtual_layout/gen_virtual_layout.py [--check]
+    python scripts/gen_virtual_layout/gen_virtual_layout.py --theme-code [PAGE ...]
 """
 
 from __future__ import annotations
@@ -41,7 +47,10 @@ import _ha_stubs  # noqa: E402,F401  (installs the homeassistant stubs on import
 import Nextion2Text  # noqa: E402
 
 from custom_components.nspanel_haui.haui.mapping.background import BACKGROUNDS  # noqa: E402
-from custom_components.nspanel_haui.haui.mapping.color import COLORS  # noqa: E402
+from custom_components.nspanel_haui.haui.mapping.color import (  # noqa: E402
+    COLORS,
+    THEME_GLOBALS,
+)
 from custom_components.nspanel_haui.haui.mapping.icon_mapping import ICON_MAPPING  # noqa: E402
 from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING  # noqa: E402
 
@@ -50,10 +59,11 @@ OUT_DIR = ROOT / "custom_components" / "nspanel_haui" / "frontend" / "virtual"
 ICON_MAP_FILE = OUT_DIR / "icon_map.json"
 # Glyph widths for the hub's text fitting (haui/utils/text.py).
 FONT_METRICS_FILE = ROOT / "custom_components/nspanel_haui/haui/mapping/font_metrics.json"
-# Widgets compiled with a theme colour, for the hub's colour overrides (HAUIPage).
-THEME_WIDGETS_FILE = ROOT / "custom_components/nspanel_haui/haui/mapping/theme_widgets.json"
 TYPE_PAGE = 121
+TYPE_SLIDER = 1
 STA_SOLID = 1  # background fill: solid colour (`bco`/`bco2`)
+# First line of every page's theme code; the check finds the code by it.
+THEME_CODE_HEADER = "// theme colours: gen_virtual_layout.py --theme-code"
 
 HMI_FILES = {
     "landscape": (NEXTION / "nspanel_haui.HMI", 480, 320),
@@ -158,44 +168,108 @@ def _render_font_metrics() -> tuple[str, list[str]]:
     return text, problems
 
 
-def _theme_widgets(layout: dict[str, Any]) -> dict[str, Any]:
-    """Per solid-colour page and theme colour key: the widgets compiled with it.
+def _theme_key(comp: dict[str, Any], attr: str) -> str | None:
+    """The ``COLORS`` key a solid widget's colour attribute is painted with, or None.
 
-    ``background`` is the page's own colour, filling its flat widgets (``bco``)
-    and the pressed state of flat-pressed buttons (``bco2``);
-    ``component_pressed`` is the palette's pressed colour the buttons' ``bco2``
-    is compiled with. Picture-background pages are left out: the hub never
-    recolours them.
+    The colour the HMI compiles names the key: the page colour fills flat
+    widgets (``bco``) and the pressed state of flat-pressed buttons (``bco2``),
+    the header colour the header's widgets, whose text is ``header_text``, and
+    buttons press in ``component_pressed``. A slider's track is always
+    ``component_background``, whatever the HMI compiles; the hub sets only the
+    handle (``HAUIPage.set_slider_color``).
     """
-    pages: dict[str, Any] = {}
-    for page in layout["pages"].values():
-        comps = page["components"]
-        page_attrs = next(c for c in comps if c["type"] == TYPE_PAGE)["attrs"]
-        if page_attrs["sta"] != STA_SOLID:
+    attrs = comp["attrs"]
+    value = attrs.get(attr)
+    if comp["type"] == TYPE_SLIDER and attr == "bco":
+        return "component_background"
+    if attr in ("bco", "bco2") and value == COLORS["background"]:
+        return "background"
+    if attr == "bco" and value == COLORS["header_background"]:
+        return "header_background"
+    header = attrs.get("bco") == COLORS["header_background"]
+    if attr == "pco" and header and value == COLORS["header_text"]:
+        return "header_text"
+    if attr == "bco2" and value == COLORS["component_pressed"]:
+        return "component_pressed"
+    return None
+
+
+def theme_code(page: dict[str, Any]) -> str | None:
+    """The Preinitialize code that paints a solid-colour page in the theme.
+
+    One assignment per page colour and per widget colour the HMI compiles with a
+    theme colour, read from the theme globals (``THEME_GLOBALS``). None for a
+    picture-background page: it keeps its picture and palette.
+    """
+    comps = page["components"]
+    page_attrs = next(c for c in comps if c["type"] == TYPE_PAGE)["attrs"]
+    if page_attrs["sta"] != STA_SOLID:
+        return None
+    lines = [THEME_CODE_HEADER, f"{page['name']}.bco={THEME_GLOBALS['background']}"]
+    for comp in comps:
+        if comp["type"] == TYPE_PAGE or comp["attrs"].get("sta") != STA_SOLID:
             continue
-        solid = [c for c in comps if c["type"] != TYPE_PAGE and c["attrs"].get("sta") == STA_SOLID]
-        themed = {
-            "background": (page_attrs["bco"], ("bco", "bco2")),
-            "component_pressed": (COLORS["component_pressed"], ("bco2",)),
-        }
-        pages[page["name"]] = {
-            key: {
-                "color": color,
-                "attrs": {
-                    attr: [c["name"] for c in solid if c["attrs"].get(attr) == color]
-                    for attr in attrs
-                },
-            }
-            for key, (color, attrs) in themed.items()
-        }
-    return dict(sorted(pages.items()))
+        for attr in ("bco", "bco2", "pco"):
+            key = _theme_key(comp, attr)
+            if key is not None:
+                lines.append(f"{comp['name']}.{attr}={THEME_GLOBALS[key]}")
+    return "\n".join(lines)
 
 
-def _render_theme_widgets(layouts: list[dict[str, Any]]) -> tuple[str, list[str]]:
-    """The hub's theme widgets file, and a problem when the HMIs disagree."""
-    widgets = [_theme_widgets(layout) for layout in layouts]
-    problems = [] if all(w == widgets[0] for w in widgets) else ["the HMIs' theme colours differ"]
-    return json.dumps({"pages": widgets[0]}, separators=(",", ":")) + "\n", problems
+def _code_lines(code: str) -> list[str]:
+    return [line.strip() for line in code.splitlines() if line.strip()]
+
+
+def _contains_code(event: str, code: str) -> bool:
+    """Whether ``event`` holds the lines of ``code`` one after another."""
+    have, want = _code_lines(event), _code_lines(code)
+    return any(have[i : i + len(want)] == want for i in range(len(have) - len(want) + 1))
+
+
+def check_theme_code(layouts: list[dict[str, Any]]) -> list[str]:
+    """Problems with the theme code: globals, each solid page's Preinitialize, parity."""
+    problems: list[str] = []
+    codes = []
+    for layout in layouts:
+        hmi = HMI_FILES[layout["orientation"]][0].name
+        for key, name in THEME_GLOBALS.items():
+            if layout["globals"].get(name) != COLORS[key]:
+                problems.append(f"{hmi}: Program.s must declare int {name}={COLORS[key]} ({key})")
+        code = {}
+        for page in layout["pages"].values():
+            page_code = theme_code(page)
+            if page_code is None:
+                continue
+            code[page["name"]] = page_code
+            page_comp = next(c for c in page["components"] if c["type"] == TYPE_PAGE)
+            page_attrs = page_comp["attrs"]
+            if page_attrs["bco"] != COLORS["background"]:
+                problems.append(
+                    f"{hmi}: page {page['name']} is compiled with bco={page_attrs['bco']}, "
+                    f"not the default background {COLORS['background']}"
+                )
+            if not _contains_code(page_comp["events"].get("load", ""), page_code):
+                problems.append(
+                    f"{hmi}: page {page['name']}'s Preinitialize event lacks its theme code "
+                    f"(gen_virtual_layout.py --theme-code {page['name']})"
+                )
+        codes.append(code)
+    if any(code != codes[0] for code in codes):
+        problems.append("the HMIs' theme code differs: their widgets or colours differ")
+    return problems
+
+
+def print_theme_code(layout: dict[str, Any], pages: list[str]) -> int:
+    """Print the theme code of the given solid pages (all when empty)."""
+    codes = {page["name"]: theme_code(page) for page in layout["pages"].values()}
+    unknown = [name for name in pages if codes.get(name) is None]
+    if unknown:
+        print(f"no solid-colour page named {', '.join(unknown)}", file=sys.stderr)
+        return 1
+    for name, code in codes.items():
+        if code is not None and (not pages or name in pages):
+            print(f"== {name} ==\n{code}\n")
+    return 0
 
 
 def _picture_sizes(raw: bytes) -> list[tuple[int, int]]:
@@ -315,7 +389,15 @@ def _render_icon_map() -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--check", action="store_true", help="fail when a layout is out of date")
+    parser.add_argument(
+        "--theme-code",
+        nargs="*",
+        metavar="PAGE",
+        help="print the Preinitialize theme code of these solid pages (all when none given)",
+    )
     args = parser.parse_args(argv)
+    if args.theme_code is not None:
+        return print_theme_code(build_layout("landscape"), args.theme_code)
 
     problems: list[str] = []
     layouts = []
@@ -355,17 +437,7 @@ def main(argv: list[str] | None = None) -> int:
         FONT_METRICS_FILE.write_text(metrics_text, encoding="utf-8")
         print(f"wrote {FONT_METRICS_FILE.relative_to(ROOT)}")
 
-    widgets_text, widgets_problems = _render_theme_widgets(layouts)
-    problems += widgets_problems
-    if args.check:
-        if (
-            not THEME_WIDGETS_FILE.exists()
-            or THEME_WIDGETS_FILE.read_text(encoding="utf-8") != widgets_text
-        ):
-            problems.append(f"{THEME_WIDGETS_FILE.relative_to(ROOT)} is out of date")
-    else:
-        THEME_WIDGETS_FILE.write_text(widgets_text, encoding="utf-8")
-        print(f"wrote {THEME_WIDGETS_FILE.relative_to(ROOT)}")
+    problems += check_theme_code(layouts)
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems and args.check:

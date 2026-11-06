@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 from collections.abc import Callable
 from typing import Any, TypedDict
@@ -62,11 +63,7 @@ class NSPanelHAUI(HAAdapter):
         self.device_config = HAUIConfig(self, self._config_args)
         self.device = HAUIDevice(self, self.device_config.get("device"))
 
-        # color overrides from device config
-        overrides: dict[str, int] = (
-            self.device_config.get("device", {}).get("color_overrides", {})
-        ) or {}
-        self._color_theme: ColorTheme = ColorTheme(overrides)
+        self.color_theme = ColorTheme(self.device_config.get("device")["color_overrides"])
 
         # The runtime device name comes from the constructor (set by async_setup_entry).
         # We don't pick devices[0] anymore — each app drives exactly one device.
@@ -199,7 +196,7 @@ class NSPanelHAUI(HAAdapter):
         if self.device:
             for field in DEVICE_CONFIG_FIELDS:
                 self.device.config[field] = device_cfg[field]
-        self._color_theme = ColorTheme(device_cfg.get("color_overrides") or {})
+        self.color_theme = ColorTheme(device_cfg["color_overrides"])
 
         self.device_config._panels = new_config._panels
         self.device_config._panels_by_id = new_config._panels_by_id
@@ -220,15 +217,11 @@ class NSPanelHAUI(HAAdapter):
         if nav_ctrl is not None:
             nav_ctrl.reload_panels()
 
-        # Refresh the update controller's options (it reads them from its own
-        # config dict in start_part/check_for_update) and restart its timer.
         update_ctrl = self.controller.get("update")
         if update_ctrl is not None:
-            update_ctrl.stop_part()
             update_cfg = new_config.get("update")
             if isinstance(update_cfg, dict):
-                update_ctrl.config = update_cfg
-            update_ctrl.start_part()
+                update_ctrl.reload_options(update_cfg)
 
     def refresh_display(self) -> None:
         """Re-render the currently displayed panel on this device.
@@ -268,6 +261,75 @@ class NSPanelHAUI(HAAdapter):
                 "last_error": "no update controller",
             }
         return update_ctrl.install_tft(version)
+
+    async def _async_update_request(self, method: str, **kwargs: Any) -> dict[str, Any]:
+        """Await an updater operation whose network stage completes off-worker."""
+        loop = asyncio.get_running_loop()
+        future: asyncio.Future[dict[str, Any]] = loop.create_future()
+
+        def _finish(result: dict[str, Any]) -> None:
+            def _set_result() -> None:
+                if not future.done():
+                    future.set_result(result)
+
+            loop.call_soon_threadsafe(_set_result)
+
+        def _start() -> None:
+            getattr(self.controller["update"], method)(on_complete=_finish, **kwargs)
+
+        await self.async_run_on_worker(_start)
+        return await future
+
+    async def async_list_tft_releases(self) -> dict[str, Any]:
+        """List TFT releases without waiting for network work on the device worker."""
+        return await self._async_update_request("start_async_list_tft_releases")
+
+    async def async_list_firmware_releases(self) -> dict[str, Any]:
+        """List firmware releases without waiting for network work on the device worker."""
+        return await self._async_update_request("start_async_list_firmware_releases")
+
+    async def async_check_for_update(self) -> dict[str, Any]:
+        """Refresh update offers and return when the worker applies the fetch result."""
+        return await self._async_update_request(
+            "start_async_check",
+            force_refresh=True,
+            allow_auto_install=False,
+            include_notice=True,
+        )
+
+    async def async_install_tft(
+        self, version: str | None = None, url: str | None = None
+    ) -> dict[str, Any]:
+        """Install TFT after resolving its manifest off-worker."""
+        return await self._async_update_request(
+            "start_async_tft_install", version=version, url=url
+        )
+
+    def start_async_tft_install(
+        self,
+        version: str | None,
+        url: str | None,
+        on_complete: Callable[[dict[str, Any]], None],
+    ) -> None:
+        """Queue a TFT install from app-worker code without blocking it."""
+        self.controller["update"].start_async_tft_install(version, url, on_complete)
+
+    async def async_install_firmware(
+        self, version: str | None = None, url: str | None = None
+    ) -> dict[str, Any]:
+        """Install firmware after resolving network artifacts off-worker."""
+        return await self._async_update_request(
+            "start_async_firmware_install", version=version, url=url
+        )
+
+    def start_async_firmware_install(
+        self,
+        version: str | None,
+        url: str | None,
+        on_complete: Callable[[dict[str, Any]], None],
+    ) -> None:
+        """Queue a firmware install from app-worker code without blocking it."""
+        self.controller["update"].start_async_firmware_install(version, url, on_complete)
 
     def list_tft_releases(self) -> dict:
         """List the TFT versions this device's manifest ships, on its worker thread.
@@ -330,8 +392,8 @@ class NSPanelHAUI(HAAdapter):
     def check_for_update(self) -> dict:
         """Run a manual update check for this device, on its worker thread.
 
-        Called via ``async_run_on_worker`` from the REST API.  A manual check
-        bypasses stale failure state and the hub-level release cache.
+        Called via ``async_run_on_worker`` from the REST API.  The check
+        refreshes offers without mutating retry/install state.
 
         Returns:
             dict: The check result (see

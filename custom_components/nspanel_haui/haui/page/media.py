@@ -196,9 +196,6 @@ class MediaPage(HAUIPage):
         # set title
         self._title = self._panel_title(panel, item, self.translate("Media"))
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_media_item()
 
@@ -271,7 +268,7 @@ class MediaPage(HAUIPage):
         # visibility will be set by timer calls when media is playing
         self.set_function_component(
             self.COMPONENTS.j_progress,
-            self.COMPONENTS.j_progress[1],
+            self.COMPONENTS.j_progress.name,
             "progress",
             color=self.get_color("text_inactive"),
             back_color=self.get_color("component_background"),
@@ -388,16 +385,16 @@ class MediaPage(HAUIPage):
     def update_media_controls(self) -> None:
         if self._media_item is None:
             for fnc_id in [
-                self.COMPONENTS.btn_shuffle[1],
-                self.COMPONENTS.btn_prev[1],
-                self.COMPONENTS.btn_play[1],
-                self.COMPONENTS.btn_next[1],
-                self.COMPONENTS.btn_repeat[1],
-                self.COMPONENTS.btn_vol_down[1],
-                self.COMPONENTS.btn_vol_up[1],
+                self.COMPONENTS.btn_shuffle.name,
+                self.COMPONENTS.btn_prev.name,
+                self.COMPONENTS.btn_play.name,
+                self.COMPONENTS.btn_next.name,
+                self.COMPONENTS.btn_repeat.name,
+                self.COMPONENTS.btn_vol_down.name,
+                self.COMPONENTS.btn_vol_up.name,
             ]:
                 self.update_function_component(fnc_id, visible=False)
-            self.update_function_component(self.COMPONENTS.h_volume[1], visible=False)
+            self.update_function_component(self.COMPONENTS.h_volume.name, visible=False)
             return
         item = self._media_item
         state = item.get_item_state()
@@ -446,10 +443,10 @@ class MediaPage(HAUIPage):
         volume_visible = item.supports(F.VOLUME_SET)
         self.set_slider_color(self.COMPONENTS.h_volume)
         self.update_function_component(
-            self.COMPONENTS.h_volume[1], value=volume, visible=volume_visible
+            self.COMPONENTS.h_volume.name, value=volume, visible=volume_visible
         )
-        self.update_function_component(self.COMPONENTS.btn_vol_down[1], visible=volume_visible)
-        self.update_function_component(self.COMPONENTS.btn_vol_up[1], visible=volume_visible)
+        self.update_function_component(self.COMPONENTS.btn_vol_down.name, visible=volume_visible)
+        self.update_function_component(self.COMPONENTS.btn_vol_up.name, visible=volume_visible)
 
     def update_progress(self, _data: dict | None = None) -> None:
         if self._media_item is None:
@@ -472,10 +469,10 @@ class MediaPage(HAUIPage):
         if media_duration > 0 and media_position > 0 and state == "playing":
             progress = int(media_position / (media_duration / 100))
             self.update_function_component(
-                self.COMPONENTS.j_progress[1], visible=True, value=progress
+                self.COMPONENTS.j_progress.name, visible=True, value=progress
             )
         else:
-            self.update_function_component(self.COMPONENTS.j_progress[1], visible=False)
+            self.update_function_component(self.COMPONENTS.j_progress.name, visible=False)
         # Start the repeating progress timer (replaces threading.Timer) if not
         # already running.  Started lazily here so the timer only ticks when
         # there is an active media panel.

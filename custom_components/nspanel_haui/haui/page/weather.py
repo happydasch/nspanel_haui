@@ -18,11 +18,10 @@ from ..utils.datetime import format_datetime
 from ..utils.icon import get_icon, parse_icon
 from ..utils.text import TextBox
 from ..utils.value import format_number
-from .clock_common import apply_background, release_ticks, subscribe_ticks
+from .clock_common import background_commands, release_ticks, subscribe_ticks
 
 
 class WeatherPage(CycleCardsMixin, HAUIPage):
-    PICTURE_BACKGROUND = True
     USE_SYSTEM_COLORS = False
     DESCRIPTOR = PageDescriptor(
         type_key="weather",
@@ -191,29 +190,15 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         self._show_temp = True
         self._show_home_temp = False
         self._temp_unit = "°C"
-        self._background = "dark"
         self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
         self._info_items: list[HAUIItem] = []
         self._init_cards()
 
-    def create_panel(self, panel: HAUIPanel) -> None:
-        # setting: background (rendered in start_panel after page is confirmed)
-        self._background = self.render_template(panel.get("background", "dark"), False)
-        # Send the background command immediately so the global Nextion variable
-        # is set *before* the page's Preinitialize event runs.  create_panel()
-        # runs before goto_page(); the Preinitialize event only reads
-        # background.val on page load, so a command sent afterwards (in
-        # start_panel) updates the variable but not the already-drawn pictures.
-        apply_background(self, "weather")
+    def page_load_commands(self, panel: HAUIPanel) -> list[str]:
+        return [*super().page_load_commands(panel), *background_commands(self, panel, "weather")]
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        # setting: background — set before rendering content
-        # Also refresh _background here: create_panel() is not called when the
-        # page type is unchanged (same-page panel switch), so the value would
-        # otherwise be stale.
-        self._background = self.render_template(panel.get("background", "dark"), False)
-        apply_background(self, "weather")
         subscribe_ticks(self)
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
@@ -234,17 +219,19 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         # setting: show_weather
         self._show_weather = panel.get("show_weather", True)
         self.set_function_component(
-            self.COMPONENTS.t_main_icon, self.COMPONENTS.t_main_icon[1], visible=self._show_weather
+            self.COMPONENTS.t_main_icon,
+            self.COMPONENTS.t_main_icon.name,
+            visible=self._show_weather,
         )
         # setting: weather_icons
         self._weather_icons_mode = panel.get("weather_icons", "color")
         # setting: show_temp
         self._show_temp = panel.get("show_temp", True)
         self.set_function_component(
-            self.COMPONENTS.t_main_text, self.COMPONENTS.t_main_text[1], visible=self._show_temp
+            self.COMPONENTS.t_main_text, self.COMPONENTS.t_main_text.name, visible=self._show_temp
         )
         self.set_function_component(
-            self.COMPONENTS.t_sub_text, self.COMPONENTS.t_sub_text[1], visible=self._show_temp
+            self.COMPONENTS.t_sub_text, self.COMPONENTS.t_sub_text.name, visible=self._show_temp
         )
         # setting: show_home_temp
         self._show_home_temp = panel.get("show_home_temp", False)
@@ -394,16 +381,16 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         # weather icon stays visible either way.
         has_text = bool(msg or msg_sub)
         self.update_function_component(
-            self.COMPONENTS.t_main_icon[1],
+            self.COMPONENTS.t_main_icon.name,
             icon=icon,
             color=None if self._weather_icons_mode == "monochrome" else color,
             visible=self._show_weather,
         )
         self.update_function_component(
-            self.COMPONENTS.t_main_text[1], text=msg, visible=self._show_temp and has_text
+            self.COMPONENTS.t_main_text.name, text=msg, visible=self._show_temp and has_text
         )
         self.update_function_component(
-            self.COMPONENTS.t_sub_text[1], text=msg_sub, visible=self._show_temp and has_text
+            self.COMPONENTS.t_sub_text.name, text=msg_sub, visible=self._show_temp and has_text
         )
 
     def update_forecast(self, idx: int, data: dict) -> None:
@@ -470,7 +457,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
 
         if show_bell:
             self.update_function_component(
-                self.COMPONENTS.t_main_icon[1],
+                self.COMPONENTS.t_main_icon.name,
                 icon=ICO_MESSAGE,
                 color=color,
                 visible=True,
@@ -505,5 +492,5 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         notification = self.app.controller["notification"]
-        if fnc_id == self.COMPONENTS.t_main_icon[1] and notification.has_notifications():
+        if fnc_id == self.COMPONENTS.t_main_icon.name and notification.has_notifications():
             notification.open_notifications()

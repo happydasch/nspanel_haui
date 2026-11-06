@@ -377,14 +377,10 @@ class HAUIDevice(HAUIBase):
         self._sync_behavior_config()
 
     def _sync_button_interaction(self) -> None:
-        """Sync the hub's ``reset_interaction_on_button`` with the device's switch.
+        """Keep ``reset_interaction_on_button`` aligned with ESPHome.
 
-        ``reset_interaction_on_button`` controls whether button presses reset the
-        idle timer.  The device-side ``use_button_interaction`` switch must mirror
-        it so the ESPHome firmware (which gates its own ``update_last_interaction``
-        on that switch) stays in step.  Sync is bidirectional: re-enabling the
-        config after it was disabled turns the firmware switch back on, otherwise
-        the switch (``RESTORE_DEFAULT_ON``) would stay stuck off across reconnects.
+        The device handles the timer reset on the physical button press;
+        mirroring this switch keeps that behavior consistent with hub config.
         """
         self._sync_config_switch(
             "reset_interaction_on_button",
@@ -1008,13 +1004,10 @@ class HAUIDevice(HAUIBase):
         elif event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT):
             side = "left" if event.name == ESPEvent.BUTTON_LEFT else "right"
             if event.value == "1":  # pressed
-                # On press, immediately reset the interaction timer so the
-                # display wakes without waiting for release.  The entity toggle
-                # stays on release so a held button does not spam toggles.
+                # ESPHome records the press as interaction; the hub handles
+                # the idle-page exit. The entity toggle stays on release so a
+                # held button does not spam toggles.
                 if self.get("reset_interaction_on_button", True):
-                    self.app.controller["esphome"].esphome.publish(
-                        ESPAction.RESET_LAST_INTERACTION, "0"
-                    )
                     self.check_wakeup()
             elif event.value == "0":  # released
                 self._on_button_release(side)
@@ -1109,18 +1102,12 @@ class HAUIDevice(HAUIBase):
     def _on_button_release(self, side: str) -> None:
         """Handle a hardware button release (``side`` = "left" / "right").
 
-        With ``reset_interaction_on_button`` enabled the press also wakes the
-        display (resets the firmware idle timer — needed even when the ESPHome
-        ``use_button_interaction`` switch is OFF) and completes the idle-page
-        wake: on a dark
-        display the press only wakes, and this release completes the exit. With it
-        disabled the press only toggles the relay/entity and never touches the
-        display. The toggle runs before ``check_wakeup`` so it isn't delayed by
-        the blocking goto_page navigation inside it.
+        With ``reset_interaction_on_button`` enabled, the firmware records the
+        press as the interaction and this handler completes the idle-page wake.
+        The toggle runs before ``check_wakeup`` so it isn't delayed by the
+        blocking goto_page navigation inside it.
         """
         reset = self.get("reset_interaction_on_button", True)
-        if reset:
-            self.app.controller["esphome"].esphome.publish(ESPAction.RESET_LAST_INTERACTION, "0")
         getattr(self, f"toggle_{side}_button_state")()
         if reset:
             self.check_wakeup()

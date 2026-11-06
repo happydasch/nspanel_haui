@@ -6,15 +6,20 @@ these identical blocks and nothing else of their lifecycle.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..mapping.background import BACKGROUNDS
 
+if TYPE_CHECKING:
+    from ..abstract.haui_panel import HAUIPanel
 
-def apply_background(page: Any, page_name: str) -> None:
-    """Sends the page's configured background to the display, if it is a known one."""
-    if page._background in BACKGROUNDS:
-        page.send_cmd(f"{page_name}.background.val={BACKGROUNDS[page._background]}")
+
+def background_commands(page: Any, panel: HAUIPanel, page_name: str) -> list[str]:
+    """The panel's background, if it is a known one; the page's load code draws it."""
+    background = page.render_template(panel.get("background", "dark"), False)
+    if background not in BACKGROUNDS:
+        return []
+    return [f"{page_name}.background.val={BACKGROUNDS[background]}"]
 
 
 def subscribe_ticks(page: Any, *, with_date: bool = True) -> None:

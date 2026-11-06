@@ -9,6 +9,7 @@ import pytest
 from nspanel_haui.haui.abstract import haui_entity
 from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from nspanel_haui.haui.features import ClimateFeatures
+from nspanel_haui.haui.mapping.color import ColorTheme
 from nspanel_haui.haui.page.climate import ClimatePage
 
 
@@ -52,6 +53,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities, temperature_unit="°C"):
         self.entities = entities
+        self.color_theme = ColorTheme({})
         self.temperature_unit = temperature_unit
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}

@@ -49,7 +49,9 @@ data:
 Choose the device in the service's **Device** selector (or pass its device
 registry ID as `device` in YAML). A URL install carries no version the hub can
 check: it counts as done once the device reboots after the upload and the
-display reports its version.
+display reports its version. An upload that ends without a reboot (the device
+reconnects with an uptime longer than the upload took) is reported as failed;
+see [Troubleshooting](troubleshooting.md#tft-install-fails-with-the-panel-did-not-reboot-after-the-upload).
 
 A TFT installed with `url` stays on the display: the automatic
 check does not replace it with the TFT the firmware's manifest ships, and the display does
@@ -71,9 +73,11 @@ manifest on startup, when the URL changes and on every release check.
 `version` and `url`: the panel downloads the image, flashes it and reboots,
 and the entity shows *installing* until it reconnects. It stays available
 while the install keeps the device offline. An install that does not end in a
-reboot within ten minutes, or a reboot into the old version, is reported as an
-error in the Device Manager. The entity supports a specific version, the same
-as `nspanel_haui.update_firmware` with `version`.
+reboot within ten minutes, a reconnect without a reboot, or a reboot into the
+old version is reported as an error in the Device Manager and the HAUI Firmware
+entity's release summary. The HAUI Display entity also shows a release summary
+when its manifest cannot provide the TFT version the firmware requires. The
+entity supports a specific version, the same as `nspanel_haui.update_firmware` with `version`.
 
 When the ESPHome dashboard is set up, the ESPHome integration adds its own
 **Firmware** update entity to the device (disabled by default). It recompiles
@@ -163,7 +167,10 @@ These six services are registered under the `nspanel_haui` domain. The
 it is omitted, they apply to all HAUI-connected devices. `update_tft` and
 `update_firmware` are separate and require selecting one device, so an install
 cannot accidentally start on every panel. The selector is filtered to NSPanel HAUI
-devices.
+devices. In YAML, `device` takes the device-registry ID of either of a panel's two
+devices: its NSPanel HAUI device (the one the selector offers, with the HAUI
+Firmware, HAUI Display and notify entities) or its ESPHome device. A call whose
+`device` matches no running panel fails with an error instead of doing nothing.
 
 ### `nspanel_haui.open_panel`
 
@@ -360,7 +367,7 @@ target:
 Voice assistants and LLM integrations call a **script** that wraps
 `nspanel_haui.send_notification`. Expose the script to the conversation agent
 so the assistant can show messages on a chosen panel. The script maps friendly
-panel keys to the ESPHome device-registry IDs the service expects and exposes
+panel keys to the panels' device-registry IDs (NSPanel HAUI or ESPHome device) and exposes
 the notification options as script fields:
 
 ```yaml
@@ -441,7 +448,7 @@ fields:
         mode: box
 variables:
   nspanel_devices:
-    salon: "0123abcd..."   # ESPHome device-registry ID of the panel
+    salon: "0123abcd..."   # device-registry ID of the panel (HAUI or ESPHome device)
     bedroom: "4567efgh..."
 sequence:
   - action: nspanel_haui.send_notification
@@ -470,8 +477,9 @@ when deciding how to call it.
 
 ## Current Page Sensor
 
-The firmware provides the **Current Page** sensor
-(`sensor.<device_name>_current_page`), see
+The firmware provides the **Current Page** and **Current Page Number** sensors
+(`sensor.<device_name>_current_page`, `sensor.<device_name>_current_page_number`;
+both disabled by default), see
 [ESPHome Component → Page](esphome.md#page). For the panel key, type and
 title of the shown panel, trigger on the
 [`nspanel_haui.page_changed`](#ha-events-automation-triggers) event instead.

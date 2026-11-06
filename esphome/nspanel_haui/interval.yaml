@@ -8,6 +8,11 @@ interval:
       - lambda: |-
           id(check_hub_connection).execute();
           id(check_connection).execute();
+          if (!id(interaction_timer_initialized)) {
+            id(last_interaction_ms) = millis();
+            id(interaction_timer_initialized) = true;
+          }
+          id(interaction_age_ms) = millis() - id(last_interaction_ms);
           id(check_display_state).execute();
           id(check_display).execute();
           id(check_page).execute();

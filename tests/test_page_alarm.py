@@ -8,6 +8,7 @@ display and Home Assistant.
 import pytest
 from nspanel_haui.haui.abstract import haui_entity
 from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from nspanel_haui.haui.mapping.color import ColorTheme
 from nspanel_haui.haui.page.alarm import AlarmPage
 
 
@@ -51,6 +52,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
+        self.color_theme = ColorTheme({})
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}
         self.device = _Device()

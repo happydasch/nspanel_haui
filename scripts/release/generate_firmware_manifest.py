@@ -24,6 +24,32 @@ def _md5(path: Path) -> str:
     return hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()
 
 
+def build_manifest_from_assets(
+    version: str,
+    variant: str,
+    ota_url: str,
+    ota_md5: str,
+    tft: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the shared manifest schema from already-resolved asset metadata."""
+    if variant not in {"universal", "custom"}:
+        raise ValueError(f"unknown firmware variant {variant!r}")
+    manifest: dict[str, Any] = {
+        "name": "NSPanel HAUI",
+        "version": version,
+        "variant": variant,
+        "builds": [
+            {
+                "chipFamily": "ESP32",
+                "ota": {"path": ota_url, "md5": ota_md5},
+            }
+        ],
+    }
+    if tft is not None:
+        manifest["tft"] = tft
+    return manifest
+
+
 def build_manifest(
     repo: str,
     tag: str,
@@ -36,20 +62,12 @@ def build_manifest(
     version = tag.removeprefix("v")
     display_version = (tft_version or "").strip() or version
     release_url = f"https://github.com/{repo}/releases/download/{tag}"
-    return {
-        "name": "NSPanel HAUI",
-        "version": version,
-        "variant": "universal",
-        "builds": [
-            {
-                "chipFamily": "ESP32",
-                "ota": {
-                    "path": f"{release_url}/nspanel_haui_ota.bin",
-                    "md5": _md5(ota_image),
-                },
-            }
-        ],
-        "tft": {
+    return build_manifest_from_assets(
+        version,
+        "universal",
+        f"{release_url}/nspanel_haui_ota.bin",
+        _md5(ota_image),
+        {
             "version": display_version,
             "assets": {
                 "eu": {
@@ -62,7 +80,7 @@ def build_manifest(
                 },
             },
         },
-    }
+    )
 
 
 def _read_tft_version(path: Path) -> str:

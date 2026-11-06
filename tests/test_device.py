@@ -505,8 +505,7 @@ def _spy_button_press(device):
 
 
 def test_button_press_wakes_and_exits_when_interaction_enabled():
-    """Default (reset_interaction_on_button True): press resets idle timer,
-    exits sleep/wakeup, and toggles the relay/entity."""
+    """Default: firmware resets the timer on press; HAUI handles wake/navigation and toggles."""
     app = DummyApp()
     device = HAUIDevice(app, {"name": "nspanel_haui", "reset_interaction_on_button": True})
     calls = _spy_button_press(device)
@@ -515,7 +514,9 @@ def test_button_press_wakes_and_exits_when_interaction_enabled():
     device.process_event(HAUIEvent(ESPEvent.BUTTON_RIGHT, "0"))
 
     publishes = app.controller["esphome"].esphome.publish_calls
-    assert publishes.count((ESPAction.RESET_LAST_INTERACTION, "0")) == 2
+    # The firmware's Use Button Interaction switch owns timer resets; HAUI
+    # only handles navigation and button actions here.
+    assert (ESPAction.RESET_LAST_INTERACTION, "0") not in publishes
     assert calls["wakeup"] == 2
     assert calls["toggle_left"] == 1
     assert calls["toggle_right"] == 1
@@ -745,7 +746,7 @@ def test_sleep_wakeup_events_do_not_drive_idle_session() -> None:
 
 
 def test_button_press_wakes_on_press_event() -> None:
-    """Button press (value '1') immediately resets timer and wakes display."""
+    """Button press (value '1') immediately wakes the display."""
     app = DummyApp()
     device = HAUIDevice(app, {"name": "nspanel_haui", "reset_interaction_on_button": True})
     calls = _spy_button_press(device)
@@ -754,7 +755,7 @@ def test_button_press_wakes_on_press_event() -> None:
     device.process_event(HAUIEvent(ESPEvent.BUTTON_RIGHT, "1"))
 
     publishes = app.controller["esphome"].esphome.publish_calls
-    assert publishes.count((ESPAction.RESET_LAST_INTERACTION, "0")) == 2
+    assert (ESPAction.RESET_LAST_INTERACTION, "0") not in publishes
     # check_wakeup runs on press so the display wakes without waiting for release
     assert calls["wakeup"] == 2
     # Entity toggle stays on release — press alone does NOT toggle.
@@ -788,9 +789,8 @@ def test_full_press_release_sequence() -> None:
     device.process_event(HAUIEvent(ESPEvent.BUTTON_LEFT, "0"))
 
     publishes = app.controller["esphome"].esphome.publish_calls
-    # Press triggers one RESET_LAST_INTERACTION, release triggers another
-    # (from _on_button_release).  Both are harmless duplicates.
-    assert publishes.count((ESPAction.RESET_LAST_INTERACTION, "0")) == 2
+    # ESPHome owns the timer reset; HAUI handles the wake and entity toggle.
+    assert (ESPAction.RESET_LAST_INTERACTION, "0") not in publishes
     # Woken on press (not just on release)
     assert calls["wakeup"] == 2  # press + release both call check_wakeup
     # Toggle happens only on release

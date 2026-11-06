@@ -7,7 +7,6 @@
 import { t } from './localize.js';
 import * as Api from './api.js';
 import { savePanels } from './crud.js';
-import { importDeviceYaml, exportDeviceYaml } from './device-manager.js';
 
 /**
  * Get the user-friendly display name for a device, falling back to the device key.
@@ -37,12 +36,15 @@ export async function onDeviceManagerMoveDevice(host, e) {
   for (const key of newKeys) {
     newDevices[key] = devices[key];
   }
+  // savePanels posts the store built from _panels, so the new order goes in
+  // first and is taken back when the server rejects the save.
+  const previous = host._panels;
   host._panels = { ...host._panels, devices: newDevices };
   const friendly = _friendlyName(host, name);
   const message = direction < 0
     ? t('Device "{name}" moved up').replace('{name}', friendly)
     : t('Device "{name}" moved down').replace('{name}', friendly);
-  await host._savePanels(host._devicePanels(), message);
+  if (!(await host._savePanels(host._devicePanels(), message))) host._panels = previous;
 }
 
 export async function onDeviceManagerToggleDevice(host, e) {
@@ -131,18 +133,6 @@ export async function onDeviceManagerScan(host, e) {
   } catch (err) {
     host._showToast(err.message || t("Failed to add devices"), "error");
   }
-  host.requestUpdate();
-}
-
-export function onDeviceManagerImportYaml(host) {
-  host._showDeviceManager = false;
-  importDeviceYaml(host);
-  host.requestUpdate();
-}
-
-export function onDeviceManagerExportYaml(host) {
-  host._showDeviceManager = false;
-  exportDeviceYaml(host);
   host.requestUpdate();
 }
 

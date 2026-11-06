@@ -9,7 +9,7 @@ Device-level settings configure the NSPanel hardware behaviour — buttons, soun
 
 ## Device Manager
 
-Opened from the panel toolbar. Lists all configured devices and lets you add, remove, reorder, enable/disable, and open settings for a device.
+Opened from the panel toolbar. Lists all configured devices and lets you add (through **Scan**), remove, reorder, enable/disable, and open settings for a device.
 
 - **Scan for devices** — Discovers ESPHome devices on the network that run
   HAUI firmware and offers them for batch-add. Discovered devices are added
@@ -18,20 +18,21 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
   to trigger an install immediately (installs stay automatic on connect; this
   forces one now), even when the current display TFT version is unknown. A
   picker opens in the device's row: **Version the firmware needs** (the
-  default), any GitHub release that ships this display model's TFT (older ones
-  included), or **From URL** for a custom or development build. Another
-  release or a URL stays on the display until the firmware version changes or
-  Home Assistant restarts (see [`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)). The row
+  default, the firmware's `tft_required_version`), the TFT the firmware's
+  manifest ships when that is a different version, or **From URL** for a
+  custom or development build. Another version or a URL stays on the display
+  until the firmware version changes or Home Assistant restarts (see
+  [`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)). The row
   shows **Display Unknown** / **Firmware Unknown** when those versions are not
-  reported. An install refetches GitHub release metadata when the cached list
-  lacks the firmware-matched TFT, so a list cached before a firmware update
-  cannot hide the matching TFT release. When the install cannot start (device offline,
-  no `yaml_version`, or the GitHub release is unreachable), the editor shows a
-  toast with the reason instead of a success message. A request that never gets
-  an answer (e.g. the device worker is blocked) times out after 20 seconds and
-  shows a timeout toast instead of doing nothing.
+  reported. When the install cannot start (device offline, no
+  `tft_required_version` reported, or the manifest is unreadable or ships no
+  TFT for that version), the editor shows a toast with the reason instead of a
+  success message. A request that never gets an answer (e.g. the device worker
+  is blocked) times out after 20 seconds and shows a timeout toast instead of
+  doing nothing.
 - **Download firmware** — Opens the prebuilt `nspanel_haui.bin` of the latest
-  release when one is attached, and explains the build-from-YAML path otherwise.
+  stable release when one is attached (development prereleases are skipped),
+  and explains the build-from-YAML path otherwise.
   This is the manual fallback. Once a device runs firmware with the
   `install_firmware_url` action (0.4.3 and later) and `firmware_auto_update` is
   on, the hub installs a newer firmware release itself and the
@@ -45,7 +46,13 @@ Opened from the panel toolbar. Lists all configured devices and lets you add, re
   remains unconfirmed, so a display that cannot report its version is not
   uploaded to forever.
 - **Refresh display** — Re-renders the display.
-- Each row shows the device's online/offline state, firmware and TFT versions,
+- **Remove** — Asks for confirmation, then removes the device from the hub and
+  deletes its settings and panels.
+- **Disabled devices** — A disabled device runs no app on the hub, so its menu
+  offers only **Enable**, reordering, **Settings** and **Remove**; **Refresh
+  display**, **Install TFT**, **Install firmware** and **Check for updates**
+  are available again once it is enabled.
+- Each row shows whether the device is enabled, its firmware and TFT versions,
   IP address and signal strength; a display whose TFT is older than the TFT
   version the firmware requires (its `tft_required_version`, which need not
   match the firmware version) is flagged **update pending**. Wi-Fi readings are resolved
@@ -297,7 +304,9 @@ Opened from its own dialog (separate from Device Settings). Lets you override in
 
   RGB565 color values keyed by color name. Unknown keys are ignored (logged) and values are clamped to `0`-`65535`. Default `{}` (empty).
 
-  **Background: solid colour vs picture.** Pages without a picture background are cleared with the `background` colour on every panel switch (`cls <RGB565>`), so the device-level override applies there. The widgets the HMI draws in the page colour (texts, icons, flat buttons, row and settings labels) take the overridden `background` too, and every button's pressed state takes `component_pressed`; the hub reads which widgets those are from `haui/mapping/theme_widgets.json`, exported from the HMI by `scripts/gen_virtual_layout/gen_virtual_layout.py`. Slider tracks and the media progress bar take `component_background`; the row toggles are an icon on the page `background`, in `component_active` when on and `text_inactive` when off. About, Clock, Clock Two, System and Weather are *picture-background* pages: they keep their pre-rendered picture (on Clock, Clock Two and Weather the one selected by the panel's `background` option) and skip the colour clear entirely. On those pages neither the `background` override nor the header colours apply — the compiled picture and its palette win. This is by design (the picture is the background); to change their look, change the picture or edit the HMI. The remaining `COLORS` entries still theme the cards, buttons and text on solid pages as usual.
+  **Background: solid colour vs picture.** Pages without a picture background are drawn in the device's colours from their first frame: before every page switch the hub sends the theme colours to the display, and the page paints itself with them while it loads (its `Preinitialize` event), so no colour changes after a page is shown. This covers the page colour (`background`) and the widgets the HMI draws in it (texts, icons, flat buttons, row and settings labels), the header bar (`header_background`, with the title in `header_text`), every button's pressed state (`component_pressed`) and the slider tracks (`component_background`). The media progress bar takes `component_background` too; the row toggles are an icon on the page `background`, in `component_active` when on and `text_inactive` when off. About, Clock, Clock Two, System and Weather are *picture-background* pages: they keep their pre-rendered picture (on Clock, Clock Two and Weather the one selected by the panel's `background` option). On those pages neither the `background` override nor the header colours apply — the compiled picture and its palette win. This is by design (the picture is the background); to change their look, change the picture or edit the HMI. The remaining `COLORS` entries still theme the cards, buttons and text on solid pages as usual.
+
+  Saving new colours reloads the page on screen, so it shows them right away. This needs a display TFT with the theme code (from the TFT that ships with 0.4.5); until the **HAUI Display** update installs it, solid pages keep their compiled colours.
 
 ## Fields not yet exposed in the editor
 
@@ -376,13 +385,13 @@ of picker as **Install TFT**: the update the **HAUI Firmware** entity offers
 (when there is one), any release that ships an over-the-air image (v0.4.2 and
 later, older ones included), or **From URL** for a firmware OTA image. The TFT
 picker lists the TFT the firmware's manifest ships (plus **From URL** for a
-custom or development TFT). **Check for updates** refreshes both
-firmware availability and GitHub release info immediately (bypassing the
-one-hour hub-level release cache). The check also compares the display's TFT
-with the one the firmware's manifest ships and installs an outdated TFT (or
-asks on the display when `auto_install` is off), and the editor shows its
-outcome: up to date with the latest release, a firmware update started or
-available, a TFT install started, or why the check failed.
+custom or development TFT). **Check for updates** refreshes the configured
+firmware manifest and GitHub release info immediately (bypassing the one-hour
+release cache) and reports available versions without clearing prior failures
+or starting an install. Scheduled checks handle configured automatic firmware
+updates; the TFT requirement is checked separately after the device connects.
+A new GitHub release advisory is shown at most once per release and points users
+to the configured manifest as the firmware/display install source.
 
 ## Global Defaults (not per-device, fixed)
 

@@ -97,11 +97,8 @@ class _NSPanelUpdate(UpdateEntity):
 
     _attr_has_entity_name = True
     _attr_device_class = UpdateDeviceClass.FIRMWARE
-    _attr_supported_features = (
-        UpdateEntityFeature.INSTALL
-        | UpdateEntityFeature.PROGRESS
-        | UpdateEntityFeature.SPECIFIC_VERSION
-    )
+    _attr_supported_features = UpdateEntityFeature.INSTALL | UpdateEntityFeature.SPECIFIC_VERSION
+    _attr_should_poll = False
     _attr_available = False
     # Event the update controller fires for this entity, and the unique id suffix.
     _event: str
@@ -146,6 +143,12 @@ class _NSPanelUpdate(UpdateEntity):
         self._attr_installed_version = data.get("installed_version")
         self._attr_latest_version = data.get("latest_version")
         installing = self._apply(data)
+        self._attr_release_summary = (
+            data.get("last_error")
+            or data.get("update_reason")
+            or data.get("reason")
+            or data.get("firmware_update_reason")
+        )
         # An install blocks the device and ends in a reboot, so the entity
         # stays available while an install keeps the device offline.
         self._attr_available = bool(data.get("connected")) or installing
@@ -194,7 +197,7 @@ class NSPanelFirmwareUpdate(_NSPanelUpdate):
                 offline, manifest or release unreadable, install action
                 missing).
         """
-        result = await self._app.async_run_on_worker(self._app.install_firmware, version, None)
+        result = await self._app.async_install_firmware(version, None)
         if result.get("firmware_install_error"):
             raise HomeAssistantError(result["firmware_install_error"])
 
@@ -232,6 +235,6 @@ class NSPanelDisplayUpdate(_NSPanelUpdate):
             HomeAssistantError: When the install could not start (device
                 offline, no TFT in the manifest, upload command not sent).
         """
-        result = await self._app.async_run_on_worker(self._app.install_tft, version)
+        result = await self._app.async_install_tft(version, None)
         if result.get("state") == UPDATE_STATE_ERROR:
             raise HomeAssistantError(result.get("last_error") or "TFT update failed")

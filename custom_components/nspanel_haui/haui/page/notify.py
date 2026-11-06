@@ -133,9 +133,6 @@ class NotifyPage(CommonNotifyPage):
             visible=False,
         )
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
     def _stop_panel(self, panel: HAUIPanel) -> None:
         self._restore_auto_state(self._saved_auto)
         # notify about close

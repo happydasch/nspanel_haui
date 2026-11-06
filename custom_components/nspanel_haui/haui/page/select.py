@@ -112,10 +112,8 @@ class SelectPage(HAUIPage):
             btn = getattr(self.COMPONENTS, "btn_sel_" + str(idx))
             self.set_function_component(
                 btn,
-                btn[1],
+                btn.name,
                 color=self.get_color("component_active"),
-                back_color=self.get_color("background"),
-                back_color_pressed=self.get_color("component_pressed"),
                 visible=False,
             )
             sel_buttons[btn] = self.callback_select
@@ -124,10 +122,8 @@ class SelectPage(HAUIPage):
             btn = getattr(self.COMPONENTS, "btn_sel_full_" + str(idx))
             self.set_function_component(
                 btn,
-                btn[1],
+                btn.name,
                 color=self.get_color("component_active"),
-                back_color=self.get_color("background"),
-                back_color_pressed=self.get_color("component_pressed"),
                 visible=False,
             )
             sel_buttons[btn] = self.callback_select
@@ -144,9 +140,6 @@ class SelectPage(HAUIPage):
                 self._selected = self._selected[0]
             else:
                 self._selected = str(self._selected)
-
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._handle_multiple_timer is not None:
@@ -231,16 +224,14 @@ class SelectPage(HAUIPage):
                 elif not self._multiple and sel_value == self._selected:
                     color = self.get_color("component_accent")
                 self.update_function_component(
-                    btn[1],
+                    btn.name,
                     text=sel_name,
                     color=color,
-                    back_color=self.get_color("background"),
-                    back_color_pressed=self.get_color("component_pressed"),
                     visible=True,
                 )
             else:
                 self._active[btn] = None
-                self.update_function_component(btn[1], visible=False)
+                self.update_function_component(btn.name, visible=False)
 
     def get_value(self, btn: tuple) -> str | None:
         if btn not in self._active:

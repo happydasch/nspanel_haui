@@ -369,7 +369,7 @@ This actions below are defined on the ESP. The communication between the Hub ser
   firmware update or a reboot: those block the main loop the buzzer's notes are
   switched off from, so the current note would otherwise keep sounding.
 
-- `reset_last_interaction` Action to reset the last interaction value
+- `reset_last_interaction` Action to reset the inactivity timer, optionally with an offset
 
   Takes an `offset` (int); the last interaction value is set to now with that offset applied
 
@@ -392,6 +392,14 @@ These events will be sent out when the device have some page related events.
   `clock`), published whenever the display reports a page change. An entity
   popup reports its page (`light` for the light popup). The value comes from
   the display itself, so it stays available while the hub is disconnected.
+
+- `Current Page Number` (sensor)
+
+  The Nextion page id of the same page (`9` for `grid`; the order of the HMI
+  pages).
+
+  Both sensors are disabled by default; enable them on the device page under
+  **Settings → Devices & services → ESPHome** before using them in automations.
 
   ```yaml
   trigger:
@@ -439,7 +447,7 @@ The ESP provides some interaction related events. See below for a overview of al
 
 - `use_button_interaction` (switch)
 
-  Should buttons be used for updating last interaction time.
+  Whether a physical button press resets the device's inactivity timer.
 
 - `use_auto_dimming` (switch)
 
@@ -464,10 +472,6 @@ The ESP provides some interaction related events. See below for a overview of al
 - `use_relay_right` (switch)
 
   Defines if the physical button right should use the internal relay
-
-- `last_interaction` (millis()/1000)
-
-  Last time when a interaction happened with the display
 
 ## Brightness and Dimming
 
@@ -638,17 +642,18 @@ ESPHome ↔ hub event/device-state protocol instead of an HA entity.
 | `binary_sensor.nspanel_kitchen_button_left` / `..._button_right` | Physical relay buttons (diagnostic) |
 | `sensor.nspanel_kitchen_ip` / `..._ssid` / `..._rssi` | WiFi/network info; also read by the editor's Device Manager |
 | `text_sensor.nspanel_kitchen_client_status` | `online` / `offline`, the hub connection state |
-| `sensor.nspanel_kitchen_current_page` | Nextion page name the display shows (see [Page](#page)) |
+| `sensor.nspanel_kitchen_current_page` / `..._current_page_number` | Nextion page name / id the display shows; disabled by default (see [Page](#page)) |
 | `sensor.nspanel_kitchen_brightness` | Current display brightness (the last value the hub set, 0–100) |
 | `sensor.nspanel_kitchen_temperature` | Internal panel temperature (NTC, °C) |
 
-The firmware-only readback and interaction components `page`, `touch_x`,
-`touch_y`, `last_interaction`, `tft_version`, `req_val_component`,
-`req_txt_component`, `res_txt` and `res_val` are marked `internal: true`. They
-support the firmware ↔ hub pipeline and are not Home Assistant entities. The
-WiFi BSSID and the temperature calculation's `adc` and `resistance` sensors
-are instead `disabled_by_default: true`; they are not enabled as entities by
-default, but are not marked internal.
+The firmware-only readback components `touch_x`, `touch_y`, `tft_version`,
+`req_val_component`, `req_txt_component`, `res_txt` and `res_val` are marked
+`internal: true`. They support the firmware ↔ hub pipeline and are not Home
+Assistant entities. The inactivity timer uses a rollover-safe `millis()` clock
+inside the firmware; changing timeout or brightness settings never resets it.
+The current page sensors, the WiFi BSSID and the temperature calculation's
+`adc` and `resistance` sensors are instead `disabled_by_default: true`; they
+are not enabled as entities by default, but are not marked internal.
 
 The hub resolves the built-in temperature entity through the entity registry
 using ESPHome's authored name (`Temperature`), so the example entity ID above

@@ -31,6 +31,9 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The firmware drops the `haui_discover`, `req_device_info` and `req_reconnect`
   actions and the `use_relay_left`/`use_relay_right` events, which the hub
   never used ([Upgrading](docs/upgrading.md#16-unused-firmware-actions-and-events-removed)).
+- The services raise an error when their `device` matches no running panel,
+  instead of logging a warning and doing nothing
+  ([Upgrading](docs/upgrading.md#18-services-fail-on-a-device-that-is-no-panel)).
 
 ### Added
 
@@ -53,6 +56,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Alarm panel action-button options: hidden arm modes, action icons and button
   colours ([#75](https://github.com/happydasch/nspanel_haui/pull/75)).
 - The firmware's **Update Display** button is back, disabled by default.
+- **Current Page Number** sensor (the Nextion page id); it and **Current
+  Page** are disabled by default ([ESPHome](docs/esphome.md#page)).
 
 ### Changed
 
@@ -74,6 +79,12 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Cycle cards switch to a shorter form instead of running past the time area.
 - The `background`, `component_background` and `component_pressed` colour
   overrides reach flat widgets, sliders and pressed buttons.
+- Pages load in the device's colours instead of changing colour after they
+  are shown, and saved colours apply at once (new display TFT).
+- A saved background of the shown clock, word clock or weather panel, and the
+  word clock's options, apply at once instead of on the next page change.
+- The clock and weather temperature text no longer turns from grey to white
+  after the page is shown (new display TFT).
 - An open notification is no longer replaced by a force-shown one, and the open
   list refreshes.
 - Stacked panels and popups show up and home; stacked grids and rows keep their
@@ -108,6 +119,14 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Notifications without an icon use the full text width.
 - Multi-line notification text renders its line breaks.
 - Quotes and backslashes in display text are escaped.
+- The services accept the NSPanel HAUI device their device selector offers, not
+  only the panel's ESPHome device.
+- A TFT upload or firmware install that ends without the panel rebooting is
+  reported as failed instead of done.
+- Device Manager: the TFT picker names the required TFT version, not the
+  firmware version; **Download firmware** skips dev prereleases; disabled
+  devices offer no actions that need a running panel; a failed reorder keeps
+  the old order; **Remove** asks for confirmation.
 
 ### Contributors
 

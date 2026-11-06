@@ -121,8 +121,6 @@ class ClimatePage(HAUIPage):
         self.set_climate_item(item, panel.get("hvac_modes", []))
         # set title
         self._title = self._panel_title(panel, item, self.translate("Climate"))
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.COMPONENTS.title, self._title)

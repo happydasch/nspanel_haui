@@ -9,11 +9,10 @@ on:
 permissions:
   contents: write
 
-# A newer release run supersedes an older one, even across tags. This can cancel
-# a release mid-build or publication; that tradeoff is intentional.
+# Never cancel an in-progress tagged release: cancellation during publication can leave a partial release.
 concurrency:
   group: release
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -22,6 +21,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Require a version tag for manual releases
+        if: github.event_name == 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "Run the release workflow on a v* tag; branch builds do not have a release manifest." >&2
+          exit 1
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -112,6 +117,25 @@ jobs:
         # every panel would try to update to it.
         if: startsWith(github.ref, 'refs/tags/v')
         run: python3 scripts/release/generate_firmware_manifest.py
+
+      - name: Validate the generated firmware manifest
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("firmware-manifest.json")
+          if not path.is_file():
+              raise SystemExit("firmware-manifest.json was not generated")
+          manifest = json.loads(path.read_text(encoding="utf-8"))
+          ota = manifest.get("builds", [{}])[0].get("ota", {})
+          if not manifest.get("version") or manifest.get("variant") != "universal":
+              raise SystemExit("firmware manifest is missing its version or universal variant")
+          if not ota.get("path") or not ota.get("md5"):
+              raise SystemExit("firmware manifest is missing the OTA path or checksum")
+          if not manifest.get("tft", {}).get("assets"):
+              raise SystemExit("firmware manifest is missing TFT assets")
+          PY
 
       - name: Assemble the release notes
         # Release notes are prepared per release in .github/release-notes/<tag>.md

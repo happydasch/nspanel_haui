@@ -55,66 +55,7 @@ jobs:
         # so an installed dev build kept offering itself as an update. Keeping
         # them identical (and PEP 440) makes the Marketplace order dev releases
         # and only offer a build that is actually newer.
-        run: |
-          python3 - <<'PY'
-          import json, os, re
-          from pathlib import Path
-
-          manifest = json.loads(Path("custom_components/nspanel_haui/manifest.json").read_text())
-          stable = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", manifest["version"])
-          # A previous dev release committed onto the branch: X.Y.Z.devN. The
-          # optional +local segment only accepts versions published before the
-          # segment was dropped.
-          dev_prev = re.fullmatch(
-              r"(\d+)\.(\d+)\.(\d+)\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?",
-              manifest["version"],
-          )
-          if stable:
-              major, minor, patch = map(int, stable.groups())
-              base = f"{major}.{minor}.{patch + 1}"
-          elif dev_prev:
-              base = f"{dev_prev.group(1)}.{dev_prev.group(2)}.{dev_prev.group(3)}"
-          else:
-              raise SystemExit(
-                  "Expected a stable X.Y.Z or a previous dev version, "
-                  f"got {manifest['version']!r}"
-              )
-          version = f"{base}.dev{os.environ['GITHUB_RUN_NUMBER']}"
-          # Validate against the exact PEP 440 dev-release shape instead of
-          # importing ``packaging``: that library is not a declared dependency
-          # anywhere in the repo (neither ESPHome nor the dev requirements pull
-          # it in), and importing it here broke every dev build with
-          # "packaging is not installed". The pattern covers what the version
-          # check needs — parseable by AwesomeVersion, no ``-`` separator, and
-          # no ``+local`` segment (see above).
-          expected = re.compile(rf"^{re.escape(base)}\.dev\d+$")
-          if expected.fullmatch(version) is None:
-              raise SystemExit(f"{version} does not match the expected PEP 440 shape {expected.pattern}")
-          version_file = Path("esphome/nspanel_haui/version.yaml")
-          source = version_file.read_text()
-          source, count = re.subn(
-              r"(?m)^(  yaml_version: )'[^']+'$",
-              rf"\g<1>'{version}'",
-              source,
-          )
-          if count != 1:
-              raise SystemExit(f"Expected one yaml_version in {version_file}, found {count}")
-          version_file.write_text(source)
-          manifest_file = Path("custom_components/nspanel_haui/manifest.json")
-          source = manifest_file.read_text()
-          source, count = re.subn(
-              r'(?m)^(  "version": )"[^"]+"(,?)$',
-              lambda m: f'{m.group(1)}"{version}"{m.group(2)}',
-              source,
-          )
-          if count != 1:
-              raise SystemExit(f"Expected one version in {manifest_file}, found {count}")
-          manifest_file.write_text(source)
-          with open(os.environ["GITHUB_ENV"], "a") as env:
-              env.write(f"DEV_VERSION={version}\n")
-              env.write(f"DEV_SHA={os.environ['GITHUB_SHA'][:7]}\n")
-          print(f"Building {version} from {os.environ['GITHUB_SHA']}")
-          PY
+        run: python3 scripts/release/dev_version.py "$GITHUB_RUN_NUMBER"
 
       - name: Take the display TFT version from the HMIs
         # A dev release ships the committed TFTs under the system.tftVersion

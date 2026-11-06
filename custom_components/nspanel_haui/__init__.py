@@ -128,8 +128,9 @@ async def _link_esphome_device(
     """Link the ESPHome device to the nspanel_haui integration.
 
     Adds an ``nspanel_haui`` identifier to the existing ESPHome device entry.
-    The device selector (integration: nspanel_haui) in services.yaml matches
-    the extra identifier.
+    The services' device selector (integration: nspanel_haui) ignores it: it
+    filters by config entry and entity platform, so it offers the integration's
+    own device, which ``services._resolve_target_apps`` accepts as well.
 
     A device now belongs to a single config entry (the ESPHome one), so our
     config entry is no longer attached: ``add_config_entry_id`` is deprecated
@@ -164,8 +165,7 @@ async def _create_app(
 
     Builds the device config from the config layers (data,
     panels), resolves the ESPHome HA device_id, adds an ``nspanel_haui``
-    identifier to the ESPHome device entry so the device selector
-    (integration: nspanel_haui) can find it, initializes the app on the
+    identifier to the ESPHome device entry, initializes the app on the
     executor thread, and returns the ready-to-use instance.
 
     The caller is responsible for storing the returned app in the running
@@ -575,7 +575,7 @@ async def async_remove_config_entry_device(
     configured = {d["name"] for d in config_entry.data.get("devices", []) if "name" in d}
     for domain, name in device_entry.identifiers:
         if domain == DOMAIN and name in configured:
-            await async_remove_device(hass, config_entry, name, keep_config=False)
+            await async_remove_device(hass, config_entry, name)
     return True
 
 

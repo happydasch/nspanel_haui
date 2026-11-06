@@ -98,8 +98,8 @@ async def _push_panels(hass: Any, entry_id: str, data: dict) -> dict:
         return {"status": "ok", "reloaded": True}
 
     entry = hass.config_entries.async_get_entry(entry_id)
-    # Same rule as setup, so a store-only device (removed with "keep config")
-    # doesn't force a reload on every save.
+    # Same rule as setup, so a store-only device (settings without a config
+    # entry record) doesn't force a reload on every save.
     if set(enabled_device_names(entry.data, data)) != set(apps):
         hass.config_entries.async_schedule_reload(entry_id)
         return {"status": "ok", "reloaded": True}
@@ -517,8 +517,8 @@ class DeviceConfigView(HomeAssistantView):
         names_added = list(enabled_by_name)
 
         # The entry holds only identity; settings, including ``enabled``, live
-        # in the panel store. A device re-added after a keep-config removal
-        # keeps its stored settings.
+        # in the panel store. A device whose settings are still stored (a
+        # store-only device) keeps them.
         store = panel_store(hass, entry_id)
         panels_data = await store.async_load() or empty_store()
         store_devices = panels_data.setdefault("devices", {})
@@ -543,19 +543,14 @@ class DeviceConfigView(HomeAssistantView):
 
     @require_admin
     async def delete(self, request, entry_id: str):
-        """Remove a device from the config entry, optionally keeping panel config.
+        """Remove a device from the hub together with its settings and panels.
 
-        Query param ``name`` identifies the device.  JSON body may carry an
-        optional ``keep_config`` boolean - when true the panel store is left
-        untouched so that panel definitions survive device removal.
+        Query param ``name`` identifies the device.
         """
         hass = request.app["hass"]
         name = (request.query.get("name") or "").strip()
         if not name:
             return _error(self, "Device name is required", 400)
-
-        data = await request.json()
-        keep_config = data.get("keep_config", False) if data else False
 
         entry = hass.config_entries.async_get_entry(entry_id)
         if not entry:
@@ -565,9 +560,9 @@ class DeviceConfigView(HomeAssistantView):
         if name not in existing_in_ce:
             return _error(self, f'Device "{name}" not found', 404)
 
-        await async_remove_device(hass, entry, name, keep_config=keep_config)
+        await async_remove_device(hass, entry, name)
 
-        return self.json({"status": "ok", "kept_config": keep_config})
+        return self.json({"status": "ok"})
 
 
 class DeviceYamlView(HomeAssistantView):
@@ -783,30 +778,27 @@ class FirmwareDownloadView(HomeAssistantView):
 
     @require_admin
     async def get(self, request):
-        """Return the prebuilt firmware download link of the latest release.
+        """Return the prebuilt firmware download link of the latest stable release.
 
         Releases may carry a ``nspanel_haui.bin`` asset (name-agnostic build)
-        in addition to the TFT files.  Returns ``{"url": null}`` when the
-        latest release has no binary asset, so the editor can show a plain
+        in addition to the TFT files.  Development prereleases carry one too and
+        are skipped.  Returns ``{"url": null}`` when no stable release has a
+        binary asset, so the editor can show a plain
         build-from-YAML hint instead of a dead link.  When the GitHub API is
         unreachable an error response is returned instead, so the editor does
         not mistake a network problem for a missing asset.
         """
-        from .haui.controller.update import HAUIUpdateController
+        from .haui.controller.release_source import ReleaseSource
 
-        # The update controller already caches release info on the worker; for
-        # this small, user-initiated lookup do a fresh, short fetch here so the
-        # link always reflects the very latest release.
-        def _fetch() -> list | None:
-            try:
-                resp = requests.get(HAUIUpdateController.RELEASES_URL, timeout=5)
-                json_decoded = resp.json()
-            except requests.exceptions.RequestException, ValueError:
-                # Network failure, a non-JSON body (GitHub rate limit page), …
-                return None
-            return json_decoded if isinstance(json_decoded, list) else None
-
-        releases = await asyncio.to_thread(_fetch)
+        # This admin download action intentionally requests a fresh catalog; it
+        # shares the release source while retaining its explicit latest-link semantics.
+        try:
+            decoded = await asyncio.to_thread(
+                ReleaseSource.fetch_json, ReleaseSource.RELEASES_URL, 5
+            )
+        except (requests.exceptions.RequestException, ValueError):
+            decoded = None
+        releases = decoded if isinstance(decoded, list) else None
         if not releases:
             # None = the GitHub API could not be reached; [] = it returned no
             # releases.  Both are environment problems, not "the release lacks
@@ -818,9 +810,11 @@ class FirmwareDownloadView(HomeAssistantView):
                 502,
             )
 
-        # Releases are returned newest-first; the first binary-bearing release
-        # is the right one to link (semver tags are the release convention).
+        # Releases are returned newest-first; the first binary-bearing stable
+        # release is the right one to link (semver tags are the release convention).
         for release in releases:
+            if release.get("prerelease"):
+                continue
             for asset in release.get("assets", []):
                 # one universal binary serves every display model
                 if asset.get("name") == "nspanel_haui.bin":
@@ -848,11 +842,18 @@ class DeviceUpdateTftView(HomeAssistantView):
         for all devices; default ``*``) and either an optional ``version`` (the
         TFT version the firmware's manifest ships; when omitted the manifest's
         TFT for the device's display model is installed) or an optional ``url``
-        of a TFT file (single device only).  The install runs on the device's
-        worker thread.
+        The install result is applied on the device worker. Manifest downloads
+        run on the adapter's I/O pool so the display worker stays available.
         """
         hass = request.app["hass"]
-        body = await request.json() or {}
+        try:
+            body = await request.json()
+        except ValueError:
+            return _error(self, "Invalid JSON request body", 400)
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            return _error(self, "The request body must be a JSON object", 400)
         device_name = (body.get("device") or "*").strip()
         version = (body.get("version") or "").strip() or None
         url = (body.get("url") or "").strip() or None
@@ -874,10 +875,7 @@ class DeviceUpdateTftView(HomeAssistantView):
             app = apps.get(device_name)
             if app is None:
                 return _error(self, f'Device "{device_name}" not found', 404)
-            if url is not None:
-                result = await app.async_run_on_worker(app.install_tft_url, url)
-            else:
-                result = await app.async_run_on_worker(app.install_tft, version)
+            result = await app.async_install_tft(version, url)
             if isinstance(result, dict) and result.get("state") == "error":
                 # The controller records *why* the install could not start
                 # (device disconnected, no required TFT version, no TFT in the
@@ -890,12 +888,11 @@ class DeviceUpdateTftView(HomeAssistantView):
                 )
             return self.json({"status": "ok", "devices_updated": [device_name], "update": result})
 
-        # Refresh all devices
         updated: list[str] = []
         failed: list[dict[str, str]] = []
         for dname, dapp in apps.items():
             try:
-                result = await dapp.async_run_on_worker(dapp.install_tft, version)
+                result = await dapp.async_install_tft(version, None)
                 if isinstance(result, dict) and result.get("state") == "error":
                     failed.append(
                         {"name": dname, "error": result.get("last_error") or "TFT update failed"}
@@ -907,9 +904,9 @@ class DeviceUpdateTftView(HomeAssistantView):
                     )
                 else:
                     updated.append(dname)
-            except Exception:
+            except Exception as exc:
                 _LOGGER.exception("Failed to install TFT for device '%s'", dname)
-                failed.append({"name": dname, "error": "install failed"})
+                failed.append({"name": dname, "error": str(exc) or "install failed"})
 
         return self.json({"status": "ok", "devices_updated": updated, "failed": failed})
 
@@ -925,11 +922,10 @@ class DeviceTftReleasesView(HomeAssistantView):
     async def get(self, request, entry_id: str):
         """Return the TFT versions the ``device`` query param can install.
 
-        Runs on the device's worker thread.  Returns ``releases`` (the TFT
-        version the firmware's manifest ships, if any), ``required`` (the
-        version the firmware requires (``tft_required_version``), and ``error`` (why the manifest
-        could not be read) for the editor's TFT install picker.  The display TFT comes from the
-        manifest; use the From URL path for other versions.
+        Starts the manifest request from the device worker and applies the
+        result there; the HTTP fetch runs on the adapter's I/O pool.
+        Returns ``releases`` (manifest TFT version), ``required`` (the firmware's
+        ``tft_required_version``), and ``error`` for the editor's picker.
         """
         hass = request.app["hass"]
         device_name = _query_device(request)
@@ -939,7 +935,7 @@ class DeviceTftReleasesView(HomeAssistantView):
         app = apps.get(device_name)
         if app is None:
             return _error(self, f'Device "{device_name}" not found', 404)
-        return self.json(await app.async_run_on_worker(app.list_tft_releases))
+        return self.json(await app.async_list_tft_releases())
 
 
 class DeviceFirmwareReleasesView(HomeAssistantView):
@@ -953,9 +949,8 @@ class DeviceFirmwareReleasesView(HomeAssistantView):
     async def get(self, request, entry_id: str):
         """Return the releases the ``device`` query param can flash over the air.
 
-        Runs on the device's worker thread, which shares the hub-level release
-        cache.  Returns ``releases`` (tags, newest first) and ``error`` (why
-        GitHub could not be read, or null) for the editor's firmware picker.
+        Starts the staged release-catalog request from the device worker and
+        awaits its result while candidate manifests are fetched on the I/O pool.
         """
         hass = request.app["hass"]
         device_name = _query_device(request)
@@ -965,7 +960,7 @@ class DeviceFirmwareReleasesView(HomeAssistantView):
         app = apps.get(device_name)
         if app is None:
             return _error(self, f'Device "{device_name}" not found', 404)
-        return self.json(await app.async_run_on_worker(app.list_firmware_releases))
+        return self.json(await app.async_list_firmware_releases())
 
 
 class DeviceUpdateFirmwareView(HomeAssistantView):
@@ -1014,7 +1009,7 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
             app = apps.get(device_name)
             if app is None:
                 return _error(self, f'Device "{device_name}" not found', 404)
-            result = await app.async_run_on_worker(app.install_firmware, version, url)
+            result = await app.async_install_firmware(version, url)
             if result.get("firmware_install_error"):
                 return _error(self, result["firmware_install_error"], 502)
             return self.json({"status": "ok", "devices_updated": [device_name], "update": result})
@@ -1023,15 +1018,15 @@ class DeviceUpdateFirmwareView(HomeAssistantView):
         failed: list[dict[str, str]] = []
         for dname, dapp in apps.items():
             try:
-                result = await dapp.async_run_on_worker(dapp.install_firmware, version, None)
+                result = await dapp.async_install_firmware(version, None)
                 error = result.get("firmware_install_error")
                 if error:
                     failed.append({"name": dname, "error": error})
                 else:
                     updated.append(dname)
-            except Exception:
+            except Exception as exc:
                 _LOGGER.exception("Failed to install firmware for device '%s'", dname)
-                failed.append({"name": dname, "error": "firmware install failed"})
+                failed.append({"name": dname, "error": str(exc) or "firmware install failed"})
 
         return self.json({"status": "ok", "devices_updated": updated, "failed": failed})
 
@@ -1047,11 +1042,8 @@ class DeviceUpdateCheckView(HomeAssistantView):
     async def post(self, request, entry_id: str):
         """Run a manual update check for the specified device (or all devices).
 
-        JSON body may carry an optional ``device`` field (device name, or ``*``
-        for all devices; default ``*``).  The check runs on the device's worker
-        thread and bypasses the hub-level release cache.  ``results`` maps each
-        checked device to its check result (update state plus
-        ``latest_release`` and ``check_error``) so the editor can report it.
+        JSON body may carry an optional ``device`` field. Update inputs are fetched
+        off-worker and applied in order by the selected device's worker.
         """
         hass = request.app["hass"]
         try:
@@ -1071,7 +1063,7 @@ class DeviceUpdateCheckView(HomeAssistantView):
             app = apps.get(device_name)
             if app is None:
                 return _error(self, f'Device "{device_name}" not found', 404)
-            result = await app.async_run_on_worker(app.check_for_update)
+            result = await app.async_check_for_update()
             return self.json(
                 {
                     "status": "ok",
@@ -1085,11 +1077,11 @@ class DeviceUpdateCheckView(HomeAssistantView):
         results: dict[str, dict] = {}
         for dname, dapp in apps.items():
             try:
-                results[dname] = await dapp.async_run_on_worker(dapp.check_for_update)
+                results[dname] = await dapp.async_check_for_update()
                 checked.append(dname)
-            except Exception:
+            except Exception as exc:
                 _LOGGER.exception("Failed to check for updates on device '%s'", dname)
-                failed.append({"name": dname, "error": "check failed"})
+                failed.append({"name": dname, "error": str(exc) or "check failed"})
 
         return self.json(
             {"status": "ok", "devices_checked": checked, "failed": failed, "results": results}

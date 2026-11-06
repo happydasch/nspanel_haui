@@ -209,9 +209,9 @@ replacing the broader v0.4.5 passlist.
 
 ---
 
-## v0.4.6 — dim/idle display wake flash (planned)
+## v0.4.6 — dim/idle display wake flash
 
-**Status: planned.**
+**Status: fixed in the working tree; release pending.**
 
 - **Portrait HMI page fixes** — use the shared panel preview added in 0.4.5 to
   reproduce and debug portrait-only page rendering issues, then fix the portrait
@@ -219,26 +219,12 @@ replacing the broader v0.4.5 passlist.
   Keep the landscape/portrait component and geometry parity checks green, and
   verify the fixes by reviewing the affected pages in the simulator.
 - **Periodic full-brightness flash while the display is dimmed or on the
-  idle screen** — the panel periodically jumps to full brightness and then
-  fades back to the dim value.  Every reconnect re-flashes it: the hub's
-  connection controller re-sends ``reset_last_interaction`` on each
-  transition into CONNECTED (`connection.py:_on_entering_connected`), and
-  the firmware's ``check_display`` computes brightness from time since
-  ``last_interaction``, so the reset snaps the backlight to
-  ``brightness_full`` before the normal ramp fades it back to
-  ``brightness_dim``.  The reconnects come from missed heartbeats; the
-  auto-update link is that the update controller's synchronous GitHub
-  manifest request (`requests.get`, timeout 10 s) runs on the same worker
-  thread as the hub→device heartbeat timer, so a slow update check can
-  delay the heartbeat long enough for the device's 2×interval timeout to
-  trip and reconnect.
-- **Fix direction** — skip the reconnect ``reset_last_interaction`` when
-  the display is not visible (``display_state`` is ``dim``/``off``): the
-  device-side display-state machine already keeps the screen dimmed/off, so
-  a reconnect must not force a full-brightness ramp.  Keep the update
-  manifest/release reads from stalling the worker's heartbeat processing
-  (off-thread fetch or a bounded non-blocking update check) so a slow
-  GitHub round-trip cannot trigger the reconnect in the first place.
+  idle screen** — Fixed. ESPHome now stores one rollover-safe `millis()`
+  timestamp and computes elapsed inactivity once for the display and page
+  timers. Timeout/brightness setting changes and hub connection transitions do
+  not change that timestamp; only touch, configured button presses, or explicit
+  wake/reset actions do. This removes the reconnect reset that restarted the
+  full-brightness ramp.
 
 ---
 

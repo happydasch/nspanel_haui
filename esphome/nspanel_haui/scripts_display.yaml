@@ -53,21 +53,8 @@ script:
           int timeout_off_val = int(id(timeout_display_off).state);
           // duration of dimming
           float duration_dim_val = id(duration_dim).state;
-          // last interaction with device
-          int last_interaction_val = int(id(last_interaction).state);
-          // time diff in seconds
-          float diff_seconds = 0;
+          float diff_seconds = id(interaction_age_ms) / 1000.0f;
           static float last_diff_seconds = 0;
-          if (last_interaction_val > 0) {
-            // get timings for last interaction
-            unsigned long duration_now = millis() / 100; // 0.1s units, matches last_interaction
-            if (duration_now < last_interaction_val) {
-              // overflow occurred, reset variables
-              last_interaction_val = 0;
-              duration_now = 0;
-            }
-            diff_seconds = ((float)duration_now - last_interaction_val) / 10;
-          }
 
           // display-off timeout means brightness goes off -> target 0
           if (id(use_auto_display_off).state && timeout_off_val > 0 && diff_seconds > timeout_off_val) {
@@ -169,35 +156,17 @@ script:
           static std::string wakeup_page = "0"; // system
           // duration of dimming
           float duration_dim_val = id(duration_dim).state;
-          // last interaction with device
-          int last_interaction_val = int(id(last_interaction).state);
-          // time passed since last interaction
-          float diff_seconds = 0;
-
-          // get timings for last interaction
-          if (last_interaction_val > 0) {
-            // get timings for last interaction
-            unsigned long duration_now = millis() / 100; // 0.1s units, matches last_interaction
-            if (duration_now < last_interaction_val) {
-              // overflow occurred, reset variables
-              last_interaction_val = 0;
-              duration_now = 0;
-            }
-            diff_seconds = ((float)duration_now - last_interaction_val) / 10;
-          }
+          float diff_seconds = id(interaction_age_ms) / 1000.0f;
 
           // update display state
           if (id(use_auto_display_off).state && timeout_off_val > 0 && diff_seconds > (timeout_off_val + duration_dim_val)) {
             if (!id(hub_connection)) {
-              // Hub disconnected while the display-off timeout elapsed - reset and go full on
-              id(update_last_interaction).execute(-1, 0);
               new_state = 2;
             } else if (current_state != 0) {
               new_state = 0;
             }
           } else if (!id(use_auto_display_off).state && current_state == 0) {
             // Auto display-off was disabled while the display was off - wake up
-            id(update_last_interaction).execute(-1, 0);
             new_state = 2;
           } else if (id(use_auto_dimming).state && timeout_dim_val > 0 && diff_seconds > (timeout_dim_val + duration_dim_val)) {
             if (!id(hub_connection)) {

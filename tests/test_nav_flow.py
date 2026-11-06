@@ -113,14 +113,19 @@ class FApp:
 
 class FPage:
     hook = None
+    # whether the loaded page fits the panel it is asked to show (is_loaded_for)
+    loaded_for = True
 
     def __init__(self, app, config):
         self.page_id = config["page_id"]
         self._started = False
 
-    def create_panel(self, panel):
+    def prepare_page_load(self, panel):
         if FPage.hook:
             FPage.hook()
+
+    def is_loaded_for(self, panel):
+        return FPage.loaded_for
 
     def is_started(self):
         return self._started
@@ -141,6 +146,7 @@ SPECS = {
 def _nav(monkeypatch, specs):
     monkeypatch.setitem(PANEL_MAPPING, "grid", (PANEL_MAPPING["grid"][0], FPage))
     FPage.hook = None
+    FPage.loaded_for = True
     app = FApp(specs)
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
@@ -299,6 +305,37 @@ def test_reload_requested_during_open_runs_after_open(nav):
     assert nav.panel is nav.app.device_config.get_panel("b")
     assert nav.get_current_nav_panel() is nav.app.device_config.get_panel("b")
     assert nav._home_panel is nav.app.device_config.get_panel("a")
+
+
+def _record_page_loads(nav):
+    """Record goto_page (a page load) and display_panel (a render in place)."""
+    calls = []
+    nav.goto_page = lambda pid, force=False: calls.append("goto_page")
+    nav.display_panel = lambda panel: calls.append("display_panel")
+    return calls
+
+
+def test_reload_renders_an_unchanged_page_in_place(nav):
+    nav.open_panel("a")
+    nav.page._started = True
+    calls = _record_page_loads(nav)
+
+    nav.reload_panels()
+
+    assert calls == ["display_panel"]
+
+
+def test_reload_loads_the_page_again_when_it_reads_something_new(nav):
+    """A new theme or background is painted only while the page loads."""
+    nav.open_panel("a")
+    nav.page._started = True
+    calls = _record_page_loads(nav)
+    FPage.loaded_for = False
+
+    nav.reload_panels()
+
+    assert calls == ["goto_page"]
+    assert keys(nav) == "a"
 
 
 def test_reload_requested_during_close_runs_after_close(nav):

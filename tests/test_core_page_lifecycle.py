@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from nspanel_haui.haui.abstract.haui_page import HAUIPage
-from nspanel_haui.haui.mapping.color import COLORS, ColorTheme
+from nspanel_haui.haui.mapping.color import COLORS, THEME_GLOBALS, ColorTheme
 
 OVERRIDE = 1234
 
@@ -34,7 +34,7 @@ class _App:
         self.device_config = _DeviceConfig()
         self.esphome = _ESPHome()
         self.controller: dict[str, Any] = {"esphome": self.esphome}
-        self._color_theme = ColorTheme({"background": OVERRIDE, "header_text": OVERRIDE})
+        self.color_theme = ColorTheme({"background": OVERRIDE, "header_text": OVERRIDE})
 
     def log(self, *a: Any, **k: Any) -> None:
         pass
@@ -54,6 +54,9 @@ class _OwnPalettePage(HAUIPage):
     """Like about/clock/clocktwo/weather: own palette, start_panel without super()."""
 
     USE_SYSTEM_COLORS = False
+
+    def page_load_commands(self, panel: Any) -> list[str]:
+        return [*super().page_load_commands(panel), "own.background.val=1"]
 
     def start_panel(self, panel: Any) -> None:
         self.started_with = self.get_color("header_text")
@@ -81,7 +84,6 @@ def test_own_palette_page_ignores_color_overrides_without_calling_super() -> Non
 
     assert page.started_with == COLORS["header_text"]
     assert page.rendered_with == COLORS["background"]
-    assert f"cls {COLORS['background']}" in _sent_commands(app)
 
 
 def test_system_palette_page_uses_color_overrides() -> None:
@@ -92,7 +94,47 @@ def test_system_palette_page_uses_color_overrides() -> None:
 
     assert page.started_with == OVERRIDE
     assert page.rendered_with == OVERRIDE
-    assert f"cls {OVERRIDE}" in _sent_commands(app)
+
+
+def test_panel_render_does_not_repaint_the_page() -> None:
+    """The page loads in the theme (its Preinitialize code), so a render never clears it."""
+    app = _App()
+    page = _SystemPalettePage(app, {"page_id": 1})
+
+    page.set_panel(_Panel())
+
+    assert [cmd for cmd in _sent_commands(app) if cmd.startswith("cls")] == []
+
+
+def test_page_load_preparation_sends_the_device_theme_first() -> None:
+    """Theme globals, then what the page reads too, all ahead of goto_page.
+
+    An own-palette page sends the device's theme too: the globals stay on the
+    display and the next solid-colour page loads with them.
+    """
+    app = _App()
+    page = _OwnPalettePage(app, {"page_id": 1})
+
+    page.prepare_page_load(_Panel())
+
+    theme = [
+        f"{name}={OVERRIDE if key in ('background', 'header_text') else COLORS[key]}"
+        for key, name in THEME_GLOBALS.items()
+    ]
+    assert _sent_commands(app) == [*theme, "own.background.val=1"]
+
+
+def test_loaded_page_fits_only_a_panel_with_the_same_load_commands() -> None:
+    """Navigation shows a panel on the loaded page only if the page loaded with its theme."""
+    app = _App()
+    page = _OwnPalettePage(app, {"page_id": 1})
+    assert not page.is_loaded_for(_Panel())
+
+    page.prepare_page_load(_Panel())
+    assert page.is_loaded_for(_Panel())
+
+    app.color_theme = ColorTheme({"background": OVERRIDE + 1})
+    assert not page.is_loaded_for(_Panel())
 
 
 # --- execute_item popups -----------------------------------------------------

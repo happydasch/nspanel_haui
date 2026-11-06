@@ -38,7 +38,6 @@ script:
           }
           if (id(client_status).state != haui_status_str) {
             id(client_status).publish_state(haui_status_str);
-            id(update_last_interaction).execute(-1, 0);
           }
 
   # Script to check the hub connection

@@ -442,3 +442,14 @@ options stops cycling after the update.
   section. A panel that already set them keeps its cards.
 - Weather panels behave as before: they show the time and date until you
   enable more cards (see [Weather panel](panels/panel_weather.md#cycle-cards)).
+
+## 18. Services fail on a device that is no panel
+
+The `nspanel_haui` services raise an error when their `device` matches no
+running panel. They logged a warning and did nothing before, so the call
+looked successful. An automation or script whose `device` names a disabled
+panel, a removed panel or another integration's device now stops at that step.
+
+- Select the panel's **NSPanel HAUI** device (the one the device selector
+  offers) or its ESPHome device; see [Services](services.md#navigation-display-control).
+- For a step that may target a disabled panel, set `continue_on_error: true`.

@@ -31,6 +31,15 @@ reboots. Update the ESPHome firmware (the **HAUI Firmware** entity, or
 **Device Manager → Install firmware**): it sets `tft_upload_http_buffer_size_tx:
 2048`. The TFT install follows after the reboot.
 
+### TFT install fails with "the panel did not reboot after the upload"
+
+The upload stopped partway: the device ran on instead of rebooting into the new
+TFT, and the display may be blank or half-written until a full upload succeeds.
+A weak Wi-Fi link is the usual cause, more so when several panels upload at
+once. Install the TFT again, one panel at a time; the ESPHome log shows the
+download or flash error as `[E][nextion.upload]` lines ending in
+`Upload failed`.
+
 ### "Reading from UART timed out at byte 0!" or "Upgrade response is 0"
 
 If you are getting errors like these, the easiest way to fix this is using the Nextion Editor and a display connected to 5V, GND, TF-TX, TF-RX to upload a new display file.

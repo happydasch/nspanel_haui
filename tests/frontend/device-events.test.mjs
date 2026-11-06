@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { loadDeviceConfig } from '../../custom_components/nspanel_haui/frontend/device-config.js';
+import { savePanels } from '../../custom_components/nspanel_haui/frontend/crud.js';
 import * as Events from '../../custom_components/nspanel_haui/frontend/device-events.js';
 import { jsonResponse, makeHost } from './fake-host.mjs';
 
@@ -272,4 +273,30 @@ test('the firmware install sends the release chosen in the picker', async () => 
   await Events.onDeviceManagerUpdateFirmware(host, { detail: { name: 'kitchen', version: 'v0.4.2' } });
 
   assert.deepEqual(host.toasts.at(-1), ['success', 'Firmware update started for "kitchen"']);
+});
+
+function moveHost(status) {
+  const host = makeHost({ devices: { kitchen, office } }, () => (
+    jsonResponse(status < 400 ? { status: 'ok' } : { message: 'nope' }, status)
+  ));
+  host._savePanels = (panels, message, config) => savePanels(host, panels, message, config);
+  return host;
+}
+
+test('moving a device saves the new device order', async () => {
+  const host = moveHost(200);
+
+  await Events.onDeviceManagerMoveDevice(host, { detail: { name: 'office', direction: -1 } });
+
+  assert.deepEqual(Object.keys(host._panels.devices), ['office', 'kitchen']);
+  assert.deepEqual(host.toasts.at(-1), ['success', 'Device "office" moved up']);
+});
+
+test('a rejected device move keeps the previous order', async () => {
+  const host = moveHost(500);
+
+  await Events.onDeviceManagerMoveDevice(host, { detail: { name: 'office', direction: -1 } });
+
+  assert.deepEqual(Object.keys(host._panels.devices), ['kitchen', 'office']);
+  assert.deepEqual(host.toasts.at(-1), ['error', 'nope']);
 });

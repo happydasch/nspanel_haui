@@ -182,6 +182,12 @@ class VirtualESPHomeProxy:
         self._report_entities()
         return True
 
+    def publish_detached(self, name: str, value: Any = "") -> None:
+        """Fire-and-forget action (the hub→device heartbeat).
+
+        A virtual device has no liveness to keep, so nothing answers it.
+        """
+
     def _report_entities(self) -> None:
         """Tell the browser which widgets show which entity, when that changes."""
         navigation = self._app.controller.get("navigation")
@@ -507,6 +513,9 @@ class _RecordingESPHome:
     def reset_prev_cmd(self) -> None:
         pass
 
+    def publish_detached(self, cmd: str, value: Any = "") -> None:
+        """Fire-and-forget actions (the heartbeat) have no live device here."""
+
 
 class _RenderNavigation:
     """Navigation as a card render sees it: no action moves the live display."""
@@ -602,8 +611,9 @@ class _PanelRender:
     """One panel rendered on a page of its own; create, start and stop on the app's worker.
 
     The page runs its full lifecycle as navigation would drive it. Commands sent
-    while the panel is created come ``before`` the page switch, as on the device
-    (a picture background must be set before the page loads); the rest follow it.
+    while the page load is prepared come ``before`` the page switch, as on the
+    device (the theme colours and a picture background must be set before the
+    page loads); the rest follow it.
     """
 
     def __init__(
@@ -634,7 +644,7 @@ class _PanelRender:
         return self._esphome.commands
 
     def start(self) -> None:
-        self._page.create_panel(self._panel)
+        self._page.prepare_page_load(self._panel)
         self.before = list(self._esphome.commands)
         self._esphome.commands.clear()
         self._page.start()

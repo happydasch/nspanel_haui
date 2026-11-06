@@ -61,11 +61,9 @@ display:
             if (touch_event == 1) {
               id(publish_event_native).execute("esphome.touch_start", "1");
             }
-            id(update_last_interaction).execute(-1, 0);
 
     on_buffer_overflow:
       then:
         - lambda: |-
             ESP_LOGW("haui", "Nextion buffer overflow detected");
             id(publish_event_native).execute("esphome.buffer_overflow", "1");
-            id(update_last_interaction).execute(-1, 0);

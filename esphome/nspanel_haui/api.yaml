@@ -180,7 +180,7 @@ api:
       variables:
         offset: int
       then:
-        - lambda: id(update_last_interaction).execute(-1, offset);
+        - lambda: id(reset_interaction_timer).execute(offset);
 
     # Action to send a notification.
     # ESPHome 2026.10 has no optional action variables, so every parameter is

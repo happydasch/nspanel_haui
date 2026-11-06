@@ -40,15 +40,8 @@ def test_intro_text_full_hour_default_matches_descriptor():
     (option,) = [o for o in ClockTwoPage.DESCRIPTOR.options if o.key == "show_intro_text_full_hour"]
     page = ClockTwoPage.__new__(ClockTwoPage)
     page.get_color = lambda key: 0
-    page.render_template = lambda template, parse_icons=True: template
-    page.cmds = []
-    page.send_cmd = page.cmds.append
     page.prepare()
-    page.create_panel(_Panel({"show_intro_text": False}))
-
-    # create_panel() sends the background command before the page loads so the
-    # Nextion's Preinitialize event picks up the correct background picture.
-    assert "clocktwo.background.val=1" in page.cmds
+    page.read_options(_Panel({"show_intro_text": False}))
 
     words, _ = page.get_words_from_time(datetime.datetime(2026, 1, 1, 15, 0))
 
@@ -70,3 +63,23 @@ def test_dark_display_keeps_the_word_clock_current():
     page.callback_update_time({})
 
     assert updated == [True]
+
+
+def test_background_is_sent_before_the_page_loads():
+    """The page's Preinitialize code draws the background picture it reads."""
+    page = ClockTwoPage.__new__(ClockTwoPage)
+    page.app = SimpleNamespace(color_theme=SimpleNamespace(display_commands=lambda: ["thmBg=1"]))
+    page.render_template = lambda template, parse_icons=True: template
+
+    assert page.page_load_commands(_Panel({})) == ["thmBg=1", "clocktwo.background.val=1"]
+
+
+def test_options_saved_for_the_shown_panel_apply_without_a_page_load():
+    """A panel shown again on the loaded page reads its options anew."""
+    page = ClockTwoPage.__new__(ClockTwoPage)
+    page.get_color = lambda key: 0
+    page.read_options(_Panel({"clock_language": "de", "off_color": 5}))
+    page.read_options(_Panel({}))
+
+    assert page._clock_language == "en"
+    assert page._off_color == 0

@@ -1,12 +1,13 @@
 /**
  * NSPanel HAUI - Device Manager dialog.
  *
- * Proper Lit custom element showing all configured devices with
- * add, select, settings, and remove capabilities.
+ * Lists the configured devices with their versions and update state; adds
+ * devices found by a scan and runs the per-device actions of the row menu.
  */
 import { html } from '../lit-import.js';
 import { dialogHeader } from './dialog-header.js';
 import { HauiDialog } from './haui-dialog.js';
+import './confirm.js';
 import { t } from '../localize.js';
 import { positionContextMenu, onOutsideClick, offOutsideClick } from '../dom-helpers.js';
 import * as Toast from '../toast.js';
@@ -55,14 +56,11 @@ class DeviceManagerDialog extends HauiDialog {
       devices: { type: Object },
       selectedDevice: { type: String },
       entryId: { type: String },
-      _showAddForm: { type: Boolean, state: true },
-      _newDeviceName: { type: String, state: true },
-      _addError: { type: String, state: true },
       _scannedDevices: { type: Array, state: true },
       _scanning: { type: Boolean, state: true },
       _scanError: { type: String, state: true },
-      _removingDevice: { type: String, state: true },
       _deviceMenuIndex: { type: Number, state: true },
+      _removeTarget: { type: String, state: true },
       _toast: { type: Object, state: true },
       _deviceStatuses: { type: Object, state: true },
       _picker: { type: Object, state: true },
@@ -75,14 +73,12 @@ class DeviceManagerDialog extends HauiDialog {
     this.selectedDevice = null;
     this.entryId = null;
     this._deviceStatuses = {};
-    this._showAddForm = false;
-    this._newDeviceName = "";
-    this._addError = "";
     this._scannedDevices = [];
     this._scanning = false;
     this._scanError = "";
-    this._removingDevice = null;
     this._deviceMenuIndex = null;
+    // Device whose removal waits for confirmation.
+    this._removeTarget = null;
     this.__statusTimer = null;
     // Open TFT / firmware install picker: { kind, device, releases (null
     // while loading), releasesError, choice ("" = default, a release tag,
@@ -129,6 +125,7 @@ class DeviceManagerDialog extends HauiDialog {
       } else {
         this._stopStatusPolling();
         this._picker = null;
+        this._removeTarget = null;
       }
     }
   }
@@ -167,6 +164,8 @@ class DeviceManagerDialog extends HauiDialog {
 
   render() {
     const deviceKeys = Object.keys(this.devices || {});
+    // A device added from the scan results leaves them once the editor reloads.
+    const scanned = this._scannedDevices.filter((d) => !(this.devices || {})[d.name]);
     return html`
       <ha-dialog
         .open=${this.open}
@@ -175,30 +174,6 @@ class DeviceManagerDialog extends HauiDialog {
         ${dialogHeader(t('Device Manager'), this._dispatchClose)}
         <form @submit=${(e) => e.preventDefault()}>
           <div class="dialog-body">
-            <!-- add device form (foldable) -->
-            ${this._showAddForm ? html`
-              <div class="device-mgr-add-form">
-                <div class="form-group">
-                  <label>${t('Device Name')}</label>
-                  <input
-                    class="native-input"
-                    .value=${this._newDeviceName}
-                    @input=${(e) => this._newDeviceName = e.target.value}
-                    placeholder=${t('my_nspanel')}
-                  />
-                </div>
-                <div class="device-mgr-add-actions">
-                  <ha-button variant="neutral" appearance="plain" @click=${() => { this._showAddForm = false; this._newDeviceName = ""; this._addError = ""; }}>
-                    ${t('Cancel')}
-                  </ha-button>
-                  <ha-button @click=${this._onAddDevice}>
-                    ${t('Add')}
-                  </ha-button>
-                </div>
-                ${this._addError ? html`<p class="device-mgr-error">${this._addError}</p>` : ""}
-              </div>
-            ` : ""}
-
             <!-- configured devices -->
             <div class="device-mgr-section">
               <h3 class="device-mgr-section-title">${t('Devices')} (${deviceKeys.length})</h3>
@@ -208,16 +183,16 @@ class DeviceManagerDialog extends HauiDialog {
             </div>
 
             <!-- discovered devices (scan results) -->
-            ${this._scannedDevices.length > 0 ? html`
+            ${scanned.length > 0 ? html`
               <div class="device-mgr-section">
                 <h3 class="device-mgr-section-title">${t('Discovered Devices')}</h3>
                 <div class="device-mgr-section-actions">
-                  <ha-button @click=${() => this._emit("scan-devices", { devices: this._scannedDevices })} variant="neutral" appearance="plain">
+                  <ha-button @click=${() => this._emit("scan-devices", { devices: scanned })} variant="neutral" appearance="plain">
                     <ha-icon icon="mdi:plus-circle-outline" slot="icon"></ha-icon>
                     ${t('Add All')}
                   </ha-button>
                 </div>
-                ${this._scannedDevices.map(d => html`
+                ${scanned.map(d => html`
                   <div class="device-mgr-row">
                     <div class="device-mgr-row-body">
                       <div class="device-mgr-row-head">
@@ -261,7 +236,34 @@ class DeviceManagerDialog extends HauiDialog {
           </ha-button>
         </div>
       </ha-dialog>
+
+      <!-- outside ha-dialog: its closed event must not close the manager -->
+      <nspanel-dialog-confirm
+        .hass=${this.hass}
+        .open=${this._removeTarget !== null}
+        .params=${this._removeParams}
+        @dialog-closed=${() => { this._removeTarget = null; }}
+        @dialog-confirmed=${this._confirmRemove}
+      ></nspanel-dialog-confirm>
     `;
+  }
+
+  get _removeParams() {
+    const name = this._removeTarget;
+    if (name === null || name === undefined) return null;
+    return {
+      title: t('Remove device?'),
+      message: t('Remove {name} from the hub? Its settings and panels are deleted. This cannot be undone.')
+        .replace('{name}', (this.devices || {})[name]?.friendly_name || name),
+      confirmText: t('Remove'),
+      cancelText: t('Cancel'),
+    };
+  }
+
+  _confirmRemove() {
+    const name = this._removeTarget;
+    this._removeTarget = null;
+    if (name) this._emit("remove-device", { name });
   }
 
   _renderDeviceRow(name) {
@@ -270,7 +272,6 @@ class DeviceManagerDialog extends HauiDialog {
     const enabled = config.enabled !== false;
     const panelCount = (dev.panels || []).length;
     const isSelected = name === this.selectedDevice;
-    const isRemoving = name === this._removingDevice;
     const deviceKeys = Object.keys(this.devices || {});
     const idx = deviceKeys.indexOf(name);
     const canMoveUp = idx > 0;
@@ -291,21 +292,22 @@ class DeviceManagerDialog extends HauiDialog {
         label: enabled ? t('Disable') : t('Enable'), action: () => { this._emit("toggle-device", { name }); this._closeDeviceMenu(); }
       },
       'divider',
-      { icon: 'mdi:refresh', label: t('Refresh display'), action: () => { this._emit("refresh-display", { name }); this._closeDeviceMenu(); } },
-      { icon: 'mdi:update', label: t('Install TFT'), action: () => { this._openPicker("tft", name); this._closeDeviceMenu(); } },
+      // A disabled device runs no app, so the hub has nothing to run these on.
+      { icon: 'mdi:refresh', label: t('Refresh display'), disabled: !enabled, action: () => { this._emit("refresh-display", { name }); this._closeDeviceMenu(); } },
+      { icon: 'mdi:update', label: t('Install TFT'), disabled: !enabled, action: () => { this._openPicker("tft", name); this._closeDeviceMenu(); } },
       {
-        icon: 'mdi:chip', label: t('Install firmware'), disabled: updateStatus?.firmware_installing,
+        icon: 'mdi:chip', label: t('Install firmware'), disabled: !enabled || updateStatus?.firmware_installing,
         // Without an offered update there is no default: preselect a release.
         action: () => { this._openPicker("firmware", name, updateStatus?.firmware_update_available ? "" : null); this._closeDeviceMenu(); },
       },
-      { icon: 'mdi:cloud-search-outline', label: t('Check for updates'), action: () => { this._emit("check-for-update", { name }); this._closeDeviceMenu(); } },
+      { icon: 'mdi:cloud-search-outline', label: t('Check for updates'), disabled: !enabled, action: () => { this._emit("check-for-update", { name }); this._closeDeviceMenu(); } },
       'divider',
       { icon: 'mdi:arrow-up', label: t('Move Up'), disabled: !canMoveUp, action: () => { this._emit("move-device", { name, direction: -1 }); this._closeDeviceMenu(); } },
       { icon: 'mdi:arrow-down', label: t('Move Down'), disabled: !canMoveDown, action: () => { this._emit("move-device", { name, direction: 1 }); this._closeDeviceMenu(); } },
       'divider',
       { icon: 'mdi:cog-outline', label: t('Settings'), action: () => { this._emit("device-settings", { name }); this._closeDeviceMenu(); } },
       'divider',
-      { icon: 'mdi:delete-outline', label: t('Remove'), disabled: isRemoving, danger: true, action: () => { this._emit("remove-device", { name }); this._closeDeviceMenu(); } },
+      { icon: 'mdi:delete-outline', label: t('Remove'), danger: true, action: () => { this._removeTarget = name; this._closeDeviceMenu(); } },
     ];
 
     return html`
@@ -334,7 +336,7 @@ class DeviceManagerDialog extends HauiDialog {
                 : ''}
             ${nw.ip ? html`<span class="info-chip" title="${t('IP Address')}">${nw.ip}</span>` : ''}
           </div>
-          ${this._picker?.device === name ? this._renderPicker(name, yaml, updateStatus) : ''}
+          ${this._picker?.device === name ? this._renderPicker(name, requiredTft, updateStatus) : ''}
         </div>
         <div class="device-mgr-row-actions">
           <div class="device-mgr-more" data-didx=${idx}>
@@ -432,7 +434,10 @@ class DeviceManagerDialog extends HauiDialog {
     } else if (updateStatus?.firmware_update_available) {
       defaults = [["", t('Offered update ({version})').replace('{version}', updateStatus.firmware_update_version || '')]];
     }
-    const options = [...defaults, ...(releases || []).map((tag) => [tag, tag]), ["url", t('From URL')]];
+    // The manifest's TFT is normally the required one, which the default
+    // already installs; list it only when it differs.
+    const listed = (releases || []).filter((tag) => !(tft && required && tag === required));
+    const options = [...defaults, ...listed.map((tag) => [tag, tag]), ["url", t('From URL')]];
     return html`
       <div class="device-mgr-add-form device-mgr-tft-form" @click=${(e) => e.stopPropagation()}>
         <div class="form-group">
@@ -513,27 +518,6 @@ class DeviceManagerDialog extends HauiDialog {
     } catch (e) {
       this.showToast(e.message || t("Failed to load the firmware link"), "error");
     }
-  }
-
-  /* ── add device ──────────────────────────────────────────────────── */
-
-  _onAddDevice() {
-    const name = (this._newDeviceName || "").trim();
-    if (!name) {
-      this._addError = t('Device name is required');
-      this.requestUpdate();
-      return;
-    }
-    if (this.devices[name]) {
-      this._addError = `${t('Device')} "${name}" ${t('already exists')}`;
-      this.requestUpdate();
-      return;
-    }
-    this._emit("add-device", { device: { name, esphome_device_id: "" } });
-    this._showAddForm = false;
-    this._newDeviceName = "";
-    this._addError = "";
-    this.requestUpdate();
   }
 }
 

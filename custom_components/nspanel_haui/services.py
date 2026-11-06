@@ -93,9 +93,22 @@ def _resolve_target_apps(
 ) -> list[tuple[str, NSPanelHAUI]]:
     """Resolve HAUI apps matching an optional HA device registry ID.
 
+    A panel has two devices and either selects it: its ESPHome device (the
+    app's ``_ha_device_id``) and the integration's own device, the one its
+    update and notify entities sit on, identified by ``(DOMAIN, dev_name)``.
+    The services' device selector offers only the latter.
+
     Returns list of (device_name, app) tuples.  If device_id is None,
     returns ALL apps across all hub entries.
     """
+    from homeassistant.helpers import device_registry as dr
+
+    identifiers: set[tuple[str, str]] = set()
+    if device_id is not None:
+        device = dr.async_get(hass).async_get(device_id)
+        if device is not None:
+            identifiers = device.identifiers
+
     targets: list[tuple[str, NSPanelHAUI]] = []
     for _entry_id, entry_data in hass.data.get(DOMAIN, {}).items():
         if not isinstance(entry_data, dict):
@@ -106,26 +119,15 @@ def _resolve_target_apps(
                 targets.append((str(dev_name), app))
             continue
         for dev_name, app in entry_data.items():
-            if getattr(app, "_ha_device_id", None) == device_id:
+            if app._ha_device_id == device_id or (DOMAIN, str(dev_name)) in identifiers:
                 targets.append((str(dev_name), app))
 
     return targets
 
 
 def _wake_display(app: NSPanelHAUI) -> None:
-    """Publish reset_last_interaction to wake the display."""
-    try:
-        esp_ctrl = app.controller.get("esphome")
-        if esp_ctrl and hasattr(esp_ctrl, "esphome"):
-            esp_ctrl.esphome.publish("reset_last_interaction", "0")
-    except Exception:
-        _LOGGER.debug(
-            "reset_last_interaction failed for '%s'",
-            getattr(app, "name", "?"),
-            exc_info=True,
-        )
-
-
+    """Reset the firmware's inactivity timer before a wake action."""
+    _publish_action(app, "reset_last_interaction", "0")
 def _publish_action(
     app: NSPanelHAUI,
     action: str,
@@ -159,18 +161,21 @@ async def _device_action(
     app, and dispatches *action* via the executor so HA's async loop is
     not blocked.  The action receives the full ``NSPanelHAUI`` instance so
     it can access both navigation and ESPHome controllers.
+
+    Raises:
+        ServiceValidationError: When no panel matches ``device``; the call
+            then fails visibly instead of doing nothing.
     """
+    from homeassistant.exceptions import ServiceValidationError
+
     device_id: str | None = call.data.get("device")
     targets = _resolve_target_apps(hass, device_id)
 
     if not targets:
-        _LOGGER.warning(
-            "%s: no matching HAUI app (device=%s) — "
-            "selected ESPHome device may not be running HAUI firmware",
-            call.service,
-            device_id,
+        raise ServiceValidationError(
+            f"{call.service}: no NSPanel HAUI panel matches device {device_id}; select a "
+            "panel's NSPanel HAUI device or its ESPHome device"
         )
-        return
 
     for dev_name, app in targets:
 
@@ -277,13 +282,15 @@ async def _handle_update_tft(hass: HomeAssistant, call: ServiceCall) -> None:
     url: str | None = call.data.get("url")
 
     def _update_action(app: Any, dev_name: str) -> None:
-        result = app.install_tft_url(url) if url else app.install_tft(version)
-        if result.get("state") == "error":
-            _LOGGER.error(
-                "update_tft failed for '%s': %s",
-                dev_name,
-                result.get("last_error") or "TFT update failed",
-            )
+        def _on_complete(result: dict[str, Any]) -> None:
+            if result.get("state") == "error":
+                _LOGGER.error(
+                    "update_tft failed for '%s': %s",
+                    dev_name,
+                    result.get("last_error") or "TFT update failed",
+                )
+
+        app.start_async_tft_install(version, url, _on_complete)
 
     await _device_action(hass, call, action=_update_action)
 
@@ -294,13 +301,15 @@ async def _handle_update_firmware(hass: HomeAssistant, call: ServiceCall) -> Non
     url: str | None = call.data.get("url")
 
     def _update_action(app: Any, dev_name: str) -> None:
-        result = app.install_firmware(version, url)
-        if result.get("firmware_install_error"):
-            _LOGGER.error(
-                "update_firmware failed for '%s': %s",
-                dev_name,
-                result["firmware_install_error"],
-            )
+        def _on_complete(result: dict[str, Any]) -> None:
+            if result.get("firmware_install_error"):
+                _LOGGER.error(
+                    "update_firmware failed for '%s': %s",
+                    dev_name,
+                    result["firmware_install_error"],
+                )
+
+        app.start_async_firmware_install(version, url, _on_complete)
 
     await _device_action(hass, call, action=_update_action)
 

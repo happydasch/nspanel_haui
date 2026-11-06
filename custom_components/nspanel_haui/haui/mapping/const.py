@@ -230,7 +230,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # install the TFT the firmware needs automatically when the display has an
         # older one; when false the display asks first
         "auto_install": True,
-        "tft_filename": "nspanel_haui.tft",  # TFT filename to use
         # Check for updates on connect by default. Set to False to disable the
         # automatic check when the device connects.
         "check_on_connect": True,

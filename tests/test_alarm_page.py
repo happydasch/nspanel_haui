@@ -107,15 +107,13 @@ def test_style_keypad_honours_overrides_and_parses_string_color():
     assert "bKey0.pco=12345" in page.commands
 
 
-def test_get_button_colors_fills_enabled_buttons():
+def test_get_button_colors_lifts_enabled_buttons_when_pressed():
     page = _ColorPage()
-    _color, _color_pressed, back, back_pressed = page.get_button_colors(True)
-    assert back == COLORS["background"]
+    _color, _color_pressed, back_pressed = page.get_button_colors(True)
     assert back_pressed == COLORS["component_pressed"]
 
 
 def test_get_button_colors_keeps_disabled_buttons_flat():
     page = _ColorPage()
-    _color, _color_pressed, back, back_pressed = page.get_button_colors(False)
-    assert back == COLORS["background"]
+    _color, _color_pressed, back_pressed = page.get_button_colors(False)
     assert back_pressed == COLORS["background"]

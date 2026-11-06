@@ -63,7 +63,7 @@ sequenceDiagram
    - Hub parses device state JSON
    - Sets state → CONNECTED
    - Sends `hub_connection_initialized` to device
-   - Sends `reset_last_interaction` to reset display timeout
+   - Leaves the device's inactivity timer unchanged; only touch, button presses, or explicit wake actions reset it
    - Starts heartbeat timer (hub→device)
    - Starts timeout monitoring (device→hub)
    - Invokes connection callback
@@ -91,7 +91,12 @@ Once connected, **both sides independently** send and monitor heartbeats:
 
 - Started when state reaches CONNECTED
 - Timer fires every `heartbeat_interval` seconds (first at "now+0")
+- The timer runs on the event loop (`on_loop`), never on the app's worker
+  thread: the device force-disconnects the hub after two missed heartbeats —
+  and wakes the display when it does — so a busy worker (render burst, update
+  check) must not delay it
 - Calls the `hub_heartbeat` ESPHome action which resets `hub_heartbeat` on the device
+- Published fire-and-forget (`publish_detached`), so sending never blocks or queues
 - Also sent immediately in reply to every `esphome.heartbeat` event; the timer is a fallback
 - Stopped when state leaves CONNECTED
 
@@ -150,7 +155,7 @@ When hub detects CONNECTED → DISCONNECTED:
 
 When hub detects connection established (HANDSHAKING → CONNECTED):
 1. Sends `hub_connection_initialized` action
-2. Sends `reset_last_interaction` to reset display timeout
+2. Leaves the inactivity timer unchanged
 3. Starts heartbeat timer
 4. Starts timeout timer
 5. Clears `_disconnected_since`

@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import functools
-import json
-import os
-
 COLORS = {
     # default colors
     # 0.4 dark theme: page < header < cards < pressed, each one step lighter,
@@ -76,11 +72,23 @@ CLIMATE_COLORS = {
 }
 
 
+# Program.s globals the solid-colour pages paint themselves from in their
+# Preinitialize event, before the display draws them, keyed by ``COLORS`` key.
+# The hub sets them right before every page switch (``ColorTheme.display_commands``)
+# so a page shows the device's theme from its first frame. The Preinitialize code
+# is generated from the HMI by ``scripts/gen_virtual_layout/gen_virtual_layout.py
+# --theme-code``; Program.s declares each global with its ``COLORS`` default.
+THEME_GLOBALS = {
+    "background": "thmBg",
+    "header_background": "thmHdrBg",
+    "header_text": "thmHdrTxt",
+    "component_pressed": "thmPressed",
+    "component_background": "thmCompBg",
+}
+
+
 class ColorTheme:
     """Per-device color theme that merges user overrides with COLORS defaults.
-
-    Provides a single ``get(key)`` method so that callers always receive the
-    overridden value (if set) or the built-in COLORS default.
 
     Only the global ``COLORS`` palette is overridable; domain palettes
     (weather/alarm/climate) are fixed constants and are not handled here.
@@ -88,11 +96,11 @@ class ColorTheme:
 
     __slots__ = ("_overrides",)
 
-    def __init__(self, overrides: dict[str, int] | None = None) -> None:
-        self._overrides = overrides if overrides is not None else {}
+    def __init__(self, overrides: dict[str, int]) -> None:
+        self._overrides = overrides
 
     def get(self, key: str) -> int:
-        """Return the overridden color for *key*, falling back to COLORS.
+        """Return the overridden color for *key*, or its ``COLORS`` default.
 
         Args:
             key: A key from the ``COLORS`` dict (e.g. ``"background"``).
@@ -102,34 +110,6 @@ class ColorTheme:
         """
         return self._overrides.get(key, COLORS[key])
 
-    @property
-    def all(self) -> dict[str, int]:
-        """Return the complete merged palette (COLORS defaults + overrides)."""
-        return {**COLORS, **self._overrides}
-
-
-def make_color_theme(overrides: dict[str, int] | None = None) -> ColorTheme:
-    """Factory that creates a :class:`ColorTheme` from optional overrides.
-
-    Args:
-        overrides: A dict mapping color keys to RGB565 ints, or ``None``.
-    """
-    return ColorTheme(overrides)
-
-
-_THEME_WIDGETS_FILE = os.path.join(os.path.dirname(__file__), "theme_widgets.json")
-
-
-@functools.cache
-def theme_widgets() -> dict[str, dict[str, dict]]:
-    """Widgets each solid-colour Nextion page compiles with a theme colour.
-
-    Page name -> ``COLORS`` key -> ``{"color": <compiled RGB565>, "attrs":
-    {"bco": [names], "bco2": [names]}}``: the widgets whose ``bco`` / ``bco2``
-    the TFTs compile with that key's colour. ``theme_widgets.json`` is exported
-    from the HMI by ``scripts/gen_virtual_layout/gen_virtual_layout.py``; read
-    on first use.
-    """
-    with open(_THEME_WIDGETS_FILE, encoding="utf-8") as widgets_file:
-        pages: dict[str, dict[str, dict]] = json.load(widgets_file)["pages"]
-    return pages
+    def display_commands(self) -> list[str]:
+        """Nextion commands that set the display's theme globals (``THEME_GLOBALS``)."""
+        return [f"{name}={self.get(key)}" for key, name in THEME_GLOBALS.items()]

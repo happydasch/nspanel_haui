@@ -48,23 +48,13 @@ VERSION_YAML = ROOT / "esphome" / "nspanel_haui" / "version.yaml"
 sys.path.insert(0, str(ROOT / "scripts"))
 import bump_tft_version as hmi  # noqa: E402
 
-_STABLE_RE = re.compile(r"\d+\.\d+\.\d+")
-# Development versions in the PEP 440 shape the dev-release CI publishes:
-# ``X.Y.Z.dev<N>``. The base ``X.Y.Z`` is the *next* patch line, so ``.devN``
-# sorts above the current stable and below the eventual ``X.Y.Z`` final. A
-# ``+local`` segment is still accepted because dev builds published before
-# 2026-11-04 carry one (``.dev<run>+g<sha>``) and the branch's version check
-# must pass on them; never publish one: AwesomeVersion sorts it above the final.
-_DEV_RE = re.compile(r"\d+\.\d+\.\d+\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?")
+sys.path.insert(0, str(ROOT / "scripts" / "release"))
+from dev_version import version_kind as _shared_version_kind  # noqa: E402
 
 
 def _version_kind(version: str) -> str | None:
-    """Classify ``version`` as ``"stable"``, ``"dev"`` or ``None`` (invalid)."""
-    if _STABLE_RE.fullmatch(version):
-        return "stable"
-    if _DEV_RE.fullmatch(version):
-        return "dev"
-    return None
+    """Classify a supported release version as stable, dev, or invalid."""
+    return _shared_version_kind(version)
 
 
 def _display(path: Path) -> str:

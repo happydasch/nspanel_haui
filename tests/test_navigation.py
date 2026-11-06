@@ -333,7 +333,7 @@ class OpenPage:
         self._started = False
         self.create_called = False
 
-    def create_panel(self, panel):
+    def prepare_page_load(self, panel):
         self.create_called = True
 
     def stop(self):

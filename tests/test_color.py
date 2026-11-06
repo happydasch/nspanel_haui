@@ -6,9 +6,9 @@ from nspanel_haui.haui.mapping.color import (
     ALARM_COLORS,
     CLIMATE_COLORS,
     COLORS,
+    THEME_GLOBALS,
     WEATHER_COLORS,
     ColorTheme,
-    make_color_theme,
 )
 from nspanel_haui.haui.utils.color import parse_color_value, rgb565_to_rgb
 
@@ -71,7 +71,7 @@ def test_domain_palettes_present_and_valid() -> None:
 
 class TestColorTheme:
     def test_get_returns_default_when_no_overrides(self) -> None:
-        theme = ColorTheme()
+        theme = ColorTheme({})
         assert theme.get("background") == COLORS["background"]
         assert theme.get("text") == COLORS["text"]
 
@@ -84,26 +84,21 @@ class TestColorTheme:
         theme = ColorTheme({"background": 0})
         assert theme.get("text") == COLORS["text"]
 
-    def test_all_returns_merged_dict(self) -> None:
-        theme = ColorTheme({"background": 12345})
-        merged = theme.all
-        assert merged["background"] == 12345
-        assert merged["text"] == COLORS["text"]
-        assert len(merged) == len(COLORS)
+    def test_display_commands_set_every_theme_global(self) -> None:
+        """The display's theme globals get the device's colours, defaults included."""
+        theme = ColorTheme({"background": 0, "component_pressed": 1234})
 
-    def test_make_color_theme_factory(self) -> None:
-        theme = make_color_theme({"background": 0})
-        assert isinstance(theme, ColorTheme)
-        assert theme.get("background") == 0
+        commands = theme.display_commands()
 
-    def test_make_color_theme_none(self) -> None:
-        theme = make_color_theme()
-        assert isinstance(theme, ColorTheme)
-        assert theme.get("background") == COLORS["background"]
+        assert commands == [f"{name}={theme.get(key)}" for key, name in THEME_GLOBALS.items()]
+        assert "thmBg=0" in commands
+        assert "thmPressed=1234" in commands
+        assert f"thmHdrBg={COLORS['header_background']}" in commands
 
-    def test_all_does_not_mutate_defaults(self) -> None:
-        ColorTheme({"background": 12345})
-        assert COLORS["background"] != 12345  # original unchanged
+    def test_theme_globals_name_palette_keys(self) -> None:
+        assert set(THEME_GLOBALS) <= COLORS.keys()
+        # Nextion variable names: letters and digits, at most 14 characters
+        assert all(name.isalnum() and len(name) <= 14 for name in THEME_GLOBALS.values())
 
 
 # ============================================================================

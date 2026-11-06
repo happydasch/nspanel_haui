@@ -19,6 +19,7 @@ import threading
 from pathlib import Path
 
 import pytest
+from nspanel_haui.haui.mapping.const import SysPanelKey
 from nspanel_haui.haui.mapping.panel import (
     get_system_panel_entries,
     get_user_panel_type_descriptors,
@@ -29,9 +30,15 @@ sys.path.insert(0, str(ROOT / "scripts" / "preview_gallery"))
 import sample_world  # noqa: E402
 
 REPLAY = ROOT / "tests" / "frontend" / "replay-renders.mjs"
-# Theme colours unlike the HMI's own: a blue page, a dark blue for control
-# backgrounds (slider tracks, toggles off, progress bars) and a pressed blue.
-THEMED_COLORS = {"background": 4479, "component_background": 2114, "component_pressed": 6463}
+# Theme colours unlike the HMI's own: a blue page, a darker blue header, a dark
+# blue for control backgrounds (slider tracks, toggles off, progress bars) and a
+# pressed blue.
+THEMED_COLORS = {
+    "background": 4479,
+    "header_background": 4228,
+    "component_background": 2114,
+    "component_pressed": 6463,
+}
 
 
 @pytest.fixture
@@ -75,7 +82,11 @@ def test_every_card_renders_on_the_hub_and_replays_in_the_browser(
     renders = sample_world.render_every_card(hub_loop, display_model)
 
     assert len(renders) == len(get_user_panel_type_descriptors()) + len(get_system_panel_entries())
-    assert [name for name, render in renders.items() if not render["commands"]] == []
+    # The blank page sends nothing after the page switch: its Preinitialize code
+    # paints it in the theme sent ahead of it.
+    assert renders[SysPanelKey.SYS_BLANK]["before"]
+    empty = [name for name, render in renders.items() if not render["commands"]]
+    assert empty == [SysPanelKey.SYS_BLANK]
     _replay(tmp_path, orientation, renders)
 
 
@@ -83,7 +94,11 @@ def test_every_card_renders_on_the_hub_and_replays_in_the_browser(
     ("display_model", "orientation"), [("eu", "landscape"), ("us", "portrait")]
 )
 def test_every_card_follows_the_background_colours(hub_loop, tmp_path, display_model, orientation):
-    """Compiled theme colours follow the device: page, pressed and control backgrounds."""
+    """Compiled theme colours follow the device, from the page's first frame on.
+
+    Page, header, pressed and control backgrounds take the device's colours, and
+    the page loads in them: no colour change is visible after the page switch.
+    """
     renders = sample_world.render_every_card(
         hub_loop, display_model, {"color_overrides": THEMED_COLORS}
     )

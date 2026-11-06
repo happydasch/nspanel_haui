@@ -99,31 +99,13 @@ class SettingsPage(HAUIPage):
         self.bind_slider(self.COMPONENTS.h_brght, self.process_brightness_full)
         self.bind_slider(self.COMPONENTS.h_brght_dim, self.process_brightness_dim)
 
-        # set function buttons
-        with self.rec_cmd:
-            self.set_function_component(
-                self.COMPONENTS.fnc_left_pri,
-                self.FNC_BTN_L_PRI,
-                fnc_name=self.FNC_TYPE_NAV_UP,
-            )
-            self.set_function_component(
-                self.COMPONENTS.fnc_right_pri,
-                self.FNC_BTN_R_PRI,
-                fnc_name=self.FNC_TYPE_NAV_CLOSE,
-            )
-            # secondary buttons: _auto_assign_fncs assigns or hides them
-            self.set_function_component(
-                self.COMPONENTS.fnc_left_sec,
-                self.FNC_BTN_L_SEC,
-                fnc_name=None,
-            )
-            self.set_function_component(
-                self.COMPONENTS.fnc_right_sec,
-                self.FNC_BTN_R_SEC,
-                fnc_name=None,
-            )
-            # auto-assign defaults to all header button slots
-            self._auto_assign_fncs(panel)
+        # not in navigation: up and close, the secondary slots as the panel sets
+        self.set_function_buttons(
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
+            self.COMPONENTS.fnc_right_sec,
+        )
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # remove existing handles
@@ -159,12 +141,12 @@ class SettingsPage(HAUIPage):
     def set_brightness_full_slider(self, value: int) -> None:
         self.set_slider_color(self.COMPONENTS.h_brght)
         self.set_component_value(self.COMPONENTS.h_brght, value)
-        self.send_cmd(f"click {self.COMPONENTS.t_brght_pct[1]},0")
+        self.send_cmd(f"click {self.COMPONENTS.t_brght_pct.name},0")
 
     def set_brightness_dim_slider(self, value: int) -> None:
         self.set_slider_color(self.COMPONENTS.h_brght_dim)
         self.set_component_value(self.COMPONENTS.h_brght_dim, value)
-        self.send_cmd(f"click {self.COMPONENTS.t_brght_dim_pct[1]},0")
+        self.send_cmd(f"click {self.COMPONENTS.t_brght_dim_pct.name},0")
 
     # callback
 

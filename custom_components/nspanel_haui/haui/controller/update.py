@@ -4,7 +4,8 @@ import datetime
 import hashlib
 import threading
 import time
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypedDict
 from urllib.parse import urljoin
 
 import requests
@@ -24,6 +25,7 @@ from ..mapping.const import (
     PopupPanelKey,
 )
 from ..utils.text import trim_text
+from .release_source import ReleaseSource
 
 # The update model mirrors Home Assistant's own version comparison
 # (``AwesomeVersion``, see ``homeassistant.components.update.entity``) so the
@@ -47,6 +49,57 @@ def _version_is_newer_cmp(latest: str, installed: str) -> bool:
     if AwesomeVersion is None:  # pragma: no cover - packaging fallback
         return parse(latest) > parse(installed)
     return bool(AwesomeVersion(latest) > installed)
+
+
+# Blocking network helpers.  They are module-level and take everything they
+# need as arguments, so they touch no controller state and can run on the
+# adapter's I/O pool (`app.run_off_worker`) instead of the app's worker
+# thread, which owns the display pipeline and the connection bookkeeping.
+
+
+def _fetch_json(url: str, timeout: float) -> Any:
+    """GET ``url`` and return the decoded JSON body.
+
+    Raises:
+        requests.exceptions.RequestException: On a network/HTTP failure
+        ValueError: When the body is not JSON (GitHub rate-limit pages are HTML)
+    """
+    return ReleaseSource.fetch_json(url, timeout)
+
+
+def _download_image_md5(url: str) -> str:
+    """Download the image at ``url`` and return its md5.
+
+    The device downloads the file itself; the hub reads it first for the md5
+    the flash action needs, and to refuse a factory image or a file that does
+    not fit the app partition before the device touches it.
+
+    Raises:
+        RuntimeError: When the file cannot be read or is no app image
+    """
+    digest = hashlib.md5(usedforsecurity=False)
+    size = 0
+    first = b""
+    try:
+        with requests.get(url, timeout=30, stream=True) as resp:
+            resp.raise_for_status()
+            for chunk in resp.iter_content(chunk_size=65536):
+                if not first:
+                    first = chunk[:1]
+                size += len(chunk)
+                if size > FIRMWARE_MAX_BYTES:
+                    raise RuntimeError(
+                        f"{url} is larger than the {FIRMWARE_MAX_BYTES} byte app partition"
+                    )
+                digest.update(chunk)
+    except requests.exceptions.RequestException as exc:
+        raise RuntimeError(f"Could not download {url}: {exc}") from exc
+    if first != bytes([ESP_IMAGE_MAGIC]):
+        raise RuntimeError(
+            f"{url} is no ESP32 app image; use the OTA image "
+            f"({FIRMWARE_OTA_ASSET} or firmware.ota.bin), not the factory image"
+        )
+    return digest.hexdigest()
 
 
 # TFT update states reported to the editor.  There is no byte-level progress
@@ -85,6 +138,34 @@ FIRMWARE_INSTALL_TIMEOUT_SECONDS = 10 * 60
 # update entity (``update.py``) renders it.
 FIRMWARE_UPDATE_EVENT = "nspanel_haui.firmware_update_changed"
 
+
+class _DisplayUpdateSnapshot(TypedDict):
+    installed_version: str | None
+    latest_version: str | None
+    state: str
+    version: str | None
+    started_at: str | None
+    last_error: str | None
+    update_reason: str | None
+
+
+class _FirmwareUpdateSnapshot(TypedDict):
+    installed_version: str | None
+    latest_version: str | None
+    available: bool
+    reason: str | None
+    installing: bool
+    last_error: str | None
+
+
+class UpdateSnapshot(TypedDict):
+    """Canonical update state shared by the API and Home Assistant entities."""
+
+    device: str
+    connected: bool
+    display: _DisplayUpdateSnapshot
+    firmware: _FirmwareUpdateSnapshot
+
 # Another firmware release or a custom build is flashed by the same action.  A
 # release qualifies when it ships the OTA app image and the manifest holding
 # its md5; ``nspanel_haui.bin`` is the full factory image, which an
@@ -118,6 +199,274 @@ _release_cache: tuple[float, list[dict[str, Any]]] | None = None
 _release_cache_lock = threading.Lock()
 
 
+def _fetch_release_catalog(force: bool = False) -> list[dict[str, Any]]:
+    """Fetch/cache the shared GitHub release catalog without app/controller access."""
+    global _release_cache
+    with _release_cache_lock:
+        if not force and _release_cache is not None:
+            cached_at, cached_releases = _release_cache
+            if time.monotonic() - cached_at < RELEASE_CACHE_TTL_SECONDS:
+                return cached_releases
+        try:
+            releases = ReleaseSource.fetch_json(ReleaseSource.RELEASES_URL, 5)
+        except (requests.exceptions.RequestException, ValueError) as exc:
+            if _release_cache is not None:
+                return _release_cache[1]
+            raise RuntimeError(f"Failed to fetch release info: {exc}") from exc
+        if not isinstance(releases, list):
+            if _release_cache is not None:
+                return _release_cache[1]
+            return []
+        _release_cache = (time.monotonic(), releases)
+        return releases
+
+
+def _latest_manifest_url(releases: list[dict[str, Any]], channel: str) -> str:
+    """Resolve a channel to the newest release's firmware manifest URL."""
+    latest: tuple[Version, dict[str, Any]] | None = None
+    for release in releases:
+        try:
+            version = parse(release.get("tag_name", ""))
+        except InvalidVersion:
+            continue
+        if channel != FirmwareUpdateChannel.DEV and (
+            release.get("prerelease") or version.is_prerelease
+        ):
+            continue
+        asset = next(
+            (
+                item
+                for item in release.get("assets", [])
+                if item.get("name") == FIRMWARE_MANIFEST_ASSET
+            ),
+            None,
+        )
+        if asset is None:
+            continue
+        if latest is None or version > latest[0]:
+            latest = (version, release)
+    if latest is None:
+        raise RuntimeError(f"No GitHub release ships a {FIRMWARE_MANIFEST_ASSET}")
+    return next(
+        item["browser_download_url"]
+        for item in latest[1]["assets"]
+        if item.get("name") == FIRMWARE_MANIFEST_ASSET
+    )
+
+
+def _fetch_update_inputs(
+    manifest_override: str,
+    channel: str,
+    force: bool,
+    include_releases: bool = True,
+) -> dict[str, Any]:
+    """Fetch the catalog and selected manifest as one I/O-only stage."""
+    releases: list[dict[str, Any]] = []
+    release_error = None
+    need_catalog = include_releases or channel == FirmwareUpdateChannel.DEV
+    if need_catalog:
+        try:
+            releases = _fetch_release_catalog(force)
+        except RuntimeError as exc:
+            release_error = str(exc)
+
+    explicit = (manifest_override or "").strip()
+    try:
+        if explicit and explicit != FIRMWARE_MANIFEST_URL:
+            manifest_url = explicit
+        elif channel == FirmwareUpdateChannel.DEV:
+            manifest_url = _latest_manifest_url(releases, channel)
+        else:
+            manifest_url = FIRMWARE_MANIFEST_URL
+    except RuntimeError as exc:
+        return {
+            "releases": releases,
+            "release_error": release_error,
+            "manifest_url": None,
+            "manifest": None,
+            "manifest_error": str(exc),
+        }
+
+    manifest_error: str | None
+    try:
+        manifest = ReleaseSource.fetch_json(manifest_url, 10)
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        manifest = None
+        manifest_error = f"Could not read the firmware manifest {manifest_url}: {exc}"
+    else:
+        manifest_error = None
+    return {
+        "releases": releases,
+        "release_error": release_error,
+        "manifest_url": manifest_url,
+        "manifest": manifest,
+        "manifest_error": manifest_error,
+    }
+
+
+def _parse_firmware_manifest(
+    manifest: Any, url: str, display_model: str | None
+) -> dict[str, str]:
+    """Validate and resolve model-specific artifacts from decoded manifest data."""
+    try:
+        ota = manifest["builds"][0]["ota"]
+        info = {
+            "version": str(manifest["version"]),
+            "url": urljoin(url, ota["path"]),
+            "md5": ota["md5"],
+            "variant": str(manifest.get("variant") or ""),
+            "tft_version": "",
+            "tft_url": "",
+        }
+        tft = manifest.get("tft")
+        if isinstance(tft, dict):
+            assets = tft.get("assets")
+            asset = None
+            if isinstance(assets, dict):
+                model = str(display_model or "").lower()
+                if model not in ("eu", "us"):
+                    model = "eu"
+                asset = assets.get(model) if model in assets else None
+            tft_path: Any = asset if isinstance(asset, str) else None
+            if isinstance(asset, dict):
+                tft_path = asset.get("path")
+            if isinstance(tft_path, str) and tft_path:
+                info["tft_url"] = urljoin(url, tft_path)
+                tft_version = tft.get("version")
+                if isinstance(tft_version, str) and tft_version:
+                    info["tft_version"] = tft_version
+        return info
+    except (LookupError, TypeError) as exc:
+        raise RuntimeError(f"Could not read the firmware manifest {url}: {exc}") from exc
+
+
+def _fetch_firmware_release_candidates(
+    releases: list[dict[str, Any]], device_variant: str | None
+) -> dict[str, Any]:
+    """Fetch candidate manifests and filter installable releases off-worker."""
+    versions: list[tuple[Version, str]] = []
+    required_assets = {FIRMWARE_OTA_ASSET, FIRMWARE_MANIFEST_ASSET}
+    if device_variant:
+        for release in releases:
+            tag = release.get("tag_name")
+            if not isinstance(tag, str):
+                continue
+            try:
+                version = parse(tag)
+            except InvalidVersion:
+                continue
+            assets = release.get("assets", [])
+            if not required_assets.issubset({asset.get("name") for asset in assets}):
+                continue
+            manifest_asset = next(
+                (asset for asset in assets if asset.get("name") == FIRMWARE_MANIFEST_ASSET),
+                None,
+            )
+            if manifest_asset is None:
+                continue
+            try:
+                manifest = ReleaseSource.fetch_json(manifest_asset["browser_download_url"], 10)
+            except (KeyError, requests.exceptions.RequestException, ValueError):
+                continue
+            if isinstance(manifest, dict) and manifest.get("variant") == device_variant:
+                versions.append((version, tag))
+    versions.sort(reverse=True)
+    return {"releases": [tag for _version, tag in versions], "error": None}
+
+
+def _fetch_firmware_install_inputs(
+    version: str | None,
+    url: str | None,
+    manifest_override: str,
+    channel: str,
+) -> dict[str, Any]:
+    """Fetch firmware install metadata and optional image checksum off-worker."""
+    if url is not None:
+        try:
+            return {"url": url, "md5": _download_image_md5(url), "version": version or url}
+        except RuntimeError as exc:
+            return {"error": str(exc)}
+
+    inputs = _fetch_update_inputs(manifest_override, channel, True, include_releases=True)
+    if inputs["manifest"] is None or inputs["manifest_url"] is None:
+        return {
+            "error": inputs["manifest_error"]
+            or inputs["release_error"]
+            or "Firmware manifest unavailable"
+        }
+    manifest = inputs["manifest"]
+    manifest_url = inputs["manifest_url"]
+    if version is None:
+        return {
+            "inputs": inputs,
+            "manifest": manifest,
+            "manifest_url": manifest_url,
+            "offered": True,
+        }
+
+    latest_version = manifest.get("version") if isinstance(manifest, dict) else None
+    if isinstance(latest_version, str) and _same_version_strings(version, latest_version):
+        return {
+            "inputs": inputs,
+            "manifest": manifest,
+            "manifest_url": manifest_url,
+            "offered": True,
+        }
+
+    try:
+        wanted = parse(version)
+    except InvalidVersion:
+        return {"error": f"No GitHub release {version}"}
+
+    def find_release(releases: list[dict[str, Any]]) -> dict[str, Any] | None:
+        for release in releases:
+            try:
+                if parse(release.get("tag_name", "")) == wanted:
+                    return release
+            except InvalidVersion:
+                continue
+        return None
+
+    release = find_release(inputs["releases"])
+    if release is None:
+        try:
+            releases = _fetch_release_catalog(True)
+        except RuntimeError as exc:
+            return {"error": str(exc)}
+        release = find_release(releases)
+        inputs["releases"] = releases
+    if release is None:
+        return {"error": f"No GitHub release {version}"}
+    manifest_url = next(
+        (
+            asset.get("browser_download_url")
+            for asset in release.get("assets", [])
+            if asset.get("name") == FIRMWARE_MANIFEST_ASSET
+        ),
+        None,
+    )
+    if not manifest_url:
+        return {
+            "error": (
+                f"Release {version} ships no over-the-air firmware "
+                f"({FIRMWARE_MANIFEST_ASSET})"
+            )
+        }
+    try:
+        manifest = ReleaseSource.fetch_json(manifest_url, 10)
+    except (requests.exceptions.RequestException, ValueError) as exc:
+        return {"error": f"Could not read the firmware manifest {manifest_url}: {exc}"}
+    return {"inputs": inputs, "manifest": manifest, "manifest_url": manifest_url, "offered": False}
+
+
+def _same_version_strings(first: str, second: str) -> bool:
+    """Compare two version strings after normalizing a leading ``v``."""
+    try:
+        return parse(first) == parse(second)
+    except InvalidVersion:
+        return False
+
+
 class HAUIUpdateController(HAUIBase):
     """Update Controller
 
@@ -137,7 +486,7 @@ class HAUIUpdateController(HAUIBase):
     """
 
     # hard-coded url for haui releases on github; a page holds every release
-    RELEASES_URL = "https://api.github.com/repos/happydasch/nspanel_haui/releases?per_page=100"
+    RELEASES_URL = ReleaseSource.RELEASES_URL
 
     def __init__(self, app: NSPanelHAUI, config: dict[str, Any]):
         """Initialize for update controller.
@@ -176,6 +525,9 @@ class HAUIUpdateController(HAUIBase):
         # TFT right after the reboot that ends its own install.  In memory
         # only: a Home Assistant restart or a new firmware version lifts it.
         self._manual_tft_firmware: str | None = None
+        # Release notices are advisory and shown at most once per selected
+        # release for this controller/channel.
+        self._last_notified_release: str | None = None
         # The manifest read last (``version``, ``url``, ``md5``) and the URL it
         # was read from; None when the read failed, with the reason in
         # ``_firmware_manifest_error``.
@@ -196,6 +548,10 @@ class HAUIUpdateController(HAUIBase):
         # release on the next check.  In memory only: a Home Assistant restart
         # or installing the offered update ends it.
         self._manual_firmware = False
+        self._async_check_id = 0
+        self._async_catalog_id = 0
+        self._async_install_id = 0
+        self._lifecycle_generation = 0
 
     # internal timers for version checks
 
@@ -226,9 +582,11 @@ class HAUIUpdateController(HAUIBase):
 
     def _timer_delay_callback(self, kwargs: dict[str, Any]) -> None:
         self._timer_delay = None
-        if self.get("check_on_connect", False):
-            self.check_for_update()
-        self.check_installed_version()
+        self.start_async_check(
+            allow_auto_install=self.get("check_on_connect", False),
+            include_notice=self.get("check_on_connect", False),
+            check_tft=True,
+        )
 
     # part
 
@@ -236,12 +594,30 @@ class HAUIUpdateController(HAUIBase):
         """Starts the part."""
         self._interval = self.get("update_interval")
         self._start_timer()
-        # On start and whenever a config reload changed the URL, so the HAUI
-        # Firmware entity shows what the configured manifest offers right away.
-        self._refresh_firmware_manifest(only_if_changed=True)
+        self.start_async_check(allow_auto_install=False, include_notice=False)
+
+    def reload_options(self, config: dict[str, Any]) -> None:
+        """Apply updated options without interrupting an active installation.
+
+        Config saves reload the app's settings while an OTA or TFT upload may
+        still be running. Only the periodic check and manifest source are
+        reconfigured; install and verification timers remain owned by the
+        in-flight operation.
+        """
+        previous_channel = self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE)
+        self.config = config
+        if previous_channel != self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE):
+            self._last_notified_release = None
+        self._interval = self.get("update_interval")
+        self._restart_timer()
+        self.start_async_check(allow_auto_install=False, include_notice=False)
 
     def stop_part(self) -> None:
         """Stops the part."""
+        self._lifecycle_generation += 1
+        self._async_check_id += 1
+        self._async_catalog_id += 1
+        self._async_install_id += 1
         self._stop_timer()
         self._stop_timer_delay()
         self._cancel_timer("_state_check_timer")
@@ -348,35 +724,23 @@ class HAUIUpdateController(HAUIBase):
             self._req_fetch = True
             cacheable = False
             try:
-                resp = requests.get(self.RELEASES_URL, timeout=5)
-                try:
-                    json_decoded = resp.json()
-                except ValueError as exc:
-                    # GitHub rate-limit / proxy responses are HTML, not JSON.
-                    if _release_cache is not None:
-                        self._release_infos = _release_cache[1]
-                        self.log(
-                            "GitHub returned a non-JSON response; using cached release info",
-                            level="WARNING",
-                        )
-                        return
-                    raise RuntimeError(
-                        f"GitHub returned a non-JSON response for {self.RELEASES_URL}: {exc}"
-                    ) from exc
-                if not isinstance(json_decoded, list):
-                    # Rate-limit errors come back as a JSON object, not a list.
-                    # Prefer stale cached data over caching a failure for an hour.
-                    if _release_cache is not None:
-                        self._release_infos = _release_cache[1]
-                        self.log(
-                            "Unexpected response from GitHub API; using cached release info",
-                            level="WARNING",
-                        )
-                        return
-                    self.log("Unexpected response from GitHub API", level="WARNING")
-                    json_decoded = []
-                else:
-                    cacheable = True
+                # Off the worker: the request may take seconds, and the worker
+                # owns the display pipeline.
+                json_decoded = self.app.run_off_worker(
+                    _fetch_json, self.RELEASES_URL, 5, timeout=20
+                )
+            except ValueError as exc:
+                # GitHub rate-limit / proxy responses are HTML, not JSON.
+                if _release_cache is not None:
+                    self._release_infos = _release_cache[1]
+                    self.log(
+                        "GitHub returned a non-JSON response; using cached release info",
+                        level="WARNING",
+                    )
+                    return
+                raise RuntimeError(
+                    f"GitHub returned a non-JSON response for {self.RELEASES_URL}: {exc}"
+                ) from exc
             except requests.exceptions.RequestException as exc:
                 if _release_cache is not None:
                     self._release_infos = _release_cache[1]
@@ -390,6 +754,20 @@ class HAUIUpdateController(HAUIBase):
                 ) from exc
             finally:
                 self._req_fetch = False
+            if not isinstance(json_decoded, list):
+                # Rate-limit errors come back as a JSON object, not a list.
+                # Prefer stale cached data over caching a failure for an hour.
+                if _release_cache is not None:
+                    self._release_infos = _release_cache[1]
+                    self.log(
+                        "Unexpected response from GitHub API; using cached release info",
+                        level="WARNING",
+                    )
+                    return
+                self.log("Unexpected response from GitHub API", level="WARNING")
+                json_decoded = []
+            else:
+                cacheable = True
             self._release_infos = json_decoded
             if cacheable:
                 _release_cache = (time.monotonic(), json_decoded)
@@ -462,60 +840,15 @@ class HAUIUpdateController(HAUIBase):
     # firmware update
 
     def _read_firmware_manifest(self, url: str) -> dict[str, str]:
-        """Read the firmware manifest at ``url``.
-
-        The manifest uses the ESPHome web-tools schema the release workflow
-        writes (``version`` and ``builds[0].ota`` with ``path`` and ``md5``);
-        a relative ``path`` is resolved against the manifest URL.  The
-        optional ``variant`` names the build variant the image was compiled
-        from (``universal`` for the release image, ``custom`` for a build
-        from ``install.yaml``); a manifest without one is treated as unknown.
-        The optional ``tft`` block names the display TFT of the release
-        (``version`` plus per-``display_model`` ``assets``); the asset for
-        this device's model is resolved here, so a manifest without a ``tft``
-        block (a local test release names none) yields an empty ``tft_version`` /
-        ``tft_url`` and the display stays on its current TFT.
-
-        Returns:
-            dict: ``version``, ``url`` (of the OTA app image), ``md5``,
-            ``variant`` ("" when the manifest names none), ``tft_version``
-            and ``tft_url`` ("" when the manifest ships no display TFT for
-            this device's model)
-
-        Raises:
-            RuntimeError: When the manifest cannot be read
-        """
+        """Read and validate the firmware manifest at ``url``."""
         try:
-            manifest = requests.get(url, timeout=10).json()
-            ota = manifest["builds"][0]["ota"]
-            info = {
-                "version": str(manifest["version"]),
-                "url": urljoin(url, ota["path"]),
-                "md5": ota["md5"],
-                "variant": str(manifest.get("variant") or ""),
-                "tft_version": "",
-                "tft_url": "",
-            }
-            tft = manifest.get("tft")
-            if isinstance(tft, dict):
-                assets = tft.get("assets")
-                asset = None
-                if isinstance(assets, dict):
-                    model = str(self.app.device.display_model or "").lower()
-                    if model not in ("eu", "us"):
-                        model = "eu"  # unknown model: default to the landscape layout
-                    asset = assets.get(model) if model in assets else None
-                # A bare string path or a {"path": ...} object are both accepted.
-                tft_path: Any = asset if isinstance(asset, str) else None
-                if isinstance(asset, dict):
-                    tft_path = asset.get("path")
-                if isinstance(tft_path, str) and tft_path:
-                    info["tft_url"] = urljoin(url, tft_path)
-                    tft_version = tft.get("version")
-                    if isinstance(tft_version, str) and tft_version:
-                        info["tft_version"] = tft_version
-            return info
-        except (requests.exceptions.RequestException, ValueError, LookupError, TypeError) as exc:
+            manifest = self.app.run_off_worker(_fetch_json, url, 10, timeout=25)
+            return _parse_firmware_manifest(manifest, url, self.app.device.display_model)
+        except (requests.exceptions.RequestException, ValueError, RuntimeError) as exc:
+            if isinstance(exc, RuntimeError) and str(exc).startswith(
+                f"Could not read the firmware manifest {url}"
+            ):
+                raise
             raise RuntimeError(f"Could not read the firmware manifest {url}: {exc}") from exc
 
     def _refresh_firmware_manifest(
@@ -546,6 +879,7 @@ class HAUIUpdateController(HAUIBase):
             self._firmware_manifest = None
             self._firmware_manifest_error = str(exc)
             self.log(f"Firmware update check failed: {exc}", level="WARNING")
+        self.publish_display_update()
         self.publish_firmware_update()
 
     def _same_version(self, first: str | None, second: str | None) -> bool:
@@ -557,6 +891,24 @@ class HAUIUpdateController(HAUIBase):
         """Return the TFT version explicitly declared by the firmware."""
         version = device_info.get("tft_required_version")
         return version if isinstance(version, str) and version else None
+
+    def _tft_update_reason(self) -> str | None:
+        """Explain why the manifest cannot provide the firmware-required TFT."""
+        device_info = self.app.device.device_info or {}
+        required = self._required_tft_version(device_info)
+        if required is None:
+            return None
+        if self._firmware_manifest is None:
+            return self._firmware_manifest_error
+        manifest_tft = self._firmware_manifest.get("tft_version") or None
+        if self._same_version(required, manifest_tft):
+            return None
+        shown_manifest = manifest_tft or self.translate("none")
+        return (
+            self.translate("TFT required by firmware: {required}; manifest provides: {manifest}.")
+            .replace("{required}", required)
+            .replace("{manifest}", shown_manifest)
+        )
 
     def _firmware_variant_compatible(self, manifest_variant: str | None) -> bool:
         """Whether the manifest's firmware may be installed on this panel.
@@ -681,6 +1033,8 @@ class HAUIUpdateController(HAUIBase):
         """
         if not self.get("firmware_auto_update", False):
             return False
+        if not self.app.device.connected:
+            return False
         if self._manual_firmware:
             return False
         if self._update_state == UPDATE_STATE_INSTALLING:
@@ -793,36 +1147,13 @@ class HAUIUpdateController(HAUIBase):
     def _url_firmware_md5(self, url: str) -> str:
         """Download the firmware image at ``url`` and return its md5.
 
-        The device downloads the file itself; the hub reads it first for the
-        md5 the flash action needs, and to refuse a factory image or a file
-        that does not fit the app partition before the device touches it.
+        Runs on the adapter's I/O pool: the image is up to 1.7 MB, so the
+        download must not hold the worker.
 
         Raises:
             RuntimeError: When the file cannot be read or is no app image
         """
-        digest = hashlib.md5(usedforsecurity=False)
-        size = 0
-        first = b""
-        try:
-            with requests.get(url, timeout=30, stream=True) as resp:
-                resp.raise_for_status()
-                for chunk in resp.iter_content(chunk_size=65536):
-                    if not first:
-                        first = chunk[:1]
-                    size += len(chunk)
-                    if size > FIRMWARE_MAX_BYTES:
-                        raise RuntimeError(
-                            f"{url} is larger than the {FIRMWARE_MAX_BYTES} byte app partition"
-                        )
-                    digest.update(chunk)
-        except requests.exceptions.RequestException as exc:
-            raise RuntimeError(f"Could not download {url}: {exc}") from exc
-        if first != bytes([ESP_IMAGE_MAGIC]):
-            raise RuntimeError(
-                f"{url} is no ESP32 app image; use the OTA image "
-                f"({FIRMWARE_OTA_ASSET} or firmware.ota.bin), not the factory image"
-            )
-        return digest.hexdigest()
+        return self.app.run_off_worker(_download_image_md5, url, timeout=120)
 
     def _start_firmware_install(
         self, url: str, md5: str, label: str, manual: bool
@@ -878,13 +1209,21 @@ class HAUIUpdateController(HAUIBase):
     def _finish_firmware_install(self) -> None:
         """Check the firmware version the device reconnected with after an install.
 
+        A reconnect without a reboot means the install failed (``_rebooted_since``).
         A release install names its version; when the device still reports
         another ``yaml_version``, the image was not flashed.  A URL install
-        names no version and is taken as finished.
+        names no version and is taken as finished once the device rebooted.
         """
         self._firmware_installing = False
         self._cancel_timer("_firmware_install_timer")
         label = self._firmware_install_version
+        if not self._rebooted_since(self._firmware_install_at):
+            self._firmware_install_error = (
+                f"Firmware install of {label} failed: the panel did not reboot. See the "
+                "device's ESPHome log for the download or flash error."
+            )
+            self.log(self._firmware_install_error, level="ERROR")
+            return
         installed = (self.app.device.device_info or {}).get("yaml_version")
         if self._try_parse_version(label) is not None and not self._same_version(label, installed):
             self._firmware_install_error = (
@@ -936,7 +1275,8 @@ class HAUIUpdateController(HAUIBase):
                     return self.get_update_state()
                 if not self._firmware_update_available():
                     self._firmware_install_error = (
-                        self._firmware_update_reason() or "No firmware update is available"
+                        self._firmware_update_reason()
+                        or self.translate("No firmware update is available")
                     )
                     return self.get_update_state()
             if manifest is not None and (
@@ -975,15 +1315,17 @@ class HAUIUpdateController(HAUIBase):
 
     def publish_firmware_update(self) -> None:
         """Fire the firmware versions and install state for the "HAUI Firmware" entity."""
+        snapshot = self.get_update_snapshot()
         self.app.fire_event(
             FIRMWARE_UPDATE_EVENT,
             {
-                "device": self.app.device.get_name(),
-                "connected": self.app.device.connected,
-                "installed_version": (self.app.device.device_info or {}).get("yaml_version")
-                or None,
-                "latest_version": self._firmware_update_version(),
-                "installing": self._firmware_installing,
+                "device": snapshot["device"],
+                "connected": snapshot["connected"],
+                "installed_version": snapshot["firmware"]["installed_version"],
+                "latest_version": snapshot["firmware"]["latest_version"],
+                "installing": snapshot["firmware"]["installing"],
+                "reason": snapshot["firmware"]["reason"],
+                "last_error": snapshot["firmware"]["last_error"],
             },
         )
 
@@ -1107,6 +1449,54 @@ class HAUIUpdateController(HAUIBase):
             self._manual_tft_firmware = None if matches else firmware_version
         return result
 
+    def start_async_tft_install(
+        self,
+        version: str | None,
+        url: str | None,
+        on_complete: Callable[[dict[str, Any]], None],
+    ) -> None:
+        """Resolve the TFT manifest off-worker before starting the display upload."""
+        if not self.app.device.connected:
+            on_complete(self.install_tft(version))
+            return
+        if self._update_state == UPDATE_STATE_INSTALLING:
+            on_complete(self.get_update_state())
+            return
+        if self._firmware_installing:
+            self._set_update_state(
+                UPDATE_STATE_ERROR,
+                version=version,
+                error=self.translate("Cannot install TFT during a firmware update"),
+            )
+            on_complete(self.get_update_state())
+            return
+        if url is not None:
+            on_complete(self.install_tft_url(url))
+            return
+        self.start_async_check(
+            allow_auto_install=False,
+            include_notice=False,
+            require_connected=False,
+            on_complete=lambda _state: on_complete(
+                self._set_missing_manifest_error_for_tft(version)
+                if self._firmware_manifest is None
+                else self.install_tft(version)
+            ),
+        )
+
+    def _set_missing_manifest_error_for_tft(self, version: str | None) -> dict[str, Any]:
+        """Record a manifest fetch failure without retrying synchronously."""
+        message = self._firmware_manifest_error or self.translate("Firmware manifest unavailable")
+        self._set_update_state(UPDATE_STATE_ERROR, version=version, error=message)
+        return self.get_update_state()
+
+    def _loaded_tft_releases(self) -> dict[str, Any]:
+        required = self._required_tft_version(self.app.device.device_info or {})
+        manifest = self._firmware_manifest
+        releases = [manifest["tft_version"]] if manifest and manifest.get("tft_version") else []
+        error = None if manifest is not None else self._firmware_manifest_error
+        return {"releases": releases, "required": required, "error": error}
+
     def list_tft_releases(self) -> dict[str, Any]:
         """List the TFT versions this panel can install, newest first.
 
@@ -1186,6 +1576,38 @@ class HAUIUpdateController(HAUIBase):
         self.log(f"TFT update state: {state}")
         self.publish_display_update()
 
+    def get_update_snapshot(self) -> UpdateSnapshot:
+        """Return the complete controller-owned update state for one device."""
+        device_info = self.app.device.device_info or {}
+        manifest_tft = (self._firmware_manifest or {}).get("tft_version") or None
+        installed_tft = device_info.get("tft_version") or None
+        tft_reason = self._tft_update_reason()
+        return {
+            "device": self.app.device.get_name(),
+            "connected": self.app.device.connected,
+            "display": {
+                "installed_version": installed_tft,
+                "latest_version": (
+                    manifest_tft if manifest_tft and tft_reason is None else installed_tft
+                ),
+                "state": self._update_state,
+                "version": self._update_version,
+                "started_at": (
+                    self._update_started_at.isoformat() if self._update_started_at else None
+                ),
+                "last_error": self._update_last_error,
+                "update_reason": tft_reason,
+            },
+            "firmware": {
+                "installed_version": device_info.get("yaml_version") or None,
+                "latest_version": self._firmware_update_version(),
+                "available": self._firmware_update_available(),
+                "reason": self._firmware_update_reason(),
+                "installing": self._firmware_installing,
+                "last_error": self._firmware_install_error,
+            },
+        }
+
     def publish_display_update(self) -> None:
         """Fire the TFT versions and update state for the "HAUI Display" entity.
 
@@ -1194,20 +1616,17 @@ class HAUIUpdateController(HAUIBase):
         the installed TFT is reported instead — the entity then shows itself up
         to date instead of offering an install the manifest cannot serve.
         """
-        device_info = self.app.device.device_info or {}
-        manifest = self._firmware_manifest or {}
-        manifest_tft = manifest.get("tft_version") or None
+        snapshot = self.get_update_snapshot()
         self.app.fire_event(
             DISPLAY_UPDATE_EVENT,
             {
-                "device": self.app.device.get_name(),
-                "connected": self.app.device.connected,
-                "installed_version": device_info.get("tft_version") or None,
-                "latest_version": (
-                    manifest_tft if manifest_tft else (device_info.get("tft_version") or None)
-                ),
-                "state": self._update_state,
-                "last_error": self._update_last_error,
+                "device": snapshot["device"],
+                "connected": snapshot["connected"],
+                "installed_version": snapshot["display"]["installed_version"],
+                "latest_version": snapshot["display"]["latest_version"],
+                "state": snapshot["display"]["state"],
+                "last_error": snapshot["display"]["last_error"],
+                "update_reason": snapshot["display"]["update_reason"],
             },
         )
 
@@ -1218,18 +1637,20 @@ class HAUIUpdateController(HAUIBase):
             dict: ``state`` (idle/checking/installing/error/done), ``version``,
             ``started_at`` (ISO timestamp or None) and ``last_error``
         """
+        snapshot = self.get_update_snapshot()
+        display = snapshot["display"]
+        firmware = snapshot["firmware"]
         return {
-            "state": self._update_state,
-            "version": self._update_version,
-            "started_at": (
-                self._update_started_at.isoformat() if self._update_started_at else None
-            ),
-            "last_error": self._update_last_error,
-            "firmware_update_available": self._firmware_update_available(),
-            "firmware_update_version": self._firmware_update_version(),
-            "firmware_update_reason": self._firmware_update_reason(),
-            "firmware_installing": self._firmware_installing,
-            "firmware_install_error": self._firmware_install_error,
+            "state": display["state"],
+            "version": display["version"],
+            "started_at": display["started_at"],
+            "last_error": display["last_error"],
+            "tft_update_reason": display["update_reason"],
+            "firmware_update_available": firmware["available"],
+            "firmware_update_version": firmware["latest_version"],
+            "firmware_update_reason": firmware["reason"],
+            "firmware_installing": firmware["installing"],
+            "firmware_install_error": firmware["last_error"],
         }
 
     def _mark_done_if_installed(self) -> None:
@@ -1378,10 +1799,12 @@ class HAUIUpdateController(HAUIBase):
         if self._try_parse_version(manifest_tft) is None or not self._same_version(
             required_version, manifest_tft
         ):
+            reason = self._tft_update_reason()
             self.log(
-                f"The firmware manifest ships no TFT for {required_version}; "
-                f"the display stays on its current TFT"
+                reason or "The firmware manifest cannot provide the required TFT",
+                level="WARNING",
             )
+            self.publish_display_update()
             return
         installed = self._try_parse_version(installed_version)
         if not refresh_answered and installed is None:
@@ -1454,6 +1877,40 @@ class HAUIUpdateController(HAUIBase):
             "TFT install timed out; the display never reported the new version"
         )
 
+    def _rebooted_since(self, started_at: datetime.datetime | None) -> bool:
+        """Whether the device booted after an install sent at ``started_at``.
+
+        A TFT upload or firmware install blocks the device until it ends: a
+        finished one reboots it, a failed one lets it run on, and either way
+        it then reconnects.  The connection handshake's ``uptime`` tells the
+        two apart; without the check a failed URL install counted as done.
+
+        Args:
+            started_at (datetime.datetime | None): When the install was sent
+
+        Returns:
+            bool: False when the device ran through the whole install or the
+            handshake does not provide enough information to confirm a reboot.
+        """
+        uptime = (self.app.device.device_info or {}).get("uptime")
+        if uptime is None or started_at is None:
+            self.log(
+                "The handshake reports no uptime; cannot tell whether the install rebooted "
+                "the device",
+                level="WARNING",
+            )
+            return False
+        try:
+            uptime_seconds = float(uptime)
+        except (TypeError, ValueError):
+            self.log(
+                "The handshake reports an invalid uptime; install reboot is unconfirmed",
+                level="WARNING",
+            )
+            return False
+        elapsed = datetime.datetime.now(tz=datetime.UTC) - started_at
+        return uptime_seconds < elapsed.total_seconds()
+
     def _start_install_verification(self) -> None:
         """Verify an install that was in flight when the device reconnected.
 
@@ -1515,14 +1972,308 @@ class HAUIUpdateController(HAUIBase):
         self._request_device_state()
         self._start_state_check_timer()
 
-    def manual_check_for_update(self) -> dict[str, Any]:
-        """Trigger a user-initiated update check from the editor.
+    def start_async_check(
+        self,
+        force_refresh: bool = False,
+        *,
+        allow_auto_install: bool = True,
+        include_notice: bool = True,
+        check_tft: bool = False,
+        require_connected: bool = True,
+        on_complete: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
+        """Fetch update inputs off-worker and apply them in the worker callback.
 
-        A manual retry must not be suppressed by leftover failure state from an
-        earlier install attempt, and it should bypass the hub-level release
-        cache so the user gets a fresh GitHub answer.  It also runs the TFT
-        version check, which otherwise only runs after a connect, so an
-        outdated TFT is installed (or, with ``auto_install`` off, offered).
+        The worker only captures configuration before submission. Network I/O
+        runs on the adapter's bounded I/O pool; all controller/device state is
+        applied by ``_complete_async_check`` after ``submit_off_worker``
+        dispatches its callback back to this worker.
+        """
+        if require_connected and not self.app.device.connected:
+            result = {
+                **self.get_update_state(),
+                "latest_release": None,
+                "check_error": "device disconnected",
+            }
+            if on_complete is not None:
+                on_complete(result)
+            return
+
+        self._async_check_id += 1
+        request_id = self._async_check_id
+        lifecycle = self._lifecycle_generation
+        override = str(self.get("firmware_manifest_url", "") or "")
+        channel = str(self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE))
+        self.app.submit_off_worker(
+            _fetch_update_inputs,
+            override,
+            channel,
+            force_refresh,
+            include_notice,
+            on_done=lambda inputs, error: self._complete_async_check(
+                request_id,
+                lifecycle,
+                inputs,
+                error,
+                allow_auto_install,
+                include_notice,
+                check_tft,
+                on_complete,
+            ),
+        )
+
+    def _complete_async_check(
+        self,
+        request_id: int,
+        lifecycle: int,
+        inputs: dict[str, Any] | None,
+        error: BaseException | None,
+        allow_auto_install: bool,
+        include_notice: bool,
+        check_tft: bool,
+        on_complete: Callable[[dict[str, Any]], None] | None,
+    ) -> None:
+        """Apply fetched update inputs on the device worker and finish the check."""
+        if lifecycle != self._lifecycle_generation or request_id != self._async_check_id:
+            if on_complete is not None:
+                on_complete(
+                    {
+                        **self.get_update_state(),
+                        "latest_release": None,
+                        "check_error": "check superseded",
+                    }
+                )
+            return
+        if error is not None or inputs is None:
+            message = str(error) if error else "Update check failed"
+            inputs = {
+                "releases": [],
+                "release_error": message,
+                "manifest_url": None,
+                "manifest": None,
+                "manifest_error": message,
+            }
+
+        previous_manifest = self._firmware_manifest
+        previous_error = self._firmware_manifest_error
+        previous_url = self._firmware_manifest_url
+        self._release_infos = inputs["releases"]
+        self._firmware_manifest_url = inputs["manifest_url"]
+        manifest = inputs["manifest"]
+        if isinstance(manifest, dict) and self._firmware_manifest_url:
+            try:
+                self._firmware_manifest = _parse_firmware_manifest(
+                    manifest,
+                    self._firmware_manifest_url,
+                    self.app.device.display_model,
+                )
+                self._firmware_manifest_error = None
+            except RuntimeError as exc:
+                self._firmware_manifest = None
+                self._firmware_manifest_error = str(exc)
+        else:
+            self._firmware_manifest = None
+            self._firmware_manifest_error = inputs["manifest_error"]
+
+        if (
+            previous_manifest != self._firmware_manifest
+            or previous_error != self._firmware_manifest_error
+            or previous_url != self._firmware_manifest_url
+        ):
+            self.publish_display_update()
+            self.publish_firmware_update()
+        if allow_auto_install and self._firmware_manifest and self._firmware_install_due():
+            manifest_info = self._firmware_manifest
+            self._start_firmware_install(
+                manifest_info["url"],
+                manifest_info["md5"],
+                manifest_info["version"],
+                manual=False,
+            )
+        if check_tft and self.app.device.connected:
+            self.check_installed_version()
+
+        latest_release = self._get_latest_release()
+        if include_notice and latest_release is not None and self._is_update_available():
+            self._notify_firmware_release(latest_release)
+        result = {
+            **self.get_update_state(),
+            "latest_release": latest_release["tag_name"] if latest_release else None,
+            "check_error": inputs["release_error"],
+        }
+        if on_complete is not None:
+            on_complete(result)
+
+    def start_async_list_tft_releases(
+        self, on_complete: Callable[[dict[str, Any]], None]
+    ) -> None:
+        """Load the TFT picker manifest without blocking the device worker."""
+        self.start_async_check(
+            allow_auto_install=False,
+            include_notice=False,
+            require_connected=False,
+            on_complete=lambda _state: on_complete(self._loaded_tft_releases()),
+        )
+
+    def start_async_list_firmware_releases(
+        self, on_complete: Callable[[dict[str, Any]], None]
+    ) -> None:
+        """Load release candidates and their compatibility manifests off-worker."""
+        self._async_catalog_id += 1
+        request_id = self._async_catalog_id
+        lifecycle = self._lifecycle_generation
+        variant = (self.app.device.device_info or {}).get("firmware_variant")
+
+        def _fetch() -> dict[str, Any]:
+            releases = _fetch_release_catalog(False)
+            return _fetch_firmware_release_candidates(releases, variant)
+
+        def _done(result: Any, error: BaseException | None) -> None:
+            if lifecycle != self._lifecycle_generation or request_id != self._async_catalog_id:
+                on_complete({"releases": [], "error": "request superseded"})
+            elif error is not None:
+                on_complete({"releases": [], "error": str(error)})
+            else:
+                on_complete(result)
+
+        self.app.submit_off_worker(_fetch, on_done=_done)
+
+    def start_async_firmware_install(
+        self,
+        version: str | None,
+        url: str | None,
+        on_complete: Callable[[dict[str, Any]], None],
+    ) -> None:
+        """Resolve firmware artifacts off-worker, then begin the install on-worker."""
+        if not self.app.device.connected:
+            self._firmware_install_error = "Device is disconnected"
+            self.publish_firmware_update()
+            on_complete(self.get_update_state())
+            return
+        if self._update_state == UPDATE_STATE_INSTALLING:
+            self._firmware_install_error = "Cannot install firmware during a TFT upload"
+            self.publish_firmware_update()
+            on_complete(self.get_update_state())
+            return
+        if self._firmware_installing:
+            on_complete(self.get_update_state())
+            return
+
+        self._async_install_id += 1
+        request_id = self._async_install_id
+        lifecycle = self._lifecycle_generation
+        override = str(self.get("firmware_manifest_url", "") or "")
+        channel = str(self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE))
+        self.app.submit_off_worker(
+            _fetch_firmware_install_inputs,
+            version,
+            url,
+            override,
+            channel,
+            on_done=lambda result, error: self._complete_async_firmware_install(
+                request_id, lifecycle, version, url, result, error, on_complete
+            ),
+        )
+
+    def _complete_async_firmware_install(
+        self,
+        request_id: int,
+        lifecycle: int,
+        version: str | None,
+        url: str | None,
+        result: dict[str, Any] | None,
+        error: BaseException | None,
+        on_complete: Callable[[dict[str, Any]], None],
+    ) -> None:
+        """Apply fetched artifact metadata and send the install action on-worker."""
+        if lifecycle != self._lifecycle_generation or request_id != self._async_install_id:
+            on_complete(
+                {
+                    **self.get_update_state(),
+                    "firmware_install_error": self.translate("Install request superseded"),
+                }
+            )
+            return
+        failure = str(error) if error is not None else (result or {}).get("error")
+        if failure == "Firmware manifest unavailable":
+            failure = self.translate("Firmware manifest unavailable")
+        if failure:
+            self._firmware_install_error = failure
+            self.log(f"Firmware install failed: {failure}", level="ERROR")
+            self.publish_firmware_update()
+            on_complete(self.get_update_state())
+            return
+
+        assert result is not None
+        if url is not None:
+            state = self._start_firmware_install(
+                result["url"], result["md5"], result["version"], manual=True
+            )
+            on_complete(state)
+            return
+
+        manifest_url = result["manifest_url"]
+        try:
+            manifest_info = _parse_firmware_manifest(
+                result["manifest"], manifest_url, self.app.device.display_model
+            )
+        except RuntimeError as exc:
+            self._firmware_install_error = str(exc)
+            self.publish_firmware_update()
+            on_complete(self.get_update_state())
+            return
+
+        is_offered = bool(result["offered"])
+        if is_offered:
+            self._firmware_manifest_url = manifest_url
+            self._firmware_manifest = manifest_info
+            self._firmware_manifest_error = None
+        if not self._firmware_variant_compatible(manifest_info.get("variant")):
+            self._firmware_install_error = (
+                self._firmware_update_reason()
+                or self.translate("Firmware build variant does not match this panel")
+            )
+            self.publish_firmware_update()
+            on_complete(self.get_update_state())
+            return
+        if version is None and not self._firmware_update_available_for(manifest_info):
+            self._firmware_install_error = (
+                self._firmware_update_reason() or self.translate("No firmware update is available")
+            )
+            self.publish_firmware_update()
+            on_complete(self.get_update_state())
+            return
+        if version is not None and not self._same_version(version, manifest_info["version"]):
+            self._firmware_install_error = (
+                self.translate("Release {version} manifest names {manifest}")
+                .replace("{version}", version)
+                .replace("{manifest}", manifest_info["version"])
+            )
+            self.publish_firmware_update()
+            on_complete(self.get_update_state())
+            return
+
+        state = self._start_firmware_install(
+            manifest_info["url"],
+            manifest_info["md5"],
+            manifest_info["version"],
+            manual=not is_offered,
+        )
+        on_complete(state)
+
+    def _firmware_update_available_for(self, manifest: dict[str, str]) -> bool:
+        """Whether a fetched manifest offers a newer compatible firmware."""
+        if not self._firmware_variant_compatible(manifest.get("variant")):
+            return False
+        installed = (self.app.device.device_info or {}).get("yaml_version")
+        return self._version_is_newer(manifest.get("version"), installed) is True
+
+    def manual_check_for_update(self) -> dict[str, Any]:
+        """Refresh update offers without changing install or retry state.
+
+        The manual check bypasses the shared GitHub release cache, but it does
+        not start firmware/TFT installs or clear failures. Install and retry
+        decisions remain on explicit install and scheduled auto-update paths.
         Runs on the device worker, so call via ``app.async_run_on_worker``.
 
         Returns:
@@ -1535,23 +2286,40 @@ class HAUIUpdateController(HAUIBase):
                 "latest_release": None,
                 "check_error": "device disconnected",
             }
-        # A running upload keeps its bookkeeping: resetting it would let the
-        # TFT check below start a second upload on top of it.
-        installing = self._update_state == UPDATE_STATE_INSTALLING
-        if not installing:
-            self._last_install_at = None
-            self._last_install_confirmed = False
-            if self._update_state == UPDATE_STATE_ERROR:
-                self._update_last_error = None
-                self._set_update_state(UPDATE_STATE_IDLE)
-        result = self.check_for_update(force_refresh=True)
-        if not installing:
-            self.check_installed_version()
-            result.update(self.get_update_state())
-        return result
+        return self.check_for_update(force_refresh=True, allow_auto_install=False)
 
-    def check_for_update(self, force_refresh: bool = False) -> dict[str, Any]:
+    def _notify_firmware_release(self, latest_release: dict[str, Any]) -> None:
+        """Show a deduplicated advisory for a newer integration release."""
+        release_tag = latest_release["tag_name"]
+        if release_tag == self._last_notified_release:
+            return
+        msg = latest_release["name"]
+        msg += "\\r\\n"
+        msg += trim_text(latest_release["body"], 200)
+        msg += "\\r\\n\\r\\n"
+        msg += self.translate("Firmware release:")
+        msg += f" {release_tag}"
+        msg += "\\r\\n\\r\\n"
+        msg += self.translate("Firmware and display installs use the configured firmware manifest.")
+        msg += "\\r\\n\\r\\n"
+        self.app.controller["navigation"].open_panel(
+            PopupPanelKey.POPUP_NOTIFY,
+            icon="mdi:message-alert",
+            title=self.translate("Firmware update available"),
+            notification=msg,
+        )
+        self._last_notified_release = release_tag
+
+    def check_for_update(
+        self, force_refresh: bool = False, *, allow_auto_install: bool = True
+    ) -> dict[str, Any]:
         """Check the firmware manifest and the latest firmware release independently.
+
+        Args:
+            force_refresh: Bypass the shared GitHub release cache.
+            allow_auto_install: Whether this check may start a configured
+                automatic firmware install. Manual checks leave installation
+                to explicit install actions and scheduled checks.
 
         Returns:
             dict: ``get_update_state()`` plus ``latest_release`` (tag of the
@@ -1563,7 +2331,7 @@ class HAUIUpdateController(HAUIBase):
         # still need a newer ESPHome firmware release.
         self._refresh_firmware_manifest(force=force_refresh)
         manifest = self._firmware_manifest
-        if manifest is not None and self._firmware_install_due():
+        if allow_auto_install and manifest is not None and self._firmware_install_due():
             state = self._start_firmware_install(
                 manifest["url"], manifest["md5"], manifest["version"], manual=False
             )
@@ -1585,24 +2353,26 @@ class HAUIUpdateController(HAUIBase):
         }
         if not self._is_update_available() or latest_release is None:
             return result
+        release_tag = latest_release["tag_name"]
+        if release_tag == self._last_notified_release:
+            return result
 
-        device_info = self.app.device.device_info
         msg = latest_release["name"]
         msg += "\r\n"
         msg += trim_text(latest_release["body"], 200)
         msg += "\r\n\r\n"
-        msg += self.translate("Version:")
-        msg += f" {device_info.get('yaml_version') or 'unknown'} -> {latest_release['tag_name']}"
+        msg += self.translate("Firmware release:")
+        msg += f" {release_tag}"
         msg += "\r\n\r\n"
-        msg += self.translate("Update the integration and the ESPHome firmware to install it.")
+        msg += self.translate("Firmware and display installs use the configured firmware manifest.")
         msg += "\r\n\r\n"
-        msg += self.translate("Review the upgrade guide before updating.")
         self.app.controller["navigation"].open_panel(
             PopupPanelKey.POPUP_NOTIFY,
             icon="mdi:message-alert",
-            title=self.translate("Update available"),
+            title=self.translate("Firmware update available"),
             notification=msg,
         )
+        self._last_notified_release = release_tag
         return result
 
     # callback
@@ -1618,6 +2388,8 @@ class HAUIUpdateController(HAUIBase):
         reboot — so that state is kept (the install timeout started at install
         time covers the case where the device never reconnects; the bounded
         verification window on reconnect covers the upload-completed case).
+        A reconnect without a reboot means the upload failed, which fails the
+        install right away (``_rebooted_since``).
 
         Args:
             connected (bool): Connection state
@@ -1633,7 +2405,13 @@ class HAUIUpdateController(HAUIBase):
             self.log(f"Checking the TFT version in {self.get('on_connect_delay')} seconds")
             self._start_timer_delay()
             if self._update_state == UPDATE_STATE_INSTALLING:
-                self._start_install_verification()
+                if self._rebooted_since(self._last_install_at):
+                    self._start_install_verification()
+                else:
+                    self._set_install_failed(
+                        "TFT upload failed: the panel did not reboot after the upload. "
+                        "See the device's ESPHome log for the download or flash error."
+                    )
         else:
             self._cancel_timer("_state_check_timer")
             self._cancel_timer("_install_verify_timer")
@@ -1667,8 +2445,8 @@ class HAUIUpdateController(HAUIBase):
             self.run_update_display(version)
 
     def callback_timer(self) -> None:
-        """Callback method for timer."""
-        self.check_for_update()
+        """Start the periodic check without holding the device worker on HTTP."""
+        self.start_async_check()
         self._restart_timer()
 
     # event

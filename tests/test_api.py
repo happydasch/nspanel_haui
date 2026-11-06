@@ -291,7 +291,7 @@ def test_add_device_keeps_identity_in_the_entry_and_settings_in_the_store(monkey
 
     (entry_data,) = hass.config_entries.updates
     assert entry_data["devices"][-1] == {"name": "office", "esphome_device_id": "e2"}
-    # A device re-added after a keep-config removal keeps its stored settings.
+    # A re-added device whose settings are still stored keeps them.
     assert saved[0]["devices"]["office"]["config"] == {"locale": "de_DE", "enabled": False}
 
 
@@ -626,6 +626,34 @@ class _WorkerApp:
     async def async_run_on_worker(self, fn, *args):
         self.calls.append("worker")
         return fn(*args)
+    async def async_list_tft_releases(self):
+        self.calls.append("async_list_tft_releases")
+        return self.list_tft_releases()
+
+    async def async_list_firmware_releases(self):
+        self.calls.append("async_list_firmware_releases")
+        return self.list_firmware_releases()
+
+    async def async_check_for_update(self):
+        self.calls.append("async_check_for_update")
+        return {"latest_release": "0.4.3", "check_error": None}
+    async def async_install_tft(self, version=None, url=None):
+        fn = self.install_tft_url if url is not None else self.install_tft
+        args = (url,) if url is not None else (version,)
+        return await self.async_run_on_worker(fn, *args)
+
+    async def async_install_firmware(self, version=None, url=None):
+        return await self.async_run_on_worker(self.install_firmware, version, url)
+
+
+    def submit_off_worker(self, fn, *args, on_done=None):
+        try:
+            result = fn(*args)
+        except BaseException as exc:
+            on_done(None, exc)
+        else:
+            on_done(result, None)
+
 
 
 def test_panel_save_reloads_a_running_device_on_its_worker(monkeypatch):
@@ -750,16 +778,23 @@ def test_firmware_download_empty_release_list_returns_error(monkeypatch):
     assert result["status_code"] == 502
     assert result["body"]["status"] == "error"
 
-    # --- YAML import pushes like a panel save ----------------------------------
-    entry = _entry_with({"name": "kitchen"})
-    hass = _Hass(entry)
-    app = _WorkerApp()
-    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
-    request = _Request(hass, admin=True, body={"device": "kitchen"})
 
-    asyncio.run(api.DeviceRefreshDisplayView().post(request, entry_id="entry1"))
+def test_firmware_download_skips_development_prereleases(monkeypatch):
+    def release(tag, prerelease):
+        asset = {"name": "nspanel_haui.bin", "browser_download_url": f"/{tag}.bin"}
+        return {"tag_name": tag, "prerelease": prerelease, "assets": [asset]}
 
-    assert app.calls == ["worker", "refresh_display"]
+    monkeypatch.setattr(
+        api.requests,
+        "get",
+        lambda url, timeout: _BinResponse(
+            [release("0.4.5.dev28", True), release("v0.4.4", False)]
+        ),
+    )
+
+    result = asyncio.run(api.FirmwareDownloadView().get(_Request(MagicMock(), admin=True)))
+
+    assert result["body"] == {"url": "/v0.4.4.bin", "version": "v0.4.4"}
 
 
 def test_firmware_install_runs_on_the_device_worker():
@@ -863,8 +898,21 @@ def test_firmware_releases_are_listed_on_the_device_worker():
 
     result = asyncio.run(api.DeviceFirmwareReleasesView().get(request, entry_id="entry1"))
 
-    assert app.calls == ["worker", "list_firmware_releases"]
+    assert app.calls == ["async_list_firmware_releases", "list_firmware_releases"]
     assert result["body"]["releases"] == ["v0.4.3", "v0.4.2"]
+
+
+def test_manual_update_check_uses_the_staged_async_api():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, body={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceUpdateCheckView().post(request, entry_id="entry1"))
+
+    assert app.calls == ["async_check_for_update"]
+    assert result["body"]["results"]["kitchen"]["latest_release"] == "0.4.3"
 
 
 def test_tft_install_runs_on_the_device_worker():
@@ -879,6 +927,24 @@ def test_tft_install_runs_on_the_device_worker():
     # A missing version is passed as None; the controller replaces it with the
     # firmware's yaml_version when the install runs.
     assert app.calls == ["worker", ("install_tft", None)]
+
+
+def test_tft_install_rejects_invalid_json():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True)
+
+    async def invalid_json():
+        raise ValueError("malformed")
+
+    request.json = invalid_json
+    result = asyncio.run(api.DeviceUpdateTftView().post(request, entry_id="entry1"))
+
+    assert result["status_code"] == 400
+    assert result["body"]["message"] == "Invalid JSON request body"
+    assert app.calls == []
 
 
 def test_tft_install_passes_the_requested_version():
@@ -937,7 +1003,7 @@ def test_tft_releases_are_listed_on_the_device_worker():
 
     result = asyncio.run(api.DeviceTftReleasesView().get(request, entry_id="entry1"))
 
-    assert app.calls == ["worker", "list_tft_releases"]
+    assert app.calls == ["async_list_tft_releases", "list_tft_releases"]
     assert result["body"]["releases"] == ["v0.4.2", "v0.4.1"]
 
 
@@ -1123,8 +1189,8 @@ def test_add_device_rejects_a_body_without_a_devices_list(monkeypatch, body):
     assert hass.config_entries.updates == []
 
 
-def test_panel_save_with_a_kept_config_of_a_removed_device_does_not_reload(monkeypatch):
-    # "office" was removed with keep_config: its settings stay in the store only.
+def test_panel_save_with_a_store_only_device_does_not_reload(monkeypatch):
+    # "office" has settings in the store but no config-entry record.
     hass = _Hass(_entry_with({"name": "kitchen"}))
     _use_store(monkeypatch, hass)
     app = _WorkerApp()

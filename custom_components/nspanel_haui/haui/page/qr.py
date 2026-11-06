@@ -134,22 +134,18 @@ class QRPage(HAUIPage):
             zoom_btn,
         )
 
-        with self.rec_cmd:
-            # Set text on both QR components so whichever is shown after a
-            # zoom toggle already has its content.
-            self.set_component_text(self.COMPONENTS.title, panel.get_title())
-            self.set_component_text(self.COMPONENTS.qr_code, qr_code)
-            self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
-            # Render Q1/Q2 content in the same batch as visibility so the
-            # Nextion never paints empty/stale slots between batches.
-            if items:
-                self._render_items(items)
-            elif panel.get("show_info", True):
-                self._render_text(panel)
-            self._apply_zoom_state()
-
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
+        # Set text on both QR components so whichever is shown after a
+        # zoom toggle already has its content.
+        self.set_component_text(self.COMPONENTS.title, panel.get_title())
+        self.set_component_text(self.COMPONENTS.qr_code, qr_code)
+        self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
+        # Render Q1/Q2 content in the same batch as visibility so the
+        # Nextion never paints empty/stale slots between batches.
+        if items:
+            self._render_items(items)
+        elif panel.get("show_info", True):
+            self._render_text(panel)
+        self._apply_zoom_state()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # restore old dimming values

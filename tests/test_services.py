@@ -96,6 +96,38 @@ def mock_esphome_ctrl():
     return ctrl
 
 
+@pytest.fixture(autouse=True)
+def device_registry(monkeypatch):
+    """Stub HA's device registry; tests add ``device id → identifiers`` to the returned dict."""
+    devices: dict[str, set[tuple[str, str]]] = {}
+
+    def _get_device(device_id: str) -> Any:
+        if device_id not in devices:
+            return None
+        return types.SimpleNamespace(id=device_id, identifiers=devices[device_id])
+
+    registry = types.ModuleType("homeassistant.helpers.device_registry")
+    registry.async_get = lambda hass: types.SimpleNamespace(async_get=_get_device)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.device_registry", registry)
+    monkeypatch.setattr(
+        sys.modules["homeassistant.helpers"], "device_registry", registry, raising=False
+    )
+    return devices
+
+
+class _ServiceValidationError(Exception):
+    pass
+
+
+@pytest.fixture(autouse=True)
+def ha_exceptions(monkeypatch):
+    """Stub ``homeassistant.exceptions`` with the error a service raises for bad input."""
+    exceptions = types.ModuleType("homeassistant.exceptions")
+    exceptions.ServiceValidationError = _ServiceValidationError
+    monkeypatch.setitem(sys.modules, "homeassistant.exceptions", exceptions)
+    return exceptions
+
+
 def _make_app(
     mock_nav, mock_esphome_ctrl, *, ha_device_id: str = "dev_1", name: str = "test_device"
 ):
@@ -143,6 +175,36 @@ class TestResolveTargetApps:
         mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
         targets = _resolve_target_apps(mock_hass, device_id="nonexistent")
         assert len(targets) == 0
+
+    @pytest.mark.parametrize(
+        "device_id",
+        [
+            pytest.param("esphome_kitchen", id="esphome-device"),
+            pytest.param("haui_kitchen", id="haui-device"),
+        ],
+    )
+    def test_both_devices_of_a_panel_select_it(
+        self, mock_hass, mock_nav, mock_esphome_ctrl, device_registry, device_id
+    ):
+        """The ESPHome device and the HAUI device (the one the selector offers) both match."""
+        kitchen = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
+        office = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_office")
+        mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": kitchen, "office": office}}
+        device_registry["esphome_kitchen"] = {("esphome", "aa:bb:cc:dd:ee:ff")}
+        device_registry["haui_kitchen"] = {(DOMAIN, "kitchen")}
+        device_registry["haui_office"] = {(DOMAIN, "office")}
+
+        assert _resolve_target_apps(mock_hass, device_id=device_id) == [("kitchen", kitchen)]
+
+    def test_device_of_another_integration_does_not_match(
+        self, mock_hass, mock_nav, mock_esphome_ctrl, device_registry
+    ):
+        """A registered device only matches through an nspanel_haui identifier."""
+        app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
+        mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
+        device_registry["hue_kitchen"] = {("hue", "kitchen")}
+
+        assert _resolve_target_apps(mock_hass, device_id="hue_kitchen") == []
 
     def test_skips_non_dict_entries(self, mock_hass, mock_nav, mock_esphome_ctrl):
         """Skips non-dict entries like _device_id_listeners."""
@@ -238,15 +300,16 @@ async def test_open_panel_with_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
 
 @pytest.mark.asyncio
 async def test_open_panel_no_matching_device(mock_hass, mock_nav, mock_esphome_ctrl):
-    """open_panel with unknown device_id logs warning, no crash."""
+    """open_panel with an unknown device fails the call."""
     mock_hass.data[DOMAIN] = {}
     from nspanel_haui.services import _handle_open_panel
 
     call = MagicMock()
-    call.data = {"panel": "alarm", "wakeup": False, "device_id": "unknown"}
+    call.data = {"panel": "alarm", "wakeup": False, "device": "unknown"}
+    call.service = SERVICE_OPEN_PANEL
 
-    # Should not raise
-    await _handle_open_panel(mock_hass, call)
+    with pytest.raises(_ServiceValidationError, match="device unknown"):
+        await _handle_open_panel(mock_hass, call)
 
 
 @pytest.mark.asyncio
@@ -282,8 +345,54 @@ async def test_update_tft_targets_selected_device(mock_hass, mock_nav, mock_esph
 
     await _handle_update_tft(mock_hass, call)
 
-    target.install_tft.assert_called_once_with(None)
-    other.install_tft.assert_not_called()
+    target.start_async_tft_install.assert_called_once()
+    assert target.start_async_tft_install.call_args.args[:2] == (None, None)
+    assert callable(target.start_async_tft_install.call_args.args[2])
+    other.start_async_tft_install.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_tft_accepts_the_haui_device(
+    mock_hass, mock_nav, mock_esphome_ctrl, device_registry
+):
+    """The device the service's selector offers (the HAUI device) starts the install."""
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
+    app.install_tft = MagicMock(return_value={"state": "installing"})
+    mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
+    device_registry["haui_kitchen"] = {(DOMAIN, "kitchen")}
+
+    from nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "haui_kitchen"}
+    call.service = SERVICE_UPDATE_TFT
+
+    await _handle_update_tft(mock_hass, call)
+
+    app.start_async_tft_install.assert_called_once()
+    assert app.start_async_tft_install.call_args.args[:2] == (None, None)
+
+
+@pytest.mark.asyncio
+async def test_update_tft_rejects_an_unknown_device(mock_hass, mock_nav, mock_esphome_ctrl):
+    """An id that is neither device of a panel fails the call and installs nothing."""
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
+    app.install_tft = MagicMock(return_value={"state": "installing"})
+    app.install_tft_url = MagicMock(return_value={"state": "installing"})
+    mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
+
+    from nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "unknown", "url": "http://homeassistant.local:8123/local/x.tft"}
+    call.service = SERVICE_UPDATE_TFT
+
+    with pytest.raises(_ServiceValidationError, match=r"update_tft: .*device unknown"):
+        await _handle_update_tft(mock_hass, call)
+
+    app.install_tft.assert_not_called()
+    app.install_tft_url.assert_not_called()
+    app.dispatch.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -302,8 +411,11 @@ async def test_update_tft_with_url_installs_that_file(mock_hass, mock_nav, mock_
 
     await _handle_update_tft(mock_hass, call)
 
-    app.install_tft_url.assert_called_once_with("http://ha.local/nspanel_haui.tft")
-    app.install_tft.assert_not_called()
+    app.start_async_tft_install.assert_called_once()
+    assert app.start_async_tft_install.call_args.args[:2] == (
+        None,
+        "http://ha.local/nspanel_haui.tft",
+    )
 
 
 @pytest.mark.asyncio
@@ -322,7 +434,8 @@ async def test_update_tft_with_version_installs_that_release(
 
     await _handle_update_tft(mock_hass, call)
 
-    app.install_tft.assert_called_once_with("0.4.1")
+    app.start_async_tft_install.assert_called_once()
+    assert app.start_async_tft_install.call_args.args[:2] == ("0.4.1", None)
 
 
 @pytest.mark.asyncio
@@ -349,7 +462,8 @@ async def test_update_firmware_installs_the_chosen_firmware(
 
     await _handle_update_firmware(mock_hass, call)
 
-    app.install_firmware.assert_called_once_with(*args)
+    app.start_async_firmware_install.assert_called_once()
+    assert app.start_async_firmware_install.call_args.args[:2] == args
 
 
 def test_update_firmware_takes_a_version_or_a_url_not_both():

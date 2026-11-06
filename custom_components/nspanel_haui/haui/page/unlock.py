@@ -38,42 +38,36 @@ class UnlockPage(AlarmPage):
         self._unlock_panel = unlock_panel = panel.get("unlock_panel", None)
         # The system panel's default title is "", not missing.
         self._title = panel.get("title") or self.translate("Unlock")
+        self.set_function_buttons(
+            AlarmPage.COMPONENTS.fnc_left_pri,
+            AlarmPage.COMPONENTS.fnc_left_sec,
+            AlarmPage.COMPONENTS.fnc_right_pri,
+            AlarmPage.COMPONENTS.fnc_right_sec,
+        )
+        # the alarm page's load event hides the keypad
+        for c in self._keypad_buttons:
+            self.on_release(c, self.callback_keypad)
+            self.show_component(c)
+        # match the alarm keypad's button styling
+        self._style_keypad(panel)
+        self.on_release(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
+        self.set_function_component(
+            component=AlarmPage.COMPONENTS.b1_fnc,
+            fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
+            fnc_name=AlarmPage.COMPONENTS.b1_fnc.name,
+            color=self.get_color("text_disabled"),
+            text=self.translate("Unlock"),
+        )
+        # prepare unlock panel using config from locked panel
+        if unlock_panel:
+            self._title = unlock_panel.get_title(self._title)
+            self._unlock_code = unlock_panel.get("unlock_code")
 
-        with self.rec_cmd:
-            # set function buttons
-            self.set_function_buttons(
-                AlarmPage.COMPONENTS.fnc_left_pri,
-                AlarmPage.COMPONENTS.fnc_left_sec,
-                AlarmPage.COMPONENTS.fnc_right_pri,
-                AlarmPage.COMPONENTS.fnc_right_sec,
-            )
-
-            # set components
-            # the alarm page's load event hides the keypad
-            for c in self._keypad_buttons:
-                self.on_release(c, self.callback_keypad)
-                self.show_component(c)
-            # match the alarm keypad's button styling
-            self._style_keypad(panel)
-            self.on_release(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
-            self.set_function_component(
-                component=AlarmPage.COMPONENTS.b1_fnc,
-                fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
-                fnc_name=AlarmPage.COMPONENTS.b1_fnc.name,
-                color=self.get_color("text_disabled"),
-                text=self.translate("Unlock"),
-                locked=getattr(panel, "locked", False),
-            )
-
-            # prepare unlock panel using config from locked panel
-            if unlock_panel:
-                self._title = unlock_panel.get_title(self._title)
-                self._unlock_code = unlock_panel.get("unlock_code")
-
+    def header_panel(self, panel: HAUIPanel) -> HAUIPanel:
         # The header is the guarded panel's own (prev/next in navigation, the
         # lock on the right), read from that panel: the popup's own navigation
         # state stays untouched, so navigation keeps it on the stack.
-        self._auto_assign_fncs(unlock_panel or panel)
+        return self._unlock_panel or panel
 
     def before_render_panel(self, panel: HAUIPanel) -> bool:
         # check if unlock panel is available
@@ -103,7 +97,7 @@ class UnlockPage(AlarmPage):
         self.update_function_component(
             fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
             touch=unlock_btn_enabled,
-            **self.button_color_args(unlock_btn_enabled, back_color=True),
+            **self.button_color_args(unlock_btn_enabled),
         )
 
     # callback

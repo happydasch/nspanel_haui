@@ -23,9 +23,10 @@ substitutions:
   # (nspanel_haui_universal.yaml) overrides it with `universal`.  The hub
   # refuses to flash a manifest whose variant does not match the reported one.
   firmware_variant: 'custom'
-  # Default TFT URL of the display component (enables TFT upload support);
-  # the hub's TFT update always sends the URL of the TFT it installs
-  tft_update_url: $tft_update_url
+
+  # Default TFT URL of the display component.  Install a local TFT build
+  # with nspanel_haui.update_tft and its url field, e.g.
+  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
 
 # Temporary: the numeric-response delivery fix for the stock `nextion`
 # component (esphome/esphome#17744) merged two days after the 2026.10.0

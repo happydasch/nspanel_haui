@@ -43,6 +43,14 @@ class _App:
 
     async def async_run_on_worker(self, fn, *args):
         return fn(*args)
+    async def async_install_tft(self, version=None, url=None):
+        self.installs.append(version)
+        return self.install_result
+
+    async def async_install_firmware(self, version=None, url=None):
+        self.firmware_installs.append((version, url))
+        return self.firmware_result
+
 
 
 def _import_update(monkeypatch: MonkeyPatch):
@@ -290,6 +298,29 @@ def test_firmware_event_sets_installed_and_latest_version(monkeypatch):
     assert entity._attr_latest_version == "0.4.4"
     assert entity._attr_available is True
     assert entity.in_progress is False
+
+
+def test_update_entities_publish_failure_summaries_and_do_not_poll(monkeypatch):
+    update = _import_update(monkeypatch)
+    firmware = _firmware(update)
+    display = _entity(update)
+
+    asyncio.run(
+        firmware._async_update_event(_firmware_event(last_error="Firmware install timed out"))
+    )
+    asyncio.run(
+        display._async_update_event(
+            _event(update_reason="TFT required by firmware: 0.4.2; manifest provides: 0.4.1.")
+        )
+    )
+
+    assert firmware._attr_release_summary == "Firmware install timed out"
+    assert display._attr_release_summary == (
+        "TFT required by firmware: 0.4.2; manifest provides: 0.4.1."
+    )
+    assert firmware._attr_should_poll is False
+    assert display._attr_should_poll is False
+    assert not (firmware._attr_supported_features & update.UpdateEntityFeature.PROGRESS)
 
 
 def test_firmware_install_keeps_the_entity_available_while_the_panel_reboots(monkeypatch):

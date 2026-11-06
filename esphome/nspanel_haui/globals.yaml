@@ -26,6 +26,21 @@ globals:
     type: int
     restore_value: false
 
+  # Unsigned millis() timestamps make the elapsed-time calculation wrap-safe.
+  - id: last_interaction_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+
+  - id: interaction_age_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: '0'
+  - id: interaction_timer_initialized
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
   # Connection state of the device with the hub app
   - id: hub_connection
     type: bool

@@ -46,6 +46,9 @@ import shutil
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "release"))
+from generate_firmware_manifest import build_manifest_from_assets  # noqa: E402
+
 IMAGE_NAME = "nspanel_haui_ota.bin"
 MANIFEST_NAME = "firmware-manifest.json"
 # Mirrors the hub's checks (haui/controller/update.py): the app partition of
@@ -94,14 +97,7 @@ def build_manifest(version: str, image_url: str, md5: str, variant: str = "custo
     Raises:
         ValueError: If ``variant`` is not one the hub recognizes.
     """
-    if variant not in FIRMWARE_VARIANTS:
-        raise ValueError(f"unknown firmware variant {variant!r}")
-    return {
-        "name": "NSPanel HAUI",
-        "version": version,
-        "variant": variant,
-        "builds": [{"chipFamily": "ESP32", "ota": {"path": image_url, "md5": md5}}],
-    }
+    return build_manifest_from_assets(version, variant, image_url, md5)
 
 
 def release(

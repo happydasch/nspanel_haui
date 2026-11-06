@@ -163,41 +163,38 @@ class RowPage(PagedItemsMixin, HAUIPage):
             toggle = getattr(self.COMPONENTS, f"r{idx}_toggle")
             slider = getattr(self.COMPONENTS, f"r{idx}_slider")
             slider_txt = getattr(self.COMPONENTS, f"r{idx}_slider_txt")
-            self.set_function_component(ico, ico[1], "icon", row_index=i)
-            self.set_function_component(name, name[1], "name", row_index=i)
-            self.set_function_component(ovl, ovl[1], "overlay", row_index=i, no_color=True)
+            self.set_function_component(ico, ico.name, "icon", row_index=i)
+            self.set_function_component(name, name.name, "name", row_index=i)
+            self.set_function_component(ovl, ovl.name, "overlay", row_index=i, no_color=True)
             self.set_function_component(
-                btn_text, btn_text[1], "btn_text", visible=False, text="", row_index=i
+                btn_text, btn_text.name, "btn_text", visible=False, text="", row_index=i
             )
             self.set_function_component(
-                btn_up, btn_up[1], "btn_up", visible=False, text="", row_index=i
+                btn_up, btn_up.name, "btn_up", visible=False, text="", row_index=i
             )
             self.set_function_component(
-                btn_down, btn_down[1], "btn_down", visible=False, text="", row_index=i
+                btn_down, btn_down.name, "btn_down", visible=False, text="", row_index=i
             )
             self.set_function_component(
-                btn_stop, btn_stop[1], "btn_stop", visible=False, text="", row_index=i
+                btn_stop, btn_stop.name, "btn_stop", visible=False, text="", row_index=i
             )
             self.set_function_component(
-                toggle, toggle[1], "toggle", visible=False, value=0, row_index=i
+                toggle, toggle.name, "toggle", visible=False, value=0, row_index=i
             )
             self.set_function_component(
-                slider, slider[1], "slider", visible=False, value=0, row_index=i
+                slider, slider.name, "slider", visible=False, value=0, row_index=i
             )
             # row sliders are drag controls: bind_slider suppresses the swipe
             # gesture the drag produces and reads the value on release
             self.bind_slider(slider, self._make_row_slider_handler(slider))
             self.set_function_component(
                 slider_txt,
-                slider_txt[1],
+                slider_txt.name,
                 "slider_txt",
                 visible=False,
                 text="",
                 row_index=i,
             )
-
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.set_component_text(self.COMPONENTS.title, panel.get_title())
@@ -256,7 +253,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
             # left part of item
             for n in ["ico", "name", "ovl"]:
                 item = getattr(self.COMPONENTS, f"r{idx}_{n}")
-                self.update_function_component(item[1], visible=True)
+                self.update_function_component(item.name, visible=True)
             # detail part of item
             for n in [
                 "btn_txt",
@@ -272,7 +269,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
                 readonly = None
                 color = None
                 color_pressed = None
-                back_color = None
+                # the page paints the back colours (bco) while it loads
                 back_color_pressed = None
                 # check detail
                 if detail_visible:
@@ -288,8 +285,6 @@ class RowPage(PagedItemsMixin, HAUIPage):
                             # state, pco2 the on state
                             color = self.get_color("text_inactive")
                             color_pressed = self.get_color("component_active")
-                            back_color = self.get_color("background")
-                            back_color_pressed = self.get_color("background")
                     # 'SLIDER', 'SLIDER_TXT' value slider
                     elif detail_visible == "slider":
                         if n in ["slider", "slider_txt"]:
@@ -300,23 +295,20 @@ class RowPage(PagedItemsMixin, HAUIPage):
                             show = True
                             readonly = False
                             color = self.get_color("component_active")
-                            back_color = self.get_color("background")
                             back_color_pressed = self.get_color("component_pressed")
                     # 'btn_txt' will be used as default, text as disabled btn
                     elif n == "btn_txt":
                         show = True
                         readonly = True
                         color = self.get_color("component_text")
-                        back_color = self.get_color("background")
                         back_color_pressed = self.get_color("background")
                 # update component
                 self.update_function_component(
-                    item[1],
+                    item.name,
                     visible=show,
                     touch=not readonly,
                     color=color,
                     color_pressed=color_pressed,
-                    back_color=back_color,
                     back_color_pressed=back_color_pressed,
                 )
                 self.update_row_entry(idx)
@@ -334,7 +326,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
                 "btn_txt",
             ]:
                 item = getattr(self.COMPONENTS, f"r{idx}_{n}")
-                self.update_function_component(item[1], visible=False)
+                self.update_function_component(item.name, visible=False)
 
     def update_row_entry(self, idx: int) -> None:
         ovl = getattr(self.COMPONENTS, f"r{idx}_ovl")
@@ -343,8 +335,8 @@ class RowPage(PagedItemsMixin, HAUIPage):
             return
         ico = getattr(self.COMPONENTS, f"r{idx}_ico")
         name = getattr(self.COMPONENTS, f"r{idx}_name")
-        self.update_function_component(name[1], text=trim_text(item.get_name(), self.LEN_NAME))
-        self.update_function_component(ico[1], text=item.get_icon(), color=item.get_color())
+        self.update_function_component(name.name, text=trim_text(item.get_name(), self.LEN_NAME))
+        self.update_function_component(ico.name, text=item.get_icon(), color=item.get_color())
         display_type = self.get_item_display_type(item)
         if display_type == "text":
             self.update_item_text(item, idx)
@@ -414,7 +406,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
     def _update_item_value_cell(self, haui_item: HAUIItem, idx: int, color_mode: str) -> None:
         item = getattr(self.COMPONENTS, f"r{idx}_btn_txt")
         self.update_function_component(
-            item[1],
+            item.name,
             text=self._value_cell_text(haui_item),
             color=self._value_cell_color(haui_item, color_mode),
         )
@@ -452,8 +444,8 @@ class RowPage(PagedItemsMixin, HAUIPage):
         # val picks the colour, but a dual-state button has one txt for both
         # states, so the icon is swapped too; one update sends val or txt, not
         # both, hence two calls
-        self.update_function_component(toggle[1], value=int(on))
-        self.update_function_component(toggle[1], text=ICO_TOGGLE_ON if on else ICO_TOGGLE_OFF)
+        self.update_function_component(toggle.name, value=int(on))
+        self.update_function_component(toggle.name, text=ICO_TOGGLE_ON if on else ICO_TOGGLE_OFF)
 
     def update_item_slider(self, haui_item: HAUIItem, idx: int) -> None:
         slider = getattr(self.COMPONENTS, f"r{idx}_slider")
@@ -475,9 +467,9 @@ class RowPage(PagedItemsMixin, HAUIPage):
             i_value = round(float(state) * scale_factor) - i_minval
             text = str(state)
         # update display
-        self.send_cmd(f"{slider[1]}.minval={0}")
-        self.send_cmd(f"{slider[1]}.maxval={i_maxval}")
-        self.update_function_component(slider[1], value=i_value)
+        self.send_cmd(f"{slider.name}.minval={0}")
+        self.send_cmd(f"{slider.name}.maxval={i_maxval}")
+        self.update_function_component(slider.name, value=i_value)
         self.set_slider_color(slider)
         stale = self._item_stale(haui_item)
         if stale:
@@ -486,7 +478,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
             color = self.get_color("text_inactive")
         else:
             color = self.get_color("component_text")
-        self.update_function_component(slider_txt[1], text=text, color=color)
+        self.update_function_component(slider_txt.name, text=text, color=color)
 
     def update_item_cover(self, haui_item: HAUIItem, idx: int) -> None:
         item_type = haui_item.get_item_type()
@@ -510,10 +502,10 @@ class RowPage(PagedItemsMixin, HAUIPage):
                 )
                 icon = get_icon(icon_name or "") or ""
             self.update_function_component(
-                button[1],
+                button.name,
                 visible=True,
                 text=icon,
-                **self.button_color_args(supported and usable, back_color=True),
+                **self.button_color_args(supported and usable),
             )
 
     # callback

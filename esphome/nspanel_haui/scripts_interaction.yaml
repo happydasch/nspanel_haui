@@ -1,27 +1,14 @@
 ---
 script:
 
-  - id: update_last_interaction
+  - id: reset_interaction_timer
     mode: restart
     parameters:
-      new_value: int
-      offset: float
+      offset: int
     then:
       - lambda: |-
-          int32_t interaction_val = new_value;
-          if (new_value == -1) {
-              int32_t time_now = millis() / 100; // use 0.1s as the lowest change
-              int32_t offset_ = offset * 10; // use 0.1s as the lowest change
-              if (time_now < offset_) {
-                // overflow occurred, reset interaction_val
-                interaction_val = 0;
-              } else {
-                interaction_val = time_now - offset_;
-              }
-          }
-          if (id(last_interaction).state != interaction_val) {
-            id(last_interaction).publish_state(interaction_val);
-          }
+          id(last_interaction_ms) = millis() - static_cast<uint32_t>(offset) * 1000U;
+          id(interaction_timer_initialized) = true;
 
   - id: check_interaction
     then:
@@ -45,6 +32,7 @@ script:
           if (is_touch) {  // touch active
             if (!id(touch).state) {
               ESP_LOGD("haui", "Touch Start (%d,%d)", curr_x, curr_y);
+              id(reset_interaction_timer).execute(0);
               id(touch).publish_state(true);
               id(publish_event_native).execute("esphome.touch_start", "");
               start_x = curr_x;
@@ -76,21 +64,9 @@ script:
 
           // timeout value
           int timeout_page_val = int(id(timeout_page).state);
-          // last interaction with device
-          int last_interaction_val = int(id(last_interaction).state);
-
-          float diff_seconds = 0;
+          float diff_seconds = id(interaction_age_ms) / 1000.0f;
           static float last_diff_seconds = 0;
-          if (last_interaction_val > 0) {
-            // get timings for last interaction
-            unsigned long duration_now = millis() / 100; // 0.1s units, matches last_interaction
-            if (duration_now < last_interaction_val) {
-              // overflow occurred, reset variables
-              last_interaction_val = 0;
-              duration_now = 0;
-            }
-            diff_seconds = ((float)duration_now - last_interaction_val) / 10;
-          }
+
 
           // the timeout was reached
           if (timeout_page_val > 0 && diff_seconds > timeout_page_val and last_diff_seconds <= timeout_page_val) {

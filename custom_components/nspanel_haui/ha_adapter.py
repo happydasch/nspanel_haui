@@ -292,62 +292,13 @@ class ESPHomeProxy:
                 check this instead of assuming success.
         """
 
-        async def _call_service() -> bool:
-            try:
-                service_data = self._build_service_data(name, value)
-
-                entry_data = self._get_runtime_entry_data()
-                if entry_data is None:
-                    _LOGGER.warning(
-                        "ESPHome publish('%s'): no ESPHome entry found for device '%s'"
-                        " — command will be lost",
-                        name,
-                        self._device_name,
-                    )
-                    return False
-
-                if not entry_data.available or entry_data.client is None:
-                    _LOGGER.warning(
-                        "ESPHome publish('%s'): device '%s' not available — command deferred",
-                        name,
-                        self._device_name,
-                    )
-                    return False
-
-                service = self._find_service(entry_data.services, name)
-                if service is None:
-                    _LOGGER.warning(
-                        "ESPHome publish('%s'): service not found on device '%s'"
-                        " — device may not have shared its definitions yet",
-                        name,
-                        self._device_name,
-                    )
-                    return False
-
-                _LOGGER.info(
-                    "→ ESPHome native: %s %s",
-                    name,
-                    service_data if service_data else "(no args)",
-                )
-
-                await entry_data.client.execute_service(service, service_data)
-                return True
-
-            except Exception as exc:  # noqa: BLE001
-                _LOGGER.error(
-                    "ESPHome publish('%s') failed: %s",
-                    name,
-                    exc,
-                )
-                return False
-
         # Block until the service call completes so that multiple chunks
         # from a single send_cmds batch are delivered to the ESP32
         # sequentially, not concurrently.  Fire-and-forget scheduling caused
         # all chunks to pile up in the Nextion's command queue at once,
         # overflowing max_queue_size and losing commands.
         try:
-            return _run_on_loop(self._loop, _call_service())
+            return _run_on_loop(self._loop, self._call_service(name, value))
         except TimeoutError:
             _LOGGER.warning("ESPHome publish('%s') timed out after 10s", name)
             return False
@@ -356,6 +307,77 @@ class ESPHomeProxy:
             # propagated copy so the executor thread is not disrupted.
             _LOGGER.debug("publish('%s') future raised: %s", name, exc)
             return False
+
+    async def _call_service(self, name: str, value: Any) -> bool:
+        """Execute one ESPHome action on the device (runs on the event loop)."""
+        try:
+            service_data = self._build_service_data(name, value)
+
+            entry_data = self._get_runtime_entry_data()
+            if entry_data is None:
+                _LOGGER.warning(
+                    "ESPHome publish('%s'): no ESPHome entry found for device '%s'"
+                    " — command will be lost",
+                    name,
+                    self._device_name,
+                )
+                return False
+
+            if not entry_data.available or entry_data.client is None:
+                _LOGGER.warning(
+                    "ESPHome publish('%s'): device '%s' not available — command deferred",
+                    name,
+                    self._device_name,
+                )
+                return False
+
+            service = self._find_service(entry_data.services, name)
+            if service is None:
+                _LOGGER.warning(
+                    "ESPHome publish('%s'): service not found on device '%s'"
+                    " — device may not have shared its definitions yet",
+                    name,
+                    self._device_name,
+                )
+                return False
+
+            _LOGGER.info(
+                "→ ESPHome native: %s %s",
+                name,
+                service_data if service_data else "(no args)",
+            )
+
+            await entry_data.client.execute_service(service, service_data)
+            return True
+
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.error(
+                "ESPHome publish('%s') failed: %s",
+                name,
+                exc,
+            )
+            return False
+
+    def publish_detached(self, name: str, value: Any = "") -> None:
+        """Execute an ESPHome action without waiting for it (fire-and-forget).
+
+        Unlike :meth:`publish` this never blocks the caller and is safe to
+        call from any thread, the event loop included.  It exists for the
+        hub→device heartbeat: the device force-disconnects the hub after two
+        missed heartbeats — and wakes the display when it does — so the
+        heartbeat must neither wait behind work queued on the app's worker
+        thread nor block that worker while it is sent.
+        """
+        future = asyncio.run_coroutine_threadsafe(self._call_service(name, value), self._loop)
+        future.add_done_callback(self._log_detached_publish)
+
+    @staticmethod
+    def _log_detached_publish(future: Any) -> None:
+        if future.cancelled():
+            return
+        exc = future.exception()
+        if exc is not None:
+            _LOGGER.error("Detached ESPHome publish failed: %s", exc)
 
 
 class HAAdapter:
@@ -385,6 +407,15 @@ class HAAdapter:
         # a late render could overwrite the next page and touches raced.
         self._worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"nspanel_haui_{name}")
         self._worker_stopped = False
+        # Blocking I/O (HTTP, disk) never runs on the worker: it runs display
+        # output in order, and a stalled worker once starved the hub→device
+        # heartbeat long enough for the device to disconnect and wake the
+        # screen. Callers hand such work over with run_off_worker() /
+        # submit_off_worker(); the pool is deliberately small, because these
+        # are occasional requests, not a job queue.
+        self._io = ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix=f"nspanel_haui_{name}_io"
+        )
 
     # logging
 
@@ -456,6 +487,78 @@ class HAAdapter:
         """Run ``fn(*args)`` on this app's worker and return its result."""
         return await self._loop.run_in_executor(self._worker, fn, *args)
 
+    def run_off_worker(
+        self, fn: Callable[..., Any], *args: Any, timeout: float = 60.0
+    ) -> Any:
+        """Run blocking work (HTTP, disk) off the worker and return its result.
+
+        The worker runs the display pipeline in order, so one slow request
+        there stalls every command queued behind it — and, before the
+        heartbeat was moved to the event loop, it disconnected the device.
+        Any call that may block on the network or the filesystem belongs
+        here.
+
+        The caller (normally the worker) waits for the result, which keeps
+        app state single-threaded: the callable runs on the I/O pool and
+        must not call back into the app while it waits, or the two threads
+        wait on each other.
+
+        Args:
+            fn: Blocking callable (no app access).
+            args: Arguments for ``fn``.
+            timeout: Seconds to wait before giving up.  The thread is not
+                killed (Python cannot), so keep it above the callable's own
+                socket/IO timeout.
+
+        Raises:
+            TimeoutError: When ``fn`` did not finish within ``timeout``.
+        """
+        future = self._io.submit(fn, *args)
+        try:
+            return future.result(timeout=timeout)
+        except TimeoutError:
+            self.log(
+                f"Off-worker task {getattr(fn, '__name__', fn)} timed out after {timeout}s",
+                level="WARNING",
+            )
+            raise
+
+    def submit_off_worker(
+        self,
+        fn: Callable[..., Any],
+        *args: Any,
+        on_done: Callable[[Any, BaseException | None], None] | None = None,
+    ) -> None:
+        """Run blocking work off the worker without waiting for it.
+
+        ``on_done(result, error)`` is dispatched onto the app's worker, so
+        the result is applied in order with everything else the app does —
+        this is how a caller keeps blocking I/O off the worker *and* keeps
+        state single-threaded.
+        """
+        future = self._io.submit(fn, *args)
+        if on_done is None:
+            future.add_done_callback(partial(self._log_off_worker_error, fn))
+            return
+
+        def _deliver(f: Any) -> None:
+            if f.cancelled():
+                return
+            error = f.exception()
+            self.dispatch(on_done, None if error is not None else f.result(), error)
+
+        future.add_done_callback(_deliver)
+
+    @staticmethod
+    def _log_off_worker_error(fn: Callable, future: Any) -> None:
+        if future.cancelled():
+            return
+        exc = future.exception()
+        if exc is not None:
+            _LOGGER.error(
+                "Error in off-worker task %s", getattr(fn, "__qualname__", fn), exc_info=exc
+            )
+
     @staticmethod
     def _log_worker_error(fn: Callable, future: asyncio.Future) -> None:
         if future.cancelled():
@@ -501,6 +604,10 @@ class HAAdapter:
         # Drop callbacks still queued; the one running now (normally this stop) finishes.
         self._worker_stopped = True
         self._worker.shutdown(wait=False, cancel_futures=True)
+        # Off-worker I/O: queued requests are dropped. A request already in
+        # flight finishes on its own thread; nobody applies its result (the
+        # worker is gone), which is what stopping means.
+        self._io.shutdown(wait=False, cancel_futures=True)
 
     # entities
 
@@ -836,8 +943,22 @@ class HAAdapter:
         cb: Callable,
         start: Any,
         interval: int | float,
+        on_loop: bool = False,
         **kwargs: Any,
     ) -> str:
+        """Register a recurring timer callback.
+
+        Args:
+            cb: Callback, invoked with an empty kwargs dict.
+            start: "now+N" fires the first callback after N seconds; every
+                other value starts the interval right away.
+            interval: Seconds between fires.
+            on_loop: Run ``cb`` directly on the event loop instead of
+                dispatching it to the app's worker thread. Only for fast,
+                non-blocking callbacks (they must never stall Home
+                Assistant's loop); use it for work that must not queue
+                behind the worker, like the hub→device heartbeat.
+        """
         import re
         from datetime import timedelta  # noqa: PLC0415
 
@@ -855,6 +976,19 @@ class HAAdapter:
         @ha_callback
         def _ha_cb(now: Any) -> None:
             self.dispatch(self._fire_timer, handle_id, cb, False)
+
+        @ha_callback
+        def _ha_cb_on_loop(now: Any) -> None:
+            # A fire queued before the timer was cancelled must not run.
+            with self._timer_lock:
+                if handle_id not in self._timer_handles:
+                    return
+            try:
+                cb({})
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Error in loop-side timer %s", getattr(cb, "__name__", cb))
+
+        fire = _ha_cb_on_loop if on_loop else _ha_cb
 
         # Parse "now+N" pattern - if matched, fire the first callback after
         # N seconds via async_call_later, then switch to recurring
@@ -882,13 +1016,13 @@ class HAAdapter:
                         if handle_id not in self._timer_handles:
                             return
                         self._timer_handles[handle_id] = async_track_time_interval(
-                            self.hass, _ha_cb, timedelta(seconds=interval)
+                            self.hass, fire, timedelta(seconds=interval)
                         )
-                    _ha_cb(now)
+                    fire(now)
 
                 remove = async_call_later(self.hass, _now_plus, _first_cb)
             else:
-                remove = async_track_time_interval(self.hass, _ha_cb, timedelta(seconds=interval))
+                remove = async_track_time_interval(self.hass, fire, timedelta(seconds=interval))
 
             with self._timer_lock:
                 self._timer_handles[handle_id] = remove

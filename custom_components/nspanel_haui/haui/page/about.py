@@ -10,7 +10,6 @@ from ..version import get_version
 
 class AboutPage(HAUIPage):
     USE_SYSTEM_COLORS = False
-    PICTURE_BACKGROUND = True
     DESCRIPTOR = PageDescriptor(
         type_key="system_about",
         page_name="about",
@@ -52,39 +51,19 @@ class AboutPage(HAUIPage):
     # panel
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        with self.rec_cmd:
-            # set function buttons
-            self.set_function_component(
-                self.COMPONENTS.fnc_left_pri,
-                self.FNC_BTN_L_PRI,
-                fnc_name=self.FNC_TYPE_NAV_UP,
-            )
-            self.set_function_component(
-                self.COMPONENTS.fnc_right_pri,
-                self.FNC_BTN_R_PRI,
-                fnc_name=self.FNC_TYPE_NAV_CLOSE,
-            )
-            # secondary buttons: _auto_assign_fncs assigns or hides them
-            self.set_function_component(
-                self.COMPONENTS.fnc_left_sec,
-                self.FNC_BTN_L_SEC,
-                fnc_name=None,
-            )
-            self.set_function_component(
-                self.COMPONENTS.fnc_right_sec,
-                self.FNC_BTN_R_SEC,
-                fnc_name=None,
-            )
-            # auto-assign defaults to all header button slots
-            self._auto_assign_fncs(panel)
-
-            # show picture icons
-            self.show_component(self.COMPONENTS.p0)
-            self.show_component(self.COMPONENTS.p1)
-
-            # title
-            self._title = panel.get_title(self.translate("NSPanel HAUI"))
-            self.set_component_text(self.COMPONENTS.title, self._title)
+        # not in navigation: up and close, the secondary slots as the panel sets
+        self.set_function_buttons(
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
+            self.COMPONENTS.fnc_right_sec,
+        )
+        # show picture icons
+        self.show_component(self.COMPONENTS.p0)
+        self.show_component(self.COMPONENTS.p1)
+        # title
+        self._title = panel.get_title(self.translate("NSPanel HAUI"))
+        self.set_component_text(self.COMPONENTS.title, self._title)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         name = self.app.device.get_name()

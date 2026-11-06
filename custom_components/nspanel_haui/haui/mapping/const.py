@@ -47,7 +47,6 @@ class ESPAction(StrEnum):
     PLAY_RTTTL = "play_rtttl"
     PLAY_SOUND = "play_sound"
     RESET_LAST_INTERACTION = "reset_last_interaction"
-    HAUI_DISCOVER = "haui_discover"
 
 
 class SysPanelKey(StrEnum):
@@ -98,7 +97,6 @@ HUB_DRIVEN_PANELS: frozenset[str] = frozenset(
 class ESPResponse(StrEnum):
     """Responses published by the ESP device on the recv topic."""
 
-    RES_DEVICE_INFO = "esphome.res_device_info"
     RES_DEVICE_STATE = "esphome.res_device_state"
     READ_RESPONSE = "esphome.read_response"
     SEND_NOTIFICATION = "esphome.send_notification"

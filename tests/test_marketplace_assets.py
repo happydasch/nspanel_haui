@@ -5,7 +5,7 @@ ROOT = Path(__file__).resolve().parents[1]
 INTEGRATION_DIR = ROOT / "custom_components" / "nspanel_haui"
 
 
-def test_hacs_readme_images_use_resolvable_absolute_urls():
+def test_marketplace_readme_images_use_resolvable_absolute_urls():
     from urllib.parse import urlparse
 
     readme = (ROOT / "README.md").read_text()

@@ -171,7 +171,7 @@ _PROTECTED = [
     (api.DeviceConfigView, "delete"),
     (api.DeviceYamlView, "get"),
     (api.DeviceYamlView, "post"),
-    (api.DeviceUpdateDisplayView, "post"),
+    (api.DeviceRefreshDisplayView, "post"),
     (api.DeviceUpdateTftView, "post"),
     (api.DeviceTftReleasesView, "get"),
     (api.DeviceUpdateFirmwareView, "post"),
@@ -602,8 +602,8 @@ class _WorkerApp:
         self.calls.append("reload_config")
         self.cfg = cfg
 
-    def update_display(self):
-        self.calls.append("update_display")
+    def refresh_display(self):
+        self.calls.append("refresh_display")
 
     def install_tft(self, version=None):
         self.calls.append(("install_tft", version))
@@ -651,9 +651,9 @@ def test_display_refresh_runs_on_the_device_worker():
     hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
     request = _Request(hass, admin=True, body={"device": "kitchen"})
 
-    asyncio.run(api.DeviceUpdateDisplayView().post(request, entry_id="entry1"))
+    asyncio.run(api.DeviceRefreshDisplayView().post(request, entry_id="entry1"))
 
-    assert app.calls == ["worker", "update_display"]
+    assert app.calls == ["worker", "refresh_display"]
 
 
 def test_firmware_download_rejects_non_admin_users():
@@ -757,9 +757,9 @@ def test_firmware_download_empty_release_list_returns_error(monkeypatch):
     hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
     request = _Request(hass, admin=True, body={"device": "kitchen"})
 
-    asyncio.run(api.DeviceUpdateDisplayView().post(request, entry_id="entry1"))
+    asyncio.run(api.DeviceRefreshDisplayView().post(request, entry_id="entry1"))
 
-    assert app.calls == ["worker", "update_display"]
+    assert app.calls == ["worker", "refresh_display"]
 
 
 def test_firmware_install_runs_on_the_device_worker():

@@ -91,9 +91,6 @@ class _Panel:
     def show_in_navigation(self):
         return False
 
-    def is_popup(self):
-        return True
-
     def show_home_button(self):
         return False
 

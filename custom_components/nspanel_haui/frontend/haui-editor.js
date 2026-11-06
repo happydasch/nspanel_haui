@@ -538,7 +538,7 @@ class NSPanelEditor extends LitElement {
           @move-device=${(e) => DeviceEvents.onDeviceManagerMoveDevice(this, e)}
           @toggle-device=${(e) => DeviceEvents.onDeviceManagerToggleDevice(this, e)}
           @scan-devices=${(e) => DeviceEvents.onDeviceManagerScan(this, e)}
-          @update-display=${(e) => DeviceEvents.onDeviceManagerUpdateDisplay(this, e)}
+          @refresh-display=${(e) => DeviceEvents.onDeviceManagerRefreshDisplay(this, e)}
           @update-tft=${(e) => DeviceEvents.onDeviceManagerUpdateTft(this, e)}
           @update-firmware=${(e) => DeviceEvents.onDeviceManagerUpdateFirmware(this, e)}
           @check-for-update=${(e) => DeviceEvents.onDeviceManagerCheckUpdate(this, e)}

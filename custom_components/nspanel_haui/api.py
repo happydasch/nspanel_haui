@@ -732,11 +732,11 @@ class IconCharsView(HomeAssistantView):
         return self.json(IconCharsView._chars)
 
 
-class DeviceUpdateDisplayView(HomeAssistantView):
+class DeviceRefreshDisplayView(HomeAssistantView):
     """REST API endpoint to trigger display refresh on one or all devices."""
 
-    url = "/api/nspanel_haui/update_display/{entry_id}"
-    name = "api:nspanel_haui:update_display"
+    url = "/api/nspanel_haui/refresh_display/{entry_id}"
+    name = "api:nspanel_haui:refresh_display"
     requires_auth = True
 
     @require_admin
@@ -759,17 +759,17 @@ class DeviceUpdateDisplayView(HomeAssistantView):
             app = apps.get(device_name)
             if app is None:
                 return _error(self, f'Device "{device_name}" not found', 404)
-            await app.async_run_on_worker(app.update_display)
+            await app.async_run_on_worker(app.refresh_display)
             return self.json({"status": "ok", "devices_updated": [device_name]})
 
-        # Update all devices
+        # Refresh all devices
         updated: list[str] = []
         for dname, dapp in apps.items():
             try:
-                await dapp.async_run_on_worker(dapp.update_display)
+                await dapp.async_run_on_worker(dapp.refresh_display)
                 updated.append(dname)
             except Exception:
-                _LOGGER.exception("Failed to update display for device '%s'", dname)
+                _LOGGER.exception("Failed to refresh display for device '%s'", dname)
 
         return self.json({"status": "ok", "devices_updated": updated})
 
@@ -890,7 +890,7 @@ class DeviceUpdateTftView(HomeAssistantView):
                 )
             return self.json({"status": "ok", "devices_updated": [device_name], "update": result})
 
-        # Update all devices
+        # Refresh all devices
         updated: list[str] = []
         failed: list[dict[str, str]] = []
         for dname, dapp in apps.items():

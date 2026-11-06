@@ -27,8 +27,8 @@ _TEXT_BOXES: dict[str, dict[str, TextBox]] = {
         "tTextFull": TextBox(426, 170, 2, 200),
     },
     "portrait": {
-        "tText": TextBox(296, 210, 2, 150),
-        "tTextFull": TextBox(296, 306, 2, 200),
+        "tText": TextBox(296, 240, 2, 150),
+        "tTextFull": TextBox(296, 335, 2, 200),
     },
 }
 # Fonts the automatic text size picks from, largest first: 48, 32 and 24 px.

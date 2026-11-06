@@ -620,8 +620,10 @@ class _PanelRender:
         locale = app.device.get_locale()
         kwargs = {key: _translated(value, locale) for key, value in kwargs.items()}
         if isinstance(kwargs.get("unlock_panel"), dict):
-            # Navigation passes the panel to unlock as a panel object.
-            kwargs["unlock_panel"] = HAUIPanel(view, kwargs["unlock_panel"])  # type: ignore[arg-type]
+            # Navigation passes the panel to unlock as a locked panel object.
+            unlock_panel = HAUIPanel(view, kwargs["unlock_panel"])  # type: ignore[arg-type]
+            unlock_panel.set_state("locked", True)
+            kwargs["unlock_panel"] = unlock_panel
         self._panel = HAUIPanel(view, panel_config)  # type: ignore[arg-type]
         self._panel.apply_kwargs(kwargs)
         self._page = page_class(view, {"page_id": page_id})  # type: ignore[arg-type]

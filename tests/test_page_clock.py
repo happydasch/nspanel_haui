@@ -2,12 +2,14 @@
 
 import pytest
 from nspanel_haui.haui.abstract import haui_page
+from nspanel_haui.haui.abstract.mixins.cycle_cards_mixin import Card
 from nspanel_haui.haui.page.clock import ClockPage
 from nspanel_haui.haui.utils.icon import parse_icon
 
 
 class _Device:
     device_info: dict = {}
+    is_portrait = False
 
     def get(self, key, default=None):
         return {}.get(key, default)
@@ -164,16 +166,16 @@ def test_inside_temp_card_reads_the_resolved_sensor():
             assert entity_id == self.temp_entity_id
             return _State("21.4")
 
-    for temp_entity_id, expected_text in (
-        (None, "--°C"),
-        ("sensor.nspanel_bedroom_temperature", "21°C"),
+    for temp_entity_id, expected_texts in (
+        (None, ["--°C", "--°"]),
+        ("sensor.nspanel_bedroom_temperature", ["21°C", "21°"]),
     ):
         page = ClockPage(_TempApp(temp_entity_id), {"page_id": 7})
         page.translate = lambda key: "INSIDE"
 
-        main_text, sub_text = page._card_text_inside_temperature()
+        main_texts, sub_text = page._card_texts(Card("inside_temperature"))
 
-        assert (main_text, sub_text) == (expected_text, "INSIDE")
+        assert (main_texts, sub_text) == (expected_texts, "INSIDE")
 
 
 def test_inside_temp_card_uses_configured_sensor():
@@ -204,10 +206,10 @@ def test_inside_temp_card_uses_configured_sensor():
     page.translate = lambda key: "INSIDE"
     page.panel = _Panel({"inside_temp_item": {"item": "sensor.office_temperature"}})
 
-    main_text, sub_text = page._card_text_inside_temperature()
+    main_texts, sub_text = page._card_texts(Card("inside_temperature"))
 
     assert app.requested == ["sensor.office_temperature"]
-    assert (main_text, sub_text) == ("23°C", "INSIDE")
+    assert (main_texts, sub_text) == (["23°C", "23°"], "INSIDE")
 
 
 def test_outside_temp_missing_keeps_home_temp():
@@ -266,7 +268,7 @@ def test_first_card_shows_the_configured_weather_temperature(monkeypatch):
     page.translate = lambda text: text
     page.app.get_timezone = lambda: "UTC"
     panel = _Panel(
-        {"item": {"item": "weather.home"}, "show_time_time": False, "show_time_date": False}
+        {"item": {"item": "weather.home"}, "show_time_time": False, "show_time_outside_temp": True}
     )
 
     page.start_panel(panel)

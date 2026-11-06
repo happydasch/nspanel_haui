@@ -2,12 +2,12 @@
 ``grid_portrait.png``.
 
 The grids are page backgrounds for the Nextion Editor that show the layout
-rules of each orientation: header, 12 px side margins, content area, the
-bottom function-button bar of the portrait layout
-(``scripts/gen_portrait/portrait_layout.py``), column and row guides, icon
-and image placeholder sizes, font-size samples, the display centers and the
-theme colors of ``haui/mapping/color.py`` as RGB565 values. The landscape
-grid also marks the 30 px strip the EU bezel hides.
+rules of each orientation (portrait: ``scripts/gen_portrait/portrait_layout.py``):
+header, 12 px side margins, content area, column and row guides, icon and
+image placeholder sizes, font-size samples, the display centers and the theme
+colors of ``haui/mapping/color.py`` as RGB565 values. The landscape grid shows
+the colors in the 30 px strip the EU bezel hides; portrait has no hidden strip,
+so they run along its bottom edge.
 
 Usage::
 
@@ -29,6 +29,7 @@ FONT_DIR = ROOT / "scripts" / "gen_fonts" / "Roboto"
 COLOR_PY = ROOT / "custom_components" / "nspanel_haui" / "haui" / "mapping" / "color.py"
 
 GAP = 2
+SWATCH_H = 15
 BAR_W, BAR_PITCH = 10, 13
 CELL_H, CELL_PITCH = 10, 12
 FONT_SAMPLES = (20, 24, 32, 48)
@@ -60,7 +61,6 @@ class Spec:
     margin: int
     area: tuple[int, int, int, int]  # content area x, y, w, h (the row guides)
     outline_h: int  # outlined height: landscape keeps 20 px more than the rows
-    bottom_bar: bool
     columns: tuple[int, ...]
     rows: tuple[int, ...]
     centers: tuple[tuple[str, int, int], ...]  # label, x, y
@@ -89,7 +89,6 @@ LANDSCAPE = Spec(
     margin=12,
     area=(12, 50, 426, 240),
     outline_h=260,
-    bottom_bar=False,
     columns=(2, 3, 4, 5),
     rows=(2, 3, 4, 5),
     centers=(("Display Center", 225, 160), ("Area Center", 225, 170), ("Full Center", 225, 180)),
@@ -111,14 +110,13 @@ PORTRAIT = Spec(
     visible_w=320,
     header_h=50,
     margin=12,
-    area=(12, 50, 296, 380),
-    outline_h=380,
-    bottom_bar=True,
+    area=(12, 50, 296, 430),
+    outline_h=430,
     columns=(2, 3, 4, 5),
     rows=(2, 3, 4, 5, 6),
-    centers=(("Display Center", 160, 240), ("Area Center", 160, 240)),
+    centers=(("Display Center", 160, 240), ("Area Center", 160, 265)),
     center_label_right=150,
-    center_label_y=244,
+    center_label_y=233,
     icons_x=24,
     icons_bottom=146,
     image_pos=(121, 148),
@@ -205,21 +203,19 @@ def swatch(
 def render(spec: Spec, swatches: list[int]) -> Path:
     width, height = spec.size
     ax, ay, aw, ah = spec.area
-    bar_y = ay + spec.outline_h  # first row below the content: margin band or bottom bar
+    end_y = ay + spec.outline_h  # first row below the outlined content
     img = Image.new("RGB", (width, height), BG)
     d = ImageDraw.Draw(img)
-    f13, f13b, f12, f11, f10 = font(13), font(13, bold=True), font(12), font(11), font(10)
+    f13, f13b, f11, f10 = font(13), font(13, bold=True), font(11), font(10)
 
-    # bands: header with its 11 px top strip, side margins, bottom margin or bar
+    # bands: header with its 11 px top strip, side margins, bottom margin
     d.rectangle((0, 0, spec.visible_w - 1, spec.header_h - 1), fill=BAND)
     d.rectangle((0, 0, spec.visible_w - 1, 10), fill=BAND_TOP)
     d.rectangle((0, 11, spec.visible_w - 1, 12), fill=OUTLINE)
-    d.rectangle((0, ay, ax - 2, bar_y - 1), fill=MARGIN_BG)
-    d.rectangle((spec.area_right + 1, ay, spec.visible_w - 1, bar_y - 1), fill=MARGIN_BG)
-    if spec.bottom_bar:
-        d.rectangle((0, bar_y, width - 1, height - 1), fill=BAND)
-    else:
-        d.rectangle((ax + 1, bar_y + 1, spec.area_right, height - 1), fill=MARGIN_BG)
+    d.rectangle((0, ay, ax - 2, end_y - 1), fill=MARGIN_BG)
+    d.rectangle((spec.area_right + 1, ay, spec.visible_w - 1, end_y - 1), fill=MARGIN_BG)
+    if end_y < height:
+        d.rectangle((ax + 1, end_y + 1, spec.area_right, height - 1), fill=MARGIN_BG)
 
     # column guides for every column count, full height
     columns = {n: [(ax + s, w) for s, w in split(aw, n)] for n in spec.columns}
@@ -244,10 +240,6 @@ def render(spec: Spec, swatches: list[int]) -> Path:
     if spec.outline_h != ah:
         size_label += f" ({spec.outline_h}px)"
     d.text((14, spec.size_label_y), size_label, font=f13, fill=TEXT)
-    if spec.bottom_bar:
-        d.text(
-            (14, bar_y - 13), f"Bottom Bar: {height - bar_y}px (0, {bar_y})", font=f11, fill=TEXT
-        )
 
     # icon and image placeholders
     x = spec.icons_x
@@ -315,19 +307,20 @@ def render(spec: Spec, swatches: list[int]) -> Path:
         img.paste(tile.rotate(90, expand=True), (bx, ty))
         bx += BAR_PITCH
 
-    # theme colors: in the hidden strip (landscape) or the bottom bar (portrait)
-    if spec.bottom_bar:
+    # theme colors: in the hidden strip (landscape) or two rows along the bottom (portrait)
+    if spec.visible_w < width:
+        d.rectangle((spec.visible_w, 0, width - 1, height - 1), fill=HIDDEN)
+        for i, value in enumerate(swatches):
+            y0 = i * SWATCH_H
+            swatch(d, (spec.visible_w, y0, width - 1, y0 + SWATCH_H - 1), value, f10)
+    else:
         per_row = (len(swatches) + 1) // 2
         for i, value in enumerate(swatches):
             row, col = divmod(i, per_row)
             count = per_row if row == 0 else len(swatches) - per_row
             w = width // count
-            x0, y0 = col * w, bar_y + 1 + row * 25
-            swatch(d, (x0, y0, x0 + w - 2, y0 + 23), value, f12)
-    else:
-        d.rectangle((spec.visible_w, 0, width - 1, height - 1), fill=HIDDEN)
-        for i, value in enumerate(swatches):
-            swatch(d, (spec.visible_w, i * 15, width - 1, i * 15 + 14), value, f10)
+            x0, y0 = col * w, height - (2 - row) * SWATCH_H
+            swatch(d, (x0, y0, x0 + w - 2, y0 + SWATCH_H - 1), value, f10)
 
     out = OUT_DIR / f"grid_{spec.name}.png"
     img.save(out, optimize=True)

@@ -197,10 +197,7 @@ class ESPHomeProxy:
         "hub_heartbeat",
         "hub_connection_initialized",
         "hub_connection_closed",
-        "req_device_info",
         "req_device_state",
-        "upload_tft",
-        "haui_discover",
     }
 
     def _get_runtime_entry_data(self) -> Any | None:

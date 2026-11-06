@@ -119,6 +119,10 @@
         "force_show": {
           "name": "Wymuś pokazanie",
           "description": "Natychmiast otwórz powiadomienie, nawet jeśli wyświetlany jest inny panel."
+        },
+        "text_size": {
+          "name": "Rozmiar tekstu",
+          "description": "Rozmiar tekstu w okienku: \"auto\" (największa czcionka, przy której cała wiadomość mieści się na jednej stronie) lub rozmiar czcionki 1-3."
         }
       }
     },

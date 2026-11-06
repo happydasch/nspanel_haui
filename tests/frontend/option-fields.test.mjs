@@ -17,14 +17,15 @@ function host() {
   return { _editingPanel: { index: 0, data: { title: 'x' } }, updates: 0, requestUpdate() { this.updates++; } };
 }
 
-test('an int option stores the parsed number and keeps the other panel data', () => {
+test('an int option stores the parsed number, an empty field unsets it', () => {
   const h = host();
   const [onInput] = handlers(renderOptionField(h, { key: 'timeout', kind: 'int' }, 5));
   onInput({ target: { value: '42' } });
   assert.deepEqual(h._editingPanel.data, { title: 'x', timeout: 42 });
   assert.equal(h.updates, 1);
   onInput({ target: { value: '' } });
-  assert.equal(h._editingPanel.data.timeout, 0);
+  assert.equal(h._editingPanel.data.timeout, undefined);
+  assert.equal(JSON.stringify(h._editingPanel.data), '{"title":"x"}');
 });
 
 test('a float option stores the parsed float', () => {

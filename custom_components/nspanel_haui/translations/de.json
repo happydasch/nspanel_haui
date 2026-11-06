@@ -119,6 +119,10 @@
         "force_show": {
           "name": "Erzwingen",
           "description": "Benachrichtigung sofort anzeigen, auch wenn ein anderes Panel geöffnet ist."
+        },
+        "text_size": {
+          "name": "Textgröße",
+          "description": "Textgröße im Popup: \"auto\" (die größte Schrift, mit der die ganze Nachricht auf eine Seite passt) oder eine Schriftgröße von 1-3."
         }
       }
     },

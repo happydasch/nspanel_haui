@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import re
+from collections.abc import Sequence
 from typing import Any, NamedTuple
 
 from ..utils.icon import get_icon
@@ -225,3 +226,40 @@ def fit_text(text: str, font: int, box: TextBox) -> list[str]:
     if page:
         pages.append(page)
     return ["\n".join(page).rstrip() for page in pages]
+
+
+def has_glyphs(text: str, font: int) -> bool:
+    """Whether display font *font* can draw every character of *text*.
+
+    A font's text glyphs are a plain range from 0 (``font_metrics.json``); its
+    icons start at U+E000 and count as present.
+    """
+    count = len(_font_metrics()[font][1])
+    return all(ord(char) < count or ord(char) >= 0xE000 for char in text)
+
+
+def fits_line(text: str, font: int, box: TextBox) -> bool:
+    """Whether *box* shows *text* whole on a single line in display font *font*.
+
+    As in ``fit_text`` the border width is kept clear on both sides.
+    """
+    return (
+        text_width(text, font) <= box.width - 2 * box.border
+        and len(text.encode("utf-8")) <= box.max_len
+    )
+
+
+def fit_line(candidates: Sequence[str], font: int, box: TextBox) -> str:
+    """The first of *candidates* that *box* shows whole on a single line.
+
+    Candidates run from the preferred text to its shortest form.  When none
+    fits, the last one is cut where it overflows and ends in "..", so a clipped
+    value never passes for a whole one.
+    """
+    for text in candidates:
+        if fits_line(text, font, box):
+            return text
+    text = candidates[-1]
+    while text and not fits_line(f"{text}..", font, box):
+        text = text[:-1]
+    return f"{text.rstrip()}.." if text else ""

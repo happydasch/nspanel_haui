@@ -247,7 +247,7 @@ class DeviceManagerDialog extends HauiDialog {
               <ha-icon icon="mdi:magnify" slot="icon"></ha-icon>
               ${this._scanning ? t('Scanning...') : t('Scan')}
             </ha-button>
-            <ha-button @click=${() => this._emit("update-display", { name: "*" })} variant="neutral" appearance="plain">
+            <ha-button @click=${() => this._emit("refresh-display", { name: "*" })} variant="neutral" appearance="plain">
               <ha-icon icon="mdi:refresh" slot="icon"></ha-icon>
               ${t('Refresh all displays')}
             </ha-button>
@@ -291,7 +291,7 @@ class DeviceManagerDialog extends HauiDialog {
         label: enabled ? t('Disable') : t('Enable'), action: () => { this._emit("toggle-device", { name }); this._closeDeviceMenu(); }
       },
       'divider',
-      { icon: 'mdi:refresh', label: t('Refresh display'), action: () => { this._emit("update-display", { name }); this._closeDeviceMenu(); } },
+      { icon: 'mdi:refresh', label: t('Refresh display'), action: () => { this._emit("refresh-display", { name }); this._closeDeviceMenu(); } },
       { icon: 'mdi:update', label: t('Install TFT'), action: () => { this._openPicker("tft", name); this._closeDeviceMenu(); } },
       {
         icon: 'mdi:chip', label: t('Install firmware'), disabled: updateStatus?.firmware_installing,

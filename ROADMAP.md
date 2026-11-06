@@ -23,8 +23,9 @@ Nothing in v0.5 or v0.6 starts before that: a broken install or a core regressio
 blocks the next minor release, and remaining gate work is planned for `0.4.5`.
 After the gate closes, **v0.5** adds multiple TFTs for normal- and high-speed
 updates, stable and controllable manual/auto updates in the frontend, and a
-Device Manager overhaul. **v0.6** adds Display Repair Mode and Home Assistant
-hub settings; multi-hub support remains subject to a needs decision.
+Device Manager overhaul. **v0.6** adds Display Repair Mode, an inspection and
+cleanup of the Nextion scripts and Home Assistant hub settings; multi-hub support
+remains subject to a needs decision.
 
 ---
 
@@ -137,7 +138,7 @@ entities** tooltip, relay-switching hardware buttons, idle highlight and
 **Reset sandbox**, plus **Panel cards drawn by the hub** (every card replays the
 hub's own render), **Every popup can be edited**, **Long press to go back**,
 Day/Night Profiles, the inside-temperature sensor picker, notification line
-breaks, auto-dismiss timeout and the notification text/icon/paging fixes, the
+breaks and the notification text/icon/paging fixes, the
 firmware-to-integration update move, alarm action-button options and versioned
 dev releases.
 
@@ -337,6 +338,13 @@ gate closes. Each phase ships on its own.
   through scoped read/update endpoints and a settings tab, stored per device and
   defaulted on load. The Device Manager section above gains that tab; its bulk
   actions and per-device state stay as planned there.
+- **Device color schemes and first render** — add a device-level color scheme
+  selector, with palettes predefined in the TFT to reduce the color commands
+  needed on the first render. If the TFT cannot apply a scheme before the page is
+  shown, ensure panel startup paints the complete page with the selected colors
+  before it becomes visible. The first render must not flash the default palette
+  or show a partially themed page; editor cards must continue to match the device
+  render.
 - **Panel editors** — split-view preview built on the hub's card render
   (`nspanel_haui/virtual_panel/render`, which already draws unsaved edits),
   "create from template", inline rename/duplicate/reorder and field-level
@@ -388,8 +396,6 @@ current mode; no tab ever shows a mode the app is not in.
 Open items from the release-process review (runbook and known risks in
 [docs/release.md](docs/release.md)):
 
-- Release notes extracted from the `CHANGELOG.md` section instead of static text
-  in `release.yml` (0.5).
 - Pre-flight gates in `tests.yml`/`release.yml` so a tag cannot ship untested
   code — now runs on every push/PR (0.5).
 - Scripted HMI patching for release-only edits — `tftVersion` scripting landed
@@ -424,6 +430,30 @@ a fresh normal TFT install — no Nextion Editor session required.
 normal TFT from the editor without a Nextion Editor session, on both display
 models and both speed variants.
 
+### Nextion script inspection & cleanup
+
+The HMI event code (`Program.s`, page `Preinitialize`/`Postinitialize`, touch
+press/release events, timers) has grown page by page and is not inventoried.
+Before more behaviour moves onto the display, find out what the Nextion side can
+do and clean up what it does today.
+
+- **Inventory** — dump the event code of both HMIs (Nextion2Text) and record what
+  each script does, which hub command or ESPHome event it pairs with, and where
+  landscape and portrait differ.
+- **Possibilities** — document the Nextion instruction set and limits that matter
+  here (timers, system variables, `sendme`/`printh`, local state, sleep/wake
+  hooks, script length and RAM) and decide which behaviour is better on the
+  display than on the hub — for example instant touch feedback or page
+  preparation that removes first-render commands.
+- **Cleanup** — remove dead or duplicated scripts and automations that the hub or
+  firmware already drives, align landscape and portrait, and keep the "logic in
+  the Hub App" rule from [Nextion Editor](docs/nextion-editor.md#hard-rules) except
+  where the inventory shows a reason to move it.
+
+**Acceptance:** a documented inventory of every HMI script on both display models,
+no unused or duplicated event code left, parity gates green, and every page
+behaving unchanged on hardware after the cleanup.
+
 ### Hub management
 
 - **Hub settings in Home Assistant** — add an integration options flow so the
@@ -442,7 +472,9 @@ models and both speed variants.
 
 - All `bug`-labelled issues closed.
 - `CHANGELOG.md` covering every release from 0.1.0.
-- HACS default integration status (no longer "custom repository").
+- Listed in the Home Assistant Marketplace catalog (a PR to `hacs/default`, the
+  list the Marketplace reads), so users no longer add a custom repository or
+  connect GitHub.
 - Published on PyPI / HA add-on registry, if applicable.
 - REST API docs published alongside user docs.
 - Final branding pass: icons, screenshots, README hero image.
@@ -455,8 +487,8 @@ models and both speed variants.
   all eligible NSPanels under one hub, with settings scoped per device. No
   separate multi-hub use case is established yet, so retain the single-instance
   flow unless a concrete need for independent fleets/configuration is identified.
-- **Trim the HACS download** (`export-ignore` the Nextion binaries) — HACS users
-  would lose the HMI sources.
+- **Trim the Marketplace download** (`export-ignore` the Nextion binaries) —
+  Marketplace users would lose the HMI sources.
 - **Runtime credential adoption for the universal image** — post-0.4; baked
   credentials stay shared for now.
 - **`cls` background refresh** after sleep/wake or reconnect — needs hardware

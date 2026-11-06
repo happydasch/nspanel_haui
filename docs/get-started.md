@@ -9,7 +9,7 @@ Get your NSPanel connected to Home Assistant and showing your first panel. This 
 
 ## What you need
 
-- A Home Assistant instance with **HACS** installed
+- Home Assistant **2026.11** or later (it brings the Marketplace)
 - The **ESPHome** add-on installed and running
 - A USB-UART adapter (for first-time flashing)
 - A Sonoff NSPanel device
@@ -22,7 +22,7 @@ See [Installation Guide](install.md) for full flashing instructions.
 
 ## 2. Install the integration
 
-Install NSPanel HAUI via HACS (add `https://github.com/happydasch/nspanel_haui` as a custom repository of type **Integration**, then download **NSPanel HAUI**) or copy `custom_components/nspanel_haui/` into your Home Assistant `custom_components/` directory. Restart Home Assistant.
+Install NSPanel HAUI from the Marketplace (**Settings → Marketplace → Add from link**, enter `happydasch/nspanel_haui`, then **Install** **NSPanel HAUI**; adding a custom repository asks you to connect GitHub once) or copy `custom_components/nspanel_haui/` into your Home Assistant `custom_components/` directory. Restart Home Assistant.
 
 ## 3. Add the device
 

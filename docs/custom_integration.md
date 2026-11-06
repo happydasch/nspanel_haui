@@ -11,14 +11,14 @@ NSPanel HAUI runs as a native Home Assistant custom integration. No external add
 
 ## Requirements
 
-- Home Assistant 2026.10+
+- Home Assistant 2026.11+
 - ESPHome device flashed and connected (see [Installation Guide](install.md) steps 1-2)
 
 ## Installation
 
-For most users, the **recommended installation method** is via HACS, adding the integration through the Home Assistant UI's config flow workflow:
+For most users, the **recommended installation method** is the Home Assistant Marketplace, adding the integration through the Home Assistant UI's config flow workflow:
 
-1. Install via HACS or copy the `custom_components/nspanel_haui/` folder into your HA config directory:
+1. Install from the Marketplace as a custom repository (see [Installation Guide](install.md#3-step-install-hub-app)) or copy the `custom_components/nspanel_haui/` folder into your HA config directory:
    ```
    <ha_config>/custom_components/nspanel_haui/
    ```

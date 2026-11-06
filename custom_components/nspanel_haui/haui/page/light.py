@@ -63,8 +63,9 @@ class LightPage(HAUIPage):
     # hardcoded to not request too often, needed for color to rect pos
     PIC_COLOR_RECT_W = 200
     PIC_COLOR_RECT_H = 200
-    # top-left corner of pColorWheel in the landscape and the portrait TFT layout
-    PIC_COLOR_RECT_POS = {"landscape": (125, 75), "portrait": (90, 80)}
+    # top-left corner of pColorWheel in the landscape and the portrait TFT layout;
+    # tests/test_page_light.py checks it against the exported layouts
+    PIC_COLOR_RECT_POS = {"landscape": (125, 75), "portrait": (60, 124)}
 
     DEFAULT_FUNCTION = "brightness"
 

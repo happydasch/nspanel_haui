@@ -4,9 +4,9 @@ You are an experienced, pragmatic software engineering AI agent. Do not over-eng
 
 **NSPanel HAUI** (HomeAssistant UI) is a Home Assistant custom integration that replaces the stock Sonoff NSPanel firmware with a flexible, configurable display system built on ESPHome.
 
-- **Language:** Python 3.14+ (integration; `requires-python = ">=3.14"` in `pyproject.toml`, the Python Home Assistant 2026.10 requires; CI runs 3.14), JavaScript (HA Lovelace editor frontend)
+- **Language:** Python 3.14+ (integration; `requires-python = ">=3.14"` in `pyproject.toml`, the Python Home Assistant 2026.11 requires; CI runs 3.14), JavaScript (HA Lovelace editor frontend)
 - **Hardware:** Sonoff NSPanel (ESP32 + Nextion touchscreen display)
-- **Home Assistant:** minimum `2026.10` (`hacs.json`); integration type `hub`, IoT class `local_push`
+- **Home Assistant:** minimum `2026.11` (`hacs.json`; the release that replaced HACS with the built-in Marketplace, which installs the integration as a custom repository); integration type `hub`, IoT class `local_push`
 - **Runtime dependencies:** `pydantic>=2.0`, `python-dateutil>=2.8.0` (declared in `manifest.json`); `requests` and `packaging` are also imported by the update controller; both ship with Home Assistant core, so they are not listed in `manifest.json`
 - **Linting:** ruff (`E`, `F`, `W`, `I`, `UP`, `B` rulesets; line length 100; target `py314`)
 - **Type checking:** mypy (targets `custom_components/nspanel_haui/haui` only)
@@ -47,8 +47,8 @@ Inside the Hub app, components follow a layered structure:
 | `custom_components/nspanel_haui/ha_adapter.py` | `HAAdapter` + `ItemProxy` + `ESPHomeProxy` - bridges HA async API to sync haui core |
 | `custom_components/nspanel_haui/config_flow.py` | HA config flow for adding/configuring the integration via the UI |
 | `custom_components/nspanel_haui/storage.py` | `PanelStorage` - loads/saves panel configs from HA's internal store |
-| `custom_components/nspanel_haui/api.py` | REST API views: translations, device status, panel types/colors/config CRUD, device config/YAML, icon search, display updates |
-| `custom_components/nspanel_haui/esphome_helpers.py` | ESPHome discovery utilities (find HAUI devices, service validation) |
+| `custom_components/nspanel_haui/api.py` | REST API views: translations, device status, panel types/colors/config CRUD, device config/YAML, icon search, display refresh, TFT/firmware installs |
+| `custom_components/nspanel_haui/esphome_helpers.py` | ESPHome discovery utilities (find HAUI devices in the device registry, resolve their entities) |
 | `custom_components/nspanel_haui/virtual_panel.py` | Editor live preview and panel cards: `VirtualNSPanelHAUI` + `VirtualESPHomeProxy` (one second app per device, driven by the browser instead of ESPHome), `VirtualPanelHost` (viewers + isolated card renders) |
 | `custom_components/nspanel_haui/sandbox.py` | Simulated entity states for the live preview's sandbox mode |
 | `custom_components/nspanel_haui/websocket_api.py` | Virtual panel WebSocket commands (`nspanel_haui/virtual_panel/subscribe`, `/event`, `/configure` for the live preview, `/render` for panel cards) and the one-app-per-device host registry |
@@ -63,7 +63,7 @@ Inside the Hub app, components follow a layered structure:
 | `custom_components/nspanel_haui/haui/abstract/display_interface.py` | `DisplayInterface` + `ESPHomeTransport` - high-level display command API |
 | `custom_components/nspanel_haui/haui/abstract/haui_entity.py` | `HAUIEntity` - wraps a single HA entity with config, state listening, service calls |
 | `custom_components/nspanel_haui/haui/abstract/haui_event.py` | `HAUIEvent` - event data class for display interactions |
-| `custom_components/nspanel_haui/haui/abstract/mixins/` | `ComponentMixin`, `FunctionButtonMixin`, `PagedItemsMixin` (paging + debounced item updates for grid/row) - page behavior mixins |
+| `custom_components/nspanel_haui/haui/abstract/mixins/` | `ComponentMixin`, `FunctionButtonMixin`, `PagedItemsMixin` (paging + debounced item updates for grid/row), `CycleCardsMixin` (the clock/weather cycle cards, fitted to the font) - page behavior mixins |
 | `custom_components/nspanel_haui/haui/mapping/panel.py` | `PANEL_MAPPING` and `PAGE_MAPPING` registries; `_build_panel_mapping()`, `SYS_PANEL_MAPPING` and `POPUP_PANEL_MAPPING` |
 | `custom_components/nspanel_haui/haui/mapping/descriptor.py` | `PageDescriptor` + `PageOption` metadata and the `_()` translation marker |
 | `custom_components/nspanel_haui/haui/mapping/const.py` | String enums and constants: `ESPEvent`, `ESPResponse`, `ESPCommand`, `ESPAction`, `SysPanelKey` (fixed system panel keys), `PopupPanelKey` (popup keys), `NotifType`, `DEFAULT_CONFIG`, `PANEL_CONFIG` |
@@ -76,7 +76,7 @@ Inside the Hub app, components follow a layered structure:
 | `esphome/nspanel_haui.yaml` | Runtime ESPHome device config |
 | `nextion/nspanel_haui.tft` | Nextion display UI file (pre-compiled) |
 | `pyproject.toml` | Project metadata, pytest/mypy/ruff configuration |
-| `hacs.json` | HACS integration metadata |
+| `hacs.json` | Marketplace repository metadata (name, minimum Home Assistant version); the Marketplace kept HACS's file format |
 | `custom_components/nspanel_haui/manifest.json` | HA integration manifest |
 
 ### Important directories
@@ -275,7 +275,7 @@ Workflow (the editor owns the file while a project is open):
 
 **Firmware updates belong to the hub's `HAUI Firmware` entity (`update.py`).** The update controller reads the manifest at the device's `update.firmware_manifest_url` (default: the latest GitHub release's `firmware-manifest.json`; a test panel points it at a local release written by `scripts/dev_release.py`) and flashes a newer firmware through the firmware's `install_firmware_url` action (automatically only with `firmware_auto_update`, default `false`; otherwise via **Install** on the entity). `esphome/nspanel_haui/base.yaml` keeps `http_request` + `ota: platform: http_request` for that action; the ESPHome side keeps only its stock dashboard update entity, so the firmware declares no `update:` block of its own. The release workflow generates and attaches `firmware-manifest.json` (name/version/builds[].ota with the absolute .bin URL and md5) on tag pushes only — a workflow_dispatch release carries no manifest, so devices simply see no update. Ordering matters: a TFT upload in flight blocks the firmware install, and an in-flight firmware install defers the TFT install; the TFT follows after the device reboots into the new firmware. **The ESPHome web server is optional and not part of the shipped build** — `base.yaml` leaves `web_server` out so HTTP OTA has flash/RAM headroom. `esphome/nspanel_haui_dev.yaml` enables it for local development; a device YAML that includes `nspanel_haui.yaml` as a package enables it by adding a top-level `web_server:` block. Home Assistant's "Visit" link only appears when the component runs.
 
-**Dev releases are tagged with their version.** `.github/workflows/dev-firmware.yml` publishes each `dev` build as a prerelease whose tag *is* the PEP 440 version (`X.Y.(Z+1).dev<run>`, the commit goes in the release name). Never add a `+local` segment such as `+g<sha>`: AwesomeVersion (Home Assistant and HACS) sorts `0.4.5.dev16+g<sha>` above the final `0.4.5` and above `0.4.5.dev17`, so such a build is never offered its successor. The tag points at a `chore(release)` commit on top of the pushed commit that carries that version in `custom_components/nspanel_haui/manifest.json` (+ `esphome/nspanel_haui/version.yaml`) — HACS downloads the tag's source archive, so tagging the branch commit would ship the stable version. The workflow also pushes that `[skip ci]` commit back onto `dev`; the next run keeps its `X.Y.Z` base and only a stable manifest (after the master merge-back) moves it to `X.Y.(Z+1)`. Because dev's tip is always that bot commit, release prep never happens on `dev`: a stable bump there is overwritten within minutes, and a PR whose head says `[skip ci]` never runs its required checks — cut `release/X.Y.Z` from `dev` and PR it into `master` (`docs/release.md`, "Branches and cadence"). The workflow keeps only the newest 10 dev prereleases (HACS reads 30 releases; more dev builds would hide the latest stable one). HACS takes the release tag as the available version and the installed copy's manifest `version` as the installed one and compares them with AwesomeVersion (PEP 440); the old `dev-<run>-<sha>` tags parsed as `UNKNOWN`, so HACS fell back to string inequality — an installed dev build kept offering itself as an update and the version list had no usable order. Never reintroduce a non-version tag for a dev release, and keep the tag string byte-identical to the manifest version (`+` build metadata included) so the comparison stays same-strategy. There is no fixed dev manifest URL (the old `dev-latest` release is gone): the hub's `dev` update channel takes the `firmware-manifest.json` of the newest release in the GitHub release list, prereleases included.
+**Dev releases are tagged with their version.** `.github/workflows/dev-firmware.yml` publishes each `dev` build as a prerelease whose tag *is* the PEP 440 version (`X.Y.(Z+1).dev<run>`, the commit goes in the release name). Never add a `+local` segment such as `+g<sha>`: AwesomeVersion (Home Assistant and its Marketplace) sorts `0.4.5.dev16+g<sha>` above the final `0.4.5` and above `0.4.5.dev17`, so such a build is never offered its successor. The tag points at a `chore(release)` commit on top of the pushed commit that carries that version in `custom_components/nspanel_haui/manifest.json` (+ `esphome/nspanel_haui/version.yaml`) — the Marketplace downloads the tag's source archive, so tagging the branch commit would ship the stable version. The workflow also pushes that `[skip ci]` commit back onto `dev`; the next run keeps its `X.Y.Z` base and only a stable manifest (after the master merge-back) moves it to `X.Y.(Z+1)`. Because dev's tip is always that bot commit, release prep never happens on `dev`: a stable bump there is overwritten within minutes, and a PR whose head says `[skip ci]` never runs its required checks — cut `release/X.Y.Z` from `dev` and PR it into `master` (`docs/release.md`, "Branches and cadence"). The workflow keeps only the newest 10 dev prereleases (the Marketplace reads 30 releases; more dev builds would hide the latest stable one). The Marketplace takes the release tag as the available version and the installed tag as the installed one and compares them with AwesomeVersion (PEP 440); the old `dev-<run>-<sha>` tags parsed as `UNKNOWN`, so the comparison fell back to string inequality — an installed dev build kept offering itself as an update and the version list had no usable order. Never reintroduce a non-version tag for a dev release, and keep the tag string byte-identical to the manifest version (`+` build metadata included) so the comparison stays same-strategy. There is no fixed dev manifest URL (the old `dev-latest` release is gone): the hub's `dev` update channel takes the `firmware-manifest.json` of the newest release in the GitHub release list, prereleases included.
 3. **Re-open the project** (recent list), look at every page, compile (`Compile`, then `File → TFT file output` → `nextion/nspanel_haui_portrait.tft`) and run `python scripts/verify_nextion/verify_nextion.py --require-portrait`. Done means the editor opened the file without "Version mismatch", every page renders as specified, and the gate passes.
 
 Format reference (what the script relies on):
@@ -429,20 +429,22 @@ Notification delivery has three entry points; the HA service is the recommended 
 
 | Entry point | Options | Notes |
 |-------------|---------|-------|
-| `nspanel_haui.send_notification` service | title, message, icon, type, persistent, force_show, text_size | Goes straight to the notification controller; carries severity (`type`) and force-show |
-| `notify.<device>` / `notify.<device>_persistent_notification` | title, message only | The regular entity queues; the persistent entity always opens immediately (force-show) and loops the sound. Neither accepts a configurable severity or force-show |
-| ESPHome `send_notification` action | title, message, icon + optional persistent / text_size | No severity or force-show fields |
+| `nspanel_haui.send_notification` service | title, message, icon, type, persistent, force_show, text_size, timeout | Goes straight to the notification controller; carries severity (`type`), force-show and the auto-dismiss `timeout` |
+| `notify.<device>` / `notify.<device>_persistent_notification` | title, message only | The regular entity queues; the persistent entity always opens immediately (force-show) and loops the sound. Neither accepts a configurable severity, force-show or timeout |
+| ESPHome `send_notification` action | title, message, icon, persistent, text_size — all required (ESPHome 2026.10 has no optional action variables) | No severity, force-show or timeout fields |
 
 Key semantics:
 
-- Notifications **never auto-dismiss**: an entry stays in the queue until it is
+- Notifications auto-dismiss **only** when the service's optional `timeout`
+  expires (seconds counted from queueing, so a still-queued entry can expire
+  unseen). Otherwise an entry stays in the queue until it is
   dismissed on the panel, replaced by an identical title+message, or cleared.
   The notification queue plays through — when the current popup is dismissed
   while more are queued, the next one opens in its place (`notification._advance_queue`).
   A new force-show notification never rips an open notification popup/list away:
   it waits in the queue instead. This is the "notifications are shown only once"
   regression guard — do not pass a `close_timeout` to queued-notification popups.
-- `persistent=true` loops the sound until the notification is dismissed, and opens the popup immediately (the service forces it; the ESPHome action does not). While the idle page is shown, only a `critical` persistent notification forces its popup over it; other severities wait for the user to return to a real panel — the timer keeps running, so the alert resumes when the idle page is exited.
+- `persistent=true` loops the sound until the notification is dismissed (or its timeout expires), and opens the popup immediately (the service forces it; the ESPHome action does not). While the idle page is shown, only a `critical` persistent notification forces its popup over it; other severities wait for the user to return to a real panel — the timer keeps running, so the alert resumes when the idle page is exited.
 - An empty `icon` shows no icon; there is no severity default icon. The severity (`type`) colours the icon when one is set, and `critical` also plays the `alert` sound instead of `notification`. The message goes to `tText` beside the icon, or to the full-width `tTextFull` when there is no icon. Text is fitted with the display fonts' real glyph widths (`fit_text` in `haui/utils/text.py`, widths in `haui/mapping/font_metrics.json`, exported by `gen_virtual_layout`): lines wrap so the display never re-wraps them, a page holds the lines the box is tall and at most the widget's `txt_maxl` bytes, and `auto` picks the largest font that fits one page. `NotifyPage._TEXT_BOXES` must match the HMI widgets (a test checks it).
 - Long messages are split into static pages in the detail popup and advance only when the manual next-page header button is pressed; the final page stays visible. The queue selection list shows plain titles.
 - Sending a notification with the same title and message as one already queued replaces it: the sound replays and the queue advances to it when the current popup closes.
@@ -470,7 +472,7 @@ Device settings have one home: the panel store.
 
 `__init__.py:_build_config_dict(entry.data, store, device_name=...)` builds one device's runtime config: identity, then store settings, then `DEVICE_CONFIG` defaults. The result goes to `HAUIConfig` for typed access and validation. Setup builds it once per enabled device. A panel or settings save (`api._push_panels`) rebuilds it the same way and applies it with `NSPanelHAUI.reload_config`, so a setting removed from the store falls back to its default.
 
-**System panels are identified by key, never by type.** Only the popups can be edited: `haui/mapping/panel.py` maps the fixed system panels (System, Blank, Settings, About) in `SYS_PANEL_MAPPING` (keys: `SysPanelKey`) and the popups (every `popup_*` key, notify/select/unlock included) in `POPUP_PANEL_MAPPING` (keys: `PopupPanelKey`); code that needs every system panel uses `SYS_PANEL_MAPPING | POPUP_PANEL_MAPPING`, and the editor reads the system entry's `editable`. A user panel saved under a popup key (`popup_cover`, `popup_notify`, …) replaces that popup; an edited entity popup is stored with the user type (`popup_cover` → `cover`), and `popup_notify`/`popup_select` have the types `notify`/`select`. System, Blank, Settings and About are fixed: `validate_panels` refuses a panel under their key, `PanelStorage.load` drops a stored one (`drop_fixed_sys_overrides`) and `HAUIConfig._merge_sys_overrides` raises on one. `_merge_sys_overrides` lays the override over the system defaults, keeps it out of navigation and strips `unlock_code`/`close_timeout` from `HUB_DRIVEN_PANELS` (`haui/mapping/const.py`; the editor hides those fields via the system entry's `hub_driven`). `HAUIPanel.is_popup()` likewise checks the key.
+**System panels are identified by key, never by type.** Only the popups can be edited: `haui/mapping/panel.py` maps the fixed system panels (System, Blank, Settings, About) in `SYS_PANEL_MAPPING` (keys: `SysPanelKey`) and the popups (every `popup_*` key, notify/select/unlock included) in `POPUP_PANEL_MAPPING` (keys: `PopupPanelKey`); code that needs every system panel uses `SYS_PANEL_MAPPING | POPUP_PANEL_MAPPING`, and the editor reads the system entry's `editable`. A user panel saved under a popup key (`popup_cover`, `popup_notify`, …) replaces that popup; an edited entity popup is stored with the user type (`popup_cover` → `cover`), and `popup_notify`/`popup_select` have the types `notify`/`select`. System, Blank, Settings and About are fixed: `validate_panels` refuses a panel under their key, `PanelStorage.load` drops a stored one (`drop_fixed_sys_overrides`) and `HAUIConfig._merge_sys_overrides` raises on one. `_merge_sys_overrides` lays the override over the system defaults, keeps it out of navigation and strips `unlock_code`/`close_timeout` from `HUB_DRIVEN_PANELS` (`haui/mapping/const.py`; the editor hides those fields via the system entry's `hub_driven`).
 
 ### Locale/translations
 
@@ -712,11 +714,12 @@ Example: `fix(esphome): include device name in discovery fallback`
 7. If you changed config flow logic, ensure `tests/test_config_flow.py` covers the change.
 8. If your changes affect documented behavior (new options, changed defaults, new panel type features, etc.), update the corresponding docs in `docs/` to match.
 9. Breaking changes must be documented in `docs/upgrading.md` and the CHANGELOG's "Breaking changes" section.
+10. Write each `CHANGELOG.md` entry as one line (what changed, plus its issue/PR link); the full description goes into the release notes, `.github/release-notes/<tag>.md` (`docs/release.md`, step 5).
 
 ### Branches and pull requests
 
 `master` is release-only — never commit to it directly. It takes `release/X.Y.Z`
-branches cut from `dev` (and hotfixes) only; Pages deploys from it and HACS users
+branches cut from `dev` (and hotfixes) only; Pages deploys from it and Marketplace users
 install from its releases. A ruleset blocks direct pushes, force-pushes and
 deletion there, so a release has to go through a PR with green CI. Never open
 that PR from `dev` itself: its tip is always the dev-firmware bot's `[skip ci]`

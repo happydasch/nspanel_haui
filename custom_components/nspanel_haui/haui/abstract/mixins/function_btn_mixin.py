@@ -413,7 +413,7 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
     # Auto-assignment
     # ------------------------------------------------------------------
 
-    def _auto_assign_fncs(self, panel: HAUIPanel, show_in_nav: bool | None = None) -> None:
+    def _auto_assign_fncs(self, panel: HAUIPanel) -> None:
         """Auto-assign default function types to header buttons that have no explicit assignment.
 
         This is called once per ``config_panel()`` cycle.  Only buttons whose
@@ -423,39 +423,25 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
 
         Args:
             panel (HAUIPanel): Current panel
-            show_in_nav (bool, optional): Navigation state the header follows
-                instead of the panel's own. The unlock popup passes the state
-                of the panel it guards: in navigation it gets that panel's
-                header, not a popup's, while navigation keeps it on the stack.
         """
         home_key = self.app.device.get("home_panel")
-        if show_in_nav is None:
-            show_in_nav = panel.show_in_navigation()
-        is_popup = panel.is_popup() and not show_in_nav
+        show_in_nav = panel.show_in_navigation()
         for fnc_id, fnc_item in self._fnc_items.items():
             if fnc_item["fnc_name"] is None:
-                # left primary: popup with home button => HOME, navigation => PREV, otherwise => UP
+                # left primary: navigation => PREV, stacked panel or popup => UP
                 if fnc_id == self.FNC_BTN_L_PRI:
-                    if (
-                        is_popup
-                        and not (home_key and panel.get("key") == home_key)
-                        and panel.show_home_button()
-                    ):
-                        fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
-                    elif show_in_nav:
+                    if show_in_nav:
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_PREV
                     else:
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_UP
-                # left secondary: on home panel => IDLE (idle page),
-                # otherwise on non-popup panels => HOME
+                # left secondary: on home panel => IDLE (idle page), otherwise => HOME
                 elif fnc_id == self.FNC_BTN_L_SEC:
-                    if not is_popup:
-                        is_home = home_key and panel.get("key") == home_key
-                        if not is_home and panel.show_home_button():
-                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
-                        elif is_home and panel.show_idle_button():
-                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_IDLE
-                            fnc_item["fnc_args"]["visible"] = True
+                    is_home = home_key and panel.get("key") == home_key
+                    if not is_home and panel.show_home_button():
+                        fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
+                    elif is_home and panel.show_idle_button():
+                        fnc_item["fnc_name"] = self.FNC_TYPE_NAV_IDLE
+                        fnc_item["fnc_args"]["visible"] = True
                 # right primary: navigation => NEXT, otherwise => CLOSE
                 elif fnc_id == self.FNC_BTN_R_PRI:
                     if show_in_nav:

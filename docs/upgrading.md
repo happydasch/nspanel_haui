@@ -40,7 +40,7 @@ You are affected if any of the following applies to you:
 
 ## 3. Update order
 
-1. Update the **integration** first (HACS or zip) and restart Home Assistant.
+1. Update the **integration** first (Marketplace or zip) and restart Home Assistant.
 2. Then flash the matching firmware **and** TFT together, as released.
 
 The firmware and the hub exchange event names, so a mismatched pair (new
@@ -153,7 +153,7 @@ See [Services](services.md#nspanel_hauisend_notification) for details.
 
 ## 5. How to update
 
-1. **Update the integration** (HACS → reinstall/download the release, or copy
+1. **Update the integration** (Marketplace → install the release, or copy
    the folder) and restart Home Assistant.
 2. **Re-enter saved settings** in the editor (Device Manager → device): per
    weather panel set the forecast type back, verify **Show in navigation** per
@@ -184,7 +184,8 @@ See [Services](services.md#nspanel_hauisend_notification) for details.
 
 ## 7. Rollback
 
-Pin the previous integration version (e.g. in HACS, reinstall 0.3.2) and
+Restore a Home Assistant backup from before the update (the Marketplace does
+not downgrade an integration) or copy the previous integration folder back, and
 restore the storage backup from step 2. The old firmware and TFT must match
 the old integration — restore those versions too before reconnecting the
 device.
@@ -331,7 +332,9 @@ through the `firmware_manifest_url` substitution needs its **Firmware
 manifest URL** set to the same URL in the device editor before you update the
 integration — or turn off **Auto-install firmware updates** for it. Otherwise
 the hub reads the GitHub manifest and installs a newer release over the test
-build.## 12. Display TFT updates come from the firmware manifest
+build.
+
+## 12. Display TFT updates come from the firmware manifest
 
 The display TFT is now part of the firmware's update path: every release
 manifest carries a `tft` block (version + per display model asset), and the
@@ -358,14 +361,15 @@ instead of looking up a matching GitHub release.
   next-patch `X.Y.(Z+1).devN` build). Dev builds published before 2026-11-04
   carry a `+g<sha>` segment that Home Assistant sorts above the final release
   and above later dev builds: install a newer build once by hand (**Install
-  firmware** with its version; in HACS pick the version), then updates are
+  firmware** with its version; in the Marketplace, **Install another version**),
+  then updates are
   offered normally.
 - **New device setting:** `firmware_update_channel` (`stable`/`dev`) in the
   editor's Updates section picks the manifest when the URL is empty — the
   latest stable release, or the newest dev prerelease. An explicit
   **Firmware manifest URL** still overrides it.
 
-## 12. Native OTA is encrypted with the API key
+## 13. Native OTA is encrypted with the API key
 
 The firmware's native OTA platform (wireless installs from ESPHome) is now
 encrypted with the API key instead of protected by a password, so the
@@ -376,7 +380,7 @@ older firmware need one wireless install with a migration block, and a
 validation. See
 [ESPHome Component → Encrypted native OTA](esphome.md#encrypted-native-ota).
 
-## 13. The Current Page sensor moved to the firmware
+## 14. The Current Page sensor moved to the firmware
 
 The firmware now provides the **Current Page** sensor; the integration's
 sensor platform is gone. The value is still the Nextion page name the display
@@ -390,3 +394,51 @@ the hub is disconnected, because it comes from the display.
 - The `panel`, `type` and `title` attributes are gone. Automations that read
   them trigger on the `nspanel_haui.page_changed` event instead, which carries
   the same fields (see [Services → HA Events](services.md#ha-events-automation-triggers)).
+
+## 15. Home Assistant 2026.11 and the Marketplace
+
+NSPanel HAUI now requires **Home Assistant 2026.11** or later (`hacs.json`
+declares it). That release replaces HACS with the built-in
+[Marketplace](https://www.home-assistant.io/integrations/marketplace/), and the
+install docs describe only the Marketplace.
+
+- **Update Home Assistant first.** On 2026.10 or older, the update to this
+  release is not offered.
+- **Installed through HACS:** nothing to do. Home Assistant migrates HACS on
+  the first start of 2026.11; NSPanel HAUI stays installed as a custom
+  repository and keeps receiving updates. Its update entity keeps its name,
+  area and labels.
+- **Development builds:** the HACS beta toggle is now the repository's
+  **Pre-release** switch (**Settings → Devices & services → Marketplace**,
+  NSPanel HAUI's device page; the entity is disabled by default).
+- **Rolling back:** the Marketplace does not downgrade. Restore a backup
+  instead of installing an older version.
+- **Fresh install:** add `happydasch/nspanel_haui` under **Settings →
+  Marketplace → Add from link**; adding a custom repository needs a GitHub
+  connection. See [Installation](install.md#3-step-install-hub-app).
+
+## 16. Unused firmware actions and events removed
+
+The firmware drops actions and events that the hub never called or listened
+to. Panels work as before; only automations that used them directly need a
+change after flashing the new firmware:
+
+| Removed | Use instead |
+|---------|-------------|
+| Action `esphome.<device>_haui_discover` and its `esphome.haui_discover` event | nothing — the integration finds panels through the ESPHome device registry |
+| Action `esphome.<device>_req_device_info` and its `esphome.res_device_info` event | `esphome.<device>_req_device_state`: its `esphome.res_device_state` event also carries `yaml_version`, `tft_required_version` and `firmware_variant` |
+| Action `esphome.<device>_req_reconnect` | `esphome.<device>_hub_connection_closed`, which does the same |
+| Events `use_relay_left` / `use_relay_right` (`esphome.nspanel_event`) | a state trigger on `switch.<device>_use_relay_left` / `switch.<device>_use_relay_right` |
+
+## 17. Cycle cards are off by default
+
+Clock and weather panels now show only the time in their big time area until
+more cycle cards are enabled. Clock panels cycled the date and outside
+temperature by default before, so a clock panel that never changed these
+options stops cycling after the update.
+
+- To keep the old rotation, open the clock panel in the editor and turn on
+  **Show date** and **Show outside temperature** in the **Cycle cards**
+  section. A panel that already set them keeps its cards.
+- Weather panels behave as before: they show the time and date until you
+  enable more cards (see [Weather panel](panels/panel_weather.md#cycle-cards)).

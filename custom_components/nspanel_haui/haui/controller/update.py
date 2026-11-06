@@ -1680,11 +1680,6 @@ class HAUIUpdateController(HAUIBase):
             event (HAUIEvent): Event
         """
 
-        # device info received (device_version, yaml_version, tft_required_version)
-        if event.name == ESPResponse.RES_DEVICE_INFO:
-            device_info = event.as_json()
-            self.app.device.set_device_info(device_info, append=True)
-
         # device state received (includes yaml_version, tft_required_version and tft_version)
         if event.name == ESPResponse.RES_DEVICE_STATE:
             device_state = event.as_json()
@@ -1696,7 +1691,5 @@ class HAUIUpdateController(HAUIBase):
                 self._cancel_timer("_state_check_timer")
                 self._evaluate_installed_version(self.app.device.device_info or {})
             self._mark_done_if_installed()
-
-        if event.name in (ESPResponse.RES_DEVICE_INFO, ESPResponse.RES_DEVICE_STATE):
             self.publish_display_update()
             self.publish_firmware_update()

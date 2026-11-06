@@ -302,22 +302,22 @@ export async function removeDevice(host, name, keepConfig = false) {
 /**
  * Trigger display refresh on one or all devices.
  *
- * POST /api/nspanel_haui/update_display/{entryId}
+ * POST /api/nspanel_haui/refresh_display/{entryId}
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
  * @param {string} deviceName - device name, or "*" for all devices
  * @returns {Promise<{ status: string, devices_updated: string[] }>}
  */
-export async function updateDeviceDisplay(host, deviceName) {
+export async function refreshDeviceDisplay(host, deviceName) {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));
   }
-  return request(host, `/api/nspanel_haui/update_display/${host.entryId}`,
+  return request(host, `/api/nspanel_haui/refresh_display/${host.entryId}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device: deviceName }),
-    }, t("Failed to update display"));
+    }, t("Failed to refresh display"));
 }/**
  * Resolve the prebuilt firmware (.bin) download link of the latest release.
  *

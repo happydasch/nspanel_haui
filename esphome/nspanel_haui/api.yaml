@@ -96,11 +96,6 @@ api:
             connected: 0
             force: 0
 
-    # HA requests device info
-    - action: req_device_info
-      then:
-        - script.execute: publish_device_info
-
     # HA requests device state
     - action: req_device_state
       then:
@@ -147,14 +142,6 @@ api:
         - lambda: |-
             id(hub_heartbeat) = millis() / 1000;
 
-    # Reconnect request from HA
-    - action: req_reconnect
-      then:
-        - script.execute:
-            id: set_hub_connected
-            connected: 0
-            force: 0
-
     # Request a number value
     - action: req_val
       variables:
@@ -194,11 +181,6 @@ api:
         offset: int
       then:
         - lambda: id(update_last_interaction).execute(-1, offset);
-    # Action to support device discovery - returns device identity metadata
-    - action: haui_discover
-      then:
-        - script.execute: publish_haui_discover
-
 
     # Action to send a notification.
     # ESPHome 2026.10 has no optional action variables, so every parameter is

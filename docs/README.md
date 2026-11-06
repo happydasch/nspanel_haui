@@ -21,7 +21,7 @@ If you're setting up a new NSPanel, follow these steps in order:
 1. **Flash your device** — Load ESPHome firmware onto the NSPanel.
    → [Installation guide](install.md#2-step-install-esphome)
 
-2. **Install the integration** — Add NSPanel HAUI to Home Assistant via HACS.
+2. **Install the integration** — Add NSPanel HAUI to Home Assistant from the Marketplace.
    → [Installation guide](install.md)
 
 3. **Connect it** — Add the device in Home Assistant (Settings → Devices & Services).
@@ -45,7 +45,7 @@ Hands-on help for common tasks.
 ### Setting up
 
 - **[Quick Start](get-started.md)** — Get up and running in 5 minutes
-- **[Installation](install.md)** — Step-by-step: HACS, flashing, first setup
+- **[Installation](install.md)** — Step-by-step: Marketplace, flashing, first setup
 - **[Configuration](configuration/README.md)** — Device settings, panel layout, item editing
 - **[Examples](examples.md)** — Real-world configs to copy and adapt
 

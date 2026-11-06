@@ -37,21 +37,21 @@ yourself is a **stacked panel** when it is out of navigation, whatever its type:
 a cover or light panel behaves exactly like a grid. Only the built-in system
 popups are **popups**: the entity popups (`popup_light`, `popup_media_player`,
 `popup_vacuum`, `popup_climate`, `popup_cover`, `popup_timer`, `popup_alarm`),
-`popup_notify`, `popup_select`, `popup_unlock`, and Settings and About. They are
-recognised by their key, so an edited entity popup (see below) stays a popup.
+`popup_notify`, `popup_select`, `popup_unlock`, and Settings and About. A popup
+opens on top of the current panel just like a stacked panel and has the same
+header.
 
-The only difference is the header buttons the hub fills in automatically:
+The hub fills in the header buttons automatically:
 
 | Panel | Left | Second left | Right |
 |-------|------|-------------|-------|
 | Navigation panel | previous panel | home | next panel |
-| Stacked panel | up | home | close |
-| Popup | home | — | close |
+| Stacked panel or popup | up | home | close |
 
 - **Up** and **close** both go back to the panel the stacked panel or popup was opened from.
-- **Home** appears only when the home button is enabled (`show_home_button` on the device or the panel), and never on the home panel itself. The home panel shows the idle button there instead when `show_idle_button` is on. A popup without a home button shows **up** in its place; Settings and About are configured that way.
-- The right-hand secondary slot shows the unlock button on a locked panel, otherwise the notifications button.
-- The **unlock popup** (`popup_unlock`) opens on top of the locked panel and its header follows that panel: guarding a navigation panel it shows the navigation header (previous, home, next), so you can move on without unlocking, with the lock in the right-hand secondary slot; guarding any other panel it shows the popup header.
+- **Home** appears only when the home button is enabled (`show_home_button` on the device or the panel), and never on the home panel itself. The home panel shows the idle button there instead when `show_idle_button` is on. Settings and About have the home button turned off, so they show only **up** on the left.
+- The right-hand secondary slot shows the next-page button on a grid or row with more than one page, the unlock button on a locked panel, otherwise the notifications button. Pagination never takes the **Right** slot, so next and close stay where they are.
+- The **unlock popup** (`popup_unlock`) has the header of the panel it locks: guarding a navigation panel it shows previous, home and next, so you can move on without unlocking; guarding a stacked panel it shows up, home and close, back to the panel the locked one was opened from. The lock sits in the right-hand secondary slot. It never returns to the panel that is still locked: closing it over a locked navigation panel goes to the home panel.
 
 ### System Panel Overrides
 

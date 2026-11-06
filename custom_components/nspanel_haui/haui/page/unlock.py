@@ -5,7 +5,7 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, _
-from ..mapping.icons import ICO_LOCKED, ICO_PASSWORD
+from ..mapping.icons import ICO_PASSWORD
 from .alarm import AlarmPage
 
 
@@ -25,7 +25,7 @@ class UnlockPage(AlarmPage):
         can_show_popup=True,
         icon="mdi:lock-outline",
         # The panel to unlock; a card render turns the config into a panel.
-        preview_kwargs={"unlock_panel": {"unlock_code": "1234"}},
+        preview_kwargs={"unlock_panel": {"key": "locked_panel", "unlock_code": "1234"}},
     )
 
     _title = ""
@@ -37,18 +37,7 @@ class UnlockPage(AlarmPage):
         # store panel infos
         self._unlock_panel = unlock_panel = panel.get("unlock_panel", None)
         # The system panel's default title is "", not missing.
-        self._title = panel.get("title") or self.translate("Unlock Panel")
-        # lock right secondary function button
-        lock_btn = {
-            "fnc_component": AlarmPage.COMPONENTS.fnc_right_sec,
-            "fnc_name": "unlock_indicator",
-            "fnc_args": {
-                "locked": True,
-                "icon": ICO_LOCKED,
-                "color": self.get_color("component_text"),
-                "back_color_pressed": self.get_color("background"),
-            },
-        }
+        self._title = panel.get("title") or self.translate("Unlock")
 
         with self.rec_cmd:
             # set function buttons
@@ -56,7 +45,7 @@ class UnlockPage(AlarmPage):
                 AlarmPage.COMPONENTS.fnc_left_pri,
                 AlarmPage.COMPONENTS.fnc_left_sec,
                 AlarmPage.COMPONENTS.fnc_right_pri,
-                lock_btn,
+                AlarmPage.COMPONENTS.fnc_right_sec,
             )
 
             # set components
@@ -81,12 +70,10 @@ class UnlockPage(AlarmPage):
                 self._title = unlock_panel.get_title(self._title)
                 self._unlock_code = unlock_panel.get("unlock_code")
 
-        # The header follows the panel it guards (prev/next in navigation). Not
-        # as the popup's own state: navigation reads that on the next opening
-        # and would make the popup the current navigation panel.
-        self._auto_assign_fncs(
-            panel, show_in_nav=unlock_panel.show_in_navigation() if unlock_panel else None
-        )
+        # The header is the guarded panel's own (prev/next in navigation, the
+        # lock on the right), read from that panel: the popup's own navigation
+        # state stays untouched, so navigation keeps it on the stack.
+        self._auto_assign_fncs(unlock_panel or panel)
 
     def before_render_panel(self, panel: HAUIPanel) -> bool:
         # check if unlock panel is available
@@ -110,12 +97,6 @@ class UnlockPage(AlarmPage):
             self.set_component_text(AlarmPage.COMPONENTS.title, passwd)
         else:
             self.set_component_text(AlarmPage.COMPONENTS.title, self._title)
-
-        # update unlock indicator in header
-        color = self.get_color("component_text")
-        if len(self._input) > 0:
-            color = self.get_color("component_accent")
-        self.update_function_component(AlarmPage.FNC_BTN_R_SEC, color=color)
 
         # update unlock button
         unlock_btn_enabled = str(self._input) == str(self._unlock_code)

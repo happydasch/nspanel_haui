@@ -1,23 +1,22 @@
 from __future__ import annotations
 
-import zoneinfo
 from datetime import datetime
 from typing import Any
 
 from ..abstract.component import Component, ComponentRegistry
-from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..abstract.mixins.cycle_cards_mixin import CARD_OPTIONS, Card, CardBox, CycleCardsMixin
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE
-from ..utils.datetime import format_datetime, get_date_localized, get_time_localized
 from ..utils.icon import parse_icon
+from ..utils.text import TextBox
 from ..utils.value import format_number
 from .clock_common import apply_background, release_ticks, subscribe_ticks
 
 
-class ClockPage(HAUIPage):
+class ClockPage(CycleCardsMixin, HAUIPage):
     PICTURE_BACKGROUND = True
     USE_SYSTEM_COLORS = False
     DESCRIPTOR = PageDescriptor(
@@ -47,38 +46,7 @@ class ClockPage(HAUIPage):
                 ],
                 section=_("Appearance"),
             ),
-            PageOption(
-                key="show_time_time",
-                kind="bool",
-                default=True,
-                label=_("Show time"),
-                description=_("Show current time as a cycle card."),
-                section=_("Time"),
-            ),
-            PageOption(
-                key="show_time_date",
-                kind="bool",
-                default=True,
-                label=_("Show date"),
-                description=_("Show current date as a cycle card."),
-                section=_("Time"),
-            ),
-            PageOption(
-                key="show_time_outside_temp",
-                kind="bool",
-                default=True,
-                label=_("Show outside temperature"),
-                description=_("Show outside temperature as a cycle card."),
-                section=_("Time"),
-            ),
-            PageOption(
-                key="show_time_inside_temp",
-                kind="bool",
-                default=False,
-                label=_("Show inside temperature"),
-                description=_("Show inside (NSPanel) temperature as a cycle card."),
-                section=_("Time"),
-            ),
+            *CARD_OPTIONS,
             PageOption(
                 key="item",
                 kind="item",
@@ -165,17 +133,21 @@ class ClockPage(HAUIPage):
 
     NUM_ENTITIES = 6
     TEMP_PRECISION = 0
-
-    # Card cycle constants
-    _CARD_INTERVAL = 5  # seconds between card advances during cycling
-    _CARD_PAUSE_DURATION = 15  # seconds to pause on the first card after a full cycle
+    # tTime and tDate per orientation (w, h, borderw, txt_maxl; font), as in the HMIs
+    CARD_BOXES = {
+        "landscape": {
+            "tTime": CardBox(TextBox(450, 140, 2, 10), 7),
+            "tDate": CardBox(TextBox(450, 32, 2, 40), 1),
+        },
+        "portrait": {
+            "tTime": CardBox(TextBox(320, 140, 2, 10), 6),
+            "tDate": CardBox(TextBox(320, 32, 2, 40), 1),
+        },
+    }
 
     # panel
     def prepare(self) -> None:
         self._show_notifications = True
-        self._show_time_time = True
-        self._show_time_date = True
-        self._show_time_inside_temp = False
         self._show_weather = True
         self._show_temp = True
         self._show_home_temp = False
@@ -184,12 +156,7 @@ class ClockPage(HAUIPage):
         self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
         self._items: list[HAUIItem] = []
-        # Card cycling state
-        self._cycle_cards: list[str] = ["time"]
-        self._current_card_index: int = 0
-        self._card_timer: int = 0
-        self._cycle_state: str = "cycling"  # "cycling" or "paused"
-        self._tick_handle: Any = None
+        self._init_cards()
 
     def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background (rendered in start_panel after page is confirmed)
@@ -210,7 +177,8 @@ class ClockPage(HAUIPage):
         apply_background(self, "clock")
         subscribe_ticks(self)
         # weather item listeners
-        for item in self._build_items_from_panel(panel, "item"):
+        weather_items = self._build_items_from_panel(panel, "item")
+        for item in weather_items:
             if item.get_item_type() == "weather":
                 self.add_item_listener(item.get_item_id(), self.callback_weather, "temperature")
                 self.add_item_listener(item.get_item_id(), self.callback_weather, "pressure")
@@ -232,30 +200,7 @@ class ClockPage(HAUIPage):
         self._show_home_temp = panel.get("show_home_temp", False)
         # setting: weather_icons
         self._weather_icons_mode = panel.get("weather_icons", "color")
-        # Read card enable flags from panel config
-        self._show_time_time = panel.get("show_time_time", True)
-        self._show_time_date = panel.get("show_time_date", True)
-        self._show_time_outside_temp = panel.get("show_time_outside_temp", True)
-        self._show_time_inside_temp = panel.get("show_time_inside_temp", False)
-        # Build cycle list from enabled cards
-        self._cycle_cards = []
-        if self._show_time_time:
-            self._cycle_cards.append("time")
-        if self._show_time_date:
-            self._cycle_cards.append("date")
-        if self._show_time_outside_temp:
-            self._cycle_cards.append("outside_temperature")
-        if self._show_time_inside_temp:
-            self._cycle_cards.append("inside_temperature")
-        if not self._cycle_cards:
-            self._cycle_cards = ["time"]
-        # Reset card position
-        self._current_card_index = 0
-        self._card_timer = 0
-        self._cycle_state = "cycling"
-        # Start cycle timer if multiple cards enabled
-        if self._tick_handle is None and len(self._cycle_cards) > 1:
-            self._tick_handle = self.app.run_every(self._tick, 0, 1.0)
+        self._start_cards(panel, has_weather=bool(weather_items))
         # Tap-to-advance on the big time area
         self.on_release(
             {self.COMPONENTS.t_time: self._advance_card},
@@ -284,137 +229,14 @@ class ClockPage(HAUIPage):
         # weather header first: the temperature cards read this panel's item
         weather_items = self._build_items_from_panel(panel, "item")
         self.set_weather_item(weather_items[0] if weather_items else None)
-        # Reset and render current card
-        self._current_card_index = 0
-        self._card_timer = 0
-        self._cycle_state = "cycling"
-        self._render_cycle_card()
+        self._render_cards()
         # item buttons
         self.update_items(self._build_items_from_panel(panel, "items"))
         # notifications
         self.app.controller["notification"].blinker.refresh()
 
-    def _get_date_text(self, timezone: str) -> str:
-        device = self.app.device
-        strftime_format = device.get_date_format()
-        babel_format = device.get_date_format_locale() or self.app.device_config.get(
-            "date_format_babel"
-        )
-        locale = device.get_locale()
-        return get_date_localized(strftime_format, babel_format, locale, timezone)
-
-    def _get_short_date_text(self, timezone: str) -> str:
-        """Short date that fits in tTime (max 10 chars)."""
-        now = datetime.now(zoneinfo.ZoneInfo(timezone))
-        # "Mon 16" style — ~7 chars, localized weekday abbreviation
-        dow = format_datetime(now, "%a", "E", self.get_locale())
-        return f"{dow} {now.day}"
-
-    def _card_text_time(self, timeformat: str, timezone: str) -> tuple[str, str]:
-        return get_time_localized(timeformat, timezone), self._get_date_text(timezone)
-
-    def _card_text_date(self, timezone: str) -> tuple[str, str]:
-        return self._get_short_date_text(timezone), self._get_date_text(timezone)
-
-    def _card_text_outside_temperature(self) -> tuple[str, str]:
-        label = self.translate("OUTSIDE")
-        if self._weather_item is None:
-            return "--°C", label
-        try:
-            temp = round(
-                float(self._weather_item.get_item_attr("temperature", "")), self.TEMP_PRECISION
-            )
-        except ValueError, TypeError:
-            return "--°C", label
-        if not self.TEMP_PRECISION:
-            temp = int(temp)
-        return f"{temp}{self._temp_unit}", label
-
-    def _card_text_inside_temperature(self) -> tuple[str, str]:
-        label = self.translate("INSIDE")
-        entity_id = self.get_inside_temp_entity_id(self.panel)
-        if entity_id is None:
-            return "--°C", label
-        state = self.app.get_item(entity_id).get_state()
-        if state in (None, "", "unavailable", "unknown"):
-            return "--°C", label
-        try:
-            temp = round(float(state), self.TEMP_PRECISION)
-        except ValueError, TypeError:
-            return "--°C", label
-        unit = self._temp_unit if self._weather_item is not None else "°C"
-        if not self.TEMP_PRECISION:
-            temp = int(temp)
-        return f"{temp}{unit}", label
-
-    def _render_cycle_card(self) -> None:
-        """Render the current cycle card in the big text area."""
-        if not self._cycle_cards or self._current_card_index >= len(self._cycle_cards):
-            return
-        card = self._cycle_cards[self._current_card_index]
-        timezone = self.app.get_timezone()
-        if card == "time":
-            timeformat = self.app.device.get_time_format()
-            main_text, sub_text = self._card_text_time(timeformat, timezone)
-        elif card == "date":
-            main_text, sub_text = self._card_text_date(timezone)
-        elif card == "outside_temperature":
-            main_text, sub_text = self._card_text_outside_temperature()
-        elif card == "inside_temperature":
-            main_text, sub_text = self._card_text_inside_temperature()
-        else:
-            return
-        self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
-        self.update_function_component(self.COMPONENTS.t_time[1], text=main_text)
-        self.set_function_component(self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True)
-        self.update_function_component(self.COMPONENTS.t_date[1], text=sub_text)
-        self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
-
-    def _tick(self, _data: dict | None = None) -> None:
-        """Called every second. Advance cycle card when interval elapses."""
-        # Only the card animation pauses while dark.  Content callbacks keep
-        # drawing: with a hub connected the Nextion stays awake at brightness
-        # 0, and a wake touch lights the backlight before the hub can redraw.
-        if self.app.device.device_info.get("display_state") == "off":
-            return
-        self._card_timer += 1
-        threshold = (
-            self._CARD_PAUSE_DURATION if self._cycle_state == "paused" else self._CARD_INTERVAL
-        )
-        if self._card_timer >= threshold:
-            with self.rec_cmd:
-                self._advance_card()
-
-    def _advance_card(
-        self, _event: HAUIEvent | None = None, _component: Component | None = None
-    ) -> None:
-        """Advance to the next cycle card or enter/exit pause state."""
-        if self._cycle_state == "paused":
-            # Pause period over — start a new cycle from the beginning
-            self._cycle_state = "cycling"
-            self._current_card_index = 0
-            self._card_timer = 0
-            self._render_cycle_card()
-            return
-
-        next_index = self._current_card_index + 1
-        if next_index >= len(self._cycle_cards):
-            # Last card shown — enter pause on the first card
-            self._cycle_state = "paused"
-            self._current_card_index = 0
-            self._card_timer = 0
-            self._render_cycle_card()
-            return
-
-        self._current_card_index = next_index
-        self._card_timer = 0
-        self._render_cycle_card()
-
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        # cancel cycle timer
-        if self._tick_handle is not None:
-            self.app.cancel_timer(self._tick_handle)
-            self._tick_handle = None
+        self._stop_cards()
         release_ticks(self)
 
     # misc
@@ -541,17 +363,19 @@ class ClockPage(HAUIPage):
 
     def callback_update_time(self, cb_args: dict[str, Any]) -> None:
         with self.rec_cmd:
-            self._render_cycle_card()
+            self._refresh_card(Card("time"))
 
     def callback_update_date(self, cb_args: dict[str, Any]) -> None:
-        # Same redraw as the minute tick: the cycle card includes the date.
-        self.callback_update_time(cb_args)
+        # the time card shows the date below the time
+        with self.rec_cmd:
+            self._refresh_card(Card("time"), Card("date"))
 
     def callback_weather(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
     ) -> None:
         with self.rec_cmd:
             self.update_main_weather()
+            self._refresh_card(Card("outside_temperature"))
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         notification = self.app.controller["notification"]

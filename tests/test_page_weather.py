@@ -211,8 +211,7 @@ def test_dark_display_keeps_the_weather_page_current():
     page.app.device.device_info = {"display_state": "off"}
     page.started = True
     updated = []
-    page.update_time = lambda: updated.append("time")
-    page.update_date = lambda: updated.append("date")
+    page._render_cycle_card = lambda: updated.append("time card")
     page.update_main_weather = lambda: updated.append("weather")
     page.render_info_panels = lambda: None
     page.render_forecast = lambda: None
@@ -220,5 +219,7 @@ def test_dark_display_keeps_the_weather_page_current():
     page.callback_update_time({})
     page.callback_update_date({})
     page.callback_weather(_ENTITY_ID, "temperature", 10, 11, {})
+    page._tick()
 
-    assert updated == ["time", "date", "weather"]
+    assert updated == ["time card", "time card", "weather"]
+    assert page._card_timer == 0

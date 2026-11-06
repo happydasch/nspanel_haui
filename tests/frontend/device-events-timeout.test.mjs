@@ -28,7 +28,7 @@ test('a display refresh whose request times out shows the friendly timeout messa
     Promise.reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })),
   );
 
-  await Events.onDeviceManagerUpdateDisplay(host, { detail: { name: 'kitchen' } });
+  await Events.onDeviceManagerRefreshDisplay(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(host.toasts.at(-1), [
     'error',

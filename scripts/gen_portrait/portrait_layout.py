@@ -15,9 +15,9 @@ Coordinates are ``(x, y, w, h)`` in display pixels on the 320x480 canvas.
 Layout rules (see ``docs/nextion-editor.md``):
 
 - 12 px side margins: content spans x 12..308.
-- Pages with a header keep ``tHeader``/``tTitle`` across the full top 50 px and
-  move the four function buttons into a bottom bar at y 430..480, so the
-  content area is y 50..430.
+- Pages with a header keep ``tHeader``/``tTitle`` across the full top 50 px,
+  with the four function buttons at its ends as in landscape; content starts
+  at y 50.
 - Picture-only pages (clock, clocktwo, weather, system) use the whole height.
 """
 
@@ -32,22 +32,21 @@ HEIGHT = 480
 MARGIN = 12
 CONTENT_W = WIDTH - 2 * MARGIN  # 296
 HEADER_H = 50
-BAR_Y = HEIGHT - HEADER_H  # 430: top of the bottom function-button bar
 
 
-def _header(title: bool = True, bar: bool = True) -> dict[str, Rect]:
-    """Common header/footer widgets of a page with function buttons."""
+def _header(title: bool = True, buttons: bool = True) -> dict[str, Rect]:
+    """Common header widgets of a page with function buttons."""
     layout: dict[str, Rect] = {"pGrid": (0, 0, WIDTH, HEIGHT)}
     if title:
         layout["tHeader"] = (0, 0, WIDTH, HEADER_H)
         layout["tTitle"] = (0, 0, WIDTH, HEADER_H)
-    if bar:
+    if buttons:
         layout.update(
             {
-                "bFncLPri": (0, BAR_Y, 50, 50),
-                "bFncLSec": (50, BAR_Y, 50, 50),
-                "bFncRSec": (220, BAR_Y, 50, 50),
-                "bFncRPri": (270, BAR_Y, 50, 50),
+                "bFncLPri": (0, 0, 50, HEADER_H),
+                "bFncLSec": (50, 0, 50, HEADER_H),
+                "bFncRSec": (220, 0, 50, HEADER_H),
+                "bFncRPri": (270, 0, 50, HEADER_H),
             }
         )
     return layout
@@ -63,14 +62,14 @@ def _about() -> dict[str, Rect]:
             "tAbout2": (12, 104, 296, 48),
             "tDeviceName": (12, 160, 296, 30),
             "tIP": (12, 190, 296, 24),
-            "tTftVers": (12, 222, 132, 24),
-            "tTftVersVal": (158, 222, 150, 24),
-            "tYamlVers": (12, 246, 132, 24),
-            "tYamlVersVal": (158, 246, 150, 24),
-            "tADVers": (12, 271, 132, 24),
-            "tADVersVal": (158, 271, 150, 24),
-            "p0": (12, 320, 50, 50),
-            "p1": (72, 320, 50, 50),
+            "tTftVers": (12, 271, 132, 24),
+            "tTftVersVal": (158, 271, 150, 24),
+            "tYamlVers": (12, 309, 132, 24),
+            "tYamlVersVal": (158, 309, 150, 24),
+            "tADVers": (12, 347, 132, 24),
+            "tADVersVal": (158, 347, 150, 24),
+            "p0": (12, 415, 50, 50),
+            "p1": (72, 415, 50, 50),
         }
     )
     return layout
@@ -85,10 +84,10 @@ def _alarm() -> dict[str, Rect]:
         layout[f"bKey{key}"] = (cols[i % 3], rows[i // 3], 92, 55)
     layout.update(
         {
-            "b1Fnc": (12, 312, 143, 55),
-            "b2Fnc": (165, 312, 143, 55),
-            "b3Fnc": (12, 372, 143, 55),
-            "b4Fnc": (165, 372, 143, 55),
+            "b1Fnc": (12, 352, 143, 55),
+            "b2Fnc": (165, 352, 143, 55),
+            "b3Fnc": (12, 412, 143, 55),
+            "b4Fnc": (165, 412, 143, 55),
         }
     )
     return layout
@@ -123,7 +122,7 @@ def _climate() -> dict[str, Rect]:
         }
     )
     for i in range(6):
-        layout[f"btMode{i + 1}"] = (10 + 50 * i, 330, 50, 50)
+        layout[f"btMode{i + 1}"] = (10 + 50 * i, 417, 50, 50)
     return layout
 
 
@@ -134,7 +133,7 @@ def _entity_rows(layout: dict[str, Rect], y_rows: tuple[int, int]) -> None:
 
 
 def _clock() -> dict[str, Rect]:
-    layout = _header(title=False, bar=False)
+    layout = _header(title=False, buttons=False)
     layout.update(
         {
             "tMainIcon": (224, 0, 96, 96),
@@ -144,12 +143,12 @@ def _clock() -> dict[str, Rect]:
             "tDate": (0, 262, WIDTH, 32),
         }
     )
-    _entity_rows(layout, (310, 370))
+    _entity_rows(layout, (357, 417))
     return layout
 
 
 def _clocktwo() -> dict[str, Rect]:
-    layout = _header(title=False, bar=False)
+    layout = _header(title=False, buttons=False)
     # 11 x 10 letter matrix, reading order unchanged
     for k in range(110):
         layout[f"l{k + 1}"] = (17 + 26 * (k % 11), 90 + 30 * (k // 11), 24, 24)
@@ -201,14 +200,15 @@ def _grid() -> dict[str, Rect]:
 def _light() -> dict[str, Rect]:
     layout = _header()
     for i in range(4):
-        layout[f"btLightFnc{i + 1}"] = (12, 80 + 50 * i, 50, 50)
+        layout[f"btLightFnc{i + 1}"] = (12 + 82 * i, 417, 50, 50)
     layout.update(
         {
-            "pColorWheel": (90, 80, 200, 200),
-            "hBrightness": (138, 80, 95, 250),
-            "hColorTemp": (138, 80, 95, 250),
+            # LightPage.PIC_COLOR_RECT_POS draws the colour marker relative to this
+            "pColorWheel": (60, 124, 200, 200),
+            "hBrightness": (112, 100, 95, 250),
+            "hColorTemp": (112, 100, 95, 250),
             "bPower": (108, 160, 105, 95),
-            "tInfo": (12, 350, 296, 32),
+            "tInfo": (12, 373, 296, 32),
         }
     )
     return layout
@@ -225,13 +225,13 @@ def _media() -> dict[str, Rect]:
             "hVolume": (78, 194, 164, 30),
             "bVolUp": (258, 184, 50, 50),
             "bPower": (108, 120, 105, 95),
-            "jProgress": (0, BAR_Y - 6, WIDTH, 6),
+            "jProgress": (0, HEIGHT - 6, WIDTH, 6),
         }
     )
     for i, name in enumerate(("bShuffle", "bPrev", "bPlay", "bNext", "bRepeat")):
         layout[name] = (12 + 60 * i, 122, 50, 50)
     for i in range(3):
-        y = 246 + 56 * i
+        y = 296 + 56 * i
         m = f"m{i + 1}"
         layout.update(
             {
@@ -248,11 +248,11 @@ def _notify() -> dict[str, Rect]:
     layout = _header()
     layout.update(
         {
-            "tTextFull": (12, 58, 296, 306),
-            "tIcon": (12, 58, 296, 90),
-            "tText": (12, 154, 296, 210),
-            "bBtnLeft": (12, 372, 145, 55),
-            "bBtnRight": (163, 372, 145, 55),
+            "tTextFull": (12, 55, 296, 335),
+            "tIcon": (12, 55, 296, 90),
+            "tText": (12, 150, 296, 240),
+            "bBtnLeft": (12, 411, 145, 55),
+            "bBtnRight": (163, 411, 145, 55),
         }
     )
     return layout
@@ -275,33 +275,63 @@ def _qr() -> dict[str, Rect]:
 
 
 def _row() -> dict[str, Rect]:
+    # The portrait row page is being re-laid out in the Nextion Editor. Until
+    # that settles these are the HMI's positions as they stand, rows 1..5.
+    rows: dict[str, tuple[Rect, ...]] = {
+        "Icon": (
+            (12, 52, 50, 50), (12, 134, 50, 50), (12, 216, 50, 50),
+            (12, 298, 50, 50), (12, 380, 50, 50),
+        ),
+        "Name": (
+            (62, 52, 246, 50), (62, 134, 246, 50), (62, 216, 246, 50),
+            (62, 298, 246, 50), (62, 380, 246, 50),
+        ),
+        "Overlay": (
+            (10, 54, CONTENT_W, 50), (12, 130, CONTENT_W, 50), (12, 216, CONTENT_W, 50),
+            (12, 298, CONTENT_W, 50), (12, 380, CONTENT_W, 50),
+        ),
+        "BtnUp": (
+            (12, 94, 50, 44), (12, 176, 50, 44), (12, 258, 50, 44),
+            (12, 341, 50, 44), (12, 425, 50, 44),
+        ),
+        "BtnStop": (
+            (96, 94, 50, 44), (96, 176, 50, 44), (96, 258, 50, 44),
+            (96, 341, 50, 44), (96, 425, 50, 44),
+        ),
+        "BtnDown": (
+            (256, 94, 50, 44), (256, 176, 50, 44), (256, 258, 50, 44),
+            (256, 341, 50, 44), (256, 425, 50, 44),
+        ),
+        "BtnText": (
+            (158, 94, 150, 44), (158, 176, 150, 44), (158, 258, 150, 44),
+            (158, 341, 150, 44), (158, 425, 150, 44),
+        ),
+        "Slider": (
+            (150, 96, 100, 40), (150, 178, 100, 40), (150, 260, 100, 40),
+            (150, 342, 100, 40), (150, 427, 100, 40),
+        ),
+        "SliderTxt": (
+            (254, 94, 54, 44), (254, 176, 54, 44), (254, 258, 54, 44),
+            (254, 341, 54, 44), (254, 425, 54, 44),
+        ),
+        "Toggle": (
+            (121, 94, 48, 48), (121, 175, 48, 48), (121, 257, 48, 48),
+            (121, 340, 48, 48), (121, 424, 48, 48),
+        ),
+    }
     layout = _header()
-    for i in range(5):
-        y = 56 + 74 * i
-        r = f"r{i + 1}"
-        layout.update(
-            {
-                f"{r}Icon": (12, y + 12, 50, 50),
-                f"{r}Name": (62, y, 246, 30),
-                f"{r}Overlay": (12, y, CONTENT_W, 74),
-                f"{r}BtnUp": (150, y + 30, 50, 44),
-                f"{r}BtnStop": (203, y + 30, 50, 44),
-                f"{r}BtnDown": (256, y + 30, 50, 44),
-                f"{r}Slider": (150, y + 32, 100, 40),
-                f"{r}SliderTxt": (254, y + 30, 54, 44),
-                f"{r}BtnText": (158, y + 30, 150, 44),
-                f"{r}Toggle": (258, y + 30, 50, 44),
-            }
-        )
+    for part, rects in rows.items():
+        for i, rect in enumerate(rects):
+            layout[f"r{i + 1}{part}"] = rect
     return layout
 
 
 def _select() -> dict[str, Rect]:
     layout = _header()
     for i in range(4):
-        layout[f"bSelFull{i + 1}"] = (12, 56 + 63 * i, CONTENT_W, 55)
+        layout[f"bSelFull{i + 1}"] = (12, 56 + 118 * i, CONTENT_W, 55)
     for n in range(12):
-        layout[f"bSel{n + 1}"] = (12 + 151 * (n % 2), 56 + 63 * (n // 2), 145, 55)
+        layout[f"bSel{n + 1}"] = (12 + 151 * (n % 2), 56 + 71 * (n // 2), 145, 55)
     return layout
 
 
@@ -324,10 +354,11 @@ def _settings() -> dict[str, Rect]:
 def _system() -> dict[str, Rect]:
     return {
         "tTitle": (0, 40, WIDTH, 32),
-        "qrUrl": (90, 130, 140, 140),
-        "hSpinner": (90, 135, 140, 140),
-        "tMsg1": (0, 320, WIDTH, 24),
-        "tMsg2": (0, 350, WIDTH, 24),
+        "qrUrl": (90, 160, 140, 140),
+        # the spinner sprite sheets are drawn at this position (gen_spinner.py)
+        "hSpinner": (90, 160, 140, 140),
+        "tMsg1": (0, 400, WIDTH, 24),
+        "tMsg2": (0, 430, WIDTH, 24),
     }
 
 
@@ -335,16 +366,16 @@ def _timer() -> dict[str, Rect]:
     layout = _header()
     layout.update(
         {
-            "tMin": (30, 150, 110, 96),
-            "tSpace": (140, 150, 40, 96),
-            "tSec": (180, 150, 110, 96),
-            "bStart": (100, 320, 50, 50),
-            "bStop": (170, 320, 50, 50),
+            "tMin": (30, 181, 110, 96),
+            "tSpace": (140, 181, 40, 96),
+            "tSec": (180, 181, 110, 96),
+            "bStart": (100, 351, 50, 50),
+            "bStop": (170, 351, 50, 50),
         }
     )
     for i, x in enumerate((35, 85, 185, 235)):
-        layout[f"bUp{i + 1}"] = (x, 95, 50, 50)
-        layout[f"bDown{i + 1}"] = (x, 250, 50, 50)
+        layout[f"bUp{i + 1}"] = (x, 126, 50, 50)
+        layout[f"bDown{i + 1}"] = (x, 281, 50, 50)
     return layout
 
 
@@ -353,23 +384,23 @@ def _vacuum() -> dict[str, Rect]:
     for i, name in enumerate(("bFan", "bAction", "bHome", "bLocate")):
         layout[name] = ((12, 91, 170, 248)[i], 80, 60, 60)
     layout["tStatus"] = (12, 160, 296, 32)
-    _entity_rows(layout, (250, 310))
+    _entity_rows(layout, (360, 420))
     return layout
 
 
 def _weather() -> dict[str, Rect]:
-    layout = _header(title=False, bar=False)
+    layout = _header(title=False, buttons=False)
     layout.update(
         {
             "tMainText": (10, 4, 300, 32),
             "tSubText": (10, 36, 300, 24),
             "tTime": (0, 64, WIDTH, 118),
             "tDate": (0, 182, WIDTH, 32),
-            "tMainIcon": (40, 224, 72, 72),
-            "d1Icon": (120, 236, 24, 24),
-            "d1Val": (150, 235, 100, 24),
-            "d2Icon": (120, 260, 24, 24),
-            "d2Val": (150, 260, 100, 24),
+            "tMainIcon": (40, 243, 72, 72),
+            "d1Icon": (120, 255, 24, 24),
+            "d1Val": (150, 254, 100, 24),
+            "d2Icon": (120, 279, 24, 24),
+            "d2Val": (150, 279, 100, 24),
         }
     )
     for i in range(5):
@@ -377,10 +408,10 @@ def _weather() -> dict[str, Rect]:
         f = f"f{i + 1}"
         layout.update(
             {
-                f"{f}Name": (x, 300, 58, 24),
-                f"{f}Icon": (x, 324, 58, 48),
-                f"{f}Val": (x, 372, 58, 24),
-                f"{f}SubVal": (x, 396, 58, 24),
+                f"{f}Name": (x, 347, 58, 24),
+                f"{f}Icon": (x, 371, 58, 48),
+                f"{f}Val": (x, 419, 58, 24),
+                f"{f}SubVal": (x, 443, 58, 24),
             }
         )
     return layout

@@ -123,8 +123,7 @@ colour renders them neutral.
 
 - **Component Background**
 
-  Control backgrounds: slider tracks, a toggle's off state and the empty part
-  of a progress bar. The TFTs compile those at [49, 49, 49]; the hub paints
+  Control backgrounds: slider tracks and the empty part of a progress bar. The TFTs compile those at [49, 49, 49]; the hub paints
   them with this colour when it shows the control. Not a fill for
   text-bearing widgets; those use the page **Background Color** (see above).
 

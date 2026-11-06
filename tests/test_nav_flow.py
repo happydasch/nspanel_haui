@@ -13,9 +13,9 @@ from nspanel_haui.haui.utils.page import get_page_class_for_panel, get_page_id_f
 
 
 class FPanel:
-    def __init__(self, key, nav=True, panel_type="grid", close_timeout=0):
+    def __init__(self, key, nav=True, panel_type="grid", close_timeout=0, unlock_code=""):
         self.id = uuid.uuid4()
-        self._cfg = {"key": key, "unlock_code": "", "close_timeout": close_timeout}
+        self._cfg = {"key": key, "unlock_code": unlock_code, "close_timeout": close_timeout}
         self._nav = nav
         self._type = panel_type
         self._state = {}
@@ -138,17 +138,34 @@ SPECS = {
 }
 
 
-@pytest.fixture
-def nav(monkeypatch):
+def _nav(monkeypatch, specs):
     monkeypatch.setitem(PANEL_MAPPING, "grid", (PANEL_MAPPING["grid"][0], FPage))
     FPage.hook = None
-    app = FApp(SPECS)
+    app = FApp(specs)
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
     nav.goto_page = lambda pid, force=False: None
     nav.display_panel = lambda panel: None
     nav.start_part()
     return nav
+
+
+@pytest.fixture
+def nav(monkeypatch):
+    return _nav(monkeypatch, SPECS)
+
+
+@pytest.fixture
+def locked_nav(monkeypatch):
+    return _nav(
+        monkeypatch,
+        {
+            **SPECS,
+            "locked": {"unlock_code": "12"},
+            "locked_sub": {"nav": False, "unlock_code": "12"},
+            "popup_unlock": {"nav": False},
+        },
+    )
 
 
 def keys(nav):
@@ -185,6 +202,50 @@ def test_opening_nav_panel_clears_stack(nav):
     nav.open_panel("b")
     nav.close_panel()
     assert keys(nav) == "b"
+
+
+# -- unlock popup -------------------------------------------------------------
+
+
+def test_prev_and_next_on_the_unlock_popup_move_past_the_locked_panel(locked_nav):
+    """Guarding a navigation panel, the popup has that panel's prev/next; they
+    work on every opening (the popup never becomes the current nav panel)."""
+    for _ in range(2):
+        locked_nav.open_panel("b")
+        locked_nav.open_panel("locked")
+        assert keys(locked_nav) == "popup_unlock"
+        locked_nav.open_prev_panel()
+        assert keys(locked_nav) == "b"
+        locked_nav.open_panel("locked")
+        locked_nav.open_next_panel()
+        assert keys(locked_nav) == "a"
+
+
+def test_closing_unlock_popup_of_locked_nav_panel_goes_home(locked_nav):
+    """Closing the popup (close_panel service) must not reopen the locked
+    navigation panel, which would only open the popup again."""
+    locked_nav.open_panel("b")
+    locked_nav.open_panel("locked")
+    assert keys(locked_nav) == "popup_unlock"
+    locked_nav.close_panel()
+    assert keys(locked_nav) == "a"
+
+
+def test_closing_unlock_popup_of_locked_stacked_panel_goes_back(locked_nav):
+    locked_nav.open_panel("b")
+    locked_nav.open_panel("locked_sub")
+    assert keys(locked_nav) == "popup_unlock"
+    locked_nav.close_panel()
+    assert keys(locked_nav) == "b"
+
+
+def test_unlocking_opens_the_guarded_panel(locked_nav):
+    for key in ("locked", "locked_sub"):
+        locked_nav.open_panel("b")
+        locked_nav.open_panel(key)
+        locked_nav.app.device_config.get_panel(key).set_state("locked", False)
+        locked_nav.close_panel()
+        assert keys(locked_nav) == key
 
 
 # -- close timeout ------------------------------------------------------------

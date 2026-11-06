@@ -60,11 +60,10 @@ class FakeApp:
 
 
 class FakePanel:
-    def __init__(self, device, key="home", cfg=None, popup=False, in_nav=True):
+    def __init__(self, device, key="home", cfg=None, in_nav=True):
         self.device = device
         self._key = key
         self._cfg = cfg or {}
-        self._popup = popup
         self._in_nav = in_nav
 
     def get(self, key, default=None):
@@ -74,9 +73,6 @@ class FakePanel:
 
     def get_state(self, key, default=None):
         return default
-
-    def is_popup(self):
-        return self._popup
 
     def show_in_navigation(self):
         return self._in_nav
@@ -279,7 +275,7 @@ def test_single_nav_swap_moves_sleep_to_primary():
     assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_PREV, False)
 
 
-def _real_panel_page(panel_cfg, device_cfg, show_in_nav=None):
+def _real_panel_page(panel_cfg, device_cfg):
     from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 
     device = FakeDevice(**device_cfg)
@@ -292,7 +288,7 @@ def _real_panel_page(panel_cfg, device_cfg, show_in_nav=None):
         Component(6, "bFncRSec"),
     )
     panel = HAUIPanel(app, panel_cfg)
-    page._auto_assign_fncs(panel, show_in_nav=show_in_nav)
+    page._auto_assign_fncs(panel)
     return page
 
 
@@ -312,50 +308,20 @@ def test_stacked_single_entity_panel_gets_up_button():
         assert _slot(page, page.FNC_BTN_R_PRI) == (FncType.NAV_CLOSE, True), panel_type
 
 
-def test_system_popup_keeps_home_button():
-    """The entity popup (system panel ``popup_cover``) shows home first."""
-    page = _real_panel_page(
-        {"type": "popup_cover", "key": "popup_cover", "show_in_navigation": False},
-        STACKED,
-    )
-    assert _slot(page, page.FNC_BTN_L_PRI) == (FncType.NAV_HOME, True)
-    assert _slot(page, page.FNC_BTN_L_SEC) == (None, False)
-    assert _slot(page, page.FNC_BTN_R_PRI) == (FncType.NAV_CLOSE, True)
+def test_popup_gets_up_then_home():
+    """A popup is opened on top of a panel like a stacked panel: up arrow
+    first, home second, close on the right."""
+    from nspanel_haui.haui.mapping.panel import POPUP_PANEL_MAPPING
 
-
-def test_unlock_popup_guarding_a_navigation_panel_gets_its_header():
-    """The unlock popup's header follows the panel it guards: in navigation it
-    shows that panel's prev/home/next, not the popup's home."""
-    page = _real_panel_page(
-        {"type": "popup_unlock", "key": "popup_unlock", "show_in_navigation": False},
-        STACKED,
-        show_in_nav=True,
-    )
-    assert _slot(page, page.FNC_BTN_L_PRI) == (FncType.NAV_PREV, True)
-    assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_HOME, True)
-    assert _slot(page, page.FNC_BTN_R_PRI) == (FncType.NAV_NEXT, True)
-
-
-def test_is_popup_only_for_system_popups():
-    from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-    from nspanel_haui.haui.mapping.panel import POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
-
-    popups = dict(POPUP_PANEL_MAPPING)
-    popups.update(sys_about="system_about", sys_settings="system_settings")
-    for key, panel_type in popups.items():
-        assert HAUIPanel(None, {"type": panel_type, "key": key}).is_popup(), key
-    for panel_type in ("cover", "light", "climate", "media", "vacuum", "timer", "alarm", "grid"):
-        assert not HAUIPanel(None, {"type": panel_type}).is_popup(), panel_type
-    for key in ("sys_system", "sys_blank"):
-        assert not HAUIPanel(None, {"type": SYS_PANEL_MAPPING[key], "key": key}).is_popup()
-
-
-def test_overridden_entity_popup_stays_popup():
-    """The editor saves an edited ``popup_cover`` as a ``cover`` panel with the
-    system key; it must keep the popup header."""
-    page = _real_panel_page(
-        {"type": "cover", "key": "popup_cover", "show_in_navigation": False},
-        STACKED,
-    )
-    assert _slot(page, page.FNC_BTN_L_PRI) == (FncType.NAV_HOME, True)
-    assert _slot(page, page.FNC_BTN_R_PRI) == (FncType.NAV_CLOSE, True)
+    panels = [{"type": t, "key": k} for k, t in POPUP_PANEL_MAPPING.items()]
+    panels += [
+        {"type": "system_about", "key": "sys_about"},
+        {"type": "system_settings", "key": "sys_settings"},
+        # the editor saves an edited entity popup with the user type
+        {"type": "cover", "key": "popup_cover"},
+    ]
+    for cfg in panels:
+        page = _real_panel_page({**cfg, "show_in_navigation": False}, STACKED)
+        assert _slot(page, page.FNC_BTN_L_PRI) == (FncType.NAV_UP, True), cfg
+        assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_HOME, True), cfg
+        assert _slot(page, page.FNC_BTN_R_PRI) == (FncType.NAV_CLOSE, True), cfg

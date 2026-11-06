@@ -163,9 +163,9 @@ Defined in `esphome/nspanel_haui/scripts_connection.yaml`:
 The primary events used for connection management:
 
 - **`esphome.heartbeat`** - Device→Hub heartbeat. Published every `heartbeat_interval` seconds (5s by default) when `hub_connection = true`. Value: empty string.
-- **`esphome.req_connection`** - Device→Hub connection request. Published when disconnected and hub is available. Value: JSON with `yaml_version`, `name`, `friendly_name`, `ip`, `ssid`, `rssi` and `uptime`.
+- **`esphome.req_connection`** - Device→Hub connection request. Published when disconnected and hub is available. Value: JSON with `yaml_version`, `name`, `friendly_name`, `ip`, `ssid`, `rssi`, `uptime` and `firmware_variant`.
 - **`esphome.res_connection`** - Device→Hub connection response. Published after receiving `hub_connection_response`. Value: JSON with `heartbeat_interval`.
-- **`esphome.res_device_state`** - Device→Hub state response. Published after receiving `req_device_state`. Value: JSON with `page`, `brightness`, `button_left`, `button_right`, `relay_left`, `relay_right`, `use_relay_left`, `use_relay_right`, `display_state`, `yaml_version` (firmware), `tft_required_version` (TFT required by that firmware), `tft_version` (installed display), `ssid` and `rssi`.
+- **`esphome.res_device_state`** - Device→Hub state response. Published after receiving `req_device_state`. Value: JSON with `page`, `brightness`, `button_left`, `button_right`, `relay_left`, `relay_right`, `use_relay_left`, `use_relay_right`, `display_state`, `yaml_version` (firmware), `tft_required_version` (TFT required by that firmware), `tft_version` (installed display), `ssid`, `rssi` and `firmware_variant` (`universal` or `custom`).
 
 ### Actions
 
@@ -175,19 +175,14 @@ Actions that the Hub app can call on the device (via ESPHome Native API service 
 - **`hub_connection_response`** - Hub acknowledges connection request. Device transitions to sending `res_connection`.
 - **`hub_connection_initialized`** - Handshake complete. Sets `hub_connection = true` on the device.
 - **`hub_connection_closed`** - Hub disconnects the device. Sets `hub_connection = false`.
-- **`haui_discover`** - Device discovery. Device publishes `esphome.haui_discover` with `name`, `friendly_name`, `ip`, `yaml_version`, `device_version`, `ssid` and `rssi`.
 - **`req_device_state`** - Hub requests device state. Device responds with `res_device_state` event.
-- **`req_device_info`** - Hub requests device info. Device responds with `res_device_info` event.
-- **`req_reconnect`** - Hub requests device to reconnect. Calls `set_hub_connected(false)` without `force`, so it is skipped while other API clients remain.
 - **`reset_last_interaction`** - Resets the device's display inactivity timer (dim/display-off).
 
 ## Requests
 
 These events will get a response.
 
-- `req_device_info` Device Info Request
 - `req_device_state` Device State Request
-- `req_reconnect` Reconnect Request
 - `req_val` Number Request
 - `req_txt` Text Request
 
@@ -198,11 +193,6 @@ These responses will be sent after a request.
 - `res_device_state` Device State Event:
 
   Will be published after sending request `req_device_state`
-  Value: json encoded string
-
-- `res_device_info` Device Info Event:
-
-  Will be published after sending request `req_device_info`
   Value: json encoded string
 
 - `read_response` Component Read Response
@@ -296,11 +286,6 @@ Different ESP device events.
   The hub reacts to `page` only (automatic page switching opens the idle page);
   `dim` and `off` are brightness milestones handled by the firmware itself.
 
-- `use_relay_left` / `use_relay_right` Relay Mode Event:
-
-  The "use relay" switch was changed
-  Value: state (1 or 0)
-
 - `send_notification` Notification Event:
 
   Published by the `send_notification` script
@@ -393,8 +378,6 @@ This actions below are defined on the ESP. The communication between the Hub ser
   Parameters: `title`, `message`, `icon`, `persistent` (bool; loops the alert sound and re-opens the popup about every 60 seconds until dismissed) and `text_size` (`"auto"` or a font size 1-3). All parameters are required because ESPHome 2026.10 has no optional action variables — pass `false` for `persistent` and `"auto"` for `text_size` to get the defaults. `persistent` does not force-show the popup; the first re-open comes about a second after the action.
 
 - `req_val` / `req_txt` Actions to read a number / text value from the display (parameter `name`)
-
-- `haui_discover` Action to publish the `haui_discover` event
 
 ## Page
 

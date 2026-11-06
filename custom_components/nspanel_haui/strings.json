@@ -119,6 +119,10 @@
         "force_show": {
           "name": "Force show",
           "description": "Immediately open the notification even if another panel is displayed."
+        },
+        "text_size": {
+          "name": "Text size",
+          "description": "Popup body text size: \"auto\" (the largest font that fits the whole message on one page) or a font size 1-3."
         }
       }
     },

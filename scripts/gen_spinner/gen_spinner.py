@@ -6,7 +6,7 @@ display cannot blend, so every frame is drawn onto the crop of the system
 background tile at the spinner's position, per orientation:
 
 * landscape: ``nextion/images/bkg/landscape/system.png`` at (155, 80)
-* portrait:  ``nextion/images/bkg/portrait/system.png`` at (90, 135)
+* portrait:  ``nextion/images/bkg/portrait/system.png`` at (90, 160)
 
 The 60 frames go into two 1400 x 420 sheets of 3 x 10 frames (pictures 10
 and 11 in the HMI; the page's timer shows frames 0..29 from the first sheet
@@ -36,7 +36,7 @@ OUT_DIR = ROOT / "nextion" / "images"
 # spinner position on the system page per orientation
 POSITIONS = {
     "landscape": (155, 80),
-    "portrait": (90, 135),
+    "portrait": (90, 160),
 }
 
 # Constants for animation timing.

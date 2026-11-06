@@ -111,10 +111,10 @@ No Python changes are needed unless you also change the object name or id.
      `gen_portrait.py --spec landscape_layout` (project closed first, see
      [§7](#7-creating-the-us-portrait-tft)): the spec documents the layout
      rules and the same change then goes into `portrait_layout.py`.
-4. Compile (`Build`) to regenerate the TFT you're testing.
-5. Re-dump with Nextion2Text and confirm the widget's id/name are unchanged
-   (or update Python if they are).
-6. Test on the device: render the page, touch the widget, watch the hub log.
+4. Run the steps in [§8](#8-after-any-hmi-change-scripts-to-run): layout
+   specs, compile, generated assets, an id/name check against Python, and the
+   gates.
+5. Test on the device: render the page, touch the widget, watch the hub log.
 
 ## 5. Add a widget or a whole page
 
@@ -141,7 +141,7 @@ No Python changes are needed unless you also change the object name or id.
 5. If the widget shows user-facing text or a title attribute, run the
    translation extraction (`python scripts/translations/extract_translations.py`)
    after adding the `t()`/`self.translate()` call.
-6. Re-dump + run `pytest tests/`, `ruff`, `mypy` (see [§8](#8-verification-checklist-after-any-hmi-change)).
+6. Re-dump + run `pytest tests/`, `ruff`, `mypy` (see [§8](#8-after-any-hmi-change-scripts-to-run)).
 
 ### Adding a new page
 
@@ -234,9 +234,9 @@ the result alongside the landscape TFT on every release.
    re-run the script. A `PORTRAIT_ATTRS` change must also be followed by a
    TFT recompile (step 4 below): the HMI change alone does not reach devices.
    The layout rules the spec follows:
-   - The header bar (`tHeader`/`tTitle`) spans the full top 50 px; the four
-     function buttons move to a bottom bar at y 430..480, so the content area
-     is y 50..430 with 12 px side margins.
+   - The header bar (`tHeader`/`tTitle`) spans the full top 50 px with the
+     four function buttons at its ends, as in landscape; the content area
+     starts at y 50 with 12 px side margins.
    - Grids re-flow (grid 3 × 2 → 2 × 3, select 3 × 4 → 2 × 6), rows stack
      their controls under the name line, sliders grow taller, button rows
      keep their order.
@@ -295,32 +295,111 @@ the result alongside the landscape TFT on every release.
   TFT will leave `display_model: us` devices on an old TFT (the update flow
   just finds no matching asset).
 
-## 8. Verification checklist (after any HMI change)
+## 8. After any HMI change: scripts to run
 
-1. Re-dump both HMIs:
+Run these from the repository root with the dev venv active
+(`source .venv/bin/activate`), in this order: the layout specs write the HMIs,
+the editor compiles them, and everything after that is generated from the
+HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
+`already '…'`), so running the whole sequence is always safe.
+
+1. **Close the project in the Nextion Editor** (`File → Close Project`; answer
+   *Yes* to keep your editor work). The editor re-saves the open project on
+   Close Project and on every project switch, which overwrites whatever a
+   script wrote in the meantime.
+2. **Write the layout specs into both HMIs.** Run landscape first, because the
+   portrait run copies every widget's *Send Component ID* from the landscape
+   HMI:
+
+   ```bash
+   python scripts/gen_portrait/gen_portrait.py --spec landscape_layout   # nspanel_haui.HMI
+   python scripts/gen_portrait/gen_portrait.py                           # nspanel_haui_portrait.HMI
+   ```
+
+   A coverage error names a widget that exists in only one HMI, or a portrait
+   widget that `portrait_layout.py` does not list. Add the widget to the other
+   HMI in the editor and its rect to the spec, then run both again. A widget the
+   spec lists is reset to the spec's geometry and attributes, so an editor
+   change to such a widget must also go into `landscape_layout.py` /
+   `portrait_layout.py` (see [§7.2](#72-keeping-both-variants-in-sync)).
+3. **Set the TFT version (releases with new TFTs only).**
+   `python scripts/bump_version.py X.Y.Z --tft-update` writes
+   `system.tftVersion` into both HMIs. It handles same-length versions only;
+   see [Release process](release.md#2-version-bump).
+4. **Regenerate the editor pictures whose source changed**, then import them
+   in the editor. A script cannot add or replace a picture in the HMI, so
+   import the new PNG over the old picture in **both** projects, keeping the
+   picture id.
+
+   | Script | Writes | Run it after |
+   |--------|--------|--------------|
+   | `python scripts/gen_grid/gen_grid.py` | `nextion/images/grid_landscape.png`, `grid_portrait.png` (picture 0, the editor-only `pGrid` design grid) | a layout rule (margins, header, bars) or a theme colour changed |
+   | `python scripts/gen_backgrounds/gen_backgrounds.py` | `nextion/images/bkg/landscape/`, `bkg/portrait/` | a source picture in `nextion/src_images/bkg/` changed |
+   | `python scripts/gen_spinner/gen_spinner.py` | `nextion/images/spinner_<orientation>_1.png`, `_2.png` (pictures 10, 11) | the `system` tile changed or `hSpinner` moved |
+
+5. **Re-open, check and compile both projects.** Open each project from the
+   recent list; it must open without "Version mismatch". Look at every page you
+   changed: text that no longer fits its widget needs the next font size down.
+   Then click `Compile` and use `File → TFT file output` to write
+   `nextion/nspanel_haui.tft` and `nextion/nspanel_haui_portrait.tft`. Compile
+   both whenever step 2 or 3 wrote either HMI: an HMI change alone never
+   reaches a device.
+6. **Regenerate the hub and preview assets** from both HMIs:
+
+   ```bash
+   python scripts/gen_virtual_layout/gen_virtual_layout.py
+   ```
+
+   It writes the preview layouts (`frontend/virtual/layout_landscape.json`,
+   `layout_portrait.json`), `icon_map.json`, the preview pictures
+   (`frontend/virtual/pictures/`, WebP from `nextion/images/`), the font widths
+   the hub fits text with (`haui/mapping/font_metrics.json`) and the widgets
+   compiled with a theme colour (`haui/mapping/theme_widgets.json`). The
+   optional [pre-commit hook](development.md#git-hooks) runs it on every
+   commit.
+7. **Update Python when ids or names changed.** Dump both HMIs and compare
+   each page with its `COMPONENTS` registry in `haui/page/*.py`:
 
    ```bash
    python scripts/nextion2text/Nextion2Text.py -i nextion/nspanel_haui.HMI -o build/nextion-out/landscape -d -s -p visual
    python scripts/nextion2text/Nextion2Text.py -i nextion/nspanel_haui_portrait.HMI -o build/nextion-out/portrait -d -s -p visual
    ```
 
-2. Cross-check widget names/ids against `haui/page/*.py` `COMPONENTS`
-   registries page by page.
-3. Full checks: `pytest tests/`, `ruff check custom_components/ scripts/`, `mypy`,
-   and if you touched `frontend/`, `node --test 'tests/frontend/*.test.mjs'`.
-4. If you added user-facing strings: `python scripts/translations/extract_translations.py`.
-5. Automatic release gate: `python scripts/verify_nextion/verify_nextion.py --require-portrait`
-   fails the release until (a) `clock.tTime` has **Send Component ID** enabled,
-   (b) `system.tftVersion` matches the integration version when the release
-   includes a TFT update, and (c) the portrait HMI/TFT exist. Run it locally
-after HMI changes; the release workflow runs it too. For every release, run
-`python scripts/bump_version.py X.Y.Z`; add `--tft-update` when the release
-includes new TFT files. This keeps the firmware version moving independently
-from the TFT requirement. That flag edits the HMI `tftVersion` text directly
-(same-length versions only), so you do not have to type it in the Nextion
-Editor. A length-changing TFT version still needs the Editor.
-6. On-device test per model: page renders completely, all widgets hit-test
-   correctly, gestures behave (see §7.3 for portrait), auto-update installs the
+   If the hub now sends different commands (new ids, other widgets), refresh
+   the golden page commands with
+   `PAGE_COMMANDS_REGEN=1 pytest tests/test_page_commands_golden.py` and
+   review the diff. If you added user-facing strings, run
+   `python scripts/translations/extract_translations.py`.
+8. **Run the gates.** All must pass before you commit:
+
+   ```bash
+   python scripts/gen_portrait/gen_portrait.py --spec landscape_layout --check
+   python scripts/gen_portrait/gen_portrait.py --check
+   python scripts/verify_nextion/verify_nextion.py --require-portrait
+   python scripts/gen_virtual_layout/gen_virtual_layout.py --check
+   python scripts/check_preview_coverage.py
+   pytest tests/
+   node --test 'tests/frontend/*.test.mjs'
+   ruff check custom_components/ scripts/
+   mypy
+   ```
+
+   - `gen_portrait.py --check` compares widget coverage and every value in the
+     spec with the HMI.
+   - `verify_nextion.py` checks that `clock.tTime` sends its component id and
+     that every widget's *Send Component ID* is identical in both HMIs. It also
+     checks that `system.tftVersion` matches `manifest.json` and that the
+     portrait HMI and TFT exist.
+   - `pytest` replays a render of every panel in both layouts
+     (`tests/test_card_renders.py`).
+9. **Test on a device of each model.** Every page renders completely, every
+   widget responds to touch, gestures behave (see
+   [§7.3](#73-portrait-specific-caveats)), and the update flow installs the
    right TFT for `display_model: us`.
-7. Release: attach **both** TFTs (+ both HMI sources) and keep
-   `manifest.json` / `version.yaml` / HMI version text in lockstep.
+
+The docs' screen overview (`docs/assets/screens/`, `docs/screens.html`) is
+regenerated by the `Screens` workflow after each development firmware build,
+so don't commit it by hand. To see every card locally, run
+`python scripts/preview_gallery/gen_preview_gallery.py --serve`. A release
+ships both TFTs and both HMI sources together; the version places and gates are
+in [Release process & strategy](release.md).

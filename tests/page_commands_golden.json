@@ -2751,19 +2751,23 @@
    "r3Icon.pco=65222",
    "r3Toggle.val=1",
    "tsw r3Toggle,1",
-   "r3Toggle.pco=65535",
-   "r3Toggle.bco=10565",
-   "r3Toggle.bco2=19773",
+   "r3Toggle.pco=29582",
+   "r3Toggle.pco2=19773",
+   "r3Toggle.bco=4226",
+   "r3Toggle.bco2=4226",
    "vis r3Toggle,1",
+   "r3Toggle.txt=\"\uea19\"",
    "r4Name.txt=\"Plug\"",
    "r4Icon.txt=\"\ue97d\"",
    "r4Icon.pco=17299",
    "r4Toggle.val=0",
    "tsw r4Toggle,1",
-   "r4Toggle.pco=65535",
-   "r4Toggle.bco=10565",
-   "r4Toggle.bco2=19773",
+   "r4Toggle.pco=29582",
+   "r4Toggle.pco2=19773",
+   "r4Toggle.bco=4226",
+   "r4Toggle.bco2=4226",
    "vis r4Toggle,1",
+   "r4Toggle.txt=\"\uea18\"",
    "r5Name.txt=\"Num\"",
    "r5Icon.txt=\"\ue444\"",
    "r5Icon.pco=17299",
@@ -2908,10 +2912,10 @@
    "switch.d:all"
   ],
   "steps": [
-   143,
-   177,
-   211,
-   235
+   147,
+   181,
+   215,
+   239
   ]
  },
  "row_cover_rows": {
@@ -3126,19 +3130,23 @@
    "r3Icon.pco=65222",
    "r3Toggle.val=1",
    "tsw r3Toggle,1",
-   "r3Toggle.pco=65535",
-   "r3Toggle.bco=10565",
-   "r3Toggle.bco2=19773",
+   "r3Toggle.pco=29582",
+   "r3Toggle.pco2=19773",
+   "r3Toggle.bco=4226",
+   "r3Toggle.bco2=4226",
    "vis r3Toggle,1",
+   "r3Toggle.txt=\"\uea19\"",
    "r4Name.txt=\"Plug\"",
    "r4Icon.txt=\"\ue97d\"",
    "r4Icon.pco=17299",
    "r4Toggle.val=0",
    "tsw r4Toggle,1",
-   "r4Toggle.pco=65535",
-   "r4Toggle.bco=10565",
-   "r4Toggle.bco2=19773",
+   "r4Toggle.pco=29582",
+   "r4Toggle.pco2=19773",
+   "r4Toggle.bco=4226",
+   "r4Toggle.bco2=4226",
    "vis r4Toggle,1",
+   "r4Toggle.txt=\"\uea18\"",
    "vis r5Icon,0",
    "vis r5Name,0",
    "vis r5Overlay,0"
@@ -3889,14 +3897,6 @@
    "Unlock"
   ],
   [
-   [
-    "fnc_btn_right_sec"
-   ],
-   {
-    "color": 1527
-   }
-  ],
-  [
    [],
    {
     "back_color": 1056,
@@ -3913,14 +3913,6 @@
    "\ue9dd"
   ],
   [
-   [
-    "fnc_btn_right_sec"
-   ],
-   {
-    "color": 1696
-   }
-  ],
-  [
    [],
    {
     "back_color": 1056,
@@ -3935,14 +3927,6 @@
    "text",
    "tTitle",
    "\ue9dd\ue9dd"
-  ],
-  [
-   [
-    "fnc_btn_right_sec"
-   ],
-   {
-    "color": 1696
-   }
   ],
   [
    [],

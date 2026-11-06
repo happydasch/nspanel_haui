@@ -9,17 +9,19 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..abstract.mixins.cycle_cards_mixin import CARD_OPTIONS, Card, CardBox, CycleCardsMixin
 from ..mapping.color import WEATHER_COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icon_mapping import WEATHER_MAPPING
 from ..mapping.icons import ICO_MESSAGE
-from ..utils.datetime import format_datetime, get_date_localized, get_time_localized
+from ..utils.datetime import format_datetime
 from ..utils.icon import get_icon, parse_icon
+from ..utils.text import TextBox
 from ..utils.value import format_number
 from .clock_common import apply_background, release_ticks, subscribe_ticks
 
 
-class WeatherPage(HAUIPage):
+class WeatherPage(CycleCardsMixin, HAUIPage):
     PICTURE_BACKGROUND = True
     USE_SYSTEM_COLORS = False
     DESCRIPTOR = PageDescriptor(
@@ -49,6 +51,7 @@ class WeatherPage(HAUIPage):
                     ("cat", _("Cat")),
                 ],
             ),
+            *CARD_OPTIONS,
             PageOption(
                 key="item",
                 kind="item",
@@ -165,6 +168,17 @@ class WeatherPage(HAUIPage):
     NUM_FORECAST = 5
     TEMP_PRECISION = 0
     FORECAST_PRECISION = 0
+    # tTime and tDate per orientation (w, h, borderw, txt_maxl; font), as in the HMIs
+    CARD_BOXES = {
+        "landscape": {
+            "tTime": CardBox(TextBox(262, 118, 2, 10), 6),
+            "tDate": CardBox(TextBox(288, 32, 2, 50), 1),
+        },
+        "portrait": {
+            "tTime": CardBox(TextBox(320, 118, 2, 10), 6),
+            "tDate": CardBox(TextBox(320, 32, 2, 50), 1),
+        },
+    }
 
     # panel
 
@@ -181,6 +195,7 @@ class WeatherPage(HAUIPage):
         self._weather_icons_mode = "color"
         self._weather_item: HAUIItem | None = None
         self._info_items: list[HAUIItem] = []
+        self._init_cards()
 
     def create_panel(self, panel: HAUIPanel) -> None:
         # setting: background (rendered in start_panel after page is confirmed)
@@ -237,19 +252,15 @@ class WeatherPage(HAUIPage):
         self._forecast_type = panel.get("forecast_type", "")
         if self._forecast_type:
             self._render_forecast()
-        # main components
-        self.set_function_component(self.COMPONENTS.t_time, self.COMPONENTS.t_time[1], visible=True)
-        self.set_function_component(self.COMPONENTS.t_date, self.COMPONENTS.t_date[1], visible=True)
+        # cycle cards in the time area; tTime sends no touch events, so they only cycle
+        self._start_cards(panel, has_weather=bool(weather_entity_id))
         # notification (reuses t_main_icon widget — no dedicated notif component)
         self._show_notifications = panel.get("show_notifications", True)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        # time display
-        self.update_time()
-        # date display
-        self.update_date()
-        # main weather entity
+        # main weather entity first: the temperature cards read its unit
         self.render_main_weather()
+        self._render_cards()
         # info panels (D1/D2)
         self.render_info_panels()
         # forecast
@@ -258,6 +269,7 @@ class WeatherPage(HAUIPage):
         self.app.controller["notification"].blinker.refresh()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
+        self._stop_cards()
         release_ticks(self)
         # Unregister the shared blinker callback so a closed page is not refreshed.
         self.app.controller["notification"].clear_blinker_callback()
@@ -275,23 +287,6 @@ class WeatherPage(HAUIPage):
             self.show_component(ico)
             self.show_component(val)
             self.show_component(subval)
-
-    def update_time(self) -> None:
-        timeformat = self.app.device.get_time_format()
-        timezone = self.app.get_timezone()
-        time = get_time_localized(timeformat, timezone)
-        self.update_function_component(self.COMPONENTS.t_time[1], text=time)
-
-    def update_date(self) -> None:
-        device = self.app.device
-        strftime_format = device.get_date_format()
-        babel_format = device.get_date_format_locale() or self.app.device_config.get(
-            "date_format_babel"
-        )
-        locale = device.get_locale()
-        timezone = self.app.get_timezone()
-        date = get_date_localized(strftime_format, babel_format, locale, timezone)
-        self.update_function_component(self.COMPONENTS.t_date[1], text=date)
 
     def render_main_weather(self) -> None:
         if self._weather_item is not None:
@@ -489,20 +484,24 @@ class WeatherPage(HAUIPage):
     def callback_update_time(self, cb_args: Any) -> None:
         if not self.started:
             return
-        self.update_time()
-        self.send_cmd(f"ref {self.COMPONENTS.t_main_icon[1]}")
+        with self.rec_cmd:
+            self._refresh_card(Card("time"))
 
     def callback_update_date(self, cb_args: Any) -> None:
         if not self.started:
             return
-        self.update_date()
+        # the time card shows the date below the time
+        with self.rec_cmd:
+            self._refresh_card(Card("time"), Card("date"))
 
     def callback_weather(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
     ) -> None:
-        self.update_main_weather()
-        self.render_info_panels()
-        self.render_forecast()
+        with self.rec_cmd:
+            self.update_main_weather()
+            self._refresh_card(Card("outside_temperature"))
+            self.render_info_panels()
+            self.render_forecast()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         notification = self.app.controller["notification"]

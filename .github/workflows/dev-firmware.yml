@@ -44,16 +44,17 @@ jobs:
         # The version carries no ``+local`` segment (the commit lives in the
         # release name and notes): AwesomeVersion sorts ``0.4.5.dev16+g<sha>``
         # *above* the final ``0.4.5`` and above a later ``0.4.5.dev17``, so
-        # neither Home Assistant nor HACS would ever offer the release that
-        # supersedes such a build. The run number alone keeps versions unique.
+        # neither Home Assistant nor its Marketplace would ever offer the
+        # release that supersedes such a build. The run number alone keeps
+        # versions unique.
         #
         # The same string is the release tag, the integration manifest version
-        # and the firmware yaml_version. HACS reads the release tag as the
-        # available version and the installed copy's manifest ``version`` as the
-        # installed one; with a ``dev-<run>-<sha>`` tag the comparison fell back
-        # to string inequality, so an installed dev build kept offering itself
-        # as an update. Keeping both identical (and PEP 440) makes HACS order
-        # dev releases and only offer a build that is actually newer.
+        # and the firmware yaml_version. The Marketplace reads release tags as
+        # available versions and the installed tag as the installed one; with a
+        # ``dev-<run>-<sha>`` tag the comparison fell back to string inequality,
+        # so an installed dev build kept offering itself as an update. Keeping
+        # them identical (and PEP 440) makes the Marketplace order dev releases
+        # and only offer a build that is actually newer.
         run: |
           python3 - <<'PY'
           import json, os, re
@@ -198,17 +199,17 @@ jobs:
           PY
 
       - name: Tag the versioned source tree and publish it to dev
-        # HACS downloads the *source archive of the tag* (not the release
-        # assets), and reads the installed version from its manifest.json. The
-        # bumped manifest therefore has to be in a commit the tag points at;
-        # tagging the pushed commit alone would ship the unmodified stable
-        # manifest and HACS would keep showing the stable version as installed.
+        # The Marketplace downloads the *source archive of the tag* (not the
+        # release assets), and Home Assistant and the hub read the version from
+        # its manifest.json. The bumped manifest therefore has to be in a commit
+        # the tag points at; tagging the pushed commit alone would ship the
+        # unmodified stable manifest, so the dev build would call itself stable.
         #
         # The same versioned commit is pushed onto the ``dev`` branch, so the
         # branch's tracked version.yaml carries the dev version instead of
         # lagging on the last stable release (the old tag-only commit left dev
         # stale). The next run derives the next dev version from that X.Y.Z.devN
-        # directly, and HACS never prints an out-of-date installed version.
+        # directly.
         # ``[skip ci]`` keeps this push to dev from re-triggering this workflow;
         # a re-run keeps its run number (the version) and builds the same
         # commit, so it replaces an equivalent commit/tag.
@@ -252,9 +253,9 @@ jobs:
       - name: Publish versioned development prerelease
         uses: softprops/action-gh-release@v2
         with:
-          # The tag *is* the PEP 440 dev version, so HACS (which reads release
-          # tags as versions) can order dev releases and compare them with the
-          # manifest version of an installed dev build.
+          # The tag *is* the PEP 440 dev version, so the Marketplace (which
+          # reads release tags as versions) can order dev releases and compare
+          # them with the installed dev build.
           tag_name: ${{ env.DEV_VERSION }}
           name: NSPanel HAUI ${{ env.DEV_VERSION }} (${{ env.DEV_SHA }})
           body_path: dev-release-notes.md
@@ -266,11 +267,11 @@ jobs:
             firmware-manifest.json
 
       - name: Prune old development prereleases
-        # HACS reads only the newest 30 releases, the hub's release check the
-        # newest 100 (RELEASES_URL). One prerelease per push would push the
-        # latest stable release out of both: HACS then finds no stable version
-        # and a fresh install falls back to the default branch (dev). Keep the
-        # newest dev builds only; stable releases never match.
+        # The Marketplace reads only the newest 30 releases, the hub's release
+        # check the newest 100 (RELEASES_URL). One prerelease per push would push
+        # the latest stable release out of both: the Marketplace then finds no
+        # stable version and a fresh install falls back to the default branch
+        # (dev). Keep the newest dev builds only; stable releases never match.
         env:
           GH_TOKEN: ${{ github.token }}
           KEEP: 10

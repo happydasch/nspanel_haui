@@ -10,7 +10,7 @@ from ..abstract.mixins.paged_items_mixin import PagedItemsMixin
 from ..features import CoverFeatures
 from ..mapping.const import InternalItemType
 from ..mapping.descriptor import PageDescriptor, PageOption, _
-from ..mapping.icons import ICO_NEXT_PAGE
+from ..mapping.icons import ICO_NEXT_PAGE, ICO_TOGGLE_OFF, ICO_TOGGLE_ON
 from ..utils.icon import get_icon, get_icon_name_by_action
 from ..utils.text import trim_text
 
@@ -39,60 +39,65 @@ class RowPage(PagedItemsMixin, HAUIPage):
         fnc_left_sec=Component(5, "bFncLSec"),
         fnc_right_pri=Component(6, "bFncRPri"),
         fnc_right_sec=Component(7, "bFncRSec"),
-        # r1
+        # icon
         r1_ico=Component(8, "r1Icon"),
-        r1_name=Component(9, "r1Name"),
-        r1_ovl=Component(10, "r1Overlay"),
-        r1_btn_up=Component(11, "r1BtnUp"),
-        r1_btn_stop=Component(12, "r1BtnStop"),
-        r1_btn_down=Component(13, "r1BtnDown"),
-        r1_slider=Component(14, "r1Slider"),
-        r1_slider_txt=Component(15, "r1SliderTxt"),
-        r1_btn_txt=Component(16, "r1BtnText"),
-        r1_toggle=Component(17, "r1Toggle"),
-        # r2
-        r2_ico=Component(18, "r2Icon"),
-        r2_name=Component(19, "r2Name"),
-        r2_ovl=Component(20, "r2Overlay"),
-        r2_btn_up=Component(21, "r2BtnUp"),
-        r2_btn_stop=Component(22, "r2BtnStop"),
-        r2_btn_down=Component(23, "r2BtnDown"),
-        r2_slider=Component(24, "r2Slider"),
-        r2_slider_txt=Component(25, "r2SliderTxt"),
-        r2_btn_txt=Component(26, "r2BtnText"),
-        r2_toggle=Component(27, "r2Toggle"),
-        # r3
-        r3_ico=Component(28, "r3Icon"),
-        r3_name=Component(29, "r3Name"),
-        r3_ovl=Component(30, "r3Overlay"),
-        r3_btn_up=Component(31, "r3BtnUp"),
-        r3_btn_stop=Component(32, "r3BtnStop"),
-        r3_btn_down=Component(33, "r3BtnDown"),
-        r3_slider=Component(34, "r3Slider"),
-        r3_slider_txt=Component(35, "r3SliderTxt"),
-        r3_btn_txt=Component(36, "r3BtnText"),
-        r3_toggle=Component(37, "r3Toggle"),
-        # r4
-        r4_ico=Component(38, "r4Icon"),
-        r4_name=Component(39, "r4Name"),
-        r4_ovl=Component(40, "r4Overlay"),
-        r4_btn_up=Component(41, "r4BtnUp"),
-        r4_btn_stop=Component(42, "r4BtnStop"),
-        r4_btn_down=Component(43, "r4BtnDown"),
-        r4_slider=Component(44, "r4Slider"),
-        r4_slider_txt=Component(45, "r4SliderTxt"),
-        r4_btn_txt=Component(46, "r4BtnText"),
-        r4_toggle=Component(47, "r4Toggle"),
-        # r5
-        r5_ico=Component(48, "r5Icon"),
-        r5_name=Component(49, "r5Name"),
-        r5_ovl=Component(50, "r5Overlay"),
-        r5_btn_up=Component(51, "r5BtnUp"),
-        r5_btn_stop=Component(52, "r5BtnStop"),
-        r5_btn_down=Component(53, "r5BtnDown"),
-        r5_slider=Component(54, "r5Slider"),
-        r5_slider_txt=Component(55, "r5SliderTxt"),
-        r5_btn_txt=Component(56, "r5BtnText"),
+        r2_ico=Component(9, "r2Icon"),
+        r3_ico=Component(10, "r3Icon"),
+        r4_ico=Component(11, "r4Icon"),
+        r5_ico=Component(12, "r5Icon"),
+        # name
+        r1_name=Component(13, "r1Name"),
+        r2_name=Component(14, "r2Name"),
+        r3_name=Component(15, "r3Name"),
+        r4_name=Component(16, "r4Name"),
+        r5_name=Component(17, "r5Name"),
+        # overlay
+        r1_ovl=Component(18, "r1Overlay"),
+        r2_ovl=Component(19, "r2Overlay"),
+        r3_ovl=Component(20, "r3Overlay"),
+        r4_ovl=Component(21, "r4Overlay"),
+        r5_ovl=Component(22, "r5Overlay"),
+        #
+        r1_btn_up=Component(23, "r1BtnUp"),
+        r2_btn_up=Component(24, "r2BtnUp"),
+        r3_btn_up=Component(25, "r3BtnUp"),
+        r4_btn_up=Component(26, "r4BtnUp"),
+        r5_btn_up=Component(27, "r5BtnUp"),
+        #
+        r1_btn_stop=Component(28, "r1BtnStop"),
+        r2_btn_stop=Component(29, "r2BtnStop"),
+        r3_btn_stop=Component(30, "r3BtnStop"),
+        r4_btn_stop=Component(31, "r4BtnStop"),
+        r5_btn_stop=Component(32, "r5BtnStop"),
+        #
+        r1_btn_down=Component(33, "r1BtnDown"),
+        r2_btn_down=Component(34, "r2BtnDown"),
+        r3_btn_down=Component(35, "r3BtnDown"),
+        r4_btn_down=Component(36, "r4BtnDown"),
+        r5_btn_down=Component(37, "r5BtnDown"),
+        #
+        r1_btn_txt=Component(38, "r1BtnText"),
+        r2_btn_txt=Component(39, "r2BtnText"),
+        r3_btn_txt=Component(40, "r3BtnText"),
+        r4_btn_txt=Component(41, "r4BtnText"),
+        r5_btn_txt=Component(42, "r5BtnText"),
+        #
+        r1_slider=Component(43, "r1Slider"),
+        r2_slider=Component(44, "r2Slider"),
+        r3_slider=Component(45, "r3Slider"),
+        r4_slider=Component(46, "r4Slider"),
+        r5_slider=Component(47, "r5Slider"),
+        #
+        r1_slider_txt=Component(48, "r1SliderTxt"),
+        r2_slider_txt=Component(49, "r2SliderTxt"),
+        r3_slider_txt=Component(50, "r3SliderTxt"),
+        r4_slider_txt=Component(51, "r4SliderTxt"),
+        r5_slider_txt=Component(52, "r5SliderTxt"),
+        #
+        r1_toggle=Component(53, "r1Toggle"),
+        r2_toggle=Component(54, "r2Toggle"),
+        r3_toggle=Component(55, "r3Toggle"),
+        r4_toggle=Component(56, "r4Toggle"),
         r5_toggle=Component(57, "r5Toggle"),
     )
     # definitions
@@ -121,39 +126,29 @@ class RowPage(PagedItemsMixin, HAUIPage):
         # configured initial page every time the panel opens.
         self._current_page = panel.get_state("current_page", 0)
         # set function buttons
-        show_in_nav = panel.show_in_navigation()
-        # Only claim a right slot for pagination when there actually is more
-        # than one page.  Otherwise the slot stays free so _auto_assign_fncs()
-        # can put the notification indicator there — an invisible next_page
-        # button used to occupy the slot and hide unread notifications.  When
-        # pagination does claim right_sec (in navigation), auto-assign moves
-        # the notification indicator onto the idle button's left-secondary
-        # slot on the home panel.
-        has_pagination = len(self._items) > self.NUM_ROWS
-        nav_btn: dict = {
-            "fnc_component": (
-                self.COMPONENTS.fnc_right_sec if show_in_nav else self.COMPONENTS.fnc_right_pri
-            ),
-            "fnc_name": "next_page",
-            "fnc_args": {
-                "icon": ICO_NEXT_PAGE,
-                "color": self.get_color("header_accent"),
-                "visible": has_pagination,
-            },
-        }
-        btn_right_1: tuple | dict
-        btn_right_2: tuple | dict
-        if show_in_nav:
-            btn_right_1 = self.COMPONENTS.fnc_right_pri
-            btn_right_2 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_sec
-        else:
-            btn_right_1 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_pri
-            btn_right_2 = self.COMPONENTS.fnc_right_sec
+        # Pagination sits on fnc_right_sec (inner, beside the title) so
+        # fnc_right_pri stays free for auto-assignment: NEXT in navigation,
+        # CLOSE on a stacked panel.  Only claim the slot when there actually
+        # is more than one page; otherwise _auto_assign_fncs() can put the
+        # notification indicator there.  When pagination does claim it,
+        # auto-assign moves the notification indicator onto the idle button's
+        # left-secondary slot on the home panel.
+        btn_right_sec: tuple | dict = self.COMPONENTS.fnc_right_sec
+        if len(self._items) > self.NUM_ROWS:
+            btn_right_sec = {
+                "fnc_component": self.COMPONENTS.fnc_right_sec,
+                "fnc_name": "next_page",
+                "fnc_args": {
+                    "icon": ICO_NEXT_PAGE,
+                    "color": self.get_color("header_accent"),
+                    "visible": True,
+                },
+            }
         self.set_function_buttons(
             self.COMPONENTS.fnc_left_pri,
             self.COMPONENTS.fnc_left_sec,
-            btn_right_1,
-            btn_right_2,
+            self.COMPONENTS.fnc_right_pri,
+            btn_right_sec,
         )
         # set item overlay callbacks
         for i in range(self.NUM_ROWS):
@@ -276,6 +271,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
                 show = False
                 readonly = None
                 color = None
+                color_pressed = None
                 back_color = None
                 back_color_pressed = None
                 # check detail
@@ -288,9 +284,12 @@ class RowPage(PagedItemsMixin, HAUIPage):
                     elif detail_visible == "toggle":
                         if n == "toggle":
                             show = True
-                            # dual-state: bco is the off state, bco2 the on state
-                            back_color = self.get_color("component_background")
-                            back_color_pressed = self.get_color("component_active")
+                            # dual-state icon on the page: pco is the off
+                            # state, pco2 the on state
+                            color = self.get_color("text_inactive")
+                            color_pressed = self.get_color("component_active")
+                            back_color = self.get_color("background")
+                            back_color_pressed = self.get_color("background")
                     # 'SLIDER', 'SLIDER_TXT' value slider
                     elif detail_visible == "slider":
                         if n in ["slider", "slider_txt"]:
@@ -316,6 +315,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
                     visible=show,
                     touch=not readonly,
                     color=color,
+                    color_pressed=color_pressed,
                     back_color=back_color,
                     back_color_pressed=back_color_pressed,
                 )
@@ -448,8 +448,12 @@ class RowPage(PagedItemsMixin, HAUIPage):
 
     def update_item_toggle(self, haui_item: HAUIItem, idx: int) -> None:
         toggle = getattr(self.COMPONENTS, f"r{idx}_toggle")
-        value = 0 if haui_item.get_item_state() == "off" else 1
-        self.update_function_component(toggle[1], value=value)
+        on = haui_item.get_item_state() != "off"
+        # val picks the colour, but a dual-state button has one txt for both
+        # states, so the icon is swapped too; one update sends val or txt, not
+        # both, hence two calls
+        self.update_function_component(toggle[1], value=int(on))
+        self.update_function_component(toggle[1], text=ICO_TOGGLE_ON if on else ICO_TOGGLE_OFF)
 
     def update_item_slider(self, haui_item: HAUIItem, idx: int) -> None:
         slider = getattr(self.COMPONENTS, f"r{idx}_slider")

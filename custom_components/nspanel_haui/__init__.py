@@ -598,10 +598,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         ColorDefaultsView,
         DeviceConfigView,
         DeviceFirmwareReleasesView,
+        DeviceRefreshDisplayView,
         DeviceStatusView,
         DeviceTftReleasesView,
         DeviceUpdateCheckView,
-        DeviceUpdateDisplayView,
         DeviceUpdateFirmwareView,
         DeviceUpdateTftView,
         DeviceYamlView,
@@ -624,7 +624,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.http.register_view(DeviceConfigView())
     hass.http.register_view(DeviceStatusView())
     hass.http.register_view(NotificationsView())
-    hass.http.register_view(DeviceUpdateDisplayView())
+    hass.http.register_view(DeviceRefreshDisplayView())
     hass.http.register_view(DeviceUpdateTftView())
     hass.http.register_view(DeviceTftReleasesView())
     hass.http.register_view(DeviceUpdateFirmwareView())

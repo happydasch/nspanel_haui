@@ -94,6 +94,16 @@ def test_tft_install_actions_live_in_the_integration():
     assert "- action: upload_tft\n" not in api
 
 
+def test_firmware_drops_protocol_the_hub_never_uses():
+    """Discovery uses the device registry and the device state carries the versions."""
+    api = _read("api.yaml")
+    for action in ("haui_discover", "req_device_info", "req_reconnect"):
+        assert f"- action: {action}\n" not in api
+    events = _read("scripts_event.yaml") + _read("switch.yaml")
+    for event in ("esphome.haui_discover", "esphome.res_device_info", "esphome.use_relay_"):
+        assert event not in events
+
+
 def test_maintenance_entities_are_disabled_by_default():
     """Update Display, Restart Display and Screen Power are rarely needed."""
     import yaml
@@ -231,7 +241,7 @@ def test_firmware_build_variant_is_reported_and_never_universal_for_custom_build
     does not match the reported one, so the universal release image must only
     ever be published by the universal config.
     """
-    for script in ("publish_connection_request", "publish_device_info", "publish_device_state"):
+    for script in ("publish_connection_request", "publish_device_state"):
         block = _read("scripts_event.yaml").split(f"- id: {script}")[1].split("- id:")[0]
         assert 'root["firmware_variant"]' in block
 

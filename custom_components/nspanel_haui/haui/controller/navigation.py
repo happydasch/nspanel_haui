@@ -26,6 +26,10 @@ OVERFLOW_RECOVERY_DELAY = 0.5  # seconds, debounce before first recovery
 OVERFLOW_RECOVERY_MAX_ATTEMPTS = 5  # consecutive recoveries before pausing
 OVERFLOW_RECOVERY_RESET = 30.0  # seconds without overflows to reset backoff
 
+# Seconds to wait for the display's page ack before resending the page
+# command and rendering anyway.
+PAGE_ACK_TIMEOUT = 10.0
+
 
 class HAUINavigationController(HAUIBase):
     """Navigation Controller
@@ -513,9 +517,8 @@ class HAUINavigationController(HAUIBase):
         # If the ack never comes, the page_timeout fires as a last-resort
         # fallback.
         self.log("Waiting for page event before rendering")
-        timeout = self.get("page_timeout", 10.0)
         self._cancel_timer("_page_timeout")
-        self._page_timeout = self.app.run_in(self._page_timeout_callback, timeout)
+        self._page_timeout = self.app.run_in(self._page_timeout_callback, PAGE_ACK_TIMEOUT)
         self._page_change_ts = time.monotonic()
 
         # The previous panel's close timer must never fire for this panel,
@@ -675,6 +678,7 @@ class HAUINavigationController(HAUIBase):
         self._cancel_timer("_close_timeout")
         prev_panel: HAUIPanel | None = None
         prev_kwargs: dict[str, Any] = {}
+        unlock_panel: HAUIPanel | None = None
         # check stack
         if len(self._stack) > 0:
             # remove last stacked panel
@@ -699,15 +703,15 @@ class HAUINavigationController(HAUIBase):
         # fallback panel home panel
         if prev_panel is None:
             prev_panel, prev_kwargs = self._home_panel, {}
-        # check for locked panel before opening
-        if prev_panel is not None:
-            unlock_panel = prev_panel.get("unlock_panel", None)
-            if (
-                unlock_panel is not None
-                and prev_panel.id == unlock_panel.id
-                and prev_panel.get_state("locked", False)
-            ):
-                prev_panel, prev_kwargs = None, {}
+        # Closing the unlock popup of a locked navigation panel must not return
+        # to that panel: it would only open the popup again. Leave it for home.
+        if (
+            unlock_panel is not None
+            and prev_panel is not None
+            and prev_panel.id == unlock_panel.id
+            and unlock_panel.get_state("locked", False)
+        ):
+            prev_panel, prev_kwargs = self._home_panel, {}
 
         # open new panel
         if prev_panel is not None:
@@ -1058,7 +1062,7 @@ class HAUINavigationController(HAUIBase):
         # to let the Nextion finish initialising all page components before
         # render commands arrive.
         if not self.page.is_started() and self.panel is not None:
-            delay = self.app.device.get("page_settle_delay", 0.05)
+            delay = self.app.device.get("page_settle_delay")
             self._cancel_timer("_page_settle_timer")
             self._page_settle_timer = self.app.run_in(self._page_settle_callback, delay)
 

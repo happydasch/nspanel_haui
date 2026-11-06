@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 from nspanel_haui.haui.abstract import haui_entity
 from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from nspanel_haui.haui.abstract.mixins.function_btn_mixin import FncType
 from nspanel_haui.haui.features import (
     ClimateFeatures,
     CoverFeatures,
@@ -452,6 +453,26 @@ def test_row_and_grid_paging(cls):
     _check(f"paging_{page_name}", out)
 
 
+@pytest.mark.parametrize("in_nav", [True, False])
+@pytest.mark.parametrize("cls", [RowPage, GridPage])
+def test_row_and_grid_pagination_keeps_the_outer_right_slot_free(cls, in_nav):
+    """Pagination sits on the inner-right slot, so a stacked panel keeps its
+    close button and a navigation panel its next button."""
+    entities = _items()
+    panel_cfg = {
+        "type": cls.DESCRIPTOR.type_key,
+        "items": _entries(list(entities)),
+        "show_in_navigation": in_nav,
+    }
+    _app, page = _show(cls, cls.DESCRIPTOR.page_id, panel_cfg, entities)
+    right_pri = page._fnc_items[page.FNC_BTN_R_PRI]
+    right_sec = page._fnc_items[page.FNC_BTN_R_SEC]
+    assert right_pri["fnc_name"] == (FncType.NAV_NEXT if in_nav else FncType.NAV_CLOSE)
+    assert right_pri["fnc_component"] == cls.COMPONENTS.fnc_right_pri
+    assert right_sec["fnc_name"] == "next_page"
+    assert right_sec["fnc_component"] == cls.COMPONENTS.fnc_right_sec
+
+
 def test_row_cover_rows():
     entities = _items()
     app, page = _show(
@@ -563,12 +584,20 @@ def test_unlock_update_components():
     _check("unlock_update", recorded)
 
 
-def test_unlock_popup_takes_the_guarded_header_without_joining_navigation():
-    """Guarding a navigation panel, the unlock popup shows its prev/next but stays
-    out of navigation: navigation keeps it on the stack above the locked panel,
-    on every opening (a stale navigation state made it the current nav panel)."""
+@pytest.mark.parametrize(
+    ("in_nav", "left", "right"),
+    [(True, FncType.NAV_PREV, FncType.NAV_NEXT), (False, FncType.NAV_UP, FncType.NAV_CLOSE)],
+)
+def test_unlock_popup_copies_the_guarded_panel_header(in_nav, left, right):
+    """The unlock popup shows the header of the panel it guards (prev/next in
+    navigation, up/close when stacked, the lock on the right) but stays out of
+    navigation itself, on every opening."""
     app = _App({})
-    locked = HAUIPanel(app, {"type": "grid", "key": "locked", "unlock_code": "12"})
+    locked = HAUIPanel(
+        app,
+        {"type": "grid", "key": "locked", "unlock_code": "12", "show_in_navigation": in_nav},
+    )
+    locked.set_state("locked", True)
     popup = HAUIPanel(
         app, {"type": "popup_unlock", "key": "popup_unlock", "show_in_navigation": False}
     )
@@ -576,8 +605,10 @@ def test_unlock_popup_takes_the_guarded_header_without_joining_navigation():
     page = UnlockPage(app, {"page_id": 17})
     page.set_panel(popup)
 
-    assert page._fnc_items[page.FNC_BTN_L_PRI]["fnc_name"] == page.FNC_TYPE_NAV_PREV
-    assert page._fnc_items[page.FNC_BTN_R_PRI]["fnc_name"] == page.FNC_TYPE_NAV_NEXT
+    assert page._fnc_items[page.FNC_BTN_L_PRI]["fnc_name"] == left
+    assert page._fnc_items[page.FNC_BTN_R_PRI]["fnc_name"] == right
+    assert page._fnc_items[page.FNC_BTN_R_SEC]["fnc_name"] == FncType.UNLOCK
+    assert page._fnc_items[page.FNC_BTN_R_SEC]["fnc_args"]["locked"] is True
     assert popup.show_in_navigation() is False
 
 

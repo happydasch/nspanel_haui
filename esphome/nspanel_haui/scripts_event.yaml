@@ -58,35 +58,6 @@ script:
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.req_connection", payload_str);
 
-
-  # Script to publish HAUI discovery metadata (identity, version, IP)
-  - id: publish_haui_discover
-    then:
-      - lambda: |-
-          ESP_LOGD("haui", "Script: publish_haui_discover");
-          auto name = App.get_name();
-          auto friendly_name = App.get_friendly_name();
-          auto ip = id(ip_address).state;
-          auto yaml_version = "$yaml_version";
-          auto device_version = std::string(ESPHOME_VERSION);
-          auto firmware_variant = "$firmware_variant";
-          auto wifi_ssid_str = id(wifi_ssid).state;
-          float wifi_rssi_val = id(wifi_rssi).state;
-          const json::json_build_t payload = [
-              name, friendly_name, ip, yaml_version, device_version,
-              wifi_ssid_str, wifi_rssi_val, firmware_variant
-          ](JsonObject root) {
-            root["name"] = name;
-            root["friendly_name"] = friendly_name;
-            root["ip"] = ip;
-            root["yaml_version"] = yaml_version;
-            root["device_version"] = device_version;
-            root["ssid"] = wifi_ssid_str;
-            root["rssi"] = wifi_rssi_val;
-            root["firmware_variant"] = firmware_variant;
-          };
-          std::string payload_str = json::build_json(payload);
-          id(publish_event_native).execute("esphome.haui_discover", payload_str);
   # Script to publish a connection response
   - id: publish_connection_response
     then:
@@ -98,26 +69,6 @@ script:
           };
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.res_connection", payload_str);
-
-  # Script to publish device details
-  - id: publish_device_info
-    then:
-      - lambda: |-
-          ESP_LOGD("haui", "Script: publish_device_info");
-          auto device_version = std::string(ESPHOME_VERSION);
-          auto yaml_version = "$yaml_version";
-          auto tft_required_version = "$tft_version";
-          auto firmware_variant = "$firmware_variant";
-          const json::json_build_t payload = [
-              device_version, yaml_version, tft_required_version, firmware_variant
-          ](JsonObject root) {
-            root["device_version"] = device_version;
-            root["yaml_version"] = yaml_version;
-            root["tft_required_version"] = tft_required_version;
-            root["firmware_variant"] = firmware_variant;
-          };
-          std::string payload_str = json::build_json(payload);
-          id(publish_event_native).execute("esphome.res_device_info", payload_str);
 
   # Script to publish device state
   - id: publish_device_state

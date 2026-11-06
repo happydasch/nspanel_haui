@@ -9,7 +9,7 @@ description: Weather panel — screensaver with weather and info items
 
 ## About
 
-The weather panel can be used as a screensaver. It displays weather details, time/date, and optional background images. Up to two info items can be placed below the weather display.
+The weather panel can be used as a screensaver. It displays weather details, time/date, and optional background images. The time area cycles through the same [cycle cards](#cycle-cards) as the clock panel. Up to two info items can be placed below the weather display.
 
 ## How to configure
 
@@ -20,6 +20,22 @@ In the **panel editor**, set:
 ### Info Items
 
 Additional sensor entities can be shown as info panels below the main weather data. You can add up to 2 info items. Common uses: indoor temperature, humidity, CO2 level.
+
+### Cycle Cards
+
+The time area (the big time and the date line next to it) cycles through the enabled cards exactly like the [clock panel's cycle cards](panel_clock.md#cycle-cards), with the same options in the editor's **Cycle cards** section and the same defaults:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| **Show time** | On | Show current time with the date |
+| **Show date** | Off | Show a separate date card: the weekday and day (e.g. "Mon 16", in a smaller font when it does not fit) with the full date |
+| **Show outside temperature** | Off | Show the weather entity's temperature |
+| **Show inside temperature** | Off | Show the inside temperature (see [Inside Temperature Sensor](#inside-temperature-sensor)) |
+| **Card entities** | — | Up to 4 entities shown as extra cards: the value large, the entity's name |
+| **Seconds per card** | 5 | How long each card is shown |
+| **First card pause** | 15 | How long the first card stays after a full cycle, in seconds |
+
+Cards are fitted to the time area and redraw when their value changes; see the clock panel for the details. Only the time card is on by default, so the time area shows the time and date until you enable more cards. Unlike the clock, the weather panel's time area takes no touch: its cards only cycle, they cannot be tapped to skip ahead.
 
 ### Background
 
@@ -50,7 +66,7 @@ Toggle the main temperature text. When **Show Home Temperature** is also enabled
 
 ### Inside Temperature Sensor
 
-**Show Home Temperature** reads the *Inside temperature sensor* picker. Leave it empty to use the NSPanel's internal NTC temperature sensor (looked up through the entity registry); pick any `sensor` entity to use that value instead — e.g. a room sensor — on this panel.
+**Show Home Temperature** and the **Show inside temperature** cycle card read the *Inside temperature sensor* picker. Leave it empty to use the NSPanel's internal NTC temperature sensor (looked up through the entity registry); pick any `sensor` entity to use that value instead — e.g. a room sensor — on this panel.
 
 ### Weather Icon Color
 

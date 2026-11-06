@@ -15,7 +15,7 @@ description: Step-by-step installation guide for NSPanel HAUI
 
 HomeAssistant needs to provide following applications:
 
-- Home Assistant 2026.10 or later (the integration targets the 2026.10 API; `hacs.json` declares the same minimum)
+- Home Assistant 2026.11 or later (the release that brings the Marketplace; `hacs.json` declares the same minimum)
 - ESPHome 2026.10 or later
 - Hub (nspanel_haui custom integration)
 
@@ -101,9 +101,32 @@ US/portrait panels, with Wi-Fi left to you at first boot:
 
 ## 3. Step: Install Hub App
 
-Install the NSPanel HAUI integration via HACS (recommended) or by copying `custom_components/nspanel_haui/` into your Home Assistant `custom_components/` directory, then restart Home Assistant.
+Install the NSPanel HAUI integration from the Home Assistant
+[Marketplace](https://www.home-assistant.io/integrations/marketplace/)
+(recommended). NSPanel HAUI is not in the Marketplace catalog, so you add it as
+a custom repository:
+
+1. Go to **Settings → Marketplace** (on the first visit, accept the
+   community-content warning).
+2. Select **Add from link**, enter `happydasch/nspanel_haui` and select **Add**.
+   Custom repositories need a GitHub connection; if you have not connected
+   GitHub yet, the Marketplace asks you to do it now.
+3. Open **NSPanel HAUI**, select **Install**, then restart Home Assistant.
+
+[![Open your Home Assistant instance and open NSPanel HAUI in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=happydasch&repository=nspanel_haui&category=integration)
+
+Alternatively, copy `custom_components/nspanel_haui/` into your Home Assistant
+`custom_components/` directory and restart Home Assistant; such a copy gets no
+update notifications.
 
 This needs to be done only once. After restart, add the integration via **Settings → Devices & Services → Add Integration → NSPanel HAUI**.
+
+**Coming from HACS:** Home Assistant 2026.11 replaces HACS with the Marketplace
+and migrates it on the first start. NSPanel HAUI stays installed and keeps
+receiving updates; there is nothing to reinstall. To follow development
+builds, enable the repository's **Pre-release** switch (**Settings → Devices &
+services → Marketplace**, NSPanel HAUI's device page; the entity is disabled by
+default).
 
 ## 4. Step: Configuration for Hub
 

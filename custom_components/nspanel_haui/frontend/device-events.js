@@ -146,19 +146,19 @@ export function onDeviceManagerExportYaml(host) {
   host.requestUpdate();
 }
 
-export async function onDeviceManagerUpdateDisplay(host, e) {
+export async function onDeviceManagerRefreshDisplay(host, e) {
   const name = e.detail?.name;
   if (!name) return;
   try {
-    const result = await Api.updateDeviceDisplay(host, name);
+    const result = await Api.refreshDeviceDisplay(host, name);
     const count = result.devices_updated?.length || 0;
     if (name === "*") {
-      host._showToast(t('Updated display for {count} device(s)').replace('{count}', count), "success");
+      host._showToast(t('Refreshed display for {count} device(s)').replace('{count}', count), "success");
     } else {
-      host._showToast(t('Display updated for "{name}"').replace('{name}', _friendlyName(host, name)), "success");
+      host._showToast(t('Display refreshed for "{name}"').replace('{name}', _friendlyName(host, name)), "success");
     }
   } catch (err) {
-    host._showToast(err.message || t("Failed to update display"), "error");
+    host._showToast(err.message || t("Failed to refresh display"), "error");
   }
 }
 

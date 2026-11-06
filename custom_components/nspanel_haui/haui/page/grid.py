@@ -129,44 +129,29 @@ class GridPage(PagedItemsMixin, HAUIPage):
         # configured initial page every time the panel opens.
         self._current_page = panel.get_state("current_page", 0)
         # set function buttons
-        # Pagination sits on fnc_right_sec when the panel is in navigation,
-        # leaving fnc_right_pri for auto-assignment (NEXT on nav).  When the
-        # panel is not in navigation (e.g. the home panel), pagination moves to
-        # fnc_right_pri so fnc_right_sec stays free for the notification
-        # indicator — matching the row page behaviour.
-        show_in_nav = panel.show_in_navigation()
-        # Only claim a right slot for pagination when there actually is more
-        # than one page.  Otherwise the slot stays free so _auto_assign_fncs()
-        # can put the notification indicator there — an invisible next_page
-        # button used to occupy the slot and hide unread notifications.  When
-        # pagination does claim right_sec (in navigation), auto-assign moves
-        # the notification indicator onto the idle button's left-secondary
-        # slot on the home panel.
-        has_pagination = len(self._items) > self.NUM_GRIDS
-        nav_btn: dict = {
-            "fnc_component": (
-                self.COMPONENTS.fnc_right_sec if show_in_nav else self.COMPONENTS.fnc_right_pri
-            ),
-            "fnc_name": "next_page",
-            "fnc_args": {
-                "icon": ICO_NEXT_PAGE,
-                "color": self.get_color("header_accent"),
-                "visible": has_pagination,
-            },
-        }
-        btn_right_1: tuple | dict
-        btn_right_2: tuple | dict
-        if show_in_nav:
-            btn_right_1 = self.COMPONENTS.fnc_right_pri
-            btn_right_2 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_sec
-        else:
-            btn_right_1 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_pri
-            btn_right_2 = self.COMPONENTS.fnc_right_sec
+        # Pagination sits on fnc_right_sec (inner, beside the title) so
+        # fnc_right_pri stays free for auto-assignment: NEXT in navigation,
+        # CLOSE on a stacked panel.  Only claim the slot when there actually
+        # is more than one page; otherwise _auto_assign_fncs() can put the
+        # notification indicator there.  When pagination does claim it,
+        # auto-assign moves the notification indicator onto the idle button's
+        # left-secondary slot on the home panel.
+        btn_right_sec: tuple | dict = self.COMPONENTS.fnc_right_sec
+        if len(self._items) > self.NUM_GRIDS:
+            btn_right_sec = {
+                "fnc_component": self.COMPONENTS.fnc_right_sec,
+                "fnc_name": "next_page",
+                "fnc_args": {
+                    "icon": ICO_NEXT_PAGE,
+                    "color": self.get_color("header_accent"),
+                    "visible": True,
+                },
+            }
         self.set_function_buttons(
             self.COMPONENTS.fnc_left_pri,
             self.COMPONENTS.fnc_left_sec,
-            btn_right_1,
-            btn_right_2,
+            self.COMPONENTS.fnc_right_pri,
+            btn_right_sec,
         )
         # set power and grid button callbacks
         power_btn_callbacks: dict = {}

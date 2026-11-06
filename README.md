@@ -1,6 +1,6 @@
 # NSPanel HAUI (HomeAssistant UI)
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/happydasch/nspanel_haui)
+[![Marketplace](https://img.shields.io/badge/Marketplace-Custom-41BDF5.svg?style=for-the-badge)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=happydasch&repository=nspanel_haui&category=integration)
 [![GitHub release](https://img.shields.io/github/v/release/happydasch/nspanel_haui?style=for-the-badge)](https://github.com/happydasch/nspanel_haui/releases)
 [![HA Community](https://img.shields.io/badge/HA%20Community-Thread-03a87c?style=for-the-badge)](https://community.home-assistant.io/t/sonoff-nspanel-haui-homeassistant-ui/578570)
 [![License](https://img.shields.io/github/license/happydasch/nspanel_haui?style=for-the-badge)](LICENSE)
@@ -39,7 +39,7 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
 </p>
 
 
-1. **Install via HACS** — Add the custom repository, install the integration, and restart Home Assistant.
+1. **Install from the Marketplace** — Home Assistant 2026.11 or later: under Settings → Marketplace → Add from link, add `happydasch/nspanel_haui`, install the integration, and restart Home Assistant. Coming from HACS? Home Assistant migrates it to the Marketplace automatically; NSPanel HAUI stays installed.
    Existing users on 0.3.x or earlier: read the [Upgrade guide →](docs/upgrading.md) first — the first stable release renames services, ESPHome actions/events and two config entities. Saved device settings are migrated automatically; saved panels are not, so verify each panel's settings after upgrading.
 
    [Install guide →](docs/install.md)
@@ -56,8 +56,8 @@ Get NSPanel HAUI up and running with a display dashboard in just 4 steps:
 
    [Configuration guide →](docs/configuration/README.md)
 
-<a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=happydasch&repository=nspanel_haui&category=integration">
-  <img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.">
+<a href="https://my.home-assistant.io/redirect/marketplace_repository/?owner=happydasch&repository=nspanel_haui&category=integration">
+  <img src="https://my.home-assistant.io/badges/marketplace_repository.svg" alt="Open your Home Assistant instance and open NSPanel HAUI in the Marketplace.">
 </a>
 
 ---
@@ -154,7 +154,7 @@ The editor shows your panels exactly as the display shows them, not as a mockup.
 - **Exact panel cards** — every card in the panel list, system panels and popups included, is drawn by the hub, and unsaved edits show right away.
 - **Screen renderer** — the same renderer produces the screenshots in this README and the [Screens overview](https://happydasch.github.io/nspanel_haui/screens.html). CI regenerates them after every dev build, so the documentation always shows the current screens.
 
-The live preview and the Nextion simulator were created by **James Hiscott** ([@jameshiscott](https://github.com/jameshiscott)). Thank you!
+The live preview and the Nextion simulator were created by [@jameshiscott](https://github.com/jameshiscott). Thank you!
 
 See [The Live Preview](docs/configuration/README.md#the-live-preview) for how to use it.
 

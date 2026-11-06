@@ -64,7 +64,7 @@ class AboutPage(HAUIPage):
                 self.FNC_BTN_R_PRI,
                 fnc_name=self.FNC_TYPE_NAV_CLOSE,
             )
-            # register secondary buttons (unused — _auto_assign_fncs will hide them)
+            # secondary buttons: _auto_assign_fncs assigns or hides them
             self.set_function_component(
                 self.COMPONENTS.fnc_left_sec,
                 self.FNC_BTN_L_SEC,

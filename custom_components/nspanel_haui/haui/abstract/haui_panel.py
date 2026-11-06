@@ -43,31 +43,6 @@ class HAUIPanel(HAUIConfigAccess):
         """
         return self.get("type")
 
-    def is_popup(self) -> bool:
-        """Returns True if this panel is shown as a popup overlay.
-
-        Popups are the system panels whose page can pop up: the entity popups
-        (``popup_cover``, ``popup_light``, ...), the notify/select/unlock
-        popups and About/Settings. They are recognised by their system key,
-        because the editor saves an edited entity popup with the user type
-        (``popup_cover`` → ``cover``). A user panel of a type that can pop up,
-        e.g. a cover panel outside navigation, is a stacked subpanel like a
-        grid, not a popup.
-
-        Returns:
-            bool: True if the panel is a popup
-        """
-        from ..mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
-
-        key = self.get("key", None)
-        if key in POPUP_PANEL_MAPPING:
-            return True
-        sys_type = SYS_PANEL_MAPPING.get(key)
-        if sys_type is None:
-            return False
-        d = getattr(PANEL_MAPPING[sys_type][1], "DESCRIPTOR", None)
-        return d is not None and d.can_show_popup
-
     def show_in_navigation(self) -> bool:
         """Returns True if this panel should appear in the navigation cycle.
 

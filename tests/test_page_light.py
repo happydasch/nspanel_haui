@@ -6,6 +6,7 @@ reaches the display, the navigation and Home Assistant.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 from nspanel_haui.haui.abstract import haui_entity
@@ -13,6 +14,8 @@ from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 from nspanel_haui.haui.mapping.const import ESPResponse, PopupPanelKey
 from nspanel_haui.haui.page.light import LightPage
+
+LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
 
 
 class _Entity:
@@ -299,6 +302,9 @@ def test_color_wheel_origin_follows_the_display_model():
     _, page = _show(
         _Entity("on", _attributes(supported_color_modes=["rgb"], rgb_color=[255, 0, 0]))
     )  # noqa: E501
-    assert page.color_rect_origin() == (125, 75)
-    page.app.device.is_portrait = True
-    assert page.color_rect_origin() == (90, 80)
+    for orientation in ("landscape", "portrait"):
+        page.app.device.is_portrait = orientation == "portrait"
+        layout = json.loads((LAYOUTS / f"layout_{orientation}.json").read_text(encoding="utf-8"))
+        light = next(p for p in layout["pages"].values() if p["name"] == "light")
+        wheel = next(c["attrs"] for c in light["components"] if c["name"] == "pColorWheel")
+        assert page.color_rect_origin() == (wheel["x"], wheel["y"]), orientation

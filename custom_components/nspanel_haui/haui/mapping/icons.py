@@ -73,6 +73,8 @@ ICO_WIFI: Final[str] = get_icon("mdi:wifi")
 ICO_KEY: Final[str] = get_icon("mdi:key")
 
 # RowPage icons
+ICO_TOGGLE_ON: Final[str] = get_icon("mdi:toggle-switch-outline")
+ICO_TOGGLE_OFF: Final[str] = get_icon("mdi:toggle-switch-off-outline")
 
 # ClockTwoPage icons
 ICO_SPECIAL: Final[str] = get_icon("mdi:circle-medium")

@@ -230,7 +230,7 @@ class NSPanelHAUI(HAAdapter):
                 update_ctrl.config = update_cfg
             update_ctrl.start_part()
 
-    def update_display(self) -> None:
+    def refresh_display(self) -> None:
         """Re-render the currently displayed panel on this device.
 
         This triggers a full refresh of the current panel's display commands
@@ -238,10 +238,10 @@ class NSPanelHAUI(HAAdapter):
         """
         nav_ctrl = self.controller.get("navigation")
         if nav_ctrl is None:
-            self.log("Cannot update display: no navigation controller")
+            self.log("Cannot refresh display: no navigation controller")
             return
         nav_ctrl.refresh_panel()
-        self.log("Display updated")
+        self.log("Display refreshed")
 
     def install_tft(self, version: str | None = None) -> dict:
         """Trigger a TFT install for this device, on its worker thread.

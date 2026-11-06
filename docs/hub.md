@@ -14,7 +14,7 @@ NSPanelHAUI is the backend that allows to manage home automation devices using t
 
 ## Installation
 
-1. Install the NSPanel HAUI custom integration via HACS or by copying to `custom_components/nspanel_haui/`
+1. Install the NSPanel HAUI custom integration from the Home Assistant Marketplace or by copying to `custom_components/nspanel_haui/`
 2. Restart Home Assistant
 3. Add the integration via **Settings → Devices & Services → Add Integration → NSPanel HAUI** (config flow)
 

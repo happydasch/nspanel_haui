@@ -128,8 +128,8 @@
       <text x="12" y="16" font-family="sans-serif" font-size="10" fill="#4ba6ee">13 Panels</text>
       <rect x="90" y="0" width="80" height="24" rx="12" fill="rgba(108,92,231,0.15)" stroke="rgba(108,92,231,0.3)" stroke-width="1"/>
       <text x="102" y="16" font-family="sans-serif" font-size="10" fill="#6c5ce7">No YAML</text>
-      <rect x="180" y="0" width="120" height="24" rx="12" fill="rgba(0,200,83,0.15)" stroke="rgba(0,200,83,0.3)" stroke-width="1"/>
-      <text x="192" y="16" font-family="sans-serif" font-size="10" fill="#00c853">HACS + ESPHome</text>
+      <rect x="180" y="0" width="140" height="24" rx="12" fill="rgba(0,200,83,0.15)" stroke="rgba(0,200,83,0.3)" stroke-width="1"/>
+      <text x="192" y="16" font-family="sans-serif" font-size="10" fill="#00c853">Marketplace + ESPHome</text>
     </g>
   </g>
 
@@ -161,6 +161,6 @@
 
   <!-- Bottom: key links -->
   <g transform="translate(0, 322)">
-    <text x="72" y="12" font-family="sans-serif" font-size="12" fill="#555">Install via HACS · Flash ESPHome · Configure in HA UI</text>
+    <text x="72" y="12" font-family="sans-serif" font-size="12" fill="#555">Install from the Marketplace · Flash ESPHome · Configure in HA UI</text>
   </g>
 </svg>

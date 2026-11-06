@@ -98,4 +98,4 @@ def test_unlock_card_shows_its_keypad_and_title(hub_loop):
     keys = [f"bKey{n}" for n in range(10)] + ["bKeyClr", "bKeyDel"]
     assert [key for key in keys if f"vis {key},1" not in commands] == []
     # the system panel's title is "": the unlock popup falls back to its own
-    assert 'tTitle.txt="Unlock Panel"' in commands
+    assert 'tTitle.txt="Unlock"' in commands

@@ -111,7 +111,7 @@ flowchart TD
 
 After a page-change command the Nextion sends a 0x66 ack once the new page is active. The hub waits for this ack before sending render commands — commands arriving before the ack are rejected with "Invalid variable name" (0x1A) because page components are not yet initialised.
 
-After the ack the hub waits an additional settle delay (default `0.1s`, configurable via `page_settle_delay`) before calling `display_panel`. If the ack never arrives within `page_timeout` (default 10s), the hub force-resends the page command and renders anyway as a fallback.
+After the ack the hub waits an additional settle delay (default `0.1s`, configurable via `page_settle_delay`) before calling `display_panel`. If the ack never arrives within 10 s, the hub force-resends the page command and renders anyway as a fallback.
 
 #### Buffer overflow recovery
 
@@ -138,7 +138,9 @@ When changing order of components on a page, be aware, that the id of the compon
 
 ## Scripts for display
 
-see `scripts` in the root directory for different scripts.
+see `scripts` in the root directory for different scripts. Which of them to
+run after an HMI change, and in what order, is in
+[Nextion Editor §8](nextion-editor.md#8-after-any-hmi-change-scripts-to-run).
 
 - Font generation
 - Image generation

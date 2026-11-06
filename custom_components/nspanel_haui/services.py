@@ -128,6 +128,8 @@ def _resolve_target_apps(
 def _wake_display(app: NSPanelHAUI) -> None:
     """Reset the firmware's inactivity timer before a wake action."""
     _publish_action(app, "reset_last_interaction", "0")
+
+
 def _publish_action(
     app: NSPanelHAUI,
     action: str,

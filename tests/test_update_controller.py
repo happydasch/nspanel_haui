@@ -198,6 +198,7 @@ class _App:
     def run_off_worker(self, fn, *args, timeout=60.0):
         """Mirror HAAdapter: blocking I/O runs off the worker (inline here)."""
         return fn(*args)
+
     def submit_off_worker(self, fn, *args, on_done=None):
         try:
             result = fn(*args)
@@ -208,7 +209,6 @@ class _App:
         else:
             if on_done is not None:
                 on_done(result, None)
-
 
 
 def _manifest(version, path=None, tft=True):
@@ -405,6 +405,108 @@ def test_a_firmware_only_release_uses_its_declared_tft_version(monkeypatch):
     ctrl.check_installed_version()
 
     assert app.published == [(ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.4/nspanel_haui.tft")]
+
+
+def test_dev_firmware_installs_its_explicitly_required_newer_tft(monkeypatch):
+    """Firmware and TFT dev serials can differ; the firmware requirement wins."""
+    manifest = _manifest("0.4.5.dev29")
+    manifest["tft"]["version"] = "0.4.5.dev30"
+    manifest["tft"]["assets"]["eu"]["path"] = "https://dl/tft/0.4.5.dev30/nspanel_haui.tft"
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {
+            "yaml_version": "0.4.5.dev29",
+            "tft_required_version": "0.4.5.dev30",
+            "tft_version": "0.4.5.dev29",
+        },
+        manifest=manifest,
+    )
+
+    ctrl.check_installed_version()
+
+    assert app.published == [
+        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.5.dev30/nspanel_haui.tft")
+    ]
+
+
+def test_connect_check_installs_tft_version_newer_than_firmware_serial(monkeypatch):
+    manifest = _manifest("0.4.5.dev29")
+    manifest["tft"]["version"] = "0.4.5.dev30"
+    manifest["tft"]["assets"]["eu"]["path"] = "https://dl/tft/0.4.5.dev30/nspanel_haui.tft"
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {
+            "yaml_version": "0.4.5.dev29",
+            "tft_required_version": "0.4.5.dev30",
+            "tft_version": "0.4.5.dev29",
+        },
+        manifest=manifest,
+    )
+
+    ctrl.on_connection_changed(True)
+    _fire_timers(app)
+
+    assert app.published == [
+        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.5.dev30/nspanel_haui.tft")
+    ]
+
+
+def test_connect_check_uses_installed_firmware_manifest_for_required_tft(monkeypatch):
+    installed_manifest = _manifest("0.4.5.dev29")
+    installed_manifest["tft"]["version"] = "0.4.5.dev30"
+    installed_manifest["tft"]["assets"]["eu"]["path"] = (
+        "https://dl/tft/0.4.5.dev30/nspanel_haui.tft"
+    )
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {
+            "yaml_version": "0.4.5.dev29",
+            "tft_required_version": "0.4.5.dev30",
+            "tft_version": "0.4.5.dev29",
+        },
+        releases=[_firmware_release("0.4.5.dev29")],
+        manifest="0.4.5.dev31",
+    )
+    app.served["release_manifests"]["0.4.5.dev29"] = installed_manifest
+
+    ctrl.start_async_check(allow_auto_install=False, include_notice=False, check_tft=True)
+
+    assert ctrl._tft_manifest["version"] == "0.4.5.dev29"
+    assert ctrl.get_update_snapshot()["display"]["latest_version"] == "0.4.5.dev30"
+    assert app.published == [
+        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.5.dev30/nspanel_haui.tft")
+    ]
+
+
+def test_tft_picker_and_install_use_installed_firmware_manifest_fallback(monkeypatch):
+    installed_manifest = _manifest("0.4.5.dev29")
+    installed_manifest["tft"]["version"] = "0.4.5.dev30"
+    installed_manifest["tft"]["assets"]["eu"]["path"] = (
+        "https://dl/tft/0.4.5.dev30/nspanel_haui.tft"
+    )
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {
+            "yaml_version": "0.4.5.dev29",
+            "tft_required_version": "0.4.5.dev30",
+            "tft_version": "0.4.5.dev29",
+        },
+        releases=[_firmware_release("0.4.5.dev29")],
+        manifest="0.4.5.dev31",
+    )
+    app.served["release_manifests"]["0.4.5.dev29"] = installed_manifest
+
+    picker_results = []
+    ctrl.start_async_list_tft_releases(picker_results.append)
+    install_results = []
+    ctrl.start_async_tft_install(None, None, install_results.append)
+
+    assert picker_results[0]["releases"] == ["0.4.5.dev30"]
+    assert picker_results[0]["required"] == "0.4.5.dev30"
+    assert install_results[0]["state"] == update.UPDATE_STATE_INSTALLING
+    assert app.published == [
+        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.5.dev30/nspanel_haui.tft")
+    ]
 
 
 def test_a_manifest_without_a_tft_block_installs_nothing(monkeypatch):
@@ -1022,9 +1124,7 @@ def test_async_firmware_install_keeps_the_worker_available_during_image_fetch(mo
     app.submit_off_worker = submit_off_worker
     try:
         started = worker.submit(
-            lambda: ctrl.start_async_firmware_install(
-                None, None, lambda _result: completed.set()
-            )
+            lambda: ctrl.start_async_firmware_install(None, None, lambda _result: completed.set())
         )
         started.result(timeout=1)
         assert fetch_started.wait(1)
@@ -1465,6 +1565,29 @@ def test_tft_release_list_is_the_manifests_tft_only(monkeypatch):
     assert result == {"releases": ["0.4.2"], "required": "0.4.2", "error": None}
 
 
+def test_tft_picker_hides_channel_manifest_version_that_does_not_match_requirement(monkeypatch):
+    ctrl, _, _ = _updater(
+        monkeypatch,
+        {
+            "yaml_version": "0.4.5.dev29",
+            "tft_required_version": "0.4.5.dev30",
+            "tft_version": "0.4.5.dev29",
+        },
+        manifest={
+            **_manifest("0.4.5.dev31"),
+            "tft": {
+                "version": "0.4.5.dev31",
+                "assets": _manifest("0.4.5.dev31")["tft"]["assets"],
+            },
+        },
+    )
+
+    result = ctrl.list_tft_releases()
+
+    assert result["releases"] == []
+    assert "TFT required by firmware: 0.4.5.dev30" in result["error"]
+
+
 def test_tft_release_list_reports_a_manifest_failure(monkeypatch):
     ctrl, app, _ = _updater(monkeypatch, {"yaml_version": "0.4.2", "tft_version": "0.4.2"})
     app.served["manifest"] = requests.exceptions.ConnectTimeout("timed out")
@@ -1841,7 +1964,7 @@ def test_check_for_update_installs_the_offered_firmware_first(monkeypatch):
     assert fetches == []  # the TFT follows after the reboot
     ((key, kwargs),) = app.opened
     assert key == PopupPanelKey.POPUP_NOTIFY
-    assert "Firmware update" in kwargs["title"]
+    assert kwargs["title"] == "Update"
     assert ctrl._firmware_installing is True
     assert ctrl._manual_firmware is False
     assert _firmware_events(app)[-1]["installing"] is True
@@ -1864,8 +1987,7 @@ def test_check_for_update_only_notifies_without_a_firmware_update(monkeypatch):
     assert key == PopupPanelKey.POPUP_NOTIFY
     assert "configured firmware manifest" in kwargs["notification"]
 
-
-    assert "Firmware update available" in kwargs["title"]
+    assert kwargs["title"] == "Update"
 
 
 def test_the_update_notice_compares_the_firmware_not_the_tft(monkeypatch):
@@ -1886,7 +2008,7 @@ def test_the_update_notice_compares_the_firmware_not_the_tft(monkeypatch):
     assert app.opened, "a newer firmware must be announced even when the TFT is newer"
     ((key, kwargs),) = app.opened
     assert key == PopupPanelKey.POPUP_NOTIFY
-    assert "Firmware update available" in kwargs["title"]
+    assert kwargs["title"] == "Update"
     assert "Firmware release: 0.4.1" in kwargs["notification"]
 
 

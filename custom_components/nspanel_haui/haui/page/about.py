@@ -63,7 +63,7 @@ class AboutPage(HAUIPage):
         self.show_component(self.COMPONENTS.p1)
         # title
         self._title = panel.get_title(self.translate("NSPanel HAUI"))
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         name = self.app.device.get_name()

@@ -151,7 +151,7 @@ class TimerPage(HAUIPage):
             self._handle_update_display = None
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, panel.get_title(self.translate("Timer")))
+        self.set_title(panel.get_title(self.translate("Timer")))
         # initial call sets up timers
         self.update_timer()
         # the timer keeps running while the panel is closed, but closing it
@@ -411,7 +411,7 @@ class TimerPage(HAUIPage):
             # open notification
             navigation.open_panel(
                 PopupPanelKey.POPUP_NOTIFY,
-                title=self.translate("Timer finished"),
+                title=self.translate("Finished"),
                 btn_right=self.translate("Close"),
                 icon=ICO_TIMER_FINISHED,
                 notification=msg,

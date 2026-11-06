@@ -18,6 +18,9 @@ substitutions:
   wifi_ssid: !secret wifi_ssid
   wifi_password: !secret wifi_password
   ap_password: !secret ap_password
+  # Default TFT URL of the display component.  Override it to install a local
+  # TFT build; the hub otherwise sends the URL of the TFT it installs.
+  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
 
 packages:
   remote_package:

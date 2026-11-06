@@ -76,6 +76,8 @@ class _Navigation:
 
 
 class _Device:
+    is_portrait = False
+
     def get(self, key, default=None):
         return {}.get(key, default)
 
@@ -572,6 +574,7 @@ def test_alarm_render(name, state, features):
 
 def test_unlock_update_components():
     page = UnlockPage.__new__(UnlockPage)
+    page.app = _App({})
     page._title = "Unlock"
     page._unlock_code = "12"
     page.get_color = lambda key: sum(map(ord, key))

@@ -14,23 +14,25 @@ import time
 
 from nspanel_haui.haui.abstract.component import Component
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.abstract.haui_page import HAUIPage, _PendingReadRequest
-from nspanel_haui.haui.abstract.mixins.component_mixin import ComponentMixin
+from nspanel_haui.haui.abstract.haui_page import HAUIPage
+from nspanel_haui.haui.abstract.mixins.touch_input_mixin import (
+    TouchInputMixin,
+    _PendingReadRequest,
+)
 from nspanel_haui.haui.device import HAUIDevice
 from nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse, SysPanelKey
 
 # --- marking sliders as drag components -----------------------------------
 
 
-class FakeComponentHost(ComponentMixin):
+class FakeTouchHost(TouchInputMixin):
     def __init__(self):
-        self._callbacks = []
-        self._drag_components = set()
+        self._init_touch_input()
 
 
 def test_mark_drag_component_direct():
     """Sliders exposed as function components are marked directly."""
-    host = FakeComponentHost()
+    host = FakeTouchHost()
     volume = Component(18, "hVolume")
 
     host.mark_drag_component(volume)

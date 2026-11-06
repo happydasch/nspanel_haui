@@ -142,7 +142,7 @@ class NotifyPage(CommonNotifyPage):
     def render_panel(self, panel: HAUIPanel) -> None:
         # Keep the configured title as the base; _start_paging appends the page counter.
         self._title = self.get("title", panel.get_title())
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
 
         if self._icon:
             icon_color_key = _NOTIF_TYPE_COLORS.get(self._notif_type, "component_text")
@@ -226,10 +226,7 @@ class NotifyPage(CommonNotifyPage):
         """Render the current page and its ``(page/total)`` title counter."""
         self.set_component_text(self._text_box, self._chunks[self._current_page])
         counter = f"({self._current_page + 1}/{self._total_pages})"
-        self.set_component_text(
-            self.COMPONENTS.title,
-            f"{self._title} {counter}" if self._title else counter,
-        )
+        self.set_title(self._title, reserve=counter)
         self._update_next_page_button()
 
     def _update_next_page_button(self) -> None:

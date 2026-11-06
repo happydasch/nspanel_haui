@@ -24,16 +24,22 @@ substitutions:
   # refuses to flash a manifest whose variant does not match the reported one.
   firmware_variant: 'custom'
 
+  # Default TFT URL of the display component.  Installing a local TFT build
+  # (nspanel_haui.update_tft with its url field) relies on overriding this
+  # substitution; the hub otherwise sends the URL of the TFT it installs.
+  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
+
 # Temporary: the numeric-response delivery fix for the stock `nextion`
 # component (esphome/esphome#17744) merged two days after the 2026.10.0
 # release tag was cut, so no released ESPHome contains it.  Without it every
 # display read logs "Numeric return but '...' invalid type 0" and the value
 # is dropped.  This overrides the stock component with the patched copy
 # vendored in this repo (esphome/nextion_patch/), which is the 2026.10.0
-# component plus the cherry-picked fix and the TFT upload TX buffer option
-# (#21435) and therefore compiles against ESPHome 2026.10.0.  Remove this
-# whole block AND esphome/nextion_patch/ once a released ESPHome contains
-# #17744 and #21435 (expected in 2026.11.0), and bump min_version
+# component plus the cherry-picked fix, the TFT upload TX buffer option
+# (#21435) and a TFT upload retry fix, and therefore compiles against ESPHome
+# 2026.10.0.  Remove this whole block AND esphome/nextion_patch/ once a
+# released ESPHome contains every fix listed in esphome/nextion_patch/README.md
+# (#17744 and #21435 are expected in 2026.11.0), and bump min_version
 # in base.yaml together with it.  `ref` stays `dev` for the whole bridge: dev
 # carries the patch dir first, and the file disappears from both branches in
 # the same cleanup, so master users on this package keep working until then.

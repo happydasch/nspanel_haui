@@ -626,6 +626,7 @@ class _WorkerApp:
     async def async_run_on_worker(self, fn, *args):
         self.calls.append("worker")
         return fn(*args)
+
     async def async_list_tft_releases(self):
         self.calls.append("async_list_tft_releases")
         return self.list_tft_releases()
@@ -637,6 +638,7 @@ class _WorkerApp:
     async def async_check_for_update(self):
         self.calls.append("async_check_for_update")
         return {"latest_release": "0.4.3", "check_error": None}
+
     async def async_install_tft(self, version=None, url=None):
         fn = self.install_tft_url if url is not None else self.install_tft
         args = (url,) if url is not None else (version,)
@@ -645,7 +647,6 @@ class _WorkerApp:
     async def async_install_firmware(self, version=None, url=None):
         return await self.async_run_on_worker(self.install_firmware, version, url)
 
-
     def submit_off_worker(self, fn, *args, on_done=None):
         try:
             result = fn(*args)
@@ -653,7 +654,6 @@ class _WorkerApp:
             on_done(None, exc)
         else:
             on_done(result, None)
-
 
 
 def test_panel_save_reloads_a_running_device_on_its_worker(monkeypatch):
@@ -787,9 +787,7 @@ def test_firmware_download_skips_development_prereleases(monkeypatch):
     monkeypatch.setattr(
         api.requests,
         "get",
-        lambda url, timeout: _BinResponse(
-            [release("0.4.5.dev28", True), release("v0.4.4", False)]
-        ),
+        lambda url, timeout: _BinResponse([release("0.4.5.dev28", True), release("v0.4.4", False)]),
     )
 
     result = asyncio.run(api.FirmwareDownloadView().get(_Request(MagicMock(), admin=True)))

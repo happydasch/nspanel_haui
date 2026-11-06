@@ -83,7 +83,7 @@ def test_clock_tap_on_time_advances_card():
     page.on_release({ClockPage.COMPONENTS.t_time: page._advance_card})
 
     event = HAUIEvent("button", "")
-    page._queued_callback = (ClockPage.COMPONENTS.t_time.id, 0, event)
+    page._queued_callback = (ClockPage.COMPONENTS.t_time.id, event)
     page._buffer_timer = None
     page._flush_buffer_callback()
 

@@ -40,7 +40,15 @@ class _Number:
 class _App:
     def __init__(self, items, name="panel", slug="panel", entity_ids=None):
         self.items = items
-        self.device = type("Device", (), {"get_name": lambda s: name, "get_slug": lambda s: slug})()
+        self.device = type(
+            "Device",
+            (),
+            {
+                "get_name": lambda s: name,
+                "get_slug": lambda s: slug,
+                "is_portrait": False,
+            },
+        )()
         self.entity_ids = entity_ids or {
             "Use Auto-Dimming": f"switch.{slug}_use_auto_dimming",
             "Use Auto-Page": f"switch.{slug}_use_auto_page",

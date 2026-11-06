@@ -221,6 +221,7 @@ def test_interval_cancelled_before_its_first_fire_never_starts(env):
     assert helpers.intervals == []
     assert calls == []
 
+
 def test_loop_side_timer_fires_while_worker_busy(env):
     """A timer registered with ``on_loop=True`` (the hub heartbeat) fires on
     the event loop even while the worker is blocked — it must never queue
@@ -273,6 +274,7 @@ def test_detached_publish_returns_immediately_while_worker_busy(env):
     _settle(adapter, loop, helpers)
 
     assert elapsed < 1.0
+
 
 def test_run_off_worker_runs_the_callable_on_another_thread(env):
     """Blocking work (HTTP, disk) must never execute on the app's worker."""
@@ -372,6 +374,7 @@ def test_stop_shuts_the_io_pool_down(env):
     with pytest.raises(RuntimeError):
         adapter.run_off_worker(lambda: None, timeout=1)
 
+
 def test_update_check_http_runs_off_the_worker(env, monkeypatch):
     """The hourly GitHub read must not execute on the worker's thread.
 
@@ -415,6 +418,7 @@ def test_update_check_http_runs_off_the_worker(env, monkeypatch):
     # It ran on the app's I/O pool, not just on some other thread.
     assert "_io" in seen["thread_name"]
 
+
 def test_slow_update_fetch_keeps_the_heartbeat_beating(env):
     """End-to-end encoding of the reported bug.
 
@@ -451,10 +455,6 @@ def test_slow_update_fetch_keeps_the_heartbeat_beating(env):
     worker.result(10)
 
     assert len(beats) - first_beats == 3
-
-
-
-
 
 
 def test_callbacks_still_queued_when_the_app_stops_are_dropped(env):

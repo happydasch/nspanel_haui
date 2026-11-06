@@ -796,7 +796,7 @@ class FirmwareDownloadView(HomeAssistantView):
             decoded = await asyncio.to_thread(
                 ReleaseSource.fetch_json, ReleaseSource.RELEASES_URL, 5
             )
-        except (requests.exceptions.RequestException, ValueError):
+        except requests.exceptions.RequestException, ValueError:
             decoded = None
         releases = decoded if isinstance(decoded, list) else None
         if not releases:

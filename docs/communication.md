@@ -261,18 +261,18 @@ The text path is identical but uses `REQ_TXT` → `request_text` script →
 
 #### Requesting reads
 
-**`request_component_value(component: Component)`** — Request a numeric value.
-Used by slider pages.  Sends `REQ_VAL` to the device.
+**`request_component_value(component: Component | str)`** — Request a numeric
+value.  Used by slider pages.  Sends `REQ_VAL` to the device.
 
-**`request_component_text(component: Component)`** — Request a text value.
+**`request_component_text(component: Component | str)`** — Request a text value.
 Sends `REQ_TXT` to the device.
 
-Both accept the component by name via convenience wrappers:
+Both also take a plain name, for a Nextion component or variable without a
+`COMPONENTS` entry:
 
 ```python
-# Without a Component object
-self.request_component_value_by_name("hBrightness")
-self.request_component_text_by_name("tTitle")
+self.request_component_value("hBrightness")
+self.request_component_text("tTitle")
 ```
 
 #### Registering callbacks
@@ -294,11 +294,11 @@ def _on_value_read(self, value: int) -> None:
     self.log(f"Got brightness: {value}")
 ```
 
-**Without a Component:**
+**By name:**
 
 ```python
-self.add_read_callback_by_name("tTitle", self._on_title_read)
-self.request_component_text_by_name("tTitle")
+self.add_read_callback("tTitle", self._on_title_read)
+self.request_component_text("tTitle")
 ```
 
 #### Slider convenience — `bind_slider()`
@@ -335,6 +335,12 @@ timeout are dropped as stale.
 When a new touch (`TOUCH_START`) arrives, `_pending_read_request` is cleared
 (None) only if it has already expired.  A request still in flight is kept, so a
 `read_response` arriving just after the touch is still delivered.
+
+### Panel change
+
+Stopping a panel drops its read callbacks and its pending read.  A response
+that arrives after the page switched to another panel is dropped, even when
+the new panel binds the same slider, and the new panel can read right away.
 
 ### Pages using the read API
 

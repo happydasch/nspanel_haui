@@ -198,7 +198,7 @@ class VacuumPage(HAUIPage):
             )
 
     def update_vacuum_item(self) -> None:
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
         self.update_battery()
         if self._vacuum_item is None:
             return
@@ -277,7 +277,7 @@ class VacuumPage(HAUIPage):
             if len(speeds) > 0:
                 self.app.controller["navigation"].open_panel(
                     PopupPanelKey.POPUP_SELECT,
-                    title=self.translate("Select Fan Speed"),
+                    title=self.translate("Fan"),
                     items=speeds,
                     selected=item.get_item_attr("fan_speed", ""),
                     selection_callback_fnc=self.callback_fan_speed,

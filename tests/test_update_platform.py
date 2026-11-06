@@ -43,6 +43,7 @@ class _App:
 
     async def async_run_on_worker(self, fn, *args):
         return fn(*args)
+
     async def async_install_tft(self, version=None, url=None):
         self.installs.append(version)
         return self.install_result
@@ -50,7 +51,6 @@ class _App:
     async def async_install_firmware(self, version=None, url=None):
         self.firmware_installs.append((version, url))
         return self.firmware_result
-
 
 
 def _import_update(monkeypatch: MonkeyPatch):

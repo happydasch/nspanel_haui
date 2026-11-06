@@ -77,7 +77,7 @@ class CoverPage(HAUIPage):
         self._title = self._panel_title(panel, item, self.translate("Cover"))
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
         self.update_cover_entity()
 
     # misc
@@ -113,7 +113,7 @@ class CoverPage(HAUIPage):
         )
 
     def update_cover_entity(self) -> None:
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
         self.update_cover_controls()
         self.update_cover_info()
 

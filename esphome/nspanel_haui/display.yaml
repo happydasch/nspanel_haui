@@ -18,14 +18,12 @@ display:
     # prevents bursts from overrunning the display's 1 KB RX buffer; the ESPHome
     # loop timestamp means the effective minimum is one command per loop.
     command_spacing: 2ms
-    # tft_url is a fixed literal (no ``tft_update_url`` substitution): the
-    # vendored component's validation requires CONF_TFT_URL whenever a
-    # ``tft_upload_http_*`` option is set, and tft_upload_http_buffer_size_tx
-    # (below) is mandatory for the hub's TFT install.  HAUI always passes an
-    # explicit URL instead — the ``upload_tft_url`` action drives
-    # ``prepare_tft_upload``, which calls set_tft_url() before upload_tft() —
-    # so this value is never used at runtime.
-    tft_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
+    # default url — override the `tft_update_url` substitution in your device
+    # YAML to install a local TFT build.  HAUI itself always passes the URL of
+    # the TFT it installs (the ``upload_tft_url`` action drives
+    # ``prepare_tft_upload``, which calls set_tft_url() before upload_tft()),
+    # so this default is only the compile-time fallback.
+    tft_url: $tft_update_url
     # GitHub redirects release-asset downloads to a signed URL of ~870
     # characters.  The redirected request line overflows the 512-byte ESP-IDF
     # default TX buffer ("HTTP_CLIENT: Out of buffer"), so the hub's TFT

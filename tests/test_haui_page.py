@@ -1,6 +1,6 @@
 """Tests for the HAUIPage read-request API (REQ_VAL / REQ_TXT).
 
-Covers the string-based convenience wrappers, pending-request guards, expiry,
+Covers reads by component name, pending-request guards, expiry,
 and the ``_process_read_response`` dispatch and stale-response logic.
 """
 
@@ -9,7 +9,8 @@ import types
 
 from nspanel_haui.haui.abstract.component import Component
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.abstract.haui_page import HAUIPage, _PendingReadRequest
+from nspanel_haui.haui.abstract.haui_page import HAUIPage
+from nspanel_haui.haui.abstract.mixins.touch_input_mixin import _PendingReadRequest
 from nspanel_haui.haui.mapping.const import ESPEvent, ESPRequest, ESPResponse
 
 # --- helpers ---------------------------------------------------------------
@@ -59,27 +60,24 @@ def _bare_page(page_id=1):
     return page
 
 
-# --- string-based convenience API -------------------------------------------
+# --- reads by component name ------------------------------------------------
 
 
-def test_request_component_value_by_name_sends_req_val_with_source_type():
-    """``request_component_value_by_name`` sends REQ_VAL with the plain
-    component name string (backward-compatible default)."""
+def test_request_component_value_by_name_sends_req_val():
+    """``request_component_value`` with a name sends REQ_VAL with that name."""
     page = _bare_page()
-    page.request_component_value_by_name("hBrightness")
+    page.request_component_value("hBrightness")
 
     assert len(page.app.sent_esphome) == 1
     args, _kwargs = page.app.sent_esphome[0]
     assert args[0] == ESPRequest.REQ_VAL
-    # Default source_type="component" → plain string for backward compat
     assert args[1] == "hBrightness"
 
 
-def test_request_component_text_by_name_sends_req_txt_with_source_type():
-    """``request_component_text_by_name`` sends REQ_TXT with the plain
-    component name string (backward-compatible default)."""
+def test_request_component_text_by_name_sends_req_txt():
+    """``request_component_text`` with a name sends REQ_TXT with that name."""
     page = _bare_page()
-    page.request_component_text_by_name("tTitle")
+    page.request_component_text("tTitle")
 
     assert len(page.app.sent_esphome) == 1
     args, _kwargs = page.app.sent_esphome[0]
@@ -88,7 +86,7 @@ def test_request_component_text_by_name_sends_req_txt_with_source_type():
 
 
 def test_add_read_callback_by_name_dispatches_read_response():
-    """``add_read_callback_by_name`` registers a callback keyed by string name
+    """``add_read_callback`` with a name registers a callback keyed by that name
     and ``_process_read_response`` dispatches to it."""
     page = _bare_page()
     calls = []
@@ -96,7 +94,7 @@ def test_add_read_callback_by_name_dispatches_read_response():
     def handler(value):
         calls.append(("handler", value))
 
-    page.add_read_callback_by_name("tTitle", handler)
+    page.add_read_callback("tTitle", handler)
     page._pending_read_request = _PendingReadRequest(
         component_name="tTitle",
         expiry=time.monotonic() + 10.0,
@@ -111,13 +109,13 @@ def test_add_read_callback_by_name_dispatches_read_response():
     assert calls[0] == ("handler", "Hello World")
 
 
-def test_add_read_callback_by_name_and_request_text_by_name_together():
+def test_add_read_callback_and_request_text_by_name_together():
     """End-to-end: register by name, request by name, simulate response."""
     page = _bare_page()
     calls = []
 
-    page.add_read_callback_by_name("va0", lambda v: calls.append(v))
-    page.request_component_text_by_name("va0")
+    page.add_read_callback("va0", lambda v: calls.append(v))
+    page.request_component_text("va0")
 
     assert len(page.app.sent_esphome) == 1
     args, _ = page.app.sent_esphome[0]
@@ -175,9 +173,9 @@ def test_request_component_read_skipped_when_pending_not_expired():
     """A second read is silently skipped while the first is in-flight
     (within READ_PENDING_TIMEOUT)."""
     page = _bare_page()
-    page.request_component_value_by_name("hBrightness")
+    page.request_component_value("hBrightness")
     # Second request while first is still pending
-    page.request_component_value_by_name("hBrightness")
+    page.request_component_value("hBrightness")
 
     assert len(page.app.sent_esphome) == 1  # second was skipped
     assert page._pending_read_request is not None
@@ -191,7 +189,7 @@ def test_request_component_read_allows_after_pending_expiry():
         component_name="hBrightness",
         expiry=time.monotonic() - 1.0,  # already expired
     )
-    page.request_component_value_by_name("hBrightness")
+    page.request_component_value("hBrightness")
 
     assert len(page.app.sent_esphome) == 1
     # New pending request has a fresh expiry
@@ -203,13 +201,37 @@ def test_request_component_read_allows_after_pending_expiry():
 # --- _process_read_response edge cases --------------------------------------
 
 
+def test_panel_change_drops_the_previous_panels_read():
+    """A read requested on one panel never reaches the next panel's handler
+    for the same slider, and the next panel can read right away."""
+    page = _bare_page()
+    page._handles = []
+    page._listener_meta = {}
+    slider = Component(13, "hBrightness")
+    old_values: list = []
+    new_values: list = []
+    page.bind_slider(slider, old_values.append)
+    page.request_component_value(slider)
+
+    page.stop_panel(None)
+    page.bind_slider(slider, new_values.append)
+    page._process_read_response(
+        HAUIEvent(ESPResponse.READ_RESPONSE, '{"name":"hBrightness","type":"number","value":"42"}')
+    )
+
+    assert old_values == []
+    assert new_values == []
+    page.request_component_value(slider)
+    assert len(page.app.sent_esphome) == 2
+
+
 def test_process_read_response_drops_when_pending_is_none():
     """When ``_pending_read_request`` is None, the read_response is dropped
     (stale — cleared by a new touch)."""
     page = _bare_page()
     calls = []
 
-    page.add_read_callback_by_name("hBrightness", lambda v: calls.append(v))
+    page.add_read_callback("hBrightness", lambda v: calls.append(v))
     # No pending request set
     page._pending_read_request = None
 
@@ -227,7 +249,7 @@ def test_process_read_response_drops_when_expired():
     page = _bare_page()
     calls = []
 
-    page.add_read_callback_by_name("hBrightness", lambda v: calls.append(v))
+    page.add_read_callback("hBrightness", lambda v: calls.append(v))
     page._pending_read_request = _PendingReadRequest(
         component_name="hBrightness",
         expiry=time.monotonic() - 10.0,  # expired
@@ -247,7 +269,7 @@ def test_process_read_response_clears_pending_on_success():
     page = _bare_page()
     calls = []
 
-    page.add_read_callback_by_name("hBrightness", lambda v: calls.append(v))
+    page.add_read_callback("hBrightness", lambda v: calls.append(v))
     page._pending_read_request = _PendingReadRequest(
         component_name="hBrightness",
         expiry=time.monotonic() + 10.0,
@@ -286,7 +308,7 @@ def test_process_read_response_handles_invalid_number_value():
     page = _bare_page()
     calls = []
 
-    page.add_read_callback_by_name("hBrightness", lambda v: calls.append(v))
+    page.add_read_callback("hBrightness", lambda v: calls.append(v))
     page._pending_read_request = _PendingReadRequest(
         component_name="hBrightness",
         expiry=time.monotonic() + 10.0,
@@ -394,14 +416,6 @@ def test_notification_pages_keep_the_regression_guard():
     r = chr(92)
     assert r + "n" not in cmds[0]
     assert cmds[0] == 'tText.txt="first page' + r + 'rsecond line"'
-
-
-def test_extract_component_name_handles_component_and_string():
-    """``_extract_component_name`` returns ``.name`` for Component objects
-    and the string directly for plain strings."""
-    page = _bare_page()
-    assert page._extract_component_name(Component(42, "mycomp")) == "mycomp"
-    assert page._extract_component_name("plain_string") == "plain_string"
 
 
 def test_popup_item_keeps_the_opening_items_overrides():

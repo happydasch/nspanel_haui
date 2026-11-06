@@ -413,9 +413,7 @@ class HAAdapter:
         # screen. Callers hand such work over with run_off_worker() /
         # submit_off_worker(); the pool is deliberately small, because these
         # are occasional requests, not a job queue.
-        self._io = ThreadPoolExecutor(
-            max_workers=2, thread_name_prefix=f"nspanel_haui_{name}_io"
-        )
+        self._io = ThreadPoolExecutor(max_workers=2, thread_name_prefix=f"nspanel_haui_{name}_io")
 
     # logging
 
@@ -487,9 +485,7 @@ class HAAdapter:
         """Run ``fn(*args)`` on this app's worker and return its result."""
         return await self._loop.run_in_executor(self._worker, fn, *args)
 
-    def run_off_worker(
-        self, fn: Callable[..., Any], *args: Any, timeout: float = 60.0
-    ) -> Any:
+    def run_off_worker(self, fn: Callable[..., Any], *args: Any, timeout: float = 60.0) -> Any:
         """Run blocking work (HTTP, disk) off the worker and return its result.
 
         The worker runs the display pipeline in order, so one slow request

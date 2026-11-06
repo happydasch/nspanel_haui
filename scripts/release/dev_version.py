@@ -10,9 +10,7 @@ import sys
 from pathlib import Path
 
 _STABLE_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-_DEV_RE = re.compile(
-    r"(\d+)\.(\d+)\.(\d+)\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?"
-)
+_DEV_RE = re.compile(r"(\d+)\.(\d+)\.(\d+)\.dev\d+(?:[+][0-9A-Za-z][0-9A-Za-z._-]*)?")
 _PUBLISHED_DEV_RE = re.compile(r"\d+\.\d+\.\d+\.dev\d+")
 
 
@@ -36,8 +34,7 @@ def derive_dev_version(current_version: str, run_number: str | int) -> str:
         base = ".".join(previous_dev.groups())
     else:
         raise ValueError(
-            "Expected a stable X.Y.Z or a previous dev version, "
-            f"got {current_version!r}"
+            f"Expected a stable X.Y.Z or a previous dev version, got {current_version!r}"
         )
 
     version = f"{base}.dev{run_number}"

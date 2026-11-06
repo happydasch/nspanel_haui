@@ -88,9 +88,9 @@ class UnlockPage(AlarmPage):
         # show either password stars or title
         if len(self._input):
             passwd = f"{ICO_PASSWORD}" * len(self._input)
-            self.set_component_text(AlarmPage.COMPONENTS.title, passwd)
+            self.set_title(passwd, AlarmPage.COMPONENTS.title)
         else:
-            self.set_component_text(AlarmPage.COMPONENTS.title, self._title)
+            self.set_title(self._title, AlarmPage.COMPONENTS.title)
 
         # update unlock button
         unlock_btn_enabled = str(self._input) == str(self._unlock_code)

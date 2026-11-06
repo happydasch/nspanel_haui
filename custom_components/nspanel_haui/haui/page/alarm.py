@@ -302,7 +302,7 @@ class AlarmPage(HAUIPage):
             title = self._item.translate_item_state()
         else:
             title = self.translate("Alarm")
-        self.set_component_text(self.COMPONENTS.title, title)
+        self.set_title(title)
 
         # armed indicator in the header
         self.update_function_component(

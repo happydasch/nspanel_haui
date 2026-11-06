@@ -21,9 +21,10 @@ esphome:
   # NOT the release that fixed the nextion numeric-response delivery (that fix,
   # esphome/esphome#17744, ships in 2026.11.0).  Until then the shipped configs
   # carry esphome/nextion_patch and an external_components override that applies
-  # it and the TFT upload TX buffer option (#21435); bump BOTH min_version and
-  # requirements-esphome.txt (and delete nextion_patch + its override blocks)
-  # when a released ESPHome contains #17744 and #21435.
+  # it, the TFT upload TX buffer option (#21435) and a TFT upload retry fix that
+  # is not upstream yet; bump BOTH min_version and requirements-esphome.txt (and
+  # delete nextion_patch + its override blocks) when a released ESPHome contains
+  # every fix listed in esphome/nextion_patch/README.md.
   min_version: 2026.10.0
   name: $name
   friendly_name: $friendly_name

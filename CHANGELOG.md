@@ -34,9 +34,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The services raise an error when their `device` matches no running panel,
   instead of logging a warning and doing nothing
   ([Upgrading](docs/upgrading.md#18-services-fail-on-a-device-that-is-no-panel)).
-- The standalone firmware **Update Display** button and the `tft_update_url`
-  substitution are gone; TFT management is the hub's **HAUI Display** update
-  entity, `nspanel_haui.update_tft`, or **Device Manager → Install TFT**
+- The standalone firmware **Update Display** button is gone; TFT management is
+  the hub's **HAUI Display** update entity, `nspanel_haui.update_tft`, or
+  **Device Manager → Install TFT** (the `tft_update_url` substitution stays,
+  to override `tft_url` for local TFT builds)
   ([Upgrading](docs/upgrading.md#10-tft-install-actions-moved-to-the-integration)).
 
 ### Added
@@ -76,6 +77,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   over its dev builds, and an unparseable version counts as unknown.
 - Dev prereleases ship both display TFTs, and dev panels install the TFT their
   firmware needs ([Release](docs/release.md#published-development-firmware)).
+- Panel titles and built-in popup titles are single words where possible, and
+  every title is fitted to its header widget (longer ones end in `..`).
 
 ### Fixed
 
@@ -126,6 +129,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   only the panel's ESPHome device.
 - A TFT upload or firmware install that ends without the panel rebooting is
   reported as failed instead of done.
+- A failed TFT upload can be retried without rebooting the panel; the retry
+  stopped after 4 KB (vendored `nextion` patch).
 - Device Manager: the TFT picker names the required TFT version, not the
   firmware version; **Download firmware** skips dev prereleases; disabled
   devices offer no actions that need a running panel; a failed reorder keeps

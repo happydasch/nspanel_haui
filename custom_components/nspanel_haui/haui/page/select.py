@@ -17,7 +17,7 @@ class SelectPage(HAUIPage):
         type_key="select",
         page_name="select",
         page_id=5,
-        label=_("Selection List"),
+        label=_("Select"),
         description=_("Item selection panel with multi-page support."),
         is_system=True,
         sys_panel_default={
@@ -162,7 +162,7 @@ class SelectPage(HAUIPage):
         return True
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, panel.get_title())
+        self.set_title(panel.get_title())
         self.set_items()
 
     # misc

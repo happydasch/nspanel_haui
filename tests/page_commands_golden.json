@@ -477,7 +477,7 @@
      ],
      "selected": "auto",
      "selection_callback_fnc": "callback_fan_mode",
-     "title": "Select fan mode"
+     "title": "Fan"
     }
    ]
   ]
@@ -1109,7 +1109,7 @@
      ],
      "selected": "eco",
      "selection_callback_fnc": "callback_preset_mode",
-     "title": "Select preset mode"
+     "title": "Preset"
     }
    ]
   ]
@@ -1329,7 +1329,7 @@
      ],
      "selected": "off",
      "selection_callback_fnc": "callback_swing_mode",
-     "title": "Select swing mode"
+     "title": "Swing"
     }
    ]
   ]
@@ -3551,7 +3551,7 @@
      ],
      "selected": "low",
      "selection_callback_fnc": "callback_fan_speed",
-     "title": "Select Fan Speed"
+     "title": "Fan"
     }
    ]
   ]
@@ -3626,7 +3626,7 @@
      ],
      "selected": "low",
      "selection_callback_fnc": "callback_fan_speed",
-     "title": "Select Fan Speed"
+     "title": "Fan"
     }
    ]
   ]
@@ -3706,7 +3706,7 @@
      ],
      "selected": "low",
      "selection_callback_fnc": "callback_fan_speed",
-     "title": "Select Fan Speed"
+     "title": "Fan"
     }
    ]
   ]
@@ -3776,7 +3776,7 @@
      ],
      "selected": "low",
      "selection_callback_fnc": "callback_fan_speed",
-     "title": "Select Fan Speed"
+     "title": "Fan"
     }
    ]
   ]
@@ -3863,7 +3863,7 @@
      ],
      "selected": "low",
      "selection_callback_fnc": "callback_fan_speed",
-     "title": "Select Fan Speed"
+     "title": "Fan"
     }
    ]
   ]

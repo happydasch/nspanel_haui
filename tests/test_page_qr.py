@@ -1,5 +1,7 @@
 """QR code page."""
 
+from types import SimpleNamespace
+
 from nspanel_haui.haui.page.qr import QRPage
 
 
@@ -17,6 +19,7 @@ class _Panel:
 def _render(config, items):
     page = QRPage.__new__(QRPage)
     rendered = []
+    page.app = SimpleNamespace(device=SimpleNamespace(is_portrait=False))
     page.texts = {}
     page.set_component_text = lambda component, text: page.texts.__setitem__(component.name, text)
     page._build_items_from_panel = lambda panel, key: items

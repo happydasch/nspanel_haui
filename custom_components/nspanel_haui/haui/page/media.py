@@ -39,7 +39,7 @@ class MediaPage(HAUIPage):
         type_key="media",
         page_name="media",
         page_id=14,
-        label=_("Media Player"),
+        label=_("Media"),
         description=_("Media player controls with track info and volume."),
         options=[
             PageOption(
@@ -338,7 +338,7 @@ class MediaPage(HAUIPage):
             media_channel = item.get_item_attr("media_channel")
             if media_channel:
                 title = media_channel
-        self.set_component_text(self.COMPONENTS.title, title)
+        self.set_title(title)
 
     def update_media_item(self) -> None:
         self.update_media_title()
@@ -549,7 +549,7 @@ class MediaPage(HAUIPage):
         if len(selection) > 0:
             navigation.open_panel(
                 PopupPanelKey.POPUP_SELECT,
-                title=self.translate("Select source"),
+                title=self.translate("Source"),
                 selected=source,
                 items=selection,
                 select_mode="default",
@@ -588,7 +588,7 @@ class MediaPage(HAUIPage):
         if len(selection) > 0:
             navigation.open_panel(
                 PopupPanelKey.POPUP_SELECT,
-                title=self.translate("Select media"),
+                title=self.translate("Media"),
                 items=selection,
                 select_mode="default",
                 selection_callback_fnc=self.callback_media,
@@ -625,7 +625,7 @@ class MediaPage(HAUIPage):
         if len(items) > 0:
             navigation.open_panel(
                 PopupPanelKey.POPUP_SELECT,
-                title=self.translate("Select group members"),
+                title=self.translate("Group"),
                 items=items,
                 selected=group_members,
                 multiple=True,

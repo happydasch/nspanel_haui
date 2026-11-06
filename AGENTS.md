@@ -55,7 +55,7 @@ Inside the Hub app, components follow a layered structure:
 | `custom_components/nspanel_haui/editor_panel.py` | Registers the editor sidebar panel and serves `frontend/` as static files; keep Python files out of `frontend/`, which is served without authentication |
 | `custom_components/nspanel_haui/haui/abstract/haui_base.py` | `HAUIBase` - root base class: config access, command sending/batching, logging, lifecycle |
 | `custom_components/nspanel_haui/haui/abstract/haui_config_access.py` | `HAUIConfigAccess` - lightweight config/logging base for data wrappers (no display transport) |
-| `custom_components/nspanel_haui/haui/abstract/haui_page.py` | `HAUIPage` - page base class: lifecycle hooks, component callbacks, header/button helpers |
+| `custom_components/nspanel_haui/haui/abstract/haui_page.py` | `HAUIPage` - page base class: lifecycle hooks, title/colour helpers, items and their state listeners; touch input comes from `TouchInputMixin` |
 | `custom_components/nspanel_haui/haui/abstract/component.py` | `Component(NamedTuple)` + `ComponentRegistry` - type-safe page component declarations |
 | `custom_components/nspanel_haui/haui/abstract/haui_config.py` | `HAUIConfig` - typed config wrapper around the merged config dict |
 | `custom_components/nspanel_haui/haui/abstract/haui_panel.py` | `HAUIPanel` - runtime panel instance (holds items, pages, navigation actions) |
@@ -63,7 +63,7 @@ Inside the Hub app, components follow a layered structure:
 | `custom_components/nspanel_haui/haui/abstract/display_interface.py` | `DisplayInterface` + `ESPHomeTransport` - high-level display command API |
 | `custom_components/nspanel_haui/haui/abstract/haui_entity.py` | `HAUIEntity` - wraps a single HA entity with config, state listening, service calls |
 | `custom_components/nspanel_haui/haui/abstract/haui_event.py` | `HAUIEvent` - event data class for display interactions |
-| `custom_components/nspanel_haui/haui/abstract/mixins/` | `ComponentMixin`, `FunctionButtonMixin`, `PagedItemsMixin` (paging + debounced item updates for grid/row), `CycleCardsMixin` (the clock/weather cycle cards, fitted to the font) - page behavior mixins |
+| `custom_components/nspanel_haui/haui/abstract/mixins/` | `ComponentMixin`, `FunctionButtonMixin`, `TouchInputMixin` (release/press callbacks, slider drags, tap-or-swipe buffer, long press back, display reads), `PagedItemsMixin` (paging + debounced item updates for grid/row), `CycleCardsMixin` (the clock/weather cycle cards, fitted to the font) - page behavior mixins |
 | `custom_components/nspanel_haui/haui/mapping/panel.py` | `PANEL_MAPPING` and `PAGE_MAPPING` registries; `_build_panel_mapping()`, `SYS_PANEL_MAPPING` and `POPUP_PANEL_MAPPING` |
 | `custom_components/nspanel_haui/haui/mapping/descriptor.py` | `PageDescriptor` + `PageOption` metadata and the `_()` translation marker |
 | `custom_components/nspanel_haui/haui/mapping/const.py` | String enums and constants: `ESPEvent`, `ESPResponse`, `ESPCommand`, `ESPAction`, `SysPanelKey` (fixed system panel keys), `PopupPanelKey` (popup keys), `NotifType`, `DEFAULT_CONFIG`, `PANEL_CONFIG` |
@@ -92,7 +92,7 @@ Inside the Hub app, components follow a layered structure:
 | `tests/` | Pytest tests (backend) plus Node test-runner tests in `tests/frontend/`; `conftest.py` stubs `homeassistant` and `dateutil`, so no running HA instance is needed |
 | `docs/` | User documentation: install, configuration, panels, FAQ, ESPHome, Hub, Nextion, Communication, Design, development, troubleshooting |
 | `nextion/` | Nextion display assets (TFT file, HMI source, fonts, images) |
-| `esphome/` | ESPHome device configuration files (`install.yaml`, runtime/dev configs, `secrets.yaml.example`; copy it to the git-ignored `secrets.yaml` for local builds). Requires ESPHome 2026.10 or later (`min_version` in `nspanel_haui/base.yaml`). `nextion_patch/` is a **temporary vendored patched copy of the stock `nextion` component** (the numeric-response fix, esphome#17744, and the TFT upload `tft_upload_http_buffer_size_tx` option, esphome#21435, both missed the 2026.10.0 release) wired in via `external_components` in `nspanel_haui.yaml` (git source) and the universal/dev configs (local source) — delete the dir + override blocks and bump `min_version` + `requirements-esphome.txt` when a released ESPHome contains both |
+| `esphome/` | ESPHome device configuration files (`install.yaml`, runtime/dev configs, `secrets.yaml.example`; copy it to the git-ignored `secrets.yaml` for local builds). Requires ESPHome 2026.10 or later (`min_version` in `nspanel_haui/base.yaml`). `nextion_patch/` is a **temporary vendored patched copy of the stock `nextion` component** (the numeric-response fix, esphome#17744, and the TFT upload `tft_upload_http_buffer_size_tx` option, esphome#21435, both missed the 2026.10.0 release, plus a TFT upload retry fix that is not upstream yet) wired in via `external_components` in `nspanel_haui.yaml` (git source) and the universal/dev configs (local source) — delete the dir + override blocks and bump `min_version` + `requirements-esphome.txt` when a released ESPHome contains every fix listed in `nextion_patch/README.md` |
 | `scripts/` | Development utilities: font generation (`gen_fonts`, `gen_char`), color palettes/wheels, spinner generation, background tile generation (`gen_backgrounds`), editor design grids (`gen_grid`), RGB565 image conversion, Nextion2Text, card gallery with PNG export and the docs screen overview (`preview_gallery`), live-preview layout export (`gen_virtual_layout`, which also writes the hub's font widths `haui/mapping/font_metrics.json`, checks each solid page's theme code and prints it with `--theme-code`; rerun after every HMI change), translation extraction, portrait HMI geometry patcher (`gen_portrait`), release version bump (`bump_version`, `bump_tft_version`), local test firmware release (`dev_release`) |
 | `ref_src/home-assistant/core/` | Home Assistant core checkout - read-only reference for HA API signatures; do not modify |
 | `ref_src/home-assistant/frontend/` | Home Assistant frontend source checkout — read-only reference for HA Lovelace UI patterns; do not modify |
@@ -226,7 +226,7 @@ component.id  # instead of component[0]
 **Method signatures** use `Component` type instead of `tuple[int, str]` or `tuple`:
 - `set_component_text(component: Component, text: str)`
 - `set_component_value(component: Component, value: int)`
-- `add_component_callback(component: Component, callback: Callable, drag: bool = False)`
+- `add_component_callback(component: Component, callback: Callable)`
 - Callback handlers: `def callback(self, event: HAUIEvent, component: Component, button_state: int)`
 - Prefer `on_release(component, callback)` for release-only callbacks: it receives `(event, component)` and avoids the `button_state` argument. Use `add_component_callback` only for rare press-event handling that needs `button_state`.
 
@@ -595,7 +595,7 @@ Many specific interfaces are better than one general interface. The codebase use
 
 **1. Mixins for page behavior:**
 ```python
-class HAUIPage(FunctionButtonMixin, ComponentMixin, HAUIBase): ...
+class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase): ...
 ```
 Each mixin depends only on a small set of expected attributes, not the full `HAUIPage` surface. The `if TYPE_CHECKING:` block in each mixin declares only what it needs:
 

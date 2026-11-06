@@ -16,7 +16,7 @@ Every panel has these fields in the editor:
 | Field | Description |
 |-------|-------------|
 | `type` | The panel type (e.g. `clock`, `grid`, `light`, `climate`). Selectable from a dropdown when adding a new panel. Set for the lifetime of the panel — to change type, delete and re-add. |
-| `title` | Display name shown on the panel header. Falls back to the panel type's label (e.g. `Grid`) if left empty. |
+| `title` | Display name shown on the panel header. Falls back to the panel type's label (e.g. `Grid`) if left empty. Keep it to one word where possible; a title wider than the header widget is cut to fit and ends in `..`. |
 | `key` | A unique identifier used to reference this panel in navigation actions and popup overrides. Must be unique across all panels on the device. |
 | `show_in_navigation` | Boolean toggle (default **on**). When enabled, the panel appears in the navigation bar. When disabled, the panel is hidden from navigation and opens stacked on top of the current panel — use this for subpanels and detail views (see [Stacked Panels and Popups](#stacked-panels-and-popups)). |
 | `long_press_back` | **Long press to go back** (default **off**), offered only for panel types without header buttons (Clock, ClockTwo, Weather), which can otherwise only be left by swiping. When enabled, holding anywhere for about a second goes back: to the panel this one was opened from, or to the home panel. A long press rather than a tap or double tap because the firmware polls touches every 200 ms, too slowly to catch quick taps reliably. |

@@ -181,6 +181,23 @@ otherwise the Nextion Editor) and recompile both TFTs. A TFT change committed
 under an unchanged version never reaches a panel that already reports that
 version.
 
+Firmware and TFT serials are independent: `yaml_version` identifies the firmware build, while
+`tft_required_version` (the device's `tft_version` substitution) identifies the display image that
+build requires. A display change can therefore make the TFT serial newer than the firmware serial;
+for example, firmware `0.4.5.dev29` may require TFT `0.4.5.dev30`. Do not rewrite the TFT version to
+match the firmware version. The hub checks the reported TFT requirement, not whether the firmware
+and TFT serial strings are equal. If the selected update-channel manifest does not contain that
+required TFT, the hub looks up the manifest for the installed firmware release and uses it only when
+the firmware version, build variant, required TFT version, and display-model asset all match. If no
+compatible asset is available, it reports the mismatch instead of uploading an unrelated TFT.
+
+In this checkout, the firmware source is `0.4.5.dev29` and the committed HMIs/TFTs are
+`0.4.5.dev30`. The next Development Firmware workflow run derives firmware `0.4.5.dev30` from the
+integration manifest and packages the existing dev30 landscape and portrait TFTs in that release's
+firmware manifest. Do not manually advance the version files before that run: doing so would skip
+dev30. Verify the published dev30 release contains `firmware-manifest.json`, both TFT assets, and a
+manifest `tft.version` of `0.4.5.dev30`.
+
 The prerelease notes show the exact commit and changed-file summary. Use the
 commit link to inspect the full diff; the `CHANGELOG.md` entry and the prepared
 release notes are written for stable releases only.

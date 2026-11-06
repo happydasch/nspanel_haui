@@ -301,9 +301,7 @@ class NSPanelHAUI(HAAdapter):
         self, version: str | None = None, url: str | None = None
     ) -> dict[str, Any]:
         """Install TFT after resolving its manifest off-worker."""
-        return await self._async_update_request(
-            "start_async_tft_install", version=version, url=url
-        )
+        return await self._async_update_request("start_async_tft_install", version=version, url=url)
 
     def start_async_tft_install(
         self,

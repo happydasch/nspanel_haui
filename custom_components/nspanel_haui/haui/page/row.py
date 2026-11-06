@@ -197,7 +197,7 @@ class RowPage(PagedItemsMixin, HAUIPage):
             )
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, panel.get_title())
+        self.set_title(panel.get_title())
         self.set_row_entries()
 
     # misc

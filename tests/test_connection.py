@@ -162,9 +162,7 @@ class TestConnectionStateMachine:
         # Should have sent hub_connection_initialized
         expected = ServerResponse.HUB_CONNECTION_INITIALIZED
         assert any(name == expected for name, _, _ in app.sent_esphome)
-        assert not any(
-            name == ESPAction.RESET_LAST_INTERACTION for name, _, _ in app.sent_esphome
-        )
+        assert not any(name == ESPAction.RESET_LAST_INTERACTION for name, _, _ in app.sent_esphome)
 
     def test_timeout_when_connected_transitions_to_disconnected(self):
         _, cb, ctrl = make_controller()
@@ -337,6 +335,7 @@ def test_disconnect_records_reason_and_timestamp():
     assert ctrl.last_disconnect_reason is None
     assert ctrl.disconnected_since is None
 
+
 class TestHubHeartbeat:
     """Regression: a busy app worker delayed the hub→device heartbeat, the
     device force-disconnected the hub and woke the display to full brightness
@@ -415,5 +414,3 @@ def test_controller_publishes_the_bare_heartbeat_action_name():
     assert proxy.detached == [("hub_heartbeat", "")]
     # Detached means detached: it must not go through the blocking publish path.
     assert proxy.published == []
-
-

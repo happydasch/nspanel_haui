@@ -380,8 +380,8 @@ icon: mdi:tablet
 fields:
   title:
     name: Title
-    description: Short notification title shown on the panel.
-    example: Dishwasher finished
+    description: Short notification title shown on the panel. Keep it to one word where possible; a title wider than the header widget is cut to fit and ends in `..`.
+    example: Dishwasher
     required: true
     selector:
       text:

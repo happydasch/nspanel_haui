@@ -124,7 +124,7 @@ class LightPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # set basic panel info
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
         # Only a popup opened for this light (item_id) closes when it becomes
         # unavailable; a standalone light panel stays where the user put it.
         if not self.update_functions(self.DEFAULT_FUNCTION) and panel.get("item_id", None):
@@ -332,7 +332,7 @@ class LightPage(HAUIPage):
             effects.append({"value": value, "name": name})
         navigation.open_panel(
             PopupPanelKey.POPUP_SELECT,
-            title=self.translate("Select effect"),
+            title=self.translate("Effect"),
             items=effects,
             selection_callback_fnc=self.callback_effect,
             close_on_select=True,

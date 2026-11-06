@@ -5,9 +5,17 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import SysPanelKey
 from ..mapping.descriptor import PageDescriptor, _
+from ..utils.text import TextBox
 
 
 class SystemPage(HAUIPage):
+    # The system page's title widget is wider and uses the 32 px font.
+    TITLE_BOX = {
+        "landscape": TextBox(450, 32, 2, 50),
+        "portrait": TextBox(320, 32, 2, 50),
+    }
+    TITLE_FONT = 2
+
     DESCRIPTOR = PageDescriptor(
         type_key="system",
         page_name="system",
@@ -35,7 +43,7 @@ class SystemPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # update default text
-        self.set_title(self.translate("Waiting for Connection"))
+        self.set_title(self.translate("Connecting"))
         self.set_message(
             self.translate("This is taking longer than usual,"),
             self.translate("please check your configuration"),
@@ -47,9 +55,6 @@ class SystemPage(HAUIPage):
         navigation.open_home_panel()
 
     # misc
-
-    def set_title(self, title: str) -> None:
-        self.set_component_text(self.COMPONENTS.title, title)
 
     def set_message(self, text_1: str, text_2: str) -> None:
         self.set_component_text(self.COMPONENTS.t_msg1, text_1)

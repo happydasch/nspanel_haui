@@ -18,7 +18,7 @@ class QRPage(HAUIPage):
         type_key="qr",
         page_name="qr",
         page_id=11,
-        label=_("QR Code"),
+        label=_("QR"),
         description=_("Display a QR code alongside item info."),
         options=[
             PageOption(
@@ -136,7 +136,7 @@ class QRPage(HAUIPage):
 
         # Set text on both QR components so whichever is shown after a
         # zoom toggle already has its content.
-        self.set_component_text(self.COMPONENTS.title, panel.get_title())
+        self.set_title(panel.get_title())
         self.set_component_text(self.COMPONENTS.qr_code, qr_code)
         self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
         # Render Q1/Q2 content in the same batch as visibility so the
@@ -158,7 +158,7 @@ class QRPage(HAUIPage):
         essid = panel.get("essid", "")
         password = panel.get("password", "")
         qr_code = f"WIFI:S:{essid};T:WPA;P:{password};;" if essid else ""
-        self.set_component_text(self.COMPONENTS.title, panel.get_title())
+        self.set_title(panel.get_title())
         self.set_component_text(self.COMPONENTS.qr_code, qr_code)
         self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
         items = self._build_items_from_panel(panel, "items")

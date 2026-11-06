@@ -8,7 +8,7 @@ description: ESPHome configuration, scripts, events, and actions for the NSPanel
 The NSPanel is operating on a ESP32. To provide access to the NSPanel via HomeAssistant, ESPHome is being used.
 
 - Requires ESPHome 2026.10 or later (enforced by `min_version` in `esphome/nspanel_haui/base.yaml`)
-- Ships with a **temporary vendored patch** of the stock `nextion` component: the numeric-response delivery fix ([esphome PR #17744](https://github.com/esphome/esphome/pull/17744)) the firmware's `read_response` path relies on was merged two days after the 2026.10.0 release tag was cut, so it only ships in ESPHome 2026.11.0. `esphome/nextion_patch/` carries the 2026.10.0 component plus the cherry-picked fix, and the configs override the stock component with it via `external_components` — a git source for installed setups (shipped in the `nspanel_haui.yaml` package, zero configuration action), a local source in the universal/dev configs so CI and the release build validate the actual checkout. Remove the patch and its override blocks once a released ESPHome contains #17744 and bump `min_version` together (see `esphome/nextion_patch/README.md`).
+- Ships with a **temporary vendored patch** of the stock `nextion` component: the numeric-response delivery fix ([esphome PR #17744](https://github.com/esphome/esphome/pull/17744)) the firmware's `read_response` path relies on was merged two days after the 2026.10.0 release tag was cut, so it only ships in ESPHome 2026.11.0. `esphome/nextion_patch/` carries the 2026.10.0 component plus the cherry-picked fix, the TFT upload TX buffer option ([esphome PR #21435](https://github.com/esphome/esphome/pull/21435)) and a fix that lets a failed TFT upload be retried without rebooting the panel (not upstream yet), and the configs override the stock component with it via `external_components` — a git source for installed setups (shipped in the `nspanel_haui.yaml` package, zero configuration action), a local source in the universal/dev configs so CI and the release build validate the actual checkout. Remove the patch and its override blocks once a released ESPHome contains every fix listed in `esphome/nextion_patch/README.md` and bump `min_version` together.
 - Provides scripts and actions for communication with the display
 - Responsible for handling the device functionality
 
@@ -60,6 +60,7 @@ An overview of all configuration variables defined in the ESPHome yaml file.
 - `wifi_ssid` (!secret wifi_ssid)
 - `wifi_password` (!secret wifi_password)
 - `ap_password` (!secret ap_password)
+- `tft_update_url` (default TFT URL of the display component, which enables TFT upload support; the hub always sends the URL of the TFT it installs)
 
 ### Encrypted native OTA
 

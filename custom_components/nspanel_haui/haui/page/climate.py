@@ -123,7 +123,7 @@ class ClimatePage(HAUIPage):
         self._title = self._panel_title(panel, item, self.translate("Climate"))
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
         self.update_climate_item()
 
     # misc
@@ -372,20 +372,20 @@ class ClimatePage(HAUIPage):
             haui_item.call_item_service("set_hvac_mode", hvac_mode=hvac_mode)
         elif fnc_name == "fan_mode":
             self._open_mode_select(
-                haui_item, "fan_mode", self.translate("Select fan mode"), self.callback_fan_mode
+                haui_item, "fan_mode", self.translate("Fan"), self.callback_fan_mode
             )
         elif fnc_name == "preset_mode":
             self._open_mode_select(
                 haui_item,
                 "preset_mode",
-                self.translate("Select preset mode"),
+                self.translate("Preset"),
                 self.callback_preset_mode,
             )
         elif fnc_name == "swing_mode":
             self._open_mode_select(
                 haui_item,
                 "swing_mode",
-                self.translate("Select swing mode"),
+                self.translate("Swing"),
                 self.callback_swing_mode,
             )
         elif fnc_name == "power_off":

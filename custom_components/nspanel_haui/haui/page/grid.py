@@ -173,7 +173,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
         self.on_release(grid_ovl_callbacks)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, panel.get_title())
+        self.set_title(panel.get_title())
         self.set_grid_entries()
 
     # misc

@@ -87,21 +87,38 @@ def test_tft_upload_tx_buffer_fits_the_github_redirect():
     assert ".buffer_size_tx = this->tft_upload_http_buffer_size_tx_" in upload
 
 
+def test_every_tft_upload_starts_with_the_4k_first_chunk():
+    """Only a failed upload leaves ``upload_first_chunk_sent_`` set; success reboots.
+
+    A retry in the same boot then requested the whole file as its first range,
+    jumped past the end on the display's 0x08 answer and stopped after 4 KB.
+    """
+    for name in ("nextion_upload_esp32.cpp", "nextion_upload_arduino.cpp"):
+        source = (ROOT.parent / "nextion_patch" / "nextion" / name).read_text()
+        upload_tft = source.split("bool Nextion::upload_tft(")[1]
+        before_first_chunk = upload_tft[: upload_tft.index("upload_by_chunks_(")]
+        assert "this->upload_first_chunk_sent_ = false;" in before_first_chunk, name
+
+
 def test_tft_install_actions_live_in_the_integration():
     """Only the hub's transport action remains; installs go through nspanel_haui."""
     api = _read("api.yaml")
     assert "- action: upload_tft_url" in api
     assert "- action: upload_tft\n" not in api
 
-    # The standalone Update Display button and its tft_update_url substitution
-    # are gone; the display component keeps a fixed tft_url literal only because
-    # the vendored component validates it next to tft_upload_http_buffer_size_tx.
-    for config in ("install.yaml", "nspanel_haui.yaml", "nspanel_haui_dev.yaml",
-                   "nspanel_haui_universal.yaml"):
-        assert "tft_update_url" not in (ROOT.parent / config).read_text(), config
+    # The standalone Update Display button is gone, but the display component
+    # keeps a configurable TFT URL: overridng the `tft_update_url` substitution
+    # in a device YAML installs a local TFT build. HAUI itself always passes
+    # the URL of the TFT it installs.
+    for config in (
+        "install.yaml",
+        "nspanel_haui.yaml",
+        "nspanel_haui_dev.yaml",
+        "nspanel_haui_universal.yaml",
+    ):
+        assert "tft_update_url:" in (ROOT.parent / config).read_text(), config
     display = _read("display.yaml")
-    assert "tft_url:" in display
-    assert "${tft_update_url}" not in display
+    assert "tft_url: $tft_update_url" in display
 
 
 def test_firmware_drops_protocol_the_hub_never_uses():
@@ -282,8 +299,6 @@ def test_display_setting_changes_do_not_reset_last_interaction():
     assert "id(check_display).execute();" in interval
 
 
-
-
 def test_last_interaction_uses_one_rollover_safe_clock():
     import yaml
 
@@ -296,7 +311,6 @@ def test_last_interaction_uses_one_rollover_safe_clock():
     )
     assert initialized["type"] == "bool"
     assert initialized["initial_value"] == "false"
-
 
     interval = _read("interval.yaml")
     assert "id(interaction_age_ms) = millis() - id(last_interaction_ms);" in interval
@@ -311,17 +325,14 @@ def test_last_interaction_uses_one_rollover_safe_clock():
     assert "millis() / 100" not in display + interaction
     assert "update_last_interaction" not in display + interaction
     assert (
-        "id(last_interaction_ms) = millis() - static_cast<uint32_t>(offset) * 1000U;"
-        in interaction
+        "id(last_interaction_ms) = millis() - static_cast<uint32_t>(offset) * 1000U;" in interaction
     )
     assert "id: reset_interaction_timer" in interaction
     interaction_state = _read("scripts_interaction.yaml")
     assert "id(reset_interaction_timer).execute(0);" in interaction_state
     assert "if (is_touch)" in interaction_state
     touch_sensors = (
-        _read("sensor.yaml")
-        .split("# Touch X coordinates")[1]
-        .split("# Brightness of display")[0]
+        _read("sensor.yaml").split("# Touch X coordinates")[1].split("# Brightness of display")[0]
     )
     assert "reset_interaction_timer" not in touch_sensors
 
@@ -329,6 +340,8 @@ def test_last_interaction_uses_one_rollover_safe_clock():
     assert "reset_last_interaction" not in _read("scripts_connection.yaml")
     assert "reset_last_interaction" not in display
     assert "reset_last_interaction" not in _read("display.yaml").split("on_buffer_overflow:")[1]
+
+
 def test_display_model_uses_numeric_input_instead_of_slider():
     import yaml
 

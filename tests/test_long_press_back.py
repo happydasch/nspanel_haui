@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import nspanel_haui.haui.abstract.haui_page as page_module
+import nspanel_haui.haui.abstract.mixins.touch_input_mixin as touch_module
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.controller.navigation import HAUINavigationController
 from nspanel_haui.haui.mapping.const import PANEL_CONFIG, ESPEvent
@@ -45,7 +45,7 @@ def _page(**panel_cfg):
 def _touch(page, held, start=(100, 100), end=(105, 102)):
     """Feed a touch held for ``held`` seconds through process_event."""
     times = iter([1000.0, 1000.0 + held])
-    with patch.object(page_module.time, "monotonic", lambda: next(times)):
+    with patch.object(touch_module.time, "monotonic", lambda: next(times)):
         page.process_event(HAUIEvent(ESPEvent.TOUCH_START, ""))
         coords = f"{start[0]},{start[1]},{end[0]},{end[1]}"
         page.process_event(HAUIEvent(ESPEvent.TOUCH_END, coords))
@@ -80,7 +80,7 @@ def test_the_first_touch_start_of_a_touch_counts():
     """A widget that sends its id reports touch_start twice per touch."""
     page = _page(long_press_back=True)
     times = iter([1000.0, 1000.7, 1001.0])
-    with patch.object(page_module.time, "monotonic", lambda: next(times)):
+    with patch.object(touch_module.time, "monotonic", lambda: next(times)):
         page.process_event(HAUIEvent(ESPEvent.TOUCH_START, "1"))
         page.process_event(HAUIEvent(ESPEvent.TOUCH_START, ""))
         page.process_event(HAUIEvent(ESPEvent.TOUCH_END, "100,100,100,100"))

@@ -118,7 +118,7 @@ class SettingsPage(HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         title = panel.get_title(self.translate("Settings"))
-        self.set_component_text(self.COMPONENTS.title, title)
+        self.set_title(title)
         self.set_component_text(
             self.COMPONENTS.t_brght_title, self.translate("Full and Dimmed Brightness:")
         )

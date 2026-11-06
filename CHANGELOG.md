@@ -131,6 +131,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   reported as failed instead of done.
 - A failed TFT upload can be retried without rebooting the panel; the retry
   stopped after 4 KB (vendored `nextion` patch).
+- Custom firmware builds find their required TFT in the release of their
+  firmware version when the update channel's manifest ships none.
 - Device Manager: the TFT picker names the required TFT version, not the
   firmware version; **Download firmware** skips dev prereleases; disabled
   devices offer no actions that need a running panel; a failed reorder keeps

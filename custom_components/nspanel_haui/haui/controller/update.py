@@ -259,7 +259,6 @@ def _find_installed_firmware_tft_manifest(
     releases: list[dict[str, Any]],
     firmware_version: str | None,
     required_tft_version: str | None,
-    firmware_variant: str | None,
     display_model: str | None,
 ) -> tuple[dict[str, str] | None, str | None, str | None]:
     """Find the installed firmware's manifest when the update channel lacks its TFT.
@@ -267,7 +266,8 @@ def _find_installed_firmware_tft_manifest(
     The selected update channel may point at a newer/stable manifest that does
     not carry the TFT required by an already-installed dev firmware. The exact
     release matching ``yaml_version`` is the canonical fallback source for
-    that TFT requirement.
+    that TFT requirement.  Its build variant does not matter: a release ships
+    only the universal image, but the TFT is the same for a custom build.
     """
     if not firmware_version or not required_tft_version:
         return None, None, None
@@ -298,12 +298,6 @@ def _find_installed_firmware_tft_manifest(
         return None, manifest_url, str(exc)
     if not _same_version_strings(info.get("version", ""), firmware_version):
         return None, manifest_url, "installed firmware manifest names a different version"
-    if not firmware_variant or info.get("variant") != firmware_variant:
-        return (
-            None,
-            manifest_url,
-            "installed firmware release has a different or unknown build variant",
-        )
     if not _same_version_strings(info.get("tft_version", ""), required_tft_version):
         return None, manifest_url, None
     if not info.get("tft_url"):
@@ -332,7 +326,6 @@ def _fetch_update_inputs(
     include_tft_source: bool = False,
     firmware_version: str | None = None,
     required_tft_version: str | None = None,
-    firmware_variant: str | None = None,
     display_model: str | None = None,
 ) -> dict[str, Any]:
     """Fetch the catalog and selected manifest as one I/O-only stage."""
@@ -393,7 +386,6 @@ def _fetch_update_inputs(
                 releases,
                 firmware_version,
                 required_tft_version,
-                firmware_variant,
                 display_model,
             )
             if fallback is not None:
@@ -2153,7 +2145,6 @@ class HAUIUpdateController(HAUIBase):
         firmware_info = self.app.device.device_info or {}
         firmware_version = firmware_info.get("yaml_version")
         required_tft_version = self._required_tft_version(firmware_info)
-        firmware_variant = firmware_info.get("firmware_variant")
         override = self.get("firmware_manifest_url", "")
         channel = self.get("firmware_update_channel", FirmwareUpdateChannel.STABLE)
         self.app.submit_off_worker(
@@ -2165,7 +2156,6 @@ class HAUIUpdateController(HAUIBase):
             include_tft_source or check_tft or required_tft_version is not None,
             firmware_version,
             required_tft_version,
-            firmware_variant,
             self.app.device.display_model,
             on_done=lambda inputs, error: self._complete_async_check(
                 request_id,

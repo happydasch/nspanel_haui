@@ -509,6 +509,36 @@ def test_tft_picker_and_install_use_installed_firmware_manifest_fallback(monkeyp
     ]
 
 
+def test_custom_build_finds_its_tft_in_the_universal_release_of_its_version(monkeypatch):
+    """The TFT is the same for both build variants; only the firmware image differs."""
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {
+            "yaml_version": "0.4.5.dev30",
+            "tft_version": "0.4.5.dev29",
+            "firmware_variant": "custom",
+        },
+        releases=[_firmware_release("0.4.5.dev30")],
+        manifest=_manifest("0.4.4", tft=False),
+    )
+    app.served["release_manifests"]["0.4.5.dev30"] = _manifest("0.4.5.dev30")
+
+    picker_results = []
+    ctrl.start_async_list_tft_releases(picker_results.append)
+    install_results = []
+    ctrl.start_async_tft_install(None, None, install_results.append)
+
+    assert picker_results[0] == {
+        "releases": ["0.4.5.dev30"],
+        "required": "0.4.5.dev30",
+        "error": None,
+    }
+    assert install_results[0]["state"] == update.UPDATE_STATE_INSTALLING
+    assert app.published == [
+        (ESPAction.UPLOAD_TFT_URL, "https://dl/tft/0.4.5.dev30/nspanel_haui.tft")
+    ]
+
+
 def test_a_manifest_without_a_tft_block_installs_nothing(monkeypatch):
     """A local test release names no TFT: the check must not even try to install."""
     ctrl, app, _ = _updater(

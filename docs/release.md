@@ -188,8 +188,10 @@ for example, firmware `0.4.5.dev29` may require TFT `0.4.5.dev30`. Do not rewrit
 match the firmware version. The hub checks the reported TFT requirement, not whether the firmware
 and TFT serial strings are equal. If the selected update-channel manifest does not contain that
 required TFT, the hub looks up the manifest for the installed firmware release and uses it only when
-the firmware version, build variant, required TFT version, and display-model asset all match. If no
-compatible asset is available, it reports the mismatch instead of uploading an unrelated TFT.
+the firmware version, required TFT version, and display-model asset all match. The build variant is
+not compared: a release ships only the universal firmware image, but its TFT is the same for a
+custom build. If no compatible asset is available, it reports the mismatch instead of uploading an
+unrelated TFT.
 
 In this checkout, the firmware source is `0.4.5.dev29` and the committed HMIs/TFTs are
 `0.4.5.dev30`. The next Development Firmware workflow run derives firmware `0.4.5.dev30` from the

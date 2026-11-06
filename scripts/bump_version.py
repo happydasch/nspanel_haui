@@ -11,7 +11,8 @@ and both HMI ``system.tftVersion`` values.
 A development version (``X.Y.Z.devN``, the ``.dev<run>`` shape the dev-release
 CI publishes) is a firmware-only bump: it updates ``manifest.json`` and the
 firmware ``yaml_version`` but leaves ``pyproject.toml``, ``tft_version`` and the
-HMI binaries at their stable values — the dev channel ships no display TFT.
+HMI binaries alone — the dev-release CI copies ``tft_version`` from the
+HMIs' ``system.tftVersion`` itself.
 
 ``CHANGELOG.md`` is *not* edited: its heading carries the release date and its
 content comes from the commits, so the maintainer writes it by hand.
@@ -99,8 +100,8 @@ def bump_text_sources(version: str, check: bool, tft_update: bool = False) -> bo
     is a firmware-only bump in the shape the dev-release CI writes:
     ``manifest.json`` and the firmware
     ``yaml_version`` advance, while ``pyproject.toml``, ``tft_version`` and the
-    HMI binaries stay at their stable values because the dev channel ships no
-    display TFT.
+    HMI binaries stay unchanged because the dev-release CI copies
+    ``tft_version`` from the HMIs itself.
     """
     ok = True
     dev = _version_kind(version) == "dev"
@@ -169,7 +170,8 @@ def main(argv: list[str] | None = None) -> int:
 
     ok = bump_text_sources(version, args.check, tft_update=args.tft_update)
     # Only a stable bump can advance the TFT sources: a dev version must never
-    # move tft_version or the HMI binaries (the dev channel ships no display TFT).
+    # move tft_version or the HMI binaries (the dev-release CI copies tft_version
+    # from the HMIs instead).
     if args.tft_update and kind == "stable":
         ok = bump_hmis(version, args.check) and ok
     if args.check:

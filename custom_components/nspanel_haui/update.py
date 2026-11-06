@@ -10,7 +10,7 @@ Exposes two update entities per panel:
 - "HAUI Display" — the display TFT.  The installed version is the TFT the
   display reports, the latest version the TFT the firmware's manifest names in
   its ``tft`` block (the one the firmware needs).  A manifest without a ``tft``
-  block (dev firmware ships no display TFT) reports the installed TFT as the
+  block (a local test release names none) reports the installed TFT as the
   latest, so no update is offered.  Installing runs the hub's TFT update: the
   device downloads the manifest's TFT for its display model and flashes the
   display.

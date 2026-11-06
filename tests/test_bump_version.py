@@ -117,7 +117,7 @@ def test_dev_bump_never_touches_tft_or_hmis(version_files, monkeypatch):
         lambda version, check: hmi_calls.append((version, check)) or True,
     )
     # Even with --tft-update requested, a dev version must not move the TFT:
-    # the dev channel ships no display TFT, and tftVersion stays stable X.Y.Z.
+    # the dev-release CI copies tft_version from the HMIs instead.
     assert bump_version.main(["0.4.5.dev3+gabc1234", "--tft-update"]) == 0
     assert json.loads(manifest.read_text())["version"] == "0.4.5.dev3+gabc1234"
     assert "yaml_version: '0.4.5.dev3+gabc1234'" in version_yaml.read_text()
@@ -201,6 +201,42 @@ def test_hmi_bump_check_mode_does_not_write(hmi_copies):
     assert not ok
     assert "would set" in message
     assert _current_hmi_version(landscape) == before
+
+
+def _other_same_length_version(version: str) -> str:
+    return version[:-1] + ("9" if version[-1] != "9" else "8")
+
+
+def test_read_tft_version_follows_a_bump(hmi_copies):
+    landscape, _ = hmi_copies
+    assert bump_tft.read_tft_version(landscape) == _current_hmi_version(landscape)
+    new_version = _other_same_length_version(_current_hmi_version(landscape))
+    assert bump_tft.bump_hmi(landscape, new_version)[0]
+    assert bump_tft.read_tft_version(landscape) == new_version
+
+
+def test_committed_tfts_carry_the_hmi_version():
+    """The dev release ships the committed TFTs under the HMIs' tftVersion."""
+    version = bump_tft.shipped_tft_version()
+    assert version == bump_tft.read_tft_version(NEXTION / "nspanel_haui.HMI")
+
+
+def test_shipped_tft_version_rejects_disagreeing_hmis(hmi_copies):
+    landscape, _ = hmi_copies
+    new_version = _other_same_length_version(_current_hmi_version(landscape))
+    assert bump_tft.bump_hmi(landscape, new_version)[0]
+    with pytest.raises(ValueError, match="disagree"):
+        bump_tft.shipped_tft_version(hmi_copies)
+
+
+def test_shipped_tft_version_rejects_a_tft_that_was_not_recompiled(hmi_copies):
+    for hmi in hmi_copies:
+        shutil.copy2(NEXTION / hmi.with_suffix(".tft").name, hmi.with_suffix(".tft"))
+    new_version = _other_same_length_version(_current_hmi_version(hmi_copies[0]))
+    for hmi in hmi_copies:
+        assert bump_tft.bump_hmi(hmi, new_version)[0]
+    with pytest.raises(ValueError, match="recompile"):
+        bump_tft.shipped_tft_version(hmi_copies)
 
 
 def test_bump_script_rejects_bad_version():

@@ -29,8 +29,8 @@ is stable) and are published only on the dev channel — switch the device's
 **Firmware update channel** to **dev** and leave its **Firmware manifest URL**
 empty; the hub then follows the newest
 [published dev prerelease](release.md#published-development-firmware).
-Dev firmware ships no display TFT, so the **HAUI Display** entity offers no
-update until a stable release matches. A panel that reports a version like
+Dev prereleases ship the display TFT the dev firmware needs, so the **HAUI
+Display** entity installs it after the firmware update. A panel that reports a version like
 `dev-3-f243f33` — the old `dev-<run>-<sha>` tag scheme, used as `yaml_version`
 by dev builds up to 0.4.4 — is not a valid version: the hub withholds firmware
 offers until it is reflashed with a parseable build (see

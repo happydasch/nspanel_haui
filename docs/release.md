@@ -47,8 +47,9 @@ updates firmware version sources every time; `--tft-update` additionally updates
 the display version sources. A development version (`X.Y.Z.devN`, the
 `.dev<run>` shape the dev-release CI publishes) is a firmware-only bump: it updates
 `manifest.json` and the firmware `yaml_version` but leaves `pyproject.toml`,
-`tft_version` and the HMI binaries at their stable values, because the dev
-channel ships no display TFT:
+`tft_version` and the HMI binaries alone, because the dev-release CI copies
+`tft_version` from the HMIs' `system.tftVersion` itself (see
+[Published development firmware](#published-development-firmware)):
 
 1. `custom_components/nspanel_haui/manifest.json` — source of truth.
 2. `pyproject.toml` — packaging mirror.
@@ -165,10 +166,22 @@ follow `dev`; leave it on **stable** on production panels. These CI images use
 the documented public universal credentials and have `firmware_variant: universal`.
 They are not compatible with devices running a private/custom build (`custom`):
 keep building those from your own ESPHome config and use the local test-release
-workflow below. Dev firmware publishes no display TFT (its manifest has no
-`tft` block), so the **HAUI Display** entity offers no update and the display
-keeps the last TFT installed on it; to test display changes, build/install a
-TFT from a URL.
+workflow below.
+
+A dev prerelease also ships both committed TFTs (`nspanel_haui.tft`,
+`nspanel_haui_portrait.tft`) and names them in its manifest's `tft` block, like
+a stable release. Their version is the `system.tftVersion` both HMIs carry: the
+workflow refuses to publish when the HMIs disagree, when the version is not
+`X.Y.Z` or `X.Y.Z.devN`, or when a TFT was not recompiled after the bump (it
+does not embed the version). It writes that version into `tft_version` before
+compiling, so the dev firmware requires exactly the TFT it ships, and the
+**HAUI Display** entity installs it on a dev panel whose display reports an
+older one. The TFT version only moves when someone bumps it: whenever a TFT
+change lands on `dev`, bump `system.tftVersion` in both HMIs
+(`scripts/bump_tft_version.py --version 0.4.5.dev31` for a same-length bump,
+otherwise the Nextion Editor) and recompile both TFTs. A TFT change committed
+under an unchanged version never reaches a panel that already reports that
+version.
 
 The prerelease notes show the exact commit and changed-file summary. Use the
 commit link to inspect the full diff; the `CHANGELOG.md` entry and the prepared
@@ -300,7 +313,7 @@ update until Home Assistant restarts).
 The hub treats the firmware's `tft_required_version` as the TFT it needs; this
 is independent of `yaml_version` and remains pinned for firmware-only releases.
 A test firmware can therefore use the current TFT without advertising it as a
-GitHub TFT update. Dev manifests ship no TFT, so keep `auto_install` off or
+GitHub TFT update. Local test manifests ship no TFT, so keep `auto_install` off or
 install a TFT once with `nspanel_haui.update_tft` and `url` (it then stays until
 the firmware changes). To leave the test, clear the **Firmware manifest URL**:
 the hub then offers the latest GitHub release when it is newer than the test

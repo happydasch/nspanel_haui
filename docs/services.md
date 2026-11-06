@@ -86,7 +86,7 @@ Every linked panel has an `update.<device>_haui_display` entity next to the
 **HAUI Firmware** entity on the same device page. Its installed
 version is the TFT the display reports, its latest version the TFT the
 firmware's manifest names (its `tft` block, for the device's display model).
-A manifest without a `tft` block — dev firmware ships no display TFT — reports
+A manifest without a `tft` block — a local test release names none — reports
 the installed TFT as the latest, so the entity offers no update. **Install**
 runs the same TFT update as `nspanel_haui.update_tft`
 without a URL, and the entity shows *installing* until the display reports the

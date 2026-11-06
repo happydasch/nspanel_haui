@@ -116,6 +116,37 @@ jobs:
           print(f"Building {version} from {os.environ['GITHUB_SHA']}")
           PY
 
+      - name: Take the display TFT version from the HMIs
+        # A dev release ships the committed TFTs under the system.tftVersion
+        # both HMIs carry, and the firmware requires exactly that TFT
+        # (tft_version, compiled in as tft_required_version), so a dev panel
+        # installs it once its display reports an older one. The version only
+        # moves when system.tftVersion is bumped and the TFTs are recompiled: a
+        # TFT change committed under the same version never reaches a panel
+        # that already runs that version.
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+          from pathlib import Path
+
+          sys.path.insert(0, "scripts")
+          from bump_tft_version import shipped_tft_version
+
+          version = shipped_tft_version()
+          version_file = Path("esphome/nspanel_haui/version.yaml")
+          source, count = re.subn(
+              r"(?m)^(  tft_version: )'[^']+'$",
+              rf"\g<1>'{version}'",
+              version_file.read_text(),
+          )
+          if count != 1:
+              raise SystemExit(f"Expected one tft_version in {version_file}, found {count}")
+          version_file.write_text(source)
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"TFT_VERSION={version}\n")
+          print(f"Shipping display TFT {version}")
+          PY
+
       - name: Validate and compile the universal firmware
         run: |
           esphome config esphome/nspanel_haui_universal.yaml
@@ -134,37 +165,34 @@ jobs:
           cp "$OTA" nspanel_haui_ota.bin
 
       - name: Generate the firmware manifest and commit notes
-        # The manifest deliberately carries no ``tft`` block: dev firmware
-        # ships no display TFT, and a manifest without one tells the hub that
-        # no display update is needed (the HAUI Display entity stays on the
-        # installed TFT instead of offering a release that cannot be found).
+        # Same schema as a stable release (scripts/release), including the
+        # ``tft`` block that names the display TFT and its per-model assets.
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           DEV_VERSION: ${{ env.DEV_VERSION }}
+          TFT_VERSION: ${{ env.TFT_VERSION }}
         run: |
           python3 - <<'PY'
-          import hashlib, json, os, subprocess
+          import json, os, subprocess, sys
           from pathlib import Path
+
+          sys.path.insert(0, "scripts/release")
+          from generate_firmware_manifest import build_manifest
 
           repo = os.environ["GITHUB_REPOSITORY"]
           commit = os.environ["GITHUB_SHA"]
           tag = os.environ["DEV_VERSION"]
-          with open("nspanel_haui_ota.bin", "rb") as image:
-              md5 = hashlib.md5(image.read(), usedforsecurity=False).hexdigest()
-          manifest = {
-              "name": "NSPanel HAUI Development",
-              "version": os.environ["DEV_VERSION"],
-              "variant": "universal",
-              "builds": [{
-                  "chipFamily": "ESP32",
-                  "ota": {
-                      "path": f"https://github.com/{repo}/releases/download/{tag}/nspanel_haui_ota.bin",
-                      "md5": md5,
-                  },
-              }],
-          }
+          manifest = build_manifest(
+              repo=repo,
+              tag=tag,
+              ota_image=Path("nspanel_haui_ota.bin"),
+              eu_tft=Path("nextion/nspanel_haui.tft"),
+              us_tft=Path("nextion/nspanel_haui_portrait.tft"),
+              tft_version=os.environ["TFT_VERSION"],
+          )
+          manifest["name"] = "NSPanel HAUI Development"
           Path("firmware-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
           before = os.environ["PUSH_BEFORE"]
           zero_sha = "0" * len(before)
@@ -186,6 +214,7 @@ jobs:
               "",
               f"Build commit: [`{commit[:7]}`](https://github.com/{repo}/commit/{commit})",
               "Firmware variant: `universal` (for universal test panels only).",
+              f"Display TFT: `{os.environ['TFT_VERSION']}`.",
               "",
               "## Commits in this push",
           ]
@@ -264,6 +293,8 @@ jobs:
           files: |
             nspanel_haui.bin
             nspanel_haui_ota.bin
+            nextion/nspanel_haui.tft
+            nextion/nspanel_haui_portrait.tft
             firmware-manifest.json
 
       - name: Prune old development prereleases

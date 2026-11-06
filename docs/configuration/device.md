@@ -357,7 +357,7 @@ The device editor's **Updates** section controls release checks and automatic in
 The display TFT is part of the firmware's manifest (`tft` block): the **HAUI
 Display** entity offers the TFT the manifest names for the device's display
 model, and installing it downloads the manifest's asset. A manifest without a
-`tft` block — dev firmware ships no display TFT — offers no display update at
+`tft` block — a local test release names none — offers no display update at
 all: the entity reports the installed TFT and stays up to date instead of
 offering a release that cannot be found.
 

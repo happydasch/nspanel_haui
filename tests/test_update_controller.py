@@ -192,7 +192,7 @@ class _App:
 def _manifest(version, path=None, tft=True):
     """A firmware manifest in the schema the release workflow writes.
 
-    ``tft=False`` omits the ``tft`` block (dev firmware ships no display TFT).
+    ``tft=False`` omits the ``tft`` block (a local test release names none).
     """
     manifest = {
         "name": "NSPanel HAUI",
@@ -386,7 +386,7 @@ def test_a_firmware_only_release_uses_its_declared_tft_version(monkeypatch):
 
 
 def test_a_manifest_without_a_tft_block_installs_nothing(monkeypatch):
-    """Dev firmware ships no display TFT: the check must not even try to install."""
+    """A local test release names no TFT: the check must not even try to install."""
     ctrl, app, _ = _updater(
         monkeypatch,
         {"yaml_version": "0.4.5.dev3", "tft_version": "0.4.4"},
@@ -1113,7 +1113,7 @@ def test_a_pinned_tft_release_does_not_offer_the_firmware_tag_as_a_display_updat
 
 
 def test_a_manifest_without_a_tft_offers_no_display_update(monkeypatch):
-    """A dev manifest ships no TFT: the entity reports the installed TFT as latest."""
+    """A manifest without a TFT: the entity reports the installed TFT as latest."""
     ctrl, app, _ = _updater(
         monkeypatch,
         {"yaml_version": "0.4.5.dev3", "tft_version": "0.4.4"},

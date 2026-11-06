@@ -346,11 +346,11 @@ instead of looking up a matching GitHub release.
   version (`nspanel_haui.update_tft` with `version`, or
   `update.install` with `version`) is no longer possible — install a
   different TFT from a URL instead.
-- **A manifest without a `tft` block needs no display update.** Dev firmware
-  publishes no display TFT, so its manifest names none: the **HAUI Display**
-  entity then reports the installed TFT and offers nothing. Installing a dev
-  build no longer errors with "No GitHub release …; TFT not updated"; the
-  display simply keeps the TFT it has.
+- **A manifest without a `tft` block needs no display update.** A local test
+  release (`scripts/dev_release.py`) names no TFT: the **HAUI Display** entity
+  then reports the installed TFT and offers nothing, instead of erroring with
+  "No GitHub release …; TFT not updated"; the display simply keeps the TFT it
+  has. Dev prereleases ship their TFTs and name them like a stable release.
 - **Version comparisons now match Home Assistant.** The hub compares versions
   with the same rules as Home Assistant's update entities, so the offered
   firmware and the entity agree. A final release is offered over its dev

@@ -66,6 +66,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - **Screen Power** is disabled by default, like **Restart Display**.
 - Firmware versions compare like Home Assistant's: a final release is offered
   over its dev builds, and an unparseable version counts as unknown.
+- Dev prereleases ship both display TFTs, and dev panels install the TFT their
+  firmware needs ([Release](docs/release.md#published-development-firmware)).
 
 ### Fixed
 

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import struct
 import sys
 from pathlib import Path
@@ -89,6 +90,55 @@ def _read_text(raw: bytes, value_off: int, length_field_off: int) -> str:
     (length,) = struct.unpack_from("<I", raw, length_field_off)
     value = raw[value_off : length_field_off + 4 + length]
     return value.decode("iso_8859_1", "replace")
+
+
+def read_tft_version(path: Path) -> str:
+    """Return the ``system.tftVersion`` text of the HMI at ``path``.
+
+    Raises:
+        ValueError: The ``system`` page or its ``tftVersion`` text is missing.
+    """
+    raw = path.read_bytes()
+    block = _active_pages(raw).get(TARGET_PAGE)
+    if block is None:
+        raise ValueError(f"{path.name}: page {TARGET_PAGE!r} not found")
+    located = _find_txt_record(raw, block)
+    if located is None:
+        raise ValueError(f"{path.name}: widget {TARGET_WIDGET!r} has no {TXT_NAME!r} attribute")
+    length_field_off, value_off = located
+    return _read_text(raw, value_off, length_field_off)
+
+
+def shipped_tft_version(hmis: tuple[Path, ...] = DEFAULT_HMIS) -> str:
+    """Return the version the HMIs and the TFTs compiled from them carry.
+
+    The dev release ships the committed ``.tft`` files under this version, and
+    the hub only accepts a TFT install once the display reports it. Every HMI
+    must therefore name the same version, the version must parse
+    (``X.Y.Z`` or ``X.Y.Z.devN``), and the TFT next to each HMI must embed it:
+    an HMI bumped without a recompile would advertise a version its TFT never
+    reports.
+
+    Raises:
+        ValueError: The HMIs disagree, the version does not parse, or a TFT
+            does not carry the version.
+    """
+    versions = {hmi: read_tft_version(hmi) for hmi in hmis}
+    if len(set(versions.values())) != 1:
+        found = ", ".join(f"{hmi.name}={value!r}" for hmi, value in versions.items())
+        raise ValueError(f"the HMIs disagree on {TARGET_WIDGET}: {found}")
+    version = versions[hmis[0]]
+    if re.fullmatch(r"\d+\.\d+\.\d+(?:\.dev\d+)?", version) is None:
+        raise ValueError(f"{TARGET_WIDGET} {version!r} is not an X.Y.Z or X.Y.Z.devN version")
+    for hmi in hmis:
+        tft = hmi.with_suffix(".tft")
+        # The compiled TFT stores the text as a NUL-terminated string.
+        if b"\0" + version.encode("iso_8859_1") + b"\0" not in tft.read_bytes():
+            raise ValueError(
+                f"{tft.name} does not carry {TARGET_WIDGET} {version!r}; recompile it "
+                f"from {hmi.name}"
+            )
+    return version
 
 
 def bump_hmi(path: Path, version: str, check: bool = False) -> tuple[bool, str]:

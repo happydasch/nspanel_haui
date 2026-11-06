@@ -122,8 +122,8 @@ class HAUIUpdateController(HAUIBase):
     """Update Controller
 
     Keeps the display's TFT file at the version the firmware's manifest ships
-    (``manifest.tft``; a manifest without a ``tft`` block — dev firmware ships
-    none — needs no display update), and offers/installs the firmware the
+    (``manifest.tft``; a manifest without a ``tft`` block — a local test
+    release names none — needs no display update), and offers/installs the firmware the
     manifest at ``firmware_manifest_url`` names.
 
     - On every connect (after ``on_connect_delay`` seconds) the installed TFT
@@ -473,7 +473,7 @@ class HAUIUpdateController(HAUIBase):
         The optional ``tft`` block names the display TFT of the release
         (``version`` plus per-``display_model`` ``assets``); the asset for
         this device's model is resolved here, so a manifest without a ``tft``
-        block (dev firmware ships no TFT) yields an empty ``tft_version`` /
+        block (a local test release names none) yields an empty ``tft_version`` /
         ``tft_url`` and the display stays on its current TFT.
 
         Returns:
@@ -993,8 +993,8 @@ class HAUIUpdateController(HAUIBase):
         The manifest is the single TFT source: the release workflow names the
         display TFT of the release in its ``tft`` block, and the asset for the
         device's ``display_model`` is resolved against the manifest URL.  A
-        manifest without a ``tft`` block (dev firmware ships none) installs
-        nothing; the TFT then comes from a URL (``install_tft_url``).
+        manifest without a ``tft`` block (a local test release names none)
+        installs nothing; the TFT then comes from a URL (``install_tft_url``).
 
         Args:
             version (str): TFT version required by the firmware's ``tft_version``
@@ -1014,7 +1014,7 @@ class HAUIUpdateController(HAUIBase):
         if manifest is None or not tft_url or self._try_parse_version(tft_version) is None:
             msg = (
                 f"The firmware manifest at {self._firmware_manifest_url} ships no TFT "
-                f"for version {version}; dev firmware publishes no display TFT. "
+                f"for version {version}. "
                 "Install the TFT from a URL instead"
                 if manifest is not None
                 else str(self._firmware_manifest_error)
@@ -1068,8 +1068,8 @@ class HAUIUpdateController(HAUIBase):
         Installs the TFT the firmware manifest ships (the release's ``tft``
         block for this device's display model); when ``version`` is omitted the
         manifest's TFT version — the one the firmware needs — is installed.
-        A manifest without a ``tft`` block (dev firmware ships none) installs
-        nothing; install the TFT from a URL for those.  The update runs on the
+        A manifest without a ``tft`` block (a local test release names none)
+        installs nothing; install the TFT from a URL for those.  The update runs on the
         device worker, so this method must be called via
         ``app.async_run_on_worker``.
 
@@ -1190,7 +1190,7 @@ class HAUIUpdateController(HAUIBase):
         """Fire the TFT versions and update state for the "HAUI Display" entity.
 
         The latest version is the TFT the firmware manifest ships; without a
-        ``tft`` block (dev firmware ships none) there is no display update, so
+        ``tft`` block (a local test release names none) there is no display update, so
         the installed TFT is reported instead — the entity then shows itself up
         to date instead of offering an install the manifest cannot serve.
         """

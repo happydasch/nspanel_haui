@@ -25,7 +25,7 @@ from nspanel_haui.storage import (  # noqa: E402
 
 
 def test_rename_mapping_covers_all_v1_renames() -> None:
-    """The mapping matches the key renames documented in docs/upgrading.md."""
+    """The mapping matches the key renames documented in docs/update.md."""
     assert DEVICE_CONFIG_KEY_RENAMES == {
         "sleep_panel": "idle_panel",
         "sleep_panel_extra": "idle_panel_extra",

@@ -3,7 +3,8 @@
 All notable changes to **NSPanel HAUI**, one line per change. The release notes
 of each [GitHub release](https://github.com/happydasch/nspanel_haui/releases)
 (prepared in `.github/release-notes/<tag>.md`) describe the changes in detail,
-and [Upgrading](docs/upgrading.md) has the steps for every breaking change.
+and [Update Process](docs/update-process.md) has the steps for every breaking
+change.
 
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
@@ -14,31 +15,30 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 - Home Assistant 2026.11 is required; install and update through its
   Marketplace, which migrates HACS installs
-  ([Upgrading](docs/upgrading.md#15-home-assistant-202611-and-the-marketplace)).
+  ([Upgrading](docs/update-process.md#15-home-assistant-202611-and-the-marketplace)).
 - Firmware updates moved from the firmware to the integration's **HAUI
   Firmware** entity; panels on firmware 0.4.3 or older are updated once by hand
-  ([Upgrading](docs/upgrading.md#11-firmware-updates-moved-to-the-integration)).
+  ([Upgrading](docs/update-process.md#11-firmware-updates-moved-to-the-integration)).
 - Custom firmware builds are never offered the universal release image; the
   manifest and the device state name the build variant.
 - The display TFT follows the firmware manifest; another release's TFT installs
   only **From URL**
-  ([Upgrading](docs/upgrading.md#12-display-tft-updates-come-from-the-firmware-manifest)).
+  ([Upgrading](docs/update-process.md#12-display-tft-updates-come-from-the-firmware-manifest)).
 - Native OTA is encrypted with the API key; the `ota_password` substitution is
-  gone ([#81](https://github.com/happydasch/nspanel_haui/issues/81),
+  gone, and panels on 0.4 firmware need no migration install
+  ([#81](https://github.com/happydasch/nspanel_haui/issues/81),
   [ESPHome](docs/esphome.md#encrypted-native-ota)).
 - The **Current Page** sensor moved to the firmware; delete the old integration
-  entity ([Upgrading](docs/upgrading.md#14-the-current-page-sensor-moved-to-the-firmware)).
+  entity ([Upgrading](docs/update-process.md#14-the-current-page-sensor-moved-to-the-firmware)).
 - The firmware drops the `haui_discover`, `req_device_info` and `req_reconnect`
   actions and the `use_relay_left`/`use_relay_right` events, which the hub
-  never used ([Upgrading](docs/upgrading.md#16-unused-firmware-actions-and-events-removed)).
+  never used ([Upgrading](docs/update-process.md#16-unused-firmware-actions-and-events-removed)).
 - The services raise an error when their `device` matches no running panel,
   instead of logging a warning and doing nothing
-  ([Upgrading](docs/upgrading.md#18-services-fail-on-a-device-that-is-no-panel)).
-- The standalone firmware **Update Display** button is gone; TFT management is
-  the hub's **HAUI Display** update entity, `nspanel_haui.update_tft`, or
-  **Device Manager → Install TFT** (the `tft_update_url` substitution stays,
-  to override `tft_url` for local TFT builds)
-  ([Upgrading](docs/upgrading.md#10-tft-install-actions-moved-to-the-integration)).
+  ([Upgrading](docs/update-process.md#18-services-fail-on-a-device-that-is-no-panel)).
+- The firmware drops the **Use Auto-Page** switch, **Timeout Page** number and `esphome.timeout` event; automatic page switching and each page's hold move to the hub. Empty Night idle keys no longer inherit Day; `use_auto_page`/`timeout_page` remain device settings.
+- The `hub_idle_timeout` device setting is gone; the hub's own idle-page check replaces it ([Device Configuration](docs/configuration/device.md#automatic-page-switching)).
+- Update the integration first, then install matching firmware and TFT; mixed hub and firmware versions are unsupported ([Upgrade guide](docs/update.md#automatic-page-switching-moved-to-the-hub)).
 
 ### Added
 
@@ -49,6 +49,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   panel, unsaved edits included.
 - [Screens overview](docs/screens.html) of every screen in landscape and
   portrait, regenerated after each dev build.
+- [Development docs](https://happydasch.github.io/nspanel_haui/dev/) built from
+  `dev`; the editor footer opens them on dev builds.
 - Every popup can be edited; System, Blank, Settings and About stay fixed.
 - **HAUI Firmware** update entity in the integration, with the **Firmware update
   channel** (`stable`/`dev`) and **Firmware manifest URL** settings.
@@ -62,6 +64,16 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   colours ([#75](https://github.com/happydasch/nspanel_haui/pull/75)).
 - **Current Page Number** sensor (the Nextion page id); it and **Current
   Page** are disabled by default ([ESPHome](docs/esphome.md#page)).
+- **Install update** in the **Device Info** dialog installs the display TFT or
+  the firmware, also from a URL or a local file
+  ([Updating](docs/update.md#installing-a-local-tft-or-firmware-image)).
+- **Enable updates** master switch and **Enable periodic update checks** toggle
+  per panel.
+- **Light Color** background for clock, word clock and weather panels; **Dark**
+  is now **Dark Color** (new display TFT).
+- **Color scheme** presets in **Device Colors** — **Dark Color**, **Light
+  Color** and **Black** fill the palette; individual changes are saved as
+  colour overrides.
 
 ### Changed
 
@@ -71,17 +83,37 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Cycle cards are off by default on clock and weather panels: only the time
   shows until **Show date**, **Show outside temperature** or other cards are
   enabled (clock panels cycled date and outside temperature before;
-  [Upgrading](docs/upgrading.md#17-cycle-cards-are-off-by-default)).
+  [Upgrading](docs/update-process.md#17-cycle-cards-are-off-by-default)).
 - **Screen Power** is disabled by default, like **Restart Display**.
+- The **Touch** and **Brightness** sensors are disabled by default; enable them
+  on the device page before using them in automations.
 - Firmware versions compare like Home Assistant's: a final release is offered
   over its dev builds, and an unparseable version counts as unknown.
 - Dev prereleases ship both display TFTs, and dev panels install the TFT their
   firmware needs ([Release](docs/release.md#published-development-firmware)).
 - Panel titles and built-in popup titles are single words where possible, and
   every title is fitted to its header widget (longer ones end in `..`).
+- **Auto-install firmware updates** is off by default; the display TFT still
+  follows a firmware update on its own.
+- The Device Manager finds new panels when it opens; its install picker moved
+  to the **Info** dialog (**Install update**, **Redraw display**, **Download
+  firmware**), preparing the 0.5 frontend redesign.
+- A notification sent without an icon shows none (no severity default icon)
+  and uses the full text width.
+- A hub reconnect no longer counts as an interaction: the display stays dimmed
+  or off, and the hub restarts the idle-page timeout after restoring the page.
+  The idle page and auto-navigate-home now run from one level-triggered hub
+  check, so a popup, a reconnect or a saved timeout cannot stop them (firmware
+  and integration; [Device](docs/device.md#display-state-dimmed-off-and-on)).
 
 ### Fixed
 
+- The idle page opens reliably again after popups and reconnects: the hub
+  checks the activity clock every second instead of relying on one-shot timers
+  and firmware events.
+- The display turns off after the display-off timeout with auto-dimming
+  disabled; one firmware script now owns brightness and display state.
+- The display state is published only when it actually changes.
 - Cycle cards switch to a shorter form instead of running past the time area.
 - The `background`, `component_background` and `component_pressed` colour
   overrides reach flat widgets, sliders and pressed buttons.
@@ -122,7 +154,6 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The notification indicator blink runs on the hub's worker thread.
 - Notification text is wrapped with the display fonts' real glyph widths.
 - Notification ids are unique.
-- Notifications without an icon use the full text width.
 - Multi-line notification text renders its line breaks.
 - Quotes and backslashes in display text are escaped.
 - The services accept the NSPanel HAUI device their device selector offers, not
@@ -133,10 +164,18 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   stopped after 4 KB (vendored `nextion` patch).
 - Custom firmware builds find their required TFT in the release of their
   firmware version when the update channel's manifest ships none.
-- Device Manager: the TFT picker names the required TFT version, not the
+- Device dialogs: the TFT picker names the required TFT version, not the
   firmware version; **Download firmware** skips dev prereleases; disabled
   devices offer no actions that need a running panel; a failed reorder keeps
   the old order; **Remove** asks for confirmation.
+- A firmware install request with an unreadable body is refused instead of
+  installing the offered firmware on every panel.
+- Update checks and installs no longer stall the panel, and a busy hub no
+  longer drops the panel's connection.
+- Popups, the settings panel and the big QR code no longer leave auto-dimming,
+  the idle page or display-off switched off when a saved config reopens them.
+- The display no longer turns off with auto display-off disabled: the hub sets
+  an auto switch toggled anywhere else back to its setting right away.
 
 ### Contributors
 
@@ -161,7 +200,7 @@ and the entity registry fixes ([#77](https://github.com/happydasch/nspanel_haui/
 
 - TFT installs moved from the firmware to the integration; the **Update
   Display** button and the `upload_tft` action are gone
-  ([Upgrading](docs/upgrading.md#10-tft-install-actions-moved-to-the-integration)).
+  ([Upgrading](docs/update-process.md#10-tft-install-actions-moved-to-the-integration)).
 
 ### Added
 
@@ -260,7 +299,7 @@ Thanks to [@jsenecal](https://github.com/jsenecal) for the reports behind
   colours, templates, function buttons and vacuum batteries follow the
   documented formats.
 
-See [Upgrading](docs/upgrading.md) for the steps.
+See [Updating](docs/update.md) for the steps.
 
 ### Added
 

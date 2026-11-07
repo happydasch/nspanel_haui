@@ -8,6 +8,7 @@ binary_sensor:
     name: Touch
     id: touch
     internal: false
+    disabled_by_default: true
 
   #  Physical hardware button below display to toggle relay
   - platform: gpio
@@ -256,6 +257,7 @@ sensor:
     id: brightness
     name: Brightness
     internal: false
+    disabled_by_default: true
     accuracy_decimals: 0
     update_interval: never
 

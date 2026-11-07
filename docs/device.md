@@ -4,6 +4,7 @@ description: Device behavior, gestures, display states, hardware buttons, and so
 ---
 
 # Device Description
+
 ## Device
 
 The device is responsible for gestures, display state and its hardware buttons. The communication between server and client is described in [communication.md](communication.md).
@@ -19,17 +20,24 @@ device under Device Settings → Gestures (see
 
 ### Display State Dimmed, Off and On
 
-The display brightness is managed by the ESPHome firmware: `on` at full brightness, `dim` after `timeout_dimming` seconds of inactivity (when `use_auto_dimming` is enabled), and `off` (brightness zero) after `timeout_display_off` seconds (when `use_auto_display_off` is enabled). Every touch resets the interaction timer; a hardware button press does so when `reset_interaction_on_button` is enabled (the default). These interactions restore full brightness. Changing either timeout recalculates the display state against the existing interaction timer; changing a timeout does not count as an interaction. The dimmed/off state is purely a brightness behavior — it never switches pages and needs no panel configured.
+The display brightness is managed by the ESPHome firmware: `on` at full brightness, `dim` after `timeout_dimming` seconds of inactivity (when `use_auto_dimming` is enabled), and `off` (brightness zero) after `timeout_display_off` seconds (when `use_auto_display_off` is enabled). Every touch resets the firmware's brightness timer and the hub's separate page-activity clock; a hardware button press counts as an interaction when `reset_interaction_on_button` is enabled (the default). These interactions restore full brightness. Changing either timeout recalculates the display state against the existing interaction timer; changing a timeout does not count as an interaction. The dimmed/off state is purely a brightness behavior — it never switches pages and needs no panel configured.
+
+The firmware decides brightness by its switches **Use Auto-Dimming** and **Use Auto Display-Off**, and the hub keeps them in line with the device settings: a switch turned on or off anywhere else (in Home Assistant, or a value the device restored after a reboot) is set back as soon as it reports the change. **Automatic page switching has no firmware switch** — the hub owns it and reads each page's hold directly. While some popups are shown they hold behaviours off: the settings panel holds auto-dimming, the big QR code holds auto-dimming and the automatic page switch, a queued notification holds the automatic page switch and any other notification popup holds all of them. Every setting follows its value again once the popup is gone.
 
 When a **display-off schedule** is configured (`use_sleep_schedule` plus `sleep_schedule_start`/`sleep_schedule_end`, see [Device Configuration](configuration/device.md#display-dimming-off)), the off-after-`timeout_display_off` behavior only applies inside the configured window (e.g. at night). Outside the window the display never turns off automatically — it only dims, so the idle page stays visible around the clock. The hub drives `switch.<device>_use_auto_display_off` by the clock and re-applies it on start, reconnect, setting changes and at every window boundary, so no automation is needed to keep the switch in the right state.
 
 **Day/Night Profiles** can also select different brightness, dimming/page/display-off timeouts, and idle-page destinations by a fixed local window or sunrise/sunset schedule. For fixed windows, Night starts at the configured start time and ends immediately before the end time; the profile schedule does not change the independent Sleep schedule's precedence. See [Device Configuration](configuration/device.md#daynight-profiles) for the profile values and first-activation migration behavior.
 
-Separate from the brightness is **automatic page switching**: when `use_auto_page` is enabled, the hub opens the configured idle page (`idle_panel`) after `timeout_page` seconds of inactivity, without dimming or turning the display off.
+Separate from the brightness is **automatic page switching**: when `use_auto_page` is enabled, the hub opens the configured idle page (`idle_panel`) after `timeout_page` seconds of inactivity, without dimming or turning the display off. It re-reads both settings and the activity clock once per second, so a changed timeout applies on the next tick. If a page holds automatic switching after the deadline has passed, the idle page opens on the next check after the hold ends, unless an interaction has since reset the clock. A hub reconnect (for example after a Home Assistant restart) does not count as an interaction: the restored page is displayed first and the page timeout then starts again from the reconnect.
 
 ### Idle Page
 
 When `use_auto_page` is enabled and an `idle_panel` is configured, the hub opens that panel after the page timeout as a screensaver-style idle page. The idle page is a navigation target only — the display can be off (`use_auto_display_off`), dimmed, or fully on while it is shown, and none of those require it. With no idle page configured, automatic page switching simply stays on the current panel.
+
+Day and Night idle destinations are independent. An empty `night_idle_panel`
+disables the idle page at night; it never inherits the Day `idle_panel`. If
+automatic page switching is enabled for the active profile and its idle key is
+empty while the other profile has one configured, the hub logs a warning.
 
 ### Waking up
 

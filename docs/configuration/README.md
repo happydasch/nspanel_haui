@@ -96,7 +96,7 @@ See [Device Configuration](device.md) for full details.
 
 ## The Color Overrides Dialog
 
-Opened from its own button (separate from Device Settings). Lets you override individual entries of the built-in color palette per device.
+Opened from its own button (separate from Device Settings). Choose the **Dark Color**, **Light Color**, or **Black** preset, then customize individual colors if needed.
 
 ## The Live Preview
 

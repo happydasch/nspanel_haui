@@ -86,15 +86,24 @@ class HAUINotificationController(HAUIBase):
     def stop_part(self) -> None:
         """Stops the part: pending timers must not outlive the app."""
         self._blinker.stop()
-        if self._advance_handle is not None:
-            self.app.cancel_timer(self._advance_handle)
-            self._advance_handle = None
-        for handle in self._persistent_alert_handles.values():
-            self.app.cancel_timer(handle)
-        self._persistent_alert_handles.clear()
-        for handle in self._timeout_handles.values():
-            self.app.cancel_timer(handle)
-        self._timeout_handles.clear()
+        self._cancel_all_timers()
+
+    def _cancel_all_timers(self) -> None:
+        """Cancel the queue advance and every notification's re-alert and timeout timer."""
+        self._cancel_timer("_advance_handle")
+        for notif_id in set(self._persistent_alert_handles) | set(self._timeout_handles):
+            self._cancel_notification_timers(notif_id)
+
+    def _cancel_notification_timers(self, notif_id: str) -> None:
+        """Cancel the re-alert loop and the auto-dismiss timer of one notification."""
+        for handles in (self._persistent_alert_handles, self._timeout_handles):
+            handle = handles.pop(notif_id, None)
+            if handle is not None:
+                self.app.cancel_timer(handle)
+
+    def _find(self, notif_id: str | None) -> Notification | None:
+        """Return the queued notification with ``notif_id``, if it is still queued."""
+        return next((n for n in self._notifications if n.notif_id == notif_id), None)
 
     def send_notification(
         self,
@@ -224,10 +233,9 @@ class HAUINotificationController(HAUIBase):
 
         def _expire(_data: Any = None) -> None:
             self._timeout_handles.pop(notif_id, None)
-            for stored in self._notifications:
-                if stored.notif_id == notif_id:
-                    self._expire_notification(stored, notif_id)
-                    break
+            stored = self._find(notif_id)
+            if stored is not None:
+                self._expire_notification(stored, notif_id)
 
         handle = self.app.run_in(_expire, delay)
         self._timeout_handles[notif_id] = handle
@@ -260,8 +268,9 @@ class HAUINotificationController(HAUIBase):
         notif_id = notification.notif_id
 
         def _re_alert_tick(_data: Any = None) -> None:
+            stored = self._find(notif_id)
             # Dismissed or cleared: stop the loop and drop the handle.
-            if not any(n.notif_id == notif_id for n in self._notifications):
+            if stored is None:
                 handle = self._persistent_alert_handles.pop(notif_id, None)
                 if handle is not None:
                     self.app.cancel_timer(handle)
@@ -269,18 +278,15 @@ class HAUINotificationController(HAUIBase):
             # Never steal an open notification popup or list from the user.
             if self._notification_view_open():
                 return
-            for n in self._notifications:
-                if n.notif_id == notif_id:
-                    # While the idle/screensaver page is shown, only alerts in
-                    # FORCE_OVER_IDLE_TYPES may interrupt it.  Other persistent
-                    # alerts stay queued and re-appear as soon as the user
-                    # returns to a real panel; the timer keeps running, so the
-                    # "never silently lost" guarantee still holds.
-                    if self._idle_page_active() and n.notif_type not in self.FORCE_OVER_IDLE_TYPES:
-                        return
-                    self.open_notification(n)
-                    self.app.device.wake_for_notification()
-                    break
+            # While the idle/screensaver page is shown, only alerts in
+            # FORCE_OVER_IDLE_TYPES may interrupt it.  Other persistent alerts
+            # stay queued and re-appear as soon as the user returns to a real
+            # panel; the timer keeps running, so the "never silently lost"
+            # guarantee still holds.
+            if self._idle_page_active() and stored.notif_type not in self.FORCE_OVER_IDLE_TYPES:
+                return
+            self.open_notification(stored)
+            self.app.device.wake_for_notification()
 
         handle = self.app.run_every(
             _re_alert_tick,
@@ -298,18 +304,9 @@ class HAUINotificationController(HAUIBase):
         return False
 
     def clear_notifications(self) -> None:
-        # A pending queue advance must not fire after a clear.
-        if self._advance_handle is not None:
-            self.app.cancel_timer(self._advance_handle)
-            self._advance_handle = None
-        # Stop every periodic re-alert loop along with its notification.
-        for handle in self._persistent_alert_handles.values():
-            self.app.cancel_timer(handle)
-        self._persistent_alert_handles.clear()
-        # Stop the auto-dismiss timers of timed notifications.
-        for handle in self._timeout_handles.values():
-            self.app.cancel_timer(handle)
-        self._timeout_handles.clear()
+        # Neither a pending queue advance nor a notification's timers may
+        # fire after a clear.
+        self._cancel_all_timers()
         self._open_popup_notif_id = None
         notifications = self._notifications.copy()
         self._notifications = []
@@ -321,14 +318,7 @@ class HAUINotificationController(HAUIBase):
 
     def _remove(self, notification: Notification) -> None:
         """Remove a queued notification, given the stored instance."""
-        # Stop the periodic re-alert loop and the auto-dismiss timer for this
-        # notification, if any.
-        handle = self._persistent_alert_handles.pop(notification.notif_id, None)
-        if handle is not None:
-            self.app.cancel_timer(handle)
-        timeout_handle = self._timeout_handles.pop(notification.notif_id, None)
-        if timeout_handle is not None:
-            self.app.cancel_timer(timeout_handle)
+        self._cancel_notification_timers(notification.notif_id)
         self._notifications.remove(notification)
         self._refresh_list_items()
         # If the notification list is displayed, drop the removed item and
@@ -459,7 +449,7 @@ class HAUINotificationController(HAUIBase):
         user left alone (its notification is still queued) does not advance.
         """
         self._open_popup_notif_id = None
-        if any(n.notif_id == notif_id for n in self._notifications):
+        if self._find(notif_id) is not None:
             return
         self._schedule_advance()
 
@@ -496,7 +486,7 @@ class HAUINotificationController(HAUIBase):
         panel = navigation.get_current_panel()
         if panel is None or panel.get("key", None) != PopupPanelKey.POPUP_SELECT:
             return
-        if panel.get("selection_callback_fnc") is not self._notification_selection_callback:
+        if not self._is_notification_view(panel):
             return
         if not self._notifications:
             navigation.close_panel()
@@ -523,10 +513,9 @@ class HAUINotificationController(HAUIBase):
             selected_value: ``notif_id`` of the notification. Tapping
                 the selected item again passes the same value.
         """
-        for n in self._notifications:
-            if n.notif_id == selected_value:
-                self.open_notification(n)
-                return
+        notification = self._find(selected_value)
+        if notification is not None:
+            self.open_notification(notification)
 
     # ------------------------------------------------------------------
     # HA events

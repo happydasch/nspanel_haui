@@ -5,40 +5,101 @@ description: Get your NSPanel up and running in 5 minutes
 
 # Quick Start Guide
 
-Get your NSPanel connected to Home Assistant and showing your first panel. This guide covers the bare minimum — for full details, see the [Installation Guide](install.md).
+Connect your NSPanel to Home Assistant, then add your first panel. For the full
+flashing and update instructions, see the [Installation Guide](install.md).
 
-## What you need
+```mermaid
+flowchart TD
+    flash["Flash firmware and set Wi-Fi"] --> device["Add ESPHome device"]
+    device --> install["Install NSPanel HAUI"]
+    install --> panels["Configure panels"]
+```
+
+## Requirements
 
 - Home Assistant **2026.11** or later (it brings the Marketplace)
-- The **ESPHome** add-on installed and running
+- The prebuilt `nspanel_haui.bin` from the latest release (no ESPHome installation needed)
 - A USB-UART adapter (for first-time flashing)
 - A Sonoff NSPanel device
 
-## 1. Flash the device
+For development or custom firmware builds, see the [ESPHome development instructions](esphome.md#installation).
 
-Open the NSPanel and connect the USB-UART adapter (connect GND to IO0 for flashing mode). Flash the prebuilt `nspanel_haui.bin` from the latest release, then join the access point named after the device (e.g. `nspanel-haui-a1b2c3`) and enter your Wi-Fi. To build your own firmware instead, create a device in the ESPHome dashboard from [`esphome/install.yaml`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/install.yaml).
+## Flash the panel
 
-See [Installation Guide](install.md) for full flashing instructions.
+Open the panel and connect the USB-UART adapter. Connect GND to IO0 for
+flashing mode, then flash the prebuilt `nspanel_haui.bin` from the latest
+release. On first boot, join the panel's access point (for example,
+`nspanel-haui-a1b2c3`) and enter your Wi-Fi details.
 
-## 2. Install the integration
+In Home Assistant, add the panel to the ESPHome integration. If prompted for an
+encryption key, use the one in the [Installation Guide](install.md#flash-the-panel).
 
-Install NSPanel HAUI from the Marketplace (**Settings → Marketplace → Add from link**, enter `happydasch/nspanel_haui`, then **Install** **NSPanel HAUI**; adding a custom repository asks you to connect GitHub once) or copy `custom_components/nspanel_haui/` into your Home Assistant `custom_components/` directory. Restart Home Assistant.
+See [Flash the panel](install.md#flash-the-panel) for the full instructions.
 
-## 3. Add the device
+## Install the integration
 
-Go to **Settings → Devices & Services → Add Integration → NSPanel HAUI**. The integration is a single hub and picks up your ESPHome-flashed NSPanels automatically. If none appear, make sure the ESPHome integration has the device (see the [FAQ](faq.md)).
+NSPanel HAUI is not in the Marketplace catalog. Add it as a custom repository:
 
-## 4. Open the panel editor
+```mermaid
+flowchart TD
+    marketplace["Marketplace"] --> repository["Add custom repository"]
+    repository --> install["Install NSPanel HAUI"]
+    install --> restart["Restart Home Assistant"]
+```
 
-Open **NSPanel HAUI** in the Home Assistant sidebar (admin only) and select your device. The editor shows your panel list. Click **Add Panel** to add your first panel.
+[Open the NSPanel HAUI repository in Home Assistant](https://my.home-assistant.io/redirect/marketplace_repository/?owner=happydasch&repository=nspanel_haui&category=integration).
 
-## 5. Add your first panel
+1. Open **Settings → Marketplace** and select **Add from link**.
+2. Enter `happydasch/nspanel_haui`, then select **Add**. Connect GitHub if prompted.
+3. Install **NSPanel HAUI**, then restart Home Assistant.
 
-Choose a panel type (e.g., **Clock** for a screensaver or **Grid** for entity tiles). Fill in the required fields and click **Save**. The display updates automatically.
+## Configure panels
 
-## That's it!
+### Connect the hub
 
-Your NSPanel is now running. Next steps:
+```mermaid
+flowchart TD
+    ha["Home Assistant HAUI hub"] -->|"Native API"| esp["ESPHome firmware on ESP32"]
+    esp -->|"Display commands over UART"| display["Nextion touchscreen"]
+    display -->|"Touch events over UART"| esp
+    esp -->|"Device events"| ha
+```
+
+Go to **Settings → Devices & Services → Add Integration → NSPanel HAUI**. The
+hub discovers the ESPHome device you added above. If your panel does not appear,
+check the [FAQ](faq.md).
+
+### Open the editor
+
+```mermaid
+flowchart TD
+    sidebar["Open the NSPanel HAUI sidebar"] --> device["Select a device"]
+    device --> panel["Choose Add Panel"]
+    panel --> save["Configure and save"]
+```
+
+Open **NSPanel HAUI** in the Home Assistant sidebar (admin only) and select your device. The editor shows your panel list.
+
+### Add your first panel
+
+Choose a panel type, such as **Clock** for a screensaver or **Grid** for entity tiles. Fill in the required fields, then select **Save**. The display updates automatically.
+
+These sample screens show how the two panel types differ. Your Grid panel shows the entities you select.
+
+<div style="display: flex; flex-wrap: wrap; gap: 1rem;">
+  <figure style="flex: 1 1 18rem; margin: 0;">
+    <img src="assets/screens/landscape/clock.png" alt="Clock panel with the time, date, and status icons" width="450" height="320" style="display: block; width: 100%; height: auto;">
+    <figcaption>Clock shows the time and date at a glance.</figcaption>
+  </figure>
+  <figure style="flex: 1 1 18rem; margin: 0;">
+    <img src="assets/screens/landscape/grid.png" alt="Grid panel titled Rooms with six sample tiles for Lamp, Fan, Blind, Living, TV, and Movie" width="450" height="320" style="display: block; width: 100%; height: auto;">
+    <figcaption>Grid arranges your chosen entities as tiles.</figcaption>
+  </figure>
+</div>
+
+See [all panel previews](screens.html), including portrait layouts.
+
+## Next steps
 
 - Browse all [panel types](panels/README.md) to see what's available
 - Read [example configurations](examples.md) for setup ideas

@@ -29,6 +29,39 @@ async function ensureColorDefaults(hass) {
   _colorDefaults = await resp.json();
 }
 
+const COLOR_SCHEME_COLORS = {
+  dark: {},
+  light: {
+    header_background: "#f2f2f2",
+    header_text: "#101010",
+    background: "#ffffff",
+    text: "#101010",
+    text_inactive: "#777777",
+    text_disabled: "#c0c0c0",
+    component_text: "#101010",
+    component_pressed: "#d6d6d6",
+    component_background: "#eeeeee",
+  },
+  black: {
+    header_background: "#000000",
+    background: "#000000",
+    component_background: "#111111",
+    component_pressed: "#222222",
+  },
+};
+
+/** Build a full RGB565 palette from a named scheme and the backend defaults. */
+export function getColorScheme(scheme, defaults) {
+  if (!(scheme in COLOR_SCHEME_COLORS)) {
+    throw new Error(`Unknown color scheme: ${scheme}`);
+  }
+  const colors = { ...defaults };
+  for (const [key, hex] of Object.entries(COLOR_SCHEME_COLORS[scheme])) {
+    colors[key] = hexToRgb565(hex);
+  }
+  return colors;
+}
+
 /* Groups: [key, friendly label]. All swatches use the same rounded-rectangle shape. */
 function getColorGroups() {
   return [
@@ -126,6 +159,22 @@ class ColorsDialog extends HauiDialog {
       cols[k] = this.overrides?.[k] ?? v;
     }
     this._colors = cols;
+  }
+
+  _selectedScheme() {
+    for (const scheme of Object.keys(COLOR_SCHEME_COLORS)) {
+      const palette = getColorScheme(scheme, _colorDefaults);
+      if (Object.keys(_colorDefaults).every((key) => this._colors[key] === palette[key])) {
+        return scheme;
+      }
+    }
+    return "custom";
+  }
+
+  _applyScheme(scheme) {
+    if (scheme === "custom") return;
+    this._colors = getColorScheme(scheme, _colorDefaults);
+    this.requestUpdate();
   }
 
   _getHex(key) {
@@ -310,6 +359,20 @@ class ColorsDialog extends HauiDialog {
           <p class="config-section-intro" style="margin: 0 0 4px;">
             ${t("Tap a swatch to change a color - the preview above updates live. Only changed colors are saved.")}
           </p>
+          <div class="cp-scheme">
+            <label for="cp-scheme">${t("Color scheme")}</label>
+            <select
+              id="cp-scheme"
+              class="native-select"
+              .value=${this._selectedScheme()}
+              @change=${(e) => this._applyScheme(e.target.value)}
+            >
+              <option value="custom">${t("Custom")}</option>
+              <option value="dark">${t("Dark Color")}</option>
+              <option value="light">${t("Light Color")}</option>
+              <option value="black">${t("Black")}</option>
+            </select>
+          </div>
           ${getColorGroups().map((group, idx) => this._renderGroup(group, idx))}
         </div>
 

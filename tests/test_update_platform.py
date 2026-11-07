@@ -33,14 +33,6 @@ class _App:
     def publish_firmware_update(self):
         pass
 
-    def install_tft(self, version=None):
-        self.installs.append(version)
-        return self.install_result
-
-    def install_firmware(self, version=None, url=None):
-        self.firmware_installs.append((version, url))
-        return self.firmware_result
-
     async def async_run_on_worker(self, fn, *args):
         return fn(*args)
 
@@ -138,6 +130,27 @@ def test_offline_device_without_install_is_unavailable(monkeypatch):
     asyncio.run(entity._async_update_event(_event(connected=False)))
 
     assert entity._attr_available is False
+
+
+def test_disabled_updates_make_idle_update_entities_unavailable(monkeypatch):
+    update = _import_update(monkeypatch)
+    entity = _entity(update)
+
+    asyncio.run(entity._async_update_event(_event(enabled=False)))
+
+    assert entity._attr_available is False
+
+
+def test_disabled_updates_keep_an_in_flight_install_observable(monkeypatch):
+    update = _import_update(monkeypatch)
+    entity = _entity(update)
+
+    asyncio.run(
+        entity._async_update_event(_event(enabled=False, connected=False, state="installing"))
+    )
+
+    assert entity._attr_available is True
+    assert entity.in_progress is True
 
 
 def test_install_runs_the_hub_tft_install(monkeypatch):

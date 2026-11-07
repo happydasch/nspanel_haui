@@ -241,9 +241,9 @@ function pickYamlFile() {
  */
 const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
 
-async function requestRaw(host, url, options, failMessage) {
+async function requestRaw(host, url, options, failMessage, requestTimeoutMs) {
   const controller = new AbortController();
-  const timeoutMs = host._apiTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const timeoutMs = requestTimeoutMs ?? host._apiTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   // Ref'd setTimeout (not AbortSignal.timeout, whose timer is unref'd in some
   // JS engines and never fires in an otherwise idle event loop): a request that
   // never settles must abort and surface instead of hanging silently.  The
@@ -335,13 +335,14 @@ export async function removeDevice(host, name) {
     { method: "DELETE" }, t("Failed to remove device"));
 }
 
+
 /**
- * Trigger display refresh on one or all devices.
+ * Trigger a display refresh for one device.
  *
  * POST /api/nspanel_haui/refresh_display/{entryId}
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
- * @param {string} deviceName - device name, or "*" for all devices
+ * @param {string} deviceName - device name
  * @returns {Promise<{ status: string, devices_updated: string[] }>}
  */
 export async function refreshDeviceDisplay(host, deviceName) {
@@ -355,7 +356,6 @@ export async function refreshDeviceDisplay(host, deviceName) {
       body: JSON.stringify({ device: deviceName }),
     }, t("Failed to refresh display"));
 }
-
 /**
  * Resolve the prebuilt firmware (.bin) download link of the latest stable release.
  *
@@ -446,6 +446,36 @@ export async function updateDeviceFirmware(host, deviceName, version, url) {
 }
 
 /**
+ * Upload a local TFT or OTA image and start its install on one device.
+ *
+ * POST /api/nspanel_haui/update_upload/{entryId}/{kind}?device=...&filename=...
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} deviceName
+ * @param {"tft"|"firmware"} kind
+ * @param {File} file
+ * @returns {Promise<{ status: string, devices_updated: string[], update?: Object }>}
+ */
+export async function uploadDeviceUpdate(host, deviceName, kind, file) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  const query = new URLSearchParams({ device: deviceName, filename: file.name });
+  const response = await requestRaw(
+    host,
+    `/api/nspanel_haui/update_upload/${host.entryId}/${kind}?${query}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: file,
+    },
+    t("Failed to upload the update file"),
+    300000,
+  );
+  return response.json();
+}
+
+/**
  * List the GitHub releases whose firmware a device can install over the air.
  *
  * GET /api/nspanel_haui/firmware_releases/{entryId}?device={deviceName}
@@ -465,29 +495,3 @@ export async function getFirmwareReleases(host, deviceName) {
     t("Failed to load the firmware releases"),
   );
 }
-
-/**
- * Trigger a manual update check on one or all devices.
- *
- * POST /api/nspanel_haui/check_update/{entryId}
- *
- * Runs on the device worker thread and bypasses the hub-level release cache,
- * so a user-initiated check always sees the latest GitHub release.
- *
- * @param {import('./haui-editor.js').NSPanelEditor} host
- * @param {string} deviceName - device name, or "*" for all devices
- * @returns {Promise<{ status: string, devices_checked: string[], results: Object<string, Object> }>}
- *   `results` maps each device to its update state plus `latest_release` and `check_error`.
- */
-export async function checkDeviceUpdate(host, deviceName = "*") {
-  if (!host.entryId || !host.hass) {
-    throw new Error(t("No config entry selected"));
-  }
-  return request(host, `/api/nspanel_haui/check_update/${host.entryId}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device: deviceName }),
-    }, t("Failed to check for updates"));
-}
-

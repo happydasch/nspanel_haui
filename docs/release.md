@@ -63,7 +63,7 @@ the display version sources. A development version (`X.Y.Z.devN`, the
 
 The bump script is a *version* bump only and never edits `CHANGELOG.md`. The
 changelog (heading plus release date, and the "Breaking changes" section with
-its `docs/upgrading.md` entry), and the prepared GitHub release notes in
+its `docs/update.md` entry), and the prepared GitHub release notes in
 `.github/release-notes/<tag>.md` are written by hand from the merged commits —
 no tooling generates them.
 `scripts/bump_version.py --check` is the dry run CI uses to fail on drift, and
@@ -321,7 +321,7 @@ image URL and md5).
    (`http://homeassistant.local:8123/local/nspanel/firmware-manifest.json`).
    The hub reads it as soon as the settings are saved, and the panel's
    **HAUI Firmware** entity offers each newer test release; the hub installs it
-   automatically or with **Install** / **Device Manager → Install firmware**.
+   automatically or with **Install** / **Device actions → Info → Install update → Firmware**.
    Without the setting, the hub follows the configured channel and installs a
    newer release over the test build.
 
@@ -347,8 +347,8 @@ cut from a commit whose CI was green on its source branch.
 
 - `master` — release branch. Receives release branches cut from `dev`; release
   hotfixes branch from `master` only when a patch cannot wait. Every tag `vX.Y.Z` is cut from a
-  green commit here. GitHub Pages deploys from this branch and Marketplace users
-  install from its releases. Protected by the "Protect master (release-only)"
+  green commit here. GitHub Pages serves this branch's docs at the site root
+  (`dev`'s under `dev/`) and Marketplace users install from its releases. Protected by the "Protect master (release-only)"
   ruleset: no direct pushes, no force-pushes, no deletion, and a merge needs a
   PR with the always-running CI checks green.
 - `dev` — integration branch, the target for all day-to-day work, and the
@@ -390,7 +390,7 @@ Commits use [Conventional Commits](https://www.conventionalcommits.org/)
 like a changelog. Keeping that log is manual: each release prep collects the
 merged commits into the `CHANGELOG.md` section (heading plus date, one line per
 change), describes them in detail in `.github/release-notes/<tag>.md` for the
-release body, and writes the `docs/upgrading.md` entry for breaking changes —
+release body, and writes the `docs/update.md` entry for breaking changes —
 none of the release tooling generates any of them (see
 [step 5](#5-release-notes-and-tagging) for what goes where).
 
@@ -411,7 +411,7 @@ wait. The **0.4.x line is a hard gate**: it finishes the binary and TFT install
 and proves the base and core functions before any v0.5 work starts. Patch
 releases in that line close regressions and gate failures; minor releases
 (`0.5.0`) ship features and breaking changes. **Any breaking change must ship
-with a `docs/upgrading.md` entry and a CHANGELOG "Breaking changes" section** —
+with a `docs/update.md` entry and a CHANGELOG "Breaking changes" section** —
 no alias is kept as a fallback, so the upgrade guide is the only migration path.
 
 ## CI gates and local checks
@@ -419,7 +419,7 @@ no alias is kept as a fallback, so the upgrade guide is the only migration path.
 | Workflow | Triggers | What it enforces |
 |----------|----------|------------------|
 | `tests.yml` | pushes/PRs to `master`, `dev` | `zensical build --strict`; icon cheatsheet, translation and version-source freshness; Nextion asset gate (`verify_nextion.py --require-portrait`); `pytest tests/`; `ruff check custom_components/ scripts/`; `mypy`; `node --test 'tests/frontend/*.test.mjs'`; `esphome config esphome/nspanel_haui_universal.yaml` |
-| `docs.yml` | docs, docs-tooling or config changes on pushes/PRs to `master`, `dev`; manual dispatch | `zensical build --strict`; deploys Pages from `master` only |
+| `docs.yml` | docs, docs-tooling or config changes on pushes/PRs to `master`, `dev`; manual dispatch | `zensical build --strict`; a push to `master` or `dev` deploys Pages with both branches: `master` at the root, `dev` under `dev/` (the editor footer links prerelease versions there) |
 | `validate.yml` | pushes/PRs to `master`, `dev`; nightly; manual dispatch | hassfest and HACS validation |
 | `screens.yml` | each completed `Development Firmware` run on `dev`; manual dispatch | regenerates the screen overview (`gen_preview_gallery.py --docs`: `docs/screens.html`, `docs/assets/screens/`) and commits it to `dev` with `[skip ci]` when it changed |
 | `release.yml` | `v*` tags; manual dispatch on `v*` refs (branch dispatch fails before build) | tag vs `manifest.json` version; Nextion release gate (`verify_nextion.py --require-portrait` and `gen_portrait.py --check`); ESPHome config + compile; firmware manifest; prepared release notes; asset upload |
@@ -549,7 +549,7 @@ script above calls it for `--tft-update`. Both are importable and covered by
 
 - Update user-facing docs for behaviour changes (install, services, display
   models).
-- Breaking changes: write the `docs/upgrading.md` entry, the CHANGELOG
+- Breaking changes: write the `docs/update.md` entry, the CHANGELOG
   "Breaking changes" line and the release notes' "Before updating" entry during
   release prep on the release branch.
 - Verify the universal firmware still validates:
@@ -571,13 +571,13 @@ The changelog and the release notes split the work:
 - **`CHANGELOG.md` is the compact index** — one line per change (two at most),
   grouped as *Breaking changes*, *Added*, *Changed* and *Fixed*: what changed,
   in the user's terms, with its issue or PR link. A breaking change links its
-  `docs/upgrading.md` section. No background, no cause, no implementation
+  `docs/update.md` section. No background, no cause, no implementation
   detail.
 - **The release notes carry the detail** — for every changelog line, what the
   change does, why it was needed and what a user notices; what to do before
   updating; known limits; the contributors and a compare link. Group long
   lists under headings (for example *Before updating*, *New*, *Changed* and
-  *Fixed* by area). Repository-relative links (`docs/upgrading.md#…`) work:
+  *Fixed* by area). Repository-relative links (`docs/update.md#…`) work:
   GitHub resolves them against the tag.
 
 Credit external contributors by their GitHub handle in both, and keep

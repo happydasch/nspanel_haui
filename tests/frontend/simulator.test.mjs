@@ -145,6 +145,20 @@ test('a re-mounted card reuses its render until the device settings change', asy
   assert.equal(host.sent.length, 2);
 });
 
+test('an expired render is dropped and asked for again', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  const host = editorHost(() => ({ page: 9, before: [], commands: [] }));
+  const panel = { key: 'rooms', type: 'grid', title: 'Expiry' };
+
+  await loadPanelRender(host, panel, false);
+  t.mock.timers.tick(29_000);
+  await loadPanelRender(host, panel, false);
+  assert.equal(host.sent.length, 1);
+  t.mock.timers.tick(1_000);
+  await loadPanelRender(host, panel, false);
+  assert.equal(host.sent.length, 2);
+});
+
 test('without a Home Assistant connection a card has no render', async () => {
   assert.equal(await loadPanelRender({ entryId: 'entry1', _selectedDevice: 'kitchen' }, { type: 'grid' }, false), null);
 });

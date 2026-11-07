@@ -48,6 +48,41 @@ test('the Device Manager firmware action calls the firmware install endpoint', a
   assert.deepEqual(host.toasts.at(-1), ['success', 'Firmware update started for "kitchen"']);
 });
 
+test('uploading a local TFT sends the file to the protected staging endpoint', async () => {
+  const file = { name: 'custom.tft', size: 1024 };
+  const host = makeHost({ devices: { kitchen } }, (method, path, opts) => {
+    assert.equal(method, 'POST');
+    assert.equal(path, '/api/nspanel_haui/update_upload/entry1/tft');
+    assert.equal(opts.headers['Content-Type'], 'application/octet-stream');
+    assert.equal(opts.body, file);
+    return jsonResponse({ status: 'ok', devices_updated: ['kitchen'] });
+  });
+
+  await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen', file } });
+
+  assert.match(host.urls[0], /device=kitchen&filename=custom\.tft/);
+  assert.deepEqual(host.toasts.at(-1), ['success', 'TFT update started for "kitchen"']);
+});
+
+test('uploading a local firmware image uses the firmware staging endpoint', async () => {
+  const file = { name: 'nspanel_haui_ota.bin', size: 1024 };
+  const host = makeHost({ devices: { kitchen } }, (method, path, opts) => {
+    assert.equal(method, 'POST');
+    assert.equal(path, '/api/nspanel_haui/update_upload/entry1/firmware');
+    assert.equal(opts.body, file);
+    return jsonResponse({
+      status: 'ok',
+      devices_updated: ['kitchen'],
+      update: { firmware_installing: true, firmware_install_error: null },
+    });
+  });
+
+  await Events.onDeviceManagerUpdateFirmware(host, { detail: { name: 'kitchen', file } });
+
+  assert.match(host.urls[0], /filename=nspanel_haui_ota\.bin/);
+  assert.deepEqual(host.toasts.at(-1), ['success', 'Firmware update started for "kitchen"']);
+});
+
 test('a failed firmware install is shown in the editor', async () => {
   const host = makeHost(
     { devices: { kitchen: { config: {}, panels: [] } } },
@@ -180,70 +215,6 @@ test('a failed TFT install rejects with its HTTP error message', async () => {
   await Events.onDeviceManagerUpdateTft(host, { detail: { name: 'kitchen' } });
 
   assert.deepEqual(host.toasts.at(-1), ['error', 'device disconnected']);
-});
-
-function checkHost(check) {
-  return makeHost({ devices: { kitchen } }, (method, path, opts) => {
-    assert.equal(method, 'POST');
-    assert.equal(path, '/api/nspanel_haui/check_update/entry1');
-    assert.deepEqual(JSON.parse(opts.body), { device: 'kitchen' });
-    return jsonResponse({
-      status: 'ok',
-      devices_checked: ['kitchen'],
-      results: {
-        kitchen: {
-          state: 'idle',
-          version: null,
-          last_error: null,
-          firmware_update_available: false,
-          firmware_update_version: null,
-          firmware_installing: false,
-          latest_release: 'v0.4.2',
-          check_error: null,
-          ...check,
-        },
-      },
-    });
-  });
-}
-
-test('an update check on an up-to-date panel says so', async () => {
-  const host = checkHost({});
-
-  await Events.onDeviceManagerCheckUpdate(host, { detail: { name: 'kitchen' } });
-
-  assert.deepEqual(host.toasts.at(-1), [
-    'success',
-    '"kitchen" is up to date (latest release v0.4.2)',
-  ]);
-});
-
-test('an update check reports a started TFT install', async () => {
-  const host = checkHost({ state: 'installing', version: '0.4.2' });
-
-  await Events.onDeviceManagerCheckUpdate(host, { detail: { name: 'kitchen' } });
-
-  assert.deepEqual(host.toasts.at(-1), ['success', 'Installing TFT 0.4.2 on "kitchen"']);
-});
-
-test('an update check reports a started firmware install', async () => {
-  const host = checkHost({
-    firmware_update_available: true,
-    firmware_update_version: '0.4.3',
-    firmware_installing: true,
-  });
-
-  await Events.onDeviceManagerCheckUpdate(host, { detail: { name: 'kitchen' } });
-
-  assert.deepEqual(host.toasts.at(-1), ['success', 'Firmware update 0.4.3 started on "kitchen"']);
-});
-
-test('an update check reports a failed GitHub request', async () => {
-  const host = checkHost({ latest_release: null, check_error: 'timed out' });
-
-  await Events.onDeviceManagerCheckUpdate(host, { detail: { name: 'kitchen' } });
-
-  assert.deepEqual(host.toasts.at(-1), ['error', 'Update check failed for "kitchen": timed out']);
 });
 
 for (const [label, detail, body] of [

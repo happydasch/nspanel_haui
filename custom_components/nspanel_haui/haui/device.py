@@ -9,7 +9,7 @@ from .abstract.haui_base import HAUIBase
 from .abstract.haui_event import HAUIEvent
 from .controller.notification import Notification
 from .device_config import is_portrait_model
-from .mapping.const import ESPAction, ESPEvent, NotifEvent, NotifType
+from .mapping.const import AUTO_SWITCHES, ESPAction, ESPEvent, NotifEvent, NotifType
 from .mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
 
 if TYPE_CHECKING:
@@ -119,6 +119,8 @@ class HAUIDevice(HAUIBase):
         self._schedule_timer: str | None = None
         self._solar_listener: str | None = None
         self._solar_tracking_offsets: tuple[int, int] | None = None
+        # state listeners on the firmware's auto switches (apply_auto_switches)
+        self._auto_switch_handles: list[str] = []
 
     # prepare and update
 
@@ -184,7 +186,13 @@ class HAUIDevice(HAUIBase):
         if hub_value is None:
             hub_value = self.get(hub_key, True)
         item = self.app.get_item(switch_entity_id)
-        is_on = item.get_state() == "on"
+        state = item.get_state()
+        if state not in ("on", "off"):
+            # Unavailable or unknown: the device is not connected to Home
+            # Assistant, so there is nothing to switch yet.  Every sync runs
+            # again on connect.
+            return
+        is_on = state == "on"
         if hub_value and not is_on:
             self.log(f"Syncing {switch_entity_id} ON ({reason or f'hub config {hub_key}=True'})")
             item.turn_on()
@@ -413,35 +421,9 @@ class HAUIDevice(HAUIBase):
         is_night = self._profile_is_night() if mode != "off" else False
         prefix = "night_" if is_night else ""
 
-        self._sync_config_switch(
-            "use_auto_dimming",
-            self._resolve_esp_entity("switch", "Use Auto-Dimming"),
-            hub_value=self.get(f"{prefix}use_auto_dimming", True),
-        )
-        self._sync_config_switch(
-            "use_auto_page",
-            self._resolve_esp_entity("switch", "Use Auto-Page"),
-            hub_value=self.get(f"{prefix}use_auto_page", True),
-        )
-        # Preserve the existing sleep-schedule behavior: when valid it owns the
-        # effective auto-off switch; otherwise the active profile owns it.
-        schedule_active = self._display_off_schedule_active()
-        display_off = self.get(f"{prefix}use_auto_display_off", True)
-        if schedule_active is not None:
-            display_off = schedule_active
-        self._sync_config_switch(
-            "use_auto_display_off",
-            self._resolve_esp_entity("switch", "Use Auto Display-Off"),
-            hub_value=display_off,
-            reason=(
-                f"sleep schedule {'active' if schedule_active else 'inactive'}"
-                if schedule_active is not None
-                else f"{'Night' if is_night else 'Day'} profile"
-            ),
-        )
+        self._apply_auto_switches(is_night)
         for config_key, entity_name in (
             (f"{prefix}timeout_dimming", "Timeout Dimming"),
-            (f"{prefix}timeout_page", "Timeout Page"),
             (f"{prefix}timeout_display_off", "Timeout Display-Off"),
         ):
             self._sync_profile_number(config_key, entity_name)
@@ -465,6 +447,100 @@ class HAUIDevice(HAUIBase):
         if navigation is not None:
             navigation.set_idle_profile(is_night if mode != "off" else None)
         self._sync_display_model()
+
+    # automatic display switches
+
+    def apply_auto_switches(self) -> None:
+        """Give the firmware's automatic display switches the values they must have now.
+
+        The device settings own ``Use Auto-Dimming`` and ``Use Auto
+        Display-Off`` (``AUTO_SWITCHES``); the page on screen can hold some of
+        them off while it is shown (``HAUIPage.suspended_auto_switches``).
+        Navigation calls this on every page change; a page whose hold changes
+        while it is shown calls it too.  Automatic page switching has no
+        firmware switch: navigation enforces its page hold itself.
+        """
+        mode = self.get("day_night_schedule_mode", "off")
+        self._apply_auto_switches(self._profile_is_night() if mode != "off" else False)
+
+    def _apply_auto_switches(self, is_night: bool) -> None:
+        """Set each auto switch to its setting, or off while the page on screen holds it.
+
+        Only switches whose state differs are written. A command whose state
+        Home Assistant has not reported yet is not repeated here: the state
+        listener (``_watch_auto_switches``) runs this again when the switch
+        reports, so a page reopened right after closing still ends with the
+        right value.
+        """
+        prefix = "night_" if is_night else ""
+        schedule_active = self._display_off_schedule_active()
+        wanted = {
+            "auto_dimming": self.get(f"{prefix}use_auto_dimming", True),
+            # A valid sleep schedule owns display-off; otherwise the active profile does.
+            "auto_display_off": (
+                schedule_active
+                if schedule_active is not None
+                else self.get(f"{prefix}use_auto_display_off", True)
+            ),
+        }
+        reasons = {
+            "auto_display_off": (
+                f"sleep schedule {'active' if schedule_active else 'inactive'}"
+                if schedule_active is not None
+                else f"{'Night' if is_night else 'Day'} profile"
+            ),
+        }
+        navigation = self.app.controller.get("navigation")
+        page = navigation.page if navigation is not None else None
+        suspended = page.suspended_auto_switches() if page is not None else ()
+        for key, entity_id in self._auto_switch_entities().items():
+            held = key in suspended
+            self._sync_config_switch(
+                f"use_{key}",
+                entity_id,
+                hub_value=wanted[key] and not held,
+                reason=f"held off by {type(page).__name__}" if held else reasons.get(key, ""),
+            )
+
+    def _auto_switch_entities(self) -> dict[str, str]:
+        """The entity id of each auto switch the device has, keyed like ``AUTO_SWITCHES``."""
+        found: dict[str, str] = {}
+        for key, name in AUTO_SWITCHES.items():
+            entity_id = self._resolve_esp_entity("switch", name)
+            if entity_id is not None:
+                found[key] = entity_id
+        return found
+
+    def _watch_auto_switches(self) -> None:
+        """Set an auto switch back to its value as soon as it changes elsewhere.
+
+        A switch toggled in Home Assistant, or one the device restored after a
+        reboot, would otherwise keep that value until the next connect or
+        settings save; with a display-off switch left on, the display turns
+        off although the setting is off.
+        """
+        self._unwatch_auto_switches()
+        entities = self._auto_switch_entities()
+        for key, name in AUTO_SWITCHES.items():
+            if key not in entities:
+                self.log(
+                    f"No '{name}' switch found on the device; its setting cannot be applied",
+                    level="WARNING",
+                )
+                continue
+            self._auto_switch_handles.append(
+                self.app.listen_state(self._callback_auto_switch, entities[key])
+            )
+
+    def _unwatch_auto_switches(self) -> None:
+        for handle in self._auto_switch_handles:
+            self.app.cancel_listen_state(handle)
+        self._auto_switch_handles = []
+
+    def _callback_auto_switch(
+        self, entity_id: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
+    ) -> None:
+        self.apply_auto_switches()
 
     def _sync_display_model(self) -> None:
         """Sync the hub's display model with the firmware's gesture size.
@@ -498,7 +574,7 @@ class HAUIDevice(HAUIBase):
         if previous is None or previous == model:
             return
         self.log(f"Display model changed from {previous!r} to {model!r}; installing its TFT")
-        self.app.controller["update"].install_tft()
+        self.app.controller["update"].start_async_tft_install(None, None, lambda _state: None)
 
     @property
     def display_model(self) -> str:
@@ -522,6 +598,7 @@ class HAUIDevice(HAUIBase):
         self._sync_button_interaction()
         self._sync_relay_config()
         self._configure_solar_tracking()
+        self._watch_auto_switches()
         self._sync_behavior_config()
         self._install_tft_on_model_change()
         # Re-arm fixed-clock and display-off boundaries after start, reconnect
@@ -539,6 +616,7 @@ class HAUIDevice(HAUIBase):
         """Stops the part."""
         self.log("Device is stopping")
         self._cancel_callbacks()
+        self._unwatch_auto_switches()
         self._cancel_timer("_schedule_timer")
         if self._solar_listener is not None:
             self.app.cancel_sun_events(self._solar_listener)
@@ -651,6 +729,7 @@ class HAUIDevice(HAUIBase):
         # premature close_panel).
         navigation.cancel_timeouts()
         if connected:
+            navigation.prepare_resume()
             self.sync_config_to_device()
             if self.get("sound_on_startup"):
                 uptime = self.device_info.get("uptime")

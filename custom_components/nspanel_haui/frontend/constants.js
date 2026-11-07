@@ -74,7 +74,6 @@ export const DEVICE_CONFIG_DEFAULTS = {
   home_panel: "",
   idle_panel: "",
   idle_panel_extra: "",
-  hub_idle_timeout: 0,
   auto_navigate_home_timeout: 0,
   time_format: "",
   date_format: "",
@@ -83,6 +82,7 @@ export const DEVICE_CONFIG_DEFAULTS = {
   // Mirrors DEFAULT_CONFIG["update"] in Python. Checks run by default so update
   // offers are found even when a device is never opened in the editor.
   update: {
+    enabled: true,
     check_on_connect: true,
     update_interval: 3600,
     firmware_auto_update: false,

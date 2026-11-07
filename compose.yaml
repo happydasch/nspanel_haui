@@ -1,0 +1,10 @@
+# Throwaway Home Assistant running the checked-out integration (docs/development.md).
+services:
+  homeassistant:
+    # The Home Assistant version the integration requires (minimum in the Marketplace metadata).
+    image: homeassistant/home-assistant:2026.11.0
+    volumes:
+      - ./.dev/ha-docker:/config
+      - ./custom_components/nspanel_haui:/config/custom_components/nspanel_haui
+    ports:
+      - "8123:8123"

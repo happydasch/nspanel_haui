@@ -212,8 +212,9 @@ export const editorStyles = css`
 /* ── toast / loading ─────────────── */
   .toast {
     position: fixed;
-    bottom: 24px;
-    left: 50%;
+    inset: auto auto 24px 50%;
+    margin: 0;
+    border: 0;
     transform: translateX(-50%);
     padding: 12px 24px;
     border-radius: 8px;
@@ -369,6 +370,38 @@ export const editorStyles = css`
     color: var(--secondary-text-color, #888);
     white-space: nowrap;
   }
+  .di-device-actions {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--divider-color, #e0e0e0);
+  }
+  .di-device-firmware-version {
+    min-width: 0;
+  }
+  .di-device-action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .di-health-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
+  @media all and (max-width: 450px) {
+    .di-device-actions {
+      grid-template-columns: 1fr;
+    }
+    .di-device-action-buttons {
+      justify-content: flex-start;
+    }
+  }
   .di-meta-icon {
     --mdc-icon-size: 14px;
     color: var(--secondary-text-color, #aaa);
@@ -475,36 +508,36 @@ export const editorStyles = css`
 
   /* ── device manager dialog ──────── */
 
-  .device-mgr-add-form {
+  .device-update-picker {
     background: var(--secondary-background-color, #f5f5f5);
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 16px;
   }
 
-  .device-mgr-add-form .native-input {
+  .device-update-picker .native-input {
     display: block;
     width: 100%;
   }
 
-  .device-mgr-tft-form {
+  .device-update-picker {
     margin: 8px 0 0;
     cursor: default;
   }
 
-  .device-mgr-tft-form .native-select {
+  .device-update-picker .native-select {
     display: block;
     width: 100%;
   }
 
-  .device-mgr-add-actions {
+  .device-update-actions {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
     margin-top: 8px;
   }
 
-  .device-mgr-error {
+  .device-update-error {
     color: var(--error-color, #e53935);
     font-size: 0.85em;
     margin: 4px 0 0;

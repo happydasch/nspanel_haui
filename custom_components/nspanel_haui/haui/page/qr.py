@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Collection
 
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
+from ..mapping.const import AUTO_PAGE_HOLD
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_KEY, ICO_WIFI, ICO_ZOOM
-
-if TYPE_CHECKING:
-    from ...ha_adapter import ItemProxy
 
 
 class QRPage(HAUIPage):
@@ -89,24 +87,12 @@ class QRPage(HAUIPage):
     # panel
 
     def prepare(self) -> None:
-        self.auto_dimming: ItemProxy | None
-        self.auto_page: ItemProxy | None
-        self._use_auto_dimming: bool
-        self._use_auto_page: bool
         self._is_big: bool = False
         self._has_text: bool = False
 
     def start_panel(self, panel: HAUIPanel) -> None:
         self.on_release(self.COMPONENTS.qr_code, self.callback_qr_code)
         self.on_release(self.COMPONENTS.qr_code_big, self.callback_qr_code_big)
-        auto_dimming_id = self.find_esphome_entity_id("switch", "Use Auto-Dimming")
-        auto_page_id = self.find_esphome_entity_id("switch", "Use Auto-Page")
-        self.auto_dimming = self.app.get_item(auto_dimming_id) if auto_dimming_id else None
-        self.auto_page = self.app.get_item(auto_page_id) if auto_page_id else None
-        self._use_auto_dimming = (
-            self.auto_dimming is not None and self.auto_dimming.get_state() == "on"
-        )
-        self._use_auto_page = self.auto_page is not None and self.auto_page.get_state() == "on"
 
         # Compute initial state
         essid = panel.get("essid", "")
@@ -147,12 +133,9 @@ class QRPage(HAUIPage):
             self._render_text(panel)
         self._apply_zoom_state()
 
-    def _stop_panel(self, panel: HAUIPanel) -> None:
-        # restore old dimming values
-        if self._use_auto_dimming and self.auto_dimming is not None:
-            self.auto_dimming.turn_on()
-        if self._use_auto_page and self.auto_page is not None:
-            self.auto_page.turn_on()
+    def suspended_auto_switches(self) -> Collection[str]:
+        # The big code stays lit and on screen while it is being scanned.
+        return ("auto_dimming", AUTO_PAGE_HOLD) if self._is_big else ()
 
     def render_panel(self, panel: HAUIPanel) -> None:
         essid = panel.get("essid", "")
@@ -264,31 +247,21 @@ class QRPage(HAUIPage):
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         self.log(f"Got function component press: {fnc_id}")
         if fnc_name == "zoom":
-            self._is_big = not self._is_big
-            with self.rec_cmd:
-                self._apply_zoom_state()
+            self._set_big(not self._is_big)
 
     def callback_qr_code(self, event: HAUIEvent, component: Component) -> None:
         if not self.panel:
             return
-        if self.auto_page is None or self.auto_dimming is None:
-            return
         self.log(f"Got qr code press: {component}")
-        with self.rec_cmd:
-            self._is_big = True
-            self._apply_zoom_state()
-            self.auto_dimming.turn_off()
-            self.auto_page.turn_off()
+        self._set_big(True)
 
     def callback_qr_code_big(self, event: HAUIEvent, component: Component) -> None:
         if not self.panel:
             return
-        if self.auto_page is None or self.auto_dimming is None:
-            return
+        self._set_big(False)
+
+    def _set_big(self, big: bool) -> None:
+        self._is_big = big
         with self.rec_cmd:
-            self._is_big = False
             self._apply_zoom_state()
-            if self._use_auto_dimming:
-                self.auto_dimming.turn_on()
-            if self._use_auto_page:
-                self.auto_page.turn_on()
+        self.app.device.apply_auto_switches()

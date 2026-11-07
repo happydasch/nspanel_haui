@@ -70,7 +70,7 @@ nav:
     - README.md
     - Installation: install.md
     - Quick Start: get-started.md
-    - Upgrading: upgrading.md
+    - Updating: update.md
     - Custom Integration: custom_integration.md
     - Configuration:
       - Overview: configuration/README.md
@@ -108,6 +108,7 @@ nav:
   - Development:
     - development.md
     - Release Process & Strategy: release.md
+    - Update Process: update-process.md
     - Design Guidelines: design.md
     - Communication Overview: communication.md
     - ESPHome Component: esphome.md

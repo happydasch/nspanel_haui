@@ -9,8 +9,10 @@ or a card render. Live previews and panel cards share it.
   subscription is closed. The first message is ``{"type": "started", ...}``;
   the others are the messages of ``virtual_panel.VirtualESPHomeProxy`` and the
   sandbox.
-- ``nspanel_haui/virtual_panel/event`` injects a touch, swipe, hardware button
-  or idle timeout.
+- ``nspanel_haui/virtual_panel/event`` injects a touch, swipe or hardware
+  button.
+- ``nspanel_haui/virtual_panel/idle`` acts as if the inactivity timeout opened
+  the idle page.
 - ``nspanel_haui/virtual_panel/configure`` switches the app between sandbox
   and live mode; the mode is shared by every live preview of the device.
 - ``nspanel_haui/virtual_panel/render`` renders one panel as its editor card
@@ -118,7 +120,11 @@ async def _create_host(hass: Any, entry: Any, device: str) -> Any:
     cfg = _build_config_dict(entry.data, store, device_name=device)
     ha_device_id = resolve_ha_device_id(hass, device)
     running = (hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}).get(device)
-    device_info = dict(running.device.device_info) if running is not None else {}
+    device_info = (
+        await running.async_run_on_worker(lambda: dict(running.device.device_info))
+        if running is not None
+        else {}
+    )
     host = VirtualPanelHost(
         hass,
         device,
@@ -273,6 +279,22 @@ async def ws_event(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): "nspanel_haui/virtual_panel/idle",
+        vol.Required("session_id"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_idle(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
+    host = _get_host(hass, connection, msg)
+    if host is None:
+        return
+    host.show_idle()
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): "nspanel_haui/virtual_panel/configure",
         vol.Required("session_id"): str,
         vol.Optional("live"): bool,
@@ -314,6 +336,9 @@ async def ws_render(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
         connection.send_error(msg["id"], "invalid_format", "Pass either a panel or a key")
         return
     host = await _hosts(hass).async_get(entry, msg["device"])
+    running = (hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}).get(msg["device"])
+    if running is not None:
+        await host.async_follow_device(running)
     try:
         panel = msg["panel"] if "panel" in msg else await host.async_configured_panel(msg["key"])
         result = await host.async_render(panel, msg.get("kwargs"))
@@ -327,5 +352,6 @@ def async_register_websocket_commands(hass: Any) -> None:
     """Register the virtual panel's WebSocket commands."""
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_event)
+    websocket_api.async_register_command(hass, ws_idle)
     websocket_api.async_register_command(hass, ws_configure)
     websocket_api.async_register_command(hass, ws_render)

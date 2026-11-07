@@ -18,23 +18,29 @@ const RENDERS = new Map();
 // Entity states move on; a card re-mounted within this window reuses its render.
 const RENDER_MAX_AGE_MS = 30_000;
 
+// The device info a page draws (the About page, haui/page/about.py). The rest
+// of it (uptime, RSSI, last update) moves on every 5 s status poll and would
+// re-render every card each time.
+const RENDERED_DEVICE_INFO = ['ip', 'tft_version', 'yaml_version'];
+
 /**
  * Everything a card's render depends on besides the panel itself: the hub, the
- * device, its device info and saved settings and panels (header buttons follow
- * the navigation order). A frame renders again when this changes.
+ * device, the device info its pages show and its saved settings and panels
+ * (header buttons follow the navigation order). A frame renders again when
+ * this changes.
  *
  * @param {object} host - the editor element
  * @returns {string}
  */
 export function previewRenderKey(host) {
   const panels = typeof host?._devicePanels === 'function' ? host._devicePanels() : null;
-  const deviceInfo = host?._deviceStatuses?.[host?._selectedDevice]?.device_info || null;
+  const deviceInfo = host?._deviceStatuses?.[host?._selectedDevice]?.device_info;
   return JSON.stringify([
     host?.entryId,
     host?._selectedDevice,
     host?._deviceConfig,
     panels,
-    deviceInfo,
+    deviceInfo ? RENDERED_DEVICE_INFO.map((name) => deviceInfo[name]) : null,
   ]);
 }
 
@@ -55,8 +61,13 @@ export function loadPanelRender(host, panel, byKey) {
   if (!connection || !host.entryId || !device || !panel) return Promise.resolve(null);
   const target = byKey ? { key: panel.key } : { panel };
   const key = JSON.stringify([previewRenderKey(host), target]);
+  const now = Date.now();
+  // Every edit or settings change keys new renders: drop the expired ones.
+  for (const [k, entry] of RENDERS) {
+    if (now - entry.time >= RENDER_MAX_AGE_MS) RENDERS.delete(k);
+  }
   const cached = RENDERS.get(key);
-  if (cached && Date.now() - cached.time < RENDER_MAX_AGE_MS) return cached.promise;
+  if (cached) return cached.promise;
   const promise = connection.sendMessagePromise({
     type: 'nspanel_haui/virtual_panel/render',
     entry_id: host.entryId,
@@ -66,7 +77,7 @@ export function loadPanelRender(host, panel, byKey) {
     RENDERS.delete(key);
     throw new Error(err?.message || String(err));
   });
-  RENDERS.set(key, { time: Date.now(), promise });
+  RENDERS.set(key, { time: now, promise });
   return promise;
 }
 

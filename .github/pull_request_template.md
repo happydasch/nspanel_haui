@@ -19,5 +19,5 @@
 - [ ] `node --test 'tests/frontend/*.test.mjs'` passes (frontend changes only)
 - [ ] `ruff check custom_components/` is clean
 - [ ] `mypy` is clean
-- [ ] Breaking changes documented in `docs/upgrading.md` and the CHANGELOG "Breaking changes" section
+- [ ] Breaking changes documented in `docs/update.md` and the CHANGELOG "Breaking changes" section
 - [ ] Screenshot or short recording attached for display/frontend changes

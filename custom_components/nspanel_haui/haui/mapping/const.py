@@ -26,13 +26,26 @@ class ESPEvent(StrEnum):
     BUTTON_RIGHT = "esphome.button_right"
     RELAY_LEFT = "esphome.relay_left"
     RELAY_RIGHT = "esphome.relay_right"
-    TIMEOUT = "esphome.timeout"
     DISPLAY_STATE = "esphome.display_state"
     BUFFER_OVERFLOW = "esphome.buffer_overflow"
 
 
 # Touch gestures the display reports (the values of ``ESPEvent.GESTURE``).
 GESTURES: tuple[str, ...] = ("swipe_left", "swipe_right", "swipe_up", "swipe_down")
+
+# The firmware's automatic display switches, which the device settings own:
+# the key a popup suspends one by (``HAUIPage._save_auto_state``) and the
+# ESPHome entity name of the switch.  Automatic page switching has no firmware
+# switch: the hub owns it and enforces the page hold itself.
+AUTO_SWITCHES: dict[str, str] = {
+    "auto_dimming": "Use Auto-Dimming",
+    "auto_display_off": "Use Auto Display-Off",
+}
+
+# Page-hold key for automatic page switching. Unlike the keys of
+# ``AUTO_SWITCHES`` it has no firmware entity: navigation reads it from the
+# page on screen and skips the idle-page check while it is held.
+AUTO_PAGE_HOLD = "auto_page"
 
 
 class ESPAction(StrEnum):
@@ -227,6 +240,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     # update related settings
     "update": {
+        # Master switch for checks and every firmware/display update path.
+        "enabled": True,
         # install the TFT the firmware needs automatically when the display has an
         # older one; when false the display asks first
         "auto_install": True,

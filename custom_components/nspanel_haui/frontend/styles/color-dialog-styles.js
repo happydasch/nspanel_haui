@@ -12,6 +12,19 @@
 import { css } from '../lit-import.js';
 
 export const colorDialogStyles = css`
+
+  .cp-scheme {
+    margin: 12px 0 16px;
+  }
+  .cp-scheme label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+    font-size: 0.92em;
+  }
+  .cp-scheme select {
+    max-width: 320px;
+  }
   /* ── footer change counter ─────────── */
   .footer-changed {
     font-size: 0.85em;

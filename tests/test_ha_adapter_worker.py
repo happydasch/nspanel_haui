@@ -382,7 +382,7 @@ def test_update_check_http_runs_off_the_worker(env, monkeypatch):
     hub→device heartbeat and the panel disconnected and woke its display.
     """
     adapter, loop, helpers = env
-    from nspanel_haui.haui.controller import update as update_module
+    from nspanel_haui.haui.controller import release_source
     from nspanel_haui.haui.controller.update import HAUIUpdateController
 
     seen: dict = {}
@@ -396,23 +396,29 @@ def test_update_check_http_runs_off_the_worker(env, monkeypatch):
         seen["thread_name"] = threading.current_thread().name
         return _Response()
 
-    monkeypatch.setattr(update_module.requests, "get", fake_get)
-    monkeypatch.setattr(update_module, "_release_cache", None, raising=False)
+    monkeypatch.setattr(release_source.requests, "get", fake_get)
+    monkeypatch.setattr(release_source, "_release_cache", None)
 
     ctrl = HAUIUpdateController.__new__(HAUIUpdateController)
-    ctrl.app = adapter
-    ctrl._req_fetch = False
-    ctrl._release_infos = []
+    ctrl.app = types.SimpleNamespace(
+        submit_off_worker=adapter.submit_off_worker,
+        device=types.SimpleNamespace(device_info={"firmware_variant": "universal"}),
+    )
+    ctrl.config = {}
+    ctrl._async_catalog_id = 0
+    ctrl._lifecycle_generation = 0
     ctrl.log = lambda *a, **kw: None
 
     caller: dict = {}
+    done = threading.Event()
 
     def on_worker():
         caller["id"] = threading.get_ident()
-        ctrl._update_release_infos()
+        ctrl.start_async_list_firmware_releases(lambda _result: done.set())
 
     adapter._worker.submit(on_worker).result(10)
 
+    assert done.wait(10), "the release list request never completed"
     assert "thread" in seen, "the release list was never fetched"
     assert seen["thread"] != caller["id"]
     # It ran on the app's I/O pool, not just on some other thread.

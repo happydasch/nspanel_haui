@@ -76,10 +76,6 @@ DEVICE_CONFIG: dict[str, Any] = {
     "reset_interaction_on_button": True,
     # snapshot restore limit: -1 = no limit, 0 = never restore, >0 = max age in seconds
     "snapshot_max_age_seconds": -1,
-    # hub-side idle timeout (seconds, 0 = disabled).
-    # Fallback when the device doesn't publish esphome.timeout events
-    # (e.g., use_auto_page is OFF on the device).
-    "hub_idle_timeout": 0,
     # auto-navigate-home timeout (seconds, 0 = disabled).
     # When >0, after this many seconds of inactivity on any non-home panel,
     # the hub navigates back to the home panel automatically. Should be set

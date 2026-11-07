@@ -57,6 +57,28 @@ test('preview render keys change when cached device versions arrive', () => {
   assert.notEqual(previewRenderKey(host), before);
 });
 
+test('a status poll that only moves live readings keeps every card render', () => {
+  // The editor polls the status every 5 s; a new render key re-renders every card.
+  const info = (uptime, rssi) => ({
+    name: 'kitchen', yaml_version: '0.4.5', tft_version: '0.4.2', ip: '10.0.0.5', ssid: 'home',
+    rssi, connection_uptime: uptime, last_panel_update: `2026-11-07T10:00:0${uptime % 10}Z`,
+    last_connection: '2026-11-07T09:00:00Z', idle_page_active: false,
+  });
+  const host = {
+    entryId: 'entry1',
+    _selectedDevice: 'kitchen',
+    _deviceConfig: {},
+    _deviceStatuses: { kitchen: { device_info: info(100, -60) } },
+    _devicePanels: () => [],
+  };
+  const before = previewRenderKey(host);
+  host._deviceStatuses = { kitchen: { device_info: info(105, -61) } };
+  assert.equal(previewRenderKey(host), before);
+  // what the About page shows still re-renders it
+  host._deviceStatuses = { kitchen: { device_info: { ...info(105, -61), ip: '10.0.0.6' } } };
+  assert.notEqual(previewRenderKey(host), before);
+});
+
 test('initial editor load caches every device status before previews can render', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
   const ed = editor();
@@ -152,9 +174,11 @@ test('the Device Manager stops polling when the editor is removed', async (t) =>
   dlg.updated(new Map([['open', false]]));
 
   dlg.disconnectedCallback();
+  const initialFetches = fetches;
   t.mock.timers.tick(15000);
 
-  assert.equal(fetches, 1);
+  assert.equal(initialFetches, 2); // one status fetch and the automatic device scan
+  assert.equal(fetches, initialFetches);
 });
 
 import { isOlderVersion } from '../../custom_components/nspanel_haui/frontend/device-info.js';

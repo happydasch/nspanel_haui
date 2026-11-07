@@ -9,49 +9,22 @@ Device-level settings configure the NSPanel hardware behaviour — buttons, soun
 
 ## Device Manager
 
-Opened from the panel toolbar. Lists all configured devices and lets you add (through **Scan**), remove, reorder, enable/disable, and open settings for a device.
-
-- **Scan for devices** — Discovers ESPHome devices on the network that run
-  HAUI firmware and offers them for batch-add. Discovered devices are added
-  enabled and linked to their ESPHome entry.
-- **Install TFT** — Open the device's **More** menu and choose **Install TFT**
-  to trigger an install immediately (installs stay automatic on connect; this
-  forces one now), even when the current display TFT version is unknown. A
-  picker opens in the device's row: **Version the firmware needs** (the
-  default, the firmware's `tft_required_version`), the TFT the firmware's
-  manifest ships when that is a different version, or **From URL** for a
-  custom or development build. Another version or a URL stays on the display
-  until the firmware version changes or Home Assistant restarts (see
-  [`nspanel_haui.update_tft`](../services.md#nspanel_hauiupdate_tft)). The row
-  shows **Display Unknown** / **Firmware Unknown** when those versions are not
-  reported. When the install cannot start (device offline, no
-  `tft_required_version` reported, or the manifest is unreadable or ships no
-  TFT for that version), the editor shows a toast with the reason instead of a
-  success message. A request that never gets an answer (e.g. the device worker
-  is blocked) times out after 20 seconds and shows a timeout toast instead of
-  doing nothing.
-- **Download firmware** — Opens the prebuilt `nspanel_haui.bin` of the latest
-  stable release when one is attached (development prereleases are skipped),
-  and explains the build-from-YAML path otherwise.
-  This is the manual fallback. Once a device runs firmware with the
-  `install_firmware_url` action (0.4.3 and later) and `firmware_auto_update` is
-  on, the hub installs a newer firmware release itself and the
-  matching TFT follows after the reboot. Older firmware has to be flashed once
-  manually through ESPHome.
-- **Install TFT retry** — After an install that the display never confirms
+Opened from the panel toolbar. Each time it opens, it automatically finds HAUI devices among Home Assistant's ESPHome config entries and offers unconfigured devices for batch-add. This is not a network scan. It also lets you remove, reorder, enable/disable, and open settings for a device.
+- **Update status** — Rows show firmware and TFT versions and current install state.
+  Start manual installs from **Device Info → Install update**, not from the
+  Device Manager.
+- **Install retry** — After an install that the display never confirms
   (the device does not report the new TFT version within its timeout), the
-  automatic path stops and reports an error. Press **Install TFT** again to
-  start a fresh attempt; a manually requested install is not blocked by the
-  previous unconfirmed one. Automatic installs stay disabled while an install
-  remains unconfirmed, so a display that cannot report its version is not
-  uploaded to forever.
-- **Refresh display** — Re-renders the display.
+  automatic path stops and reports an error. Use **Device actions → Info →
+  Install update → Display (TFT)** to start a fresh attempt; a manually requested
+  install is not blocked by the previous unconfirmed one. Automatic installs
+  stay disabled while an install remains unconfirmed, so a display that cannot
+  report its version is not uploaded to forever.
 - **Remove** — Asks for confirmation, then removes the device from the hub and
   deletes its settings and panels.
 - **Disabled devices** — A disabled device runs no app on the hub, so its menu
-  offers only **Enable**, reordering, **Settings** and **Remove**; **Refresh
-  display**, **Install TFT**, **Install firmware** and **Check for updates**
-  are available again once it is enabled.
+  offers only **Enable**, reordering, **Settings** and **Remove**. Manual updates
+  are available from Device Info after the device is enabled.
 - Each row shows whether the device is enabled, its firmware and TFT versions,
   IP address and signal strength; a display whose TFT is older than the TFT
   version the firmware requires (its `tft_required_version`, which need not
@@ -59,7 +32,14 @@ Opened from the panel toolbar. Lists all configured devices and lets you add (th
   from the ESPHome entity registry and displayed independently; unavailable
   values are omitted or shown as **Unknown**, and an unknown signal does not
   mean the device is offline. The **Device Info** dialog shows the IP, SSID and
-  signal readings from the same status data.
+  signal readings from the same status data. **Download firmware** opens the latest stable
+  release's prebuilt `nspanel_haui.bin` when attached (development prereleases
+  are skipped); otherwise it explains the build-from-YAML path. Downloading a
+  public image does not mean it is compatible with a custom device. Once a
+  device runs firmware with the `install_firmware_url` action (0.4.3 and later)
+  and `firmware_auto_update` is on, the hub installs newer compatible firmware
+  and the matching TFT follows after reboot. Older firmware must be flashed
+  once manually through ESPHome.
 
 The per-device fields:
 
@@ -161,9 +141,9 @@ The **Day/Night Profiles** section can automatically select two complete display
 
   Integration-managed migration marker (default `False`). The hub sets it after it has adopted restored ESPHome brightness/ramp values or confirmed explicit Day values; it is not an editor setting.
 
-**Day profile:** the existing `use_auto_dimming`, `timeout_dimming`, `use_auto_page`, `timeout_page`, `idle_panel`, `use_auto_display_off`, and `timeout_display_off` settings are the Day values. The additional brightness/ramp values are `day_brightness_full` (0–100%), `day_brightness_dimmed` (0–100%), and `day_duration_dim` (0–5 seconds). Dimmed brightness must not exceed full brightness. On first activation, unset Day brightness and ramp values are adopted from the device's restored ESPHome numbers and saved, so existing manual settings are preserved. If an adopted brightness would violate the dimmed/full relationship, only the unset value is adjusted (dimmed is clamped to full, or full is raised to dimmed); explicit Day values are preserved. If restored ESPHome values are not yet available, the hub waits before marking migration complete or applying Day brightness/ramp.
+**Day profile:** the existing `use_auto_dimming`, `timeout_dimming`, `use_auto_page`, `timeout_page`, `idle_panel`, `use_auto_display_off`, and `timeout_display_off` settings are the Day values. `use_auto_page`, `timeout_page`, and `idle_panel` are read by the hub; the firmware no longer exposes a page-switch switch or timeout number. The additional brightness/ramp values are `day_brightness_full` (0–100%), `day_brightness_dimmed` (0–100%), and `day_duration_dim` (0–5 seconds). Dimmed brightness must not exceed full brightness. On first activation, unset Day brightness and ramp values are adopted from the device's restored ESPHome numbers and saved, so existing manual settings are preserved. If an adopted brightness would violate the dimmed/full relationship, only the unset value is adjusted (dimmed is clamped to full, or full is raised to dimmed); explicit Day values are preserved. If restored ESPHome values are not yet available, the hub waits before marking migration complete or applying Day brightness/ramp.
 
-**Night profile:** configure `night_use_auto_dimming`, `night_timeout_dimming`, `night_duration_dim`, `night_use_auto_page`, `night_timeout_page`, `night_idle_panel`, `night_use_auto_display_off`, `night_timeout_display_off`, `night_brightness_full`, and `night_brightness_dimmed`. Their initial values match the firmware's standard settings (auto toggles enabled, dim/page/display-off timeouts 10/30/120 seconds, brightness 50/20%, ramp 2 seconds). Brightness is constrained to 0–100%, ramp to 0–5 seconds, and timeouts to 0–3600 seconds. An empty `night_idle_panel` means stay on the current page when automatic page switching fires.
+**Night profile:** configure `night_use_auto_dimming`, `night_timeout_dimming`, `night_duration_dim`, `night_use_auto_page`, `night_timeout_page`, `night_idle_panel`, `night_use_auto_display_off`, `night_timeout_display_off`, `night_brightness_full`, and `night_brightness_dimmed`. Their defaults mirror the previous firmware behavior where applicable (auto toggles enabled, dim/page/display-off timeouts 10/30/120 seconds, brightness 50/20%, ramp 2 seconds). Brightness is constrained to 0–100%, ramp to 0–5 seconds, and timeouts to 0–3600 seconds. Page switching is hub-side; dimming/display-off settings and brightness/ramp continue to sync with the firmware. Day and Night idle destinations are independent: an empty `night_idle_panel` disables the idle page at night rather than inheriting Day's `idle_panel`. If automatic page switching is enabled for the active profile and its idle key is empty while the other profile has one configured, the hub logs a warning.
 
 The separate `use_sleep_schedule` remains authoritative for effective automatic display-off when its window is valid: it allows display-off inside its window and prevents it outside, overriding either profile's `use_auto_display_off` value. Invalid/incomplete sleep windows continue to leave the profile's auto display-off setting in charge.
 
@@ -171,13 +151,17 @@ Profile timeouts are applied without counting as a touch. Firmware brightness an
 
 ### Automatic page switching
 
+`use_auto_page`, `timeout_page`, and the Day/Night idle panel keys are hub
+settings. The firmware no longer exposes the **Use Auto-Page** switch or
+**Timeout Page** number.
+
 - `use_auto_page` bool
 
   When enabled, the hub switches to the configured idle page (`idle_panel`) after `timeout_page` seconds of inactivity. This only changes the shown page — it neither dims nor turns the display off (use `use_auto_display_off` for that). A touch, or a hardware-button press when `reset_interaction_on_button` is enabled, exits the idle page and restores the previous panel. Default `True`.
 
 - `timeout_page` int
 
-  Seconds of inactivity before the idle page opens (`0` = disabled, max `3600` in the editor). Default `30`.
+  Seconds of inactivity before the idle page opens (`0` = disabled, max `3600` in the editor). Default `30`. The hub re-evaluates this and the activity clock once per second, so a saved change applies on the next check; a reconnect restarts the timeout after the page is restored.
 
 - `stale_data_seconds` int
 
@@ -292,13 +276,9 @@ shortcuts on top of that.
 
   After this many seconds without interaction on another panel, go back to the home panel. Set it shorter than the dimming and display-off timeouts. When the idle page opens first (`timeout_page` is shorter), the idle page stays, and leaving it goes to the home panel instead of the panel you were on. `0` = off (default).
 
-- `hub_idle_timeout` int
-
-  Hub-side idle page fallback: open the idle page (`idle_panel`) after this many seconds without interaction, also when the device doesn't report its own page timeout (for example with auto page off). `0` = off (default).
-
 ## Color Overrides
 
-Opened from its own dialog (separate from Device Settings). Lets you override individual entries of the built-in `COLORS` palette per device.
+Opened from its own dialog (separate from Device Settings). Lets you choose the **Dark Color**, **Light Color**, or **Black** preset, then adjust individual entries of the built-in `COLORS` palette per device. A preset fills the palette; any individual changes are saved as color overrides.
 
 - `color_overrides` dict
 
@@ -317,18 +297,24 @@ These exist in the underlying config but have no UI control yet, so they stay at
 
 ## Updates
 
-The device editor's **Updates** section controls release checks and automatic installs. These settings are stored per device and merged over the integration defaults, so a device that is never opened in the editor still runs the shipped defaults.
+The device editor's **Updates** section controls release checks and installs. These settings are stored per device and merged over the integration defaults, so a device that is never opened in the editor still runs the shipped defaults. [Update Process](../update-process.md) walks through the whole process: when checks run, what happens with updates on or off, and how to install an update.
 
-- `check_on_connect` (default `True`) — run a release check after the device connects.
-- `update_interval` (default `3600` seconds, hourly; `0` disables) — periodic release check.
+- `enabled` (default `True`) — master switch. When off, no update checks or firmware/display installs run, the HAUI Firmware and HAUI Display update entities become unavailable, and manual update actions/pickers are refused. An install already in progress is allowed to finish. Per-device check and auto-install settings are preserved and take effect again when updates are re-enabled.
+- `check_on_connect` (default `True`) — run a release check after the device connects. This and the periodic interval below control checks only while `enabled` is on.
+- `update_interval` (default `3600` seconds, hourly; `0` disables) — periodic
+  release check. The **Enable periodic update checks** toggle in the device
+  editor sets this to `0` when off; turning it back on restores hourly checks.
+  The interval can be changed while enabled.
 - `firmware_auto_update` (default `False`) — when enabled, on every release
   check installs the firmware the manifest offers when it is newer than the one
   the device runs (see `firmware_update_channel`/`firmware_manifest_url`).
   This check does not depend on the TFT being out of date. After reboot, the
   display TFT follows the new firmware's manifest. Enable this to allow
-  unattended firmware installs; the explicit **Install firmware** action stays
-  available either way. Installing another release or a URL by hand pauses this
-  check until Home Assistant restarts or the offered update is installed (see
+  unattended firmware installs. **Install update** is available in Device Info
+  whenever updates are enabled, even if there is no currently offered update;
+  it provides the full choice of firmware or TFT, releases, URL, or local file.
+  Installing another release or a URL pauses this check until Home Assistant
+  restarts or the offered update is installed (see
   [`nspanel_haui.update_firmware`](../services.md#nspanel_hauiupdate_firmware)).
 - `firmware_update_channel` (`stable` or `dev`, default `stable`) — which
   firmware manifest the **HAUI Firmware** entity follows when
@@ -346,8 +332,8 @@ The device editor's **Updates** section controls release checks and automatic in
   `custom`. A custom panel is therefore never offered the public universal
   image (`firmware_auto_update`, the **HAUI Firmware** entity and the editor's
   firmware picker all withhold it), so its API/OTA credentials cannot be
-  silently replaced. Flash a custom build with **Install firmware → From URL**
-  instead. Firmware older than 0.4.4 reports no variant and is treated the
+  silently replaced. Flash a custom build with **Install update → Firmware →
+  From URL** instead. Firmware older than 0.4.4 reports no variant and is treated the
   same: it is not offered the release image — flash the new firmware once
   manually (ESPHome or From URL) and the hub can update it afterwards.
 - `firmware_manifest_url` (empty by default) — the manifest that names the
@@ -375,23 +361,20 @@ remains an integration default and is not exposed in the editor.
 
 Home Assistant shows the firmware as the **HAUI Firmware** update entity and
 the display TFT as the **HAUI Display** update entity on the device page. Their
-**Install** runs the same install as **Install firmware** and **Install TFT**
-(see [Services](../services.md#haui-firmware-update-entity)).
+**Install** uses the same tracked installers as Device Info's **Install update**
+action and the integration's update services (see
+[Services](../services.md#haui-firmware-update-entity)).
 
 A TFT install the display never confirms is reported as an error in the editor
-instead of being retried automatically; press **Install TFT** to retry. The
-Device Manager action menu has **Install firmware**, which opens the same kind
-of picker as **Install TFT**: the update the **HAUI Firmware** entity offers
-(when there is one), any release that ships an over-the-air image (v0.4.2 and
-later, older ones included), or **From URL** for a firmware OTA image. The TFT
-picker lists the TFT the firmware's manifest ships (plus **From URL** for a
-custom or development TFT). **Check for updates** refreshes the configured
-firmware manifest and GitHub release info immediately (bypassing the one-hour
-release cache) and reports available versions without clearing prior failures
-or starting an install. Scheduled checks handle configured automatic firmware
-updates; the TFT requirement is checked separately after the device connects.
-A new GitHub release advisory is shown at most once per release and points users
-to the configured manifest as the firmware/display install source.
+instead of being retried automatically; press **Install update → Display (TFT)**
+in Device Info to retry. The same picker offers firmware and TFT releases, **From
+URL**, and **From local file**. Scheduled checks discover updates; the editor has
+no manual **Check for updates** action. The HA update entities do not poll, so
+the editor's former forced refresh is not available there; configured automatic
+firmware updates are still handled by scheduled checks, and the TFT requirement
+is checked separately after the device connects. A new GitHub release advisory
+is shown at most once per release and points users to the configured manifest
+as the firmware/display install source.
 
 ## Global Defaults (not per-device, fixed)
 

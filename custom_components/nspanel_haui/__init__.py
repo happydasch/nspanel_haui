@@ -594,46 +594,12 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     Registers the panel config REST API view and frontend static path.
     """
-    from .api import (
-        ColorDefaultsView,
-        DeviceConfigView,
-        DeviceFirmwareReleasesView,
-        DeviceRefreshDisplayView,
-        DeviceStatusView,
-        DeviceTftReleasesView,
-        DeviceUpdateCheckView,
-        DeviceUpdateFirmwareView,
-        DeviceUpdateTftView,
-        DeviceYamlView,
-        FirmwareDownloadView,
-        IconCharsView,
-        IconSearchView,
-        NotificationsView,
-        PanelConfigView,
-        PanelTypesView,
-        TranslationsView,
-    )
+    from .api import register_views
     from .editor_panel import async_register_frontend
     from .services import async_register_services
     from .websocket_api import async_register_websocket_commands
 
-    hass.http.register_view(TranslationsView())
-    hass.http.register_view(PanelConfigView())
-    hass.http.register_view(PanelTypesView())
-    hass.http.register_view(ColorDefaultsView())
-    hass.http.register_view(DeviceConfigView())
-    hass.http.register_view(DeviceStatusView())
-    hass.http.register_view(NotificationsView())
-    hass.http.register_view(DeviceRefreshDisplayView())
-    hass.http.register_view(DeviceUpdateTftView())
-    hass.http.register_view(DeviceTftReleasesView())
-    hass.http.register_view(DeviceUpdateFirmwareView())
-    hass.http.register_view(DeviceFirmwareReleasesView())
-    hass.http.register_view(DeviceUpdateCheckView())
-    hass.http.register_view(FirmwareDownloadView())
-    hass.http.register_view(DeviceYamlView())
-    hass.http.register_view(IconSearchView())
-    hass.http.register_view(IconCharsView())
+    register_views(hass)
     await async_register_frontend(hass)
     async_register_services(hass)
     async_register_websocket_commands(hass)

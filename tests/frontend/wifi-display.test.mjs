@@ -82,6 +82,150 @@ test('Device Info keeps partial readings and renders malformed RSSI as unknown',
   assert.doesNotMatch(idleMarkup, /Regular page/);
 });
 
+test('Device Info hides manual update actions when updates are disabled', () => {
+  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
+  const dialog = Object.create(DeviceInfo.prototype);
+  Object.assign(dialog, {
+    deviceStatus: { device_info: {}, update: { enabled: false } },
+    deviceName: 'kitchen',
+    _actionBusy: false,
+  });
+
+  const markup = collect(dialog.render()).join(' ');
+  assert.doesNotMatch(markup, /Install update|Display \(TFT\)|Download firmware/);
+});
+
+test('Device Info keeps manual install choices available without a compatible update offer', () => {
+  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
+  const dialog = Object.create(DeviceInfo.prototype);
+  Object.assign(dialog, {
+    deviceStatus: {
+      device_info: {},
+      update: {
+        enabled: true,
+        firmware_update_available: false,
+        tft_update_available: false,
+        firmware_update_version: null,
+      },
+    },
+    deviceName: 'custom-panel',
+    _picker: null,
+    _actionBusy: false,
+  });
+
+  const labels = collect(dialog.render());
+  assert.ok(labels.includes('Install update'));
+  assert.ok(labels.includes('Download firmware'));
+
+  dialog._openPicker('select', 'custom-panel');
+  const choices = collect(dialog._renderPicker('custom-panel', null, dialog.deviceStatus.update));
+  assert.ok(choices.includes('Display (TFT)'));
+  assert.ok(choices.includes('Firmware'));
+});
+
+test('Device Info offers both manual install types even if only TFT has a compatible update', () => {
+  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
+  const dialog = Object.create(DeviceInfo.prototype);
+  Object.assign(dialog, {
+    deviceStatus: {
+      device_info: {},
+      update: {
+        enabled: true,
+        firmware_update_available: false,
+        tft_update_available: true,
+      },
+    },
+    deviceName: 'custom-panel',
+    _picker: null,
+    _actionBusy: false,
+  });
+
+  assert.ok(collect(dialog.render()).includes('Install update'));
+  dialog._openPicker('select', 'custom-panel');
+  const choices = collect(dialog._renderPicker('custom-panel', null, dialog.deviceStatus.update));
+  assert.ok(choices.includes('Display (TFT)'));
+  assert.ok(choices.includes('Firmware'));
+});
+
+test('Device Info exposes refresh, update type selection, and firmware download actions', async () => {
+  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
+  const dialog = Object.create(DeviceInfo.prototype);
+  const calls = [];
+  Object.assign(dialog, {
+    deviceStatus: {
+      device_info: {},
+      update: {
+        enabled: true,
+        firmware_update_available: true,
+        tft_update_available: true,
+        firmware_update_version: '0.4.5',
+      },
+    },
+    deviceName: 'kitchen',
+    entryId: 'entry1',
+    _picker: null,
+    _actionBusy: false,
+    _toast: null,
+    hass: {
+      language: 'en',
+      locale: { language: 'en' },
+      async fetchWithAuth(path, options = {}) {
+        calls.push([path, options]);
+        return {
+          ok: true,
+          json: async () => path === '/api/nspanel_haui/firmware'
+            ? { url: 'https://example.test/nspanel_haui.bin', version: '0.4.5' }
+            : { status: 'ok', update: { state: 'installing' } },
+        };
+      },
+    },
+  });
+
+  await dialog._loadFirmwareDownloadInfo();
+  const markup = collect(dialog.render()).join(' ');
+  assert.match(markup, /Redraw display/);
+  assert.doesNotMatch(markup, /Refresh display/);
+  assert.match(markup, /Install update/);
+  assert.match(markup, /Download firmware/);
+  assert.match(markup, /Firmware download version/);
+  assert.ok(markup.includes('0.4.5'));
+
+  dialog._openPicker('select', 'kitchen');
+  const optionMarkup = collect(
+    dialog._renderPicker('kitchen', null, dialog.deviceStatus.update),
+  ).join(' ');
+  assert.ok(optionMarkup.includes('Display (TFT)'));
+  assert.match(optionMarkup, /Firmware/);
+  assert.doesNotMatch(optionMarkup, /Install update/);
+
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalOpen = window.open;
+  const opened = [];
+  window.open = (...args) => opened.push(args);
+  globalThis.setTimeout = () => 0;
+  try {
+    await dialog._refreshDisplay();
+    await dialog._downloadFirmware();
+    assert.deepEqual(dialog._toast, {
+      message: 'Downloading firmware 0.4.5',
+      type: 'success',
+    });
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    window.open = originalOpen;
+  }
+
+  assert.deepEqual(opened, [['https://example.test/nspanel_haui.bin', '_blank']]);
+  assert.deepEqual(calls.map(([path, options]) => [path, options.body ? JSON.parse(options.body) : undefined]), [
+    ['/api/nspanel_haui/firmware', undefined],
+    ['/api/nspanel_haui/refresh_display/entry1', { device: 'kitchen' }],
+  ]);
+  assert.deepEqual(dialog._toast, {
+    message: 'Downloading firmware 0.4.5',
+    type: 'success',
+  });
+});
+
 test('toolbar reads its IP from the backend status without entity-id lookup', () => {
   const markup = collect(renderDeviceInfoStrip({
     _deviceStatus: {

@@ -41,7 +41,7 @@ display:
             id: brightness_dim
             value: !lambda return int(id(brightness_dim).state);
         # Initialize display backlight and brightness sensor to break
-        # the NAN-guard deadlock in check_display
+        # the NAN-guard deadlock in update_display
         - script.execute:
             id: set_brightness
             intensity: !lambda return int(id(brightness_full).state);
@@ -59,6 +59,10 @@ display:
     on_touch:
       then:
         - lambda: |-
+            // A tap shorter than the 200 ms coordinate poll (check_interaction)
+            // can fall between two polls, so the display's own report of a
+            // touched widget counts as interaction as well.
+            id(reset_interaction_timer).execute(0);
             std::string event = std::to_string(page_id) + "," + std::to_string(component_id);
             event += "," + std::to_string(touch_event);
             id(publish_event_native).execute("esphome.component", event);

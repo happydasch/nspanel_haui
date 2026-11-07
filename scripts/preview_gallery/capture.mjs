@@ -11,10 +11,11 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const TABS = 4;
-const [chrome, jobsPath] = process.argv.slice(2);
-const jobs = JSON.parse(readFileSync(jobsPath, 'utf8'));
+const STDERR_LIMIT = 8 * 1024;
+const STARTUP_TIMEOUT_MS = 15000;
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
 class DevTools {
@@ -48,16 +49,31 @@ class DevTools {
 }
 
 // Chrome writes the port it picked to DevToolsActivePort in its profile.
-async function browserUrl(profile) {
+export async function browserUrl(profile, exited, getStderr, chrome, timeoutMs = STARTUP_TIMEOUT_MS) {
   const file = join(profile, 'DevToolsActivePort');
-  for (let attempt = 0; attempt < 300; attempt += 1) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
     if (existsSync(file)) {
       const [port, path] = readFileSync(file, 'utf8').split('\n');
       if (port && path) return `ws://127.0.0.1:${port}${path}`;
     }
-    await sleep(50);
+    const result = await Promise.race([
+      exited.then((status) => ({ status })),
+      sleep(Math.min(50, deadline - Date.now())).then(() => null),
+    ]);
+    if (result) {
+      const status = result.status;
+      const reason = status.error
+        ? `could not be launched: ${status.error.message}`
+        : `exited before creating DevToolsActivePort (code ${status.code}, signal ${status.signal})`;
+      const stderr = getStderr();
+      throw new Error(`${chrome} ${reason}${stderr ? `\nChrome stderr:\n${stderr}` : ''}`);
+    }
   }
-  throw new Error(`${chrome} did not start`);
+  const stderr = getStderr();
+  throw new Error(
+    `${chrome} did not expose DevToolsActivePort within ${timeoutMs} ms${stderr ? `\nChrome stderr:\n${stderr}` : ''}`,
+  );
 }
 
 async function capture(devtools, sessionId, job) {
@@ -88,39 +104,54 @@ async function capture(devtools, sessionId, job) {
   console.log(job.path);
 }
 
-const profile = mkdtempSync(join(tmpdir(), 'haui-gallery-'));
-const browser = spawn(chrome, [
-  '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
-  '--no-default-browser-check', `--user-data-dir=${profile}`, '--remote-debugging-port=0',
-  // The tabs run side by side: background tabs must not have their timers
-  // and rendering throttled, or a card waits for its turn to be drawn.
-  '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
-  '--disable-backgrounding-occluded-windows',
-  'about:blank',
-], { stdio: 'ignore' });
-const exited = new Promise((resolve) => { browser.once('exit', resolve); });
-let failed = false;
-try {
-  const devtools = new DevTools(await browserUrl(profile));
-  await devtools.opened();
-  const queue = [...jobs];
-  await Promise.all(Array.from({ length: Math.min(TABS, jobs.length) }, async () => {
-    // A window per tab keeps every tab visible: a hidden page never decodes the
-    // card's background pictures, so it would never be ready.
-    const { targetId } = await devtools.send('Target.createTarget', {
-      url: 'about:blank', newWindow: true,
-    });
-    const { sessionId } = await devtools.send('Target.attachToTarget', { targetId, flatten: true });
-    while (queue.length) await capture(devtools, sessionId, queue.shift());
-  }));
-  await devtools.send('Browser.close');
-} catch (err) {
-  console.error(err.message);
-  failed = true;
-} finally {
-  browser.kill();
-  // Chrome writes to its profile until it has exited.
-  await exited;
-  rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+async function main() {
+  const [chrome, jobsPath] = process.argv.slice(2);
+  const jobs = JSON.parse(readFileSync(jobsPath, 'utf8'));
+  const profile = mkdtempSync(join(tmpdir(), 'haui-gallery-'));
+  const browser = spawn(chrome, [
+    '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
+    '--no-default-browser-check', `--user-data-dir=${profile}`, '--remote-debugging-port=0',
+    // The tabs run side by side: background tabs must not have their timers
+    // and rendering throttled, or a card waits for its turn to be drawn.
+    '--disable-background-timer-throttling', '--disable-renderer-backgrounding',
+    '--disable-backgrounding-occluded-windows',
+    'about:blank',
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  let launchError;
+  browser.stderr.setEncoding('utf8');
+  browser.stderr.on('data', (chunk) => {
+    stderr = (stderr + chunk).slice(-STDERR_LIMIT);
+  });
+  browser.on('error', (error) => { launchError = error; });
+  const exited = new Promise((resolve) => {
+    browser.once('close', (code, signal) => resolve({ code, signal, error: launchError }));
+  });
+  let failed = false;
+  try {
+    const devtools = new DevTools(await browserUrl(profile, exited, () => stderr.trim(), chrome));
+    await devtools.opened();
+    const queue = [...jobs];
+    await Promise.all(Array.from({ length: Math.min(TABS, jobs.length) }, async () => {
+      // A window per tab keeps every tab visible: a hidden page never decodes the
+      // card's background pictures, so it would never be ready.
+      const { targetId } = await devtools.send('Target.createTarget', {
+        url: 'about:blank', newWindow: true,
+      });
+      const { sessionId } = await devtools.send('Target.attachToTarget', { targetId, flatten: true });
+      while (queue.length) await capture(devtools, sessionId, queue.shift());
+    }));
+    await devtools.send('Browser.close');
+  } catch (err) {
+    console.error(err.message);
+    failed = true;
+  } finally {
+    browser.kill();
+    // Chrome writes to its profile until it has exited.
+    await exited;
+    rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  }
+  process.exitCode = failed ? 1 : 0;
 }
-process.exit(failed ? 1 : 0);
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

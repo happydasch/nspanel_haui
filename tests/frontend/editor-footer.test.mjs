@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 await import('./dom-shim.mjs');
-const { getEditorVersion, isPrereleaseVersion } = await import(
+const { docsUrl, getEditorVersion, isPrereleaseVersion } = await import(
   '../../custom_components/nspanel_haui/frontend/toolbar.js'
 );
 
@@ -33,4 +33,11 @@ test('editor footer marks PEP 440 prerelease versions as development builds', ()
   for (const version of ['0.4.5', '0.4.5.post1', '0.4.5+local', '0.4.5+local.dev1']) {
     assert.equal(isPrereleaseVersion(version), false, version);
   }
+});
+
+test('editor footer links prereleases to the dev docs and releases to the stable docs', () => {
+  assert.equal(docsUrl('0.4.5.dev31'), 'https://happydasch.github.io/nspanel_haui/dev/');
+  assert.equal(docsUrl('1.0.0rc1'), 'https://happydasch.github.io/nspanel_haui/dev/');
+  assert.equal(docsUrl('0.4.5'), 'https://happydasch.github.io/nspanel_haui/');
+  assert.equal(docsUrl(null), 'https://happydasch.github.io/nspanel_haui/');
 });

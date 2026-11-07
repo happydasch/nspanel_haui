@@ -11,8 +11,7 @@ import './confirm.js';
 import { t } from '../localize.js';
 import { positionContextMenu, onOutsideClick, offOutsideClick } from '../dom-helpers.js';
 import * as Toast from '../toast.js';
-import { scanDevices, getFirmwareDownload, getTftReleases, getFirmwareReleases } from '../api.js';
-import { renderSelect } from '../form-fields.js';
+import { scanDevices } from '../api.js';
 import { rssiIcon, rssiStrengthClass, fmtRssi, isOlderVersion } from '../device-info.js';
 
 /* ── helpers ────────────────────────────────────────────────── */
@@ -63,7 +62,6 @@ class DeviceManagerDialog extends HauiDialog {
       _removeTarget: { type: String, state: true },
       _toast: { type: Object, state: true },
       _deviceStatuses: { type: Object, state: true },
-      _picker: { type: Object, state: true },
     };
   }
 
@@ -80,10 +78,6 @@ class DeviceManagerDialog extends HauiDialog {
     // Device whose removal waits for confirmation.
     this._removeTarget = null;
     this.__statusTimer = null;
-    // Open TFT / firmware install picker: { kind, device, releases (null
-    // while loading), releasesError, choice ("" = default, a release tag,
-    // "url", or null until a firmware release loaded), url, error }.
-    this._picker = null;
   }
 
   connectedCallback() {
@@ -122,9 +116,9 @@ class DeviceManagerDialog extends HauiDialog {
     if (changed.has("open")) {
       if (this.open) {
         this._startStatusPolling();
+        this._onScan();
       } else {
         this._stopStatusPolling();
-        this._picker = null;
         this._removeTarget = null;
       }
     }
@@ -182,6 +176,7 @@ class DeviceManagerDialog extends HauiDialog {
               ` : deviceKeys.map(name => this._renderDeviceRow(name))}
             </div>
 
+            ${this._scanning ? html`<p class="field-hint">${t('Scanning...')}</p>` : ''}
             <!-- discovered devices (scan results) -->
             ${scanned.length > 0 ? html`
               <div class="device-mgr-section">
@@ -217,20 +212,6 @@ class DeviceManagerDialog extends HauiDialog {
         </form>${Toast.renderToast(this)}
 
         <div slot="footer" class="device-mgr-footer">
-          <div class="footer-toggle-wrapper">
-            <ha-button @click=${() => this._onScan()} variant="neutral" appearance="plain" ?disabled=${this._scanning}>
-              <ha-icon icon="mdi:magnify" slot="icon"></ha-icon>
-              ${this._scanning ? t('Scanning...') : t('Scan')}
-            </ha-button>
-            <ha-button @click=${() => this._emit("refresh-display", { name: "*" })} variant="neutral" appearance="plain">
-              <ha-icon icon="mdi:refresh" slot="icon"></ha-icon>
-              ${t('Refresh all displays')}
-            </ha-button>
-            <ha-button @click=${() => this._onDownloadFirmware()} variant="neutral" appearance="plain" title="${t('Download the firmware binary of the latest release')}">
-              <ha-icon icon="mdi:download" slot="icon"></ha-icon>
-              ${t('Download firmware')}
-            </ha-button>
-          </div>
           <ha-button @click=${this._dispatchClose}>
             ${t('Close')}
           </ha-button>
@@ -292,16 +273,6 @@ class DeviceManagerDialog extends HauiDialog {
         label: enabled ? t('Disable') : t('Enable'), action: () => { this._emit("toggle-device", { name }); this._closeDeviceMenu(); }
       },
       'divider',
-      // A disabled device runs no app, so the hub has nothing to run these on.
-      { icon: 'mdi:refresh', label: t('Refresh display'), disabled: !enabled, action: () => { this._emit("refresh-display", { name }); this._closeDeviceMenu(); } },
-      { icon: 'mdi:update', label: t('Install TFT'), disabled: !enabled, action: () => { this._openPicker("tft", name); this._closeDeviceMenu(); } },
-      {
-        icon: 'mdi:chip', label: t('Install firmware'), disabled: !enabled || updateStatus?.firmware_installing,
-        // Without an offered update there is no default: preselect a release.
-        action: () => { this._openPicker("firmware", name, updateStatus?.firmware_update_available ? "" : null); this._closeDeviceMenu(); },
-      },
-      { icon: 'mdi:cloud-search-outline', label: t('Check for updates'), disabled: !enabled, action: () => { this._emit("check-for-update", { name }); this._closeDeviceMenu(); } },
-      'divider',
       { icon: 'mdi:arrow-up', label: t('Move Up'), disabled: !canMoveUp, action: () => { this._emit("move-device", { name, direction: -1 }); this._closeDeviceMenu(); } },
       { icon: 'mdi:arrow-down', label: t('Move Down'), disabled: !canMoveDown, action: () => { this._emit("move-device", { name, direction: 1 }); this._closeDeviceMenu(); } },
       'divider',
@@ -336,7 +307,6 @@ class DeviceManagerDialog extends HauiDialog {
                 : ''}
             ${nw.ip ? html`<span class="info-chip" title="${t('IP Address')}">${nw.ip}</span>` : ''}
           </div>
-          ${this._picker?.device === name ? this._renderPicker(name, requiredTft, updateStatus) : ''}
         </div>
         <div class="device-mgr-row-actions">
           <div class="device-mgr-more" data-didx=${idx}>
@@ -372,117 +342,6 @@ class DeviceManagerDialog extends HauiDialog {
     `;
   }
 
-  /* ── TFT / firmware install picker ────────────────────────────────── */
-
-  async _openPicker(kind, name, choice = "") {
-    this._picker = { kind, device: name, releases: null, releasesError: "", choice, url: "", error: "" };
-    const load = kind === "tft" ? getTftReleases : getFirmwareReleases;
-    let result;
-    try {
-      result = await load({ entryId: this.entryId, hass: this.hass }, name);
-    } catch (e) {
-      result = {
-        releases: [],
-        error: e.message || (kind === "tft" ? t('Failed to load the TFT releases') : t('Failed to load the firmware releases')),
-      };
-    }
-    // The picker may have been closed or opened for another install meanwhile.
-    if (this._picker?.kind !== kind || this._picker.device !== name) return;
-    const releases = result.releases;
-    const pending = this._picker.choice === null;
-    const required = result.required;
-    const tftNeedsExplicitChoice = kind === "tft"
-      && this._picker.choice === ""
-      && (!required || releases.length === 0);
-    const defaultChoice = pending || tftNeedsExplicitChoice
-      ? (releases[0] ?? "url")
-      : this._picker.choice;
-    this._picker = {
-      ...this._picker,
-      releases,
-      releasesError: result.error || "",
-      choice: defaultChoice,
-    };
-  }
-
-  _updatePicker(changes) { this._picker = { ...this._picker, ...changes }; }
-
-  _installFromPicker() {
-    const { kind, device: name, choice } = this._picker;
-    if (choice === null) return;
-    const event = kind === "tft" ? "update-tft" : "update-firmware";
-    if (choice === "url") {
-      const url = this._picker.url.trim();
-      if (!/^https?:\/\/\S+$/i.test(url)) {
-        this._updatePicker({
-          error: kind === "tft"
-            ? t('Enter the http(s) URL of a .tft file')
-            : t('Enter the http(s) URL of a firmware OTA image (.bin)'),
-        });
-        return;
-      }
-      this._emit(event, { name, url });
-    } else if (choice) {
-      this._emit(event, { name, version: choice });
-    } else {
-      this._emit(event, { name });
-    }
-    this._picker = null;
-  }
-
-  _renderPicker(name, required, updateStatus) {
-    const { kind, releases, releasesError, choice, url, error } = this._picker;
-    const tft = kind === "tft";
-    let defaults = [];
-    if (tft) {
-      defaults = [["", required
-        ? t('Version the firmware needs ({version})').replace('{version}', required)
-        : t('Version the firmware needs')]];
-    } else if (updateStatus?.firmware_update_available) {
-      defaults = [["", t('Offered update ({version})').replace('{version}', updateStatus.firmware_update_version || '')]];
-    }
-    // The manifest's TFT is normally the required one, which the default
-    // already installs; list it only when it differs.
-    const listed = (releases || []).filter((tag) => !(tft && required && tag === required));
-    const options = [...defaults, ...listed.map((tag) => [tag, tag]), ["url", t('From URL')]];
-    return html`
-      <div class="device-mgr-add-form device-mgr-tft-form" @click=${(e) => e.stopPropagation()}>
-        <div class="form-group">
-          <label for="dm-install-source">${tft ? t('TFT to install') : t('Firmware to install')}</label>
-          ${renderSelect("dm-install-source", choice, options, (value) => this._updatePicker({ choice: value, error: "" }))}
-          ${releases === null ? html`<div class="field-hint">${t('Loading releases\u2026')}</div>` : ''}
-          ${releasesError
-            ? html`<div class="field-hint">${t('Releases unavailable: {error}').replace('{error}', releasesError)}</div>`
-            : ''}
-        </div>
-        ${choice === "url" ? html`
-          <div class="form-group">
-            <label for="dm-install-url">${tft ? t('TFT file URL') : t('Firmware OTA image URL')}</label>
-            <input
-              id="dm-install-url"
-              class="native-input"
-              type="url"
-              .value=${url}
-              @input=${(e) => this._updatePicker({ url: e.target.value, error: "" })}
-            />
-          </div>
-        ` : ''}
-        <div class="field-hint">${tft
-          ? t('Another release or a URL stays on the display until the firmware version changes or Home Assistant restarts.')
-          : t('Another release or a URL pauses automatic firmware updates until Home Assistant restarts. Use the OTA image (nspanel_haui_ota.bin), not the factory image.')}</div>
-        ${error ? html`<p class="device-mgr-error">${error}</p>` : ''}
-        <div class="device-mgr-add-actions">
-          <ha-button variant="neutral" appearance="plain" @click=${() => { this._picker = null; }}>
-            ${t('Cancel')}
-          </ha-button>
-          <ha-button ?disabled=${choice === null} @click=${() => this._installFromPicker()}>
-            ${t('Install')}
-          </ha-button>
-        </div>
-      </div>
-    `;
-  }
-
   /* ── scan for devices ──────────────────────────────────────────────── */
 
   async _onScan() {
@@ -496,35 +355,11 @@ class DeviceManagerDialog extends HauiDialog {
         (d) => !(this.devices || {})[d.name || d.friendly_name]
       );
       this._scannedDevices = discovered;
-      if (!discovered.length) {
-        this._scanError = t('No new HAUI devices found');
-      }
     } catch (e) {
       this._scanError = e.message || t('Scan failed');
     }
     this._scanning = false;
     this.requestUpdate();
-  }
-
-  /* ── firmware download link ─────────────────────────────────────── */
-
-  async _onDownloadFirmware() {
-    try {
-      const { url, version } = await getFirmwareDownload({ entryId: this.entryId, hass: this.hass });
-      if (!url) {
-        this.showToast(t("No prebuilt firmware binary published for this release. Build from YAML or use the ESPHome dashboard."), "error");
-        return;
-      }
-      window.open(url, "_blank");
-      this.showToast(
-        version
-          ? t('Downloading firmware {version}').replace('{version}', version)
-          : t('Downloading firmware'),
-        "success",
-      );
-    } catch (e) {
-      this.showToast(e.message || t("Failed to load the firmware link"), "error");
-    }
   }
 }
 

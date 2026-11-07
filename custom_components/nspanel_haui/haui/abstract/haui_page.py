@@ -433,39 +433,18 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
                 return override_id
         return self.find_esphome_entity_id("sensor", "Temperature")
 
-    def _save_auto_state(self, keys: Collection[str] | None = None) -> dict[str, tuple[Any, bool]]:
-        """Save and disable available firmware auto switches for a popup.
+    def suspended_auto_switches(self) -> Collection[str]:
+        """The automatic behaviours to hold off while this page is on screen.
 
-        Args:
-            keys: The switches to suspend (``auto_dimming``, ``auto_page``,
-                ``auto_display_off``); all of them when omitted.
+        Keys of ``AUTO_SWITCHES`` name firmware switches; ``AUTO_PAGE_HOLD``
+        holds the hub's automatic page switch. The device applies the firmware
+        switches (``HAUIDevice.apply_auto_switches``) whenever navigation
+        changes the page; navigation reads the page hold on every inactivity
+        check. A page whose answer changes while it is shown calls
+        ``apply_auto_switches`` itself (the next check picks the page hold up).
+        Once the page is gone, every switch follows the device settings again.
         """
-        states: dict[str, tuple[Any, bool]] = {}
-        for key, name in (
-            ("auto_dimming", "Use Auto-Dimming"),
-            ("auto_page", "Use Auto-Page"),
-            ("auto_display_off", "Use Auto Display-Off"),
-        ):
-            if keys is not None and key not in keys:
-                continue
-            entity_id = self.find_esphome_entity_id("switch", name)
-            if entity_id is None or not self.app.item_exists(entity_id):
-                continue
-            item = self.app.get_item(entity_id)
-            enabled = item.get_state() == "on"
-            states[key] = (item, enabled)
-            item.turn_off()
-        return states
-
-    def _restore_auto_state(self, states: dict[str, tuple[Any, bool]]) -> None:
-        """Restore the resolved firmware auto switches saved for a popup.
-
-        Args:
-            states: The mapping returned by ``_save_auto_state()``.
-        """
-        for item, enabled in states.values():
-            if enabled and self.app.item_exists(item.entity_id):
-                item.turn_on()
+        return ()
 
     # items
 

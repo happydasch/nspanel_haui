@@ -139,8 +139,8 @@ entities** tooltip, relay-switching hardware buttons, idle highlight and
 hub's own render), **Every popup can be edited**, **Long press to go back**,
 Day/Night Profiles, the inside-temperature sensor picker, notification line
 breaks and the notification text/icon/paging fixes, the
-firmware-to-integration update move, alarm action-button options and versioned
-dev releases.
+firmware-to-integration update move, encrypted native OTA, alarm action-button
+options and versioned dev releases.
 
 The following items remain before the 0.4.x install gate can close:
 
@@ -156,12 +156,6 @@ The following items remain before the 0.4.x install gate can close:
   present on the published release and keep them in git through 0.5.
 - Investigate the old-bootloader OTA rollback warning; rollback capability is
   not confirmed and unattended updates should not be treated as rollback-safe.
-- **Encrypted native OTA** (issue #81) — implemented on `dev`: native OTA is
-  encrypted with `api_encryption_key` instead of a password, and the migration
-  is documented in [ESPHome → Encrypted native OTA](docs/esphome.md#encrypted-native-ota).
-  Remaining: one wireless ESPHome install onto a panel that runs a 0.4
-  password build, to confirm on hardware that the encrypted upload needs no
-  migration step.
 - Issue #50 (notification enhancements) stays documentation-only: notification
   behavior is tracked and verified on both display models during this pass; no
   font-size or other notification implementation is planned.

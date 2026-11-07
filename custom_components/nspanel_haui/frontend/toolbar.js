@@ -279,6 +279,13 @@ export function isPrereleaseVersion(version) {
   );
 }
 
+const DOCS_URL = 'https://happydasch.github.io/nspanel_haui/';
+
+/** Return the docs for a version: prereleases are built from `dev`, published under `dev/`. */
+export function docsUrl(version) {
+  return version && isPrereleaseVersion(version) ? `${DOCS_URL}dev/` : DOCS_URL;
+}
+
 const EDITOR_VERSION = getEditorVersion(import.meta.url);
 
 /** Render version information alongside the persistent editor links. */
@@ -305,7 +312,7 @@ export function renderFooter(host) {
       </a>
       <a
         class="footer-link"
-        href="https://happydasch.github.io/nspanel_haui/"
+        href="${docsUrl(EDITOR_VERSION)}"
         target="_blank"
         rel="noopener noreferrer"
         title="${t('Documentation')}"

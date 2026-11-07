@@ -303,6 +303,7 @@ class TestOptionsToConfigDict:
         assert result["update"]["check_on_connect"] is False
         # Keys the store does not override keep the shipped defaults.
         assert result["update"]["firmware_auto_update"] is False
+        assert result["update"]["enabled"] is True
         assert (
             result["update"]["firmware_auto_update"]
             == DEFAULT_CONFIG["update"]["firmware_auto_update"]

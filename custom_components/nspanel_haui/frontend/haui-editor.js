@@ -514,7 +514,11 @@ class NSPanelEditor extends LitElement {
           .hass=${this.hass}
           .open=${this._showDeviceInfo}
           .deviceStatus=${this._deviceStatus}
+          .deviceName=${this._selectedDevice}
+          .entryId=${this.entryId}
           @dialog-closed=${() => { this._showDeviceInfo = false; this.requestUpdate(); }}
+          @update-tft=${(e) => DeviceEvents.onDeviceManagerUpdateTft(this, e)}
+          @update-firmware=${(e) => DeviceEvents.onDeviceManagerUpdateFirmware(this, e)}
         ></nspanel-dialog-device-info>
 
         <nspanel-dialog-notifications
@@ -545,10 +549,6 @@ class NSPanelEditor extends LitElement {
           @move-device=${(e) => DeviceEvents.onDeviceManagerMoveDevice(this, e)}
           @toggle-device=${(e) => DeviceEvents.onDeviceManagerToggleDevice(this, e)}
           @scan-devices=${(e) => DeviceEvents.onDeviceManagerScan(this, e)}
-          @refresh-display=${(e) => DeviceEvents.onDeviceManagerRefreshDisplay(this, e)}
-          @update-tft=${(e) => DeviceEvents.onDeviceManagerUpdateTft(this, e)}
-          @update-firmware=${(e) => DeviceEvents.onDeviceManagerUpdateFirmware(this, e)}
-          @check-for-update=${(e) => DeviceEvents.onDeviceManagerCheckUpdate(this, e)}
         ></nspanel-dialog-device-manager>
 
         <nspanel-dialog-live-preview

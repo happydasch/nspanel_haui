@@ -54,27 +54,6 @@ script:
           prev_x = curr_x;
           prev_y = curr_y;
 
-  # Script to check page related changes
-  - id: check_page
-    then:
-      - lambda: |-
-          if (!id(hub_connection) || !id(use_auto_page).state) {
-            return;
-          }
-
-          // timeout value
-          int timeout_page_val = int(id(timeout_page).state);
-          float diff_seconds = id(interaction_age_ms) / 1000.0f;
-          static float last_diff_seconds = 0;
-
-
-          // the timeout was reached
-          if (timeout_page_val > 0 && diff_seconds > timeout_page_val and last_diff_seconds <= timeout_page_val) {
-            id(publish_event_native).execute("esphome.timeout", "page");
-          }
-
-          last_diff_seconds = diff_seconds;
-
   # Script to process touch gestures
   - id: process_touch_gesture
     parameters:

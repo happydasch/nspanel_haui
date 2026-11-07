@@ -206,7 +206,14 @@ export class VirtualPanelSession {
 
   /** Act as if the display's inactivity timer switched to the idle page. */
   idleTimeout() {
-    return this.sendEvent('esphome.timeout', 'page');
+    if (!this.sessionId || this._stopped) return this._sendChain;
+    this._sendChain = this._sendChain
+      .then(() => this.hass.callWS({
+        type: 'nspanel_haui/virtual_panel/idle',
+        session_id: this.sessionId,
+      }))
+      .catch(err => this.onError(err?.message || String(err)));
+    return this._sendChain;
   }
 
   /** Switch between sandbox and live mode; going live drops the simulated states. */

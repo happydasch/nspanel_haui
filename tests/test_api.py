@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import time
 import types
 from functools import wraps
 from typing import Any
 from unittest.mock import MagicMock
+from urllib.parse import urlsplit
 
 import pytest
 import requests
@@ -92,6 +94,15 @@ class _Request(dict):
         return self._body
 
 
+class _UploadBody:
+    def __init__(self, *chunks: bytes) -> None:
+        self.chunks = chunks
+
+    async def iter_chunked(self, _size: int):
+        for chunk in self.chunks:
+            yield chunk
+
+
 class _Entry:
     def __init__(self, data: dict) -> None:
         self.entry_id = "entry1"
@@ -127,6 +138,7 @@ class _Hass:
         self.events: list[str] = []
         self.config_entries = _ConfigEntries(entry, self.events)
         self.data: dict = {"nspanel_haui": {}}
+        self.config = types.SimpleNamespace(internal_url="http://ha.local:8123")
         self.created_tasks: list = []
 
     def async_create_task(self, coro):
@@ -562,7 +574,7 @@ def test_push_panels_with_legacy_single_app_does_not_reload(monkeypatch):
     _use_store(monkeypatch, hass)
     hass.data["nspanel_haui"]["entry1"] = _WorkerApp()
 
-    result = asyncio.run(api._push_panels(hass, "entry1", {"version": 1, "devices": {}}))
+    result = asyncio.run(api.config.push_panels(hass, "entry1", {"version": 1, "devices": {}}))
 
     assert result == {"status": "ok"}
     assert hass.config_entries.reloads == []
@@ -704,7 +716,7 @@ class _BinResponse:
 
 def test_firmware_download_resolves_the_latest_binary_asset(monkeypatch):
     monkeypatch.setattr(
-        api.requests,
+        requests,
         "get",
         lambda url, timeout: _BinResponse(
             [
@@ -735,7 +747,7 @@ def test_firmware_download_resolves_the_latest_binary_asset(monkeypatch):
 
 def test_firmware_download_without_a_binary_returns_no_url(monkeypatch):
     monkeypatch.setattr(
-        api.requests,
+        requests,
         "get",
         lambda url, timeout: _BinResponse(
             [
@@ -758,7 +770,7 @@ def test_firmware_download_unreachable_github_returns_error(monkeypatch):
     def raise_timeout(url, timeout):
         raise requests.exceptions.ConnectTimeout("no route to host")
 
-    monkeypatch.setattr(api.requests, "get", raise_timeout)
+    monkeypatch.setattr(requests, "get", raise_timeout)
     hass = MagicMock()
 
     result = asyncio.run(api.FirmwareDownloadView().get(_Request(hass, admin=True)))
@@ -770,7 +782,7 @@ def test_firmware_download_unreachable_github_returns_error(monkeypatch):
 
 
 def test_firmware_download_empty_release_list_returns_error(monkeypatch):
-    monkeypatch.setattr(api.requests, "get", lambda url, timeout: _BinResponse([]))
+    monkeypatch.setattr(requests, "get", lambda url, timeout: _BinResponse([]))
     hass = MagicMock()
 
     result = asyncio.run(api.FirmwareDownloadView().get(_Request(hass, admin=True)))
@@ -785,7 +797,7 @@ def test_firmware_download_skips_development_prereleases(monkeypatch):
         return {"tag_name": tag, "prerelease": prerelease, "assets": [asset]}
 
     monkeypatch.setattr(
-        api.requests,
+        requests,
         "get",
         lambda url, timeout: _BinResponse([release("0.4.5.dev28", True), release("v0.4.4", False)]),
     )
@@ -793,6 +805,218 @@ def test_firmware_download_skips_development_prereleases(monkeypatch):
     result = asyncio.run(api.FirmwareDownloadView().get(_Request(MagicMock(), admin=True)))
 
     assert result["body"] == {"url": "/v0.4.4.bin", "version": "v0.4.4"}
+
+
+def _upload_request(hass, *, kind: str, filename: str, image: bytes, device: str = "kitchen"):
+    request = _Request(
+        hass,
+        admin=True,
+        query={"device": device, "filename": filename},
+    )
+    request.content = _UploadBody(image)
+    request.content_length = len(image)
+    request.headers = {}
+    return request
+
+
+def test_local_tft_upload_stages_a_range_readable_file_and_starts_install():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    image = b"\x00\x01DN2E" + bytes(range(20))
+
+    result = asyncio.run(
+        api.DeviceUpdateUploadView().post(
+            _upload_request(hass, kind="tft", filename="panel.tft", image=image),
+            entry_id="entry1",
+            kind="tft",
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert app.calls[0] == "worker"
+    _, staged_url = app.calls[1]
+    assert staged_url.startswith("http://ha.local:8123/api/nspanel_haui/update_artifact/")
+    token = urlsplit(staged_url).path.rsplit("/", 1)[-1]
+    artifacts = hass.data[api.updates._UPLOADS_KEY]
+    assert artifacts[token].content == image
+
+    request = types.SimpleNamespace(
+        app={"hass": hass},
+        match_info={"token": token},
+        headers={"Range": "bytes=3-8"},
+    )
+    ranged = asyncio.run(api.DeviceUpdateArtifactView().get(request, token=token))
+    repeated = asyncio.run(
+        api.DeviceUpdateArtifactView().get(
+            types.SimpleNamespace(app={"hass": hass}, match_info={"token": token}, headers={}),
+            token=token,
+        )
+    )
+    assert ranged.status == 206
+    assert ranged.headers["Content-Range"] == f"bytes 3-8/{len(image)}"
+    assert ranged.body == image[3:9]
+    assert repeated.status == 200
+    assert repeated.body == image
+
+
+def test_local_firmware_upload_uses_existing_firmware_install_path():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    image = b"\xe9" + bytes(range(64))
+
+    result = asyncio.run(
+        api.DeviceUpdateUploadView().post(
+            _upload_request(hass, kind="firmware", filename="ota.bin", image=image),
+            entry_id="entry1",
+            kind="firmware",
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert app.calls[0] == "worker"
+    assert app.calls[1][0:2] == ("install_firmware", None)
+    assert app.calls[1][2].startswith("http://ha.local:8123/api/nspanel_haui/update_artifact/")
+    token = urlsplit(app.calls[1][2]).path.rsplit("/", 1)[-1]
+    assert hass.data[api.updates._UPLOADS_KEY][token].content == image
+
+
+def test_local_tft_upload_ignores_the_error_of_an_earlier_attempt():
+    """``last_error`` outlives a failed attempt; a started upload keeps its file."""
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+
+    async def install_started(version=None, url=None):
+        return {"state": "installing", "last_error": "previous attempt failed"}
+
+    app.async_install_tft = install_started
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    image = b"\x00\x01DN2E" + bytes(range(20))
+
+    result = asyncio.run(
+        api.DeviceUpdateUploadView().post(
+            _upload_request(hass, kind="tft", filename="panel.tft", image=image),
+            entry_id="entry1",
+            kind="tft",
+        )
+    )
+
+    assert result["status_code"] == 200
+    assert len(hass.data[api.updates._UPLOADS_KEY]) == 1
+
+
+@pytest.mark.parametrize("view", [api.DeviceUpdateFirmwareView, api.DeviceUpdateTftView])
+def test_an_unreadable_install_body_installs_nothing(view):
+    """A malformed body must not fall back to "install on every device"."""
+
+    class _BadJsonRequest(_Request):
+        async def json(self):
+            raise ValueError("not JSON")
+
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(view().post(_BadJsonRequest(hass, admin=True), entry_id="entry1"))
+
+    assert result["status_code"] == 400
+    assert app.calls == []
+
+
+def test_register_views_registers_every_view():
+    registered: list = []
+    hass = types.SimpleNamespace(http=types.SimpleNamespace(register_view=registered.append))
+
+    api.register_views(hass)
+
+    assert [type(view) for view in registered] == list(api.VIEWS)
+    assert len({view.url for view in registered}) == len(api.VIEWS)
+
+
+@pytest.mark.parametrize(
+    ("kind", "filename", "image", "device", "content_length", "status"),
+    [
+        ("other", "panel.tft", b"\x00\x01DN2E" + bytes(16), "kitchen", None, 400),
+        ("tft", "panel.bin", b"\x00\x01DN2E" + bytes(16), "kitchen", None, 400),
+        ("tft", "panel.tft", b"not a TFT image" + bytes(5), "kitchen", None, 400),
+        ("firmware", "firmware.bin", b"not an image", "kitchen", None, 400),
+        ("tft", "panel.tft", b"\x00\x01DN2E" + bytes(16), "*", None, 400),
+        ("tft", "panel.tft", b"\x00\x01DN2E" + bytes(16), "missing", None, 404),
+        ("firmware", "firmware.bin", b"\xe9", "kitchen", api.updates.FIRMWARE_MAX_BYTES + 1, 413),
+    ],
+    ids=[
+        "unknown-kind",
+        "wrong-extension",
+        "bad-tft-signature",
+        "bad-firmware-magic",
+        "all-devices",
+        "unknown-device",
+        "too-large",
+    ],
+)
+def test_local_update_upload_rejects_invalid_input(
+    kind, filename, image, device, content_length, status
+):
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _upload_request(hass, kind=kind, filename=filename, image=image, device=device)
+    if content_length is not None:
+        request.content_length = content_length
+
+    result = asyncio.run(api.DeviceUpdateUploadView().post(request, entry_id="entry1", kind=kind))
+
+    assert result["status_code"] == status
+    assert app.calls == []
+    assert not hass.data.get(api.updates._UPLOADS_KEY)
+
+
+def test_local_update_upload_requires_a_configured_internal_url():
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    hass.config.internal_url = None
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _upload_request(
+        hass, kind="tft", filename="panel.tft", image=b"\x00\x01DN2E" + bytes(16)
+    )
+
+    result = asyncio.run(api.DeviceUpdateUploadView().post(request, entry_id="entry1", kind="tft"))
+
+    assert result["status_code"] == 400
+    assert "internal URL" in result["body"]["message"]
+    assert app.calls == []
+
+
+def test_staged_update_download_supports_head_and_expires():
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    token = "secret"
+    hass.data[api.updates._UPLOADS_KEY] = {
+        token: api.updates._StagedUpdate(b"\xe9image", time.monotonic() + 60)
+    }
+    request = types.SimpleNamespace(app={"hass": hass}, match_info={"token": token}, headers={})
+
+    head = asyncio.run(api.DeviceUpdateArtifactView().head(request, token=token))
+    request.headers = {"Range": "bytes=100-"}
+    invalid_range = asyncio.run(api.DeviceUpdateArtifactView().get(request, token=token))
+    hass.data[api.updates._UPLOADS_KEY][token].expires_at = 0
+    expired = asyncio.run(api.DeviceUpdateArtifactView().get(request, token=token))
+
+    assert head.status == 200
+    assert head.body == b""
+    assert head.headers["Content-Length"] == "6"
+    assert invalid_range.status == 416
+    assert expired.status == 404
+
+
+def test_local_update_upload_requires_admin():
+    request = _Request(MagicMock(), admin=False, query={})
+    with pytest.raises(_Unauthorized):
+        asyncio.run(api.DeviceUpdateUploadView().post(request, entry_id="entry1", kind="tft"))
 
 
 def test_firmware_install_runs_on_the_device_worker():

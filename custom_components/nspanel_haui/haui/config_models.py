@@ -139,7 +139,6 @@ def _ensure_models() -> None:
         timeout_display_off: int = Field(120, ge=0, le=3600)
         log_level: str = "INFO"
         stale_data_seconds: int = Field(0, ge=0, le=86400)
-        hub_idle_timeout: int = Field(0, ge=0, le=86400)
         auto_navigate_home_timeout: int = Field(0, ge=0, le=86400)
         color_overrides: dict[str, int] = Field(default_factory=dict)
         gesture_sequences: list[_GestureSequence] = Field(default_factory=list)

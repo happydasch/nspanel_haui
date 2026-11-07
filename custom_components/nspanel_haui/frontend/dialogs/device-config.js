@@ -467,8 +467,16 @@ class DeviceConfigDialog extends HauiDialog {
             <summary>${t("Updates")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">
-                ${t("Controls checks for new releases and automatic firmware/TFT installs. Checks run by default so the display stays current.")}
+                ${t("Controls release checks and firmware/display updates for this device.")}
               </p>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-enabled", Boolean(updateValue(cfg, "enabled", true)), (checked) => setUpdateValue(this, "enabled", checked))}
+                  <label for="dc-update-enabled">${t("Enable updates")}</label>
+                </div>
+                <div class="field-hint">${t("When off, checks, update entities, and manual firmware/display installs are disabled. An update already in progress will finish.")}</div>
+              </div>
+              ${Boolean(updateValue(cfg, "enabled", true)) ? html`
               <div class="checkbox-wrap">
                 <div class="checkbox-row">
                   ${renderToggle("dc-update-check_on_connect", Boolean(updateValue(cfg, "check_on_connect", true)), (checked) => setUpdateValue(this, "check_on_connect", checked))}
@@ -476,12 +484,21 @@ class DeviceConfigDialog extends HauiDialog {
                 </div>
                 <div class="field-hint">${t("Run a release check after the device connects to Home Assistant.")}</div>
               </div>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-periodic-checks", Number(updateValue(cfg, "update_interval", 3600)) > 0, (checked) => {
+                    const interval = Number(updateValue(this._deviceConfigForm, "update_interval", 3600));
+                    setUpdateValue(this, "update_interval", checked ? (interval > 0 ? interval : 3600) : 0);
+                  })}
+                  <label for="dc-update-periodic-checks">${t("Enable periodic update checks")}</label>
+                </div>
+              </div>
               <div class="form-group">
                 <label for="dc-update-update_interval">${t("Update check interval (seconds)")}</label>
-                ${renderNumberInput("dc-update-update_interval", Number(updateValue(cfg, "update_interval", 3600)), (raw) => {
+                ${Number(updateValue(cfg, "update_interval", 3600)) > 0 ? renderNumberInput("dc-update-update_interval", Number(updateValue(cfg, "update_interval", 3600)), (raw) => {
                   const v = parseInt(raw, 10);
                   setUpdateValue(this, "update_interval", isNaN(v) || v < 0 ? 0 : v);
-                }, { min: 0, max: 604800 })}
+                }, { min: 0, max: 604800 }) : ""}
                 <div class="field-hint">${t("How often to check GitHub for a newer release. 0 = disabled, 3600 = hourly.")}</div>
               </div>
               <div class="checkbox-wrap">
@@ -515,6 +532,7 @@ class DeviceConfigDialog extends HauiDialog {
                 </div>
                 <div class="field-hint">${t("Replace an outdated display TFT automatically when the firmware needs a newer one. When off, the display asks first.")}</div>
               </div>
+              ` : ""}
             </div>
           </details>
 
@@ -627,8 +645,6 @@ class DeviceConfigDialog extends HauiDialog {
               </div>
               ${intField(this, "dc-auto_navigate_home_timeout", "auto_navigate_home_timeout", cfg, t("Return to the home panel after (seconds)"), 0, 0, 86400,
                 t("Go back to the home panel after this many seconds without interaction on another panel. Set it shorter than the dimming and display-off timeouts. 0 = off."))}
-              ${intField(this, "dc-hub_idle_timeout", "hub_idle_timeout", cfg, t("Idle page fallback (seconds)"), 0, 0, 86400,
-                t("Open the idle page after this many seconds without interaction, also when the device doesn't report its own page timeout (for example with auto page off). 0 = off."))}
             </div>
           </details>
 

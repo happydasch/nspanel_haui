@@ -7,7 +7,7 @@ description: Nextion display configuration, HMI editing, and display rendering
 
 ## Installation
 
-To install the TFT file on the display, the device needs to be already flashed with ESPHome
+To install the TFT file on the display, the device needs to be already flashed with the NSPanel HAUI firmware
 and added to the integration. The hub installs the TFT the firmware needs when the device
 connects; to install it by hand:
 

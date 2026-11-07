@@ -99,6 +99,9 @@ class FApp:
         self.timers[handle] = (cb, delay)
         return handle
 
+    def run_every(self, cb, start, interval):
+        return self.run_in(cb, (start, interval))
+
     def cancel_timer(self, handle):
         self.cancelled.append(handle)
         self.timers.pop(handle, None)

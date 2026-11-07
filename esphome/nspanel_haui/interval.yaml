@@ -13,9 +13,7 @@ interval:
             id(interaction_timer_initialized) = true;
           }
           id(interaction_age_ms) = millis() - id(last_interaction_ms);
-          id(check_display_state).execute();
-          id(check_display).execute();
-          id(check_page).execute();
+          id(update_display).execute();
           // Device-to-hub heartbeat: publish only when hub_connection=true,
           // otherwise the event would trigger a premature handshake (livesign).
           // Published every heartbeat_interval seconds.

@@ -83,19 +83,6 @@ number:
     restore_value: true
     optimistic: true
 
-  # Page timeout
-  - platform: template
-    name: Timeout Page
-    id: timeout_page
-    entity_category: config
-    unit_of_measurement: 's'
-    min_value: 0
-    max_value: 3600
-    initial_value: 30
-    step: 1
-    restore_value: true
-    optimistic: true
-
   # Temperature Correction
   - platform: template
     name: Temperature Correction

@@ -20,16 +20,102 @@ the integration folder inside that instance's config directory:
 HA_CONFIG=/path/to/home-assistant/config
 REPO=/path/to/nspanel_haui
 mkdir -p "$HA_CONFIG/custom_components"
-ln -s "$REPO/custom_components/nspanel_haui" \
+ln -sfn "$REPO/custom_components/nspanel_haui" \
   "$HA_CONFIG/custom_components/nspanel_haui"
 ```
 
 If a Marketplace or copied installation already exists at that destination, move it
-aside before creating the link. For containers, the symlink target must also be
+aside before creating the link. `ln -sfn` replaces an earlier link; a plain
+`ln -s` would follow it and create a second link inside the integration folder,
+which Python then imports instead of `nspanel_haui.py`. For containers, the symlink target must also be
 available inside the container; otherwise copy the integration folder into
 `$HA_CONFIG/custom_components/nspanel_haui` instead. Restart Home Assistant
 after Python or frontend changes so it reloads the integration and its versioned
 static assets.
+
+### Development instance in a virtual environment
+
+A throwaway Home Assistant runs from its own virtual environment with the
+checked-out integration, without touching the Home Assistant instance that runs
+the house. Its state lives in the git-ignored `.dev/ha-config` directory, its
+packages in the git-ignored `.venv_ha`. It runs the Home Assistant version the
+integration requires, [2026.11](install.md#requirements) (the minimum in the
+Marketplace metadata), which needs Python 3.14. Set it up once from the repository root:
+
+```bash
+python3.14 -m venv .venv_ha
+.venv_ha/bin/pip install homeassistant==2026.11.0
+mkdir -p .dev/ha-config/custom_components
+ln -sfn "$PWD/custom_components/nspanel_haui" \
+  .dev/ha-config/custom_components/nspanel_haui
+```
+
+Start the instance; Ctrl+C stops it:
+
+```bash
+.venv_ha/bin/hass -c .dev/ha-config
+```
+
+Open <http://localhost:8123> and complete onboarding. The first start installs
+the requirements of the default integrations into `.venv_ha` and takes a few
+minutes. The log goes to the terminal and to `.dev/ha-config/home-assistant.log`.
+Python edits apply after a restart: Ctrl+C and start it again (**Settings →
+System → Restart** only stops it, since nothing starts `hass` again when it
+exits for a restart); also reload the browser after frontend edits,
+since the editor is served as versioned static assets. To try another Home
+Assistant version, install it into the same environment, for example
+`.venv_ha/bin/pip install homeassistant==2026.12.0`.
+
+The instance runs on the host's own network, so mDNS discovery works as on a
+regular installation: ESPHome offers the panels it finds, and the HAUI hub picks
+them up through their ESPHome entries. Home Assistant listens on all interfaces,
+so other devices on the LAN can open the UI too. On macOS, allow **Local
+Network** access for the terminal app that starts `hass` (System Settings →
+Privacy & Security → Local Network); without it, connections to the panels fail
+with "No route to host". If the panels answer the production Home Assistant but
+not the development machine, see
+[panels reachable from one machine but not another](troubleshooting.md#panels-reachable-from-one-machine-but-not-another).
+
+To reset the instance, stop it, delete its state and link the integration again:
+
+```bash
+rm -rf .dev/ha-config
+mkdir -p .dev/ha-config/custom_components
+ln -sfn "$PWD/custom_components/nspanel_haui" \
+  .dev/ha-config/custom_components/nspanel_haui
+```
+
+### Development instance in Docker
+
+The same throwaway instance can run from the official container image instead.
+`compose.yaml` in the repository root bind-mounts the git-ignored config
+directory `.dev/ha-docker` (apart from the virtual environment's
+`.dev/ha-config`) and the integration folder, so the container sees the
+checkout itself (a symlink in the config directory would point outside the
+container). Its image is the required Home Assistant version as well,
+[2026.11](install.md#requirements). Start it from the repository root:
+
+```bash
+docker compose up -d
+```
+
+Open <http://localhost:8123> and complete onboarding. **Settings → System →
+Restart** works here, because the container starts Home Assistant again;
+`docker compose restart` does the same from the shell and
+`docker compose logs -f` follows the log. Reload the browser after frontend
+edits. To reset the instance, run `docker compose down` and delete
+`.dev/ha-docker`; to try another Home Assistant version, change the image tag
+in `compose.yaml`.
+
+With the `ports` mapping the container sits on Docker's bridge network, which
+mDNS from the LAN does not reach: add the panels by IP address in the ESPHome
+integration. On Linux, `network_mode: host` in place of `ports` gives the
+container the host's network, and discovery works as in the virtual
+environment.
+
+Do not point the development hub at a panel that the production Home Assistant
+drives: two hubs sending commands to one display fight over it. Use a test panel
+or stop the production hub first.
 
 For local ESPHome development, configure the secrets required by
 `esphome/nspanel_haui_dev.yaml` and activate the separate environment with
@@ -88,6 +174,7 @@ The system has three layers:
 - **[Hub Component](hub.md)** — Core logic: state management, panel lifecycle, navigation
 - **[Nextion Component](nextion.md)** — Display-level operations and widget management
 - **[Services Reference](services.md)** — Home Assistant services for display control and TFT upload
+- **[Update Process](update-process.md)** — How the hub checks for and installs firmware and TFT updates, universal and custom builds, and the notifications it shows
 
 ---
 
@@ -170,8 +257,8 @@ image over HTTP, reboots, and then installs the matching TFT. The firmware
 declares no update entity of its own, so the ESPHome side shows only the
 ESPHome integration's stock dashboard entity. The first flash onto firmware
 without the install action (0.4.2 and older) is still a manual step, because
-the hub cannot reach it; the editor's **Download firmware** button remains the
-manual fallback.
+the hub cannot reach it; the editor's **Device Info → Download firmware**
+action remains the manual fallback.
 
 For your own `custom` firmware, follow
 [Your custom firmware: choose `dev` or `master`](release.md#your-custom-firmware-choose-dev-or-master)
@@ -181,7 +268,8 @@ to a local manifest. For the CI-built universal `dev` image, set the test panel'
 empty; the hub follows the newest
 [published dev prerelease](release.md#published-development-firmware).
 The hub logs manifest reads, install starts and outcomes; the Device Manager
-shows install errors.
+shows install errors. [Update Process](update-process.md) describes the whole cycle:
+when checks run, the update settings and both firmware variants.
 
 ### Release assets and gates
 

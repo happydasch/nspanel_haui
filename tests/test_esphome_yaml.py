@@ -295,8 +295,8 @@ def test_display_setting_changes_do_not_reset_last_interaction():
         assert "on_value" not in number
 
     interval = _read("interval.yaml")
-    assert "id(check_display_state).execute();" in interval
-    assert "id(check_display).execute();" in interval
+    assert interval.count("id(update_display).execute();") == 1
+    assert "id(check_display" not in interval
 
 
 def test_last_interaction_uses_one_rollover_safe_clock():
@@ -316,12 +316,11 @@ def test_last_interaction_uses_one_rollover_safe_clock():
     assert "id(interaction_age_ms) = millis() - id(last_interaction_ms);" in interval
     assert "if (!id(interaction_timer_initialized))" in interval
     assert "id(last_interaction_ms) = millis();" in interval
-    assert interval.index("interaction_age_ms") < interval.index("check_display_state")
+    assert interval.index("interaction_age_ms") < interval.index("update_display")
 
     display = _read("scripts_display.yaml")
     interaction = _read("scripts_interaction.yaml")
-    assert display.count("id(interaction_age_ms) / 1000.0f") == 2
-    assert "id(interaction_age_ms) / 1000.0f" in interaction
+    assert display.count("id(interaction_age_ms) / 1000.0f") == 1
     assert "millis() / 100" not in display + interaction
     assert "update_last_interaction" not in display + interaction
     assert (
@@ -340,6 +339,78 @@ def test_last_interaction_uses_one_rollover_safe_clock():
     assert "reset_last_interaction" not in _read("scripts_connection.yaml")
     assert "reset_last_interaction" not in display
     assert "reset_last_interaction" not in _read("display.yaml").split("on_buffer_overflow:")[1]
+
+
+def _script_lambda(file_name: str, script_id: str) -> str:
+    scripts = _load_tagged(ROOT / file_name)["script"]
+    script = next(script for script in scripts if script["id"] == script_id)
+    return script["then"][0]["lambda"]
+
+
+def test_display_scripts_are_one_state_machine():
+    """Display-off, dimming and the state label come from one 100 ms script."""
+    scripts = _load_tagged(ROOT / "scripts_display.yaml")["script"]
+    ids = [script["id"] for script in scripts]
+    assert "update_display" in ids
+    assert "check_display" not in ids
+    assert "check_display_state" not in ids
+    for name in ("scripts_display.yaml", "scripts_interaction.yaml"):
+        assert "check_page" not in _read(name)
+
+    interval = _read("interval.yaml")
+    assert interval.count("id(update_display).execute();") == 1
+    assert "id(check_display).execute();" not in interval
+    assert "id(check_display_state).execute();" not in interval
+    assert "id(check_page).execute();" not in interval
+
+
+def test_legacy_timeout_event_is_removed_from_firmware_yaml():
+    for path in ROOT.parent.rglob("*.yaml"):
+        if any(part.startswith(".") for part in path.relative_to(ROOT.parent).parts):
+            continue
+        assert "esphome.timeout" not in path.read_text(), path
+
+
+def test_update_display_turns_the_display_off_without_auto_dimming():
+    """Display-off is independent of dimming: it may not sit behind its switch."""
+    display = _script_lambda("scripts_display.yaml", "update_display")
+    assert "if (!id(hub_connection) || !id(use_auto_dimming).state)" not in display
+    assert "if (!id(hub_connection)) {" in display
+
+    off = display.split(
+        "id(use_auto_display_off).state && timeout_off_val > 0 && age > timeout_off_val", 1
+    )
+    assert len(off) == 2
+    assert "target_brightness = 0;" in off[1]
+
+    dim = display.split(
+        "id(use_auto_dimming).state && timeout_dim_val > 0 && age > timeout_dim_val", 1
+    )
+    assert len(dim) == 2
+    assert "target_brightness = int(id(brightness_dim).state);" in dim[1]
+
+    # The state label follows the ramp end, as it did in check_display_state.
+    assert "age > (timeout_off_val + duration_dim_val)" in display
+    assert "age > (timeout_dim_val + duration_dim_val)" in display
+
+
+def test_the_firmware_no_longer_knows_about_pages():
+    switches = _load_tagged(ROOT / "switch.yaml")["switch"]
+    assert not any(switch.get("name") == "Use Auto-Page" for switch in switches)
+    assert "use_auto_page" not in _read("switch.yaml")
+
+    numbers = _load_tagged(ROOT / "number.yaml")["number"]
+    assert not any(number.get("name") == "Timeout Page" for number in numbers)
+    assert "timeout_page" not in _read("number.yaml")
+
+
+def test_a_touched_widget_counts_as_interaction():
+    """The coordinate poll runs every 200 ms and can miss a short tap."""
+    display = _load_tagged(ROOT / "display.yaml")["display"]
+    on_touch = display[0]["on_touch"]["then"][0]["lambda"]
+    reset = on_touch.index("id(reset_interaction_timer).execute(0);")
+    assert reset < on_touch.index('execute("esphome.component", event);')
+    assert reset < on_touch.index("if (touch_event == 1)")
 
 
 def test_display_model_uses_numeric_input_instead_of_slider():
@@ -374,3 +445,15 @@ def test_current_page_sensors_are_exposed_but_disabled_by_default():
         assert sensor["disabled_by_default"] is True
         assert not sensor.get("internal", False)
     assert page_number["name"] == "Current Page Number"
+
+
+def test_touch_and_brightness_sensors_are_disabled_by_default():
+    """The firmware uses both values itself; the entities are diagnostics only."""
+    import yaml
+
+    config = yaml.safe_load(_read("sensor.yaml"))
+    touch = next(s for s in config["binary_sensor"] if s.get("id") == "touch")
+    brightness = next(s for s in config["sensor"] if s.get("id") == "brightness")
+    for sensor in (touch, brightness):
+        assert sensor["disabled_by_default"] is True
+        assert not sensor.get("internal", False)

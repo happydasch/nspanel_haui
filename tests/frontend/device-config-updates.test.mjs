@@ -40,6 +40,35 @@ function field(dlg, id) {
   };
 }
 
+function eventHandler(dlg, id, eventName) {
+  const findBinding = (tpl) => {
+    for (let i = 0; i < tpl.strings.length; i++) {
+      const idMatch = tpl.strings[i].includes(`id="${id}"`) ||
+        (tpl.strings[i].includes("id=") && tpl.values[i] === id);
+      if (!idMatch) continue;
+      for (let j = i; j < tpl.strings.length; j++) {
+        if (tpl.strings[j].trimEnd().endsWith(`${eventName}=`)) return tpl.values[j];
+      }
+    }
+    for (const value of tpl.values) {
+      if (value?.strings && value?.values) {
+        const result = findBinding(value);
+        if (result !== undefined) return result;
+      }
+    }
+    return undefined;
+  };
+  return findBinding(dlg.render());
+}
+
+function includesTemplateContent(value, content) {
+  if (typeof value === 'string') return value.includes(content);
+  if (Array.isArray(value)) return value.some((item) => includesTemplateContent(item, content));
+  if (!value?.strings) return false;
+  return value.strings.some((part) => part.includes(content)) ||
+    value.values.some((item) => includesTemplateContent(item, content));
+}
+
 test('the firmware manifest URL is stored only while it overrides the default', () => {
   const dlg = dialog({ update: { firmware_auto_update: true } });
   const url = 'http://homeassistant.local:8123/local/nspanel/firmware-manifest.json';
@@ -55,6 +84,41 @@ test('the firmware manifest URL is stored only while it overrides the default', 
   field(dlg, 'dc-update-firmware_manifest_url').onInput({ target: { value: '' } });
   const saved = JSON.parse(JSON.stringify(dlg._deviceConfigForm.update));
   assert.deepEqual(saved, { firmware_auto_update: true }, 'an empty field falls back to the default');
+});
+
+test('the master update toggle hides subordinate settings and preserves them', () => {
+  const dlg = dialog({ update: { enabled: false, check_on_connect: false, update_interval: 7200 } });
+
+  assert.equal(includesTemplateContent(dlg.render(), 'Enable updates'), true);
+  assert.equal(field(dlg, 'dc-update-enabled').value, undefined);
+  assert.equal(includesTemplateContent(dlg.render(), 'Check for updates on connect'), false);
+
+  eventHandler(dlg, 'dc-update-enabled', '@change')({ target: { checked: true } });
+  assert.equal(dlg._deviceConfigForm.update.enabled, true);
+  assert.equal(dlg._deviceConfigForm.update.check_on_connect, false);
+  assert.equal(dlg._deviceConfigForm.update.update_interval, 7200);
+  assert.equal(includesTemplateContent(dlg.render(), 'Check for updates on connect'), true);
+
+  eventHandler(dlg, 'dc-update-enabled', '@change')({ target: { checked: false } });
+  assert.equal(dlg._deviceConfigForm.update.enabled, false);
+  assert.equal(dlg._deviceConfigForm.update.update_interval, 7200);
+});
+
+test('periodic update toggle maps disabled to zero and enables an interval', () => {
+  const dlg = dialog({ update: { update_interval: 5400 } });
+
+  eventHandler(dlg, 'dc-update-periodic-checks', '@change')({ target: { checked: false } });
+  assert.equal(dlg._deviceConfigForm.update.update_interval, 0);
+  assert.equal(field(dlg, 'dc-update-update_interval').value, undefined);
+  const disabledRender = dlg.render();
+  assert.equal(includesTemplateContent(disabledRender, 'Update check interval (seconds)'), true);
+  assert.equal(includesTemplateContent(disabledRender, 'How often to check GitHub for a newer release.'), true);
+
+  eventHandler(dlg, 'dc-update-periodic-checks', '@change')({ target: { checked: true } });
+  assert.equal(dlg._deviceConfigForm.update.update_interval, 3600);
+
+  field(dlg, 'dc-update-update_interval').onInput({ target: { value: '7200' } });
+  assert.equal(dlg._deviceConfigForm.update.update_interval, 7200);
 });
 
 test('the firmware update channel selects the dev manifest and stores the channel', () => {

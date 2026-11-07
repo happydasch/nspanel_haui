@@ -36,6 +36,7 @@ from typing import Any
 from .ha_adapter import ItemProxy
 from .haui.abstract.haui_panel import HAUIPanel
 from .haui.controller.update import HAUIUpdateController
+from .haui.device import HAUIDevice
 from .haui.mapping.const import ESP_NS_EVENT, ESPCommand, ESPEvent, ESPResponse, ServerRequest
 from .haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
 from .haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
@@ -62,7 +63,6 @@ BROWSER_EVENTS: frozenset[str] = frozenset(
         ESPEvent.GESTURE,
         ESPEvent.BUTTON_LEFT,
         ESPEvent.BUTTON_RIGHT,
-        ESPEvent.TIMEOUT,
         # The browser holds the widget values the hub reads (sliders).
         ESPResponse.READ_RESPONSE,
     }
@@ -84,8 +84,29 @@ _FORWARDED_ACTIONS = frozenset(
 _REFUSED_ACTIONS = frozenset({"upload_tft_url", "install_firmware_url"})
 
 
+class VirtualDevice(HAUIDevice):
+    """Device of a virtual panel: leaves the firmware's auto switches alone.
+
+    The switches belong to the real device, whose hub app keeps them in line
+    with the settings and the page on its screen. The virtual app would only
+    simulate them, and every real toggle (a popup on the panel) would reach
+    the viewers as a simulated entity.
+    """
+
+    def _apply_auto_switches(self, is_night: bool) -> None:
+        pass
+
+    def _watch_auto_switches(self) -> None:
+        pass
+
+
 class InertUpdateController(HAUIUpdateController):
-    """Update controller of a virtual panel: never checks, never installs."""
+    """Update controller of a virtual panel: never checks, never installs.
+
+    Every entry point that would fetch from GitHub or flash the device
+    answers at once instead; a saved config (``reload_options``) only takes
+    the new settings.
+    """
 
     def start_part(self) -> None:
         pass
@@ -93,23 +114,51 @@ class InertUpdateController(HAUIUpdateController):
     def stop_part(self) -> None:
         pass
 
+    def reload_options(self, config: dict[str, Any]) -> None:
+        self.config = config
+
     def on_connection_changed(self, connected: bool) -> None:
         pass
 
-    def check_for_update(self, force_refresh: bool = False) -> dict[str, Any]:
-        return {}
+    def start_async_check(
+        self,
+        force_refresh: bool = False,
+        *,
+        on_complete: Callable[[dict[str, Any]], None] | None = None,
+        **_kwargs: Any,
+    ) -> None:
+        if on_complete is not None:
+            on_complete(self._check_result("virtual panel"))
 
-    def manual_check_for_update(self) -> dict[str, Any]:
-        return {}
+    def start_async_tft_install(
+        self,
+        version: str | None,
+        url: str | None,
+        on_complete: Callable[[dict[str, Any]], None],
+    ) -> None:
+        on_complete(self.install_tft(version))
+
+    def start_async_firmware_install(
+        self,
+        version: str | None,
+        url: str | None,
+        on_complete: Callable[[dict[str, Any]], None],
+    ) -> None:
+        on_complete({"firmware_installing": False, "firmware_install_error": "virtual panel"})
+
+    def start_async_list_tft_releases(self, on_complete: Callable[[dict[str, Any]], None]) -> None:
+        on_complete({"releases": [], "required": None, "error": "virtual panel"})
+
+    def start_async_list_firmware_releases(
+        self, on_complete: Callable[[dict[str, Any]], None]
+    ) -> None:
+        on_complete({"releases": [], "error": "virtual panel"})
 
     def install_tft(self, version: str | None = None) -> dict[str, Any]:
         return {"state": "error", "version": version, "last_error": "virtual panel"}
 
     def install_tft_url(self, url: str) -> dict[str, Any]:
         return {"state": "error", "version": None, "last_error": "virtual panel"}
-
-    def install_firmware(self, version: str | None = None, url: str | None = None) -> dict:
-        return {"firmware_installing": False, "firmware_install_error": "virtual panel"}
 
 
 class VirtualESPHomeProxy:
@@ -124,6 +173,10 @@ class VirtualESPHomeProxy:
         self._page: int = 0
         self._idle = False
         self._entities: dict[str, str] = {}
+
+    def set_device_info(self, device_info: dict[str, Any]) -> None:
+        """Update the metadata reported by the simulated device."""
+        self._device_info = dict(device_info)
 
     @property
     def idle(self) -> bool:
@@ -311,6 +364,9 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
     def _read_real_state(self, entity_id: str) -> tuple[str, dict[str, Any]] | None:
         state = self.hass.states.get(entity_id)
         return (state.state, dict(state.attributes)) if state else None
+
+    def _create_device(self, config: dict[str, Any]) -> HAUIDevice:
+        return VirtualDevice(self, config)
 
     def _create_update_controller(self, config: dict[str, Any]) -> HAUIUpdateController:
         return InertUpdateController(self, config)
@@ -685,11 +741,13 @@ class VirtualPanelHost:
             "ssid": "",
             "rssi": 0,
             "uptime": 0,
-            "yaml_version": get_version(),
+            "yaml_version": get_version() if device_info is None else "",
             "tft_version": "",
             "firmware_variant": "",
         }
-        info.update({k: v for k, v in (device_info or {}).items() if k in info and v})
+        info.update({k: v for k, v in (device_info or {}).items() if k in info})
+        self._device_info = dict(info)
+        self._follow: asyncio.Future[None] | None = None
         self.app = VirtualNSPanelHAUI(
             hass,
             f"virtual_{device_name}",
@@ -705,6 +763,38 @@ class VirtualPanelHost:
     async def async_start(self) -> None:
         """Initialize the app. Its display boots when the first viewer attaches."""
         await self.app.async_run_on_worker(self.app.initialize)
+        await self.async_set_device_info(self._device_info)
+
+    async def async_set_device_info(self, device_info: dict[str, Any]) -> None:
+        """Apply physical-device metadata to the simulated app on its worker.
+
+        Only the metadata keys are taken (versions, network, name): the rest of
+        the physical device's info (``display_state``, ``page``, ...) describes
+        its display, and a dark panel would pause the preview's cycle cards.
+        """
+        self._device_info.update({k: v for k, v in device_info.items() if k in self._device_info})
+        info = dict(self._device_info)
+
+        def _set_device_info() -> None:
+            self.app.device.set_device_info(dict(info))
+            self.app.virtual_esphome.set_device_info(info)
+
+        await self.app.async_run_on_worker(_set_device_info)
+
+    async def async_follow_device(self, running: Any) -> None:
+        """Take the physical device's metadata from its running app.
+
+        The editor renders a page of cards at once: concurrent calls share one
+        read, so a burst does not queue a job per card on the physical panel's
+        worker.
+        """
+        if self._follow is None or self._follow.done():
+            self._follow = asyncio.ensure_future(self._async_follow_device(running))
+        await asyncio.shield(self._follow)
+
+    async def _async_follow_device(self, running: Any) -> None:
+        device_info = await running.async_run_on_worker(lambda: dict(running.device.device_info))
+        await self.async_set_device_info(device_info)
 
     async def async_stop(self) -> None:
         await self.app.async_run_on_worker(self.app.stop)
@@ -826,6 +916,12 @@ class VirtualPanelHost:
         if name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT) and value == "1":
             side = "left" if name == ESPEvent.BUTTON_LEFT else "right"
             self.app.dispatch(self.app.press_hardware_button, side)
+
+    def show_idle(self) -> None:
+        """Act as if the inactivity timeout opened the idle page."""
+        navigation = self.app.controller.get("navigation")
+        if navigation is not None:
+            self.app.dispatch(navigation.open_idle_panel, True)
 
     def reset_sandbox(self) -> None:
         """Clear simulated states without changing preview mode."""

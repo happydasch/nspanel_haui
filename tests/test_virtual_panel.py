@@ -253,6 +253,19 @@ def test_updates_are_never_checked_or_installed(session):
     update = session.app.controller["update"]
     assert isinstance(update, InertUpdateController)
     assert update.install_tft()["state"] == "error"
+    submitted: list = []
+    session.app.submit_off_worker = lambda fn, *args, **kwargs: submitted.append(fn)
+    results: list = []
+    # A saved config, the display-model switch and the update endpoints
+    # must not reach GitHub from a preview app.
+    update.reload_options({**update.config, "enabled": True})
+    update.start_async_check(on_complete=results.append)
+    update.start_async_tft_install(None, None, results.append)
+    update.start_async_firmware_install(None, None, results.append)
+    update.start_async_list_tft_releases(results.append)
+    update.start_async_list_firmware_releases(results.append)
+    assert submitted == []
+    assert len(results) == 5
     assert session.app.virtual_esphome.publish("upload_tft_url", "http://x/y.tft") is False
     assert session.app.virtual_esphome.publish("install_firmware_url", "http://x/y.bin") is False
 
@@ -352,7 +365,7 @@ def test_the_browser_is_told_when_the_idle_page_starts_and_ends(env):
     _wait(lambda: sess.app.controller["navigation"].page.started)
     assert not any(m["type"] == "idle" for m in messages)
 
-    sess.send_event(ESPEvent.TIMEOUT, "page")
+    sess.show_idle()
     _wait(lambda: {"type": "idle", "active": True} in messages)
     _wait(lambda: {"type": "page", "page": 7} in messages)
     _wait(lambda: sess.app.controller["navigation"].page.started)
@@ -528,3 +541,68 @@ def test_a_system_panel_renders_with_its_configured_defaults(session, env):
     assert config["show_in_navigation"] is False
     with pytest.raises(ValueError):
         _run(env, session.async_configured_panel("nope"))
+
+
+def test_about_card_uses_current_device_versions_without_a_viewer(env):
+    host = VirtualPanelHost(
+        env,
+        "kitchen",
+        _config(),
+        device_info={"yaml_version": "yaml-initial", "tft_version": "tft-initial"},
+    )
+    _run(env, host.async_start())
+    try:
+        panel = _run(env, host.async_configured_panel("sys_about"))
+        initial = _run(env, host.async_render(panel))
+
+        assert 'tTftVersVal.txt="tft-initial"' in initial["commands"]
+        assert 'tYamlVersVal.txt="yaml-initial"' in initial["commands"]
+
+        _run(
+            env,
+            host.async_set_device_info(
+                {"yaml_version": "yaml-updated", "tft_version": "tft-updated"}
+            ),
+        )
+        updated = _run(env, host.async_render(panel))
+
+        assert 'tTftVersVal.txt="tft-updated"' in updated["commands"]
+        assert 'tYamlVersVal.txt="yaml-updated"' in updated["commands"]
+    finally:
+        _run(env, host.async_stop())
+
+
+def test_the_real_devices_display_state_stays_on_the_real_device(session, env):
+    # A dark physical panel must not pause the live preview's cycle cards.
+    assert session.app.device.display_state == "on"
+
+    _run(
+        env,
+        session.async_set_device_info(
+            {"tft_version": "tft-real", "display_state": "off", "page": "3"}
+        ),
+    )
+
+    assert session.app.device.display_state == "on"
+    assert session.app.device.device_info["tft_version"] == "tft-real"
+
+
+def test_a_burst_of_card_renders_reads_the_real_device_once(session, env):
+    reads = []
+
+    class _Running:
+        device = types.SimpleNamespace(device_info={"tft_version": "tft-real"})
+
+        async def async_run_on_worker(self, fn):
+            reads.append(fn)
+            await asyncio.sleep(0.05)
+            return fn()
+
+    async def burst():
+        running = _Running()
+        await asyncio.gather(*(session.async_follow_device(running) for _ in range(10)))
+
+    _run(env, burst())
+
+    assert len(reads) == 1
+    assert session.app.device.device_info["tft_version"] == "tft-real"

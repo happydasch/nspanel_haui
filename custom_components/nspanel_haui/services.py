@@ -209,6 +209,7 @@ async def _handle_open_panel(hass: HomeAssistant, call: ServiceCall) -> None:
             return
         if wakeup:
             nav.mark_awake()
+        nav.reset_activity()
         nav.open_panel(panel_key)
 
     await _device_action(hass, call, action=_open_action, wake_first=wakeup)
@@ -229,7 +230,8 @@ async def _handle_wakeup(hass: HomeAssistant, call: ServiceCall) -> None:
         if nav is not None:
             # Wake is a device operation: reset the firmware interaction timer
             # (wake_first) always runs; the idle page is exited only when one
-            # is actually shown.
+            # is actually shown. The hub's inactivity clock is a wake too.
+            nav.reset_activity()
             nav.exit_idle_to_prev_or_home(app.device.config)
 
     await _device_action(hass, call, action=_wakeup_action, wake_first=True)

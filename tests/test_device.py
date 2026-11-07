@@ -21,10 +21,12 @@ class DummyNavigation:
     def __init__(self):
         self.opened_calls = []  # list of (panel_id, kwargs)
         self.panel = None
+        self.page = None
         self._current_nav = None
         self._home_panel = None
         self._idle_panel_active = False
         self.idle_profile = None
+        self.prepare_resume_calls = 0
 
     @property
     def idle_panel_active(self):
@@ -32,6 +34,9 @@ class DummyNavigation:
 
     def set_idle_profile(self, is_night):
         self.idle_profile = is_night
+
+    def prepare_resume(self):
+        self.prepare_resume_calls += 1
 
     def cancel_timeouts(self):
         pass
@@ -76,6 +81,15 @@ class DummyApp:
             "esphome": DummyESPHomeController(),
         }
         self.service_calls = []
+        self.state_listeners = {}  # handle -> (callback, entity_id)
+
+    def listen_state(self, cb, entity_id, **kwargs):
+        handle = f"listen-{len(self.state_listeners)}"
+        self.state_listeners[handle] = (cb, entity_id)
+        return handle
+
+    def cancel_listen_state(self, handle):
+        self.state_listeners.pop(handle, None)
 
     def now(self):
         return datetime.now()
@@ -872,7 +886,6 @@ class _SwitchApp(DummyApp):
         suffixes = {
             ("switch", "Use Button Interaction"): "use_button_interaction",
             ("switch", "Use Auto-Dimming"): "use_auto_dimming",
-            ("switch", "Use Auto-Page"): "use_auto_page",
             ("switch", "Use Auto Display-Off"): "use_auto_display_off",
             ("switch", "Use Relay Left"): "use_relay_left",
             ("switch", "Use Relay Right"): "use_relay_right",
@@ -880,7 +893,6 @@ class _SwitchApp(DummyApp):
             ("switch", "Relay Right"): "relay_right",
             ("number", "Display Model"): "display_model",
             ("number", "Timeout Dimming"): "timeout_dimming",
-            ("number", "Timeout Page"): "timeout_page",
             ("number", "Timeout Display-Off"): "timeout_display_off",
             ("number", "Brightness Full"): "brightness_full",
             ("number", "Brightness Dimmed"): "brightness_dimmed",
@@ -1074,10 +1086,8 @@ def test_behavior_sync_uses_resolved_entity_ids_for_all_targets() -> None:
 
     items = {
         "switch.salon_nspanel_haui_use_auto_dimming": _Esp("on"),
-        "switch.salon_nspanel_haui_use_auto_page": _Esp("on"),
         "switch.salon_nspanel_haui_use_auto_display_off": _Esp("on"),
         "number.salon_nspanel_haui_timeout_dimming": _Esp("10"),
-        "number.salon_nspanel_haui_timeout_page": _Esp("30"),
         "number.salon_nspanel_haui_timeout_display_off": _Esp("120"),
         "number.salon_nspanel_haui_display_model": _Esp("0"),
     }
@@ -1088,12 +1098,10 @@ def test_behavior_sync_uses_resolved_entity_ids_for_all_targets() -> None:
         by_name = {
             "switch": {
                 "Use Auto-Dimming": "switch.salon_nspanel_haui_use_auto_dimming",
-                "Use Auto-Page": "switch.salon_nspanel_haui_use_auto_page",
                 "Use Auto Display-Off": "switch.salon_nspanel_haui_use_auto_display_off",
             },
             "number": {
                 "Timeout Dimming": "number.salon_nspanel_haui_timeout_dimming",
-                "Timeout Page": "number.salon_nspanel_haui_timeout_page",
                 "Timeout Display-Off": "number.salon_nspanel_haui_timeout_display_off",
                 "Display Model": "number.salon_nspanel_haui_display_model",
             },
@@ -1106,10 +1114,8 @@ def test_behavior_sync_uses_resolved_entity_ids_for_all_targets() -> None:
         {
             "name": "nspanel_haui",
             "use_auto_dimming": True,
-            "use_auto_page": False,
             "use_auto_display_off": True,
             "timeout_dimming": 25,
-            "timeout_page": 40,
             "timeout_display_off": 90,
             "display_model": "us",
         },
@@ -1117,12 +1123,9 @@ def test_behavior_sync_uses_resolved_entity_ids_for_all_targets() -> None:
 
     device._sync_behavior_config()
 
-    # Timeout numbers were all written; the auto-page switch was turned off.
     assert items["number.salon_nspanel_haui_timeout_dimming"].state == 25
-    assert items["number.salon_nspanel_haui_timeout_page"].state == 40
     assert items["number.salon_nspanel_haui_timeout_display_off"].state == 90
     assert items["number.salon_nspanel_haui_display_model"].state == 1
-    assert "off" in items["switch.salon_nspanel_haui_use_auto_page"].calls
 
 
 def test_dimming_timeout_syncs_to_the_firmware_timeout_dimming_entity() -> None:
@@ -1149,13 +1152,29 @@ def test_connect_pushes_the_device_settings_to_the_firmware() -> None:
     assert relay.state == "on"
 
 
+def test_connect_restarts_the_hub_inactivity_clock() -> None:
+    """The restored page is displayed first; the idle timeout starts from the connect."""
+    app = DummyApp()
+    device = HAUIDevice(app, {"name": "nspanel_haui", "sound_on_startup": False})
+
+    device.on_connection_changed(True)
+
+    assert app.controller["navigation"].prepare_resume_calls == 1
+
+
 def test_switching_the_display_model_installs_the_matching_tft() -> None:
     """A saved display_model change re-installs the TFT; the first sync and
     re-syncs with the same model do not (the version check cannot see the layout)."""
     installs: list = []
     app = _SwitchApp({})
     app.controller["update"] = type(
-        "Update", (), {"install_tft": lambda self: installs.append(1)}
+        "Update",
+        (),
+        {
+            "start_async_tft_install": lambda self, version, url, on_complete: installs.append(
+                (version, url)
+            )
+        },
     )()
     device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "eu"})
 
@@ -1166,7 +1185,7 @@ def test_switching_the_display_model_installs_the_matching_tft() -> None:
     device.sync_config_to_device()
     device.sync_config_to_device()
 
-    assert installs == [1]
+    assert installs == [(None, None)]
 
 
 def test_touch_start_native_event_calls_wakeup() -> None:
@@ -1374,10 +1393,8 @@ def test_disabled_profiles_leave_manual_brightness_and_ramp_untouched() -> None:
 def test_night_profile_syncs_behavior_brightness_ramp_and_idle_target() -> None:
     ids = {
         ("switch", "Use Auto-Dimming"): "switch.device_dimming",
-        ("switch", "Use Auto-Page"): "switch.device_page",
         ("switch", "Use Auto Display-Off"): "switch.device_off",
         ("number", "Timeout Dimming"): "number.device_timeout_dim",
-        ("number", "Timeout Page"): "number.device_timeout_page",
         ("number", "Timeout Display-Off"): "number.device_timeout_off",
         ("number", "Brightness Full"): "number.device_brightness_full",
         ("number", "Brightness Dimmed"): "number.device_brightness_dimmed",
@@ -1385,10 +1402,8 @@ def test_night_profile_syncs_behavior_brightness_ramp_and_idle_target() -> None:
     }
     items = {
         "switch.device_dimming": _Switch("on"),
-        "switch.device_page": _Switch("on"),
         "switch.device_off": _Switch("on"),
         "number.device_timeout_dim": _Number("10"),
-        "number.device_timeout_page": _Number("30"),
         "number.device_timeout_off": _Number("120"),
         "number.device_brightness_full": _Number("50"),
         "number.device_brightness_dimmed": _Number("20"),
@@ -1408,16 +1423,12 @@ def test_night_profile_syncs_behavior_brightness_ramp_and_idle_target() -> None:
             "day_brightness_dimmed": 18,
             "day_duration_dim": 1.2,
             "use_auto_dimming": True,
-            "use_auto_page": True,
             "use_auto_display_off": True,
             "timeout_dimming": 10,
-            "timeout_page": 30,
             "timeout_display_off": 120,
             "night_use_auto_dimming": False,
-            "night_use_auto_page": False,
             "night_use_auto_display_off": False,
             "night_timeout_dimming": 45,
-            "night_timeout_page": 90,
             "night_timeout_display_off": 300,
             "night_brightness_full": 12,
             "night_brightness_dimmed": 2,
@@ -1429,10 +1440,8 @@ def test_night_profile_syncs_behavior_brightness_ramp_and_idle_target() -> None:
     device._sync_behavior_config()
 
     assert items["switch.device_dimming"].state == "off"
-    assert items["switch.device_page"].state == "off"
     assert items["switch.device_off"].state == "off"
     assert items["number.device_timeout_dim"].state == 45
-    assert items["number.device_timeout_page"].state == 90
     assert items["number.device_timeout_off"].state == 300
     assert items["number.device_brightness_full"].state == 12
     assert items["number.device_brightness_dimmed"].state == 2

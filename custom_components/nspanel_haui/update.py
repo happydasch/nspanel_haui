@@ -151,7 +151,9 @@ class _NSPanelUpdate(UpdateEntity):
         )
         # An install blocks the device and ends in a reboot, so the entity
         # stays available while an install keeps the device offline.
-        self._attr_available = bool(data.get("connected")) or installing
+        self._attr_available = (
+            bool(data.get("connected")) and bool(data.get("enabled", True))
+        ) or installing
         self.async_write_ha_state()
 
     def _request_state(self) -> None:

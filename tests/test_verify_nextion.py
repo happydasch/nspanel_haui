@@ -125,11 +125,7 @@ def test_wrong_pin_fails_even_though_hmi_version_is_valid():
     assert "0.4.0" in msg
 
 
-firmware_only_yaml = (
-    "---\nsubstitutions:\n"
-    "  yaml_version: '0.5.0'\n"
-    "  tft_version: '0.4.2'\n"
-)
+firmware_only_yaml = "---\nsubstitutions:\n  yaml_version: '0.5.0'\n  tft_version: '0.4.2'\n"
 
 
 def test_default_expected_version_comes_from_version_yaml(tmp_path):
@@ -167,10 +163,7 @@ def test_manifest_divergence_is_kept_separate_from_tft_version(tmp_path):
 
     page = {
         "text": (
-            "Variable (string) tftVersion\n"
-            "    Attributes\n"
-            "        ID: 14\n"
-            "        Text: 0.4.2\n"
+            "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.4.2\n"
         )
     }
     expected = resolve_expected_version(None, yaml_file)

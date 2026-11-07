@@ -302,7 +302,7 @@ Panels are configured representations of a page. A page can have multiple panels
 
 ## Virtual Panel (Live Preview)
 
-The editor's [live preview](configuration/README.md#the-live-preview) and its panel cards run on one second `NSPanelHAUI` app per device, built from the device's stored config the same way setup builds it. Only the transport and the entity layer differ, so every page, controller and lifecycle hook is the real one. The app starts on first use, follows every save (`api._push_panels`) and stops after ten minutes without a viewer or a card render, or when the hub entry unloads.
+The editor's [live preview](configuration/README.md#the-live-preview) and its panel cards run on one second `NSPanelHAUI` app per device, built from the device's stored config the same way setup builds it. Only the transport and the entity layer differ, so every page, controller and lifecycle hook is the real one. The app starts on first use, follows every save (`api.config.push_panels`) and stops after ten minutes without a viewer or a card render, or when the hub entry unloads.
 
 | Part | File | Role |
 |------|------|------|

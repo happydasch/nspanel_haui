@@ -220,7 +220,6 @@ def _nav_with_carousel(panels, **device_cfg):
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
     nav.create_snapshot = lambda: None
-    nav._cancel_idle_timer = lambda: None
     nav.open_panel = lambda pid, **kw: nav.opened.append((pid, kw.get("autostart", False)))
     nav.opened = []
     nav._resolve_special_panels(log=False)
@@ -256,7 +255,6 @@ def test_idle_panel_carousel_resets_when_config_changes():
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
     nav.create_snapshot = lambda: None
-    nav._cancel_idle_timer = lambda: None
     nav.open_panel = lambda pid, **kw: None
     nav._resolve_special_panels(log=False)
 

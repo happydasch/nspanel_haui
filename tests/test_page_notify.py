@@ -29,52 +29,12 @@ class _Device:
         return "test_slug"
 
 
-class _Item:
-    def __init__(self, entity_id):
-        self.entity_id = entity_id
-        self.state = "on"
-        self.turned_off = 0
-        self.turned_on = 0
-
-    def get_state(self):
-        return self.state
-
-    def turn_off(self):
-        self.turned_off += 1
-        self.state = "off"
-
-    def turn_on(self):
-        self.turned_on += 1
-        self.state = "on"
-
-
 class _App:
     device = _Device()
     controller: dict = {}
 
-    def __init__(self):
-        self.items = {}
-
     def log(self, msg, **kwargs):
         pass
-
-    def find_entity_id(self, domain, original_name):
-        names = {
-            "Use Auto-Dimming": "switch.area_panel_use_auto_dimming",
-            "Use Auto-Page": "switch.area_panel_use_auto_page",
-            "Use Auto Display-Off": "switch.area_panel_use_auto_display_off",
-        }
-        return names.get(original_name) if domain == "switch" else None
-
-    def item_exists(self, entity_id):
-        return entity_id in {
-            "switch.area_panel_use_auto_dimming",
-            "switch.area_panel_use_auto_page",
-            "switch.area_panel_use_auto_display_off",
-        }
-
-    def get_item(self, entity_id):
-        return self.items.setdefault(entity_id, _Item(entity_id))
 
 
 class _Panel:
@@ -177,19 +137,17 @@ def test_next_page_button_does_not_advance_past_last_page():
     assert "tText.txt=" not in " ".join(page.cmds)
 
 
-def test_stop_panel_restores_auto_state_without_timer():
+def test_stop_panel_runs_the_close_callback_and_releases_the_auto_switches():
     page = _build_page(LONG)
+    page.start_panel(_Panel())
     page.render_panel(_Panel())
-    page._saved_auto = page._save_auto_state()
     closed = []
     page._close_callback_fnc = lambda: closed.append(True)
 
     page._stop_panel(_Panel())
 
     assert closed == [True]
-    assert page.app.items["switch.area_panel_use_auto_page"].turned_on == 1
-    assert page.app.items["switch.area_panel_use_auto_dimming"].turned_on == 1
-    assert page.app.items["switch.area_panel_use_auto_display_off"].turned_on == 1
+    assert page.suspended_auto_switches() == ()
 
 
 def test_critical_type_colours_icon_differently():
@@ -258,17 +216,13 @@ class _QueuedPanel(_Panel):
         return "abc" if key == "notif_id" else default
 
 
-def _suspended_switches(page):
-    return sorted(entity_id for entity_id, item in page.app.items.items() if item.turned_off)
-
-
 def test_queued_notification_popup_only_holds_off_the_page_switch():
     """The display keeps dimming and turning off: the popup must not keep it lit."""
     page = _build_page("Short message")
 
     page.start_panel(_QueuedPanel())
 
-    assert _suspended_switches(page) == ["switch.area_panel_use_auto_page"]
+    assert page.suspended_auto_switches() == ("auto_page",)
 
 
 def test_ad_hoc_popup_still_suspends_every_auto_switch():
@@ -276,10 +230,10 @@ def test_ad_hoc_popup_still_suspends_every_auto_switch():
 
     page.start_panel(_Panel())
 
-    assert _suspended_switches(page) == [
-        "switch.area_panel_use_auto_dimming",
-        "switch.area_panel_use_auto_display_off",
-        "switch.area_panel_use_auto_page",
+    assert sorted(page.suspended_auto_switches()) == [
+        "auto_dimming",
+        "auto_display_off",
+        "auto_page",
     ]
 
 

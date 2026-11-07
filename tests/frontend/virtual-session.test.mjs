@@ -133,10 +133,18 @@ test('hardware buttons, idle timeout and live mode', async () => {
   await session.idleTimeout();
   await session.setLive(true);
 
-  assert.deepEqual(hass.calls.map(c => c.name ?? c.live), [
-    'esphome.button_left', 'esphome.button_left', 'esphome.timeout', true,
+  assert.deepEqual(hass.calls.map(c => c.type), [
+    'nspanel_haui/virtual_panel/event',
+    'nspanel_haui/virtual_panel/event',
+    'nspanel_haui/virtual_panel/idle',
+    'nspanel_haui/virtual_panel/configure',
+  ]);
+  assert.deepEqual(hass.calls.slice(0, 2).map(c => c.name), [
+    'esphome.button_left', 'esphome.button_left',
   ]);
   assert.deepEqual(hass.calls.slice(0, 2).map(c => c.value), ['1', '0']);
+  assert.equal(hass.calls[2].session_id, 'abc');
+  assert.equal(hass.calls[3].live, true);
   assert.equal(session.live, true);
 });
 

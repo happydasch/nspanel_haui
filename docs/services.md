@@ -12,6 +12,17 @@ Developer Tools panel in the HA UI.
 ESPHome also exposes lower-level TFT upload actions for a configured TFT URL or
 an arbitrary URL.
 
+```mermaid
+flowchart TD
+    caller["Automation or script"] --> service["NSPanel HAUI service"]
+    service -->|no device| shared["Navigation and notifications"]
+    service -->|device required| selected["TFT or firmware update"]
+    esphome["ESPHome action"] --> selected
+```
+
+Omit `device` to send navigation and notification calls to all panels. TFT and
+firmware updates require one selected panel.
+
 ## Display Updates
 
 ### `nspanel_haui.update_tft`
@@ -142,7 +153,7 @@ the image itself:
   partition. The panel must reach the URL too.
 - **The panel's current firmware needs the `install_firmware_url` action**
   (0.4.3 and later). Flash newer firmware once through ESPHome on a panel that
-  runs 0.4.2 or older (see [Upgrading](upgrading.md)).
+  runs 0.4.2 or older (see [Upgrading](update.md)).
 - **Automatic firmware updates pause** after a release or URL install, so
   `firmware_auto_update` does not reinstall the latest release on the next
   check. The pause lives in memory: a Home Assistant restart or installing the
@@ -522,12 +533,11 @@ a `…` suffix instead of showing an old value as current.
 
 TFT installs are automatic on connect (or after confirmation on the display,
 depending on `auto_install`) and normally need no action.  When you want to
-re-install the TFT immediately, use the **Device Manager → Install TFT** action
-or the `nspanel_haui.update_tft` service and select the panel (or press
+re-install the TFT immediately, use the **Device actions → Info → Install
+update → Display (TFT)** action or the `nspanel_haui.update_tft` service and select the panel (or press
 **Install** on its **HAUI Display** update entity). The HA service is also
 convenient from automations and Developer Tools, and uses HAUI's
-firmware-matched TFT release unless a `url` is given. The Device Manager also supports *Refresh all
-displays* from its dialog footer. While an install runs, the health section and
+firmware-matched TFT release unless a `url` is given. While an install runs, the health section and
 the Device Manager row show the matching state and version; failures surface
 the reason via the update state's `last_error`.
 
@@ -540,7 +550,7 @@ The display gives no byte-level progress, so the state only moves through
 
 Install the Nextion display file (the `.tft`) through the integration: the
 panel's **HAUI Display** update entity, the `nspanel_haui.update_tft` action
-(with an optional `url`), or **Device Manager → Install TFT**. All three track
+(with an optional `url`), or **Device actions → Info → Install update → Display (TFT)**. All three track
 the install and report failures.
 
 The firmware still exposes one ESPHome action, `esphome.<device>_upload_tft_url`
@@ -548,7 +558,7 @@ The firmware still exposes one ESPHome action, `esphome.<device>_upload_tft_url`
 because the ESP32 has to download the file and stream it to the display. Calling
 it directly bypasses the hub's install tracking — use `nspanel_haui.update_tft`
 with `url` instead. The former `esphome.<device>_upload_tft` action is gone (see
-[Upgrading](upgrading.md#10-tft-install-actions-moved-to-the-integration)).
+[Upgrading](update-process.md#10-tft-install-actions-moved-to-the-integration)).
 
 The former standalone **Update Display** button is gone: TFT management belongs
 to the hub. The firmware keeps only the `upload_tft_url` ESPHome action above as
@@ -569,7 +579,8 @@ Assistant event bus** so automations can react to what happens on the panel.
 | `nspanel_haui.page_changed` | `device`, `action` (`opened`/`closed`), `panel` (key), `type`, `title`, `page` (Nextion page name) | Whenever a panel is opened through the render pipeline or closed |
 | `nspanel_haui.notification` | `device`, `id` (unique per notification; a repeat that replaces a queued copy gets a new one), `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `timeout` (seconds or `null`) | Whenever a notification is queued or removed (dismissed, expired, replaced, cleared, or dropped from a full queue) |
 | `nspanel_haui.connection_changed` | `device`, `connected` (bool) | Whenever the hub's connection to the panel device changes |
-| `nspanel_haui.display_update_changed` | `device`, `connected`, `installed_version` (TFT), `latest_version` (TFT the firmware needs), `state` (`idle`/`checking`/`installing`/`done`/`error`), `last_error` | Whenever the display's TFT version or the TFT update state changes (drives the **HAUI Display** update entity) |
+| `nspanel_haui.display_update_changed` | `device`, `connected`, `enabled` (updates enabled for the device), `installed_version` (TFT), `latest_version` (TFT the firmware needs), `state` (`idle`/`checking`/`installing`/`done`/`error`), `update_reason` (why no TFT is offered), `last_error` | Whenever the display's TFT version or the TFT update state changes (drives the **HAUI Display** update entity) |
+| `nspanel_haui.firmware_update_changed` | `device`, `connected`, `enabled`, `installed_version`, `latest_version` (`null` when no firmware can be offered), `installing`, `reason` (why no firmware is offered), `last_error` | Whenever the firmware versions or the firmware install state change (drives the **HAUI Firmware** update entity) |
 
 All events carry the device name in `event.data.device`, so a single
 automation can react to every panel of the hub.

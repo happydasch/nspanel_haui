@@ -141,7 +141,7 @@ jobs:
             cp "$NOTES" release-notes.md
             echo "Using prepared release notes from $NOTES"
           else
-            printf 'See [CHANGELOG.md](CHANGELOG.md) for release notes and\n[docs/upgrading.md](docs/upgrading.md) for breaking changes and update steps.\n' > release-notes.md
+            printf 'See [CHANGELOG.md](CHANGELOG.md) for release notes and\n[docs/update.md](docs/update.md) for breaking changes and update steps.\n' > release-notes.md
             echo "No prepared notes at $NOTES; using the changelog pointer."
           fi
 

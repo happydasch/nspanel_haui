@@ -5,147 +5,109 @@ description: Step-by-step installation guide for NSPanel HAUI
 
 # Installation Guide
 
-> **Quick start:** See the [Quick Start Guide](get-started.md) for a 5-minute setup overview.
+For a short walkthrough, see the [Quick Start Guide](get-started.md).
 
-<p align="center">
-  <img src="assets/diagrams/install-flow.svg" alt="Installation Flow" width="100%">
-</p>
+Use the release firmware for a standard install. It needs no local build or YAML edits.
 
 ## Requirements
 
-HomeAssistant needs to provide following applications:
+- Home Assistant 2026.11 or later (includes the Marketplace)
+- A Sonoff NSPanel
+- A USB-UART adapter for the first flash
 
-- Home Assistant 2026.11 or later (the release that brings the Marketplace; `hacs.json` declares the same minimum)
-- ESPHome 2026.10 or later
-- Hub (nspanel_haui custom integration)
+The release firmware connects through Home Assistant's built-in ESPHome integration. You do not need to install ESPHome.
 
-Please install all requirements before continuing.
+```mermaid
+flowchart TD
+    ha["Home Assistant HAUI hub"] -->|"Native API"| esp["ESPHome firmware on ESP32"]
+    esp -->|"Display commands over UART"| display["Nextion touchscreen"]
+    display -->|"Touch events over UART"| esp
+    esp -->|"Device events"| ha
+```
 
-## 1. Step: Preparations
+## Flash the panel
 
-It is necessary to flash the panel once with ESPHome.
-
-To be able to flash the panel the first time the device needs to be opened and connected via a USB-UART-Adapter.
-
-For disassembly and connection details, see the [NSPanel teardown guide](https://blakadder.com/nspanel-teardown/).
-
-When connecting the USB-UART adapter, connect GND to IO0 to put the device in flashing mode.
-
-## 2. Step: Install ESPHome
-
-With the prepared and connected device it is now possible to install ESPHome on it.
-
-1. **Get the config**: Use [`esphome/install.yaml`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/install.yaml) as a starting point. Copy its content into the ESPHome dashboard and adjust the values.
-
-2. **Create a new device**: In the ESPHome dashboard, create a new device. Set the device name to your chosen hostname (default: `nspanel-haui`). Store the generated API encryption key; it also encrypts wireless installs, so the firmware uses no OTA password (see [Encrypted native OTA](esphome.md#encrypted-native-ota)).
-
-3. **Edit configuration**: Replace the generated config with the content of `install.yaml`. Only the substitution values need editing:
-   - `name` — host and device name
-   - `wifi_ssid` / `wifi_password` — Wi-Fi credentials
-   - `api_encryption_key` — from step 2
-   - `ap_password` — fallback access point password
-
-   This build reports itself as a **custom** firmware variant (see
-   [Firmware updates in the device settings](configuration/device.md#updates)):
-   the hub never offers or installs the public universal release image on it,
-   so your credentials stay yours. Flash newer firmware with **Install firmware
-   → From URL** (a built `firmware.ota.bin`) or ESPHome.
-
-   You can set these directly in the file or in the ESPHome dashboard's **Secrets** (the keys are listed in [`secrets.yaml.example`](https://github.com/happydasch/nspanel_haui/blob/master/esphome/secrets.yaml.example)).
-
-   The ESPHome **web server is optional and off by default** (it costs flash
-   and RAM that HTTP OTA needs). If you want the web UI, uncomment the
-   `web_server:` block at the end of `install.yaml`; Home Assistant then shows a
-   **Visit** link for the device. See [ESPHome Component → Web server](esphome.md#web-server-optional).
-
-4. **Install**: Click "Install" and select either "Plug into this computer" (if connected via USB and your browser supports WebSerial) or "Manual download" to get `nspanel_haui.bin`.
-
-5. **Alternative — Flash via web**: Open [web.esphome.io](https://web.esphome.io/), load `nspanel_haui.bin`, and click Install. When finished, disconnect the USB-UART adapter and reassemble the panel.
-
-When a release ships the **universal prebuilt firmware** (`nspanel_haui.bin`
-attached to the GitHub release), you can skip the dashboard entirely. See
-*Universal image (no YAML)* below.  The editor's **Device Manager → Download
-firmware** button opens the binary directly.
+```mermaid
+flowchart TD
+    flash["Flash firmware and set Wi-Fi"] --> device["Add ESPHome device"]
+    device --> install["Install NSPanel HAUI"]
+    install --> panels["Configure panels"]
+```
 
 ### Universal image (no YAML)
 
-Every release carries `nspanel_haui.bin` — the same firmware for EU and
-US/portrait panels, with Wi-Fi left to you at first boot:
+Every release includes `nspanel_haui.bin` for EU and US/portrait panels. Set up each panel:
 
-1. Download `nspanel_haui.bin` (release assets or the editor's **Device
-   Manager → Download firmware**).
-2. Flash it once (wired, as above — web.flasher or **Install → Manual
-   download → Install** in the ESPHome dashboard).
-3. The panel boots into its **open access point named after the device**, e.g.
-   `nspanel-haui-a1b2c3` (the MAC suffix keeps every panel's AP unique).
-   Connect your phone/laptop to it and follow the captive portal to enter your
-   **Wi-Fi name and password**. The device reboots onto your network and keeps
-   that Wi-Fi across firmware updates.
-4. In Home Assistant, add the ESPHome device. When asked for the **encryption
-   key**, use the fixed key `TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE=`.
-5. Add the device in the **NSPanel HAUI editor** (Device Manager → Scan). The
-   hub links it and installs the matching TFT automatically.
+1. Download `nspanel_haui.bin` from the latest release. Existing users can also get it from **Device Info → Download firmware** in the editor.
+2. Open the panel and connect a USB-UART adapter. Connect GND to IO0 to enter flashing mode. Flash the file with the [ESP Web Flasher](https://web.esphome.io/). See the [NSPanel teardown guide](https://blakadder.com/nspanel-teardown/) for disassembly and wiring.
+3. Join the panel's open access point, such as `nspanel-haui-a1b2c3`. Follow the captive portal to enter your Wi-Fi name and password. The panel reboots onto Wi-Fi and keeps those settings across firmware updates.
+4. In Home Assistant, add the device to the ESPHome integration. If prompted for an encryption key, use `TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE=`.
 
-**Notes:**
+One binary supports any number of panels. Its `name_add_mac_suffix: true` setting appends the last six MAC digits to each hostname, mDNS name, and setup access point. Repeat steps 2–4 for each panel.
 
-- **One `.bin` installs any number of panels.**  `name_add_mac_suffix: true`
-  appends the last six MAC digits at runtime, so each panel gets a unique
-  hostname, mDNS name and setup access point — no per-device YAML edit or local
-  ESPHome build.  Repeat the five steps for every panel.
-- The baked API key is documented and public, and it also authenticates
-  wireless ESPHome installs.  If you don't want LAN peers to reflash the panel,
-  use the per-device YAML build with your own secrets instead.
-- The universal image does **not** run the ESPHome web server (see
-  [Web server (optional)](esphome.md#web-server-optional)). Build your own YAML
-  from `esphome/install.yaml` if you want the web UI.
+!!! warning "The universal image uses a public key"
+    The key above also authenticates wireless ESPHome installs. The release image does not include the ESPHome web server. For private credentials or a web server, see the [ESPHome development instructions](esphome.md#installation).
 
-## 3. Step: Install Hub App
+## Install the integration
 
-Install the NSPanel HAUI integration from the Home Assistant
-[Marketplace](https://www.home-assistant.io/integrations/marketplace/)
-(recommended). NSPanel HAUI is not in the Marketplace catalog, so you add it as
-a custom repository:
+Install NSPanel HAUI through the [Home Assistant Marketplace](https://www.home-assistant.io/integrations/marketplace/) (recommended). It is not in the catalog, so add it as a custom repository:
 
-1. Go to **Settings → Marketplace** (on the first visit, accept the
-   community-content warning).
-2. Select **Add from link**, enter `happydasch/nspanel_haui` and select **Add**.
-   Custom repositories need a GitHub connection; if you have not connected
-   GitHub yet, the Marketplace asks you to do it now.
+```mermaid
+flowchart TD
+    marketplace["Marketplace"] --> repository["Add custom repository"]
+    repository --> install["Install NSPanel HAUI"]
+    install --> restart["Restart Home Assistant"]
+```
+
+[Open the NSPanel HAUI repository in Home Assistant](https://my.home-assistant.io/redirect/marketplace_repository/?owner=happydasch&repository=nspanel_haui&category=integration).
+
+1. Go to **Settings → Marketplace**. Accept the community-content warning if it appears.
+2. Select **Add from link**, enter `happydasch/nspanel_haui`, then select **Add**. Connect GitHub if prompted.
 3. Open **NSPanel HAUI**, select **Install**, then restart Home Assistant.
 
-[![Open your Home Assistant instance and open NSPanel HAUI in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=happydasch&repository=nspanel_haui&category=integration)
+For a manual install, copy `custom_components/nspanel_haui/` into Home Assistant's `custom_components/` directory, then restart. Manual copies do not receive update notifications.
 
-Alternatively, copy `custom_components/nspanel_haui/` into your Home Assistant
-`custom_components/` directory and restart Home Assistant; such a copy gets no
-update notifications.
+After restart, add the integration from **Settings → Devices & Services → Add Integration → NSPanel HAUI**.
 
-This needs to be done only once. After restart, add the integration via **Settings → Devices & Services → Add Integration → NSPanel HAUI**.
+??? note "Coming from HACS"
+    Home Assistant 2026.11 replaces HACS with the Marketplace and migrates existing installations on first startup. NSPanel HAUI stays installed and keeps receiving updates.
 
-**Coming from HACS:** Home Assistant 2026.11 replaces HACS with the Marketplace
-and migrates it on the first start. NSPanel HAUI stays installed and keeps
-receiving updates; there is nothing to reinstall. To follow development
-builds, enable the repository's **Pre-release** switch (**Settings → Devices &
-services → Marketplace**, NSPanel HAUI's device page; the entity is disabled by
-default).
+    To receive development releases, enable the repository's **Pre-release** switch on the NSPanel HAUI device page under **Settings → Devices & Services → Marketplace**. The update entity is disabled by default.
 
-## 4. Step: Configuration for Hub
+## Configure panels
 
-The Hub app is configured through the Home Assistant UI via the NSPanel HAUI integration's config flow and panel editor. No manual `configuration.yaml` editing is needed.
+You do not need to edit `configuration.yaml`.
 
-See [Configuration Details](configuration/README.md) for all available options and the [FAQ](faq.md) for common questions.
+```mermaid
+flowchart TD
+    sidebar["Open the NSPanel HAUI sidebar"] --> manager["Open Device Manager"]
+    manager --> device["Select ESPHome device"]
+    device --> panels["Add and save panels"]
+```
 
-## 5. Step: Install TFT File
+1. Open **NSPanel HAUI** in the Home Assistant sidebar.
+2. In **Device Manager**, add the ESPHome device it finds automatically. If the panel is missing, add it to Home Assistant's ESPHome integration first.
+3. Select **Add Panel**, choose a panel type, fill in the required fields, then select **Save**. The display updates automatically.
 
-The display needs a custom interface which is provided in a TFT file. About a minute after the device connects to the Hub App, the Hub App compares the display's TFT version with the version the ESPHome firmware needs. If the display has an older TFT (or none), it reads the release's `firmware-manifest.json`, picks the TFT asset that matches the device's display model, downloads it and installs it automatically. The display is busy for a few minutes while the file is transferred.
+See [Configuration Details](configuration/README.md) for panel options and the [FAQ](faq.md) for common questions.
 
-After an update that changes the firmware version, update the ESPHome firmware first; the matching TFT then follows on the next connect. Once the device runs firmware 0.4.3 or later, the hub's **HAUI Firmware** update entity installs future firmware releases; the first flash onto older firmware remains a manual ESPHome step.
+## TFT and firmware updates
 
-The installation process can also be executed manually. See [Nextion Display](nextion.md) for details.
+The hub installs the matching TFT automatically.
 
-## Finished
+```mermaid
+flowchart TD
+    connect["Panel connects"] --> check["Hub checks the TFT version"]
+    check --> current{"Up to date?"}
+    current -->|Yes| done["No transfer"]
+    current -->|No| download["Download matching TFT"]
+    download --> install["Install the TFT"]
+```
 
-To install more devices, repeat the process.  With the universal prebuilt
-firmware the device names are unique automatically (MAC suffix); with a
-per-device build, set a unique `name` substitution for each panel.
+About a minute after connection, the hub compares the installed TFT with the version required by the firmware. If the TFT is missing or outdated, it downloads and installs the display model's asset from `firmware-manifest.json`. The display is busy for a few minutes during transfer.
 
-See [Documentation](README.md) for more details.
+When a firmware update requires a new TFT, update the firmware first. The hub installs the matching TFT after the next connection.
+
+On firmware 0.4.3 or later, use the **HAUI Firmware** update entity for future releases. If your panel runs an older version, flash its first update manually with the ESP Web Flasher, **Install firmware → From URL**, or the ESPHome dashboard.
+
+For manual TFT installation, see [Nextion Display](nextion.md).

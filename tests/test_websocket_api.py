@@ -65,6 +65,7 @@ class _FakeHost:
         self.renders = []
         self.reloads = []
         self.reset_count = 0
+        self.idle_count = 0
         self.live = False
         self.app = types.SimpleNamespace(device=types.SimpleNamespace(get=lambda key: None))
         _FakeHost.instances.append(self)
@@ -100,6 +101,9 @@ class _FakeHost:
 
     def reset_sandbox(self):
         self.reset_count += 1
+
+    def show_idle(self):
+        self.idle_count += 1
 
     async def async_configured_panel(self, key):
         if key != "popup_notify":
@@ -185,6 +189,7 @@ def test_all_commands_are_registered(ws):
     assert [fn.schema["type"] for fn in registered] == [
         "nspanel_haui/virtual_panel/subscribe",
         "nspanel_haui/virtual_panel/event",
+        "nspanel_haui/virtual_panel/idle",
         "nspanel_haui/virtual_panel/configure",
         "nspanel_haui/virtual_panel/render",
     ]
@@ -348,6 +353,19 @@ def test_event_forwards_allowed_events_and_rejects_others(ws):
     _run(body)
     assert _FakeHost.instances[0].events == [("esphome.component", "9,12,0")]
     assert conn.errors == [(3, "invalid_event"), (4, "not_found")]
+
+
+def test_idle_opens_the_idle_page_for_the_preview_session(ws):
+    conn = _Connection()
+
+    async def body(hass):
+        await _subscribe(ws, hass, conn)
+        [session_id] = _FakeHost.instances[0].viewers
+        await ws.ws_idle(hass, conn, {"id": 2, "session_id": session_id})
+
+    _run(body)
+    assert _FakeHost.instances[0].idle_count == 1
+    assert conn.results == [1, 2]
 
 
 def test_configure_switches_the_mode(ws):

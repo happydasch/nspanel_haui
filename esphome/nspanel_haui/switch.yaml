@@ -31,14 +31,6 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
-  # Should auto-page be used
-  - platform: template
-    name: Use Auto-Page
-    id: use_auto_page
-    entity_category: config
-    restore_mode: RESTORE_DEFAULT_ON
-    optimistic: true
-
   # Should the display turn off automatically after the display-off timeout
   - platform: template
     name: Use Auto Display-Off

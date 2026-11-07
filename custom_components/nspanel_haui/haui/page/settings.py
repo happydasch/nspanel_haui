@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -46,10 +47,8 @@ class SettingsPage(HAUIPage):
     )
 
     def prepare(self) -> None:
-        self.auto_dimming: ItemProxy | None = None
         self.brightness_full_entity: ItemProxy | None = None
         self.brightness_dimmed_entity: ItemProxy | None = None
-        self._use_auto_dimming = False
         self._handle_brightness_full: str | None = None
         self._handle_brightness_dimmed: str | None = None
         self._full_brightness: int | None = None
@@ -57,15 +56,11 @@ class SettingsPage(HAUIPage):
 
     # panel
 
-    def start_panel(self, panel: HAUIPanel) -> None:
-        auto_dimming_id = self.find_esphome_entity_id("switch", "Use Auto-Dimming")
-        self.auto_dimming = self.app.get_item(auto_dimming_id) if auto_dimming_id else None
-        self._use_auto_dimming = (
-            self.auto_dimming is not None and self.auto_dimming.get_state() == "on"
-        )
-        if self.auto_dimming is not None:
-            self.auto_dimming.turn_off()
+    def suspended_auto_switches(self) -> Collection[str]:
+        # The display stays at the brightness being set.
+        return ("auto_dimming",)
 
+    def start_panel(self, panel: HAUIPanel) -> None:
         brightness_full_id = self.find_esphome_entity_id("number", "Brightness Full")
         self.brightness_full_entity = (
             self.app.get_item(brightness_full_id) if brightness_full_id else None
@@ -113,8 +108,6 @@ class SettingsPage(HAUIPage):
             self.app.cancel_listen_state(self._handle_brightness_full)
         if self._handle_brightness_dimmed is not None:
             self.app.cancel_listen_state(self._handle_brightness_dimmed)
-        if self._use_auto_dimming and self.auto_dimming is not None:
-            self.auto_dimming.turn_on()
 
     def render_panel(self, panel: HAUIPanel) -> None:
         title = panel.get_title(self.translate("Settings"))

@@ -279,6 +279,7 @@ async def test_open_panel(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_open_panel(mock_hass, call)
 
     mock_nav.open_panel.assert_called_once_with("alarm")
+    mock_nav.reset_activity.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -295,6 +296,7 @@ async def test_open_panel_with_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_open_panel(mock_hass, call)
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with("reset_last_interaction", "0")
+    mock_nav.reset_activity.assert_called_once_with()
     mock_nav.open_panel.assert_called_once_with("alarm")
 
 
@@ -333,8 +335,6 @@ async def test_update_tft_targets_selected_device(mock_hass, mock_nav, mock_esph
     """update_tft installs the firmware-matched TFT only on the selected device."""
     target = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
     other = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_other", name="other")
-    target.install_tft = MagicMock(return_value={"state": "installing"})
-    other.install_tft = MagicMock(return_value={"state": "installing"})
     mock_hass.data[DOMAIN] = {"entry_1": {"target": target, "other": other}}
 
     from nspanel_haui.services import _handle_update_tft
@@ -357,7 +357,6 @@ async def test_update_tft_accepts_the_haui_device(
 ):
     """The device the service's selector offers (the HAUI device) starts the install."""
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
-    app.install_tft = MagicMock(return_value={"state": "installing"})
     mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
     device_registry["haui_kitchen"] = {(DOMAIN, "kitchen")}
 
@@ -377,8 +376,6 @@ async def test_update_tft_accepts_the_haui_device(
 async def test_update_tft_rejects_an_unknown_device(mock_hass, mock_nav, mock_esphome_ctrl):
     """An id that is neither device of a panel fails the call and installs nothing."""
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
-    app.install_tft = MagicMock(return_value={"state": "installing"})
-    app.install_tft_url = MagicMock(return_value={"state": "installing"})
     mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
 
     from nspanel_haui.services import _handle_update_tft
@@ -390,8 +387,6 @@ async def test_update_tft_rejects_an_unknown_device(mock_hass, mock_nav, mock_es
     with pytest.raises(_ServiceValidationError, match=r"update_tft: .*device unknown"):
         await _handle_update_tft(mock_hass, call)
 
-    app.install_tft.assert_not_called()
-    app.install_tft_url.assert_not_called()
     app.dispatch.assert_not_called()
 
 
@@ -399,8 +394,6 @@ async def test_update_tft_rejects_an_unknown_device(mock_hass, mock_nav, mock_es
 async def test_update_tft_with_url_installs_that_file(mock_hass, mock_nav, mock_esphome_ctrl):
     """The url field replaces the public ESPHome upload_tft_url action."""
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
-    app.install_tft = MagicMock(return_value={"state": "installing"})
-    app.install_tft_url = MagicMock(return_value={"state": "installing"})
     mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
 
     from nspanel_haui.services import _handle_update_tft
@@ -423,7 +416,6 @@ async def test_update_tft_with_version_installs_that_release(
     mock_hass, mock_nav, mock_esphome_ctrl
 ):
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
-    app.install_tft = MagicMock(return_value={"state": "installing"})
     mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
 
     from nspanel_haui.services import _handle_update_tft
@@ -451,7 +443,6 @@ async def test_update_firmware_installs_the_chosen_firmware(
     mock_hass, mock_nav, mock_esphome_ctrl, data, args
 ):
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
-    app.install_firmware = MagicMock(return_value={"firmware_install_error": None})
     mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
 
     from nspanel_haui.services import _handle_update_firmware
@@ -494,6 +485,7 @@ async def test_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_wakeup(mock_hass, call)
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with("reset_last_interaction", "0")
+    mock_nav.reset_activity.assert_called_once_with()
     mock_nav.exit_idle_to_prev_or_home.assert_called_once()
 
 
@@ -511,6 +503,7 @@ async def test_idle(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_idle(mock_hass, call)
 
     mock_nav.open_idle_panel.assert_called_once_with(True)
+    mock_nav.reset_activity.assert_not_called()
 
 
 @pytest.mark.asyncio

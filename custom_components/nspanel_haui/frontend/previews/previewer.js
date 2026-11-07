@@ -20,15 +20,22 @@ const RENDER_MAX_AGE_MS = 30_000;
 
 /**
  * Everything a card's render depends on besides the panel itself: the hub, the
- * device and its saved settings and panels (header buttons follow the
- * navigation order). A frame renders again when this changes.
+ * device, its device info and saved settings and panels (header buttons follow
+ * the navigation order). A frame renders again when this changes.
  *
  * @param {object} host - the editor element
  * @returns {string}
  */
 export function previewRenderKey(host) {
   const panels = typeof host?._devicePanels === 'function' ? host._devicePanels() : null;
-  return JSON.stringify([host?.entryId, host?._selectedDevice, host?._deviceConfig, panels]);
+  const deviceInfo = host?._deviceStatuses?.[host?._selectedDevice]?.device_info || null;
+  return JSON.stringify([
+    host?.entryId,
+    host?._selectedDevice,
+    host?._deviceConfig,
+    panels,
+    deviceInfo,
+  ]);
 }
 
 /**

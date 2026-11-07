@@ -73,6 +73,7 @@ class NSPanelEditor extends LitElement {
       _editingDeviceConfig: { type: Boolean, state: true },
       _deviceConfigForm: { type: Object, state: true },
       _deviceStatus: { type: Object, state: true },
+      _deviceStatuses: { type: Object, state: true },
       _deviceStatusError: { type: String, state: true },
       _showDeviceInfo: { type: Boolean, state: true },
       _showLogs: { type: Boolean, state: true },
@@ -125,6 +126,7 @@ class NSPanelEditor extends LitElement {
     this.__hiddenPanelsOpen = readStorage('haui_hiddenPanelsOpen', '') !== 'false';
 
     this._deviceStatus = null;
+    this._deviceStatuses = {};
     this._deviceStatusError = null;
     this._showDeviceInfo = false;
     this._showLogs = false;
@@ -201,7 +203,7 @@ class NSPanelEditor extends LitElement {
     if (changed.has("entryId") && this.entryId) {
       Notifications.loadNotifications(this);
     }
-    if (changed.has("_selectedDevice") && this._selectedDevice) {
+    if (changed.has("_selectedDevice") && this._selectedDevice && !this._loading) {
       startStatusPolling(this);
     }
     if ((changed.has("_actionsMenuIndex") && this._actionsMenuIndex !== null && this._actionsMenuIndex !== undefined) ||
@@ -263,7 +265,12 @@ class NSPanelEditor extends LitElement {
 
   async _loadEntries()     { return Api.loadEntries(this); }
   async _load() {
-    await Api.loadPanels(this);
+    await Api.loadPanels(this, { keepLoading: true });
+    const statuses = await Api.loadDeviceStatuses(this);
+    this._loading = false;
+    if (this._selectedDevice) {
+      startStatusPolling(this, { refresh: !statuses?.[this._selectedDevice] });
+    }
   }
   async _loadPanelTypes()  { return Api.loadPanelTypes(this); }
   _loadDeviceConfig(name)  { DeviceConfig.loadDeviceConfig(this, name); }

@@ -28,7 +28,7 @@ export async function loadEntries(host) {
   }
 }
 
-export async function loadPanels(host) {
+export async function loadPanels(host, { keepLoading = false } = {}) {
   if (!host.entryId || !host.hass) {
     host._loading = false;
     return;
@@ -48,12 +48,46 @@ export async function loadPanels(host) {
     } else {
       host._selectedDevice = devices.length ? devices[0] : null;
     }
+    host._deviceStatuses = Object.fromEntries(
+      Object.entries(host._deviceStatuses || {}).filter(([name]) => devices.includes(name))
+    );
     if (host._selectedDevice) host._loadDeviceConfig(host._selectedDevice);
+    if (
+      !keepLoading &&
+      devices.some((name) => !Object.hasOwn(host._deviceStatuses, name))
+    ) {
+      await loadDeviceStatuses(host);
+    }
   } catch (e) {
     console.error("Failed to load panels:", e);
     host._showToast(t("Failed to load panels"), "error");
   }
-  host._loading = false;
+  if (!keepLoading) host._loading = false;
+}
+
+/** Load and cache the status snapshot for every configured device. */
+export async function loadDeviceStatuses(host) {
+  if (!host.entryId || !host.hass) return null;
+  try {
+    const resp = await host.hass.fetchWithAuth(`/api/nspanel_haui/status/${host.entryId}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const result = await resp.json();
+    const statuses = result?.devices;
+    if (!statuses || typeof statuses !== "object" || Array.isArray(statuses)) {
+      throw new Error("Invalid device status response");
+    }
+    host._deviceStatuses = { ...(host._deviceStatuses || {}), ...statuses };
+    const selected = host._deviceStatuses[host._selectedDevice];
+    if (selected) {
+      host._deviceStatus = selected;
+      host._deviceStatusError = null;
+    }
+    return host._deviceStatuses;
+  } catch (e) {
+    console.error("Failed to load device statuses:", e);
+    host._deviceStatusError = e.message || t("Fetch failed");
+    return null;
+  }
 }
 
 export async function loadPanelTypes(host) {
@@ -88,11 +122,15 @@ export async function loadStatus(host) {
     );
     if (resp.ok) {
       status = await resp.json();
-      // When no device is selected the backend returns
-      // {devices: {name: status, ...}}. Unwrap the first device.
+      // The unfiltered response contains every device; cache it and use the
+      // selected device's entry when one was requested.
       if (status.devices && typeof status.devices === "object") {
-        const names = Object.keys(status.devices);
-        status = names.length ? status.devices[names[0]] : {};
+        const statuses = status.devices;
+        host._deviceStatuses = { ...(host._deviceStatuses || {}), ...statuses };
+        const names = Object.keys(statuses);
+        status = deviceKey
+          ? statuses[deviceKey] || null
+          : names.length ? statuses[names[0]] : {};
       }
     } else {
       error = `HTTP ${resp.status}`;
@@ -102,6 +140,9 @@ export async function loadStatus(host) {
   }
   // The user may have switched devices while this request was in flight.
   if ((host._selectedDevice || "") !== deviceKey) return;
+  if (deviceKey && status) {
+    host._deviceStatuses = { ...(host._deviceStatuses || {}), [deviceKey]: status };
+  }
   host._deviceStatus = status;
   host._deviceStatusError = error;
 }

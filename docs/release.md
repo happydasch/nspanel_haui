@@ -57,8 +57,9 @@ the display version sources. A development version (`X.Y.Z.devN`, the
    `tft_version` is advanced only when a TFT update ships.
 4. The Nextion HMI files (`nextion/nspanel_haui.HMI` and
    `nextion/nspanel_haui_portrait.HMI`) — global `system.tftVersion`, updated
-   with `--tft-update` and checked against the integration version by the
-   release gate unless the unchanged TFT is explicitly pinned.
+   with `--tft-update`. The release gate checks both HMIs against the TFT
+   version configured in step 3 (or an explicit `--expected-version`); the
+   integration version is not the gate.
 
 The bump script is a *version* bump only and never edits `CHANGELOG.md`. The
 changelog (heading plus release date, and the "Breaking changes" section with
@@ -75,7 +76,8 @@ hotfix whose display files did not change). Run `scripts/bump_version.py
 <version>` without `--tft-update`: firmware `yaml_version` advances, while
 `tft_version` and the HMI `system.tftVersion` stay at the embedded display
 version. Set the repository variable `TFT_VERSION_PIN` to that version (for
-example, `0.4.3`) so CI tolerates the HMI/integration version mismatch. The
+example, `0.4.3`); the release gate then requires both HMIs to report exactly
+that version instead of the `tft_version` configured in `version.yaml`. The
 release manifest gets its TFT version from `esphome/nspanel_haui/version.yaml`,
 so the **HAUI Display** entity only offers the TFT when a panel is older than
 the pinned image; a firmware-only release does not trigger an unnecessary TFT
@@ -515,8 +517,10 @@ The script edits HMI files in place; that is only legal for a same-length TFT
 version change (`0.4.2` → `0.4.3`). A shorter or longer value resizes the
 attribute record and the script refuses it — use the Nextion Editor for that
 bump. The script does not touch `CHANGELOG.md`, so add or update its section and
-date by hand. Recompile both TFTs after a `--tft-update`; the release gate
-rejects stale HMI/TFT assets.
+date by hand. Recompile both TFTs after a `--tft-update`: the release gate
+checks the committed HMI dumps and portrait asset parity, but it cannot prove a
+TFT was freshly compiled from its HMI, so recompiling is what guarantees the
+binaries carry the new version.
 
 `scripts/bump_tft_version.py` bumps only the HMI `tftVersion` text; the combined
 script above calls it for `--tft-update`. Both are importable and covered by

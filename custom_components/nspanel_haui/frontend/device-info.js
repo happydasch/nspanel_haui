@@ -16,8 +16,8 @@ import { t } from './localize.js';
 
 /**
  * Poll the selected device's status. Restarts when the selected device has
- * changed, dropping the previous device's status so it is never shown for the
- * new one.
+ * changed, immediately showing only that device's cached status while fetching
+ * a fresh snapshot.
  */
 /**
  * Whether version ``a`` (e.g. "0.3.3") is older than ``b``. Missing or
@@ -72,15 +72,15 @@ export function fmtRssi(rssi) {
 }
 
 
-export function startStatusPolling(host) {
+export function startStatusPolling(host, { refresh = true } = {}) {
   if (host._statusTimer && host._statusDevice === host._selectedDevice) return;
   stopStatusPolling(host);
   if (host._statusDevice !== host._selectedDevice) {
-    host._deviceStatus = null;
+    host._deviceStatus = host._deviceStatuses?.[host._selectedDevice] || null;
     host._deviceStatusError = null;
     host._statusDevice = host._selectedDevice;
   }
-  Api.loadStatus(host);
+  if (refresh) Api.loadStatus(host);
   host._statusTimer = setInterval(() => Api.loadStatus(host), 5000);
 }
 

@@ -46,8 +46,8 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
                 description=_("Background image theme for the weather display."),
                 section=_("Appearance"),
                 choices=[
-                    ("dark", _("Dark")),
-                    ("light", _("Light")),
+                    ("dark", _("Dark Color")),
+                    ("light", _("Light Color")),
                     ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),

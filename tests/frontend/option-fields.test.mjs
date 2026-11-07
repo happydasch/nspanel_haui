@@ -55,7 +55,7 @@ const background = {
   key: 'background',
   kind: 'select',
   allow_template: true,
-  choices: [{ value: 'dark', label: 'Dark' }, { value: 'modern', label: 'Modern' }],
+  choices: [{ value: 'dark', label: 'Dark Color' }, { value: 'modern', label: 'Modern' }],
 };
 
 test('a select that allows templates offers a template field for a non-choice value', () => {

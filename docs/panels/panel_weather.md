@@ -41,8 +41,8 @@ Cards are fitted to the time area and redraw when their value changes; see the c
 
 The weather panel can have different background images. Select from the dropdown in the editor:
 
-- Dark — a clean dark theme
-- Light — plain off-white
+- Dark Color — a clean dark theme
+- Light Color — plain off-white
 - Modern — modern gradient
 - Spring — floral theme
 - Summer — warm theme

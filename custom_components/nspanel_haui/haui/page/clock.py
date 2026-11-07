@@ -40,8 +40,8 @@ class ClockPage(CycleCardsMixin, HAUIPage):
                 label=_("Background"),
                 description=_("Background image theme for the clock display."),
                 choices=[
-                    ("dark", _("Dark")),
-                    ("light", _("Light")),
+                    ("dark", _("Dark Color")),
+                    ("light", _("Light Color")),
                     ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),

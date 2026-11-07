@@ -359,6 +359,25 @@ def check_pictures(orientation: str) -> list[str]:
     return problems
 
 
+def check_spinner(layout: dict[str, Any]) -> list[str]:
+    """The system page's spinner timer must draw the spinner sheets.
+
+    Its ``xpic`` calls name the sheets by picture id, and the Nextion Editor
+    does not renumber event code when a picture is inserted before them.
+    """
+    sheets = [pic for pic, src in sorted(PICTURES.items()) if src.startswith("spinner_")]
+    page = next(p for p in layout["pages"].values() if p["name"] == "system")
+    timer = next(c for c in page["components"] if c["name"] == "tmSpinner")
+    code = timer["events"]["timer"]
+    drawn = [int(pic) for pic in re.findall(r"^\s*xpic .*,(\d+)\s*$", code, re.M)]
+    if drawn != sheets:
+        return [
+            f"{layout['orientation']}: system.tmSpinner draws pictures {drawn}, "
+            f"the spinner sheets are {sheets}"
+        ]
+    return []
+
+
 def write_pictures(orientation: str) -> None:
     from PIL import Image
 
@@ -437,6 +456,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"wrote {FONT_METRICS_FILE.relative_to(ROOT)}")
 
     problems += check_theme_code(layouts)
+    for layout in layouts:
+        problems += check_spinner(layout)
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems and args.check:

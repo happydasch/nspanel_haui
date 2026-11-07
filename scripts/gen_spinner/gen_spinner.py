@@ -8,8 +8,8 @@ background tile at the spinner's position, per orientation:
 * landscape: ``nextion/images/bkg/landscape/system.png`` at (155, 80)
 * portrait:  ``nextion/images/bkg/portrait/system.png`` at (90, 160)
 
-The 60 frames go into two 1400 x 420 sheets of 3 x 10 frames (pictures 10
-and 11 in the HMI; the page's timer shows frames 0..29 from the first sheet
+The 60 frames go into two 1400 x 420 sheets of 3 x 10 frames (pictures 11
+and 12 in the HMI; the page's timer shows frames 0..29 from the first sheet
 and 30..59 from the second), written to ``nextion/images/spinner_<orientation>_1.png``
 and ``_2.png``. Re-run after changing the ``system`` background tile or the
 spinner position.

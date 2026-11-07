@@ -216,9 +216,13 @@ No Python changes are needed unless you also change the object name or id.
   sizes, font samples, theme colors as RGB565); regenerate them with
   `python scripts/gen_grid/gen_grid.py`. The system page's spinner is two
   sprite sheets per orientation (`spinner_<orientation>_1.png` / `_2.png`,
-  pictures 10 and 11) whose frames are drawn on the `system` tile cropped at
+  pictures 11 and 12) whose frames are drawn on the `system` tile cropped at
   the spinner's position; `python scripts/gen_spinner/gen_spinner.py`
   re-renders them, so run it after changing that tile or moving `hSpinner`.
+  The `tmSpinner` timer's `xpic` calls name both sheets by picture id, and the
+  editor does not renumber event code: when you insert a picture before them
+  (a new background), update those ids in both projects.
+  `gen_virtual_layout.py --check` fails while they point at other pictures.
 - **RGB565 images** for ad-hoc assets can be converted with
   `scripts/gen_rgb565_image` / `scripts/rgb_conv`.
 
@@ -362,7 +366,7 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
    |--------|--------|--------------|
    | `python scripts/gen_grid/gen_grid.py` | `nextion/images/grid_landscape.png`, `grid_portrait.png` (picture 0, the editor-only `pGrid` design grid) | a layout rule (margins, header, bars) or a theme colour changed |
    | `python scripts/gen_backgrounds/gen_backgrounds.py` | `nextion/images/bkg/landscape/`, `bkg/portrait/` | a source picture in `nextion/src_images/bkg/` changed |
-   | `python scripts/gen_spinner/gen_spinner.py` | `nextion/images/spinner_<orientation>_1.png`, `_2.png` (pictures 10, 11) | the `system` tile changed or `hSpinner` moved |
+   | `python scripts/gen_spinner/gen_spinner.py` | `nextion/images/spinner_<orientation>_1.png`, `_2.png` (pictures 11, 12) | the `system` tile changed or `hSpinner` moved |
 
 5. **Re-open, check and compile both projects.** Open each project from the
    recent list; it must open without "Version mismatch". Look at every page you

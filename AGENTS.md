@@ -85,7 +85,7 @@ Inside the Hub app, components follow a layered structure:
 |-----------|---------|
 | `custom_components/nspanel_haui/haui/abstract/` | Base classes: `HAUIBase`, `HAUIConfigAccess`, `HAUIConfig`, `HAUIEntity`, `HAUIItem`, `HAUIPanel`, `HAUIEvent`, `HAUIPage`, `DisplayInterface`; `mixins/` holds page behavior mixins |
 | `custom_components/nspanel_haui/haui/controller/` | Runtime controllers: ESPHome, connection, navigation, notification, update, gesture |
-| `custom_components/nspanel_haui/haui/page/` | Display page implementations - one file per panel type (20 modules) |
+| `custom_components/nspanel_haui/haui/page/` | Display page implementations - one file per panel type (20 page modules, plus the `clock_common.py` helper used by the clock, clocktwo and weather pages) |
 | `custom_components/nspanel_haui/haui/mapping/` | Static lookups: `panel.py` (`PANEL_MAPPING`), `page.py` (`PAGE_MAPPING`), `descriptor.py` (`PageDescriptor`), colors, icons, constants |
 | `custom_components/nspanel_haui/haui/utils/` | Shared utilities: `color`, `datetime`/CLDR, `debounce`, `icon`, `item`, `locale_data`, `notification_blinker`, `page`, `text`, `value` |
 | `custom_components/nspanel_haui/frontend/` | HA Lovelace editor UI (vanilla JS, loaded as a panel); `previews/` holds panel preview renderers |
@@ -154,14 +154,19 @@ zensical build --strict
 
 # Regenerate locale JSON after changing t()/translate()/_() strings
 python scripts/translations/extract_translations.py
+
+# Install the repository git hooks (once per clone; sets core.hooksPath)
+scripts/git_hooks/install.sh
 ```
+
+The `pre-commit` hook (`scripts/git_hooks/pre-commit`) regenerates the live-preview layout (`gen_virtual_layout.py`), stages `frontend/virtual/layout_*.json`, `icon_map.json` and `pictures/`, then runs `gen_portrait.py --check`. It exists because a committed HMI change without its regenerated layout silently breaks the editor's previews and card renders.
 
 **CI:** Three workflows run on push/PR to `master` and `dev`:
 - `tests.yml` - installs dev + docs dependencies, builds docs (`zensical build --strict`), runs `pytest tests/` (with Node 24 for the card render replay), `ruff check custom_components/ scripts/` and `mypy` on Python 3.14, and runs the frontend tests on Node 24
 - `validate.yml` - runs `hassfest` and `hacs` validators (also on a daily schedule)
 - `docs.yml` - builds docs and deploys to GitHub Pages on `master` when `docs/**`, `mkdocs.yml`, or `requirements-docs.txt` changes
 
-`screens.yml` runs after each `Development Firmware` run instead (two bots pushing to `dev` at once would race) and commits the regenerated screen overview to `dev`.
+Release workflows (not PR checks): `dev-firmware.yml` (`Development Firmware`) publishes every `dev` push as a prerelease (see *Dev releases are tagged with their version*), and `release.yml` builds a stable release from a `v*` tag push (it refuses a `workflow_dispatch` run that is not on a `v*` tag, since only tags carry a firmware manifest). `screens.yml` runs after each `Development Firmware` run instead (two bots pushing to `dev` at once would race) and commits the regenerated screen overview to `dev`.
 
 There is no build step - the integration is installed by copying (or symlinking) `custom_components/nspanel_haui/` into the HA `custom_components` directory and restarting Home Assistant. There is no separate development server; restart HA after Python changes. Frontend assets are served from a versioned static path registered at startup, so restart/reload HA to pick up frontend changes.
 
@@ -736,7 +741,7 @@ work, and the repository's default branch. The full cycle lives in
 - Branch features off `dev` and open the PR against `dev`
 - Release prep happens on `release/X.Y.Z` cut from `dev`; PR it into `master`
 - Hotfixes branch off `master`; after the release, merge `master` back into `dev`
-- Describe what changed, why, and how it was tested
+- Fill in `.github/pull_request_template.md`: what changed, why, how it was tested (commands run, and any device check still unverified), plus its checklist. Its lint line says `ruff check custom_components/`, but CI also lints `scripts/`, so run `ruff check custom_components/ scripts/`
 - Include a screenshot or short recording for frontend/display changes
 - Reference related issues or PRs
 - PRs must pass all three CI workflows (`tests`, `validate`, `docs`) before merge; run the local checks above first

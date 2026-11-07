@@ -419,9 +419,10 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
    - `verify_nextion.py` checks that `clock.tTime` sends its component id and
      that every widget's *Send Component ID* is identical in both HMIs. It also
      checks that `system.tftVersion` in *both* HMIs matches the configured TFT
-     version in `esphome/nspanel_haui/version.yaml` (or an exact
-     `--expected-version`, e.g. the `TFT_VERSION_PIN` for an unchanged-TFT
-     release) and that the portrait HMI and TFT exist.
+     version in `esphome/nspanel_haui/version.yaml` (the TFT version can differ
+     from the firmware version) and that the portrait HMI and TFT exist. For a
+     one-off manual check, `--expected-version` can override the configured
+     value; release workflows use `version.yaml` as the source of truth.
    - `pytest` replays a render of every panel in both layouts
      (`tests/test_card_renders.py`).
 9. **Test on a device of each model.** Every page renders completely, every

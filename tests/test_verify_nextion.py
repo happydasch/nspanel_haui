@@ -165,6 +165,18 @@ def test_manifest_divergence_is_kept_separate_from_tft_version(tmp_path):
     assert read_tft_version(yaml_file) == "0.4.2"
     assert read_integration_version(manifest) != read_tft_version(yaml_file)
 
+    page = {
+        "text": (
+            "Variable (string) tftVersion\n"
+            "    Attributes\n"
+            "        ID: 14\n"
+            "        Text: 0.4.2\n"
+        )
+    }
+    expected = resolve_expected_version(None, yaml_file)
+    ok, msg = check_tft_version(page, expected)
+    assert ok, msg
+
 
 def test_portrait_tft_version_gate(tmp_path):
     """A stale tftVersion in the portrait HMI fails exactly like the landscape one."""

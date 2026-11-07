@@ -59,33 +59,18 @@ jobs:
           git diff --exit-code -- custom_components/nspanel_haui/haui/locale scripts/translations/translate.json
 
       - name: Check version sources agree
-        # manifest.json is the source of truth. bump_version.py --check fails
-        # when pyproject.toml, firmware yaml_version or the selected TFT sources
-        # disagree. TFT releases include --tft-update; firmware-only releases
-        # leave tft_version/HMI unchanged. TFT_VERSION_PIN maps to the verifier's
-        # exact expected TFT version (below) when those TFTs are carried forward.
+        # manifest.json is the source of truth for firmware versions. Check its
+        # mirrors without --tft-update: the TFT version is independent and is
+        # checked separately against both HMIs below.
         run: |
           VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
-          TFT_FLAG="--tft-update"
-          if [ -n "${{ vars.TFT_VERSION_PIN }}" ]; then
-            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; checking firmware versions only"
-            TFT_FLAG="--text-only"
-          fi
-          python3 scripts/bump_version.py "$VERSION" $TFT_FLAG --check
+          python3 scripts/bump_version.py "$VERSION" --check
 
       - name: Validate Nextion assets
-        # Runs the release gate on every push/PR so a stale HMI (tftVersion,
-        # Send Component ID, portrait assets) fails early instead of at the tag.
-        # The gate compares both HMIs' system.tftVersion against the configured
-        # TFT version by default; TFT_VERSION_PIN overrides it with an exact
-        # expected version (this release carries the previous TFT unchanged).
-        run: |
-          TFT_FLAG=""
-          if [ -n "${{ vars.TFT_VERSION_PIN }}" ]; then
-            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; requiring an exact match"
-            TFT_FLAG="--expected-version ${{ vars.TFT_VERSION_PIN }}"
-          fi
-          python3 scripts/verify_nextion/verify_nextion.py --require-portrait $TFT_FLAG
+        # Runs the release gate on every push/PR so stale HMI versions, touch
+        # settings or portrait assets fail early. version.yaml is the source of
+        # truth for the TFT version; it may differ from the firmware version.
+        run: python3 scripts/verify_nextion/verify_nextion.py --require-portrait
 
       - name: Run tests
         run: pytest tests/

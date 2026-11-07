@@ -75,13 +75,13 @@ Nextion Editor (see [step 2](#2-version-bump)).
 hotfix whose display files did not change). Run `scripts/bump_version.py
 <version>` without `--tft-update`: firmware `yaml_version` advances, while
 `tft_version` and the HMI `system.tftVersion` stay at the embedded display
-version. Set the repository variable `TFT_VERSION_PIN` to that version (for
-example, `0.4.3`); the release gate then requires both HMIs to report exactly
-that version instead of the `tft_version` configured in `version.yaml`. The
-release manifest gets its TFT version from `esphome/nspanel_haui/version.yaml`,
-so the **HAUI Display** entity only offers the TFT when a panel is older than
-the pinned image; a firmware-only release does not trigger an unnecessary TFT
-install. Delete the variable again when a release bumps the TFTs.
+version. No workflow variable is needed: `esphome/nspanel_haui/version.yaml` is
+the source of truth for the TFT version, and the release gate checks both HMIs
+against it. The release manifest uses that same value, so the **HAUI Display**
+entity only offers the TFT when a panel is older than the shipped image; a
+firmware-only release does not trigger an unnecessary TFT install. The TFT
+version can differ from the firmware version on stable as well as development
+releases.
 
 **Tags:** use `vX.Y.Z`. The workflow itself is not branch-restricted: any
 `v*` tag push starts `release.yml`, wherever it is pushed. That tags are only

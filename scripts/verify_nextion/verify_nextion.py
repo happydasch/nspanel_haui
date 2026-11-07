@@ -98,7 +98,7 @@ def check_t_time_sendme(page: dict | None) -> tuple[bool, str]:
 
 
 def check_tft_version(page: dict | None, expected: str) -> tuple[bool, str]:
-    """system.tftVersion must match the configured/pinned display TFT version.
+    """system.tftVersion must match the configured display TFT version.
 
     The dump contains event code referencing ``system.tftVersion.txt`` before
     the declaration, so scan for the ``Variable (string) tftVersion`` block
@@ -249,8 +249,8 @@ def gate_tft_version(ok: bool, msg: str) -> tuple[str, bool]:
     """Verdict for a ``system.tftVersion`` gate check (an exact match).
 
     Allowing the firmware version to stand in for the TFT version is no longer
-    tolerated: the HMIs must report exactly the configured/pinned TFT version,
-    in both layouts.
+    tolerated: the HMIs must report exactly the configured TFT version in both
+    layouts.
 
     Returns:
         ``(label, fail)``: ``label`` is ``PASS`` or ``FAIL``; ``fail`` is True
@@ -372,8 +372,8 @@ def main() -> int:
     if not ok:
         failures.append(msg)
 
-    # The HMIs must report exactly the configured/pinned TFT version, in both
-    # the landscape and the portrait HMI (a stale tftVersion in either fails).
+    # The HMIs must report exactly the configured TFT version, in both the
+    # landscape and the portrait HMI (a stale tftVersion in either fails).
     ok, msg = check_tft_version(pages.get("system"), expected)
     label, fail = gate_tft_version(ok, msg)
     print(f"[{label}] system.tftVersion (landscape): {msg}")

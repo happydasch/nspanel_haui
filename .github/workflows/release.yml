@@ -58,21 +58,14 @@ jobs:
         # Fails the release until the human Nextion Editor work landed:
         #   - clock.tTime "Send Component ID" enabled (tap advances the card)
         #   - system.tftVersion (in both HMIs) matches the configured TFT
-        #     version, or the exact TFT_VERSION_PIN when this release carries
-        #     the previous TFT unchanged — the integration version is not the
-        #     gate (it advances every release; the TFT version only on a
-        #     --tft-update release)
+        #     version in version.yaml; the TFT and firmware versions are
+        #     independent, and firmware-only releases carry the existing TFT
         #   - the portrait HMI/TFT exist
         #   - the portrait spec still matches the committed HMI (alignment/font
         #     attributes, #64/#60) — the TFTs must be recompiled after any
         #     PORTRAIT_ATTRS change, so this catches a stale committed HMI.
         run: |
-          TFT_FLAG=""
-          if [ -n "${{ vars.TFT_VERSION_PIN }}" ]; then
-            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; requiring an exact match"
-            TFT_FLAG="--expected-version ${{ vars.TFT_VERSION_PIN }}"
-          fi
-          python scripts/verify_nextion/verify_nextion.py --require-portrait $TFT_FLAG
+          python scripts/verify_nextion/verify_nextion.py --require-portrait
           python scripts/gen_portrait/gen_portrait.py --check
 
       - name: Validate the universal firmware config

@@ -805,15 +805,35 @@ export const editorStyles = css`
     .pl-card-type-icon { max-width: 30px; }
   }
 
-  /* ── editor footer (GitHub + Docs links) ── */
+  /* ── editor footer (version + GitHub + Docs links) ── */
   .editor-footer {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 24px;
     padding: 16px;
     border-top: 1px solid var(--divider-color, #e0e0e0);
     margin-top: var(--ha-space-6);
+  }
+  .footer-version-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .footer-version {
+    color: var(--secondary-text-color, #666);
+    font-size: 0.88em;
+  }
+  .footer-dev-badge {
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--warning-color, #ffc107);
+    color: var(--primary-text-color, #212121);
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
   .footer-link {
     display: inline-flex;

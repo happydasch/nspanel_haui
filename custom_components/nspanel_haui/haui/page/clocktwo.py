@@ -10,7 +10,13 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE, ICO_SPECIAL
-from .clock_common import background_commands, release_ticks, subscribe_ticks
+from .clock_common import (
+    background_commands,
+    light_background_selected,
+    readable_background_text_color,
+    release_ticks,
+    subscribe_ticks,
+)
 
 MATRIX = {
     "en": (
@@ -247,6 +253,7 @@ class ClockTwoPage(HAUIPage):
                 section=_("Appearance"),
                 choices=[
                     ("dark", _("Dark")),
+                    ("light", _("Light")),
                     ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),
@@ -340,14 +347,22 @@ class ClockTwoPage(HAUIPage):
         self._letter_current_state: list[bool] = []
         self._special_current_state: list[bool] = []
         self._clock_letters: list[str] = []
+        self._light_background = False
+
+    def get_color(self, key: str) -> int:
+        color = readable_background_text_color(key, self._light_background)
+        return color if color is not None else super().get_color(key)
 
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
         return [*super().page_load_commands(panel), *background_commands(self, panel, "clocktwo")]
 
     def read_options(self, panel: HAUIPanel) -> None:
         """Read the word clock's options; each panel shown on the page reads them anew."""
+        self._light_background = light_background_selected(self, panel)
         self._off_color = panel.get("off_color", self.get_color("component_background"))
         self._letter_color = panel.get("letter_color", self.get_color("component_text"))
+        if self._light_background and self._letter_color == 65535:
+            self._letter_color = self.get_color("component_text")
         self._special_color = panel.get("special_color", self.get_color("component_accent"))
         self._clock_language = panel.get("clock_language", "en")
         self._show_ampm = panel.get("show_ampm", False)

@@ -10,6 +10,28 @@ from typing import TYPE_CHECKING, Any
 
 from ..mapping.background import BACKGROUNDS
 
+LIGHT_BACKGROUND_TEXT_COLOR = 10565  # RGB565 #282828
+
+
+def light_background_selected(page: Any, panel: HAUIPanel) -> bool:
+    """Whether the panel selects the plain light background."""
+    return page.render_template(panel.get("background", "dark"), False) == "light"
+
+
+def readable_background_text_color(key: str, light: bool) -> int | None:
+    """Return a high-contrast text color for a light background, when applicable."""
+    if light and key in {"header_text", "component_text", "text"}:
+        return LIGHT_BACKGROUND_TEXT_COLOR
+    return None
+
+
+def readable_foreground_color(color: int, light: bool) -> int:
+    """Replace pure white foregrounds on the plain light background."""
+    if light and color == 65535:
+        return LIGHT_BACKGROUND_TEXT_COLOR
+    return color
+
+
 if TYPE_CHECKING:
     from ..abstract.haui_panel import HAUIPanel
 

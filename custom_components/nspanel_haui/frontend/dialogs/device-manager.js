@@ -390,11 +390,18 @@ class DeviceManagerDialog extends HauiDialog {
     if (this._picker?.kind !== kind || this._picker.device !== name) return;
     const releases = result.releases;
     const pending = this._picker.choice === null;
+    const required = result.required;
+    const tftNeedsExplicitChoice = kind === "tft"
+      && this._picker.choice === ""
+      && (!required || releases.length === 0);
+    const defaultChoice = pending || tftNeedsExplicitChoice
+      ? (releases[0] ?? "url")
+      : this._picker.choice;
     this._picker = {
       ...this._picker,
       releases,
       releasesError: result.error || "",
-      choice: pending ? (releases[0] ?? "url") : this._picker.choice,
+      choice: defaultChoice,
     };
   }
 

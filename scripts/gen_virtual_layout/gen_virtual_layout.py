@@ -73,20 +73,19 @@ HMI_FILES = {
 # visible (esphome/nspanel_haui/scripts_interaction.yaml, process_touch_gesture).
 VISIBLE_WIDTH = {"landscape": 450, "portrait": 320}
 
-# Picture id -> source PNG ({o} = orientation). The ids follow the pages'
-# usage: 0 is the pGrid design grid, 1-9 the backgrounds of BACKGROUNDS
-# (``modern`` is the ``system`` tile), 10/11 the system page's spinner sheets,
-# 12 the light page's colour wheel and 13/14 the about page's ESPHome and Home
-# Assistant logos.
+# Picture id -> source PNG ({o} = orientation). Picture 0 is the pGrid design
+# grid; the backgrounds follow the ids in BACKGROUNDS, then the spinner sheets,
+# colour wheel and logos. The ids shift when backgrounds are inserted.
 _BACKGROUND_FILES = {name: "system" if name == "modern" else name for name in BACKGROUNDS}
+_FIRST_EXTRA_PICTURE = max(BACKGROUNDS.values()) + 1
 PICTURES: dict[int, str] = {
     0: "grid_{o}.png",
     **{pic: f"bkg/{{o}}/{_BACKGROUND_FILES[name]}.png" for name, pic in BACKGROUNDS.items()},
-    10: "spinner_{o}_1.png",
-    11: "spinner_{o}_2.png",
-    12: "colors.png",
-    13: "logo_esphome.png",
-    14: "logo_ha.png",
+    _FIRST_EXTRA_PICTURE: "spinner_{o}_1.png",
+    _FIRST_EXTRA_PICTURE + 1: "spinner_{o}_2.png",
+    _FIRST_EXTRA_PICTURE + 2: "colors.png",
+    _FIRST_EXTRA_PICTURE + 3: "logo_esphome.png",
+    _FIRST_EXTRA_PICTURE + 4: "logo_ha.png",
 }
 
 EVENT_NAMES = {

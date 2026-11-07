@@ -40,6 +40,8 @@ DIM_ALPHA = 0.8
 # Per-picture overrides: ``focus`` is the point (x, y as fractions of the
 # source) the crop window is centred on, ``dim`` replaces DIM_ALPHA.
 OVERRIDES: dict[str, dict] = {
+    # A plain off-white tile; preserve its contrast instead of dimming it.
+    "light": {"dim": 0.0},
     # already a dark picture, keep more of it
     "system": {"dim": 0.55},
     # more mountain, less empty sky

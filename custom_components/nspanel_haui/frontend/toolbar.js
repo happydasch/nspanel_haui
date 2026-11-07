@@ -264,13 +264,35 @@ export function renderToolbarActions(host) {
   `;
 }
 
-/**
- * Render a persistent footer with GitHub and Documentation links.
- * Always visible at the bottom of the editor.
- */
+/** Read the integration version embedded in the registered frontend asset URL. */
+export function getEditorVersion(moduleUrl) {
+  const pathname = new URL(moduleUrl).pathname;
+  const assetVersion = pathname.match(/\/nspanel_haui_frontend\/([^/]+)\/toolbar\.js$/)?.[1];
+  return assetVersion?.replace(/-[\da-f]{12}$/, '') || null;
+}
+
+/** Return whether a PEP 440 version identifies a prerelease. */
+export function isPrereleaseVersion(version) {
+  const publicVersion = version.split('+', 1)[0];
+  return /(?:\.dev\d*|(?:a|alpha|b|beta|c|pre|preview|rc)\d*)(?=$|[.+-])/i.test(
+    publicVersion,
+  );
+}
+
+const EDITOR_VERSION = getEditorVersion(import.meta.url);
+
+/** Render version information alongside the persistent editor links. */
 export function renderFooter(host) {
   return html`
     <div class="editor-footer">
+      ${EDITOR_VERSION ? html`
+        <span class="footer-version-group">
+          <span class="footer-version" title="${t('Version')}">v${EDITOR_VERSION}</span>
+          ${isPrereleaseVersion(EDITOR_VERSION) ? html`
+            <span class="footer-dev-badge" title="${t('Development prerelease')}">${t('Dev')}</span>
+          ` : ''}
+        </span>
+      ` : ''}
       <a
         class="footer-link"
         href="https://github.com/happydasch/nspanel_haui"

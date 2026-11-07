@@ -13,7 +13,14 @@ from ..mapping.icons import ICO_MESSAGE
 from ..utils.icon import parse_icon
 from ..utils.text import TextBox
 from ..utils.value import format_number
-from .clock_common import background_commands, release_ticks, subscribe_ticks
+from .clock_common import (
+    background_commands,
+    light_background_selected,
+    readable_background_text_color,
+    readable_foreground_color,
+    release_ticks,
+    subscribe_ticks,
+)
 
 
 class ClockPage(CycleCardsMixin, HAUIPage):
@@ -34,6 +41,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
                 description=_("Background image theme for the clock display."),
                 choices=[
                     ("dark", _("Dark")),
+                    ("light", _("Light")),
                     ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),
@@ -152,14 +160,20 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         self._show_home_temp = False
         self._temp_unit = "°C"
         self._weather_icons_mode = "color"
+        self._light_background = False
         self._weather_item: HAUIItem | None = None
         self._items: list[HAUIItem] = []
         self._init_cards()
+
+    def get_color(self, key: str) -> int:
+        color = readable_background_text_color(key, self._light_background)
+        return color if color is not None else super().get_color(key)
 
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
         return [*super().page_load_commands(panel), *background_commands(self, panel, "clock")]
 
     def start_panel(self, panel: HAUIPanel) -> None:
+        self._light_background = light_background_selected(self, panel)
         subscribe_ticks(self)
         # weather item listeners
         weather_items = self._build_items_from_panel(panel, "item")
@@ -234,7 +248,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
 
         # set up main weather details
         icon = self._weather_item.get_icon()
-        color = self._weather_item.get_color()
+        color = readable_foreground_color(self._weather_item.get_color(), self._light_background)
         try:
             temp_outside_str = self._weather_item.get_item_attr("temperature", "")
             # compare against empty values: 0 °C is falsy but a real temperature
@@ -305,7 +319,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
             if i < total_items:
                 item = self._items[i]
                 icon = item.get_icon()
-                color = item.get_color()
+                color = readable_foreground_color(item.get_color(), self._light_background)
                 visible = True
             else:
                 item = None

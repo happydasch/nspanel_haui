@@ -18,7 +18,14 @@ from ..utils.datetime import format_datetime
 from ..utils.icon import get_icon, parse_icon
 from ..utils.text import TextBox
 from ..utils.value import format_number
-from .clock_common import background_commands, release_ticks, subscribe_ticks
+from .clock_common import (
+    background_commands,
+    light_background_selected,
+    readable_background_text_color,
+    readable_foreground_color,
+    release_ticks,
+    subscribe_ticks,
+)
 
 
 class WeatherPage(CycleCardsMixin, HAUIPage):
@@ -40,6 +47,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
                 section=_("Appearance"),
                 choices=[
                     ("dark", _("Dark")),
+                    ("light", _("Light")),
                     ("modern", _("Modern")),
                     ("spring", _("Spring")),
                     ("summer", _("Summer")),
@@ -191,14 +199,25 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         self._show_home_temp = False
         self._temp_unit = "°C"
         self._weather_icons_mode = "color"
+        self._light_background = False
         self._weather_item: HAUIItem | None = None
         self._info_items: list[HAUIItem] = []
         self._init_cards()
+
+    def get_color(self, key: str) -> int:
+        color = readable_background_text_color(key, self._light_background)
+        return color if color is not None else super().get_color(key)
+
+    def _set_component_text_color(self, component: Component, color: int) -> None:
+        self.set_component_text_color(
+            component, readable_foreground_color(color, self._light_background)
+        )
 
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
         return [*super().page_load_commands(panel), *background_commands(self, panel, "weather")]
 
     def start_panel(self, panel: HAUIPanel) -> None:
+        self._light_background = light_background_selected(self, panel)
         subscribe_ticks(self)
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
@@ -337,7 +356,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
 
         # set up main weather details
         icon = self._weather_item.get_icon()
-        color = self._weather_item.get_color()
+        color = readable_foreground_color(self._weather_item.get_color(), self._light_background)
         try:
             temp_outside_str = self._weather_item.get_item_attr("temperature", "")
             # compare against empty values: 0 °C is falsy but a real temperature
@@ -418,8 +437,11 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         icon = get_icon(icon) or ""
 
         color = WEATHER_COLORS.get(condition.replace("-", "_"), WEATHER_COLORS["default"])
-        if self._weather_icons_mode != "monochrome":
-            self.set_component_text_color(forecast_icon, color)
+        if self._weather_icons_mode == "monochrome":
+            color = self.get_color("component_text")
+        self._set_component_text_color(forecast_icon, color)
+        for component in (forecast_name, forecast_val, forecast_subval):
+            self._set_component_text_color(component, self.get_color("component_text"))
         self.set_component_text(forecast_name, name)
         self.set_component_text(forecast_icon, icon)
         self.set_component_text(forecast_val, f"{forecast_temp}{self._temp_unit}")
@@ -437,7 +459,8 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
             return
         info_icon = getattr(self.COMPONENTS, f"d{idx}_ico")
         info_val = getattr(self.COMPONENTS, f"d{idx}_val")
-        self.set_component_text_color(info_icon, haui_item.get_color())
+        self._set_component_text_color(info_icon, haui_item.get_color())
+        self._set_component_text_color(info_val, self.get_color("component_text"))
         self.set_component_text(info_icon, haui_item.get_icon())
         self.set_component_text(info_val, haui_item.get_value())
 

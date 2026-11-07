@@ -293,6 +293,73 @@ test('the TFT picker loads the releases of the device', async () => {
   assert.equal(dlg._picker.choice, '');
 });
 
+test('the TFT picker selects the available TFT when firmware has no required version', async () => {
+  const { dlg, events } = picker('tft');
+  Object.assign(dlg, {
+    entryId: 'entry1',
+    hass: {
+      async fetchWithAuth() {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ releases: ['0.4.5'], required: null, error: null }),
+        };
+      },
+    },
+    _deviceStatuses: { haui: { device_info: { yaml_version: '0.4.5' } } },
+  });
+
+  await dlg._openPicker('tft', 'haui');
+
+  assert.equal(dlg._picker.choice, '0.4.5');
+  dlg._installFromPicker();
+  assert.deepEqual(events.map((e) => [e.type, e.detail]), [
+    ['update-tft', { name: 'haui', version: '0.4.5' }],
+  ]);
+});
+
+test('the TFT picker falls back to a URL when firmware has no requirement or manifest TFT', async () => {
+  const { dlg } = picker('tft');
+  Object.assign(dlg, {
+    entryId: 'entry1',
+    hass: {
+      async fetchWithAuth() {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ releases: [], required: null, error: 'No TFT in manifest' }),
+        };
+      },
+    },
+    _deviceStatuses: { haui: { device_info: {} } },
+  });
+
+  await dlg._openPicker('tft', 'haui');
+
+  assert.equal(dlg._picker.choice, 'url');
+});
+
+test('the TFT picker offers URL installation when the required TFT is not in the manifest', async () => {
+  const { dlg } = picker('tft');
+  Object.assign(dlg, {
+    entryId: 'entry1',
+    hass: {
+      async fetchWithAuth() {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ releases: [], required: '0.4.5', error: 'No TFT in manifest' }),
+        };
+      },
+    },
+    _deviceStatuses: { haui: { device_info: { tft_required_version: '0.4.5' } } },
+  });
+
+  await dlg._openPicker('tft', 'haui');
+
+  assert.equal(dlg._picker.choice, 'url');
+});
+
 test('the TFT picker installs the required version by default', () => {
   const { dlg, events } = picker('tft');
   dlg._installFromPicker();

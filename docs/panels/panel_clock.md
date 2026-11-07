@@ -22,6 +22,8 @@ In the **panel editor**, set:
 The clock panel can have different background images. Select from the dropdown in the editor:
 
 - Dark — a clean dark theme
+- Light — plain off-white
+- Light — plain off-white
 - Modern — modern gradient
 - Spring — floral theme
 - Summer — warm theme

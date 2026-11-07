@@ -34,6 +34,15 @@ integration-side view (which commands the hub sends and how rendering works) see
 | **Nextion Editor** (official, free; Windows) | Edit `nspanel_haui.HMI`, compile to `.tft` |
 | [**Nextion2Text**](https://github.com/joBr99/Nextion2Text) — local copy: `scripts/nextion2text/Nextion2Text.py` (see `scripts/nextion2text/README.md`) | Dump the HMI to readable text to verify IDs/names/coordinates |
 | The repo's Python test stack | Verify the Python component registries still match |
+| `scripts/nextion_vnc/nextion_vnc.sh` | Reach the editor on a Windows VM from a browser (noVNC) |
+
+When the editor runs in a Windows VM, `scripts/nextion_vnc/nextion_vnc.sh`
+bridges the VM's VNC server to a local noVNC page and prints its URL
+(`http://127.0.0.1:6080/vnc.html?…`). The first run installs websockify and
+noVNC under `build/novnc/`. The VM defaults to `192.168.65.2:5900`; set
+`NEXTION_VNC_HOST`, `NEXTION_VNC_PORT` or `NOVNC_PORT` to change the VM or the
+local port. The page listens on `127.0.0.1` only, and the VM's VNC password
+still applies. Stop the bridge with `Ctrl+C`.
 
 The HMI is a binary project file — open it in the Nextion Editor, never edit it
 by hand. Choose the project variant matching the NSPanel's display
@@ -50,6 +59,8 @@ Use the matching `-i` for the portrait HMI (see
 [§7 Creating the US portrait TFT](#7-creating-the-us-portrait-tft)) and a
 different `-o` folder (e.g. `build/nextion-out/portrait`). `build/` is
 git-ignored — safe to regenerate.
+
+
 
 ## 3. The sync contract between HMI and Python
 

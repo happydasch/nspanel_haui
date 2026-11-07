@@ -19,7 +19,7 @@ In the **panel editor**, set:
 
 The clocktwo panel can have different background images. Select from the dropdown in the editor:
 
-- Dark, Modern, Spring, Summer, Autumn, Winter, Dog 1, Dog 2, Cat
+- Dark, Light (plain off-white), Modern, Spring, Summer, Autumn, Winter, Dog 1, Dog 2, Cat
 
 For dynamic backgrounds, choose **Template…** in the Background field and enter a Home Assistant template, for example `{{ 'dark' if is_state('sun.sun', 'below_horizon') else 'modern' }}`. The result must be a background name; the template is evaluated when the panel opens.
 

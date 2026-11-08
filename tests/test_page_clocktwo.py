@@ -4,6 +4,7 @@ import datetime
 import threading
 from types import SimpleNamespace
 
+from nspanel_haui.haui.mapping.color import ColorTheme
 from nspanel_haui.haui.page.clocktwo import ClockTwoPage
 
 
@@ -65,13 +66,28 @@ def test_dark_display_keeps_the_word_clock_current():
     assert updated == [True]
 
 
+def test_background_setting_can_use_selected_color_scheme() -> None:
+    page = ClockTwoPage.__new__(ClockTwoPage)
+    page.app = SimpleNamespace(color_theme=ColorTheme({}, "light"))
+    page._use_color_scheme = True
+    page._background_variant = "light"
+    page._light_background = True
+    page.render_template = lambda value, _parse=False: value
+
+    assert page.get_color("background") == page.app.color_theme.get("background")
+    commands = page.page_load_commands(_Panel({"background": "scheme"}))
+    assert commands[0] == "thmBg=65535"
+    assert commands[0] == "thmBg=65535"
+    assert commands[-1] == "system.vBackground.val=2"
+
+
 def test_background_is_sent_before_the_page_loads():
     """The page's Preinitialize code draws the background picture it reads."""
     page = ClockTwoPage.__new__(ClockTwoPage)
     page.app = SimpleNamespace(color_theme=SimpleNamespace(display_commands=lambda: ["thmBg=1"]))
     page.render_template = lambda template, parse_icons=True: template
 
-    assert page.page_load_commands(_Panel({})) == ["thmBg=1", "clocktwo.background.val=1"]
+    assert page.page_load_commands(_Panel({})) == ["thmBg=1", "system.vBackground.val=1"]
 
 
 def test_options_saved_for_the_shown_panel_apply_without_a_page_load():

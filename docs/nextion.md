@@ -40,7 +40,7 @@ This is relevant for edge-based gesture detection — swipe-from-right gestures 
 This project uses the stock ESPHome `nextion` display component (with a temporary vendored patch for the numeric-response fix until a released ESPHome contains it, ESPHome 2026.11.0 — see `esphome/nextion_patch/`; ESPHome 2026.10 or later) with a hardware UART and the following key options:
 
 - `uart_id`: references the UART bus used for the Nextion display.
-- `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. Hardware sleep only happens without a hub connection; with a hub the display stays awake (at brightness 0) and the hub restores the panel itself.
+- `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. The automatic display state machine does not hardware-sleep; while disconnected the firmware keeps System page 0 visible and only dims the backlight. This setting matters only if hardware sleep is explicitly requested.
 - `tft_url`: default TFT URL. It reads the `tft_update_url` substitution; override
   it in your device YAML to install a local TFT build. The hub always passes the
   URL of the TFT it installs, so this value is only a compile-time default. (A

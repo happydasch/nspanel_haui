@@ -123,6 +123,23 @@ def _press_action(page):
 # item resolution
 
 
+def test_no_selected_vacuum_hides_controls_and_keeps_secondary_items():
+    app, page = _show(None, item=None, items=[{"item": "switch.mop"}])
+
+    assert 'tStatus.txt=""' in app.cmds
+    assert "vis bAction,0" in app.cmds
+    assert "vis bHome,0" in app.cmds
+    assert "vis bEntity1,1" in app.cmds
+    page.callback_function_component(VacuumPage.COMPONENTS.btn_action.name, "action")
+
+
+def test_unavailable_vacuum_displays_note_instead_of_controls():
+    app, _page = _show(_vacuum(state="unavailable"))
+
+    assert 'tStatus.txt="Unavailable"' in app.cmds
+    assert "vis bAction,0" in app.cmds
+
+
 def test_editor_panel_controls_configured_item_and_keeps_all_secondary_items():
     vacuum = _vacuum()
     app, page = _show(vacuum, items=[{"item": "switch.mop"}])

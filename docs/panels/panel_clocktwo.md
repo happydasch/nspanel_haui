@@ -17,27 +17,17 @@ In the **panel editor**, set:
 
 ### Background
 
-The clocktwo panel can have different background images. Select from the dropdown in the editor:
+The first option, **Use color scheme**, uses the active device scheme's foreground/state definitions on the TFT's built-in solid dark/light fill selected from its background color. This avoids the page's design-helper picture; custom background colors use the nearest contrast fill. The remaining options select images in this order: Dark Color, Light Color, Modern, Spring, Summer, Autumn, Winter, Dog 1, Dog 2, and Cat. Each image is mapped to a light/dark contrast variant controlling active letters, minute dots, and state icons together. Currently **Light Color** uses light-background colors and the other images use dark-background colors.
 
-- Dark Color, Light Color (plain off-white), Modern, Spring, Summer, Autumn, Winter, Dog 1, Dog 2, Cat
+For dynamic backgrounds, choose **Template…** in the Background field. The result must be `scheme` or a background name; the template is evaluated when the panel opens.
 
-For dynamic backgrounds, choose **Template…** in the Background field and enter a Home Assistant template, for example `{{ 'dark' if is_state('sun.sun', 'below_horizon') else 'modern' }}`. The result must be a background name; the template is evaluated when the panel opens.
+### Colors
+
+On pages set to **Use color scheme**, word-clock colors come from the active device scheme. When a decorative background image is selected, the background's paired light/dark contrast palette is used instead. Legacy `off_color`, `letter_color`, and `special_color` values remain until reset through **Editor → Colors**.
 
 ### Language
 
-Set the display language from the dropdown. Supported languages:
-
-- English (default), German, Polish
-
-### Custom Colors
-
-Customize the text colors in the panel editor:
-
-- **Off Color** — Color for inactive/dim text segments (Default: `8452`)
-- **Letter Color** — Color for active letter text (Default: `65535`)
-- **Special Color** — Color for special text elements, i.e. the minute dots (Default: `62694`)
-
-Colors accept RGB565, `[r,g,b]` or `#rrggbb`.
+Set the display language from the dropdown. Supported languages are English (default), German, and Polish.
 
 ### Show AM/PM
 

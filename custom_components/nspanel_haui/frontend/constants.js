@@ -78,6 +78,8 @@ export const DEVICE_CONFIG_DEFAULTS = {
   time_format: "",
   date_format: "",
   date_format_locale: "",
+  color_scheme: "dark",
+  color_scheme_id: "dark",
   color_overrides: {},
   // Mirrors DEFAULT_CONFIG["update"] in Python. Checks run by default so update
   // offers are found even when a device is never opened in the editor.

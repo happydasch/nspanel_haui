@@ -8,7 +8,6 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import ClimateFeatures
-from ..mapping.color import CLIMATE_COLORS
 from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icon_mapping import CLIMATE_MAPPING
@@ -183,8 +182,9 @@ class ClimatePage(HAUIPage):
                 visible = True
                 if hvac_mode in CLIMATE_MAPPING:
                     icon = CLIMATE_MAPPING[hvac_mode]
-                if hvac_mode in CLIMATE_COLORS:
-                    color_pressed = CLIMATE_COLORS[hvac_mode]
+                color = self.get_icon_color("climate", hvac_mode)
+                if color is not None:
+                    color_pressed = color
             component = getattr(self.COMPONENTS, f"bt_mode_{i + 1}")
             self.set_function_component(
                 component,
@@ -209,9 +209,36 @@ class ClimatePage(HAUIPage):
             )
 
     def update_climate_item(self) -> None:
-        if self._climate_item is None:
+        if not self.item_is_available(self._climate_item):
+            self.set_component_text(self.COMPONENTS.t_temp, "")
+            for component in (
+                self.COMPONENTS.btn_up,
+                self.COMPONENTS.btn_down,
+                self.COMPONENTS.x_set,
+                self.COMPONENTS.t_unit,
+                self.COMPONENTS.btn_up_1,
+                self.COMPONENTS.btn_down_1,
+                self.COMPONENTS.x_set_1,
+                self.COMPONENTS.t_unit_1,
+                self.COMPONENTS.btn_up_2,
+                self.COMPONENTS.btn_down_2,
+                self.COMPONENTS.x_set_2,
+                self.COMPONENTS.t_unit_2,
+                self.COMPONENTS.bt_mode_1,
+                self.COMPONENTS.bt_mode_2,
+                self.COMPONENTS.bt_mode_3,
+                self.COMPONENTS.bt_mode_4,
+                self.COMPONENTS.bt_mode_5,
+                self.COMPONENTS.bt_mode_6,
+                self.COMPONENTS.btn_fan,
+                self.COMPONENTS.btn_preset,
+                self.COMPONENTS.btn_swing,
+            ):
+                self.hide_component(component)
+            self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
             return
         item = self._climate_item
+        assert item is not None
         self.update_climate_control(item)
         self.update_climate_info(item)
         self.update_hvac_modes(item)
@@ -306,8 +333,9 @@ class ClimatePage(HAUIPage):
         hvac_mode = item.get_item_state()
         color_active = self.get_color("component_active")
         color_inactive = self.get_color("component_text")
-        if hvac_mode in CLIMATE_COLORS:
-            color_active = CLIMATE_COLORS[hvac_mode]
+        color = self.get_icon_color("climate", hvac_mode) if hvac_mode is not None else None
+        if color is not None:
+            color_active = color
         for i in range(self.NUM_MODES):
             component = getattr(self.COMPONENTS, f"bt_mode_{i + 1}")
             color = color_inactive
@@ -325,9 +353,10 @@ class ClimatePage(HAUIPage):
     # callback
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        if self._climate_item is None:
+        if not self.item_is_available(self._climate_item):
             return
         haui_item = self._climate_item
+        assert haui_item is not None
         self.log(f"callback_function_component: {fnc_id}, {fnc_name}")
         if fnc_name in ("temp_up", "temp_down") and haui_item.get_item_attr("temperature") is None:
             # entities supporting both setpoint kinds report no single target in
@@ -421,7 +450,7 @@ class ClimatePage(HAUIPage):
 
     def _select_mode(self, mode: str, selection: str) -> None:
         self.log(f"Got {mode.replace('_', ' ')} selection: {selection}")
-        if self._climate_item is not None:
+        if self.item_is_available(self._climate_item):
             self._climate_item.call_item_service(f"set_{mode}", **{mode: selection})
 
     def callback_fan_mode(self, selection: str) -> None:

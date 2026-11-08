@@ -336,7 +336,7 @@ weather forecasts are therefore the hub's, by construction.
 
 **One app per device.** `VirtualPanelHost` owns the device's `VirtualNSPanelHAUI`:
 live previews attach as viewers (a late viewer gets the current panel redrawn and
-the idle/entity/sandbox state it missed) and cards render on it. Sandbox/live
+the idle/entity state it missed) and cards render on it. Sandbox/live
 mode is the app's, so it is shared by every viewer. `websocket_api._Hosts` starts
 a host on first use, reloads it on every save (`api.config.push_panels` →
 `async_reload_hosts`), stops it after `IDLE_STOP_SECONDS` without a viewer or a

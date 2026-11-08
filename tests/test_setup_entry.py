@@ -104,6 +104,7 @@ def _setup(monkeypatch, devices: list[dict], stored: dict | None = None):
     )
     monkeypatch.setattr(storage, "PanelStorage", _PanelStorage)
     monkeypatch.setattr(nspanel_haui, "_create_app", create_app)
+    monkeypatch.setattr(nspanel_haui, "_delete_device_start_failed_issue", lambda *args: None)
 
     hass = _Hass()
     entry = _Entry(devices)
@@ -236,6 +237,42 @@ def test_store_device_name_matches_case_insensitively():
     assert cfg["panels"] == [clock]
 
 
+def test_legacy_light_palette_migrates_to_light_icon_scheme():
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"color_overrides": {"background": 65535}},
+                    "panels": [],
+                }
+            }
+        },
+        device_name="kitchen",
+    )
+
+    assert cfg["devices"][0]["color_scheme"] == "light"
+    assert cfg["devices"][0]["color_scheme_id"] == "light"
+
+
+def test_explicit_color_scheme_survives_config_build():
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"color_scheme": "dark", "color_overrides": {"background": 65535}},
+                    "panels": [],
+                }
+            }
+        },
+        device_name="kitchen",
+    )
+
+    assert cfg["devices"][0]["color_scheme"] == "dark"
+    assert cfg["devices"][0]["color_scheme_id"] == "dark"
+
+
 # --- panel storage ---------------------------------------------------------
 
 
@@ -365,6 +402,13 @@ def test_reload_config_clamps_saved_color_overrides_like_startup():
 
     assert app.device.config["color_overrides"] == {"background": 65535, "text": 123}
     assert app.color_theme.get("background") == 65535
+
+
+def test_reload_config_applies_icon_color_scheme():
+    app = _reload({"color_scheme": "light"})
+
+    assert app.color_theme.scheme == "light"
+    assert app.device.config["color_scheme"] == "light"
 
 
 def test_reload_config_applies_the_new_theme_before_navigation_reloads():

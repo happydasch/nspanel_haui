@@ -29,6 +29,8 @@ The popup variant (`popup_climate`) mirrors the main panel layout. It is used au
 | **Swing mode button** | Opens a popup to select swing mode. Always shown; greyed out and not tappable when the entity does not support swing modes. |
 | **Preset button** | Opens a popup to select a preset. Always shown; greyed out and not tappable when the entity does not support presets. |
 
+HVAC mode icon and button colors use the fixed climate palette selected by the Device Colors **Icon color scheme** (dark or light); they are not individually editable.
+
 ## How to configure
 
 In the **panel editor**, set:

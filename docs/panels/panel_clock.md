@@ -19,18 +19,9 @@ In the **panel editor**, set:
 
 ### Background
 
-The clock panel can have different background images. Select from the dropdown in the editor:
+The first option, **Use color scheme**, uses the active device scheme's foreground/state definitions on the TFT's built-in solid dark/light fill selected from its background color. This avoids the page's design-helper picture; custom background colors use the nearest contrast fill. The remaining options select images in this order: Dark Color, Light Color, Modern, Spring, Summer, Autumn, Winter, Dog 1, Dog 2, and Cat. Each image is mapped to a light/dark contrast variant controlling text, time/date cards, and domain icons together. Currently **Light Color** uses light-background colors and the other images use dark-background colors.
 
-- Dark Color — a clean dark theme
-- Light Color — plain off-white
-- Modern — modern gradient
-- Spring — floral theme
-- Summer — warm theme
-- Autumn — fall colors
-- Winter — cold theme
-- Dog 1, Dog 2, Cat — pet-themed backgrounds
-
-For dynamic backgrounds, choose **Template…** in the Background field and enter a Home Assistant template, for example `{{ 'dark' if is_state('sun.sun', 'below_horizon') else 'modern' }}`. The result must be a background name; the template is evaluated when the panel opens.
+For dynamic backgrounds, choose **Template…** in the Background field and enter a Home Assistant template, for example `{{ 'dark' if is_state('sun.sun', 'below_horizon') else 'modern' }}`. The result must be `scheme` or a background name; the template is evaluated when the panel opens.
 
 ### Cycle Cards
 

@@ -149,6 +149,198 @@ def test_boots_through_the_handshake_to_the_home_panel(session, env):
     assert 'g1Name.txt="Lamp"' in _commands(session.messages)
 
 
+def test_live_preview_publishes_relay_states_and_tracks_sandbox_toggles(session, env):
+    relay_entities = {"Relay Left": "switch.relay_left", "Relay Right": "switch.relay_right"}
+    env._states.update(
+        {
+            "switch.relay_left": _State("off", {}),
+            "switch.relay_right": _State("on", {}),
+        }
+    )
+    session.app.find_entity_id = lambda domain, name: (
+        relay_entities.get(name) if domain == "switch" else None
+    )
+
+    _run(env, session.app.async_run_on_worker(session.app.start_relay_state_tracking))
+    no_entities = {"left": None, "right": None}
+    expected = {"type": "relays", "left": "off", "right": "on", "entities": no_entities}
+    _wait(lambda: expected in session.messages)
+
+    _run(
+        env,
+        session.app.async_run_on_worker(
+            lambda: session.app.call_service(
+                "switch/toggle", target={"entity_id": "switch.relay_left"}
+            )
+        ),
+    )
+    _wait(
+        lambda: (
+            {"type": "relays", "left": "on", "right": "on", "entities": no_entities}
+            in session.messages
+        )
+    )
+
+
+def test_live_preview_button_light_shows_its_entity_without_relay_mode(session, env):
+    """With relay mode off, a button's light shows the entity it switches."""
+    env._states.update({"switch.relay_left": _State("off", {}), "light.lamp": _State("on", {})})
+    session.app.find_entity_id = lambda domain, name: (
+        "switch.relay_left" if (domain, name) == ("switch", "Relay Left") else None
+    )
+
+    def entity_mode():
+        session.app.device.config["use_relay_left"] = False
+        session.app.device.config["button_left_entity"] = "light.lamp"
+        session.app.start_relay_state_tracking()
+
+    _run(env, session.app.async_run_on_worker(entity_mode))
+    _wait(
+        lambda: (
+            {
+                "type": "relays",
+                "left": "off",
+                "right": "unknown",
+                "entities": {"left": "on", "right": None},
+            }
+            in session.messages
+        )
+    )
+
+    _run(
+        env,
+        session.app.async_run_on_worker(
+            lambda: session.app.call_service("light/toggle", target={"entity_id": "light.lamp"})
+        ),
+    )
+    _wait(
+        lambda: (
+            {
+                "type": "relays",
+                "left": "off",
+                "right": "unknown",
+                "entities": {"left": "off", "right": None},
+            }
+            in session.messages
+        )
+    )
+
+
+def _press_button(session, side: str) -> None:
+    event = ESPEvent.BUTTON_LEFT if side == "left" else ESPEvent.BUTTON_RIGHT
+    session.send_event(event, "1")
+    session.send_event(event, "0")
+
+
+def test_hardware_button_simulates_relay_at_press_in_relay_mode(session, env):
+    relay_id = "switch.relay_left"
+    env._states[relay_id] = _State("off", {})
+    session.app.find_entity_id = lambda domain, name: (
+        relay_id if (domain, name) == ("switch", "Relay Left") else None
+    )
+    _run(env, session.app.async_run_on_worker(session.app.start_relay_state_tracking))
+
+    session.send_event(ESPEvent.BUTTON_LEFT, "1")
+
+    _wait(lambda: session.app.sandbox.is_simulated(relay_id))
+    assert session.app.sandbox.get(relay_id).state == "on"
+    assert session.app.sandbox.get("light.lamp").state == "off"
+    assert env.services.calls == []
+
+    session.send_event(ESPEvent.BUTTON_LEFT, "0")
+    _wait(
+        lambda: (
+            {
+                "type": "relays",
+                "left": "on",
+                "right": "unknown",
+                "entities": {"left": None, "right": None},
+            }
+            in session.messages
+        )
+    )
+    time.sleep(0.05)
+    assert session.app.sandbox.get(relay_id).state == "on"
+
+
+def test_hardware_button_simulates_configured_entity_on_release(session, env):
+    relay_id = "switch.relay_left"
+    entity_id = "light.lamp"
+    env._states[relay_id] = _State("off", {})
+    env._states[entity_id] = _State("off", {"friendly_name": "Lamp"})
+    session.app.find_entity_id = lambda domain, name: (
+        relay_id if (domain, name) == ("switch", "Relay Left") else None
+    )
+
+    def configure_entity_button():
+        session.app.device.config["use_relay_left"] = False
+        session.app.device.config["button_left_entity"] = entity_id
+        session.app.device._register_callbacks()
+        session.app.start_relay_state_tracking()
+
+    _run(env, session.app.async_run_on_worker(configure_entity_button))
+
+    session.send_event(ESPEvent.BUTTON_LEFT, "1")
+    _wait(lambda: session.app.device.device_info.get("button_left") == "1")
+    assert not session.app.sandbox.is_simulated(entity_id)
+
+    session.send_event(ESPEvent.BUTTON_LEFT, "0")
+
+    _wait(lambda: session.app.sandbox.is_simulated(entity_id))
+    assert session.app.sandbox.get(entity_id).state == "on"
+    assert not session.app.sandbox.is_simulated(relay_id)
+    assert env.services.calls == []
+    _wait(
+        lambda: (
+            {
+                "type": "relays",
+                "left": "off",
+                "right": "unknown",
+                "entities": {"left": "on", "right": None},
+            }
+            in session.messages
+        )
+    )
+
+
+def test_live_hardware_button_toggles_relay_only_when_relay_mode_is_on(session, env):
+    relay_id = "switch.relay_left"
+    env._states[relay_id] = _State("off", {})
+    session.app.find_entity_id = lambda domain, name: (
+        relay_id if (domain, name) == ("switch", "Relay Left") else None
+    )
+    session.set_live(True)
+
+    _press_button(session, "left")
+
+    _wait(lambda: env.services.calls)
+    assert env.services.calls == [("switch", "toggle", {}, {"entity_id": relay_id})]
+    assert not session.app.sandbox.is_simulated(relay_id)
+
+
+def test_live_hardware_button_toggles_configured_entity_on_release(session, env):
+    relay_id = "switch.relay_left"
+    entity_id = "light.lamp"
+    env._states[relay_id] = _State("off", {})
+    session.app.find_entity_id = lambda domain, name: (
+        relay_id if (domain, name) == ("switch", "Relay Left") else None
+    )
+
+    def configure_entity_button():
+        session.app.device.config["use_relay_left"] = False
+        session.app.device.config["button_left_entity"] = entity_id
+        session.app.device._register_callbacks()
+
+    _run(env, session.app.async_run_on_worker(configure_entity_button))
+    session.set_live(True)
+
+    _press_button(session, "left")
+
+    _wait(lambda: env.services.calls)
+    assert env.services.calls == [("light", "toggle", {}, {"entity_id": entity_id})]
+    assert not session.app.sandbox.is_simulated(entity_id)
+
+
 def test_sandbox_tap_changes_only_simulated_state(session, env):
     _tap_power(session)
 
@@ -156,22 +348,8 @@ def test_sandbox_tap_changes_only_simulated_state(session, env):
     assert session.app.sandbox.get("light.lamp").state == "on"
     assert env.services.calls == []
     assert env.states.get("light.lamp").state == "off"
-    _wait(lambda: {"type": "sandbox", "entities": ["light.lamp"]} in session.messages)
     # The tile re-renders from the simulated state change.
     _wait(lambda: any(c.startswith("g1") for c in _commands(session.messages)))
-
-
-def test_reset_sandbox_restores_real_state_without_changing_mode(session, env):
-    _tap_power(session)
-    _wait(lambda: session.app.sandbox.get("light.lamp").state == "on")
-    session.app.live = True
-
-    session.app.reset_sandbox()
-
-    _wait(lambda: not session.app.sandbox.is_simulated("light.lamp"))
-    assert session.app.sandbox.get("light.lamp").state == "off"
-    assert session.app.live is True
-    assert env.services.calls == []
 
 
 def test_old_protocol_does_not_receive_entity_or_idle_metadata(env):
@@ -185,7 +363,7 @@ def test_old_protocol_does_not_receive_entity_or_idle_metadata(env):
     proxy._sink({"type": "page", "page": GRID_PAGE_ID})
 
     assert {"type": "page", "page": GRID_PAGE_ID} in messages
-    assert not any(message["type"] in {"entities", "idle"} for message in messages)
+    assert not any(message["type"] in {"entities", "idle", "relays"} for message in messages)
     _run(env, session.async_stop())
 
 
@@ -212,7 +390,7 @@ def test_live_mode_refuses_unresolved_service_target_selectors(
     )
 
     assert env.services.calls == []
-    assert session.app.sandbox.simulated_ids() == []
+    assert not session.app.sandbox.is_simulated("switch.kitchen_use_auto_dim")
 
 
 def test_live_mode_still_sandboxes_the_real_devices_own_entities(env):
@@ -239,7 +417,7 @@ def test_going_live_drops_the_simulated_states(session, env):
 
     session.set_live(True)
 
-    _wait(lambda: {"type": "sandbox", "entities": []} in session.messages)
+    _wait(lambda: not session.app.sandbox.is_simulated("light.lamp"))
     assert session.app.sandbox.get("light.lamp").state == "off"
 
 
@@ -434,9 +612,22 @@ def test_the_browser_learns_which_widgets_show_which_entity(env):
         "item": {"item": "weather.home"},
         "items": [{"item": "light.lamp"}],
     }
+    weather = {
+        "type": "weather",
+        "key": "weather_0",
+        "item": {"item": "weather.home"},
+        "info_items": [{"item": "light.lamp"}],
+    }
     cfg = nspanel_haui._build_config_dict(
         {"name": "Hub", "devices": [{"name": "kitchen"}]},
-        {"devices": {"kitchen": {"config": {"home_panel": "grid_0"}, "panels": [grid, clock]}}},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"home_panel": "grid_0"},
+                    "panels": [grid, clock, weather],
+                }
+            }
+        },
         device_name="kitchen",
     )
     messages: list[dict] = []
@@ -446,6 +637,70 @@ def test_the_browser_learns_which_widgets_show_which_entity(env):
     sess.send_event(ESPEvent.GESTURE, "swipe_left")
     clock_map = {"#page": "weather.home", "bEntity1": "light.lamp"}
     _wait(lambda: {"type": "entities", "map": clock_map} in messages)
+    sess.send_event(ESPEvent.GESTURE, "swipe_left")
+    weather_map = {
+        "#page": "weather.home",
+        "d1Icon": "light.lamp",
+        "d1Val": "light.lamp",
+    }
+    _wait(lambda: {"type": "entities", "map": weather_map} in messages)
+    _run(env, sess.async_stop())
+
+
+def test_the_browser_maps_an_entity_popup_from_its_opening_item_id(env):
+    messages: list[dict] = []
+    sess = _open(env, _config(), messages.append)
+    _wait(lambda: any(message.get("type") == "entities" for message in messages))
+
+    navigation = sess.app.controller["navigation"]
+    _run(
+        env,
+        sess.app.async_run_on_worker(
+            lambda: navigation.open_panel("popup_light", item_id="light.lamp")
+        ),
+    )
+
+    _wait(
+        lambda: any(
+            message.get("type") == "entities" and message["map"].get("#page") == "light.lamp"
+            for message in messages
+        )
+    )
+    _run(env, sess.async_stop())
+
+
+def test_the_browser_maps_a_vacuum_battery_sensor_to_its_header_widget(env):
+    env._states["vacuum.robot"] = _State("docked", {"friendly_name": "Robot"})
+    env._states["sensor.robot_battery"] = _State("82", {"friendly_name": "Battery"})
+    vacuum = {
+        "type": "vacuum",
+        "key": "vacuum_0",
+        "item": {"item": "vacuum.robot"},
+        "battery_sensor": {"item": "sensor.robot_battery"},
+    }
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"home_panel": "vacuum_0"},
+                    "panels": [vacuum],
+                }
+            }
+        },
+        device_name="kitchen",
+    )
+    messages: list[dict] = []
+    sess = _open(env, cfg, messages.append)
+
+    _wait(
+        lambda: any(
+            message.get("type") == "entities"
+            and message["map"].get("#page") == "vacuum.robot"
+            and message["map"].get("bFncRSec") == "sensor.robot_battery"
+            for message in messages
+        )
+    )
     _run(env, sess.async_stop())
 
 
@@ -469,7 +724,6 @@ def test_a_late_viewer_gets_the_current_panel_drawn(session, env):
 
     _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in late)
     _wait(lambda: 'g1Name.txt="Lamp"' in _commands(late))
-    assert {"type": "sandbox", "entities": []} in late
 
 
 def test_a_card_render_never_moves_the_live_display(session, env):

@@ -58,7 +58,7 @@ test('a picture page takes its background from the global set before the page lo
   const { display } = makeDisplay();
   // The hub sets the page's global background variable, then switches page
   // (clock_common.background_commands).
-  display.exec('clock.background.val=5');
+  display.exec('system.vBackground.val=5');
   display.gotoPage('clock');
   assert.equal(display.component('clock').attrs.pic, 5);
   assert.equal(display.component('tTime').attrs.picc, 5);
@@ -92,12 +92,12 @@ test('an assignment to an undeclared variable is refused, as on the display', ()
 
 test('global-scope widgets keep their values across page changes', () => {
   const { display } = makeDisplay();
-  display.gotoPage('clock');
-  display.exec('background.val=4');
+  display.gotoPage('system');
+  display.exec('system.vBackground.val=4');
   display.gotoPage('grid');
-  assert.equal(display.getAttr({ page: 'clock', comp: 'background', attr: 'val' }), 4);
-  display.gotoPage('clock');
-  assert.equal(display.component('background').attrs.val, 4);
+  assert.equal(display.getAttr({ page: 'system', comp: 'vBackground', attr: 'val' }), 4);
+  display.gotoPage('system');
+  assert.equal(display.component('vBackground').attrs.val, 4);
 });
 
 test('a page\'s own setup code still runs over global-scope values', () => {

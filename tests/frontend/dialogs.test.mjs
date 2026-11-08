@@ -8,6 +8,7 @@ import { HauiDialog } from '../../custom_components/nspanel_haui/frontend/dialog
 
 import { getColorScheme } from '../../custom_components/nspanel_haui/frontend/dialogs/colors.js';
 import { hexToRgb565 } from '../../custom_components/nspanel_haui/frontend/color-utils.js';
+import { openColorsDialog, saveColors } from '../../custom_components/nspanel_haui/frontend/colors-editor.js';
 
 const DIALOGS = [
   'nspanel-dialog-edit-panel',
@@ -34,39 +35,33 @@ test('every editor dialog shares the dialog base class', () => {
   }
 });
 
-test('color schemes build complete palettes from defaults', () => {
-  const defaults = {
-    header_background: 10,
-    header_text: 20,
-    background: 30,
-    text: 40,
-    component_background: 50,
-    component_pressed: 60,
-    component_active: 70,
-  };
+test('color schemes read complete palettes from the backend scheme catalog', () => {
+  const dark = { background: 10, text: 20 };
+  const light = { background: hexToRgb565('#ffffff'), text: hexToRgb565('#101010') };
+  const schemes = { dark: { colors: dark }, light: { colors: light } };
 
-  assert.deepEqual(getColorScheme('dark', defaults), defaults);
-
-  const light = getColorScheme('light', defaults);
-  assert.equal(light.background, hexToRgb565('#ffffff'));
-  assert.equal(light.text, hexToRgb565('#101010'));
-  assert.equal(light.component_active, defaults.component_active);
-
-  const black = getColorScheme('black', defaults);
-  assert.equal(black.background, hexToRgb565('#000000'));
-  assert.equal(black.component_background, hexToRgb565('#111111'));
-  assert.equal(black.component_active, defaults.component_active);
-  assert.throws(() => getColorScheme('unknown', defaults), /Unknown color scheme/);
+  assert.deepEqual(getColorScheme('dark', schemes), dark);
+  assert.deepEqual(getColorScheme('light', schemes), light);
+  assert.throws(() => getColorScheme('unknown', schemes), /Unknown color scheme/);
 });
 
-test('color dialog applies a preset and marks edited palettes as custom', async () => {
+test('color dialog loads schemes, switches palette, and edits custom definitions', async () => {
   const ColorsDialog = customElements.get('nspanel-dialog-colors');
   const dlg = Object.create(ColorsDialog.prototype);
-  const defaults = { header_background: 1, background: 2, component_background: 3 };
+  const builtins = {
+    dark: { name: 'Dark', colors: { background: 2 }, icons: { weather: { default: 3 }, alarm: { armed: 4 }, climate: { off: 5 } } },
+    light: { name: 'Light', colors: { background: 6 }, icons: { weather: { default: 7 }, alarm: { armed: 8 }, climate: { off: 9 } } },
+    black: { name: 'Black', colors: { background: 10 }, icons: { weather: { default: 11 }, alarm: { armed: 12 }, climate: { off: 13 } } },
+  };
   Object.assign(dlg, {
     open: true,
+    entryId: 'entry',
+    schemeId: 'dark',
     overrides: {},
-    hass: { fetchWithAuth: async () => ({ json: async () => defaults }) },
+    scheme: 'dark',
+    hass: { fetchWithAuth: async (url) => url.endsWith('color_defaults')
+      ? { json: async () => ({ background: 2 }) }
+      : { ok: true, json: async () => ({ builtins, schemes: {} }) } },
     _colors: {},
     _loading: false,
     requestUpdate() {},
@@ -75,13 +70,230 @@ test('color dialog applies a preset and marks edited palettes as custom', async 
   dlg.willUpdate(new Map([['open', false]]));
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(dlg._selectedScheme(), 'dark');
-
   dlg._applyScheme('black');
   assert.equal(dlg._selectedScheme(), 'black');
-  dlg._onColorChange('background', { target: { value: '#123456' } });
-  assert.equal(dlg._selectedScheme(), 'custom');
+  assert.equal(dlg._colors.background, 10);
+});
+test('color dialog keeps its open ha-dialog mounted while schemes load', async () => {
+  const ColorsDialog = customElements.get('nspanel-dialog-colors');
+  const dlg = Object.create(ColorsDialog.prototype);
+  const dark = { name: 'Dark', colors: {}, icons: { dark: {}, light: {} } };
+  Object.assign(dlg, {
+    hass: {
+      fetchWithAuth: async (url) => url.endsWith('color_defaults')
+        ? { json: async () => ({}) }
+        : { ok: true, json: async () => ({ builtins: { dark }, schemes: {} }) },
+    },
+    open: true,
+    entryId: 'entry',
+    schemeId: 'dark',
+    scheme: 'dark',
+    _loading: true,
+    _schemes: {},
+    _builtins: {},
+    _customSchemes: {},
+    requestUpdate() {},
+    _changedCount: () => 0,
+    _renderPreview: () => '',
+    _selectedScheme: () => 'dark',
+    _isBuiltin: () => true,
+    _legacyOverrideCount: () => 0,
+    _renderGroup: () => '',
+    _schemeData: () => dark,
+  });
+
+  const loadingTemplate = dlg.render();
+  await dlg._loadSchemes();
+  const loadedTemplate = dlg.render();
+
+  assert.deepEqual(loadingTemplate.strings, loadedTemplate.strings);
+  assert.equal(loadingTemplate.strings.join('').match(/<ha-dialog/g)?.length, 1);
 });
 
+
+test('saving a color scheme persists its active ID and can clear legacy overrides', async () => {
+  let savedConfig;
+  const host = {
+    _selectedDevice: 'panel',
+    _deviceConfig: { color_overrides: { background: 123 } },
+    _devicePanels: () => [],
+    _savePanels: async (_panels, _message, config) => {
+      savedConfig = config;
+      return true;
+    },
+    requestUpdate() {},
+  };
+
+  await saveColors(host, { schemeId: 'custom-theme', resetOverrides: true });
+
+  assert.equal(savedConfig.color_scheme_id, 'custom-theme');
+  assert.deepEqual(savedConfig.color_overrides, {});
+});
+
+test('opening the color dialog selects the saved scheme and icon variant', () => {
+  const host = {
+    _selectedDevice: 'panel',
+    _deviceConfig: { color_overrides: {} },
+    _panels: { devices: { panel: { config: { color_scheme_id: 'evening', color_scheme: 'light' } } } },
+    _loadDeviceConfig() {},
+    requestUpdate() {},
+  };
+
+  openColorsDialog(host);
+
+  assert.equal(host._colorsSchemeId, 'evening');
+  assert.equal(host._colorsScheme, 'light');
+  assert.equal(host._showColorsDialog, true);
+});
+
+
+
+test('color scheme JSON import rejects collisions and persists valid collections', async () => {
+  const ColorsDialog = customElements.get('nspanel-dialog-colors');
+  const dlg = Object.create(ColorsDialog.prototype);
+  const colors = Object.fromEntries([
+    'header_background', 'header_text', 'header_accent', 'background', 'text',
+    'text_inactive', 'text_disabled', 'component_text', 'component_pressed',
+    'component_active', 'component_active_dark', 'component_accent',
+    'component_background', 'entity_on', 'entity_off', 'entity_unavailable',
+  ].map((key, index) => [key, index]));
+  const iconPalette = {
+    weather: Object.fromEntries([
+      'default', 'clear_night', 'sunny', 'partlycloudy', 'windy', 'windy_variant',
+      'rainy', 'pouring', 'lightning', 'lightning_rainy', 'hail', 'snowy', 'snowy_rainy',
+    ].map((key, index) => [key, index])),
+    alarm: { armed: 1, disarmed: 2, arming: 3 },
+    climate: { auto: 1, heat_cool: 2, heat: 3, off: 4, cool: 5, dry: 6, fan_only: 7 },
+  };
+  const eveningScheme = {
+    name: 'Evening',
+    colors,
+    icons: { dark: iconPalette, light: JSON.parse(JSON.stringify(iconPalette)) },
+  };
+  const darkScheme = { ...eveningScheme, name: 'Dark' };
+
+  const custom = { evening: eveningScheme };
+  let posted;
+  Object.assign(dlg, {
+    entryId: 'entry',
+    schemeId: 'dark',
+    _schemes: { dark: darkScheme },
+    _builtins: { dark: darkScheme },
+    _colors: { ...colors },
+    _icons: { dark: iconPalette, light: JSON.parse(JSON.stringify(iconPalette)) },
+    _customSchemes: {},
+    _schemeError: '',
+    hass: {
+      fetchWithAuth: async (_url, options) => {
+        posted = JSON.parse(options.body).schemes;
+        return { ok: true, json: async () => ({ schemes: posted }) };
+      },
+    },
+    requestUpdate() {},
+  });
+
+  await dlg._importSchemes({ target: { files: [{ text: async () => JSON.stringify({ version: 1, schemes: custom }) }], value: 'file' } });
+  assert.equal(posted.evening.name, 'Evening');
+  assert.equal(dlg._customSchemes.evening.name, 'Evening');
+
+  await dlg._importSchemes({ target: { files: [{ text: async () => JSON.stringify({ version: 1, schemes: custom }) }], value: 'file' } });
+  assert.match(dlg._schemeError, /already exists/);
+  assert.equal(posted.evening.name, 'Evening');
+});
+
+
+
+
+test('custom color schemes can be saved, renamed, exported, and deleted', async () => {
+  const ColorsDialog = customElements.get('nspanel-dialog-colors');
+  const dlg = Object.create(ColorsDialog.prototype);
+  let current;
+  const darkScheme = {
+    name: 'Dark',
+    colors: { background: 10 },
+    icons: { dark: { weather: { sunny: 20 } }, light: { weather: { sunny: 30 } } },
+  };
+  Object.assign(dlg, {
+    entryId: 'entry',
+    schemeId: 'dark',
+    _schemes: { dark: darkScheme },
+    _builtins: { dark: darkScheme },
+    _customSchemes: {},
+    _colors: { background: 10 },
+    _icons: { dark: { weather: { sunny: 20 } }, light: { weather: { sunny: 30 } } },
+    _nameAction: 'save-as',
+    _schemeName: 'Evening',
+    _schemeError: '',
+    _resetOverrides: false,
+    requestUpdate() {},
+    hass: {
+      fetchWithAuth: async (_url, options) => {
+        current = JSON.parse(options.body).schemes;
+        return { ok: true, json: async () => ({ schemes: current }) };
+      },
+    },
+  });
+
+  await dlg._saveNamedScheme();
+  assert.equal(dlg.schemeId, 'evening');
+  assert.equal(dlg._customSchemes.evening.name, 'Evening');
+
+  dlg._startNameAction('rename');
+  dlg._schemeName = 'Evening v2';
+  await dlg._saveNamedScheme();
+  assert.equal(dlg._customSchemes.evening.name, 'Evening v2');
+
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  const originalCreateElement = document.createElement;
+  let exportedBlob;
+  let clicked = false;
+  URL.createObjectURL = (blob) => { exportedBlob = blob; return 'blob:schemes'; };
+  URL.revokeObjectURL = () => {};
+  document.createElement = () => ({ click() { clicked = true; } });
+  try {
+    dlg._exportSchemes();
+    assert.equal(clicked, true);
+    assert.deepEqual(JSON.parse(await exportedBlob.text()).schemes, dlg._customSchemes);
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    document.createElement = originalCreateElement;
+  }
+
+  await dlg._deleteScheme();
+  assert.equal(Object.hasOwn(dlg._customSchemes, 'evening'), false);
+  assert.equal(dlg.schemeId, 'dark');
+});
+test('applying a scheme clears legacy page-specific color overrides', async () => {
+  let savedPanels;
+  let savedConfig;
+  const host = {
+    _selectedDevice: 'panel',
+    _deviceConfig: { color_overrides: { background: 65535 } },
+    _devicePanels: () => [{
+      type: 'grid',
+      items: [{ text_color: 123, back_color: 456, color: 789 }],
+      keypad_bg_color: 42,
+      off_color: 11,
+    }],
+    _savePanels: async (panels, _message, config) => {
+      savedPanels = panels;
+      savedConfig = config;
+      return true;
+    },
+    requestUpdate() {},
+  };
+
+  await saveColors(host, { schemeId: 'dark', resetOverrides: true, scheme: 'dark' });
+
+  assert.deepEqual(savedConfig.color_overrides, {});
+  assert.equal('text_color' in savedPanels[0].items[0], false);
+  assert.equal('back_color' in savedPanels[0].items[0], false);
+  assert.equal(savedPanels[0].items[0].color, 789);
+  assert.equal('keypad_bg_color' in savedPanels[0], false);
+  assert.equal('off_color' in savedPanels[0], false);
+});
 test('closing a dialog emits dialog-closed', () => {
   const { dlg, events } = dialog('nspanel-dialog-logs');
   dlg._dispatchClose();

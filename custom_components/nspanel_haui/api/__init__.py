@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .color_schemes import ColorSchemesView
 from .config import DeviceConfigView, DeviceYamlView, PanelConfigView
 from .editor import (
     ColorDefaultsView,
@@ -34,6 +35,7 @@ VIEWS = (
     PanelConfigView,
     PanelTypesView,
     ColorDefaultsView,
+    ColorSchemesView,
     DeviceConfigView,
     DeviceStatusView,
     NotificationsView,

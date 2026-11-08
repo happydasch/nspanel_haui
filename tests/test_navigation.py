@@ -8,7 +8,6 @@ high-level navigation methods rather than exercising the full display stack.
 import time
 
 import pytest
-
 from nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from nspanel_haui.haui.controller.navigation import HAUINavigationController
 from nspanel_haui.haui.mapping.const import AUTO_PAGE_HOLD, ESPEvent
@@ -346,17 +345,13 @@ def test_check_inactivity_skips_invalid_page_timeouts(timeout_page):
     nav._check_inactivity({})
 
     assert nav.calls["open_idle"] == []
-    assert any(
-        level == "WARNING" and "timeout_page" in message for message, level in nav.app.logs
-    )
+    assert any(level == "WARNING" and "timeout_page" in message for message, level in nav.app.logs)
 
 
 @pytest.mark.parametrize(("is_night", "use_auto_page"), [(False, None), (True, 1)])
 def test_check_inactivity_skips_invalid_active_profile_flags(is_night, use_auto_page):
     prefix = "night_" if is_night else ""
-    nav = _make_idle_nav(
-        **{f"{prefix}use_auto_page": use_auto_page, f"{prefix}timeout_page": 10}
-    )
+    nav = _make_idle_nav(**{f"{prefix}use_auto_page": use_auto_page, f"{prefix}timeout_page": 10})
     nav._idle_profile_night = is_night
 
     nav._check_inactivity({})
@@ -481,9 +476,7 @@ def test_an_empty_night_idle_key_disables_the_idle_page_with_a_warning():
     nav.set_idle_profile(True)
 
     assert nav._idle_panels == []
-    assert any(
-        level == "WARNING" and "night_idle_panel" in message for message, level in app.logs
-    )
+    assert any(level == "WARNING" and "night_idle_panel" in message for message, level in app.logs)
 
 
 def test_an_empty_day_idle_key_does_not_inherit_the_night_page():
@@ -495,9 +488,7 @@ def test_an_empty_day_idle_key_does_not_inherit_the_night_page():
             night_idle_panel="night_idle",
         )
     )
-    app.device_config = FakeDeviceConfig(
-        {"night_idle": DummyPanel("night-idle", key="night_idle")}
-    )
+    app.device_config = FakeDeviceConfig({"night_idle": DummyPanel("night-idle", key="night_idle")})
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
 
@@ -519,18 +510,14 @@ def test_an_unresolved_day_idle_key_is_logged_without_falling_back_to_night():
             night_idle_panel="night_idle",
         )
     )
-    app.device_config = FakeDeviceConfig(
-        {"night_idle": DummyPanel("night-idle", key="night_idle")}
-    )
+    app.device_config = FakeDeviceConfig({"night_idle": DummyPanel("night-idle", key="night_idle")})
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
 
     nav.set_idle_profile(False)
 
     assert nav._idle_panels == []
-    assert any(
-        level == "WARNING" and "missing_day_panel" in message for message, level in app.logs
-    )
+    assert any(level == "WARNING" and "missing_day_panel" in message for message, level in app.logs)
     assert not any("not inherited" in message for message, _ in app.logs)
 
 
@@ -551,8 +538,7 @@ def test_an_unresolved_night_idle_key_is_not_reported_as_empty():
 
     assert nav._idle_panels == []
     assert any(
-        level == "WARNING" and "missing_night_panel" in message
-        for message, level in app.logs
+        level == "WARNING" and "missing_night_panel" in message for message, level in app.logs
     )
     assert not any("not inherited" in message for message, _ in app.logs)
 

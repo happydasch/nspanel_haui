@@ -203,8 +203,20 @@ class QRPage(HAUIPage):
 
     # Content rendering
 
+    def _set_info_text_colors(self) -> None:
+        """Use the device text palette instead of the QR page's dark-only HMI defaults."""
+        for idx in (1, 2):
+            self.set_component_text_color(
+                getattr(self.COMPONENTS, f"q{idx}_title"), self.get_color("text")
+            )
+            for part in ("text", "text_add"):
+                self.set_component_text_color(
+                    getattr(self.COMPONENTS, f"q{idx}_{part}"), self.get_color("text_inactive")
+                )
+
     def _render_items(self, items: list) -> None:
         """Render up to 2 items into Q1/Q2 slots."""
+        self._set_info_text_colors()
         max_len = 20
         for i in range(2):
             if len(items) <= i:
@@ -231,6 +243,7 @@ class QRPage(HAUIPage):
         Note: caller (set_panel) wraps render_panel in rec_cmd, so no need for a
         separate rec_cmd here.
         """
+        self._set_info_text_colors()
         self.set_component_text(self.COMPONENTS.q1_icon, ICO_WIFI)
         self.set_component_text(self.COMPONENTS.q1_title, "SSID")
         essid = panel.get("essid", "") or ""

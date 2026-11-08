@@ -46,6 +46,7 @@ class _App:
 def _settings_page(entities):
     page = SettingsPage.__new__(SettingsPage)
     page.app = _App(entities)
+    page.translate = lambda text: text
     page.prepare()
     page._rec_cmd_cm = lambda: nullcontext()
     page.on_release = lambda *args, **kwargs: None
@@ -53,6 +54,30 @@ def _settings_page(entities):
     page.set_function_component = lambda *args, **kwargs: None
     page._auto_assign_fncs = lambda panel: None
     return page
+
+
+def test_settings_brightness_widgets_use_theme_colors():
+    page = _settings_page({})
+    colors = {"text": 1234, "component_active": 5678}
+    updated = []
+    page.get_color = lambda key: colors[key]
+    page.set_component_text_color = lambda component, color: updated.append((component, color))
+    page.set_title = lambda title: None
+    page.set_component_text = lambda component, text: None
+
+    class _Panel:
+        def get_title(self, default):
+            return default
+
+    page.render_panel(_Panel())
+
+    assert updated == [
+        (page.COMPONENTS.t_brght_title, colors["text"]),
+        (page.COMPONENTS.t_brght_pct, colors["text"]),
+        (page.COMPONENTS.t_brght_dim_pct, colors["text"]),
+        (page.COMPONENTS.t_brght_ico, colors["component_active"]),
+        (page.COMPONENTS.t_brght_dim_ico, colors["component_active"]),
+    ]
 
 
 def test_settings_resolves_brightness_by_firmware_name():

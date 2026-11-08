@@ -19,8 +19,16 @@ import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
 
 // Largest on-screen scale; the dialog shrinks it to fit narrower screens.
 const MAX_SCALE = 1.5;
-// Share of the window height the screen may take.
+// Share of the window height the frame may take.
 const MAX_HEIGHT_SHARE = 0.6;
+// Frame around the screen and the hardware buttons below it (px).
+const FRAME_PADDING = 8;
+// Height of the hardware buttons in display px (a bit taller than the panel's
+// 50 px title bar), drawn at the screen's scale.
+const HW_BUTTON_HEIGHT = 60;
+// Visible screen sizes (layout_landscape.json, layout_portrait.json): the
+// frame keeps its size while the layout loads.
+const SCREEN_SIZE = { landscape: [450, 320], portrait: [320, 480] };
 // How long the "playing sound" hint stays.
 const SOUND_HINT_MS = 2000;
 // Entity tooltip: distance from the cursor, and the share of the frame past
@@ -39,6 +47,7 @@ class LivePreviewDialog extends HauiDialog {
       _displayOff: { state: true },
       _hover: { state: true },
       _showEntities: { state: true },
+      _showTools: { state: true },
     };
   }
 
@@ -61,13 +70,68 @@ class LivePreviewDialog extends HauiDialog {
         gap: 8px;
         cursor: pointer;
       }
-      .vp-hint {
+      .vp-toolbar {
         margin: 8px 0 12px;
-        color: var(--secondary-text-color);
-        font-size: 0.9em;
       }
-      .vp-hint.live {
+      .vp-toolbar-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 12px;
+      }
+      .vp-toolbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .vp-toolbar .view-toggle-btn:disabled {
+        cursor: default;
+        opacity: 0.5;
+      }
+      /* Live mode switches real devices: the toolbar says so in the warning colour. */
+      .vp-toolbar.live .view-toggle-group {
+        border-color: var(--warning-color, #ffa600);
+      }
+      .vp-toolbar.live .view-toggle-btn.active {
+        background: var(--warning-color, #ffa600);
+      }
+      .vp-mode-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin: 0;
+        padding: 9px 11px;
+        border-inline-start: 3px solid var(--primary-color);
+        border-radius: 6px;
+        background: var(--secondary-background-color, rgba(127, 127, 127, 0.08));
+        color: var(--secondary-text-color);
+        font-size: 0.85em;
+        line-height: 1.4;
+      }
+      .vp-mode-note ha-icon {
+        flex: 0 0 auto;
+        --mdc-icon-size: 18px;
+      }
+      .vp-mode-note.live {
+        border-inline-start-color: var(--warning-color, #ffa600);
+        color: var(--primary-text-color);
+      }
+      .vp-mode-note.live ha-icon {
         color: var(--warning-color, #ffa600);
+      }
+      .vp-more {
+        flex: 0 0 auto;
+      }
+      .vp-more ha-icon {
+        --mdc-icon-size: 20px;
+      }
+      .vp-more.active {
+        background: var(--secondary-background-color, #f5f5f5);
+        border-radius: 50%;
+      }
+      .vp-tools {
+        margin-top: 8px;
       }
       .vp-stage {
         display: flex;
@@ -77,14 +141,19 @@ class LivePreviewDialog extends HauiDialog {
       }
       .vp-bezel {
         position: relative;
-        padding: 12px;
-        border-radius: 16px;
-        background: #1c1c1c;
+        display: flex;
+        flex-direction: column;
+        gap: var(--vp-frame-pad);
+        padding: var(--vp-frame-pad);
+        overflow: hidden;
+        border-radius: calc(var(--vp-frame-pad) * 1.5);
+        background: #17191e;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
       }
       .vp-screen-wrap {
         position: relative;
         overflow: hidden;
+        border-radius: 4px;
         cursor: pointer;
         touch-action: none;
       }
@@ -101,21 +170,61 @@ class LivePreviewDialog extends HauiDialog {
         color: #aaa;
       }
       .vp-hw-buttons {
-        display: flex;
-        gap: 24px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--vp-frame-pad);
       }
       .vp-hw {
-        min-width: 96px;
-        padding: 10px 16px;
-        border: 1px solid var(--divider-color);
-        border-radius: 10px;
-        background: var(--secondary-background-color);
-        color: var(--primary-text-color);
-        font: inherit;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        box-sizing: border-box;
+        width: 100%;
+        height: var(--vp-hw-height);
+        padding: calc(var(--vp-hw-height) * 0.15) 0 0;
+        border: 1px solid #34383f;
+        border-radius: 6px;
+        background: #22252b;
         cursor: pointer;
       }
-      .vp-hw:active {
-        background: var(--divider-color);
+      .vp-hw:disabled {
+        cursor: default;
+        opacity: 0.6;
+      }
+      .vp-hw:active:not(:disabled) {
+        background: #292d34;
+      }
+      .vp-relay-light {
+        width: 24px;
+        height: 4px;
+        border-radius: 999px;
+        background: #20242a;
+        box-shadow: inset 0 1px 2px #000a;
+        transition: background-color 150ms ease, box-shadow 150ms ease;
+      }
+      .vp-relay-light[data-state="on"] {
+        background: #58b3ff;
+        box-shadow: 0 0 6px #55adff, 0 0 15px #308bffb3;
+      }
+      /* A button that switches an entity instead of its relay shows that entity. */
+      .vp-relay-light.entity[data-state="on"] {
+        background: #ffd23f;
+        box-shadow: 0 0 6px #ffcc33, 0 0 15px #ffb300b3;
+      }
+      .vp-relay-indicators {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .vp-relay-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #20242a;
+      }
+      .vp-relay-dot[data-state="on"] {
+        background: #58b3ff;
+        box-shadow: 0 0 5px #55adff;
       }
       .vp-status {
         display: flex;
@@ -165,6 +274,7 @@ class LivePreviewDialog extends HauiDialog {
     this._displayOff = false;
     this._hover = null;
     this._showEntities = false;
+    this._showTools = false;
     this._pointerId = null;
     this._soundTimer = null;
     this._resizeObserver = null;
@@ -302,6 +412,12 @@ class LivePreviewDialog extends HauiDialog {
     if (!show) this._hover = null;
   }
 
+  /** The extra tools are hidden by default; hiding them switches entity hover off too. */
+  _setShowTools(show) {
+    this._showTools = show;
+    if (!show) this._setShowEntities(false);
+  }
+
   _renderTooltip() {
     const hover = this._hover;
     if (!hover) return nothing;
@@ -322,14 +438,6 @@ class LivePreviewDialog extends HauiDialog {
     `;
   }
 
-  async _resetSandbox() {
-    try {
-      await this._session.resetSandbox();
-    } catch (err) {
-      this._error = err?.message || String(err);
-    }
-  }
-
   async _setLive(live) {
     try {
       await this._session.setLive(live);
@@ -340,16 +448,59 @@ class LivePreviewDialog extends HauiDialog {
 
   // -- render -----------------------------------------------------------------
 
+  _renderHardwareButtons(session) {
+    return html`
+      <div class="vp-hw-buttons">
+        ${['left', 'right'].map(side => html`
+          <button
+            class="vp-hw"
+            aria-label=${side === 'left' ? t('Left button') : t('Right button')}
+            title=${side === 'left' ? t('Left button') : t('Right button')}
+            ?disabled=${!session?.ready}
+            @click=${() => session?.pressButton(side)}
+          >
+            ${session?.buttonEntityStates?.[side]
+              ? html`
+                <span class="vp-relay-indicators">
+                  <span class="vp-relay-light entity" data-state=${session.buttonEntityStates[side]}></span>
+                  <span class="vp-relay-dot" data-state=${session?.relays?.[side] || 'unknown'}></span>
+                </span>
+              `
+              : html`<span class="vp-relay-light" data-state=${session?.relays?.[side] || 'unknown'}></span>`}
+          </button>
+        `)}
+      </div>
+    `;
+  }
+
+  /** Scale that fits a screen and the buttons below it into the stage. */
+  _fitScale(screenWidth, screenHeight) {
+    const availableWidth = (this._stageWidth || screenWidth) - 2 * FRAME_PADDING;
+    const frameHeight = screenHeight + HW_BUTTON_HEIGHT;
+    const availableHeight = (globalThis.innerHeight || frameHeight / MAX_HEIGHT_SHARE) * MAX_HEIGHT_SHARE
+      - 3 * FRAME_PADDING;
+    return Math.max(0, Math.min(MAX_SCALE, availableWidth / screenWidth, availableHeight / frameHeight));
+  }
+
+  /** The device: the screen with the two hardware buttons below it. */
+  _renderFrame(session, scale, screen) {
+    const buttonHeight = Math.floor(HW_BUTTON_HEIGHT * scale);
+    return html`
+      <div class="vp-bezel" style="--vp-frame-pad:${FRAME_PADDING}px;--vp-hw-height:${buttonHeight}px;">
+        ${screen}
+        ${this._renderHardwareButtons(session)}
+        ${this._renderTooltip()}
+      </div>
+    `;
+  }
+
   _renderScreen(session) {
     const layout = session.display.layout;
-    const available = (this._stageWidth || layout.visible_width) - 24;
-    // Fit the width and keep the portrait screen within the window's height.
-    const availableHeight = (globalThis.innerHeight || layout.height / MAX_HEIGHT_SHARE) * MAX_HEIGHT_SHARE;
-    const scale = Math.min(MAX_SCALE, available / layout.visible_width, availableHeight / layout.height);
+    const scale = this._fitScale(layout.visible_width, layout.height);
     const width = Math.floor(layout.visible_width * scale);
     const height = Math.floor(layout.height * scale);
     const brightness = Math.max(session.brightness, 15) / 100;
-    return html`
+    return this._renderFrame(session, scale, html`
       <div
         class="vp-screen-wrap"
         style="width:${width}px;height:${height}px;filter:brightness(${brightness});"
@@ -368,19 +519,108 @@ class LivePreviewDialog extends HauiDialog {
         </div>
         ${this._displayOff ? html`<div class="vp-off"></div>` : nothing}
       </div>
+    `);
+  }
+
+  _renderLoading(session) {
+    const [screenWidth, screenHeight] = SCREEN_SIZE[session?.orientation || 'landscape'];
+    const scale = this._fitScale(screenWidth, screenHeight);
+    return this._renderFrame(session, scale, html`
+      <div
+        class="vp-loading"
+        style="width:${Math.floor(screenWidth * scale)}px;height:${Math.floor(screenHeight * scale)}px;"
+      >
+        ${t('Starting the live preview…')}
+      </div>
+    `);
+  }
+
+  /** Above the simulator: the current run mode and what it does. */
+  _renderModeNote(session) {
+    const live = Boolean(session?.live);
+    return html`
+      <div class="vp-mode-note ${live ? 'live' : ''}">
+        <ha-icon icon=${live ? 'mdi:alert-circle-outline' : 'mdi:information-outline'}></ha-icon>
+        <span>${live
+          ? t('Live mode: touches and the hardware buttons switch your real devices, including the panel\'s relays. The panel\'s settings stay simulated.')
+          : t('Simulated mode: touches update simulated states only; your devices are not switched.')}</span>
+      </div>
+    `;
+  }
+
+  /** Below the mode note: mode selection and the extra tools when opened. */
+  _renderToolbar(session) {
+    const live = Boolean(session?.live);
+    const ready = Boolean(session?.ready);
+    const mode = (value, icon, label) => html`
+      <button
+        class="view-toggle-btn ${live === value ? 'active' : ''}"
+        aria-pressed=${live === value ? 'true' : 'false'}
+        ?disabled=${!ready}
+        @click=${() => { if (live !== value) this._setLive(value); }}
+      >
+        <ha-icon icon=${icon}></ha-icon>
+        <span>${label}</span>
+      </button>
+    `;
+    return html`
+      <div class="vp-toolbar ${live ? 'live' : ''}">
+        <div class="vp-toolbar-row">
+          <div class="view-toggle-group" role="group">
+            ${mode(false, 'mdi:flask-outline', t('Simulated'))}
+            ${mode(true, 'mdi:access-point', t('Live'))}
+          </div>
+          <div class="vp-toolbar-actions">
+            ${this._renderIdleButton(session)}
+            <ha-icon-button
+              class="vp-more ${this._showTools ? 'active' : ''}"
+              title=${t('More tools')}
+              label=${t('More tools')}
+              aria-expanded=${this._showTools ? 'true' : 'false'}
+              @click=${() => this._setShowTools(!this._showTools)}
+            >
+              <ha-icon icon="mdi:tune-variant"></ha-icon>
+            </ha-icon-button>
+          </div>
+        </div>
+        ${this._showTools ? this._renderTools(session) : nothing}
+      </div>
+    `;
+  }
+
+  _renderIdleButton(session) {
+    const ready = Boolean(session?.ready);
+    return html`
+      <ha-button
+        class="vp-idle-button"
+        appearance=${session?.idle ? 'accent' : 'plain'}
+        aria-pressed=${session?.idle ? 'true' : 'false'}
+        ?disabled=${!ready}
+        aria-label=${t('Idle timeout')}
+        @click=${() => session.idleTimeout()}
+      >
+        <ha-icon slot="start" icon="mdi:sleep"></ha-icon>
+        ${t('Idle')}
+      </ha-button>
+    `;
+  }
+
+  /** The extra tools: entity hover. */
+  _renderTools(session) {
+    const ready = Boolean(session?.ready);
+    return html`
+      <div class="vp-controls vp-tools">
+        <label class="vp-mode">
+          ${renderToggle('vp-show-entities', this._showEntities, v => this._setShowEntities(v), { disabled: !ready })}
+          ${t('Show entities')}
+        </label>
+      </div>
     `;
   }
 
   _renderStatus(session) {
-    const simulated = session?.sandboxEntities || [];
     return html`
       <div class="vp-status">
-        ${simulated.length ? html`
-          <span title=${simulated.join('\n')}>
-            <ha-icon icon="mdi:flask-outline"></ha-icon>
-            ${t('Simulated entities: {count}').replace('{count}', String(simulated.length))}
-          </span>
-        ` : nothing}
         ${this._sound ? html`
           <span><ha-icon icon="mdi:volume-high"></ha-icon> ${t('Sound: {name}').replace('{name}', this._sound)}</span>
         ` : nothing}
@@ -397,61 +637,17 @@ class LivePreviewDialog extends HauiDialog {
   render() {
     if (!this.open) return nothing;
     const session = this._session;
-    const live = Boolean(session?.live);
-    const ready = Boolean(session?.ready);
     return html`
       <ha-dialog .open=${this.open} @closed=${this._close}>
         ${dialogHeader(t('Live preview: {device}').replace('{device}', this.device || ''), this._close)}
 
         <div class="dialog-body">
-          <div class="vp-controls">
-            <label class="vp-mode">
-              ${renderToggle('vp-live', live, v => this._setLive(v), { disabled: !ready })}
-              ${t('Live mode')}
-            </label>
-            <label class="vp-mode">
-              ${renderToggle('vp-show-entities', this._showEntities, v => this._setShowEntities(v), { disabled: !ready })}
-              ${t('Show entities')}
-            </label>
-            <ha-button
-              appearance="plain"
-              ?disabled=${!ready || !session.sandboxEntities.length}
-              @click=${this._resetSandbox}
-            >
-              <ha-icon slot="start" icon="mdi:restore"></ha-icon>
-              ${t('Reset sandbox')}
-            </ha-button>
-            <ha-button
-              appearance=${session?.idle ? 'accent' : 'plain'}
-              aria-pressed=${session?.idle ? 'true' : 'false'}
-              ?disabled=${!ready}
-              @click=${() => session.idleTimeout()}
-            >
-              <ha-icon slot="start" icon="mdi:timer-sand"></ha-icon>
-              ${t('Idle timeout')}
-            </ha-button>
-          </div>
-          <p class="vp-hint ${live ? 'live' : ''}">
-            ${live
-              ? t('Live mode: touches and the hardware buttons switch your real devices, including the panel\'s relays. The panel\'s settings stay simulated.')
-              : t('Sandbox mode: touches change simulated states only; your devices are not switched.')}
-          </p>
+          ${this._renderModeNote(session)}
+
+          ${this._renderToolbar(session)}
 
           <div class="vp-stage">
-            <div class="vp-bezel">
-              ${ready
-                ? this._renderScreen(session)
-                : html`<div class="vp-loading" style="width:450px;max-width:70vw;height:300px;">${t('Starting the live preview…')}</div>`}
-              ${this._renderTooltip()}
-            </div>
-            <div class="vp-hw-buttons">
-              <button class="vp-hw" ?disabled=${!ready} @click=${() => session.pressButton('left')}>
-                ${t('Left button')}
-              </button>
-              <button class="vp-hw" ?disabled=${!ready} @click=${() => session.pressButton('right')}>
-                ${t('Right button')}
-              </button>
-            </div>
+            ${session?.ready ? this._renderScreen(session) : this._renderLoading(session)}
           </div>
 
           ${this._renderStatus(session)}

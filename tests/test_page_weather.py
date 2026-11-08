@@ -1,5 +1,6 @@
 """Weather page rendering with incomplete data."""
 
+from nspanel_haui.haui.mapping.color import WEATHER_COLORS, WEATHER_COLORS_LIGHT, ColorTheme
 from nspanel_haui.haui.page.weather import WeatherPage
 from nspanel_haui.haui.utils.icon import parse_icon
 
@@ -25,6 +26,7 @@ class _State:
 class _App:
     def __init__(self, forecast=None, inside_temp=None, temp_entity_id="sensor.panel_temperature"):
         self.device = _Device()
+        self.color_theme = ColorTheme({})
         self.controller = {}
         self.forecast = forecast
         self.inside_temp = inside_temp
@@ -47,6 +49,7 @@ class _App:
 class _WeatherItem:
     def __init__(self, attrs):
         self.attrs = attrs
+        self.last_scheme = None
 
     def get_item_id(self):
         return _ENTITY_ID
@@ -57,7 +60,8 @@ class _WeatherItem:
     def get_icon(self):
         return "icon"
 
-    def get_color(self):
+    def get_color(self, *, scheme=None):
+        self.last_scheme = scheme
         return 0
 
 
@@ -203,6 +207,30 @@ def test_configured_inside_temp_sensor_used():
     assert app.requested == ["sensor.office_temperature"]
     home = f"{parse_icon('mdi:home-thermometer')}23°C  "
     assert f'tMainText.txt="{home}{parse_icon("mdi:thermometer")}12°C"' in page.cmds
+
+
+def test_light_background_selects_light_weather_palette():
+    page = _weather_page(_App(forecast=[_forecast(1)]), {})
+    page.app.color_theme = ColorTheme({}, "light")
+    page._forecast_type = "daily"
+    page._weather_icons_mode = "color"
+    page._light_background = True
+    colors = []
+    page._set_component_text_color = lambda component, color: colors.append(color)
+
+    page.render_forecast()
+
+    assert WEATHER_COLORS_LIGHT["sunny"] in colors
+
+
+def test_light_background_selects_light_palette_for_main_weather_icon():
+    page = _weather_page(_App(), {"temperature": 20})
+    page._light_background = True
+
+    page.update_main_weather()
+
+    assert page._weather_item.last_scheme == "light"
+    assert page.app.color_theme.get_icon_color("weather", "sunny") == WEATHER_COLORS["sunny"]
 
 
 def test_dark_display_keeps_the_weather_page_current():

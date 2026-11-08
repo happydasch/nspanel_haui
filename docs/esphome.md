@@ -90,6 +90,7 @@ Defined in `esphome/nspanel_haui/globals.yaml`:
 |--------|---------|
 | `hub_availability` | Whether a Native API client is connected. Set by `on_client_connected`; reset by `on_client_disconnected` once the last client is gone (it stays true while other API clients remain). While false, the device sends no `req_connection` and drops an active hub connection. |
 | `hub_heartbeat` | Device uptime seconds (`millis() / 1000`) of the last hub heartbeat; used by `check_hub_connection` for timeout detection. |
+| `hub_state_change_ms` | `millis()` timestamp of the last `hub_connection` transition; starts the dim-timeout-sized full-brightness grace after disconnect and reconnect. |
 | `hub_connection` | Whether the handshake with the hub has completed. Set by `set_hub_connected`. |
 | `haui_init` | Whether the device has been initialized by the hub. |
 | `haui_display_state` | Display state: 0 off, 1 dim, 2 on. |
@@ -98,7 +99,7 @@ Defined in `esphome/nspanel_haui/globals.yaml`:
 
 Defined in `esphome/nspanel_haui/scripts_connection.yaml`:
 
-- `set_hub_connected(connected, force)` — a disconnect (`connected = 0`) is skipped while other API clients remain unless `force = 1` (device-detected heartbeat timeout or hub unavailability). Updates `hub_connection`, anchors/resets `hub_heartbeat`, wakes the display on disconnect (`update_display` then pins the device to system page 0 while disconnected), writes `system.firstRun.txt="0"` on connect, and publishes the `client_status` sensor.
+- `set_hub_connected(connected, force)` — a disconnect (`connected = 0`) is skipped while other API clients remain unless `force = 1`; hub-initiated close and device-detected timeouts are forced, while the last-client API callback is not. Updates `hub_connection`, records its transition time for the brightness grace, anchors/resets `hub_heartbeat`, writes `system.firstRun.txt="0"` on connect, and publishes the `client_status` sensor. The firmware pins page 0 (System) while disconnected, holds full brightness for `timeout_dim` plus the configured ramp, then dims if auto-dimming is enabled. It does not turn brightness off or enter hardware sleep automatically while disconnected. Reconnect gets the same full-brightness grace before normal inactivity behavior resumes.
 - `check_hub_connection` — runs every 100 ms; detects a heartbeat timeout (`heartbeat_interval × 2`) or hub unavailability.
 - `check_connection` — runs every 100 ms; sends `req_connection` when disconnected but the hub is available, with a 10 s cooldown.
 
@@ -114,7 +115,7 @@ Device → hub events, published under the `esphome.` prefix (`esphome.heartbeat
 | `res_device_state` | JSON: `page`, `brightness`, `button_left`, `button_right`, `relay_left`, `relay_right`, `use_relay_left`, `use_relay_right`, `display_state`, `yaml_version`, `tft_required_version`, `tft_version`, `ssid`, `rssi`, `firmware_variant` (`universal` or `custom`). Reply to `req_device_state`. |
 | `read_response` | JSON: `name`, `type` (`"number"` or `"text"`), `value`. Reply to `req_val` / `req_txt`. |
 | `connected` | Empty. Sent after the connection was established. |
-| `display_off` / `display_on` | Empty. Hardware sleep/wake on the no-hub path only; with a hub the display only dims or turns its brightness off. |
+| `display_off` / `display_on` | Empty. Explicit hardware sleep/wake actions; the automatic display state machine does not hardware-sleep the display. |
 | `page` | New page id. A new page was opened. |
 | `component` | `page_id,component_id,touch_event`. A Nextion component was touched. |
 | `touch_start` | Empty (also value `1` on a Nextion touch press). |
@@ -198,17 +199,20 @@ Sensors and switches:
 
 ## Brightness and Dimming
 
-Configured in `esphome/nspanel_haui/scripts_display.yaml`. One `update_display` script runs every 100 ms and derives the state and brightness from the same interaction age: on (full brightness until the dimming timeout), dimmed (`brightness_dim` until the display-off timeout) and off (brightness 0). Both transitions ramp over `duration_dim` seconds, and display-off is an independent switch: it reaches brightness 0 even with auto-dimming off. Dimming and turning off never require a page switch — automatic page switching is a separate hub behaviour.
+Configured in `esphome/nspanel_haui/scripts_display.yaml`. One `update_display` script runs every 100 ms and derives the state and brightness from the same interaction age while connected: on (full brightness until the dimming timeout), dimmed (`brightness_dim` until the display-off timeout) and off (brightness 0). Both transitions ramp over `duration_dim` seconds, and display-off is an independent switch: it reaches brightness 0 even with auto-dimming off. Dimming and turning off never require a page switch — automatic page switching is a separate hub behaviour. When disconnected, the firmware pins the display to System page 0, holds full brightness for `timeout_dim` plus its ramp, then dims if auto-dimming is enabled; it never turns off or hardware-sleeps automatically. Reconnect gets the same full-brightness grace before the normal interaction-age state resumes.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> On: touch / button
+    [*] --> On: touch / button / connect
     On --> Dimmed: dimming timeout
-    On --> Off: display-off timeout (auto-dimming off)
-    Dimmed --> On: touch / button
+    On --> Dimmed: disconnected grace expires
+    On --> Off: display-off timeout
+    Dimmed --> On: touch / button / reconnect grace
     Dimmed --> Off: display-off timeout (if enabled)
-    Off --> On: touch / button
+    Off --> On: touch / button / reconnect grace
 ```
+
+While disconnected, this state machine has no `Off` transition: page 0 (System) stays visible, and the display only dims after the connection grace when auto-dimming is enabled.
 
 Sensors and numbers (values are restored on reboot; a timeout > 0 activates it):
 

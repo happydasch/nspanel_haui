@@ -168,11 +168,11 @@ def _cover() -> dict[str, Rect]:
     layout = _header()
     layout.update(
         {
-            "bUp": (30, 90, 60, 60),
-            "bStop": (30, 160, 60, 60),
-            "bDown": (30, 230, 60, 60),
-            "hVertPos": (113, 80, 95, 250),
-            "tInfo": (12, 350, 296, 32),
+            "bUp": (68, 96, 60, 60),
+            "bStop": (68, 202, 60, 60),
+            "bDown": (68, 308, 60, 60),
+            "hVertPos": (146, 74, 90, 304),
+            "tInfo": (12, 390, 296, 36),
         }
     )
     return layout
@@ -180,18 +180,18 @@ def _cover() -> dict[str, Rect]:
 
 def _grid() -> dict[str, Rect]:
     layout = _header()
-    tile_w, tile_h = 147, 120
+    tile_w, tile_h = 147, 130
     for n in range(6):
         x = 11 + 151 * (n % 2)
-        y = 56 + 124 * (n // 2)
+        y = 56 + 132 * (n // 2)
         g = f"g{n + 1}"
         layout.update(
             {
                 f"{g}Btn": (x, y, tile_w, tile_h),
-                f"{g}Icon": (x + 6, y + 28, 135, 48),
-                f"{g}Name": (x + 6, y + 78, 135, 30),
+                f"{g}Icon": (x + 40, y + 17, 66, 66),
+                f"{g}Name": (x + 6, y + 89, 135, 32),
                 f"{g}Overlay": (x, y, tile_w, tile_h),
-                f"{g}Power": (x + 99, y, 48, 48),
+                f"{g}Power": (x + 39, y + 16, 68, 68),
             }
         )
     return layout
@@ -275,84 +275,25 @@ def _qr() -> dict[str, Rect]:
 
 
 def _row() -> dict[str, Rect]:
-    # The portrait row page is being re-laid out in the Nextion Editor. Until
-    # that settles these are the HMI's positions as they stand, rows 1..5.
-    rows: dict[str, tuple[Rect, ...]] = {
-        "Icon": (
-            (12, 52, 50, 50),
-            (12, 134, 50, 50),
-            (12, 216, 50, 50),
-            (12, 298, 50, 50),
-            (12, 380, 50, 50),
-        ),
-        "Name": (
-            (62, 52, 246, 50),
-            (62, 134, 246, 50),
-            (62, 216, 246, 50),
-            (62, 298, 246, 50),
-            (62, 380, 246, 50),
-        ),
-        "Overlay": (
-            (10, 54, CONTENT_W, 50),
-            (12, 130, CONTENT_W, 50),
-            (12, 216, CONTENT_W, 50),
-            (12, 298, CONTENT_W, 50),
-            (12, 380, CONTENT_W, 50),
-        ),
-        "BtnUp": (
-            (12, 94, 50, 44),
-            (12, 176, 50, 44),
-            (12, 258, 50, 44),
-            (12, 341, 50, 44),
-            (12, 425, 50, 44),
-        ),
-        "BtnStop": (
-            (96, 94, 50, 44),
-            (96, 176, 50, 44),
-            (96, 258, 50, 44),
-            (96, 341, 50, 44),
-            (96, 425, 50, 44),
-        ),
-        "BtnDown": (
-            (256, 94, 50, 44),
-            (256, 176, 50, 44),
-            (256, 258, 50, 44),
-            (256, 341, 50, 44),
-            (256, 425, 50, 44),
-        ),
-        "BtnText": (
-            (158, 94, 150, 44),
-            (158, 176, 150, 44),
-            (158, 258, 150, 44),
-            (158, 341, 150, 44),
-            (158, 425, 150, 44),
-        ),
-        "Slider": (
-            (150, 96, 100, 40),
-            (150, 178, 100, 40),
-            (150, 260, 100, 40),
-            (150, 342, 100, 40),
-            (150, 427, 100, 40),
-        ),
-        "SliderTxt": (
-            (254, 94, 54, 44),
-            (254, 176, 54, 44),
-            (254, 258, 54, 44),
-            (254, 341, 54, 44),
-            (254, 425, 54, 44),
-        ),
-        "Toggle": (
-            (121, 94, 48, 48),
-            (121, 175, 48, 48),
-            (121, 257, 48, 48),
-            (121, 340, 48, 48),
-            (121, 424, 48, 48),
-        ),
-    }
     layout = _header()
-    for part, rects in rows.items():
-        for i, rect in enumerate(rects):
-            layout[f"r{i + 1}{part}"] = rect
+    for i in range(5):
+        y = 52 + 78 * i
+        row = i + 1
+        layout.update(
+            {
+                f"r{row}Icon": (12, y + 1, 30, 26),
+                f"r{row}Name": (46, y + 1, 262, 26),
+                # Keep the tap-to-open hotspot clear of the control strip.
+                f"r{row}Overlay": (12, y, CONTENT_W, 28),
+                f"r{row}BtnUp": (32, y + 28, 56, 50),
+                f"r{row}BtnStop": (132, y + 28, 56, 50),
+                f"r{row}BtnDown": (232, y + 28, 56, 50),
+                f"r{row}BtnText": (64, y + 28, 192, 50),
+                f"r{row}Slider": (50, y + 32, 200, 42),
+                f"r{row}SliderTxt": (256, y + 32, 52, 42),
+                f"r{row}Toggle": (126, y + 28, 68, 50),
+            }
+        )
     return layout
 
 
@@ -370,12 +311,12 @@ def _settings() -> dict[str, Rect]:
     layout.update(
         {
             "tBrghtTitle": (12, 60, 296, 32),
-            "tBrghtIco": (12, 108, 44, 50),
-            "hBrght": (64, 118, 184, 30),
-            "tBrghtPct": (252, 108, 56, 50),
-            "tBrghtDimIco": (12, 178, 44, 50),
-            "hBrghtDim": (64, 188, 184, 30),
-            "tBrghtDimPct": (252, 178, 56, 50),
+            "tBrghtIco": (12, 125, 44, 50),
+            "hBrght": (64, 135, 184, 30),
+            "tBrghtPct": (252, 125, 56, 50),
+            "tBrghtDimIco": (12, 300, 44, 50),
+            "hBrghtDim": (64, 310, 184, 30),
+            "tBrghtDimPct": (252, 300, 56, 50),
         }
     )
     return layout
@@ -396,16 +337,16 @@ def _timer() -> dict[str, Rect]:
     layout = _header()
     layout.update(
         {
-            "tMin": (30, 181, 110, 96),
-            "tSpace": (140, 181, 40, 96),
-            "tSec": (180, 181, 110, 96),
-            "bStart": (100, 351, 50, 50),
-            "bStop": (170, 351, 50, 50),
+            "tMin": (30, 158, 110, 96),
+            "tSpace": (140, 158, 40, 96),
+            "tSec": (180, 158, 110, 96),
+            "bStart": (78, 360, 72, 60),
+            "bStop": (170, 360, 72, 60),
         }
     )
     for i, x in enumerate((35, 85, 185, 235)):
-        layout[f"bUp{i + 1}"] = (x, 126, 50, 50)
-        layout[f"bDown{i + 1}"] = (x, 281, 50, 50)
+        layout[f"bUp{i + 1}"] = (x, 106, 50, 50)
+        layout[f"bDown{i + 1}"] = (x, 260, 50, 50)
     return layout
 
 
@@ -481,11 +422,15 @@ _ROW_SLIDER = {"wid": 0, "hig": 0, "pco": 19773}
 
 PORTRAIT_ATTRS: dict[str, dict[str, dict[str, int]]] = {
     "about": {"tAbout1": {"isbr": 1}, "tAbout2": {"isbr": 1}},
+    "grid": {f"g{i + 1}Power": {"font": 3} for i in range(6)},
+    "row": {
+        **{f"r{i + 1}Icon": {"font": 1} for i in range(5)},
+        **{f"r{i + 1}Slider": _ROW_SLIDER for i in range(5)},
+    },
     "settings": {"tBrghtTitle": {"font": 0}, "hBrght": _H_SLIDER, "hBrghtDim": _H_SLIDER},
     "light": {"hBrightness": _V_SLIDER, "hColorTemp": _V_SLIDER},
     "cover": {"hVertPos": _V_SLIDER},
     "media": {"hVolume": _H_SLIDER},
-    "row": {f"r{i + 1}Slider": _ROW_SLIDER for i in range(5)},
     # The portrait weather time/date are full-width (0..320) but kept the
     # landscape ``xcen=2`` (right-aligned) attribute, pushing the text against
     # the screen edge.  Center them (#64).

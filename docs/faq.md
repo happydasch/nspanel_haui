@@ -58,7 +58,7 @@ With the Day/Night schedule **disabled**, the ESPHome brightness sliders remain 
 
 ## The display should turn off completely only at night
 
-Set a **display-off schedule** under Device Settings → Display dimming & off: enable *Sleep schedule* and pick the window (e.g. `22:00`–`07:00`, overnight ranges supported). During the day the display only dims and the idle page stays visible; at night it turns off completely after the display-off timeout and wakes on touch. The hub drives `switch.<device>_use_auto_display_off` by the clock, so automations that toggle that switch (which previously fought the hub's own sync after reconnects and restarts) are no longer needed. This schedule is independent of the Day/Night profile selector and takes precedence for effective display-off; see [Day/Night profiles](configuration/device.md#daynight-profiles).
+Set a **display-off schedule** under Device Settings → Display dimming & off: enable *Sleep schedule* and pick the window (e.g. `22:00`–`07:00`, overnight ranges supported). During the day the display only dims and the idle page stays visible; at night it turns off completely after the display-off timeout and wakes on touch. The hub drives `switch.<device>_use_auto_display_off` by the clock, so automations that toggle that switch are no longer needed. That switch is a hub-owned output: do not use an automation to control it. If multiple Home Assistant instances know about the panel, enable the HAUI device in only one of them. This schedule is independent of the Day/Night profile selector and takes precedence for effective display-off; see [Day/Night profiles](configuration/device.md#daynight-profiles).
 
 ## My NSPanel devices are not discovered
 

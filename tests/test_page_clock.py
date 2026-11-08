@@ -1,10 +1,32 @@
 """Clock page: weather entity vs. bottom item buttons."""
 
+from types import SimpleNamespace
+
 import pytest
 from nspanel_haui.haui.abstract import haui_page
 from nspanel_haui.haui.abstract.mixins.cycle_cards_mixin import Card
+from nspanel_haui.haui.mapping.color import ColorTheme
 from nspanel_haui.haui.page.clock import ClockPage
 from nspanel_haui.haui.utils.icon import parse_icon
+
+
+def test_light_background_uses_light_text_colors_even_with_dark_active_scheme():
+    page = ClockPage.__new__(ClockPage)
+    page.app = SimpleNamespace(color_theme=ColorTheme({}, "dark"))
+    page._use_color_scheme = False
+    page._background_variant = "light"
+
+    assert page.get_color("text") == 4226
+    assert page.get_color("component_text") == 4226
+
+
+def test_scheme_background_uses_selected_scheme_text_colors():
+    page = ClockPage.__new__(ClockPage)
+    page.app = SimpleNamespace(color_theme=ColorTheme({}, "dark"))
+    page._use_color_scheme = True
+    page._background_variant = "dark"
+
+    assert page.get_color("text") == 59164
 
 
 class _Device:
@@ -52,13 +74,16 @@ class _App:
 
 class _Item:
     def __init__(self, config):
-        self.item_id = config["item"]
+        self.item_id = config.get("item", "")
 
     def get_item_type(self):
         return self.item_id.split(".")[0]
 
     def get_item_id(self):
         return self.item_id
+
+    def has_item(self):
+        return bool(self.item_id)
 
     def is_internal(self):
         return False
@@ -69,7 +94,7 @@ class _Item:
     def get_icon(self):
         return f"icon-{self.item_id}"
 
-    def get_color(self):
+    def get_color(self, *, scheme=None):
         return 0
 
 
@@ -105,6 +130,19 @@ def test_items_fill_bottom_buttons_in_order(monkeypatch, weather):
     assert 'bEntity1.txt="icon-light.kitchen"' in page.cmds
     assert 'bEntity2.txt="icon-switch.fan"' in page.cmds
     assert 'tMainIcon.txt="icon-light.kitchen"' not in page.cmds
+
+
+def test_weather_icon_is_hidden_without_a_weather_item(monkeypatch):
+    page = _show(monkeypatch)
+
+    assert "vis tMainIcon,0" in page.cmds
+
+
+def test_weather_icon_is_hidden_when_weather_item_has_no_entity(monkeypatch):
+    page = _show(monkeypatch, item={})
+
+    assert "vis tMainIcon,0" in page.cmds
+    assert not any(command.startswith("tMainIcon.txt=") for command in page.cmds)
 
 
 def test_weather_item_drives_weather_icon(monkeypatch):

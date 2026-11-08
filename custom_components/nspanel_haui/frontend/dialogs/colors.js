@@ -9,7 +9,7 @@
  * Domain colors (weather/alarm/climate) are fixed constants and not shown here.
  *
  * Communicates changes via CustomEvent:
- *   @dialog-save — detail: { overrides: { key: rgb565_int, ... } }
+ *   @dialog-save — detail: { overrides: { key: rgb565_int, ... }, scheme: "dark" | "light" }
  *   @dialog-closed
  */
 import { html, nothing } from '../lit-import.js';
@@ -18,9 +18,8 @@ import { HauiDialog } from './haui-dialog.js';
 import { rgb565ToHex, hexToRgb565 } from '../color-utils.js';
 import { t } from '../localize.js';
 
-/* ── built-in COLORS palette (fetched from haui/mapping/color.py) ──────── */
+/* ── shared scheme data from the backend ───────────────────────────────── */
 
-/** Cached default color values, fetched once from the backend API. */
 let _colorDefaults = null;
 
 async function ensureColorDefaults(hass) {
@@ -29,38 +28,19 @@ async function ensureColorDefaults(hass) {
   _colorDefaults = await resp.json();
 }
 
-const COLOR_SCHEME_COLORS = {
-  dark: {},
-  light: {
-    header_background: "#f2f2f2",
-    header_text: "#101010",
-    background: "#ffffff",
-    text: "#101010",
-    text_inactive: "#777777",
-    text_disabled: "#c0c0c0",
-    component_text: "#101010",
-    component_pressed: "#d6d6d6",
-    component_background: "#eeeeee",
-  },
-  black: {
-    header_background: "#000000",
-    background: "#000000",
-    component_background: "#111111",
-    component_pressed: "#222222",
-  },
+export function getColorScheme(schemeId, schemes) {
+  const scheme = schemes?.[schemeId];
+  if (!scheme) throw new Error(`Unknown color scheme: ${schemeId}`);
+  return scheme.colors;
+}
+
+const BUILTIN_SCHEME_LABELS = {
+  dark: t("Dark Color"),
+  light: t("Light Color"),
+  white: t("White"),
+  black: t("Black"),
 };
 
-/** Build a full RGB565 palette from a named scheme and the backend defaults. */
-export function getColorScheme(scheme, defaults) {
-  if (!(scheme in COLOR_SCHEME_COLORS)) {
-    throw new Error(`Unknown color scheme: ${scheme}`);
-  }
-  const colors = { ...defaults };
-  for (const [key, hex] of Object.entries(COLOR_SCHEME_COLORS[scheme])) {
-    colors[key] = hexToRgb565(hex);
-  }
-  return colors;
-}
 
 /* Groups: [key, friendly label]. All swatches use the same rounded-rectangle shape. */
 function getColorGroups() {
@@ -108,123 +88,361 @@ function getColorGroups() {
   ];
 }
 
+function getIconColorGroups(icons, variant) {
+  const labels = {
+    default: t("Default"), clear_night: t("Clear night"), sunny: t("Sunny"),
+    partlycloudy: t("Partly cloudy"), windy: t("Windy"), windy_variant: t("Windy variant"),
+    rainy: t("Rainy"), pouring: t("Pouring"), lightning: t("Lightning"),
+    lightning_rainy: t("Lightning rainy"), hail: t("Hail"), snowy: t("Snowy"),
+    snowy_rainy: t("Snowy rainy"), armed: t("Armed"), disarmed: t("Disarmed"),
+    arming: t("Arming"), auto: t("Auto"), heat_cool: t("Heat/cool"),
+    heat: t("Heat"), off: t("Off"), cool: t("Cool"), dry: t("Dry"), fan_only: t("Fan only"),
+  };
+  const domains = {
+    weather: [t("Weather"), t("Colors for weather state icons.")],
+    alarm: [t("Alarm"), t("Colors for alarm state icons.")],
+    climate: [t("Climate"), t("Colors for climate state icons.")],
+  };
+  return Object.entries(domains).map(([domain, [name, description]]) => ({
+    name,
+    description,
+    keys: Object.keys(icons?.[variant]?.[domain] || {}).map((state) => [
+      `icons.${domain}.${state}`,
+      labels[state] || state,
+    ]),
+  }));
+}
+
 /* ── dialog component ────────────────────────────────────────────────── */
 
 class ColorsDialog extends HauiDialog {
   static get properties() {
     return {
       overrides: { type: Object },
+      scheme: { type: String },
+      schemeId: { type: String },
+      iconVariant: { type: String },
+      entryId: { type: String },
+  panels: { type: Array },
     };
   }
 
   constructor() {
     super();
     this.overrides = {};
+    this.scheme = "dark";
+    this.schemeId = "dark";
+    this.entryId = "";
+    this.panels = [];
+    this.iconVariant = "dark";
     this._colors = {};
+    this._icons = {};
+    this._schemes = {};
+    this._builtins = {};
+    this._customSchemes = {};
     this._loading = false;
+    this._resetOverrides = false;
+    this._schemeName = "";
+    this._nameAction = "";
+    this._schemeError = "";
+    this._edited = false;
   }
 
   willUpdate(changed) {
-    if ((changed.has("open") && this.open) || changed.has("overrides")) {
-      if (!_colorDefaults) {
-        this._loading = true;
-        ensureColorDefaults(this.hass).then(() => {
-          this._loading = false;
-          this._rebuildColors();
-          this.requestUpdate();
-        });
-        this._colors = {};
-      } else {
-        this._rebuildColors();
-      }
+    if ((changed.has("open") && this.open) || changed.has("entryId")) {
+      this._loading = true;
+      this._loadSchemes();
+      this._resetOverrides = false;
+      this._edited = false;
+    } else if (changed.has("overrides") || changed.has("schemeId")) {
+      this._rebuildColors();
+    }
+  }
+
+  async _loadSchemes() {
+    try {
+      await ensureColorDefaults(this.hass);
+      const response = await this.hass.fetchWithAuth(
+        `/api/nspanel_haui/color_schemes/${this.entryId}`,
+      );
+      if (!response.ok) throw new Error("scheme API request failed");
+      const data = await response.json();
+      this._builtins = data.builtins || {};
+      this._customSchemes = data.schemes || {};
+      this._schemes = { ...this._builtins, ...this._customSchemes };
+      if (!this._schemes[this.schemeId]) this.schemeId = "dark";
+      this.iconVariant = this.scheme === "light" ? "light" : "dark";
+      this._rebuildColors();
+    } catch (_err) {
+      this._schemeError = t("Unable to load color schemes.");
+    } finally {
+      this._loading = false;
+      this.requestUpdate();
     }
   }
 
   updated(changed) {
     if (changed.has("open") && this.open) {
-      // Close all sections — don't remember open state between dialog sessions.
       this.renderRoot.querySelectorAll("details.config-section").forEach((d) => {
         d.removeAttribute("open");
       });
     }
   }
 
+  _schemeData() {
+    return this._schemes[this.schemeId] || this._builtins.dark;
+  }
+
   _rebuildColors() {
-    if (!_colorDefaults) {
-      this._colors = {};
-      return;
-    }
-    const cols = {};
-    for (const [k, v] of Object.entries(_colorDefaults)) {
-      cols[k] = this.overrides?.[k] ?? v;
-    }
-    this._colors = cols;
+    const scheme = this._schemeData();
+    if (!scheme) return;
+    this._colors = { ...scheme.colors };
+    this._icons = JSON.parse(JSON.stringify(scheme.icons));
+    this._edited = false;
   }
 
   _selectedScheme() {
-    for (const scheme of Object.keys(COLOR_SCHEME_COLORS)) {
-      const palette = getColorScheme(scheme, _colorDefaults);
-      if (Object.keys(_colorDefaults).every((key) => this._colors[key] === palette[key])) {
-        return scheme;
-      }
-    }
-    return "custom";
+    return this.schemeId;
   }
 
-  _applyScheme(scheme) {
-    if (scheme === "custom") return;
-    this._colors = getColorScheme(scheme, _colorDefaults);
+  _applyScheme(schemeId) {
+    if (!this._schemes[schemeId]) return;
+    this.schemeId = schemeId;
+    this._schemeError = "";
+    this._rebuildColors();
     this.requestUpdate();
   }
 
+  _legacyOverrideCount() {
+    const fields = new Set([
+      "text_color", "back_color", "color_pressed", "back_color_pressed", "power_color",
+      "keypad_bg_color", "keypad_text_color", "arm_button_color", "arm_button_back_color",
+      "disarm_button_color", "disarm_button_back_color", "off_color", "letter_color", "special_color",
+    ]);
+    let count = Object.keys(this.overrides || {}).length;
+    const visit = (value) => {
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+      } else if (value && typeof value === "object") {
+        for (const [key, child] of Object.entries(value)) {
+          if (fields.has(key)) count++;
+          else visit(child);
+        }
+      }
+    };
+    visit(this.panels);
+    return count;
+  }
+
+  _isBuiltin() {
+    return Object.hasOwn(this._builtins, this.schemeId);
+  }
+
   _getHex(key) {
-    const v = this._colors[key];
-    return v !== undefined ? rgb565ToHex(v) : "#000000";
+    const [, domain, state] = key.split(".");
+    const value = key.startsWith("icons.")
+      ? this._icons?.[this.iconVariant]?.[domain]?.[state]
+      : this._colors[key];
+    return value !== undefined ? rgb565ToHex(value) : "#000000";
   }
 
   _isModified(key) {
-    return _colorDefaults && this._colors[key] !== _colorDefaults[key];
+    const scheme = this._schemeData();
+    const [, domain, state] = key.split(".");
+    const value = key.startsWith("icons.")
+      ? this._icons?.[this.iconVariant]?.[domain]?.[state]
+      : this._colors[key];
+    const original = key.startsWith("icons.")
+      ? scheme?.icons?.[this.iconVariant]?.[domain]?.[state]
+      : scheme?.colors?.[key];
+    return value !== original;
   }
 
   _changedCount() {
-    if (!_colorDefaults) return 0;
-    let n = 0;
-    for (const [k, v] of Object.entries(this._colors)) {
-      if (v !== _colorDefaults[k]) n++;
+    let count = 0;
+    for (const key of Object.keys(this._colors)) if (this._isModified(key)) count++;
+    for (const variant of ["dark", "light"]) {
+      for (const [domain, states] of Object.entries(this._icons[variant] || {})) {
+        for (const state of Object.keys(states)) {
+          if (this._icons[variant][domain][state] !== this._schemeData().icons[variant][domain][state]) count++;
+        }
+      }
     }
-    return n;
+    return count;
   }
 
   _onColorChange(key, e) {
-    const hex = e.target.value;
-    const rgb565 = hexToRgb565(hex);
-    this._colors = { ...this._colors, [key]: rgb565 };
+    const value = hexToRgb565(e.target.value);
+    if (key.startsWith("icons.")) {
+      const [, domain, state] = key.split(".");
+      this._icons = {
+        ...this._icons,
+        [this.iconVariant]: {
+          ...this._icons[this.iconVariant],
+          [domain]: { ...this._icons[this.iconVariant][domain], [state]: value },
+        },
+      };
+    } else {
+      this._colors = { ...this._colors, [key]: value };
+    }
+    this._edited = true;
     this.requestUpdate();
   }
 
   _resetColor(key) {
-    this._colors = { ...this._colors, [key]: _colorDefaults[key] };
+    const scheme = this._schemeData();
+    if (key.startsWith("icons.")) {
+      const [, domain, state] = key.split(".");
+      this._icons = {
+        ...this._icons,
+        [this.iconVariant]: {
+          ...this._icons[this.iconVariant],
+          [domain]: {
+            ...this._icons[this.iconVariant][domain],
+            [state]: scheme.icons[this.iconVariant][domain][state],
+          },
+        },
+      };
+    } else {
+      this._colors = { ...this._colors, [key]: scheme.colors[key] };
+    }
+    this._edited = true;
+    this._edited = true;
     this.requestUpdate();
   }
 
   _resetAll() {
-    const cols = {};
-    for (const [k, v] of Object.entries(_colorDefaults)) {
-      cols[k] = v;
-    }
-    this._colors = cols;
+    const scheme = this._schemeData();
+    this._colors = { ...scheme.colors };
+    this._icons = JSON.parse(JSON.stringify(scheme.icons));
+    this._resetOverrides = true;
+    this._edited = true;
     this.requestUpdate();
   }
 
-  _dispatchSave() {
-    // Only include values that differ from defaults
-    const overrides = {};
-    for (const [k, v] of Object.entries(this._colors)) {
-      if (v !== _colorDefaults[k]) {
-        overrides[k] = v;
+  async _persistSchemes(schemes) {
+    try {
+      const response = await this.hass.fetchWithAuth(
+        `/api/nspanel_haui/color_schemes/${this.entryId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ version: 1, schemes }),
+        },
+      );
+      if (!response.ok) throw new Error("scheme API request failed");
+      const data = await response.json();
+      this._customSchemes = data.schemes || {};
+      this._schemes = { ...this._builtins, ...this._customSchemes };
+      this._schemeError = "";
+      this.requestUpdate();
+      return true;
+    } catch (_err) {
+      this._schemeError = t("Unable to save color schemes. Check for duplicate names or schemes in use.");
+      this.requestUpdate();
+      return false;
+    }
+  }
+
+  _startNameAction(action) {
+    this._nameAction = action;
+    this._schemeName = action === "rename" ? this._schemeData().name : "";
+    this._schemeError = "";
+  }
+
+  async _saveNamedScheme() {
+    const name = this._schemeName.trim();
+    if (!name || name.length > 64) {
+      this._schemeError = t("Enter a name up to 64 characters.");
+      this.requestUpdate();
+      return;
+    }
+    const schemes = { ...this._customSchemes };
+    let id = this.schemeId;
+    if (this._nameAction === "save-as") {
+      id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      if (!id || this._schemes[id] || Object.values(this._schemes).some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+        this._schemeError = t("A color scheme with this name already exists.");
+        this.requestUpdate();
+        return;
       }
     }
-    this._emit("dialog-save", { overrides });
+    schemes[id] = {
+      name,
+      colors: { ...this._colors },
+      icons: JSON.parse(JSON.stringify(this._icons)),
+    };
+    if (await this._persistSchemes(schemes)) {
+      this.schemeId = id;
+      this._edited = false;
+      this._nameAction = "";
+      this.requestUpdate();
+    }
+  }
+
+  async _deleteScheme() {
+    const schemes = { ...this._customSchemes };
+    delete schemes[this.schemeId];
+    if (await this._persistSchemes(schemes)) {
+      this.schemeId = "dark";
+      this._rebuildColors();
+    }
+  }
+
+  _exportSchemes() {
+    const blob = new Blob([JSON.stringify({ version: 1, schemes: this._customSchemes }, null, 2)], {
+      type: "application/json",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "nspanel-haui-color-schemes.json";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  async _importSchemes(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const imported = JSON.parse(await file.text());
+      if (imported.version !== 1 || !imported.schemes || typeof imported.schemes !== "object") {
+        throw new Error("invalid scheme file");
+      }
+      const existingNames = new Set(Object.values(this._schemes).map((scheme) => scheme.name.toLowerCase()));
+      for (const [id, scheme] of Object.entries(imported.schemes)) {
+        if (this._schemes[id] || existingNames.has(String(scheme.name).toLowerCase())) {
+          this._schemeError = t("Import has a color scheme name or ID that already exists.");
+          this.requestUpdate();
+          return;
+        }
+        existingNames.add(String(scheme.name).toLowerCase());
+      }
+      await this._persistSchemes({ ...this._customSchemes, ...imported.schemes });
+    } catch (_err) {
+      this._schemeError = t("Invalid color scheme file.");
+      this.requestUpdate();
+    }
+  }
+
+  async _dispatchSave() {
+    if (!this._isBuiltin() && this._edited) {
+      const schemes = {
+        ...this._customSchemes,
+        [this.schemeId]: {
+          name: this._schemeData().name,
+          colors: { ...this._colors },
+          icons: JSON.parse(JSON.stringify(this._icons)),
+        },
+      };
+      if (!(await this._persistSchemes(schemes))) return;
+      this._edited = false;
+    }
+    this._emit("dialog-save", {
+      schemeId: this.schemeId,
+      resetOverrides: this._resetOverrides,
+      scheme: this.scheme,
+    });
   }
 
   _renderPreview() {
@@ -308,6 +526,7 @@ class ColorsDialog extends HauiDialog {
                     <input
                       type="color"
                       .value=${this._getHex(key)}
+                      ?disabled=${this._isBuiltin()}
                       @input=${(e) => this._onColorChange(key, e)}
                     />
                   </label>
@@ -334,30 +553,23 @@ class ColorsDialog extends HauiDialog {
 
   render() {
     if (!this.hass) return "";
-    if (this._loading || !_colorDefaults) {
-      return html`
-        <ha-dialog
-          .open=${this.open}
-          @closed=${this._dispatchClose}
-          header-title="${t("Device Colors")}"
-        >
-          <div class="dialog-body" style="padding: 32px; text-align: center;">
-            ${t("Loading default colors...")}
-          </div>
-        </ha-dialog>
-      `;
-    }
-
-    const changed = this._changedCount();
+    const loading = this._loading || !_colorDefaults;
+    const changed = loading ? 0 : this._changedCount();
     return html`
       <ha-dialog
         .open=${this.open}
         @closed=${this._dispatchClose}
+        header-title=${loading ? t("Device Colors") : nothing}
       >
+        ${loading
+          ? html`<div class="dialog-body" style="padding: 32px; text-align: center;">
+              ${t("Loading default colors...")}
+            </div>`
+          : html`
         ${dialogHeader(t("Device Colors"), this._dispatchClose, this._renderPreview())}
         <div class="dialog-body">
           <p class="config-section-intro" style="margin: 0 0 4px;">
-            ${t("Tap a swatch to change a color - the preview above updates live. Only changed colors are saved.")}
+            ${t("A color scheme defines shared page, entity, weather, alarm, and climate colors.")}
           </p>
           <div class="cp-scheme">
             <label for="cp-scheme">${t("Color scheme")}</label>
@@ -367,13 +579,85 @@ class ColorsDialog extends HauiDialog {
               .value=${this._selectedScheme()}
               @change=${(e) => this._applyScheme(e.target.value)}
             >
-              <option value="custom">${t("Custom")}</option>
-              <option value="dark">${t("Dark Color")}</option>
-              <option value="light">${t("Light Color")}</option>
-              <option value="black">${t("Black")}</option>
+              ${Object.entries(this._schemes).map(([id, scheme]) => html`
+                <option value=${id}>${BUILTIN_SCHEME_LABELS[id] || scheme.name}</option>
+              `)}
             </select>
           </div>
+          <div class="cp-scheme">
+            <label for="cp-icon-scheme">${t("Default icon color variant")}</label>
+            <select
+              id="cp-icon-scheme"
+              class="native-select"
+              .value=${this.scheme}
+              @change=${(e) => { this.scheme = e.target.value; this.requestUpdate(); }}
+            >
+              <option value="dark">${t("Dark background")}</option>
+              <option value="light">${t("Light background")}</option>
+            </select>
+          </div>
+          <div class="cp-scheme">
+            <label for="cp-icon-variant">${t("Edit icon colors for")}</label>
+            <select
+              id="cp-icon-variant"
+              class="native-select"
+              .value=${this.iconVariant}
+              @change=${(e) => { this.iconVariant = e.target.value; this.requestUpdate(); }}
+            >
+              <option value="dark">${t("Dark backgrounds")}</option>
+              <option value="light">${t("Light backgrounds")}</option>
+            </select>
+          </div>
+          ${this._isBuiltin()
+            ? html`<p class="config-section-intro">${t("Built-in schemes cannot be edited. Save as a custom scheme to customize colors.")}</p>`
+            : nothing}
+          <div class="cp-scheme-actions">
+            <ha-button variant="neutral" appearance="plain" @click=${() => this._startNameAction("save-as")}>${t("Save as")}</ha-button>
+            ${!this._isBuiltin()
+              ? html`
+                  <ha-button variant="neutral" appearance="plain" @click=${() => this._startNameAction("rename")}>${t("Rename")}</ha-button>
+                  <ha-button variant="neutral" appearance="plain" @click=${this._deleteScheme}>${t("Delete")}</ha-button>
+                `
+              : nothing}
+            <ha-button variant="neutral" appearance="plain" @click=${this._exportSchemes}>${t("Export")}</ha-button>
+            <label class="cp-import-label">
+              <span>${t("Import")}</span>
+              <input type="file" accept="application/json,.json" @change=${this._importSchemes} />
+            </label>
+          </div>
+          ${this._nameAction
+            ? html`
+                <div class="cp-scheme-name">
+                  <input
+                    type="text"
+                    maxlength="64"
+                    .value=${this._schemeName}
+                    @input=${(e) => { this._schemeName = e.target.value; }}
+                    aria-label=${t("Color scheme name")}
+                  />
+                  <ha-button variant="brand" @click=${this._saveNamedScheme}>${t("Save")}</ha-button>
+                  <ha-button variant="neutral" appearance="plain" @click=${() => { this._nameAction = ""; }}>${t("Cancel")}</ha-button>
+                </div>
+              `
+            : nothing}
+          ${this._schemeError ? html`<p class="cp-scheme-error" role="alert">${this._schemeError}</p>` : nothing}
+          ${this._legacyOverrideCount() > 0
+            ? html`
+                <p class="config-section-intro">
+                  ${t("Existing device or panel color overrides still take precedence until they are reset.")}
+                </p>
+                <label class="cp-reset-overrides">
+                  <input
+                    type="checkbox"
+                    .checked=${this._resetOverrides}
+                    @change=${(e) => { this._resetOverrides = e.target.checked; }}
+                  />
+                  ${t("Reset existing device and panel color overrides when applying this scheme")}
+                </label>
+              `
+            : nothing}
           ${getColorGroups().map((group, idx) => this._renderGroup(group, idx))}
+          ${getIconColorGroups(this._icons, this.iconVariant).map((group, idx) => this._renderGroup(group, idx))}
         </div>
 
         <div slot="footer" class="footer-wrapper">
@@ -381,10 +665,10 @@ class ColorsDialog extends HauiDialog {
             <ha-button
               variant="neutral"
               appearance="plain"
-              .disabled=${changed === 0}
+              .disabled=${changed === 0 && this._legacyOverrideCount() === 0}
               @click=${this._resetAll}
             >
-              ${t("Reset all")}
+              ${t("Reset device overrides")}
             </ha-button>
             ${changed > 0
               ? html`<span class="footer-changed">${t("{count} changed").replace("{count}", changed)}</span>`
@@ -402,12 +686,16 @@ class ColorsDialog extends HauiDialog {
             <ha-button
               slot="primaryAction"
               variant="brand"
+              .disabled=${!this._schemeData()}
               @click=${this._dispatchSave}
             >
-              ${t("Save")}
+              ${this._resetOverrides
+                ? t("Apply scheme and reset custom colors")
+                : t("Apply scheme")}
             </ha-button>
           </ha-dialog-footer>
         </div>
+        `}
       </ha-dialog>
     `;
   }

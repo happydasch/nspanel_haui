@@ -1708,7 +1708,6 @@ def test_update_events_and_status_share_the_controller_snapshot(monkeypatch):
     assert _firmware_events(app)[-1]["latest_version"] == snapshot["firmware"]["latest_version"]
 
 
-
 def test_update_state_reports_compatible_tft_offer_without_firmware_offer(monkeypatch):
     ctrl, _app, _ = _updater(
         monkeypatch,
@@ -1733,6 +1732,7 @@ def test_update_state_withholds_tft_offer_when_manifest_misses_firmware_requirem
 
     assert state["tft_update_available"] is False
     assert "TFT required by firmware" in state["tft_update_reason"]
+
 
 def test_device_state_publishes_the_display_versions(monkeypatch):
     ctrl, app, _ = _updater(

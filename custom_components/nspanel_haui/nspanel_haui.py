@@ -61,9 +61,15 @@ class NSPanelHAUI(HAAdapter):
 
     def initialize(self) -> None:
         self.device_config = HAUIConfig(self, self._config_args)
-        self.device = self._create_device(self.device_config.get("device"))
+        device_cfg = self.device_config.get("device")
+        self.device = self._create_device(device_cfg)
 
-        self.color_theme = ColorTheme(self.device_config.get("device")["color_overrides"])
+        self.color_theme = ColorTheme(
+            device_cfg["color_overrides"],
+            device_cfg["color_scheme"],
+            device_cfg.get("resolved_color_scheme"),
+            scheme_id=device_cfg["color_scheme_id"],
+        )
 
         # The runtime device name comes from the constructor (set by async_setup_entry).
         # We don't pick devices[0] anymore — each app drives exactly one device.
@@ -201,7 +207,12 @@ class NSPanelHAUI(HAAdapter):
         if self.device:
             for field in DEVICE_CONFIG_FIELDS:
                 self.device.config[field] = device_cfg[field]
-        self.color_theme = ColorTheme(device_cfg["color_overrides"])
+        self.color_theme = ColorTheme(
+            device_cfg["color_overrides"],
+            device_cfg["color_scheme"],
+            device_cfg.get("resolved_color_scheme"),
+            scheme_id=device_cfg["color_scheme_id"],
+        )
 
         self.device_config._panels = new_config._panels
         self.device_config._panels_by_id = new_config._panels_by_id

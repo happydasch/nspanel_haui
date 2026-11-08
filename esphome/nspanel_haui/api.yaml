@@ -94,7 +94,7 @@ api:
         - script.execute:
             id: set_hub_connected
             connected: 0
-            force: 0
+            force: 1
 
     # HA requests device state
     - action: req_device_state
@@ -126,7 +126,8 @@ api:
             id: goto_page
             page: !lambda 'return page;'
 
-    # Action to put the display into hardware sleep (no-hub path only)
+    # Explicit hardware-sleep action. The automatic display state machine keeps
+    # the panel awake and does not use this.
     - action: display_off
       then:
         - script.execute: display_off

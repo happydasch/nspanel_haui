@@ -127,6 +127,9 @@ class _Item:
     def get_item_id(self):
         return self.config["item"]
 
+    def has_item(self):
+        return True
+
     def is_internal(self):
         return False
 
@@ -142,7 +145,7 @@ class _Item:
     def get_icon(self):
         return "icon"
 
-    def get_color(self):
+    def get_color(self, *, scheme=None):
         return 0
 
 
@@ -195,6 +198,17 @@ _CARDS = {"show_time_date": True, "show_time_outside_temp": True}
 
 
 # fitting
+
+
+def test_cycle_cards_use_page_theme_text_color(monkeypatch):
+    page = _show(
+        monkeypatch=monkeypatch,
+        cls=ClockPage,
+        **{**_WEATHER, **_CARDS},
+    )
+
+    assert "tTime.pco=0" in page.cmds
+    assert "tDate.pco=0" in page.cmds
 
 
 def test_fit_line_takes_the_first_candidate_that_fits():

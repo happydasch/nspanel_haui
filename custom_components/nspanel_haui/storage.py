@@ -56,6 +56,19 @@ def migrate_device_config_keys(device_config: dict) -> bool:
         if new_key not in device_config:
             device_config[new_key] = old_value
         modified = True
+    if "color_scheme_id" not in device_config and (
+        "color_scheme" in device_config or "color_overrides" in device_config
+    ):
+        legacy_scheme = device_config.get("color_scheme")
+        overrides = device_config.get("color_overrides", {})
+        device_config["color_scheme_id"] = (
+            legacy_scheme
+            if legacy_scheme in ("dark", "light")
+            else "light"
+            if isinstance(overrides, dict) and overrides.get("background") == 65535
+            else "dark"
+        )
+        modified = True
     return modified
 
 
@@ -176,6 +189,7 @@ class PanelStorage:
         """
         data = await self._store.async_load()
         result: dict = data or empty_store()
+        root_modified = False
 
         if self._config_entry is not None:
             modified = False
@@ -192,7 +206,7 @@ class PanelStorage:
         # Migrate legacy device-config keys in place (also without a config
         # entry: the store holds the same shape either way).  One-time, then
         # idempotent — see DEVICE_CONFIG_KEY_RENAMES.
-        modified = False
+        modified = root_modified
         for dev_name, dev_data in result.get("devices", {}).items():
             if not isinstance(dev_data, dict):
                 continue

@@ -68,6 +68,15 @@ def _time_in_window(
     return False
 
 
+# A quick flip back and forth means an automation or another HA instance is
+# responding to the hub-owned switch. Bound correction attempts so the two sides
+# cannot keep triggering one another indefinitely.
+AUTO_SWITCH_EXPECTATION_WINDOW = 5.0
+AUTO_SWITCH_MIN_CORRECTION_INTERVAL = 5.0
+AUTO_SWITCH_FIGHT_THRESHOLD = 3
+AUTO_SWITCH_FIGHT_WINDOW = 60.0
+
+
 class HAUIDevice(HAUIBase):
     """
     Represents a NSPanel device.
@@ -121,6 +130,11 @@ class HAUIDevice(HAUIBase):
         self._solar_tracking_offsets: tuple[int, int] | None = None
         # state listeners on the firmware's auto switches (apply_auto_switches)
         self._auto_switch_handles: list[str] = []
+        self._expected_auto_switch_states: dict[str, list[tuple[bool, float]]] = {}
+        self._auto_switch_corrections: dict[str, float] = {}
+        self._auto_switch_divergences: dict[str, list[float]] = {}
+        self._auto_switch_warnings: dict[str, float] = {}
+        self._auto_switch_fighting: set[str] = set()
 
     # prepare and update
 
@@ -181,6 +195,9 @@ class HAUIDevice(HAUIBase):
                 (used for the clock-driven sleep schedule).
             reason: Optional log reason replacing the "hub config" explanation.
         """
+        is_auto_switch = hub_key.removeprefix("use_") in AUTO_SWITCHES
+        if is_auto_switch and switch_entity_id in self._auto_switch_fighting:
+            return
         if not switch_entity_id or not self.app.item_exists(switch_entity_id):
             return
         if hub_value is None:
@@ -195,9 +212,25 @@ class HAUIDevice(HAUIBase):
         is_on = state == "on"
         if hub_value and not is_on:
             self.log(f"Syncing {switch_entity_id} ON ({reason or f'hub config {hub_key}=True'})")
+            if is_auto_switch:
+                pending = self._expected_auto_switch_states.setdefault(switch_entity_id, [])
+                pending[:] = [
+                    expectation
+                    for expectation in pending
+                    if time.monotonic() - expectation[1] <= AUTO_SWITCH_EXPECTATION_WINDOW
+                ]
+                pending.append((True, time.monotonic()))
             item.turn_on()
         elif not hub_value and is_on:
             self.log(f"Syncing {switch_entity_id} OFF ({reason or f'hub config {hub_key}=False'})")
+            if is_auto_switch:
+                pending = self._expected_auto_switch_states.setdefault(switch_entity_id, [])
+                pending[:] = [
+                    expectation
+                    for expectation in pending
+                    if time.monotonic() - expectation[1] <= AUTO_SWITCH_EXPECTATION_WINDOW
+                ]
+                pending.append((False, time.monotonic()))
             item.turn_off()
 
     def _adopt_day_profile_values(self) -> None:
@@ -463,15 +496,8 @@ class HAUIDevice(HAUIBase):
         mode = self.get("day_night_schedule_mode", "off")
         self._apply_auto_switches(self._profile_is_night() if mode != "off" else False)
 
-    def _apply_auto_switches(self, is_night: bool) -> None:
-        """Set each auto switch to its setting, or off while the page on screen holds it.
-
-        Only switches whose state differs are written. A command whose state
-        Home Assistant has not reported yet is not repeated here: the state
-        listener (``_watch_auto_switches``) runs this again when the switch
-        reports, so a page reopened right after closing still ends with the
-        right value.
-        """
+    def _auto_switch_targets(self, is_night: bool) -> dict[str, tuple[str, bool, str]]:
+        """Return each auto switch's effective value and the reason for it."""
         prefix = "night_" if is_night else ""
         schedule_active = self._display_off_schedule_active()
         wanted = {
@@ -493,14 +519,24 @@ class HAUIDevice(HAUIBase):
         navigation = self.app.controller.get("navigation")
         page = navigation.page if navigation is not None else None
         suspended = page.suspended_auto_switches() if page is not None else ()
+        targets = {}
         for key, entity_id in self._auto_switch_entities().items():
             held = key in suspended
-            self._sync_config_switch(
-                f"use_{key}",
-                entity_id,
-                hub_value=wanted[key] and not held,
-                reason=f"held off by {type(page).__name__}" if held else reasons.get(key, ""),
-            )
+            reason = f"held off by {type(page).__name__}" if held else reasons.get(key, "")
+            targets[key] = (entity_id, bool(wanted[key] and not held), reason)
+        return targets
+
+    def _apply_auto_switches(self, is_night: bool) -> None:
+        """Set each auto switch to its setting, or off while the page on screen holds it.
+
+        Only switches whose state differs are written. A command whose state
+        Home Assistant has not reported yet is not repeated here: the state
+        listener (``_watch_auto_switches``) runs this again when the switch
+        reports, so a page reopened right after closing still ends with the
+        right value.
+        """
+        for key, (entity_id, target, reason) in self._auto_switch_targets(is_night).items():
+            self._sync_config_switch(f"use_{key}", entity_id, hub_value=target, reason=reason)
 
     def _auto_switch_entities(self) -> dict[str, str]:
         """The entity id of each auto switch the device has, keyed like ``AUTO_SWITCHES``."""
@@ -540,6 +576,90 @@ class HAUIDevice(HAUIBase):
     def _callback_auto_switch(
         self, entity_id: str, attribute: str, old: Any, new: Any, kwargs: dict[str, Any]
     ) -> None:
+        """Ignore our own switch writes and bound external feedback loops."""
+        now = time.monotonic()
+        new_value = True if new == "on" else False if new == "off" else None
+        mode = self.get("day_night_schedule_mode", "off")
+        is_night = self._profile_is_night() if mode != "off" else False
+        target = next(
+            (
+                wanted
+                for _key, (target_entity, wanted, _reason) in self._auto_switch_targets(
+                    is_night
+                ).items()
+                if target_entity == entity_id
+            ),
+            None,
+        )
+        expected = self._expected_auto_switch_states.get(entity_id, [])
+        live_expectations = [
+            expectation
+            for expectation in expected
+            if now - expectation[1] <= AUTO_SWITCH_EXPECTATION_WINDOW
+        ]
+        if new_value is not None:
+            for index, (expected_value, _sent_at) in enumerate(live_expectations):
+                if new_value == expected_value:
+                    live_expectations.pop(index)
+                    break
+            else:
+                index = -1
+            if index >= 0:
+                if live_expectations:
+                    self._expected_auto_switch_states[entity_id] = live_expectations
+                else:
+                    self._expected_auto_switch_states.pop(entity_id, None)
+                # A queued hub write can become stale after a page change. It is
+                # not an external flip, but re-apply the current page's target.
+                if target is not None and new_value != target:
+                    self.apply_auto_switches()
+                return
+        if live_expectations:
+            self._expected_auto_switch_states[entity_id] = live_expectations
+        else:
+            self._expected_auto_switch_states.pop(entity_id, None)
+
+        if target is None or new_value is None or new_value == target:
+            return
+        if entity_id in self._auto_switch_fighting:
+            return
+
+        divergences = [
+            stamp
+            for stamp in self._auto_switch_divergences.get(entity_id, [])
+            if now - stamp <= AUTO_SWITCH_FIGHT_WINDOW
+        ]
+        divergences.append(now)
+        self._auto_switch_divergences[entity_id] = divergences
+        last_warning = self._auto_switch_warnings.get(entity_id)
+        if last_warning is None or now - last_warning > AUTO_SWITCH_FIGHT_WINDOW:
+            wanted_state = "on" if target else "off"
+            self.log(
+                f"Hub-owned switch {entity_id} changed to {new!r}, but HAUI expects "
+                f"{wanted_state!r}. An automation on this switch, or another Home "
+                "Assistant instance or HAUI hub driving the same panel, can create "
+                "a feedback loop.",
+                level="WARNING",
+            )
+            self._auto_switch_warnings[entity_id] = now
+
+        if len(divergences) >= AUTO_SWITCH_FIGHT_THRESHOLD:
+            self._auto_switch_fighting.add(entity_id)
+            self.log(
+                f"Auto switch {entity_id} is being changed externally; it is now "
+                "treated as owned outside the hub and will not be corrected until "
+                "the next connect or settings save",
+                level="WARNING",
+            )
+            return
+
+        last_correction = self._auto_switch_corrections.get(entity_id)
+        if (
+            last_correction is not None
+            and now - last_correction < AUTO_SWITCH_MIN_CORRECTION_INTERVAL
+        ):
+            return
+        self._auto_switch_corrections[entity_id] = now
         self.apply_auto_switches()
 
     def _sync_display_model(self) -> None:
@@ -595,6 +715,11 @@ class HAUIDevice(HAUIBase):
         stored values, and at HA startup the entities are often unavailable) and
         after the settings are saved. Only values that differ are written.
         """
+        self._expected_auto_switch_states.clear()
+        self._auto_switch_corrections.clear()
+        self._auto_switch_divergences.clear()
+        self._auto_switch_warnings.clear()
+        self._auto_switch_fighting.clear()
         self._sync_button_interaction()
         self._sync_relay_config()
         self._configure_solar_tracking()
@@ -731,6 +856,16 @@ class HAUIDevice(HAUIBase):
         if connected:
             navigation.prepare_resume()
             self.sync_config_to_device()
+            dim_timeout = (
+                self.get("night_timeout_dimming", 10)
+                if self._profile_is_night()
+                else self.get("timeout_dimming", 10)
+            )
+            self.log(
+                f"Reconnect brightness grace uses the firmware dim timeout ({dim_timeout}s); "
+                "the inactivity timer is unchanged",
+                level="DEBUG",
+            )
             if self.get("sound_on_startup"):
                 uptime = self.device_info.get("uptime")
                 if uptime is None or uptime < STARTUP_SOUND_MAX_UPTIME_SECONDS:

@@ -135,6 +135,17 @@ def _strip_empty_configs(dev_data: dict) -> dict:
     return result
 
 
+def _device_yaml_data(dev_data: dict, store_data: dict) -> dict:
+    """Include the active custom definition so a device YAML is self-contained."""
+    result = _strip_empty_configs(dev_data)
+    config = result.get("config", {})
+    scheme_id = config.get("color_scheme_id", "dark")
+    scheme = store_data.get("color_schemes", {}).get(scheme_id)
+    if scheme is not None:
+        result["color_scheme_definition"] = {"id": scheme_id, **scheme}
+    return result
+
+
 class PanelConfigView(HomeAssistantView):
     """REST API view for per-entry panel configuration."""
 
@@ -154,6 +165,7 @@ class PanelConfigView(HomeAssistantView):
         store = panel_store(hass, entry_id)
         data = await store.async_load()
         result = data or empty_store()
+        result.setdefault("color_schemes", {})
         from ..haui.mapping.panel import get_system_panel_entries
 
         result["system_panels"] = await hass.async_add_executor_job(get_system_panel_entries, lang)
@@ -173,6 +185,36 @@ class PanelConfigView(HomeAssistantView):
         """Save panel store data for a config entry."""
         hass = request.app["hass"]
         data = await request.json()
+        store = panel_store(hass, entry_id)
+        existing = await store.async_load() or empty_store()
+        data["color_schemes"] = existing.get("color_schemes", {})
+        from ..haui.mapping.color import BUILTIN_COLOR_SCHEMES, validate_color_schemes
+
+        try:
+            data["color_schemes"] = await hass.async_add_executor_job(
+                validate_color_schemes, data["color_schemes"]
+            )
+        except Exception as exc:
+            raise ApiError(str(exc), 400) from exc
+        builtin_names = {scheme["name"].casefold() for scheme in BUILTIN_COLOR_SCHEMES.values()}
+        if builtin_names.intersection(
+            scheme["name"].casefold() for scheme in data["color_schemes"].values()
+        ):
+            raise ApiError("Custom scheme names must not duplicate built-in schemes", 400)
+        active_ids = {
+            dev.get("config", {}).get("color_scheme_id", "dark")
+            for dev in data.get("devices", {}).values()
+            if isinstance(dev, dict)
+        }
+        removed_in_use = (
+            set(existing.get("color_schemes", {})) - set(data["color_schemes"])
+        ) & active_ids
+        if removed_in_use:
+            raise ApiError("Cannot remove a color scheme selected by a device", 409)
+        for device_name, device_data in data.get("devices", {}).items():
+            scheme_id = device_data.get("config", {}).get("color_scheme_id", "dark")
+            if scheme_id not in BUILTIN_COLOR_SCHEMES and scheme_id not in data["color_schemes"]:
+                raise ApiError(f"Unknown color scheme {scheme_id!r} for device {device_name}", 400)
         # GET adds these for display; they are not part of the store.
         data.pop("system_panels", None)
         for dev_data in data.get("devices", {}).values():
@@ -185,7 +227,7 @@ class PanelConfigView(HomeAssistantView):
         for dev_data in data.get("devices", {}).values():
             dev_data["last_panel_update"] = saved_at
 
-        await panel_store(hass, entry_id).async_save(data)
+        await store.async_save(data)
         return self.json(await push_panels(hass, entry_id, data))
 
 
@@ -326,9 +368,9 @@ class DeviceYamlView(HomeAssistantView):
         if device_name:
             if device_name not in devices:
                 return error(self, f'Device "{device_name}" not found', 404)
-            export = _strip_empty_configs(devices[device_name])
+            export = _device_yaml_data(devices[device_name], data)
         else:
-            export = {name: _strip_empty_configs(dev_data) for name, dev_data in devices.items()}
+            export = {name: _device_yaml_data(dev_data, data) for name, dev_data in devices.items()}
 
         import yaml
 
@@ -385,6 +427,25 @@ class DeviceYamlView(HomeAssistantView):
         # it is a valid per-device setting (see _build_config_dict).
         if isinstance(config.get("update"), dict):
             known_config["update"] = config["update"]
+        scheme_definition = parsed.get("color_scheme_definition")
+        scheme_to_import = None
+        if scheme_definition is not None:
+            if not isinstance(scheme_definition, dict) or not isinstance(
+                scheme_definition.get("id"), str
+            ):
+                raise ApiError("'color_scheme_definition' must include a scheme ID", 400)
+            scheme_id = scheme_definition["id"]
+            from ..haui.mapping.color import validate_color_schemes
+
+            try:
+                scheme_payload = {k: v for k, v in scheme_definition.items() if k != "id"}
+                validated_schemes = await hass.async_add_executor_job(
+                    validate_color_schemes, {scheme_id: scheme_payload}
+                )
+            except Exception as exc:
+                raise ApiError(str(exc), 400) from exc
+            scheme_to_import = validated_schemes[scheme_id]
+            known_config["color_scheme_id"] = scheme_id
         await _validate_panels(
             hass,
             {"devices": {device_name: {"config": known_config, "panels": panels}}},
@@ -393,6 +454,21 @@ class DeviceYamlView(HomeAssistantView):
 
         store = panel_store(hass, entry_id)
         store_data = await store.async_load() or empty_store()
+        store_schemes = store_data.setdefault("color_schemes", {})
+        scheme_id = known_config.get("color_scheme_id", "dark")
+        from ..haui.mapping.color import BUILTIN_COLOR_SCHEMES
+
+        if (
+            scheme_id not in BUILTIN_COLOR_SCHEMES
+            and scheme_id not in store_schemes
+            and scheme_to_import is None
+        ):
+            raise ApiError("Custom color scheme definition is required in device YAML", 400)
+        if scheme_to_import is not None:
+            existing = store_schemes.get(scheme_id)
+            if existing is not None and existing != scheme_to_import:
+                raise ApiError("Imported color scheme ID conflicts with an existing scheme", 409)
+            store_schemes[scheme_id] = scheme_to_import
         store_data.setdefault("devices", {})[device_name] = {
             "config": known_config,
             "panels": panels,

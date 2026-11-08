@@ -855,14 +855,18 @@ def test_first_touch_wakes_when_display_unknown() -> None:
 class _Switch:
     def __init__(self, state):
         self.state = state
+        self.turn_on_calls = 0
+        self.turn_off_calls = 0
 
     def get_state(self):
         return self.state
 
     def turn_on(self):
+        self.turn_on_calls += 1
         self.state = "on"
 
     def turn_off(self):
+        self.turn_off_calls += 1
         self.state = "off"
 
 
@@ -872,6 +876,10 @@ class _SwitchApp(DummyApp):
         self.switches = switches
         self._runtime_device_name = None
         self.device_slug = "nspanel_haui"
+        self.logs = []
+
+    def log(self, msg, *args, **kwargs):
+        self.logs.append((msg, kwargs.get("level", "INFO")))
 
     def item_exists(self, entity_id):
         return entity_id in self.switches
@@ -900,6 +908,54 @@ class _SwitchApp(DummyApp):
         suffix = suffixes.get((domain, original_name))
         entity_id = f"{domain}.{self.device_slug}_{suffix}" if suffix else None
         return entity_id if entity_id in self.switches else None
+
+
+def test_auto_switch_external_flip_is_corrected_and_own_write_is_ignored():
+    switch = _Switch("off")
+    entity_id = "switch.nspanel_haui_use_auto_display_off"
+    app = _SwitchApp({entity_id: switch})
+    device = HAUIDevice(
+        app,
+        {"name": "nspanel_haui", "use_auto_display_off": True, "use_sleep_schedule": False},
+    )
+
+    device._callback_auto_switch(entity_id, "state", "on", "off", {})
+
+    assert switch.state == "on"
+    assert switch.turn_on_calls == 1
+    assert any("feedback loop" in message for message, level in app.logs if level == "WARNING")
+
+    device._callback_auto_switch(entity_id, "state", "off", "on", {})
+    assert switch.turn_on_calls == 1
+    assert device._expected_auto_switch_states == {}
+
+
+def test_auto_switch_fight_stops_repeated_corrections_until_sync():
+    switch = _Switch("off")
+    entity_id = "switch.nspanel_haui_use_auto_display_off"
+    app = _SwitchApp({entity_id: switch})
+    device = HAUIDevice(
+        app,
+        {"name": "nspanel_haui", "use_auto_display_off": True, "use_sleep_schedule": False},
+    )
+
+    device._callback_auto_switch(entity_id, "state", "on", "off", {})
+    device._callback_auto_switch(entity_id, "state", "off", "on", {})
+    switch.state = "off"
+    device._callback_auto_switch(entity_id, "state", "on", "off", {})
+    switch.state = "off"
+    device._callback_auto_switch(entity_id, "state", "on", "off", {})
+
+    assert entity_id in device._auto_switch_fighting
+    assert switch.turn_on_calls == 1
+    assert switch.state == "off"
+    assert sum("will not be corrected" in message for message, _level in app.logs) == 1
+
+    device.sync_config_to_device()
+
+    assert entity_id not in device._auto_switch_fighting
+    assert switch.state == "on"
+    assert switch.turn_on_calls == 2
 
 
 def test_sync_config_switch_turns_off_switch_on_when_hub_enabled() -> None:

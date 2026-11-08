@@ -23,36 +23,6 @@ class GridPage(PagedItemsMixin, HAUIPage):
         description=_("Grid of up to 6 item tiles with pagination."),
         item_options=[
             PageOption(
-                key="text_color",
-                kind="color",
-                label=_("Text color"),
-                description=_("Color of the tile's icon and name."),
-            ),
-            PageOption(
-                key="back_color",
-                kind="color",
-                label=_("Background color"),
-                description=_("Background of the tile."),
-            ),
-            PageOption(
-                key="color_pressed",
-                kind="color",
-                label=_("Pressed text color"),
-                description=_("Icon and name color while the tile is pressed."),
-            ),
-            PageOption(
-                key="back_color_pressed",
-                kind="color",
-                label=_("Pressed background color"),
-                description=_("Background of the tile while it is pressed."),
-            ),
-            PageOption(
-                key="power_color",
-                kind="color",
-                label=_("Power button color"),
-                description=_("Color of the power button while the item is on."),
-            ),
-            PageOption(
                 key="show_power_button",
                 kind="bool",
                 label=_("Show power button"),
@@ -318,9 +288,8 @@ class GridPage(PagedItemsMixin, HAUIPage):
                 power = getattr(self.COMPONENTS, f"g{idx}_power")
                 _, _, _, _, power_color = self.get_grid_colors(item)
                 self.update_function_component(power.name, visible=True, color=power_color)
-                # The icon box overlaps the bottom of the power button, so the
-                # icon redraw above clips it; the update above sends nothing
-                # when the power button's own attributes are unchanged.
+                # The centered power button intentionally occupies the icon area;
+                # redraw it after the entity icon to keep the large control visible.
                 self.send_cmd(f"ref {power.name}")
             else:
                 self.update_function_component(

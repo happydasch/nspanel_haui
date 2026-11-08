@@ -52,9 +52,11 @@ def _build_config_dict(
         deep_merge,
         find_store_device,
     )
+    from .haui.mapping.color import BUILTIN_COLOR_SCHEMES
     from .haui.mapping.const import DEFAULT_CONFIG
 
     cfg = copy.deepcopy(DEFAULT_CONFIG)
+
     cfg["device"]["name"] = device_name or data.get("name", "")
 
     devices = data.get("devices", [])
@@ -102,11 +104,47 @@ def _build_config_dict(
         if all_panels:
             cfg["panels"] = all_panels
 
+    # Older light-palette presets saved a white background override but no
+    # explicit icon scheme. Migrate those to light; all other backgrounds use dark.
+    for dev in cfg.get("devices", []):
+        if "color_scheme" not in dev:
+            color_overrides = dev.get("color_overrides", {})
+            dev["color_scheme"] = (
+                "light"
+                if isinstance(color_overrides, dict) and color_overrides.get("background") == 65535
+                else "dark"
+            )
+        if "color_scheme_id" not in dev:
+            legacy_scheme = dev.get("color_scheme")
+            dev["color_scheme_id"] = (
+                legacy_scheme
+                if legacy_scheme in ("dark", "light")
+                else "light"
+                if isinstance(dev.get("color_overrides"), dict)
+                and dev["color_overrides"].get("background") == 65535
+                else "dark"
+            )
+
     # Ensure every device entry has all DEVICE_CONFIG keys
     for dev in cfg.get("devices", []):
         for key, val in DEVICE_CONFIG.items():
             if key not in dev:
                 dev[key] = copy.deepcopy(val)
+    saved_schemes = panels.get("color_schemes", {}) if panels else {}
+    all_schemes = {**saved_schemes, **BUILTIN_COLOR_SCHEMES}
+    for dev in cfg.get("devices", []):
+        scheme_id = dev["color_scheme_id"]
+        scheme = all_schemes.get(scheme_id)
+        if not isinstance(scheme, dict):
+            _LOGGER.warning(
+                "Unknown color scheme %r for device %s; using built-in dark scheme",
+                scheme_id,
+                dev.get("name", ""),
+            )
+            scheme_id = "dark"
+            dev["color_scheme_id"] = scheme_id
+            scheme = BUILTIN_COLOR_SCHEMES[scheme_id]
+        dev["resolved_color_scheme"] = copy.deepcopy(scheme)
 
     # Filter out disabled devices - runs after store merge and defaults fill
     # so store overrides of "enabled" are respected.

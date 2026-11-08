@@ -178,6 +178,8 @@ _PROTECTED = [
     (api.NotificationsView, "delete"),
     (api.PanelConfigView, "get"),
     (api.PanelConfigView, "post"),
+    (api.ColorSchemesView, "get"),
+    (api.ColorSchemesView, "post"),
     (api.DeviceConfigView, "get"),
     (api.DeviceConfigView, "post"),
     (api.DeviceConfigView, "delete"),
@@ -495,6 +497,68 @@ def test_enabling_a_device_from_the_editor_reloads_the_entry(monkeypatch):
     assert list(hass.data["nspanel_haui"]["entry1"]) == ["kitchen"]
 
 
+def _custom_scheme(name="Evening"):
+    from copy import deepcopy
+
+    from nspanel_haui.haui.mapping.color import BUILTIN_COLOR_SCHEMES
+
+    scheme = deepcopy(BUILTIN_COLOR_SCHEMES["dark"])
+    scheme["name"] = name
+    return scheme
+
+
+def test_color_scheme_library_round_trips_without_panel_push(monkeypatch):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    saved = _use_store(monkeypatch, hass, {"version": 1, "devices": {}})
+    body = {"version": 1, "schemes": {"evening": _custom_scheme()}}
+
+    result = asyncio.run(
+        api.ColorSchemesView().post(_Request(hass, admin=True, body=body), "entry1")
+    )
+
+    assert result["body"]["schemes"] == body["schemes"]
+    assert saved[0]["color_schemes"] == body["schemes"]
+    assert saved[0]["devices"] == {}
+    assert hass.events == ["store_save"]
+
+
+def test_color_scheme_library_rejects_invalid_rgb565_values(monkeypatch):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    saved = _use_store(monkeypatch, hass)
+    scheme = _custom_scheme()
+    scheme["colors"]["background"] = 65536
+    result = asyncio.run(
+        api.ColorSchemesView().post(
+            _Request(hass, admin=True, body={"version": 1, "schemes": {"bad": scheme}}),
+            "entry1",
+        )
+    )
+    assert result["status_code"] == 400
+    assert saved == []
+
+
+def test_color_scheme_library_cannot_remove_a_scheme_selected_by_a_device(monkeypatch):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    stored = {
+        "version": 1,
+        "devices": {"kitchen": {"config": {"color_scheme_id": "evening"}, "panels": []}},
+        "color_schemes": {"evening": _custom_scheme()},
+    }
+    saved = _use_store(monkeypatch, hass, stored)
+
+    result = asyncio.run(
+        api.ColorSchemesView().post(
+            _Request(hass, admin=True, body={"version": 1, "schemes": {}}), "entry1"
+        )
+    )
+
+    assert result["status_code"] == 409
+    assert saved == []
+
+
 def test_panel_save_drops_response_only_fields(monkeypatch):
     entry = _entry_with({"name": "kitchen"})
     hass = _Hass(entry)
@@ -540,6 +604,45 @@ def test_panel_save_rejects_edits_of_fixed_system_panels(monkeypatch):
 
     assert result["status_code"] == 400
     assert saved == []
+
+
+def test_device_yaml_export_includes_the_selected_custom_scheme_definition():
+    from nspanel_haui.api.config import _device_yaml_data
+
+    custom = _custom_scheme()
+    device = {"config": {"color_scheme_id": "evening"}, "panels": []}
+    data = {"color_schemes": {"evening": custom}}
+
+    exported = _device_yaml_data(device, data)
+
+    assert exported["color_scheme_definition"] == {
+        "id": "evening",
+        **custom,
+    }
+
+
+def test_device_yaml_import_restores_custom_scheme_definition(monkeypatch):
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    saved = _use_store(monkeypatch, hass, {"version": 1, "devices": {}})
+    import yaml
+
+    scheme = _custom_scheme()
+    body = yaml.safe_dump(
+        {
+            "config": {"color_scheme_id": "evening"},
+            "panels": [],
+            "color_scheme_definition": {"id": "evening", **scheme},
+        },
+        sort_keys=False,
+    )
+    request = _Request(hass, admin=True, body=body, query={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceYamlView().post(request, entry_id="entry1"))
+
+    assert result["body"]["device"] == "kitchen"
+    assert saved[0]["color_schemes"]["evening"] == scheme
+    assert saved[0]["devices"]["kitchen"]["config"]["color_scheme_id"] == "evening"
 
 
 def test_yaml_import_rejects_empty_config_values(monkeypatch):

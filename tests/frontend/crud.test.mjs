@@ -22,7 +22,7 @@ function rejectingHost() {
 test('a rejected colour save shows only the error and keeps the old colours', async () => {
   const host = rejectingHost();
 
-  await saveColors(host, { background: 123 });
+  await saveColors(host, { schemeId: 'dark', resetOverrides: true, scheme: 'dark' });
 
   assert.deepEqual(host.toasts.map(([kind]) => kind), ['error']);
   assert.deepEqual(host._deviceConfig.color_overrides, {});

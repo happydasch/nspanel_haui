@@ -8,7 +8,7 @@ importlib I/O that must stay off the HA event loop.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from .device_config import LOG_LEVEL_OPTIONS
 from .mapping.const import GESTURES
@@ -140,6 +140,8 @@ def _ensure_models() -> None:
         log_level: str = "INFO"
         stale_data_seconds: int = Field(0, ge=0, le=86400)
         auto_navigate_home_timeout: int = Field(0, ge=0, le=86400)
+        color_scheme: Literal["dark", "light"] = "dark"
+        color_scheme_id: str = "dark"
         color_overrides: dict[str, int] = Field(default_factory=dict)
         gesture_sequences: list[_GestureSequence] = Field(default_factory=list)
         enabled: bool = True

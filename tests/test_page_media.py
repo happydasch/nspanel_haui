@@ -132,6 +132,20 @@ def test_new_page_renders_without_panel_state():
     page.render_panel(_Panel({}))
 
     assert 'tTitle.txt=""' in page.cmds
+    assert 'tMTitle.txt=""' in page.cmds
+    assert 'tMInterpret.txt=""' in page.cmds
+    assert "vis bPower,0" in page.cmds
+    assert "vis m1Btn,0" in page.cmds
+    assert "vis m2Btn,0" in page.cmds
+    assert "vis m3Btn,0" in page.cmds
+
+
+def test_unknown_media_entity_shows_a_note_and_hides_power(monkeypatch):
+    item = _MediaItem("unknown", {})
+    page = _show(monkeypatch, item)
+
+    assert 'tMTitle.txt="Unavailable"' in page.cmds
+    assert "vis bPower,0" in page.cmds
 
 
 def test_track_controls_enabled_without_queue_attributes(monkeypatch):

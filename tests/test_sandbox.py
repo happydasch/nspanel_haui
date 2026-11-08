@@ -128,4 +128,4 @@ def test_reset_restores_the_real_states(sandbox):
     sandbox.apply("light", "turn_on", ["light.lamp"], {})
     assert sandbox.reset() == ["light.lamp"]
     assert _state(sandbox, "light.lamp")[0] == "off"
-    assert sandbox.simulated_ids() == []
+    assert not sandbox.is_simulated("light.lamp")

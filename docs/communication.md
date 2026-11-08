@@ -160,6 +160,8 @@ When hub detects connection established (HANDSHAKING → CONNECTED):
 4. Starts timeout timer
 5. Clears `_disconnected_since`
 
+The hub's `hub_connection_closed` action is authoritative even when another ESPHome Native API client is still connected; only the API client's last-disconnect callback is suppressed while other clients remain. This matters when multiple Home Assistant instances connect to one panel: the instance running HAUI can still tell the firmware its app is disconnected. The firmware wakes the display and pins it to System page 0, holds full brightness for `timeout_dim` plus the ramp, then dims if auto-dimming is enabled. It remains awake and never automatically turns the display off while disconnected. Reconnect restores the user's current panel at full brightness for the same grace; the inactivity timer itself is not reset.
+
 ## Error Scenarios
 
 ### ESPHome Native API disconnect

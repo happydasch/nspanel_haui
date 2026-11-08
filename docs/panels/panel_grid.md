@@ -17,23 +17,9 @@ This panel is a great starting point for grouping lights, switches, sensors, and
 
 In the **panel editor**, add the entities you want to display as items. Each item uses the standard entity picker — select an entity, then optionally customize its appearance.
 
-### Per-Item Color Overrides
+### Colors
 
-Each entity in the grid can have optional color and appearance overrides. In the **Advanced** section of the item editor, you can set:
-
-| Option | Description |
-|--------|-------------|
-| **Text Color** | Text and icon color for the tile |
-| **Background Color** | Background color of the tile |
-| **Pressed Text Color** | Text/icon color when the tile is pressed |
-| **Pressed Background** | Background color when the tile is pressed |
-| **Power Button Color** | Color for the power toggle button |
-| **Show Power Button** | Toggle to show a power on/off button on the tile |
-
-The colour fields accept the same forms as the entity `color` option: a hex
-value, an RGB triplet, an RGB565 integer, a state-keyed JSON object
-(`{"on": "#00ff00", "off": "#ff0000"}`), or a template. State-keyed colours are
-resolved against the entity state and refreshed when the state changes.
+Grid item colors come from the selected device color scheme. Older saved per-item color values continue to override the scheme until reset in **Editor → Colors** using **Reset existing device and panel color overrides**. The **Show Power Button** option remains available. Deliberate entity-specific color styling is still available through the standard item `color` option.
 
 ## Display Behavior
 

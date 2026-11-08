@@ -60,8 +60,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   card timing.
 - Inside temperature sensor picker for clock and weather panels.
 - **Long press to go back** option for Clock, ClockTwo and Weather panels.
-- Alarm panel action-button options: hidden arm modes, action icons and button
-  colours ([#75](https://github.com/happydasch/nspanel_haui/pull/75)).
+- Alarm panel action-button options: hidden arm modes and action icons
+  ([#75](https://github.com/happydasch/nspanel_haui/pull/75)).
 - **Current Page Number** sensor (the Nextion page id); it and **Current
   Page** are disabled by default ([ESPHome](docs/esphome.md#page)).
 - **Install update** in the **Device Info** dialog installs the display TFT or
@@ -69,11 +69,17 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   ([Updating](docs/update.md#installing-a-local-tft-or-firmware-image)).
 - **Enable updates** master switch and **Enable periodic update checks** toggle
   per panel.
-- **Light Color** background for clock, word clock and weather panels; **Dark**
-  is now **Dark Color** (new display TFT).
-- **Color scheme** presets in **Device Colors** — **Dark Color**, **Light
-  Color** and **Black** fill the palette; individual changes are saved as
-  colour overrides.
+- **Color scheme library** in **Device Colors**: built-in **Dark Color**,
+  **Light Color**, **White** and **Black** schemes, plus custom schemes shared
+  by every device in the hub and importable/exportable as JSON.
+- Dark- and light-background weather, alarm and climate icon colors in each
+  scheme; a device chooses its default icon variant, and pages with a static
+  background use that background's variant.
+- **Use color scheme** background for clock, word clock and weather panels:
+  the TFT's solid dark/light fill in the scheme's background color with the
+  scheme's text and state colors (new display TFT).
+- The device YAML export carries the selected custom color scheme; importing it
+  restores the scheme.
 
 ### Changed
 
@@ -100,14 +106,26 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   firmware**), preparing the 0.5 frontend redesign.
 - A notification sent without an icon shows none (no severity default icon)
   and uses the full text width.
-- A hub reconnect no longer counts as an interaction: the display stays dimmed
-  or off, and the hub restarts the idle-page timeout after restoring the page.
-  The idle page and auto-navigate-home now run from one level-triggered hub
-  check, so a popup, a reconnect or a saved timeout cannot stop them (firmware
-  and integration; [Device](docs/device.md#display-state-dimmed-off-and-on)).
+- Grid tile colors, alarm keypad/action-button colors and Clock Two word colors
+  are no longer panel options; the color scheme supplies them. Saved values
+  still override until **Reset existing device and panel color overrides**.
+- Devices from older versions with a pure-white background override migrate to
+  the **Light Color** scheme, all others start on **Dark Color**; unknown
+  scheme IDs fall back to dark with a warning.
+- Single-entity panels (light, media, vacuum, cover, climate, alarm) accept no
+  item and hide their controls when the entity is unavailable or `unknown`;
+  light, media and vacuum also show **Unavailable**, and an `unknown` item
+  opens the Unavailable message instead of running its action.
+- The live preview's hardware buttons show their relay (blue) or button-entity
+  (yellow) state; **Simulated/Live** is a toolbar switch, **More tools** shows
+  **Show entities**, and **Reset sandbox** is gone (switching to Live and back
+  clears the simulation).
+- A hub reconnect no longer counts as an interaction: the current page is restored at full brightness for the configured dimming timeout, then normal brightness timeouts resume. The hub restarts the idle-page timeout after restoring the page; the idle page and auto-navigate-home now run from one level-triggered hub check ([Device](docs/device.md#display-state-dimmed-off-and-on)).
 
 ### Fixed
 
+- On hub disconnect, the firmware shows System at full brightness for `timeout_dim`, then dims without powering off; reconnect restores the current panel with the same grace ([Device](docs/device.md#display-state-dimmed-off-and-on)).
+- Repeated automation changes to HAUI-owned display switches now trigger a warning and pause corrections until the next connect or settings save, preventing on/off feedback loops ([Device Configuration](docs/configuration/device.md#display-dimming-off)).
 - The idle page opens reliably again after popups and reconnects: the hub
   checks the activity clock every second instead of relying on one-shot timers
   and firmware events.
@@ -121,8 +139,13 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   are shown, and saved colours apply at once (new display TFT).
 - A saved background of the shown clock, word clock or weather panel, and the
   word clock's options, apply at once instead of on the next page change.
-- The clock and weather temperature text no longer turns from grey to white
-  after the page is shown (new display TFT).
+- The clock, word clock and weather time/date text and cycle cards follow the
+  scheme's text color, and the temperature text no longer turns from grey to
+  white after the page is shown (new display TFT).
+- The QR page's SSID/password text and the Settings brightness labels,
+  percentages and icons use the scheme colors instead of the HMI's dark-only
+  ones.
+- The Light panel falls back to the panel title when its entity has no name.
 - An open notification is no longer replaced by a force-shown one, and the open
   list refreshes.
 - Stacked panels and popups show up and home; stacked grids and rows keep their

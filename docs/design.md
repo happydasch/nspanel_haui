@@ -58,6 +58,11 @@ The icons available can be viewed here:
 
 The display is using these colors.
 
+**Color schemes.** Built-in and custom schemes are the source of semantic page colors and dark-/light-background weather, alarm, and climate state colors. A device selects a scheme by ID; it does not copy the definition into device overrides. The separate `color_scheme` setting chooses the default dark or light icon variant. Page/item color values from older configurations remain explicit overrides until reset in the Colors dialog.
+
+**Backgrounds and contrast.** Each decorative background used by Clock, Weather, and Clock Two has an explicit light/dark contrast variant. That variant controls text, cycle cards, and state icons together, not icons alone. **Use color scheme** selects the TFT's solid dark/light fill based on the active scheme's `background` role and uses the active scheme's semantic foreground/state colors. The TFT includes only those two solid fill pictures; it does not display its layout-helper picture in this mode. `BACKGROUND_COLOR_SCHEMES` in `haui/mapping/background.py` is the central image-background mapping; add a contrast variant whenever a background is added.
+
+
 The dark theme steps up in brightness from the page to the header to the
 cards to a pressed card, on greys divisible by 8 so the display's 5/6/5-bit
 colour renders them neutral.

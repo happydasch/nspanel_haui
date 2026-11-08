@@ -94,6 +94,10 @@ class HAUIConfigAccess:
             raise KeyError(f"Config key '{key}' is None")
         return value
 
+    def get_icon_color(self, domain: str, key: str, scheme: str | None = None) -> int | None:
+        """Return a fixed domain icon color for the selected or supplied scheme."""
+        return self.app.color_theme.get_icon_color(domain, key, scheme)
+
     def log(self, msg: str, **kwargs: Any) -> None:
         """Logs a message.
 

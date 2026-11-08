@@ -15,10 +15,10 @@ from ..utils.text import TextBox
 from ..utils.value import format_number
 from .clock_common import (
     background_commands,
-    light_background_selected,
-    readable_background_text_color,
+    background_option,
     readable_foreground_color,
     release_ticks,
+    set_background_mode,
     subscribe_ticks,
 )
 
@@ -32,27 +32,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         label=_("Clock"),
         description=_("Digital clock with date and notification indicator."),
         options=[
-            PageOption(
-                key="background",
-                kind="select",
-                default="dark",
-                allow_template=True,
-                label=_("Background"),
-                description=_("Background image theme for the clock display."),
-                choices=[
-                    ("dark", _("Dark Color")),
-                    ("light", _("Light Color")),
-                    ("modern", _("Modern")),
-                    ("spring", _("Spring")),
-                    ("summer", _("Summer")),
-                    ("autumn", _("Autumn")),
-                    ("winter", _("Winter")),
-                    ("dog_1", _("Dog 1")),
-                    ("dog_2", _("Dog 2")),
-                    ("cat", _("Cat")),
-                ],
-                section=_("Appearance"),
-            ),
+            background_option(),
             *CARD_OPTIONS,
             PageOption(
                 key="item",
@@ -165,23 +145,19 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         self._items: list[HAUIItem] = []
         self._init_cards()
 
-    def get_color(self, key: str) -> int:
-        color = readable_background_text_color(key, self._light_background)
-        return color if color is not None else super().get_color(key)
-
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
-        return [*super().page_load_commands(panel), *background_commands(self, panel, "clock")]
+        return [*super().page_load_commands(panel), *background_commands(self, panel)]
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        self._light_background = light_background_selected(self, panel)
+        set_background_mode(self, panel)
         subscribe_ticks(self)
+        for component in (self.COMPONENTS.t_time, self.COMPONENTS.t_date):
+            self.set_component_text_color(component, self.get_color("text"))
         # weather item listeners
-        weather_items = self._build_items_from_panel(panel, "item")
-        for item in weather_items:
-            if item.get_item_type() == "weather":
-                self.add_item_listener(item.get_item_id(), self.callback_weather, "temperature")
-                self.add_item_listener(item.get_item_id(), self.callback_weather, "pressure")
-                break
+        weather_item = self._get_weather_item(panel)
+        if weather_item is not None:
+            self.add_item_listener(weather_item.get_item_id(), self.callback_weather, "temperature")
+            self.add_item_listener(weather_item.get_item_id(), self.callback_weather, "pressure")
         # item buttons follow their entities' state
         self.listen_items(
             self._build_items_from_panel(panel, "items"), lambda: self.update_items(self._items)
@@ -201,7 +177,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         self._show_home_temp = panel.get("show_home_temp", False)
         # setting: weather_icons
         self._weather_icons_mode = panel.get("weather_icons", "color")
-        self._start_cards(panel, has_weather=bool(weather_items))
+        self._start_cards(panel, has_weather=weather_item is not None)
         # Tap-to-advance on the big time area
         self.on_release(
             {self.COMPONENTS.t_time: self._advance_card},
@@ -228,8 +204,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # weather header first: the temperature cards read this panel's item
-        weather_items = self._build_items_from_panel(panel, "item")
-        self.set_weather_item(weather_items[0] if weather_items else None)
+        self.set_weather_item(self._get_weather_item(panel))
         self._render_cards()
         # item buttons
         self.update_items(self._build_items_from_panel(panel, "items"))
@@ -244,11 +219,16 @@ class ClockPage(CycleCardsMixin, HAUIPage):
 
     def update_main_weather(self) -> None:
         if self._weather_item is None:
+            self.update_function_component(self.COMPONENTS.t_main_icon.name, visible=False)
             return
 
         # set up main weather details
         icon = self._weather_item.get_icon()
-        color = readable_foreground_color(self._weather_item.get_color(), self._light_background)
+        color = readable_foreground_color(
+            self._weather_item.get_color(scheme="light" if self._light_background else "dark"),
+            self._light_background,
+            self.get_color("text"),
+        )
         try:
             temp_outside_str = self._weather_item.get_item_attr("temperature", "")
             # compare against empty values: 0 °C is falsy but a real temperature
@@ -302,11 +282,21 @@ class ClockPage(CycleCardsMixin, HAUIPage):
             visible=self._show_weather,
         )
 
+    def _get_weather_item(self, panel: HAUIPanel) -> HAUIItem | None:
+        return next(
+            (
+                item
+                for item in self._build_items_from_panel(panel, "item")
+                if item.get_item_type() == "weather" and item.has_item()
+            ),
+            None,
+        )
+
     def set_weather_item(self, item: HAUIItem | None) -> None:
         self._weather_item = item
         if item is not None:
             self._temp_unit = item.get_item_attr("temperature_unit", "°C")
-            self.update_main_weather()
+        self.update_main_weather()
 
     def update_items(self, items: list[HAUIItem]) -> None:
         self._items = items
@@ -319,7 +309,11 @@ class ClockPage(CycleCardsMixin, HAUIPage):
             if i < total_items:
                 item = self._items[i]
                 icon = item.get_icon()
-                color = readable_foreground_color(item.get_color(), self._light_background)
+                color = readable_foreground_color(
+                    item.get_color(scheme="light" if self._light_background else "dark"),
+                    self._light_background,
+                    self.get_color("text"),
+                )
                 visible = True
             else:
                 item = None

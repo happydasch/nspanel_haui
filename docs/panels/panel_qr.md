@@ -38,3 +38,5 @@ When enabled and no text items are configured, the SSID and password are shown a
 ### Text items
 
 You can add up to 2 items to display alongside the QR code. When items are configured, they replace the network info text: the QR code appears smaller on one side with the item values on the other.
+
+The SSID and password labels use the device `text` color, and their values use `text_inactive`. This keeps them readable with the light Device Colors palette instead of the QR page's compiled dark-theme text colors. The same text colors apply when custom items are shown alongside the code.

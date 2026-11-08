@@ -197,8 +197,8 @@ FIRMWARE_STATES: dict[str, tuple[str, dict[str, Any]]] = {
 }
 
 ITEM_GRID = [
-    {"item": "light.lamp", "name": "Lamp", "icon": "mdi:lightbulb"},
-    {"item": "switch.fan", "name": "Fan", "icon": "mdi:fan"},
+    {"item": "light.lamp", "name": "Lamp", "icon": "mdi:lightbulb", "show_power_button": True},
+    {"item": "switch.fan", "name": "Fan", "icon": "mdi:fan", "show_power_button": True},
     {"item": "cover.blind", "name": "Blind", "icon": "mdi:blinds-horizontal"},
     {"item": "climate.living", "name": "Living", "icon": "mdi:thermostat"},
     {"item": "media_player.tv", "name": "TV", "icon": "mdi:television"},

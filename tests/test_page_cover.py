@@ -110,6 +110,21 @@ def _show(entity):
     return app, page
 
 
+def test_no_selected_item_hides_cover_controls_and_service_actions():
+    entity = _cover()
+    app = _App({"cover.garage": entity})
+    panel = HAUIPanel(app, {"type": "cover"})
+    page = CoverPage(app, {"page_id": 18})
+    page.set_panel(panel)
+
+    assert "vis bUp,0" in app.cmds
+    assert "vis hVertPos,0" in app.cmds
+    page.callback_cover_up(None, CoverPage.COMPONENTS.btn_up)
+    page.process_cover_pos(50)
+
+    assert entity.calls == []
+
+
 def test_editor_panel_controls_configured_item():
     entity = _cover()
     app, page = _show(entity)

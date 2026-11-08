@@ -26,12 +26,15 @@ def test_blank_page_declares_only_its_own_widget():
     assert [c.name for c in BlankPage.COMPONENTS.values()] == ["hBlank"]
 
 
-def test_grid_item_options_reach_the_editor_with_translated_labels():
-    """The editor shows the grid's per-item options with labels in the user's language."""
+def test_grid_item_options_use_the_device_color_scheme():
+    """The editor avoids redundant per-tile colors; the scheme supplies those roles."""
     (grid,) = [d for d in get_user_panel_type_descriptors("pl") if d["type_key"] == "grid"]
 
     options = {o["key"]: o for o in grid["item_options"]}
 
-    assert options["text_color"]["kind"] == "color"
-    assert options["text_color"]["label"] == "Kolor tekstu"
+    assert "show_power_button" in options
     assert options["show_power_button"]["kind"] == "bool"
+    assert (
+        not {"text_color", "back_color", "color_pressed", "back_color_pressed", "power_color"}
+        & options.keys()
+    )

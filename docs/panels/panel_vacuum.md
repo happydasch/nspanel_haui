@@ -31,13 +31,14 @@ The popup variant (`popup_vacuum`) mirrors the main panel layout. It is used aut
 
 In the **panel editor**, set:
 
-- **Item** (entity picker) — A vacuum entity to control. Required.
+- **Item** (entity picker) — Optional vacuum entity to control. Without one, vacuum-specific controls and status are left blank. For general messages that should appear regardless of the active page, use the [`nspanel_haui.send_notification` service or notify entities](../services.md).
 - **Battery Sensor** (entity picker) — Optional sensor entity reporting the battery level. Home Assistant deprecated the `battery_level` and `battery_icon` attributes on vacuum entities, so this sensor replaces them.
 - **Secondary Items** (item list) — Up to 6 additional entities to display as quick-action tiles below the vacuum controls. Useful for sensors (e.g., filter status, mop state) or toggles.
 
 ## Display Behavior
 
 - The **title** defaults to the entity's friendly name.
+- When no vacuum entity is configured, the status and vacuum controls stay blank/hidden. A configured but unavailable vacuum shows **Unavailable**; the battery indicator and secondary items remain independent.
 - Buttons are shown or hidden based on the entity's supported features.
 - Start/pause/stop icon changes dynamically based on the vacuum state.
 - The battery icon is shown in the header when a battery sensor is configured. The icon follows the sensor's `icon` attribute when set, otherwise its level in 10 % steps. Without a battery sensor no battery icon is shown.

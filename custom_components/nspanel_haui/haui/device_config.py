@@ -122,6 +122,10 @@ DEVICE_CONFIG: dict[str, Any] = {
     "sleep_schedule_start": "",
     "sleep_schedule_end": "",
     "sound_on_startup": False,
+    # Fixed weather/alarm/climate icon colors are paired for light and dark backgrounds.
+    "color_scheme": "dark",
+    # Active semantic color definitions, selected from built-ins or saved schemes.
+    "color_scheme_id": "dark",
     # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
     "color_overrides": {},
     "sound_on_notification": False,

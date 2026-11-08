@@ -87,9 +87,9 @@ You may see log entries like:
 
 Line numbers in the log may differ between versions.
 
-**Cause:** This is a timing issue where the Nextion display sends a response during the transition into *hardware* sleep (which only happens without a hub connection) that the ESPHome nextion component's queue is not expecting. It is a cosmetic issue in the ESPHome nextion component.
+**Cause:** This is a timing issue where the Nextion display sends a response during a transition into *hardware* sleep requested explicitly (the automatic display state machine no longer enters hardware sleep) that the ESPHome nextion component's queue is not expecting. It is a cosmetic issue in the ESPHome nextion component.
 
-**Impact:** None. This error does not affect functionality and can be safely ignored. With a hub connected the display is never hardware-slept, so this message does not appear in normal hub operation.
+**Impact:** None. This error does not affect functionality and can be safely ignored. The automatic display state machine keeps the display awake even while the hub is disconnected, so this message does not appear during normal dimming or connection loss.
 
 ## Editor Loading Problems
 

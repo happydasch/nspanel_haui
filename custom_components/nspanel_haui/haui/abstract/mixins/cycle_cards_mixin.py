@@ -136,6 +136,10 @@ class CycleCardsMixin:
 
         def translate(self, text: str) -> str: ...
         def get_locale(self) -> str: ...
+        def get_color(self, key: str) -> int: ...
+        def set_component_text_color(
+            self, component: Component, color: int | str | list | tuple
+        ) -> None: ...
         def send_cmd(self, cmd: str) -> None: ...
         def set_function_component(
             self, component: Any, fnc_id: str, fnc_name: str | None = None, **fnc_args: Any
@@ -228,6 +232,8 @@ class CycleCardsMixin:
         boxes = self.CARD_BOXES["portrait" if self.app.device.is_portrait else "landscape"]
         t_time, t_date = self.COMPONENTS.t_time, self.COMPONENTS.t_date
         time_box, date_box = boxes[t_time.name], boxes[t_date.name]
+        self.set_component_text_color(t_time, self.get_color("text"))
+        self.set_component_text_color(t_date, self.get_color("text"))
         main_text, font = self._fit_card(main_texts, time_box)
         if font != self._time_font:
             self.send_cmd(f"{t_time.name}.font={font}")

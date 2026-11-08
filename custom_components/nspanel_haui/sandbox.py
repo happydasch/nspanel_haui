@@ -269,9 +269,6 @@ class Sandbox:
     def is_simulated(self, entity_id: str) -> bool:
         return entity_id in self._states
 
-    def simulated_ids(self) -> list[str]:
-        return list(self._states)
-
     def apply(
         self, domain: str, service: str, entity_ids: list[str], data: dict[str, Any]
     ) -> tuple[bool, list[tuple[str, SimState | None, SimState]]]:

@@ -12,9 +12,9 @@ from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE, ICO_SPECIAL
 from .clock_common import (
     background_commands,
-    light_background_selected,
-    readable_background_text_color,
+    background_option,
     release_ticks,
+    set_background_mode,
     subscribe_ticks,
 )
 
@@ -243,27 +243,7 @@ class ClockTwoPage(HAUIPage):
         label=_("Clock Two"),
         description=_("Word-clock display in multiple languages."),
         options=[
-            PageOption(
-                key="background",
-                kind="select",
-                default="dark",
-                allow_template=True,
-                label=_("Background"),
-                description=_("Background image theme for the word clock display."),
-                section=_("Appearance"),
-                choices=[
-                    ("dark", _("Dark Color")),
-                    ("light", _("Light Color")),
-                    ("modern", _("Modern")),
-                    ("spring", _("Spring")),
-                    ("summer", _("Summer")),
-                    ("autumn", _("Autumn")),
-                    ("winter", _("Winter")),
-                    ("dog_1", _("Dog 1")),
-                    ("dog_2", _("Dog 2")),
-                    ("cat", _("Cat")),
-                ],
-            ),
+            background_option(),
             PageOption(
                 key="clock_language",
                 kind="select",
@@ -298,30 +278,6 @@ class ClockTwoPage(HAUIPage):
                 section=_("Time"),
             ),
             PageOption(
-                key="off_color",
-                kind="color",
-                default=8452,
-                label=_("Off-letter color"),
-                description=_("Default: 8452 (dark gray). Accepts RGB565, [r,g,b], or #rrggbb."),
-                section=_("Colors"),
-            ),
-            PageOption(
-                key="letter_color",
-                kind="color",
-                default=65535,
-                label=_("Active letter color"),
-                description=_("Default: 65535 (white). Accepts RGB565, [r,g,b], or #rrggbb."),
-                section=_("Colors"),
-            ),
-            PageOption(
-                key="special_color",
-                kind="color",
-                default=62694,
-                label=_("Special letter color"),
-                description=_("Default: 62694 (amber). Accepts RGB565, [r,g,b], or #rrggbb."),
-                section=_("Colors"),
-            ),
-            PageOption(
                 key="show_notifications",
                 kind="bool",
                 default=True,
@@ -349,16 +305,12 @@ class ClockTwoPage(HAUIPage):
         self._clock_letters: list[str] = []
         self._light_background = False
 
-    def get_color(self, key: str) -> int:
-        color = readable_background_text_color(key, self._light_background)
-        return color if color is not None else super().get_color(key)
-
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
-        return [*super().page_load_commands(panel), *background_commands(self, panel, "clocktwo")]
+        return [*super().page_load_commands(panel), *background_commands(self, panel)]
 
     def read_options(self, panel: HAUIPanel) -> None:
         """Read the word clock's options; each panel shown on the page reads them anew."""
-        self._light_background = light_background_selected(self, panel)
+        set_background_mode(self, panel)
         self._off_color = panel.get("off_color", self.get_color("component_background"))
         self._letter_color = panel.get("letter_color", self.get_color("component_text"))
         if self._light_background and self._letter_color == 65535:

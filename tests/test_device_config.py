@@ -79,6 +79,8 @@ def test_device_config_has_all_required_keys() -> None:
         "sleep_schedule_start",
         "sleep_schedule_end",
         "sound_on_startup",
+        "color_scheme",
+        "color_scheme_id",
         "color_overrides",
         "sound_on_notification",
         "persistent_sound_interval",

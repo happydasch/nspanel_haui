@@ -53,7 +53,9 @@ export class VirtualPanelSession {
     this.idle = false;
     // Widget name -> entity id on the current page, for the hover tooltip.
     this.entityMap = {};
-    this.sandboxEntities = [];
+    this.relays = { left: 'unknown', right: 'unknown' };
+    // State of the entity a button switches instead of its relay; null in relay mode.
+    this.buttonEntityStates = { left: null, right: null };
     this.iconChars = {};
     this._queue = [];
     this._unsubscribe = null;
@@ -155,12 +157,13 @@ export class VirtualPanelSession {
         }
         this.onAction(message);
         break;
-      case 'sandbox':
-        this.sandboxEntities = message.entities;
-        this.onUpdate();
-        break;
       case 'idle':
         this.idle = Boolean(message.active);
+        this.onUpdate();
+        break;
+      case 'relays':
+        this.relays = { left: message.left, right: message.right };
+        this.buttonEntityStates = message.entities;
         this.onUpdate();
         break;
       case 'entities':
@@ -225,13 +228,5 @@ export class VirtualPanelSession {
     });
     this.live = live;
     this.onUpdate();
-  }
-  /** Clear simulated entity changes without changing preview mode. */
-  async resetSandbox() {
-    await this.hass.callWS({
-      type: 'nspanel_haui/virtual_panel/configure',
-      session_id: this.sessionId,
-      reset_sandbox: true,
-    });
   }
 }

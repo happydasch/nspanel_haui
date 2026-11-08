@@ -82,6 +82,7 @@ class NSPanelEditor extends LitElement {
       _notifications: { type: Array, state: true },
       _showDeviceManager: { type: Boolean, state: true },
       _showColorsDialog: { type: Boolean, state: true },
+      _colorsScheme: { type: String, state: true },
       _colorsDialog: { type: Object, state: true },
 
       _actionsMenuIndex: { type: Number, state: true },
@@ -136,6 +137,7 @@ class NSPanelEditor extends LitElement {
     this._showDeviceManager = false;
     this._statusTimer = null;
     this._showColorsDialog = false;
+    this._colorsScheme = "dark";
     this._colorsDialog = {};
     this._panelSaveTimer = null;
     this._haElementsForced = false;
@@ -562,7 +564,11 @@ class NSPanelEditor extends LitElement {
         <nspanel-dialog-colors
           .hass=${this.hass}
           .open=${this._showColorsDialog}
+          .entryId=${this.entryId}
+          .panels=${this._devicePanels()}
+          .schemeId=${this._colorsSchemeId || "dark"}
           .overrides=${this._colorsDialog}
+          .scheme=${this._colorsScheme}
           @dialog-closed=${this._closeColorsDialog}
           @dialog-save=${this._onColorsSave}
         ></nspanel-dialog-colors>
@@ -616,7 +622,7 @@ class NSPanelEditor extends LitElement {
 
   _onHeaderColors()                      { return ColorsEditor.openColorsDialog(this); }
   _closeColorsDialog()                   { return ColorsEditor.closeColorsDialog(this); }
-  async _onColorsSave(e)                 { return ColorsEditor.saveColors(this, e.detail?.overrides); }
+  async _onColorsSave(e)                 { return ColorsEditor.saveColors(this, e.detail); }
 }
 
 customElements.define("nspanel-haui-editor", NSPanelEditor);

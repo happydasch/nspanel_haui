@@ -347,6 +347,41 @@ def _script_lambda(file_name: str, script_id: str) -> str:
     return script["then"][0]["lambda"]
 
 
+def test_hub_connection_closed_is_forced_but_last_client_disconnect_is_not():
+    api = _read("api.yaml")
+    hub_close = api.split("- action: hub_connection_closed", 1)[1].split(
+        "# HA requests device state", 1
+    )[0]
+    assert "force: 1" in hub_close
+    client_disconnect = api.split("on_client_disconnected:", 1)[1].split("actions:", 1)[0]
+    assert "force: 0" in client_disconnect
+
+
+def test_connection_grace_reuses_the_dimming_timeout():
+    display = _script_lambda("scripts_display.yaml", "update_display")
+    connection = _read("scripts_connection.yaml")
+    assert "hub_state_change_ms" in display
+    assert "since_connection_change" in display
+    assert "timeout_dim_val" in display
+    assert "connection_grace" in display
+    assert "bool connection_grace = timeout_dim_val > 0" in display
+    assert "id(hub_state_change_ms) = millis();" in connection
+    assert "new_state = 1;" in display
+    assert "target_brightness = int(id(brightness_dim).state);" in display
+
+
+def test_disconnected_display_never_turns_off_or_hardware_sleeps():
+    display = _script_lambda("scripts_display.yaml", "update_display")
+    assert "id(display_off).execute()" not in display
+    assert "id(haui_disp).sleep(true)" not in display
+    assert "wakeup_page" not in display
+    assert "brightness_dim" in display
+    disconnected = display.split("if (!id(hub_connection))", 1)[1].split(
+        "} else if (connection_grace)", 1
+    )[0]
+    assert "target_brightness = 0" not in disconnected
+
+
 def test_display_scripts_are_one_state_machine():
     """Display-off, dimming and the state label come from one 100 ms script."""
     scripts = _load_tagged(ROOT / "scripts_display.yaml")["script"]

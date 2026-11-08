@@ -89,7 +89,7 @@ test('a grid page renders the hub\'s texts and icons and skips hidden widgets', 
 
 test('the clock page uses the background picture the hub selected', () => {
   const d = new NextionDisplay(LAYOUT, { scheduler: { every: () => 0, cancel() {} }, onWarn: () => {} });
-  d.exec('clock.background.val=4');
+  d.exec('system.vBackground.val=4');
   d.gotoPage('clock');
   d.exec('tTime.txt="12:34"');
   const out = flat(renderDisplay(d, ctx));

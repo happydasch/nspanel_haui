@@ -8,7 +8,7 @@ or a card render. Live previews and panel cards share it.
   device's app and streams its display output to the editor until the
   subscription is closed. The first message is ``{"type": "started", ...}``;
   the others are the messages of ``virtual_panel.VirtualESPHomeProxy`` and the
-  sandbox.
+  hardware buttons' lights.
 - ``nspanel_haui/virtual_panel/event`` injects a touch, swipe or hardware
   button.
 - ``nspanel_haui/virtual_panel/idle`` acts as if the inactivity timeout opened
@@ -297,8 +297,7 @@ async def ws_idle(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     {
         vol.Required("type"): "nspanel_haui/virtual_panel/configure",
         vol.Required("session_id"): str,
-        vol.Optional("live"): bool,
-        vol.Optional("reset_sandbox", default=False): bool,
+        vol.Required("live"): bool,
     }
 )
 @websocket_api.require_admin
@@ -307,10 +306,7 @@ async def ws_configure(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     host = _get_host(hass, connection, msg)
     if host is None:
         return
-    if "live" in msg:
-        host.set_live(msg["live"])
-    if msg.get("reset_sandbox", False):
-        host.reset_sandbox()
+    host.set_live(msg["live"])
     connection.send_result(msg["id"])
 
 

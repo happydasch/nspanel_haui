@@ -17,6 +17,15 @@ function collect(value, out = []) {
   return out;
 }
 
+function renderText(value) {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) return value.map(renderText).join('');
+  if (value && Array.isArray(value.strings) && Array.isArray(value.values)) {
+    return value.strings.map((part, index) => `${part}${renderText(value.values[index])}`).join('');
+  }
+  return '';
+}
+
 function fakeHass() {
   const hass = {
     subscriptions: [],
@@ -99,19 +108,88 @@ test('a closed dialog renders nothing and a starting one says so', async () => {
   dlg.open = true;
   dlg.updated(new Map([['open', false]]));
   await flush();
-  const markup = collect(dlg.render()).join(' ');
+  const markup = renderText(dlg.render());
   assert.match(markup, /Starting the live preview/);
-  assert.match(markup, /Sandbox mode: touches change simulated states only/);
+  const modeNote = markup.indexOf('vp-mode-note');
+  const controls = markup.indexOf('view-toggle-group');
+  const idleButton = markup.indexOf('vp-idle-button');
+  const moreButton = markup.indexOf('vp-more');
+  const simulator = markup.indexOf('vp-stage');
+  assert.ok(modeNote >= 0 && modeNote < controls);
+  assert.ok(controls < idleButton);
+  assert.ok(idleButton < moreButton);
+  assert.ok(moreButton < simulator);
+  assert.match(markup, /Simulated mode: touches update simulated states only/);
+  assert.doesNotMatch(markup, /vp-hint/);
   assert.match(markup, /Left button/);
 });
-test('reset and entity controls are available at every preview width', () => {
+test('the entity switch is available at every preview width', () => {
   for (const narrow of [false, true]) {
-    const { dlg } = makeDialog({ open: true });
+    const { dlg } = makeDialog({ open: true, _showTools: true });
     dlg.narrow = narrow;
     const markup = collect(dlg.render()).join(' ');
-    assert.match(markup, /Reset sandbox/);
     assert.match(markup, /vp-show-entities/);
   }
+});
+
+/** The toolbar's two mode buttons: icon -> { pressed, click }. */
+function modeButtons(value, out = {}) {
+  if (Array.isArray(value)) value.forEach(v => modeButtons(v, out));
+  else if (value && Array.isArray(value.values)) {
+    const icon = value.values.find(v => v === 'mdi:flask-outline' || v === 'mdi:access-point');
+    if (icon) {
+      out[icon] = {
+        pressed: value.values.find(v => v === 'true' || v === 'false'),
+        click: value.values.find(v => typeof v === 'function'),
+      };
+    }
+    value.values.forEach(v => modeButtons(v, out));
+  }
+  return out;
+}
+
+test('the toolbar switches between Simulated and Live', async () => {
+  const { dlg } = makeDialog({ open: true });
+  dlg.updated(new Map([['open', false]]));
+  await flush();
+  const pressed = () => Object.fromEntries(
+    Object.entries(modeButtons(dlg._renderToolbar(dlg._session))).map(([icon, b]) => [icon, b.pressed]),
+  );
+  assert.deepEqual(pressed(), { 'mdi:flask-outline': 'true', 'mdi:access-point': 'false' });
+  // There is no sandbox reset: switching Live mode on drops the simulated states.
+  assert.doesNotMatch(collect(dlg.render()).join(' '), /Reset sandbox/);
+
+  // The pressed button does nothing; the other one switches the mode.
+  modeButtons(dlg._renderToolbar(dlg._session))['mdi:flask-outline'].click();
+  modeButtons(dlg._renderToolbar(dlg._session))['mdi:access-point'].click();
+  await flush();
+  const configure = dlg.hass.calls.filter(c => c.type === 'nspanel_haui/virtual_panel/configure');
+  assert.deepEqual(configure.map(c => c.live), [true]);
+  assert.deepEqual(pressed(), { 'mdi:flask-outline': 'false', 'mdi:access-point': 'true' });
+  assert.match(
+    collect(dlg._renderModeNote(dlg._session)).join(' '),
+    /Live mode: touches and the hardware buttons switch your real devices/,
+  );
+  dlg._stopSession();
+});
+
+test('the extra tools stay hidden until opened; hiding them stops entity hover', async () => {
+  const { dlg } = makeDialog({ open: true });
+  dlg.updated(new Map([['open', false]]));
+  await flush();
+  const markup = () => collect(dlg.render()).join(' ');
+  assert.match(markup(), /Idle timeout/);
+  assert.doesNotMatch(markup(), /vp-show-entities/);
+
+  dlg._setShowTools(true);
+  assert.ok(markup().includes('mdi:sleep'));
+  assert.ok(markup().includes('vp-show-entities'));
+  dlg._setShowEntities(true);
+  dlg._setShowTools(false);
+  assert.equal(dlg._showEntities, false);
+  assert.match(markup(), /Idle timeout/);
+  assert.doesNotMatch(markup(), /vp-show-entities/);
+  dlg._stopSession();
 });
 
 
@@ -135,6 +213,10 @@ test('a started session renders the screen and maps pointer input to touches', a
   const markup = collect(dlg.render()).join(' ');
   assert.match(markup, /vp-screen-wrap/);
   assert.doesNotMatch(markup, /Starting the live preview/);
+  // One frame holds the screen and, below it, the hardware buttons.
+  assert.doesNotMatch(markup, /vp-device/);
+  assert.ok(markup.indexOf('class="vp-bezel"') < markup.indexOf('vp-screen-wrap'));
+  assert.ok(markup.indexOf('vp-screen-wrap') < markup.indexOf('vp-hw-buttons'));
 
   // The screen is drawn at twice its size: (200, 100) on screen is (100, 50).
   dlg.renderRoot = {
@@ -154,6 +236,50 @@ test('a started session renders the screen and maps pointer input to touches', a
   dlg._stopSession();
 });
 
+
+test('hardware buttons render as part of the frame with relay lights', () => {
+  const Dialog = customElements.get('nspanel-dialog-live-preview');
+  assert.match(Dialog.styles.map(style => style.cssText || '').join(' '), /#ffcc33/);
+  const { dlg } = makeDialog();
+  const session = {
+    ready: true,
+    relays: { left: 'on', right: 'off' },
+    pressButton(side) { this.pressed = side; },
+  };
+  const markup = collect(dlg._renderHardwareButtons(session)).join(' ');
+  assert.equal((markup.match(/class="vp-hw"/g) || []).length, 2);
+  assert.match(markup, /class="vp-relay-light" data-state=/);
+  assert.match(markup, / on /);
+  assert.match(markup, / off$/);
+  const unknown = collect(dlg._renderHardwareButtons({
+    ready: false,
+    relays: { left: 'unknown', right: 'unknown' },
+  })).join(' ');
+  assert.match(unknown, /unknown\s*$/);
+  assert.doesNotMatch(markup, /vp-relay-light entity/);
+
+  // A button that switches an entity instead of its relay shows only the entity.
+  const entity = collect(dlg._renderHardwareButtons({
+    ...session,
+    relays: { left: 'off', right: 'off' },
+    buttonEntityStates: { left: 'on', right: null },
+  })).join(' ');
+  assert.equal((entity.match(/class="vp-relay-light/g) || []).length, 2);
+  assert.equal((entity.match(/class="vp-relay-light entity"/g) || []).length, 1);
+  assert.match(entity, / on off /);
+  assert.equal((entity.match(/class="vp-relay-dot"/g) || []).length, 1);
+  assert.ok(entity.indexOf('class="vp-relay-light entity"') < entity.indexOf('class="vp-relay-dot"'));
+  assert.match(entity, / on off /);
+});
+
+test('idle timeout control shows its label beside the sleep icon', () => {
+  const { dlg } = makeDialog();
+  const rendered = dlg._renderIdleButton({ ready: true, idleTimeout() {} });
+  const staticMarkup = rendered.strings.join('');
+  assert.match(staticMarkup, /aria-label=/);
+  assert.match(staticMarkup, /mdi:sleep/);
+  assert.match(collect(rendered).join(' '), /Idle/);
+});
 test('sounds and display power are shown', () => {
   const { dlg } = makeDialog();
   dlg._onAction({ name: 'play_sound', value: 'notification' });
@@ -220,7 +346,7 @@ test('pages without header buttons offer long press to go back', () => {
 });
 
 test('the idle timeout button looks selected while the idle page is shown', async () => {
-  const { dlg } = makeDialog({ open: true });
+  const { dlg } = makeDialog({ open: true, _showTools: true });
   dlg.updated(new Map([['open', false]]));
   await flush();
   // Only the idle timeout button binds its appearance; the others are static.

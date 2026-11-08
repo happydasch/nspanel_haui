@@ -10,7 +10,6 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..abstract.mixins.cycle_cards_mixin import CARD_OPTIONS, Card, CardBox, CycleCardsMixin
-from ..mapping.color import WEATHER_COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icon_mapping import WEATHER_MAPPING
 from ..mapping.icons import ICO_MESSAGE
@@ -20,10 +19,10 @@ from ..utils.text import TextBox
 from ..utils.value import format_number
 from .clock_common import (
     background_commands,
-    light_background_selected,
-    readable_background_text_color,
+    background_option,
     readable_foreground_color,
     release_ticks,
+    set_background_mode,
     subscribe_ticks,
 )
 
@@ -37,27 +36,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         label=_("Weather"),
         description=_("Weather display with time, date and forecast."),
         options=[
-            PageOption(
-                key="background",
-                kind="select",
-                default="dark",
-                allow_template=True,
-                label=_("Background"),
-                description=_("Background image theme for the weather display."),
-                section=_("Appearance"),
-                choices=[
-                    ("dark", _("Dark Color")),
-                    ("light", _("Light Color")),
-                    ("modern", _("Modern")),
-                    ("spring", _("Spring")),
-                    ("summer", _("Summer")),
-                    ("autumn", _("Autumn")),
-                    ("winter", _("Winter")),
-                    ("dog_1", _("Dog 1")),
-                    ("dog_2", _("Dog 2")),
-                    ("cat", _("Cat")),
-                ],
-            ),
+            background_option(),
             *CARD_OPTIONS,
             PageOption(
                 key="item",
@@ -204,21 +183,20 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         self._info_items: list[HAUIItem] = []
         self._init_cards()
 
-    def get_color(self, key: str) -> int:
-        color = readable_background_text_color(key, self._light_background)
-        return color if color is not None else super().get_color(key)
-
     def _set_component_text_color(self, component: Component, color: int) -> None:
         self.set_component_text_color(
-            component, readable_foreground_color(color, self._light_background)
+            component,
+            readable_foreground_color(color, self._light_background, self.get_color("text")),
         )
 
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
-        return [*super().page_load_commands(panel), *background_commands(self, panel, "weather")]
+        return [*super().page_load_commands(panel), *background_commands(self, panel)]
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        self._light_background = light_background_selected(self, panel)
+        set_background_mode(self, panel)
         subscribe_ticks(self)
+        for component in (self.COMPONENTS.t_time, self.COMPONENTS.t_date):
+            self.set_component_text_color(component, self.get_color("text"))
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # Weather entity - role-based creation from explicit config keys
@@ -299,6 +277,13 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
             self._temp_unit = self._weather_item.get_item_attr("temperature_unit", "°C")
         self.update_main_weather()
 
+    def entity_map_components(self) -> list[tuple[Component, HAUIItem]]:
+        return [
+            (getattr(self.COMPONENTS, f"d{idx}_{part}"), item)
+            for idx, item in enumerate(self._info_items, start=1)
+            for part in ("ico", "val")
+        ]
+
     def render_info_panels(self) -> None:
         for i, item in enumerate(self._info_items, start=1):
             self.update_info(i, item)
@@ -356,7 +341,11 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
 
         # set up main weather details
         icon = self._weather_item.get_icon()
-        color = readable_foreground_color(self._weather_item.get_color(), self._light_background)
+        color = readable_foreground_color(
+            self._weather_item.get_color(scheme="light" if self._light_background else "dark"),
+            self._light_background,
+            self.get_color("text"),
+        )
         try:
             temp_outside_str = self._weather_item.get_item_attr("temperature", "")
             # compare against empty values: 0 °C is falsy but a real temperature
@@ -436,7 +425,12 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         icon = WEATHER_MAPPING.get(condition, "")
         icon = get_icon(icon) or ""
 
-        color = WEATHER_COLORS.get(condition.replace("-", "_"), WEATHER_COLORS["default"])
+        scheme = "light" if self._light_background else "dark"
+        color = self.get_icon_color("weather", condition.replace("-", "_"), scheme)
+        if color is None:
+            color = self.get_icon_color("weather", "default", scheme)
+        if color is None:
+            raise KeyError("weather icon palette has no default color")
         if self._weather_icons_mode == "monochrome":
             color = self.get_color("component_text")
         self._set_component_text_color(forecast_icon, color)
@@ -459,7 +453,10 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
             return
         info_icon = getattr(self.COMPONENTS, f"d{idx}_ico")
         info_val = getattr(self.COMPONENTS, f"d{idx}_val")
-        self._set_component_text_color(info_icon, haui_item.get_color())
+        self._set_component_text_color(
+            info_icon,
+            haui_item.get_color(scheme="light" if self._light_background else "dark"),
+        )
         self._set_component_text_color(info_val, self.get_color("component_text"))
         self.set_component_text(info_icon, haui_item.get_icon())
         self.set_component_text(info_val, haui_item.get_value())

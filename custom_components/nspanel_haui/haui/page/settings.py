@@ -109,9 +109,21 @@ class SettingsPage(HAUIPage):
         if self._handle_brightness_dimmed is not None:
             self.app.cancel_listen_state(self._handle_brightness_dimmed)
 
+    def _set_component_colors(self) -> None:
+        """Use theme text colors and active-icon colors on both brightness controls."""
+        for component in (
+            self.COMPONENTS.t_brght_title,
+            self.COMPONENTS.t_brght_pct,
+            self.COMPONENTS.t_brght_dim_pct,
+        ):
+            self.set_component_text_color(component, self.get_color("text"))
+        for component in (self.COMPONENTS.t_brght_ico, self.COMPONENTS.t_brght_dim_ico):
+            self.set_component_text_color(component, self.get_color("component_active"))
+
     def render_panel(self, panel: HAUIPanel) -> None:
         title = panel.get_title(self.translate("Settings"))
         self.set_title(title)
+        self._set_component_colors()
         self.set_component_text(
             self.COMPONENTS.t_brght_title, self.translate("Full and Dimmed Brightness:")
         )

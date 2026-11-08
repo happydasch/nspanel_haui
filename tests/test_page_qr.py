@@ -31,6 +31,25 @@ def _render(config, items):
     return page
 
 
+def test_qr_info_text_uses_device_palette_for_light_theme():
+    page = QRPage.__new__(QRPage)
+    colors = {"text": 1234, "text_inactive": 5678}
+    page.get_color = lambda key: colors[key]
+    updated = []
+    page.set_component_text_color = lambda component, color: updated.append((component, color))
+
+    page._set_info_text_colors()
+
+    assert updated == [
+        (page.COMPONENTS.q1_title, 1234),
+        (page.COMPONENTS.q1_text, 5678),
+        (page.COMPONENTS.q1_text_add, 5678),
+        (page.COMPONENTS.q2_title, 1234),
+        (page.COMPONENTS.q2_text, 5678),
+        (page.COMPONENTS.q2_text_add, 5678),
+    ]
+
+
 def test_big_qr_zoom_button_uses_header_accent_color() -> None:
     page = QRPage.__new__(QRPage)
     colors = {"component_text": 123, "header_accent": 456}

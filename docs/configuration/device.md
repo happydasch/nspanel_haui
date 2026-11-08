@@ -94,7 +94,7 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 
 - `use_auto_dimming` bool
 
-  When enabled, the display dims automatically after `timeout_dimming` seconds of inactivity. This only changes the brightness — it never switches pages. Default `True`.
+  When enabled, the display dims automatically after `timeout_dimming` seconds of inactivity. This only changes the brightness — it never switches pages. The hub also uses this timeout as the full-brightness grace after disconnect and reconnect. Do not drive the ESPHome switch from an automation; use the HAUI settings and schedules. Default `True`.
 
 - `timeout_dimming` int
 
@@ -102,7 +102,7 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 
 - `use_auto_display_off` bool
 
-  When enabled, the display turns off (brightness to zero) after `timeout_display_off` seconds of inactivity. This is a display-brightness behavior of the firmware; it never requires a page switch and needs no idle page configured. A touch, or a hardware-button press when `reset_interaction_on_button` is enabled, wakes the display again. Default `True`.
+  When enabled, the display turns off (brightness to zero) after `timeout_display_off` seconds of inactivity. This is a display-brightness behavior of the firmware; it never requires a page switch and needs no idle page configured. A touch, or a hardware-button press when `reset_interaction_on_button` is enabled, wakes the display again. Do not drive the ESPHome switch from an automation; use the HAUI Sleep schedule or Day/Night Profiles instead. Default `True`.
 
 - `timeout_display_off` int
 
@@ -276,17 +276,19 @@ shortcuts on top of that.
 
   After this many seconds without interaction on another panel, go back to the home panel. Set it shorter than the dimming and display-off timeouts. When the idle page opens first (`timeout_page` is shorter), the idle page stays, and leaving it goes to the home panel instead of the panel you were on. `0` = off (default).
 
-## Color Overrides
+## Color schemes
 
-Opened from its own dialog (separate from Device Settings). Lets you choose the **Dark Color**, **Light Color**, or **Black** preset, then adjust individual entries of the built-in `COLORS` palette per device. A preset fills the palette; any individual changes are saved as color overrides.
+Opened from **Editor → Colors**. Color schemes are the source of semantic color definitions used by pages and entity/domain state icons. Built-in schemes are **Dark Color**, **Light Color**, **White**, and **Black**; custom schemes are shared by every device in the same hub. The active scheme is referenced by ID (`color_scheme_id`) instead of being copied into per-device colors. Use **Save as** to create a custom scheme, edit it, then **Import** or **Export** the custom scheme library as versioned JSON.
 
-- `color_overrides` dict
+A scheme contains the global page roles and the dark- and light-background weather, alarm, and climate state colors. The separate `color_scheme` setting (`dark` or `light`) selects the default icon contrast variant; a page with a static light/dark background selects the matching variant locally.
 
-  RGB565 color values keyed by color name. Unknown keys are ignored (logged) and values are clamped to `0`-`65535`. Default `{}` (empty).
+On solid-color pages and background pages set to **Use color scheme**, existing `color_overrides` and saved panel/item color values are compatibility overrides and take precedence. In the Colors dialog, check **Reset existing device and panel color overrides** when applying a scheme to clear them and use the scheme consistently. This reset removes legacy Grid tile, Alarm keypad/action, and Clock Two word-color values. Pages using a decorative background image instead use that image's paired dark/light contrast palette. The generic per-item `color` remains for intentional entity-specific styling. The Light panel's color picker controls the Home Assistant light entity, not the HAUI palette.
 
-  **Background: solid colour vs picture.** Pages without a picture background are drawn in the device's colours from their first frame: before every page switch the hub sends the theme colours to the display, and the page paints itself with them while it loads (its `Preinitialize` event), so no colour changes after a page is shown. This covers the page colour (`background`) and the widgets the HMI draws in it (texts, icons, flat buttons, row and settings labels), the header bar (`header_background`, with the title in `header_text`), every button's pressed state (`component_pressed`) and the slider tracks (`component_background`). The media progress bar takes `component_background` too; the row toggles are an icon on the page `background`, in `component_active` when on and `text_inactive` when off. About, Clock, Clock Two, System and Weather are *picture-background* pages: they keep their pre-rendered picture (on Clock, Clock Two and Weather the one selected by the panel's `background` option). On those pages neither the `background` override nor the header colours apply — the compiled picture and its palette win. This is by design (the picture is the background); to change their look, change the picture or edit the HMI. The remaining `COLORS` entries still theme the cards, buttons and text on solid pages as usual.
+### Background pages
 
-  Saving new colours reloads the page on screen, so it shows them right away. This needs a display TFT with the theme code (from the TFT that ships with 0.4.5); until the **HAUI Display** update installs it, solid pages keep their compiled colours.
+Clock, Weather, and Clock Two have a **Background** setting. Every decorative image background has an explicit light/dark contrast assignment, controlling text, time/date cards, and domain icons together. Select **Use color scheme** to replace the decorative image with the TFT's solid dark or light fill chosen from the selected scheme's `background` color; the active scheme supplies foreground and state colors. The HMI has solid fills for dark and light backgrounds, so custom background colors choose the matching contrast fill rather than uploading a new image.
+
+On solid-color pages, the hub sends scheme colors before navigation and the page paints them during its HMI `Preinitialize` event. The background pages instead draw their configured background and use the paired contrast palette. See [Display color behavior](../design.md#colors).
 
 ## Fields not yet exposed in the editor
 

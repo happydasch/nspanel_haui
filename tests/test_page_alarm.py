@@ -8,7 +8,7 @@ display and Home Assistant.
 import pytest
 from nspanel_haui.haui.abstract import haui_entity
 from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.mapping.color import ColorTheme
+from nspanel_haui.haui.mapping.color import ALARM_COLORS_LIGHT, ColorTheme
 from nspanel_haui.haui.page.alarm import AlarmPage
 
 
@@ -96,6 +96,14 @@ ENTITY_ID = "alarm_control_panel.home"
 ARM_HOME_AND_AWAY = 1 | 2
 
 
+def test_alarm_state_icon_uses_light_fixed_palette():
+    app = _App({})
+    app.color_theme = ColorTheme({}, "light")
+    page = AlarmPage(app, {"page_id": 17})
+
+    assert page._alarm_color("armed_home") == ALARM_COLORS_LIGHT["armed"]
+
+
 def _alarm():
     return _Entity("disarmed", {"friendly_name": "Home", "supported_features": ARM_HOME_AND_AWAY})
 
@@ -109,6 +117,17 @@ def _show(panel_cfg, kwargs=None):
     page = AlarmPage(app, {"page_id": 17})
     page.set_panel(panel)
     return app, page, entity
+
+
+def test_no_selected_item_hides_keypad_and_disables_actions():
+    app, page, entity = _show({})
+
+    assert "vis bKey1,0" in app.cmds
+    assert "vis b1Fnc,0" in app.cmds
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_1)
+    page.callback_action(None, AlarmPage.COMPONENTS.b1_fnc)
+
+    assert entity.calls == []
 
 
 def test_editor_panel_controls_configured_item():

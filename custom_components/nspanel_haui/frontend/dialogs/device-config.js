@@ -244,12 +244,12 @@ class DeviceConfigDialog extends HauiDialog {
                 ${t("Controls the display brightness over time. These settings only dim and turn the screen off - they never switch pages. Turning the display off never requires an idle page.")}
               </p>
                 ${checkbox(this, "dc-use_auto_dimming", "use_auto_dimming", cfg, t("Auto dimming"),
-                  t("When enabled, the display dims automatically after the dimming timeout. Disable to keep the display at full brightness at all times."))}
+                  t("When enabled, the display dims automatically after the dimming timeout. Disable to keep the display at full brightness at all times. Do not drive this switch from an automation — HAUI manages it from settings, schedules, profiles, and page holds."))}
                 ${intField(this, "dc-timeout_dimming", "timeout_dimming", cfg, t("Dimming timeout (seconds)"), 10, 0, 3600,
                   t("Seconds of inactivity before the display dims (0 = disabled, max 3600)."))}
 
                 ${checkbox(this, "dc-use_auto_display_off", "use_auto_display_off", cfg, t("Auto display off"),
-                  t("When enabled, the display turns off (brightness to zero) after the display-off timeout. A touch or button press wakes it again. Disable to keep the display on."))}
+                  t("When enabled, the display turns off (brightness to zero) after the display-off timeout. A touch or button press wakes it again. Disable to keep the display on. Do not drive this switch from an automation — HAUI manages it from settings, schedules, profiles, and page holds."))}
                 ${intField(this, "dc-timeout_display_off", "timeout_display_off", cfg, t("Display-off timeout (seconds)"), 120, 0, 3600,
                   t("Seconds of inactivity before the display turns off (0 = disabled, max 3600)."))}
 

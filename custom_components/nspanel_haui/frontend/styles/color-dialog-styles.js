@@ -160,4 +160,43 @@ export const colorDialogStyles = css`
     --mdc-icon-size: 15px;
     color: var(--secondary-text-color, #888);
   }
+
+  .cp-scheme-actions,
+  .cp-scheme-name {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 8px 0;
+  }
+
+  .cp-scheme-name input {
+    min-width: 180px;
+    flex: 1;
+    padding: 8px;
+  }
+
+  .cp-import-label {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--outline-color, #888);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+
+  .cp-import-label input {
+    display: none;
+  }
+
+  .cp-scheme-error {
+    color: var(--error-color, #b00020);
+  }
+
+  .cp-reset-overrides {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 8px 0 14px;
+  }
 `;

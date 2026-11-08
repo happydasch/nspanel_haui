@@ -683,11 +683,7 @@ class HAUINavigationController(HAUIBase):
         if self._navigating or self._page_timeout is not None:
             return
         timeout = self.app.device.get("auto_navigate_home_timeout")
-        if (
-            type(timeout) not in (int, float)
-            or not math.isfinite(timeout)
-            or timeout < 0
-        ):
+        if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout < 0:
             self.log(
                 "Auto-navigate-home check skipped: invalid auto_navigate_home_timeout value",
                 level="WARNING",

@@ -28,18 +28,15 @@ Tapping an `alarm_control_panel` item on another panel (e.g. a grid tile) opens 
 - If a code is required but none has been entered, the action is silently ignored (the keypad entry is preserved).
 - The entered code is passed as the `code` parameter to the alarm service call.
 - After a successful action (or on alarm state change), the entered code is cleared.
-
+The keypad, action buttons, and alarm-state indicator use the active color scheme, so the alarm page follows the same semantic color definitions as the rest of the device. Older saved keypad/action color values remain compatibility overrides until reset from **Editor → Colors**.
 ## How to configure
 
 In the **panel editor**, set:
 
 - **Item** (entity picker) — An `alarm_control_panel` entity to control. Required.
-- **Keypad** section — visual styling for the numeric keypad:
-  - **Keypad font size** — Font ID for the keypad digits (0-7, larger = bigger text). Default: `2`.
-  - **Keypad button background** — Background color of each key. Leave empty (the default) to use the theme's `background`, so the keys sit flat on the page and follow the device's color overrides.
-  - **Keypad text color** — Color of the keypad digits. Leave empty (the default) to use the theme's `component_text`.
-- **Action buttons** section — the four bottom buttons:
-  - **Hidden arm modes** — Arm modes that are never offered, even when the entity supports them (`home`, `away`, `night`, `vacation`, `custom_bypass`). Default: none. The remaining supported modes move up into the freed slots.
-  - **Show action icons** — Puts the icon of the state an action leads to (e.g. the night icon on *Night*) before its label. An action button holds at most 10 bytes of text and an icon takes 3 bytes plus a space, so the icon is left out for labels that would not fit (e.g. French *Désarmer*). Default: off.
-  - **Arm button text color** / **Arm button background** — Colors of the arm mode buttons. Empty: the theme's button colors.
-  - **Disarm button text color** / **Disarm button background** — Colors of the disarm button. Empty: the theme's button colors.
+- **Keypad** section — visual styling follows the selected color scheme. **Keypad font size** remains configurable (font ID 0–7; default `2`).
+- **Action buttons** section — configure hidden arm modes and whether action icons are shown. Text/background colors follow the color scheme; old saved custom colors can be cleared from **Editor → Colors**.
+
+**Hidden arm modes** excludes selected modes even if the entity supports them. **Show action icons** prefixes each action with its destination-state icon when the label fits. Neither option changes the scheme colors.
+
+Alarm-state colors use the scheme's alarm state definitions for the active dark/light contrast variant.

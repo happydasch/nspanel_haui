@@ -19,7 +19,7 @@ The popup variant (`popup_media_player`) mirrors the main panel layout. It is us
 
 In the **panel editor**, set:
 
-- **Item** (entity picker) — A media player entity to control. Required.
+- **Item** (entity picker) — Optional media player entity to control. Leave it empty to configure the panel later; no entity-specific content is shown until one is selected.
 
 ### Media Favorites
 
@@ -37,6 +37,7 @@ If the media player supports grouping (e.g., Sonos speakers), you can group and 
 ## Display Behavior
 
 - Album art, title, and artist span the full panel width.
+- Without a selected player, the track details and controls remain blank/hidden. For general messages that should appear regardless of the active page, use the [`nspanel_haui.send_notification` service or notify entities](../services.md). An unavailable configured player shows **Unavailable**; playback, volume and power actions are hidden until the player is available. No center power button is shown.
 - Shuffle, repeat, previous and next buttons are shown and usable whenever the media player reports support for them.
 - The vertical volume slider is on the right side. Dragging it doesn't trigger swipe navigation; the new volume is applied when you release it.
 - When nothing is playing, title and artist are blank. The header shows the channel name if the player reports one, otherwise the player's name.

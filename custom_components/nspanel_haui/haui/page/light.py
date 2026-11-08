@@ -119,7 +119,7 @@ class LightPage(HAUIPage):
         # set title
         title = panel.get_title(self.translate("Light"))
         if item is not None:
-            title = item.get_name()
+            title = item.get_name() or title
         self._title = title
 
     def render_panel(self, panel: HAUIPanel) -> None:
@@ -479,14 +479,36 @@ class LightPage(HAUIPage):
         if self._current_light_function is None:
             self.set_component_text_color(self.COMPONENTS.btn_power, color)
             self.show_component(self.COMPONENTS.btn_power)
+            self.set_component_touch(
+                self.COMPONENTS.btn_power, self.item_is_available(self._light_item)
+            )
         else:
             self.hide_component(self.COMPONENTS.btn_power)
 
     def update_not_available(self) -> None:
         self.log("update_not_available")
-        color = self.get_color("entity_unavailable")
-        self.set_component_text_color(self.COMPONENTS.btn_power, color)
-        self.show_component(self.COMPONENTS.btn_power)
+        has_entity = self._light_item is not None and self._light_item.has_item_id()
+        if has_entity:
+            self.set_component_text(self.COMPONENTS.t_info, self.translate("Unavailable"))
+            self.set_component_text_color(
+                self.COMPONENTS.t_info, self.get_color("entity_unavailable")
+            )
+            self.show_component(self.COMPONENTS.t_info)
+        else:
+            self.set_component_text(self.COMPONENTS.t_info, "")
+            self.hide_component(self.COMPONENTS.t_info)
+        for component in (
+            self.COMPONENTS.btn_light_fnc_1,
+            self.COMPONENTS.btn_light_fnc_2,
+            self.COMPONENTS.btn_light_fnc_3,
+            self.COMPONENTS.btn_light_fnc_4,
+            self.COMPONENTS.h_brightness,
+            self.COMPONENTS.pic_color_rect,
+            self.COMPONENTS.h_color_temp,
+            self.COMPONENTS.btn_power,
+        ):
+            self.hide_component(component)
+        self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
 
     # callback
 
@@ -659,9 +681,8 @@ class LightPage(HAUIPage):
 
     def process_power(self, power: int) -> None:
         self.log(f"Processing power value {power}")
-        if self._light_item is None:
+        if not self.item_is_available(self._light_item):
             return
-        # Toggle based on current HA state.  The `power` parameter is unused
         # (the Nextion button's .val is always 0) — the actual on/off state
         # is read from the entity.  This avoids an unnecessary read request
         # round-trip that created a race with brightness/color_temp reads.

@@ -64,7 +64,7 @@ test('loadLayout and loadIconMap use an injected loader', () => {
 test('a hub render is replayed in the device order: before, page switch, page', () => {
   const render = {
     page: 7,
-    before: ['clock.background.val=4'],
+    before: ['system.vBackground.val=4'],
     commands: ['tTime.txt="12:34"', 'vis tTime,1'],
   };
   const d = buildPreviewDisplay(layout('landscape'), 7, { render });

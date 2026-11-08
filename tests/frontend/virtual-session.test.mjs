@@ -148,23 +148,7 @@ test('hardware buttons, idle timeout and live mode', async () => {
   assert.equal(session.live, true);
 });
 
-test('resetting the sandbox does not change the current preview mode', async () => {
-  const { hass, push, resolveLayout, session } = await started({ live: true });
-  push({ type: 'started', session_id: 'abc', portrait: false });
-  resolveLayout();
-  await flush();
-
-  await session.resetSandbox();
-
-  assert.equal(session.live, true);
-  assert.deepEqual(hass.calls.at(-1), {
-    type: 'nspanel_haui/virtual_panel/configure',
-    session_id: 'abc',
-    reset_sandbox: true,
-  });
-});
-
-test('brightness and sandbox messages update the session state', async () => {
+test('brightness and action messages update the session state', async () => {
   const updates = [];
   const actions = [];
   const { push, resolveLayout, session } = await started({
@@ -176,13 +160,26 @@ test('brightness and sandbox messages update the session state', async () => {
   await flush();
   push({ type: 'action', name: 'set_brightness', value: '30' });
   push({ type: 'action', name: 'play_sound', value: 'notification' });
-  push({ type: 'sandbox', entities: ['light.lamp'] });
   assert.equal(session.brightness, 30);
-  assert.deepEqual(session.sandboxEntities, ['light.lamp']);
   assert.deepEqual(actions, ['set_brightness', 'play_sound']);
-  assert.ok(updates.length >= 3);
+  assert.ok(updates.length >= 2);
 });
 
+
+test('relay-state messages update the hardware indicators', async () => {
+  const updates = [];
+  const { push, resolveLayout, session } = await started({ onUpdate: () => updates.push(1) });
+  push({ type: 'started', session_id: 'abc', portrait: false });
+  resolveLayout();
+  await flush();
+
+  const updateCount = updates.length;
+  push({ type: 'relays', left: 'on', right: 'off', entities: { left: 'off', right: null } });
+
+  assert.deepEqual(session.relays, { left: 'on', right: 'off' });
+  assert.deepEqual(session.buttonEntityStates, { left: 'off', right: null });
+  assert.equal(updates.length, updateCount + 1);
+});
 test('stop unsubscribes and ignores later output', async () => {
   const { hass, push, resolveLayout, session } = await started();
   push({ type: 'started', session_id: 'abc', portrait: false });

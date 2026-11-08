@@ -8,7 +8,6 @@ import sys
 import types
 
 import pytest
-import voluptuous as vol
 
 _storage_stub = types.ModuleType("homeassistant.helpers.storage")
 _storage_stub.Store = object
@@ -64,7 +63,6 @@ class _FakeHost:
         self.events = []
         self.renders = []
         self.reloads = []
-        self.reset_count = 0
         self.idle_count = 0
         self.live = False
         self.app = types.SimpleNamespace(device=types.SimpleNamespace(get=lambda key: None))
@@ -98,9 +96,6 @@ class _FakeHost:
 
     def set_live(self, live):
         self.live = live
-
-    def reset_sandbox(self):
-        self.reset_count += 1
 
     def show_idle(self):
         self.idle_count += 1
@@ -378,29 +373,6 @@ def test_configure_switches_the_mode(ws):
 
     _run(body)
     assert _FakeHost.instances[0].live is True
-    assert conn.results == [1, 2]
-
-
-def test_configure_accepts_reset_without_a_live_field(ws):
-    conn = _Connection()
-
-    async def body(hass):
-        await _subscribe(ws, hass, conn)
-        [sid] = _FakeHost.instances[0].viewers
-        msg = vol.Schema(ws.ws_configure.schema)(
-            {
-                "type": "nspanel_haui/virtual_panel/configure",
-                "session_id": sid,
-                "reset_sandbox": True,
-            }
-        )
-        msg["id"] = 2
-        await ws.ws_configure(hass, conn, msg)
-
-    _run(body)
-    host = _FakeHost.instances[0]
-    assert host.live is False
-    assert host.reset_count == 1
     assert conn.results == [1, 2]
 
 

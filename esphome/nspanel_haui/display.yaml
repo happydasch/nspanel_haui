@@ -4,6 +4,8 @@ display:
   - platform: nextion
     uart_id: haui_uart
     id: haui_disp
+    # The automatic display state machine never enters hardware sleep; this is
+    # only used if a custom action explicitly sleeps the panel.
     wake_up_page: 0
     # Cap queue entries to prevent heap fragmentation from accumulated
     # commands when Nextion serial buffer overflows orphan pending entries.

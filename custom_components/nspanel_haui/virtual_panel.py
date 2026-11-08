@@ -93,6 +93,23 @@ class VirtualDevice(HAUIDevice):
     the viewers as a simulated entity.
     """
 
+    def process_event(self, event: Any) -> None:
+        """Mirror ESPHome's press-edge relay action before the hub handles the event."""
+        if event.value == "1" and event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT):
+            side = "left" if event.name == ESPEvent.BUTTON_LEFT else "right"
+            self._toggle_firmware_relay(side)
+        super().process_event(event)
+
+    def _toggle_firmware_relay(self, side: str) -> None:
+        if not self.get(f"use_relay_{side}", True):
+            return
+        relay_name = RELAY_ENTITY_NAMES[side]
+        entity_id = self.find_esphome_entity_id("switch", relay_name)
+        if entity_id is None:
+            self.log(f"Virtual panel: no {relay_name} switch on the device")
+            return
+        self.app.call_service("switch.toggle", target={"entity_id": entity_id})
+
     def _apply_auto_switches(self, is_night: bool) -> None:
         pass
 
@@ -359,11 +376,83 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         self._sink = sink
         self._protected = protected_entities
         self._sandbox_listeners: dict[str, tuple[str, str | None, Callable]] = {}
+        # Hardware button lights, keyed by ("relay" | "entity", side).
+        self._light_entity_ids: dict[tuple[str, str], str] = {}
+        self._light_handles: dict[tuple[str, str], str] = {}
+        self._light_states: dict[tuple[str, str], str] = {}
         self.virtual_esphome = VirtualESPHomeProxy(self, sink, device_info)
 
     def _read_real_state(self, entity_id: str) -> tuple[str, dict[str, Any]] | None:
         state = self.hass.states.get(entity_id)
         return (state.state, dict(state.attributes)) if state else None
+
+    @staticmethod
+    def _relay_state(state: Any) -> str:
+        if state == "on" or state is True or state == 1:
+            return "on"
+        if state == "off" or state is False or state == 0:
+            return "off"
+        return "unknown"
+
+    def start_relay_state_tracking(self) -> None:
+        """Publish the hardware button lights and follow their changes for live viewers.
+
+        Each button shows its relay; a button that switches an entity instead
+        (relay mode off and ``button_<side>_entity`` set) shows that entity's
+        state in its place. Call again after a config change: it follows the
+        new entities.
+        """
+        for side, relay_name in RELAY_ENTITY_NAMES.items():
+            relay = self.device.find_esphome_entity_id("switch", relay_name)
+            self._track_light(("relay", side), relay)
+            button_entity = None
+            if not self.device.get(f"use_relay_{side}", True):
+                button_entity = self.device.get(f"button_{side}_entity", None) or None
+            self._track_light(("entity", side), button_entity)
+        self._publish_relay_states()
+
+    def _track_light(self, key: tuple[str, str], entity_id: str | None) -> None:
+        if self._light_entity_ids.get(key) != entity_id:
+            handle = self._light_handles.pop(key, None)
+            if handle is not None:
+                self.cancel_listen_state(handle)
+            self._light_entity_ids.pop(key, None)
+            if entity_id:
+                self._light_entity_ids[key] = entity_id
+                self._light_handles[key] = self.listen_state(
+                    lambda _entity, _attribute, _old, new, _kwargs, light=key: (
+                        self._on_light_changed(light, new)
+                    ),
+                    entity_id,
+                )
+        if entity_id:
+            self._light_states[key] = self._relay_state(self.get_item(entity_id).state)
+        else:
+            self._light_states.pop(key, None)
+
+    def _on_light_changed(self, key: tuple[str, str], state: Any) -> None:
+        self._light_states[key] = self._relay_state(state)
+        self._publish_relay_states()
+
+    def _publish_relay_states(self) -> None:
+        self._sink(
+            {
+                "type": "relays",
+                "left": self._light_states.get(("relay", "left"), "unknown"),
+                "right": self._light_states.get(("relay", "right"), "unknown"),
+                # None: the button switches its relay, so it has no entity light.
+                "entities": {
+                    side: self._light_states.get(("entity", side)) for side in RELAY_ENTITY_NAMES
+                },
+            }
+        )
+
+    def stop_relay_state_tracking(self) -> None:
+        """Release the state listeners when the virtual app stops."""
+        for handle in self._light_handles.values():
+            self.cancel_listen_state(handle)
+        self._light_handles.clear()
+        self._light_entity_ids.clear()
 
     def _create_device(self, config: dict[str, Any]) -> HAUIDevice:
         return VirtualDevice(self, config)
@@ -432,21 +521,6 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         self.simulate_service(domain, svc, entity_ids, service_data or {})
         return True if raise_on_error else None
 
-    def press_hardware_button(self, side: str) -> None:
-        """Do what the firmware does on a hardware button press: toggle its relay in relay mode.
-
-        On the device the firmware switches the relay itself (sensor.yaml,
-        ``on_press``), so the hub never sees it; the virtual device does it
-        through the relay's switch entity, simulated or real by mode.
-        """
-        if not self.device.get(f"use_relay_{side}", True):
-            return
-        entity_id = self.device.find_esphome_entity_id("switch", RELAY_ENTITY_NAMES[side])
-        if entity_id is None:
-            self.log(f"Virtual panel: no {RELAY_ENTITY_NAMES[side]} switch on the device")
-            return
-        self.call_service("switch/toggle", target={"entity_id": entity_id})
-
     # sandbox
 
     def simulate_service(
@@ -458,15 +532,12 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
             return
         for entity_id, old, new in changes:
             self._notify_sandbox_change(entity_id, old, new)
-        if changes:
-            self._sink({"type": "sandbox", "entities": self.sandbox.simulated_ids()})
 
     def reset_sandbox(self) -> None:
         """Drop the simulated states, so every entity shows its real state again."""
         for entity_id in self.sandbox.reset():
             # The listener sees the real state as the new value.
             self._notify_sandbox_change(entity_id, None, self.sandbox.get(entity_id))
-        self._sink({"type": "sandbox", "entities": []})
 
     def _notify_sandbox_change(self, entity_id: str, old: Any, new: Any) -> None:
         for handle, (listen_id, attribute, cb) in list(self._sandbox_listeners.items()):
@@ -544,6 +615,7 @@ def _send_compatible(sink: Sink, protocol_version: int, message: dict[str, Any])
     if protocol_version < _METADATA_PROTOCOL_VERSION and message.get("type") in {
         "entities",
         "idle",
+        "relays",
     }:
         return
     sink(message)
@@ -797,11 +869,15 @@ class VirtualPanelHost:
         await self.async_set_device_info(device_info)
 
     async def async_stop(self) -> None:
+        await self.app.async_run_on_worker(self.app.stop_relay_state_tracking)
         await self.app.async_run_on_worker(self.app.stop)
 
     async def async_reload(self, config_args: dict) -> None:
         """Apply a saved config, as a save does on the device's own app."""
         await self.app.async_run_on_worker(self.app.reload_config, config_args)
+        # Relay mode and the button entities are device settings.
+        if self.viewer_count:
+            await self.app.async_run_on_worker(self.app.start_relay_state_tracking)
 
     # viewers (live previews)
 
@@ -817,10 +893,11 @@ class VirtualPanelHost:
 
         The first viewer boots the display. A later one starts blank, so the
         current panel is drawn again (for every viewer) and the viewer learns
-        the idle, entity and sandbox state it missed.
+        the idle and entity state it missed.
         """
         with self._viewers_lock:
             self._viewers[viewer_id] = (sink, protocol_version)
+        self.app.dispatch(self.app.start_relay_state_tracking)
         if self._connected:
             self.app.dispatch(self._redraw_for, sink, protocol_version)
         else:
@@ -832,10 +909,6 @@ class VirtualPanelHost:
         with self._viewers_lock:
             return self._viewers.pop(viewer_id, None) is not None
 
-    def has_viewer(self, viewer_id: str) -> bool:
-        with self._viewers_lock:
-            return viewer_id in self._viewers
-
     def _broadcast(self, message: dict[str, Any]) -> None:
         with self._viewers_lock:
             viewers = list(self._viewers.values())
@@ -846,7 +919,6 @@ class VirtualPanelHost:
         proxy = self.app.virtual_esphome
         _send_compatible(sink, protocol_version, {"type": "idle", "active": proxy.idle})
         _send_compatible(sink, protocol_version, {"type": "entities", "map": proxy.entities})
-        sink({"type": "sandbox", "entities": self.app.sandbox.simulated_ids()})
         navigation = self.app.controller["navigation"]
         if navigation.panel is not None:
             navigation.reload_panel()
@@ -913,19 +985,12 @@ class VirtualPanelHost:
         if name not in BROWSER_EVENTS:
             raise ValueError(f"Event not allowed from the preview: {name}")
         self.app.virtual_esphome.emit(name, value)
-        if name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT) and value == "1":
-            side = "left" if name == ESPEvent.BUTTON_LEFT else "right"
-            self.app.dispatch(self.app.press_hardware_button, side)
 
     def show_idle(self) -> None:
         """Act as if the inactivity timeout opened the idle page."""
         navigation = self.app.controller.get("navigation")
         if navigation is not None:
             self.app.dispatch(navigation.open_idle_panel, True)
-
-    def reset_sandbox(self) -> None:
-        """Clear simulated states without changing preview mode."""
-        self.app.dispatch(self.app.reset_sandbox)
 
     def set_live(self, live: bool) -> None:
         """Switch between sandbox and live mode.

@@ -34,9 +34,6 @@ script:
             return;
           }
           static int last_set_brightness = -1;
-          // Page remembered before turning the display off, for the no-hub
-          // hardware sleep path below.
-          static std::string wakeup_page = "0"; // system
 
           int brightness_val = id(brightness).state;
           // timeout values
@@ -47,28 +44,37 @@ script:
           // interaction age, evaluated once for the state and the brightness
           float age = id(interaction_age_ms) / 1000.0f;
 
-          // Display state (on/dim/off). The hub only needs it to know whether
-          // the display is dark; with no hub the display stays "on" and
-          // hardware-sleeps in the transition block below.
+          // A reconnect/disconnect is not an interaction. Reuse the configured
+          // dim timeout as a brief full-brightness grace after either transition.
+          if (id(hub_state_change_ms) == 0) {
+            id(hub_state_change_ms) = millis();
+          }
+          float since_connection_change = (millis() - id(hub_state_change_ms)) / 1000.0f;
+          bool connection_grace = timeout_dim_val > 0
+              && since_connection_change <= timeout_dim_val + duration_dim_val;
+
+          // Display state (on/dim/off). While disconnected, the system page is
+          // always visible; it may dim after the connection grace but never turns off.
           int current_state = int(id(haui_display_state));
           int new_state = current_state;
 
-          // update display state
-          if (id(use_auto_display_off).state && timeout_off_val > 0 && age > (timeout_off_val + duration_dim_val)) {
-            if (!id(hub_connection)) {
+          if (!id(hub_connection)) {
+            if (id(use_auto_dimming).state && timeout_dim_val > 0 && !connection_grace) {
+              new_state = 1;
+            } else {
               new_state = 2;
-            } else if (current_state != 0) {
-              new_state = 0;
             }
+          } else if (connection_grace) {
+            new_state = 2;
+          } else if (id(use_auto_display_off).state && timeout_off_val > 0
+                     && age > (timeout_off_val + duration_dim_val)) {
+            new_state = 0;
           } else if (!id(use_auto_display_off).state && current_state == 0) {
             // Auto display-off was disabled while the display was off - wake up
             new_state = 2;
-          } else if (id(use_auto_dimming).state && timeout_dim_val > 0 && age > (timeout_dim_val + duration_dim_val)) {
-            if (!id(hub_connection)) {
-              new_state = 2;
-            } else if (current_state != 1) {
-              new_state = 1;
-            }
+          } else if (id(use_auto_dimming).state && timeout_dim_val > 0
+                     && age > (timeout_dim_val + duration_dim_val)) {
+            new_state = 1;
           } else if (!id(use_auto_dimming).state && current_state == 1) {
             // Auto-dimming was disabled while display was dimmed - go full on
             new_state = 2;
@@ -76,47 +82,10 @@ script:
             new_state = 2;
           }
 
-          // Off/wake transition.  is_sleeping() is the only truthful record
-          // of Nextion hardware sleep: haui_display_state tracks the *target*
-          // brightness state, and the display is only ever hardware-slept on
-          // the no-hub path (with a hub connected it stays awake at brightness
-          // 0 so touches keep reporting coordinates).  Keep the framework
-          // calls for exactly that case; the hub-connected branches below run
-          // on state transitions instead.
-          if (current_state == 0 && !id(haui_disp).is_sleeping()) {
-            // before off, remember current page
-            int page_val = int(id(page).state);
-            if (page_val > 0 && page_val <= 255) {
-              wakeup_page = to_string(page_val);
-            }
-            if (id(hub_connection)) {
-              // Hub is connected - the hub owns page switching.  The display
-              // brightness is already 0 (set below), so the screen stays
-              // black.  Do NOT hardware-sleep here: keeping the Nextion awake
-              // (just at brightness 0) means a touch always reports
-              // coordinates, so the hub's touch-driven wake (single/double
-              // touch) works reliably.  If the hub goes silent the heartbeat
-              // timeout disconnects it and the else-branch below
-              // hardware-sleeps the display anyway.
-            } else {
-              // No hub connected - navigate to page 0 and hardware-sleep directly
-              id(goto_page).execute("1");  // blank
-              id(display_off).execute();
-            }
-          } else if (new_state != 0 && (id(haui_disp).is_sleeping()
-                  || (id(hub_connection) && current_state == 0))) {
+          // Hardware sleep is only entered by an explicit display_off action.
+          // Wake it whenever the selected brightness state is visible again.
+          if (new_state != 0 && id(haui_disp).is_sleeping()) {
             id(display_on).execute();
-            if (!id(hub_connection)) {
-              // No hub connected - restore the wakeup page ourselves.
-              if (wakeup_page != "" && wakeup_page != "1") {
-                ESP_LOGD("haui", "Wakeup page: %s", wakeup_page.c_str());
-                id(goto_page).execute(wakeup_page);
-              } else {
-                id(goto_page).execute("0");  // system
-              }
-            }
-            // When hub is connected, the HAUI-side check_wakeup() handles
-            // the goto_page — it restores the full panel snapshot.
           }
 
           // the state changed
@@ -133,20 +102,17 @@ script:
             id(publish_event_native).execute("esphome.display_state", display_state_val);
           }
 
-          // Desired brightness. Display-off, dimming and full brightness are
-          // independent switches, all evaluated from the same interaction age
-          // every tick: display-off does not require auto-dimming.
+          // Desired brightness. While disconnected, the connection grace takes
+          // priority and display-off is never applied. On reconnect the same
+          // grace gives the hub time to restore the current panel before the
+          // firmware resumes its normal interaction-age timeouts.
           int target_brightness = int(id(brightness_full).state);
           int new_brightness = brightness_val;
           if (!id(hub_connection)) {
-            // No hub: full brightness, and pin the device to the system page.
-            if (target_brightness != brightness_val) {
-              new_brightness = target_brightness;
-            }
+            // No hub: pin the device to the system page.
             if (int(id(page).state) != 0) {
-              // Throttle: only send goto_page once per second to
-              // prevent flooding when page sensor is stale or
-              // the display state machine toggles the page back to 0.
+              // Throttle: only send goto_page once per second to prevent
+              // flooding when the page sensor is stale.
               static uint32_t last_goto_page_millis = 0;
               uint32_t now_millis = millis();
               if (now_millis - last_goto_page_millis > 1000) {
@@ -154,6 +120,26 @@ script:
                 last_goto_page_millis = now_millis;
               }
             }
+            if (id(use_auto_dimming).state && timeout_dim_val > 0 && !connection_grace) {
+              target_brightness = int(id(brightness_dim).state);
+              int curr_duration = since_connection_change - timeout_dim_val;
+              float ramp_remaining = duration_dim_val - curr_duration;
+              if (duration_dim_val > 0 && curr_duration <= duration_dim_val && ramp_remaining > 0) {
+                if (target_brightness < brightness_val) {
+                  float step_size = (brightness_val - target_brightness) / (ramp_remaining * 10) + 1;
+                  new_brightness = max(target_brightness, int(brightness_val - step_size));
+                } else if (target_brightness > brightness_val) {
+                  float step_size = (target_brightness - brightness_val) / (ramp_remaining * 10) + 1;
+                  new_brightness = min(target_brightness, int(brightness_val + step_size));
+                }
+              } else {
+                new_brightness = target_brightness;
+              }
+            } else {
+              new_brightness = target_brightness;
+            }
+          } else if (connection_grace) {
+            new_brightness = target_brightness;
           } else if (id(use_auto_display_off).state && timeout_off_val > 0 && age > timeout_off_val) {
             // display-off timeout means brightness goes off -> target 0
             target_brightness = 0;
@@ -211,8 +197,7 @@ script:
             id(haui_disp).goto_page(page.c_str());
           }
 
-  # Script to hardware-sleep the display (only reachable on the no-hub path;
-  # with a hub connected the display stays awake at brightness 0).
+  # Script to hardware-sleep the display (explicit action only; not called by update_display).
   # is_sleeping() is the atomic guard at the framework call itself: the call
   # must not repeat while a sleep session is already running.
   - id: display_off

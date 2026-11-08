@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Collection
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard
 
 if TYPE_CHECKING:
     from ...nspanel_haui import NSPanelHAUI
@@ -13,7 +13,6 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import COLORS
 from ..mapping.const import NotifEvent, PopupPanelKey
 from ..utils.text import TextBox, fit_line, text_width
 from .mixins.component_mixin import ComponentMixin
@@ -337,13 +336,12 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
     # display
 
     def get_color(self, key: str) -> int:
-        """Return the device's theme colour, or the default on an own-palette page.
-
-        Args:
-            key: A key from the ``COLORS`` dict (e.g. ``"background"``).
-        """
+        """Return the selected theme or the contrast palette paired with the page background."""
         if not self.USE_SYSTEM_COLORS:
-            return COLORS[key]
+            if getattr(self, "_use_color_scheme", False):
+                return self.app.color_theme.get(key)
+            variant = getattr(self, "_background_variant", "dark")
+            return self.app.color_theme.get_background_color(key, variant)
         return super().get_color(key)
 
     def set_title(
@@ -483,14 +481,18 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
             return value.get("item")
         return value
 
+    def entity_map_components(self) -> list[tuple[Component, HAUIItem]]:
+        """Return page-specific widget/entity links outside the panel's main item."""
+        return []
+
     def entity_map(self) -> dict[str, str]:
         """Widget name -> entity id of the entities this page shows.
 
         Used by the editor's live preview to name the entity under the mouse.
-        Covers the panel's main ``item`` (keyed ``PAGE_ENTITY_KEY``: it applies
-        anywhere on the page), function components with an item
-        (header buttons, clock entity buttons) and the grid/row tiles (keyed by
-        each tile's overlay).
+        Covers the panel's main entity (keyed ``PAGE_ENTITY_KEY``: it applies
+        anywhere on the page), page-specific widget/entity links, function
+        components with an item (header buttons, clock entity buttons) and the
+        grid/row tiles (keyed by each tile's overlay).
         """
         result: dict[str, str] = {}
 
@@ -505,9 +507,13 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
                 result[name] = entity_id
 
         if self.panel is not None:
-            main = self._extract_entity_id(self.panel.get("item", None))
+            main = self._extract_entity_id(
+                self.panel.get("item_id", None) or self.panel.get("item", None)
+            )
             if main and self.app.item_exists(main):
                 result[PAGE_ENTITY_KEY] = main
+        for component, item in self.entity_map_components():
+            add(component, item)
         for fnc in self._fnc_items.values():
             add(fnc.get("fnc_component"), fnc.get("fnc_args", {}).get("item"))
         for component, item in getattr(self, "_active_items", {}).items():
@@ -568,6 +574,13 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         items = self._build_items_from_panel(panel, "item")
         return items[0] if items else None
 
+    @staticmethod
+    def item_is_available(item: HAUIItem | None) -> TypeGuard[HAUIItem]:
+        """Whether an entity wrapper refers to an entity with a usable state."""
+        if item is None:
+            return False
+        return item.get_item_state() not in (None, "unknown", "unavailable")
+
     def execute_item(self, item: HAUIItem) -> None:
         """Executes the given item.
 
@@ -575,9 +588,8 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
             item (HAUIItem): item
         """
         item_type = item.get_item_type()
-        item_state = item.get_item_state()
         navigation = self.app.controller["navigation"]
-        available = item_state != "unavailable"
+        available = self.item_is_available(item)
 
         # item is not available
         if not available:

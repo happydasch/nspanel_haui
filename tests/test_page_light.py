@@ -159,6 +159,35 @@ def _drag_color_temp(page, value):
 # item resolution
 
 
+def test_no_selected_item_hides_entity_controls_without_a_placeholder():
+    app, page = _show(_Entity("on", _attributes()), item=None)
+
+    assert 'tInfo.txt=""' in app.cmds
+    assert "vis tInfo,0" in app.cmds
+    assert "vis bPower,0" in app.cmds
+    assert "vis hBrightness,0" in app.cmds
+    assert "vis btLightFnc1,0" in app.cmds
+    assert "vis btLightFnc2,0" in app.cmds
+    assert "vis btLightFnc3,0" in app.cmds
+    assert "vis btLightFnc4,0" in app.cmds
+    page.callback_power(None, LightPage.COMPONENTS.btn_power)
+
+    assert app.entities["light.desk"].calls == []
+
+
+def test_empty_item_config_keeps_the_default_title():
+    app, _page = _show(_Entity("on", _attributes()), item={})
+
+    assert 'tTitle.txt="Light"' in app.cmds
+
+
+def test_unavailable_light_shows_a_note_and_hides_power():
+    app, _page = _show(_Entity("unavailable", {"restored": True}))
+
+    assert 'tInfo.txt="Unavailable"' in app.cmds
+    assert "vis bPower,0" in app.cmds
+
+
 def test_editor_panel_controls_configured_item():
     entity = _Entity("on", _attributes())
     app, page = _show(entity)

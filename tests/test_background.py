@@ -18,21 +18,34 @@ from nspanel_haui.haui.page.weather import WeatherPage
 def test_light_background_is_available_on_each_picture_page() -> None:
     """Each page exposes Light and maps it to the shared TFT picture id."""
     assert BACKGROUNDS["light"] == 2
-    for page_cls, page_name in (
-        (ClockPage, "clock"),
-        (WeatherPage, "weather"),
-        (ClockTwoPage, "clocktwo"),
-    ):
+    expected_keys = ["scheme", *BACKGROUNDS]
+    for page_cls in (ClockPage, WeatherPage, ClockTwoPage):
         option = next(
             option for option in page_cls.DESCRIPTOR.options if option.key == "background"
         )
-        assert any(choice[0] == "light" for choice in option.choices)
+        assert [key for key, _label in option.choices] == expected_keys
+        assert option.choices[0] == ("scheme", "Use color scheme")
         page = SimpleNamespace(render_template=lambda value, *_args: value)
         panel = SimpleNamespace(
             get=lambda key, default=None: "light" if key == "background" else default
         )
-        assert background_commands(page, panel, page_name) == [f"{page_name}.background.val=2"]
+        assert background_commands(page, panel) == ["system.vBackground.val=2"]
         assert light_background_selected(page, panel)
+
+
+def test_scheme_background_uses_solid_picture_not_layout_helper() -> None:
+    from nspanel_haui.haui.mapping.color import ColorTheme
+
+    for scheme, picture_id in (("dark", 1), ("light", 2)):
+        page = SimpleNamespace(
+            app=SimpleNamespace(color_theme=ColorTheme({}, scheme)),
+            render_template=lambda value, *_args: value,
+        )
+        panel = SimpleNamespace(
+            get=lambda key, default=None: "scheme" if key == "background" else default
+        )
+        assert background_commands(page, panel) == [f"system.vBackground.val={picture_id}"]
+        assert picture_id != 0
 
 
 def test_light_background_uses_dark_foreground_for_contrast() -> None:

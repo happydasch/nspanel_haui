@@ -16,7 +16,8 @@ import types
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
-from nspanel_haui.ha_adapter import HAAdapter
+
+from custom_components.nspanel_haui.ha_adapter import HAAdapter
 
 
 class _Hass:
@@ -382,8 +383,8 @@ def test_update_check_http_runs_off_the_worker(env, monkeypatch):
     hub→device heartbeat and the panel disconnected and woke its display.
     """
     adapter, loop, helpers = env
-    from nspanel_haui.haui.controller import release_source
-    from nspanel_haui.haui.controller.update import HAUIUpdateController
+    from custom_components.nspanel_haui.haui.controller import release_source
+    from custom_components.nspanel_haui.haui.controller.update import HAUIUpdateController
 
     seen: dict = {}
 
@@ -524,7 +525,7 @@ def _capture_logger(monkeypatch):
     """Replace the module logger with a recorder; return the record list."""
     logs = []
     monkeypatch.setattr(
-        sys.modules["nspanel_haui.ha_adapter"],
+        sys.modules["custom_components.nspanel_haui.ha_adapter"],
         "_LOGGER",
         type(
             "_FakeLogger",

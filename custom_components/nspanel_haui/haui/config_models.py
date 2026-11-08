@@ -102,9 +102,6 @@ def _ensure_models() -> None:
         use_do_not_disturb: bool = False
         quiet_hours_start: str = ""
         quiet_hours_end: str = ""
-        use_sleep_schedule: bool = False
-        sleep_schedule_start: str = ""
-        sleep_schedule_end: str = ""
         day_night_schedule_mode: str = Field("off", pattern="^(off|fixed|sun)$")
         day_night_start: str = "21:00"
         day_night_end: str = "07:00"
@@ -114,13 +111,11 @@ def _ensure_models() -> None:
         day_brightness_full: int | None = Field(None, ge=0, le=100)
         day_brightness_dimmed: int | None = Field(None, ge=0, le=100)
         day_duration_dim: float | None = Field(None, ge=0, le=5)
-        night_use_auto_dimming: bool = True
         night_timeout_dimming: int = Field(10, ge=0, le=3600)
         night_duration_dim: float = Field(2, ge=0, le=5)
         night_use_auto_page: bool = True
         night_timeout_page: int = Field(30, ge=0, le=3600)
         night_idle_panel: str = ""
-        night_use_auto_display_off: bool = True
         night_timeout_display_off: int = Field(120, ge=0, le=3600)
         night_brightness_full: int = Field(50, ge=0, le=100)
         night_brightness_dimmed: int = Field(20, ge=0, le=100)

@@ -7,11 +7,11 @@ Dispatcher contracts:
   ``callback(event, component)``.
 """
 
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.page.clock import ClockPage
-from nspanel_haui.haui.page.select import SelectPage
-from nspanel_haui.haui.page.settings import SettingsPage
-from nspanel_haui.haui.page.timer import TimerPage
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.page.clock import ClockPage
+from custom_components.nspanel_haui.haui.page.select import SelectPage
+from custom_components.nspanel_haui.haui.page.settings import SettingsPage
+from custom_components.nspanel_haui.haui.page.timer import TimerPage
 
 
 class _TimerApp:

@@ -9,12 +9,13 @@ import json
 from pathlib import Path
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.mapping.color import ColorTheme
-from nspanel_haui.haui.mapping.const import ESPResponse, PopupPanelKey
-from nspanel_haui.haui.page.light import LightPage
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.mapping.const import ESPResponse, PopupPanelKey
+from custom_components.nspanel_haui.haui.page.light import LightPage
 
 LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
 

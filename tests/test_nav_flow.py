@@ -7,9 +7,13 @@ UUIDs, like ``reload_panels`` does in production.
 import uuid
 
 import pytest
-from nspanel_haui.haui.controller.navigation import HAUINavigationController
-from nspanel_haui.haui.mapping.panel import PANEL_MAPPING
-from nspanel_haui.haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
+
+from custom_components.nspanel_haui.haui.controller.navigation import HAUINavigationController
+from custom_components.nspanel_haui.haui.mapping.panel import PANEL_MAPPING
+from custom_components.nspanel_haui.haui.utils.page import (
+    get_page_class_for_panel,
+    get_page_id_for_panel,
+)
 
 
 class FPanel:

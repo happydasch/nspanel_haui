@@ -8,7 +8,7 @@
  * run through nextion-script.js against this model; nextion-view.js renders it.
  *
  * The layout comes from `layout_<orientation>.json`, written by
- * scripts/gen_virtual_layout/gen_virtual_layout.py from the HMI files.
+ * scripts/hmi_layout/gen_virtual_layout.py from the HMI files.
  */
 import { runScript } from './nextion-script.js';
 

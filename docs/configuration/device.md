@@ -94,7 +94,7 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 
 - `use_auto_dimming` bool
 
-  When enabled, the display dims automatically after `timeout_dimming` seconds of inactivity. This only changes the brightness — it never switches pages. The hub also uses this timeout as the full-brightness grace after disconnect and reconnect. Do not drive the ESPHome switch from an automation; use the HAUI settings and schedules. Default `True`.
+  Controls whether firmware inactivity may dim the display after `timeout_dimming` seconds. This only changes brightness — it never switches pages. HAUI applies the value when changed in device settings, but does not reapply it on startup, reconnect, or page changes; automations may control the live firmware switch. While disconnected, the device dims after the configured timeout regardless of this switch.
 
 - `timeout_dimming` int
 
@@ -102,28 +102,15 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 
 - `use_auto_display_off` bool
 
-  When enabled, the display turns off (brightness to zero) after `timeout_display_off` seconds of inactivity. This is a display-brightness behavior of the firmware; it never requires a page switch and needs no idle page configured. A touch, or a hardware-button press when `reset_interaction_on_button` is enabled, wakes the display again. Do not drive the ESPHome switch from an automation; use the HAUI Sleep schedule or Day/Night Profiles instead. Default `True`.
+  Controls whether firmware inactivity may turn the display off (brightness to zero) after `timeout_display_off` seconds. It never requires an idle page. HAUI applies the value when changed in device settings, but does not reapply it on startup, reconnect, or page changes; Home Assistant automations may control the live firmware switch. A disabled live switch prevents automatic off, including after the timeout; disconnected devices never turn off.
 
 - `timeout_display_off` int
 
   Seconds of inactivity before the display turns off (`0` = disabled, max `3600` in the editor). Default `120`.
 
-- `use_sleep_schedule` bool
-
-  Enable a daily **display-off schedule** that drives the effective `use_auto_display_off` setting by the clock: inside the window below the display may turn off after the active profile's display-off timeout; outside it the display never turns off automatically — it only dims while the idle page stays visible. When Day/Night Profiles are enabled, this window overrides the active profile's `use_auto_display_off` toggle. The hub applies the clock value itself on every start, reconnect and setting save, and at each window boundary, so no automation is needed to keep `switch.<device>_use_auto_display_off` in the right state during the day — this is the native replacement for automations that toggle it. Default `False`.
-
-- `sleep_schedule_start` string
-
-  Start of the display-off schedule window in `HH:MM` 24-hour format. Only used when `use_sleep_schedule` is enabled. Supports overnight ranges (e.g. `22:00`–`07:00`). If either start or end is empty, or a value is not in `HH:MM` format, the schedule is inactive and `use_auto_display_off` is used as-is (the malformed case is logged as a warning). Default empty.
-
-- `sleep_schedule_end` string
-
-  End of the display-off schedule window in `HH:MM` 24-hour format. Only used when `use_sleep_schedule` is enabled. Supports overnight ranges. If either start or end is empty, or a value is not in `HH:MM` format, the schedule is inactive and `use_auto_display_off` is used as-is. Default empty.
-
-
 ### Day/Night profiles
 
-The **Day/Night Profiles** section can automatically select two complete display-behavior profiles. `day_night_schedule_mode` is `off` (default), `fixed`, or `sun`. When off, existing brightness and dim-ramp values remain manual in the ESPHome Settings page; the hub does not sync them. When enabled, the hub owns the active profile's brightness and dim-ramp settings and reapplies it at startup, reconnect, settings save, and each schedule boundary.
+Day/Night profiles select timeout, brightness, ramp, and idle-page behavior by schedule. The two auto-display switches are global controls and are independent of profile selection. When scheduling is enabled, the hub applies the active profile on startup, reconnect, settings save, and schedule boundaries.
 
 - `day_night_schedule_mode` string
 
@@ -141,13 +128,13 @@ The **Day/Night Profiles** section can automatically select two complete display
 
   Integration-managed migration marker (default `False`). The hub sets it after it has adopted restored ESPHome brightness/ramp values or confirmed explicit Day values; it is not an editor setting.
 
-**Day profile:** the existing `use_auto_dimming`, `timeout_dimming`, `use_auto_page`, `timeout_page`, `idle_panel`, `use_auto_display_off`, and `timeout_display_off` settings are the Day values. `use_auto_page`, `timeout_page`, and `idle_panel` are read by the hub; the firmware no longer exposes a page-switch switch or timeout number. The additional brightness/ramp values are `day_brightness_full` (0–100%), `day_brightness_dimmed` (0–100%), and `day_duration_dim` (0–5 seconds). Dimmed brightness must not exceed full brightness. On first activation, unset Day brightness and ramp values are adopted from the device's restored ESPHome numbers and saved, so existing manual settings are preserved. If an adopted brightness would violate the dimmed/full relationship, only the unset value is adjusted (dimmed is clamped to full, or full is raised to dimmed); explicit Day values are preserved. If restored ESPHome values are not yet available, the hub waits before marking migration complete or applying Day brightness/ramp.
+**Day profile:** the existing `use_auto_dimming` and `use_auto_display_off` toggles are device-level controls and remain unchanged across profile transitions. Day timeout values are `timeout_dimming`, `timeout_page`, and `timeout_display_off`; brightness and dim-ramp values are editable below.
 
-**Night profile:** configure `night_use_auto_dimming`, `night_timeout_dimming`, `night_duration_dim`, `night_use_auto_page`, `night_timeout_page`, `night_idle_panel`, `night_use_auto_display_off`, `night_timeout_display_off`, `night_brightness_full`, and `night_brightness_dimmed`. Their defaults mirror the previous firmware behavior where applicable (auto toggles enabled, dim/page/display-off timeouts 10/30/120 seconds, brightness 50/20%, ramp 2 seconds). Brightness is constrained to 0–100%, ramp to 0–5 seconds, and timeouts to 0–3600 seconds. Page switching is hub-side; dimming/display-off settings and brightness/ramp continue to sync with the firmware. Day and Night idle destinations are independent: an empty `night_idle_panel` disables the idle page at night rather than inheriting Day's `idle_panel`. If automatic page switching is enabled for the active profile and its idle key is empty while the other profile has one configured, the hub logs a warning.
+**Night profile:** configure `night_timeout_dimming`, `night_duration_dim`, `night_use_auto_page`, `night_timeout_page`, `night_idle_panel`, `night_timeout_display_off`, `night_brightness_full`, and `night_brightness_dimmed`. Brightness is constrained to 0–100%, ramp to 0–5 seconds, and timeouts to 0–3600 seconds. Page switching is hub-side; timeout and brightness/ramp values are applied to ESPHome. Day and Night idle destinations are independent: an empty `night_idle_panel` disables the idle page at night rather than inheriting Day’s `idle_panel`. If automatic page switching is enabled for the active profile and its idle key is empty while the other profile has one configured, the hub logs a warning.
 
-The separate `use_sleep_schedule` remains authoritative for effective automatic display-off when its window is valid: it allows display-off inside its window and prevents it outside, overriding either profile's `use_auto_display_off` value. Invalid/incomplete sleep windows continue to leave the profile's auto display-off setting in charge.
 
-Profile timeouts are applied without counting as a touch. Firmware brightness and ramp number callbacks recalculate the inactivity baseline, so when a profile change writes those values the display may briefly change brightness before settling; a timeout-only change does not do this. This feature replaces time-of-day automations that write brightness and behavior timeout entities.
+
+Profile timeouts are applied without counting as a touch. Firmware re-evaluates live switch states on every timeout check, so a switch changed by an automation or Settings edit takes effect even if its timeout has already elapsed.
 
 ### Automatic page switching
 

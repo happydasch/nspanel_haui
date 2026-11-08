@@ -28,7 +28,7 @@ over and over. Each test release needs a newer version (``0.4.4-dev1``,
 ``0.4.4-dev2``, ...).
 
 Usage:
-    python scripts/dev_release.py \\
+    python -m scripts.dev_release \\
         --image esphome/.esphome/build/nspanel-test/build/firmware.ota.bin \\
         --version 0.4.4-dev1 \\
         --base-url http://homeassistant.local:8123/local/nspanel \\
@@ -46,8 +46,7 @@ import shutil
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent / "release"))
-from generate_firmware_manifest import build_manifest_from_assets  # noqa: E402
+from scripts.release.generate_firmware_manifest import build_manifest_from_assets  # noqa: E402
 
 IMAGE_NAME = "nspanel_haui_ota.bin"
 MANIFEST_NAME = "firmware-manifest.json"

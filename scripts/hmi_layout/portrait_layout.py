@@ -2,9 +2,9 @@
 
 The portrait TFT is a rotated sibling of the landscape project: same pages, same
 object names and ids, different geometry.  This module is the single source of
-truth for that geometry.  ``gen_portrait.py`` applies it to a copy of the HMI
-and refuses to run when a page's visual widgets and this spec disagree, so a
-widget added to the landscape project must be added here too.
+truth for that geometry.  ``gen_layout.py --spec portrait`` applies it to a
+copy of the HMI and refuses to run when a page's visual widgets and this spec
+disagree, so a widget added to the landscape project must be added here too.
 
 Both HMIs are addressed by the same Python ``COMPONENTS`` registries: every
 change applied to the landscape HMI (widgets, attributes, the refinements in
@@ -23,7 +23,7 @@ Layout rules (see ``docs/nextion-editor.md``):
 
 from __future__ import annotations
 
-from theme import with_theme
+from .theme import with_theme
 
 Rect = tuple[int, int, int, int]
 
@@ -441,7 +441,7 @@ PORTRAIT_ATTRS: dict[str, dict[str, dict[str, int]]] = {
 }
 
 
-# Generic spec interface read by gen_portrait.py (``--spec portrait_layout``).
+# Generic spec interface read by gen_layout.py (``--spec portrait``).
 HMI_NAME = "nspanel_haui_portrait.HMI"
 # Touch settings (Send Component ID) are copied from the landscape project: the
 # hub addresses both TFTs by the same widget names and expects the same events.

@@ -1,7 +1,7 @@
 """Tests for display text translation lookup."""
 
-from nspanel_haui.haui.utils import text
-from nspanel_haui.haui.utils.text import get_translation
+from custom_components.nspanel_haui.haui.utils import text
+from custom_components.nspanel_haui.haui.utils.text import get_translation
 
 
 def test_untranslated_text_falls_back_to_english(monkeypatch):

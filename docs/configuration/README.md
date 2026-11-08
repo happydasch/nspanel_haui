@@ -88,7 +88,7 @@ Opened from the device toolbar. Fields are grouped into collapsible sections:
 - **Display Buttons** — Home button, idle button, notifications button visibility
 - **Gestures** — Named gesture sequences
 - **Notifications** — Startup sound, notification sound, do not disturb, quiet hours
-- **Idle & Wake Behavior** — Snapshot restore behavior, auto-navigate home, hub idle-page fallback
+- **Idle & Wake Behavior** — Snapshot restore behavior and max age; auto-navigate home timeout
 - **Time & Date** — Time and date formats
 - **Panel Assignments** — Home panel, idle panel (carousel)
 
@@ -102,16 +102,17 @@ Opened from its own button (separate from Device Settings). Choose a built-in sc
 
 Opened with the **Live preview** button (TV with a play symbol) in the device toolbar, or **Live preview** in the device actions menu. It shows the selected device's panels exactly as the hub drives them: the preview runs a virtual copy of the device on the real hub code, with its saved panels and settings, the current entity states and the display model's layout (landscape or portrait).
 
-The bar above the screen switches the preview between **Simulated** (sandbox mode) and **Live**; a note above the bar says what the current mode does. The switch and that note turn orange in Live mode. The bar's **More tools** button (sliders icon) shows **Show entities**, which is hidden by default; hiding the tools again switches **Show entities** off. The **Idle timeout** button (zzz icon) sits in the bar.
+The bar above the screen switches the preview between **Simulated** (sandbox mode) and **Live**; a note above the bar says what the current mode does. The switch and that note turn orange in Live mode. The bar's **More tools** button (sliders icon) shows **Show entities**, which is hidden by default, and **Reset sandbox**; hiding the tools again switches **Show entities** off. The reset is disabled in Live mode. The **Idle timeout** button (zzz icon) sits in the bar.
 
 - **Touch** — click or tap a widget, drag sliders and swipe from the screen edges with the mouse or a finger. Touches, swipes and slider values reach the hub the way the panel's firmware reports them.
 - **Show entities** — with this switch on, hovering the mouse over a tile, button or item shows the entity it is linked to (friendly name and entity id); on single-entity panels (light, cover, climate, …) the rest of the screen shows the panel's entity. The switch is available at every preview width.
+- **Reset sandbox** — clears all simulated entity states so the preview shows the real Home Assistant states again. Available only in Simulated mode.
 - **Hardware buttons** — the two buttons in the frame below the screen (**Left button**, **Right button**) press the panel's two physical buttons. In relay mode (**Use Relay** on for that side) a press toggles that side's relay, as on the panel; otherwise it toggles the configured button entity. The light on each button shows its relay in blue; on a button that switches an entity instead, it shows that entity's state in yellow.
 - **Idle timeout** (zzz icon) — switches to the idle page as if the display's inactivity timer had run out. The button stays highlighted while the idle page is shown and returns to normal once a touch or button press leaves it.
-- **Sandbox mode** (default) — every action changes only a simulated state, shown on the preview; your lights and switches are not touched. To start over with the real states, switch to **Live** and back.
+- **Sandbox mode** (default) — every action changes only a simulated state, shown on the preview; your lights and switches are not touched. Use **Reset sandbox** in **More tools** to restore the real states without switching modes.
 - **Live mode** — actions call Home Assistant like the real panel does, and in relay mode the **Left button** / **Right button** switch the panel's real relays (its ESPHome **Relay Left** / **Relay Right** switches). Calls to the panel's settings (auto-dimming, brightness and the other device settings) always stay simulated, so a preview cannot reconfigure the panel. Switching Live mode on drops the sandbox's simulated states, so the preview shows the real ones.
 
-The preview never fires `nspanel_haui.*` events, so automations reacting to the real panel do not see it, and it never checks for or installs firmware or TFT updates. A device has one virtual copy: previews opened in several browser tabs show the same screen, and switching Sandbox or Live mode in one switches it for all of them. The preview uses the saved configuration and follows every save right away.
+The preview never fires `nspanel_haui.*` events, so automations reacting to the real panel do not see it, and it never checks for or installs firmware or TFT updates. It also mirrors the panel's notification queue read-only: queued notifications appear in the preview (a force-show one opens there too), and dismissing one in the preview leaves the panel's queue unchanged. A device has one virtual copy: previews opened in several browser tabs show the same screen, and switching Sandbox or Live mode in one switches it for all of them. The preview uses the saved configuration and follows every save right away.
 
 The panel cards in the editor are drawn by the same virtual copy: each card shows its panel the way the hub draws it on the device — entity values, translations, templates, the clock, the weather forecast — including edits that are not saved yet. A popup's card shows it opened for a sample: an entity of its domain (one that is on, if there is one), an example notification or selection. Rendering a card never changes what an open preview shows.
 

@@ -71,8 +71,10 @@ For custom firmware builds, see the
 [ESPHome development instructions](https://happydasch.github.io/nspanel_haui/esphome.html#installation).
 
 > **Upgrading from 0.3.x or earlier?** Read the [upgrade guide](https://happydasch.github.io/nspanel_haui/update.html)
-> first: services, ESPHome actions/events and two config entities were renamed. Device settings
-> migrate automatically, saved panels do not, so check each panel after upgrading.
+> first: services, ESPHome actions/events and two config entities were renamed. The panel store
+> migrates the legacy sleep/display-off setting names and color scheme, but settings stored in config
+> entries by 0.3.2 or earlier are not carried over. Saved panels do not migrate, so check each panel
+> after upgrading; see [device configuration](https://happydasch.github.io/nspanel_haui/configuration/device.html#how-settings-are-saved).
 
 ## How it works
 

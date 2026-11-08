@@ -204,7 +204,12 @@ class NSPanelHAUI(HAAdapter):
 
         new_config = HAUIConfig(self, cfg)
         device_cfg = new_config.get("device")
+        changed_auto_settings: set[str] = set()
         if self.device:
+            auto_settings = {f"use_{key}" for key in ("auto_dimming", "auto_display_off")}
+            changed_auto_settings = {
+                key for key in auto_settings if self.device.get(key) != device_cfg[key]
+            }
             for field in DEVICE_CONFIG_FIELDS:
                 self.device.config[field] = device_cfg[field]
         self.color_theme = ColorTheme(
@@ -224,9 +229,9 @@ class NSPanelHAUI(HAAdapter):
         if self.device:
             self.device._cancel_callbacks()
             self.device._register_callbacks()
-            # Push the settings to the device's ESPHome switches and numbers
-            # (relay mode, button interaction, auto-* and timeouts) right away.
-            self.device.sync_config_to_device()
+            # Only explicit auto-toggle setting changes write those switches;
+            # config reloads and reconnects leave automation-owned state alone.
+            self.device.sync_config_to_device(changed_auto_settings)
 
         # Refresh navigation controller panel references
         nav_ctrl = self.controller.get("navigation")

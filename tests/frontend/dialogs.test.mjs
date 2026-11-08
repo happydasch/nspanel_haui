@@ -357,8 +357,38 @@ test('Device Info groups the versions in one grid and update actions below them'
   assert.doesNotMatch(collectTemplateStrings(rendered).join(' '), /ESPHome/);
   assert.doesNotMatch(deviceLabels, /Redraw display/);
   assert.match(collectTemplateStrings(healthSection).join(' '), /Redraw display/);
+  assert.match(collectTemplateStrings(healthSection).join(' '), /Reset interaction timer/);
   assert.doesNotMatch(collectTemplateStrings(healthSection).join(' '), /slot="secondaryAction"/);
   assert.doesNotMatch(collectTemplateStrings(rendered).join(' '), /slot="secondaryAction"/);
+});
+
+test('Device Info resets the selected device interaction timer', async () => {
+  const calls = [];
+  const { dlg } = dialog('nspanel-dialog-device-info', {
+    deviceName: 'kitchen',
+    entryId: 'entry1',
+    hass: {
+      async fetchWithAuth(path, options) {
+        calls.push([path, options]);
+        return { ok: true, json: async () => ({ status: 'ok', device: 'kitchen' }) };
+      },
+    },
+    _actionBusy: false,
+  });
+  const originalSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = () => 0;
+  try {
+    await dlg._resetInteractionTimer();
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
+
+  assert.deepEqual(
+    calls.map(([path, options]) => [path, JSON.parse(options.body)]),
+    [['/api/nspanel_haui/reset_interaction/entry1', { device: 'kitchen' }]],
+  );
+  assert.equal(dlg._toast.message, 'Interaction timer reset');
+  assert.equal(dlg._actionBusy, false);
 });
 
 test('Device Info opens the install picker below the device action buttons', () => {

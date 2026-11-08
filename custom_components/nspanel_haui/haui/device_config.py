@@ -101,26 +101,14 @@ DEVICE_CONFIG: dict[str, Any] = {
     "day_brightness_full": None,
     "day_brightness_dimmed": None,
     "day_duration_dim": None,
-    "night_use_auto_dimming": True,
     "night_timeout_dimming": 10,
     "night_duration_dim": 2.0,
     "night_use_auto_page": True,
     "night_timeout_page": 30,
     "night_idle_panel": "",
-    "night_use_auto_display_off": True,
     "night_timeout_display_off": 120,
     "night_brightness_full": 50,
     "night_brightness_dimmed": 20,
-    # Display-off schedule: when enabled, use_auto_display_off follows the clock.
-    # Inside the window below auto-off stays allowed (display turns off after
-    # timeout_display_off); outside it the display never turns off automatically.
-    # The schedule overrides the use_auto_display_off toggle while active.  Uses
-    # the same wall-clock semantics as the quiet-hours window (overnight ranges
-    # supported).  This is the native replacement for automations that toggle
-    # switch.<device>_use_auto_display_off - the hub drives that switch by clock.
-    "use_sleep_schedule": False,
-    "sleep_schedule_start": "",
-    "sleep_schedule_end": "",
     "sound_on_startup": False,
     # Fixed weather/alarm/climate icon colors are paired for light and dark backgrounds.
     "color_scheme": "dark",

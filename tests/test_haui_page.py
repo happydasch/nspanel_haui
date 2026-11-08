@@ -7,11 +7,13 @@ and the ``_process_read_response`` dispatch and stale-response logic.
 import time
 import types
 
-from nspanel_haui.haui.abstract.component import Component
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.abstract.haui_page import HAUIPage
-from nspanel_haui.haui.abstract.mixins.touch_input_mixin import _PendingReadRequest
-from nspanel_haui.haui.mapping.const import ESPEvent, ESPRequest, ESPResponse
+from custom_components.nspanel_haui.haui.abstract.component import Component
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
+from custom_components.nspanel_haui.haui.abstract.mixins.touch_input_mixin import (
+    _PendingReadRequest,
+)
+from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPRequest, ESPResponse
 
 # --- helpers ---------------------------------------------------------------
 
@@ -420,7 +422,7 @@ def test_notification_pages_keep_the_regression_guard():
 
 def test_popup_item_keeps_the_opening_items_overrides():
     """A popup opened from an item shows that item's name (and other overrides)."""
-    from nspanel_haui.haui.abstract.haui_page import HAUIPage
+    from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
 
     class _Panel:
         def __init__(self, config):

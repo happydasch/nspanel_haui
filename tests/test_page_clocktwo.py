@@ -4,8 +4,8 @@ import datetime
 import threading
 from types import SimpleNamespace
 
-from nspanel_haui.haui.mapping.color import ColorTheme
-from nspanel_haui.haui.page.clocktwo import ClockTwoPage
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.clocktwo import ClockTwoPage
 
 
 class _Panel:

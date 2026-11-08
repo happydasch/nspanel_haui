@@ -24,11 +24,14 @@ layout file is out of date or a page's theme code is missing or stale.
 
 Usage::
 
-    python scripts/gen_virtual_layout/gen_virtual_layout.py [--check]
-    python scripts/gen_virtual_layout/gen_virtual_layout.py --theme-code [PAGE ...]
+    python -m scripts.hmi_layout.gen_virtual_layout [--check]
+    python -m scripts.hmi_layout.gen_virtual_layout --theme-code [PAGE ...]
 """
 
 from __future__ import annotations
+
+# The stub import must run before the HAUI imports below.
+# ruff: noqa: I001
 
 import argparse
 import json
@@ -38,21 +41,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from scripts import _ha_stubs  # noqa: F401
+from scripts.nextion2text import Nextion2Text
+from custom_components.nspanel_haui.haui.mapping.background import BACKGROUNDS
+from custom_components.nspanel_haui.haui.mapping.color import COLORS, THEME_GLOBALS
+from custom_components.nspanel_haui.haui.mapping.icon_mapping import ICON_MAPPING
+from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING
+
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "scripts" / "nextion2text"))
-sys.path.insert(0, str(ROOT / "scripts"))
-
-import _ha_stubs  # noqa: E402,F401  (installs the homeassistant stubs on import)
-import Nextion2Text  # noqa: E402
-
-from custom_components.nspanel_haui.haui.mapping.background import BACKGROUNDS  # noqa: E402
-from custom_components.nspanel_haui.haui.mapping.color import (  # noqa: E402
-    COLORS,
-    THEME_GLOBALS,
-)
-from custom_components.nspanel_haui.haui.mapping.icon_mapping import ICON_MAPPING  # noqa: E402
-from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING  # noqa: E402
 
 NEXTION = ROOT / "nextion"
 OUT_DIR = ROOT / "custom_components" / "nspanel_haui" / "frontend" / "virtual"
@@ -461,7 +457,7 @@ def main(argv: list[str] | None = None) -> int:
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems and args.check:
-        print("Run: python scripts/gen_virtual_layout/gen_virtual_layout.py", file=sys.stderr)
+        print("Run: python -m scripts.hmi_layout.gen_virtual_layout", file=sys.stderr)
     return 1 if problems else 0
 
 

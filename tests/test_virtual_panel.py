@@ -14,10 +14,11 @@ import threading
 import time
 import types
 
-import nspanel_haui
 import pytest
-from nspanel_haui.haui.mapping.const import ESPEvent
-from nspanel_haui.virtual_panel import InertUpdateController, VirtualPanelHost
+
+import custom_components.nspanel_haui as nspanel_haui
+from custom_components.nspanel_haui.haui.mapping.const import ESPEvent
+from custom_components.nspanel_haui.virtual_panel import InertUpdateController, VirtualPanelHost
 
 GRID_PAGE_ID = 9
 G1_POWER = 12
@@ -421,6 +422,16 @@ def test_going_live_drops_the_simulated_states(session, env):
     assert session.app.sandbox.get("light.lamp").state == "off"
 
 
+def test_reset_sandbox_drops_simulated_states(session, env):
+    _tap_power(session)
+    _wait(lambda: session.app.sandbox.is_simulated("light.lamp"))
+
+    session.reset_sandbox()
+
+    _wait(lambda: not session.app.sandbox.is_simulated("light.lamp"))
+    assert session.app.sandbox.get("light.lamp").state == "off"
+
+
 def test_no_bus_events_reach_automations(session, env):
     _tap_power(session)
     _wait(lambda: session.app.sandbox.is_simulated("light.lamp"))
@@ -780,6 +791,34 @@ def test_an_entity_popup_card_prefers_an_off_entity_to_an_unavailable_one(sessio
     result = _run(env, session.async_render({"type": "popup_light", "key": "popup_light"}))
 
     assert 'tTitle.txt="Lamp"' in result["commands"]
+
+
+def test_notification_snapshot_is_applied_to_the_virtual_panel_queue(session, env):
+    snapshot = [
+        {
+            "id": "physical-id",
+            "title": "Snapshot test",
+            "message": "Current notification",
+            "icon": "mdi:bell",
+            "notif_type": "warning",
+            "persistent": False,
+            "force_show": True,
+            "text_size": 2,
+            "timeout": None,
+        }
+    ]
+
+    _run(env, session.async_sync_notifications(snapshot))
+    controller = session.app.controller["notification"]
+    _wait(lambda: len(controller.get_notifications()) == 1)
+    mirrored = controller.get_notifications()[0]
+    assert mirrored.notif_id != snapshot[0]["id"]
+    assert mirrored.title == snapshot[0]["title"]
+    assert mirrored.message == snapshot[0]["message"]
+    _wait(lambda: any("Current notification" in command for command in _commands(session.messages)))
+
+    _run(env, session.async_sync_notifications([]))
+    _wait(lambda: not controller.get_notifications())
 
 
 def test_a_popup_card_shows_its_descriptor_sample(session, env):

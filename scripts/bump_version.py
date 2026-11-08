@@ -23,10 +23,10 @@ and shift the rest of the page block, so the script refuses it — use the Nexti
 Editor for a length-changing bump.
 
 Usage:
-    python scripts/bump_version.py 0.5.0                     # firmware-only release
-    python scripts/bump_version.py 0.5.0 --tft-update        # release with a TFT update
-    python scripts/bump_version.py 0.5.0 --check --tft-update  # dry run
-    python scripts/bump_version.py 0.5.0.dev3                # dev firmware bump
+    python -m scripts.bump_version 0.5.0                     # firmware-only release
+    python -m scripts.bump_version 0.5.0 --tft-update        # release with a TFT update
+    python -m scripts.bump_version 0.5.0 --check --tft-update  # dry run
+    python -m scripts.bump_version 0.5.0.dev3                # dev firmware bump
 
 Exit code 0 when every selected source carries the requested version (or was
 updated), 1 when a source needs a manual edit (length-changing HMI bump, missing
@@ -45,11 +45,8 @@ MANIFEST = ROOT / "custom_components" / "nspanel_haui" / "manifest.json"
 PYPROJECT = ROOT / "pyproject.toml"
 VERSION_YAML = ROOT / "esphome" / "nspanel_haui" / "version.yaml"
 
-sys.path.insert(0, str(ROOT / "scripts"))
-import bump_tft_version as hmi  # noqa: E402
-
-sys.path.insert(0, str(ROOT / "scripts" / "release"))
-from dev_version import version_kind as _shared_version_kind  # noqa: E402
+from scripts import bump_tft_version as hmi  # noqa: E402
+from scripts.release.dev_version import version_kind as _shared_version_kind  # noqa: E402
 
 
 def _version_kind(version: str) -> str | None:

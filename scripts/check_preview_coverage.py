@@ -9,7 +9,7 @@ preview can resolve every panel - user types, system panels and popup aliases -
 to a page that exists in the generated layouts of both orientations.
 
 Usage:
-    python scripts/check_preview_coverage.py
+    python -m scripts.check_preview_coverage
 
 Exit code is non-zero when any panel has no physical page, or a page is missing
 from a layout.
@@ -22,11 +22,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "custom_components"))
-sys.path.insert(0, str(ROOT / "scripts"))
-
-import _ha_stubs  # noqa: E402,F401  (installs the Home Assistant stubs)
+from scripts import _ha_stubs  # noqa: E402,F401  (installs the Home Assistant stubs)
 
 VIRTUAL_DIR = ROOT / "custom_components" / "nspanel_haui" / "frontend" / "virtual"
 LAYOUTS = {

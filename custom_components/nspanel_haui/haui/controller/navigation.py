@@ -16,7 +16,7 @@ from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import AUTO_PAGE_HOLD, ESPCommand, ESPEvent, PopupPanelKey
+from ..mapping.const import ESPCommand, ESPEvent, PopupPanelKey
 from ..mapping.panel import PAGE_MAPPING
 from ..utils.page import get_page_class_for_panel, get_page_id_for_panel
 
@@ -349,7 +349,6 @@ class HAUINavigationController(HAUIBase):
             if self.page.is_started():
                 self.page.stop()
             self.page = None
-            self.app.device.apply_auto_switches()
 
     def get_current_panel(self) -> HAUIPanel | None:
         """Returns the current panel.
@@ -416,7 +415,6 @@ class HAUINavigationController(HAUIBase):
                 self.page.start()
             self.page.set_panel(panel)
             # The page that left may have held auto switches off, this one may hold some.
-            self.app.device.apply_auto_switches()
             # The page of a freshly connected hub is now displayed; the
             # inactivity check may run again.
             self._resume_pending = False
@@ -673,7 +671,7 @@ class HAUINavigationController(HAUIBase):
             return
         if age < timeout_page:
             return
-        if self.page is not None and AUTO_PAGE_HOLD in self.page.suspended_auto_switches():
+        if self.page is not None and self.page.suspends_auto_page():
             return
         self.log("Idle page due, opening the idle panel", level="INFO")
         self.open_idle_panel(autostart=True)

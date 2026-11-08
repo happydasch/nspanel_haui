@@ -231,7 +231,7 @@ def _validate_scheme_colors(values: dict, path: str) -> dict[str, int]:
 # Preinitialize event, before the display draws them, keyed by ``COLORS`` key.
 # The hub sets them right before every page switch (``ColorTheme.display_commands``)
 # so a page shows the device's theme from its first frame. The Preinitialize code
-# is generated from the HMI by ``scripts/gen_virtual_layout/gen_virtual_layout.py
+# is generated from the HMI by ``scripts/hmi_layout/gen_virtual_layout.py
 # --theme-code``; Program.s declares each global with its ``COLORS`` default.
 THEME_GLOBALS = {
     "background": "thmBg",

@@ -1,5 +1,5 @@
-from nspanel_haui.haui.controller.notification import HAUINotificationController
-from nspanel_haui.haui.device import HAUIDevice
+from custom_components.nspanel_haui.haui.controller.notification import HAUINotificationController
+from custom_components.nspanel_haui.haui.device import HAUIDevice
 
 
 class DummyNavigation:

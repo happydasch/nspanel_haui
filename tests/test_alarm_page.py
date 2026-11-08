@@ -8,11 +8,13 @@ disabled ones flat.
 
 import contextlib
 
-from nspanel_haui.haui.abstract.mixins.function_btn_mixin import FunctionButtonMixin
-from nspanel_haui.haui.mapping.color import COLORS
-from nspanel_haui.haui.mapping.descriptor import PageOption
-from nspanel_haui.haui.page.alarm import AlarmPage
-from nspanel_haui.haui.utils.color import parse_color_value
+from custom_components.nspanel_haui.haui.abstract.mixins.function_btn_mixin import (
+    FunctionButtonMixin,
+)
+from custom_components.nspanel_haui.haui.mapping.color import COLORS
+from custom_components.nspanel_haui.haui.mapping.descriptor import PageOption
+from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
+from custom_components.nspanel_haui.haui.utils.color import parse_color_value
 
 
 class _FakePanel:

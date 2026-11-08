@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.mapping.color import ColorTheme
-from nspanel_haui.haui.page.grid import GridPage
-from nspanel_haui.haui.utils.color import parse_color_value
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.grid import GridPage
+from custom_components.nspanel_haui.haui.utils.color import parse_color_value
 
 
 class _Entity:

@@ -110,12 +110,6 @@ class VirtualDevice(HAUIDevice):
             return
         self.app.call_service("switch.toggle", target={"entity_id": entity_id})
 
-    def _apply_auto_switches(self, is_night: bool) -> None:
-        pass
-
-    def _watch_auto_switches(self) -> None:
-        pass
-
 
 class InertUpdateController(HAUIUpdateController):
     """Update controller of a virtual panel: never checks, never installs.
@@ -804,6 +798,7 @@ class VirtualPanelHost:
         live: bool = False,
     ) -> None:
         self._viewers: dict[str, tuple[Sink, int]] = {}
+        self._preview_notification_ids: dict[str, str] = {}
         self._viewers_lock = threading.Lock()
         self._connected = False
         info = {
@@ -976,6 +971,46 @@ class VirtualPanelHost:
             await self.app.async_run_on_worker(render.stop)
         return {"page": render.page_id, "before": render.before, "commands": list(render.commands)}
 
+    async def async_sync_notifications(self, notifications: list[dict[str, Any]]) -> None:
+        """Apply the browser's read-only notification snapshot to its virtual queue."""
+        await self.app.async_run_on_worker(self._sync_notifications, notifications)
+
+    def _sync_notifications(self, notifications: list[dict[str, Any]]) -> None:
+        """Reconcile a browser-read snapshot on the virtual app's worker."""
+        controller = self.app.controller["notification"]
+        snapshot = {notification["id"]: notification for notification in notifications}
+        queued = {
+            notification.notif_id: notification for notification in controller.get_notifications()
+        }
+
+        for source_id, local_id in list(self._preview_notification_ids.items()):
+            if source_id in snapshot:
+                continue
+            notification = queued.get(local_id)
+            navigation = self.app.controller.get("navigation")
+            current_panel = navigation.get_current_panel() if navigation is not None else None
+            was_open = current_panel is not None and current_panel.get("notif_id") == local_id
+            if notification is not None:
+                controller.remove_notification(notification)
+            del self._preview_notification_ids[source_id]
+            if was_open:
+                navigation.close_panel()
+
+        for source_id, notification in snapshot.items():
+            if source_id in self._preview_notification_ids:
+                continue
+            local = controller.add_notification(
+                title=notification["title"],
+                message=notification["message"],
+                icon=notification["icon"],
+                persistent=notification["persistent"],
+                notif_type=notification["notif_type"],
+                force_show=notification["force_show"],
+                text_size=notification["text_size"],
+                timeout=notification["timeout"],
+            )
+            self._preview_notification_ids[source_id] = local.notif_id
+
     def send_event(self, name: str, value: str) -> None:
         """Inject a device event from the browser.
 
@@ -1001,3 +1036,7 @@ class VirtualPanelHost:
         self.app.live = live
         if live:
             self.app.dispatch(self.app.reset_sandbox)
+
+    def reset_sandbox(self) -> None:
+        """Clear the device's simulated states without changing its run mode."""
+        self.app.dispatch(self.app.reset_sandbox)

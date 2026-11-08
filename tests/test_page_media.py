@@ -6,13 +6,14 @@ on the Nextion commands sent and the media_player services called.
 """
 
 import pytest
-from nspanel_haui.haui.abstract import haui_page as haui_page_module
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.abstract.haui_item import HAUIItem
-from nspanel_haui.haui.features import MediaPlayerFeatures as F
-from nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse
-from nspanel_haui.haui.page import media as media_module
-from nspanel_haui.haui.page.media import MediaPage
+
+from custom_components.nspanel_haui.haui.abstract import haui_page as haui_page_module
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
+from custom_components.nspanel_haui.haui.features import MediaPlayerFeatures as F
+from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse
+from custom_components.nspanel_haui.haui.page import media as media_module
+from custom_components.nspanel_haui.haui.page.media import MediaPage
 
 _COLORS = {"component_active": 1, "text_disabled": 2}
 _PAGE_ID = 14
@@ -63,6 +64,9 @@ class _MediaItem:
         self.calls = []
 
     supports = HAUIItem.supports
+
+    def is_internal(self):
+        return False
 
     def has_item_id(self):
         return True

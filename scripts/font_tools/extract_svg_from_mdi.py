@@ -2,11 +2,11 @@ import json
 import os
 import re
 
-with open("scripts/gen_fonts/icons_mapping.json") as f:
+with open("scripts/font_tools/icons_mapping.json") as f:
     icon_mapping = json.load(f)
 icon_data = []
 
-path = "scripts/gen_fonts/MaterialDesign-SVG/svg"
+path = "scripts/font_tools/MaterialDesign-SVG/svg"
 
 for icon in icon_mapping.keys():
     filename = os.path.join(path, f"{icon}.svg")
@@ -19,5 +19,5 @@ for icon in icon_mapping.keys():
         data_value = re.search(r'path\sd="([^"]*)"', icon_cnt).group(1)
         icon_data.append({"name": icon, "hex": hex(value)[2:].upper(), "data": data_value})
 
-with open("scripts/gen_fonts/icons_data.json", "w") as f:
+with open("scripts/font_tools/icons_data.json", "w") as f:
     json.dump(icon_data, f)

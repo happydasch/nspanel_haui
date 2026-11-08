@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from nspanel_haui.haui.abstract.haui_page import HAUIPage
-from nspanel_haui.haui.mapping.color import COLORS, THEME_GLOBALS, ColorTheme
+from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
+from custom_components.nspanel_haui.haui.mapping.color import COLORS, THEME_GLOBALS, ColorTheme
 
 OVERRIDE = 1234
 
@@ -152,6 +152,9 @@ class _Item:
     def __init__(self, item: str, **cfg: Any) -> None:
         self._cfg = {"item": item, **cfg}
         self.executed = False
+
+    def is_internal(self) -> bool:
+        return False
 
     def get_item_type(self) -> str:
         return self._cfg["item"].split(".")[0] if "." in self._cfg["item"] else ""

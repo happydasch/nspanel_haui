@@ -356,6 +356,27 @@ export async function refreshDeviceDisplay(host, deviceName) {
       body: JSON.stringify({ device: deviceName }),
     }, t("Failed to refresh display"));
 }
+
+/**
+ * Reset the firmware's interaction timer for one device.
+ *
+ * POST /api/nspanel_haui/reset_interaction/{entryId}
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} deviceName - device name
+ */
+export async function resetDeviceInteractionTimer(host, deviceName) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  return request(host, `/api/nspanel_haui/reset_interaction/${host.entryId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device: deviceName }),
+    }, t("Failed to reset interaction timer"));
+}
+
 /**
  * Resolve the prebuilt firmware (.bin) download link of the latest stable release.
  *

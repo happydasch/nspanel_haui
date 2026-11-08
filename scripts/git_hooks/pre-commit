@@ -12,10 +12,11 @@ else
   echo 'pre-commit: Python 3 is required (activate .venv or install python3).' >&2
   exit 1
 fi
-"$python" scripts/gen_virtual_layout/gen_virtual_layout.py
+"$python" -m scripts.hmi_layout.gen_virtual_layout
 git add -A -- \
   custom_components/nspanel_haui/frontend/virtual/layout_landscape.json \
   custom_components/nspanel_haui/frontend/virtual/layout_portrait.json \
   custom_components/nspanel_haui/frontend/virtual/icon_map.json \
   custom_components/nspanel_haui/frontend/virtual/pictures
-"$python" scripts/gen_portrait/gen_portrait.py --check
+"$python" -m scripts.hmi_layout.gen_layout --check
+"$python" -m scripts.hmi_layout.gen_layout --spec portrait --check

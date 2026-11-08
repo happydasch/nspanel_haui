@@ -6,9 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "verify_nextion"))
-
-from verify_nextion import (  # noqa: E402
+from scripts.verify_nextion.verify_nextion import (
     check_portrait,
     check_sendme_parity,
     check_t_time_sendme,
@@ -302,7 +300,8 @@ def test_nextion2text_creates_missing_output_tree(tmp_path):
     subprocess.run(
         [
             sys.executable,
-            str(root / "scripts" / "nextion2text" / "Nextion2Text.py"),
+            "-m",
+            "scripts.nextion2text.Nextion2Text",
             "-i",
             str(root / "nextion" / "nspanel_haui.HMI"),
             "-o",
@@ -312,6 +311,7 @@ def test_nextion2text_creates_missing_output_tree(tmp_path):
             "-p",
             "visual",
         ],
+        cwd=root,
         check=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

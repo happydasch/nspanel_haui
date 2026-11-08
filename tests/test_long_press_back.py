@@ -11,12 +11,13 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import nspanel_haui.haui.abstract.mixins.touch_input_mixin as touch_module
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.controller.navigation import HAUINavigationController
-from nspanel_haui.haui.mapping.const import PANEL_CONFIG, ESPEvent
 from test_gesture_suppression import _bare_page
 from test_navigation import FakeApp, FakeDevice, OpenPanel
+
+import custom_components.nspanel_haui.haui.abstract.mixins.touch_input_mixin as touch_module
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.controller.navigation import HAUINavigationController
+from custom_components.nspanel_haui.haui.mapping.const import PANEL_CONFIG, ESPEvent
 
 
 class _Panel:

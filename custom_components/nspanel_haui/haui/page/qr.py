@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Collection
-
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import AUTO_PAGE_HOLD
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_KEY, ICO_WIFI, ICO_ZOOM
 
@@ -133,9 +130,9 @@ class QRPage(HAUIPage):
             self._render_text(panel)
         self._apply_zoom_state()
 
-    def suspended_auto_switches(self) -> Collection[str]:
-        # The big code stays lit and on screen while it is being scanned.
-        return ("auto_dimming", AUTO_PAGE_HOLD) if self._is_big else ()
+    def suspends_auto_page(self) -> bool:
+        """Keep the enlarged code on screen while it is being scanned."""
+        return self._is_big
 
     def render_panel(self, panel: HAUIPanel) -> None:
         essid = panel.get("essid", "")
@@ -277,4 +274,3 @@ class QRPage(HAUIPage):
         self._is_big = big
         with self.rec_cmd:
             self._apply_zoom_state()
-        self.app.device.apply_auto_switches()

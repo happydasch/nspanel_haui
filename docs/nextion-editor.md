@@ -51,7 +51,7 @@ by hand. Choose the project variant matching the NSPanel's display
 **Verification command for a landscape HMI:**
 
 ```bash
-python scripts/nextion2text/Nextion2Text.py -i nextion/nspanel_haui.HMI \
+python -m scripts.nextion2text.Nextion2Text -i nextion/nspanel_haui.HMI \
   -o build/nextion-out/landscape -d -s -p visual
 ```
 
@@ -94,7 +94,7 @@ Example: if the HMI page `clock` has widget `tTime` with id `3`, Python has
   the page's widgets:
 
   ```bash
-  python scripts/gen_virtual_layout/gen_virtual_layout.py --theme-code grid
+  python -m scripts.hmi_layout.gen_virtual_layout --theme-code grid
   ```
 
   Paste it right after `sendme` in both HMIs, and paste it again whenever a
@@ -133,8 +133,8 @@ No Python changes are needed unless you also change the object name or id.
    - If the hub sets colors from the HA palette, those come from
      `haui/mapping/color.py` `COLORS`, not from the HMI.
    - Geometry-only changes (position, size, slider cursor) are better kept in
-     `scripts/gen_portrait/landscape_layout.py` and applied with
-     `gen_portrait.py --spec landscape_layout` (project closed first, see
+     `scripts/hmi_layout/landscape_layout.py` and applied with
+     `gen_layout.py` (the default landscape spec; project closed first, see
      [§7](#7-creating-the-us-portrait-tft)): the spec documents the layout
      rules and the same change then goes into `portrait_layout.py`.
 4. Run the steps in [§8](#8-after-any-hmi-change-scripts-to-run): layout
@@ -165,7 +165,7 @@ No Python changes are needed unless you also change the object name or id.
    or `self.on_release(self.COMPONENTS.btn_x, self.callback_x)` with a handler
    `def callback_x(self, event, component): …`.
 5. If the widget shows user-facing text or a title attribute, run the
-   translation extraction (`python scripts/translations/extract_translations.py`)
+   translation extraction (`python -m scripts.translations.extract_translations`)
    after adding the `t()`/`self.translate()` call.
 6. Re-dump + run `pytest tests/`, `ruff`, `mypy` (see [§8](#8-after-any-hmi-change-scripts-to-run)).
 
@@ -189,7 +189,7 @@ No Python changes are needed unless you also change the object name or id.
 
 - **Icons are font glyphs.** The MDI icon set is baked into custom Nextion
   fonts in `nextion/fonts/` (`Roboto-Regular <size> (UTF_8).zi`, `Roboto-Light <size> (UTF_8).zi`), generated
-  by the font scripts in `scripts/gen_fonts/` (see `scripts/gen_fonts/README.md`).
+  by the font scripts in `scripts/font_tools/` (see `scripts/font_tools/README.md`).
   The hub maps an icon
   name to its code point via `haui/mapping/icons.py` and writes the single
   glyph character into a text widget. You cannot add a new icon to the display
@@ -209,30 +209,30 @@ No Python changes are needed unless you also change the object name or id.
   The background tiles are generated: put the source picture in
   `nextion/src_images/bkg/`, named after its key in
   `haui/mapping/background.py` (`system` is the `modern` picture), and run
-  `python scripts/gen_backgrounds/gen_backgrounds.py`. It writes the dimmed
+  `python -m scripts.backgrounds.gen_backgrounds`. It writes the dimmed
   480 × 320 and 320 × 480 tiles to `nextion/images/bkg/landscape/` and
   `nextion/images/bkg/portrait/`. The two `grid_*.png` files are design-aid
   page backgrounds for the editor (margins, column and row guides, placeholder
   sizes, font samples, theme colors as RGB565); regenerate them with
-  `python scripts/gen_grid/gen_grid.py`. The system page's spinner is two
+  `python -m scripts.design_grid.gen_grid`. The system page's spinner is two
   sprite sheets per orientation (`spinner_<orientation>_1.png` / `_2.png`,
   pictures 11 and 12) whose frames are drawn on the `system` tile cropped at
-  the spinner's position; `python scripts/gen_spinner/gen_spinner.py`
+  the spinner's position; `python -m scripts.spinner.gen_spinner`
   re-renders them, so run it after changing that tile or moving `hSpinner`.
   The `tmSpinner` timer's `xpic` calls name both sheets by picture id, and the
   editor does not renumber event code: when you insert a picture before them
   (a new background), update those ids in both projects.
   `gen_virtual_layout.py --check` fails while they point at other pictures.
 - **RGB565 images** for ad-hoc assets can be converted with
-  `scripts/gen_rgb565_image` / `scripts/rgb_conv`.
+  `scripts/rgb565_image` / `scripts/rgb_conversion`.
 
 ## 7. Creating the US portrait TFT
 
 The **US model mounted portrait** needs a **rotated** layout: the same pages,
 object names and ids as the landscape project, different geometry.
-`scripts/gen_portrait/` keeps that geometry reproducible —
+`scripts/hmi_layout/` keeps that geometry reproducible —
 `portrait_layout.py` holds the 320 × 480 position of every widget and
-`gen_portrait.py` writes it into the portrait HMI. The script also re-computes
+`gen_layout.py --spec portrait` writes it into the portrait HMI. The script also re-computes
 the per-page content stamp the editor validates (a hand-edited page block
 otherwise fails with "Version mismatch" / "Loading Page Failed"). The editor is
 still needed to set the display direction, import pictures and compile; ship
@@ -247,11 +247,11 @@ the result alongside the landscape TFT on every release.
    is for `nspanel_haui.tft`).
 3. In the editor's device settings, switch the display orientation of this
    copy to portrait (320 × 480), then apply the geometry from the repo —
-   `gen_portrait.py` patches widget geometry only, not the orientation:
+   `gen_layout.py` patches widget geometry only, not the orientation:
 
    ```bash
-   python scripts/gen_portrait/gen_portrait.py --check   # spec vs. HMI widgets
-   python scripts/gen_portrait/gen_portrait.py           # patch the portrait HMI in place
+   python -m scripts.hmi_layout.gen_layout --spec portrait --check  # spec vs. HMI widgets
+   python -m scripts.hmi_layout.gen_layout --spec portrait          # patch the portrait HMI
    ```
 
    The check fails when a widget exists on only one side, so a widget added
@@ -301,11 +301,12 @@ the result alongside the landscape TFT on every release.
 - **There is one definition of components.** The hub's Python `COMPONENTS`
   registries address both TFTs with the same names and ids, so *any* change
   applied to the landscape HMI — widgets, ids, attributes, event code, and
-  geometry or slider tweaks in `scripts/gen_portrait/landscape_layout.py` —
+  geometry or slider tweaks in `scripts/hmi_layout/landscape_layout.py` —
   must be applied to the portrait HMI as well (and vice versa), with its
   geometry expressed in `portrait_layout.py`. Be extra careful here: a widget
-  missing on one side only fails on the device. `gen_portrait.py --check` for
-  both specs and `verify_nextion/verify_nextion.py --require-portrait` are the guard rails.
+  missing on one side only fails on the device. Run `gen_layout.py --check`
+  for landscape and `gen_layout.py --spec portrait --check` for portrait;
+  `verify_nextion/verify_nextion.py --require-portrait` checks sibling parity.
 - Both `.tft` files must be attached to every GitHub release. The hub's update
   controller downloads `nspanel_haui.tft` for `display_model: eu` (the default
   landscape layout) and `nspanel_haui_portrait.tft` for `display_model: us`
@@ -343,8 +344,8 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
    HMI:
 
    ```bash
-   python scripts/gen_portrait/gen_portrait.py --spec landscape_layout   # nspanel_haui.HMI
-   python scripts/gen_portrait/gen_portrait.py                           # nspanel_haui_portrait.HMI
+   python -m scripts.hmi_layout.gen_layout                           # nspanel_haui.HMI (landscape default)
+   python -m scripts.hmi_layout.gen_layout --spec portrait           # nspanel_haui_portrait.HMI
    ```
 
    A coverage error names a widget that exists in only one HMI, or a portrait
@@ -354,7 +355,7 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
    change to such a widget must also go into `landscape_layout.py` /
    `portrait_layout.py` (see [§7.2](#72-keeping-both-variants-in-sync)).
 3. **Set the TFT version (releases with new TFTs only).**
-   `python scripts/bump_version.py X.Y.Z --tft-update` writes
+   `python -m scripts.bump_version X.Y.Z --tft-update` writes
    `system.tftVersion` into both HMIs. It handles same-length versions only;
    see [Release process](release.md#2-version-bump).
 4. **Regenerate the editor pictures whose source changed**, then import them
@@ -364,9 +365,9 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
 
    | Script | Writes | Run it after |
    |--------|--------|--------------|
-   | `python scripts/gen_grid/gen_grid.py` | `nextion/images/grid_landscape.png`, `grid_portrait.png` (picture 0, the editor-only `pGrid` design grid) | a layout rule (margins, header, bars) or a theme colour changed |
-   | `python scripts/gen_backgrounds/gen_backgrounds.py` | `nextion/images/bkg/landscape/`, `bkg/portrait/` | a source picture in `nextion/src_images/bkg/` changed |
-   | `python scripts/gen_spinner/gen_spinner.py` | `nextion/images/spinner_<orientation>_1.png`, `_2.png` (pictures 11, 12) | the `system` tile changed or `hSpinner` moved |
+   | `python -m scripts.design_grid.gen_grid` | `nextion/images/grid_landscape.png`, `grid_portrait.png` (picture 0, the editor-only `pGrid` design grid) | a layout rule (margins, header, bars) or a theme colour changed |
+   | `python -m scripts.backgrounds.gen_backgrounds` | `nextion/images/bkg/landscape/`, `bkg/portrait/` | a source picture in `nextion/src_images/bkg/` changed |
+   | `python -m scripts.spinner.gen_spinner` | `nextion/images/spinner_<orientation>_1.png`, `_2.png` (pictures 11, 12) | the `system` tile changed or `hSpinner` moved |
 
 5. **Re-open, check and compile both projects.** Open each project from the
    recent list; it must open without "Version mismatch". Look at every page you
@@ -378,7 +379,7 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
 6. **Regenerate the hub and preview assets** from both HMIs:
 
    ```bash
-   python scripts/gen_virtual_layout/gen_virtual_layout.py
+   python -m scripts.hmi_layout.gen_virtual_layout
    ```
 
    It writes the preview layouts (`frontend/virtual/layout_landscape.json`,
@@ -391,31 +392,31 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
    each page with its `COMPONENTS` registry in `haui/page/*.py`:
 
    ```bash
-   python scripts/nextion2text/Nextion2Text.py -i nextion/nspanel_haui.HMI -o build/nextion-out/landscape -d -s -p visual
-   python scripts/nextion2text/Nextion2Text.py -i nextion/nspanel_haui_portrait.HMI -o build/nextion-out/portrait -d -s -p visual
+   python -m scripts.nextion2text.Nextion2Text -i nextion/nspanel_haui.HMI -o build/nextion-out/landscape -d -s -p visual
+   python -m scripts.nextion2text.Nextion2Text -i nextion/nspanel_haui_portrait.HMI -o build/nextion-out/portrait -d -s -p visual
    ```
 
    If the hub now sends different commands (new ids, other widgets), refresh
    the golden page commands with
    `PAGE_COMMANDS_REGEN=1 pytest tests/test_page_commands_golden.py` and
    review the diff. If you added user-facing strings, run
-   `python scripts/translations/extract_translations.py`.
+   `python -m scripts.translations.extract_translations`.
 8. **Run the gates.** All must pass before you commit:
 
    ```bash
-   python scripts/gen_portrait/gen_portrait.py --spec landscape_layout --check
-   python scripts/gen_portrait/gen_portrait.py --check
-   python scripts/verify_nextion/verify_nextion.py --require-portrait
-   python scripts/gen_virtual_layout/gen_virtual_layout.py --check
-   python scripts/check_preview_coverage.py
+   python -m scripts.hmi_layout.gen_layout --check
+   python -m scripts.hmi_layout.gen_layout --spec portrait --check
+   python -m scripts.verify_nextion.verify_nextion --require-portrait
+   python -m scripts.hmi_layout.gen_virtual_layout --check
+   python -m scripts.check_preview_coverage
    pytest tests/
    node --test 'tests/frontend/*.test.mjs'
    ruff check custom_components/ scripts/
    mypy
    ```
 
-   - `gen_portrait.py --check` compares widget coverage and every value in the
-     spec with the HMI.
+   - `gen_layout.py --check` compares landscape widget coverage and every
+     value in the spec with the HMI; `--spec portrait` selects the portrait spec.
    - `verify_nextion.py` checks that `clock.tTime` sends its component id and
      that every widget's *Send Component ID* is identical in both HMIs. It also
      checks that `system.tftVersion` in *both* HMIs matches the configured TFT
@@ -433,6 +434,6 @@ HMIs. A step that has nothing to do reports so (`wrote 0 widgets`,
 The docs' screen overview (`docs/assets/screens/`, `docs/screens.html`) is
 regenerated by the `Screens` workflow after each development firmware build,
 so don't commit it by hand. To see every card locally, run
-`python scripts/preview_gallery/gen_preview_gallery.py --serve`. A release
+`python -m scripts.preview_gallery.gen_preview_gallery --serve`. A release
 ships both TFTs and both HMI sources together; the version places and gates are
 in [Release process & strategy](release.md).

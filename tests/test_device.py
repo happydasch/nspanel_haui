@@ -3,9 +3,9 @@ from datetime import datetime, timedelta
 from datetime import time as dt_time
 from unittest.mock import Mock
 
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.device import HAUIDevice, _time_in_window
-from nspanel_haui.haui.mapping.const import ESPAction, ESPEvent
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.device import HAUIDevice, _time_in_window
+from custom_components.nspanel_haui.haui.mapping.const import ESPAction, ESPEvent
 
 
 class DummyPanel:
@@ -368,25 +368,11 @@ def test_relay_event_does_not_touch_display() -> None:
     assert app.service_calls == []
 
 
-# --- sleep schedule ----------------------------------------------------------
+# --- fixed profile boundaries ------------------------------------------------
 
 
 def _schedule_device(app, **cfg) -> HAUIDevice:
     return HAUIDevice(app, {"name": "nspanel_haui", **cfg})
-
-
-def _window_around_now(*, offset_before: int, offset_after: int) -> dict[str, str]:
-    """A schedule window that always contains the current time (midnight-safe)."""
-    now = datetime.now()
-    return {
-        "sleep_schedule_start": (now - timedelta(seconds=offset_before)).strftime("%H:%M"),
-        "sleep_schedule_end": (now + timedelta(seconds=offset_after)).strftime("%H:%M"),
-    }
-
-
-def _one_hour_from_now() -> str:
-    """A wall-clock time one hour ahead (start == end -> never-active window)."""
-    return (datetime.now() + timedelta(hours=1)).strftime("%H:%M")
 
 
 def test_time_in_window_day_and_overnight() -> None:
@@ -404,103 +390,48 @@ def test_time_in_window_day_and_overnight() -> None:
     assert _time_in_window(dt_time(12, 0), dt_time(22, 0), dt_time(6, 0)) is False
 
 
-def test_sleep_schedule_inactive_when_disabled() -> None:
+def test_next_profile_boundary_picks_nearest_flip() -> None:
     app = DummyApp()
     device = _schedule_device(
         app,
-        use_sleep_schedule=False,
-        sleep_schedule_start="22:00",
-        sleep_schedule_end="06:00",
-    )
-
-    assert device._display_off_schedule_active(datetime(2026, 10, 25, 2, 0, 0)) is None
-    assert device._next_schedule_boundary(datetime(2026, 10, 25, 2, 0, 0)) is None
-
-
-def test_sleep_schedule_inactive_when_window_incomplete_or_malformed() -> None:
-    app = DummyApp()
-    incomplete = _schedule_device(
-        app,
-        use_sleep_schedule=True,
-        sleep_schedule_start="22:00",
-        sleep_schedule_end="",
-    )
-    malformed = _schedule_device(
-        app,
-        use_sleep_schedule=True,
-        sleep_schedule_start="banana",
-        sleep_schedule_end="06:00",
-    )
-
-    assert incomplete._display_off_schedule_active(datetime(2026, 10, 25, 2, 0, 0)) is None
-    assert incomplete._next_schedule_boundary(datetime(2026, 10, 25, 2, 0, 0)) is None
-    assert malformed._display_off_schedule_active(datetime(2026, 10, 25, 2, 0, 0)) is None
-    assert malformed._next_schedule_boundary(datetime(2026, 10, 25, 2, 0, 0)) is None
-
-
-def test_display_off_schedule_active_inside_and_outside_window() -> None:
-    app = DummyApp()
-    device = _schedule_device(
-        app,
-        use_sleep_schedule=True,
-        sleep_schedule_start="10:00",
-        sleep_schedule_end="14:00",
-    )
-    overnight = _schedule_device(
-        app,
-        use_sleep_schedule=True,
-        sleep_schedule_start="22:00",
-        sleep_schedule_end="06:00",
-    )
-
-    assert device._display_off_schedule_active(datetime(2026, 10, 25, 12, 0, 0)) is True
-    assert device._display_off_schedule_active(datetime(2026, 10, 25, 15, 0, 0)) is False
-    assert overnight._display_off_schedule_active(datetime(2026, 10, 25, 2, 0, 0)) is True
-    assert overnight._display_off_schedule_active(datetime(2026, 10, 25, 12, 0, 0)) is False
-
-
-def test_next_schedule_boundary_picks_nearest_flip() -> None:
-    app = DummyApp()
-    device = _schedule_device(
-        app,
-        use_sleep_schedule=True,
-        sleep_schedule_start="10:00",
-        sleep_schedule_end="14:00",
+        day_night_schedule_mode="fixed",
+        day_night_start="10:00",
+        day_night_end="14:00",
     )
 
     # inside the window -> window end today
-    assert device._next_schedule_boundary(datetime(2026, 10, 25, 12, 0, 0)) == datetime(
+    assert device._next_profile_boundary(datetime(2026, 10, 25, 12, 0, 0)) == datetime(
         2026, 10, 25, 14, 0, 0
     )
     # before the window -> window start today
-    assert device._next_schedule_boundary(datetime(2026, 10, 25, 9, 0, 0)) == datetime(
+    assert device._next_profile_boundary(datetime(2026, 10, 25, 9, 0, 0)) == datetime(
         2026, 10, 25, 10, 0, 0
     )
     # after the window -> window start tomorrow
-    assert device._next_schedule_boundary(datetime(2026, 10, 25, 15, 0, 0)) == datetime(
+    assert device._next_profile_boundary(datetime(2026, 10, 25, 15, 0, 0)) == datetime(
         2026, 10, 26, 10, 0, 0
     )
 
 
-def test_next_schedule_boundary_overnight() -> None:
+def test_next_profile_boundary_overnight() -> None:
     app = DummyApp()
     device = _schedule_device(
         app,
-        use_sleep_schedule=True,
-        sleep_schedule_start="22:00",
-        sleep_schedule_end="06:00",
+        day_night_schedule_mode="fixed",
+        day_night_start="22:00",
+        day_night_end="06:00",
     )
 
     # inside the overnight window -> window end today
-    assert device._next_schedule_boundary(datetime(2026, 10, 25, 2, 0, 0)) == datetime(
+    assert device._next_profile_boundary(datetime(2026, 10, 25, 2, 0, 0)) == datetime(
         2026, 10, 25, 6, 0, 0
     )
     # outside, before the window -> window start today
-    assert device._next_schedule_boundary(datetime(2026, 10, 25, 12, 0, 0)) == datetime(
+    assert device._next_profile_boundary(datetime(2026, 10, 25, 12, 0, 0)) == datetime(
         2026, 10, 25, 22, 0, 0
     )
     # late in the window -> window end tomorrow
-    assert device._next_schedule_boundary(datetime(2026, 10, 25, 23, 30, 0)) == datetime(
+    assert device._next_profile_boundary(datetime(2026, 10, 25, 23, 30, 0)) == datetime(
         2026, 10, 26, 6, 0, 0
     )
 
@@ -554,6 +485,17 @@ def test_button_press_only_toggles_when_interaction_disabled():
     # ...but the relay/entity still toggles on the press.
     assert calls["toggle_left"] == 1
     assert calls["toggle_right"] == 1
+
+
+def test_reset_interaction_timer_publishes_a_firmware_reset():
+    app = DummyApp()
+    device = HAUIDevice(app, {"name": "nspanel_haui"})
+
+    device.reset_interaction_timer()
+
+    assert app.controller["esphome"].esphome.publish_calls == [
+        (ESPAction.RESET_LAST_INTERACTION, "0")
+    ]
 
 
 # --- check_wakeup: always exit on touch -----------------------------------------
@@ -910,134 +852,6 @@ class _SwitchApp(DummyApp):
         return entity_id if entity_id in self.switches else None
 
 
-def test_auto_switch_external_flip_is_corrected_and_own_write_is_ignored():
-    switch = _Switch("off")
-    entity_id = "switch.nspanel_haui_use_auto_display_off"
-    app = _SwitchApp({entity_id: switch})
-    device = HAUIDevice(
-        app,
-        {"name": "nspanel_haui", "use_auto_display_off": True, "use_sleep_schedule": False},
-    )
-
-    device._callback_auto_switch(entity_id, "state", "on", "off", {})
-
-    assert switch.state == "on"
-    assert switch.turn_on_calls == 1
-    assert any("feedback loop" in message for message, level in app.logs if level == "WARNING")
-
-    device._callback_auto_switch(entity_id, "state", "off", "on", {})
-    assert switch.turn_on_calls == 1
-    assert device._expected_auto_switch_states == {}
-
-
-def test_auto_switch_fight_stops_repeated_corrections_until_sync():
-    switch = _Switch("off")
-    entity_id = "switch.nspanel_haui_use_auto_display_off"
-    app = _SwitchApp({entity_id: switch})
-    device = HAUIDevice(
-        app,
-        {"name": "nspanel_haui", "use_auto_display_off": True, "use_sleep_schedule": False},
-    )
-
-    device._callback_auto_switch(entity_id, "state", "on", "off", {})
-    device._callback_auto_switch(entity_id, "state", "off", "on", {})
-    switch.state = "off"
-    device._callback_auto_switch(entity_id, "state", "on", "off", {})
-    switch.state = "off"
-    device._callback_auto_switch(entity_id, "state", "on", "off", {})
-
-    assert entity_id in device._auto_switch_fighting
-    assert switch.turn_on_calls == 1
-    assert switch.state == "off"
-    assert sum("will not be corrected" in message for message, _level in app.logs) == 1
-
-    device.sync_config_to_device()
-
-    assert entity_id not in device._auto_switch_fighting
-    assert switch.state == "on"
-    assert switch.turn_on_calls == 2
-
-
-def test_sync_config_switch_turns_off_switch_on_when_hub_enabled() -> None:
-    """Hub config True with the firmware switch reporting "off" turns it on."""
-    switch = _Switch("off")
-    app = _SwitchApp({"switch.nspanel_haui_use_auto_dimming": switch})
-    device = HAUIDevice(app, {"name": "nspanel_haui", "use_auto_dimming": True})
-
-    device._sync_config_switch("use_auto_dimming", "switch.nspanel_haui_use_auto_dimming")
-
-    assert switch.state == "on"
-
-
-def test_sync_config_switch_honors_an_explicit_value_override() -> None:
-    """An explicit hub_value overrides the config value (used by the schedule)."""
-    switch = _Switch("on")
-    app = _SwitchApp({"switch.nspanel_haui_use_auto_dimming": switch})
-    device = HAUIDevice(app, {"name": "nspanel_haui", "use_auto_dimming": True})
-
-    device._sync_config_switch(
-        "use_auto_dimming", "switch.nspanel_haui_use_auto_dimming", hub_value=False
-    )
-
-    assert switch.state == "off"
-
-
-def test_behavior_sync_inside_schedule_window_forces_sleeping_on() -> None:
-    """Inside the window the sleep schedule wins over a disabled auto-sleep toggle."""
-    switch = _Switch("off")
-    app = _SwitchApp({"switch.nspanel_haui_use_auto_display_off": switch})
-    device = HAUIDevice(
-        app,
-        {
-            "name": "nspanel_haui",
-            "use_auto_display_off": False,
-            "use_sleep_schedule": True,
-            **_window_around_now(offset_before=3600, offset_after=3600),
-        },
-    )
-
-    device._sync_behavior_config()
-
-    assert switch.state == "on"
-
-
-def test_behavior_sync_outside_schedule_window_forces_sleeping_off() -> None:
-    """Outside the window the hub turns auto-sleep off even if the toggle says on."""
-    switch = _Switch("on")
-    app = _SwitchApp({"switch.nspanel_haui_use_auto_display_off": switch})
-    device = HAUIDevice(
-        app,
-        {
-            "name": "nspanel_haui",
-            "use_auto_display_off": True,
-            "use_sleep_schedule": True,
-            # A start == end window is never active on a wall clock: under the
-            # window math it is a zero-length same-day window that no longer
-            # contains the current minute.
-            "sleep_schedule_start": _one_hour_from_now(),
-            "sleep_schedule_end": _one_hour_from_now(),
-        },
-    )
-
-    device._sync_behavior_config()
-
-    assert switch.state == "off"
-
-
-def test_behavior_sync_without_schedule_keeps_using_the_toggle() -> None:
-    """With the schedule off, use_auto_display_off is synced from the config value."""
-    switch = _Switch("off")
-    app = _SwitchApp({"switch.nspanel_haui_use_auto_display_off": switch})
-    device = HAUIDevice(
-        app,
-        {"name": "nspanel_haui", "use_auto_display_off": True, "use_sleep_schedule": False},
-    )
-
-    device._sync_behavior_config()
-
-    assert switch.state == "on"
-
-
 def test_sync_button_interaction_turns_off_switch_on_when_enabled() -> None:
     """reset_interaction_on_button True with the switch "off" turns it on."""
     switch = _Switch("off")
@@ -1115,73 +929,6 @@ def test_display_model_sync_is_a_noop_when_no_entity_resolves() -> None:
     device._sync_display_model()
 
     assert device is not None
-
-
-def test_behavior_sync_uses_resolved_entity_ids_for_all_targets() -> None:
-    """Every behavior value finds its entity through the registry."""
-
-    class _Esp:
-        def __init__(self, state=None):
-            self.calls = []
-            self.state = state
-
-        def get_state(self):
-            return self.state
-
-        def turn_on(self):
-            self.calls.append("on")
-            self.state = "on"
-
-        def turn_off(self):
-            self.calls.append("off")
-            self.state = "off"
-
-        def set_state(self, state):
-            self.calls.append(state)
-            self.state = state
-
-    items = {
-        "switch.salon_nspanel_haui_use_auto_dimming": _Esp("on"),
-        "switch.salon_nspanel_haui_use_auto_display_off": _Esp("on"),
-        "number.salon_nspanel_haui_timeout_dimming": _Esp("10"),
-        "number.salon_nspanel_haui_timeout_display_off": _Esp("120"),
-        "number.salon_nspanel_haui_display_model": _Esp("0"),
-    }
-    app = _SwitchApp(items)
-    app.device_slug = "nspanel_haui"
-
-    def _resolve(domain, original_name):
-        by_name = {
-            "switch": {
-                "Use Auto-Dimming": "switch.salon_nspanel_haui_use_auto_dimming",
-                "Use Auto Display-Off": "switch.salon_nspanel_haui_use_auto_display_off",
-            },
-            "number": {
-                "Timeout Dimming": "number.salon_nspanel_haui_timeout_dimming",
-                "Timeout Display-Off": "number.salon_nspanel_haui_timeout_display_off",
-                "Display Model": "number.salon_nspanel_haui_display_model",
-            },
-        }
-        return by_name[domain].get(original_name)
-
-    app.find_entity_id = _resolve
-    device = HAUIDevice(
-        app,
-        {
-            "name": "nspanel_haui",
-            "use_auto_dimming": True,
-            "use_auto_display_off": True,
-            "timeout_dimming": 25,
-            "timeout_display_off": 90,
-            "display_model": "us",
-        },
-    )
-
-    device._sync_behavior_config()
-
-    assert items["number.salon_nspanel_haui_timeout_dimming"].state == 25
-    assert items["number.salon_nspanel_haui_timeout_display_off"].state == 90
-    assert items["number.salon_nspanel_haui_display_model"].state == 1
 
 
 def test_dimming_timeout_syncs_to_the_firmware_timeout_dimming_entity() -> None:
@@ -1306,23 +1053,22 @@ def test_invalid_fixed_schedule_falls_back_to_day() -> None:
     assert device._profile_is_night(datetime(2026, 1, 1, 23, 0)) is False
 
 
-def test_profile_boundary_callback_runs_without_sleep_schedule() -> None:
+def test_profile_boundary_callback_reapplies_fixed_profile() -> None:
     device = HAUIDevice(
         DummyApp(),
         {
             "day_night_schedule_mode": "fixed",
             "day_night_start": "22:00",
             "day_night_end": "06:00",
-            "use_sleep_schedule": False,
         },
     )
     device._sync_behavior_config = Mock()
-    device._arm_display_off_schedule_timer = Mock()
+    device._arm_profile_timer = Mock()
 
-    device._display_off_schedule_callback({})
+    device._profile_boundary_callback({})
 
     device._sync_behavior_config.assert_called_once_with()
-    device._arm_display_off_schedule_timer.assert_called_once_with()
+    device._arm_profile_timer.assert_called_once_with()
 
 
 def test_day_profile_migration_adopts_restored_firmware_values() -> None:
@@ -1482,8 +1228,6 @@ def test_night_profile_syncs_behavior_brightness_ramp_and_idle_target() -> None:
             "use_auto_display_off": True,
             "timeout_dimming": 10,
             "timeout_display_off": 120,
-            "night_use_auto_dimming": False,
-            "night_use_auto_display_off": False,
             "night_timeout_dimming": 45,
             "night_timeout_display_off": 300,
             "night_brightness_full": 12,
@@ -1495,8 +1239,6 @@ def test_night_profile_syncs_behavior_brightness_ramp_and_idle_target() -> None:
 
     device._sync_behavior_config()
 
-    assert items["switch.device_dimming"].state == "off"
-    assert items["switch.device_off"].state == "off"
     assert items["number.device_timeout_dim"].state == 45
     assert items["number.device_timeout_off"].state == 300
     assert items["number.device_brightness_full"].state == 12
@@ -1511,27 +1253,8 @@ def test_night_profile_syncs_behavior_brightness_ramp_and_idle_target() -> None:
     assert items["number.device_brightness_dimmed"].state == 18
     assert items["number.device_duration_dim"].state == 1.2
     assert items["switch.device_dimming"].state == "on"
+    assert items["switch.device_off"].state == "on"
     assert app.controller["navigation"].idle_profile is False
-
-
-def test_sleep_schedule_overrides_profile_display_off_setting() -> None:
-    display_off = _Switch("on")
-    app = _SwitchApp({"switch.nspanel_haui_use_auto_display_off": display_off})
-    device = HAUIDevice(
-        app,
-        {
-            "day_night_schedule_mode": "fixed",
-            "day_night_start": "00:00",
-            "day_night_end": "00:01",
-            "night_use_auto_display_off": True,
-            "use_sleep_schedule": True,
-            **_window_around_now(offset_before=3600, offset_after=3600),
-        },
-    )
-
-    device._sync_behavior_config()
-
-    assert display_off.state == "on"
 
 
 def test_explicit_day_profile_values_are_not_replaced_during_migration() -> None:

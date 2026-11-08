@@ -170,7 +170,7 @@ function renderDeviceInfoSection(
 
 /* ── health section (Panel Doctor) ─────────────────────────────── */
 
-function renderHealthSection(ds, di, redrawAction) {
+function renderHealthSection(ds, di, healthActions) {
   const connected = ds.connected === true;
   const uptime = connected && di.connection_uptime != null ? di.connection_uptime : null;
   const reason = di.last_disconnect_reason;
@@ -220,7 +220,7 @@ function renderHealthSection(ds, di, redrawAction) {
           </div>
           ` : ""}
         </div>
-        ${redrawAction ? html`<div class="di-health-actions">${redrawAction}</div>` : ""}
+        ${healthActions ? html`<div class="di-health-actions">${healthActions}</div>` : ""}
       </div>
     </details>
   `;
@@ -416,6 +416,19 @@ class DeviceInfoDialog extends HauiDialog {
       );
     } catch (err) {
       Toast.showToast(this, err.message || t("Failed to refresh display"), "error");
+    } finally {
+      this._actionBusy = false;
+    }
+  }
+
+  async _resetInteractionTimer() {
+    if (!this.deviceName || this._actionBusy) return;
+    this._actionBusy = true;
+    try {
+      await Api.resetDeviceInteractionTimer(this, this.deviceName);
+      Toast.showToast(this, t("Interaction timer reset"), "success");
+    } catch (err) {
+      Toast.showToast(this, err.message || t("Failed to reset interaction timer"), "error");
     } finally {
       this._actionBusy = false;
     }
@@ -663,7 +676,13 @@ class DeviceInfoDialog extends HauiDialog {
     const updatesEnabled = update.enabled !== false;
     const installing = update.firmware_installing || update.state === "checking" || update.state === "installing";
     const requiredTft = di.tft_required_version;
-    const redrawDisplayAction = html`
+    const healthActions = html`
+      <ha-button
+        variant="neutral"
+        appearance="plain"
+        ?disabled=${this._actionBusy || !this.deviceName}
+        @click=${this._resetInteractionTimer}
+      >${t('Reset interaction timer')}</ha-button>
       <ha-button
         variant="neutral"
         appearance="plain"
@@ -705,7 +724,7 @@ class DeviceInfoDialog extends HauiDialog {
             this._firmwareDownloadError,
           )}
           ${this._picker ? this._renderPicker(this.deviceName, requiredTft, update) : ''}
-          ${renderHealthSection(ds, di, redrawDisplayAction)}
+          ${renderHealthSection(ds, di, healthActions)}
           ${renderWifiSection(di, nw)}
           ${renderActiveListeners(ds)}
           ${renderActiveTimers(ds)}

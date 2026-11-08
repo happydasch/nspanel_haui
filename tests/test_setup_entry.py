@@ -12,11 +12,11 @@ _storage_stub = types.ModuleType("homeassistant.helpers.storage")
 _storage_stub.Store = object
 sys.modules.setdefault("homeassistant.helpers.storage", _storage_stub)
 
-import nspanel_haui  # noqa: E402
-from nspanel_haui import esphome_helpers, storage  # noqa: E402
-from nspanel_haui.ha_adapter import ESPHomeProxy  # noqa: E402
-from nspanel_haui.haui.mapping.color import ColorTheme  # noqa: E402
-from nspanel_haui.nspanel_haui import NSPanelHAUI  # noqa: E402
+import custom_components.nspanel_haui as nspanel_haui  # noqa: E402
+from custom_components.nspanel_haui import esphome_helpers, storage  # noqa: E402
+from custom_components.nspanel_haui.ha_adapter import ESPHomeProxy  # noqa: E402
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme  # noqa: E402
+from custom_components.nspanel_haui.nspanel_haui import NSPanelHAUI  # noqa: E402
 
 # --- setup ----------------------------------------------------------------
 
@@ -191,8 +191,8 @@ def test_notify_entities_skip_devices_not_linked_to_esphome(monkeypatch):
     registry.DeviceInfo = dict
     monkeypatch.setitem(sys.modules, "homeassistant.components.notify", notify_stub)
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.device_registry", registry)
-    monkeypatch.delitem(sys.modules, "nspanel_haui.notify", raising=False)
-    notify = importlib.import_module("nspanel_haui.notify")
+    monkeypatch.delitem(sys.modules, "custom_components.nspanel_haui.notify", raising=False)
+    notify = importlib.import_module("custom_components.nspanel_haui.notify")
     linked = _App()
     linked._ha_device_id = "esphome-device"
     hass = _Hass()
@@ -348,8 +348,11 @@ def test_unresolved_device_ignores_events_from_other_devices(monkeypatch):
 
 class _Device:
     def __init__(self) -> None:
-        self.config: dict = {}
-        self.synced = 0
+        self.config: dict = {"use_auto_dimming": True, "use_auto_display_off": True}
+        self.synced: list[set[str]] = []
+
+    def get(self, key: str, default=None):
+        return self.config.get(key, default)
 
     def _cancel_callbacks(self):
         pass
@@ -357,8 +360,8 @@ class _Device:
     def _register_callbacks(self):
         pass
 
-    def sync_config_to_device(self):
-        self.synced += 1
+    def sync_config_to_device(self, changed_auto_settings=None):
+        self.synced.append(changed_auto_settings or set())
 
 
 class _DeviceConfig:
@@ -425,11 +428,17 @@ def test_reload_config_resets_a_setting_removed_from_the_store_to_its_default():
     assert app.device.config["locale"] == "en_US"
 
 
-def test_reload_config_pushes_all_device_settings_to_the_firmware():
-    # Relay mode and button interaction too, not only the auto-* behaviour.
+def test_reload_config_does_not_reapply_auto_switches_on_unrelated_changes():
     app = _reload({"use_relay_left": False})
 
-    assert app.device.synced == 1
+    assert app.device.synced == [set()]
+
+
+def test_reload_config_applies_only_auto_switch_settings_that_changed():
+    app = _reload({"use_auto_display_off": False})
+
+    assert app.device.synced == [{"use_auto_display_off"}]
+    assert app.device.config["use_auto_display_off"] is False
 
 
 # --- app lifecycle on the app's worker --------------------------------------
@@ -454,9 +463,13 @@ class _LifecycleApp:
 
 
 def test_new_app_initializes_on_its_worker(monkeypatch):
-    from nspanel_haui import esphome_helpers
+    from custom_components.nspanel_haui import esphome_helpers
 
-    monkeypatch.setattr(sys.modules["nspanel_haui.nspanel_haui"], "NSPanelHAUI", _LifecycleApp)
+    monkeypatch.setattr(
+        sys.modules["custom_components.nspanel_haui.nspanel_haui"],
+        "NSPanelHAUI",
+        _LifecycleApp,
+    )
     monkeypatch.setattr(nspanel_haui, "_build_config_dict", lambda *a, **kw: {})
     monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: None)
 

@@ -8,7 +8,7 @@ widget on the ``system`` page, replaces its ``txt`` attribute with the requested
 version and restamps the page's content stamp so the HMI stays valid.
 
 The ``tftVersion`` widget is a text variable, so its value is a *text* attribute
-(``txt``) that ``gen_portrait.py`` skips when collecting integer attributes.
+(``txt``) that ``gen_layout.py`` skips when collecting integer attributes.
 The record layout is ``[4-byte length][16-byte name][value bytes]`` and the
 length covers name + value.  A same-length replacement (``0.4.1`` -> ``0.4.2``)
 is an in-place overwrite; a longer or shorter version would resize the record
@@ -19,7 +19,7 @@ Deleted page blocks (``deleted=True``) also contain stale ``tftVersion`` text an
 are ignored: only active page blocks are edited.
 
 Usage:
-    python scripts/bump_tft_version.py [--version X.Y.Z] [--check] [--hmi PATH]
+    python -m scripts.bump_tft_version [--version X.Y.Z] [--check] [--hmi PATH]
 
 Exit code 0 when every HMI carries the requested version (or was updated), 1
 when an HMI needs a length-changing edit or its widget cannot be found.
@@ -34,16 +34,14 @@ import struct
 import sys
 from pathlib import Path
 
+from scripts.hmi_layout import gen_layout as gp
+
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "custom_components" / "nspanel_haui" / "manifest.json"
 DEFAULT_HMIS = (
     ROOT / "nextion" / "nspanel_haui.HMI",
     ROOT / "nextion" / "nspanel_haui_portrait.HMI",
 )
-
-# Import the HMI parser/restamper next to this script's sibling directory.
-sys.path.insert(0, str(ROOT / "scripts" / "gen_portrait"))
-import gen_portrait as gp  # noqa: E402
 
 TARGET_WIDGET = "tftVersion"
 TARGET_PAGE = "system"

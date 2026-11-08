@@ -4,8 +4,8 @@ popup aliases."""
 
 from __future__ import annotations
 
-from nspanel_haui.haui.mapping.const import PopupPanelKey, SysPanelKey
-from nspanel_haui.haui.mapping.panel import (
+from custom_components.nspanel_haui.haui.mapping.const import PopupPanelKey, SysPanelKey
+from custom_components.nspanel_haui.haui.mapping.panel import (
     PAGE_MAPPING,
     POPUP_PANEL_MAPPING,
     SYS_PANEL_MAPPING,

@@ -6,12 +6,17 @@ import time
 from typing import Any
 from unittest.mock import MagicMock
 
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.controller.connection import (
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.controller.connection import (
     ConnectionState,
     HAUIConnectionController,
 )
-from nspanel_haui.haui.mapping.const import ESPAction, ESPResponse, ServerRequest, ServerResponse
+from custom_components.nspanel_haui.haui.mapping.const import (
+    ESPAction,
+    ESPResponse,
+    ServerRequest,
+    ServerResponse,
+)
 
 # ── test helpers ──────────────────────────────────────────────────────────────
 
@@ -404,7 +409,7 @@ def test_controller_publishes_the_bare_heartbeat_action_name():
     ``esphome.hub_heartbeat``: ESPHome matches its user services by the bare
     action name, so a prefixed name is dropped as "service not found" and the
     panel force-disconnects the hub — the display wake this fix prevents."""
-    from nspanel_haui.haui.controller.esphome import HAUIESPHomeController
+    from custom_components.nspanel_haui.haui.controller.esphome import HAUIESPHomeController
 
     proxy = _StubProxy()
     ctrl = HAUIESPHomeController(DummyApp(), {"device_name": "kitchen"}, proxy, lambda event: None)

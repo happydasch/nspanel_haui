@@ -5,8 +5,8 @@ from __future__ import annotations
 import types
 from datetime import UTC, datetime, timedelta
 
-from nspanel_haui.haui.abstract.haui_item import HAUIItem
-from nspanel_haui.haui.page.row import RowPage
+from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
+from custom_components.nspanel_haui.haui.page.row import RowPage
 
 
 class _Entity:

@@ -20,10 +20,10 @@ the clock screens do not change from one run to the next.
 
 Usage::
 
-    python scripts/preview_gallery/gen_preview_gallery.py           # render only
-    python scripts/preview_gallery/gen_preview_gallery.py --serve   # and open the gallery
-    python scripts/preview_gallery/gen_preview_gallery.py --png     # and write PNGs
-    python scripts/preview_gallery/gen_preview_gallery.py --docs    # and write the docs overview
+    python -m scripts.preview_gallery.gen_preview_gallery           # render only
+    python -m scripts.preview_gallery.gen_preview_gallery --serve   # and open the gallery
+    python -m scripts.preview_gallery.gen_preview_gallery --png     # and write PNGs
+    python -m scripts.preview_gallery.gen_preview_gallery --docs    # and write the docs overview
 """
 
 from __future__ import annotations
@@ -52,17 +52,14 @@ ROOT = HERE.parents[1]
 OUT = HERE / "out"
 DOCS = ROOT / "docs"
 SCREENS = DOCS / "assets" / "screens"
-sys.path.insert(0, str(ROOT / "custom_components"))
-sys.path.insert(0, str(ROOT / "scripts"))
-
-import _ha_stubs  # noqa: E402,F401  (installs the Home Assistant import stubs)
-import sample_world  # noqa: E402
+from scripts import _ha_stubs  # noqa: E402,F401  (installs the Home Assistant import stubs)
+from scripts.preview_gallery import sample_world  # noqa: E402
 
 DEVICES = {"landscape": "eu", "portrait": "us"}
 # The sample Home Assistant runs in UTC; travelling to a UTC time also sets the
 # process's local zone, so naive ``datetime.now()`` agrees on every machine.
 FROZEN_NOW = datetime.datetime(2026, 6, 12, 10, 9, tzinfo=zoneinfo.ZoneInfo("UTC"))
-MDI_ZIP = ROOT / "scripts" / "gen_fonts" / "MaterialDesign-Webfont.zip"
+MDI_ZIP = ROOT / "scripts" / "font_tools" / "MaterialDesign-Webfont.zip"
 MDI_FILES = {
     "MaterialDesign-Webfont/css/materialdesignicons.css": "materialdesignicons.css",
     "MaterialDesign-Webfont/fonts/materialdesignicons-webfont.woff2": (
@@ -224,7 +221,7 @@ def card_group(card: str) -> str:
 
 def write_screens_page(renders: dict[str, dict[str, Any]], path: Path) -> None:
     """Write the overview page that shows every card's PNG, grouped per orientation."""
-    from nspanel_haui.haui.mapping.panel import (
+    from custom_components.nspanel_haui.haui.mapping.panel import (
         get_system_panel_entries,
         get_user_panel_type_descriptors,
     )

@@ -5,9 +5,10 @@ from __future__ import annotations
 import asyncio
 import types
 
-import nspanel_haui.ha_adapter as adapter_module
 import pytest
-from nspanel_haui.ha_adapter import HAAdapter
+
+import custom_components.nspanel_haui.ha_adapter as adapter_module
+from custom_components.nspanel_haui.ha_adapter import HAAdapter
 
 
 class _Services:

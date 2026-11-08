@@ -13,12 +13,15 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = ROOT / "scripts" / "check_preview_coverage.py"
 
 
 def test_preview_coverage_passes():
     # A subprocess: the checker installs homeassistant stubs for itself.
     result = subprocess.run(
-        [sys.executable, str(SCRIPT)], capture_output=True, text=True, check=False
+        [sys.executable, "-m", "scripts.check_preview_coverage"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr

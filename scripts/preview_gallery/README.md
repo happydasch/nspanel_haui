@@ -13,10 +13,10 @@ hub's output, not a separate renderer.
 Run from the repository root:
 
 ```bash
-python scripts/preview_gallery/gen_preview_gallery.py           # render only
-python scripts/preview_gallery/gen_preview_gallery.py --serve   # render and open the gallery
-python scripts/preview_gallery/gen_preview_gallery.py --png     # render and write one PNG per card
-python scripts/preview_gallery/gen_preview_gallery.py --docs    # render and write the docs screen overview
+python -m scripts.preview_gallery.gen_preview_gallery           # render only
+python -m scripts.preview_gallery.gen_preview_gallery --serve   # render and open the gallery
+python -m scripts.preview_gallery.gen_preview_gallery --png     # render and write one PNG per card
+python -m scripts.preview_gallery.gen_preview_gallery --docs    # render and write the docs screen overview
 ```
 
 - `--serve` starts a local server (default port `8765`) and prints the gallery

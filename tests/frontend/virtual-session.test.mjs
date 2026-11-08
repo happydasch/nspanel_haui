@@ -12,11 +12,16 @@ const load = o => JSON.parse(readFileSync(
 function fakeHass() {
   const hass = {
     calls: [],
+    notifications: [],
+    notificationPaths: [],
     subscribed: null,
     unsubscribed: false,
     async fetchWithAuth(path) {
-      assert.equal(path, '/api/nspanel_haui/icon_chars');
-      return { ok: true, json: async () => ({ '': 'lightbulb' }) };
+      if (path === '/api/nspanel_haui/icon_chars') {
+        return { ok: true, json: async () => ({ '': 'lightbulb' }) };
+      }
+      hass.notificationPaths.push(path);
+      return { ok: true, json: async () => hass.notifications };
     },
     connection: {
       async subscribeMessage(callback, message) {
@@ -68,6 +73,54 @@ test('subscribes for the device and loads the layout of its orientation', async 
   assert.equal(session.ready, true);
   assert.equal(session.display.layout.orientation, 'portrait');
   assert.equal(session.iconName(''), 'lightbulb');
+});
+
+test('reads HAUI notification snapshots and applies them only to the preview session', async () => {
+  const { hass, session, push } = await started();
+  const notification = {
+    id: 'source-1',
+    title: 'Doorbell',
+    message: 'Someone is here',
+    icon: 'mdi:bell',
+    notif_type: 'critical',
+    persistent: true,
+    force_show: true,
+    text_size: 2,
+    timeout: 30,
+  };
+  hass.notifications = [notification];
+  push({ type: 'started', session_id: 'abc', portrait: false });
+  await session.syncNotifications();
+
+  assert.equal(
+    hass.notificationPaths.at(-1),
+    '/api/nspanel_haui/notifications/entry1?device=kitchen',
+  );
+  assert.deepEqual(hass.calls, [{
+    type: 'nspanel_haui/virtual_panel/notifications',
+    session_id: 'abc',
+    notifications: [notification],
+  }]);
+
+  await session.syncNotifications();
+  assert.equal(hass.calls.length, 1);
+
+  hass.notifications = [];
+  await session.syncNotifications();
+  assert.deepEqual(hass.calls[1].notifications, []);
+  await session.stop();
+});
+
+test('reset sandbox clears simulated states through the hub session', async () => {
+  const { hass, session, push } = await started();
+  push({ type: 'started', session_id: 'abc', portrait: false });
+
+  await session.resetSandbox();
+
+  assert.deepEqual(hass.calls, [{
+    type: 'nspanel_haui/virtual_panel/reset_sandbox',
+    session_id: 'abc',
+  }]);
 });
 
 test('output that arrives before the layout is replayed in order', async () => {

@@ -4,11 +4,14 @@ notifications, HA event emission, and the sleep panel carousel."""
 import types
 from unittest.mock import MagicMock
 
-from nspanel_haui.haui.controller.navigation import HAUINavigationController
-from nspanel_haui.haui.controller.notification import HAUINotificationController, Notification
-from nspanel_haui.haui.controller.update import HAUIUpdateController
-from nspanel_haui.haui.device import HAUIDevice
-from nspanel_haui.haui.device_config import tft_filename_for_model
+from custom_components.nspanel_haui.haui.controller.navigation import HAUINavigationController
+from custom_components.nspanel_haui.haui.controller.notification import (
+    HAUINotificationController,
+    Notification,
+)
+from custom_components.nspanel_haui.haui.controller.update import HAUIUpdateController
+from custom_components.nspanel_haui.haui.device import HAUIDevice
+from custom_components.nspanel_haui.haui.device_config import tft_filename_for_model
 
 
 class _App:

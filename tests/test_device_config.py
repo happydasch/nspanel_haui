@@ -9,10 +9,10 @@ import pytest
 
 # ---------------------------------------------------------------------------
 # The device_config module has no HA dependencies, so we can import it
-# directly.  conftest.py adds custom_components/ to sys.path so the
+# directly.  Tests use the repository-root custom_components package so the
 # package is available as ``nspanel_haui``.
 # ---------------------------------------------------------------------------
-from nspanel_haui.haui.device_config import (  # noqa: E402
+from custom_components.nspanel_haui.haui.device_config import (  # noqa: E402
     DEVICE_CONFIG,
     DEVICE_CONFIG_FIELDS,
     LOCALE_OPTIONS,
@@ -65,19 +65,14 @@ def test_device_config_has_all_required_keys() -> None:
         "day_brightness_full",
         "day_brightness_dimmed",
         "day_duration_dim",
-        "night_use_auto_dimming",
         "night_timeout_dimming",
         "night_duration_dim",
         "night_use_auto_page",
         "night_timeout_page",
         "night_idle_panel",
-        "night_use_auto_display_off",
         "night_timeout_display_off",
         "night_brightness_full",
         "night_brightness_dimmed",
-        "use_sleep_schedule",
-        "sleep_schedule_start",
-        "sleep_schedule_end",
         "sound_on_startup",
         "color_scheme",
         "color_scheme_id",
@@ -133,7 +128,7 @@ def test_locale_options_format() -> None:
 
 def _make_valid_config() -> dict[str, Any]:
     """Return a minimal valid config dict for _validate_config."""
-    from nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+    from custom_components.nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
 
     cfg = copy.deepcopy(DEFAULT_CONFIG)
     cfg["device"]["name"] = "test"
@@ -293,7 +288,7 @@ def test_apply_panel_store_skips_unknown_device() -> None:
 
 def test_config_model_defaults_match_device_config():
     """Device defaults live in DEVICE_CONFIG and in the pydantic model; keep them equal."""
-    from nspanel_haui.haui.config_models import _get_device_config_model
+    from custom_components.nspanel_haui.haui.config_models import _get_device_config_model
 
     model_defaults = _get_device_config_model()().model_dump()
 
@@ -310,7 +305,8 @@ def _device_config_base() -> dict:
 def test_device_config_model_rejects_out_of_range_timeouts() -> None:
     """Timeout and timer values are range-checked in the model."""
     import pytest
-    from nspanel_haui.haui.config_models import validate_device_config
+
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
     base = _device_config_base()
     for key, bad in (
@@ -335,7 +331,7 @@ def test_device_config_model_rejects_out_of_range_timeouts() -> None:
 
 def test_device_config_model_accepts_valid_timer_values() -> None:
     """The editor bounds are the model bounds for valid values."""
-    from nspanel_haui.haui.config_models import validate_device_config
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
     base = _device_config_base()
     model = validate_device_config(
@@ -356,7 +352,8 @@ def test_device_config_model_accepts_valid_timer_values() -> None:
 
 def test_device_config_model_rejects_dimmed_brightness_above_full() -> None:
     import pytest
-    from nspanel_haui.haui.config_models import validate_device_config
+
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
     base = _device_config_base()
     for full_key, dimmed_key in (
@@ -369,7 +366,7 @@ def test_device_config_model_rejects_dimmed_brightness_above_full() -> None:
 
 def test_device_config_model_accepts_valid_log_levels() -> None:
     """Every supported log level validates; values are normalized to upper case."""
-    from nspanel_haui.haui.config_models import validate_device_config
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
     base = _device_config_base()
     for level in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
@@ -383,7 +380,8 @@ def test_device_config_model_accepts_valid_log_levels() -> None:
 def test_device_config_model_rejects_unsupported_log_levels() -> None:
     """Anything outside the standard levels is rejected."""
     import pytest
-    from nspanel_haui.haui.config_models import validate_device_config
+
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
     base = _device_config_base()
     for bad in ("", "verbose", "off", "2", 3, None):

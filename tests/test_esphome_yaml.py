@@ -382,6 +382,41 @@ def test_disconnected_display_never_turns_off_or_hardware_sleeps():
     assert "target_brightness = 0" not in disconnected
 
 
+def test_auto_display_off_switch_is_the_live_gate_for_connected_off():
+    display = _script_lambda("scripts_display.yaml", "update_display")
+    connected = display.split("} else if (connection_grace)", 1)[1].split(
+        "// Hardware sleep", 1
+    )[0]
+    assert "id(use_auto_display_off).state" in connected
+    assert "else if (!id(use_auto_display_off).state && current_state == 0)" in connected
+    brightness = display.split("// Desired brightness", 1)[1]
+    assert "id(use_auto_display_off).state" in brightness
+    assert (
+        "else if (id(use_auto_display_off).state && timeout_off_val > 0 && age > timeout_off_val)"
+        in brightness
+    )
+
+
+def test_disconnected_dim_uses_the_dim_timeout_not_the_ramp_or_auto_switch():
+    display = _script_lambda("scripts_display.yaml", "update_display")
+    grace = display.split("bool connection_grace", 1)[1].split(";", 1)[0]
+    assert "since_connection_change <= timeout_dim_val" in grace
+    assert "duration_dim_val" not in grace
+    disconnected_state = display.split("if (!id(hub_connection))", 1)[1].split(
+        "} else if (connection_grace)", 1
+    )[0]
+    assert "timeout_dim_val > 0 && !connection_grace" in disconnected_state
+    assert "use_auto_dimming" not in disconnected_state
+    assert "use_auto_display_off" not in disconnected_state
+
+
+def test_a_live_switch_change_is_read_on_each_timeout_check():
+    display = _script_lambda("scripts_display.yaml", "update_display")
+    assert display.count("id(use_auto_display_off).state") >= 3
+    assert "static bool" not in display
+    assert "bool use_auto_display_off" not in display
+
+
 def test_display_scripts_are_one_state_machine():
     """Display-off, dimming and the state label come from one 100 ms script."""
     scripts = _load_tagged(ROOT / "scripts_display.yaml")["script"]
@@ -460,7 +495,7 @@ def test_current_page_sensor_names_match_the_hub_page_mapping():
     """The firmware names the shown page itself; its table must follow the HMI."""
     import re
 
-    from nspanel_haui.haui.mapping.panel import PAGE_MAPPING
+    from custom_components.nspanel_haui.haui.mapping.panel import PAGE_MAPPING
 
     sensors = _read("sensor.yaml")
     table = re.search(r"PAGE_NAMES\[\] = \{(.*?)\};", sensors, re.DOTALL)

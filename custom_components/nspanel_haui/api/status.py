@@ -187,6 +187,9 @@ class NotificationsView(HomeAssistantView):
                     "icon": notification.icon,
                     "notif_type": notification.notif_type,
                     "persistent": notification.persistent,
+                    "force_show": notification.force_show,
+                    "text_size": notification.text_size,
+                    "timeout": notification.timeout,
                 }
                 for notification in controller.get_notifications()
             ]
@@ -222,3 +225,25 @@ class DeviceRefreshDisplayView(HomeAssistantView):
 
         updated, _failed = await for_each_app(apps, "refresh the display", refresh)
         return self.json({"status": "ok", "devices_updated": updated})
+
+
+class DeviceResetInteractionView(HomeAssistantView):
+    """REST API endpoint to reset a selected device's firmware interaction timer."""
+
+    url = "/api/nspanel_haui/reset_interaction/{entry_id}"
+    name = "api:nspanel_haui:reset_interaction"
+    requires_auth = True
+
+    @require_admin
+    @api_errors
+    async def post(self, request, entry_id: str):
+        """Reset the firmware's interaction timer for one device by its config name."""
+        body = await json_object(request)
+        device_name = body.get("device")
+        if not isinstance(device_name, str) or not device_name.strip():
+            return error(self, "A device is required", 400)
+        device_name = device_name.strip()
+
+        app = device_app(running_apps(request.app["hass"], entry_id), device_name)
+        await app.async_run_on_worker(app.device.reset_interaction_timer)
+        return self.json({"status": "ok", "device": device_name})

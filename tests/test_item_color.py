@@ -3,8 +3,9 @@
 from types import SimpleNamespace
 
 import pytest
-from nspanel_haui.haui.mapping.color import ColorTheme
-from nspanel_haui.haui.utils.item import get_item_color
+
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.utils.item import get_item_color
 
 
 class _Item:

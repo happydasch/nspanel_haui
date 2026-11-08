@@ -1,6 +1,6 @@
 import json
 
-scss_file = "scripts/gen_fonts/MaterialDesign-Webfont/scss/_variables.scss"
+scss_file = "scripts/font_tools/MaterialDesign-Webfont/scss/_variables.scss"
 
 # start codepage
 start = 0xF0001
@@ -27,8 +27,8 @@ print(f"End: {hex(start + len(dictionary))}")
 icons = "\n".join(f"{' ' * 4}'{k}': '{v}'," for k, v in dictionary.items())
 icon_var = f"ICONS_MAPPING = {{\n{icons}\n}}"
 
-with open("scripts/gen_fonts/icons_mapping.py", "w") as f:
+with open("scripts/font_tools/icons_mapping.py", "w") as f:
     f.write(icon_var)
 
-with open("scripts/gen_fonts/icons_mapping.json", "w") as f:
+with open("scripts/font_tools/icons_mapping.json", "w") as f:
     json.dump(dictionary, f)

@@ -1,6 +1,6 @@
 """Select popup: what the selection callback receives when an entry is tapped."""
 
-from nspanel_haui.haui.page.select import SelectPage
+from custom_components.nspanel_haui.haui.page.select import SelectPage
 
 _PAGE_ID = 5
 

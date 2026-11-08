@@ -2,17 +2,17 @@
 
 from types import SimpleNamespace
 
-from nspanel_haui.haui.mapping.background import BACKGROUNDS
-from nspanel_haui.haui.page.clock import ClockPage
-from nspanel_haui.haui.page.clock_common import (
+from custom_components.nspanel_haui.haui.mapping.background import BACKGROUNDS
+from custom_components.nspanel_haui.haui.page.clock import ClockPage
+from custom_components.nspanel_haui.haui.page.clock_common import (
     LIGHT_BACKGROUND_TEXT_COLOR,
     background_commands,
     light_background_selected,
     readable_background_text_color,
     readable_foreground_color,
 )
-from nspanel_haui.haui.page.clocktwo import ClockTwoPage
-from nspanel_haui.haui.page.weather import WeatherPage
+from custom_components.nspanel_haui.haui.page.clocktwo import ClockTwoPage
+from custom_components.nspanel_haui.haui.page.weather import WeatherPage
 
 
 def test_light_background_is_available_on_each_picture_page() -> None:
@@ -34,7 +34,7 @@ def test_light_background_is_available_on_each_picture_page() -> None:
 
 
 def test_scheme_background_uses_solid_picture_not_layout_helper() -> None:
-    from nspanel_haui.haui.mapping.color import ColorTheme
+    from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
 
     for scheme, picture_id in (("dark", 1), ("light", 2)):
         page = SimpleNamespace(

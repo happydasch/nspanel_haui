@@ -85,6 +85,11 @@ class LivePreviewDialog extends HauiDialog {
         align-items: center;
         gap: 4px;
       }
+      @media (max-width: 600px) {
+        .vp-idle-label {
+          display: none;
+        }
+      }
       .vp-toolbar .view-toggle-btn:disabled {
         cursor: default;
         opacity: 0.5;
@@ -131,6 +136,10 @@ class LivePreviewDialog extends HauiDialog {
         border-radius: 50%;
       }
       .vp-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
         margin-top: 8px;
       }
       .vp-stage {
@@ -446,6 +455,15 @@ class LivePreviewDialog extends HauiDialog {
     }
   }
 
+  async _resetSandbox() {
+    try {
+      await this._session.resetSandbox();
+    } catch (err) {
+      this._error = err?.message || String(err);
+      this.requestUpdate();
+    }
+  }
+
   // -- render -----------------------------------------------------------------
 
   _renderHardwareButtons(session) {
@@ -459,7 +477,8 @@ class LivePreviewDialog extends HauiDialog {
             ?disabled=${!session?.ready}
             @click=${() => session?.pressButton(side)}
           >
-            ${session?.buttonEntityStates?.[side]
+            ${session?.buttonEntityStates?.[side] !== null
+              && session?.buttonEntityStates?.[side] !== undefined
               ? html`
                 <span class="vp-relay-indicators">
                   <span class="vp-relay-light entity" data-state=${session.buttonEntityStates[side]}></span>
@@ -535,7 +554,7 @@ class LivePreviewDialog extends HauiDialog {
     `);
   }
 
-  /** Above the simulator: the current run mode and what it does. */
+  /** The current run mode and what it does. */
   _renderModeNote(session) {
     const live = Boolean(session?.live);
     return html`
@@ -600,20 +619,30 @@ class LivePreviewDialog extends HauiDialog {
         @click=${() => session.idleTimeout()}
       >
         <ha-icon slot="start" icon="mdi:sleep"></ha-icon>
-        ${t('Idle')}
+        <span class="vp-idle-label">${t('Idle')}</span>
       </ha-button>
     `;
   }
 
-  /** The extra tools: entity hover. */
+  /** The extra tools: entity hover and sandbox reset. */
   _renderTools(session) {
     const ready = Boolean(session?.ready);
+    const live = Boolean(session?.live);
     return html`
       <div class="vp-controls vp-tools">
         <label class="vp-mode">
           ${renderToggle('vp-show-entities', this._showEntities, v => this._setShowEntities(v), { disabled: !ready })}
           ${t('Show entities')}
         </label>
+        <ha-button
+          class="vp-reset-sandbox"
+          appearance="plain"
+          ?disabled=${!ready || live}
+          @click=${() => this._resetSandbox()}
+        >
+          <ha-icon slot="start" icon="mdi:restore"></ha-icon>
+          <span>${t('Reset sandbox')}</span>
+        </ha-button>
       </div>
     `;
   }
@@ -642,13 +671,13 @@ class LivePreviewDialog extends HauiDialog {
         ${dialogHeader(t('Live preview: {device}').replace('{device}', this.device || ''), this._close)}
 
         <div class="dialog-body">
-          ${this._renderModeNote(session)}
-
           ${this._renderToolbar(session)}
 
           <div class="vp-stage">
             ${session?.ready ? this._renderScreen(session) : this._renderLoading(session)}
           </div>
+
+          ${this._renderModeNote(session)}
 
           ${this._renderStatus(session)}
         </div>

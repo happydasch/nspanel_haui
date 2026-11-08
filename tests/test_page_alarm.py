@@ -6,10 +6,11 @@ display and Home Assistant.
 """
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.mapping.color import ALARM_COLORS_LIGHT, ColorTheme
-from nspanel_haui.haui.page.alarm import AlarmPage
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.mapping.color import ALARM_COLORS_LIGHT, ColorTheme
+from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
 
 
 class _Entity:

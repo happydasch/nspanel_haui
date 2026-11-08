@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from nspanel_haui.haui.abstract.component import Component
-from nspanel_haui.haui.abstract.mixins.function_btn_mixin import FunctionButtonMixin
+from custom_components.nspanel_haui.haui.abstract.component import Component
+from custom_components.nspanel_haui.haui.abstract.mixins.function_btn_mixin import (
+    FunctionButtonMixin,
+)
 
 BTN = Component(7, "bShuffle")
 

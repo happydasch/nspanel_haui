@@ -1,6 +1,6 @@
 import json
 
-with open("scripts/gen_fonts/icons_mapping.json") as f:
+with open("scripts/font_tools/icons_mapping.json") as f:
     icon_mapping = json.load(f)
 
 offset = 0xE2001

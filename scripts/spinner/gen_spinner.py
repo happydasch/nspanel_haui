@@ -19,7 +19,7 @@ https://github.com/material-components/material-components-android/tree/master/l
 
 Usage::
 
-    python scripts/gen_spinner/gen_spinner.py [landscape|portrait ...]
+    python -m scripts.spinner.gen_spinner [landscape|portrait ...]
 """
 
 from __future__ import annotations

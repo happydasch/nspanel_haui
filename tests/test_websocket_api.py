@@ -62,8 +62,10 @@ class _FakeHost:
         self.viewers = {}
         self.events = []
         self.renders = []
+        self.notifications = []
         self.reloads = []
         self.idle_count = 0
+        self.reset_count = 0
         self.live = False
         self.app = types.SimpleNamespace(device=types.SimpleNamespace(get=lambda key: None))
         _FakeHost.instances.append(self)
@@ -94,11 +96,17 @@ class _FakeHost:
             raise ValueError("not allowed")
         self.events.append((name, value))
 
+    async def async_sync_notifications(self, notifications):
+        self.notifications.append(notifications)
+
     def set_live(self, live):
         self.live = live
 
     def show_idle(self):
         self.idle_count += 1
+
+    def reset_sandbox(self):
+        self.reset_count += 1
 
     async def async_configured_panel(self, key):
         if key != "popup_notify":
@@ -117,10 +125,10 @@ def ws(monkeypatch):
     stub = _websocket_stub()
     monkeypatch.setitem(sys.modules, "homeassistant.components.websocket_api", stub)
     monkeypatch.setattr(sys.modules["homeassistant.components"], "websocket_api", stub, False)
-    import nspanel_haui.websocket_api as module
+    import custom_components.nspanel_haui.websocket_api as module
 
     module = importlib.reload(module)
-    from nspanel_haui import esphome_helpers, storage, virtual_panel
+    from custom_components.nspanel_haui import esphome_helpers, storage, virtual_panel
 
     class _Store:
         async def async_load(self):
@@ -184,7 +192,9 @@ def test_all_commands_are_registered(ws):
     assert [fn.schema["type"] for fn in registered] == [
         "nspanel_haui/virtual_panel/subscribe",
         "nspanel_haui/virtual_panel/event",
+        "nspanel_haui/virtual_panel/notifications",
         "nspanel_haui/virtual_panel/idle",
+        "nspanel_haui/virtual_panel/reset_sandbox",
         "nspanel_haui/virtual_panel/configure",
         "nspanel_haui/virtual_panel/render",
     ]
@@ -350,6 +360,36 @@ def test_event_forwards_allowed_events_and_rejects_others(ws):
     assert conn.errors == [(3, "invalid_event"), (4, "not_found")]
 
 
+def test_notification_snapshot_is_applied_to_the_preview_session(ws):
+    conn = _Connection()
+    snapshot = [
+        {
+            "id": "source-1",
+            "title": "Doorbell",
+            "message": "Someone is here",
+            "icon": "mdi:bell",
+            "notif_type": "info",
+            "persistent": False,
+            "force_show": False,
+            "text_size": "auto",
+            "timeout": None,
+        }
+    ]
+
+    async def body(hass):
+        await _subscribe(ws, hass, conn)
+        [session_id] = _FakeHost.instances[0].viewers
+        await ws.ws_notifications(
+            hass,
+            conn,
+            {"id": 2, "session_id": session_id, "notifications": snapshot},
+        )
+
+    _run(body)
+    assert _FakeHost.instances[0].notifications == [snapshot]
+    assert conn.results == [1, 2]
+
+
 def test_idle_opens_the_idle_page_for_the_preview_session(ws):
     conn = _Connection()
 
@@ -360,6 +400,19 @@ def test_idle_opens_the_idle_page_for_the_preview_session(ws):
 
     _run(body)
     assert _FakeHost.instances[0].idle_count == 1
+    assert conn.results == [1, 2]
+
+
+def test_reset_sandbox_clears_simulated_states_for_the_preview_session(ws):
+    conn = _Connection()
+
+    async def body(hass):
+        await _subscribe(ws, hass, conn)
+        [session_id] = _FakeHost.instances[0].viewers
+        await ws.ws_reset_sandbox(hass, conn, {"id": 2, "session_id": session_id})
+
+    _run(body)
+    assert _FakeHost.instances[0].reset_count == 1
     assert conn.results == [1, 2]
 
 

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from nspanel_haui.sandbox import Sandbox
+
+from custom_components.nspanel_haui.sandbox import Sandbox
 
 REAL = {
     "light.lamp": ("off", {"friendly_name": "Lamp"}),

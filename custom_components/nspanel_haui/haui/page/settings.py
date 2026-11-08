@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Collection
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -55,10 +54,6 @@ class SettingsPage(HAUIPage):
         self._dimmed_brightness: int | None = None
 
     # panel
-
-    def suspended_auto_switches(self) -> Collection[str]:
-        # The display stays at the brightness being set.
-        return ("auto_dimming",)
 
     def start_panel(self, panel: HAUIPanel) -> None:
         brightness_full_id = self.find_esphome_entity_id("number", "Brightness Full")

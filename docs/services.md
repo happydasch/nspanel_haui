@@ -511,6 +511,10 @@ connected panel, polled every few seconds from the device status API:
 | `disconnected_since` | When the device went offline that last time |
 | `tft_version` / `tft_required_version` | Display TFT version installed vs the version required by firmware |
 | `update` | TFT update state while an install runs: `checking`, `installing`, `done`, or `error` (with `version`, `started_at`, `last_error`) |
+The Health section also includes **Reset interaction timer**, which resets the
+firmware's dim/off inactivity timer for the selected panel without changing the
+current page or resetting the hub's separate idle-page timer.
+
 
 The Device Manager shows the same versions inline per device, using **Unknown**
 when firmware or display version has not been reported. A display whose TFT is

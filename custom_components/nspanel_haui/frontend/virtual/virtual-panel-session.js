@@ -4,12 +4,15 @@
  *
  * Subscribes to `nspanel_haui/virtual_panel/subscribe`, feeds the hub's display
  * output into a NextionDisplay and sends touches, swipes, hardware buttons and
- * read responses back as device events, strictly in order.
+ * read responses back as device events, strictly in order. It separately polls
+ * the HAUI notification snapshot and applies it to the virtual app.
  */
 import { NextionDisplay } from './nextion-display.js';
 import { TouchInput } from './touch-input.js';
 
 const MODULE_URL = import.meta.url;
+const NOTIFICATION_SYNC_INTERVAL_MS = 5000;
+
 
 async function fetchLayout(orientation) {
   const response = await fetch(new URL(`layout_${orientation}.json`, MODULE_URL));
@@ -61,6 +64,9 @@ export class VirtualPanelSession {
     this._unsubscribe = null;
     this._sendChain = Promise.resolve();
     this._stopped = false;
+    this._notificationsTimer = null;
+    this._notificationSnapshot = null;
+    this._notificationSync = null;
   }
 
   async start() {
@@ -81,6 +87,11 @@ export class VirtualPanelSession {
 
   async stop() {
     this._stopped = true;
+    if (this._notificationsTimer !== null) {
+      if (this._scheduler) this._scheduler.cancel(this._notificationsTimer);
+      else clearInterval(this._notificationsTimer);
+      this._notificationsTimer = null;
+    }
     this.display?.dispose();
     if (this._unsubscribe) {
       const unsubscribe = this._unsubscribe;
@@ -91,6 +102,69 @@ export class VirtualPanelSession {
 
   get ready() {
     return this.display !== null;
+  }
+
+  _startNotificationSync() {
+    if (this._notificationsTimer !== null) return;
+    this.syncNotifications();
+    this._notificationsTimer = this._scheduler
+      ? this._scheduler.every(() => this.syncNotifications(), NOTIFICATION_SYNC_INTERVAL_MS)
+      : setInterval(() => this.syncNotifications(), NOTIFICATION_SYNC_INTERVAL_MS);
+  }
+
+  async syncNotifications() {
+    if (!this.sessionId || this._stopped || this._notificationSync) return this._notificationSync;
+    this._notificationSync = this._readNotificationSnapshot().finally(() => {
+      this._notificationSync = null;
+    });
+    return this._notificationSync;
+  }
+
+  async _readNotificationSnapshot() {
+    try {
+      const path = `/api/nspanel_haui/notifications/${encodeURIComponent(this.entryId)}`
+        + `?device=${encodeURIComponent(this.device)}`;
+      const response = await this.hass.fetchWithAuth(path);
+      if (!response.ok) throw new Error(`notifications: HTTP ${response.status}`);
+      const notifications = await response.json();
+      if (!Array.isArray(notifications)) throw new Error('notifications: invalid response');
+      if (this._stopped || !this.sessionId) return;
+
+      const snapshot = JSON.stringify(notifications);
+      if (snapshot === this._notificationSnapshot) return;
+      if (this._notificationSnapshot === null && notifications.length === 0) {
+        this._notificationSnapshot = snapshot;
+        return;
+      }
+      await this.hass.callWS({
+        type: 'nspanel_haui/virtual_panel/notifications',
+        session_id: this.sessionId,
+        notifications: notifications.map(({
+          id,
+          title,
+          message,
+          icon,
+          notif_type,
+          persistent,
+          force_show,
+          text_size,
+          timeout,
+        }) => ({
+          id,
+          title,
+          message,
+          icon,
+          notif_type,
+          persistent,
+          force_show,
+          text_size,
+          timeout,
+        })),
+      });
+      this._notificationSnapshot = snapshot;
+    } catch (err) {
+      if (!this._stopped) this.onError(err?.message || String(err));
+    }
   }
 
   iconName(char) {
@@ -107,6 +181,7 @@ export class VirtualPanelSession {
     if (this._stopped) return;
     if (message.type === 'started') {
       this.sessionId = message.session_id;
+      this._startNotificationSync();
       this.orientation = message.portrait ? 'portrait' : 'landscape';
       this._loadLayout(this.orientation).then(
         layout => this._attach(layout),
@@ -227,6 +302,15 @@ export class VirtualPanelSession {
       live,
     });
     this.live = live;
+    this.onUpdate();
+  }
+
+  /** Drop all simulated states so entities show their real Home Assistant state. */
+  async resetSandbox() {
+    await this.hass.callWS({
+      type: 'nspanel_haui/virtual_panel/reset_sandbox',
+      session_id: this.sessionId,
+    });
     this.onUpdate();
   }
 }

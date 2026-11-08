@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from nspanel_haui.haui.abstract import haui_item
-from nspanel_haui.haui.abstract.haui_item import HAUIItem
-from nspanel_haui.haui.utils import item as item_utils
+from custom_components.nspanel_haui.haui.abstract import haui_item
+from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
+from custom_components.nspanel_haui.haui.utils import item as item_utils
 
 
 class _App:

@@ -6,12 +6,11 @@ import re
 import sys
 import types
 from datetime import UTC, datetime
-from pathlib import Path
 from unittest.mock import MagicMock
 
 # ---------------------------------------------------------------------------
 # Stub out ONLY what __init__.py needs (from homeassistant.helpers import
-# config_validation as cv) so that other tests can import nspanel_haui
+# config_validation as cv) so that other tests can import custom_components.nspanel_haui
 # without HA installed.  Keep it minimal — individual test files that need
 # more detailed stubs (e.g. test_config_flow.py) install their own on top
 # via setdefault.
@@ -107,8 +106,3 @@ def _install_dateutil_stubs() -> None:
 
 _install_ha_stubs()
 _install_dateutil_stubs()
-
-ROOT = Path(__file__).parent.parent
-CC = ROOT / "custom_components"
-if str(CC) not in sys.path:
-    sys.path.insert(0, str(CC))

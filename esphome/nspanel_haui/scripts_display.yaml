@@ -51,7 +51,7 @@ script:
           }
           float since_connection_change = (millis() - id(hub_state_change_ms)) / 1000.0f;
           bool connection_grace = timeout_dim_val > 0
-              && since_connection_change <= timeout_dim_val + duration_dim_val;
+              && since_connection_change <= timeout_dim_val;
 
           // Display state (on/dim/off). While disconnected, the system page is
           // always visible; it may dim after the connection grace but never turns off.
@@ -59,7 +59,9 @@ script:
           int new_state = current_state;
 
           if (!id(hub_connection)) {
-            if (id(use_auto_dimming).state && timeout_dim_val > 0 && !connection_grace) {
+            // Disconnection temporarily owns the display state: after the dim
+            // grace, dim regardless of the automatic-dimming switch, but never off.
+            if (timeout_dim_val > 0 && !connection_grace) {
               new_state = 1;
             } else {
               new_state = 2;
@@ -120,7 +122,7 @@ script:
                 last_goto_page_millis = now_millis;
               }
             }
-            if (id(use_auto_dimming).state && timeout_dim_val > 0 && !connection_grace) {
+            if (timeout_dim_val > 0 && !connection_grace) {
               target_brightness = int(id(brightness_dim).state);
               int curr_duration = since_connection_change - timeout_dim_val;
               float ramp_remaining = duration_dim_val - curr_duration;

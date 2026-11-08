@@ -44,7 +44,4 @@ test('device config defaults carry the new keys', () => {
     LOG_LEVEL_OPTIONS.map((o) => o.value),
     ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'],
   );
-  assert.equal(DEVICE_CONFIG_DEFAULTS.use_sleep_schedule, false);
-  assert.equal(DEVICE_CONFIG_DEFAULTS.sleep_schedule_start, '');
-  assert.equal(DEVICE_CONFIG_DEFAULTS.sleep_schedule_end, '');
 });

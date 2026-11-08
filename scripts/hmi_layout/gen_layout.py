@@ -21,10 +21,10 @@ A spec is a module next to this script exposing ``WIDTH``, ``HEIGHT``,
 ``HMI_NAME``, ``LAYOUT`` (``{page: {widget: (x, y, w, h)}}``), ``ATTRS``
 (``{page: {widget: {attr: int}}}``), ``PARTIAL`` and ``check_bounds()``:
 
-- ``portrait_layout`` (default) — the complete 320x480 layout; every visual
-  widget of every page must be listed.
-- ``landscape_layout`` — partial refinements of the 480x320 layout; unlisted
-  widgets keep their geometry.
+- ``landscape`` (default) — partial refinements of the 480x320 layout
+  (``landscape_layout.py``); unlisted widgets keep their geometry.
+- ``portrait`` — the complete 320x480 layout (``portrait_layout.py``); every
+  visual widget of every page must be listed.
 
 A spec may also name a ``SIBLING_HMI``: the two projects must then hold the
 same widgets, and the sibling's touch settings (``sendkey`` — Send Component
@@ -33,10 +33,11 @@ reaches the portrait TFT too (the hub addresses both by the same names).
 
 Usage::
 
-    python scripts/gen_portrait/gen_portrait.py --check                     # report only
-    python scripts/gen_portrait/gen_portrait.py                             # portrait HMI
-    python scripts/gen_portrait/gen_portrait.py --spec landscape_layout     # landscape HMI
-    python scripts/gen_portrait/gen_portrait.py -i IN.HMI -o OUT.HMI        # explicit files
+    python -m scripts.hmi_layout.gen_layout --check                   # landscape report only
+    python -m scripts.hmi_layout.gen_layout                           # landscape HMI (default)
+    python -m scripts.hmi_layout.gen_layout --spec portrait           # portrait HMI
+    python -m scripts.hmi_layout.gen_layout --spec portrait --check   # portrait report
+    python -m scripts.hmi_layout.gen_layout -i IN.HMI -o OUT.HMI      # explicit files
 
 ``--check`` and the patch both fail when the HMI's widgets and the spec
 disagree (a listed widget missing in the HMI, or — for a complete spec — a
@@ -53,10 +54,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
 ROOT = Path(__file__).resolve().parents[2]
 Rect = tuple[int, int, int, int]
+SPEC_MODULES = {"landscape": "landscape_layout", "portrait": "portrait_layout"}
 
 HMI_CONTENT_FMT = "<16sII?bbb"
 PAGE_HEADER_FMT = "<IIIII?bbb16s16b"
@@ -187,7 +187,7 @@ def parse_pages(raw: bytes) -> dict[str, PageBlock]:
 
 def load_spec(name: str) -> ModuleType:
     """Import a layout spec module that lives next to this script."""
-    return importlib.import_module(name)
+    return importlib.import_module(f"{__package__}.{name}")
 
 
 Pages = dict[str, PageBlock]
@@ -310,7 +310,10 @@ def verify(raw: bytes, spec: ModuleType, sibling: Pages | None = None) -> list[s
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument(
-        "--spec", default="portrait_layout", help="layout spec module (default: portrait_layout)"
+        "--spec",
+        choices=tuple(SPEC_MODULES),
+        default="landscape",
+        help="layout spec to apply (default: landscape)",
     )
     parser.add_argument("-i", "--input", type=Path, help="HMI to read (default: the spec's HMI)")
     parser.add_argument("-o", "--output", type=Path, help="HMI to write (default: --input)")
@@ -322,7 +325,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="only report spec coverage")
     args = parser.parse_args(argv)
 
-    spec = load_spec(args.spec)
+    spec_name = SPEC_MODULES[args.spec]
+    spec = load_spec(spec_name)
     source = args.input or ROOT / "nextion" / spec.HMI_NAME
     raw = bytearray(source.read_bytes())
     pages = parse_pages(raw)
@@ -334,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
         print("\n".join(problems))
         return 1
     with_sibling = f" and with {sibling_path.name}" if sibling_path else ""
-    print(f"{source}: {len(pages)} pages, spec {args.spec} consistent with the HMI{with_sibling}")
+    print(f"{source}: {len(pages)} pages, spec {spec_name} consistent with the HMI{with_sibling}")
     if args.check:
         # Verify attribute values too (alignment, font, …), not just widget
         # coverage: a spec-only change must not pass the release gate while
@@ -352,7 +356,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     output = args.output or source
     output.write_bytes(raw)
-    print(f"{output}: wrote {changed} widgets from {args.spec}")
+    print(f"{output}: wrote {changed} widgets from {spec_name}")
     return 0
 
 

@@ -55,7 +55,7 @@ jobs:
         # so an installed dev build kept offering itself as an update. Keeping
         # them identical (and PEP 440) makes the Marketplace order dev releases
         # and only offer a build that is actually newer.
-        run: python3 scripts/release/dev_version.py "$GITHUB_RUN_NUMBER"
+        run: python -m scripts.release.dev_version "$GITHUB_RUN_NUMBER"
 
       - name: Take the display TFT version from the HMIs
         # A dev release ships the committed TFTs under the system.tftVersion
@@ -70,8 +70,7 @@ jobs:
           import os, re, sys
           from pathlib import Path
 
-          sys.path.insert(0, "scripts")
-          from bump_tft_version import shipped_tft_version
+          from scripts.bump_tft_version import shipped_tft_version
 
           version = shipped_tft_version()
           version_file = Path("esphome/nspanel_haui/version.yaml")
@@ -119,8 +118,7 @@ jobs:
           import json, os, subprocess, sys
           from pathlib import Path
 
-          sys.path.insert(0, "scripts/release")
-          from generate_firmware_manifest import build_manifest
+          from scripts.release.generate_firmware_manifest import build_manifest
 
           repo = os.environ["GITHUB_REPOSITORY"]
           commit = os.environ["GITHUB_SHA"]

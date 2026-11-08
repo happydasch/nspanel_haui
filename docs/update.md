@@ -21,8 +21,8 @@ the hub and firmware from different releases; complete the update as a set.
 
 1. **Read the release notes** and the [breaking
    changes](update-process.md#upgrading) for the release you are installing.
-2. **Update the integration.** Install it under **Settings → Updates** and
-   restart Home Assistant.
+2. **Update the integration.** Install or update it in the Home Assistant
+   **Marketplace**, then restart Home Assistant.
 3. **Update the firmware.** Press **Install** on the panel's **HAUI Firmware**
    update (`update.<device>_haui_firmware`). The panel downloads, flashes and
    restarts.

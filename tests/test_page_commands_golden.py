@@ -14,26 +14,27 @@ import types
 from pathlib import Path
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.abstract.mixins.function_btn_mixin import FncType
-from nspanel_haui.haui.features import (
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.abstract.mixins.function_btn_mixin import FncType
+from custom_components.nspanel_haui.haui.features import (
     ClimateFeatures,
     CoverFeatures,
     MediaPlayerFeatures,
     VacuumFeatures,
 )
-from nspanel_haui.haui.mapping.color import ColorTheme
-from nspanel_haui.haui.page.alarm import AlarmPage
-from nspanel_haui.haui.page.climate import ClimatePage
-from nspanel_haui.haui.page.cover import CoverPage
-from nspanel_haui.haui.page.grid import GridPage
-from nspanel_haui.haui.page.light import LightPage
-from nspanel_haui.haui.page.media import MediaPage
-from nspanel_haui.haui.page.row import RowPage
-from nspanel_haui.haui.page.timer import TimerPage
-from nspanel_haui.haui.page.unlock import UnlockPage
-from nspanel_haui.haui.page.vacuum import VacuumPage
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
+from custom_components.nspanel_haui.haui.page.climate import ClimatePage
+from custom_components.nspanel_haui.haui.page.cover import CoverPage
+from custom_components.nspanel_haui.haui.page.grid import GridPage
+from custom_components.nspanel_haui.haui.page.light import LightPage
+from custom_components.nspanel_haui.haui.page.media import MediaPage
+from custom_components.nspanel_haui.haui.page.row import RowPage
+from custom_components.nspanel_haui.haui.page.timer import TimerPage
+from custom_components.nspanel_haui.haui.page.unlock import UnlockPage
+from custom_components.nspanel_haui.haui.page.vacuum import VacuumPage
 
 GOLDEN = Path(__file__).with_name("page_commands_golden.json")
 _RECORDED: dict[str, object] = {}

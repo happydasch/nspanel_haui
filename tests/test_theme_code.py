@@ -12,13 +12,13 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = ROOT / "scripts" / "gen_virtual_layout" / "gen_virtual_layout.py"
 
 
 def _theme_code(*pages: str) -> subprocess.CompletedProcess:
     # A subprocess: the generator installs homeassistant stubs for itself.
     return subprocess.run(
-        [sys.executable, str(SCRIPT), "--theme-code", *pages],
+        [sys.executable, "-m", "scripts.hmi_layout.gen_virtual_layout", "--theme-code", *pages],
+        cwd=ROOT,
         capture_output=True,
         text=True,
         check=False,

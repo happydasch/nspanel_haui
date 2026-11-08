@@ -6,7 +6,8 @@ editor.
 """
 
 import pytest
-from nspanel_haui.haui.mapping.panel import get_user_panel_type_descriptors
+
+from custom_components.nspanel_haui.haui.mapping.panel import get_user_panel_type_descriptors
 
 
 @pytest.mark.parametrize("type_key", ["clock", "weather", "clocktwo"])
@@ -21,7 +22,7 @@ def test_headerless_page_components_have_no_header_buttons(type_key):
 
 
 def test_blank_page_declares_only_its_own_widget():
-    from nspanel_haui.haui.page.blank import BlankPage
+    from custom_components.nspanel_haui.haui.page.blank import BlankPage
 
     assert [c.name for c in BlankPage.COMPONENTS.values()] == ["hBlank"]
 

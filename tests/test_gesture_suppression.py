@@ -12,15 +12,15 @@ and the spurious swipe gesture is suppressed (no panel navigation).
 
 import time
 
-from nspanel_haui.haui.abstract.component import Component
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.abstract.haui_page import HAUIPage
-from nspanel_haui.haui.abstract.mixins.touch_input_mixin import (
+from custom_components.nspanel_haui.haui.abstract.component import Component
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
+from custom_components.nspanel_haui.haui.abstract.mixins.touch_input_mixin import (
     TouchInputMixin,
     _PendingReadRequest,
 )
-from nspanel_haui.haui.device import HAUIDevice
-from nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse, SysPanelKey
+from custom_components.nspanel_haui.haui.device import HAUIDevice
+from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse, SysPanelKey
 
 # --- marking sliders as drag components -----------------------------------
 

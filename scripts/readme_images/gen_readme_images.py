@@ -13,7 +13,7 @@ there.
 
 Usage::
 
-    python scripts/readme_images/gen_readme_images.py
+    python -m scripts.readme_images.gen_readme_images
 """
 
 from __future__ import annotations
@@ -25,20 +25,19 @@ import http.server
 import json
 import shutil
 import subprocess
-import sys
 import tempfile
 import threading
 from pathlib import Path
 from typing import Any
 
+import time_machine
+
+from scripts.preview_gallery import gen_preview_gallery as gallery
+from scripts.preview_gallery import sample_world
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 TARGET = ROOT / "docs" / "assets" / "readme"
-sys.path.insert(0, str(ROOT / "scripts" / "preview_gallery"))
-
-import gen_preview_gallery as gallery  # noqa: E402  (also installs the Home Assistant stubs)
-import sample_world  # noqa: E402
-import time_machine  # noqa: E402
 
 # name -> CSS size of the page; exported at 2x
 IMAGES = {"hero": (1000, 380), "editor": (1000, 236), "quick-start": (1000, 236)}
@@ -86,8 +85,8 @@ SCREENS: dict[str, dict[str, Any]] = {
 def _render_panel(
     loop: asyncio.AbstractEventLoop, display_model: str, panel: dict[str, Any]
 ) -> dict[str, Any]:
-    import nspanel_haui
-    from nspanel_haui.virtual_panel import VirtualPanelHost
+    import custom_components.nspanel_haui as nspanel_haui
+    from custom_components.nspanel_haui.virtual_panel import VirtualPanelHost
 
     # Both panels: with a single one the header has no previous/next arrows
     store = {
@@ -169,7 +168,7 @@ def main() -> None:
         fonts = build / "fonts"
         fonts.mkdir()
         for weight in ("Light", "Regular", "Bold"):
-            shutil.copy(ROOT / "scripts" / "gen_fonts" / "Roboto" / f"Roboto-{weight}.ttf", fonts)
+            shutil.copy(ROOT / "scripts" / "font_tools" / "Roboto" / f"Roboto-{weight}.ttf", fonts)
         shutil.copy(gallery.OUT / "mdi" / "materialdesignicons-webfont.woff2", fonts)
 
         server = serve_gallery(renders)

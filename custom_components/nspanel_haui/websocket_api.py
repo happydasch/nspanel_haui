@@ -11,8 +11,12 @@ or a card render. Live previews and panel cards share it.
   hardware buttons' lights.
 - ``nspanel_haui/virtual_panel/event`` injects a touch, swipe or hardware
   button.
+- The live preview reads the device's current notifications from the REST API
+  and sends that snapshot to ``nspanel_haui/virtual_panel/notifications`` so
+  its virtual app can render an independent queue.
 - ``nspanel_haui/virtual_panel/idle`` acts as if the inactivity timeout opened
   the idle page.
+- ``nspanel_haui/virtual_panel/reset_sandbox`` drops simulated entity states.
 - ``nspanel_haui/virtual_panel/configure`` switches the app between sandbox
   and live mode; the mode is shared by every live preview of the device.
 - ``nspanel_haui/virtual_panel/render`` renders one panel as its editor card
@@ -279,6 +283,43 @@ async def ws_event(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): "nspanel_haui/virtual_panel/notifications",
+        vol.Required("session_id"): str,
+        vol.Required("notifications"): vol.All(
+            [
+                vol.Schema(
+                    {
+                        vol.Required("id"): str,
+                        vol.Required("title"): str,
+                        vol.Required("message"): str,
+                        vol.Required("icon"): str,
+                        vol.Required("notif_type"): vol.In(["info", "warning", "critical"]),
+                        vol.Required("persistent"): bool,
+                        vol.Required("force_show"): bool,
+                        vol.Required("text_size"): vol.Any(
+                            "auto", vol.All(int, vol.Range(min=1, max=3))
+                        ),
+                        vol.Required("timeout"): vol.Any(None, vol.All(int, vol.Range(min=0))),
+                    }
+                )
+            ],
+            vol.Length(max=50),
+        ),
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_notifications(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
+    """Apply the live preview's read-only HAUI notification snapshot."""
+    host = _get_host(hass, connection, msg)
+    if host is None:
+        return
+    await host.async_sync_notifications(msg["notifications"])
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): "nspanel_haui/virtual_panel/idle",
         vol.Required("session_id"): str,
     }
@@ -290,6 +331,22 @@ async def ws_idle(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     if host is None:
         return
     host.show_idle()
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "nspanel_haui/virtual_panel/reset_sandbox",
+        vol.Required("session_id"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_reset_sandbox(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
+    host = _get_host(hass, connection, msg)
+    if host is None:
+        return
+    host.reset_sandbox()
     connection.send_result(msg["id"])
 
 
@@ -348,6 +405,8 @@ def async_register_websocket_commands(hass: Any) -> None:
     """Register the virtual panel's WebSocket commands."""
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_event)
+    websocket_api.async_register_command(hass, ws_notifications)
     websocket_api.async_register_command(hass, ws_idle)
+    websocket_api.async_register_command(hass, ws_reset_sandbox)
     websocket_api.async_register_command(hass, ws_configure)
     websocket_api.async_register_command(hass, ws_render)

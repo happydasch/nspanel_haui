@@ -26,8 +26,8 @@ def _import_notify(monkeypatch):
     registry.DeviceInfo = dict
     monkeypatch.setitem(sys.modules, "homeassistant.components.notify", notify_mod)
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.device_registry", registry)
-    monkeypatch.delitem(sys.modules, "nspanel_haui.notify", raising=False)
-    from nspanel_haui import notify
+    monkeypatch.delitem(sys.modules, "custom_components.nspanel_haui.notify", raising=False)
+    from custom_components.nspanel_haui import notify
 
     return notify
 

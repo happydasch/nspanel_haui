@@ -6,12 +6,13 @@ from pathlib import Path
 
 import pytest
 import time_machine
-from nspanel_haui.haui.abstract import haui_page
-from nspanel_haui.haui.abstract.mixins.cycle_cards_mixin import CARD_OPTIONS
-from nspanel_haui.haui.page import weather as weather_module
-from nspanel_haui.haui.page.clock import ClockPage
-from nspanel_haui.haui.page.weather import WeatherPage
-from nspanel_haui.haui.utils.text import TextBox, fit_line
+
+from custom_components.nspanel_haui.haui.abstract import haui_page
+from custom_components.nspanel_haui.haui.abstract.mixins.cycle_cards_mixin import CARD_OPTIONS
+from custom_components.nspanel_haui.haui.page import weather as weather_module
+from custom_components.nspanel_haui.haui.page.clock import ClockPage
+from custom_components.nspanel_haui.haui.page.weather import WeatherPage
+from custom_components.nspanel_haui.haui.utils.text import TextBox, fit_line
 
 LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
 

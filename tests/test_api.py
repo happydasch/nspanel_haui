@@ -63,7 +63,7 @@ def _install_ha_stubs() -> None:
 
 _install_ha_stubs()
 
-from nspanel_haui import (  # noqa: E402
+from custom_components.nspanel_haui import (  # noqa: E402
     _auto_add_unconfigured_devices,
     api,
     async_reload_entry,
@@ -186,6 +186,7 @@ _PROTECTED = [
     (api.DeviceYamlView, "get"),
     (api.DeviceYamlView, "post"),
     (api.DeviceRefreshDisplayView, "post"),
+    (api.DeviceResetInteractionView, "post"),
     (api.DeviceUpdateTftView, "post"),
     (api.DeviceTftReleasesView, "get"),
     (api.DeviceUpdateFirmwareView, "post"),
@@ -232,6 +233,9 @@ def test_notifications_view_returns_queued_notifications():
         icon="mdi:bell",
         persistent=True,
         notif_type="critical",
+        force_show=True,
+        text_size=2,
+        timeout=30,
         notif_id="a1",
     )
     app = _NotificationApp("kitchen", [notification])
@@ -249,6 +253,9 @@ def test_notifications_view_returns_queued_notifications():
             "icon": "mdi:bell",
             "notif_type": "critical",
             "persistent": True,
+            "force_show": True,
+            "text_size": 2,
+            "timeout": 30,
         }
     ]
 
@@ -387,7 +394,7 @@ def test_translations_view_rejects_path_like_language(language):
 
 
 def test_translations_accept_region_suffixed_language():
-    from nspanel_haui.haui.utils.text import get_translations
+    from custom_components.nspanel_haui.haui.utils.text import get_translations
 
     assert get_translations("de-DE") is get_translations("de")
     assert get_translations("de_DE") is get_translations("de")
@@ -500,7 +507,7 @@ def test_enabling_a_device_from_the_editor_reloads_the_entry(monkeypatch):
 def _custom_scheme(name="Evening"):
     from copy import deepcopy
 
-    from nspanel_haui.haui.mapping.color import BUILTIN_COLOR_SCHEMES
+    from custom_components.nspanel_haui.haui.mapping.color import BUILTIN_COLOR_SCHEMES
 
     scheme = deepcopy(BUILTIN_COLOR_SCHEMES["dark"])
     scheme["name"] = name
@@ -607,7 +614,7 @@ def test_panel_save_rejects_edits_of_fixed_system_panels(monkeypatch):
 
 
 def test_device_yaml_export_includes_the_selected_custom_scheme_definition():
-    from nspanel_haui.api.config import _device_yaml_data
+    from custom_components.nspanel_haui.api.config import _device_yaml_data
 
     custom = _custom_scheme()
     device = {"config": {"color_scheme_id": "evening"}, "panels": []}
@@ -685,7 +692,7 @@ def test_push_panels_with_legacy_single_app_does_not_reload(monkeypatch):
 
 
 def test_removing_the_hub_deletes_its_panel_store(monkeypatch):
-    from nspanel_haui import async_remove_entry
+    from custom_components.nspanel_haui import async_remove_entry
 
     removed: list[str] = []
 
@@ -797,6 +804,37 @@ def test_display_refresh_runs_on_the_device_worker():
     asyncio.run(api.DeviceRefreshDisplayView().post(request, entry_id="entry1"))
 
     assert app.calls == ["worker", "refresh_display"]
+
+
+def test_interaction_timer_reset_runs_on_the_device_worker():
+    entry = _entry_with({"name": "kitchen"})
+    hass = _Hass(entry)
+    app = _WorkerApp()
+    app.device = types.SimpleNamespace(
+        reset_interaction_timer=lambda: app.calls.append("reset_interaction_timer")
+    )
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+    request = _Request(hass, admin=True, body={"device": "kitchen"})
+
+    result = asyncio.run(api.DeviceResetInteractionView().post(request, entry_id="entry1"))
+
+    assert result == {"body": {"status": "ok", "device": "kitchen"}, "status_code": 200}
+    assert app.calls == ["worker", "reset_interaction_timer"]
+
+
+def test_interaction_timer_reset_requires_a_device():
+    hass = _Hass(_entry_with({"name": "kitchen"}))
+    app = _WorkerApp()
+    hass.data["nspanel_haui"]["entry1"] = {"kitchen": app}
+
+    result = asyncio.run(
+        api.DeviceResetInteractionView().post(
+            _Request(hass, admin=True, body={"device": ""}), entry_id="entry1"
+        )
+    )
+
+    assert result["status_code"] == 400
+    assert app.calls == []
 
 
 def test_firmware_download_rejects_non_admin_users():
@@ -1683,7 +1721,7 @@ def test_disabled_device_status_returns_unknown_readings_when_registry_lookup_fa
 
 
 def test_icon_chars_map_display_characters_back_to_icon_names():
-    from nspanel_haui.haui.mapping.icon_mapping import ICON_MAPPING
+    from custom_components.nspanel_haui.haui.mapping.icon_mapping import ICON_MAPPING
 
     request = _Request(MagicMock(), admin=False)
     result = asyncio.run(api.IconCharsView().get(request))

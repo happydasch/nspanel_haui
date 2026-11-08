@@ -149,7 +149,7 @@ run after an HMI change, and in what order, is in
 - Font generation
 - Image generation
 - Virtual panel assets: after every HMI change run
-  `python scripts/gen_virtual_layout/gen_virtual_layout.py`. It exports both
+  `python -m scripts.hmi_layout.gen_virtual_layout`. It exports both
   HMI files' pages, widgets and event code to
   `custom_components/nspanel_haui/frontend/virtual/layout_<orientation>.json`,
   the icon-character→MDI map to `icon_map.json` and the pictures (as WebP, from
@@ -162,6 +162,6 @@ run after an HMI change, and in what order, is in
   `scripts/_ha_stubs.py`. The panel cards themselves are the hub's own render;
   `tests/test_card_renders.py` replays a render of every panel type in these
   layouts.
-- Preview coverage: `python scripts/check_preview_coverage.py` (also run by the
+- Preview coverage: `python -m scripts.check_preview_coverage` (also run by the
   test suite) confirms every exposed panel — user types, system panels and
   popup aliases — still resolves to a physical page in both preview layouts.

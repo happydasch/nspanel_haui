@@ -142,10 +142,12 @@ the repository checkout:
 scripts/git_hooks/install.sh
 ```
 
-The hook runs `scripts/gen_virtual_layout/gen_virtual_layout.py`, stages only its
-outputs (`layout_*.json`, `icon_map.json`, and `pictures/`), then runs
-`python scripts/gen_portrait/gen_portrait.py --check`. It never rewrites either
-HMI. The project `.venv` is preferred; otherwise it uses `python3` from `PATH`.
+The hook runs `scripts/hmi_layout/gen_virtual_layout.py`, stages only its
+outputs (`layout_*.json`, `icon_map.json`, and `pictures/`), then checks both
+specs with `python -m scripts.hmi_layout.gen_layout --check` (landscape) and
+`python -m scripts.hmi_layout.gen_layout --spec portrait --check`. It never
+rewrites either HMI. The project `.venv` is preferred; otherwise it uses
+`python3` from `PATH`.
 Install the development dependencies first (`pip install -r requirements-dev.txt`)
 so both generators can run. The hook is opt-in per checkout; to remove its local
 configuration, run `git config --unset core.hooksPath`.
@@ -227,7 +229,7 @@ image*; the asset contract and CI rules are in
 The US portrait panel gets its own TFT, but not a hand-maintained second
 project: `nextion/nspanel_haui_portrait.HMI` is the landscape project with the
 device orientation switched and every widget's geometry written by
-`scripts/gen_portrait/gen_portrait.py` from a spec module (`portrait_layout.py`
+`scripts/hmi_layout/gen_layout.py` from a spec module (`portrait_layout.py`
 for the 320 × 480 layout, `landscape_layout.py` for refinements of the
 480 × 320 one). Object names, ids and event code are identical in both
 projects, so the hub addresses either TFT with the same `COMPONENTS`.

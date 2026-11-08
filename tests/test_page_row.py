@@ -8,9 +8,10 @@ row page reads.
 import types
 
 import pytest
-from nspanel_haui.haui.abstract.haui_item import HAUIItem
-from nspanel_haui.haui.features import CoverFeatures
-from nspanel_haui.haui.page.row import RowPage
+
+from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
+from custom_components.nspanel_haui.haui.features import CoverFeatures
+from custom_components.nspanel_haui.haui.page.row import RowPage
 
 _COLORS = {"component_active": 1, "text_disabled": 2}
 

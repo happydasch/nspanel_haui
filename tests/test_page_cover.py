@@ -6,11 +6,12 @@ display and Home Assistant.
 """
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.features import CoverFeatures
-from nspanel_haui.haui.mapping.color import ColorTheme
-from nspanel_haui.haui.page.cover import CoverPage
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.features import CoverFeatures
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.cover import CoverPage
 
 
 class _Entity:

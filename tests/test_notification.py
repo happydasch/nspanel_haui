@@ -4,15 +4,24 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.controller.notification import HAUINotificationController, Notification
-from nspanel_haui.haui.device import HAUIDevice
-from nspanel_haui.haui.device_config import DEVICE_CONFIG
-from nspanel_haui.haui.mapping.const import ESPAction, ESPResponse, NotifEvent, PopupPanelKey
-from nspanel_haui.haui.mapping.panel import POPUP_PANEL_MAPPING
-from nspanel_haui.haui.page.clock import ClockPage
-from nspanel_haui.haui.page.clocktwo import ClockTwoPage
-from nspanel_haui.haui.page.weather import WeatherPage
+
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.controller.notification import (
+    HAUINotificationController,
+    Notification,
+)
+from custom_components.nspanel_haui.haui.device import HAUIDevice
+from custom_components.nspanel_haui.haui.device_config import DEVICE_CONFIG
+from custom_components.nspanel_haui.haui.mapping.const import (
+    ESPAction,
+    ESPResponse,
+    NotifEvent,
+    PopupPanelKey,
+)
+from custom_components.nspanel_haui.haui.mapping.panel import POPUP_PANEL_MAPPING
+from custom_components.nspanel_haui.haui.page.clock import ClockPage
+from custom_components.nspanel_haui.haui.page.clocktwo import ClockTwoPage
+from custom_components.nspanel_haui.haui.page.weather import WeatherPage
 
 
 class DummyEntity:

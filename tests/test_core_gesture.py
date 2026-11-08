@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nspanel_haui.haui.controller.gesture import HAUIGestureController
+from custom_components.nspanel_haui.haui.controller.gesture import HAUIGestureController
 
 
 class _Device:

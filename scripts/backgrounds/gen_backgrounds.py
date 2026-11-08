@@ -12,7 +12,7 @@ The tiles are then imported as picture resources in the Nextion Editor.
 
 Usage::
 
-    python scripts/gen_backgrounds/gen_backgrounds.py [--only NAME ...]
+    python -m scripts.backgrounds.gen_backgrounds [--only NAME ...]
 """
 
 from __future__ import annotations

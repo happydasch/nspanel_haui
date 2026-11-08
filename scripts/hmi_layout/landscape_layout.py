@@ -2,7 +2,7 @@
 
 Unlike ``portrait_layout.py`` this spec is *partial*: it lists only the widgets
 it changes, every other widget keeps the geometry the Nextion Editor saved.
-Apply it with ``python scripts/gen_portrait/gen_portrait.py --spec landscape_layout``.
+Apply it with ``python -m scripts.hmi_layout.gen_layout`` (the default spec).
 
 Both HMIs are addressed by the same Python ``COMPONENTS`` registries, so every
 change made here (sizes, slider attributes, new widgets in the editor) must be
@@ -22,7 +22,7 @@ Rules:
 
 from __future__ import annotations
 
-from theme import with_theme
+from .theme import with_theme
 
 Rect = tuple[int, int, int, int]
 

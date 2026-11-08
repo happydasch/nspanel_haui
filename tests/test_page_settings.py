@@ -2,7 +2,7 @@
 
 from contextlib import nullcontext
 
-from nspanel_haui.haui.page.settings import SettingsPage
+from custom_components.nspanel_haui.haui.page.settings import SettingsPage
 
 
 class _Item:

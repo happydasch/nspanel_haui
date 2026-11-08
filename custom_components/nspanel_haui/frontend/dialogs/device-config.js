@@ -244,46 +244,15 @@ class DeviceConfigDialog extends HauiDialog {
                 ${t("Controls the display brightness over time. These settings only dim and turn the screen off - they never switch pages. Turning the display off never requires an idle page.")}
               </p>
                 ${checkbox(this, "dc-use_auto_dimming", "use_auto_dimming", cfg, t("Auto dimming"),
-                  t("When enabled, the display dims automatically after the dimming timeout. Disable to keep the display at full brightness at all times. Do not drive this switch from an automation — HAUI manages it from settings, schedules, profiles, and page holds."))}
+                  t("When enabled, the display dims automatically after the dimming timeout. Disable to keep full brightness. Automations may control this switch; HAUI does not reapply it on reconnects or page changes."))}
                 ${intField(this, "dc-timeout_dimming", "timeout_dimming", cfg, t("Dimming timeout (seconds)"), 10, 0, 3600,
                   t("Seconds of inactivity before the display dims (0 = disabled, max 3600)."))}
 
                 ${checkbox(this, "dc-use_auto_display_off", "use_auto_display_off", cfg, t("Auto display off"),
-                  t("When enabled, the display turns off (brightness to zero) after the display-off timeout. A touch or button press wakes it again. Disable to keep the display on. Do not drive this switch from an automation — HAUI manages it from settings, schedules, profiles, and page holds."))}
+                  t("When enabled, the display turns off (brightness to zero) after the display-off timeout. Disable to prevent automatic off. Automations may control this switch; HAUI does not reapply it on reconnects or page changes."))}
                 ${intField(this, "dc-timeout_display_off", "timeout_display_off", cfg, t("Display-off timeout (seconds)"), 120, 0, 3600,
                   t("Seconds of inactivity before the display turns off (0 = disabled, max 3600)."))}
 
-                ${checkbox(this, "dc-use_sleep_schedule", "use_sleep_schedule", cfg, t("Sleep schedule"),
-                  t("Only allow the display to turn off inside the time window below. Outside it the screen stays on (and only dims after the dimming timeout) while the idle page is shown. While enabled, the window overrides the Auto display-off toggle."))}
-                ${cfg.use_sleep_schedule ? html`
-                  <div class="form-group">
-                    <label>${t("Sleep schedule window")}</label>
-                    <div class="time-range-row">
-                      <input
-                        id="dc-sleep_schedule_start"
-                        type="time"
-                        class="native-input"
-                        .value=${String(cfg.sleep_schedule_start ?? "")}
-                        @input=${(e) => {
-                          this._deviceConfigForm = { ...this._deviceConfigForm, sleep_schedule_start: e.target.value };
-                          this.requestUpdate();
-                        }}
-                      />
-                      <span class="time-range-sep">&ndash;</span>
-                      <input
-                        id="dc-sleep_schedule_end"
-                        type="time"
-                        class="native-input"
-                        .value=${String(cfg.sleep_schedule_end ?? "")}
-                        @input=${(e) => {
-                          this._deviceConfigForm = { ...this._deviceConfigForm, sleep_schedule_end: e.target.value };
-                          this.requestUpdate();
-                        }}
-                      />
-                    </div>
-                    <div class="field-hint">${t("The display turns off only within this time window. Overnight ranges such as 22:00–07:00 are supported. Leave both fields empty to keep the Auto display-off setting.")}</div>
-                  </div>
-                ` : ""}
             </div>
           </details>
 
@@ -291,7 +260,7 @@ class DeviceConfigDialog extends HauiDialog {
             <summary>${t("Day/Night Profiles")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">
-                ${t("When scheduling is enabled, the hub applies the active profile's brightness, dim-ramp, auto switches, and timeouts on startup, reconnect, save, and schedule changes. With scheduling disabled, brightness and dim-ramp values remain manual in ESPHome; the existing switches and timeouts remain the Day settings.")}
+                ${t("When scheduling is enabled, the hub applies the active profile's brightness, dim-ramp, and timeout values. The Auto dimming and Auto display off switches remain independent: Home Assistant automations may control them, and profile changes never rewrite them.")}
               </p>
               ${selectField(this, "dc-day_night_schedule_mode", "day_night_schedule_mode", cfg,
                 t("Schedule"), [
@@ -299,7 +268,7 @@ class DeviceConfigDialog extends HauiDialog {
                   { value: "fixed", label: t("Fixed clock") },
                   { value: "sun", label: t("Sunrise / sunset") },
                 ], (v) => v,
-                t("Choose fixed local times or Home Assistant's sunrise and sunset for this device. A valid Sleep schedule remains authoritative for whether automatic display-off is allowed."))}
+                t("Choose fixed local times or Home Assistant's sunrise and sunset for this device."))}
 
               ${cfg.day_night_schedule_mode === "fixed" ? html`
                 <div class="form-group">
@@ -351,13 +320,11 @@ class DeviceConfigDialog extends HauiDialog {
                   t("Dim ramp duration (seconds)"), 2, 0, 5,
                   t("The dimming transition duration; firmware range is 0–5 seconds."))}
                 <p class="field-hint">
-                  ${t("Day auto-dimming, page, and display-off toggles and timeouts are the existing settings in the sections above and below.")}
+                  ${t("The Day profile uses the device-level Auto dimming and Auto display off switches; profiles change timeouts and brightness only.")}
                 </p>
 
                 <div class="section-divider"></div>
                 <h4>${t("Night profile")}</h4>
-                ${checkbox(this, "dc-night_use_auto_dimming", "night_use_auto_dimming", cfg,
-                  t("Auto dimming"), t("Enable automatic dimming during Night."))}
                 ${intField(this, "dc-night_timeout_dimming", "night_timeout_dimming", cfg,
                   t("Dimming timeout (seconds)"), 10, 0, 3600,
                   t("Seconds of inactivity before dimming during Night."))}
@@ -378,8 +345,6 @@ class DeviceConfigDialog extends HauiDialog {
                 ${selectField(this, "dc-night_idle_panel", "night_idle_panel", cfg,
                   t("Night idle page"), panelOptions, (v) => v,
                   t("Choose the idle page used during Night. None keeps the current page when the timeout is reached."))}
-                ${checkbox(this, "dc-night_use_auto_display_off", "night_use_auto_display_off", cfg,
-                  t("Auto display off"), t("Allow automatic display-off according to the Night profile."))}
                 ${intField(this, "dc-night_timeout_display_off", "night_timeout_display_off", cfg,
                   t("Display-off timeout (seconds)"), 120, 0, 3600,
                   t("Seconds of inactivity before the display turns off during Night."))}

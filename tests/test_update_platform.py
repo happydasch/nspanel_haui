@@ -65,8 +65,8 @@ def _import_update(monkeypatch: MonkeyPatch):
     helpers = sys.modules.get("homeassistant.helpers")
     if helpers is not None:
         monkeypatch.setattr(helpers, "entity_registry", entity_registry, raising=False)
-    monkeypatch.delitem(sys.modules, "nspanel_haui.update", raising=False)
-    from nspanel_haui import update
+    monkeypatch.delitem(sys.modules, "custom_components.nspanel_haui.update", raising=False)
+    from custom_components.nspanel_haui import update
 
     return update
 

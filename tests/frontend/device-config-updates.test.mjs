@@ -161,7 +161,6 @@ test('Day/Night profile fields keep schedule, brightness, timeouts and idle targ
     day_brightness_full: null,
     day_brightness_dimmed: null,
     day_duration_dim: null,
-    night_use_auto_dimming: true,
     night_timeout_dimming: 10,
     night_duration_dim: 2,
     night_brightness_full: 50,
@@ -169,7 +168,6 @@ test('Day/Night profile fields keep schedule, brightness, timeouts and idle targ
     night_use_auto_page: true,
     night_timeout_page: 30,
     night_idle_panel: '',
-    night_use_auto_display_off: true,
     night_timeout_display_off: 120,
   });
 
@@ -207,7 +205,8 @@ test('Day/Night profile fields keep schedule, brightness, timeouts and idle targ
     return findBinding(dlg.render());
   };
   eventHandler('dc-night_idle_panel', '@change')({ target: { value: 'night_clock' } });
-  eventHandler('dc-night_use_auto_dimming', '@change')({ target: { checked: false } });
+  assert.equal(eventHandler('dc-night_use_auto_dimming', '@change'), undefined);
+  assert.equal(eventHandler('dc-night_use_auto_display_off', '@change'), undefined);
 
   assert.deepEqual(
     Object.fromEntries(Object.entries(dlg._deviceConfigForm).filter(([key]) => key.startsWith('day_') || key.startsWith('night_'))),
@@ -218,7 +217,6 @@ test('Day/Night profile fields keep schedule, brightness, timeouts and idle targ
       day_brightness_full: 62,
       day_brightness_dimmed: 14,
       day_duration_dim: 1.5,
-      night_use_auto_dimming: false,
       night_timeout_dimming: 25,
       night_duration_dim: 0.8,
       night_brightness_full: 18,
@@ -226,8 +224,7 @@ test('Day/Night profile fields keep schedule, brightness, timeouts and idle targ
       night_use_auto_page: true,
       night_timeout_page: 45,
       night_idle_panel: 'night_clock',
-      night_use_auto_display_off: true,
-      night_timeout_display_off: 240,
+        night_timeout_display_off: 240,
     },
   );
 });

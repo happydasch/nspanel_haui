@@ -42,7 +42,8 @@ _install_ha_stubs()
 
 import pytest  # noqa: E402
 import voluptuous as vol  # noqa: E402
-from nspanel_haui.services import (  # noqa: E402
+
+from custom_components.nspanel_haui.services import (  # noqa: E402
     DOMAIN,
     SERVICE_CLOSE_PANEL,
     SERVICE_IDLE,
@@ -271,7 +272,7 @@ async def test_open_panel(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_open_panel
+    from custom_components.nspanel_haui.services import _handle_open_panel
 
     call = MagicMock()
     call.data = {"panel": "alarm", "wakeup": False, "device_id": "dev_1"}
@@ -288,7 +289,7 @@ async def test_open_panel_with_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_open_panel
+    from custom_components.nspanel_haui.services import _handle_open_panel
 
     call = MagicMock()
     call.data = {"panel": "alarm", "wakeup": True, "device_id": "dev_1"}
@@ -304,7 +305,7 @@ async def test_open_panel_with_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
 async def test_open_panel_no_matching_device(mock_hass, mock_nav, mock_esphome_ctrl):
     """open_panel with an unknown device fails the call."""
     mock_hass.data[DOMAIN] = {}
-    from nspanel_haui.services import _handle_open_panel
+    from custom_components.nspanel_haui.services import _handle_open_panel
 
     call = MagicMock()
     call.data = {"panel": "alarm", "wakeup": False, "device": "unknown"}
@@ -320,7 +321,7 @@ async def test_close_panel(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_close_panel
+    from custom_components.nspanel_haui.services import _handle_close_panel
 
     call = MagicMock()
     call.data = {"device_id": "dev_1"}
@@ -337,7 +338,7 @@ async def test_update_tft_targets_selected_device(mock_hass, mock_nav, mock_esph
     other = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_other", name="other")
     mock_hass.data[DOMAIN] = {"entry_1": {"target": target, "other": other}}
 
-    from nspanel_haui.services import _handle_update_tft
+    from custom_components.nspanel_haui.services import _handle_update_tft
 
     call = MagicMock()
     call.data = {"device": "dev_target"}
@@ -360,7 +361,7 @@ async def test_update_tft_accepts_the_haui_device(
     mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
     device_registry["haui_kitchen"] = {(DOMAIN, "kitchen")}
 
-    from nspanel_haui.services import _handle_update_tft
+    from custom_components.nspanel_haui.services import _handle_update_tft
 
     call = MagicMock()
     call.data = {"device": "haui_kitchen"}
@@ -378,7 +379,7 @@ async def test_update_tft_rejects_an_unknown_device(mock_hass, mock_nav, mock_es
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
     mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
 
-    from nspanel_haui.services import _handle_update_tft
+    from custom_components.nspanel_haui.services import _handle_update_tft
 
     call = MagicMock()
     call.data = {"device": "unknown", "url": "http://homeassistant.local:8123/local/x.tft"}
@@ -396,7 +397,7 @@ async def test_update_tft_with_url_installs_that_file(mock_hass, mock_nav, mock_
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
     mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
 
-    from nspanel_haui.services import _handle_update_tft
+    from custom_components.nspanel_haui.services import _handle_update_tft
 
     call = MagicMock()
     call.data = {"device": "dev_target", "url": "http://ha.local/nspanel_haui.tft"}
@@ -418,7 +419,7 @@ async def test_update_tft_with_version_installs_that_release(
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
     mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
 
-    from nspanel_haui.services import _handle_update_tft
+    from custom_components.nspanel_haui.services import _handle_update_tft
 
     call = MagicMock()
     call.data = {"device": "dev_target", "version": "0.4.1"}
@@ -445,7 +446,7 @@ async def test_update_firmware_installs_the_chosen_firmware(
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
     mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
 
-    from nspanel_haui.services import _handle_update_firmware
+    from custom_components.nspanel_haui.services import _handle_update_firmware
 
     call = MagicMock()
     call.data = {"device": "dev_target", **data}
@@ -477,7 +478,7 @@ async def test_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_wakeup
+    from custom_components.nspanel_haui.services import _handle_wakeup
 
     call = MagicMock()
     call.data = {"device_id": "dev_1"}
@@ -495,7 +496,7 @@ async def test_idle(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_idle
+    from custom_components.nspanel_haui.services import _handle_idle
 
     call = MagicMock()
     call.data = {"device_id": "dev_1"}
@@ -516,7 +517,7 @@ async def test_send_notification_passes_all_fields_to_controller(
     app.controller["notification"] = notif_ctrl
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_send_notification
+    from custom_components.nspanel_haui.services import _handle_send_notification
 
     call = MagicMock()
     call.data = {
@@ -551,7 +552,7 @@ async def test_send_notification_text_size_passthrough(mock_hass, mock_nav, mock
     app.controller["notification"] = notif_ctrl
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_send_notification
+    from custom_components.nspanel_haui.services import _handle_send_notification
 
     call = MagicMock()
     call.data = {"title": "Door", "message": "open", "text_size": 2}
@@ -578,7 +579,7 @@ async def test_send_notification_timeout_passthrough(mock_hass, mock_nav, mock_e
     app.controller["notification"] = notif_ctrl
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_send_notification
+    from custom_components.nspanel_haui.services import _handle_send_notification
 
     call = MagicMock()
     call.data = {"title": "Door", "message": "open", "timeout": 10}
@@ -642,7 +643,7 @@ async def test_reset_last_interaction(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_reset_last_interaction
+    from custom_components.nspanel_haui.services import _handle_reset_last_interaction
 
     call = MagicMock()
     call.data = {"offset": 5, "device_id": "dev_1"}
@@ -660,7 +661,7 @@ async def test_service_action_is_queued_on_the_app_worker(mock_hass, mock_nav, m
     app.dispatch = MagicMock(side_effect=lambda fn, *args: queued.append(fn))
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_close_panel
+    from custom_components.nspanel_haui.services import _handle_close_panel
 
     call = MagicMock()
     call.data = {"device_id": "dev_1"}

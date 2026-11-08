@@ -2,7 +2,7 @@
 ``grid_portrait.png``.
 
 The grids are page backgrounds for the Nextion Editor that show the layout
-rules of each orientation (portrait: ``scripts/gen_portrait/portrait_layout.py``):
+rules of each orientation (portrait: ``scripts/hmi_layout/portrait_layout.py``):
 header, 12 px side margins, content area, column and row guides, icon and
 image placeholder sizes, font-size samples, the display centers and the theme
 colors of ``haui/mapping/color.py`` as RGB565 values. The landscape grid shows
@@ -11,12 +11,11 @@ so they run along its bottom edge.
 
 Usage::
 
-    python scripts/gen_grid/gen_grid.py [landscape|portrait ...]
+    python -m scripts.design_grid.gen_grid [landscape|portrait ...]
 """
 
 from __future__ import annotations
 
-import importlib.util
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,8 +24,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = ROOT / "nextion" / "images"
-FONT_DIR = ROOT / "scripts" / "gen_fonts" / "Roboto"
-COLOR_PY = ROOT / "custom_components" / "nspanel_haui" / "haui" / "mapping" / "color.py"
+FONT_DIR = ROOT / "scripts" / "font_tools" / "Roboto"
 
 GAP = 2
 SWATCH_H = 15
@@ -132,11 +130,9 @@ SPECS = {s.name: s for s in (LANDSCAPE, PORTRAIT)}
 
 def theme_colors() -> list[int]:
     """Distinct RGB565 values of the theme, in the order ``COLORS`` lists them."""
-    module_spec = importlib.util.spec_from_file_location("haui_color", COLOR_PY)
-    assert module_spec is not None and module_spec.loader is not None
-    module = importlib.util.module_from_spec(module_spec)
-    module_spec.loader.exec_module(module)
-    return list(dict.fromkeys(module.COLORS.values()))
+    from custom_components.nspanel_haui.haui.mapping.color import COLORS
+
+    return list(dict.fromkeys(COLORS.values()))
 
 
 def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:

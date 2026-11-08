@@ -45,6 +45,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Live preview in the editor: an interactive virtual panel run by the hub, in
   sandbox or live mode ([#85](https://github.com/happydasch/nspanel_haui/pull/85),
   [#86](https://github.com/happydasch/nspanel_haui/pull/86)).
+- The live preview mirrors the device's queued notifications, read-only.
 - Panel cards drawn by the hub: every card replays the hub's own render of its
   panel, unsaved edits included.
 - [Screens overview](docs/screens.html) of every screen in landscape and
@@ -85,11 +86,14 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 - Portrait function buttons are back in the header; portrait pages use the full
   height (portrait TFT).
+- Repository scripts use `python -m` from the repository root, without import-path setup.
 - Row toggles are a switch icon instead of a filled box.
 - Cycle cards are off by default on clock and weather panels: only the time
   shows until **Show date**, **Show outside temperature** or other cards are
   enabled (clock panels cycled date and outside temperature before;
   [Upgrading](docs/update-process.md#17-cycle-cards-are-off-by-default)).
+- A clock panel without a weather entity skips the outside temperature card
+  instead of showing `--°C`.
 - **Screen Power** is disabled by default, like **Restart Display**.
 - The **Touch** and **Brightness** sensors are disabled by default; enable them
   on the device page before using them in automations.
@@ -97,6 +101,9 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   over its dev builds, and an unparseable version counts as unknown.
 - Dev prereleases ship both display TFTs, and dev panels install the TFT their
   firmware needs ([Release](docs/release.md#published-development-firmware)).
+- CI fails a PR or push that changes a Nextion HMI without advancing the display
+  TFT version and recompiling both TFTs
+  ([Release](docs/release.md#published-development-firmware)).
 - Panel titles and built-in popup titles are single words where possible, and
   every title is fitted to its header widget (longer ones end in `..`).
 - **Auto-install firmware updates** is off by default; the display TFT still
@@ -117,9 +124,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   light, media and vacuum also show **Unavailable**, and an `unknown` item
   opens the Unavailable message instead of running its action.
 - The live preview's hardware buttons show their relay (blue) or button-entity
-  (yellow) state; **Simulated/Live** is a toolbar switch, **More tools** shows
-  **Show entities**, and **Reset sandbox** is gone (switching to Live and back
-  clears the simulation).
+  (yellow) state; **Simulated/Live** is a toolbar switch, and **More tools**
+  shows **Show entities** and **Reset sandbox** (Simulated mode only).
 - A hub reconnect no longer counts as an interaction: the current page is restored at full brightness for the configured dimming timeout, then normal brightness timeouts resume. The hub restarts the idle-page timeout after restoring the page; the idle page and auto-navigate-home now run from one level-triggered hub check ([Device](docs/device.md#display-state-dimmed-off-and-on)).
 
 ### Fixed
@@ -132,7 +138,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The display turns off after the display-off timeout with auto-dimming
   disabled; one firmware script now owns brightness and display state.
 - The display state is published only when it actually changes.
-- Cycle cards switch to a shorter form instead of running past the time area.
+- A tap shorter than the 200 ms coordinate poll counts as an interaction, so
+  the display does not dim or turn off during use (firmware).
+- Cycle cards switch to a shorter form instead of running past the time area,
+  and use a smaller font when a character has no glyph in the large one.
 - The `background`, `component_background` and `component_pressed` colour
   overrides reach flat widgets, sliders and pressed buttons.
 - Pages load in the device's colours instead of changing colour after they
@@ -150,6 +159,9 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   list refreshes.
 - Stacked panels and popups show up and home; stacked grids and rows keep their
   close button.
+- Grid, row and clock tiles that open a stacked panel or run an action
+  (`navigate:`, `action:`) work again instead of showing the entity-unavailable
+  notification.
 - The unlock popup shows its keypad and title again, has the header of the
   panel it locks (previous and next in navigation), and its navigation works
   on every opening.
@@ -162,6 +174,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   ([#77](https://github.com/happydasch/nspanel_haui/pull/77)).
 - The light power button no longer turns black for lights without colour.
 - Clock and weather panels and weather rows show 0 °C.
+- The home temperature stays visible when the weather entity reports no
+  temperature.
 - The clock's temperature card shows the panel's own weather on opening.
 - Whole numbers print without ".0" (`1012hPa`, `21°C`).
 - Dev releases are tagged with their version (`X.Y.Z.devN`), so the Marketplace

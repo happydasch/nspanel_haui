@@ -93,7 +93,7 @@ Inside the Hub app, components follow a layered structure:
 | `docs/` | User documentation: install, configuration, panels, FAQ, ESPHome, Hub, Nextion, Communication, Design, development, troubleshooting |
 | `nextion/` | Nextion display assets (TFT file, HMI source, fonts, images) |
 | `esphome/` | ESPHome device configuration files (`install.yaml`, runtime/dev configs, `secrets.yaml.example`; copy it to the git-ignored `secrets.yaml` for local builds). Requires ESPHome 2026.10 or later (`min_version` in `nspanel_haui/base.yaml`). `nextion_patch/` is a **temporary vendored patched copy of the stock `nextion` component** (the numeric-response fix, esphome#17744, and the TFT upload `tft_upload_http_buffer_size_tx` option, esphome#21435, both missed the 2026.10.0 release, plus a TFT upload retry fix that is not upstream yet) wired in via `external_components` in `nspanel_haui.yaml` (git source) and the universal/dev configs (local source) — delete the dir + override blocks and bump `min_version` + `requirements-esphome.txt` when a released ESPHome contains every fix listed in `nextion_patch/README.md` |
-| `scripts/` | Development utilities: font generation (`gen_fonts`, `gen_char`), color palettes/wheels, spinner generation, background tile generation (`gen_backgrounds`), editor design grids (`gen_grid`), RGB565 image conversion, Nextion2Text, card gallery with PNG export and the docs screen overview (`preview_gallery`), README images (`readme_images`, writes `docs/assets/readme/`), live-preview layout export (`gen_virtual_layout`, which also writes the hub's font widths `haui/mapping/font_metrics.json`, checks each solid page's theme code and prints it with `--theme-code`; rerun after every HMI change), translation extraction, portrait HMI geometry patcher (`gen_portrait`), release version bump (`bump_version`, `bump_tft_version`), local test firmware release (`dev_release`), noVNC bridge to the Nextion Editor VM (`nextion_vnc`) |
+| `scripts/` | Development utilities: font generation (`font_tools`, `charset`), colour palettes/wheels (`color_palette`, `color_wheel`), spinner generation (`spinner`), background tile generation (`backgrounds`), design grids (`design_grid`), layout tools (`hmi_layout`: HMI geometry patching and virtual-layout export), RGB565 image conversion (`rgb565_image`), Nextion2Text, card gallery with PNG export and the docs screen overview (`preview_gallery`), README images (`readme_images`, writes `docs/assets/readme/`), translation extraction, release version bump (`bump_version`, `bump_tft_version`), local test firmware release (`dev_release`), noVNC bridge to the Nextion Editor VM (`nextion_vnc`) |
 | `ref_src/home-assistant/core/` | Home Assistant core checkout - read-only reference for HA API signatures; do not modify |
 | `ref_src/home-assistant/frontend/` | Home Assistant frontend source checkout — read-only reference for HA Lovelace UI patterns; do not modify |
 | `ref_src/esphome/esphome/` | ESPHome source checkout - read-only reference for ESPHome component/API behavior; do not modify |
@@ -153,13 +153,13 @@ pip install -r requirements-docs.txt   # first time only
 zensical build --strict
 
 # Regenerate locale JSON after changing t()/translate()/_() strings
-python scripts/translations/extract_translations.py
+python -m scripts.translations.extract_translations
 
 # Install the repository git hooks (once per clone; sets core.hooksPath)
 scripts/git_hooks/install.sh
 ```
 
-The `pre-commit` hook (`scripts/git_hooks/pre-commit`) regenerates the live-preview layout (`gen_virtual_layout.py`), stages `frontend/virtual/layout_*.json`, `icon_map.json` and `pictures/`, then runs `gen_portrait.py --check`. It exists because a committed HMI change without its regenerated layout silently breaks the editor's previews and card renders.
+The `pre-commit` hook (`scripts/git_hooks/pre-commit`) runs `scripts/hmi_layout/gen_virtual_layout.py`, stages `frontend/virtual/layout_*.json`, `icon_map.json` and `pictures/`, then checks both specs with `scripts/hmi_layout/gen_layout.py --check` (landscape) and `scripts/hmi_layout/gen_layout.py --spec portrait --check`. It exists because a committed HMI change without its regenerated layout silently breaks the editor's previews and card renders.
 
 **CI:** Three workflows run on push/PR to `master` and `dev`:
 - `tests.yml` - installs dev + docs dependencies, builds docs (`zensical build --strict`), runs `pytest tests/` (with Node 24 for the card render replay), `ruff check custom_components/ scripts/` and `mypy` on Python 3.14, and runs the frontend tests on Node 24
@@ -252,7 +252,7 @@ component.id  # instead of component[0]
 The display UI is compiled from `nextion/nspanel_haui.HMI` (edited in the Nextion IDE). To see a page's widget IDs, names, attributes, and event code (touch scripts) before writing its Python `ComponentRegistry`, generate a readable text dump with [Nextion2Text](scripts/nextion2text/Nextion2Text.py):
 
 ```bash
-python scripts/nextion2text/Nextion2Text.py -i nextion/nspanel_haui.HMI -o ref_src/nextion-out-visual -d -s -p visual
+python -m scripts.nextion2text.Nextion2Text -i nextion/nspanel_haui.HMI -o ref_src/nextion-out-visual -d -s -p visual
 ```
 
 - `-i` — path to the compiled `.HMI` file
@@ -261,29 +261,29 @@ python scripts/nextion2text/Nextion2Text.py -i nextion/nspanel_haui.HMI -o ref_s
 - `-s` — also write a stats summary file (component/event counts)
 - `-p visual` — include visual properties (position, size, colors), not just the default non-visual ones; needed to read widget coordinates for preview renderers
 
-Each generated file lists the page's widgets (ID, Nextion name, attributes) and event code (`Preinitialize Event`, `Touch Press Event`, etc.) — use it to map Nextion widget IDs/names to `Component(id, "name")` entries and to see what a button's touch script already does on the device side. Run `python scripts/nextion2text/Nextion2Text.py --help` for the full flag reference.
+Each generated file lists the page's widgets (ID, Nextion name, attributes) and event code (`Preinitialize Event`, `Touch Press Event`, etc.) — use it to map Nextion widget IDs/names to `Component(id, "name")` entries and to see what a button's touch script already does on the device side. Run `python -m scripts.nextion2text.Nextion2Text --help` for the full flag reference.
 
 ### Editing the Nextion HMI by script
 
-Geometry and other int attributes of existing widgets can be patched in place by script; everything that changes a block's length (adding/removing widgets, event code, text of another length, pictures, fonts) is Nextion Editor work. `scripts/gen_portrait/gen_portrait.py` is the reference implementation (`parse_pages`, `_write_attr`, `block_crc`); it applies a spec module — `portrait_layout.py` (complete 320 × 480 layout) or `landscape_layout.py` (partial refinements of the 480 × 320 layout, `--spec landscape_layout`); extend the spec rather than hand-editing bytes.
+Geometry and other int attributes of existing widgets can be patched in place by script; everything that changes a block's length (adding/removing widgets, event code, text of another length, pictures, fonts) is Nextion Editor work. `scripts/hmi_layout/gen_layout.py` is the reference implementation (`parse_pages`, `_write_attr`, `block_crc`); it applies a spec module — `landscape_layout.py` (partial refinements of the 480 × 320 layout, default) or `portrait_layout.py` (`--spec portrait`, the complete 320 × 480 layout); extend the spec rather than hand-editing bytes.
 
-**Both HMIs share one definition of components.** The Python `COMPONENTS` registries address `nspanel_haui.HMI` and `nspanel_haui_portrait.HMI` with the same names and ids, so every change to one HMI — a widget added, removed, renamed or re-ordered, an attribute or geometry edit, event code — must be applied to the other as well (geometry and attributes through the sibling spec: `landscape_layout.py` ↔ `portrait_layout.py`). Be extra careful here: a widget that exists in only one HMI breaks that TFT silently at runtime. Run `gen_portrait.py --check` for both specs and `python scripts/verify_nextion/verify_nextion.py --require-portrait` before calling either HMI done.
+**Both HMIs share one definition of components.** The Python `COMPONENTS` registries address `nspanel_haui.HMI` and `nspanel_haui_portrait.HMI` with the same names and ids, so every change to one HMI — a widget added, removed, renamed or re-ordered, an attribute or geometry edit, event code — must be applied to the other as well (geometry and attributes through the sibling spec: `landscape_layout.py` ↔ `portrait_layout.py`). Be extra careful here: a widget that exists in only one HMI breaks that TFT silently at runtime. Run `gen_layout.py --check` for landscape, `gen_layout.py --spec portrait --check` for portrait, and `python -m scripts.verify_nextion.verify_nextion --require-portrait` before calling either HMI done.
 
 **Editing display files:** when editing Nextion display files, use the Nextion Editor via VNC/noVNC. The editor is a Windows GUI application, so drive it over VNC/noVNC on the desktop where it runs; `scripts/nextion_vnc/nextion_vnc.sh` starts the noVNC bridge (VM `192.168.65.2:5900` by default, override with `NEXTION_VNC_HOST`/`NEXTION_VNC_PORT`/`NOVNC_PORT`) and prints the page URL, which connects and scales the screen to the window. Use the editor for anything the script cannot do safely (see above), then follow the workflow below.
 
 Workflow (the editor owns the file while a project is open):
 
 1. **Close the project** in the Nextion Editor (File → Close Project) before writing the HMI. The editor silently re-saves the open project on Close Project and on every project switch, overwriting whatever a script wrote.
-2. **Patch**, then prove it: re-dump with Nextion2Text (`-p visual`) and compare every widget against the spec — `gen_portrait.py` does this itself and refuses to write on any mismatch. Its `--check` mode reports widgets that exist on only one side *and* attribute values that differ from the spec (alignment, font, …), so a spec-only change cannot pass while the committed HMI still has the old value. The portrait spec names the landscape HMI as its `SIBLING_HMI`: both files must hold the same widgets and every widget's Send Component ID (`sendkey`) is copied from the landscape project — toggle touch settings there, never in the portrait copy. `scripts/verify_nextion/verify_nextion.py --require-portrait` enforces that parity.
+2. **Patch**, then prove it: re-dump with Nextion2Text (`-p visual`) and compare every widget against the spec — `gen_layout.py` does this itself and refuses to write on any mismatch. Its `--check` mode reports widgets that exist on only one side *and* attribute values that differ from the spec (alignment, font, …), so a spec-only change cannot pass while the committed HMI still has the old value. The portrait spec names the landscape HMI as its `SIBLING_HMI`: both files must hold the same widgets and every widget's Send Component ID (`sendkey`) is copied from the landscape project — toggle touch settings there, never in the portrait copy. `scripts/verify_nextion/verify_nextion.py --require-portrait` enforces that parity.
 
-**Solid pages paint the theme in Preinitialize, never the hub after the page is shown.** `HAUIPage.prepare_page_load` sends the device's theme to the `Program.s` globals in `THEME_GLOBALS` (`haui/mapping/color.py`) right before every `goto_page`, and each solid-colour page assigns them to its own `bco` and to every widget colour compiled with a theme colour, so a page never changes colour once it is visible (there is no `cls`). The code is generated from the HMI — `python scripts/gen_virtual_layout/gen_virtual_layout.py --theme-code <page>` — and pasted right after `sendme` in both HMIs; `gen_virtual_layout.py --check` fails while a page's code is missing or stale, so re-paste it whenever a widget compiled with a theme colour changes. The hub therefore never sends these theme colours itself, only colours that follow a widget's state or a panel setting. Everything a page reads while it loads comes from `HAUIPage.page_load_commands(panel)` (the theme, plus a picture page's background); a saved config shows the current panel again on the loaded page only while those commands are unchanged (`is_loaded_for`), otherwise navigation loads the page again.
+**Solid pages paint the theme in Preinitialize, never the hub after the page is shown.** `HAUIPage.prepare_page_load` sends the device's theme to the `Program.s` globals in `THEME_GLOBALS` (`haui/mapping/color.py`) right before every `goto_page`, and each solid-colour page assigns them to its own `bco` and to every widget colour compiled with a theme colour, so a page never changes colour once it is visible (there is no `cls`). The code is generated from the HMI — `python -m scripts.hmi_layout.gen_virtual_layout --theme-code <page>` — and pasted right after `sendme` in both HMIs; `gen_virtual_layout.py --check` fails while a page's code is missing or stale, so re-paste it whenever a widget compiled with a theme colour changes. The hub therefore never sends these theme colours itself, only colours that follow a widget's state or a panel setting. Everything a page reads while it loads comes from `HAUIPage.page_load_commands(panel)` (the theme, plus a picture page's background); a saved config shows the current panel again on the loaded page only while those commands are unchanged (`is_loaded_for`), otherwise navigation loads the page again.
 
 **The hub reads `tft_version` only from the device-state event.** The ESPHome firmware publishes its device state on `req_device_state` (and — newer firmware — when the Nextion text sensor first reports the version). The hub's boot handshake arrives ~1 s after boot, before the display answered, so the snapshot is empty; the update controller must request a fresh `REQ_DEVICE_STATE` at check time and treat an empty value as *unknown*, not `0.0.0`. Treating empty as old re-installed the TFT after every reboot (#63) — see `custom_components/nspanel_haui/haui/controller/update.py` and `esphome/nspanel_haui/sensor.yaml` (`tft_version.on_value` republishes the state).
 
 **Firmware updates belong to the hub's `HAUI Firmware` entity (`update.py`).** The update controller reads the manifest at the device's `update.firmware_manifest_url` (default: the latest GitHub release's `firmware-manifest.json`; a test panel points it at a local release written by `scripts/dev_release.py`) and flashes a newer firmware through the firmware's `install_firmware_url` action (automatically only with `firmware_auto_update`, default `false`; otherwise via **Install** on the entity). The controller has no synchronous network path: every check, release list and install fetches its inputs with `haui/controller/release_source.py` on the adapter's I/O pool (`start_async_*` → `app.submit_off_worker`) and applies the result on the worker; `release_source` also owns the hub-wide GitHub release cache. `esphome/nspanel_haui/base.yaml` keeps `http_request` + `ota: platform: http_request` for that action; the ESPHome side keeps only its stock dashboard update entity, so the firmware declares no `update:` block of its own. The release workflow generates and attaches `firmware-manifest.json` (name/version/builds[].ota with the absolute .bin URL and md5) on tag pushes only — a workflow_dispatch release carries no manifest, so devices simply see no update. Ordering matters: a TFT upload in flight blocks the firmware install, and an in-flight firmware install defers the TFT install; the TFT follows after the device reboots into the new firmware. **The ESPHome web server is optional and not part of the shipped build** — `base.yaml` leaves `web_server` out so HTTP OTA has flash/RAM headroom. `esphome/nspanel_haui_dev.yaml` enables it for local development; a device YAML that includes `nspanel_haui.yaml` as a package enables it by adding a top-level `web_server:` block. Home Assistant's "Visit" link only appears when the component runs.
 
 **Dev releases are tagged with their version.** `.github/workflows/dev-firmware.yml` publishes each `dev` build as a prerelease whose tag *is* the PEP 440 version (`X.Y.(Z+1).dev<run>`, the commit goes in the release name). Never add a `+local` segment such as `+g<sha>`: AwesomeVersion (Home Assistant and its Marketplace) sorts `0.4.5.dev16+g<sha>` above the final `0.4.5` and above `0.4.5.dev17`, so such a build is never offered its successor. The tag points at a `chore(release)` commit on top of the pushed commit that carries that version in `custom_components/nspanel_haui/manifest.json` (+ `esphome/nspanel_haui/version.yaml`) — the Marketplace downloads the tag's source archive, so tagging the branch commit would ship the stable version. The workflow also pushes that `[skip ci]` commit back onto `dev`; the next run keeps its `X.Y.Z` base and only a stable manifest (after the master merge-back) moves it to `X.Y.(Z+1)`. Because dev's tip is always that bot commit, release prep never happens on `dev`: a stable bump there is overwritten within minutes, and a PR whose head says `[skip ci]` never runs its required checks — cut `release/X.Y.Z` from `dev` and PR it into `master` (`docs/release.md`, "Branches and cadence"). The workflow keeps only the newest 10 dev prereleases (the Marketplace reads 30 releases; more dev builds would hide the latest stable one). The Marketplace takes the release tag as the available version and the installed tag as the installed one and compares them with AwesomeVersion (PEP 440); the old `dev-<run>-<sha>` tags parsed as `UNKNOWN`, so the comparison fell back to string inequality — an installed dev build kept offering itself as an update and the version list had no usable order. Never reintroduce a non-version tag for a dev release, and keep the tag string byte-identical to the manifest version (`+` build metadata included) so the comparison stays same-strategy. There is no fixed dev manifest URL (the old `dev-latest` release is gone): the hub's `dev` update channel takes the `firmware-manifest.json` of the newest release in the GitHub release list, prereleases included.
-3. **Re-open the project** (recent list), look at every page, compile (`Compile`, then `File → TFT file output` → `nextion/nspanel_haui_portrait.tft`) and run `python scripts/verify_nextion/verify_nextion.py --require-portrait`. Done means the editor opened the file without "Version mismatch", every page renders as specified, and the gate passes.
+3. **Re-open the project** (recent list), look at every page, compile (`Compile`, then `File → TFT file output` → `nextion/nspanel_haui_portrait.tft`) and run `python -m scripts.verify_nextion.verify_nextion --require-portrait`. Done means the editor opened the file without "Version mismatch", every page renders as specified, and the gate passes.
 
 Format reference (what the script relies on):
 
@@ -303,7 +303,7 @@ picture background, which the page's Preinitialize code reads), then the page's
 commands. The card replays
 them in the device's order (`buildPreviewDisplay` in `frontend/previews/previewer.js`)
 in a `NextionDisplay` built from the real layout (`frontend/virtual/layout_<orientation>.json`
-+ `icon_map.json`, regenerated by `scripts/gen_virtual_layout.py`) and
++ `icon_map.json`, regenerated by `scripts/hmi_layout/gen_virtual_layout.py`) and
 `<nspanel-simulator-frame>` (`frontend/previews/simulator-frame.js`) scales it to
 the card. Entity values, translations, templates, dates, colour overrides and
 weather forecasts are therefore the hub's, by construction.
@@ -357,7 +357,7 @@ could not draw. `pytest tests/` therefore needs Node 22+ as well.
 **Card gallery.** `scripts/preview_gallery/gen_preview_gallery.py` renders the
 same sample cards and shows them in `gallery.html`, which replays them in the
 editor's own `<nspanel-simulator-frame>` (a stand-in `<ha-icon>` draws the MDI
-webfont from `scripts/gen_fonts/`): `--serve` serves it on localhost, `--png`
+webfont from `scripts/font_tools/`): `--serve` serves it on localhost, `--png`
 writes one PNG per card at the display's resolution through headless Chrome
 (`capture.mjs`, DevTools protocol, Node 22+). Output goes to the git-ignored
 `scripts/preview_gallery/out/`. `--docs` writes the same PNGs to
@@ -368,9 +368,9 @@ the result to `dev` (`[skip ci]`) when it changed. Renders run at a fixed time
 generated files by hand.
 
 ```bash
-python scripts/preview_gallery/gen_preview_gallery.py --serve   # browse every card
-python scripts/preview_gallery/gen_preview_gallery.py --png     # out/png/<orientation>/<card>.png
-python scripts/preview_gallery/gen_preview_gallery.py --docs    # docs/assets/screens/ + docs/screens.html
+python -m scripts.preview_gallery.gen_preview_gallery --serve   # browse every card
+python -m scripts.preview_gallery.gen_preview_gallery --png     # out/png/<orientation>/<card>.png
+python -m scripts.preview_gallery.gen_preview_gallery --docs    # docs/assets/screens/ + docs/screens.html
 ```
 
 **To add a preview for a new panel type**, give `PageDescriptor.page_id` the
@@ -380,7 +380,7 @@ sample panel (and the entities it shows) to `scripts/preview_gallery/sample_worl
 **Verify coverage** — confirms every exposed panel (user, system, popup alias)
 resolves to a physical page present in both generated layouts:
 ```bash
-python scripts/check_preview_coverage.py
+python -m scripts.check_preview_coverage
 ```
 (covered by `tests/test_preview_coverage.py`, run with the rest of the suite.)
 
@@ -496,7 +496,7 @@ The project uses hardcoded CLDR locale data (see `haui/utils/locale_data.py`) in
 1. After adding, removing, or changing any `t()` / `host._t()` (frontend JS), `self.translate()` (Python), or `_()` (descriptor) call, run:
 
    ```bash
-   python scripts/translations/extract_translations.py
+   python -m scripts.translations.extract_translations
    ```
 
    This scans `custom_components/nspanel_haui/` (Python) and `frontend/` (JS) for string-literal calls, then syncs `haui/locale/*.json`: adds new keys (English text as the value in `en.json`, empty string in other languages), removes keys no longer referenced anywhere, and prints an added/removed count per language file.
@@ -709,6 +709,12 @@ self.controller["navigation"] = HAUINavigationController(self, ...)
 ### Commit messages
 
 Use [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): message`
+
+PR titles must follow the same format: begin with a lowercase type such as
+`feat`, `fix`, or `docs`, then an optional `(scope)` and a colon. Keep the
+entire title to **100 characters or fewer**, including the type and scope.
+For example, use `feat(editor): live preview of the panel`, not
+`Live preview of the panel` or `feat/editor-live-preview`.
 
 Common types seen in this repo: `fix`, `feat`, `refactor`, `docs`, `test`, `style`, `chore`.
 

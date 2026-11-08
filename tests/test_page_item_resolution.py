@@ -3,7 +3,8 @@
 import types
 
 import pytest
-from nspanel_haui.haui.abstract.haui_page import HAUIPage
+
+from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
 
 
 class _Panel:
@@ -43,6 +44,9 @@ class _UnavailableItem:
         self.state = state
         self.executed = False
 
+    def is_internal(self):
+        return False
+
     def get_item_type(self):
         return "sensor"
 
@@ -60,6 +64,9 @@ class _UnavailableItem:
 
     def has_item(self):
         return self.state is not None
+
+    def get(self, key, default=None):
+        return default
 
     def execute(self):
         self.executed = True
@@ -80,3 +87,20 @@ def test_unavailable_items_are_not_executed(state):
 
     assert item.executed is False
     assert len(opened) == 1
+
+
+def test_internal_items_execute_without_an_entity_state():
+    """Internal items (navigate/action/text) have no entity and stay executable."""
+    from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
+
+    opened = []
+    page = _page()
+    page.app.device_config = types.SimpleNamespace(get_panel=lambda key: None)
+    page.app.controller = {
+        "navigation": types.SimpleNamespace(open_panel=lambda *a, **kw: opened.append((a, kw)))
+    }
+    item = HAUIItem(page.app, {"item": "navigate:weather"})
+
+    page.execute_item(item)
+
+    assert opened == [(("weather",), {})]

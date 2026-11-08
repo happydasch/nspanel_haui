@@ -145,7 +145,7 @@ def _font_metrics() -> dict[int, tuple[int, tuple[int, ...]]]:
     """Line height and glyph widths per display font.
 
     ``font_metrics.json`` is exported from the HMI fonts by
-    ``scripts/gen_virtual_layout/gen_virtual_layout.py``; read on first use.
+    ``scripts/hmi_layout/gen_virtual_layout.py``; read on first use.
     """
     with open(_FONT_METRICS_FILE, encoding="utf-8") as metrics_file:
         fonts = json.load(metrics_file)["fonts"]

@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from nspanel_haui.haui.mapping.background import BACKGROUND_COLOR_SCHEMES, BACKGROUNDS
-from nspanel_haui.haui.mapping.color import (
+from custom_components.nspanel_haui.haui.mapping.background import (
+    BACKGROUND_COLOR_SCHEMES,
+    BACKGROUNDS,
+)
+from custom_components.nspanel_haui.haui.mapping.color import (
     ALARM_COLORS,
     ALARM_COLORS_LIGHT,
     BUILTIN_COLOR_SCHEMES,
@@ -15,7 +18,7 @@ from nspanel_haui.haui.mapping.color import (
     WEATHER_COLORS_LIGHT,
     ColorTheme,
 )
-from nspanel_haui.haui.utils.color import parse_color_value, rgb565_to_rgb
+from custom_components.nspanel_haui.haui.utils.color import parse_color_value, rgb565_to_rgb
 
 
 def test_backgrounds_have_an_explicit_contrast_scheme() -> None:
@@ -117,7 +120,7 @@ class TestColorTheme:
         assert light.get_icon_color("climate", "heat", "dark") == CLIMATE_COLORS["heat"]
 
     def test_selected_palette_controls_global_and_domain_colors(self) -> None:
-        from nspanel_haui.haui.mapping.color import BUILTIN_COLOR_SCHEMES
+        from custom_components.nspanel_haui.haui.mapping.color import BUILTIN_COLOR_SCHEMES
 
         light = ColorTheme({}, "light")
         assert light.get("background") == BUILTIN_COLOR_SCHEMES["light"]["colors"]["background"]
@@ -149,7 +152,11 @@ class TestColorTheme:
         from copy import deepcopy
 
         import pytest
-        from nspanel_haui.haui.mapping.color import BUILTIN_COLOR_SCHEMES, validate_color_schemes
+
+        from custom_components.nspanel_haui.haui.mapping.color import (
+            BUILTIN_COLOR_SCHEMES,
+            validate_color_schemes,
+        )
 
         valid = deepcopy(BUILTIN_COLOR_SCHEMES["dark"])
         valid["name"] = "Custom"
@@ -255,21 +262,22 @@ class TestParseColorValue:
 
 class TestColorOverridesValidation:
     def test_color_scheme_defaults_to_dark_and_accepts_light(self) -> None:
-        from nspanel_haui.haui.config_models import validate_device_config
+        from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
         assert validate_device_config({}).color_scheme == "dark"
         assert validate_device_config({"color_scheme": "light"}).color_scheme == "light"
 
     def test_invalid_color_scheme_is_rejected(self) -> None:
         import pytest
-        from nspanel_haui.haui.config_models import validate_device_config
         from pydantic import ValidationError
+
+        from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
         with pytest.raises(ValidationError):
             validate_device_config({"color_scheme": "sepia"})
 
     def test_valid_overrides_pass_through(self) -> None:
-        from nspanel_haui.haui.config_models import validate_device_config
+        from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
         cfg = {"color_overrides": {"background": 0, "text": 65535}}
         result = validate_device_config(cfg)
@@ -278,7 +286,7 @@ class TestColorOverridesValidation:
             assert overrides == {"background": 0, "text": 65535}
 
     def test_empty_overrides(self) -> None:
-        from nspanel_haui.haui.config_models import validate_device_config
+        from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
         result = validate_device_config({})
         if result is not None:
@@ -287,7 +295,7 @@ class TestColorOverridesValidation:
 
     def test_non_global_keys_dropped(self) -> None:
         """Unknown and domain-color keys are dropped; only global keys survive."""
-        from nspanel_haui.haui.config_models import validate_device_config
+        from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
         cfg = {"color_overrides": {"nonexistent_key": 12345, "weather_sunny": 1, "text": 42}}
         result = validate_device_config(cfg)
@@ -296,7 +304,7 @@ class TestColorOverridesValidation:
             assert overrides == {"text": 42}
 
     def test_out_of_range_clamped(self) -> None:
-        from nspanel_haui.haui.config_models import validate_device_config
+        from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
         cfg = {"color_overrides": {"background": -1, "text": 99999}}
         result = validate_device_config(cfg)

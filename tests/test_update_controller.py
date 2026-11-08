@@ -7,8 +7,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 import requests
-from nspanel_haui.haui.controller import release_source, update
-from nspanel_haui.haui.controller.update import HAUIUpdateController
+
+from custom_components.nspanel_haui.haui.controller import release_source, update
+from custom_components.nspanel_haui.haui.controller.update import HAUIUpdateController
 
 
 @pytest.fixture(autouse=True)
@@ -126,7 +127,7 @@ def test_manual_check_preserves_failure_and_retry_state(monkeypatch):
 
 import types  # noqa: E402
 
-from nspanel_haui.haui.mapping.const import (  # noqa: E402
+from custom_components.nspanel_haui.haui.mapping.const import (  # noqa: E402
     DEFAULT_CONFIG,
     ESPAction,
     ESPResponse,

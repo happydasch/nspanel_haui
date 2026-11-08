@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard
 
 if TYPE_CHECKING:
@@ -431,18 +431,9 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
                 return override_id
         return self.find_esphome_entity_id("sensor", "Temperature")
 
-    def suspended_auto_switches(self) -> Collection[str]:
-        """The automatic behaviours to hold off while this page is on screen.
-
-        Keys of ``AUTO_SWITCHES`` name firmware switches; ``AUTO_PAGE_HOLD``
-        holds the hub's automatic page switch. The device applies the firmware
-        switches (``HAUIDevice.apply_auto_switches``) whenever navigation
-        changes the page; navigation reads the page hold on every inactivity
-        check. A page whose answer changes while it is shown calls
-        ``apply_auto_switches`` itself (the next check picks the page hold up).
-        Once the page is gone, every switch follows the device settings again.
-        """
-        return ()
+    def suspends_auto_page(self) -> bool:
+        """Whether this page prevents automatic navigation to the idle page."""
+        return False
 
     # items
 
@@ -576,9 +567,16 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
 
     @staticmethod
     def item_is_available(item: HAUIItem | None) -> TypeGuard[HAUIItem]:
-        """Whether an entity wrapper refers to an entity with a usable state."""
+        """Whether an entity-backed item refers to an entity with a usable state.
+
+        Internal items (navigate/action/text) have no entity and are always
+        executable; ``get_item_state()`` returns None for them, so they must
+        not be gated by the entity state here.
+        """
         if item is None:
             return False
+        if item.is_internal():
+            return True
         return item.get_item_state() not in (None, "unknown", "unavailable")
 
     def execute_item(self, item: HAUIItem) -> None:

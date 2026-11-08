@@ -1,6 +1,6 @@
 """Tests for HAUIBase._cancel_timer, the shared cancel-and-clear for timer handles."""
 
-from nspanel_haui.haui.abstract.haui_base import HAUIBase
+from custom_components.nspanel_haui.haui.abstract.haui_base import HAUIBase
 
 
 class _App:

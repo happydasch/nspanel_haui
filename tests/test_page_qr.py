@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from nspanel_haui.haui.page.qr import QRPage
+from custom_components.nspanel_haui.haui.page.qr import QRPage
 
 
 class _Panel:

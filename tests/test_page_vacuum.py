@@ -6,12 +6,13 @@ reaches the display and Home Assistant.
 """
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.features import VacuumFeatures
-from nspanel_haui.haui.mapping.color import ColorTheme
-from nspanel_haui.haui.page.vacuum import VacuumPage
-from nspanel_haui.haui.utils.icon import get_icon
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.features import VacuumFeatures
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.vacuum import VacuumPage
+from custom_components.nspanel_haui.haui.utils.icon import get_icon
 
 
 class _Entity:

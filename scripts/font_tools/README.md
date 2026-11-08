@@ -48,11 +48,11 @@ Make sure to check and update these values:
 Regenerate it from `icons_data.json` (run from the repository root — the script uses relative paths):
 
 ```bash
-python3 scripts/gen_fonts/gen_cheatsheet.py
+python -m scripts.font_tools.gen_cheatsheet
 ```
 
 Commit the regenerated `docs/cheatsheet.html` together with any change to
-`scripts/gen_fonts/icons_data.json`; the `tests.yml` workflow fails when the
+`scripts/font_tools/icons_data.json`; the `tests.yml` workflow fails when the
 committed cheatsheet is stale.
 
 See [Pictogrammers](https://pictogrammers.com/library/mdi/) if you need the char of the source font.

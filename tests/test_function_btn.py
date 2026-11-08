@@ -7,8 +7,8 @@ whenever ``show_idle_button`` is set and the notifications button is not
 actively occupying the left-secondary slot.
 """
 
-from nspanel_haui.haui.abstract.component import Component
-from nspanel_haui.haui.abstract.mixins.function_btn_mixin import (
+from custom_components.nspanel_haui.haui.abstract.component import Component
+from custom_components.nspanel_haui.haui.abstract.mixins.function_btn_mixin import (
     FncType,
     FunctionButtonMixin,
 )
@@ -276,7 +276,7 @@ def test_single_nav_swap_moves_sleep_to_primary():
 
 
 def _real_panel_page(panel_cfg, device_cfg):
-    from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+    from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
 
     device = FakeDevice(**device_cfg)
     app = FakeApp(device, FakeNotif())
@@ -311,7 +311,7 @@ def test_stacked_single_entity_panel_gets_up_button():
 def test_popup_gets_up_then_home():
     """A popup is opened on top of a panel like a stacked panel: up arrow
     first, home second, close on the right."""
-    from nspanel_haui.haui.mapping.panel import POPUP_PANEL_MAPPING
+    from custom_components.nspanel_haui.haui.mapping.panel import POPUP_PANEL_MAPPING
 
     panels = [{"type": t, "key": k} for k, t in POPUP_PANEL_MAPPING.items()]
     panels += [

@@ -551,8 +551,6 @@ firmware entities are *Use Auto Display-Off* / *Timeout Display-Off*.
 `use_auto_dimming` and `timeout_dimming` are unchanged. `use_auto_page` and
 `timeout_page` stay device settings, but the firmware's *Use Auto-Page* switch
 and *Timeout Page* number are gone: the hub owns automatic page switching.
-The display-off schedule keeps `use_sleep_schedule` /
-`sleep_schedule_start` / `sleep_schedule_end` (and the "Sleep schedule" label).
 
 **ESPHome actions**
 

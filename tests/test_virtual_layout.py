@@ -7,12 +7,15 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = ROOT / "scripts" / "gen_virtual_layout" / "gen_virtual_layout.py"
 
 
 def test_layouts_are_up_to_date():
     # A subprocess: the generator installs homeassistant stubs for itself.
     result = subprocess.run(
-        [sys.executable, str(SCRIPT), "--check"], capture_output=True, text=True, check=False
+        [sys.executable, "-m", "scripts.hmi_layout.gen_virtual_layout", "--check"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr

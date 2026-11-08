@@ -14,21 +14,19 @@ import asyncio
 import json
 import shutil
 import subprocess
-import sys
 import threading
 from pathlib import Path
 
 import pytest
-from nspanel_haui.haui.mapping.const import SysPanelKey
-from nspanel_haui.haui.mapping.panel import (
+
+from custom_components.nspanel_haui.haui.mapping.const import SysPanelKey
+from custom_components.nspanel_haui.haui.mapping.panel import (
     get_system_panel_entries,
     get_user_panel_type_descriptors,
 )
+from scripts.preview_gallery import sample_world
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts" / "preview_gallery"))
-import sample_world  # noqa: E402
-
 REPLAY = ROOT / "tests" / "frontend" / "replay-renders.mjs"
 # Theme colours unlike the HMI's own: a blue page, a darker blue header, a dark
 # blue for control backgrounds (slider tracks, toggles off, progress bars) and a

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.mapping.const import NotifEvent
-from nspanel_haui.haui.utils.notification_blinker import NotificationBlinker
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.mapping.const import NotifEvent
+from custom_components.nspanel_haui.haui.utils.notification_blinker import NotificationBlinker
 
 
 class _Scheduler:
@@ -93,7 +93,9 @@ def test_repeated_events_keep_a_single_timer_and_stop_cancels_it():
 
 
 def test_controller_stop_cancels_running_blink_timer():
-    from nspanel_haui.haui.controller.notification import HAUINotificationController
+    from custom_components.nspanel_haui.haui.controller.notification import (
+        HAUINotificationController,
+    )
 
     class _Device:
         def get(self, key, default=0):

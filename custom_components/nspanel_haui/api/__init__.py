@@ -18,7 +18,12 @@ from .editor import (
     PanelTypesView,
     TranslationsView,
 )
-from .status import DeviceRefreshDisplayView, DeviceStatusView, NotificationsView
+from .status import (
+    DeviceRefreshDisplayView,
+    DeviceResetInteractionView,
+    DeviceStatusView,
+    NotificationsView,
+)
 from .updates import (
     DeviceFirmwareReleasesView,
     DeviceTftReleasesView,
@@ -40,6 +45,7 @@ VIEWS = (
     DeviceStatusView,
     NotificationsView,
     DeviceRefreshDisplayView,
+    DeviceResetInteractionView,
     DeviceUpdateUploadView,
     DeviceUpdateArtifactView,
     DeviceUpdateTftView,

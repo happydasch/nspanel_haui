@@ -46,7 +46,7 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Render screens
-        run: python scripts/preview_gallery/gen_preview_gallery.py --docs
+        run: python -m scripts.preview_gallery.gen_preview_gallery --docs
 
       - name: Commit changed screens
         # [skip ci] matches the dev-firmware bot commit. A non-force push fails

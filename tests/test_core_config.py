@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from nspanel_haui.haui.abstract.haui_config import HAUIConfig
+
+from custom_components.nspanel_haui.haui.abstract.haui_config import HAUIConfig
 
 
 class _App:

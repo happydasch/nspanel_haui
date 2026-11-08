@@ -8,9 +8,10 @@ high-level navigation methods rather than exercising the full display stack.
 import time
 
 import pytest
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.controller.navigation import HAUINavigationController
-from nspanel_haui.haui.mapping.const import AUTO_PAGE_HOLD, ESPEvent
+
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.controller.navigation import HAUINavigationController
+from custom_components.nspanel_haui.haui.mapping.const import AUTO_PAGE_HOLD, ESPEvent
 
 
 class DummyPanel:
@@ -55,8 +56,8 @@ class FakePage:
     def process_event(self, event):
         self.events.append(event)
 
-    def suspended_auto_switches(self):
-        return self._suspended
+    def suspends_auto_page(self):
+        return "auto_page" in self._suspended
 
 
 class FakeDevice:
@@ -76,9 +77,6 @@ class FakeDevice:
 
     def check_wakeup(self):
         self.check_wakeup_calls += 1
-
-    def apply_auto_switches(self):
-        pass
 
     def on_idle_page_opened(self):
         """Mirror HAUIDevice: arm the wake guard only on a dark display."""
@@ -697,7 +695,7 @@ def test_event_forwarded_to_active_page():
 
 from unittest.mock import patch  # noqa: E402
 
-import nspanel_haui.haui.controller.navigation as nav_module  # noqa: E402
+import custom_components.nspanel_haui.haui.controller.navigation as nav_module  # noqa: E402
 
 
 class OpenPanel:

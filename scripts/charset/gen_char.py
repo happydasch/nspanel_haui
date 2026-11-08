@@ -175,5 +175,5 @@ print("Out: ")
 # print(char_res_string)
 
 
-with open("scripts/gen_char/charout.txt", "wb") as text_file:
+with open("scripts/charset/charout.txt", "wb") as text_file:
     text_file.write(char_res_string.encode("utf8"))

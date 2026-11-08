@@ -343,12 +343,12 @@ def render_every_card(
     Returns:
         Card name (type key or system key) -> ``{page, before, commands}``.
     """
-    import nspanel_haui
-    from nspanel_haui.haui.mapping.panel import (
+    import custom_components.nspanel_haui as nspanel_haui
+    from custom_components.nspanel_haui.haui.mapping.panel import (
         get_system_panel_entries,
         get_user_panel_type_descriptors,
     )
-    from nspanel_haui.virtual_panel import VirtualPanelHost
+    from custom_components.nspanel_haui.virtual_panel import VirtualPanelHost
 
     store = {
         "devices": {

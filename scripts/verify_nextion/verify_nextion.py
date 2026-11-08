@@ -20,7 +20,7 @@ Exit code 0 when every check passes, 1 otherwise.  The release workflow
 cannot be published until the Nextion Editor tasks landed.
 
 Usage:
-    python scripts/verify_nextion/verify_nextion.py [--hmi PATH] [--dump DIR] \\
+    python -m scripts.verify_nextion.verify_nextion [--hmi PATH] [--dump DIR] \\
         [--expected-version X.Y.Z] [--require-portrait]
 
 The parser/checks live in importable functions so tests can drive fake dumps.
@@ -149,7 +149,7 @@ def check_sendme_parity(
 
     The portrait HMI is a sibling of the landscape project — only geometry may
     differ — so a Send Component ID toggled in one file and not the other
-    leaves one TFT without that touch (``scripts/gen_portrait`` copies the
+    leaves one TFT without that touch (``scripts/hmi_layout`` copies the
     setting; this catches edits made in the editor afterwards).
     """
     mismatches = []
@@ -338,7 +338,8 @@ def main() -> int:
         subprocess.run(
             [
                 sys.executable,
-                str(ROOT / "scripts" / "nextion2text" / "Nextion2Text.py"),
+                "-m",
+                "scripts.nextion2text.Nextion2Text",
                 "-i",
                 str(hmi_path),
                 "-o",
@@ -353,6 +354,7 @@ def main() -> int:
             # so a Nextion2Text crash reports its reason instead of only
             # "returned non-zero exit status 1".
             stdout=subprocess.DEVNULL,
+            cwd=ROOT,
         )
 
     _dump(args.hmi, args.dump)

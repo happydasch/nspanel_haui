@@ -1,7 +1,8 @@
 """Pins get_icon_name_by_state for every entity type it handles."""
 
 import pytest
-from nspanel_haui.haui.utils.icon import get_icon_name_by_state
+
+from custom_components.nspanel_haui.haui.utils.icon import get_icon_name_by_state
 
 
 @pytest.mark.parametrize(

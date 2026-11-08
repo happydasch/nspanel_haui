@@ -18,8 +18,8 @@ for _name, _attr in {
     setattr(_mod, _attr, None)
     sys.modules.setdefault(_name, _mod)
 
-from nspanel_haui import editor_panel  # noqa: E402
-from nspanel_haui.haui.version import get_version  # noqa: E402
+from custom_components.nspanel_haui import editor_panel  # noqa: E402
+from custom_components.nspanel_haui.haui.version import get_version  # noqa: E402
 
 
 class _FakeHass:

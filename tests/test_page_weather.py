@@ -1,8 +1,12 @@
 """Weather page rendering with incomplete data."""
 
-from nspanel_haui.haui.mapping.color import WEATHER_COLORS, WEATHER_COLORS_LIGHT, ColorTheme
-from nspanel_haui.haui.page.weather import WeatherPage
-from nspanel_haui.haui.utils.icon import parse_icon
+from custom_components.nspanel_haui.haui.mapping.color import (
+    WEATHER_COLORS,
+    WEATHER_COLORS_LIGHT,
+    ColorTheme,
+)
+from custom_components.nspanel_haui.haui.page.weather import WeatherPage
+from custom_components.nspanel_haui.haui.utils.icon import parse_icon
 
 _ENTITY_ID = "weather.home"
 

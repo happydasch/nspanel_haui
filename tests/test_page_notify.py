@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from nspanel_haui.haui.page.notify import _FNC_NEXT_PAGE, _TEXT_BOXES, NotifyPage
-from nspanel_haui.haui.utils.text import fit_text
+from custom_components.nspanel_haui.haui.page.notify import _FNC_NEXT_PAGE, _TEXT_BOXES, NotifyPage
+from custom_components.nspanel_haui.haui.utils.text import fit_text
 
 LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
 
@@ -137,7 +137,7 @@ def test_next_page_button_does_not_advance_past_last_page():
     assert "tText.txt=" not in " ".join(page.cmds)
 
 
-def test_stop_panel_runs_the_close_callback_and_releases_the_auto_switches():
+def test_stop_panel_runs_the_close_callback_and_keeps_notification_page_hold():
     page = _build_page(LONG)
     page.start_panel(_Panel())
     page.render_panel(_Panel())
@@ -147,7 +147,7 @@ def test_stop_panel_runs_the_close_callback_and_releases_the_auto_switches():
     page._stop_panel(_Panel())
 
     assert closed == [True]
-    assert page.suspended_auto_switches() == ()
+    assert page.suspends_auto_page() is True
 
 
 def test_critical_type_colours_icon_differently():
@@ -222,19 +222,15 @@ def test_queued_notification_popup_only_holds_off_the_page_switch():
 
     page.start_panel(_QueuedPanel())
 
-    assert page.suspended_auto_switches() == ("auto_page",)
+    assert page.suspends_auto_page() is True
 
 
-def test_ad_hoc_popup_still_suspends_every_auto_switch():
+def test_ad_hoc_popup_only_suspends_automatic_page_switching():
     page = _build_page("Short message")
 
     page.start_panel(_Panel())
 
-    assert sorted(page.suspended_auto_switches()) == [
-        "auto_dimming",
-        "auto_display_off",
-        "auto_page",
-    ]
+    assert page.suspends_auto_page() is True
 
 
 def test_message_beside_an_icon_uses_the_narrow_text_box():

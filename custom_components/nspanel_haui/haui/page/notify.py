@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Collection
-
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import AUTO_PAGE_HOLD, AUTO_SWITCHES, NotifType, PopupPanelKey
+from ..mapping.const import NotifType, PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.icon import parse_icon
@@ -88,21 +86,12 @@ class NotifyPage(CommonNotifyPage):
         self._notif_type = NotifType.INFO
         self._button_callback_fnc = None
         self._close_callback_fnc = None
-        self._suspended_auto: tuple[str, ...] = ()
 
-    def suspended_auto_switches(self) -> Collection[str]:
-        return self._suspended_auto
+    def suspends_auto_page(self) -> bool:
+        """Keep a notification visible instead of switching to the idle page."""
+        return True
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        # A queued notification popup stays open until it is dismissed, so it
-        # only holds off the automatic page switch.  Suspending dimming and
-        # display-off as well kept the display lit until someone dismissed it,
-        # and suspending display-off while the display is off wakes it.
-        queued = bool(panel.get("notif_id", ""))
-        self._suspended_auto = (
-            (AUTO_PAGE_HOLD,) if queued else tuple(AUTO_SWITCHES) + (AUTO_PAGE_HOLD,)
-        )
-
         self._notif_type = panel.get("notif_type", NotifType.INFO)
         self._icon = parse_icon(panel.get("icon", ""))
         self._notification = parse_notification_text(panel.get("notification", ""))
@@ -142,7 +131,6 @@ class NotifyPage(CommonNotifyPage):
         )
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        self._suspended_auto = ()
         # notify about close
         if self._close_callback_fnc:
             self._close_callback_fnc()

@@ -3,11 +3,12 @@
 from types import SimpleNamespace
 
 import pytest
-from nspanel_haui.haui.abstract import haui_page
-from nspanel_haui.haui.abstract.mixins.cycle_cards_mixin import Card
-from nspanel_haui.haui.mapping.color import ColorTheme
-from nspanel_haui.haui.page.clock import ClockPage
-from nspanel_haui.haui.utils.icon import parse_icon
+
+from custom_components.nspanel_haui.haui.abstract import haui_page
+from custom_components.nspanel_haui.haui.abstract.mixins.cycle_cards_mixin import Card
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.clock import ClockPage
+from custom_components.nspanel_haui.haui.utils.icon import parse_icon
 
 
 def test_light_background_uses_light_text_colors_even_with_dark_active_scheme():

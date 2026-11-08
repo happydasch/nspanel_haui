@@ -31,7 +31,10 @@ function fakeHass() {
     subscriptions: [],
     unsubscribed: 0,
     calls: [],
-    async fetchWithAuth() { return { ok: true, json: async () => ({}) }; },
+    async fetchWithAuth(path) {
+      const body = path.includes('/notifications/') ? [] : {};
+      return { ok: true, json: async () => body };
+    },
     connection: {
       async subscribeMessage(callback, message) {
         hass.subscriptions.push({ callback, message });
@@ -115,10 +118,10 @@ test('a closed dialog renders nothing and a starting one says so', async () => {
   const idleButton = markup.indexOf('vp-idle-button');
   const moreButton = markup.indexOf('vp-more');
   const simulator = markup.indexOf('vp-stage');
-  assert.ok(modeNote >= 0 && modeNote < controls);
   assert.ok(controls < idleButton);
   assert.ok(idleButton < moreButton);
   assert.ok(moreButton < simulator);
+  assert.ok(simulator < modeNote);
   assert.match(markup, /Simulated mode: touches update simulated states only/);
   assert.doesNotMatch(markup, /vp-hint/);
   assert.match(markup, /Left button/);
@@ -130,6 +133,21 @@ test('the entity switch is available at every preview width', () => {
     const markup = collect(dlg.render()).join(' ');
     assert.match(markup, /vp-show-entities/);
   }
+});
+
+test('the More tools area resets sandbox state and keeps reset out of Live mode', async () => {
+  const { dlg } = makeDialog();
+  let resets = 0;
+  dlg._session = { resetSandbox: async () => { resets++; } };
+  const sandboxTools = dlg._renderTools({ ready: true, live: false });
+  assert.match(renderText(sandboxTools), /vp-reset-sandbox/);
+  assert.match(renderText(sandboxTools), /Reset sandbox/);
+  assert.equal(sandboxTools.values.find(value => typeof value === 'boolean'), false);
+  await sandboxTools.values.find(value => typeof value === 'function')();
+  assert.equal(resets, 1);
+
+  const liveTools = dlg._renderTools({ ready: true, live: true });
+  assert.equal(liveTools.values.find(value => typeof value === 'boolean'), true);
 });
 
 /** The toolbar's two mode buttons: icon -> { pressed, click }. */
@@ -156,10 +174,8 @@ test('the toolbar switches between Simulated and Live', async () => {
     Object.entries(modeButtons(dlg._renderToolbar(dlg._session))).map(([icon, b]) => [icon, b.pressed]),
   );
   assert.deepEqual(pressed(), { 'mdi:flask-outline': 'true', 'mdi:access-point': 'false' });
-  // There is no sandbox reset: switching Live mode on drops the simulated states.
-  assert.doesNotMatch(collect(dlg.render()).join(' '), /Reset sandbox/);
 
-  // The pressed button does nothing; the other one switches the mode.
+  // The other mode switches to Live, dropping simulated state server-side.
   modeButtons(dlg._renderToolbar(dlg._session))['mdi:flask-outline'].click();
   modeButtons(dlg._renderToolbar(dlg._session))['mdi:access-point'].click();
   await flush();
@@ -270,15 +286,29 @@ test('hardware buttons render as part of the frame with relay lights', () => {
   assert.equal((entity.match(/class="vp-relay-dot"/g) || []).length, 1);
   assert.ok(entity.indexOf('class="vp-relay-light entity"') < entity.indexOf('class="vp-relay-dot"'));
   assert.match(entity, / on off /);
+
+  // Boolean false is still a configured entity state, not the relay state.
+  const falseEntity = renderText(dlg._renderHardwareButtons({
+    ...session,
+    relays: { left: 'on', right: 'off' },
+    buttonEntityStates: { left: false, right: null },
+  }));
+  assert.match(falseEntity, /class="vp-relay-light entity"/);
+  assert.match(falseEntity, /class="vp-relay-dot"/);
 });
 
-test('idle timeout control shows its label beside the sleep icon', () => {
+test('idle timeout button keeps its accessible label and hides it on mobile', () => {
   const { dlg } = makeDialog();
   const rendered = dlg._renderIdleButton({ ready: true, idleTimeout() {} });
-  const staticMarkup = rendered.strings.join('');
-  assert.match(staticMarkup, /aria-label=/);
-  assert.match(staticMarkup, /mdi:sleep/);
-  assert.match(collect(rendered).join(' '), /Idle/);
+  const markup = collect(rendered).join(' ');
+  const styles = customElements.get('nspanel-dialog-live-preview').styles
+    .map(style => style.cssText || '').join(' ');
+  assert.match(markup, /aria-label=/);
+  assert.match(markup, /mdi:sleep/);
+  assert.match(markup, /class="vp-idle-label"/);
+  assert.match(markup, /Idle/);
+  assert.match(styles, /@media\s*\(max-width:\s*600px\)/);
+  assert.match(styles, /\.vp-idle-label\s*\{\s*display:\s*none;/);
 });
 test('sounds and display power are shown', () => {
   const { dlg } = makeDialog();

@@ -113,6 +113,9 @@ The preview never fires `nspanel_haui.*` events, so automations reacting to the 
 
 The panel cards in the editor are drawn by the same virtual copy: each card shows its panel the way the hub draws it on the device — entity values, translations, templates, the clock, the weather forecast — including edits that are not saved yet. A popup's card shows it opened for a sample: an entity of its domain (one that is on, if there is one), an example notification or selection. Rendering a card never changes what an open preview shows.
 
+The live preview and the Nextion simulator were created by
+[@jameshiscott](https://github.com/jameshiscott).
+
 ## See Also
 
 - [Panels Overview](../panels/README.md) — All panel types with descriptions

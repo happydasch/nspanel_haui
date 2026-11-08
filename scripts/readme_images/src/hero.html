@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>hero</title>
+<link rel="stylesheet" href="common.css">
+<style>
+  /* 1000 x 380 canvas, exported at 2x. Text left, the two panel models right. */
+  body { width: 1000px; height: 380px; }
+  .frame { width: 1000px; height: 380px; }
+
+  .glow {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(440px 300px at 75% 50%, rgba(72, 163, 234, 0.22), transparent 70%),
+      radial-gradient(260px 200px at 60% 90%, rgba(242, 128, 29, 0.08), transparent 70%);
+  }
+  .dots {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1.6px);
+    background-size: 20px 20px;
+    -webkit-mask-image: linear-gradient(90deg, transparent 40%, #000 75%);
+  }
+
+  .copy { position: absolute; left: 52px; top: 64px; width: 450px; }
+  .eyebrow {
+    font-size: 12.5px; font-weight: 400; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--faint);
+  }
+  h1 { margin-top: 14px; font-size: 66px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  h1 span { color: var(--blue); }
+  .lede { margin-top: 18px; font-size: 21px; font-weight: 300; line-height: 1.4; color: var(--muted); }
+  .chips { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 9px; }
+  .chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 13px 7px 11px; border-radius: 999px;
+    border: 1px solid #2c3440; background: rgba(255, 255, 255, 0.035);
+    font-size: 14.5px; color: #cdd5df;
+  }
+  .chip .mdi { font-size: 17px; color: var(--blue); }
+
+  /* Devices: glass front, screen window, two hardware buttons with a relay LED */
+  .device {
+    position: absolute;
+    background: linear-gradient(160deg, #2a2e34 0%, #17191d 55%, #121417 100%);
+    border: 1px solid #3a3f47;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55), 0 8px 18px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .device::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(125deg, rgba(255, 255, 255, 0.07) 0%, transparent 38%);
+  }
+  .screen {
+    position: absolute; overflow: hidden; background: #000;
+    border-radius: 6px; box-shadow: 0 0 0 5px #08090b, 0 0 0 6px #1d2025;
+  }
+  .screen img { display: block; width: 100%; height: 100%; }
+  .btn {
+    position: absolute; border-radius: 12px;
+    background: linear-gradient(180deg, #1f2226, #141619);
+    border: 1px solid #33373e;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  .btn i {
+    position: absolute; left: 50%; top: 9px; width: 18px; height: 3px; margin-left: -9px;
+    border-radius: 2px; background: #2b3038;
+  }
+  .btn i.on { background: var(--blue); box-shadow: 0 0 8px rgba(72, 163, 234, 0.9); }
+
+  /* Real proportions at 2.6 px/mm: US 74 x 120 mm upright, EU 86 x 86 mm square.
+     The buttons span the display's outer edge (screen plus its 6px bezel ring). */
+  .us { left: 532px; top: 26px; width: 192px; height: 312px; border-radius: 22px; }
+  .us .screen { left: 18px; top: 18px; width: 156px; height: 234px; }
+  .us .btn { top: 266px; width: 79px; height: 32px; border-radius: 10px; }
+  .us .btn i { top: 7px; }
+  .us .btn.l { left: 12px; }
+  .us .btn.r { left: 101px; }
+
+  .eu { left: 748px; top: 70px; width: 224px; height: 224px; border-radius: 22px; }
+  .eu .screen { left: 15px; top: 15px; width: 194px; height: 138px; }
+  .eu .btn { top: 166px; width: 98px; height: 43px; border-radius: 10px; }
+  .eu .btn i { top: 7px; }
+  .eu .btn.l { left: 9px; }
+  .eu .btn.r { left: 117px; }
+
+  .label {
+    position: absolute; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--faint);
+  }
+</style>
+</head>
+<body>
+  <div class="frame">
+    <div class="glow"></div>
+    <div class="dots"></div>
+
+    <div class="copy">
+      <div class="eyebrow">Home Assistant · ESPHome · Sonoff NSPanel</div>
+      <h1>NSPanel <span>HAUI</span></h1>
+      <p class="lede">A touchscreen UI for the Sonoff NSPanel, set up in a visual editor inside Home Assistant.</p>
+      <div class="chips">
+        <div class="chip"><i class="mdi">&#xF0F8D;</i>13 panel types</div>
+        <div class="chip"><i class="mdi">&#xF1947;</i>No YAML</div>
+        <div class="chip"><i class="mdi">&#xF0ECE;</i>Landscape &amp; portrait</div>
+        <div class="chip"><i class="mdi">&#xF07D0;</i>Local push</div>
+      </div>
+    </div>
+
+    <div class="device us">
+      <div class="screen"><img src="screens/portrait/clock.png" alt=""></div>
+      <div class="btn l"><i class="on"></i></div>
+      <div class="btn r"><i></i></div>
+    </div>
+
+    <div class="device eu">
+      <div class="screen"><img src="screens/landscape/grid.png" alt=""></div>
+      <div class="btn l"><i></i></div>
+      <div class="btn r"><i class="on"></i></div>
+    </div>
+
+    <div class="label" style="left: 532px; width: 192px; text-align: center; top: 350px;">US · portrait</div>
+    <div class="label" style="left: 748px; width: 224px; text-align: center; top: 306px;">EU · landscape</div>
+  </div>
+</body>
+</html>

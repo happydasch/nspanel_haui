@@ -307,6 +307,16 @@ commits the result to `dev` when a screen changed, so a new panel type shows up
 there without further work. Every render runs at a fixed time, so the clock
 screens stay the same from one run to the next.
 
+The README's images (hero, editor and quick start) are generated too:
+`python scripts/readme_images/gen_readme_images.py` captures the HTML pages in
+`scripts/readme_images/src/` with headless Chrome and writes
+`docs/assets/readme/`. The two screens on the hero are the hub's renders of the
+sample panels in that script, taken through the card gallery. The README links
+the images by absolute `raw.githubusercontent.com` URLs
+(`tests/test_marketplace_assets.py` checks that each one exists) and has no
+mermaid diagrams: the Home Assistant Marketplace shows the README, but does not
+draw mermaid.
+
 **Verify coverage** — every exposed panel (user types, system panels, popup
 aliases) must resolve to a physical page present in both generated layouts
 (run by `tests/test_preview_coverage.py` with the rest of the suite):

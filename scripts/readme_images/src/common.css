@@ -1,0 +1,33 @@
+/* Shared look of the README images: the panel's own dark UI, Roboto, HAUI blue. */
+@font-face { font-family: Roboto; font-weight: 300; src: url(fonts/Roboto-Light.ttf); }
+@font-face { font-family: Roboto; font-weight: 400; src: url(fonts/Roboto-Regular.ttf); }
+@font-face { font-family: Roboto; font-weight: 700; src: url(fonts/Roboto-Bold.ttf); }
+@font-face { font-family: MDI; src: url(fonts/materialdesignicons-webfont.woff2) format("woff2"); }
+
+:root {
+  --ground: #0f1217;
+  --ground-2: #151a21;
+  --line: #262d37;
+  --text: #eef2f6;
+  --muted: #9aa6b5;
+  --faint: #677386;
+  --blue: #48a3ea;
+  --orange: #f2801d;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: transparent; }
+body {
+  font-family: Roboto, sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+.mdi { font-family: MDI; font-style: normal; line-height: 1; }
+
+.frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--ground);
+  border: 1px solid var(--line);
+}

@@ -19,7 +19,7 @@ In the **panel editor**, add the entities you want to display as items. Each ite
 
 ### Colors
 
-Grid item colors come from the selected device color scheme. Older saved per-item color values continue to override the scheme until reset in **Editor → Colors** using **Reset existing device and panel color overrides**. The **Show Power Button** option remains available. Deliberate entity-specific color styling is still available through the standard item `color` option.
+Grid items use the selected device color scheme by default, with optional per-item overrides for tile text/icon color, tile background, pressed text/background, and the power button. Set only the roles you want to customize; the remaining colors continue to follow the device scheme. The standard item **Color** setting independently overrides the entity icon color. To remove saved device and panel color overrides, use **Editor → Colors → Reset existing device and panel color overrides**.
 
 ## Display Behavior
 

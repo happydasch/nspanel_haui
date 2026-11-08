@@ -278,6 +278,27 @@ class ClockTwoPage(HAUIPage):
                 section=_("Time"),
             ),
             PageOption(
+                key="off_color",
+                kind="color",
+                label=_("Off-letter color"),
+                description=_("Leave empty to use the color scheme."),
+                section=_("Colors"),
+            ),
+            PageOption(
+                key="letter_color",
+                kind="color",
+                label=_("Active letter color"),
+                description=_("Leave empty to use the color scheme."),
+                section=_("Colors"),
+            ),
+            PageOption(
+                key="special_color",
+                kind="color",
+                label=_("Special letter color"),
+                description=_("Leave empty to use the color scheme."),
+                section=_("Colors"),
+            ),
+            PageOption(
                 key="show_notifications",
                 kind="bool",
                 default=True,
@@ -311,11 +332,17 @@ class ClockTwoPage(HAUIPage):
     def read_options(self, panel: HAUIPanel) -> None:
         """Read the word clock's options; each panel shown on the page reads them anew."""
         set_background_mode(self, panel)
-        self._off_color = panel.get("off_color", self.get_color("component_background"))
-        self._letter_color = panel.get("letter_color", self.get_color("component_text"))
+        self._off_color = panel.get("off_color", None)
+        if self._off_color in (None, ""):
+            self._off_color = self.get_color("component_background")
+        self._letter_color = panel.get("letter_color", None)
+        if self._letter_color in (None, ""):
+            self._letter_color = self.get_color("component_text")
         if self._light_background and self._letter_color == 65535:
             self._letter_color = self.get_color("component_text")
-        self._special_color = panel.get("special_color", self.get_color("component_accent"))
+        self._special_color = panel.get("special_color", None)
+        if self._special_color in (None, ""):
+            self._special_color = self.get_color("component_accent")
         self._clock_language = panel.get("clock_language", "en")
         self._show_ampm = panel.get("show_ampm", False)
         self._show_intro_text = panel.get("show_intro_text", True)

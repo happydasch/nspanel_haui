@@ -23,7 +23,7 @@ For dynamic backgrounds, choose **Template…** in the Background field. The res
 
 ### Colors
 
-On pages set to **Use color scheme**, word-clock colors come from the active device scheme. When a decorative background image is selected, the background's paired light/dark contrast palette is used instead. Legacy `off_color`, `letter_color`, and `special_color` values remain until reset through **Editor → Colors**.
+On pages set to **Use color scheme**, word-clock colors follow the active device scheme by default. Optional **Off-letter color**, **Active letter color**, and **Special letter color** settings override the matching word-clock colors; leave them empty to use the scheme. When a decorative background image is selected, its paired light/dark contrast palette supplies the defaults.
 
 ### Language
 

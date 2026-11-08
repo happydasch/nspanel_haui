@@ -370,10 +370,11 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         self._sink = sink
         self._protected = protected_entities
         self._sandbox_listeners: dict[str, tuple[str, str | None, Callable]] = {}
-        # Hardware button lights, keyed by ("relay" | "entity", side).
-        self._light_entity_ids: dict[tuple[str, str], str] = {}
-        self._light_handles: dict[tuple[str, str], str] = {}
-        self._light_states: dict[tuple[str, str], str] = {}
+        # Hardware button indicators, keyed by ("relay" | "entity", side).
+        # A button switches its relay or any Home Assistant entity.
+        self._button_entity_ids: dict[tuple[str, str], str] = {}
+        self._button_handles: dict[tuple[str, str], str] = {}
+        self._button_states: dict[tuple[str, str], str] = {}
         self.virtual_esphome = VirtualESPHomeProxy(self, sink, device_info)
 
     def _read_real_state(self, entity_id: str) -> tuple[str, dict[str, Any]] | None:
@@ -381,7 +382,30 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         return (state.state, dict(state.attributes)) if state else None
 
     @staticmethod
-    def _relay_state(state: Any) -> str:
+    def _indicator_state(
+        state: Any, attributes: dict[str, Any] | None, entity_id: str
+    ) -> str:
+        """Show a button entity as on or off, whatever its domain."""
+        if state is None or state in ("unknown", "unavailable"):
+            return "unknown"
+        domain = entity_id.split(".", 1)[0]
+        if domain == "cover":
+            position = (attributes or {}).get("current_position")
+            if isinstance(position, (int, float)) and not isinstance(position, bool):
+                return "on" if position > 0 else "off"
+            return "off" if state == "closed" else "on"
+        if domain == "lock":
+            return "on" if state in ("unlocked", "unlocking", "open", "opening") else "off"
+        if domain == "climate":
+            return "off" if state == "off" else "on"
+        if domain == "alarm_control_panel":
+            return "off" if state == "disarmed" else "on"
+        if domain == "vacuum":
+            return "off" if state in ("docked", "idle", "paused") else "on"
+        if domain == "media_player":
+            return "on" if state == "playing" else "off"
+        if domain == "timer":
+            return "on" if state == "active" else "off"
         if state == "on" or state is True or state == 1:
             return "on"
         if state == "off" or state is False or state == 0:
@@ -389,64 +413,69 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         return "unknown"
 
     def start_relay_state_tracking(self) -> None:
-        """Publish the hardware button lights and follow their changes for live viewers.
+        """Publish the hardware button indicators and follow their changes for live viewers.
 
         Each button shows its relay; a button that switches an entity instead
         (relay mode off and ``button_<side>_entity`` set) shows that entity's
-        state in its place. Call again after a config change: it follows the
-        new entities.
+        state in its place. Any entity domain is supported. Call again after a
+        config change: it follows the new entities.
         """
         for side, relay_name in RELAY_ENTITY_NAMES.items():
             relay = self.device.find_esphome_entity_id("switch", relay_name)
-            self._track_light(("relay", side), relay)
+            self._track_button_state(("relay", side), relay)
             button_entity = None
             if not self.device.get(f"use_relay_{side}", True):
                 button_entity = self.device.get(f"button_{side}_entity", None) or None
-            self._track_light(("entity", side), button_entity)
+            self._track_button_state(("entity", side), button_entity)
         self._publish_relay_states()
 
-    def _track_light(self, key: tuple[str, str], entity_id: str | None) -> None:
-        if self._light_entity_ids.get(key) != entity_id:
-            handle = self._light_handles.pop(key, None)
+    def _track_button_state(self, key: tuple[str, str], entity_id: str | None) -> None:
+        if self._button_entity_ids.get(key) != entity_id:
+            handle = self._button_handles.pop(key, None)
             if handle is not None:
                 self.cancel_listen_state(handle)
-            self._light_entity_ids.pop(key, None)
+            self._button_entity_ids.pop(key, None)
             if entity_id:
-                self._light_entity_ids[key] = entity_id
-                self._light_handles[key] = self.listen_state(
-                    lambda _entity, _attribute, _old, new, _kwargs, light=key: (
-                        self._on_light_changed(light, new)
+                self._button_entity_ids[key] = entity_id
+                self._button_handles[key] = self.listen_state(
+                    lambda _entity, _attribute, _old, _new, _kwargs, button=key: (
+                        self._on_button_state_changed(button)
                     ),
                     entity_id,
                 )
         if entity_id:
-            self._light_states[key] = self._relay_state(self.get_item(entity_id).state)
+            item = self.get_item(entity_id)
+            self._button_states[key] = self._indicator_state(
+                item.state, item.attributes, entity_id
+            )
         else:
-            self._light_states.pop(key, None)
+            self._button_states.pop(key, None)
 
-    def _on_light_changed(self, key: tuple[str, str], state: Any) -> None:
-        self._light_states[key] = self._relay_state(state)
+    def _on_button_state_changed(self, key: tuple[str, str]) -> None:
+        entity_id = self._button_entity_ids[key]
+        item = self.get_item(entity_id)
+        self._button_states[key] = self._indicator_state(item.state, item.attributes, entity_id)
         self._publish_relay_states()
 
     def _publish_relay_states(self) -> None:
         self._sink(
             {
                 "type": "relays",
-                "left": self._light_states.get(("relay", "left"), "unknown"),
-                "right": self._light_states.get(("relay", "right"), "unknown"),
-                # None: the button switches its relay, so it has no entity light.
+                "left": self._button_states.get(("relay", "left"), "unknown"),
+                "right": self._button_states.get(("relay", "right"), "unknown"),
+                # None: the button switches its relay, so it has no entity indicator.
                 "entities": {
-                    side: self._light_states.get(("entity", side)) for side in RELAY_ENTITY_NAMES
+                    side: self._button_states.get(("entity", side)) for side in RELAY_ENTITY_NAMES
                 },
             }
         )
 
     def stop_relay_state_tracking(self) -> None:
         """Release the state listeners when the virtual app stops."""
-        for handle in self._light_handles.values():
+        for handle in self._button_handles.values():
             self.cancel_listen_state(handle)
-        self._light_handles.clear()
-        self._light_entity_ids.clear()
+        self._button_handles.clear()
+        self._button_entity_ids.clear()
 
     def _create_device(self, config: dict[str, Any]) -> HAUIDevice:
         return VirtualDevice(self, config)
@@ -524,6 +553,8 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         if not simulated:
             self.log(f"Sandbox: {domain}.{service} is not simulated", level="DEBUG")
             return
+        if changes:
+            self._report_sandbox_state()
         for entity_id, old, new in changes:
             self._notify_sandbox_change(entity_id, old, new)
 
@@ -532,6 +563,10 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         for entity_id in self.sandbox.reset():
             # The listener sees the real state as the new value.
             self._notify_sandbox_change(entity_id, None, self.sandbox.get(entity_id))
+        self._report_sandbox_state()
+
+    def _report_sandbox_state(self) -> None:
+        self._sink({"type": "sandbox", "changed": self.sandbox.has_changes})
 
     def _notify_sandbox_change(self, entity_id: str, old: Any, new: Any) -> None:
         for handle, (listen_id, attribute, cb) in list(self._sandbox_listeners.items()):
@@ -610,6 +645,7 @@ def _send_compatible(sink: Sink, protocol_version: int, message: dict[str, Any])
         "entities",
         "idle",
         "relays",
+        "sandbox",
     }:
         return
     sink(message)
@@ -893,6 +929,7 @@ class VirtualPanelHost:
         with self._viewers_lock:
             self._viewers[viewer_id] = (sink, protocol_version)
         self.app.dispatch(self.app.start_relay_state_tracking)
+        self.app.dispatch(self._send_sandbox_state, sink, protocol_version)
         if self._connected:
             self.app.dispatch(self._redraw_for, sink, protocol_version)
         else:
@@ -909,6 +946,13 @@ class VirtualPanelHost:
             viewers = list(self._viewers.values())
         for sink, protocol_version in viewers:
             _send_compatible(sink, protocol_version, message)
+
+    def _send_sandbox_state(self, sink: Sink, protocol_version: int) -> None:
+        _send_compatible(
+            sink,
+            protocol_version,
+            {"type": "sandbox", "changed": self.app.sandbox.has_changes},
+        )
 
     def _redraw_for(self, sink: Sink, protocol_version: int) -> None:
         proxy = self.app.virtual_esphome

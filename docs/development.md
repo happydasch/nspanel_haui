@@ -10,6 +10,44 @@ integration, or contribute to the project.
 
 ---
 
+## Common local commands
+
+A root `Makefile` provides shortcuts for common checks and the two throwaway
+Home Assistant development instances. Run `make` or `make help` to list them.
+
+- `make check` runs backend and frontend tests, Ruff, mypy, the strict docs
+  build, and read-only HMI/layout and preview-coverage checks. It does not run
+  ESPHome validation or mutate generated assets.
+- Individual checks are available as `make test`, `make test-frontend`,
+  `make lint`, `make typecheck`, `make docs`, and `make hmi-check`.
+- `make esphome-config` validates the universal ESPHome config, but requires
+  the separate ESPHome environment (`requirements-esphome.txt`); its pinned
+  dependencies conflict with the Home Assistant development environment.
+- `make ha-venv-setup` creates `.venv_ha` with Python 3.14 and Home Assistant
+  2026.11.0, and links the integration into `.dev/ha-config`. Start it with
+  `make ha-venv-start`; follow its log with `make ha-venv-logs`.
+- `make ha-docker-up`, `make ha-docker-stop`, `make ha-docker-restart`,
+  `make ha-docker-logs`, and `make ha-docker-down` manage the Docker instance
+  from `compose.yaml`.
+
+Activate the project virtual environment before running checks, and install the
+development dependencies if needed:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+Install `requirements-docs.txt` as well to use the docs target. Backend tests
+also require Node 22+ for card-render replay; frontend tests require Node 22+.
+The Docker instance's `.dev/ha-docker` and the virtualenv instance's
+`.dev/ha-config` are ignored state directories; `.venv_ha` is ignored as well.
+`ha-docker-down` removes the container but preserves its config. Resetting
+either instance is intentionally not a Make target: follow the reset
+instructions below only when you mean to delete that instance's Home Assistant
+state. Docker bridge networking does not pass LAN mDNS; add panels by IP (see
+the Docker notes below).
+
 ## Local development deployment
 
 The repository has no separate integration build or frontend development

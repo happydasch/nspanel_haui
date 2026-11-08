@@ -255,6 +255,11 @@ class Sandbox:
         self._read_real = read_real
         self._states: dict[str, SimState] = {}
 
+    @property
+    def has_changes(self) -> bool:
+        """Whether any entity currently has a simulated state."""
+        return bool(self._states)
+
     def get(self, entity_id: str) -> SimState | None:
         """Return the simulated state, else a snapshot of the real one, else ``None``."""
         sim = self._states.get(entity_id)

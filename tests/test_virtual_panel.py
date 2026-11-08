@@ -145,6 +145,36 @@ def _tap_power(session):
     session.send_event(ESPEvent.COMPONENT, f"{GRID_PAGE_ID},{G1_POWER},0")
 
 
+@pytest.mark.parametrize("initial_state", ["idle", "paused"])
+def test_grid_power_button_simulates_inactive_media_player_as_playing(env, initial_state):
+    media = {
+        "type": "grid",
+        "key": "grid_0",
+        "items": [{"item": "media_player.tv", "show_power_button": True}],
+    }
+    config = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {"devices": {"kitchen": {"config": {"home_panel": "grid_0"}, "panels": [media]}}},
+        device_name="kitchen",
+    )
+    env._states["media_player.tv"] = _State(initial_state, {"friendly_name": "TV"})
+    messages: list[dict] = []
+    session = _open(env, config, messages.append)
+    session.messages = messages
+    try:
+        _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+        _wait(lambda: any('g1Name.txt="TV"' in cmd for cmd in _commands(messages)))
+        _tap_power(session)
+
+        _wait(lambda: session.app.sandbox.is_simulated("media_player.tv"))
+        assert session.app.sandbox.get("media_player.tv").state == "playing"
+
+        _tap_power(session)
+        _wait(lambda: session.app.sandbox.get("media_player.tv").state == "idle")
+    finally:
+        _run(env, session.async_stop())
+
+
 def test_boots_through_the_handshake_to_the_home_panel(session, env):
     assert session.app.controller["connection"].is_connected
     assert 'g1Name.txt="Lamp"' in _commands(session.messages)
@@ -227,6 +257,49 @@ def test_live_preview_button_light_shows_its_entity_without_relay_mode(session, 
     )
 
 
+def test_live_preview_button_indicator_shows_any_entity_kind(session, env):
+    """A hardware button indicator reflects its configured entity's domain-specific state."""
+    env._states["switch.relay_left"] = _State("off", {})
+    session.app.find_entity_id = lambda domain, name: (
+        "switch.relay_left" if (domain, name) == ("switch", "Relay Left") else None
+    )
+    cases = [
+        ("switch.pump", "on", "on"),
+        ("binary_sensor.window", "off", "off"),
+        ("media_player.tv", "playing", "on"),
+        ("media_player.tv", "paused", "off"),
+        ("climate.ac", "heat", "on"),
+        ("climate.ac", "off", "off"),
+        ("vacuum.robot", "cleaning", "on"),
+        ("vacuum.robot", "docked", "off"),
+        ("lock.door", "unlocked", "on"),
+        ("lock.door", "locked", "off"),
+        ("alarm_control_panel.home", "armed_away", "on"),
+        ("alarm_control_panel.home", "disarmed", "off"),
+        ("timer.egg", "active", "on"),
+        ("scene.morning", "2026-11-08T10:00:00+00:00", "unknown"),
+        ("binary_sensor.window", "unavailable", "unknown"),
+    ]
+
+    for entity_id, state, expected in cases:
+        env._states[entity_id] = _State(state, {})
+
+        def configure(entity_id=entity_id):
+            session.app.device.config["use_relay_left"] = False
+            session.app.device.config["button_left_entity"] = entity_id
+            session.app.start_relay_state_tracking()
+
+        session.messages.clear()
+        _run(env, session.app.async_run_on_worker(configure))
+        message = {
+            "type": "relays",
+            "left": "off",
+            "right": "unknown",
+            "entities": {"left": expected, "right": None},
+        }
+        _wait(lambda message=message: message in session.messages)
+
+
 def _press_button(session, side: str) -> None:
     event = ESPEvent.BUTTON_LEFT if side == "left" else ESPEvent.BUTTON_RIGHT
     session.send_event(event, "1")
@@ -302,6 +375,52 @@ def test_hardware_button_simulates_configured_entity_on_release(session, env):
             in session.messages
         )
     )
+
+
+def test_hardware_button_simulates_configured_cover_and_tracks_position(session, env):
+    relay_id = "switch.relay_left"
+    cover_id = "cover.window"
+    env._states[relay_id] = _State("off", {})
+    env._states[cover_id] = _State("closed", {"current_position": 0})
+    session.app.find_entity_id = lambda domain, name: (
+        relay_id if (domain, name) == ("switch", "Relay Left") else None
+    )
+
+    def configure_cover_button():
+        session.app.device.config["use_relay_left"] = False
+        session.app.device.config["button_left_entity"] = cover_id
+        session.app.device._register_callbacks()
+        session.app.start_relay_state_tracking()
+
+    _run(env, session.app.async_run_on_worker(configure_cover_button))
+    off = {
+        "type": "relays",
+        "left": "off",
+        "right": "unknown",
+        "entities": {"left": "off", "right": None},
+    }
+    _wait(lambda: off in session.messages)
+
+    session.send_event(ESPEvent.BUTTON_LEFT, "1")
+    _wait(lambda: session.app.device.device_info.get("button_left") == "1")
+    session.send_event(ESPEvent.BUTTON_LEFT, "0")
+
+    _wait(lambda: session.app.sandbox.is_simulated(cover_id))
+    opened = session.app.sandbox.get(cover_id)
+    assert opened.state == "open"
+    assert opened.attributes["current_position"] == 100
+    on = {**off, "entities": {"left": "on", "right": None}}
+    _wait(lambda: on in session.messages)
+
+    session.send_event(ESPEvent.BUTTON_LEFT, "1")
+    _wait(lambda: session.app.device.device_info.get("button_left") == "1")
+    session.send_event(ESPEvent.BUTTON_LEFT, "0")
+
+    _wait(lambda: session.app.sandbox.get(cover_id).attributes["current_position"] == 0)
+    closed = session.app.sandbox.get(cover_id)
+    assert closed.state == "closed"
+    assert closed.attributes["current_position"] == 0
+    _wait(lambda: off in session.messages)
 
 
 def test_live_hardware_button_toggles_relay_only_when_relay_mode_is_on(session, env):
@@ -423,12 +542,15 @@ def test_going_live_drops_the_simulated_states(session, env):
 
 
 def test_reset_sandbox_drops_simulated_states(session, env):
+    _wait(lambda: any(m == {"type": "sandbox", "changed": False} for m in session.messages))
     _tap_power(session)
     _wait(lambda: session.app.sandbox.is_simulated("light.lamp"))
+    _wait(lambda: any(m == {"type": "sandbox", "changed": True} for m in session.messages))
 
     session.reset_sandbox()
 
     _wait(lambda: not session.app.sandbox.is_simulated("light.lamp"))
+    _wait(lambda: any(m == {"type": "sandbox", "changed": False} for m in session.messages))
     assert session.app.sandbox.get("light.lamp").state == "off"
 
 

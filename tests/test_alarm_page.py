@@ -63,24 +63,24 @@ def _opt(key):
     return next(o for o in AlarmPage.DESCRIPTOR.options if o.key == key)
 
 
-def test_keypad_color_options_use_the_device_scheme():
+def test_keypad_color_options_are_available_and_default_to_the_device_scheme():
     font = _opt("keypad_font")
-    option_keys = {option.key for option in AlarmPage.DESCRIPTOR.options}
+    color_keys = {
+        "keypad_bg_color",
+        "keypad_text_color",
+        "arm_button_color",
+        "arm_button_back_color",
+        "disarm_button_color",
+        "disarm_button_back_color",
+    }
+    options = {option.key: option for option in AlarmPage.DESCRIPTOR.options}
 
     assert isinstance(font, PageOption)
     assert font.kind == "int"
     assert font.default == 2
-    assert (
-        not {
-            "keypad_bg_color",
-            "keypad_text_color",
-            "arm_button_color",
-            "arm_button_back_color",
-            "disarm_button_color",
-            "disarm_button_back_color",
-        }
-        & option_keys
-    )
+    assert color_keys <= options.keys()
+    assert all(options[key].kind == "color" for key in color_keys)
+    assert all(options[key].default is None for key in color_keys)
 
 
 def test_style_keypad_applies_theme_colors_to_all_buttons():

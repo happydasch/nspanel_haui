@@ -135,20 +135,41 @@ test('the entity switch is available at every preview width', () => {
   }
 });
 
-test('the More tools area resets sandbox state and keeps reset out of Live mode', async () => {
+test('the More tools area resets sandbox state only when changed and keeps reset out of Live mode', async () => {
   const { dlg } = makeDialog();
   let resets = 0;
   dlg._session = { resetSandbox: async () => { resets++; } };
-  const sandboxTools = dlg._renderTools({ ready: true, live: false });
+  const unchangedTools = dlg._renderTools({ ready: true, live: false, sandboxChanged: false });
+  assert.equal(resetSandboxDisabled(unchangedTools), true);
+  const sandboxTools = dlg._renderTools({ ready: true, live: false, sandboxChanged: true });
+  assert.equal(resetSandboxDisabled(sandboxTools), false);
   assert.match(renderText(sandboxTools), /vp-reset-sandbox/);
   assert.match(renderText(sandboxTools), /Reset sandbox/);
-  assert.equal(sandboxTools.values.find(value => typeof value === 'boolean'), false);
   await sandboxTools.values.find(value => typeof value === 'function')();
   assert.equal(resets, 1);
 
-  const liveTools = dlg._renderTools({ ready: true, live: true });
-  assert.equal(liveTools.values.find(value => typeof value === 'boolean'), true);
+  const liveTools = dlg._renderTools({ ready: true, live: true, sandboxChanged: true });
+  assert.equal(resetSandboxDisabled(liveTools), true);
 });
+
+function resetSandboxDisabled(value) {
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      const found = resetSandboxDisabled(child);
+      if (found !== null) return found;
+    }
+  } else if (value && Array.isArray(value.strings) && Array.isArray(value.values)) {
+    for (let i = 0; i < value.values.length; i++) {
+      if (value.strings[i].includes('?disabled=')
+          && value.strings.slice(0, i + 1).join('').includes('vp-reset-sandbox')) {
+        return value.values[i];
+      }
+      const found = resetSandboxDisabled(value.values[i]);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
 
 /** The toolbar's two mode buttons: icon -> { pressed, click }. */
 function modeButtons(value, out = {}) {
@@ -310,6 +331,15 @@ test('idle timeout button keeps its accessible label and hides it on mobile', ()
   assert.match(styles, /@media\s*\(max-width:\s*600px\)/);
   assert.match(styles, /\.vp-idle-label\s*\{\s*display:\s*none;/);
 });
+test('live preview sections use consistent spacing around the toolbar and mode note', () => {
+  const styles = customElements.get('nspanel-dialog-live-preview').styles
+    .map(style => style.cssText || '').join(' ');
+  assert.match(styles, /\.dialog-body\s*\{[^}]*display:\s*flex;[^}]*gap:\s*16px;/);
+  assert.match(styles, /\.vp-toolbar\s*\{\s*margin:\s*0;/);
+  assert.match(styles, /\.vp-toolbar-actions\s*\{[^}]*gap:\s*8px;/);
+  assert.doesNotMatch(styles, /\.vp-status\s*\{[^}]*margin-top:/);
+});
+
 test('sounds and display power are shown', () => {
   const { dlg } = makeDialog();
   dlg._onAction({ name: 'play_sound', value: 'notification' });

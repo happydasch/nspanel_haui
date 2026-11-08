@@ -28,14 +28,14 @@ Tapping an `alarm_control_panel` item on another panel (e.g. a grid tile) opens 
 - If a code is required but none has been entered, the action is silently ignored (the keypad entry is preserved).
 - The entered code is passed as the `code` parameter to the alarm service call.
 - After a successful action (or on alarm state change), the entered code is cleared.
-The keypad, action buttons, and alarm-state indicator use the active color scheme, so the alarm page follows the same semantic color definitions as the rest of the device. Older saved keypad/action color values remain compatibility overrides until reset from **Editor → Colors**.
+The keypad, action buttons, and alarm-state indicator use the active color scheme by default. Optional color settings let you override keypad button background/text colors and arm/disarm button text/background colors; leave them empty to follow the scheme.
 ## How to configure
 
 In the **panel editor**, set:
 
 - **Item** (entity picker) — An `alarm_control_panel` entity to control. Required.
-- **Keypad** section — visual styling follows the selected color scheme. **Keypad font size** remains configurable (font ID 0–7; default `2`).
-- **Action buttons** section — configure hidden arm modes and whether action icons are shown. Text/background colors follow the color scheme; old saved custom colors can be cleared from **Editor → Colors**.
+- **Keypad** section — **Keypad font size** (font ID 0–7; default `2`), **Keypad button background**, and **Keypad text color**. Leave a color empty to use the scheme.
+- **Action buttons** section — configure hidden arm modes, whether action icons are shown, and optional arm/disarm button text and background colors. Leave a color empty to use the scheme.
 
 **Hidden arm modes** excludes selected modes even if the entity supports them. **Show action icons** prefixes each action with its destination-state icon when the label fits. Neither option changes the scheme colors.
 

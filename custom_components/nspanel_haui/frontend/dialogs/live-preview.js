@@ -58,6 +58,11 @@ class LivePreviewDialog extends HauiDialog {
       ha-dialog {
         --ha-dialog-max-width: min(760px, 95vw);
       }
+      .dialog-body {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
       .vp-controls {
         display: flex;
         flex-wrap: wrap;
@@ -71,7 +76,7 @@ class LivePreviewDialog extends HauiDialog {
         cursor: pointer;
       }
       .vp-toolbar {
-        margin: 8px 0 12px;
+        margin: 0;
       }
       .vp-toolbar-row {
         display: flex;
@@ -83,7 +88,7 @@ class LivePreviewDialog extends HauiDialog {
       .vp-toolbar-actions {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 8px;
       }
       @media (max-width: 600px) {
         .vp-idle-label {
@@ -239,7 +244,6 @@ class LivePreviewDialog extends HauiDialog {
         display: flex;
         flex-wrap: wrap;
         gap: 8px 16px;
-        margin-top: 12px;
         color: var(--secondary-text-color);
         font-size: 0.9em;
       }
@@ -637,7 +641,7 @@ class LivePreviewDialog extends HauiDialog {
         <ha-button
           class="vp-reset-sandbox"
           appearance="plain"
-          ?disabled=${!ready || live}
+          ?disabled=${!ready || live || !session?.sandboxChanged}
           @click=${() => this._resetSandbox()}
         >
           <ha-icon slot="start" icon="mdi:restore"></ha-icon>

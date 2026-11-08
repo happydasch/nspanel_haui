@@ -42,6 +42,7 @@ export class VirtualPanelSession {
     this.entryId = opts.entryId;
     this.device = opts.device;
     this.live = Boolean(opts.live);
+    this.sandboxChanged = false;
     this.onUpdate = opts.onUpdate || (() => {});
     this.onAction = opts.onAction || (() => {});
     this.onError = opts.onError || (msg => console.error(`[virtual panel] ${msg}`));
@@ -239,6 +240,10 @@ export class VirtualPanelSession {
       case 'relays':
         this.relays = { left: message.left, right: message.right };
         this.buttonEntityStates = message.entities;
+        this.onUpdate();
+        break;
+      case 'sandbox':
+        this.sandboxChanged = Boolean(message.changed);
         this.onUpdate();
         break;
       case 'entities':

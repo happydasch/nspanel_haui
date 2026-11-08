@@ -23,6 +23,36 @@ class GridPage(PagedItemsMixin, HAUIPage):
         description=_("Grid of up to 6 item tiles with pagination."),
         item_options=[
             PageOption(
+                key="text_color",
+                kind="color",
+                label=_("Text color"),
+                description=_("Color of the tile's icon and name."),
+            ),
+            PageOption(
+                key="back_color",
+                kind="color",
+                label=_("Background color"),
+                description=_("Background of the tile."),
+            ),
+            PageOption(
+                key="color_pressed",
+                kind="color",
+                label=_("Pressed text color"),
+                description=_("Icon and name color while the tile is pressed."),
+            ),
+            PageOption(
+                key="back_color_pressed",
+                kind="color",
+                label=_("Pressed background color"),
+                description=_("Background of the tile while the tile is pressed."),
+            ),
+            PageOption(
+                key="power_color",
+                kind="color",
+                label=_("Power button color"),
+                description=_("Color of the power button while the item is on."),
+            ),
+            PageOption(
                 key="show_power_button",
                 kind="bool",
                 label=_("Show power button"),
@@ -320,12 +350,15 @@ class GridPage(PagedItemsMixin, HAUIPage):
             state = haui_item.get_item_state()
             if mapping["power"] != component:
                 continue
-            if state not in ["off", "unavailable"]:
-                self.turn_off_item(haui_item)
-            elif state == "off":
+            if not self.item_is_available(haui_item):
+                self.log(f"item {haui_item.get_item_id()} is not available")
+            elif (
+                haui_item.get_item_type() == "media_player"
+                and not self.is_item_active(haui_item)
+            ) or state == "off":
                 self.turn_on_item(haui_item)
             else:
-                self.log(f"item {haui_item.get_item_id()} is not available")
+                self.turn_off_item(haui_item)
 
     def callback_grid_entries(self, event: HAUIEvent, component: Component) -> None:
         if component not in self._active_items:

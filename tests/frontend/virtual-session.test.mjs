@@ -257,6 +257,22 @@ test('entity-map metadata is accepted by the current protocol', async () => {
   assert.deepEqual(session.entityMap, { g1Overlay: 'light.lamp' });
 });
 
+test('sandbox state tracks whether simulated entity changes can be reset', async () => {
+  const updates = [];
+  const { push, session, resolveLayout } = await started({ onUpdate: () => updates.push(1) });
+  push({ type: 'started', session_id: 'abc', portrait: false });
+  resolveLayout();
+  await flush();
+  const updatesBeforeSandboxChange = updates.length;
+  assert.equal(session.sandboxChanged, false);
+  push({ type: 'sandbox', changed: true });
+  assert.equal(session.sandboxChanged, true);
+  assert.equal(updates.length, updatesBeforeSandboxChange + 1);
+  push({ type: 'sandbox', changed: false });
+  assert.equal(session.sandboxChanged, false);
+  assert.equal(updates.length, updatesBeforeSandboxChange + 2);
+});
+
 test('hub errors are reported', async () => {
   const errors = [];
   const { push } = await started({ onError: msg => errors.push(msg) });

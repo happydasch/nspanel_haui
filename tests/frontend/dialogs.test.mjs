@@ -88,7 +88,7 @@ test('closing a dialog emits dialog-closed', () => {
   assert.deepEqual(events.map((e) => e.type), ['dialog-closed']);
 });
 
-test('Device Info places update actions beside the firmware version and redraw in Health', () => {
+test('Device Info groups the versions in one grid and update actions below them', () => {
   const DeviceInfo = customElements.get('nspanel-dialog-device-info');
   const dlg = Object.create(DeviceInfo.prototype);
   Object.assign(dlg, {
@@ -147,6 +147,24 @@ test('Device Info places update actions beside the firmware version and redraw i
   assert.match(collectTemplateStrings(healthSection).join(' '), /Redraw display/);
   assert.doesNotMatch(collectTemplateStrings(healthSection).join(' '), /slot="secondaryAction"/);
   assert.doesNotMatch(collectTemplateStrings(rendered).join(' '), /slot="secondaryAction"/);
+});
+
+test('Device Info opens the install picker below the device action buttons', () => {
+  const DeviceInfo = customElements.get('nspanel-dialog-device-info');
+  const dlg = Object.create(DeviceInfo.prototype);
+  Object.assign(dlg, {
+    deviceStatus: { device_info: {}, update: { enabled: true } },
+    deviceName: 'kitchen',
+    entryId: 'entry1',
+    _picker: { kind: 'select', device: 'kitchen' },
+    _actionBusy: false,
+  });
+
+  const texts = dlg.render().values.map((value) => collectTemplateStrings(value).join(' '));
+  const deviceIndex = texts.findIndex((text) => text.includes('di-device-actions'));
+  const pickerIndex = texts.findIndex((text) => text.includes('device-update-picker'));
+  assert.ok(deviceIndex >= 0);
+  assert.ok(pickerIndex > deviceIndex);
 });
 
 function collectTemplateStrings(value, result = []) {

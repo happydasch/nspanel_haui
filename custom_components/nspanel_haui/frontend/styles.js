@@ -371,36 +371,19 @@ export const editorStyles = css`
     white-space: nowrap;
   }
   .di-device-actions {
-    display: grid;
-    grid-template-columns: minmax(140px, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    margin-top: 12px;
-    padding-top: 8px;
-    border-top: 1px solid var(--divider-color, #e0e0e0);
-  }
-  .di-device-firmware-version {
-    min-width: 0;
-  }
-  .di-device-action-buttons {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
     gap: 8px;
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--divider-color, #e0e0e0);
   }
   .di-health-actions {
     display: flex;
     justify-content: flex-end;
     margin-top: 8px;
-  }
-  @media all and (max-width: 450px) {
-    .di-device-actions {
-      grid-template-columns: 1fr;
-    }
-    .di-device-action-buttons {
-      justify-content: flex-start;
-    }
   }
   .di-meta-icon {
     --mdc-icon-size: 14px;

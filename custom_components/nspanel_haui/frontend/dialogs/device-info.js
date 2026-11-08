@@ -137,6 +137,16 @@ function renderDeviceInfoSection(
             <span class="di-info-label">${t('Firmware Update Version')}</span>
             <span class="di-info-value di-mono">${(ds.update || {}).firmware_update_version || "-"}</span>
           </div>
+          ${ds.update?.enabled !== false ? html`
+            <div class="di-info-cell">
+              <span class="di-info-label">${t('Firmware download version')}</span>
+              <span class="di-info-value di-mono" title=${firmwareDownloadError || firmwareDownloadVersion || ""}>
+                ${firmwareDownloadLoading
+                  ? t('Loading releases…')
+                  : firmwareDownloadError || firmwareDownloadVersion || t('Unavailable')}
+              </span>
+            </div>
+          ` : ""}
           ${esph ? html`
             <div class="di-info-cell">
               <span class="di-info-label">${t('Transport')}</span>
@@ -151,19 +161,7 @@ function renderDeviceInfoSection(
           ` : ""}
         </div>
         ${actions ? html`
-          <div class="di-device-actions">
-            ${ds.update?.enabled !== false ? html`
-              <div class="di-info-cell di-device-firmware-version">
-                <span class="di-info-label">${t('Firmware download version')}</span>
-                <span class="di-info-value di-mono" title=${firmwareDownloadError || firmwareDownloadVersion || ""}>
-                  ${firmwareDownloadLoading
-                    ? t('Loading releases…')
-                    : firmwareDownloadError || firmwareDownloadVersion || t('Unavailable')}
-                </span>
-              </div>
-            ` : ""}
-            <div class="di-device-action-buttons">${actions}</div>
-          </div>
+          <div class="di-device-actions">${actions}</div>
         ` : ""}
       </div>
     </details>
@@ -698,7 +696,6 @@ class DeviceInfoDialog extends HauiDialog {
         <div class="dialog-body">
           ${Toast.renderToast(this)}
           ${renderStatusCard(ds, di, nw)}
-          ${this._picker ? this._renderPicker(this.deviceName, requiredTft, update) : ''}
           ${renderDeviceInfoSection(
             ds,
             di,
@@ -707,6 +704,7 @@ class DeviceInfoDialog extends HauiDialog {
             this._firmwareDownloadLoading,
             this._firmwareDownloadError,
           )}
+          ${this._picker ? this._renderPicker(this.deviceName, requiredTft, update) : ''}
           ${renderHealthSection(ds, di, redrawDisplayAction)}
           ${renderWifiSection(di, nw)}
           ${renderActiveListeners(ds)}

@@ -9,6 +9,14 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.4.6] — 2026-11-09
+
+### Fixed
+
+- The Marketplace no longer reports Home Assistant 2026.11.0 as too old:
+  `hacs.json` declares the minimum as `2026.11.0`
+  ([#90](https://github.com/happydasch/nspanel_haui/issues/90)).
+
 ## [0.4.5] — 2026-11-09
 
 ### Breaking changes
@@ -110,7 +118,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Dev prereleases ship both display TFTs, and dev panels install the TFT their
   firmware needs ([Release](docs/release.md#published-development-firmware)).
 - CI fails a PR or push that changes a Nextion HMI without advancing the display
-  TFT version and recompiling both TFTs
+  TFT version and recompiling both TFTs, reading the base HMI's version when the
+  base predates `tft_version`
   ([Release](docs/release.md#published-development-firmware)).
 - Panel titles and built-in popup titles are single words where possible, and
   every title is fitted to its header widget (longer ones end in `..`).
@@ -417,6 +426,7 @@ See [Updating](docs/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
+[0.4.6]: https://github.com/happydasch/nspanel_haui/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/happydasch/nspanel_haui/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.4
 [0.4.3]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.3

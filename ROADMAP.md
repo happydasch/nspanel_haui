@@ -1,16 +1,18 @@
 # Roadmap
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
-shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28 and
-v0.4.4 on 2026-11-02**, each tagged from a green `master` commit and published
-by the release workflow.
+shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28, v0.4.4 on
+2026-11-02 and v0.4.5 on 2026-11-09**, each tagged from a green `master` commit
+and published by the release workflow.
 
 The 0.4.x hardware acceptance and OTA risk checks are closed; the remaining gate
-item is notification verification, tracked as the **v0.4.5 plan** below. The
-0.4.5 feature set — including the live panel preview contributed in
-[#85](https://github.com/happydasch/nspanel_haui/pull/85) and
-[#86](https://github.com/happydasch/nspanel_haui/pull/86) — is already on `dev`;
-the release waits on the notification pass.
+item is notification verification on real hardware, tracked as the **v0.4.6
+plan** below. The 0.4.5 feature set — including the live panel preview
+contributed in [#85](https://github.com/happydasch/nspanel_haui/pull/85) and
+[#86](https://github.com/happydasch/nspanel_haui/pull/86) — shipped in that
+release. v0.4.6 closes that gate and consolidates docs, CI, the dev release
+cadence and the device surface before the v0.5 frontend cycle; a defect found by
+the notification pass ships in it as well.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
@@ -20,11 +22,14 @@ belong in the issue tracker.
 **The 0.4.x install gate comes first.** The binary and TFT install, firmware OTA
 and the base and core functions are confirmed on real EU and US/portrait
 hardware; only notification behaviour remains. Nothing in v0.5 or v0.6 starts
-before that row is green and 0.4.5 ships. After the gate closes, **v0.5** adds
-multiple TFTs for normal- and high-speed updates, stable and controllable
-manual/auto updates in the frontend, and a Device Manager overhaul. **v0.6** adds Display Repair Mode, an inspection and
-cleanup of the Nextion scripts and Home Assistant hub settings; multi-hub support
-remains subject to a needs decision.
+before that row is green. The v0.4.6 cycle running alongside the gate is a
+deliberate consolidation release — docs, one simplified CI pipeline, fewer
+development releases, the Device Manager and Device Info merge, and the frontend
+groundwork for the next cycle. **v0.5** is then the frontend cycle: the general
+editor rework, a notifications center, device settings and update control,
+alongside multiple TFTs for normal- and high-speed updates. **v0.6** adds Display
+Repair Mode, an inspection and cleanup of the Nextion scripts and Home Assistant
+hub settings; multi-hub support remains subject to a needs decision.
 
 ---
 
@@ -49,45 +54,74 @@ patch; **v0.5 does not start until this gate is green.**
 
 ---
 
-## v0.4.5 — notification verification and release (in progress)
+## v0.4.6 — consolidation: docs, CI & frontend groundwork (in progress)
 
-**Status: in progress.** The 0.4.5 feature set is on `dev` — see the
-[0.4.5 changelog](CHANGELOG.md#045--unreleased) for the full list. It includes
-the live panel preview in the editor
-([#85](https://github.com/happydasch/nspanel_haui/pull/85),
-[#86](https://github.com/happydasch/nspanel_haui/pull/86)) with its relay
-indicators and **Reset sandbox**, hub-drawn panel cards, editable popups, long
-press to go back, Day/Night Profiles, optional per-panel colour overrides on top
-of the color scheme, the inside-temperature sensor picker, the notification text
-and paging fixes, the firmware-to-integration update move, encrypted native OTA,
-alarm action-button options and versioned dev releases.
+**Status: in progress on `dev`.** v0.4.5 shipped on 2026-11-09 — see the
+[0.4.5 changelog](CHANGELOG.md#045--2026-11-09) for the full list and
+[v0.4.5 release notes](.github/release-notes/v0.4.5.md) for the details. This
+cycle is deliberately narrow in feature surface: it closes the install gate and
+pays down the docs, CI, release and device-surface debt that accumulated over
+0.4.x, so the v0.5 frontend rework starts from a clean base. No new panel types
+or display behaviour land here.
 
-The hardware passlist and every update-related item are done: universal image
-onboarding, TFT auto-update end to end, unattended firmware OTA (install, reboot,
-matching TFT follow-up, silent buzzer), encrypted native OTA
-([#81](https://github.com/happydasch/nspanel_haui/issues/81)), the reinstall-loop
-fix ([#83](https://github.com/happydasch/nspanel_haui/issues/83)) and the
-old-bootloader rollback investigation. The following items remain before
-release:
+**Release gate (unchanged).** Complete the notification passlist row above,
+including long-message paging and the update popup text, on both display models,
+and fix and re-verify every defect the pass finds.
 
-- Complete the notification passlist row above, including long-message paging and
-  the update popup text, on both display models.
-- Review open notification-enhancement issue #50; keep it documentation-only
-  unless the pass finds a defect.
-- **TFT assets in the release** — both display TFTs
-  (`nextion/nspanel_haui.tft`, `nextion/nspanel_haui_portrait.tft`) are
-  committed to git and attached to every GitHub release, so the update
-  controller and manual installs can fetch them. Confirm both assets and their
-  manifest `tft` block on the published 0.4.5 release.
-- Cut `release/0.4.5` from `dev`, bump the version sources, run the pre-flight
-  checks and merge to `master` for tagging.
+**Docs.** Make `docs/` match the shipped editor and update flow again: one
+navigation without duplicated device/update/service explanations, no stale 0.4.x
+instructions, every documented action and option present in the current editor,
+the [screens overview](docs/screens.html) linked from the panel docs, and the new
+dev release cadence and simplified pipeline written into
+[release process](docs/release.md) and [development](docs/development.md).
+
+**Simplified CI pipeline.** One pipeline with clear jobs instead of the current
+six workflows that rebuild the same things: share setup between jobs, build the
+docs once per run and reuse the result, fold the screen regeneration into the
+development build instead of a second chained bot push, and keep every existing
+gate — tests, strict docs, lint, mypy, frontend tests, Nextion/version/TFT checks
+and the hassfest/HACS validation. Fewer workflow runs per push, same coverage.
+
+**Fewer development releases.** Stop publishing a GitHub prerelease for every
+push to `dev`. Cut a development release only when the release actually changes
+what a device installs (firmware or display inputs) or on a fixed, documented
+cadence; hub-only, docs and frontend pushes ride along in the next one. Keep the
+PEP 440 tag rules — the tag identical to the manifest version, no non-version
+tags — so Marketplace ordering stays correct, and keep the bot version commit off
+`dev` except when a release is cut.
+
+**Device Manager and Device Info merge.** Collapse the two device surfaces into
+one: the Device Manager owns the device list, selection, connection and version
+status, WiFi/IP/RSSI, update state and the per-device actions, with Device
+Settings opening from the same place. Remove the separate Device Info dialog and
+the duplicated status/version rendering; polling stays scoped to the selected
+device and behaviour is otherwise unchanged.
+
+**Frontend groundwork for v0.5.** Land the base the rework builds on without a
+visible change: one observable store and typed API client behind the existing
+views, agreed view-module boundaries, and a written v0.5 information
+architecture and phasing (shell, panel editors, notification center, device
+settings). The static, unauthenticated, no-build serving contract stays.
+
+**Other cleanup.** Remove the vendored `esphome/nextion_patch/` and its
+`external_components` blocks and bump `min_version`/`requirements-esphome.txt`
+once a released ESPHome 2026.11 contains the fixes; keep `CHANGELOG.md` and the
+release notes in sync; fix defects found by the notification pass.
+
+**Acceptance:** the notification row green on one EU and one US/portrait panel;
+docs strict build green with no stale instructions; fewer workflow files and runs
+per push with every gate still enforced; dev releases on the documented cadence
+with Marketplace ordering intact; one device dialog with no duplicated status
+rendering; the frontend foundation merged with no visible change; the vendored
+Nextion patch removed once ESPHome ships the fixes.
 
 ---
 
-## v0.5 — Multiple TFTs, update control & Device Manager overhaul
+## v0.5 — Frontend cycle, multiple TFTs & update control
 
-Three pillars plus planned frontend, notification and device-settings work, after
-the 0.4.x gate closes.
+The first cycle built on the v0.4.6 frontend foundation. Three pillars plus the
+planned frontend, notification and device-settings work, after the 0.4.x gate
+closes.
 
 ### Multiple TFTs
 
@@ -125,10 +159,10 @@ unchanged normal-speed assets; no UART buffer overflows under the update burst.
 
 ### Device Manager overhaul
 
-Consolidate the dialog after the v0.4 additions (layout, per-device actions,
-stale states), support multi-device operations such as bulk firmware/TFT updates
-and moving panels across devices (reordering works today), and show clear
-per-device version and action state in the list.
+The Device Manager and Device Info merge lands in v0.4.6, giving one per-device
+surface. v0.5 builds the remaining operations on it: bulk firmware/TFT updates,
+moving panels across devices (reordering works today), and per-device version
+and action state that stays correct across stale or failed updates.
 
 ### Remaining editor polish
 
@@ -153,8 +187,9 @@ fix remains:
 
 ### Frontend rework, notifications & device settings (planned)
 
-Planned beyond the three pillars above; no v0.5 code starts before the 0.4.x
-gate closes. Each phase ships on its own.
+Planned beyond the three pillars above; the data/API foundation and the Device
+Manager merge land in v0.4.6, and no v0.5 code starts before the 0.4.x gate
+closes. Each phase ships on its own.
 
 - **General frontend rework** — the panel and device requirements are known now,
   so rebuild the editor as one coherent app instead of layering patches on the
@@ -163,7 +198,7 @@ gate closes. Each phase ships on its own.
   keyboard-navigable modals, and an editor/preview split view. This supersedes
   the incremental patchwork the editor-polish items above describe, which land
   here instead. The static, unauthenticated, no-build-step serving contract
-  stays — that is how `editor_panel.py` serves `frontend/` — so the rework is
+  stays — that is how `web/editor.py` serves `frontend/` — so the rework is
   structural, not a framework or bundler swap.
 - **Notifications** — add grouping and priority ordering to the controller plus a
   read-only queue/history API and a Notification Center in the editor. The
@@ -184,8 +219,8 @@ gate closes. Each phase ships on its own.
   "create from template", inline rename/duplicate/reorder and field-level
   validation, replacing the generic toast with per-field feedback.
 
-**Phasing:** API and data foundation with no UI change, then the general frontend
-rework at behaviour parity (editor-polish items included), then Device Manager and
+**Phasing:** the API and data foundation with no UI change (v0.4.6), then the
+general frontend rework at behaviour parity (editor-polish items included), then
 device settings, then panel editors, then the notification UX, then polish and
 hardening.
 
@@ -326,6 +361,9 @@ behaving unchanged on hardware after the cleanup.
 - **0.4.3** — TFT installs move to the integration; per-device update settings
   and the **HAUI Display** entity.
 - **0.4.4** — notification `timeout` hotfix; the TFT files stay at 0.4.3.
+- **0.4.5** — live preview and hub-rendered panel cards, editable popups, the
+  **HAUI Firmware** entity, encrypted native OTA and the Home Assistant 2026.11
+  Marketplace migration.
 
 ---
 

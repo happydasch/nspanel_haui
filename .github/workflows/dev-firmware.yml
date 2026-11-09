@@ -1,9 +1,12 @@
 name: Development Firmware
 
 on:
-  push:
-    branches:
-      - dev
+  # Dispatched manually (Actions -> Development Firmware -> Run workflow on
+  # `dev`). A build publishes a prerelease, pushes a bot version commit back to
+  # `dev` and triggers the screens workflow, so it runs when the device inputs
+  # (firmware or display) changed or on the documented cadence — not on every
+  # push.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,6 +19,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Require the dev branch
+        # The version commit is pushed to `dev`; a build from another ref would
+        # either race that branch or ship a commit dev does not contain.
+        run: |
+          if [ "${GITHUB_REF_NAME}" != "dev" ]; then
+            echo "Dispatch this workflow on the dev branch (got ${GITHUB_REF_NAME})." >&2
+            exit 1
+          fi
+
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -104,13 +116,27 @@ jobs:
           fi
           cp "$OTA" nspanel_haui_ota.bin
 
+      - name: Find the previous release for the notes
+        # A dispatched build has no push range (github.event.before is empty).
+        # Summarise the commits since the newest tag reachable from HEAD: the
+        # previous development build's tag, or the stable release after a
+        # master merge-back.
+        run: |
+          previous=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || true)
+          echo "PREVIOUS_TAG=${previous}" >> "$GITHUB_ENV"
+          if [ -n "${previous}" ]; then
+            echo "Notes range: ${previous}..HEAD"
+          else
+            echo "Notes range: whole history (no reachable tag)"
+          fi
+
       - name: Generate the firmware manifest and commit notes
         # Same schema as a stable release (scripts/release), including the
         # ``tft`` block that names the display TFT and its per-model assets.
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
-          PUSH_BEFORE: ${{ github.event.before }}
+          PREVIOUS_TAG: ${{ env.PREVIOUS_TAG }}
           DEV_VERSION: ${{ env.DEV_VERSION }}
           TFT_VERSION: ${{ env.TFT_VERSION }}
         run: |
@@ -133,9 +159,8 @@ jobs:
           )
           manifest["name"] = "NSPanel HAUI Development"
           Path("firmware-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-          before = os.environ["PUSH_BEFORE"]
-          zero_sha = "0" * len(before)
-          if before and before != zero_sha:
+          before = os.environ.get("PREVIOUS_TAG", "")
+          if before:
               commit_range = f"{before}..{commit}"
               changes = subprocess.check_output(
                   ["git", "diff", "--stat", "--no-renames", before, commit], text=True
@@ -155,12 +180,14 @@ jobs:
               "Firmware variant: `universal` (for universal test panels only).",
               f"Display TFT: `{os.environ['TFT_VERSION']}`.",
               "",
-              "## Commits in this push",
+              "## Commits in this build",
           ]
           notes.extend(
               f"- [`{sha[:7]}`](https://github.com/{repo}/commit/{sha}) {subject}"
               for sha, subject in (line.split(chr(9), 1) for line in commits)
           )
+          if not commits:
+              notes.append("No commits since the previous release.")
           if changes:
               notes.extend(["", "## Changed files", "```text", changes, "```"])
           Path("dev-release-notes.md").write_text("\n".join(notes) + "\n")
@@ -176,15 +203,16 @@ jobs:
         # The same versioned commit is pushed onto the ``dev`` branch, so the
         # branch's tracked version.yaml carries the dev version instead of
         # lagging on the last stable release (the old tag-only commit left dev
-        # stale). The next run derives the next dev version from that X.Y.Z.devN
-        # directly.
-        # ``[skip ci]`` keeps this push to dev from re-triggering this workflow;
-        # a re-run keeps its run number (the version) and builds the same
-        # commit, so it replaces an equivalent commit/tag.
+        # stale). The next dispatched build derives the next dev version from
+        # that X.Y.Z.devN directly.
+        # ``[skip ci]`` keeps the bot push from starting CI on that commit; a
+        # re-run of the same workflow run keeps its run number (the version)
+        # and builds the same commit, so it replaces an equivalent commit/tag.
         #
-        # Because dev's tip is always this ``[skip ci]`` commit, a PR from dev
-        # never runs its checks: cut release prep on a ``release/X.Y.Z`` branch
-        # (docs/release.md, "Branches and cadence").
+        # A dispatched build leaves dev's tip as this ``[skip ci]`` commit, so a
+        # release PR opened while it is the tip runs no checks: cut release prep
+        # on a ``release/X.Y.Z`` branch (docs/release.md, "Branches and
+        # cadence").
         env:
           DEV_VERSION: ${{ env.DEV_VERSION }}
         run: |

@@ -103,23 +103,27 @@ reads `releases/latest/download/firmware-manifest.json` — so all panels with
 `firmware_auto_update` on install it. Use a
 [local test release](#test-firmware-updates-with-a-local-release) instead.
 
-Development firmware is now built and published on every successful push to
-`dev`. The CI prerelease channel described below is separate from the local
-workflow used for private/custom builds.
+Development firmware is published on demand from `dev` (see below). The CI
+prerelease channel described below is separate from the local workflow used for
+private/custom builds.
 
 ### Published development firmware
 
-Every successful push to `dev` builds the CI-safe universal image and publishes a
-GitHub prerelease whose tag is the release version. Its version is based on the
-next patch release plus the workflow run number (for example, `0.4.5.dev123`), so
-each successful push has a distinct update version. The run number is GitHub's
-repository-wide workflow counter, not a per-cycle dev counter, so a new cycle
-continues the global numbering (for example `0.4.6.dev51`) instead of starting at
-`.dev1`. That keeps every build unique and monotonic even when a run is canceled
-or its tag push is retried; the next patch base still sorts it above the previous
-cycle. The release name adds the short commit (`NSPanel HAUI 0.4.5.dev123
-(abcdef1)`) and its notes link to the build commit, enumerate commits included in
-that push, and list changed files.
+A development build runs on demand: dispatch the **Development Firmware**
+workflow (Actions → Development Firmware → **Run workflow** on `dev`) when the
+build changes what a device installs (firmware or display inputs); hub-only,
+docs and frontend pushes ride along in the next build. It compiles the CI-safe
+universal image and publishes a GitHub prerelease whose tag is the release
+version. Its version is based on the next patch release plus the workflow run
+number (for example, `0.4.7.dev123`), so every build has a distinct update
+version. The run number is GitHub's repository-wide workflow counter, not a
+per-cycle dev counter, so a new cycle continues the global numbering (for
+example `0.4.7.dev51`) instead of starting at `.dev1`. That keeps every build
+unique and monotonic even when a run is canceled or its tag push is retried; the
+next patch base still sorts it above the previous cycle. The release name adds
+the short commit (`NSPanel HAUI 0.4.7.dev123 (abcdef1)`) and its notes link to
+the build commit, enumerate the commits since the previous release tag, and list
+changed files.
 Only the newest 10 dev prereleases are kept; the workflow deletes older ones
 together with their tags, because the Home Assistant Marketplace (like HACS
 before it) reads only the newest 30 releases and would otherwise lose the latest
@@ -142,21 +146,21 @@ Marketplace downloads the *source archive of the tag*, and Home Assistant and th
 hub (`get_version()`) read the version from its manifest, so tagging the plain
 branch commit would ship a dev build that calls itself the stable version. That
 same versioned commit is pushed
-back onto the `dev` branch (its `[skip ci]` trailer keeps GitHub from
-re-triggering the workflow on that push), so the branch's tracked `version.yaml`
+back onto the `dev` branch (its `[skip ci]` trailer keeps the bot push from
+starting CI), so the branch's tracked `version.yaml`
 carries the released dev version instead of lagging on the last stable release.
-As a consequence the tip of `dev` is always a bot `[skip ci]` commit, so release
-prep happens on a `release/X.Y.Z` branch (see
+A dispatched build therefore leaves the tip of `dev` as a bot `[skip ci]`
+commit, so release prep stays on a `release/X.Y.Z` branch (see
 [Branches and cadence](#branches-and-cadence)).
-The next run derives the next dev version from that
+The next dispatched build derives the next dev version from that
 `X.Y.Z.devN`: it keeps the same `X.Y.Z` base (no stable `X.Y.Z` has shipped yet)
 and only advances the run number, and jumps to `X.Y.(Z+1).devN` again once the
 master merge-back has returned `dev` to a stable manifest.
 The tag push is retried a few times, because a GitHub Git Operations incident
 can reject it (`remote: fatal error in commit_refs`) after the version commit
 already reached `dev`. If it still fails, `dev` carries a version that has no
-release. Nothing needs repairing: the next push to `dev` builds and publishes the
-next run number.
+release. Nothing needs repairing: the next dispatched build publishes the next
+run number.
 
 The Marketplace reads release tags as *available* versions and records the tag
 it installed as the *installed* one, so it can order dev releases and only offers a build
@@ -217,8 +221,9 @@ compiling, so a dev firmware requires exactly the TFT it ships. Verify each
 published dev release contains `firmware-manifest.json`, both TFT assets, and a
 manifest `tft.version` equal to the HMIs' `system.tftVersion`.
 
-The prerelease notes show the exact commit and changed-file summary. Use the
-commit link to inspect the full diff; the `CHANGELOG.md` entry and the prepared
+The prerelease notes show the build commit, the commits since the previous
+release tag and a changed-file summary. Use the commit link to inspect the full
+diff; the `CHANGELOG.md` entry and the prepared
 release notes are written for stable releases only.
 
 ### Your custom firmware: choose `dev` or `master`
@@ -368,8 +373,8 @@ cut from a commit whose CI was green on its source branch.
   PR with the always-running CI checks green.
 - `dev` — integration branch, the target for all day-to-day work, and the
   repository's **default branch**, so new PRs base on it automatically. CI runs
-  here on every push and PR; each push also builds a versioned universal dev
-  firmware prerelease with commit-linked notes (see
+  here on every push and PR; a dispatched development build publishes a
+  versioned universal dev firmware prerelease with commit-linked notes (see
   [Published development firmware](#published-development-firmware)).
 - Feature branches — branch off `dev`, open the PR against `dev`.
 - Release branches — `release/X.Y.Z`, cut from `dev` for release prep and merged
@@ -383,16 +388,16 @@ The cycle in one line: feature → PR into `dev` → cut `release/X.Y.Z` from `d
 `release/X.Y.Z` → `master` → tag on `master` → `release.yml` publishes → merge
 `master` back into `dev` → open the next CHANGELOG section.
 
-**Why release prep never happens on `dev`:** every push to `dev` makes the
-development-firmware workflow commit the next dev version back onto the branch
-([Published development firmware](#published-development-firmware)). That
-breaks a release PR straight from `dev` twice over:
+**Why release prep stays on a `release/X.Y.Z` branch:** a dispatched development
+build commits the next dev version back onto `dev`
+([Published development firmware](#published-development-firmware)), at a moment
+you do not control once the release PR is open:
 
-- The stable version bump is overwritten within minutes: `dev` reads `X.Y.Z`
-  and the bot commits `X.Y.(Z+1).devN` on top, so the tag check in
-  `release.yml` fails.
-- The tip of `dev` is always the bot's `[skip ci]` commit, pushed with the
-  workflow token. GitHub runs no `push` or `pull_request` workflows for a PR
+- A build dispatched during release prep moves `dev` past the commit the release
+  branch was cut from, so a release PR taken straight from `dev` would no longer
+  match the history it was reviewed on.
+- A build leaves the tip of `dev` as the bot's `[skip ci]` commit, pushed with
+  the workflow token. GitHub runs no `push` or `pull_request` workflows for a PR
   whose head commit says `[skip ci]`, so the PR's required checks never report
   and the `master` ruleset (no bypass actors) blocks the merge.
 
@@ -436,7 +441,8 @@ no alias is kept as a fallback, so the upgrade guide is the only migration path.
 | `tests.yml` | pushes/PRs to `master`, `dev` | `zensical build --strict`; icon cheatsheet, translation and version-source freshness; Nextion asset gate (`verify_nextion.py --require-portrait`, landscape `gen_layout.py --check`, portrait `gen_layout.py --spec portrait --check`); `pytest tests/`; `ruff check custom_components/ scripts/`; `mypy`; `node --test 'tests/frontend/*.test.mjs'`; `esphome config esphome/nspanel_haui_universal.yaml` |
 | `docs.yml` | docs, docs-tooling or config changes on pushes/PRs to `master`, `dev`; manual dispatch | `zensical build --strict`; a push to `master` or `dev` deploys Pages with both branches: `master` at the root, `dev` under `dev/` (the editor footer links prerelease versions there) |
 | `validate.yml` | pushes/PRs to `master`, `dev`; nightly; manual dispatch | hassfest and HACS validation |
-| `screens.yml` | each completed `Development Firmware` run on `dev`; manual dispatch | regenerates the screen overview (`gen_preview_gallery.py --docs`: `docs/screens.html`, `docs/assets/screens/`) and commits it to `dev` with `[skip ci]` when it changed |
+| `screens.yml` | each completed `Development Firmware` run; manual dispatch | regenerates the screen overview (`gen_preview_gallery.py --docs`: `docs/screens.html`, `docs/assets/screens/`) and commits it to `dev` with `[skip ci]` when it changed |
+| `dev-firmware.yml` | manual dispatch on `dev` | builds and publishes the versioned universal development firmware prerelease (see [Published development firmware](#published-development-firmware)); never triggered by pushes |
 | `release.yml` | `v*` tags; manual dispatch on `v*` refs (branch dispatch fails before build) | tag vs `manifest.json` version; Nextion release gate (`verify_nextion.py --require-portrait`, `gen_layout.py --check` for landscape and `--spec portrait --check`); ESPHome config + compile; firmware manifest; prepared release notes; asset upload |
 
 **Release-only checks:** the tag-vs-`manifest.json` version check, the ESPHome
@@ -637,10 +643,10 @@ before it is green.
   `esphome/nspanel_haui/version.yaml`; resolve both to the stable version so the
   next dev build derives `X.Y.(Z+1)` again. Add the next section to
   `CHANGELOG.md` (`## [X.Y.(Z+1)] — unreleased`) and its link reference
-  (`[X.Y.(Z+1)]: .../compare/vX.Y.Z...dev`) before pushing; the push starts the
-  next development build.
+  (`[X.Y.(Z+1)]: .../compare/vX.Y.Z...dev`) before pushing; the next dispatched
+  development build picks the cycle up.
 - **Do not bump the dev version by hand.** The Development Firmware workflow
-  writes it on the first push of the cycle. The first build of a new cycle does
+  writes it when a build is dispatched. The first build of a new cycle does
   not start at `.dev1`: the suffix is the repository-wide GitHub Actions run
   number, which keeps increasing across cycles so every build stays unique and
   monotonic even when a run is canceled or its tag push is retried. The next
@@ -657,6 +663,21 @@ versions is enough; never re-point an existing tag at different bytes.
 
 These are the places the process can still go wrong; check them during release
 prep.
+
+**CI and release checks**
+
+- **An Actions incident can fail a run before its jobs start** — during the
+  2026-11-09 Actions outage a workflow run failed with "Internal server error"
+  and no job ever started; such a run cannot be retried (`cannot be retried`).
+  On a release PR, close and reopen it (or push a new head commit) once GitHub
+  is healthy to start fresh runs, then re-run the failed workflow so the missing
+  jobs start. The `master` ruleset requires `tests (3.14)`, `frontend`,
+  `hassfest` and `hacs`; the Documentation `build` is not required. Check
+  [githubstatus.com](https://www.githubstatus.com) before a release.
+- **Development builds are manual** — a build publishes a prerelease, pushes a
+  bot version commit and triggers the screens workflow, so it does not run on
+  every push. Dispatch it when the firmware or display inputs changed; do not
+  dispatch during release prep (see [Branches and cadence](#branches-and-cadence)).
 
 **Version and release notes**
 

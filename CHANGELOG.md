@@ -11,6 +11,12 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.4.7] — unreleased
 
+### Changed
+
+- Development firmware builds are dispatched manually instead of running on
+  every `dev` push, so commits no longer publish a prerelease, push a bot
+  version commit or regenerate the screens.
+
 ## [0.4.6] — 2026-11-09
 
 ### Fixed

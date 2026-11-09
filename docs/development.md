@@ -355,6 +355,23 @@ The hub logs manifest reads, install starts and outcomes; the Device Manager
 shows install errors. [Update Process](update-process.md) describes the whole cycle:
 when checks run, the update settings and both firmware variants.
 
+### Development builds are dispatched manually (0.4.7)
+
+Development firmware no longer builds on every push to `dev`. The
+**Development Firmware** workflow is dispatched by hand (Actions → Development
+Firmware → **Run workflow** on `dev`) when the build changes what a device
+installs — firmware or display inputs — and hub-only, docs and frontend pushes
+ride along in the next build. Each run still publishes a versioned universal
+prerelease, commits its version back to `dev` and regenerates the screens.
+
+The per-push trigger made every commit publish a prerelease, push a bot version
+commit and regenerate the screens, and a fix push published `0.4.6.dev53`
+minutes before the stable `0.4.6`. The 2026-11-09 GitHub Actions outage then
+failed those chained runs before their jobs started. The build keeps its PEP 440
+tag (identical to the manifest version, no `+g<sha>` segment) so the Marketplace
+ordering is unchanged; the mechanics are in
+[Release process & strategy](release.md#published-development-firmware).
+
 ### Release assets and gates
 
 The release asset names (frozen contract), the Nextion gate and the CI

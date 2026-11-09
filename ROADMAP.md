@@ -2,17 +2,21 @@
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
 shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28, v0.4.4 on
-2026-11-02 and v0.4.5 on 2026-11-09**, each tagged from a green `master` commit
-and published by the release workflow.
+2026-11-02, v0.4.5 on 2026-11-09 and v0.4.6 on 2026-11-09**, each tagged from a
+green `master` commit and published by the release workflow.
 
 The 0.4.x hardware acceptance and OTA risk checks are closed; the remaining gate
-item is notification verification on real hardware, tracked as the **v0.4.6
+item is notification verification on real hardware, tracked as the **v0.4.7
 plan** below. The 0.4.5 feature set — including the live panel preview
 contributed in [#85](https://github.com/happydasch/nspanel_haui/pull/85) and
 [#86](https://github.com/happydasch/nspanel_haui/pull/86) — shipped in that
-release. v0.4.6 closes that gate and consolidates docs, CI, the dev release
-cadence and the device surface before the v0.5 frontend cycle; a defect found by
-the notification pass ships in it as well.
+release. v0.4.6 was a one-line patch: the Marketplace could not compare a
+two-part `homeassistant` minimum (`2026.11`) with the installed `2026.11.0` and
+reported it as unmet
+([#90](https://github.com/happydasch/nspanel_haui/issues/90)), so `hacs.json`
+declares `2026.11.0`. The consolidation work planned for the 0.4.6 number moved
+to **v0.4.7**, which closes the notification gate and pays down docs, CI, the
+dev release cadence and the device surface before the v0.5 frontend cycle.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
@@ -22,7 +26,7 @@ belong in the issue tracker.
 **The 0.4.x install gate comes first.** The binary and TFT install, firmware OTA
 and the base and core functions are confirmed on real EU and US/portrait
 hardware; only notification behaviour remains. Nothing in v0.5 or v0.6 starts
-before that row is green. The v0.4.6 cycle running alongside the gate is a
+before that row is green. The v0.4.7 cycle running alongside the gate is a
 deliberate consolidation release — docs, one simplified CI pipeline, fewer
 development releases, the Device Manager and Device Info merge, and the frontend
 groundwork for the next cycle. **v0.5** is then the frontend cycle: the general
@@ -54,15 +58,17 @@ patch; **v0.5 does not start until this gate is green.**
 
 ---
 
-## v0.4.6 — consolidation: docs, CI & frontend groundwork (in progress)
+## v0.4.7 — consolidation: docs, CI & frontend groundwork (in progress)
 
 **Status: in progress on `dev`.** v0.4.5 shipped on 2026-11-09 — see the
 [0.4.5 changelog](CHANGELOG.md#045--2026-11-09) for the full list and
-[v0.4.5 release notes](.github/release-notes/v0.4.5.md) for the details. This
-cycle is deliberately narrow in feature surface: it closes the install gate and
-pays down the docs, CI, release and device-surface debt that accumulated over
-0.4.x, so the v0.5 frontend rework starts from a clean base. No new panel types
-or display behaviour land here.
+[v0.4.5 release notes](.github/release-notes/v0.4.5.md) for the details — and
+v0.4.6 followed the same day as the Marketplace minimum-version patch
+([#90](https://github.com/happydasch/nspanel_haui/issues/90)). This cycle is
+deliberately narrow in feature surface: it closes the install gate and pays down
+the docs, CI, release and device-surface debt that accumulated over 0.4.x, so the
+v0.5 frontend rework starts from a clean base. No new panel types or display
+behaviour land here.
 
 **Release gate (unchanged).** Complete the notification passlist row above,
 including long-message paging and the update popup text, on both display models,
@@ -82,13 +88,23 @@ development build instead of a second chained bot push, and keep every existing
 gate — tests, strict docs, lint, mypy, frontend tests, Nextion/version/TFT checks
 and the hassfest/HACS validation. Fewer workflow runs per push, same coverage.
 
-**Fewer development releases.** Stop publishing a GitHub prerelease for every
-push to `dev`. Cut a development release only when the release actually changes
-what a device installs (firmware or display inputs) or on a fixed, documented
-cadence; hub-only, docs and frontend pushes ride along in the next one. Keep the
-PEP 440 tag rules — the tag identical to the manifest version, no non-version
-tags — so Marketplace ordering stays correct, and keep the bot version commit off
-`dev` except when a release is cut.
+**Fewer development releases.** Development builds are dispatched manually
+(2026-11-09) instead of running on every push to `dev`: a push no longer
+publishes a prerelease, pushes a bot version commit or regenerates the screens.
+Dispatch a build only when it changes what a device installs (firmware or
+display inputs); hub-only, docs and frontend pushes ride along in the next one.
+Keep the PEP 440 tag rules — the tag identical to the manifest version, no
+non-version tags — so Marketplace ordering stays correct, and keep the bot
+version commit off `dev` except when a build is dispatched.
+
+**Release-check resilience.** The 2026-11-09 GitHub Actions outage failed runs
+before their jobs started (no job ever ran and no retry was possible) and kept
+the 0.4.6 release PR blocked until `tests (3.14)`, `frontend`, `hassfest` and
+`hacs` all reported. The recovery path is now in the
+[release runbook](docs/release.md#guardrails-and-known-gaps): check
+githubstatus.com, close and reopen the PR (or push a new head commit), then
+re-run the failed workflow so the missing jobs start. Verify the path once on a
+dev-cycle PR before relying on it for a release.
 
 **Device Manager and Device Info merge.** Collapse the two device surfaces into
 one: the Device Manager owns the device list, selection, connection and version
@@ -110,16 +126,16 @@ release notes in sync; fix defects found by the notification pass.
 
 **Acceptance:** the notification row green on one EU and one US/portrait panel;
 docs strict build green with no stale instructions; fewer workflow files and runs
-per push with every gate still enforced; dev releases on the documented cadence
-with Marketplace ordering intact; one device dialog with no duplicated status
-rendering; the frontend foundation merged with no visible change; the vendored
-Nextion patch removed once ESPHome ships the fixes.
+per push with every gate still enforced; development builds dispatched only when
+the device inputs change, with Marketplace ordering intact; one device dialog
+with no duplicated status rendering; the frontend foundation merged with no
+visible change; the vendored Nextion patch removed once ESPHome ships the fixes.
 
 ---
 
 ## v0.5 — Frontend cycle, multiple TFTs & update control
 
-The first cycle built on the v0.4.6 frontend foundation. Three pillars plus the
+The first cycle built on the v0.4.7 frontend foundation. Three pillars plus the
 planned frontend, notification and device-settings work, after the 0.4.x gate
 closes.
 
@@ -159,7 +175,7 @@ unchanged normal-speed assets; no UART buffer overflows under the update burst.
 
 ### Device Manager overhaul
 
-The Device Manager and Device Info merge lands in v0.4.6, giving one per-device
+The Device Manager and Device Info merge lands in v0.4.7, giving one per-device
 surface. v0.5 builds the remaining operations on it: bulk firmware/TFT updates,
 moving panels across devices (reordering works today), and per-device version
 and action state that stays correct across stale or failed updates.
@@ -188,7 +204,7 @@ fix remains:
 ### Frontend rework, notifications & device settings (planned)
 
 Planned beyond the three pillars above; the data/API foundation and the Device
-Manager merge land in v0.4.6, and no v0.5 code starts before the 0.4.x gate
+Manager merge land in v0.4.7, and no v0.5 code starts before the 0.4.x gate
 closes. Each phase ships on its own.
 
 - **General frontend rework** — the panel and device requirements are known now,
@@ -219,7 +235,7 @@ closes. Each phase ships on its own.
   "create from template", inline rename/duplicate/reorder and field-level
   validation, replacing the generic toast with per-field feedback.
 
-**Phasing:** the API and data foundation with no UI change (v0.4.6), then the
+**Phasing:** the API and data foundation with no UI change (v0.4.7), then the
 general frontend rework at behaviour parity (editor-polish items included), then
 device settings, then panel editors, then the notification UX, then polish and
 hardening.

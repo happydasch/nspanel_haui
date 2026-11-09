@@ -112,7 +112,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Dev prereleases ship both display TFTs, and dev panels install the TFT their
   firmware needs ([Release](docs/release.md#published-development-firmware)).
 - CI fails a PR or push that changes a Nextion HMI without advancing the display
-  TFT version and recompiling both TFTs
+  TFT version and recompiling both TFTs, reading the base HMI's version when the
+  base predates `tft_version`
   ([Release](docs/release.md#published-development-firmware)).
 - Panel titles and built-in popup titles are single words where possible, and
   every title is fitted to its header widget (longer ones end in `..`).

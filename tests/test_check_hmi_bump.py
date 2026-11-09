@@ -75,14 +75,15 @@ def _commit(root: Path, message: str) -> None:
     _git(root, "commit", "-q", "-m", message)
 
 
-def _make_repo(tmp_path: Path) -> Path:
+def _make_repo(tmp_path: Path, tft_version: str | None = "0.4.5.dev33") -> Path:
     root = tmp_path / "repo"
     (root / "nextion").mkdir(parents=True)
     (root / "esphome" / "nspanel_haui").mkdir(parents=True)
     (root / "nextion" / "nspanel_haui.HMI").write_bytes(b"hmi-1")
-    (root / "esphome" / "nspanel_haui" / "version.yaml").write_text(
-        "---\nsubstitutions:\n  tft_version: '0.4.5.dev33'\n"
-    )
+    lines = "---\nsubstitutions:\n"
+    if tft_version is not None:
+        lines += f"  tft_version: '{tft_version}'\n"
+    (root / "esphome" / "nspanel_haui" / "version.yaml").write_text(lines)
     _git(root, "init", "-q")
     _git(root, "config", "user.email", "test@example.com")
     _git(root, "config", "user.name", "Test")
@@ -127,3 +128,43 @@ def test_main_ignores_commits_without_an_hmi_change(tmp_path, monkeypatch):
     _commit(root, "docs only")
 
     assert check_hmi_bump.main(["--base", "HEAD~1"]) == 0
+
+
+def test_read_base_hmi_version_reads_the_committed_file(tmp_path, monkeypatch):
+    root = _make_repo(tmp_path, tft_version=None)
+    monkeypatch.setattr(check_hmi_bump, "read_hmi_tft_version", lambda path: "0.4.3")
+
+    assert check_hmi_bump.read_base_hmi_version("HEAD", LANDSCAPE, root=root) == "0.4.3"
+
+
+def test_main_falls_back_to_the_base_hmi_version(tmp_path, monkeypatch, capsys):
+    root = _make_repo(tmp_path, tft_version=None)
+    monkeypatch.setattr(check_hmi_bump, "ROOT", root)
+    monkeypatch.setattr(
+        check_hmi_bump, "VERSION_YAML", root / "esphome" / "nspanel_haui" / "version.yaml"
+    )
+    monkeypatch.setattr(check_hmi_bump, "read_hmi_tft_version", lambda path: "0.4.3")
+    (root / "nextion" / "nspanel_haui.HMI").write_bytes(b"hmi-2")
+    (root / "esphome" / "nspanel_haui" / "version.yaml").write_text(
+        "---\nsubstitutions:\n  tft_version: '0.4.5'\n"
+    )
+    _commit(root, "edit screen and bump")
+
+    assert check_hmi_bump.main(["--base", "HEAD~1"]) == 0
+    assert "advanced '0.4.3' -> '0.4.5'" in capsys.readouterr().out
+
+
+def test_main_fails_when_neither_base_version_is_known(tmp_path, monkeypatch):
+    root = _make_repo(tmp_path, tft_version=None)
+    monkeypatch.setattr(check_hmi_bump, "ROOT", root)
+    monkeypatch.setattr(
+        check_hmi_bump, "VERSION_YAML", root / "esphome" / "nspanel_haui" / "version.yaml"
+    )
+    monkeypatch.setattr(check_hmi_bump, "read_hmi_tft_version", lambda path: "")
+    (root / "nextion" / "nspanel_haui.HMI").write_bytes(b"hmi-2")
+    (root / "esphome" / "nspanel_haui" / "version.yaml").write_text(
+        "---\nsubstitutions:\n  tft_version: '0.4.5'\n"
+    )
+    _commit(root, "edit screen and bump")
+
+    assert check_hmi_bump.main(["--base", "HEAD~1"]) == 1

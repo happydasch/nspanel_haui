@@ -20,10 +20,14 @@ is missing or did not advance, 2 when git cannot resolve the base commit.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+
+from scripts.bump_tft_version import read_tft_version as read_hmi_tft_version
 
 ROOT = Path(__file__).resolve().parents[2]
 VERSION_YAML = ROOT / "esphome" / "nspanel_haui" / "version.yaml"
@@ -102,6 +106,40 @@ def _git(*args: str, root: Path = ROOT) -> str:
     return result.stdout
 
 
+def _git_bytes(*args: str, root: Path = ROOT) -> bytes:
+    """Run git in ``root`` and return stdout as bytes."""
+    result = subprocess.run(
+        ["git", "-C", str(root), *args],
+        check=True,
+        capture_output=True,
+    )
+    return result.stdout
+
+
+def read_base_hmi_version(base_commit: str, hmi: str, root: Path = ROOT) -> str:
+    """Return the HMI's ``system.tftVersion`` at ``base_commit``, or ``""``.
+
+    ``version.yaml`` gained ``tft_version`` with the versioned display updates;
+    a base from before it carries the version only in the HMI. Read that file
+    from the base commit so a release branch cut from such a base can still be
+    checked against the version it actually shipped.
+    """
+    try:
+        data = _git_bytes("show", f"{base_commit}:{hmi}", root=root)
+    except subprocess.CalledProcessError:
+        return ""
+    fd, name = tempfile.mkstemp(suffix=".HMI")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        try:
+            return read_hmi_tft_version(Path(name))
+        except ValueError:
+            return ""
+    finally:
+        Path(name).unlink(missing_ok=True)
+
+
 def resolve_base(base: str, root: Path = ROOT) -> str:
     """Return the commit the change is compared against.
 
@@ -151,6 +189,8 @@ def main(argv: list[str] | None = None) -> int:
                 root=ROOT,
             )
         )
+        if not base_version:
+            base_version = read_base_hmi_version(base_commit, changed[0], root=ROOT)
     except subprocess.CalledProcessError as exc:
         print(f"error: git failed: {exc.stderr.strip() or exc}", file=sys.stderr)
         return 2

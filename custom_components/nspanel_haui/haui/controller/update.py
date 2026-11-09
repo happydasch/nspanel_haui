@@ -18,7 +18,7 @@ from ..mapping.const import (
     FirmwareUpdateChannel,
     PopupPanelKey,
 )
-from ..utils.text import trim_text
+from ..utils.text import strip_markdown, trim_text
 from . import release_source
 from .release_source import (
     FirmwareInstallRequest,
@@ -1746,7 +1746,7 @@ class HAUIUpdateController(HAUIBase):
             return
         msg = latest_release["name"]
         msg += "\r\n"
-        msg += trim_text(latest_release["body"], 200)
+        msg += trim_text(strip_markdown(latest_release["body"]), 200)
         msg += "\r\n\r\n"
         msg += self.translate("Firmware release:")
         msg += f" {release_tag}"

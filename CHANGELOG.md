@@ -211,7 +211,11 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - Notification popups no longer keep the display lit.
 - The persistent alert sound starts after quiet hours and is silent inside them.
 - The notification indicator blink runs on the hub's worker thread.
-- Notification text is wrapped with the display fonts' real glyph widths.
+- Notification text is wrapped with the display fonts' real glyph widths, and
+  the page counter stays visible next to a long title
+  ([#84](https://github.com/happydasch/nspanel_haui/issues/84)).
+- The update notice shows the release notes as plain text instead of raw
+  Markdown ([#84](https://github.com/happydasch/nspanel_haui/issues/84)).
 - Notification ids are unique.
 - Multi-line notification text renders its line breaks.
 - Quotes and backslashes in display text are escaped.

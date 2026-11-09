@@ -135,12 +135,12 @@ from custom_components.nspanel_haui.haui.mapping.const import (  # noqa: E402
 )
 
 
-def _release(tag, with_tft=True, prerelease=False):
+def _release(tag, with_tft=True, prerelease=False, body=""):
     assets = [{"name": "nspanel_haui.tft", "browser_download_url": f"https://dl/{tag}.tft"}]
     return {
         "tag_name": tag,
         "name": f"Release {tag}",
-        "body": "",
+        "body": body,
         "prerelease": prerelease,
         "assets": assets if with_tft else [],
     }
@@ -616,6 +616,29 @@ def test_new_release_check_only_notifies(monkeypatch):
     ((key, kwargs),) = app.opened
     assert key == PopupPanelKey.POPUP_NOTIFY
     assert "button_callback_fnc" not in kwargs
+
+
+def test_release_notice_shows_release_notes_as_plain_text(monkeypatch):
+    body = (
+        "## Fixed\n\n"
+        "- **Update popup:** no raw `Markdown` "
+        "([#84](https://github.com/happydasch/nspanel_haui/issues/84))"
+    )
+    ctrl, app, _ = _updater(
+        monkeypatch,
+        {"yaml_version": "0.4.0", "tft_version": "0.4.0"},
+        [_release("0.5.0", body=body)],
+        manifest="0.4.0",
+    )
+
+    _check(ctrl)
+
+    ((_key, kwargs),) = app.opened
+    message = kwargs["notification"]
+    assert "Update popup: no raw Markdown (#84)" in message
+    assert "**" not in message
+    assert "`" not in message
+    assert "](https" not in message
 
 
 def test_tft_install_reports_state_transitions(monkeypatch):

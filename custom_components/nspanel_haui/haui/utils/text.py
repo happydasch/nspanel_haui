@@ -105,6 +105,55 @@ def parse_notification_text(text: str) -> str:
     return text
 
 
+_MARKDOWN_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+_MARKDOWN_FENCE = re.compile(r"^[ \t]{0,3}```.*$", re.MULTILINE)
+_MARKDOWN_IMAGE = re.compile(r"!\[([^\]]*)\]\([^)]*\)")
+_MARKDOWN_LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")
+_MARKDOWN_AUTOLINK = re.compile(r"<((?:https?|mailto):[^>]+)>")
+_MARKDOWN_INLINE_CODE = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
+_MARKDOWN_LINE_PREFIX = re.compile(
+    r"^[ \t]{0,3}(?:#{1,6}[ \t]+|>[ \t]?|(?:[-*+]|\d{1,2}[.)])[ \t]+)", re.MULTILINE
+)
+_MARKDOWN_TASK = re.compile(r"^\[[ xX]\][ \t]+", re.MULTILINE)
+_MARKDOWN_RULE = re.compile(r"^[ \t]{0,3}(?:[-*_][ \t]*){3,}$", re.MULTILINE)
+_MARKDOWN_BOLD = re.compile(r"\*\*(.+?)\*\*|__(.+?)__")
+_MARKDOWN_ITALIC = re.compile(r"(?<!\w)([*_])([^*_\n]+)\1(?!\w)")
+_MARKDOWN_HTML = re.compile(r"</?[A-Za-z][^>]*>")
+
+
+def strip_markdown(text: str) -> str:
+    """Strip common GitHub Markdown so release notes read as plain display text.
+
+    A release body is written for the GitHub release page; the update notice
+    shows it on the display, where markers such as ``**`` or ``[text](url)``
+    would appear literally.  Headings, list and quote markers, links, images,
+    code markers, emphasis and HTML are removed, line breaks are kept, and
+    runs of blank lines collapse to one.
+
+    Args:
+        text: Markdown text, usually a release body.
+
+    Returns:
+        str: The same text without Markdown formatting.
+    """
+    if not text:
+        return text
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = _MARKDOWN_COMMENT.sub("", text)
+    text = _MARKDOWN_FENCE.sub("", text)
+    text = _MARKDOWN_IMAGE.sub(r"\1", text)
+    text = _MARKDOWN_LINK.sub(r"\1", text)
+    text = _MARKDOWN_AUTOLINK.sub(r"\1", text)
+    text = _MARKDOWN_INLINE_CODE.sub(r"\1", text)
+    text = _MARKDOWN_LINE_PREFIX.sub("", text)
+    text = _MARKDOWN_TASK.sub("", text)
+    text = _MARKDOWN_RULE.sub("", text)
+    text = _MARKDOWN_BOLD.sub(lambda match: match.group(1) or match.group(2), text)
+    text = _MARKDOWN_ITALIC.sub(r"\2", text)
+    text = _MARKDOWN_HTML.sub("", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
 def trim_text(text: str, num_chr: int, suffix: str = "..") -> str:
     """Trim text to a certain number of characters
 

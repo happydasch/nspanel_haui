@@ -11,7 +11,7 @@
   "issue_tracker": "https://github.com/happydasch/nspanel_haui/issues",
   "loggers": ["custom_components.nspanel_haui"],
   "requirements": ["pydantic>=2.0", "python-dateutil>=2.8.0"],
-  "version": "0.4.5.dev35",
+  "version": "0.4.5.dev47",
   "zeroconf": [
     {
       "type": "_esphomelib._tcp.local.",

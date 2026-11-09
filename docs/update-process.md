@@ -267,8 +267,8 @@ These popups are not part of the [notification queue](panels/popup_notify.md):
   `nspanel_haui.notification` event.
 
 **Release notice.** It shows the release name, the first 200 characters of its
-release notes and the release tag, and reminds you that installs come from the
-configured firmware manifest.
+release notes with Markdown formatting removed, and the release tag, and
+reminds you that installs come from the configured firmware manifest.
 
 - Only the check after a connect (with **Check for updates on connect**) and the
   periodic check show it.

@@ -95,3 +95,37 @@ def test_fit_text_breaks_a_word_wider_than_the_line():
 def test_fit_text_drops_a_blank_line_at_the_top_of_a_page():
     message = "\n".join(["one", "two", "three", "four", "five", "", "six"])
     assert text.fit_text(message, 2, BOX) == ["one\ntwo\nthree\nfour\nfive", "six"]
+
+
+def test_strip_markdown_removes_github_formatting():
+    body = (
+        "## NSPanel HAUI 0.4.5\n"
+        "\n"
+        "This release adds **live preview** and _editable_ popups.\n"
+        "\n"
+        "- **New:** [`virtual_panel`](https://example/x) fixes\n"
+        "- [ ] unchecked task\n"
+        "> quoted note\n"
+        "---\n"
+        "![screenshot](https://example/i.png)\n"
+        "Use `snake_case` and <https://example.com>.\n"
+        "<!-- hidden -->\n"
+    )
+    assert text.strip_markdown(body) == (
+        "NSPanel HAUI 0.4.5\n"
+        "\n"
+        "This release adds live preview and editable popups.\n"
+        "\n"
+        "New: virtual_panel fixes\n"
+        "unchecked task\n"
+        "quoted note\n"
+        "\n"
+        "screenshot\n"
+        "Use snake_case and https://example.com."
+    )
+
+
+def test_strip_markdown_leaves_plain_text_alone():
+    assert text.strip_markdown("") == ""
+    plain = "A plain note, 0.4.5: no markers."
+    assert text.strip_markdown(plain) == plain

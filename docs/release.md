@@ -112,9 +112,14 @@ workflow used for private/custom builds.
 Every successful push to `dev` builds the CI-safe universal image and publishes a
 GitHub prerelease whose tag is the release version. Its version is based on the
 next patch release plus the workflow run number (for example, `0.4.5.dev123`), so
-each successful push has a distinct update version. The release name adds the
-short commit (`NSPanel HAUI 0.4.5.dev123 (abcdef1)`) and its notes link to the
-build commit, enumerate commits included in that push, and list changed files.
+each successful push has a distinct update version. The run number is GitHub's
+repository-wide workflow counter, not a per-cycle dev counter, so a new cycle
+continues the global numbering (for example `0.4.6.dev51`) instead of starting at
+`.dev1`. That keeps every build unique and monotonic even when a run is canceled
+or its tag push is retried; the next patch base still sorts it above the previous
+cycle. The release name adds the short commit (`NSPanel HAUI 0.4.5.dev123
+(abcdef1)`) and its notes link to the build commit, enumerate commits included in
+that push, and list changed files.
 Only the newest 10 dev prereleases are kept; the workflow deletes older ones
 together with their tags, because the Home Assistant Marketplace (like HACS
 before it) reads only the newest 30 releases and would otherwise lose the latest
@@ -616,12 +621,30 @@ before it is green.
 - Flash one panel from the published `.bin` and confirm TFT auto-update, as a
   smoke test of the exact published artifacts.
 - Announce; link the release notes.
-- Merge `master` back into `dev`, then open the next `CHANGELOG.md` section.
+- Merge `master` back into `dev`, then open the next `CHANGELOG.md` section:
+
+  ```bash
+  git switch dev
+  git pull --ff-only origin dev
+  git merge origin/master
+  # resolve manifest.json and version.yaml to the released X.Y.Z
+  git push origin dev
+  ```
+
   Because `dev` carries the latest dev version (e.g. `0.5.0.dev12`) while
-  `master` carries the released stable `X.Y.Z`, the merge-back now conflicts in
+  `master` carries the released stable `X.Y.Z`, the merge-back conflicts in
   `custom_components/nspanel_haui/manifest.json` and
   `esphome/nspanel_haui/version.yaml`; resolve both to the stable version so the
-  next dev build derives `X.Y.(Z+1)` again.
+  next dev build derives `X.Y.(Z+1)` again. Add the next section to
+  `CHANGELOG.md` (`## [X.Y.(Z+1)] — unreleased`) and its link reference
+  (`[X.Y.(Z+1)]: .../compare/vX.Y.Z...dev`) before pushing; the push starts the
+  next development build.
+- **Do not bump the dev version by hand.** The Development Firmware workflow
+  writes it on the first push of the cycle. The first build of a new cycle does
+  not start at `.dev1`: the suffix is the repository-wide GitHub Actions run
+  number, which keeps increasing across cycles so every build stays unique and
+  monotonic even when a run is canceled or its tag push is retried. The next
+  patch base keeps the order correct (`0.4.6.dev51` > `0.4.5.dev49`).
 
 ### 7. Rollback
 

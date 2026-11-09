@@ -24,7 +24,13 @@ def version_kind(version: str) -> str | None:
 
 
 def derive_dev_version(current_version: str, run_number: str | int) -> str:
-    """Derive the PEP 440 dev version from the branch version and run number."""
+    """Derive the PEP 440 dev version from the branch version and run number.
+
+    ``run_number`` is the repository-wide GitHub Actions run counter; it is
+    deliberately not reset per development cycle, so a new cycle continues the
+    global numbering (e.g. ``0.4.6.dev51``) and every build stays unique and
+    monotonic even when a run is canceled or its tag push is retried.
+    """
     stable = _STABLE_RE.fullmatch(current_version)
     previous_dev = _DEV_RE.fullmatch(current_version)
     if stable:

@@ -108,7 +108,6 @@ class HAUIDevice(HAUIBase):
         # when the native event was lost (serial/API lag).
         self._last_native_touch_ts: float = 0.0
         self._initial_connect_done = False
-        self._synced_display_model: str | None = None
         self._btn_left_info: dict[str, Any] = {
             "item_id": None,
         }
@@ -459,20 +458,6 @@ class HAUIDevice(HAUIBase):
             )
             item.set_state(state=value)
 
-    def _install_tft_on_model_change(self) -> None:
-        """Install the matching TFT when the display model was switched in the settings.
-
-        The display cannot report which layout it runs and the version check
-        only compares versions, so a device that already has the current TFT
-        would keep the wrong layout after the model changed.
-        """
-        model = self.display_model
-        previous, self._synced_display_model = self._synced_display_model, model
-        if previous is None or previous == model:
-            return
-        self.log(f"Display model changed from {previous!r} to {model!r}; installing its TFT")
-        self.app.controller["update"].start_async_tft_install(None, None, lambda _state: None)
-
     @property
     def display_model(self) -> str:
         """The configured display model (``eu`` or ``us``), lower-cased."""
@@ -497,7 +482,6 @@ class HAUIDevice(HAUIBase):
         self._configure_solar_tracking()
         self._sync_changed_auto_switch_settings(changed_auto_settings or set())
         self._sync_behavior_config()
-        self._install_tft_on_model_change()
         self._arm_profile_timer()
 
     def start_part(self) -> None:

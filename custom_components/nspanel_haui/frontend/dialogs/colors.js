@@ -145,6 +145,9 @@ class ColorsDialog extends HauiDialog {
     this._schemeName = "";
     this._nameAction = "";
     this._schemeError = "";
+    this._schemeNotice = "";
+    this._autoSchemeId = "";
+    this._keepSchemeColors = false;
     this._edited = false;
   }
 
@@ -154,12 +157,18 @@ class ColorsDialog extends HauiDialog {
       this._loadSchemes();
       this._resetOverrides = false;
       this._edited = false;
+    } else if (changed.has("schemeId") && this._keepSchemeColors) {
+      // _customizeScheme() keeps the palette being edited; rebuilding would drop the change.
+      this._keepSchemeColors = false;
     } else if (changed.has("overrides") || changed.has("schemeId")) {
       this._rebuildColors();
     }
   }
 
   async _loadSchemes() {
+    this._autoSchemeId = "";
+    this._schemeNotice = "";
+    this._keepSchemeColors = false;
     try {
       await ensureColorDefaults(this.hass);
       const response = await this.hass.fetchWithAuth(
@@ -205,8 +214,45 @@ class ColorsDialog extends HauiDialog {
     return this.schemeId;
   }
 
+  /**
+   * Copy the selected built-in scheme into a new custom scheme so edits can be
+   * saved. The copy holds the palette before the change; the change itself is
+   * then tracked as a modification.
+   */
+  _customizeScheme() {
+    if (!this._isBuiltin()) return;
+    const label = this._schemeData().name;
+    const names = new Set(Object.values(this._schemes).map((scheme) => scheme.name.toLowerCase()));
+    let name = `${label} (custom)`;
+    for (let suffix = 2; names.has(name.toLowerCase()); suffix += 1) {
+      name = `${label} (custom ${suffix})`;
+    }
+    let id = `${this.schemeId}-custom`;
+    for (let suffix = 2; this._schemes[id]; suffix += 1) {
+      id = `${this.schemeId}-custom-${suffix}`;
+    }
+    const scheme = {
+      name,
+      colors: { ...this._colors },
+      icons: JSON.parse(JSON.stringify(this._icons)),
+    };
+    this._schemes = { ...this._schemes, [id]: scheme };
+    this._keepSchemeColors = true;
+    this.schemeId = id;
+    this._autoSchemeId = id;
+    this._schemeNotice = t('Created the custom scheme "{name}" from the selected built-in scheme.').replace("{name}", name);
+  }
+
   _applyScheme(schemeId) {
     if (!this._schemes[schemeId]) return;
+    this._keepSchemeColors = false;
+    if (this._autoSchemeId && this._autoSchemeId !== schemeId) {
+      const schemes = { ...this._schemes };
+      delete schemes[this._autoSchemeId];
+      this._schemes = schemes;
+      this._autoSchemeId = "";
+      this._schemeNotice = "";
+    }
     this.schemeId = schemeId;
     this._schemeError = "";
     this._rebuildColors();
@@ -272,6 +318,7 @@ class ColorsDialog extends HauiDialog {
   }
 
   _onColorChange(key, e) {
+    this._customizeScheme();
     const value = hexToRgb565(e.target.value);
     if (key.startsWith("icons.")) {
       const [, domain, state] = key.split(".");
@@ -335,6 +382,12 @@ class ColorsDialog extends HauiDialog {
       this._customSchemes = data.schemes || {};
       this._schemes = { ...this._builtins, ...this._customSchemes };
       this._schemeError = "";
+      this._autoSchemeId = "";
+      this._schemeNotice = "";
+      if (!this._schemes[this.schemeId]) {
+        this.schemeId = "dark";
+        this._rebuildColors();
+      }
       this.requestUpdate();
       return true;
     } catch (_err) {
@@ -526,7 +579,6 @@ class ColorsDialog extends HauiDialog {
                     <input
                       type="color"
                       .value=${this._getHex(key)}
-                      ?disabled=${this._isBuiltin()}
                       @input=${(e) => this._onColorChange(key, e)}
                     />
                   </label>
@@ -580,7 +632,7 @@ class ColorsDialog extends HauiDialog {
               @change=${(e) => this._applyScheme(e.target.value)}
             >
               ${Object.entries(this._schemes).map(([id, scheme]) => html`
-                <option value=${id}>${BUILTIN_SCHEME_LABELS[id] || scheme.name}</option>
+                <option value=${id} ?selected=${id === this._selectedScheme()}>${BUILTIN_SCHEME_LABELS[id] || scheme.name}</option>
               `)}
             </select>
           </div>
@@ -608,8 +660,9 @@ class ColorsDialog extends HauiDialog {
               <option value="light">${t("Light backgrounds")}</option>
             </select>
           </div>
+          ${this._schemeNotice ? html`<p class="config-section-intro" role="status">${this._schemeNotice}</p>` : nothing}
           ${this._isBuiltin()
-            ? html`<p class="config-section-intro">${t("Built-in schemes cannot be edited. Save as a custom scheme to customize colors.")}</p>`
+            ? html`<p class="config-section-intro">${t("Built-in schemes cannot be edited. Changing a color creates a custom scheme.")}</p>`
             : nothing}
           <div class="cp-scheme-actions">
             <ha-button variant="neutral" appearance="plain" @click=${() => this._startNameAction("save-as")}>${t("Save as")}</ha-button>

@@ -69,6 +69,7 @@ class NSPanelEditor extends LitElement {
       _error: { type: String, state: true },
       _toast: { type: Object, state: true },
       _deleteTarget: { type: Number, state: true },
+      _tftInstallTarget: { type: String, state: true },
       _deviceConfig: { type: Object, state: true },
       _editingDeviceConfig: { type: Boolean, state: true },
       _deviceConfigForm: { type: Object, state: true },
@@ -112,6 +113,7 @@ class NSPanelEditor extends LitElement {
     this._error = null;
     this._toast = null;
     this._deleteTarget = null;
+    this._tftInstallTarget = null;
 
     this._deviceConfig = null;
     this._editingDeviceConfig = false;
@@ -512,6 +514,14 @@ class NSPanelEditor extends LitElement {
           @dialog-confirmed=${this._doDelete}
         ></nspanel-dialog-confirm>
 
+        <nspanel-dialog-confirm
+          .hass=${this.hass}
+          .open=${this._tftInstallTarget !== null}
+          .params=${this._tftInstallTarget !== null ? this._tftInstallParams : null}
+          @dialog-closed=${this._cancelTftInstall}
+          @dialog-confirmed=${this._confirmTftInstall}
+        ></nspanel-dialog-confirm>
+
         <nspanel-dialog-device-info
           .hass=${this.hass}
           .open=${this._showDeviceInfo}
@@ -593,17 +603,48 @@ class NSPanelEditor extends LitElement {
     };
   }
 
+  /* ── TFT install confirmation ───────────────────────────────────────────── */
+
+  get _tftInstallParams() {
+    return {
+      title: t("Install display TFT?"),
+      message: t("The display model changed. Install the matching TFT now? The display cannot be used while the TFT updates."),
+      confirmText: t("Install TFT"),
+      cancelText: t("Not now"),
+      confirmVariant: "brand",
+    };
+  }
+
+  async _confirmTftInstall() {
+    const name = this._tftInstallTarget;
+    this._tftInstallTarget = null;
+    if (!name) return;
+    await DeviceEvents.onDeviceManagerUpdateTft(this, { detail: { name } });
+  }
+
+  _cancelTftInstall() {
+    this._tftInstallTarget = null;
+    this.requestUpdate();
+  }
+
   /* ── device config save handler ──────────────────────────────────────────── */
   /* Receives form state from nspanel-dialog-device-config and saves directly.      */
 
   async _onDeviceConfigSave(e) {
     const cfg = e.detail?.config;
     if (!cfg || !this._selectedDevice) return;
+    const previousModel = this._deviceConfig?.display_model;
 
     // savePanels shows the success or error toast; keep the dialog open on failure.
     if (await this._savePanels(this._devicePanels(), t("Device configuration saved"), clone(cfg))) {
       this._editingDeviceConfig = false;
       this._deviceConfigForm = null;
+      // The display cannot report which layout it runs, so a model change
+      // needs the matching TFT.  The upload restarts the display, so ask
+      // first instead of installing on save.
+      if (cfg.display_model !== previousModel && cfg.update?.enabled !== false) {
+        this._tftInstallTarget = this._selectedDevice;
+      }
     }
     this.requestUpdate();
   }

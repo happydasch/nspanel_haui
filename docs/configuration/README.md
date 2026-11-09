@@ -96,7 +96,7 @@ See [Device Configuration](device.md) for full details.
 
 ## The Colors Dialog
 
-Opened from its own button (separate from Device Settings). Choose a built-in scheme (**Dark Color**, **Light Color**, **White** or **Black**) or a custom scheme, then **Apply scheme**. Built-in schemes are read-only; use **Save as** to create a custom scheme, and **Import**/**Export** to share the custom library. See [Color schemes](device.md#color-schemes).
+Opened from its own button (separate from Device Settings). Choose a built-in scheme (**Dark Color**, **Light Color**, **White** or **Black**) or a custom scheme, then **Apply scheme**. Changing a color of a built-in scheme switches to a custom copy automatically; use **Save as** to create a custom scheme explicitly, and **Import**/**Export** to share the custom library. See [Color schemes](device.md#color-schemes).
 
 ## The Live Preview
 

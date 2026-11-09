@@ -80,7 +80,7 @@ Opened with **Device settings** in the toolbar for the selected device, or the *
 
 - `display_model` string
 
-  Hardware display model — one of `eu` (default) or `us`. Selects which TFT layout the display needs. The default `eu` covers every landscape-mounted panel (including a US panel mounted landscape, which is functionally identical); `us` is a US panel mounted portrait (buttons below the screen) and needs the rotated portrait TFT. The update controller downloads the matching TFT asset for the selected model. See [Display Models](display-models.md).
+  Hardware display model — one of `eu` (default) or `us`. Selects which TFT layout the display needs. The default `eu` covers every landscape-mounted panel (including a US panel mounted landscape, which is functionally identical); `us` is a US panel mounted portrait (buttons below the screen) and needs the rotated portrait TFT. The update controller downloads the matching TFT asset for the selected model; after a saved model change the editor asks before it installs it. See [Display Models](display-models.md).
 
 - `log_level` string
 
@@ -265,7 +265,7 @@ shortcuts on top of that.
 
 ## Color schemes
 
-Opened from **Editor → Colors**. Color schemes are the source of semantic color definitions used by pages and entity/domain state icons. Built-in schemes are **Dark Color**, **Light Color**, **White**, and **Black**; custom schemes are shared by every device in the same hub. The active scheme is referenced by ID (`color_scheme_id`) instead of being copied into per-device colors. Use **Save as** to create a custom scheme, edit it, then **Import** or **Export** the custom scheme library as versioned JSON.
+Opened from **Editor → Colors**. Color schemes are the source of semantic color definitions used by pages and entity/domain state icons. Built-in schemes are **Dark Color**, **Light Color**, **White**, and **Black**; custom schemes are shared by every device in the same hub. The active scheme is referenced by ID (`color_scheme_id`) instead of being copied into per-device colors. Changing a color of a built-in scheme creates a custom copy (for example **Dark (custom)**) and switches to it; use **Save as** to create a custom scheme explicitly, then **Import** or **Export** the custom scheme library as versioned JSON.
 
 A scheme contains the global page roles and the dark- and light-background weather, alarm, and climate state colors. The separate `color_scheme` setting (`dark` or `light`) selects the default icon contrast variant; a page with a static light/dark background selects the matching variant locally.
 

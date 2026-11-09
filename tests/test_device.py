@@ -965,9 +965,9 @@ def test_connect_restarts_the_hub_inactivity_clock() -> None:
     assert app.controller["navigation"].prepare_resume_calls == 1
 
 
-def test_switching_the_display_model_installs_the_matching_tft() -> None:
-    """A saved display_model change re-installs the TFT; the first sync and
-    re-syncs with the same model do not (the version check cannot see the layout)."""
+def test_switching_the_display_model_does_not_install_a_tft_unasked() -> None:
+    """A saved display_model change leaves the TFT alone: the editor asks
+    first, so the hub must not flash the display on the save alone."""
     installs: list = []
     app = _SwitchApp({})
     app.controller["update"] = type(
@@ -982,13 +982,10 @@ def test_switching_the_display_model_installs_the_matching_tft() -> None:
     device = HAUIDevice(app, {"name": "nspanel_haui", "display_model": "eu"})
 
     device.sync_config_to_device()
-    assert installs == []
-
     device.config["display_model"] = "us"
     device.sync_config_to_device()
-    device.sync_config_to_device()
 
-    assert installs == [(None, None)]
+    assert installs == []
 
 
 def test_touch_start_native_event_calls_wakeup() -> None:

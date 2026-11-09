@@ -324,8 +324,8 @@ projects, so the hub addresses either TFT with the same `COMPONENTS`.
   the firmware's *Display Model* number (gesture dimensions and the URL the
   firmware's own *Update Display* button uses), positions the light page's
   colour wheel and turns the editor previews into the 320 × 480 layout.
-  Saving a changed model re-installs the TFT, because the display cannot
-  report which layout it runs.
+  The editor asks before installing the matching TFT after a saved model
+  change, because the display cannot report which layout it runs.
 - Portrait keeps the header title full-width with the four function buttons
   at its ends, as in landscape; grids re-flow (grid 2 × 3, select 2 × 6, rows
   with their controls under the name line).

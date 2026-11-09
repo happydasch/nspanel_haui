@@ -145,6 +145,110 @@ test('opening the color dialog selects the saved scheme and icon variant', () =>
   assert.equal(host._colorsScheme, 'light');
   assert.equal(host._showColorsDialog, true);
 });
+test('the color dialog marks the saved scheme as selected in its options', async () => {
+  const ColorsDialog = customElements.get('nspanel-dialog-colors');
+  const dlg = Object.create(ColorsDialog.prototype);
+  const icons = {
+    dark: { weather: { sunny: 20 }, alarm: { armed: 21 }, climate: { off: 22 } },
+    light: { weather: { sunny: 30 }, alarm: { armed: 31 }, climate: { off: 32 } },
+  };
+  const builtins = {
+    dark: { name: 'Dark', colors: { background: 2 }, icons },
+    light: { name: 'Light', colors: { background: 6 }, icons },
+  };
+  Object.assign(dlg, {
+    open: true,
+    entryId: 'entry',
+    schemeId: 'evening',
+    overrides: {},
+    panels: [],
+    scheme: 'dark',
+    hass: {
+      fetchWithAuth: async (url) => url.endsWith('color_defaults')
+        ? { json: async () => ({ background: 2 }) }
+        : { ok: true, json: async () => ({ builtins, schemes: { evening: { name: 'Evening', colors: { background: 10 }, icons } } }) },
+    },
+    _colors: {},
+    _loading: true,
+    requestUpdate() {},
+  });
+
+  await dlg._loadSchemes();
+
+  const options = optionTemplates(dlg.render()).map((tpl) => ({
+    value: tpl.values[0],
+    selected: tpl.values[1],
+  }));
+  assert.deepEqual(options, [
+    { value: 'dark', selected: false },
+    { value: 'light', selected: false },
+    { value: 'evening', selected: true },
+  ]);
+});
+
+/** The dynamically bound `<option>` templates of the scheme selector. */
+function optionTemplates(value, result = []) {
+  if (Array.isArray(value)) value.forEach((item) => optionTemplates(item, result));
+  else if (value && typeof value === 'object' && Array.isArray(value.values)) {
+    if (value.values.length === 3 && value.strings.join('').includes('<option value=')) {
+      result.push(value);
+    }
+    optionTemplates(value.values, result);
+  }
+  return result;
+}
+
+test('changing a color of a built-in scheme switches to a custom copy and saves it', async () => {
+  const ColorsDialog = customElements.get('nspanel-dialog-colors');
+  const dlg = Object.create(ColorsDialog.prototype);
+  const icons = {
+    dark: { weather: { sunny: 20 }, alarm: { armed: 21 }, climate: { off: 22 } },
+    light: { weather: { sunny: 30 }, alarm: { armed: 31 }, climate: { off: 32 } },
+  };
+  const dark = { name: 'Dark', colors: { background: 10, text: 20 }, icons };
+  Object.assign(dlg, {
+    scheme: 'dark',
+    schemeId: 'dark',
+    _schemes: { dark },
+    _builtins: { dark },
+    _customSchemes: {},
+    _colors: { background: 10, text: 20 },
+    _icons: JSON.parse(JSON.stringify(icons)),
+    _edited: false,
+    _schemeError: '',
+    _schemeNotice: '',
+    _autoSchemeId: '',
+    _keepSchemeColors: false,
+    _resetOverrides: false,
+    requestUpdate() {},
+  });
+
+  dlg._onColorChange('background', { target: { value: '#ff0000' } });
+
+  assert.equal(dlg.schemeId, 'dark-custom');
+  assert.equal(dlg._isBuiltin(), false);
+  assert.equal(dlg._schemes['dark-custom'].name, 'Dark (custom)');
+  assert.equal(dlg._colors.background, hexToRgb565('#ff0000'));
+  assert.match(dlg._schemeNotice, /Dark \(custom\)/);
+  assert.equal(dlg._edited, true);
+
+  dlg.willUpdate(new Map([['schemeId', 'dark']]));
+  assert.equal(dlg._colors.background, hexToRgb565('#ff0000'));
+  assert.equal(dlg._edited, true);
+
+  let persisted;
+  dlg._persistSchemes = async (schemes) => { persisted = schemes; return true; };
+  let emitted;
+  dlg._emit = (type, detail) => { emitted = { type, detail }; };
+  await dlg._dispatchSave();
+  assert.equal(persisted['dark-custom'].name, 'Dark (custom)');
+  assert.equal(persisted['dark-custom'].colors.background, hexToRgb565('#ff0000'));
+  assert.equal(emitted.detail.schemeId, 'dark-custom');
+
+  dlg._applyScheme('dark');
+  assert.equal(dlg._schemes['dark-custom'], undefined);
+  assert.equal(dlg._schemeNotice, '');
+});
 
 
 

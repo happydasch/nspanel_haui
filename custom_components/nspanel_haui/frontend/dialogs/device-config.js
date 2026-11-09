@@ -228,7 +228,7 @@ class DeviceConfigDialog extends HauiDialog {
                 t("The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels"))}
 
                 ${selectField(this, "dc-display_model", "display_model", cfg, t("Display Model"), DISPLAY_MODEL_OPTIONS, (v) => v,
-                  t("Select the hardware model. EU and US (landscape) use the standard landscape layout; US (portrait) uses the rotated portrait TFT. The update controller downloads the matching TFT for the selected model."))}
+                  t("Select the hardware model. EU and US (landscape) use the standard landscape layout; US (portrait) uses the rotated portrait TFT. Saving a changed model asks before the matching TFT is installed."))}
 
               ${selectField(this, "dc-log_level", "log_level", cfg, t("Log Level"), LOG_LEVEL_OPTIONS, (v) => v,
                   t("Controls the verbosity of this device's app messages in the Home Assistant log: standard logger thresholds. DEBUG adds detailed diagnostics (entity state changes, display commands) on top of the routine INFO lifecycle messages."))}

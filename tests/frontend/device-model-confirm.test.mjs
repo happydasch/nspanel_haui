@@ -1,0 +1,104 @@
+import './dom-shim.mjs';
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
+import { jsonResponse } from './fake-host.mjs';
+
+const Editor = customElements.get('nspanel-haui-editor');
+
+/** An editor instance without Lit's constructor, recording saves and API calls. */
+function editor(previousModel, { saveOk = true } = {}) {
+  const host = Object.create(Editor.prototype);
+  Object.assign(host, {
+    entryId: 'entry1',
+    hass: {
+      async fetchWithAuth(url, opts) {
+        host.calls.push([url, JSON.parse(opts.body)]);
+        return jsonResponse({ status: 'ok', devices_updated: ['kitchen'] });
+      },
+    },
+    _selectedDevice: 'kitchen',
+    _deviceConfig: { display_model: previousModel, update: { enabled: true } },
+    _deviceConfigForm: { display_model: previousModel },
+    _editingDeviceConfig: true,
+    _saving: false,
+    _tftInstallTarget: null,
+    calls: [],
+    toasts: [],
+    _devicePanels() { return []; },
+    async _savePanels(_panels, _message, config) {
+      if (saveOk) host._deviceConfig = config;
+      return saveOk;
+    },
+    _showToast(msg, kind) { this.toasts.push([kind, msg]); },
+    requestUpdate() {},
+  });
+  return host;
+}
+
+test('changing the display model asks before installing the TFT', async () => {
+  const host = editor('eu');
+
+  await host._onDeviceConfigSave({
+    detail: { config: { display_model: 'us', update: { enabled: true } } },
+  });
+
+  assert.equal(host._tftInstallTarget, 'kitchen');
+  assert.equal(host._editingDeviceConfig, false);
+  assert.deepEqual(host.calls, [], 'no TFT install runs before the answer');
+});
+
+test('saving other settings does not ask to install the TFT', async () => {
+  const host = editor('eu');
+
+  await host._onDeviceConfigSave({
+    detail: { config: { display_model: 'eu', update: { enabled: true } } },
+  });
+
+  assert.equal(host._tftInstallTarget, null);
+});
+
+test('a failed save does not ask to install the TFT', async () => {
+  const host = editor('eu', { saveOk: false });
+
+  await host._onDeviceConfigSave({
+    detail: { config: { display_model: 'us', update: { enabled: true } } },
+  });
+
+  assert.equal(host._tftInstallTarget, null);
+});
+
+test('a model change with updates disabled does not ask', async () => {
+  const host = editor('eu');
+
+  await host._onDeviceConfigSave({
+    detail: { config: { display_model: 'us', update: { enabled: false } } },
+  });
+
+  assert.equal(host._tftInstallTarget, null);
+});
+
+test('confirming the question installs the matching TFT', async () => {
+  const host = editor('eu');
+  host._tftInstallTarget = 'kitchen';
+
+  await host._confirmTftInstall();
+
+  assert.equal(host._tftInstallTarget, null);
+  assert.deepEqual(host.calls, [
+    ['/api/nspanel_haui/update_tft/entry1', { device: 'kitchen' }],
+  ]);
+  assert.deepEqual(host.toasts.at(-1), ['success', 'TFT update started for "kitchen"']);
+});
+
+test('declining the question leaves the TFT alone', () => {
+  const host = editor('eu');
+  host._tftInstallTarget = 'kitchen';
+
+  host._cancelTftInstall();
+
+  assert.equal(host._tftInstallTarget, null);
+  assert.deepEqual(host.calls, []);
+});

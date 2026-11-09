@@ -84,6 +84,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Changed
 
+- Changing a color of a built-in scheme in the Colors dialog creates and selects a custom copy automatically.
+- Changing the display model asks before installing the matching TFT; saving the setting alone no longer flashes the display.
 - Portrait function buttons are back in the header; portrait pages use the full
   height (portrait TFT).
 - Repository scripts use `python -m` from the repository root, without import-path setup.
@@ -130,6 +132,7 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Fixed
 
+- The Colors dialog shows the device's saved color scheme in its selector again instead of the first built-in scheme.
 - On hub disconnect, the firmware shows System at full brightness for `timeout_dim`, then dims without powering off; reconnect restores the current panel with the same grace ([Device](docs/device.md#display-state-dimmed-off-and-on)).
 - Repeated automation changes to HAUI-owned display switches now trigger a warning and pause corrections until the next connect or settings save, preventing on/off feedback loops ([Device Configuration](docs/configuration/device.md#display-dimming-off)).
 - The idle page opens reliably again after popups and reconnects: the hub

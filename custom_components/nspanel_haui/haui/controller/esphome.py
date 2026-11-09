@@ -35,6 +35,8 @@ class HAUIESPHomeController(HAUIBase):
         super().__init__(app, config)
         self.esphome = esp_api
         self.prev_cmd: tuple[str, str] | None = None
+        # What the shown page was sent since it loaded: target -> last command.
+        self._page_commands: dict[str, str] = {}
         self._event_callback = event_callback
         self._device_names: list[str] = []
 
@@ -109,6 +111,14 @@ class HAUIESPHomeController(HAUIBase):
 
         self.log(f"Publishing command: {bare_cmd}", level="DEBUG")
         published = self.esphome.publish(bare_cmd, value)
+        if bare_cmd == ESPAction.GOTO_PAGE:
+            # The display loads the page with its compiled widgets again.
+            self._page_commands.clear()
+        elif published and bare_cmd == ESPAction.SEND_COMMAND:
+            self._record_page_command(str(value))
+        elif published and bare_cmd == ESPAction.SEND_COMMANDS:
+            for command in value if isinstance(value, list) else [value]:
+                self._record_page_command(str(command))
         if published and bare_cmd in (
             ESPAction.SEND_COMMAND,
             ESPAction.SEND_COMMANDS,
@@ -134,6 +144,22 @@ class HAUIESPHomeController(HAUIBase):
         if value is None:
             value = ""
         self.esphome.publish_detached(cmd.removeprefix("esphome."), value)
+
+    def page_commands(self) -> list[str]:
+        """The display commands the shown page was sent since it loaded.
+
+        Only the last write to each target is kept (an attribute, a widget's
+        ``vis`` or ``tsw``; any other command is its own target), in the order
+        of those last writes. Replayed on the freshly loaded page, after the
+        page's ``load_commands``, they end on the screen the panel shows: what
+        the Live preview gives a viewer that attaches to a shown page.
+        """
+        return list(self._page_commands.values())
+
+    def _record_page_command(self, command: str) -> None:
+        target = _command_target(command)
+        self._page_commands.pop(target, None)
+        self._page_commands[target] = command
 
     def reset_prev_cmd(self) -> None:
         """Clear the previous-command cache so the next render is never suppressed.
@@ -167,3 +193,16 @@ class HAUIESPHomeController(HAUIBase):
 
         event = HAUIEvent(name, value)
         self._event_callback(event)
+
+
+def _command_target(command: str) -> str:
+    """What a display command sets: a later command with the same target replaces it."""
+    eq = command.find("=")
+    if eq > 0:
+        return command[:eq]
+    if command.startswith(("vis ", "tsw ")):
+        comma = command.rfind(",")
+        if comma > 0:
+            return command[:comma]
+    # Drawing, ref, click: each distinct command is one target.
+    return command

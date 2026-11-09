@@ -996,17 +996,24 @@ class VirtualPanelHost:
             self.app.dispatch(navigation.open_idle_panel, True)
 
     def show_home(self) -> None:
-        """Leave the virtual idle page, if shown, and open the home panel."""
+        """Start the sandbox over on its home panel, as a preview back from Live.
+
+        Live drives the device's own app, so the virtual app got no touches
+        meanwhile: its simulated states are dropped, its idle page is left and
+        its inactivity clock starts again, or the idle page would be due at once.
+        """
         navigation = self.app.controller.get("navigation")
         if navigation is None:
             return
 
-        def _open_home() -> None:
+        def _start_over() -> None:
+            self.app.reset_sandbox()
             # A home panel outside the navigation would only suspend the idle session.
             navigation.mark_awake()
+            navigation.reset_activity()
             navigation.open_home_panel()
 
-        self.app.dispatch(_open_home)
+        self.app.dispatch(_start_over)
 
     def reset_sandbox(self) -> None:
         """Clear the device's simulated states."""

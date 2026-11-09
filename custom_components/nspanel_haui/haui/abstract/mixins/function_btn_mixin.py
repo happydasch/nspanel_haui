@@ -285,16 +285,6 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             self.log(f"Removing function component {fnc_id}")
             del self._fnc_items[fnc_id]
 
-    def forget_shown_function_components(self) -> None:
-        """Forget what the display shows of the function components.
-
-        ``update_function_component`` sends only what differs from the
-        ``current_*`` state it remembers; after this, it sends everything again.
-        """
-        for fnc_item in self._fnc_items.values():
-            for key in [key for key in fnc_item if key.startswith("current_")]:
-                del fnc_item[key]
-
     def update_function_component(
         self, fnc_id: str, update_fnc_name: str | None = None, **kwargs: Any
     ) -> None:

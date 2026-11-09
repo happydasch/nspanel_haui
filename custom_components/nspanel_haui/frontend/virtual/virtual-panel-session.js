@@ -92,7 +92,10 @@ export class VirtualPanelSession extends PanelSession {
     return this._send('idle');
   }
 
-  /** Leave the virtual app's idle page, if shown, and open its home panel. */
+  /**
+   * Start the sandbox over on its home panel: no simulated states, no idle
+   * page and a fresh inactivity clock.
+   */
   openHome() {
     return this._send('home');
   }

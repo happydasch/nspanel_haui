@@ -10,8 +10,9 @@ The sandbox preview (``virtual_panel.py``) shares nothing with it.
 - ``nspanel_haui/live_panel/subscribe`` attaches a viewer to the device's
   app and streams its display output and status until the subscription is
   closed. The first message is ``{"type": "started", ...}``. Attaching
-  redraws the panel's current page, on the panel too, so the viewer gets
-  every widget.
+  replays what the current page was sent since it loaded (its
+  ``load_commands``, then the ESPHome controller's ``page_commands``), so the
+  viewer gets every widget without the panel drawing anything again.
 - ``nspanel_haui/live_panel/event`` passes a touch, swipe or hardware button.
 - ``nspanel_haui/live_panel/action`` opens the idle page or resets the
   inactivity timer.
@@ -135,7 +136,12 @@ class LivePanel:
     def _attach(
         self, session_id: str
     ) -> tuple[list[Callable[[], None]], dict[ButtonLight, str | None]]:
-        """Subscribe and seed in one go, so no display output slips in between."""
+        """Subscribe and seed in one go, so no display output slips in between.
+
+        Seeding replays the page; a page the app has prepared but not drawn
+        yet (waiting for the display's page event) gets its commands through
+        the subscription.
+        """
         source = self._source
         self._sink(
             {"type": "started", "session_id": session_id, "portrait": source.device.is_portrait}
@@ -144,12 +150,16 @@ class LivePanel:
             source.subscribe_preview_state(self._on_state),
             source.subscribe_preview_output(self._on_output),
         ]
-        state = source.get_preview_state()
-        self._on_state(state)
-        if state["page"] is not None:
-            page_message = {"type": "page", "page": int(state["page"])}
-            if not _redraw(source, before_refresh=lambda: self._sink(page_message)):
-                self._sink(page_message)
+        self._on_state(source.get_preview_state())
+        page = source.controller["navigation"].page
+        if page is not None:
+            # The page as the panel shows it: what it read while loading, then
+            # what it was sent since. Nothing goes to the panel.
+            self._sink({"type": "commands", "commands": page.load_commands})
+            self._sink({"type": "page", "page": page.page_id})
+            commands = source.controller["esphome"].page_commands()
+            if commands:
+                self._sink({"type": "commands", "commands": commands})
         return unsubscribes, button_entity_ids(source.device)
 
     def _on_state(self, state: dict[str, Any]) -> None:
@@ -204,23 +214,6 @@ class LivePanel:
         if state is None:
             return light_state(None, None, entity_id)
         return light_state(state.state, dict(state.attributes), entity_id)
-
-
-def _redraw(source: Any, before_refresh: Callable[[], None] | None = None) -> bool:
-    """Draw the current page, optionally announcing it after its load inputs."""
-    connection = source.controller.get("connection")
-    if connection is None or not connection.is_connected:
-        return False
-    navigation = source.controller["navigation"]
-    if navigation.page is None or navigation.panel is None:
-        return False
-
-    source.controller["esphome"].reset_prev_cmd()
-    navigation.page.prepare_page_load(navigation.panel)
-    if before_refresh is not None:
-        before_refresh()
-    navigation.page.redraw_panel()
-    return True
 
 
 def _require_connected(source: Any) -> None:

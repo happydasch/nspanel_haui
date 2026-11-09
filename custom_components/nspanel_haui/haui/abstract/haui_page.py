@@ -176,30 +176,6 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         with self.rec_cmd:
             self.render_panel(self.panel)
 
-    def redraw_panel(self) -> None:
-        """Draws the whole current panel again, on a page the display loaded afresh.
-
-        ``refresh_panel`` sends only what changed since the page last drew it;
-        a freshly loaded page shows its compiled widgets instead. The panel is
-        not started again, so its state (a sub-page, a zoom) is kept.
-        """
-        if self.panel is None:
-            return
-        self.forget_shown_function_components()
-        with self.rec_cmd:
-            self._redraw_panel(self.panel)
-            self._render_function_components()
-            self.render_panel(self.panel)
-
-    def _redraw_panel(self, panel: HAUIPanel) -> None:
-        """Sends what ``start_panel`` drew and ``render_panel`` never draws again.
-
-        Override in a page whose ``start_panel`` draws. No need to call super.
-
-        Args:
-            panel (HAUIPanel): Current panel
-        """
-
     def _render_function_components(self) -> None:
         """Send the current state of all registered function components.
 
@@ -237,6 +213,17 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         with self.rec_cmd:
             for cmd in self._load_commands:
                 self.send_cmd(cmd)
+
+    @property
+    def load_commands(self) -> list[str]:
+        """The commands ``prepare_page_load`` sent ahead of loading this page.
+
+        Raises:
+            RuntimeError: If the page was never prepared for loading.
+        """
+        if self._load_commands is None:
+            raise RuntimeError("The page was not prepared for loading")
+        return list(self._load_commands)
 
     def is_loaded_for(self, panel: HAUIPanel) -> bool:
         """Whether the display loaded this page with what ``panel`` reads while loading.

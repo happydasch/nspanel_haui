@@ -252,7 +252,6 @@ Key lifecycle hooks (see [Hub Component](hub.md) for the full lifecycle):
 | `before_render_panel(panel)` | Return `False` to abort rendering |
 | `render_panel(panel)` | Send display commands |
 | `after_render_panel(panel, rendered)` | Post-render actions |
-| `_redraw_panel(panel)` | Resend what `start_panel` drew and `render_panel` never draws again (for `redraw_panel`) |
 | `_stop_panel(panel)` | Cleanup (override this instead of `stop_panel`) |
 
 Use the `rec_cmd` context manager to batch display commands:

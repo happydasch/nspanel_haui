@@ -768,6 +768,37 @@ def test_show_home_leaves_the_idle_page_for_the_home_panel(env):
         _run(env, host.async_stop())
 
 
+def test_back_from_live_the_sandbox_starts_over(env):
+    # Live drives the device's own app: the virtual app gets no touches while
+    # it is shown, so its idle page comes due in the background.
+    clock = {"type": "clock", "key": "clock_0", "show_in_navigation": False}
+    messages: list[dict] = []
+    host = _open(env, _config([clock], idle_panel="clock_0"), messages.append)
+    navigation = host.app.controller["navigation"]
+
+    try:
+        _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+
+        def left_alone_while_live():
+            host.app.simulate_service("light", "turn_on", ["light.lamp"], {})
+            navigation._activity_ts -= 3600
+            navigation.open_idle_panel(True)
+
+        _run(env, host.app.async_run_on_worker(left_alone_while_live))
+        _wait(lambda: navigation.panel.get("key") == "clock_0")
+        assert host.app.sandbox.has_changes
+
+        host.show_home()
+
+        _wait(lambda: navigation.panel.get("key") == "grid_0")
+        assert not navigation.idle_panel_active
+        assert not host.app.sandbox.has_changes
+        # A fresh inactivity clock: the idle page is not due right away again.
+        assert time.monotonic() - navigation._activity_ts < 60
+    finally:
+        _run(env, host.async_stop())
+
+
 def test_a_late_viewer_gets_the_current_panel_drawn(session, env):
     late: list[dict] = []
     env.loop.call_soon_threadsafe(lambda: session.attach("late", late.append))

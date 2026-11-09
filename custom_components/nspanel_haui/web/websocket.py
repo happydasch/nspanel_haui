@@ -13,8 +13,9 @@ has commands of its own (``preview/live_panel.py``).
   notification queue.
 - ``nspanel_haui/virtual_panel/event`` injects a touch, swipe or hardware
   button.
-- ``nspanel_haui/virtual_panel/home`` leaves the idle page and opens the home
-  panel, for a preview switching back from Live.
+- ``nspanel_haui/virtual_panel/home`` starts the sandbox over for a preview
+  switching back from Live: it drops the simulated states, leaves the idle
+  page, restarts the inactivity clock and opens the home panel.
 - ``nspanel_haui/virtual_panel/idle`` acts as if the inactivity timeout opened
   the idle page.
 - ``nspanel_haui/virtual_panel/reset_sandbox`` drops simulated entity states.

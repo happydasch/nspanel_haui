@@ -220,7 +220,7 @@ pytest tests/test_live_panel.py tests/test_page_weather.py tests/test_card_rende
 node --test tests/frontend/virtual-session.test.mjs
 ```
 
-These cover a fresh full-page attach, redraws for content initialized in different
+These cover a fresh full-page attach, replays of content drawn in different
 page lifecycle hooks, reconnecting onto a blank simulator before the new stream
 arrives, live page switches, and replay of actual hub commands in the browser's
 Nextion simulator. Weather tests also cover missing, malformed, and failed

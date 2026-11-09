@@ -362,11 +362,6 @@ class ClockTwoPage(HAUIPage):
         )
         self.init_interface(panel)
 
-    def _redraw_panel(self, panel: HAUIPanel) -> None:
-        # The letters are written once per start; render_panel recolours only
-        # the letters whose state changed.
-        self.init_interface(panel)
-
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_interface()
         self.app.controller["notification"].blinker.refresh()

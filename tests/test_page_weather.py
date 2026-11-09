@@ -116,6 +116,7 @@ def test_forecast_failure_reuses_last_result_or_clears_empty_slots(failure, has_
     elif failure == "malformed response":
         app.call_service = lambda _service, **_kwargs: {"result": {}}
     else:
+
         def raise_service_error(_service, **_kwargs):
             raise RuntimeError("temporary weather service failure")
 

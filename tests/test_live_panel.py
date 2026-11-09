@@ -32,14 +32,18 @@ from test_websocket_api import _run as _run_ws
 
 from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
 from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, PopupPanelKey
-from custom_components.nspanel_haui.web.preview.live_panel import LivePanel, _redraw
+from custom_components.nspanel_haui.web.preview.live_panel import LivePanel
 
 _ROOT = Path(__file__).resolve().parent.parent
 _REPLAY = _ROOT / "tests" / "frontend" / "replay-renders.mjs"
 
 
-def _replay_live_attach(messages, page_id, tmp_path):
-    """Replay a real live attach command stream in the editor's Nextion simulator."""
+def _replay_live_attach(messages, page_id, tmp_path, expected):
+    """Replay a real live attach command stream in the editor's Nextion simulator.
+
+    ``expected`` lists ``{"component", "visible", "textIncludes"}`` checks of the
+    replayed screen (``tests/frontend/replay-renders.mjs``).
+    """
     node = shutil.which("node")
     if node is None:
         pytest.fail("Node 22+ is required to replay live-preview output")
@@ -60,11 +64,7 @@ def _replay_live_attach(messages, page_id, tmp_path):
             "page": page_id,
             "before": _commands(messages[:page_index]),
             "commands": _commands(messages[page_index + 1 : end]),
-            "expected": [
-                {"component": "tMainIcon", "visible": True},
-                {"component": "tMainText", "visible": True, "textIncludes": "15°C"},
-                {"component": "tSubText", "visible": True, "textIncludes": "1003hPa"},
-            ],
+            "expected": expected,
         }
     }
     renders_path = tmp_path / "live-attach.json"
@@ -162,6 +162,29 @@ def test_live_attach_sets_system_background_before_loading_the_current_page(env)
         _run(env, source.async_stop())
 
 
+def test_attaching_a_live_viewer_sends_nothing_to_the_panel(env):
+    # A viewer gets what the page was sent; the panel itself does not change.
+    clock = {"type": "clock", "key": "home"}
+    config = _config([clock])
+    config["device"]["home_panel"] = "home"
+    panel_output: list[dict] = []
+    source = _open(env, config, panel_output.append)
+    navigation = source.app.controller["navigation"]
+    _wait(lambda: navigation.page is not None and navigation.page.panel is not None)
+    _wait(lambda: any(command.startswith("tTime.txt=") for command in _commands(panel_output)))
+    marker = len(panel_output)
+
+    viewer, messages = _live(env, source)
+
+    try:
+        _run(env, source.app.async_run_on_worker(lambda: None))
+        assert any(command.startswith("tTime.txt=") for command in _commands(messages))
+        assert [m for m in panel_output[marker:] if m["type"] in ("commands", "page")] == []
+    finally:
+        _stop(env, viewer)
+        _run(env, source.async_stop())
+
+
 @pytest.mark.parametrize(
     ("panel", "widgets"),
     [
@@ -194,7 +217,9 @@ def test_attaching_a_live_viewer_draws_the_whole_current_page(env, panel, widget
 
 @pytest.mark.parametrize("display_model", ["eu", "us"])
 @pytest.mark.parametrize("page_type", ["clock", "weather"])
-def test_live_attach_replays_current_weather_below_the_clock(env, page_type, display_model, tmp_path):
+def test_live_attach_replays_current_weather_below_the_clock(
+    env, page_type, display_model, tmp_path
+):
     env._states["weather.home"] = _State(
         "rainy",
         {
@@ -217,14 +242,28 @@ def test_live_attach_replays_current_weather_below_the_clock(env, page_type, dis
         drawn = _commands(messages[page_index:])
         assert any(command.startswith("tMainIcon.txt=") for command in drawn)
         assert any(command.startswith("tMainText.txt=") and "15°C" in command for command in drawn)
-        assert any(command.startswith("tSubText.txt=") and "1003hPa" in command for command in drawn)
-        _replay_live_attach(messages, page_id, tmp_path)
+        assert any(
+            command.startswith("tSubText.txt=") and "1003hPa" in command for command in drawn
+        )
+        _replay_live_attach(
+            messages,
+            page_id,
+            tmp_path,
+            [
+                {"component": "tMainIcon", "visible": True},
+                {"component": "tMainText", "visible": True, "textIncludes": "15°C"},
+                {"component": "tSubText", "visible": True, "textIncludes": "1003hPa"},
+            ],
+        )
     finally:
         _stop(env, viewer)
         _run(env, source.async_stop())
 
 
-def test_live_attach_replays_the_last_weather_forecast_when_refresh_has_no_response(env):
+def test_live_attach_shows_the_forecast_the_app_drew(env, tmp_path):
+    # The weather page's load code hides the forecast row and start_panel shows
+    # it: a viewer that attaches later must get that too, not only what
+    # render_panel draws.
     env._states["weather.home"] = _State(
         "rainy",
         {
@@ -251,20 +290,29 @@ def test_live_attach_replays_the_last_weather_forecast_when_refresh_has_no_respo
             "templow": 1,
         }
     ]
-    _run(
-        env,
-        source.app.async_run_on_worker(
-            lambda: setattr(source.app.controller["navigation"].page, "_previous_forecast", forecast)
-        ),
-    )
+    page = source.app.controller["navigation"].page
+
+    def draw_forecast():
+        # The test hub answers get_forecasts with nothing: the page draws the last one.
+        page._previous_forecast = forecast
+        with page.rec_cmd:
+            page.render_forecast()
+
+    _run(env, source.app.async_run_on_worker(draw_forecast))
     viewer, messages = _live(env, source)
-    page_id = source.app.controller["navigation"].page.page_id
 
     try:
-        page_index = messages.index({"type": "page", "page": page_id})
-        drawn = _commands(messages[page_index:])
-        assert 'f1Val.txt="11°C"' in drawn
-        assert 'f1SubVal.txt="1°C"' in drawn
+        _replay_live_attach(
+            messages,
+            page.page_id,
+            tmp_path,
+            [
+                {"component": "f1Val", "visible": True, "textIncludes": "11°C"},
+                {"component": "f1SubVal", "visible": True, "textIncludes": "1°C"},
+                {"component": "f1Icon", "visible": True},
+                {"component": "f1Name", "visible": True},
+            ],
+        )
     finally:
         _stop(env, viewer)
         _run(env, source.async_stop())
@@ -352,11 +400,12 @@ def test_a_live_viewer_streams_page_local_changes_from_the_app(env):
                 for command in _commands(messages[marker:])
             )
         )
-        marker = len(messages)
-        _run(env, source.app.async_run_on_worker(_redraw, source.app))
+        # A viewer that attaches now gets the page the panel shows.
+        late, late_messages = _live(env, source)
         second_page = page._chunks[1].replace("\n", "\\r")
-        _wait(lambda: any(second_page in command for command in _commands(messages[marker:])))
+        assert any(second_page in command for command in _commands(late_messages))
         assert page._current_page == 1
+        _stop(env, late)
     finally:
         _stop(env, viewer)
         _run(env, source.async_stop())
@@ -525,7 +574,7 @@ def test_a_stopped_live_viewer_gets_no_more_output(env):
 
     _stop(env, viewer)
     marker = len(messages)
-    _run(env, source.app.async_run_on_worker(_redraw, source.app))
+    _run(env, source.app.async_run_on_worker(source.app.controller["navigation"].refresh_panel))
 
     try:
         assert messages[marker:] == []
@@ -541,7 +590,7 @@ def test_a_live_viewer_stopped_before_its_start_finished_follows_nothing(env):
 
     _run(env, viewer.async_start("live"))
     marker = len(messages)
-    _run(env, source.app.async_run_on_worker(_redraw, source.app))
+    _run(env, source.app.async_run_on_worker(source.app.controller["navigation"].refresh_panel))
 
     try:
         assert messages[marker:] == []

@@ -204,12 +204,13 @@ not compared: a release ships only the universal firmware image, but its TFT is 
 custom build. If no compatible asset is available, it reports the mismatch instead of uploading an
 unrelated TFT.
 
-In this checkout, the firmware source is `0.4.5.dev29` and the committed HMIs/TFTs are
-`0.4.5.dev30`. The next Development Firmware workflow run derives firmware `0.4.5.dev30` from the
-integration manifest and packages the existing dev30 landscape and portrait TFTs in that release's
-firmware manifest. Do not manually advance the version files before that run: doing so would skip
-dev30. Verify the published dev30 release contains `firmware-manifest.json`, both TFT assets, and a
-manifest `tft.version` of `0.4.5.dev30`.
+The **Development Firmware** workflow derives the firmware version from
+`manifest.json` (the next `X.Y.(Z+1).dev<run>`), takes the TFT version from the
+HMIs' `system.tftVersion`, and packages both committed TFTs in that release's
+firmware manifest. It writes that TFT version into `tft_version` before
+compiling, so a dev firmware requires exactly the TFT it ships. Verify each
+published dev release contains `firmware-manifest.json`, both TFT assets, and a
+manifest `tft.version` equal to the HMIs' `system.tftVersion`.
 
 The prerelease notes show the exact commit and changed-file summary. Use the
 commit link to inspect the full diff; the `CHANGELOG.md` entry and the prepared

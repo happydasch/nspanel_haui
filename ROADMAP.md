@@ -1,16 +1,17 @@
 # Roadmap
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
-shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28 and
-v0.4.4 on 2026-11-02**, each tagged from a green `master` commit and published
-by the release workflow.
+shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28, v0.4.4 on
+2026-11-02 and v0.4.5 on 2026-11-09**, each tagged from a green `master` commit
+and published by the release workflow.
 
 The 0.4.x hardware acceptance and OTA risk checks are closed; the remaining gate
-item is notification verification, tracked as the **v0.4.5 plan** below. The
-0.4.5 feature set — including the live panel preview contributed in
-[#85](https://github.com/happydasch/nspanel_haui/pull/85) and
-[#86](https://github.com/happydasch/nspanel_haui/pull/86) — is already on `dev`;
-the release waits on the notification pass.
+item is notification verification on real hardware, tracked as the **v0.4.6
+plan** below. The 0.4.5 feature set — including the live panel preview
+contributed in [#85](https://github.com/happydasch/nspanel_haui/pull/85) and
+[#86](https://github.com/happydasch/nspanel_haui/pull/86) — shipped in that
+release. A defect found by the remaining notification pass ships as a 0.4.6
+patch.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
@@ -20,7 +21,7 @@ belong in the issue tracker.
 **The 0.4.x install gate comes first.** The binary and TFT install, firmware OTA
 and the base and core functions are confirmed on real EU and US/portrait
 hardware; only notification behaviour remains. Nothing in v0.5 or v0.6 starts
-before that row is green and 0.4.5 ships. After the gate closes, **v0.5** adds
+before that row is green. After the gate closes, **v0.5** adds
 multiple TFTs for normal- and high-speed updates, stable and controllable
 manual/auto updates in the frontend, and a Device Manager overhaul. **v0.6** adds Display Repair Mode, an inspection and
 cleanup of the Nextion scripts and Home Assistant hub settings; multi-hub support
@@ -49,38 +50,16 @@ patch; **v0.5 does not start until this gate is green.**
 
 ---
 
-## v0.4.5 — notification verification and release (in progress)
+## v0.4.6 — notification verification (in progress)
 
-**Status: in progress.** The 0.4.5 feature set is on `dev` — see the
-[0.4.5 changelog](CHANGELOG.md#045--unreleased) for the full list. It includes
-the live panel preview in the editor
-([#85](https://github.com/happydasch/nspanel_haui/pull/85),
-[#86](https://github.com/happydasch/nspanel_haui/pull/86)) with its relay
-indicators and **Reset sandbox**, hub-drawn panel cards, editable popups, long
-press to go back, Day/Night Profiles, optional per-panel colour overrides on top
-of the color scheme, the inside-temperature sensor picker, the notification text
-and paging fixes, the firmware-to-integration update move, encrypted native OTA,
-alarm action-button options and versioned dev releases.
-
-The hardware passlist and every update-related item are done: universal image
-onboarding, TFT auto-update end to end, unattended firmware OTA (install, reboot,
-matching TFT follow-up, silent buzzer), encrypted native OTA
-([#81](https://github.com/happydasch/nspanel_haui/issues/81)), the reinstall-loop
-fix ([#83](https://github.com/happydasch/nspanel_haui/issues/83)) and the
-old-bootloader rollback investigation. The following items remain before
-release:
+**Status: in progress on `dev`.** v0.4.5 shipped on 2026-11-09 — see the
+[0.4.5 changelog](CHANGELOG.md#045--2026-11-09) for the full list and
+[v0.4.5 release notes](.github/release-notes/v0.4.5.md) for the details. The
+release gate itself is still open:
 
 - Complete the notification passlist row above, including long-message paging and
   the update popup text, on both display models.
-- Review open notification-enhancement issue #50; keep it documentation-only
-  unless the pass finds a defect.
-- **TFT assets in the release** — both display TFTs
-  (`nextion/nspanel_haui.tft`, `nextion/nspanel_haui_portrait.tft`) are
-  committed to git and attached to every GitHub release, so the update
-  controller and manual installs can fetch them. Confirm both assets and their
-  manifest `tft` block on the published 0.4.5 release.
-- Cut `release/0.4.5` from `dev`, bump the version sources, run the pre-flight
-  checks and merge to `master` for tagging.
+- Fix any defect the pass finds as a 0.4.6 patch and re-verify it.
 
 ---
 

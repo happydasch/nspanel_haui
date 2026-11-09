@@ -627,6 +627,7 @@ test('the Device Manager keeps update installation out of the More menu when ver
   assert.doesNotMatch(labels, /Install update/);
   assert.match(labels, /Display Unknown/);
   assert.match(labels, /Firmware Unknown/);
+  assert.doesNotMatch(labels, /Firmware mismatch/);
 });
 
 test('the Device Manager compares TFT status with the required TFT version', () => {
@@ -641,6 +642,8 @@ test('the Device Manager compares TFT status with the required TFT version', () 
 
   dlg._deviceStatuses = {
     kitchen: {
+      haui_version: '0.4.4',
+      haui_version_mismatch: false,
       device_info: {
         yaml_version: '0.4.4',
         tft_required_version: '0.4.3',
@@ -656,6 +659,10 @@ test('the Device Manager compares TFT status with the required TFT version', () 
   dlg._deviceStatuses.kitchen.device_info.tft_version = '0.4.2';
   labels = collectTemplateStrings(dlg._renderDeviceRow('kitchen')).join(' ');
   assert.match(labels, /update pending/);
+  assert.doesNotMatch(labels, /Firmware mismatch/);
+  dlg._deviceStatuses.kitchen.haui_version_mismatch = true;
+  labels = collectTemplateStrings(dlg._renderDeviceRow('kitchen')).join(' ');
+  assert.match(labels, /Firmware mismatch/);
 });
 
 test('the Device Manager does not infer a required TFT version from firmware version', () => {

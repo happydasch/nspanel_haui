@@ -190,6 +190,13 @@ test('a display TFT is compared with its required version, not firmware version'
   assert.equal(isOlderVersion('0.4.3', '0.4.4'), true);
   assert.equal(isOlderVersion('0.4.1', '0.4'), false);
   assert.equal(isOlderVersion('0.3.10', '0.3.9'), false);
+  assert.equal(isOlderVersion('0.4.5.dev29', '0.4.5.dev30'), true);
+  assert.equal(isOlderVersion('0.4.5.dev30', '0.4.5.dev29'), false);
+  assert.equal(isOlderVersion('0.4.5.dev30', '0.4.5'), true);
+  assert.equal(isOlderVersion('0.4.5.rc1', '0.4.5'), true);
+  assert.equal(isOlderVersion('0.4.5', '0.4.5.dev30'), false);
+  assert.equal(isOlderVersion('', '0.4.5'), false);
+  assert.equal(isOlderVersion('not-a-version', '0.4.5'), false);
 });
 
 import { renderHealthSection } from '../../custom_components/nspanel_haui/frontend/dialogs/device-info.js';
@@ -206,7 +213,7 @@ function markup(value) {
 
 test('the health section surfaces versions, uptime, state and disconnect info', () => {
   const out = markup(renderHealthSection(
-    { connected: true, integration_version: '0.4.0' },
+    { connected: true, haui_version: '0.4.0', haui_version_mismatch: false },
     { connection_uptime: 125, idle_page_active: false, last_disconnect_reason: null, disconnected_since: null },
   ));
   assert.ok(out.includes('Health'));
@@ -220,7 +227,15 @@ test('the health section surfaces versions, uptime, state and disconnect info', 
   ));
   assert.ok(off.includes('heartbeat timeout'));
   assert.ok(off.includes('Idle page'));
-});test("the health section surfaces the TFT update state", () => {
+
+  const mismatch = markup(renderHealthSection(
+    { connected: true, haui_version: '0.4.5', haui_version_mismatch: true },
+    { yaml_version: '0.4.4' },
+  ));
+  assert.ok(mismatch.includes('Firmware and HAUI versions do not match'));
+});
+
+test("the health section surfaces the TFT update state", () => {
   const out = markup(renderHealthSection(
     { connected: true, update: { state: "installing", version: "0.4.0", started_at: "2026-10-23T12:00:00+00:00", last_error: null } },
     {},

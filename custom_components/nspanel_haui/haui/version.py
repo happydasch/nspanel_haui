@@ -15,3 +15,13 @@ def get_version() -> str:
     """
     _manifest_path = Path(__file__).parent.parent / "manifest.json"
     return json.loads(_manifest_path.read_text())["version"]
+
+
+def firmware_version_mismatch(haui_version: str | None, yaml_version: str | None) -> bool | None:
+    """Return whether reported ESPHome firmware differs from this HAUI version.
+
+    ``None`` means one of the versions has not been reported yet.
+    """
+    if not haui_version or not yaml_version:
+        return None
+    return haui_version != yaml_version

@@ -49,7 +49,12 @@ the display version sources. A development version (`X.Y.Z.devN`, the
 `manifest.json` and the firmware `yaml_version` but leaves `pyproject.toml`,
 `tft_version` and the HMI binaries alone, because the dev-release CI copies
 `tft_version` from the HMIs' `system.tftVersion` itself (see
-[Published development firmware](#published-development-firmware)):
+[Published development firmware](#published-development-firmware)).
+
+The HAUI version in `manifest.json` and ESPHome's `yaml_version` must always
+match. The version-bump script updates them together, and the test suite checks
+that the committed sources have not drifted. `tft_version` is independent: it
+identifies the display asset required by firmware and may differ from both.
 
 1. `custom_components/nspanel_haui/manifest.json` — source of truth.
 2. `pyproject.toml` — packaging mirror.

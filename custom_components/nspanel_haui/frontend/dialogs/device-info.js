@@ -194,9 +194,15 @@ function renderHealthSection(ds, di, healthActions) {
       <div class="config-section-body">
         <div class="di-info-grid">
           <div class="di-info-cell">
-            <span class="di-info-label">${t("Integration Version")}</span>
-            <span class="di-info-value di-mono">${ds.integration_version || "-"}</span>
+            <span class="di-info-label">${t("HAUI Version")}</span>
+            <span class="di-info-value di-mono">${ds.haui_version || "-"}</span>
           </div>
+          ${ds.haui_version_mismatch === true ? html`
+          <div class="di-info-cell di-info-error">
+            <span class="di-info-label">${t("Firmware version")}</span>
+            <span class="di-info-value">${t("Firmware and HAUI versions do not match")}</span>
+          </div>
+          ` : ""}
           <div class="di-info-cell">
             <span class="di-info-label">${t("Connection Uptime")}</span>
             <span class="di-info-value">${uptime != null ? fmtInterval(uptime) : "—"}</span>

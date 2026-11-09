@@ -129,6 +129,18 @@ test('reset sandbox clears simulated states through the hub session', async () =
   }]);
 });
 
+test('opening a sandbox session resets simulated states', async () => {
+  const { hass, push } = await started({ resetSandboxOnStart: true });
+  push({ type: 'started', session_id: 'abc', portrait: false });
+
+  await flush();
+
+  assert.deepEqual(hass.calls, [{
+    type: 'nspanel_haui/virtual_panel/reset_sandbox',
+    session_id: 'abc',
+  }]);
+});
+
 test('output that arrives before the layout is replayed in order', async () => {
   const { session, push, resolveLayout } = await started();
   push({ type: 'started', session_id: 'abc', portrait: false });

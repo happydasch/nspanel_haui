@@ -504,11 +504,13 @@ connected panel, polled every few seconds from the device status API:
 
 | Field | Meaning |
 |-------|---------|
-| `integration_version` | Version of the running NSPanel HAUI integration |
+| `haui_version` | Version of the running NSPanel HAUI hub integration |
+| `haui_version_mismatch` | `true` when the known HAUI version differs from the device's `yaml_version`; `null` until both are reported |
 | `connection_uptime` | Seconds since the ESPHome connection was last (re)established |
 | `idle_page_active` | `true` when the idle page is shown — the editor shows **Idle page** / **Active** |
 | `last_disconnect_reason` | Why the connection dropped last (e.g. `heartbeat timeout`), if known |
 | `disconnected_since` | When the device went offline that last time |
+| `yaml_version` | ESPHome firmware version reported by the panel |
 | `tft_version` / `tft_required_version` | Display TFT version installed vs the version required by firmware |
 | `update` | TFT update state while an install runs: `checking`, `installing`, `done`, or `error` (with `version`, `started_at`, `last_error`) |
 The Health section also includes **Reset interaction timer**, which resets the
@@ -517,11 +519,15 @@ current page or resetting the hub's separate idle-page timer.
 
 
 The Device Manager shows the same versions inline per device, using **Unknown**
-when firmware or display version has not been reported. A display whose TFT is
-older than `tft_required_version` is flagged **update pending**.
+when firmware or display version has not been reported. HAUI and firmware versions
+are expected to match; a known mismatch is flagged **Firmware mismatch**. Missing
+version data is not treated as a mismatch. A display whose TFT is older than
+`tft_required_version` is separately flagged **update pending**.
 
 If firmware has not reported `tft_required_version`, the manager does not infer one
-from `yaml_version` and does not flag the display as pending.
+from `yaml_version` and does not flag the display as pending. Firmware update
+availability compares a release with `yaml_version`; the display check compares
+`tft_version` with `tft_required_version`.
 
 The status payload is only as fresh as the last poll.  When a panel has been
 disconnected too long for the poll to succeed, the dialog keeps showing the

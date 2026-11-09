@@ -321,10 +321,17 @@ actions:
 - **Install update** answers with a toast: *Firmware update started for "…"* or
   *TFT update started for "…"*, or the reason the install could not start.
 - The Device Manager row shows chips: **Firmware update available**,
+  **Firmware mismatch** when the known HAUI and firmware versions differ,
   **Installing firmware…**, **update pending** next to the display version,
   **Checking for update…**, **Installing TFT…**, **TFT installed** and **TFT
   update failed** (hover it for the error).
-- **Device Info** shows the offered firmware as **Firmware Update Version**.
+- **Device Info** shows the HAUI version, device `yaml_version` and offered firmware as **Firmware Update Version**.
+
+The HAUI version and firmware `yaml_version` are expected to match. A mismatch is
+a diagnostic that the hub and panel firmware are out of sync; it does not itself
+trigger an install. Firmware update availability still compares the release
+manifest with `yaml_version`, while TFT update checks compare `tft_version` with
+the firmware-reported `tft_required_version`.
 
 ## Settings
 

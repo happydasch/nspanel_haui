@@ -20,6 +20,7 @@ export class VirtualPanelSession extends PanelSession {
     super(hass, opts);
     this.onAction = opts.onAction || (() => {});
     this.sandboxChanged = false;
+    this._resetSandboxOnStart = Boolean(opts.resetSandboxOnStart);
     this.brightness = 100;
     this.displayOff = false;
     // Widget name -> entity id on the current page, for the hover tooltip.
@@ -42,6 +43,13 @@ export class VirtualPanelSession extends PanelSession {
       this._openHome = false;
       this.openHome();
     }
+  }
+
+  _started(message) {
+    super._started(message);
+    if (!this._resetSandboxOnStart) return;
+    this._resetSandboxOnStart = false;
+    this.resetSandbox().catch(err => this.onError(err?.message || String(err)));
   }
 
   _applyMode(message) {

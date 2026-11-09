@@ -358,6 +358,11 @@ test('a started session renders the screen and maps pointer input to touches', a
   });
   dlg.hass.subscriptions[0].callback({ type: 'started', session_id: 's1', portrait: false });
   await flush();
+  assert.deepEqual(dlg.hass.calls, [{
+    type: 'nspanel_haui/virtual_panel/reset_sandbox',
+    session_id: 's1',
+  }]);
+  dlg.hass.calls.length = 0;
   dlg.hass.subscriptions[0].callback({ type: 'page', page: 9 });
 
   const markup = collect(dlg.render()).join(' ');

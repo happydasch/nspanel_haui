@@ -324,6 +324,7 @@ class LivePreviewDialog extends HauiDialog {
       entryId: this.entryId,
       device: this.device,
       openHome,
+      resetSandboxOnStart: !live && !openHome,
       onUpdate: () => this.requestUpdate(),
       onAction: action => this._onAction(action),
       onError: msg => { this._error = msg; },

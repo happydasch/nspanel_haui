@@ -259,7 +259,8 @@ class DeviceManagerDialog extends HauiDialog {
     const canMoveDown = idx >= 0 && idx < deviceKeys.length - 1;
     const menuOpen = this._deviceMenuIndex === idx;
     const di = this._deviceStatuses?.[name]?.device_info;
-    const updateStatus = this._deviceStatuses?.[name]?.update;
+    const status = this._deviceStatuses?.[name];
+    const updateStatus = status?.update;
     const yaml = di?.yaml_version;
     const requiredTft = di?.tft_required_version;
     const tft = di?.tft_version;
@@ -296,6 +297,9 @@ class DeviceManagerDialog extends HauiDialog {
             ${yaml
               ? html`<span class="info-chip" title="${t('ESPHome firmware version')}">${t('Firmware')} ${yaml}</span>`
               : html`<span class="info-chip" title="${t('ESPHome firmware version')}">${t('Firmware')} ${t('Unknown')}</span>`}
+            ${status?.haui_version_mismatch === true
+              ? html`<span class="info-chip info-chip-warn" title="${t('The ESPHome firmware version does not match this HAUI version')}">${t('Firmware mismatch')}</span>`
+              : ""}
             ${tft && requiredTft && isOlderVersion(tft, requiredTft)
               ? html`<span class="info-chip info-chip-warn" title="${t('The display is updated automatically to the version the firmware needs')}">${t('Display')} ${tft} · ${t('update pending')}</span>`
               : html`<span class="info-chip${tft ? '' : ' info-chip-warn'}" title="${t('Display (TFT) version')}">${t('Display')} ${tft || t('Unknown')}</span>`}

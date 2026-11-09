@@ -13,9 +13,11 @@ NSPanel HAUI has three parts, each with its own version:
 | Firmware | ESPHome on the panel's ESP32 | By the hub: the panel's **HAUI Firmware** update |
 | Display | The TFT file on the panel's Nextion screen | By the hub, automatically after the firmware |
 
-Keep the three at the same release: they exchange commands and events, and a
-newer part may rely on something an older one lacks. Do not operate a panel with
-the hub and firmware from different releases; complete the update as a set.
+The HAUI integration version and firmware `yaml_version` must be the same; the
+Device Manager flags a known mismatch. The display TFT has its own version and may
+legitimately differ: firmware reports `tft_required_version`, and the hub updates
+the display only when its installed `tft_version` is older than that requirement.
+Keep the three parts compatible and complete the update as a set.
 
 ## Update in four steps
 

@@ -40,8 +40,8 @@ class AboutPage(HAUIPage):
         t_tft_vers_val=Component(12, "tTftVersVal"),
         t_yaml_vers=Component(13, "tYamlVers"),
         t_yaml_vers_val=Component(14, "tYamlVersVal"),
-        t_ad_vers=Component(15, "tADVers"),
-        t_ad_vers_val=Component(16, "tADVersVal"),
+        t_haui_vers=Component(15, "tHAUIVers"),
+        t_haui_vers_val=Component(16, "tHAUIVersVal"),
         p0=Component(17, "p0"),
         p1=Component(18, "p1"),
     )
@@ -70,7 +70,7 @@ class AboutPage(HAUIPage):
         ip_address = self.app.device.device_info.get("ip", "")
         tft_version = self.app.device.device_info.get("tft_version", "0.0.0")
         yaml_version = self.app.device.device_info.get("yaml_version", "0.0.0")
-        ad_version = get_version()
+        haui_version = get_version()
         # about text
         self.set_component_text(
             self.COMPONENTS.t_about_1,
@@ -89,6 +89,6 @@ class AboutPage(HAUIPage):
         # yaml version
         self.set_component_text(self.COMPONENTS.t_yaml_vers, self.translate("YAML-Version:"))
         self.set_component_text(self.COMPONENTS.t_yaml_vers_val, yaml_version)
-        # ad version
-        self.set_component_text(self.COMPONENTS.t_ad_vers, self.translate("AD-Version:"))
-        self.set_component_text(self.COMPONENTS.t_ad_vers_val, ad_version)
+        # HAUI version
+        self.set_component_text(self.COMPONENTS.t_haui_vers, self.translate("HAUI-Version:"))
+        self.set_component_text(self.COMPONENTS.t_haui_vers_val, haui_version)

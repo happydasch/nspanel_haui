@@ -127,6 +127,11 @@ Device → hub events, published under the `esphome.` prefix (`esphome.heartbeat
 | `buffer_overflow` | `1`. The display reported a buffer overflow. |
 | `display_state` | `on`, `dim` or `off`. |
 
+The HAUI integration version is reported separately in the hub's status payload;
+it is expected to match the firmware's `yaml_version`. The device reports its
+installed `tft_version` and the firmware-required `tft_required_version` as
+separate values because a firmware release may reuse or require a newer TFT.
+
 ### Actions
 
 Hub → device actions (ESPHome Native API service calls):

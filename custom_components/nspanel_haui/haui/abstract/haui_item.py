@@ -15,7 +15,7 @@ from .haui_config_access import HAUIConfigAccess
 from .haui_entity import HAUIEntity
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 
 class HAUIItem(HAUIConfigAccess):

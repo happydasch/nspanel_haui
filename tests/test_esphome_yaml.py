@@ -384,9 +384,7 @@ def test_disconnected_display_never_turns_off_or_hardware_sleeps():
 
 def test_auto_display_off_switch_is_the_live_gate_for_connected_off():
     display = _script_lambda("scripts_display.yaml", "update_display")
-    connected = display.split("} else if (connection_grace)", 1)[1].split(
-        "// Hardware sleep", 1
-    )[0]
+    connected = display.split("} else if (connection_grace)", 1)[1].split("// Hardware sleep", 1)[0]
     assert "id(use_auto_display_off).state" in connected
     assert "else if (!id(use_auto_display_off).state && current_state == 0)" in connected
     brightness = display.split("// Desired brightness", 1)[1]

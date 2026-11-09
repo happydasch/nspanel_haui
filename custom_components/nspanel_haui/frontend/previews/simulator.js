@@ -7,48 +7,7 @@
 import { html } from '../lit-import.js';
 import { renderDisplay } from '../virtual/nextion-view.js';
 
-const MODULE_URL = import.meta.url;
-const LAYOUT_CACHE = new Map();
-let ICON_MAP_PROMISE = null;
-
-function loadJson(url, loader) {
-  if (loader) return Promise.resolve(loader(url));
-  return fetch(url).then((response) => {
-    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
-    return response.json();
-  });
-}
-
-/** Memoised virtual-panel layout loader. */
-export function loadLayout(orientation, loader) {
-  let promise = LAYOUT_CACHE.get(orientation);
-  if (!promise) {
-    promise = loadJson(new URL(`../virtual/layout_${orientation}.json`, MODULE_URL), loader)
-      .catch((error) => {
-        LAYOUT_CACHE.delete(orientation);
-        throw error;
-      });
-    LAYOUT_CACHE.set(orientation, promise);
-  }
-  return promise;
-}
-
-/** Memoised icon-map loader used by the virtual display renderer. */
-export function loadIconMap(loader) {
-  if (!ICON_MAP_PROMISE) {
-    ICON_MAP_PROMISE = loadJson(new URL('../virtual/icon_map.json', MODULE_URL), loader)
-      .catch((error) => {
-        ICON_MAP_PROMISE = null;
-        throw error;
-      });
-  }
-  return ICON_MAP_PROMISE;
-}
-
-/** URL of a virtual-panel picture asset. */
-export function pictureUrlFor(orientation, id) {
-  return new URL(`../virtual/pictures/${orientation}/${id}.webp`, MODULE_URL).href;
-}
+export { loadIconMap, loadLayout, pictureUrlFor } from '../virtual/assets.js';
 
 /** Static previews never advance timers. */
 export function noopScheduler() {

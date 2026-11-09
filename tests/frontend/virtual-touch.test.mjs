@@ -103,6 +103,72 @@ test('a dual-state button toggles on press', () => {
   assert.equal(t.val, 1);
 });
 
+test('live touch reports physical button input without simulating local display changes', () => {
+  const { display, sent } = setup('grid');
+  display.exec(['vis g1Power,1', 'g1Power.val=0']);
+  const component = display.component('g1Power');
+  const before = component.attrs.val;
+  const touch = new TouchInput(display, (name, value) => sent.push([name, value]), () => false);
+
+  touch.press(component.attrs.x + 5, component.attrs.y + 5);
+  touch.release(component.attrs.x + 5, component.attrs.y + 5);
+
+  assert.equal(component.attrs.val, before);
+  assert.deepEqual(sent.filter(([name]) => name === 'esphome.component'), [
+    ['esphome.component', `9,${component.id},1`],
+    ['esphome.component', `9,${component.id},0`],
+  ]);
+});
+
+test('live slider drags send the selected value without simulating the display', () => {
+  const display = new NextionDisplay(LANDSCAPE, {
+    scheduler: { every: () => 0, cancel() {} },
+    onWarn: () => {},
+  });
+  display.gotoPage('light');
+  display.exec(['vis hBrightness,1', 'hBrightness.val=37']);
+  const component = display.component('hBrightness');
+  const sent = [];
+  const touch = new TouchInput(
+    display,
+    (name, value) => sent.push([name, value]),
+    () => false,
+    (...args) => sent.push(['slider', ...args]),
+  );
+
+  touch.press(component.attrs.x + 10, component.attrs.y + component.attrs.h - 1);
+  touch.move(component.attrs.x + 10, component.attrs.y + 5);
+  touch.release(component.attrs.x + 10, component.attrs.y + 5);
+
+  assert.equal(component.attrs.val, 98);
+  assert.deepEqual(sent.filter(([name]) => name === 'slider'), [
+    ['slider', 13, component.id, 98],
+  ]);
+  assert.deepEqual(sent.filter(([name]) => name === 'esphome.component'), [
+    ['esphome.component', `13,${component.id},1`],
+  ]);
+});
+
+test('live slider input stays disabled when no live slider handler is provided', () => {
+  const display = new NextionDisplay(LANDSCAPE, {
+    scheduler: { every: () => 0, cancel() {} },
+    onWarn: () => {},
+  });
+  display.gotoPage('light');
+  display.exec(['vis hBrightness,1', 'hBrightness.val=37']);
+  const component = display.component('hBrightness');
+  const before = component.attrs.val;
+  const sent = [];
+  const touch = new TouchInput(display, (name, value) => sent.push([name, value]), () => false);
+
+  touch.press(component.attrs.x + 10, component.attrs.y + component.attrs.h - 1);
+  touch.move(component.attrs.x + 10, component.attrs.y + 5);
+  touch.release(component.attrs.x + 10, component.attrs.y + 5);
+
+  assert.equal(component.attrs.val, before);
+  assert.deepEqual(sent, []);
+});
+
 test('a swipe from the left edge reports swipe_right after the touch', () => {
   const { touch, sent } = setup('grid');
   touch.press(10, 200);
@@ -112,6 +178,17 @@ test('a swipe from the left edge reports swipe_right after the touch', () => {
     ['esphome.touch_end', '10,200,300,210'],
     ['esphome.gesture', 'swipe_right'],
   ]);
+});
+
+test('a cancelled pointer ends the touch without producing a swipe', () => {
+  const { touch, sent } = setup('grid');
+  touch.press(10, 200);
+  touch.move(150, 205);
+  touch.cancel();
+
+  assert.equal(touch._touch, null);
+  assert.ok(sent.some(([name]) => name === 'esphome.touch_end'));
+  assert.equal(sent.some(([name]) => name === 'esphome.gesture'), false);
 });
 
 test('swipe detection follows the firmware thresholds', () => {

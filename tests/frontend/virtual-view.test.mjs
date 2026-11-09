@@ -113,9 +113,3 @@ test('drawings render above the widgets', () => {
   const out = flat(renderDisplay(d, ctx));
   assert.match(out, /vp-circle" style="left:94px;top:94px;width:12px;height:12px;background:#ff0000;"/);
 });
-
-test('cls replaces the page background', () => {
-  const d = display('grid');
-  d.exec('cls 0');
-  assert.match(flat(renderDisplay(d, ctx)), /class="vp-screen" style="width:450px;height:320px;background:#000000;"/);
-});

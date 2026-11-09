@@ -31,10 +31,6 @@ function fakeHass() {
     subscriptions: [],
     unsubscribed: 0,
     calls: [],
-    async fetchWithAuth(path) {
-      const body = path.includes('/notifications/') ? [] : {};
-      return { ok: true, json: async () => body };
-    },
     connection: {
       async subscribeMessage(callback, message) {
         hass.subscriptions.push({ callback, message });
@@ -59,7 +55,6 @@ function makeDialog(props = {}) {
     _error: '',
     _stageWidth: 0,
     _sound: '',
-    _displayOff: false,
     _pointerId: null,
     _soundTimer: null,
     _resizeObserver: null,
@@ -83,8 +78,6 @@ test('opening starts a session for the selected device; closing stops it', async
     type: 'nspanel_haui/virtual_panel/subscribe',
     entry_id: 'entry1',
     device: 'kitchen',
-    live: false,
-    protocol_version: 2,
   });
 
   dlg.open = false;
@@ -135,7 +128,49 @@ test('the entity switch is available at every preview width', () => {
   }
 });
 
-test('the More tools area resets sandbox state only when changed and keeps reset out of Live mode', async () => {
+function eventHandler(value, className) {
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      const found = eventHandler(child, className);
+      if (found) return found;
+    }
+  } else if (value && Array.isArray(value.strings) && Array.isArray(value.values)) {
+    if (value.strings.join('').includes(className)) {
+      for (let i = 0; i < value.values.length; i++) {
+        if (value.strings[i].includes('@click=') && typeof value.values[i] === 'function') {
+          return value.values[i];
+        }
+      }
+    }
+    for (const child of value.values) {
+      const found = eventHandler(child, className);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function templateAttribute(value, className, attribute) {
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      const found = templateAttribute(child, className, attribute);
+      if (found !== null) return found;
+    }
+  } else if (value && Array.isArray(value.strings) && Array.isArray(value.values)) {
+    if (value.strings.join('').includes(className)) {
+      for (let i = 0; i < value.values.length; i++) {
+        if (value.strings[i].includes(attribute)) return value.values[i];
+      }
+    }
+    for (const child of value.values) {
+      const found = templateAttribute(child, className, attribute);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
+test('More tools reset the sandbox in Simulated mode and reset the timer in Live mode', async () => {
   const { dlg } = makeDialog();
   let resets = 0;
   dlg._session = { resetSandbox: async () => { resets++; } };
@@ -144,12 +179,29 @@ test('the More tools area resets sandbox state only when changed and keeps reset
   const sandboxTools = dlg._renderTools({ ready: true, live: false, sandboxChanged: true });
   assert.equal(resetSandboxDisabled(sandboxTools), false);
   assert.match(renderText(sandboxTools), /vp-reset-sandbox/);
-  assert.match(renderText(sandboxTools), /Reset sandbox/);
-  await sandboxTools.values.find(value => typeof value === 'function')();
+  await eventHandler(sandboxTools, 'vp-reset-sandbox')();
   assert.equal(resets, 1);
 
-  const liveTools = dlg._renderTools({ ready: true, live: true, sandboxChanged: true });
-  assert.equal(resetSandboxDisabled(liveTools), true);
+  let timerResets = 0;
+  dlg._session = { resetInteractionTimer: async () => { timerResets++; } };
+  const liveTools = dlg._renderTools({
+    ready: true,
+    live: true,
+    canInteract: false,
+    sandboxChanged: true,
+  });
+  assert.equal(resetSandboxDisabled(liveTools), null);
+  assert.match(renderText(liveTools), /vp-reset-interaction/);
+  assert.equal(templateAttribute(liveTools, 'vp-reset-interaction', '?disabled='), true);
+  const connectedTools = dlg._renderTools({
+    ready: true,
+    live: true,
+    canInteract: true,
+    sandboxChanged: true,
+  });
+  assert.equal(templateAttribute(connectedTools, 'vp-reset-interaction', '?disabled='), false);
+  await eventHandler(connectedTools, 'vp-reset-interaction')();
+  assert.equal(timerResets, 1);
 });
 
 function resetSandboxDisabled(value) {
@@ -196,18 +248,78 @@ test('the toolbar switches between Simulated and Live', async () => {
   );
   assert.deepEqual(pressed(), { 'mdi:flask-outline': 'true', 'mdi:access-point': 'false' });
 
-  // The other mode switches to Live, dropping simulated state server-side.
+  // The current mode does nothing; switching to Live swaps the dialog's
+  // session, with no simulated states to drop.
   modeButtons(dlg._renderToolbar(dlg._session))['mdi:flask-outline'].click();
   modeButtons(dlg._renderToolbar(dlg._session))['mdi:access-point'].click();
   await flush();
-  const configure = dlg.hass.calls.filter(c => c.type === 'nspanel_haui/virtual_panel/configure');
-  assert.deepEqual(configure.map(c => c.live), [true]);
+  assert.equal(dlg.hass.calls.length, 0);
+  assert.equal(dlg.hass.unsubscribed, 1);
+  assert.equal(dlg.hass.subscriptions.at(-1).message.type, 'nspanel_haui/live_panel/subscribe');
+  dlg._session._onMessage({
+    type: 'physical',
+    display_state: 'on',
+    connected: true,
+    idle: false,
+  });
   assert.deepEqual(pressed(), { 'mdi:flask-outline': 'false', 'mdi:access-point': 'true' });
   assert.match(
     collect(dlg._renderModeNote(dlg._session)).join(' '),
-    /Live mode: touches and the hardware buttons switch your real devices/,
+    /Live mode: component presses, gestures, buttons and idle control act on the connected panel\. Slider drags need the physical touchscreen/,
   );
+
+  // Back to Simulated: a sandbox session again, on its home panel.
+  modeButtons(dlg._renderToolbar(dlg._session))['mdi:flask-outline'].click();
+  await flush();
+  assert.equal(dlg.hass.calls.length, 0);
+  assert.equal(dlg.hass.unsubscribed, 2);
+  assert.equal(dlg.hass.subscriptions.at(-1).message.type, 'nspanel_haui/virtual_panel/subscribe');
+  assert.equal(dlg._session._openHome, true);
+  assert.deepEqual(pressed(), { 'mdi:flask-outline': 'true', 'mdi:access-point': 'false' });
   dlg._stopSession();
+});
+
+test('switching to Live drops the simulated states before leaving the sandbox', async () => {
+  const { dlg } = makeDialog({ open: true });
+  dlg.updated(new Map([['open', false]]));
+  await flush();
+  Object.assign(dlg._session, { sessionId: 'sandbox', sandboxChanged: true });
+  const unsubscribedAtCall = [];
+  const callWS = dlg.hass.callWS;
+  dlg.hass.callWS = message => {
+    unsubscribedAtCall.push(dlg.hass.unsubscribed);
+    return callWS(message);
+  };
+
+  dlg._setLive(true);
+  await flush();
+
+  assert.deepEqual(dlg.hass.calls, [{
+    type: 'nspanel_haui/virtual_panel/reset_sandbox',
+    session_id: 'sandbox',
+  }]);
+  // Sent while the sandbox was still subscribed, so the hub knows its session.
+  assert.deepEqual(unsubscribedAtCall, [0]);
+  assert.equal(dlg.hass.unsubscribed, 1);
+  assert.equal(dlg.hass.subscriptions.at(-1).message.type, 'nspanel_haui/live_panel/subscribe');
+  dlg._stopSession();
+});
+
+test('closing immediately after switching modes stops the replacement session', async () => {
+  const { dlg } = makeDialog({ open: true });
+  dlg.updated(new Map([['open', false]]));
+  await flush();
+
+  dlg._setLive(true);
+  const liveSubscription = dlg.hass.subscriptions.at(-1);
+  dlg._close();
+  dlg._setLive(true);
+  await flush();
+
+  assert.equal(liveSubscription.message.type, 'nspanel_haui/live_panel/subscribe');
+  assert.equal(dlg._session, null);
+  assert.equal(dlg.hass.subscriptions.length, 2);
+  assert.equal(dlg.hass.unsubscribed, 2);
 });
 
 test('the extra tools stay hidden until opened; hiding them stops entity hover', async () => {
@@ -235,6 +347,7 @@ test('a started session renders the screen and maps pointer input to touches', a
   dlg.updated(new Map([['open', false]]));
   await flush();
   const session = dlg._session;
+  session._loadIconMap = async () => ({});
   session._loadLayout = async () => ({
     orientation: 'landscape', width: 480, height: 320, visible_width: 450,
     fonts: [{ id: 0, size: 20, family: 'Roboto', weight: 400 }], globals: {}, pictures: {},
@@ -340,15 +453,11 @@ test('live preview sections use consistent spacing around the toolbar and mode n
   assert.doesNotMatch(styles, /\.vp-status\s*\{[^}]*margin-top:/);
 });
 
-test('sounds and display power are shown', () => {
+test('sounds are shown', () => {
   const { dlg } = makeDialog();
   dlg._onAction({ name: 'play_sound', value: 'notification' });
   assert.equal(dlg._sound, 'notification');
   clearTimeout(dlg._soundTimer);
-  dlg._onAction({ name: 'display_off', value: '' });
-  assert.equal(dlg._displayOff, true);
-  dlg._onAction({ name: 'display_on', value: '' });
-  assert.equal(dlg._displayOff, false);
 });
 
 test('closing emits dialog-closed', () => {
@@ -416,6 +525,31 @@ test('the idle timeout button looks selected while the idle page is shown', asyn
   assert.match(markup(), /\baccent\b/);
   dlg._session.idle = false;
   assert.doesNotMatch(markup(), /\baccent\b/);
+  dlg._stopSession();
+});
+
+test('the idle timeout button follows physical idle-state events', async () => {
+  const { dlg } = makeDialog({ open: true, _showTools: true });
+  dlg._startSession(true);
+  await flush();
+  const markup = () => collect(dlg.render()).join(' ');
+  assert.doesNotMatch(markup(), /accent/);
+  dlg._session._apply({
+    type: 'physical',
+    idle: true,
+    display_state: 'off',
+    connected: true,
+  });
+  assert.equal(dlg._session.physical.display_state, 'off');
+  assert.match(markup(), /Connected/);
+  assert.match(markup(), /accent/);
+  dlg._session._apply({
+    type: 'physical',
+    idle: false,
+    display_state: 'on',
+    connected: true,
+  });
+  assert.doesNotMatch(markup(), /accent/);
   dlg._stopSession();
 });
 

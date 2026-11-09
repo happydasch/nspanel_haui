@@ -12,8 +12,8 @@ from typing import Any
 from homeassistant import config_entries
 
 from .const import DOMAIN
-from .esphome_helpers import discover_esphome_devices as _discover_esphome_devices
-from .esphome_helpers import hub_device_entry
+from .hub.esphome_helpers import discover_esphome_devices as _discover_esphome_devices
+from .hub.esphome_helpers import hub_device_entry
 
 _LOGGER = logging.getLogger(__name__)
 

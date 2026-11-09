@@ -13,7 +13,7 @@ from .mapping.const import AUTO_SWITCHES, ESPAction, ESPEvent, NotifEvent, Notif
 from .mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
 
 if TYPE_CHECKING:
-    from ..nspanel_haui import NSPanelHAUI
+    from ..hub.app import NSPanelHAUI
 from .mapping.const import SysPanelKey
 
 

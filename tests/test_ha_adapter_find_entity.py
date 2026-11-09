@@ -14,7 +14,7 @@ import types
 
 import pytest
 
-from custom_components.nspanel_haui.ha_adapter import HAAdapter
+from custom_components.nspanel_haui.hub.adapter import HAAdapter
 
 _test_loop = None
 

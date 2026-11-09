@@ -1,4 +1,4 @@
-"""Virtual panel: the editor's interactive live preview, driven by the real hub code.
+"""Virtual panel: the editor's sandbox preview, driven by the real hub code.
 
 A virtual panel is a second ``NSPanelHAUI`` app for one device, built from
 the same stored config. Instead of the ESPHome native API it talks to a
@@ -8,20 +8,17 @@ browser:
   (``send_command(s)``, ``goto_page``, brightness, sounds) go to a sink that
   forwards them to the editor; touches, swipes and hardware buttons come back
   from the editor as the same ``esphome.*`` events the firmware publishes.
-- ``VirtualNSPanelHAUI`` reads entity states through a ``Sandbox``. In sandbox
-  mode every service call changes only simulated state; in live mode calls
-  reach Home Assistant, except calls to the real device's settings entities
-  (auto-dimming, brightness numbers, ...), which always stay simulated. The
-  relays are switched for real in live mode: the hardware buttons do that on
-  the panel.
+- ``VirtualNSPanelHAUI`` reads entity states through a ``Sandbox``: input
+  changes only simulated states, never a real entity.
 - The app never fires HA bus events, never persists to the panel store and
   never checks for or installs firmware/TFT updates.
 
 ``VirtualPanelHost`` owns the one virtual app of a device (see
-``websocket_api.py``). Every open live preview of the device is a viewer of
+``web/websocket.py``). Every open sandbox preview of the device is a viewer of
 that app, and the editor's panel cards are rendered on it too: each card runs
 its panel's page in isolation (``_PanelRender``), so a card never moves what a
-viewer sees.
+viewer sees. The live preview, which shows and drives the real panel, is
+``live_panel.py``.
 """
 
 from __future__ import annotations
@@ -33,23 +30,32 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
-from .ha_adapter import ItemProxy
-from .haui.abstract.haui_panel import HAUIPanel
-from .haui.controller.update import HAUIUpdateController
-from .haui.device import HAUIDevice
-from .haui.mapping.const import ESP_NS_EVENT, ESPCommand, ESPEvent, ESPResponse, ServerRequest
-from .haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
-from .haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
-from .haui.utils.text import get_translation
-from .haui.version import get_version
-from .nspanel_haui import NSPanelHAUI
+from ...haui.abstract.haui_panel import HAUIPanel
+from ...haui.controller.update import HAUIUpdateController
+from ...haui.device import HAUIDevice
+from ...haui.mapping.const import (
+    ESP_NS_EVENT,
+    ESPCommand,
+    ESPEvent,
+    ESPResponse,
+    ServerRequest,
+)
+from ...haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
+from ...haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
+from ...haui.utils.text import get_translation
+from ...haui.version import get_version
+from ...hub.adapter import ItemProxy
+from ...hub.app import NSPanelHAUI
+from .button_lights import (
+    RELAY_ENTITY_NAMES,
+    ButtonLight,
+    button_entity_ids,
+    light_state,
+    lights_message,
+)
 from .sandbox import Sandbox
 
 _LOGGER = logging.getLogger(__name__)
-
-# Protocol 2 adds optional entity-map and idle-state messages. Older open editor
-# modules do not understand these message types, so don't send them to those clients.
-_METADATA_PROTOCOL_VERSION = 2
 
 # Sink for messages to the browser; must be safe to call from any thread.
 Sink = Callable[[dict[str, Any]], None]
@@ -68,11 +74,6 @@ BROWSER_EVENTS: frozenset[str] = frozenset(
     }
 )
 
-# The firmware's relay switches (esphome/nspanel_haui/switch.yaml). The
-# hardware buttons switch them in relay mode, so unlike the device's settings
-# entities they are switched for real in live mode.
-RELAY_ENTITY_NAMES: dict[str, str] = {"left": "Relay Left", "right": "Relay Right"}
-
 # Same value as the firmware's ``$heartbeat_interval`` substitution.
 HEARTBEAT_INTERVAL = 5
 
@@ -88,9 +89,8 @@ class VirtualDevice(HAUIDevice):
     """Device of a virtual panel: leaves the firmware's auto switches alone.
 
     The switches belong to the real device, whose hub app keeps them in line
-    with the settings and the page on its screen. The virtual app would only
-    simulate them, and every real toggle (a popup on the panel) would reach
-    the viewers as a simulated entity.
+    with settings and the page on its screen. A hardware button switches its
+    relay in the sandbox, as the firmware does on the real panel.
     """
 
     def process_event(self, event: Any) -> None:
@@ -355,8 +355,6 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         ha_device_id: str | None,
         sink: Sink,
         device_info: dict[str, Any],
-        protected_entities: frozenset[str] = frozenset(),
-        live: bool = False,
     ) -> None:
         super().__init__(
             hass,
@@ -365,71 +363,29 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
             runtime_device_name=runtime_device_name,
             ha_device_id=ha_device_id,
         )
-        self.live = live
         self.sandbox = Sandbox(self._read_real_state)
         self._sink = sink
-        self._protected = protected_entities
         self._sandbox_listeners: dict[str, tuple[str, str | None, Callable]] = {}
-        # Hardware button indicators, keyed by ("relay" | "entity", side).
-        # A button switches its relay or any Home Assistant entity.
-        self._button_entity_ids: dict[tuple[str, str], str] = {}
-        self._button_handles: dict[tuple[str, str], str] = {}
-        self._button_states: dict[tuple[str, str], str] = {}
+        # Hardware button lights (see button_lights.py), from simulated states.
+        self._button_entity_ids: dict[ButtonLight, str] = {}
+        self._button_handles: dict[ButtonLight, str] = {}
+        self._button_states: dict[ButtonLight, str] = {}
         self.virtual_esphome = VirtualESPHomeProxy(self, sink, device_info)
 
     def _read_real_state(self, entity_id: str) -> tuple[str, dict[str, Any]] | None:
         state = self.hass.states.get(entity_id)
         return (state.state, dict(state.attributes)) if state else None
 
-    @staticmethod
-    def _indicator_state(
-        state: Any, attributes: dict[str, Any] | None, entity_id: str
-    ) -> str:
-        """Show a button entity as on or off, whatever its domain."""
-        if state is None or state in ("unknown", "unavailable"):
-            return "unknown"
-        domain = entity_id.split(".", 1)[0]
-        if domain == "cover":
-            position = (attributes or {}).get("current_position")
-            if isinstance(position, (int, float)) and not isinstance(position, bool):
-                return "on" if position > 0 else "off"
-            return "off" if state == "closed" else "on"
-        if domain == "lock":
-            return "on" if state in ("unlocked", "unlocking", "open", "opening") else "off"
-        if domain == "climate":
-            return "off" if state == "off" else "on"
-        if domain == "alarm_control_panel":
-            return "off" if state == "disarmed" else "on"
-        if domain == "vacuum":
-            return "off" if state in ("docked", "idle", "paused") else "on"
-        if domain == "media_player":
-            return "on" if state == "playing" else "off"
-        if domain == "timer":
-            return "on" if state == "active" else "off"
-        if state == "on" or state is True or state == 1:
-            return "on"
-        if state == "off" or state is False or state == 0:
-            return "off"
-        return "unknown"
-
     def start_relay_state_tracking(self) -> None:
-        """Publish the hardware button indicators and follow their changes for live viewers.
+        """Publish the hardware button lights and follow their simulated states.
 
-        Each button shows its relay; a button that switches an entity instead
-        (relay mode off and ``button_<side>_entity`` set) shows that entity's
-        state in its place. Any entity domain is supported. Call again after a
-        config change: it follows the new entities.
+        Call again after a config change: it follows the new entities.
         """
-        for side, relay_name in RELAY_ENTITY_NAMES.items():
-            relay = self.device.find_esphome_entity_id("switch", relay_name)
-            self._track_button_state(("relay", side), relay)
-            button_entity = None
-            if not self.device.get(f"use_relay_{side}", True):
-                button_entity = self.device.get(f"button_{side}_entity", None) or None
-            self._track_button_state(("entity", side), button_entity)
+        for key, entity_id in button_entity_ids(self.device).items():
+            self._track_button_state(key, entity_id)
         self._publish_relay_states()
 
-    def _track_button_state(self, key: tuple[str, str], entity_id: str | None) -> None:
+    def _track_button_state(self, key: ButtonLight, entity_id: str | None) -> None:
         if self._button_entity_ids.get(key) != entity_id:
             handle = self._button_handles.pop(key, None)
             if handle is not None:
@@ -445,30 +401,18 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
                 )
         if entity_id:
             item = self.get_item(entity_id)
-            self._button_states[key] = self._indicator_state(
-                item.state, item.attributes, entity_id
-            )
+            self._button_states[key] = light_state(item.state, item.attributes, entity_id)
         else:
             self._button_states.pop(key, None)
 
-    def _on_button_state_changed(self, key: tuple[str, str]) -> None:
+    def _on_button_state_changed(self, key: ButtonLight) -> None:
         entity_id = self._button_entity_ids[key]
         item = self.get_item(entity_id)
-        self._button_states[key] = self._indicator_state(item.state, item.attributes, entity_id)
+        self._button_states[key] = light_state(item.state, item.attributes, entity_id)
         self._publish_relay_states()
 
     def _publish_relay_states(self) -> None:
-        self._sink(
-            {
-                "type": "relays",
-                "left": self._button_states.get(("relay", "left"), "unknown"),
-                "right": self._button_states.get(("relay", "right"), "unknown"),
-                # None: the button switches its relay, so it has no entity indicator.
-                "entities": {
-                    side: self._button_states.get(("entity", side)) for side in RELAY_ENTITY_NAMES
-                },
-            }
-        )
+        self._sink(lights_message(self._button_states))
 
     def stop_relay_state_tracking(self) -> None:
         """Release the state listeners when the virtual app stops."""
@@ -520,28 +464,11 @@ class VirtualNSPanelHAUI(NSPanelHAUI):
         raise_on_error: bool = False,
         **kwargs: Any,
     ) -> Any:
-        domain, svc, service_data, target = self._split_service_call(service, dict(kwargs))
-        entity_ids = _target_entity_ids(target)
-        protected_target = any(eid in self._protected for eid in entity_ids)
-        if self.live and target is not None and any(key != "entity_id" for key in target):
-            self.log(
-                f"Live preview refused {domain}.{svc}: target selectors cannot be checked safely",
-                level="WARNING",
-            )
-            return None
         if return_response:
-            # Queries such as weather/get_forecasts change nothing. Do not let a
-            # response-bearing call bypass protection for device settings.
-            if self.live and protected_target:
-                self.log(
-                    f"Live preview refused response call {domain}.{svc} to a protected entity",
-                    level="WARNING",
-                )
-                return None
+            # Queries such as weather/get_forecasts change nothing.
             return super().call_service(service, return_response, raise_on_error, **kwargs)
-        if self.live and not protected_target:
-            return super().call_service(service, return_response, raise_on_error, **kwargs)
-        self.simulate_service(domain, svc, entity_ids, service_data or {})
+        domain, svc, service_data, target = self._split_service_call(service, dict(kwargs))
+        self.simulate_service(domain, svc, _target_entity_ids(target), service_data or {})
         return True if raise_on_error else None
 
     # sandbox
@@ -637,18 +564,6 @@ def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
             entity_id = min(entity_ids, key=lambda e: _sample_rank(hass.states.get(e)))
             kwargs.update(item=entity_id, item_id=entity_id)
     return kwargs
-
-
-def _send_compatible(sink: Sink, protocol_version: int, message: dict[str, Any]) -> None:
-    """Send to one viewer, without the metadata messages its protocol predates."""
-    if protocol_version < _METADATA_PROTOCOL_VERSION and message.get("type") in {
-        "entities",
-        "idle",
-        "relays",
-        "sandbox",
-    }:
-        return
-    sink(message)
 
 
 class _RecordingESPHome:
@@ -817,9 +732,9 @@ class _PanelRender:
 class VirtualPanelHost:
     """The editor's virtual panel for one device: one app for every preview.
 
-    Live previews attach as viewers: each sees the app's display output and can
-    touch it. Panel cards render single panels in isolation on the same app.
-    The sandbox/live mode belongs to the app, so it is shared by all viewers.
+    Sandbox previews are viewers of the virtual app's display output, and its
+    simulated states are shared by all of them. Panel cards render single
+    panels in isolation on the same app.
     """
 
     def __init__(
@@ -830,11 +745,12 @@ class VirtualPanelHost:
         *,
         ha_device_id: str | None = None,
         device_info: dict[str, Any] | None = None,
-        protected_entities: frozenset[str] = frozenset(),
-        live: bool = False,
     ) -> None:
-        self._viewers: dict[str, tuple[Sink, int]] = {}
+        self._viewers: dict[str, Sink] = {}
+        # Physical notification id -> its copy in the virtual queue.
         self._preview_notification_ids: dict[str, str] = {}
+        self._notification_source: Any | None = None
+        self._unfollow_notifications: Callable[[], None] | None = None
         self._viewers_lock = threading.Lock()
         self._connected = False
         info = {
@@ -859,8 +775,6 @@ class VirtualPanelHost:
             ha_device_id=ha_device_id,
             sink=self._broadcast,
             device_info=info,
-            protected_entities=protected_entities,
-            live=live,
         )
 
     async def async_start(self) -> None:
@@ -885,12 +799,7 @@ class VirtualPanelHost:
         await self.app.async_run_on_worker(_set_device_info)
 
     async def async_follow_device(self, running: Any) -> None:
-        """Take the physical device's metadata from its running app.
-
-        The editor renders a page of cards at once: concurrent calls share one
-        read, so a burst does not queue a job per card on the physical panel's
-        worker.
-        """
+        """Take the physical device's metadata (versions, network) for previews and cards."""
         if self._follow is None or self._follow.done():
             self._follow = asyncio.ensure_future(self._async_follow_device(running))
         await asyncio.shield(self._follow)
@@ -899,7 +808,37 @@ class VirtualPanelHost:
         device_info = await running.async_run_on_worker(lambda: dict(running.device.device_info))
         await self.async_set_device_info(device_info)
 
+    async def async_follow_notifications(self, running: Any) -> None:
+        """Mirror the physical device's notification queue, read-only, from now on.
+
+        Every change of that queue is applied to the virtual app's queue; a
+        notification dismissed in the preview stays queued on the panel.
+        """
+        if self._notification_source is running:
+            return
+        self._stop_following_notifications()
+        self._notification_source = running
+        controller = running.controller["notification"]
+
+        def _changed(state: dict[str, Any]) -> None:
+            # On the physical app's worker, so its queue is read there.
+            if state["event"] == "notifications":
+                self.app.hass.loop.call_soon_threadsafe(
+                    self.app.dispatch, self._sync_notifications, controller.get_notifications()
+                )
+
+        self._unfollow_notifications = running.subscribe_preview_state(_changed)
+        snapshot = await running.async_run_on_worker(controller.get_notifications)
+        await self.app.async_run_on_worker(self._sync_notifications, snapshot)
+
+    def _stop_following_notifications(self) -> None:
+        if self._unfollow_notifications is not None:
+            self._unfollow_notifications()
+            self._unfollow_notifications = None
+        self._notification_source = None
+
     async def async_stop(self) -> None:
+        self._stop_following_notifications()
         await self.app.async_run_on_worker(self.app.stop_relay_state_tracking)
         await self.app.async_run_on_worker(self.app.stop)
 
@@ -910,28 +849,23 @@ class VirtualPanelHost:
         if self.viewer_count:
             await self.app.async_run_on_worker(self.app.start_relay_state_tracking)
 
-    # viewers (live previews)
+    # viewers (sandbox previews)
 
     @property
     def viewer_count(self) -> int:
         with self._viewers_lock:
             return len(self._viewers)
 
-    def attach(
-        self, viewer_id: str, sink: Sink, *, protocol_version: int = _METADATA_PROTOCOL_VERSION
-    ) -> None:
-        """Add a live-preview viewer; call from the event loop.
-
-        The first viewer boots the display. A later one starts blank, so the
-        current panel is drawn again (for every viewer) and the viewer learns
-        the idle and entity state it missed.
-        """
+    def attach(self, viewer_id: str, sink: Sink) -> None:
+        """Attach a viewer; the first one boots the virtual display."""
         with self._viewers_lock:
-            self._viewers[viewer_id] = (sink, protocol_version)
+            self._viewers[viewer_id] = sink
         self.app.dispatch(self.app.start_relay_state_tracking)
-        self.app.dispatch(self._send_sandbox_state, sink, protocol_version)
+        self.app.dispatch(
+            lambda: sink({"type": "sandbox", "changed": self.app.sandbox.has_changes})
+        )
         if self._connected:
-            self.app.dispatch(self._redraw_for, sink, protocol_version)
+            self.app.dispatch(self._redraw_for, sink)
         else:
             self._connected = True
             self.app.virtual_esphome.connect()
@@ -943,21 +877,14 @@ class VirtualPanelHost:
 
     def _broadcast(self, message: dict[str, Any]) -> None:
         with self._viewers_lock:
-            viewers = list(self._viewers.values())
-        for sink, protocol_version in viewers:
-            _send_compatible(sink, protocol_version, message)
+            sinks = list(self._viewers.values())
+        for sink in sinks:
+            sink(message)
 
-    def _send_sandbox_state(self, sink: Sink, protocol_version: int) -> None:
-        _send_compatible(
-            sink,
-            protocol_version,
-            {"type": "sandbox", "changed": self.app.sandbox.has_changes},
-        )
-
-    def _redraw_for(self, sink: Sink, protocol_version: int) -> None:
+    def _redraw_for(self, sink: Sink) -> None:
         proxy = self.app.virtual_esphome
-        _send_compatible(sink, protocol_version, {"type": "idle", "active": proxy.idle})
-        _send_compatible(sink, protocol_version, {"type": "entities", "map": proxy.entities})
+        sink({"type": "idle", "active": proxy.idle})
+        sink({"type": "entities", "map": proxy.entities})
         navigation = self.app.controller["navigation"]
         if navigation.panel is not None:
             navigation.reload_panel()
@@ -1015,14 +942,10 @@ class VirtualPanelHost:
             await self.app.async_run_on_worker(render.stop)
         return {"page": render.page_id, "before": render.before, "commands": list(render.commands)}
 
-    async def async_sync_notifications(self, notifications: list[dict[str, Any]]) -> None:
-        """Apply the browser's read-only notification snapshot to its virtual queue."""
-        await self.app.async_run_on_worker(self._sync_notifications, notifications)
-
-    def _sync_notifications(self, notifications: list[dict[str, Any]]) -> None:
-        """Reconcile a browser-read snapshot on the virtual app's worker."""
+    def _sync_notifications(self, notifications: list[Any]) -> None:
+        """Reconcile the physical queue's snapshot on the virtual app's worker."""
         controller = self.app.controller["notification"]
-        snapshot = {notification["id"]: notification for notification in notifications}
+        snapshot = {notification.notif_id: notification for notification in notifications}
         queued = {
             notification.notif_id: notification for notification in controller.get_notifications()
         }
@@ -1033,7 +956,8 @@ class VirtualPanelHost:
             notification = queued.get(local_id)
             navigation = self.app.controller.get("navigation")
             current_panel = navigation.get_current_panel() if navigation is not None else None
-            was_open = current_panel is not None and current_panel.get("notif_id") == local_id
+            # Any panel may be shown; only a notification popup has an id.
+            was_open = current_panel is not None and current_panel.get("notif_id", None) == local_id
             if notification is not None:
                 controller.remove_notification(notification)
             del self._preview_notification_ids[source_id]
@@ -1044,14 +968,14 @@ class VirtualPanelHost:
             if source_id in self._preview_notification_ids:
                 continue
             local = controller.add_notification(
-                title=notification["title"],
-                message=notification["message"],
-                icon=notification["icon"],
-                persistent=notification["persistent"],
-                notif_type=notification["notif_type"],
-                force_show=notification["force_show"],
-                text_size=notification["text_size"],
-                timeout=notification["timeout"],
+                title=notification.title,
+                message=notification.message,
+                icon=notification.icon,
+                persistent=notification.persistent,
+                notif_type=notification.notif_type,
+                force_show=notification.force_show,
+                text_size=notification.text_size,
+                timeout=notification.timeout,
             )
             self._preview_notification_ids[source_id] = local.notif_id
 
@@ -1066,21 +990,24 @@ class VirtualPanelHost:
         self.app.virtual_esphome.emit(name, value)
 
     def show_idle(self) -> None:
-        """Act as if the inactivity timeout opened the idle page."""
+        """Act as if the inactivity timeout opened the virtual idle page."""
         navigation = self.app.controller.get("navigation")
         if navigation is not None:
             self.app.dispatch(navigation.open_idle_panel, True)
 
-    def set_live(self, live: bool) -> None:
-        """Switch between sandbox and live mode.
+    def show_home(self) -> None:
+        """Leave the virtual idle page, if shown, and open the home panel."""
+        navigation = self.app.controller.get("navigation")
+        if navigation is None:
+            return
 
-        Going live drops the simulated states: they would otherwise keep
-        overriding the real states the live calls change.
-        """
-        self.app.live = live
-        if live:
-            self.app.dispatch(self.app.reset_sandbox)
+        def _open_home() -> None:
+            # A home panel outside the navigation would only suspend the idle session.
+            navigation.mark_awake()
+            navigation.open_home_panel()
+
+        self.app.dispatch(_open_home)
 
     def reset_sandbox(self) -> None:
-        """Clear the device's simulated states without changing its run mode."""
+        """Clear the device's simulated states."""
         self.app.dispatch(self.app.reset_sandbox)

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-    from .nspanel_haui import NSPanelHAUI
+    from .hub.app import NSPanelHAUI
 
 
 async def async_setup_entry(

@@ -92,6 +92,7 @@ class NotifyPage(CommonNotifyPage):
         return True
 
     def start_panel(self, panel: HAUIPanel) -> None:
+        self._current_page = 0
         self._notif_type = panel.get("notif_type", NotifType.INFO)
         self._icon = parse_icon(panel.get("icon", ""))
         self._notification = parse_notification_text(panel.get("notification", ""))
@@ -206,7 +207,9 @@ class NotifyPage(CommonNotifyPage):
         truncated — the final page stays visible until the popup closes.
         """
         self._total_pages = len(self._chunks)
-        self._current_page = 0
+        # A redraw can refresh the current page without restarting the panel;
+        # keep that page unless the updated text no longer has it.
+        self._current_page = min(self._current_page, max(self._total_pages - 1, 0))
 
         if self._total_pages > 1:
             self._set_page_text()

@@ -1,5 +1,7 @@
 """Weather page rendering with incomplete data."""
 
+import pytest
+
 from custom_components.nspanel_haui.haui.mapping.color import (
     WEATHER_COLORS,
     WEATHER_COLORS_LIGHT,
@@ -102,6 +104,38 @@ def test_short_forecast_clears_unused_slots():
     for idx in (3, 4, 5):
         for name in ("Name", "Icon", "Val", "SubVal"):
             assert f'f{idx}{name}.txt=""' in page.cmds
+
+
+@pytest.mark.parametrize("failure", ["no response", "malformed response", "service exception"])
+@pytest.mark.parametrize("has_previous", [True, False])
+def test_forecast_failure_reuses_last_result_or_clears_empty_slots(failure, has_previous):
+    previous = [_forecast(1)] if has_previous else None
+    app = _App(forecast=previous)
+    if failure == "no response":
+        app.call_service = lambda _service, **_kwargs: None
+    elif failure == "malformed response":
+        app.call_service = lambda _service, **_kwargs: {"result": {}}
+    else:
+        def raise_service_error(_service, **_kwargs):
+            raise RuntimeError("temporary weather service failure")
+
+        app.call_service = raise_service_error
+
+    page = _weather_page(app, {})
+    page._forecast_type = "daily"
+    page._previous_forecast = previous
+
+    page.render_forecast()
+
+    if has_previous:
+        assert 'f1Val.txt="11°C"' in page.cmds
+        assert 'f1Name.txt="Thu"' in page.cmds
+        assert page._previous_forecast is previous
+    else:
+        for idx in range(1, page.NUM_FORECAST + 1):
+            for part in ("Name", "Icon", "Val", "SubVal"):
+                assert f'f{idx}{part}.txt=""' in page.cmds
+        assert page._previous_forecast is None
 
 
 def test_home_temp_unavailable_shows_outside_temp_only():

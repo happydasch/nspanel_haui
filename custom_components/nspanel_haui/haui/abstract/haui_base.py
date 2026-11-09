@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from .component import Component
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..utils.debounce import Debouncer
 from .display_interface import DisplayInterface, ESPHomeTransport

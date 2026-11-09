@@ -24,8 +24,7 @@ def test_headerless_page_components_have_no_header_buttons(type_key):
 def test_page_specific_color_options_are_exposed():
     """Pages that still support custom colors keep those controls in the editor."""
     descriptors = {
-        descriptor["type_key"]: descriptor
-        for descriptor in get_user_panel_type_descriptors("pl")
+        descriptor["type_key"]: descriptor for descriptor in get_user_panel_type_descriptors("pl")
     }
     color_options = {
         "alarm": {

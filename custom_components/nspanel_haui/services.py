@@ -20,7 +20,7 @@ from .haui.mapping.const import NotifType
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
 
-    from .nspanel_haui import NSPanelHAUI
+    from .hub.app import NSPanelHAUI
 
 _LOGGER = logging.getLogger(__name__)
 

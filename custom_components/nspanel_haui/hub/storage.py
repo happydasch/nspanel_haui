@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.storage import Store
 
-from .haui.device_config import find_store_device
+from ..haui.device_config import find_store_device
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -86,7 +86,7 @@ def drop_fixed_sys_overrides(device_name: str, device_data: dict) -> bool:
     Returns:
         True when any panel was removed.
     """
-    from .haui.mapping.panel import SYS_PANEL_MAPPING
+    from ..haui.mapping.panel import SYS_PANEL_MAPPING
 
     panels = device_data.get("panels", [])
     kept = []

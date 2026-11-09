@@ -89,7 +89,6 @@ def _device(app, **config):
     device.sync_config_to_device()
     return device
 
-
     app = _App(dimming="off", display_off="on")
     device = _device(
         app,

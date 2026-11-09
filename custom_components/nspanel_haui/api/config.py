@@ -9,9 +9,9 @@ from aiohttp import web
 from homeassistant.components.http.decorators import require_admin
 from homeassistant.helpers.http import HomeAssistantView
 
-from ..esphome_helpers import lookup_device_registry_name
 from ..haui.config_models import validate_panels
-from ..storage import (
+from ..hub.esphome_helpers import lookup_device_registry_name
+from ..hub.storage import (
     async_remove_device,
     empty_device,
     empty_store,
@@ -44,11 +44,12 @@ async def push_panels(hass: Any, entry_id: str, data: dict) -> dict:
     Reloads the entry when the set of enabled devices changed (notify entities
     are created per running device at setup) or no apps are running; otherwise
     rebuilds each device's runtime config the way setup does and applies it on
-    the app's worker. The editor's virtual apps (live preview, panel cards)
-    get the saved config too.
+    the app's worker. The editor's virtual apps (sandbox preview, panel cards)
+    get the saved config too, and live previews follow the reloaded apps.
     """
     from .. import _build_config_dict
-    from ..websocket_api import async_reload_hosts
+    from ..web.preview.live_panel import async_reload_viewers
+    from ..web.websocket import async_reload_hosts
 
     await async_reload_hosts(hass, entry_id, data)
     apps = get_apps(hass, entry_id)
@@ -89,6 +90,7 @@ async def push_panels(hass: Any, entry_id: str, data: dict) -> dict:
                 device_name,
                 entry_id,
             )
+    await async_reload_viewers(hass, entry_id)
 
     if profile_migration_saved:
         await panel_store(hass, entry_id).async_save(data)
@@ -246,7 +248,7 @@ class DeviceConfigView(HomeAssistantView):
         and ``esphome_device_id`` keys.
         """
         hass = request.app["hass"]
-        from ..esphome_helpers import discover_esphome_devices
+        from ..hub.esphome_helpers import discover_esphome_devices
 
         discovered = await discover_esphome_devices(hass)
         return self.json({"devices": discovered})
@@ -272,8 +274,8 @@ class DeviceConfigView(HomeAssistantView):
         if not entry:
             raise ApiError("Config entry not found", 404)
 
-        from ..esphome_helpers import hub_device_entry
         from ..haui.device_config import find_store_device
+        from ..hub.esphome_helpers import hub_device_entry
 
         existing_names = {d["name"] for d in entry.data.get("devices", []) if "name" in d}
         new_devices: list[dict] = []

@@ -19,9 +19,8 @@ import { renderSimulatorPreview } from './previews/simulator-frame.js';
  * @param {object} host - the Lit element instance
  * @param {object} panel - the panel config (user panel) or system panel entry
  * @param {number} panelIndex - index of the panel in the panels array (-1 for system)
- * @param {object|null} panelType - matched panel type descriptor / system entry
  * @returns {import("lit").TemplateResult}
  */
-export function renderPanelPreview(host, panel, panelIndex, panelType) {
-  return renderSimulatorPreview(host, panel, panelIndex, panelType);
+export function renderPanelPreview(host, panel, panelIndex) {
+  return renderSimulatorPreview(host, panel, panelIndex);
 }

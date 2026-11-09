@@ -1,28 +1,27 @@
-"""WebSocket commands for the editor's virtual panel.
+"""WebSocket commands for the editor's virtual panel (sandbox preview and cards).
 
 Every device has at most one virtual app (``virtual_panel.VirtualPanelHost``),
 started on first use and stopped after ``IDLE_STOP_SECONDS`` without a viewer
-or a card render. Live previews and panel cards share it.
+or a card render. Sandbox previews and panel cards share it. The live preview
+has commands of its own (``preview/live_panel.py``).
 
-- ``nspanel_haui/virtual_panel/subscribe`` attaches a live preview to the
+- ``nspanel_haui/virtual_panel/subscribe`` attaches a sandbox preview to the
   device's app and streams its display output to the editor until the
   subscription is closed. The first message is ``{"type": "started", ...}``;
   the others are the messages of ``virtual_panel.VirtualESPHomeProxy`` and the
-  hardware buttons' lights.
+  hardware buttons' lights. From then on the app mirrors the device's
+  notification queue.
 - ``nspanel_haui/virtual_panel/event`` injects a touch, swipe or hardware
   button.
-- The live preview reads the device's current notifications from the REST API
-  and sends that snapshot to ``nspanel_haui/virtual_panel/notifications`` so
-  its virtual app can render an independent queue.
+- ``nspanel_haui/virtual_panel/home`` leaves the idle page and opens the home
+  panel, for a preview switching back from Live.
 - ``nspanel_haui/virtual_panel/idle`` acts as if the inactivity timeout opened
   the idle page.
 - ``nspanel_haui/virtual_panel/reset_sandbox`` drops simulated entity states.
-- ``nspanel_haui/virtual_panel/configure`` switches the app between sandbox
-  and live mode; the mode is shared by every live preview of the device.
 - ``nspanel_haui/virtual_panel/render`` renders one panel as its editor card
   shows it, without touching what a live preview shows.
 
-Admin only, like the editor itself: live mode controls real entities.
+Admin only, like the editor itself.
 """
 
 from __future__ import annotations
@@ -35,7 +34,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.components import websocket_api
 
-from .const import DOMAIN
+from ..const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,8 +51,8 @@ class _Hosts:
         self._hass = hass
         self._tasks: dict[tuple[str, str], asyncio.Task] = {}
         self._idle: dict[tuple[str, str], asyncio.TimerHandle] = {}
-        # live preview viewer id -> (host key, host)
-        self.viewers: dict[str, tuple[tuple[str, str], Any]] = {}
+        # live preview viewer id -> (host key, host, owning connection)
+        self.viewers: dict[str, tuple[tuple[str, str], Any, Any]] = {}
 
     async def async_get(self, entry: Any, device: str) -> Any:
         key = (entry.entry_id, device)
@@ -85,7 +84,9 @@ class _Hosts:
         if task.result().viewer_count:
             self.touch(key)
             return
-        self._hass.async_create_task(self.async_stop(key))
+        # Forgotten before the stop runs: a use in between starts a new host
+        # instead of attaching to this one.
+        self._hass.async_create_task(self._forget(key).async_stop())
 
     def running(self, entry_id: str) -> list[tuple[str, Any]]:
         """(device, host) of every started host of a hub."""
@@ -95,16 +96,21 @@ class _Hosts:
             if owner == entry_id and task.done() and task.exception() is None
         ]
 
-    async def async_stop(self, key: tuple[str, str]) -> None:
+    def _forget(self, key: tuple[str, str]) -> Any | None:
+        """Drop a host at once, so the next use starts a new one; returns it if started."""
         handle = self._idle.pop(key, None)
         if handle is not None:
             handle.cancel()
         task = self._tasks.pop(key, None)
-        if task is None:
-            return
         self.viewers = {vid: v for vid, v in self.viewers.items() if v[0] != key}
-        if task.done() and task.exception() is None:
-            await task.result().async_stop()
+        if task is None or not task.done() or task.exception() is not None:
+            return None
+        return task.result()
+
+    async def async_stop(self, key: tuple[str, str]) -> None:
+        host = self._forget(key)
+        if host is not None:
+            await host.async_stop()
 
 
 def _hosts(hass: Any) -> _Hosts:
@@ -115,10 +121,10 @@ def _hosts(hass: Any) -> _Hosts:
 
 
 async def _create_host(hass: Any, entry: Any, device: str) -> Any:
-    from . import _build_config_dict
-    from .esphome_helpers import resolve_ha_device_id
-    from .storage import empty_store, panel_store
-    from .virtual_panel import VirtualPanelHost
+    from .. import _build_config_dict
+    from ..hub.esphome_helpers import resolve_ha_device_id
+    from ..hub.storage import empty_store, panel_store
+    from .preview.virtual_panel import VirtualPanelHost
 
     store = await panel_store(hass, entry.entry_id).async_load() or empty_store()
     cfg = _build_config_dict(entry.data, store, device_name=device)
@@ -135,7 +141,6 @@ async def _create_host(hass: Any, entry: Any, device: str) -> Any:
         cfg,
         ha_device_id=ha_device_id,
         device_info=device_info,
-        protected_entities=await _protected_entities(hass, ha_device_id),
     )
     await host.async_start()
     return host
@@ -143,7 +148,7 @@ async def _create_host(hass: Any, entry: Any, device: str) -> Any:
 
 async def async_reload_hosts(hass: Any, entry_id: str, data: dict) -> None:
     """Apply a saved store to the hub's virtual apps, as a save does on the devices."""
-    from . import _build_config_dict
+    from .. import _build_config_dict
 
     hosts = hass.data.get(HOSTS_KEY)
     entry = hass.config_entries.async_get_entry(entry_id)
@@ -166,26 +171,6 @@ async def async_stop_hosts(hass: Any, entry_id: str) -> None:
         await hosts.async_stop((entry_id, device))
 
 
-async def _protected_entities(hass: Any, ha_device_id: str | None) -> frozenset[str]:
-    """Entity ids of the real device's settings; a preview never changes them.
-
-    The relay switches are left out: in live mode the preview's hardware
-    buttons switch the real relays, as the panel's buttons do.
-    """
-    if ha_device_id is None:
-        return frozenset()
-    from homeassistant.helpers import entity_registry as er
-
-    from .virtual_panel import RELAY_ENTITY_NAMES
-
-    registry = er.async_get(hass)
-    entries = er.async_entries_for_device(registry, ha_device_id, include_disabled_entities=True)
-    relays = set(RELAY_ENTITY_NAMES.values())
-    return frozenset(
-        entry.entity_id for entry in entries if getattr(entry, "original_name", None) not in relays
-    )
-
-
 def _device_entry(hass: Any, connection: Any, msg: dict[str, Any]) -> Any | None:
     """The hub entry when ``msg`` names one of its devices, else an error is sent."""
     entry = hass.config_entries.async_get_entry(msg["entry_id"])
@@ -201,14 +186,12 @@ def _device_entry(hass: Any, connection: Any, msg: dict[str, Any]) -> Any | None
         vol.Required("type"): "nspanel_haui/virtual_panel/subscribe",
         vol.Required("entry_id"): str,
         vol.Required("device"): str,
-        vol.Optional("live", default=False): bool,
-        vol.Optional("protocol_version", default=1): int,
     }
 )
 @websocket_api.require_admin
 @websocket_api.async_response
 async def ws_subscribe(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
-    from .haui.device_config import is_portrait_model
+    from ..haui.device_config import is_portrait_model
 
     entry = _device_entry(hass, connection, msg)
     if entry is None:
@@ -224,7 +207,11 @@ async def ws_subscribe(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     def sink(message: dict[str, Any]) -> None:
         hass.loop.call_soon_threadsafe(_send, message)
 
+    closed = False
+
     def _unsubscribe() -> None:
+        nonlocal closed
+        closed = True
         viewer = hosts.viewers.pop(viewer_id, None)
         if viewer is not None:
             viewer[1].detach(viewer_id)
@@ -238,22 +225,27 @@ async def ws_subscribe(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
         _LOGGER.exception("Virtual panel for '%s' failed to start", msg["device"])
         _send({"type": "error", "message": "start_failed"})
         return
-    host.set_live(msg["live"])
+    running = (hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}).get(msg["device"])
+    if running is not None:
+        await host.async_follow_device(running)
+        await host.async_follow_notifications(running)
+    # Closed while the app started: attaching now would keep a viewer nobody sees.
+    if closed:
+        return
     _send(
         {
             "type": "started",
             "session_id": viewer_id,
             "portrait": is_portrait_model(host.app.device.get("display_model")),
-            "live": msg["live"],
         }
     )
-    hosts.viewers[viewer_id] = (key, host)
-    host.attach(viewer_id, sink, protocol_version=msg.get("protocol_version", 1))
+    hosts.viewers[viewer_id] = (key, host, connection)
+    host.attach(viewer_id, sink)
 
 
 def _get_host(hass: Any, connection: Any, msg: dict[str, Any]) -> Any | None:
     viewer = _hosts(hass).viewers.get(msg["session_id"])
-    if viewer is None:
+    if viewer is None or viewer[2] is not connection:
         connection.send_error(msg["id"], "not_found", "Unknown live preview session")
         return None
     return viewer[1]
@@ -283,38 +275,17 @@ async def ws_event(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
 
 @websocket_api.websocket_command(
     {
-        vol.Required("type"): "nspanel_haui/virtual_panel/notifications",
+        vol.Required("type"): "nspanel_haui/virtual_panel/home",
         vol.Required("session_id"): str,
-        vol.Required("notifications"): vol.All(
-            [
-                vol.Schema(
-                    {
-                        vol.Required("id"): str,
-                        vol.Required("title"): str,
-                        vol.Required("message"): str,
-                        vol.Required("icon"): str,
-                        vol.Required("notif_type"): vol.In(["info", "warning", "critical"]),
-                        vol.Required("persistent"): bool,
-                        vol.Required("force_show"): bool,
-                        vol.Required("text_size"): vol.Any(
-                            "auto", vol.All(int, vol.Range(min=1, max=3))
-                        ),
-                        vol.Required("timeout"): vol.Any(None, vol.All(int, vol.Range(min=0))),
-                    }
-                )
-            ],
-            vol.Length(max=50),
-        ),
     }
 )
 @websocket_api.require_admin
 @websocket_api.async_response
-async def ws_notifications(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
-    """Apply the live preview's read-only HAUI notification snapshot."""
+async def ws_home(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
     host = _get_host(hass, connection, msg)
     if host is None:
         return
-    await host.async_sync_notifications(msg["notifications"])
+    host.show_home()
     connection.send_result(msg["id"])
 
 
@@ -347,23 +318,6 @@ async def ws_reset_sandbox(hass: Any, connection: Any, msg: dict[str, Any]) -> N
     if host is None:
         return
     host.reset_sandbox()
-    connection.send_result(msg["id"])
-
-
-@websocket_api.websocket_command(
-    {
-        vol.Required("type"): "nspanel_haui/virtual_panel/configure",
-        vol.Required("session_id"): str,
-        vol.Required("live"): bool,
-    }
-)
-@websocket_api.require_admin
-@websocket_api.async_response
-async def ws_configure(hass: Any, connection: Any, msg: dict[str, Any]) -> None:
-    host = _get_host(hass, connection, msg)
-    if host is None:
-        return
-    host.set_live(msg["live"])
     connection.send_result(msg["id"])
 
 
@@ -405,8 +359,7 @@ def async_register_websocket_commands(hass: Any) -> None:
     """Register the virtual panel's WebSocket commands."""
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_event)
-    websocket_api.async_register_command(hass, ws_notifications)
+    websocket_api.async_register_command(hass, ws_home)
     websocket_api.async_register_command(hass, ws_idle)
     websocket_api.async_register_command(hass, ws_reset_sandbox)
-    websocket_api.async_register_command(hass, ws_configure)
     websocket_api.async_register_command(hass, ws_render)

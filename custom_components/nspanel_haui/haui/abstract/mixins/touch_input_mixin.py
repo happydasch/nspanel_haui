@@ -13,10 +13,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from ...mapping.const import ESPEvent, ESPRequest, ESPResponse
-from ..component import Component
+from ..component import Component, ComponentRegistry
 
 if TYPE_CHECKING:
-    from ....nspanel_haui import NSPanelHAUI
+    from ....hub.app import NSPanelHAUI
     from ..haui_event import HAUIEvent
     from ..haui_panel import HAUIPanel
 
@@ -81,6 +81,9 @@ class TouchInputMixin:
         app: NSPanelHAUI
         page_id: int
         panel: HAUIPanel | None
+        COMPONENTS: ClassVar[ComponentRegistry]
+        _drag_components: set[int]
+        _read_callbacks: dict[str, Callable[[Any], None]]
 
         def log(self, msg: str, **kwargs: Any) -> None: ...
         def send_esphome(self, name: str, value: Any = "", force: bool = False) -> None: ...
@@ -223,6 +226,19 @@ class TouchInputMixin:
         """
         self.on_release(component, self._callback_slider_release, drag=True)
         self.add_read_callback(component, handler)
+
+    def dispatch_slider_value(self, component_id: int, value: int) -> None:
+        """Apply a live-preview slider value through its registered handler."""
+        component = next(
+            (component for component in self.COMPONENTS.values() if component.id == component_id),
+            None,
+        )
+        if component is None or component_id not in self._drag_components:
+            raise ValueError("Component is not a slider on the current page")
+        handler = self._read_callbacks.get(component.name)
+        if handler is None:
+            raise ValueError("Slider has no value handler on the current page")
+        handler(value)
 
     def add_read_callback(self, component: Component | str, handler: Callable[[Any], None]) -> None:
         """Route ``read_response`` events for ``component`` to ``handler``.

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.device_registry import DeviceEntry
 
-    from .nspanel_haui import NSPanelHAUI
+    from .hub.app import NSPanelHAUI
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -209,8 +209,8 @@ async def _create_app(
     The caller is responsible for storing the returned app in the running
     apps dict (hass.data[DOMAIN][entry.entry_id][dev_name]).
     """
-    from .esphome_helpers import resolve_ha_device_id
-    from .nspanel_haui import NSPanelHAUI
+    from .hub.app import NSPanelHAUI
+    from .hub.esphome_helpers import resolve_ha_device_id
 
     cfg = _build_config_dict(data, panels, device_name=dev_name)
     ha_device_id = resolve_ha_device_id(hass, dev_name)
@@ -224,7 +224,7 @@ async def _create_app(
     app._last_panel_update = (
         panels.get("devices", {}).get(dev_name, {}).get("last_panel_update") if panels else None
     )
-    from .storage import empty_store, panel_store
+    from .hub.storage import empty_store, panel_store
 
     async def _persist_day_profile(values: dict[str, Any]) -> None:
         from .haui.device_config import find_store_device
@@ -360,7 +360,7 @@ async def _trigger_haui_discovery(hass: HomeAssistant) -> bool:
     if hass.config_entries.async_entries(DOMAIN):
         return False
 
-    from .esphome_helpers import discover_esphome_devices
+    from .hub.esphome_helpers import discover_esphome_devices
 
     discovered = await discover_esphome_devices(hass)
     if not discovered:
@@ -402,7 +402,7 @@ async def _register_discovery(hass: HomeAssistant) -> None:
     from homeassistant.core import callback as ha_callback
     from homeassistant.helpers import device_registry as dr
 
-    from .esphome_helpers import is_haui_device, resolve_ha_device_id
+    from .hub.esphome_helpers import is_haui_device, resolve_ha_device_id
 
     def _reload_if_device_resolved(hub_entry: ConfigEntry) -> None:
         # An app started before its ESPHome device was registered has no device
@@ -458,7 +458,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Devices whose ESPHome entry registers later are picked up by the
     # session-wide registry listener (_register_discovery).
-    from .storage import PanelStorage
+    from .hub.storage import PanelStorage
 
     hass.data.setdefault(DOMAIN, {})
     name: str = entry.data["name"]
@@ -479,7 +479,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # ── create apps ────────────────────────────────────────────────────
     # One app per enabled device; ``enabled`` lives in the device's store config.
-    from .storage import enabled_device_names
+    from .hub.storage import enabled_device_names
 
     apps: dict = {}
 
@@ -530,7 +530,7 @@ async def _auto_add_unconfigured_devices(hass: HomeAssistant, entry: ConfigEntry
 
     Safe to call multiple times (checks ``configured_names``).
     """
-    from .esphome_helpers import discover_esphome_devices, hub_device_entry
+    from .hub.esphome_helpers import discover_esphome_devices, hub_device_entry
 
     try:
         discovered = await discover_esphome_devices(hass)
@@ -578,8 +578,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
 
-    from .websocket_api import async_stop_hosts
+    from .web.preview.live_panel import async_stop_viewers
+    from .web.websocket import async_stop_hosts
 
+    await async_stop_viewers(hass, entry.entry_id)
     await async_stop_hosts(hass, entry.entry_id)
     apps: dict | None = hass.data[DOMAIN].pop(entry.entry_id, None)
 
@@ -595,7 +597,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Delete the hub's panel store when the hub is removed."""
-    from .storage import panel_store
+    from .hub.storage import panel_store
 
     await panel_store(hass, entry.entry_id).async_remove()
 
@@ -608,7 +610,7 @@ async def async_remove_config_entry_device(
     A device the hub still has is removed from it the way the editor's Remove
     does; a stale one is left to the device registry.
     """
-    from .storage import async_remove_device
+    from .hub.storage import async_remove_device
 
     configured = {d["name"] for d in config_entry.data.get("devices", []) if "name" in d}
     for domain, name in device_entry.identifiers:
@@ -633,14 +635,16 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     Registers the panel config REST API view and frontend static path.
     """
     from .api import register_views
-    from .editor_panel import async_register_frontend
     from .services import async_register_services
-    from .websocket_api import async_register_websocket_commands
+    from .web.editor import async_register_frontend
+    from .web.preview.live_panel import async_register_commands as async_register_live_commands
+    from .web.websocket import async_register_websocket_commands
 
     register_views(hass)
     await async_register_frontend(hass)
     async_register_services(hass)
     async_register_websocket_commands(hass)
+    async_register_live_commands(hass)
 
     _LOGGER.info(
         "NSPanel HAUI integration loaded (hubs=%d)",

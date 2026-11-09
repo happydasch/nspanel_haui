@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..config_models import validate_config_model, validate_device_config
 from ..mapping.const import DEFAULT_CONFIG, HUB_DRIVEN_PANELS

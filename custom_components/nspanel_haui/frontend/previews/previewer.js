@@ -101,9 +101,6 @@ export function buildPreviewDisplay(layout, pageId, opts = {}) {
   const { render } = opts;
   if (render) display.exec(render.before || []);
   display.gotoPage(render ? render.page : pageId);
-  if (!display.page && layout && layout.pages && layout.pages['0']) {
-    display.gotoPage(0);
-  }
   if (render) display.exec(render.commands);
   return display;
 }

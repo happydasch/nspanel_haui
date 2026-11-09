@@ -11,7 +11,12 @@ from ..abstract.mixins.paged_items_mixin import PagedItemsMixin
 from ..mapping.const import InternalItemType
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
-from ..utils.text import trim_text
+from ..utils.text import TextBox, fit_line
+
+_NAME_BOXES = {
+    "landscape": TextBox(128, 30, 2, 20),
+    "portrait": TextBox(135, 32, 2, 20),
+}
 
 
 class GridPage(PagedItemsMixin, HAUIPage):
@@ -111,7 +116,6 @@ class GridPage(PagedItemsMixin, HAUIPage):
 
     # definitions
     NUM_GRIDS = 6
-    LEN_NAME = 15
 
     # panel
 
@@ -311,7 +315,14 @@ class GridPage(PagedItemsMixin, HAUIPage):
         name = getattr(self.COMPONENTS, f"g{idx}_name")
         item = self._active_items[ovl]
         if item:
-            self.set_component_text(name, trim_text(item.get_name(), self.LEN_NAME))
+            self.set_component_text(
+                name,
+                fit_line(
+                    [item.get_name()],
+                    0,
+                    _NAME_BOXES["portrait" if self.app.device.is_portrait else "landscape"],
+                ),
+            )
             self.set_component_text_color(ico, item.get_color())
             self.set_component_text(ico, item.get_icon())
             if self.is_power_visible(item):
@@ -353,8 +364,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
             if not self.item_is_available(haui_item):
                 self.log(f"item {haui_item.get_item_id()} is not available")
             elif (
-                haui_item.get_item_type() == "media_player"
-                and not self.is_item_active(haui_item)
+                haui_item.get_item_type() == "media_player" and not self.is_item_active(haui_item)
             ) or state == "off":
                 self.turn_on_item(haui_item)
             else:

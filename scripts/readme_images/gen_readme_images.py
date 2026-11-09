@@ -86,7 +86,7 @@ def _render_panel(
     loop: asyncio.AbstractEventLoop, display_model: str, panel: dict[str, Any]
 ) -> dict[str, Any]:
     import custom_components.nspanel_haui as nspanel_haui
-    from custom_components.nspanel_haui.virtual_panel import VirtualPanelHost
+    from custom_components.nspanel_haui.web.preview.virtual_panel import VirtualPanelHost
 
     # Both panels: with a single one the header has no previous/next arrows
     store = {

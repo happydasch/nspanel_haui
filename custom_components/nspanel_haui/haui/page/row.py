@@ -12,7 +12,31 @@ from ..mapping.const import InternalItemType
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE, ICO_TOGGLE_OFF, ICO_TOGGLE_ON
 from ..utils.icon import get_icon, get_icon_name_by_action
-from ..utils.text import trim_text
+from ..utils.text import TextBox, fit_line, text_width
+
+_NAME_BOXES = {
+    "landscape": TextBox(220, 50, 2, 20),
+    "portrait": TextBox(262, 26, 2, 20),
+}
+_VALUE_BOXES = {
+    "landscape": TextBox(150, 50, 2, 15),
+    "portrait": TextBox(192, 50, 2, 15),
+}
+_SLIDER_TEXT_BOXES = {
+    "landscape": TextBox(50, 50, 2, 10),
+    "portrait": TextBox(52, 42, 2, 10),
+}
+
+
+def _fit_with_suffix(text: str, font: int, box: TextBox, suffix: str) -> str:
+    """Fit text while reserving room for a suffix that must remain visible."""
+    room = TextBox(
+        box.width - text_width(suffix, font),
+        box.height,
+        box.border,
+        box.max_len - len(suffix.encode()),
+    )
+    return f"{fit_line([text], font, room)}{suffix}"
 
 
 class RowPage(PagedItemsMixin, HAUIPage):
@@ -102,7 +126,6 @@ class RowPage(PagedItemsMixin, HAUIPage):
     )
     # definitions
     NUM_ROWS = 5
-    LEN_NAME = 20
 
     # panel
 
@@ -335,7 +358,11 @@ class RowPage(PagedItemsMixin, HAUIPage):
             return
         ico = getattr(self.COMPONENTS, f"r{idx}_ico")
         name = getattr(self.COMPONENTS, f"r{idx}_name")
-        self.update_function_component(name.name, text=trim_text(item.get_name(), self.LEN_NAME))
+        orientation = "portrait" if self.app.device.is_portrait else "landscape"
+        self.update_function_component(
+            name.name,
+            text=fit_line([item.get_name()], 1, _NAME_BOXES[orientation]),
+        )
         self.update_function_component(ico.name, text=item.get_icon(), color=item.get_color())
         display_type = self.get_item_display_type(item)
         if display_type == "text":
@@ -428,9 +455,11 @@ class RowPage(PagedItemsMixin, HAUIPage):
     def _value_cell_text(self, haui_item: HAUIItem) -> str:
         """Value text for a row cell, with a "…" suffix when stale."""
         text = haui_item.get_value()
+        orientation = "portrait" if self.app.device.is_portrait else "landscape"
+        box = _VALUE_BOXES[orientation]
         if text and self._item_stale(haui_item):
-            return f"{text} …"
-        return text
+            return _fit_with_suffix(text, 1, box, " …")
+        return fit_line([text], 1, box)
 
     def _value_cell_color(self, haui_item: HAUIItem, fresh_key: str) -> int:
         """Cell colour: dimmed while stale, restored to *fresh_key* otherwise."""
@@ -473,11 +502,12 @@ class RowPage(PagedItemsMixin, HAUIPage):
         self.set_slider_color(slider)
         stale = self._item_stale(haui_item)
         if stale:
-            if text:
-                text = f"{text} …"
             color = self.get_color("text_inactive")
         else:
             color = self.get_color("component_text")
+        orientation = "portrait" if self.app.device.is_portrait else "landscape"
+        box = _SLIDER_TEXT_BOXES[orientation]
+        text = _fit_with_suffix(text, 0, box, " …") if stale and text else fit_line([text], 0, box)
         self.update_function_component(slider_txt.name, text=text, color=color)
 
     def update_item_cover(self, haui_item: HAUIItem, idx: int) -> None:

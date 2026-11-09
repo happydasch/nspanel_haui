@@ -84,7 +84,7 @@ if TYPE_CHECKING:
 
 
 def background_commands(page: Any, panel: HAUIPanel) -> list[str]:
-    """Set the shared system-page picture id before loading a background page."""
+    """Set the system picture id first, before the target page's Preinitialize reads it."""
     background = page.render_template(panel.get("background", "dark"), False)
     if background == "scheme":
         # Picture 0 is the HMI's layout-helper grid, not a blank background.

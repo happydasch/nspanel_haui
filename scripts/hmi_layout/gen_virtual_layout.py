@@ -389,7 +389,7 @@ def _render(layout: dict[str, Any]) -> str:
 
 def _icon_map() -> dict[str, str]:
     """Reverse the display font's name→char mapping into the char→name JSON the
-    editors render icons with (same logic as api.py's IconCharsView)."""
+    editors render icons with."""
     chars: dict[str, str] = {}
     for icon_name, char in ICON_MAPPING.items():
         chars.setdefault(char, icon_name)

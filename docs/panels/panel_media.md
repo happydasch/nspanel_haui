@@ -9,7 +9,7 @@ description: Media panel — media player controls with grouping and favorites
 
 ## About
 
-The media panel controls a media player entity — TV, speaker, or receiver. It displays the currently playing song/album art, and provides play/pause, volume, track navigation, and grouping controls. The album art, title, and artist info span the full panel width for a cleaner look. A vertical volume slider is on the right; a playback progress bar is shown while a track with a known duration is playing.
+The media panel controls a media player entity — TV, speaker, or receiver. It displays the currently playing song/album art, and provides play/pause, volume, track navigation, and grouping controls. The album art, title, and artist info span the full panel width for a cleaner look. A vertical volume slider is on the right; a playback progress bar is shown while a track with a known duration is playing. Long media button names are shortened with `..`; source and favorite names are shortened in the selection popup to fit the row.
 
 ## Popup Variant
 

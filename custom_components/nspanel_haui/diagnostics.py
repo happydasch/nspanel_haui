@@ -14,7 +14,7 @@ from .const import DOMAIN
 def _app_snapshot(app: Any) -> dict[str, Any]:
     """Return a diagnostics snapshot for one running app instance.
 
-    ``app`` is a :class:`~.nspanel_haui.NSPanelHAUI` instance.  Values are
+    ``app`` is a :class:`~.hub.app.NSPanelHAUI` instance.  Values are
     read synchronously from app state; the app runs on its own worker thread,
     so this is a best-effort snapshot (acceptable for diagnostics).
     """

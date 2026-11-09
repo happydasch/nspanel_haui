@@ -76,9 +76,8 @@ def test_background_setting_can_use_selected_color_scheme() -> None:
 
     assert page.get_color("background") == page.app.color_theme.get("background")
     commands = page.page_load_commands(_Panel({"background": "scheme"}))
-    assert commands[0] == "thmBg=65535"
-    assert commands[0] == "thmBg=65535"
-    assert commands[-1] == "system.vBackground.val=2"
+    assert commands[0] == "system.vBackground.val=2"
+    assert "thmBg=65535" in commands[1:]
 
 
 def test_background_is_sent_before_the_page_loads():
@@ -87,7 +86,7 @@ def test_background_is_sent_before_the_page_loads():
     page.app = SimpleNamespace(color_theme=SimpleNamespace(display_commands=lambda: ["thmBg=1"]))
     page.render_template = lambda template, parse_icons=True: template
 
-    assert page.page_load_commands(_Panel({})) == ["thmBg=1", "system.vBackground.val=1"]
+    assert page.page_load_commands(_Panel({})) == ["system.vBackground.val=1", "thmBg=1"]
 
 
 def test_options_saved_for_the_shown_panel_apply_without_a_page_load():

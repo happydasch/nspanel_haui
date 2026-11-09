@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any
 from ..component import Component
 
 if TYPE_CHECKING:
-    from ....nspanel_haui import NSPanelHAUI
+    from ....hub.app import NSPanelHAUI
 
 from ...utils.color import parse_color_value
 

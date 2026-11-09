@@ -101,28 +101,3 @@ class IconSearchView(HomeAssistantView):
             results = IconSearchView._icons
 
         return self.json(results)
-
-
-class IconCharsView(HomeAssistantView):
-    """REST API view mapping display icon characters back to MDI icon names.
-
-    The virtual panel (live preview) receives the hub's display commands, whose
-    icons are characters of the display's icon font; it draws them by name.
-    """
-
-    url = "/api/nspanel_haui/icon_chars"
-    name = "api:nspanel_haui:icon_chars"
-    requires_auth = True
-
-    _chars: dict[str, str] | None = None
-
-    async def get(self, request):
-        """Return ``{character: icon_name}`` for every icon of the display font."""
-        if IconCharsView._chars is None:
-            from ..haui.mapping.icon_mapping import ICON_MAPPING
-
-            chars: dict[str, str] = {}
-            for icon_name, char in ICON_MAPPING.items():
-                chars.setdefault(char, icon_name)
-            IconCharsView._chars = chars
-        return self.json(IconCharsView._chars)

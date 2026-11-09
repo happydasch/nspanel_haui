@@ -128,7 +128,7 @@ _make_ha_stubs()
 # Now safe to import
 from custom_components.nspanel_haui import _build_config_dict  # noqa: E402, I001
 from custom_components.nspanel_haui.config_flow import NSPanelHAUIConfigFlow  # noqa: E402
-from custom_components.nspanel_haui.esphome_helpers import (  # noqa: E402
+from custom_components.nspanel_haui.hub.esphome_helpers import (  # noqa: E402
     normalize_device_name as _normalize_device_name,
 )
 
@@ -445,7 +445,7 @@ class TestResolveHaDeviceId:
 
     def test_returns_device_id_when_found(self):
         """Returns the HA device registry id when a matching ESPHome entry exists."""
-        from custom_components.nspanel_haui.esphome_helpers import resolve_ha_device_id
+        from custom_components.nspanel_haui.hub.esphome_helpers import resolve_ha_device_id
 
         # Ensure homeassistant.helpers.device_registry exists so the
         # import inside resolve_ha_device_id does not trigger the
@@ -486,7 +486,7 @@ class TestResolveHaDeviceId:
 
     def test_returns_none_when_no_match(self):
         """Returns None when no ESPHome entry matches."""
-        from custom_components.nspanel_haui.esphome_helpers import resolve_ha_device_id
+        from custom_components.nspanel_haui.hub.esphome_helpers import resolve_ha_device_id
 
         hass = MagicMock()
         entry = MagicMock()
@@ -499,7 +499,7 @@ class TestResolveHaDeviceId:
 
     def test_returns_none_when_empty_name(self):
         """Returns None when given an empty node_name."""
-        from custom_components.nspanel_haui.esphome_helpers import resolve_ha_device_id
+        from custom_components.nspanel_haui.hub.esphome_helpers import resolve_ha_device_id
 
         hass = MagicMock()
         result = resolve_ha_device_id(hass, "")
@@ -535,7 +535,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_returns_list_of_dicts(self):
         """Each result has 'name', 'friendly_name', and 'esphome_device_id' keys."""
-        from custom_components.nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         entry1 = MagicMock()
         entry1.entry_id = "entry1"
@@ -556,7 +556,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_returns_empty_list_when_no_esphome_entries(self):
         """Returns [] when there are no ESPHome config entries."""
-        from custom_components.nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         hass = MagicMock()
         hass.config_entries.async_entries = MagicMock(return_value=[])
@@ -566,7 +566,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_name_falls_back_to_title(self):
         """Uses entry.title when device_name is not in data."""
-        from custom_components.nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         entry1 = MagicMock()
         entry1.entry_id = "entry1"
@@ -585,7 +585,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_esphome_device_id_populated(self):
         """ESPHome discovery result includes entry_id as esphome_device_id."""
-        from custom_components.nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         entry1 = MagicMock()
         entry1.entry_id = "abc123"
@@ -609,7 +609,7 @@ class TestDiscoverEspHomeDevices:
         entry. These persist across restarts and let us detect HAUI
         devices that are not currently online.
         """
-        from custom_components.nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         dev_entry = MagicMock()
         dev_entry.manufacturer = "happydasch"
@@ -635,7 +635,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_skips_non_haui_via_device_registry(self):
         """Non-HAUI ESPHome entry (different manufacturer/model) is skipped."""
-        from custom_components.nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         dev_entry = MagicMock()
         dev_entry.manufacturer = "espressif"

@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ...ha_adapter import ESPHomeProxy
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.adapter import ESPHomeProxy
+    from ...hub.app import NSPanelHAUI
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
-from ..mapping.const import ALL_CMD, ALL_RECV, ESP_NS_EVENT
+from ..mapping.const import ALL_CMD, ALL_RECV, ESP_NS_EVENT, ESPAction
 
 
 class HAUIESPHomeController(HAUIBase):
@@ -108,7 +108,13 @@ class HAUIESPHomeController(HAUIBase):
             return
 
         self.log(f"Publishing command: {bare_cmd}", level="DEBUG")
-        self.esphome.publish(bare_cmd, value)
+        published = self.esphome.publish(bare_cmd, value)
+        if published and bare_cmd in (
+            ESPAction.SEND_COMMAND,
+            ESPAction.SEND_COMMANDS,
+            ESPAction.GOTO_PAGE,
+        ):
+            self.app.publish_preview_output(bare_cmd, value)
         self.prev_cmd = dedup_key
 
     def publish_detached(self, cmd: str, value: str | dict | list = "") -> None:

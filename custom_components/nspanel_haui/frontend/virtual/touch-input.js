@@ -94,9 +94,11 @@ export class TouchInput {
    * @param {NextionDisplay} display
    * @param {function(string, string): void} send - sends a device event to the hub
    */
-  constructor(display, send) {
+  constructor(display, send, simulateDisplay = () => true, sendSlider = null) {
     this.display = display;
     this.send = send;
+    this.simulateDisplay = simulateDisplay;
+    this.sendSlider = sendSlider;
     this._touch = null;
   }
 
@@ -112,12 +114,19 @@ export class TouchInput {
     if (this._touch) this.release(this._touch.last.x, this._touch.last.y);
     const comp = this.hitTest(x, y);
     const page = this.display.pageId;
-    this._touch = { comp, page, start: { x, y }, last: { x, y } };
-    this.display.batch(() => {
-      if (comp.type === TYPE.DUAL_STATE) this.display.setAttr({ comp: comp.name, attr: 'val' }, comp.attrs.val ? 0 : 1);
-      if (comp.type === TYPE.SLIDER) this._slide(comp, x, y);
-      this.display.touchEvent(comp, 'down');
-    });
+    const simulate = this.simulateDisplay();
+    const liveSlider = !simulate && comp.type === TYPE.SLIDER && this.sendSlider;
+    if (!simulate && comp.type === TYPE.SLIDER && !liveSlider) return;
+    this._touch = { comp, page, start: { x, y }, last: { x, y }, simulate, liveSlider };
+    if (simulate || liveSlider) {
+      this.display.batch(() => {
+        if (simulate && comp.type === TYPE.DUAL_STATE) {
+          this.display.setAttr({ comp: comp.name, attr: 'val' }, comp.attrs.val ? 0 : 1);
+        }
+        if (comp.type === TYPE.SLIDER) this._slide(comp, x, y);
+        if (simulate) this.display.touchEvent(comp, 'down');
+      });
+    }
     if (comp.attrs.sendkey & SEND_ON_PRESS) {
       this.send('esphome.component', `${page},${comp.id},1`);
       this.send('esphome.touch_start', '1');
@@ -129,29 +138,40 @@ export class TouchInput {
     if (!this._touch) return;
     this._touch.last = { x, y };
     const { comp } = this._touch;
-    if (comp.type === TYPE.SLIDER && this.display.pageId === this._touch.page) {
+    if ((this._touch.simulate || this._touch.liveSlider)
+      && comp.type === TYPE.SLIDER && this.display.pageId === this._touch.page) {
       this.display.batch(() => this._slide(comp, x, y));
     }
   }
 
   release(x, y) {
     if (!this._touch) return;
-    const { comp, page, start } = this._touch;
+    const { comp, page, start, simulate, liveSlider } = this._touch;
     this._touch.last = { x, y };
     this._touch = null;
     // The page may have changed during the touch (a press can navigate).
     if (this.display.pageId === page) {
-      this.display.touchEvent(comp, 'up');
-      if (comp.attrs.sendkey & SEND_ON_RELEASE) this.send('esphome.component', `${page},${comp.id},0`);
+      if (simulate) this.display.touchEvent(comp, 'up');
+      if (liveSlider) this.sendSlider(page, comp.id, comp.attrs.val);
+      if (!liveSlider && comp.attrs.sendkey & SEND_ON_RELEASE) {
+        this.send('esphome.component', `${page},${comp.id},0`);
+      }
     }
     this.send('esphome.touch_end', `${start.x},${start.y},${x},${y}`);
     const gesture = detectGesture(start.x, start.y, x, y, this.display.layout);
     if (gesture) this.send('esphome.gesture', gesture);
   }
 
-  /** Abandon a touch without a release (pointer lost); still ends it for the hub. */
+  /** End a lost pointer without treating it as a component release or swipe. */
   cancel() {
-    if (this._touch) this.release(this._touch.last.x, this._touch.last.y);
+    if (!this._touch) return;
+    const { comp, page, start, last, simulate } = this._touch;
+    this._touch = null;
+    if (simulate && this.display.pageId === page) {
+      comp.pressed = false;
+      this.display.onChange();
+    }
+    this.send('esphome.touch_end', `${start.x},${start.y},${last.x},${last.y}`);
   }
 
   _slide(comp, x, y) {

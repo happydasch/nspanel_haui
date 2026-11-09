@@ -26,7 +26,7 @@ from ...utils.value import format_number
 if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
-    from ....nspanel_haui import NSPanelHAUI
+    from ....hub.app import NSPanelHAUI
     from ..component import Component, ComponentRegistry
     from ..haui_event import HAUIEvent
     from ..haui_item import HAUIItem

@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent

@@ -8,9 +8,9 @@
  * in a NextionDisplay, and re-renders itself when the assets arrive or the card
  * width changes (scaled to fit while preserving the device orientation).
  */
+import { isPortraitModel } from '../constants.js';
 import { LitElement, html, css } from '../lit-import.js';
 import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
-import { isPortraitDevice } from './utils.js';
 import { buildPreviewDisplay, loadPanelRender, previewRenderKey } from './previewer.js';
 import {
   loadIconMap,
@@ -26,29 +26,25 @@ const DEFAULT_WIDTH = 240;
  * The preview of every panel card (`panel-previews.js`): mounts a
  * `<nspanel-simulator-frame>` that does the async work.
  */
-export function renderSimulatorPreview(host, panel, pIdx, panelType) {
+export function renderSimulatorPreview(host, panel, pIdx) {
   return html`
     <nspanel-simulator-frame
-      .host=${host} .panel=${panel} .type=${panelType}
-      .portrait=${isPortraitDevice(host)}
+      .host=${host} .panel=${panel}
+      .portrait=${isPortraitModel(host?._deviceConfig?.display_model)}
       .byKey=${pIdx < 0}
       .renderKey=${previewRenderKey(host)}
     ></nspanel-simulator-frame>`;
 }
 
-/**
- * Inject asset loaders applied by default (tests and the card gallery,
- * scripts/preview_gallery). `layout(orientation)` returns the parsed layout
- * JSON, `icon()` the char→name map and the optional `render(panel, byKey)` the
- * hub's render of the frame's panel.
- * @param {{layout: Function, icon: Function, render?: Function}|null} loaders
- */
-export function setSimulatorLoaders(loaders) {
-  globalThis.__HAUI_SIM_LOADERS = loaders || null;
-}
+let renderSource = null;
 
-export function getSimulatorLoaders() {
-  return globalThis.__HAUI_SIM_LOADERS || null;
+/**
+ * Take card renders from `source(panel, byKey)` instead of the hub (the card
+ * gallery, scripts/preview_gallery, and tests); null goes back to the hub.
+ * @param {Function|null} source
+ */
+export function setPanelRenderSource(source) {
+  renderSource = source;
 }
 
 export class SimulatorFrameElement extends LitElement {
@@ -56,7 +52,6 @@ export class SimulatorFrameElement extends LitElement {
     return {
       host: { type: Object },
       panel: { type: Object },
-      type: { type: Object },
       portrait: { type: Boolean },
       // System panel cards render the device's configured panel by its key.
       byKey: { type: Boolean },
@@ -104,7 +99,6 @@ export class SimulatorFrameElement extends LitElement {
     super();
     this.host = null;
     this.panel = null;
-    this.type = null;
     this.portrait = false;
     this.byKey = false;
     this.renderKey = '';
@@ -114,6 +108,7 @@ export class SimulatorFrameElement extends LitElement {
     this._containerWidth = null;
     this._error = null;
     this._started = false;
+    this._seq = 0;
     this._ro = null;
   }
 
@@ -125,8 +120,8 @@ export class SimulatorFrameElement extends LitElement {
     }
   }
 
-  // Start after the first render: Lit applies the `.panel`/`.type`/`.host`
-  // bindings around connection, and the preview must be built from the
+  // Start after the first render: Lit applies the `.panel`/`.host` bindings
+  // around connection, and the preview must be built from the
   // configured panel, not from an empty default.
   firstUpdated() {
     this._start();
@@ -134,9 +129,9 @@ export class SimulatorFrameElement extends LitElement {
 
   updated(changed) {
     // The editor reuses a frame when a card re-renders; rebuild when the panel,
-    // page type, host, orientation or what the hub renders with changed.
+    // host, orientation or what the hub renders with changed.
     if (!this._started) return;
-    for (const key of ['panel', 'type', 'host', 'portrait', 'byKey', 'renderKey']) {
+    for (const key of ['panel', 'host', 'portrait', 'byKey', 'renderKey']) {
       if (changed.has(key)) {
         this._start(true);
         return;
@@ -152,26 +147,22 @@ export class SimulatorFrameElement extends LitElement {
     }
   }
 
-  _loaders() {
-    const injected = getSimulatorLoaders();
-    return {
-      layout: (o) => (injected ? injected.layout(o) : loadLayout(o)),
-      icon: () => (injected ? injected.icon() : loadIconMap()),
-      render: () => (injected
-        ? injected.render?.(this.panel, this.byKey) ?? null
-        : loadPanelRender(this.host, this.panel, this.byKey)),
-    };
-  }
-
   async _start(force = false) {
     if (this._started && !force) return;
     this._started = true;
     this._error = null;
-    const { layout, icon, render } = this._loaders();
+    // The panel may change while a render is on its way: the newest start wins.
+    const seq = ++this._seq;
     const orientation = this.portrait ? 'portrait' : 'landscape';
     try {
-      const [layoutObj, iconMap, rendered] =
-        await Promise.all([layout(orientation), icon(), render()]);
+      const [layoutObj, iconMap, rendered] = await Promise.all([
+        loadLayout(orientation),
+        loadIconMap(),
+        renderSource
+          ? renderSource(this.panel, this.byKey)
+          : loadPanelRender(this.host, this.panel, this.byKey),
+      ]);
+      if (seq !== this._seq) return;
       this._iconMap = iconMap;
       // No render yet (no device selected, editor still loading): the
       // placeholder stays until the render key changes and a render arrives.
@@ -179,6 +170,7 @@ export class SimulatorFrameElement extends LitElement {
         ? buildPreviewDisplay(layoutObj, rendered.page, { render: rendered })
         : null;
     } catch (err) {
+      if (seq !== this._seq) return;
       this._error = (err && err.message) || String(err);
     }
     this._measure();

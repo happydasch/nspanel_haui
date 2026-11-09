@@ -24,11 +24,11 @@ Three communication layers:
 └──────────────┘              └───────────┘             └──────────┘
 ```
 
-The **Hub app** (`NSPanelHAUI` in `nspanel_haui.py`) is the brain - it reads HA entity states, renders display commands, and publishes them via the ESPHome native API. The ESP32 relays commands to the Nextion display over serial and reports touch events back.
+The **Hub app** (`NSPanelHAUI` in `hub/app.py`) is the brain - it reads HA entity states, renders display commands, and publishes them via the ESPHome native API. The ESP32 relays commands to the Nextion display over serial and reports touch events back.
 
 Inside the Hub app, components follow a layered structure:
 
-- **`HAAdapter`** (`ha_adapter.py`) - bridges HA's async API to the synchronous interface expected by `haui/` core code. All HA calls go through `asyncio.run_coroutine_threadsafe`. Every call from HA into an app (device events, state changes, timers, reloads, services, notify) runs on that app's single worker thread, in order: use `app.dispatch()` (fire-and-forget, from the event loop) or `await app.async_run_on_worker()`, never `hass.async_add_executor_job` with app code. **Blocking work never runs on the worker:** hand HTTP/disk calls to `app.run_off_worker(fn, *args, timeout=…)` (waits for the result, keeps app state single-threaded) or `app.submit_off_worker(fn, on_done=…)` (fire-and-forget, result applied back on the worker). The callable must not touch app state, since it runs on another thread. **Two more exceptions, for liveness traffic only:** `app.run_every(..., on_loop=True)` fires its callback directly on the HA event loop, and `publish_detached()` (controller → `ESPHomeProxy`) sends a command fire-and-forget without the worker. The hub→device heartbeat uses both: the device force-disconnects the hub after two missed 5 s heartbeats and wakes the display when it does, so a worker stalled by a render burst or a slow update check must never delay it. Everything else stays on the worker. The hub-side idle-page timeout belongs to `HAUINavigationController` and uses one worker-thread `run_every` check per second; do not add per-page timeout timers or use a firmware timeout event for page switching.
+- **`HAAdapter`** (`hub/adapter.py`) - bridges HA's async API to the synchronous interface expected by `haui/` core code. All HA calls go through `asyncio.run_coroutine_threadsafe`. Every call from HA into an app (device events, state changes, timers, reloads, services, notify) runs on that app's single worker thread, in order: use `app.dispatch()` (fire-and-forget, from the event loop) or `await app.async_run_on_worker()`, never `hass.async_add_executor_job` with app code. **Blocking work never runs on the worker:** hand HTTP/disk calls to `app.run_off_worker(fn, *args, timeout=…)` (waits for the result, keeps app state single-threaded) or `app.submit_off_worker(fn, on_done=…)` (fire-and-forget, result applied back on the worker). The callable must not touch app state, since it runs on another thread. **Two more exceptions, for liveness traffic only:** `app.run_every(..., on_loop=True)` fires its callback directly on the HA event loop, and `publish_detached()` (controller → `ESPHomeProxy`) sends a command fire-and-forget without the worker. The hub→device heartbeat uses both: the device force-disconnects the hub after two missed 5 s heartbeats and wakes the display when it does, so a worker stalled by a render burst or a slow update check must never delay it. Everything else stays on the worker. The hub-side idle-page timeout belongs to `HAUINavigationController` and uses one worker-thread `run_every` check per second; do not add per-page timeout timers or use a firmware timeout event for page switching.
 - **`HAUIBase`** (`haui/abstract/haui_base.py`) - base class for all runtime objects. Provides config access, logging, command batching (`rec_cmd` context manager), and ESPHome send helpers. `HAUIConfigAccess` (`haui/abstract/haui_config_access.py`) is its lighter sibling for data/config wrappers that need no display transport or lifecycle.
 - **Controllers** (`haui/controller/`) - ESPHome, connection, navigation, notification, update, gesture. Each is a `HAUIBase` subclass.
 - **Pages** (`haui/page/`) - one class per display page type (grid, light, climate, weather, etc.). Each page has a `DESCRIPTOR` class attribute of type `PageDescriptor` (`haui/mapping/descriptor.py`) and a `COMPONENTS` registry of Nextion widgets.
@@ -43,16 +43,18 @@ Inside the Hub app, components follow a layered structure:
 | File | Purpose |
 |------|---------|
 | `custom_components/nspanel_haui/__init__.py` | HA integration entry point: `async_setup_entry`, config building, panel storage loading |
-| `custom_components/nspanel_haui/nspanel_haui.py` | `NSPanelHAUI` class - initializes device config, controllers, panel and page instances |
-| `custom_components/nspanel_haui/ha_adapter.py` | `HAAdapter` + `ItemProxy` + `ESPHomeProxy` - bridges HA async API to sync haui core |
+| `custom_components/nspanel_haui/hub/app.py` | `NSPanelHAUI` class - initializes device config, controllers, panel and page instances |
+| `custom_components/nspanel_haui/hub/adapter.py` | `HAAdapter` + `ItemProxy` + `ESPHomeProxy` - bridges HA async API to sync haui core |
 | `custom_components/nspanel_haui/config_flow.py` | HA config flow for adding/configuring the integration via the UI |
-| `custom_components/nspanel_haui/storage.py` | `PanelStorage` - loads/saves panel configs from HA's internal store |
+| `custom_components/nspanel_haui/hub/storage.py` | `PanelStorage` - loads/saves panel configs from HA's internal store |
 | `custom_components/nspanel_haui/api/` | REST API views, one module per area: `editor` (translations, panel types, colours, icons), `config` (panel store CRUD, devices, YAML, `push_panels`), `status` (device status, notifications, display refresh), `updates` (TFT/firmware installs, local uploads, release lists, update checks); `common` holds the shared helpers (`ApiError` + `@api_errors`, `running_apps`/`device_app`, `json_object`, `for_each_app`); `register_views` registers `VIEWS` |
-| `custom_components/nspanel_haui/esphome_helpers.py` | ESPHome discovery utilities (find HAUI devices in the device registry, resolve their entities) |
-| `custom_components/nspanel_haui/virtual_panel.py` | Editor live preview and panel cards: `VirtualNSPanelHAUI` + `VirtualESPHomeProxy` (one second app per device, driven by the browser instead of ESPHome), `VirtualPanelHost` (viewers + isolated card renders) |
-| `custom_components/nspanel_haui/sandbox.py` | Simulated entity states for the live preview's sandbox mode |
-| `custom_components/nspanel_haui/websocket_api.py` | Virtual panel WebSocket commands (`nspanel_haui/virtual_panel/subscribe`, `/event`, `/idle`, `/configure` for the live preview, `/render` for panel cards) and the one-app-per-device host registry |
-| `custom_components/nspanel_haui/editor_panel.py` | Registers the editor sidebar panel and serves `frontend/` as static files; keep Python files out of `frontend/`, which is served without authentication |
+| `custom_components/nspanel_haui/hub/esphome_helpers.py` | ESPHome discovery utilities (find HAUI devices in the device registry, resolve their entities) |
+| `custom_components/nspanel_haui/web/preview/virtual_panel.py` | Editor live preview in Simulated (sandbox) mode and panel cards: `VirtualNSPanelHAUI` + `VirtualESPHomeProxy` (one second app per device, driven by the browser instead of ESPHome), `VirtualPanelHost` (viewers + isolated card renders) |
+| `custom_components/nspanel_haui/web/preview/sandbox.py` | Simulated entity states for the live preview's sandbox mode |
+| `custom_components/nspanel_haui/web/websocket.py` | Virtual panel WebSocket commands (`nspanel_haui/virtual_panel/subscribe`, `/event`, `/home`, `/idle`, `/reset_sandbox` for the sandbox preview, `/render` for panel cards) and the one-app-per-device host registry |
+| `custom_components/nspanel_haui/web/preview/live_panel.py` | Editor live preview in Live mode: `LivePanel` mirrors the device's running app (its display output, checked input) and its WebSocket commands (`nspanel_haui/live_panel/subscribe`, `/event`, `/slider`, `/action`); shares nothing with the sandbox |
+| `custom_components/nspanel_haui/web/preview/button_lights.py` | Hardware button lights of the preview frame, shared by the sandbox and live previews |
+| `custom_components/nspanel_haui/web/editor.py` | Registers the editor sidebar panel and serves `frontend/` as static files; keep Python files out of `frontend/`, which is served without authentication |
 | `custom_components/nspanel_haui/haui/abstract/haui_base.py` | `HAUIBase` - root base class: config access, command sending/batching, logging, lifecycle |
 | `custom_components/nspanel_haui/haui/abstract/haui_config_access.py` | `HAUIConfigAccess` - lightweight config/logging base for data wrappers (no display transport) |
 | `custom_components/nspanel_haui/haui/abstract/haui_page.py` | `HAUIPage` - page base class: lifecycle hooks, title/colour helpers, items and their state listeners; touch input comes from `TouchInputMixin` |
@@ -88,6 +90,8 @@ Inside the Hub app, components follow a layered structure:
 | `custom_components/nspanel_haui/haui/page/` | Display page implementations - one file per panel type (20 page modules, plus the `clock_common.py` helper used by the clock, clocktwo and weather pages) |
 | `custom_components/nspanel_haui/haui/mapping/` | Static lookups: `panel.py` (`PANEL_MAPPING`), `page.py` (`PAGE_MAPPING`), `descriptor.py` (`PageDescriptor`), colors, icons, constants |
 | `custom_components/nspanel_haui/haui/utils/` | Shared utilities: `color`, `datetime`/CLDR, `debounce`, `icon`, `item`, `locale_data`, `notification_blinker`, `page`, `text`, `value` |
+| `custom_components/nspanel_haui/hub/` | Home Assistant-facing runtime: `app.py` (`NSPanelHAUI`), `adapter.py` (`HAAdapter`/`ItemProxy`/`ESPHomeProxy`), `storage.py` (`PanelStorage`), `esphome_helpers.py` (device discovery) |
+| `custom_components/nspanel_haui/web/` | Browser-facing surface: `editor.py` (sidebar panel + static assets), `websocket.py` (virtual panel commands) and `preview/` (sandbox, live view, button lights) |
 | `custom_components/nspanel_haui/frontend/` | HA Lovelace editor UI (vanilla JS, loaded as a panel); `previews/` holds panel preview renderers |
 | `tests/` | Pytest tests (backend) plus Node test-runner tests in `tests/frontend/`; `conftest.py` stubs `homeassistant` and `dateutil`, so no running HA instance is needed |
 | `docs/` | User documentation: install, configuration, panels, FAQ, ESPHome, Hub, Nextion, Communication, Design, development, troubleshooting |
@@ -295,8 +299,8 @@ Format reference (what the script relies on):
 ### Preview renderer workflow
 
 **A panel card is the hub's own render, replayed.** There is no renderer in the
-browser. `nspanel_haui/virtual_panel/render` (`websocket_api.py`) runs
-`VirtualPanelHost.async_render` (`virtual_panel.py`) on the device's one virtual
+browser. `nspanel_haui/virtual_panel/render` (`web/websocket.py`) runs
+`VirtualPanelHost.async_render` (`web/preview/virtual_panel.py`) on the device's one virtual
 app — the app the live preview runs on — and returns `{page, before, commands}`:
 what the hub sends before switching to the page (the theme colours and its
 picture background, which the page's Preinitialize code reads), then the page's
@@ -335,9 +339,10 @@ weather forecasts are therefore the hub's, by construction.
   example `format_number`: `1012.0` and `1012` print alike).
 
 **One app per device.** `VirtualPanelHost` owns the device's `VirtualNSPanelHAUI`:
-live previews attach as viewers (a late viewer gets the current panel redrawn and
-the idle/entity state it missed) and cards render on it. Sandbox/live
-mode is the app's, so it is shared by every viewer. `websocket_api._Hosts` starts
+sandbox previews attach as viewers (a late viewer gets the current panel redrawn and
+the idle/entity state it missed) and cards render on it. Its simulated states are
+shared by every sandbox viewer. Live mode is not the app's: each live viewer is a
+`web.preview.live_panel.LivePanel` of the device's running app. `web.websocket._Hosts` starts
 a host on first use, reloads it on every save (`api.config.push_panels` →
 `async_reload_hosts`), stops it after `IDLE_STOP_SECONDS` without a viewer or a
 render and on entry unload (`async_stop_hosts`).
@@ -402,6 +407,7 @@ Pages follow a defined lifecycle when panels are shown. The canonical hook order
 
 Key rules:
 - Use `prepare()` instead of `__init__()` for setting default attribute values. No need to call `super().prepare()` — the base implementation is a no-op.
+- A new Live viewer gets the page via `redraw_panel()`: it forgets the function components' `current_*` state, then sends `_redraw_panel(panel)`, every function component and `render_panel()`, without starting the panel again. A page whose `start_panel()` draws something `render_panel()` never draws again (the word clock's letters) overrides `_redraw_panel(panel)`, and so does a page that skips unchanged widgets with a cache of its own.
 - Override `_stop_panel(panel)` instead of `stop_panel(panel)` for per-class cleanup. Do NOT call super — the base `stop_panel()` handles listener cleanup automatically, then calls `_stop_panel()`.
 - If you override `stop_panel()` itself (rare), call `super().stop_panel(panel)` so listeners are cleared and `_stop_panel()` still runs.
 - A page that must hold firmware auto switches off while it is shown overrides `suspended_auto_switches()` with keys of `AUTO_SWITCHES`. Automatic page switching is a hub-side hold keyed by `AUTO_PAGE_HOLD`, not a firmware switch; `HAUIDevice.apply_auto_switches()` owns only the two firmware switches (settings minus the current page's holds), while navigation enforces `AUTO_PAGE_HOLD` in its inactivity check. A page whose firmware-switch hold changes while shown calls `apply_auto_switches()` (the QR page's big code).
@@ -417,7 +423,7 @@ Additional notes:
 
 - `config_flow.py` creates the single hub entry (user step plus zeroconf/DHCP/integration discovery). There is no options flow.
 - Device and panel settings are edited in the sidebar editor (`frontend/`), which calls the REST views in `api/`; panel configs are validated there with `validate_panels` (`haui/config_models.py`).
-- `storage.py` (`PanelStorage`) persists panel configs to HA's internal store.
+- `hub/storage.py` (`PanelStorage`) persists panel configs to HA's internal store.
 
 ### Command batching
 
@@ -480,7 +486,7 @@ Frontend editor modules are tested with Node's built-in runner in `tests/fronten
 ### Config merging
 
 Device settings have one home: the panel store.
-- `config_entry.data` holds only the hub name, each device's identity (`name`, optional `esphome_device_id`, built by `esphome_helpers.hub_device_entry`) and `removed_devices`.
+- `config_entry.data` holds only the hub name, each device's identity (`name`, optional `esphome_device_id`, built by `hub/esphome_helpers.hub_device_entry`) and `removed_devices`.
 - `PanelStorage` holds each device's settings, including `enabled`, and its panels.
 
 `__init__.py:_build_config_dict(entry.data, store, device_name=...)` builds one device's runtime config: identity, then store settings, then `DEVICE_CONFIG` defaults. The result goes to `HAUIConfig` for typed access and validation. Setup builds it once per enabled device. A panel or settings save (`api.config.push_panels`) rebuilds it the same way and applies it with `NSPanelHAUI.reload_config`, so a setting removed from the store falls back to its default.
@@ -515,10 +521,10 @@ Each class owns exactly one concern. Do not add unrelated responsibilities.
 
 | Class | Responsibility | File |
 |-------|---------------|------|
-| `NSPanelHAUI` | Top-level composition: wires controllers, device, and config together | `nspanel_haui.py` |
-| `HAAdapter` | Bridges HA's async API → synchronous interface for haui/ core | `ha_adapter.py` |
-| `ESPHomeProxy` | Sends commands to ESP32 via Native API, listens for device events | `ha_adapter.py` |
-| `ItemProxy` | Synchronous wrapper around a single HA entity's state/attributes/services | `ha_adapter.py` |
+| `NSPanelHAUI` | Top-level composition: wires controllers, device, and config together | `hub/app.py` |
+| `HAAdapter` | Bridges HA's async API → synchronous interface for haui/ core | `hub/adapter.py` |
+| `ESPHomeProxy` | Sends commands to ESP32 via Native API, listens for device events | `hub/adapter.py` |
+| `ItemProxy` | Synchronous wrapper around a single HA entity's state/attributes/services | `hub/adapter.py` |
 | `HAUIBase` | Config access, command batching, display transport, logging, lifecycle | `haui/abstract/haui_base.py` |
 | `HAUIConfig` | Merges config layers, instantiates/validates `HAUIPanel` objects | `haui/abstract/haui_config.py` |
 | `HAUIPanel` | Wraps one panel's config: title, type, button visibility, navigation state | `haui/abstract/haui_panel.py` |
@@ -702,7 +708,7 @@ self.controller["navigation"] = HAUINavigationController(self, ...)
 - **Avoid fallbacks** - prefer not use fallback values or defaults. They mask bugs and produce wrong behavior silently. Only use a fallback when the call site explicitly chooses to handle the failure gracefully, and even then, log at warning level.
 - **Don't pass non-literal expressions to `t()` or `host._t()`** - translation extraction tools parse source code for `t('literal string')`. If `t()` receives a variable, template literal, or conditional expression instead of a string literal, the string will never be found by extraction and won't be translated. For dynamic values, use the `.replace('{placeholder}', value)` pattern: `t('Hello {name}').replace('{name}', userName)`.
 - **Don't hardcode user-facing strings** - any string visible in the UI must go through `t()` (from `localize.js`) or `host._t()`. This includes `title` attributes on buttons, toast messages, status messages, and Error fallback strings.
-- **Don't put Python files in `frontend/`** - that directory is served as unauthenticated static files; keep only browser assets there. Python modules that register or serve the frontend live outside it (see `editor_panel.py`).
+- **Don't put Python files in `frontend/`** - that directory is served as unauthenticated static files; keep only browser assets there. Python modules that register or serve the frontend live outside it (see `web/editor.py`).
 
 ## Commit and Pull Request Guidelines
 

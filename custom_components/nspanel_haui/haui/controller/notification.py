@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
@@ -499,8 +499,8 @@ class HAUINotificationController(HAUIBase):
         for n in self._notifications:
             title = str(n.title) if n.title else ""
             message = str(n.message) if n.message else ""
-            # Do not truncate here: the list renderer scrolls/clips the text
-            # itself and users reported that long messages were stripped.
+            # Keep the full label in the queue model; SelectPage shortens it to
+            # the selected widget's width when rendering the list.
             label = f"{title}: {message}" if message else title
             # notif_id rather than the index: the queue can change while the list is open.
             items.append({"value": n.notif_id, "name": label})

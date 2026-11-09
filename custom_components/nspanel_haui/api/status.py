@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.components.http.decorators import require_admin
 from homeassistant.helpers.http import HomeAssistantView
 
-from ..esphome_helpers import read_network_entities, resolve_temperature_entity_id
+from ..hub.esphome_helpers import read_network_entities, resolve_temperature_entity_id
 from .common import (
     ALL_DEVICES,
     api_errors,

@@ -758,7 +758,7 @@
     "List view": "Lijstweergave",
     "Listeners": "Luisteraars",
     "Live": "Live",
-    "Live mode: touches and the hardware buttons switch your real devices, including the panel's relays. The panel's settings stay simulated.": "Live-modus: aanrakingen en de hardwareknoppen schakelen uw echte apparaten, ook de relais van het paneel. De instellingen van het paneel blijven gesimuleerd.",
+    "Live mode: component presses, gestures, buttons and idle control act on the connected panel. Slider drags need the physical touchscreen. The preview mirrors commands sent by the panel app.": "",
     "Live preview": "Live-voorbeeld",
     "Live preview error: {error}": "Fout in live-voorbeeld: {error}",
     "Live preview: {device}": "Live-voorbeeld: {device}",

@@ -758,7 +758,7 @@
     "List view": "Vue en liste",
     "Listeners": "Écouteurs",
     "Live": "Réel",
-    "Live mode: touches and the hardware buttons switch your real devices, including the panel's relays. The panel's settings stay simulated.": "Mode réel : les appuis et les boutons physiques commandent vos vrais appareils, y compris les relais du panneau. Les réglages du panneau restent simulés.",
+    "Live mode: component presses, gestures, buttons and idle control act on the connected panel. Slider drags need the physical touchscreen. The preview mirrors commands sent by the panel app.": "",
     "Live preview": "Aperçu en direct",
     "Live preview error: {error}": "Erreur de l'aperçu en direct : {error}",
     "Live preview: {device}": "Aperçu en direct : {device}",

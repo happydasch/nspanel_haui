@@ -68,9 +68,8 @@ from custom_components.nspanel_haui import (  # noqa: E402
     api,
     async_reload_entry,
     async_remove_config_entry_device,
-    esphome_helpers,
-    storage,
 )
+from custom_components.nspanel_haui.hub import esphome_helpers, storage  # noqa: E402
 
 # --- fakes -----------------------------------------------------------------
 
@@ -1718,14 +1717,3 @@ def test_disabled_device_status_returns_unknown_readings_when_registry_lookup_fa
     assert result["body"]["device_info"]["ip"] == ""
     assert result["body"]["device_info"]["ssid"] == ""
     assert result["body"]["device_info"]["rssi"] is None
-
-
-def test_icon_chars_map_display_characters_back_to_icon_names():
-    from custom_components.nspanel_haui.haui.mapping.icon_mapping import ICON_MAPPING
-
-    request = _Request(MagicMock(), admin=False)
-    result = asyncio.run(api.IconCharsView().get(request))
-
-    chars = result["body"]
-    assert chars[ICON_MAPPING["lightbulb"]] == "lightbulb"
-    assert len(chars) == len(set(ICON_MAPPING.values()))

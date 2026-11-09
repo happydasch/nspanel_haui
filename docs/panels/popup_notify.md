@@ -13,6 +13,8 @@ It shows the notifications queued by the `nspanel_haui.send_notification` servic
 
 The text size is the largest font — large, medium or small — at which the whole message fits on one page of the popup's text area, measured with the display fonts' real character widths, so lines break between words exactly where the display shows them. A message that does not fit even at the small font is split into static pages; the title shows a `(page/total)` counter and the header's inner-right button advances to the next page. Paging is manual — nothing advances on its own — and the button disappears on the final page, which stays visible, so long messages are readable page by page instead of being truncated. The `text_size` field on `nspanel_haui.send_notification` and the `send_notification` ESPHome action overrides the automatic choice per notification with a fixed font size (1-3).
 
+Long notification titles and queue-list labels are shortened with `..` to fit their widgets. The detail-popup message is paged rather than shortened.
+
 ## How to configure
 
 This popup is opened by the integration. In the editor's **Popups** section only its title can be changed (see [System Panel Overrides](../configuration/panels.md#system-panel-overrides)). Parameters when opening it programmatically:

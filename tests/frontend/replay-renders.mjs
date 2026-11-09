@@ -51,6 +51,19 @@ for (const [name, render] of Object.entries(renders)) {
   }
   const added = warnings.filter((message) => !bare.includes(message));
   if (added.length) failures.push(`${name}: ${added.join(' | ')}`);
+  for (const expected of render.expected || []) {
+    const component = display.component(expected.component);
+    if (!component) {
+      failures.push(`${name}: expected component ${expected.component} is missing`);
+      continue;
+    }
+    if (expected.visible !== undefined && component.hidden === expected.visible) {
+      failures.push(`${name}: ${expected.component} visibility is ${!component.hidden}`);
+    }
+    if (expected.textIncludes && !String(component.attrs.txt || '').includes(expected.textIncludes)) {
+      failures.push(`${name}: ${expected.component} text does not include ${expected.textIncludes}`);
+    }
+  }
   if (themedColors) {
     const hmi = new Map(layout.pages[render.page].components.map((c) => [c.name, c.attrs]));
     const page = layout.pages[render.page].components.find((c) => c.type === TYPE_PAGE).attrs;
@@ -59,7 +72,7 @@ for (const [name, render] of Object.entries(renders)) {
       const hmiColours = new Set([page.bco, HMI_HEADER_BACKGROUND]);
       const flashing = [...loaded.components.values()].filter((comp) => (
         comp.type === TYPE_PAGE
-          ? (loaded.fill ?? comp.attrs.bco) === page.bco
+          ? comp.attrs.bco === page.bco
           : !comp.hidden && comp.attrs.sta === STA_SOLID && hmiColours.has(comp.attrs.bco)
       ));
       if (flashing.length) {

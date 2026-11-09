@@ -63,7 +63,7 @@ export function renderSystemPanelCard(host, sp) {
         title: sp.label,
         key: sp.key,
         badges,
-        preview: renderPanelPreview(host, sp, -1, sp),
+        preview: renderPanelPreview(host, sp, -1),
         description: sp.description,
         onClick: sp.editable ? () => host._openSysPanelEdit(sp) : undefined,
         actions,

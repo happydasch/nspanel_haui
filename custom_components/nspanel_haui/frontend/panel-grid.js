@@ -40,7 +40,7 @@ function renderPanelCard(host, p, panels, isNavPanel) {
         titleFallback: isOverride ? '' : (pt ? pt.label : t('Unnamed')),
         key: p.key,
         badges,
-        preview: renderPanelPreview(host, p, pIdx, pt),
+        preview: renderPanelPreview(host, p, pIdx),
         description: pt ? pt.description : '',
         onClick,
         actions,

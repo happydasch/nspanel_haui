@@ -10,6 +10,18 @@ from ..abstract.haui_panel import HAUIPanel
 from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 from ..mapping.icons import ICO_NEXT_PAGE
+from ..utils.text import TextBox, fit_line
+
+_SELECTION_BOXES = {
+    "landscape": {
+        "regular": TextBox(136, 55, 2, 20),
+        "full": TextBox(426, 55, 2, 60),
+    },
+    "portrait": {
+        "regular": TextBox(145, 55, 2, 20),
+        "full": TextBox(296, 55, 2, 60),
+    },
+}
 
 
 class SelectPage(HAUIPage):
@@ -217,6 +229,10 @@ class SelectPage(HAUIPage):
                 self._active[btn] = selection[sel_i]
                 sel_value = self.get_value(btn)
                 sel_name = self.get_name(btn)
+                if sel_name is not None:
+                    orientation = "portrait" if self.app.device.is_portrait else "landscape"
+                    size = "full" if self._select_mode == "full" else "regular"
+                    sel_name = fit_line([sel_name], 1, _SELECTION_BOXES[orientation][size])
                 color = self.get_color("component_active")
                 # selected can also be a list
                 if self._multiple and sel_value in self._selected:

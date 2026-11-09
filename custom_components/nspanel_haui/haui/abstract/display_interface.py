@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from ..mapping.const import ESPCommand
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 _LOGGER = logging.getLogger(__name__)
 

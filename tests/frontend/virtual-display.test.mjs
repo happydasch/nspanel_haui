@@ -71,7 +71,6 @@ test('a solid page loads in the theme set before the page switch', () => {
   // the page's Preinitialize code paints itself with them before it is drawn.
   display.exec(['thmBg=4479', 'thmHdrBg=4228', 'thmPressed=6463']);
   display.gotoPage('grid');
-  assert.equal(display.fill, null);
   assert.equal(display.component('grid').attrs.bco, 4479);
   assert.equal(display.component('g1Name').attrs.bco, 4479);
   assert.equal(display.component('g1Btn').attrs.bco2, 6463);
@@ -169,13 +168,6 @@ test('ref clears shapes drawn over a widget', () => {
   assert.equal(display.drawings.length, 1);
   display.exec(`ref ${display.component('pColorWheel').id}`);
   assert.equal(display.drawings.length, 0);
-});
-
-test('cls sets the page fill', () => {
-  const { display } = makeDisplay();
-  display.gotoPage('grid');
-  display.exec('cls 4226');
-  assert.equal(display.fill, 4226);
 });
 
 test('read requests are answered like the firmware does', () => {

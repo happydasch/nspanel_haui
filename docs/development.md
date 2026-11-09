@@ -65,7 +65,7 @@ ln -sfn "$REPO/custom_components/nspanel_haui" \
 If a Marketplace or copied installation already exists at that destination, move it
 aside before creating the link. `ln -sfn` replaces an earlier link; a plain
 `ln -s` would follow it and create a second link inside the integration folder,
-which Python then imports instead of `nspanel_haui.py`. For containers, the symlink target must also be
+which Python then imports instead of the integration package. For containers, the symlink target must also be
 available inside the container; otherwise copy the integration folder into
 `$HA_CONFIG/custom_components/nspanel_haui` instead. Restart Home Assistant
 after Python or frontend changes so it reloads the integration and its versioned
@@ -203,6 +203,50 @@ The system has three layers:
 | **Hub App** | `NSPanelHAUI` (runs in HA) | Reads entity states, renders display commands, manages navigation |
 | **ESP32** | ESPHome firmware | Serial bridge between HA and the display, relays touch events |
 | **Nextion** | Touchscreen display | Renders panels, manages widget state, handles touch input |
+
+---
+
+## Live preview regression checklist
+
+The live simulator starts with a blank browser-side display and replays the running
+hub app's output; it does not render a second copy of the panel. Changes to page
+lifecycle, display commands, WebSocket delivery, or simulator replay should keep
+that contract covered end to end.
+
+Before review, run the focused regression tests and then the normal project checks:
+
+```bash
+pytest tests/test_live_panel.py tests/test_page_weather.py tests/test_card_renders.py
+node --test tests/frontend/virtual-session.test.mjs
+```
+
+These cover a fresh full-page attach, redraws for content initialized in different
+page lifecycle hooks, reconnecting onto a blank simulator before the new stream
+arrives, live page switches, and replay of actual hub commands in the browser's
+Nextion simulator. Weather tests also cover missing, malformed, and failed
+forecast service responses, with the last good forecast retained or empty slots
+cleared when no good result exists. Keep cross-layer tests fed by captured hub
+output rather than duplicating an expected command stream in JavaScript.
+
+For changes that affect live mode, manually verify on a connected device when
+available:
+
+1. Open Live after the device is already showing a clock or weather page; check
+   current time, weather details, forecast, and any page-specific content.
+2. Close and reopen Live, then reconnect the device; the simulator should first
+   start clean and then reproduce the complete current page.
+3. Change pages on the physical panel and confirm the simulator follows. Exercise
+   a slider or button and confirm the real device responds once.
+4. Switch Simulated → Live and Live → Simulated; entering Live drops the
+   simulated states and follows the physical panel, and Simulated starts again
+   on its home panel (also when the physical panel was on its idle page).
+   Confirm sandbox interactions do not operate real entities.
+5. If forecast rendering changed, verify both a successful forecast refresh and
+   temporary unavailability with and without a previously rendered forecast.
+6. Repeat for portrait hardware if the change can affect layout or page IDs.
+
+Record any unavailable hardware checks in the change's PR checklist instead of
+marking them as verified.
 
 ---
 

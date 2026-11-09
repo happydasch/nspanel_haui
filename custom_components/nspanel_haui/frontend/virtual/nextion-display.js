@@ -51,7 +51,6 @@ export class NextionDisplay {
     this.components = new Map(); // name -> { id, name, type, attrs, events, touch }
     this.byId = new Map();
     this.drawings = [];
-    this.fill = null;
     this.warnings = [];
     // Global-scope widgets keep their attributes across page changes; keyed
     // "<page>.<widget>".
@@ -87,7 +86,6 @@ export class NextionDisplay {
       this.page = page;
       this.pageId = page.id;
       this.drawings = [];
-      this.fill = null;
       this.components = new Map();
       this.byId = new Map();
       for (const comp of page.components) {
@@ -269,11 +267,6 @@ export class NextionDisplay {
         this._changed();
         return;
       }
-      case 'cls':
-        this.fill = args[0];
-        this.drawings = [];
-        this._changed();
-        return;
       case 'ref': {
         // Redrawing a widget paints over shapes drawn on top of it.
         const { x, y, w, h } = this._commandTarget(args[0]).attrs;
@@ -284,8 +277,6 @@ export class NextionDisplay {
       }
       case 'sendme':
       case 'doevents':
-      case 'printh':
-      case 'prints':
         return;
       default:
         this.warn(`unsupported command: ${name}`);

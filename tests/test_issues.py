@@ -89,7 +89,7 @@ def _make_stubs() -> None:
 
 _make_stubs()
 
-import custom_components.nspanel_haui.storage as storage_mod  # noqa: E402
+import custom_components.nspanel_haui.hub.storage as storage_mod  # noqa: E402
 from custom_components.nspanel_haui import (  # noqa: E402
     _create_device_start_failed_issue,
     _create_hub_idle_issue,

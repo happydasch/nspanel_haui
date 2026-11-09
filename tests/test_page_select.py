@@ -53,7 +53,8 @@ class _Panel:
 
 def _select_page(**panel_config):
     page = SelectPage(_App(), {"page_id": _PAGE_ID})
-    page.send_cmd = lambda cmd: None
+    page.cmds = []
+    page.send_cmd = page.cmds.append
     page.get_color = lambda key: 0
     page._auto_assign_fncs = lambda panel: None
     selections = []
@@ -76,3 +77,16 @@ def test_tapping_other_entry_reports_it():
     page.callback_select(None, SelectPage.COMPONENTS.btn_sel_3)
 
     assert selections == ["high"]
+
+
+def test_long_selection_label_is_shortened_without_changing_selected_value():
+    label = "Laundry cycle complete: remove the clothes now"
+    page, selections = _select_page(items=[{"value": "notification-1", "name": label}])
+
+    command = next(cmd for cmd in page.cmds if cmd.startswith("bSel1.txt="))
+    assert command.endswith('.."')
+    assert label not in command
+
+    page.callback_select(None, SelectPage.COMPONENTS.btn_sel_1)
+
+    assert selections == ["notification-1"]

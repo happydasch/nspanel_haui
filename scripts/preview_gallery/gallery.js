@@ -3,8 +3,8 @@
 // `?orientation=landscape&card=grid` shows one card alone at the display's
 // resolution: what `gen_preview_gallery.py --png` captures.
 import { html, render } from '../../custom_components/nspanel_haui/frontend/vendor/lit/index.js';
-import { setSimulatorLoaders } from '../../custom_components/nspanel_haui/frontend/previews/simulator-frame.js';
-import { loadIconMap, loadLayout } from '../../custom_components/nspanel_haui/frontend/previews/simulator.js';
+import { setPanelRenderSource } from '../../custom_components/nspanel_haui/frontend/previews/simulator-frame.js';
+import { loadLayout } from '../../custom_components/nspanel_haui/frontend/previews/simulator.js';
 
 async function json(url) {
   const response = await fetch(url);
@@ -42,11 +42,7 @@ async function defineHaIcon() {
 }
 
 const [renders] = await Promise.all([json('out/renders.json'), defineHaIcon()]);
-setSimulatorLoaders({
-  layout: (orientation) => loadLayout(orientation),
-  icon: () => loadIconMap(),
-  render: (panel) => renders[panel.orientation][panel.key],
-});
+setPanelRenderSource((panel) => renders[panel.orientation][panel.key]);
 
 const frame = (orientation, card) => html`<nspanel-simulator-frame
   .panel=${{ key: card, orientation }} .portrait=${orientation === 'portrait'}

@@ -53,6 +53,8 @@ class _Connection:
 class _FakeHost:
     instances: list = []
     fail_start = False
+    # Runs while the host starts (the subscriber may close meanwhile).
+    on_start = None
 
     def __init__(self, hass, device, cfg, **kwargs):
         self.device = device
@@ -62,11 +64,12 @@ class _FakeHost:
         self.viewers = {}
         self.events = []
         self.renders = []
-        self.notifications = []
+        self.notifications_from = None
         self.reloads = []
         self.idle_count = 0
+        self.home_count = 0
         self.reset_count = 0
-        self.live = False
+        self.followed = None
         self.app = types.SimpleNamespace(device=types.SimpleNamespace(get=lambda key: None))
         _FakeHost.instances.append(self)
 
@@ -77,16 +80,21 @@ class _FakeHost:
     async def async_start(self):
         if _FakeHost.fail_start:
             raise RuntimeError("boom")
+        if _FakeHost.on_start is not None:
+            _FakeHost.on_start()
         self.started = True
 
     async def async_stop(self):
         self.stopped = True
 
+    async def async_follow_device(self, running):
+        self.followed = running
+
     async def async_reload(self, cfg):
         self.reloads.append(cfg)
 
-    def attach(self, viewer_id, sink, *, protocol_version):
-        self.viewers[viewer_id] = (sink, protocol_version)
+    def attach(self, viewer_id, sink):
+        self.viewers[viewer_id] = sink
 
     def detach(self, viewer_id):
         return self.viewers.pop(viewer_id, None) is not None
@@ -96,11 +104,11 @@ class _FakeHost:
             raise ValueError("not allowed")
         self.events.append((name, value))
 
-    async def async_sync_notifications(self, notifications):
-        self.notifications.append(notifications)
+    def show_home(self):
+        self.home_count += 1
 
-    def set_live(self, live):
-        self.live = live
+    async def async_follow_notifications(self, running):
+        self.notifications_from = running
 
     def show_idle(self):
         self.idle_count += 1
@@ -125,10 +133,11 @@ def ws(monkeypatch):
     stub = _websocket_stub()
     monkeypatch.setitem(sys.modules, "homeassistant.components.websocket_api", stub)
     monkeypatch.setattr(sys.modules["homeassistant.components"], "websocket_api", stub, False)
-    import custom_components.nspanel_haui.websocket_api as module
+    import custom_components.nspanel_haui.web.websocket as module
 
     module = importlib.reload(module)
-    from custom_components.nspanel_haui import esphome_helpers, storage, virtual_panel
+    from custom_components.nspanel_haui.hub import esphome_helpers, storage
+    from custom_components.nspanel_haui.web.preview import virtual_panel
 
     class _Store:
         async def async_load(self):
@@ -139,6 +148,7 @@ def ws(monkeypatch):
     monkeypatch.setattr(virtual_panel, "VirtualPanelHost", _FakeHost)
     _FakeHost.instances = []
     _FakeHost.fail_start = False
+    _FakeHost.on_start = None
     return module
 
 
@@ -158,13 +168,8 @@ class _Hass:
         self.tasks.append(self.loop.create_task(coro))
 
 
-def _subscribe(
-    ws, hass, conn, msg_id=1, device="kitchen", entry_id="entry1", protocol_version=None
-):
-    msg = {"id": msg_id, "entry_id": entry_id, "device": device, "live": False}
-    if protocol_version is not None:
-        msg["protocol_version"] = protocol_version
-    return ws.ws_subscribe(hass, conn, msg)
+def _subscribe(ws, hass, conn, msg_id=1, device="kitchen", entry_id="entry1"):
+    return ws.ws_subscribe(hass, conn, {"id": msg_id, "entry_id": entry_id, "device": device})
 
 
 def _render(ws, hass, conn, panel, msg_id=1, device="kitchen", entry_id="entry1", **target):
@@ -192,10 +197,9 @@ def test_all_commands_are_registered(ws):
     assert [fn.schema["type"] for fn in registered] == [
         "nspanel_haui/virtual_panel/subscribe",
         "nspanel_haui/virtual_panel/event",
-        "nspanel_haui/virtual_panel/notifications",
+        "nspanel_haui/virtual_panel/home",
         "nspanel_haui/virtual_panel/idle",
         "nspanel_haui/virtual_panel/reset_sandbox",
-        "nspanel_haui/virtual_panel/configure",
         "nspanel_haui/virtual_panel/render",
     ]
 
@@ -213,6 +217,27 @@ def test_subscribe_and_render_reject_unknown_hub_or_device(ws, entry_id, device)
     assert _FakeHost.instances == []
 
 
+def test_subscription_follows_the_running_physical_apps_info_and_notifications(ws):
+    conn = _Connection()
+    running = types.SimpleNamespace(
+        device=types.SimpleNamespace(device_info={"tft_version": "1.2"})
+    )
+
+    async def _run_on_worker(fn):
+        return fn()
+
+    running.async_run_on_worker = _run_on_worker
+
+    async def body(hass):
+        hass.data[ws.DOMAIN] = {"entry1": {"kitchen": running}}
+        await _subscribe(ws, hass, conn)
+        host = _FakeHost.instances[0]
+        assert host.followed is running
+        assert host.notifications_from is running
+
+    _run(body)
+
+
 def test_subscribe_attaches_a_viewer_and_unsubscribe_detaches_it(ws):
     conn = _Connection()
 
@@ -220,35 +245,31 @@ def test_subscribe_attaches_a_viewer_and_unsubscribe_detaches_it(ws):
         await _subscribe(ws, hass, conn)
         host = _FakeHost.instances[0]
         assert host.started
-        [(viewer_id, (sink, protocol_version))] = host.viewers.items()
-        assert protocol_version == 1
+        [(viewer_id, sink)] = host.viewers.items()
         sink({"type": "page", "page": 9})
         await asyncio.sleep(0)
         conn.subscriptions[1]()
         assert host.viewers == {}
         # The app outlives the viewer: panel cards and the next preview use it.
         assert not host.stopped
-        assert conn.events[0] == {
-            "type": "started",
-            "session_id": viewer_id,
-            "portrait": False,
-            "live": False,
-        }
+        assert conn.events[0] == {"type": "started", "session_id": viewer_id, "portrait": False}
 
     _run(body)
     assert conn.results == [1]
     assert {"type": "page", "page": 9} in conn.events
 
 
-def test_subscribe_passes_current_protocol_version_to_the_viewer(ws):
+def test_a_subscription_closed_while_the_app_starts_attaches_no_viewer(ws):
     conn = _Connection()
 
     async def body(hass):
-        await _subscribe(ws, hass, conn, protocol_version=2)
-        [(_sink, protocol_version)] = _FakeHost.instances[0].viewers.values()
-        assert protocol_version == 2
+        _FakeHost.on_start = lambda: conn.subscriptions[1]()
+        await _subscribe(ws, hass, conn)
 
     _run(body)
+    [host] = _FakeHost.instances
+    assert host.viewers == {}
+    assert not any(event["type"] == "started" for event in conn.events)
 
 
 def test_previews_and_cards_of_a_device_share_one_app(ws):
@@ -295,6 +316,22 @@ def test_an_idle_app_without_viewers_stops(ws):
 
     _run(body)
     assert _FakeHost.instances[0].stopped
+
+
+def test_a_use_right_after_an_idle_stop_starts_a_new_app(ws):
+    conn = _Connection()
+
+    async def body(hass):
+        await _render(ws, hass, conn, {"type": "grid", "key": "rooms"})
+        # No viewer: the stop is scheduled, and a preview opens before it runs.
+        ws._hosts(hass)._idle_check(("entry1", "kitchen"))
+        await _subscribe(ws, hass, conn, msg_id=2)
+
+    _run(body)
+    first, second = _FakeHost.instances
+    assert first.stopped
+    assert not second.stopped
+    assert second.viewer_count == 1
 
 
 def test_render_returns_the_hub_output_and_reports_a_bad_panel(ws):
@@ -360,33 +397,16 @@ def test_event_forwards_allowed_events_and_rejects_others(ws):
     assert conn.errors == [(3, "invalid_event"), (4, "not_found")]
 
 
-def test_notification_snapshot_is_applied_to_the_preview_session(ws):
+def test_home_opens_the_home_panel_for_the_preview_session(ws):
     conn = _Connection()
-    snapshot = [
-        {
-            "id": "source-1",
-            "title": "Doorbell",
-            "message": "Someone is here",
-            "icon": "mdi:bell",
-            "notif_type": "info",
-            "persistent": False,
-            "force_show": False,
-            "text_size": "auto",
-            "timeout": None,
-        }
-    ]
 
     async def body(hass):
         await _subscribe(ws, hass, conn)
         [session_id] = _FakeHost.instances[0].viewers
-        await ws.ws_notifications(
-            hass,
-            conn,
-            {"id": 2, "session_id": session_id, "notifications": snapshot},
-        )
+        await ws.ws_home(hass, conn, {"id": 2, "session_id": session_id})
 
     _run(body)
-    assert _FakeHost.instances[0].notifications == [snapshot]
+    assert _FakeHost.instances[0].home_count == 1
     assert conn.results == [1, 2]
 
 
@@ -414,41 +434,3 @@ def test_reset_sandbox_clears_simulated_states_for_the_preview_session(ws):
     _run(body)
     assert _FakeHost.instances[0].reset_count == 1
     assert conn.results == [1, 2]
-
-
-def test_configure_switches_the_mode(ws):
-    conn = _Connection()
-
-    async def body(hass):
-        await _subscribe(ws, hass, conn)
-        [sid] = _FakeHost.instances[0].viewers
-        await ws.ws_configure(hass, conn, {"id": 2, "session_id": sid, "live": True})
-
-    _run(body)
-    assert _FakeHost.instances[0].live is True
-    assert conn.results == [1, 2]
-
-
-def test_protected_entities_are_the_real_devices_own(ws, monkeypatch):
-    registry = types.ModuleType("homeassistant.helpers.entity_registry")
-    entry = types.SimpleNamespace
-    entries = {
-        "dev1": [
-            entry(entity_id="switch.kitchen_use_auto_dim", original_name="Use Auto-Dimming"),
-            entry(entity_id="switch.kitchen_relay_left", original_name="Relay Left"),
-            entry(entity_id="switch.kitchen_relay_right", original_name="Relay Right"),
-        ]
-    }
-    registry.async_get = lambda hass: "registry"
-    registry.async_entries_for_device = lambda reg, device_id, include_disabled_entities: entries[
-        device_id
-    ]
-    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", registry)
-    monkeypatch.setattr(sys.modules["homeassistant.helpers"], "entity_registry", registry, False)
-
-    async def body(hass):
-        assert await ws._protected_entities(hass, None) == frozenset()
-        # The relays are left out: live mode switches them for real.
-        assert await ws._protected_entities(hass, "dev1") == {"switch.kitchen_use_auto_dim"}
-
-    _run(body)

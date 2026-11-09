@@ -15,7 +15,8 @@ _storage_mod = types.ModuleType("homeassistant.helpers.storage")
 _storage_mod.Store = object
 sys.modules.setdefault("homeassistant.helpers.storage", _storage_mod)
 
-from custom_components.nspanel_haui import esphome_helpers, ha_adapter, storage  # noqa: E402
+from custom_components.nspanel_haui.hub import adapter as ha_adapter  # noqa: E402
+from custom_components.nspanel_haui.hub import esphome_helpers, storage  # noqa: E402
 
 
 def _hass_with_esphome(*names: str):

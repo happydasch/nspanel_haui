@@ -17,7 +17,7 @@ storage_mod = types.ModuleType("homeassistant.helpers.storage")
 storage_mod.Store = object
 sys.modules.setdefault("homeassistant.helpers.storage", storage_mod)
 
-from custom_components.nspanel_haui.storage import (  # noqa: E402
+from custom_components.nspanel_haui.hub.storage import (  # noqa: E402
     DEVICE_CONFIG_KEY_RENAMES,
     PanelStorage,
     migrate_device_config_keys,

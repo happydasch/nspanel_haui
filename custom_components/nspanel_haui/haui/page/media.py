@@ -31,7 +31,12 @@ from ..mapping.icons import (
     ICO_VOLUME_UP,
 )
 from ..utils.icon import get_icon
-from ..utils.text import trim_text
+from ..utils.text import TextBox, fit_line
+
+_MEDIA_NAME_BOXES = {
+    "landscape": TextBox(90, 50, 2, 20),
+    "portrait": TextBox(234, 50, 2, 20),
+}
 
 
 class MediaPage(HAUIPage):
@@ -328,7 +333,8 @@ class MediaPage(HAUIPage):
             if visible:
                 self.show_component(x)
         self.set_component_text(m_ico, icon)
-        self.set_component_text(m_name, name)
+        orientation = "portrait" if self.app.device.is_portrait else "landscape"
+        self.set_component_text(m_name, fit_line([name], 1, _MEDIA_NAME_BOXES[orientation]))
 
     def update_media_title(self) -> None:
         title = self._title
@@ -605,7 +611,7 @@ class MediaPage(HAUIPage):
             items = self._sonos_favorites.get_item_attr("items", {})
             for name in items.values():
                 value = f"sonos_favorites:{name}"
-                selection.append({"value": value, "name": trim_text(name, 14)})
+                selection.append({"value": value, "name": name})
         # add media favorites. Entity IDs keep the legacy metadata lookup; other
         # strings are treated as media content IDs with the default music type.
         for favorite in self._media_favorites:
@@ -619,7 +625,7 @@ class MediaPage(HAUIPage):
                 name = entity.get_entity_attr("friendly_name", favorite)
             if content_id:
                 value = f"media_favorites:{content_type}:{content_id}"
-                selection.append({"value": value, "name": trim_text(name, 14)})
+                selection.append({"value": value, "name": name})
             else:
                 self.log(f"Skipping media favorite {favorite}: no media_content_id")
         # show popup

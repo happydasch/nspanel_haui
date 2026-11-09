@@ -12,10 +12,10 @@ from homeassistant.components import panel_custom
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 
-from .haui.version import get_version
+from ..haui.version import get_version
 
 _LOGGER = logging.getLogger(__name__)
-FRONTEND_DIR = Path(__file__).parent / "frontend"
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
 STATIC_URL_PREFIX = "/nspanel_haui_frontend"
 PANEL_URL_PATH = "nspanel-haui"
 

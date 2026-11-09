@@ -13,10 +13,10 @@ _storage_stub.Store = object
 sys.modules.setdefault("homeassistant.helpers.storage", _storage_stub)
 
 import custom_components.nspanel_haui as nspanel_haui  # noqa: E402
-from custom_components.nspanel_haui import esphome_helpers, storage  # noqa: E402
-from custom_components.nspanel_haui.ha_adapter import ESPHomeProxy  # noqa: E402
 from custom_components.nspanel_haui.haui.mapping.color import ColorTheme  # noqa: E402
-from custom_components.nspanel_haui.nspanel_haui import NSPanelHAUI  # noqa: E402
+from custom_components.nspanel_haui.hub import esphome_helpers, storage  # noqa: E402
+from custom_components.nspanel_haui.hub.adapter import ESPHomeProxy  # noqa: E402
+from custom_components.nspanel_haui.hub.app import NSPanelHAUI  # noqa: E402
 
 # --- setup ----------------------------------------------------------------
 
@@ -463,10 +463,10 @@ class _LifecycleApp:
 
 
 def test_new_app_initializes_on_its_worker(monkeypatch):
-    from custom_components.nspanel_haui import esphome_helpers
+    from custom_components.nspanel_haui.hub import esphome_helpers
 
     monkeypatch.setattr(
-        sys.modules["custom_components.nspanel_haui.nspanel_haui"],
+        sys.modules["custom_components.nspanel_haui.hub.app"],
         "NSPanelHAUI",
         _LifecycleApp,
     )

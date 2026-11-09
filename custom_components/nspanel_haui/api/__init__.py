@@ -13,7 +13,6 @@ from .color_schemes import ColorSchemesView
 from .config import DeviceConfigView, DeviceYamlView, PanelConfigView
 from .editor import (
     ColorDefaultsView,
-    IconCharsView,
     IconSearchView,
     PanelTypesView,
     TranslationsView,
@@ -56,7 +55,6 @@ VIEWS = (
     FirmwareDownloadView,
     DeviceYamlView,
     IconSearchView,
-    IconCharsView,
 )
 
 

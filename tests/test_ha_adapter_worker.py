@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from custom_components.nspanel_haui.ha_adapter import HAAdapter
+from custom_components.nspanel_haui.hub.adapter import HAAdapter
 
 
 class _Hass:
@@ -525,7 +525,7 @@ def _capture_logger(monkeypatch):
     """Replace the module logger with a recorder; return the record list."""
     logs = []
     monkeypatch.setattr(
-        sys.modules["custom_components.nspanel_haui.ha_adapter"],
+        sys.modules["custom_components.nspanel_haui.hub.adapter"],
         "_LOGGER",
         type(
             "_FakeLogger",

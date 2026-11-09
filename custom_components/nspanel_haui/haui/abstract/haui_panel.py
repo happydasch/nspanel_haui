@@ -8,7 +8,7 @@ from ..utils.value import merge_dicts
 from .haui_config_access import HAUIConfigAccess
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 
 class HAUIPanel(HAUIConfigAccess):

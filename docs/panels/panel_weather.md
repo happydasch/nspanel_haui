@@ -46,6 +46,9 @@ For dynamic backgrounds, choose **Template…** in the Background field. The res
 ### Show Forecast
 
 Toggle **Daily** or **Hourly** forecast display in the editor. If the weather entity returns fewer than 5 forecast entries, the remaining forecast slots stay empty.
+If a forecast refresh temporarily returns no data or fails, the panel keeps the
+last successful forecast; before one has succeeded, the forecast slots remain
+empty.
 
 
 ### Show Weather

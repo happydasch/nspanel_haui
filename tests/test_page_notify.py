@@ -97,6 +97,19 @@ def test_short_message_does_not_show_next_page_button():
     assert not hasattr(page, "_page_handle")
 
 
+def test_long_notification_title_is_shortened_to_fit_header():
+    page = _build_page("Short message")
+
+    class _LongTitlePanel(_Panel):
+        def get_title(self, default=""):
+            return "A notification title that is too long for the header"
+
+    page.render_panel(_LongTitlePanel())
+
+    command = next(cmd for cmd in page.cmds if cmd.startswith("tTitle.txt="))
+    assert command.endswith('.."')
+
+
 def test_long_message_shows_next_page_button_without_timer():
     page = _build_page(LONG)
 
@@ -135,6 +148,24 @@ def test_next_page_button_does_not_advance_past_last_page():
     page.callback_function_component(page.FNC_BTN_R_SEC, _FNC_NEXT_PAGE)
 
     assert "tText.txt=" not in " ".join(page.cmds)
+
+
+def test_refresh_preserves_the_current_text_page():
+    page = _build_page(LONG)
+    page.render_panel(_Panel())
+    page.callback_function_component(page.FNC_BTN_R_SEC, _FNC_NEXT_PAGE)
+    second_page = page._chunks[1]
+
+    page.cmds.clear()
+    page.render_panel(_Panel())
+
+    assert page._current_page == 1
+    assert f'tText.txt="{second_page}"'.replace("\n", "\\r") in " ".join(page.cmds)
+
+    page.start_panel(_Panel())
+    page.cmds.clear()
+    page.render_panel(_Panel())
+    assert page._current_page == 0
 
 
 def test_stop_panel_runs_the_close_callback_and_keeps_notification_page_hold():

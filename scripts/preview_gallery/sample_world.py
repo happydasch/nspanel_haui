@@ -348,7 +348,7 @@ def render_every_card(
         get_system_panel_entries,
         get_user_panel_type_descriptors,
     )
-    from custom_components.nspanel_haui.virtual_panel import VirtualPanelHost
+    from custom_components.nspanel_haui.web.preview.virtual_panel import VirtualPanelHost
 
     store = {
         "devices": {

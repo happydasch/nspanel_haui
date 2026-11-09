@@ -17,7 +17,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..utils.icon import parse_icon
 from ..utils.text import get_state_translation, get_translation

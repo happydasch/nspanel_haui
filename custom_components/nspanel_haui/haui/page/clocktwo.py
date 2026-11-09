@@ -327,7 +327,7 @@ class ClockTwoPage(HAUIPage):
         self._light_background = False
 
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
-        return [*super().page_load_commands(panel), *background_commands(self, panel)]
+        return [*background_commands(self, panel), *super().page_load_commands(panel)]
 
     def read_options(self, panel: HAUIPanel) -> None:
         """Read the word clock's options; each panel shown on the page reads them anew."""
@@ -360,6 +360,11 @@ class ClockTwoPage(HAUIPage):
             self.COMPONENTS.t_notif.name,
             visible=self._show_notifications,
         )
+        self.init_interface(panel)
+
+    def _redraw_panel(self, panel: HAUIPanel) -> None:
+        # The letters are written once per start; render_panel recolours only
+        # the letters whose state changed.
         self.init_interface(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:

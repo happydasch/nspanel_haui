@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ...ha_adapter import ItemProxy
+    from ...hub.adapter import ItemProxy
 
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage

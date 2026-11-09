@@ -10,7 +10,7 @@ from ..haui.mapping.color import (
     COLOR_SCHEME_VERSION,
     validate_color_schemes,
 )
-from ..storage import empty_store, panel_store
+from ..hub.storage import empty_store, panel_store
 from .common import ApiError, api_errors
 
 

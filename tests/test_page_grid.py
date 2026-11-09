@@ -123,6 +123,17 @@ def test_state_keyed_background_is_resolved_and_refreshed() -> None:
     assert _last_color(app, "g1Btn") == parse_color_value("#ff0000")
 
 
+def test_long_entity_name_is_shortened_to_fit_tile():
+    name = "Kitchen ceiling recessed light"
+    app = _App({"light.lamp": _Entity("off", {"friendly_name": name})})
+    page = GridPage(app, {"page_id": 9})
+    page.set_panel(HAUIPanel(app, {"type": "grid", "items": [{"item": "light.lamp"}]}))
+
+    command = next(cmd for cmd in app.cmds if cmd.startswith("g1Name.txt="))
+    assert command.endswith('.."')
+    assert "Kitchen ceiling recessed light" not in command
+
+
 def _draws(cmd: str, component: str) -> bool:
     return cmd.startswith(f"{component}.") or cmd in (f"ref {component}", f"vis {component},1")
 

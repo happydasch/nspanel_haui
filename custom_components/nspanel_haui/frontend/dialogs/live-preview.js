@@ -1,11 +1,11 @@
 /**
  * NSPanel HAUI - Live preview dialog.
  *
- * Shows a virtual panel driven by the hub's real panel code
- * (virtual/virtual-panel-session.js): the screen as the device draws it, touch
- * and swipe with mouse or finger, the two hardware buttons, and a switch
- * between sandbox mode (simulated entity states) and live mode (real service
- * calls).
+ * Shows a panel driven by the hub's real panel code: the screen as the device
+ * draws it, touch and swipe with mouse or finger, the two hardware buttons, and
+ * a switch between sandbox mode (virtual/virtual-panel-session.js: the device's
+ * virtual app, simulated states) and live mode (virtual/live-panel-session.js:
+ * the real panel and its entities).
  */
 import { css, html, nothing } from '../lit-import.js';
 import { dialogHeader } from './dialog-header.js';
@@ -14,6 +14,7 @@ import { renderToggle } from '../form-fields.js';
 import { t } from '../localize.js';
 import { renderDisplay } from '../virtual/nextion-view.js';
 import { entityAt, toDisplayCoords } from '../virtual/touch-input.js';
+import { LivePanelSession } from '../virtual/live-panel-session.js';
 import { VirtualPanelSession } from '../virtual/virtual-panel-session.js';
 import { virtualPanelStyles } from '../virtual/virtual-panel-styles.js';
 
@@ -44,7 +45,6 @@ class LivePreviewDialog extends HauiDialog {
       _error: { state: true },
       _stageWidth: { state: true },
       _sound: { state: true },
-      _displayOff: { state: true },
       _hover: { state: true },
       _showEntities: { state: true },
       _showTools: { state: true },
@@ -284,7 +284,6 @@ class LivePreviewDialog extends HauiDialog {
     this._error = '';
     this._stageWidth = 0;
     this._sound = '';
-    this._displayOff = false;
     this._hover = null;
     this._showEntities = false;
     this._showTools = false;
@@ -317,13 +316,14 @@ class LivePreviewDialog extends HauiDialog {
     this._stopSession();
   }
 
-  _startSession() {
+  _startSession(live = false, openHome = false) {
     this._stopSession();
     this._error = '';
-    this._displayOff = false;
-    const session = new VirtualPanelSession(this.hass, {
+    const Session = live ? LivePanelSession : VirtualPanelSession;
+    const session = new Session(this.hass, {
       entryId: this.entryId,
       device: this.device,
+      openHome,
       onUpdate: () => this.requestUpdate(),
       onAction: action => this._onAction(action),
       onError: msg => { this._error = msg; },
@@ -349,10 +349,6 @@ class LivePreviewDialog extends HauiDialog {
       this._sound = action.name === 'play_sound' ? String(action.value) : 'rtttl';
       clearTimeout(this._soundTimer);
       this._soundTimer = setTimeout(() => { this._sound = ''; }, SOUND_HINT_MS);
-    } else if (action.name === 'display_off') {
-      this._displayOff = true;
-    } else if (action.name === 'display_on') {
-      this._displayOff = false;
     }
   }
 
@@ -369,7 +365,7 @@ class LivePreviewDialog extends HauiDialog {
   }
 
   _onPointerDown(e) {
-    if (!this._session?.ready || this._pointerId !== null) return;
+    if (!this._session?.canInteract || this._pointerId !== null) return;
     e.preventDefault();
     this._hover = null;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -451,17 +447,32 @@ class LivePreviewDialog extends HauiDialog {
     `;
   }
 
-  async _setLive(live) {
-    try {
-      await this._session.setLive(live);
-    } catch (err) {
-      this._error = err?.message || String(err);
+  /**
+   * Switch modes. The modes are independent: Live drops the simulated states,
+   * and back from Live the sandbox starts over on its home panel.
+   */
+  _setLive(live) {
+    if (!this.open || !this._session || this._session.live === live) return;
+    if (live && this._session.sandboxChanged) {
+      // Sent before the sandbox unsubscribes; the hub handles a connection's
+      // messages in order, so it still knows the session.
+      this._session.resetSandbox().catch(err => { this._error = err?.message || String(err); });
     }
+    this._startSession(live, !live);
   }
 
   async _resetSandbox() {
     try {
       await this._session.resetSandbox();
+    } catch (err) {
+      this._error = err?.message || String(err);
+      this.requestUpdate();
+    }
+  }
+
+  async _resetInteractionTimer() {
+    try {
+      await this._session.resetInteractionTimer();
     } catch (err) {
       this._error = err?.message || String(err);
       this.requestUpdate();
@@ -478,7 +489,7 @@ class LivePreviewDialog extends HauiDialog {
             class="vp-hw"
             aria-label=${side === 'left' ? t('Left button') : t('Right button')}
             title=${side === 'left' ? t('Left button') : t('Right button')}
-            ?disabled=${!session?.ready}
+            ?disabled=${!session?.canInteract}
             @click=${() => session?.pressButton(side)}
           >
             ${session?.buttonEntityStates?.[side] !== null
@@ -522,11 +533,10 @@ class LivePreviewDialog extends HauiDialog {
     const scale = this._fitScale(layout.visible_width, layout.height);
     const width = Math.floor(layout.visible_width * scale);
     const height = Math.floor(layout.height * scale);
-    const brightness = Math.max(session.brightness, 15) / 100;
     return this._renderFrame(session, scale, html`
       <div
         class="vp-screen-wrap"
-        style="width:${width}px;height:${height}px;filter:brightness(${brightness});"
+        style="width:${width}px;height:${height}px;filter:brightness(${session.screenBrightness});"
         @pointerdown=${this._onPointerDown}
         @pointermove=${this._onPointerMove}
         @pointerup=${this._onPointerUp}
@@ -540,7 +550,7 @@ class LivePreviewDialog extends HauiDialog {
             pictureUrl: id => session.pictureUrl(id),
           })}
         </div>
-        ${this._displayOff ? html`<div class="vp-off"></div>` : nothing}
+        ${session.displayOff ? html`<div class="vp-off"></div>` : nothing}
       </div>
     `);
   }
@@ -565,7 +575,7 @@ class LivePreviewDialog extends HauiDialog {
       <div class="vp-mode-note ${live ? 'live' : ''}">
         <ha-icon icon=${live ? 'mdi:alert-circle-outline' : 'mdi:information-outline'}></ha-icon>
         <span>${live
-          ? t('Live mode: touches and the hardware buttons switch your real devices, including the panel\'s relays. The panel\'s settings stay simulated.')
+          ? t('Live mode: component presses, gestures, buttons and idle control act on the connected panel. Slider drags need the physical touchscreen. The preview mirrors commands sent by the panel app.')
           : t('Simulated mode: touches update simulated states only; your devices are not switched.')}</span>
       </div>
     `;
@@ -612,13 +622,12 @@ class LivePreviewDialog extends HauiDialog {
   }
 
   _renderIdleButton(session) {
-    const ready = Boolean(session?.ready);
     return html`
       <ha-button
         class="vp-idle-button"
         appearance=${session?.idle ? 'accent' : 'plain'}
         aria-pressed=${session?.idle ? 'true' : 'false'}
-        ?disabled=${!ready}
+        ?disabled=${!session?.canInteract}
         aria-label=${t('Idle timeout')}
         @click=${() => session.idleTimeout()}
       >
@@ -638,15 +647,27 @@ class LivePreviewDialog extends HauiDialog {
           ${renderToggle('vp-show-entities', this._showEntities, v => this._setShowEntities(v), { disabled: !ready })}
           ${t('Show entities')}
         </label>
-        <ha-button
-          class="vp-reset-sandbox"
-          appearance="plain"
-          ?disabled=${!ready || live || !session?.sandboxChanged}
-          @click=${() => this._resetSandbox()}
-        >
-          <ha-icon slot="start" icon="mdi:restore"></ha-icon>
-          <span>${t('Reset sandbox')}</span>
-        </ha-button>
+        ${live ? html`
+          <ha-button
+            class="vp-reset-interaction"
+            appearance="plain"
+            ?disabled=${!session?.canInteract}
+            @click=${() => this._resetInteractionTimer()}
+          >
+            <ha-icon slot="start" icon="mdi:timer-refresh-outline"></ha-icon>
+            <span>${t('Reset interaction timer')}</span>
+          </ha-button>
+        ` : html`
+          <ha-button
+            class="vp-reset-sandbox"
+            appearance="plain"
+            ?disabled=${!ready || !session?.sandboxChanged}
+            @click=${() => this._resetSandbox()}
+          >
+            <ha-icon slot="start" icon="mdi:restore"></ha-icon>
+            <span>${t('Reset sandbox')}</span>
+          </ha-button>
+        `}
       </div>
     `;
   }
@@ -654,6 +675,12 @@ class LivePreviewDialog extends HauiDialog {
   _renderStatus(session) {
     return html`
       <div class="vp-status">
+        ${session?.live && session.physical.connected !== null ? html`
+          <span class="vp-device-state">
+            <ha-icon icon=${session.physical.connected ? 'mdi:lan-connect' : 'mdi:lan-disconnect'}></ha-icon>
+            ${session.physical.connected ? t('Connected') : t('Disconnected')}
+          </span>
+        ` : nothing}
         ${this._sound ? html`
           <span><ha-icon icon="mdi:volume-high"></ha-icon> ${t('Sound: {name}').replace('{name}', this._sound)}</span>
         ` : nothing}

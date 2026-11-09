@@ -190,7 +190,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
         )
 
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
-        return [*super().page_load_commands(panel), *background_commands(self, panel)]
+        return [*background_commands(self, panel), *super().page_load_commands(panel)]
 
     def start_panel(self, panel: HAUIPanel) -> None:
         set_background_mode(self, panel)
@@ -308,6 +308,7 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
                     f"Weather forecast service returned no result for '{self._forecast_type}'",
                     level="WARNING",
                 )
+                forecast = self._previous_forecast
             else:
                 forecast = result["result"]["response"][weather_id]["forecast"]
         except (KeyError, IndexError, TypeError, AttributeError) as exc:
@@ -322,11 +323,10 @@ class WeatherPage(CycleCardsMixin, HAUIPage):
                 level="WARNING",
                 exc_info=True,
             )
-            if self._previous_forecast is not None:
-                forecast = self._previous_forecast
-            else:
-                return
+            forecast = self._previous_forecast
         if forecast is None:
+            for idx in range(self.NUM_FORECAST):
+                self.clear_forecast(idx)
             return
         for i in range(0, self.NUM_FORECAST):
             if i < len(forecast):

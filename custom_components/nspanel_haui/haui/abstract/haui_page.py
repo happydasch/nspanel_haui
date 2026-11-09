@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, ClassVar, TypeGuard
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_base import HAUIBase
@@ -175,6 +175,30 @@ class HAUIPage(TouchInputMixin, FunctionButtonMixin, ComponentMixin, HAUIBase):
         )
         with self.rec_cmd:
             self.render_panel(self.panel)
+
+    def redraw_panel(self) -> None:
+        """Draws the whole current panel again, on a page the display loaded afresh.
+
+        ``refresh_panel`` sends only what changed since the page last drew it;
+        a freshly loaded page shows its compiled widgets instead. The panel is
+        not started again, so its state (a sub-page, a zoom) is kept.
+        """
+        if self.panel is None:
+            return
+        self.forget_shown_function_components()
+        with self.rec_cmd:
+            self._redraw_panel(self.panel)
+            self._render_function_components()
+            self.render_panel(self.panel)
+
+    def _redraw_panel(self, panel: HAUIPanel) -> None:
+        """Sends what ``start_panel`` drew and ``render_panel`` never draws again.
+
+        Override in a page whose ``start_panel`` draws. No need to call super.
+
+        Args:
+            panel (HAUIPanel): Current panel
+        """
 
     def _render_function_components(self) -> None:
         """Send the current state of all registered function components.

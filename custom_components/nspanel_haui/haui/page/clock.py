@@ -146,7 +146,7 @@ class ClockPage(CycleCardsMixin, HAUIPage):
         self._init_cards()
 
     def page_load_commands(self, panel: HAUIPanel) -> list[str]:
-        return [*super().page_load_commands(panel), *background_commands(self, panel)]
+        return [*background_commands(self, panel), *super().page_load_commands(panel)]
 
     def start_panel(self, panel: HAUIPanel) -> None:
         set_background_mode(self, panel)

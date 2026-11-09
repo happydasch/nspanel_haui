@@ -220,3 +220,16 @@ def test_volume_slider_is_a_drag_control(monkeypatch):
         HAUIEvent(ESPResponse.READ_RESPONSE, '{"name":"hVolume","type":"number","value":"42"}')
     )
     assert item.calls == [("volume_set", {"volume_level": 0.42})]
+
+
+def test_long_media_entity_label_is_shortened_to_fit_button():
+    page = MediaPage.__new__(MediaPage)
+    page.app = _App()
+    page.show_component = lambda _component: None
+    rendered = []
+    page.set_component_text = lambda component, text: rendered.append((component, text))
+
+    page.set_media_button(1, "icon", "Kitchen speaker with a very long name")
+
+    assert rendered[-1][0] == MediaPage.COMPONENTS.m1_name
+    assert rendered[-1][1].endswith("..")

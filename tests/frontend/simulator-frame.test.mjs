@@ -7,13 +7,18 @@ import { readFileSync } from 'node:fs';
 
 import {
   SimulatorFrameElement,
-  setSimulatorLoaders,
+  setPanelRenderSource,
 } from '../../custom_components/nspanel_haui/frontend/previews/simulator-frame.js';
+import { loadIconMap, loadLayout } from '../../custom_components/nspanel_haui/frontend/virtual/assets.js';
 
 const asset = (name) => JSON.parse(readFileSync(
   new URL(`../../custom_components/nspanel_haui/frontend/virtual/${name}`, import.meta.url),
   'utf8',
 ));
+
+// The assets are memoised: load them once from the files, as fetch would.
+loadLayout('landscape', () => asset('layout_landscape.json'));
+loadIconMap(() => asset('icon_map.json'));
 
 test('simulator frame recalculates scale when its container width changes', () => {
   let width = 450;
@@ -67,19 +72,15 @@ test('simulator frame rebuilds when what the hub renders with changes', () => {
 });
 
 function frameWith(render) {
-  setSimulatorLoaders({
-    layout: () => asset('layout_landscape.json'),
-    icon: () => asset('icon_map.json'),
-    render,
-  });
+  setPanelRenderSource(render);
   const frame = Object.create(SimulatorFrameElement.prototype);
   Object.assign(frame, {
     panel: { type: 'weather', key: 'weather_0' },
-    type: null,
     portrait: false,
     byKey: false,
     host: {},
     _started: false,
+    _seq: 0,
     _measure() {},
     requestUpdate() {},
   });
@@ -96,7 +97,7 @@ test('simulator frame shows the hub render its loader returned', async () => {
     assert.equal(frame._display.page.name, 'weather');
     assert.equal(frame._display.component('f1Name').attrs.txt, 'Tue');
   } finally {
-    setSimulatorLoaders(null);
+    setPanelRenderSource(null);
   }
 });
 
@@ -107,7 +108,7 @@ test('simulator frame shows the placeholder until it has a hub render', async ()
     assert.equal(frame._error, null);
     assert.equal(frame._display, null);
   } finally {
-    setSimulatorLoaders(null);
+    setPanelRenderSource(null);
   }
 });
 
@@ -117,6 +118,24 @@ test('simulator frame shows the hub error instead of a stale preview', async () 
     await frame._start();
     assert.equal(frame._error, "Unknown panel type: 'bogus'");
   } finally {
-    setSimulatorLoaders(null);
+    setPanelRenderSource(null);
+  }
+});
+
+test('a slower older render never replaces a newer one', async () => {
+  let resolveOld;
+  const renders = [
+    new Promise((resolve) => { resolveOld = resolve; }),
+    { page: 6, before: [], commands: ['f1Name.txt="New"', 'vis f1Name,1'] },
+  ];
+  const frame = frameWith(() => renders.shift());
+  try {
+    const first = frame._start();
+    await frame._start(true);
+    resolveOld({ page: 6, before: [], commands: ['f1Name.txt="Old"', 'vis f1Name,1'] });
+    await first;
+    assert.equal(frame._display.component('f1Name').attrs.txt, 'New');
+  } finally {
+    setPanelRenderSource(null);
   }
 });

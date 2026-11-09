@@ -221,10 +221,8 @@ export function renderDisplay(display, ctx) {
     return html`<div class="vp-screen" style="${size}background:#000;"></div>`;
   }
   const pageComp = display.component(0);
-  // A `cls <colour>` fills the page before the widgets are drawn on top.
-  const pageBg = display.fill !== null
-    ? `background:${color(display.fill)};`
-    : backgroundStyle(pageComp.attrs, { x: 0, y: 0 }, ctx.pictureUrl) || 'background:#000;';
+  const pageBg = backgroundStyle(pageComp.attrs, { x: 0, y: 0 }, ctx.pictureUrl)
+    || 'background:#000;';
   const widgets = [...display.components.values()]
     .filter(c => c.id !== 0 && !c.hidden)
     .sort((a, b) => a.id - b.id);

@@ -40,10 +40,13 @@ switch:
     optimistic: true
 
   # Physical switch left
+  # RESTORE_DEFAULT_OFF keeps the relay's last state across reboots and firmware
+  # updates (stored in NVS, so it is also restored after a power loss).
+  # ALWAYS_OFF switched every connected load off on each update.
   - platform: gpio
     name: Relay Left
     id: relay_left
-    restore_mode: ALWAYS_OFF
+    restore_mode: RESTORE_DEFAULT_OFF
     pin:
       number: 22
     on_turn_on:
@@ -59,7 +62,7 @@ switch:
   - platform: gpio
     name: Relay Right
     id: relay_right
-    restore_mode: ALWAYS_OFF
+    restore_mode: RESTORE_DEFAULT_OFF
     pin:
       number: 19
     on_turn_on:

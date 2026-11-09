@@ -525,3 +525,12 @@ def test_touch_and_brightness_sensors_are_disabled_by_default():
     for sensor in (touch, brightness):
         assert sensor["disabled_by_default"] is True
         assert not sensor.get("internal", False)
+
+
+def test_relays_restore_their_state_after_a_firmware_update():
+    """ALWAYS_OFF switched every connected load off on each OTA reboot."""
+    import yaml
+
+    switches = {switch["id"]: switch for switch in yaml.safe_load(_read("switch.yaml"))["switch"]}
+    for relay in ("relay_left", "relay_right"):
+        assert switches[relay]["restore_mode"] == "RESTORE_DEFAULT_OFF"

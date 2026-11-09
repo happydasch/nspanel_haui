@@ -194,7 +194,7 @@ Sensors and switches:
 - `use_button_interaction` (switch): whether a physical button press resets the inactivity timer.
 - `use_auto_dimming` (switch): automatic dimming.
 - `use_auto_display_off` (switch): automatic brightness to zero after the display-off timeout. Brightness only — it never switches pages and never requires an idle page, and it reaches zero whether or not auto-dimming is enabled.
-- `relay_left` / `relay_right` (relay switches): the internal relays.
+- `relay_left` / `relay_right` (relay switches): the internal relays. Both use `RESTORE_DEFAULT_OFF`, so they return to their last state after a reboot, a firmware update or a power loss.
 - `use_relay_left` / `use_relay_right` (switches): whether the physical buttons use the internal relays.
 
 ## Brightness and Dimming

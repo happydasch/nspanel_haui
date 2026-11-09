@@ -113,11 +113,15 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The Device Manager finds new panels when it opens; its install picker moved
   to the **Info** dialog (**Install update**, **Redraw display**, **Download
   firmware**), preparing the 0.5 frontend redesign.
+- The release notice opens once per release instead of after every update check;
+  it can appear again after a restart or a channel change
+  ([Update Process](docs/update-process.md#on-the-display)).
 - A notification sent without an icon shows none (no severity default icon)
   and uses the full text width.
-- Grid tile colors, alarm keypad/action-button colors and Clock Two word colors
-  are no longer panel options; the color scheme supplies them. Saved values
-  still override until **Reset existing device and panel color overrides**.
+- Grid tile, alarm keypad/action-button and Clock Two word colors default to the
+  active color scheme; their optional color settings override it per panel or
+  item. Values saved from older versions keep overriding until **Reset existing
+  device and panel color overrides**.
 - Devices from older versions with a pure-white background override migrate to
   the **Light Color** scheme, all others start on **Dark Color**; unknown
   scheme IDs fall back to dark with a warning.
@@ -125,9 +129,12 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   item and hide their controls when the entity is unavailable or `unknown`;
   light, media and vacuum also show **Unavailable**, and an `unknown` item
   opens the Unavailable message instead of running its action.
-- The live preview's hardware buttons show their relay (blue) or button-entity
-  (yellow) state; **Simulated/Live** is a toolbar switch, and **More tools**
-  shows **Show entities** and **Reset sandbox** (Simulated mode only).
+- The live preview's hardware buttons show their relay (blue) or the state of
+  any entity they switch (yellow; covers report open/closed by position and
+  locks, climate, alarm, media and timer entities report their active state);
+  **Simulated/Live** is a toolbar switch, and **More tools** shows **Show
+  entities** and **Reset sandbox** (Simulated mode only, disabled until a
+  simulated state changed).
 - A hub reconnect no longer counts as an interaction: the current page is restored at full brightness for the configured dimming timeout, then normal brightness timeouts resume. The hub restarts the idle-page timeout after restoring the page; the idle page and auto-navigate-home now run from one level-triggered hub check ([Device](docs/device.md#display-state-dimmed-off-and-on)).
 
 ### Fixed
@@ -216,6 +223,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
   the idle page or display-off switched off when a saved config reopens them.
 - The display no longer turns off with auto display-off disabled: the hub sets
   an auto switch toggled anywhere else back to its setting right away.
+- The relays keep their last state across firmware updates and reboots instead
+  of switching off on every boot ([ESPHome](docs/esphome.md#interaction)).
 
 ### Contributors
 

@@ -238,7 +238,7 @@ shortcuts on top of that.
 
 - `use_relay_left` / `use_relay_right` bool
 
-  Whether the left/right hardware button toggles its internal relay. Disable to assign a Home Assistant entity instead. Default `True` for both.
+  Whether the left/right hardware button toggles its internal relay. Disable to assign a Home Assistant entity instead. Default `True` for both. The relays restore their last state after a reboot, a firmware update or a power loss.
 
 - `button_left_entity` / `button_right_entity` string
 
@@ -269,7 +269,7 @@ Opened from **Editor → Colors**. Color schemes are the source of semantic colo
 
 A scheme contains the global page roles and the dark- and light-background weather, alarm, and climate state colors. The separate `color_scheme` setting (`dark` or `light`) selects the default icon contrast variant; a page with a static light/dark background selects the matching variant locally.
 
-On solid-color pages and background pages set to **Use color scheme**, existing `color_overrides` and saved panel/item color values are compatibility overrides and take precedence. In the Colors dialog, check **Reset existing device and panel color overrides** when applying a scheme to clear them and use the scheme consistently. This reset removes legacy Grid tile, Alarm keypad/action, and Clock Two word-color values. Pages using a decorative background image instead use that image's paired dark/light contrast palette. The generic per-item `color` remains for intentional entity-specific styling. The Light panel's color picker controls the Home Assistant light entity, not the HAUI palette.
+On solid-color pages and background pages set to **Use color scheme**, the Grid tile, Alarm keypad/action-button and Clock Two word color settings default to the active scheme when left empty; a set value overrides it, and so does a device `color_overrides` entry. In the Colors dialog, **Reset existing device and panel color overrides** clears saved values so the scheme applies consistently; the reset removes legacy Grid tile, Alarm keypad/action and Clock Two word-color values. Pages using a decorative background image instead use that image's paired dark/light contrast palette. The generic per-item `color` remains for intentional entity-specific styling. The Light panel's color picker controls the Home Assistant light entity, not the HAUI palette.
 
 ### Background pages
 

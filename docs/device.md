@@ -72,7 +72,7 @@ The device can either control the internal relays or toggle an entity. Use `use_
 
 When `reset_interaction_on_button` is enabled (the default), a hardware button press resets the interaction timer and wakes the display; it also exits the idle page. When disabled, the button still toggles its configured relay or entity, but it does not reset the timer, wake the display, or exit the idle page.
 
-The ESPHome firmware toggles an internal relay on button **press**. When a button is assigned to a Home Assistant entity instead, the hub toggles that entity on release, so holding the button does not repeat the toggle.
+The ESPHome firmware toggles an internal relay on button **press**. When a button is assigned to a Home Assistant entity instead, the hub toggles that entity on release, so holding the button does not repeat the toggle. The relays restore their last state after a reboot, a firmware update or a power loss, so an update does not switch connected loads off.
 
 See `switch.nspanel_haui_use_button_interaction` in HA to switch on / off the button interaction.
 

@@ -1,151 +1,93 @@
 # Roadmap
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
-shipped on 2026-10-26, v0.4.2 on 2026-10-27 and v0.4.3 on 2026-10-28**, each
-tagged from a green `master` commit and published by the release workflow.
-**v0.4.4 shipped on 2026-11-02** as a hotfix (the notification `timeout` fix,
-issue #78) with the TFT display files unchanged.
+shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28 and
+v0.4.4 on 2026-11-02**, each tagged from a green `master` commit and published
+by the release workflow.
 
-The remaining 0.4.x hardware acceptance and OTA risk checks are tracked as the
-**v0.4.5 plan** below.
+The 0.4.x hardware acceptance and OTA risk checks are closed; the remaining gate
+item is notification verification, tracked as the **v0.4.5 plan** below. The
+0.4.5 feature set — including the live panel preview contributed in
+[#85](https://github.com/happydasch/nspanel_haui/pull/85) and
+[#86](https://github.com/happydasch/nspanel_haui/pull/86) — is already on `dev`;
+the release waits on the notification pass.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
 its known risks live in [docs/release.md](docs/release.md); day-to-day tasks
 belong in the issue tracker.
 
-**The 0.4.x install gate comes first.** The binary and TFT install must work
-completely and the base and core functions must be proven on real hardware.
-Nothing in v0.5 or v0.6 starts before that: a broken install or a core regression
-blocks the next minor release, and remaining gate work is planned for `0.4.5`.
-After the gate closes, **v0.5** adds multiple TFTs for normal- and high-speed
-updates, stable and controllable manual/auto updates in the frontend, and a
-Device Manager overhaul. **v0.6** adds Display Repair Mode — a simple TFT used to
-repair an existing display.
+**The 0.4.x install gate comes first.** The binary and TFT install, firmware OTA
+and the base and core functions are confirmed on real EU and US/portrait
+hardware; only notification behaviour remains. Nothing in v0.5 or v0.6 starts
+before that row is green and 0.4.5 ships. After the gate closes, **v0.5** adds
+multiple TFTs for normal- and high-speed updates, stable and controllable
+manual/auto updates in the frontend, and a Device Manager overhaul. **v0.6** adds Display Repair Mode, an inspection and
+cleanup of the Nextion scripts and Home Assistant hub settings; multi-hub support
+remains subject to a needs decision.
 
 ---
 
 ## v0.4.x — finishing the binary and TFT install (current focus)
 
-One job: make the install complete and working. New features wait.
+Primary job: close the install gate. The hardware passlist and the update flow
+are confirmed on one EU and one US/portrait panel — universal image onboarding,
+TFT auto-update end to end, firmware OTA, encrypted native OTA, sleep/wake,
+touch/navigation, core stability and the editor add/remove/YAML flows. Only
+notification behaviour remains.
 
-- **Universal binary** — flashes and runs; TFT installs and auto-updates
-  end-to-end on both display models; base and core functions work on real EU and
-  US panels.
-- **Firmware auto-update** — implemented on dev (0.4.2): release manifests, the
-  `HAUI Firmware` update entity and the TFT-after-reboot deferral are shipped
-  (Changelog); the hardware confirmation of the full release flow remains on the
-  passlist.
-- **Sleep / idle behaviour** — touch wakes the panel, the `wakeup` service works
-  reliably, and state survives sleep/wake cycles. *Known gap: touch-to-wake and
-  idle-panel transitions are not reliable yet.*
-- **Notification behaviour** — HA persistence and `force_show`, ESPHome
-  `send_notification` with `persistent`/`text_size`, long-message paging and
-  severity default icons confirmed on hardware.
-- **Recent fixes confirmed on hardware** — issue #62's TFT-upload buzzer fix,
-  the #63 reinstall fix, and the #64 portrait weather alignment fix were
-  confirmed by the reporter on a US/portrait panel running 0.4.2. The broader
-  two-display-model passlist below is still outstanding.
-- **Upgrade paths** — the five renamed 0.3.x device-setting keys migrate
-  automatically; saved panels are not migrated and must be re-entered.
-- **Release hygiene** — done on dev: `scripts/bump_version.py` /
-  `scripts/bump_tft_version.py` script the version bump across manifest,
-  `pyproject.toml`, `version.yaml` and both HMIs, and CI validates version
-  consistency, translations and Nextion assets on every push/PR while the
-  release workflow rejects a tag whose version disagrees with `manifest.json`.
-  The pinned toolchain (Home Assistant `2026.10.4`, ESPHome `2026.10.0`)
-  resolves cleanly in separate jobs; they cannot share an environment because of
-  conflicting `cryptography` pins.
+**Remaining passlist row** — confirm on one EU and one US/portrait panel:
 
-**Device passlist** — confirm on one EU and one US/portrait panel:
-
-- **TFT auto-update** — an older TFT installs 0.4.0 about a minute after
-  connecting, and About/Device Manager then show 0.4.0 (reconnect first if it
-  looks stale). With `auto_install` off the "Outdated TFT-Version" popup appears.
-  Tapping the time area advances the card.
-- **Universal `nspanel_haui.bin`** — flash a fresh panel, join the device-named
-  AP, enter Wi-Fi and add the device with the documented API key. Settings sync
-  reaches the firmware, TFT auto-updates and the panel renders. Repeat on a
-  second panel and confirm both get distinct names/APs from the same `.bin`.
 - **Notifications** — popup, `force_show`, list, dismiss, persistent and critical
-  sounds, quiet hours, `notify.*` entities and font sizes.
-- **Wakeup / sleep** — wake on touch and via the service; sleep panels/carousel
-  and auto-dim as configured; state survives sleep/wake cycles.
-- **Touch and general functionality** — every widget responds and navigates;
-  gestures work on both layouts; button rows, header actions and popups behave;
-  no dead zones.
-- **Core stability** — one worker per device; touches, page changes and the
-  heartbeat stay responsive; `hub_availability` resets on the last disconnect;
-  row/weather/QR values visible; a popup pauses auto-dim on a device named with
-  capitals or `-`.
-- **Editor** — add, remove, enable and disable a device, plus YAML import.
+  sounds, quiet hours, `notify.*` entities and font sizes, including
+  long-message paging and the update popup text
+  ([#84](https://github.com/happydasch/nspanel_haui/issues/84)).
 
-**Acceptance:** every passlist row green on both display models, both TFT assets
-working from the published release, and the portrait device auto-updating
-end-to-end. A failing row ships as a `0.4.x` patch; **v0.5 does not start until
-this gate is green.**
-
-### 0.4.3 — update-trigger fixes
-
-The issues collected while validating 0.4.2 led to these changes on `dev`:
-
-- **Automatic checks and configuration** — per-device update settings are
-  merged over integration defaults; enabled checks run on connect/hourly. Firmware
-  availability is now refreshed and handled independently of TFT release state.
-- **Firmware install failures** — checked service dispatch now distinguishes an
-  accepted `update.install` call from a failed Home Assistant service call, and
-  the install attempt is available from the Device Manager when firmware is
-  offered.
-- **Manifest fetching** — ESPHome HTTP RX/TX buffers are increased for GitHub
-  redirect headers and signed asset request targets.
-- **Frontend status and retry** — the editor shows firmware availability, can
-  refresh update info, and can trigger a firmware install; TFT failures continue
-  to surface as explicit errors rather than silent success.
-- **Release API usage** — release metadata is cached for one hour across the
-  hub's devices; manual checks intentionally bypass the cache.
-- **ESPHome diagnostic defaults** — uptime, heap, loop-time and reset-reason
-  diagnostics are development-only; raw ADC and resistance sensors used by the
-  temperature calculation remain disabled by default.
+**Acceptance:** the notification row green on both display models and both TFT
+assets working from the published release. A failing row ships as a `0.4.x`
+patch; **v0.5 does not start until this gate is green.**
 
 ---
 
-## v0.4.4 — notification `timeout` hotfix (shipped 2026-11-02)
+## v0.4.5 — notification verification and release (in progress)
 
-**Status: shipped.** v0.4.4 accepts the `timeout` field on
-`nspanel_haui.send_notification` again (issue #78): the notification can
-auto-dismiss after that many seconds, closing its popup and advancing the
-queue when it was the one on screen. The TFT display files are unchanged from
-0.4.3, so panels keep their installed TFT.
+**Status: in progress.** The 0.4.5 feature set is on `dev` — see the
+[0.4.5 changelog](CHANGELOG.md#045--unreleased) for the full list. It includes
+the live panel preview in the editor
+([#85](https://github.com/happydasch/nspanel_haui/pull/85),
+[#86](https://github.com/happydasch/nspanel_haui/pull/86)) with its relay
+indicators and **Reset sandbox**, hub-drawn panel cards, editable popups, long
+press to go back, Day/Night Profiles, optional per-panel colour overrides on top
+of the color scheme, the inside-temperature sensor picker, the notification text
+and paging fixes, the firmware-to-integration update move, encrypted native OTA,
+alarm action-button options and versioned dev releases.
 
-The 0.4.x install gate remains open — see **v0.4.5** below.
+The hardware passlist and every update-related item are done: universal image
+onboarding, TFT auto-update end to end, unattended firmware OTA (install, reboot,
+matching TFT follow-up, silent buzzer), encrypted native OTA
+([#81](https://github.com/happydasch/nspanel_haui/issues/81)), the reinstall-loop
+fix ([#83](https://github.com/happydasch/nspanel_haui/issues/83)) and the
+old-bootloader rollback investigation. The following items remain before
+release:
 
----
-
-## v0.4.5 — hardware acceptance and OTA risk closure (planned)
-
-**Status: planned.** The following items remain before the 0.4.x install gate
-can close:
-
-- Complete the EU and US/portrait device passlist above, including universal
-  image onboarding, TFT auto-update, notifications, sleep/wakeup, touch, core
-  stability and editor add/remove/configuration flows.
-- Canary-test unattended firmware OTA end to end: install, reboot, verify the
-  matching TFT follows, and confirm the buzzer is silent during OTA and reboot.
-- Investigate the old-bootloader OTA rollback warning; rollback capability is
-  not confirmed and unattended updates should not be treated as rollback-safe.
-- Review open notification-enhancement issue #50 and verify notification
-  behavior on both display models.
-
-Issues #62/#63/#64 remain open on GitHub, but the reporter confirmed their
-specific TFT-upload buzzer, post-reboot TFT-version and portrait weather fixes on
-US/portrait hardware with 0.4.2. Do not treat those specific observations as
-replacing the broader v0.4.5 passlist.
+- Complete the notification passlist row above, including long-message paging and
+  the update popup text, on both display models.
+- Review open notification-enhancement issue #50; keep it documentation-only
+  unless the pass finds a defect.
+- **TFT assets in the release** — both display TFTs
+  (`nextion/nspanel_haui.tft`, `nextion/nspanel_haui_portrait.tft`) are
+  committed to git and attached to every GitHub release, so the update
+  controller and manual installs can fetch them. Confirm both assets and their
+  manifest `tft` block on the published 0.4.5 release.
+- Cut `release/0.4.5` from `dev`, bump the version sources, run the pre-flight
+  checks and merge to `master` for tagging.
 
 ---
 
 ## v0.5 — Multiple TFTs, update control & Device Manager overhaul
 
-Three pillars, after the 0.4.x gate closes.
+Three pillars plus planned frontend, notification and device-settings work, after
+the 0.4.x gate closes.
 
 ### Multiple TFTs
 
@@ -174,12 +116,8 @@ unchanged normal-speed assets; no UART buffer overflows under the update burst.
 
 ### Stable, controllable updates in the frontend
 
-- **Manual updates** reach the device reliably, report a clear state
-  (`checking`, `installing`, `done`, `error`), and never reboot-loop or reinstall
-  an already-current TFT.
-- **Automatic updates** work per device and globally for TFT and firmware, handle
-  unknown versions without false "outdated" notices, never repeat an install
-  after a reboot, and expose a visible retry policy that stops after failure.
+- **Automatic updates** work per device and in one global policy for TFT and
+  firmware, and expose a visible retry policy that stops after failure.
 - **Control** — explicit per-device and bulk update actions, clear progress and
   status, and a way to defer or cancel an update.
 - **Status surface** — one place in the editor showing firmware and TFT versions
@@ -194,11 +132,74 @@ per-device version and action state in the list.
 
 ### Remaining editor polish
 
-After the update and Device Manager work: panel list improvements (drag-reorder,
-inline rename, duplicate — reorder works through the row menu today), edit-panel
-sidebar cleanup, a "create from template" flow, inline form validation feedback,
-preview renderer unification and dead-code pruning, keyboard-navigable modals,
-and an accessibility pass (labels, ARIA, contrast).
+Folded into the general frontend rework below, after the update work: panel-list
+improvements (drag-reorder, inline rename, duplicate — reorder works through the
+row menu today), edit-panel sidebar cleanup, a "create from template" flow, inline
+form validation feedback, keyboard-navigable modals, and an accessibility pass
+(labels, ARIA, contrast). The preview renderers were unified in 0.4.5: every card
+is the hub's own render.
+
+### Component cleanup & colour overrides
+
+`color_overrides` reach only the colours the hub sends as commands: a widget the
+hub never colours keeps the HMI's compiled palette value on the device. Since
+0.4.5 the editor's panel cards replay the hub's own render, so they show exactly
+that — recolouring layout colours in the browser would show a panel the device
+never draws. The HMI audit and the pre-page theme painting shipped in 0.4.5; one
+fix remains:
+
+- Replace the simulator frame's hardcoded `#000` card background
+  (`.pg-sim` in `frontend/previews/simulator-frame.js`) with the device theme.
+
+### Frontend rework, notifications & device settings (planned)
+
+Planned beyond the three pillars above; no v0.5 code starts before the 0.4.x
+gate closes. Each phase ships on its own.
+
+- **General frontend rework** — the panel and device requirements are known now,
+  so rebuild the editor as one coherent app instead of layering patches on the
+  original screen set: a shell over one observable store and view modules,
+  dialogs and forms on the vendored Lit components, a responsive layout with
+  keyboard-navigable modals, and an editor/preview split view. This supersedes
+  the incremental patchwork the editor-polish items above describe, which land
+  here instead. The static, unauthenticated, no-build-step serving contract
+  stays — that is how `editor_panel.py` serves `frontend/` — so the rework is
+  structural, not a framework or bundler swap.
+- **Notifications** — add grouping and priority ordering to the controller plus a
+  read-only queue/history API and a Notification Center in the editor. The
+  service, `notify.*` and ESPHome entry points keep working, and the "never
+  auto-dismiss" and critical force-show rules stay unchanged.
+- **Device settings** — expose the existing per-device settings (speed,
+  orientation, brightness, idle behaviour, notification defaults, update policy)
+  through scoped read/update endpoints and a settings tab, stored per device and
+  defaulted on load. The Device Manager section above gains that tab; its bulk
+  actions and per-device state stay as planned there.
+- **Device color schemes and first render** — the device-level scheme selector
+  and pre-page theme painting shipped in 0.4.5. The remaining optimisation is to
+  predefine palettes in the TFT so the first render needs fewer color commands,
+  without flashing the default palette or showing a partially themed page;
+  editor cards must continue to match the device render.
+- **Panel editors** — split-view preview built on the hub's card render
+  (`nspanel_haui/virtual_panel/render`, which already draws unsaved edits),
+  "create from template", inline rename/duplicate/reorder and field-level
+  validation, replacing the generic toast with per-field feedback.
+
+**Phasing:** API and data foundation with no UI change, then the general frontend
+rework at behaviour parity (editor-polish items included), then Device Manager and
+device settings, then panel editors, then the notification UX, then polish and
+hardening.
+
+### Deferred follow-ups
+
+- **Shared text-style abstraction for panel options** (Discussion #57 follow-up) —
+  the configurable alarm keypad styling shipped in v0.4.0 as the `keypad_font`,
+  `keypad_bg_color` and `keypad_text_color` options with a one-off
+  `_style_keypad()` helper. Generalising that into a shared text-style option
+  trio plus apply helper for every page type is deferred: start only after the
+  0.4.x acceptance gate closes and the compatibility cleanup lands — the vendored
+  `esphome/nextion_patch/` and its `external_components` blocks removed, and
+  `min_version`/`requirements-esphome.txt` bumped once a released ESPHome carries
+  esphome#17744 and #21435 (expected 2026.11.0).
 
 ---
 
@@ -207,16 +208,11 @@ and an accessibility pass (labels, ARIA, contrast).
 Open items from the release-process review (runbook and known risks in
 [docs/release.md](docs/release.md)):
 
-- Release notes extracted from the `CHANGELOG.md` section instead of static text
-  in `release.yml` (0.5).
-- Pre-flight gates in `tests.yml`/`release.yml` so a tag cannot ship untested
-  code — now runs on every push/PR (0.5).
 - Scripted HMI patching for release-only edits — `tftVersion` scripting landed
   with the version-bump tooling (0.4.x); Send Component ID and other in-place
   edits still need the Editor or an extended patch spec (0.5+).
 - Portrait layout as a build-time rotation instead of a second committed HMI
   (0.5+).
-- Git LFS or release-only storage for the TFT binaries (0.5+).
 
 ---
 
@@ -241,14 +237,35 @@ a fresh normal TFT install — no Nextion Editor session required.
 normal TFT from the editor without a Nextion Editor session, on both display
 models and both speed variants.
 
+### Nextion script inspection & cleanup
+
+The HMI event code (`Program.s`, page `Preinitialize`/`Postinitialize`, touch
+press/release events, timers) has grown page by page and is not inventoried.
+Before more behaviour moves onto the display, find out what the Nextion side can
+do and clean up what it does today.
+
+- **Inventory** — dump the event code of both HMIs (Nextion2Text) and record what
+  each script does, which hub command or ESPHome event it pairs with, and where
+  landscape and portrait differ.
+- **Possibilities** — document the Nextion instruction set and limits that matter
+  here (timers, system variables, `sendme`/`printh`, local state, sleep/wake
+  hooks, script length and RAM) and decide which behaviour is better on the
+  display than on the hub — for example instant touch feedback or page
+  preparation that removes first-render commands.
+- **Cleanup** — remove dead or duplicated scripts and automations that the hub or
+  firmware already drives, align landscape and portrait, and keep the "logic in
+  the Hub App" rule from [Nextion Editor](docs/nextion-editor.md#hard-rules) except
+  where the inventory shows a reason to move it.
+
+**Acceptance:** a documented inventory of every HMI script on both display models,
+no unused or duplicated event code left, parity gates green, and every page
+behaving unchanged on hardware after the cleanup.
+
 ### Hub management
 
-- **Hub settings / options flow** — the hub has no settings today (its name is
-  hard-coded and no options flow exists); allow renaming and updating settings
-  after creation.
-- **Multi-hub support** — only one hub is allowed today
-  (`single_instance_allowed`); allow several entries with their own devices and
-  settings.
+- **Hub settings in Home Assistant** — add an integration options flow so the
+  hub can be renamed and genuinely hub-scoped settings can be changed after
+  setup. Keep per-device settings in the editor.
 
 ### Platform maturity
 
@@ -262,7 +279,9 @@ models and both speed variants.
 
 - All `bug`-labelled issues closed.
 - `CHANGELOG.md` covering every release from 0.1.0.
-- HACS default integration status (no longer "custom repository").
+- Listed in the Home Assistant Marketplace catalog (a PR to `hacs/default`, the
+  list the Marketplace reads), so users no longer add a custom repository or
+  connect GitHub.
 - Published on PyPI / HA add-on registry, if applicable.
 - REST API docs published alongside user docs.
 - Final branding pass: icons, screenshots, README hero image.
@@ -271,8 +290,14 @@ models and both speed variants.
 
 ## Deferred / needs decision
 
-- **Trim the HACS download** (`export-ignore` the Nextion binaries) — HACS users
-  would lose the HMI sources.
+- **Need for multiple hub entries** — the current model discovers and manages
+  all eligible NSPanels under one hub, with settings scoped per device. No
+  separate multi-hub use case is established yet, so retain the single-instance
+  flow unless a concrete need for independent fleets/configuration is identified.
+- **Trim the Marketplace download** (`export-ignore` the Nextion binaries) —
+  Marketplace users would lose the HMI sources.
+- **TFT storage** — the binaries stay committed to git and attached to releases
+  until repo/zip size makes Git LFS or release-only storage worthwhile.
 - **Runtime credential adoption for the universal image** — post-0.4; baked
   credentials stay shared for now.
 - **`cls` background refresh** after sleep/wake or reconnect — needs hardware
@@ -296,6 +321,11 @@ models and both speed variants.
   Doctor, and per-device TFT install in the editor.
 - **0.4.1** — Nextion serial RX buffer overflow fixes and Clock Two font/background
   fixes.
+- **0.4.2** — firmware auto-update through release manifests, TFT upload and
+  reboot fixes.
+- **0.4.3** — TFT installs move to the integration; per-device update settings
+  and the **HAUI Display** entity.
+- **0.4.4** — notification `timeout` hotfix; the TFT files stay at 0.4.3.
 
 ---
 

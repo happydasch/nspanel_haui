@@ -22,7 +22,7 @@ function rejectingHost() {
 test('a rejected colour save shows only the error and keeps the old colours', async () => {
   const host = rejectingHost();
 
-  await saveColors(host, { background: 123 });
+  await saveColors(host, { schemeId: 'dark', resetOverrides: true, scheme: 'dark' });
 
   assert.deepEqual(host.toasts.map(([kind]) => kind), ['error']);
   assert.deepEqual(host._deviceConfig.color_overrides, {});
@@ -52,6 +52,26 @@ test('a rejected panel save keeps the dialog item list for the next attempt', as
   await Crud.saveFromData(host, { type: 'grid', key: 'grid_0' }, -1);
 
   assert.deepEqual(dialogItems.items, [{ item: 'light.kitchen' }, { item: 'light.office' }]);
+});
+
+test('a user panel cannot take the key of a fixed system panel, only of a popup', async () => {
+  const host = makeHost({ devices: { kitchen: { config: {}, panels: [clock] } } }, () =>
+    jsonResponse({ status: 'ok' }));
+  host._panels.system_panels = [
+    { key: 'sys_settings', editable: false },
+    { key: 'popup_cover', editable: true },
+  ];
+  host._panelTypes = [{ type_key: 'grid', options: [] }, { type_key: 'cover', options: [] }];
+  host._savePanels = (p, m, c) => Crud.savePanels(host, p, m, c);
+
+  await Crud.saveFromData(host, { type: 'grid', key: 'Sys_Settings' }, -1);
+  assert.match(host._error, /belongs to a system panel/);
+  assert.deepEqual(host.calls, []);
+
+  host._error = null;
+  await Crud.saveFromData(host, { type: 'cover', key: 'popup_cover', show_in_navigation: false }, -1);
+  assert.equal(host._error, null);
+  assert.deepEqual(host.calls, ['POST /api/nspanel_haui/panels/entry1']);
 });
 
 test('generateAutoKey picks the first unused {type}_{n} for the type', () => {

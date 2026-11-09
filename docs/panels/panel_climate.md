@@ -5,7 +5,7 @@ description: Climate panel — HVAC control with temperature setpoint and mode s
 
 # Panel Climate
 
-![](../assets/previews/panel-climate.svg)
+<img src="../assets/screens/landscape/climate.png" alt="climate panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/climate.png" alt="climate panel, portrait" width="142" height="213">
 
 ## About
 
@@ -28,6 +28,8 @@ The popup variant (`popup_climate`) mirrors the main panel layout. It is used au
 | **Fan mode button** | Opens a popup to select fan mode. Always shown; greyed out and not tappable when the entity does not support fan modes. |
 | **Swing mode button** | Opens a popup to select swing mode. Always shown; greyed out and not tappable when the entity does not support swing modes. |
 | **Preset button** | Opens a popup to select a preset. Always shown; greyed out and not tappable when the entity does not support presets. |
+
+HVAC mode icon and button colors use the fixed climate palette selected by the Device Colors **Icon color scheme** (dark or light); they are not individually editable.
 
 ## How to configure
 

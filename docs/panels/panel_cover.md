@@ -5,7 +5,7 @@ description: Cover panel — blinds, garage door, curtain control
 
 # Panel Cover
 
-![](../assets/previews/panel-cover.svg)
+<img src="../assets/screens/landscape/cover.png" alt="cover panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/cover.png" alt="cover panel, portrait" width="142" height="213">
 
 ## About
 

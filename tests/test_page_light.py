@@ -6,13 +6,18 @@ reaches the display, the navigation and Home Assistant.
 """
 
 import json
+from pathlib import Path
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.mapping.const import ESPResponse, SysPanelKey
-from nspanel_haui.haui.page.light import LightPage
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.mapping.const import ESPResponse, PopupPanelKey
+from custom_components.nspanel_haui.haui.page.light import LightPage
+
+LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
 
 
 class _Entity:
@@ -70,6 +75,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
+        self.color_theme = ColorTheme({})
         controller = _Controller()
         self.controller = {
             "esphome": controller,
@@ -154,6 +160,35 @@ def _drag_color_temp(page, value):
 # item resolution
 
 
+def test_no_selected_item_hides_entity_controls_without_a_placeholder():
+    app, page = _show(_Entity("on", _attributes()), item=None)
+
+    assert 'tInfo.txt=""' in app.cmds
+    assert "vis tInfo,0" in app.cmds
+    assert "vis bPower,0" in app.cmds
+    assert "vis hBrightness,0" in app.cmds
+    assert "vis btLightFnc1,0" in app.cmds
+    assert "vis btLightFnc2,0" in app.cmds
+    assert "vis btLightFnc3,0" in app.cmds
+    assert "vis btLightFnc4,0" in app.cmds
+    page.callback_power(None, LightPage.COMPONENTS.btn_power)
+
+    assert app.entities["light.desk"].calls == []
+
+
+def test_empty_item_config_keeps_the_default_title():
+    app, _page = _show(_Entity("on", _attributes()), item={})
+
+    assert 'tTitle.txt="Light"' in app.cmds
+
+
+def test_unavailable_light_shows_a_note_and_hides_power():
+    app, _page = _show(_Entity("unavailable", {"restored": True}))
+
+    assert 'tInfo.txt="Unavailable"' in app.cmds
+    assert "vis bPower,0" in app.cmds
+
+
 def test_editor_panel_controls_configured_item():
     entity = _Entity("on", _attributes())
     app, page = _show(entity)
@@ -175,6 +210,15 @@ def test_popup_controls_item_passed_by_id():
     page.callback_power(None, LightPage.COMPONENTS.btn_power)
 
     assert entity.calls == [("turn_on", {})]
+
+
+def test_power_button_of_an_on_off_light_uses_the_entity_on_color():
+    """On/off lights report no rgb_color; the power button must not turn black."""
+    entity = _Entity("on", {"friendly_name": "Hall", "supported_color_modes": ["onoff"]})
+    app, page = _show(entity)
+
+    assert f"bPower.pco={page.get_color('entity_on')}" in app.cmds
+    assert "vis bPower,1" in app.cmds
 
 
 # color temperature
@@ -238,10 +282,10 @@ def test_effect_button_opens_effect_selection():
     page.callback_light_function_button(None, BTN_EFFECT)
 
     ((key, kwargs),) = app.opened
-    assert key == SysPanelKey.POPUP_SELECT
+    assert key == PopupPanelKey.POPUP_SELECT
     assert [e["value"] for e in kwargs["items"]] == ["None", "Rainbow"]
     # the popup replaces the light page, so nothing may be drawn after it opens
-    assert app.cmds[-1] == f"<open {SysPanelKey.POPUP_SELECT}>"
+    assert app.cmds[-1] == f"<open {PopupPanelKey.POPUP_SELECT}>"
 
     kwargs["selection_callback_fnc"]("Rainbow")
     assert entity.calls == [("turn_on", {"effect": "Rainbow"})]
@@ -290,6 +334,9 @@ def test_color_wheel_origin_follows_the_display_model():
     _, page = _show(
         _Entity("on", _attributes(supported_color_modes=["rgb"], rgb_color=[255, 0, 0]))
     )  # noqa: E501
-    assert page.color_rect_origin() == (125, 75)
-    page.app.device.is_portrait = True
-    assert page.color_rect_origin() == (90, 80)
+    for orientation in ("landscape", "portrait"):
+        page.app.device.is_portrait = orientation == "portrait"
+        layout = json.loads((LAYOUTS / f"layout_{orientation}.json").read_text(encoding="utf-8"))
+        light = next(p for p in layout["pages"].values() if p["name"] == "light")
+        wheel = next(c["attrs"] for c in light["components"] if c["name"] == "pColorWheel")
+        assert page.color_rect_origin() == (wheel["x"], wheel["y"]), orientation

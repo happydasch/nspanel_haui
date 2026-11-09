@@ -15,12 +15,12 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
-from .haui.mapping.const import NotifType
+from .haui.mapping.const import DEFAULT_NOTIFICATION_SOUND, SOUND_NAMES
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
 
-    from .nspanel_haui import NSPanelHAUI
+    from .hub.app import NSPanelHAUI
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +61,17 @@ SERVICE_UPDATE_FIRMWARE_SCHEMA = vol.Schema(
         vol.Exclusive("url", "firmware_source"): cv.url,
     }
 )
+# A colour in one of ``parse_color_value``'s formats: "#rrggbb", an RGB565
+# int, [r, g, b], or "" for the popup's theme text colour.
+_ICON_COLOR_SCHEMA = vol.Any(
+    "",
+    vol.All(vol.Coerce(int), vol.Range(min=0, max=65535)),
+    vol.Match(r"^#([0-9a-fA-F]{6})$"),
+    vol.All(
+        [vol.All(vol.Coerce(int), vol.Range(min=0, max=255))],
+        vol.Length(min=3, max=3),
+    ),
+)
 SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
     {
         vol.Optional("device", default=None): vol.Any(str, None),
@@ -68,15 +79,14 @@ SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
         vol.Optional("message", default=""): cv.string,
         vol.Optional("icon", default=""): cv.string,
         vol.Optional("persistent", default=False): cv.boolean,
-        vol.Optional("type", default=NotifType.INFO): vol.In(
-            [member.value for member in NotifType]
-        ),
+        vol.Optional("icon_color", default=""): _ICON_COLOR_SCHEMA,
+        vol.Optional("sound", default=DEFAULT_NOTIFICATION_SOUND): vol.In([*SOUND_NAMES, "none"]),
         vol.Optional("force_show", default=False): cv.boolean,
         vol.Optional("text_size", default="auto"): vol.Any(
             "auto", vol.All(vol.Coerce(int), vol.Range(min=1, max=3))
         ),
         vol.Optional("timeout", default=None): vol.Any(
-            None, vol.All(vol.Coerce(int), vol.Range(min=0))
+            None, vol.All(vol.Coerce(int), vol.Range(min=0, max=3600))
         ),
     }
 )
@@ -93,9 +103,22 @@ def _resolve_target_apps(
 ) -> list[tuple[str, NSPanelHAUI]]:
     """Resolve HAUI apps matching an optional HA device registry ID.
 
+    A panel has two devices and either selects it: its ESPHome device (the
+    app's ``_ha_device_id``) and the integration's own device, the one its
+    update and notify entities sit on, identified by ``(DOMAIN, dev_name)``.
+    The services' device selector offers only the latter.
+
     Returns list of (device_name, app) tuples.  If device_id is None,
     returns ALL apps across all hub entries.
     """
+    from homeassistant.helpers import device_registry as dr
+
+    identifiers: set[tuple[str, str]] = set()
+    if device_id is not None:
+        device = dr.async_get(hass).async_get(device_id)
+        if device is not None:
+            identifiers = device.identifiers
+
     targets: list[tuple[str, NSPanelHAUI]] = []
     for _entry_id, entry_data in hass.data.get(DOMAIN, {}).items():
         if not isinstance(entry_data, dict):
@@ -106,24 +129,15 @@ def _resolve_target_apps(
                 targets.append((str(dev_name), app))
             continue
         for dev_name, app in entry_data.items():
-            if getattr(app, "_ha_device_id", None) == device_id:
+            if app._ha_device_id == device_id or (DOMAIN, str(dev_name)) in identifiers:
                 targets.append((str(dev_name), app))
 
     return targets
 
 
 def _wake_display(app: NSPanelHAUI) -> None:
-    """Publish reset_last_interaction to wake the display."""
-    try:
-        esp_ctrl = app.controller.get("esphome")
-        if esp_ctrl and hasattr(esp_ctrl, "esphome"):
-            esp_ctrl.esphome.publish("reset_last_interaction", "0")
-    except Exception:
-        _LOGGER.debug(
-            "reset_last_interaction failed for '%s'",
-            getattr(app, "name", "?"),
-            exc_info=True,
-        )
+    """Reset the firmware's inactivity timer before a wake action."""
+    _publish_action(app, "reset_last_interaction", "0")
 
 
 def _publish_action(
@@ -159,18 +173,21 @@ async def _device_action(
     app, and dispatches *action* via the executor so HA's async loop is
     not blocked.  The action receives the full ``NSPanelHAUI`` instance so
     it can access both navigation and ESPHome controllers.
+
+    Raises:
+        ServiceValidationError: When no panel matches ``device``; the call
+            then fails visibly instead of doing nothing.
     """
+    from homeassistant.exceptions import ServiceValidationError
+
     device_id: str | None = call.data.get("device")
     targets = _resolve_target_apps(hass, device_id)
 
     if not targets:
-        _LOGGER.warning(
-            "%s: no matching HAUI app (device=%s) — "
-            "selected ESPHome device may not be running HAUI firmware",
-            call.service,
-            device_id,
+        raise ServiceValidationError(
+            f"{call.service}: no NSPanel HAUI panel matches device {device_id}; select a "
+            "panel's NSPanel HAUI device or its ESPHome device"
         )
-        return
 
     for dev_name, app in targets:
 
@@ -202,6 +219,7 @@ async def _handle_open_panel(hass: HomeAssistant, call: ServiceCall) -> None:
             return
         if wakeup:
             nav.mark_awake()
+        nav.reset_activity()
         nav.open_panel(panel_key)
 
     await _device_action(hass, call, action=_open_action, wake_first=wakeup)
@@ -222,7 +240,8 @@ async def _handle_wakeup(hass: HomeAssistant, call: ServiceCall) -> None:
         if nav is not None:
             # Wake is a device operation: reset the firmware interaction timer
             # (wake_first) always runs; the idle page is exited only when one
-            # is actually shown.
+            # is actually shown. The hub's inactivity clock is a wake too.
+            nav.reset_activity()
             nav.exit_idle_to_prev_or_home(app.device.config)
 
     await _device_action(hass, call, action=_wakeup_action, wake_first=True)
@@ -238,23 +257,17 @@ async def _handle_idle(hass: HomeAssistant, call: ServiceCall) -> None:
 
 
 async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> None:
-    # Goes straight to the controller: the ESPHome send_notification actions
-    # only carry title/message/icon/persistent/text_size, so type and
-    # force_show would be lost.
+    # Goes straight to the controller: the ESPHome send_notification action
+    # cannot carry force_show or timeout.
     def _notify_action(app: Any, dev_name: str) -> None:
-        persistent = call.data.get("persistent", False)
-        force_show = call.data.get("force_show", False)
-        # A persistent notification must be visible immediately, otherwise it
-        # only sits in the queue and users never see it appear on the panel.
-        if persistent and not force_show:
-            force_show = True
-        app.controller["notification"].send_notification(
+        app.controller["notification"].add_notification(
             title=call.data["title"],
             message=call.data.get("message", ""),
             icon=call.data.get("icon", ""),
-            persistent=persistent,
-            notif_type=call.data.get("type", NotifType.INFO),
-            force_show=force_show,
+            persistent=call.data.get("persistent", False),
+            force_show=call.data.get("force_show", False),
+            icon_color=call.data.get("icon_color"),
+            sound=call.data.get("sound", DEFAULT_NOTIFICATION_SOUND),
             text_size=call.data.get("text_size", "auto"),
             timeout=call.data.get("timeout"),
         )
@@ -277,13 +290,15 @@ async def _handle_update_tft(hass: HomeAssistant, call: ServiceCall) -> None:
     url: str | None = call.data.get("url")
 
     def _update_action(app: Any, dev_name: str) -> None:
-        result = app.install_tft_url(url) if url else app.install_tft(version)
-        if result.get("state") == "error":
-            _LOGGER.error(
-                "update_tft failed for '%s': %s",
-                dev_name,
-                result.get("last_error") or "TFT update failed",
-            )
+        def _on_complete(result: dict[str, Any]) -> None:
+            if result.get("state") == "error":
+                _LOGGER.error(
+                    "update_tft failed for '%s': %s",
+                    dev_name,
+                    result.get("last_error") or "TFT update failed",
+                )
+
+        app.start_async_tft_install(version, url, _on_complete)
 
     await _device_action(hass, call, action=_update_action)
 
@@ -294,13 +309,15 @@ async def _handle_update_firmware(hass: HomeAssistant, call: ServiceCall) -> Non
     url: str | None = call.data.get("url")
 
     def _update_action(app: Any, dev_name: str) -> None:
-        result = app.install_firmware(version, url)
-        if result.get("firmware_install_error"):
-            _LOGGER.error(
-                "update_firmware failed for '%s': %s",
-                dev_name,
-                result["firmware_install_error"],
-            )
+        def _on_complete(result: dict[str, Any]) -> None:
+            if result.get("firmware_install_error"):
+                _LOGGER.error(
+                    "update_firmware failed for '%s': %s",
+                    dev_name,
+                    result["firmware_install_error"],
+                )
+
+        app.start_async_firmware_install(version, url, _on_complete)
 
     await _device_action(hass, call, action=_update_action)
 

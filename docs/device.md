@@ -4,6 +4,7 @@ description: Device behavior, gestures, display states, hardware buttons, and so
 ---
 
 # Device Description
+
 ## Device
 
 The device is responsible for gestures, display state and its hardware buttons. The communication between server and client is described in [communication.md](communication.md).
@@ -19,15 +20,24 @@ device under Device Settings → Gestures (see
 
 ### Display State Dimmed, Off and On
 
-The display brightness is managed by the ESPHome firmware: `on` at full brightness, `dimmed` after `timeout_dimming` seconds of inactivity (when `use_auto_dimming` is enabled), and `off` (brightness zero) after `timeout_display_off` seconds (when `use_auto_display_off` is enabled). Every touch or hardware button press resets the interaction timer and the brightness returns to full. The dimmed/off state is purely a brightness behavior — it never switches pages and needs no panel configured.
+The display brightness is managed by the ESPHome firmware: `on` at full brightness, `dim` after `timeout_dimming` seconds of inactivity (when `use_auto_dimming` is enabled), and `off` (brightness zero) after `timeout_display_off` seconds (when `use_auto_display_off` is enabled). Every touch resets the firmware's brightness timer and the hub's separate page-activity clock; a hardware button press counts as an interaction when `reset_interaction_on_button` is enabled (the default). These interactions restore full brightness. Changing either timeout recalculates the display state against the existing interaction timer; changing a timeout does not count as an interaction. The dimmed/off state is purely a brightness behavior — it never switches pages and needs no panel configured.
 
-When a **display-off schedule** is configured (`use_sleep_schedule` plus `sleep_schedule_start`/`sleep_schedule_end`, see [Device Configuration](configuration/device.md#display-dimming-off)), the off-after-`timeout_display_off` behavior only applies inside the configured window (e.g. at night). Outside the window the display never turns off automatically — it only dims, so the idle page stays visible around the clock. The hub drives `switch.<device>_use_auto_display_off` by the clock and re-applies it on start, reconnect, setting changes and at every window boundary, so no automation is needed to keep the switch in the right state.
+The firmware decides brightness from the live **Use Auto-Dimming** and **Use Auto Display-Off** switch states. HAUI does not reapply those states on startup, reconnect, page changes, or unrelated settings saves, so Home Assistant automations can own their timing. Saving a changed toggle in device settings applies that value once; subsequent automation changes remain in control. Day/Night profiles may change timeouts and brightness, but never rewrite either toggle.
 
-Separate from the brightness is **automatic page switching**: when `use_auto_page` is enabled, the hub opens the configured idle page (`idle_panel`) after `timeout_page` seconds of inactivity, without dimming or turning the display off.
+After its configured dimming timeout, a disconnected device transitions to dim regardless of the auto-dimming switch. It stays awake and never automatically transitions to off while disconnected; both auto switches remain untouched. On reconnect, normal timeout behavior resumes using the current live switch states.
+
+The **Day/Night Profiles** select different brightness, dim/page/display-off timeouts, and idle-page destinations by a fixed local window or sunrise/sunset schedule. For fixed windows, Night starts at the configured start time and ends immediately before the configured end time. Profile changes do not alter the live auto-dimming or auto-display-off switches.
+
+Separate from the brightness is **automatic page switching**: when `use_auto_page` is enabled, the hub opens the configured idle page (`idle_panel`) after `timeout_page` seconds of inactivity, without dimming or turning the display off. It re-reads both settings and the activity clock once per second, so a changed timeout applies on the next tick. If a page holds automatic switching after the deadline has passed, the idle page opens on the next check after the hold ends, unless an interaction has since reset the clock. A hub reconnect (for example after a Home Assistant restart) does not count as an interaction: the restored page is displayed first and the page timeout then starts again from the reconnect.
 
 ### Idle Page
 
 When `use_auto_page` is enabled and an `idle_panel` is configured, the hub opens that panel after the page timeout as a screensaver-style idle page. The idle page is a navigation target only — the display can be off (`use_auto_display_off`), dimmed, or fully on while it is shown, and none of those require it. With no idle page configured, automatic page switching simply stays on the current panel.
+
+Day and Night idle destinations are independent. An empty `night_idle_panel`
+disables the idle page at night; it never inherits the Day `idle_panel`. If
+automatic page switching is enabled for the active profile and its idle key is
+empty while the other profile has one configured, the hub logs a warning.
 
 ### Waking up
 
@@ -58,13 +68,11 @@ The default (`-1`) always restores the previous panel. See
 
 ### Hardware Buttons
 
-The device can either control the internal relays or toggle an entity.
-Use `use_relay_left` / `use_relay_right` to control whether the left/right
-button toggles its internal relay (default `true`) or a configured entity.
+The device can either control the internal relays or toggle an entity. Use `use_relay_left` / `use_relay_right` to control whether the left/right button toggles its internal relay (default `true`) or a configured entity.
 
-It is also possible to completely disable the hardware buttons to be used for checking interactions and change the display state and / or to prevent the display from waking up.
+When `reset_interaction_on_button` is enabled (the default), a hardware button press resets the interaction timer and wakes the display; it also exits the idle page. When disabled, the button still toggles its configured relay or entity, but it does not reset the timer, wake the display, or exit the idle page.
 
-When `reset_interaction_on_button` is enabled (the default), the display wakes immediately on button **press** — there is no need to hold the button until release. The internal relay toggles on press (in the ESPHome firmware); a configured entity toggles on release, so a held button does not spam toggles.
+The ESPHome firmware toggles an internal relay on button **press**. When a button is assigned to a Home Assistant entity instead, the hub toggles that entity on release, so holding the button does not repeat the toggle. The relays restore their last state after a reboot, a firmware update or a power loss, so an update does not switch connected loads off.
 
 See `switch.nspanel_haui_use_button_interaction` in HA to switch on / off the button interaction.
 
@@ -79,7 +87,9 @@ The device can play sounds on different occasions. Both are off by default; enab
 
 The device supports a do-not-disturb (DND) mode that silences sounds during configurable quiet
 hours. When `use_do_not_disturb` is enabled, no sounds are played within the
-`quiet_hours_start`–`quiet_hours_end` time window; notifications are still queued and shown.
+`quiet_hours_start`–`quiet_hours_end` time window; notifications are still queued and shown,
+but a notification does not wake the display. A persistent notification's repeating sound
+stays silent during quiet hours and resumes when they end.
 The window supports overnight ranges (e.g., 22:00–07:00). This is configured in the Device
 Settings dialog under the **Notifications** section.
 
@@ -87,19 +97,49 @@ Settings dialog under the **Notifications** section.
 
 The device supports multiple different panels which are displayed on the display. Each panel can be configured and a complex navigation hierarchy is possible. To get an overview of all available panels, see [Panels overview](panels/README.md).
 
+For entity-based panels, an available entity name takes precedence over the configured panel title. Without an entity name, the configured title is used; if that is empty, the translated panel-type title is shown. See [Panel Configuration](configuration/panels.md#standard-fields) for the title field and its fallbacks.
+
 ### Notifications
 
-The device can receive notifications and display them. Notifications stay in the
-queue until dismissed by the user on the display — there is no automatic
-dismissal. Queued notifications play through: when a notification popup is
-dismissed (or its notification is removed) while more notifications are queued,
-the next one opens in its place, so none is shown only once and skipped.
+The device can receive notifications and display them. Notifications normally
+stay in the queue until dismissed on the display. The `nspanel_haui.send_notification`
+service also supports an optional `timeout` that removes a notification after a
+number of seconds; its countdown starts when the notification is queued, so it
+can expire while waiting to be shown. Omitting `timeout` or setting it to `0`
+keeps the notification until dismissed. Queued notifications play through: when
+a notification popup is dismissed or its notification is removed while more
+notifications are queued, the next one opens in its place, so none is shown only
+once and skipped.
 
-New notifications make the notification indicator blink (the bell on the Clock, Clock Two and Weather panels, or the notifications header button otherwise). The notifications header button prefers a right-side slot (secondary, or primary in a single-nav layout); when a panel claims both right slots — e.g. a grid/row with pagination in navigation — the button moves to the idle button's slot on the home panel instead, so unread notifications stay reachable even though the idle/sleep button is displaced. Tapping it opens the notification popup, or a list when several are queued; opening them stops the blinking. Each notification popup has a **Dismiss** button that removes the notification from the queue. Closing the popup without dismissing keeps it queued.
+New notifications make the notification indicator blink (the bell on the Clock, Clock Two and Weather panels, or the notifications header button otherwise). The notifications header button is drawn in the header accent color while notifications are pending. It prefers a right-side slot (secondary, or primary in a single-nav layout); when a panel claims both right slots — e.g. a grid/row with pagination — the button moves to the idle button's slot on the home panel instead, so unread notifications stay reachable even though the idle/sleep button is displaced. Tapping it opens the notification popup, or a list when several are queued; opening them stops the blinking. Each notification popup has a **Dismiss** button that removes the notification from the queue. Closing the popup without dismissing keeps it queued. If notifications are opened over the idle page, closing the popup/list returns to the idle page; a touch then exits idle as usual.
 
-Notifications support an optional icon; when none is supplied, the severity selects a default one (`info`, `warning` or `critical`). When `persistent` is set to true the notification sound loops every `persistent_sound_interval` seconds (default 5) and its popup re-opens about every 60 seconds until the notification is dismissed - useful for alerts that require user attention. Notifications of type `critical` play the `alert` sound instead of the `notification` sound. While the idle page is shown, only a `critical` persistent notification re-opens its popup over it; other severities wait until the user returns to a real panel. The queue holds up to 50 notifications; when it is full, the oldest one is dropped. Sending a repeat of a queued notification replaces the queued copy: its sound plays again and the new copy goes to the end of the queue.
+A notification popup that opens on its own — a force-shown notification, or a persistent notification re-opening its popup — wakes the display, except during [quiet hours](#quiet-hours). While a notification popup is open the automatic page switch waits, so the popup stays on screen until it is dismissed or closed, but the display still dims and turns off on its normal timers; the next touch wakes it with the popup still showing.
 
-The HA service and notify entities force-show persistent notifications immediately; the ESPHome actions do not force-show them, but their popup opens about a second after the action (unless a notification popup or list is already open) and re-opens every 60 seconds until dismissed. See [Services](services.md#nspanel_hauisend_notification) for fields and defaults.
+Notifications support an optional icon and an optional icon colour; when no
+icon is supplied, the popup shows none and the message uses the full text
+area. `icon_color` accepts `#rrggbb`, an RGB565 number, `[r, g, b]` or an
+integer string; without it the icon uses the theme's text colour. The sound is
+a generic notification field (`sound`): `notification` by default, any of the
+sounds the firmware's `play_sound` script knows (`startup`, `tone`, `tone_up`,
+`tone_down`, `seq_up`, `seq_down`, `alert`, `alert_fast`, `elise`), or `none`
+for silence. Sounds play only when `sound_on_notification` is on. When
+`persistent` is set to true the notification opens immediately, its sound
+loops every `persistent_sound_interval` seconds (default 5) and its popup
+re-opens about every 60 seconds until the notification is dismissed or its
+timeout expires — useful for alerts that require user attention. A persistent
+notification re-opens its popup over the idle page too; quiet hours still keep
+the display dark. The queue holds up to 50 notifications; when it is full, the
+oldest one is dropped. Sending a repeat of a queued notification replaces the
+queued copy: its sound plays again and the new copy goes to the end of the
+queue. See [Services → Preset notification script](services.md#preset-notification-script)
+for ready-made `info`/`warning`/`alert`/`critical`/`silent` combinations.
+
+The HA service can set the optional timeout. The standard `notify` entities and
+ESPHome `send_notification` action do not expose it. Any persistent
+notification opens immediately, whichever path queued it. The ESPHome action
+carries no force-show field, so a non-persistent notification it queues only
+shows when the user opens the notification indicator. See
+[Services](services.md#nspanel_hauisend_notification) for fields and defaults.
 
 See [Popup Notify](panels/popup_notify.md) for full details and usage examples.
 

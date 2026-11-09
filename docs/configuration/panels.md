@@ -16,9 +16,10 @@ Every panel has these fields in the editor:
 | Field | Description |
 |-------|-------------|
 | `type` | The panel type (e.g. `clock`, `grid`, `light`, `climate`). Selectable from a dropdown when adding a new panel. Set for the lifetime of the panel — to change type, delete and re-add. |
-| `title` | Display name shown on the panel header. Falls back to the panel type's label (e.g. `Grid`) if left empty. |
+| `title` | Display name shown on the panel header. On panel types that derive the header from a single entity, that entity's displayed name takes precedence over the configured title. Otherwise, the configured title is used; if it is empty, the translated panel type label (e.g. `Grid`) is used. A title wider than the header widget is cut to fit and ends in `..`. |
 | `key` | A unique identifier used to reference this panel in navigation actions and popup overrides. Must be unique across all panels on the device. |
-| `show_in_navigation` | Boolean toggle (default **on**). When enabled, the panel appears in the navigation bar. When disabled, the panel is hidden from navigation — use this for subpanels, detail views, and popups. |
+| `show_in_navigation` | Boolean toggle (default **on**). When enabled, the panel appears in the navigation bar. When disabled, the panel is hidden from navigation and opens stacked on top of the current panel — use this for subpanels and detail views (see [Stacked Panels and Popups](#stacked-panels-and-popups)). |
+| `long_press_back` | **Long press to go back** (default **off**), offered only for panel types without header buttons (Clock, ClockTwo, Weather), which can otherwise only be left by swiping. When enabled, holding anywhere for about a second goes back: to the panel this one was opened from, or to the home panel. A long press rather than a tap or double tap because the firmware polls touches every 200 ms, too slowly to catch quick taps reliably. |
 | `unlock_code` | **Panel pin** in the editor. A numeric PIN code. When set, the panel requires this code before it can be accessed. The input is masked as a password field. |
 
 ### Type-Specific Options
@@ -27,14 +28,58 @@ Each panel type declares its own options (e.g. number of grid slots, default bri
 
 See [Panels Overview](../panels/README.md) for the full list of panel types and their options.
 
-### Popup Overlays
+### Stacked Panels and Popups
 
-Panels can be displayed as popup overlays on top of the current panel. This is controlled by the **can_show_popup** flag on the panel type descriptor:
+A panel with `show_in_navigation` off is opened on top of the current panel
+(*stacked*) — by a `navigate:key` action, a gesture, or an item's `popup_key` —
+and closing it goes back to where it was opened from. Every panel you add
+yourself is a **stacked panel** when it is out of navigation, whatever its type:
+a cover or light panel behaves exactly like a grid. Only the built-in system
+popups are **popups**: the entity popups (`popup_light`, `popup_media_player`,
+`popup_vacuum`, `popup_climate`, `popup_cover`, `popup_timer`, `popup_alarm`),
+`popup_notify`, `popup_select`, `popup_unlock`, and Settings and About. A popup
+opens on top of the current panel just like a stacked panel and has the same
+header.
 
-- **Single-entity panels** (light, climate, media, cover, vacuum, timer, alarm) — support popup overlay display.
-- **Multi-entity panels** (grid, row, clock, weather) — do not support popup overlay. When `show_in_navigation` is `false`, they display as full-page subpanels instead.
+The hub fills in the header buttons automatically:
 
-To use a panel as a popup, set `show_in_navigation` to off and reference it via `popup_key` in an item's advanced configuration.
+| Panel | Left | Second left | Right |
+|-------|------|-------------|-------|
+| Navigation panel | previous panel | home | next panel |
+| Stacked panel or popup | up | home | close |
+
+- **Up** and **close** both go back to the panel the stacked panel or popup was opened from.
+- **Home** appears only when the home button is enabled (`show_home_button` on the device or the panel), and never on the home panel itself. The home panel shows the idle button there instead when `show_idle_button` is on. Settings and About have the home button turned off, so they show only **up** on the left.
+- The right-hand secondary slot shows the next-page button on a grid or row with more than one page, the unlock button on a locked panel, otherwise the notifications button. Pagination never takes the **Right** slot, so next and close stay where they are.
+- The **unlock popup** (`popup_unlock`) has the header of the panel it locks: guarding a navigation panel it shows previous, home and next, so you can move on without unlocking; guarding a stacked panel it shows up, home and close, back to the panel the locked one was opened from. The lock sits in the right-hand secondary slot. It never returns to the panel that is still locked: closing it over a locked navigation panel goes to the home panel.
+
+### System Panel Overrides
+
+The editor lists the fixed built-in panels in the **System Panels** section and
+the editable popups (`popup_*`) in the **Popups** section. Only the popups can
+be edited: **Edit** saves a panel under the popup's key
+that replaces the built-in one on this device; it is marked **Edited**, and
+**Reset to default** deletes it and brings the built-in popup back. **System**,
+**Blank**, **Settings** and **About** are fixed and shown read-only; the hub
+refuses a panel saved under their key, and a stored edit of one (saved by an
+earlier development build) is removed when the integration loads, with a
+warning in the log.
+
+- An entity popup (`popup_light`, `popup_climate`, `popup_media_player`,
+  `popup_cover`, `popup_vacuum`, `popup_timer`, `popup_alarm`) is edited with
+  the form of its panel type (e.g. Cover for `popup_cover`) and saved as that
+  type. The entity still comes from the item that opens the popup.
+- **Notify**, **Select** and **Unlock** keep their own type and offer the
+  generic fields.
+- An edited popup keeps every default of the built-in one it does not set.
+- Its key and **Show in navigation** are fixed: it stays a system popup and
+  never joins navigation.
+
+The hub drives **Notify**, **Select** and **Unlock** itself, so these offer
+only the title: a **Panel pin** or **Close automatically after** would get in
+the way (a PIN on Unlock would ask for a PIN before every unlock, auto-close
+would close queued notifications). The hub ignores both fields on these popups
+and logs a warning if a stored configuration still has them.
 
 ### Panel Access and Navigation
 

@@ -44,32 +44,60 @@ export const DEVICE_CONFIG_DEFAULTS = {
   timeout_dimming: 10,
   timeout_page: 30,
   timeout_display_off: 120,
+  day_night_schedule_mode: "off",
+  day_night_start: "21:00",
+  day_night_end: "07:00",
+  day_night_sunset_offset: 0,
+  day_night_sunrise_offset: 0,
+  day_night_profiles_initialized: false,
+  day_brightness_full: null,
+  day_brightness_dimmed: null,
+  day_duration_dim: null,
+  night_timeout_dimming: 10,
+  night_duration_dim: 2,
+  night_use_auto_page: true,
+  night_timeout_page: 30,
+  night_idle_panel: "",
+  night_timeout_display_off: 120,
+  night_brightness_full: 50,
+  night_brightness_dimmed: 20,
   sound_on_notification: false,
   persistent_sound_interval: 5,
   use_do_not_disturb: false,
   quiet_hours_start: '',
   quiet_hours_end: '',
-  use_sleep_schedule: false,
-  sleep_schedule_start: '',
-  sleep_schedule_end: '',
   home_panel: "",
   idle_panel: "",
   idle_panel_extra: "",
-  hub_idle_timeout: 0,
   auto_navigate_home_timeout: 0,
   time_format: "",
   date_format: "",
   date_format_locale: "",
+  color_scheme: "dark",
+  color_scheme_id: "dark",
   color_overrides: {},
-  // Mirrors DEFAULT_CONFIG["update"] in Python.  Checks run by default so a
-  // device that is never opened in the editor still receives updates.
+  // Mirrors DEFAULT_CONFIG["update"] in Python. Checks run by default so update
+  // offers are found even when a device is never opened in the editor.
   update: {
+    enabled: true,
     check_on_connect: true,
     update_interval: 3600,
-    firmware_auto_update: true,
+    firmware_auto_update: false,
+    firmware_update_channel: "stable",
     auto_install: true,
   },
 };
+
+// Mirrors DEFAULT_CONFIG["update"]["firmware_manifest_url"] in Python (the
+// stable channel's manifest).  It is not part of DEVICE_CONFIG_DEFAULTS: the
+// store holds the URL only when a device overrides it (a test panel following
+// a local test release).
+export const DEFAULT_FIRMWARE_MANIFEST_URL =
+  "https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json";
+
+// Mirrors FirmwareUpdateChannel in Python — the channel the HAUI Firmware
+// entity follows when firmware_manifest_url is left empty.
+export const FIRMWARE_UPDATE_CHANNELS = ["stable", "dev"];
 
 /**
  * Supported locale options for the device config locale dropdown.
@@ -148,8 +176,9 @@ export const DATE_FORMAT_OPTIONS = [
 ];
 
 /**
- * Map popup system type keys to their underlying user-facing type keys.
- * Only panels in this map are editable via the Edit dropdown.
+ * Map entity popup types to the user panel type whose form edits them; an
+ * edited popup is saved as that type under the popup's key. Other system
+ * panels are edited with their own type.
  */
 export const POPUP_TO_USER_TYPE = {
   popup_light: "light",
@@ -158,4 +187,5 @@ export const POPUP_TO_USER_TYPE = {
   popup_cover: "cover",
   popup_vacuum: "vacuum",
   popup_timer: "timer",
+  popup_alarm: "alarm",
 };

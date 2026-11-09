@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 from ..component import Component
 
 if TYPE_CHECKING:
-    from ....nspanel_haui import NSPanelHAUI
+    from ....hub.app import NSPanelHAUI
     from ..haui_base import HAUIBase
     from ..haui_event import HAUIEvent
     from ..haui_panel import HAUIPanel
@@ -83,7 +83,6 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
     * :class:`~haui.page.component_mixin.ComponentMixin` methods
     """
 
-    # internal function button ids
     def get_color(self, key: str) -> int:
         """Provided by ``HAUIBase`` at runtime via MRO (mixin + base class).
 
@@ -181,11 +180,15 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
     def get_button_colors(self, active: bool) -> tuple:
         """Returns default colors for buttons.
 
+        Buttons sit flat on the page background, which the page's theme code
+        paints while it loads; only the pressed state lifts, and a disabled
+        button stays flat when pressed.
+
         Args:
             active (bool): is the button active
 
         Returns:
-            tuple: (color, color_pressed, back_color, back_color_pressed)
+            tuple: (color, color_pressed, back_color_pressed)
         """
         if active:
             color = self.get_color("component_active")
@@ -195,26 +198,19 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             color = self.get_color("text_disabled")
             color_pressed = self.get_color("text_disabled")
             back_color_pressed = self.get_color("background")
-        # buttons sit flat on the page background; only the pressed state lifts
-        back_color = self.get_color("background")
-        return color, color_pressed, back_color, back_color_pressed
+        return color, color_pressed, back_color_pressed
 
-    def button_color_args(self, active: bool, *, back_color: bool = False) -> dict:
+    def button_color_args(self, active: bool) -> dict:
         """Returns ``update_function_component`` color kwargs for a button.
 
         Args:
             active (bool): is the button active
-            back_color (bool): also include ``back_color`` (most callers only
-                restyle the pressed background)
 
         Returns:
-            dict: color, color_pressed, back_color_pressed (and back_color)
+            dict: color, color_pressed, back_color_pressed
         """
-        color, color_pressed, back, back_pressed = self.get_button_colors(active)
-        args = {"color": color, "color_pressed": color_pressed, "back_color_pressed": back_pressed}
-        if back_color:
-            args["back_color"] = back
-        return args
+        color, color_pressed, back_pressed = self.get_button_colors(active)
+        return {"color": color, "color_pressed": color_pressed, "back_color_pressed": back_pressed}
 
     # ------------------------------------------------------------------
     # Function component registration
@@ -364,6 +360,10 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                 and not fnc_args.get("locked", False)
             ):
                 color = self.get_color("header_accent")
+            if color is None and fnc_name == self.FNC_TYPE_NAV_NOTIF:
+                # The notification indicator stays accent-coloured while
+                # notifications are pending, on every page render.
+                color = self.get_color("header_accent")
             if color is None:
                 color = self.get_color("header_text")
             color_pressed = fnc_args.get("color_pressed")
@@ -425,32 +425,23 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
             panel (HAUIPanel): Current panel
         """
         home_key = self.app.device.get("home_panel")
+        show_in_nav = panel.show_in_navigation()
         for fnc_id, fnc_item in self._fnc_items.items():
-            show_in_nav = panel.show_in_navigation()
-            is_popup = panel.can_show_popup()
             if fnc_item["fnc_name"] is None:
-                # left primary: popup with home button => HOME, navigation => PREV, otherwise => UP
+                # left primary: navigation => PREV, stacked panel or popup => UP
                 if fnc_id == self.FNC_BTN_L_PRI:
-                    if (
-                        is_popup
-                        and not (home_key and panel.get("key") == home_key)
-                        and panel.show_home_button()
-                    ):
-                        fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
-                    elif show_in_nav:
+                    if show_in_nav:
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_PREV
                     else:
                         fnc_item["fnc_name"] = self.FNC_TYPE_NAV_UP
-                # left secondary: on home panel => IDLE (idle page),
-                # otherwise on non-popup panels => HOME
+                # left secondary: on home panel => IDLE (idle page), otherwise => HOME
                 elif fnc_id == self.FNC_BTN_L_SEC:
-                    if not is_popup:
-                        is_home = home_key and panel.get("key") == home_key
-                        if not is_home and panel.show_home_button():
-                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
-                        elif is_home and panel.show_idle_button():
-                            fnc_item["fnc_name"] = self.FNC_TYPE_NAV_IDLE
-                            fnc_item["fnc_args"]["visible"] = True
+                    is_home = home_key and panel.get("key") == home_key
+                    if not is_home and panel.show_home_button():
+                        fnc_item["fnc_name"] = self.FNC_TYPE_NAV_HOME
+                    elif is_home and panel.show_idle_button():
+                        fnc_item["fnc_name"] = self.FNC_TYPE_NAV_IDLE
+                        fnc_item["fnc_args"]["visible"] = True
                 # right primary: navigation => NEXT, otherwise => CLOSE
                 elif fnc_id == self.FNC_BTN_R_PRI:
                     if show_in_nav:
@@ -477,17 +468,6 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                     fnc_item["fnc_args"]["visible"] = False
                 else:
                     fnc_item["fnc_args"]["visible"] = True
-            # Set background color for header buttons (visible, non-content slots)
-            # so they retain their header bar background even after removing the
-            # universal default in update_function_component.
-            fnc_ids_header = (
-                self.FNC_BTN_L_PRI,
-                self.FNC_BTN_L_SEC,
-                self.FNC_BTN_R_PRI,
-                self.FNC_BTN_R_SEC,
-            )
-            if fnc_id in fnc_ids_header and fnc_item["fnc_args"].get("back_color") is None:
-                fnc_item["fnc_args"]["back_color"] = self.get_color("header_background")
 
         # Notification indicator: the main loop granted it right_sec only when
         # that slot was free.  A page that claimed both right slots (grid/row

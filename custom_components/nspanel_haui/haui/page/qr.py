@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
@@ -9,16 +7,13 @@ from ..abstract.haui_panel import HAUIPanel
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_KEY, ICO_WIFI, ICO_ZOOM
 
-if TYPE_CHECKING:
-    from ...ha_adapter import ItemProxy
-
 
 class QRPage(HAUIPage):
     DESCRIPTOR = PageDescriptor(
         type_key="qr",
         page_name="qr",
         page_id=11,
-        label=_("QR Code"),
+        label=_("QR"),
         description=_("Display a QR code alongside item info."),
         options=[
             PageOption(
@@ -89,21 +84,12 @@ class QRPage(HAUIPage):
     # panel
 
     def prepare(self) -> None:
-        self.auto_dimming: ItemProxy
-        self.auto_page: ItemProxy
-        self._use_auto_dimming: bool
-        self._use_auto_page: bool
         self._is_big: bool = False
         self._has_text: bool = False
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        name = self.app.device.get_slug()
         self.on_release(self.COMPONENTS.qr_code, self.callback_qr_code)
         self.on_release(self.COMPONENTS.qr_code_big, self.callback_qr_code_big)
-        self.auto_dimming = self.app.get_item(f"switch.{name}_use_auto_dimming")
-        self.auto_page = self.app.get_item(f"switch.{name}_use_auto_page")
-        self._use_auto_dimming = self.auto_dimming.get_state() == "on"
-        self._use_auto_page = self.auto_page.get_state() == "on"
 
         # Compute initial state
         essid = panel.get("essid", "")
@@ -131,35 +117,28 @@ class QRPage(HAUIPage):
             zoom_btn,
         )
 
-        with self.rec_cmd:
-            # Set text on both QR components so whichever is shown after a
-            # zoom toggle already has its content.
-            self.set_component_text(self.COMPONENTS.title, panel.get_title())
-            self.set_component_text(self.COMPONENTS.qr_code, qr_code)
-            self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
-            # Render Q1/Q2 content in the same batch as visibility so the
-            # Nextion never paints empty/stale slots between batches.
-            if items:
-                self._render_items(items)
-            elif panel.get("show_info", True):
-                self._render_text(panel)
-            self._apply_zoom_state()
+        # Set text on both QR components so whichever is shown after a
+        # zoom toggle already has its content.
+        self.set_title(panel.get_title())
+        self.set_component_text(self.COMPONENTS.qr_code, qr_code)
+        self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
+        # Render Q1/Q2 content in the same batch as visibility so the
+        # Nextion never paints empty/stale slots between batches.
+        if items:
+            self._render_items(items)
+        elif panel.get("show_info", True):
+            self._render_text(panel)
+        self._apply_zoom_state()
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
-    def _stop_panel(self, panel: HAUIPanel) -> None:
-        # restore old dimming values
-        if self._use_auto_dimming and self.auto_dimming:
-            self.auto_dimming.turn_on()
-        if self._use_auto_page and self.auto_page:
-            self.auto_page.turn_on()
+    def suspends_auto_page(self) -> bool:
+        """Keep the enlarged code on screen while it is being scanned."""
+        return self._is_big
 
     def render_panel(self, panel: HAUIPanel) -> None:
         essid = panel.get("essid", "")
         password = panel.get("password", "")
         qr_code = f"WIFI:S:{essid};T:WPA;P:{password};;" if essid else ""
-        self.set_component_text(self.COMPONENTS.title, panel.get_title())
+        self.set_title(panel.get_title())
         self.set_component_text(self.COMPONENTS.qr_code, qr_code)
         self.set_component_text(self.COMPONENTS.qr_code_big, qr_code)
         items = self._build_items_from_panel(panel, "items")
@@ -221,8 +200,20 @@ class QRPage(HAUIPage):
 
     # Content rendering
 
+    def _set_info_text_colors(self) -> None:
+        """Use the device text palette instead of the QR page's dark-only HMI defaults."""
+        for idx in (1, 2):
+            self.set_component_text_color(
+                getattr(self.COMPONENTS, f"q{idx}_title"), self.get_color("text")
+            )
+            for part in ("text", "text_add"):
+                self.set_component_text_color(
+                    getattr(self.COMPONENTS, f"q{idx}_{part}"), self.get_color("text_inactive")
+                )
+
     def _render_items(self, items: list) -> None:
         """Render up to 2 items into Q1/Q2 slots."""
+        self._set_info_text_colors()
         max_len = 20
         for i in range(2):
             if len(items) <= i:
@@ -249,6 +240,7 @@ class QRPage(HAUIPage):
         Note: caller (set_panel) wraps render_panel in rec_cmd, so no need for a
         separate rec_cmd here.
         """
+        self._set_info_text_colors()
         self.set_component_text(self.COMPONENTS.q1_icon, ICO_WIFI)
         self.set_component_text(self.COMPONENTS.q1_title, "SSID")
         essid = panel.get("essid", "") or ""
@@ -265,31 +257,20 @@ class QRPage(HAUIPage):
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
         self.log(f"Got function component press: {fnc_id}")
         if fnc_name == "zoom":
-            self._is_big = not self._is_big
-            with self.rec_cmd:
-                self._apply_zoom_state()
+            self._set_big(not self._is_big)
 
     def callback_qr_code(self, event: HAUIEvent, component: Component) -> None:
         if not self.panel:
             return
-        if not self.auto_page or not self.auto_dimming:
-            return
         self.log(f"Got qr code press: {component}")
-        with self.rec_cmd:
-            self._is_big = True
-            self._apply_zoom_state()
-            self.auto_dimming.turn_off()
-            self.auto_page.turn_off()
+        self._set_big(True)
 
     def callback_qr_code_big(self, event: HAUIEvent, component: Component) -> None:
         if not self.panel:
             return
-        if not self.auto_page or not self.auto_dimming:
-            return
+        self._set_big(False)
+
+    def _set_big(self, big: bool) -> None:
+        self._is_big = big
         with self.rec_cmd:
-            self._is_big = False
             self._apply_zoom_state()
-            if self._use_auto_dimming:
-                self.auto_dimming.turn_on()
-            if self._use_auto_page:
-                self.auto_page.turn_on()

@@ -5,7 +5,7 @@ description: Light panel — full control for a single light entity
 
 # Panel Light
 
-![](../assets/previews/panel-light.svg)
+<img src="../assets/screens/landscape/light.png" alt="light panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/light.png" alt="light panel, portrait" width="142" height="213">
 
 ## About
 
@@ -29,7 +29,7 @@ The popup variant (`popup_light`) mirrors the main panel layout. It is used auto
 
 In the **panel editor**, set:
 
-- **Item** (entity picker) — A light entity to control. Required.
+- **Item** (entity picker) — Optional light entity to control. Leave it empty to configure the panel later; no entity-specific content is shown until one is selected.
 - **Show Kelvin** (toggle) — When enabled, color temperature is displayed in Kelvin (e.g., 3500K); when disabled it is displayed in mireds (e.g., 286Mired). This only changes the displayed unit: Home Assistant reports and sets color temperature in Kelvin. Default: on.
 
 ### Per-Item Options (when used as a popup)
@@ -42,5 +42,7 @@ When a light panel is used as a popup from another panel, the parent entity's ad
 
 - The **title** is the item's custom name if set, otherwise the entity's friendly name. The panel's title field is only used when no light item is available.
 - Controls automatically hide or show based on the light entity's supported features.
+- Without a selected entity, the entity-specific info and controls remain blank/hidden. For general messages that should appear regardless of the active page, use the [`nspanel_haui.send_notification` service or notify entities](../services.md).
+- If the configured entity is unavailable or its state is not a known on/off value, the page shows **Unavailable** and hides the power control and light controls. The power control is only shown for a known on/off state.
 - When the light is off, only the power button is shown; the function buttons and sliders are hidden. While a function is active, the centre power button is replaced by a header power-off button; tap the active function button again to return to the centre power toggle.
 - The color wheel always appears when RGB/XY color is supported, regardless of other features.

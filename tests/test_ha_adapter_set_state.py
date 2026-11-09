@@ -11,7 +11,8 @@ import threading
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from nspanel_haui.ha_adapter import ItemProxy
+
+from custom_components.nspanel_haui.hub.adapter import ItemProxy
 
 
 @pytest.fixture
@@ -68,7 +69,7 @@ def test_set_state_rejects_domains_without_set_value(loop):
 
 def test_call_service_without_a_target_still_calls_ha(loop):
     """Services like script.<name> or notify.<name> take no entity target."""
-    from nspanel_haui.ha_adapter import HAAdapter
+    from custom_components.nspanel_haui.hub.adapter import HAAdapter
 
     adapter = HAAdapter.__new__(HAAdapter)
     adapter.hass = _hass()

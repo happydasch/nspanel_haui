@@ -9,18 +9,12 @@ from .abstract.haui_base import HAUIBase
 from .abstract.haui_event import HAUIEvent
 from .controller.notification import Notification
 from .device_config import is_portrait_model
-from .mapping.const import ESPAction, ESPEvent, NotifEvent, NotifType
-from .mapping.panel import PANEL_MAPPING, SYS_PANEL_MAPPING
+from .mapping.const import AUTO_SWITCHES, ESPAction, ESPEvent, NotifEvent
+from .mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
 
 if TYPE_CHECKING:
-    from ..nspanel_haui import NSPanelHAUI
+    from ..hub.app import NSPanelHAUI
 from .mapping.const import SysPanelKey
-
-
-def _notification_sound(notif_type: str) -> str:
-    """Name of the ESPHome sound played for a notification of this type."""
-    return "alert" if notif_type == NotifType.CRITICAL else "notification"
-
 
 # How long after a touch-initiated idle-page open the residual touch events
 # of the triggering interaction are ignored.  The ESP32 publishes touch_start
@@ -49,17 +43,23 @@ TOUCH_DUPLICATE_WINDOW: float = 1.5
 STARTUP_SOUND_MAX_UPTIME_SECONDS = 120
 
 
-def _time_in_window(now_time: dt_time, start_time: dt_time, end_time: dt_time) -> bool:
-    """Whether *now_time* falls inside the ``[start, end]`` wall-clock window.
-
-    A window where ``start <= end`` is a same-day window; a window where
-    ``start > end`` spans midnight (e.g. 22:00-06:00).  Boundaries are
-    inclusive.  Both quiet hours and the sleep schedule use this comparison.
-    """
-    if start_time <= end_time:
-        return start_time <= now_time <= end_time
-    # overnight range
-    return now_time >= start_time or now_time <= end_time
+def _time_in_window(
+    now_time: dt_time,
+    start_time: dt_time,
+    end_time: dt_time,
+    *,
+    inclusive_end: bool = True,
+) -> bool:
+    """Whether *now_time* falls inside the same-day or overnight window."""
+    if inclusive_end:
+        if start_time <= end_time:
+            return start_time <= now_time <= end_time
+        return now_time >= start_time or now_time <= end_time
+    if start_time < end_time:
+        return start_time <= now_time < end_time
+    if start_time > end_time:
+        return now_time >= start_time or now_time < end_time
+    return False
 
 
 class HAUIDevice(HAUIBase):
@@ -102,7 +102,6 @@ class HAUIDevice(HAUIBase):
         # when the native event was lost (serial/API lag).
         self._last_native_touch_ts: float = 0.0
         self._initial_connect_done = False
-        self._synced_display_model: str | None = None
         self._btn_left_info: dict[str, Any] = {
             "item_id": None,
         }
@@ -110,8 +109,9 @@ class HAUIDevice(HAUIBase):
             "item_id": None,
         }
         self._persistent_sound_handle: str | None = None
-        # run_in handle of the sleep-schedule boundary timer (None = not armed).
-        self._schedule_timer: str | None = None
+        self._profile_timer: str | None = None
+        self._solar_listener: str | None = None
+        self._solar_tracking_offsets: tuple[int, int] | None = None
 
     # prepare and update
 
@@ -124,7 +124,7 @@ class HAUIDevice(HAUIBase):
         config = self.app.device_config
         # check if all sys_panels are valid
         chk_sys_panels = [x.get("key") for x in config.get("sys_panels", [])]
-        for panel_key in SYS_PANEL_MAPPING.keys():
+        for panel_key in SYS_PANEL_MAPPING | POPUP_PANEL_MAPPING:
             if panel_key not in chk_sys_panels:
                 raise ValueError(f"Missing sys_panel {panel_key} in config")
         for panel in config.get_panels():
@@ -134,14 +134,12 @@ class HAUIDevice(HAUIBase):
 
     def _register_callbacks(self) -> None:
         """Resolves the relay entity each physical button toggles."""
-        for i in ["left", "right"]:
-            button = getattr(self, f"_btn_{i}_info")  # button info dict
-            entity_id = self.get(f"button_{i}_entity")  # the entity to control
-            # no entity id set, use relay
+        for side in ("left", "right"):
+            button = getattr(self, f"_btn_{side}_info")
+            entity_id = self.get(f"button_{side}_entity", None)
             if not entity_id:
-                # default button entity - hardware relay
-                slug = self.get_slug()
-                entity_id = f"switch.{slug}_relay_{i}"
+                name = f"Relay {side.title()}"
+                entity_id = self._resolve_esp_entity("switch", name)
             button["item_id"] = entity_id
 
     def _cancel_callbacks(self) -> None:
@@ -149,93 +147,237 @@ class HAUIDevice(HAUIBase):
         for i in ["left", "right"]:
             getattr(self, f"_btn_{i}_info")["item_id"] = None
 
-    def _resolve_esp_entity(self, domain: str, fallback_id: str, name: str) -> str:
-        """Resolve an ESPHome entity id, preferring the entity registry.
-
-        Home Assistant's entity-id naming (area/device prefixed ids) and
-        device renames produce ids that do not match the ``{slug}_{name}``
-        pattern, so every config-sync target is resolved through the registry
-        by its ESPHome-authored *name* first and only falls back to the
-        classic ``{domain}.{slug}_{name}`` id when the registry is
-        unavailable or nothing matches.
-
-        Args:
-            domain: Entity domain (``"switch"``, ``"number"``, ...).
-            fallback_id: The classic ``{domain}.{slug}_{name}`` entity id.
-            name: The name the ESPHome YAML authored (e.g. ``"Display Model"``).
-
-        Returns:
-            str: The resolved entity id, or the fallback id.
-        """
-        resolver = getattr(self.app, "find_entity_id", None)
-        if resolver is not None:
-            resolved = resolver(domain, name)
-            if resolved:
-                return resolved
-        return fallback_id
+    def _resolve_esp_entity(self, domain: str, name: str) -> str | None:
+        """Resolve a built-in ESPHome entity on this device by its authored name."""
+        return self.find_esphome_entity_id(domain, name)
 
     def _sync_config_switch(
         self,
         hub_key: str,
-        switch_entity_id: str,
+        switch_entity_id: str | None,
         hub_value: bool | None = None,
         reason: str = "",
     ) -> None:
-        """Sync a hub config boolean with the device's corresponding ESPHome switch.
-
-        Ensures the hub config and ESPHome firmware switch are in agreement.
-        Sync is bidirectional: re-enabling the config after it was disabled turns
-        the firmware switch back on, otherwise ``RESTORE_DEFAULT_ON`` switches
-        would stay stuck in their restored state across reconnects.
-
-        Args:
-            hub_key: Config key holding the desired value.
-            switch_entity_id: ESPHome switch entity id.
-            hub_value: Optional override to push instead of ``self.get(hub_key)``
-                (used for the clock-driven sleep schedule).
-            reason: Optional log reason replacing the "hub config" explanation.
-        """
-        if not self.app.item_exists(switch_entity_id):
+        """Apply a deliberate config value to its corresponding ESPHome switch."""
+        if not switch_entity_id or not self.app.item_exists(switch_entity_id):
             return
         if hub_value is None:
             hub_value = self.get(hub_key, True)
         item = self.app.get_item(switch_entity_id)
-        is_on = item.get_state() == "on"
-        if hub_value and not is_on:
+        state = item.get_state()
+        if state not in ("on", "off"):
+            return
+        if hub_value and state == "off":
             self.log(f"Syncing {switch_entity_id} ON ({reason or f'hub config {hub_key}=True'})")
             item.turn_on()
-        elif not hub_value and is_on:
+        elif not hub_value and state == "on":
             self.log(f"Syncing {switch_entity_id} OFF ({reason or f'hub config {hub_key}=False'})")
             item.turn_off()
 
-    def _sync_config_number(self, hub_key: str, number_entity_id: str) -> None:
-        """Sync a hub config number with the device's ESPHome number entity."""
-        if not self.app.item_exists(number_entity_id):
+    def _sync_changed_auto_switch_settings(self, changed_settings: set[str]) -> None:
+        """Apply only automatic-switch settings that changed in the Settings editor."""
+        for setting in changed_settings:
+            switch_key = setting.removeprefix("use_")
+            if switch_key in AUTO_SWITCHES:
+                self._sync_config_switch(
+                    setting,
+                    self._resolve_esp_entity("switch", AUTO_SWITCHES[switch_key]),
+                    reason="Settings changed",
+                )
+
+    def _adopt_day_profile_values(self) -> None:
+        """Capture restored firmware brightness/ramp values before profiles own them."""
+        if self.get("day_night_profiles_initialized", False):
             return
-        hub_value = self.get(hub_key, 0)
-        item = self.app.get_item(number_entity_id)
+        missing = {
+            config_key
+            for config_key in ("day_brightness_full", "day_brightness_dimmed", "day_duration_dim")
+            if self.get(config_key, None) is None
+        }
+        if not missing:
+            full = self.get("day_brightness_full", None)
+            dimmed = self.get("day_brightness_dimmed", None)
+            if full is not None and dimmed is not None and dimmed > full:
+                self.log(
+                    "Cannot initialize Day profile: dimmed brightness exceeds full brightness",
+                    level="WARNING",
+                )
+                return
+            self.config["day_night_profiles_initialized"] = True
+            self._persist_day_profile_values()
+            return
+        values: dict[str, float] = {}
+        entity_names = {
+            "day_brightness_full": "Brightness Full",
+            "day_brightness_dimmed": "Brightness Dimmed",
+            "day_duration_dim": "Duration Dimming",
+        }
+        for config_key in missing:
+            entity_name = entity_names[config_key]
+            entity_id = self._resolve_esp_entity("number", entity_name)
+            if not entity_id or not self.app.item_exists(entity_id):
+                return
+            state = self.app.get_item(entity_id).get_state()
+            if state in (None, "unavailable", "unknown"):
+                return
+            try:
+                values[config_key] = float(state)
+            except TypeError, ValueError:
+                self.log(
+                    f"Cannot adopt {entity_name}: invalid firmware value {state!r}",
+                    level="WARNING",
+                )
+                return
+        adopted = {
+            key: round(value) if key != "day_duration_dim" else value
+            for key, value in values.items()
+        }
+        full = adopted.get("day_brightness_full", self.get("day_brightness_full", None))
+        dimmed = adopted.get("day_brightness_dimmed", self.get("day_brightness_dimmed", None))
+        if full is not None and dimmed is not None and dimmed > full:
+            if "day_brightness_dimmed" in missing:
+                adopted["day_brightness_dimmed"] = int(full)
+                self.log(
+                    "Clamping restored Day dimmed brightness to the configured full brightness",
+                    level="WARNING",
+                )
+            elif "day_brightness_full" in missing:
+                adopted["day_brightness_full"] = int(dimmed)
+                self.log(
+                    "Raising restored Day full brightness to the configured dimmed brightness",
+                    level="WARNING",
+                )
+            else:
+                self.log(
+                    "Cannot initialize Day profile: dimmed brightness exceeds full brightness",
+                    level="WARNING",
+                )
+                return
+        self.config.update(adopted)
+        self.config["day_night_profiles_initialized"] = True
+        self._persist_day_profile_values()
+        self.log("Captured restored firmware brightness and dim-ramp values for the Day profile")
+
+    def _persist_day_profile_values(self) -> None:
+        """Persist migrated values through the integration's config-store bridge."""
+        persist = getattr(self.app, "persist_day_profile", None)
+        if callable(persist):
+            persist(
+                {
+                    key: self.get(key)
+                    for key in (
+                        "day_brightness_full",
+                        "day_brightness_dimmed",
+                        "day_duration_dim",
+                        "day_night_profiles_initialized",
+                    )
+                }
+            )
+
+    def _profile_is_night(self, now: datetime | None = None) -> bool:
+        """Return whether the enabled Day/Night schedule currently selects Night."""
+        mode = self.get("day_night_schedule_mode", "off")
+        if mode == "off":
+            return False
+        if mode == "fixed":
+            try:
+                start = datetime.strptime(self.get("day_night_start", ""), "%H:%M").time()
+                end = datetime.strptime(self.get("day_night_end", ""), "%H:%M").time()
+            except ValueError, TypeError:
+                self.log(
+                    "Invalid Day/Night clock window; applying the Day profile", level="WARNING"
+                )
+                return False
+            if start == end:
+                self.log(
+                    "Day/Night start and end must differ; applying the Day profile",
+                    level="WARNING",
+                )
+                return False
+            return _time_in_window((now or self.app.now()).time(), start, end, inclusive_end=False)
+        if mode == "sun":
+            try:
+                return self.app.get_solar_profile_state(
+                    int(self.get("day_night_sunset_offset", 0)),
+                    int(self.get("day_night_sunrise_offset", 0)),
+                )
+            except Exception as exc:  # noqa: BLE001
+                self.log(
+                    f"Solar Day/Night schedule unavailable; applying the Day profile: {exc}",
+                    level="WARNING",
+                )
+                return False
+        self.log(
+            f"Unknown Day/Night schedule mode {mode!r}; applying the Day profile",
+            level="WARNING",
+        )
+        return False
+
+    def _sync_profile_number(
+        self, config_key: str, entity_name: str, *, optional: bool = False
+    ) -> None:
+        value = self.get(config_key, None)
+        if optional and value is None:
+            return
+        entity_id = self._resolve_esp_entity("number", entity_name)
+        self._sync_config_number_value(value, entity_id)
+
+    def _sync_config_number_value(self, value: float | int | None, entity_id: str | None) -> None:
+        if value is None or not entity_id or not self.app.item_exists(entity_id):
+            return
+        item = self.app.get_item(entity_id)
         current = item.get_state()
-        if current is not None and current != "unavailable" and float(current) != hub_value:
-            self.log(f"Syncing {number_entity_id} to {hub_value} (hub config {hub_key})")
-            item.set_state(state=hub_value)
+        if (
+            current is not None
+            and current not in ("unavailable", "unknown")
+            and float(current) != value
+        ):
+            self.log(f"Syncing {entity_id} to {value} (Day/Night profile)")
+            item.set_state(state=value)
+
+    def _configure_solar_tracking(self) -> None:
+        """Register or remove HA solar listeners to match the active schedule mode."""
+        mode = self.get("day_night_schedule_mode", "off")
+        offsets = (
+            int(self.get("day_night_sunset_offset", 0)),
+            int(self.get("day_night_sunrise_offset", 0)),
+        )
+        if mode == "sun" and self._solar_tracking_offsets != offsets:
+            if self._solar_listener is not None:
+                self.app.cancel_sun_events(self._solar_listener)
+                self._solar_listener = None
+            try:
+                self._solar_listener = self.app.listen_sun_events(
+                    self._solar_event_callback,
+                    self._solar_event_callback,
+                    self._solar_config_callback,
+                    sunset_offset=offsets[0],
+                    sunrise_offset=offsets[1],
+                )
+                self._solar_tracking_offsets = offsets
+            except Exception as exc:  # noqa: BLE001
+                self.log(f"Could not register solar schedule listeners: {exc}", level="WARNING")
+        elif mode != "sun" and self._solar_listener is not None:
+            self.app.cancel_sun_events(self._solar_listener)
+            self._solar_listener = None
+            self._solar_tracking_offsets = None
+
+    def _solar_event_callback(self) -> None:
+        self._sync_behavior_config()
+
+    def _solar_config_callback(self) -> None:
+        self._configure_solar_tracking()
+        self._sync_behavior_config()
 
     def _sync_button_interaction(self) -> None:
-        """Sync the hub's ``reset_interaction_on_button`` with the device's switch.
+        """Keep ``reset_interaction_on_button`` aligned with ESPHome.
 
-        ``reset_interaction_on_button`` controls whether button presses reset the
-        idle timer.  The device-side ``use_button_interaction`` switch must mirror
-        it so the ESPHome firmware (which gates its own ``update_last_interaction``
-        on that switch) stays in step.  Sync is bidirectional: re-enabling the
-        config after it was disabled turns the firmware switch back on, otherwise
-        the switch (``RESTORE_DEFAULT_ON``) would stay stuck off across reconnects.
+        The device handles the timer reset on the physical button press;
+        mirroring this switch keeps that behavior consistent with hub config.
         """
         self._sync_config_switch(
             "reset_interaction_on_button",
-            self._resolve_esp_entity(
-                "switch",
-                f"switch.{self.get_slug()}_use_button_interaction",
-                "Use Button Interaction",
-            ),
+            self._resolve_esp_entity("switch", "Use Button Interaction"),
         )
 
     def _sync_relay_config(self) -> None:
@@ -246,82 +388,59 @@ class HAUIDevice(HAUIBase):
         ``use_relay_left``/``use_relay_right`` switches using
         ``RESTORE_DEFAULT_ON``) acts differently.
         """
-        slug = self.get_slug()
         self._sync_config_switch(
             "use_relay_left",
-            self._resolve_esp_entity("switch", f"switch.{slug}_use_relay_left", "Use Relay Left"),
+            self._resolve_esp_entity("switch", "Use Relay Left"),
         )
         self._sync_config_switch(
             "use_relay_right",
-            self._resolve_esp_entity("switch", f"switch.{slug}_use_relay_right", "Use Relay Right"),
+            self._resolve_esp_entity("switch", "Use Relay Right"),
         )
 
     # part
     def _sync_behavior_config(self) -> None:
-        """Sync hub config auto-* and timeout fields with ESPHome switches/numbers."""
-        slug = self.get_slug()
-        self._sync_config_switch(
-            "use_auto_dimming",
-            self._resolve_esp_entity(
-                "switch", f"switch.{slug}_use_auto_dimming", "Use Auto-Dimming"
-            ),
-        )
-        self._sync_config_switch(
-            "use_auto_page",
-            self._resolve_esp_entity("switch", f"switch.{slug}_use_auto_page", "Use Auto-Page"),
-        )
-        # use_auto_display_off can be overridden by the display-off schedule: inside
-        # the configured window the display may turn off, outside it never may.  A
-        # schedule that is disabled/incomplete/malformed leaves the static
-        # toggle in charge (_display_off_schedule_active returns None).
-        display_off = self.get("use_auto_display_off", True)
-        schedule_active = self._display_off_schedule_active()
-        if schedule_active is not None:
-            display_off = schedule_active
-        self._sync_config_switch(
-            "use_auto_display_off",
-            self._resolve_esp_entity(
-                "switch", f"switch.{slug}_use_auto_display_off", "Use Auto Display-Off"
-            ),
-            hub_value=display_off,
-            reason=(
-                f"sleep schedule {'active' if schedule_active else 'inactive'}"
-                if schedule_active is not None
-                else ""
-            ),
-        )
-        self._sync_config_number(
-            "timeout_dimming",
-            self._resolve_esp_entity("number", f"number.{slug}_timeout_dimming", "Timeout Dimming"),
-        )
-        self._sync_config_number(
-            "timeout_page",
-            self._resolve_esp_entity("number", f"number.{slug}_timeout_page", "Timeout Page"),
-        )
-        self._sync_config_number(
-            "timeout_display_off",
-            self._resolve_esp_entity(
-                "number", f"number.{slug}_timeout_display_off", "Timeout Display-Off"
-            ),
-        )
+        """Sync the active Day/Night profile's timeout and brightness numbers."""
+        mode = self.get("day_night_schedule_mode", "off")
+        if mode != "off":
+            self._adopt_day_profile_values()
+        is_night = self._profile_is_night() if mode != "off" else False
+        prefix = "night_" if is_night else ""
+
+        for config_key, entity_name in (
+            (f"{prefix}timeout_dimming", "Timeout Dimming"),
+            (f"{prefix}timeout_display_off", "Timeout Display-Off"),
+        ):
+            self._sync_profile_number(config_key, entity_name)
+        if mode != "off" and self.get("day_night_profiles_initialized", False):
+            self._sync_profile_number(
+                "night_duration_dim" if is_night else "day_duration_dim",
+                "Duration Dimming",
+                optional=not is_night,
+            )
+            self._sync_profile_number(
+                "night_brightness_full" if is_night else "day_brightness_full",
+                "Brightness Full",
+                optional=not is_night,
+            )
+            self._sync_profile_number(
+                "night_brightness_dimmed" if is_night else "day_brightness_dimmed",
+                "Brightness Dimmed",
+                optional=not is_night,
+            )
+        navigation = self.app.controller.get("navigation")
+        if navigation is not None:
+            navigation.set_idle_profile(is_night if mode != "off" else None)
         self._sync_display_model()
 
     def _sync_display_model(self) -> None:
-        """Sync hub config ``display_model`` with the firmware's gesture size.
+        """Sync the hub's display model with the firmware's gesture size.
 
         The gesture script derives its touch dimensions from the model
-        (``display_model`` number: 0 = landscape, 1 = portrait).  The hub
-        config uses names; translate them so the firmware stays in step.
-
-        The number entity is resolved through the entity registry by its
-        ESPHome name first — Home Assistant's entity-id naming (area/device
-        prefixed ids) and device renames can produce ids that do not match
-        ``number.{slug}_display_model`` — and falls back to that classic id.
+        (``display_model`` number: 0 = landscape, 1 = portrait). The ESPHome
+        number entity is resolved by its authored name on this linked device.
         """
-        number_entity_id = self._resolve_esp_entity(
-            "number", f"number.{self.get_slug()}_display_model", "Display Model"
-        )
-        if not self.app.item_exists(number_entity_id):
+        number_entity_id = self._resolve_esp_entity("number", "Display Model")
+        if not number_entity_id or not self.app.item_exists(number_entity_id):
             return
         value = 1 if self.is_portrait else 0
         item = self.app.get_item(number_entity_id)
@@ -332,20 +451,6 @@ class HAUIDevice(HAUIBase):
                 f"(hub config display_model={self.display_model!r})"
             )
             item.set_state(state=value)
-
-    def _install_tft_on_model_change(self) -> None:
-        """Install the matching TFT when the display model was switched in the settings.
-
-        The display cannot report which layout it runs and the version check
-        only compares versions, so a device that already has the current TFT
-        would keep the wrong layout after the model changed.
-        """
-        model = self.display_model
-        previous, self._synced_display_model = self._synced_display_model, model
-        if previous is None or previous == model:
-            return
-        self.log(f"Display model changed from {previous!r} to {model!r}; installing its TFT")
-        self.app.controller["update"].install_tft()
 
     @property
     def display_model(self) -> str:
@@ -359,21 +464,19 @@ class HAUIDevice(HAUIBase):
 
     # part
 
-    def sync_config_to_device(self) -> None:
-        """Push the hub's device settings to the device's ESPHome switches and numbers.
+    def sync_config_to_device(self, changed_auto_settings: set[str] | None = None) -> None:
+        """Apply non-automatic-switch config and explicitly changed switch settings.
 
-        Runs at start, on every connect (a rebooted device restores its own
-        stored values, and at HA startup the entities are often unavailable) and
-        after the settings are saved. Only values that differ are written.
+        Automatic switches are otherwise owned by the live ESPHome state, which
+        lets Home Assistant automations control them without lifecycle or page
+        changes writing a stale config value back.
         """
         self._sync_button_interaction()
         self._sync_relay_config()
+        self._configure_solar_tracking()
+        self._sync_changed_auto_switch_settings(changed_auto_settings or set())
         self._sync_behavior_config()
-        self._install_tft_on_model_change()
-        # Re-arm the sleep-schedule boundary timer whenever settings are pushed
-        # (start, connect, reconnect, setting save via reload_config) so a
-        # changed window takes effect without waiting for the next boundary.
-        self._arm_display_off_schedule_timer()
+        self._arm_profile_timer()
 
     def start_part(self) -> None:
         """Starts the part."""
@@ -386,7 +489,11 @@ class HAUIDevice(HAUIBase):
         """Stops the part."""
         self.log("Device is stopping")
         self._cancel_callbacks()
-        self._cancel_timer("_schedule_timer")
+        self._cancel_timer("_profile_timer")
+        if self._solar_listener is not None:
+            self.app.cancel_sun_events(self._solar_listener)
+            self._solar_listener = None
+            self._solar_tracking_offsets = None
         self._stop_persistent_sound()
 
     # public
@@ -494,7 +601,18 @@ class HAUIDevice(HAUIBase):
         # premature close_panel).
         navigation.cancel_timeouts()
         if connected:
+            navigation.prepare_resume()
             self.sync_config_to_device()
+            dim_timeout = (
+                self.get("night_timeout_dimming", 10)
+                if self._profile_is_night()
+                else self.get("timeout_dimming", 10)
+            )
+            self.log(
+                f"Reconnect brightness grace uses the firmware dim timeout ({dim_timeout}s); "
+                "the inactivity timer is unchanged",
+                level="DEBUG",
+            )
             if self.get("sound_on_startup"):
                 uptime = self.device_info.get("uptime")
                 if uptime is None or uptime < STARTUP_SOUND_MAX_UPTIME_SECONDS:
@@ -569,109 +687,66 @@ class HAUIDevice(HAUIBase):
             return False
         return _time_in_window(datetime.now().time(), start_time, end_time)
 
-    def _display_off_schedule_active(self, now: datetime | None = None) -> bool | None:
-        """Whether the display-off schedule currently allows the display to turn off.
-
-        The schedule drives ``use_auto_display_off`` by the clock: inside the
-        window the display may turn off after ``timeout_display_off``, outside it
-        never turns off automatically.  Supports overnight ranges.
-
-        Args:
-            now: Injectable clock for tests (defaults to ``datetime.now()``).
-
-        Returns:
-            bool: True while inside the window, False while outside.
-            None: Schedule disabled, window incomplete, or times malformed —
-                callers fall back to the configured ``use_auto_display_off``
-                value (and the malformed case is logged).
-        """
-        if not self.get("use_sleep_schedule", False):
-            return None
-        start = self.get("sleep_schedule_start", "")
-        end = self.get("sleep_schedule_end", "")
-        if not start or not end:
-            return None
-        try:
-            start_time = datetime.strptime(start, "%H:%M").time()
-            end_time = datetime.strptime(end, "%H:%M").time()
-        except ValueError, TypeError:
-            self.log(
-                f"Ignoring sleep schedule: expected HH:MM, got start={start!r} end={end!r}",
-                level="WARNING",
-            )
-            return None
-        return _time_in_window((now or datetime.now()).time(), start_time, end_time)
-
-    def _next_schedule_boundary(self, now: datetime | None = None) -> datetime | None:
-        """When the sleep-schedule window next changes state.
-
-        Args:
-            now: Injectable clock for tests (defaults to ``datetime.now()``).
-
-        Returns:
-            datetime: The next future window boundary (start or end), or None
-                when no timer should be armed (schedule inactive/invalid).
-        """
-        if not self.get("use_sleep_schedule", False):
-            return None
-        start = self.get("sleep_schedule_start", "")
-        end = self.get("sleep_schedule_end", "")
-        if not start or not end:
-            return None
-        try:
-            start_time = datetime.strptime(start, "%H:%M").time()
-            end_time = datetime.strptime(end, "%H:%M").time()
-        except ValueError, TypeError:
-            return None
-        now = (now or datetime.now()).replace(second=0, microsecond=0)
+    def _next_profile_boundary(self, now: datetime | None = None) -> datetime | None:
+        """Return the next fixed Day/Night profile boundary."""
+        now = (now or self.app.now()).replace(second=0, microsecond=0)
+        windows: list[tuple[dt_time, dt_time]] = []
+        for enabled, start_key, end_key in (
+            (
+                self.get("day_night_schedule_mode", "off") == "fixed",
+                "day_night_start",
+                "day_night_end",
+            ),
+        ):
+            if not enabled:
+                continue
+            start, end = self.get(start_key, ""), self.get(end_key, "")
+            try:
+                start_time = datetime.strptime(start, "%H:%M").time()
+                end_time = datetime.strptime(end, "%H:%M").time()
+            except ValueError, TypeError:
+                continue
+            if start_time != end_time:
+                windows.append((start_time, end_time))
         candidates = [
-            datetime.combine(now.date(), start_time),
-            datetime.combine(now.date(), end_time),
-            datetime.combine(now.date() + timedelta(days=1), start_time),
-            datetime.combine(now.date() + timedelta(days=1), end_time),
+            datetime.combine(now.date() + timedelta(days=day), boundary, tzinfo=now.tzinfo)
+            for day in (0, 1)
+            for window in windows
+            for boundary in window
         ]
         future = [candidate for candidate in candidates if candidate > now]
         return min(future) if future else None
 
-    def _arm_display_off_schedule_timer(self) -> None:
-        """(Re)schedule the flip of ``use_auto_display_off`` at the next boundary."""
-        self._cancel_timer("_schedule_timer")
-        boundary = self._next_schedule_boundary()
+    def _arm_profile_timer(self) -> None:
+        """Arm the next fixed Day/Night profile boundary."""
+        self._cancel_timer("_profile_timer")
+        boundary = self._next_profile_boundary()
         if boundary is None:
             return
-        delay = (boundary - datetime.now()).total_seconds()
-        # run_in fires the callback ``delay`` seconds later; arm it to run just
-        # after the boundary so the clock-driven value is already the new one.
-        self._schedule_timer = self.app.run_in(self._display_off_schedule_callback, max(delay, 1))
+        delay = (boundary - self.app.now()).total_seconds()
+        self._profile_timer = self.app.run_in(self._profile_boundary_callback, max(delay, 1))
 
-    def _display_off_schedule_callback(self, _kwargs: Any) -> None:
-        """A window boundary passed: re-push ``use_auto_display_off``, re-arm.
-
-        ``sync_config_to_device`` is not called here on purpose - the boundary
-        flip only needs the behavior sync, and a full sync would also re-run
-        ``_install_tft_on_model_change`` bookkeeping.
-        """
-        self._schedule_timer = None
-        if not self.get("use_sleep_schedule", False):
+    def _profile_boundary_callback(self, _kwargs: Any) -> None:
+        """A profile boundary passed: re-sync profile values and re-arm."""
+        self._profile_timer = None
+        if self.get("day_night_schedule_mode", "off") != "fixed":
             return
         self._sync_behavior_config()
-        self._arm_display_off_schedule_timer()
+        self._arm_profile_timer()
 
     # public
 
-    def notify(
-        self,
-        title: str,
-        message: str = "",
-        icon: str = "",
-        persistent: bool = False,
-        notif_type: str = NotifType.INFO,
-        force_show: bool = False,
-    ) -> None:
-        """Send a notification via the notification controller."""
-        self.app.controller["notification"].send_notification(
-            title, message, icon, persistent, notif_type, force_show
-        )
+    def wake_for_notification(self) -> None:
+        """Wake the display for a notification popup that opened on its own.
+
+        Quiet hours keep the display dark: the popup stays open, so it is what
+        the user sees on the next touch.  The display then dims and turns off
+        on its normal timers.
+        """
+        if self._is_quiet_hours():
+            self.log("Quiet hours active — not waking the display", level="DEBUG")
+            return
+        self.app.controller["esphome"].esphome.publish(ESPAction.RESET_LAST_INTERACTION, "0")
 
     def get_locale(self) -> str:
         """Returns the device locale.
@@ -839,13 +914,10 @@ class HAUIDevice(HAUIBase):
         elif event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT):
             side = "left" if event.name == ESPEvent.BUTTON_LEFT else "right"
             if event.value == "1":  # pressed
-                # On press, immediately reset the interaction timer so the
-                # display wakes without waiting for release.  The entity toggle
-                # stays on release so a held button does not spam toggles.
+                # ESPHome records the press as interaction; the hub handles
+                # the idle-page exit. The entity toggle stays on release so a
+                # held button does not spam toggles.
                 if self.get("reset_interaction_on_button", True):
-                    self.app.controller["esphome"].esphome.publish(
-                        ESPAction.RESET_LAST_INTERACTION, "0"
-                    )
                     self.check_wakeup()
             elif event.value == "0":  # released
                 self._on_button_release(side)
@@ -853,19 +925,23 @@ class HAUIDevice(HAUIBase):
         elif event.name == NotifEvent.NOTIF_ADD:
             if not isinstance(event.value, Notification):
                 raise TypeError(f"Notification event value must be a Notification: {event.value!r}")
-            persistent, notif_type = event.value.persistent, event.value.notif_type
             if self.get("sound_on_notification"):
-                if self._is_quiet_hours():
-                    self.log("Quiet hours active — suppressing notification sound", level="DEBUG")
-                elif persistent:
+                if event.value.persistent:
+                    # Started even inside quiet hours: the loop stays silent
+                    # there and sounds once they end, until dismissed.
                     self._start_persistent_sound()
-                else:
-                    self.play_sound(_notification_sound(notif_type))
-        elif (
-            event.name in (NotifEvent.NOTIF_REMOVE, NotifEvent.NOTIF_CLEAR)
-            and not self.app.controller["notification"].has_persistent_notifications()
-        ):
-            self._stop_persistent_sound()
+                elif event.value.sound:
+                    if self._is_quiet_hours():
+                        self.log(
+                            "Quiet hours active — suppressing notification sound", level="DEBUG"
+                        )
+                    else:
+                        self.play_sound(event.value.sound)
+        elif event.name in (NotifEvent.NOTIF_REMOVE, NotifEvent.NOTIF_CLEAR):
+            # Stop as soon as no audible persistent notification remains; a
+            # silent persistent entry must not keep the loop alive.
+            if not self._persistent_sound():
+                self._stop_persistent_sound()
 
     def arm_idle_touch_grace(self) -> None:
         """Ignore the residual touch events of the touch that opened the idle page.
@@ -886,6 +962,10 @@ class HAUIDevice(HAUIBase):
         if not self.sleeping:
             return False
         return time.monotonic() < self._idle_touch_grace_until
+
+    def reset_interaction_timer(self) -> None:
+        """Reset the firmware's interaction timer without changing the current page."""
+        self.app.controller["esphome"].esphome.publish(ESPAction.RESET_LAST_INTERACTION, "0")
 
     def check_wakeup(self) -> None:
         """Exit the idle page on any touch or hardware-button press.
@@ -938,47 +1018,60 @@ class HAUIDevice(HAUIBase):
     def _on_button_release(self, side: str) -> None:
         """Handle a hardware button release (``side`` = "left" / "right").
 
-        With ``reset_interaction_on_button`` enabled the press also wakes the
-        display (resets the firmware idle timer — needed even when the ESPHome
-        ``use_button_interaction`` switch is OFF) and completes the idle-page
-        wake: on a dark
-        display the press only wakes, and this release completes the exit. With it
-        disabled the press only toggles the relay/entity and never touches the
-        display. The toggle runs before ``check_wakeup`` so it isn't delayed by
-        the blocking goto_page navigation inside it.
+        With ``reset_interaction_on_button`` enabled, the firmware records the
+        press as the interaction and this handler completes the idle-page wake.
+        The toggle runs before ``check_wakeup`` so it isn't delayed by the
+        blocking goto_page navigation inside it.
         """
         reset = self.get("reset_interaction_on_button", True)
-        if reset:
-            self.app.controller["esphome"].esphome.publish(ESPAction.RESET_LAST_INTERACTION, "0")
         getattr(self, f"toggle_{side}_button_state")()
         if reset:
             self.check_wakeup()
 
     def _toggle_button_state(self, side: str) -> None:
-        entity_id = getattr(self, f"_btn_{side}_info")["item_id"]
+        button = getattr(self, f"_btn_{side}_info")
+        entity_id = button["item_id"]
+        if not entity_id or not self.app.item_exists(entity_id):
+            if self.get(f"button_{side}_entity", None):
+                return
+            entity_id = self._resolve_esp_entity("switch", f"Relay {side.title()}")
+            button["item_id"] = entity_id
         if not entity_id or not self.app.item_exists(entity_id):
             return
         if not self.get(f"use_relay_{side}", True):
             self.app.get_item(entity_id).call_service("toggle")
 
     def _persistent_sound(self) -> str:
-        """The loop sound: the alert while any persistent notification is critical."""
+        """The loop sound: the first queued audible persistent notification's sound.
+
+        Silent persistent notifications neither mute the loop nor block a
+        later audible one; when the current one leaves the queue, the next
+        audible sound takes over.
+        """
         notifications = self.app.controller["notification"].get_notifications()
-        if any(n.persistent and n.notif_type == NotifType.CRITICAL for n in notifications):
-            return _notification_sound(NotifType.CRITICAL)
-        return _notification_sound(NotifType.INFO)
+        return next((n.sound for n in notifications if n.persistent and n.sound), "")
+
+    def _play_persistent_sound(self) -> None:
+        """Play one round of the persistent alert, unless quiet hours are active."""
+        if self._is_quiet_hours():
+            return
+        sound = self._persistent_sound()
+        if sound:
+            self.play_sound(sound)
 
     def _persistent_sound_callback(self, kwargs: Any) -> None:
-        if self.app.controller["notification"].has_persistent_notifications():
-            self.play_sound(self._persistent_sound())
+        if self._persistent_sound():
+            self._play_persistent_sound()
         else:
             self._stop_persistent_sound()
 
     def _start_persistent_sound(self) -> None:
         if self._persistent_sound_handle is not None:
             return
+        if not self._persistent_sound():
+            return
         interval = self.get("persistent_sound_interval")
-        self.play_sound(self._persistent_sound())
+        self._play_persistent_sound()
         self._persistent_sound_handle = self.app.run_every(
             self._persistent_sound_callback, f"now+{interval}", interval
         )

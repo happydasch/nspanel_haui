@@ -5,8 +5,8 @@ from __future__ import annotations
 import types
 from datetime import UTC, datetime, timedelta
 
-from nspanel_haui.haui.abstract.haui_item import HAUIItem
-from nspanel_haui.haui.page.row import RowPage
+from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
+from custom_components.nspanel_haui.haui.page.row import RowPage
 
 
 class _Entity:
@@ -99,7 +99,8 @@ def _row_page(stale):
     page.get_color = lambda key: {"text_inactive": 111, "component_text": 222}.get(key, 0)
     page.app = types.SimpleNamespace(
         device=types.SimpleNamespace(
-            get=lambda key, default=0: 300 if key == "stale_data_seconds" else default
+            is_portrait=False,
+            get=lambda key, default=0: 300 if key == "stale_data_seconds" else default,
         )
     )
     page.update_function_component = lambda fid, **kw: page.calls.append((fid, kw))
@@ -134,5 +135,5 @@ def test_row_slider_text_cell_marks_stale_value():
     # The slider text cell is the one that received the dimmed text.
     texts = [kw.get("text") for _, kw in page.calls if isinstance(kw, dict)]
     colors = [kw.get("color") for _, kw in page.calls if isinstance(kw, dict)]
-    assert "21.5 …" in texts
+    assert any(text and text.endswith(" …") for text in texts)
     assert 111 in colors

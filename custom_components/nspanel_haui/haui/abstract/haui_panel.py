@@ -8,7 +8,7 @@ from ..utils.value import merge_dicts
 from .haui_config_access import HAUIConfigAccess
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 
 class HAUIPanel(HAUIConfigAccess):
@@ -42,26 +42,6 @@ class HAUIPanel(HAUIConfigAccess):
             str: Type
         """
         return self.get("type")
-
-    def can_show_popup(self) -> bool:
-        """Returns True if this panel type supports popup overlay display.
-
-        Single-entity panels (light, climate, media, cover, vacuum, timer)
-        and system popup panels return True. Multi-entity panels (grid, row,
-        clock, weather) and blank/system pages return False — they display
-        as full-page subpanels when show_in_navigation is False.
-
-        Returns:
-            bool: True if the panel's page class has can_show_popup set
-        """
-        from ..mapping.panel import PANEL_MAPPING
-
-        entry = PANEL_MAPPING.get(self.get_type())
-        if entry is None:
-            return False
-        cls = entry[1]
-        d = getattr(cls, "DESCRIPTOR", None)
-        return d.can_show_popup if d is not None else False
 
     def show_in_navigation(self) -> bool:
         """Returns True if this panel should appear in the navigation cycle.
@@ -136,6 +116,10 @@ class HAUIPanel(HAUIConfigAccess):
     def show_notifications_button(self) -> bool:
         """Returns True if notifications button should be shown."""
         return self.show_button("notifications")
+
+    def get_default_config(self) -> dict:
+        """The panel's config without the kwargs of the last time it was opened."""
+        return deepcopy(self._default_config)
 
     def apply_kwargs(self, kwargs: dict) -> None:
         """Reset panel config to defaults and apply navigation kwargs.

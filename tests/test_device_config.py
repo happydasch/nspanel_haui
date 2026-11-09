@@ -9,10 +9,10 @@ import pytest
 
 # ---------------------------------------------------------------------------
 # The device_config module has no HA dependencies, so we can import it
-# directly.  conftest.py adds custom_components/ to sys.path so the
+# directly.  Tests use the repository-root custom_components package so the
 # package is available as ``nspanel_haui``.
 # ---------------------------------------------------------------------------
-from nspanel_haui.haui.device_config import (  # noqa: E402
+from custom_components.nspanel_haui.haui.device_config import (  # noqa: E402
     DEVICE_CONFIG,
     DEVICE_CONFIG_FIELDS,
     LOCALE_OPTIONS,
@@ -47,7 +47,6 @@ def test_device_config_has_all_required_keys() -> None:
         "log_level",
         "reset_interaction_on_button",
         "snapshot_max_age_seconds",
-        "hub_idle_timeout",
         "auto_navigate_home_timeout",
         "use_relay_left",
         "use_relay_right",
@@ -57,10 +56,26 @@ def test_device_config_has_all_required_keys() -> None:
         "timeout_dimming",
         "timeout_page",
         "timeout_display_off",
-        "use_sleep_schedule",
-        "sleep_schedule_start",
-        "sleep_schedule_end",
+        "day_night_schedule_mode",
+        "day_night_start",
+        "day_night_end",
+        "day_night_sunset_offset",
+        "day_night_sunrise_offset",
+        "day_night_profiles_initialized",
+        "day_brightness_full",
+        "day_brightness_dimmed",
+        "day_duration_dim",
+        "night_timeout_dimming",
+        "night_duration_dim",
+        "night_use_auto_page",
+        "night_timeout_page",
+        "night_idle_panel",
+        "night_timeout_display_off",
+        "night_brightness_full",
+        "night_brightness_dimmed",
         "sound_on_startup",
+        "color_scheme",
+        "color_scheme_id",
         "color_overrides",
         "sound_on_notification",
         "persistent_sound_interval",
@@ -113,7 +128,7 @@ def test_locale_options_format() -> None:
 
 def _make_valid_config() -> dict[str, Any]:
     """Return a minimal valid config dict for _validate_config."""
-    from nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+    from custom_components.nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
 
     cfg = copy.deepcopy(DEFAULT_CONFIG)
     cfg["device"]["name"] = "test"
@@ -273,7 +288,7 @@ def test_apply_panel_store_skips_unknown_device() -> None:
 
 def test_config_model_defaults_match_device_config():
     """Device defaults live in DEVICE_CONFIG and in the pydantic model; keep them equal."""
-    from nspanel_haui.haui.config_models import _get_device_config_model
+    from custom_components.nspanel_haui.haui.config_models import _get_device_config_model
 
     model_defaults = _get_device_config_model()().model_dump()
 
@@ -290,14 +305,22 @@ def _device_config_base() -> dict:
 def test_device_config_model_rejects_out_of_range_timeouts() -> None:
     """Timeout and timer values are range-checked in the model."""
     import pytest
-    from nspanel_haui.haui.config_models import validate_device_config
+
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
     base = _device_config_base()
     for key, bad in (
         ("timeout_dimming", 36001),
         ("timeout_page", -1),
         ("timeout_display_off", 9999),
-        ("hub_idle_timeout", 90000),
+        ("night_timeout_dimming", 3601),
+        ("night_timeout_page", -1),
+        ("night_timeout_display_off", 3601),
+        ("night_brightness_full", 101),
+        ("night_brightness_dimmed", -1),
+        ("day_night_sunset_offset", 721),
+        ("day_night_sunrise_offset", -721),
+        ("day_night_schedule_mode", "lunar"),
         ("auto_navigate_home_timeout", -5),
         ("stale_data_seconds", -1),
         ("snapshot_max_age_seconds", -2),
@@ -308,7 +331,7 @@ def test_device_config_model_rejects_out_of_range_timeouts() -> None:
 
 def test_device_config_model_accepts_valid_timer_values() -> None:
     """The editor bounds are the model bounds for valid values."""
-    from nspanel_haui.haui.config_models import validate_device_config
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
     base = _device_config_base()
     model = validate_device_config(
@@ -317,7 +340,6 @@ def test_device_config_model_accepts_valid_timer_values() -> None:
             "timeout_dimming": 3600,
             "timeout_page": 3600,
             "timeout_display_off": 3600,
-            "hub_idle_timeout": 86400,
             "auto_navigate_home_timeout": 86400,
             "stale_data_seconds": 86400,
             "snapshot_max_age_seconds": 0,
@@ -328,9 +350,23 @@ def test_device_config_model_accepts_valid_timer_values() -> None:
     assert model.auto_navigate_home_timeout == 86400
 
 
+def test_device_config_model_rejects_dimmed_brightness_above_full() -> None:
+    import pytest
+
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
+
+    base = _device_config_base()
+    for full_key, dimmed_key in (
+        ("day_brightness_full", "day_brightness_dimmed"),
+        ("night_brightness_full", "night_brightness_dimmed"),
+    ):
+        with pytest.raises(Exception):  # noqa: B017
+            validate_device_config({**base, full_key: 20, dimmed_key: 21})
+
+
 def test_device_config_model_accepts_valid_log_levels() -> None:
     """Every supported log level validates; values are normalized to upper case."""
-    from nspanel_haui.haui.config_models import validate_device_config
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
     base = _device_config_base()
     for level in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
@@ -344,7 +380,8 @@ def test_device_config_model_accepts_valid_log_levels() -> None:
 def test_device_config_model_rejects_unsupported_log_levels() -> None:
     """Anything outside the standard levels is rejected."""
     import pytest
-    from nspanel_haui.haui.config_models import validate_device_config
+
+    from custom_components.nspanel_haui.haui.config_models import validate_device_config
 
     base = _device_config_base()
     for bad in ("", "verbose", "off", "2", 3, None):

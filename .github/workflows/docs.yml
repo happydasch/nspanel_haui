@@ -6,11 +6,13 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "requirements-docs.txt"
   pull_request:
     branches: [master, dev]
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "requirements-docs.txt"
   workflow_dispatch:
 
 permissions:
@@ -43,16 +45,16 @@ jobs:
           pip install -r requirements-docs.txt
 
       - name: Build site
-        run: mkdocs build --strict
+        run: zensical build --strict
 
-      - name: Upload artifact
-        if: github.ref == 'refs/heads/master'
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: site/
-
+  # Pages hosts a single site, so every deploy publishes both branches: master at
+  # the root and dev under dev/ (the editor footer links prereleases there). The
+  # checkouts happen inside the deploy concurrency group, so the last deploy
+  # always carries both branch tips.
   deploy:
-    if: github.ref == 'refs/heads/master'
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
     needs: build
     concurrency:
@@ -62,6 +64,58 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: master
+          path: stable
+          # MkDocs' git-revision-date plugin (master up to 0.4.4) needs the history.
+          fetch-depth: 0
+
+      - uses: actions/checkout@v7
+        with:
+          ref: dev
+          path: dev
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Each branch builds with its own docs requirements, in its own venv.
+      # master still builds with MkDocs until the zensical migration is released;
+      # drop the mkdocs branch then.
+      - name: Build stable docs
+        working-directory: stable
+        run: |
+          python -m venv ../venv-stable
+          ../venv-stable/bin/pip install -r requirements-docs.txt
+          if [ -x ../venv-stable/bin/zensical ]; then
+            ../venv-stable/bin/zensical build --strict
+          else
+            ../venv-stable/bin/mkdocs build --strict
+          fi
+
+      - name: Build dev docs
+        working-directory: dev
+        run: |
+          sed -i \
+            -e 's#^site_url: .*#site_url: https://happydasch.github.io/nspanel_haui/dev/#' \
+            -e 's#^edit_uri: edit/master/#edit_uri: edit/dev/#' \
+            mkdocs.yml
+          python -m venv ../venv-dev
+          ../venv-dev/bin/pip install -r requirements-docs.txt
+          ../venv-dev/bin/zensical build --strict
+
+      - name: Combine sites
+        run: |
+          cp -R stable/site site
+          cp -R dev/site site/dev
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

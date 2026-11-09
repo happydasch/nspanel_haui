@@ -26,13 +26,26 @@ class ESPEvent(StrEnum):
     BUTTON_RIGHT = "esphome.button_right"
     RELAY_LEFT = "esphome.relay_left"
     RELAY_RIGHT = "esphome.relay_right"
-    TIMEOUT = "esphome.timeout"
     DISPLAY_STATE = "esphome.display_state"
     BUFFER_OVERFLOW = "esphome.buffer_overflow"
 
 
 # Touch gestures the display reports (the values of ``ESPEvent.GESTURE``).
 GESTURES: tuple[str, ...] = ("swipe_left", "swipe_right", "swipe_up", "swipe_down")
+
+# The firmware's automatic display switches, which the device settings own:
+# the key a popup suspends one by (``HAUIPage._save_auto_state``) and the
+# ESPHome entity name of the switch.  Automatic page switching has no firmware
+# switch: the hub owns it and enforces the page hold itself.
+AUTO_SWITCHES: dict[str, str] = {
+    "auto_dimming": "Use Auto-Dimming",
+    "auto_display_off": "Use Auto Display-Off",
+}
+
+# Page-hold key for automatic page switching. Unlike the keys of
+# ``AUTO_SWITCHES`` it has no firmware entity: navigation reads it from the
+# page on screen and skips the idle-page check while it is held.
+AUTO_PAGE_HOLD = "auto_page"
 
 
 class ESPAction(StrEnum):
@@ -47,11 +60,10 @@ class ESPAction(StrEnum):
     PLAY_RTTTL = "play_rtttl"
     PLAY_SOUND = "play_sound"
     RESET_LAST_INTERACTION = "reset_last_interaction"
-    HAUI_DISCOVER = "haui_discover"
 
 
 class SysPanelKey(StrEnum):
-    """Well-known system panel keys used across the integration.
+    """Keys of the fixed system panels (``SYS_PANEL_MAPPING``); they cannot be edited.
 
     Each member's value is the panel key passed to ``navigation.open_panel()``.
     Using this enum instead of raw strings prevents typos and enables code
@@ -63,6 +75,13 @@ class SysPanelKey(StrEnum):
     SYS_ABOUT = "sys_about"
     SYS_BLANK = "sys_blank"
 
+
+class PopupPanelKey(StrEnum):
+    """Keys of the popups (``POPUP_PANEL_MAPPING``), the system panels that can be edited.
+
+    Each member's value is the panel key passed to ``navigation.open_panel()``.
+    """
+
     POPUP_NOTIFY = "popup_notify"
     POPUP_SELECT = "popup_select"
     POPUP_LIGHT = "popup_light"
@@ -72,12 +91,25 @@ class SysPanelKey(StrEnum):
     POPUP_COVER = "popup_cover"
     POPUP_UNLOCK = "popup_unlock"
     POPUP_ALARM = "popup_alarm"
+    POPUP_TIMER = "popup_timer"
+
+
+# Popups whose content and lifetime the hub controls: notifications, selection
+# lists and the unlock popup. An edited copy keeps neither a PIN (a PIN on Unlock
+# would re-open Unlock forever) nor an auto-close (it would close queued
+# notifications).
+HUB_DRIVEN_PANELS: frozenset[str] = frozenset(
+    {
+        PopupPanelKey.POPUP_NOTIFY,
+        PopupPanelKey.POPUP_SELECT,
+        PopupPanelKey.POPUP_UNLOCK,
+    }
+)
 
 
 class ESPResponse(StrEnum):
     """Responses published by the ESP device on the recv topic."""
 
-    RES_DEVICE_INFO = "esphome.res_device_info"
     RES_DEVICE_STATE = "esphome.res_device_state"
     READ_RESPONSE = "esphome.read_response"
     SEND_NOTIFICATION = "esphome.send_notification"
@@ -99,12 +131,26 @@ class ESPCommand(StrEnum):
     GOTO_PAGE = "esphome.goto_page"
 
 
-class NotifType(StrEnum):
-    """Notification severity types used for color and sound behavior."""
+class FirmwareUpdateChannel(StrEnum):
+    """Release channel used by the update controller.
 
-    INFO = "info"
-    WARNING = "warning"
-    CRITICAL = "critical"
+    ``stable`` points at GitHub's ``releases/latest`` (which excludes
+    prereleases) and suppresses GitHub prerelease notifications; ``dev`` follows
+    the manifest of the newest GitHub release, versioned dev prereleases
+    included, and allows prerelease notifications.  An explicit
+    ``firmware_manifest_url`` always overrides the manifest URL.
+    """
+
+    STABLE = "stable"
+    DEV = "dev"
+
+
+# The stable channel's manifest: GitHub's ``releases/latest`` skips prereleases.
+# The dev channel has no fixed URL; the update controller picks the newest
+# release from the GitHub release list.
+FIRMWARE_MANIFEST_URL = (
+    "https://github.com/happydasch/nspanel_haui/releases/latest/download/firmware-manifest.json"
+)
 
 
 class NotifEvent(StrEnum):
@@ -113,6 +159,25 @@ class NotifEvent(StrEnum):
     NOTIF_ADD = "notif_add"
     NOTIF_REMOVE = "notif_remove"
     NOTIF_CLEAR = "notif_clear"
+
+
+# Sound names the firmware's ``play_sound`` script understands (see
+# ``esphome/nspanel_haui/scripts_common.yaml``).  Keep both lists in sync.
+SOUND_NAMES: frozenset[str] = frozenset(
+    {
+        "startup",
+        "tone",
+        "tone_up",
+        "tone_down",
+        "seq_up",
+        "seq_down",
+        "notification",
+        "alert",
+        "alert_fast",
+        "elise",
+    }
+)
+DEFAULT_NOTIFICATION_SOUND = "notification"
 
 
 class ServerRequest(StrEnum):
@@ -156,6 +221,9 @@ PANEL_CONFIG: dict[str, Any] = {
     "type": None,  # panel type
     "title": "",  # user-facing display name
     "show_in_navigation": True,  # whether this panel appears in navigation
+    # long press anywhere goes back (pages without header buttons, see
+    # HAUIPage._check_long_press_back)
+    "long_press_back": False,
     "key": None,  # internal identifier
     # show_home_button, show_idle_button, show_notifications_button
     # are not defined here - HAUIPanel.show_button() already falls back
@@ -183,20 +251,28 @@ DEFAULT_CONFIG: dict[str, Any] = {
     },
     # update related settings
     "update": {
+        # Master switch for checks and every firmware/display update path.
+        "enabled": True,
         # install the TFT the firmware needs automatically when the display has an
         # older one; when false the display asks first
         "auto_install": True,
-        "tft_filename": "nspanel_haui.tft",  # TFT filename to use
         # Check for updates on connect by default. Set to False to disable the
         # automatic check when the device connects.
         "check_on_connect": True,
         "on_connect_delay": 60,  # Defaults to 60 sec, delay before checking for updates on connect
         # set to 0 to disable, set to 3600 for hourly checks
         "update_interval": 3600,
-        # install a newer firmware automatically when the release ships one; the
-        # TFT the new firmware needs follows after the device reboots. Only runs
-        # when update checks are enabled (check_on_connect or update_interval).
-        "firmware_auto_update": True,
+        # Install a newer firmware automatically when the release ships one; the
+        # TFT the new firmware needs follows after the device reboots. Disabled
+        # by default; only runs when update checks are enabled (check_on_connect
+        # or update_interval).
+        "firmware_auto_update": False,
+        # Manifest naming the firmware the HAUI Firmware entity offers.  The
+        # channel decides which manifest is followed when ``firmware_manifest_url``
+        # is left empty (stable releases by default; ``dev`` follows the
+        # newest dev prerelease); an explicit URL always wins.
+        "firmware_update_channel": FirmwareUpdateChannel.STABLE,
+        "firmware_manifest_url": FIRMWARE_MANIFEST_URL,
     },
     # gesture related settings
     "gesture": {},

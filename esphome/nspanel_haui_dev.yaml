@@ -14,7 +14,7 @@ substitutions:
   name: nspanel-haui  # this name is also used for hostname
 
   # Accounts and Passwords
-  ota_password: !secret ota_password
+  # The api key also encrypts native OTA uploads (base.yaml)
   api_encryption_key: !secret api_encryption_key
   web_username: !secret web_username
   web_password: !secret web_password
@@ -22,11 +22,14 @@ substitutions:
   wifi_password: !secret wifi_password
   ap_password: !secret ap_password
 
-  # Default TFT URL of the display component.  Install a local TFT build
-  # with nspanel_haui.update_tft and its url field, e.g.
-  # http://homeassistant.local:8123/local/nspanel/nspanel_haui_portrait.tft
-  #tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
-  tft_update_url: http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft
+  # Custom build identity (see nspanel_haui.yaml): the hub refuses to install
+  # the universal release image on it.
+  firmware_variant: 'custom'
+
+  # Default TFT URL of the display component.  Installing a local TFT build
+  # (nspanel_haui.update_tft with its url field) relies on overriding this
+  # substitution; the hub otherwise sends the URL of the TFT it installs.
+  tft_update_url: https://github.com/happydasch/nspanel_haui/raw/master/nextion/nspanel_haui.tft
 
 # Temporary: stock `nextion` in released ESPHome lacks the numeric-response
 # delivery fix (esphome/esphome#17744, ships in 2026.11.0).  Override it with

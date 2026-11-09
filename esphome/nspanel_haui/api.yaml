@@ -46,9 +46,10 @@ api:
     # Install the firmware app image at ``url`` (the OTA image
     # nspanel_haui_ota.bin, not the factory image); ``md5sum`` is its checksum
     # (``md5`` itself is taken by ESPHome's md5 component).
-    # The hub sends it to install another release, older ones included, or a
+    # The hub sends it for every firmware install: the update its "HAUI
+    # Firmware" entity offers, another release (older ones included) or a
     # custom build (nspanel_haui.update_firmware, the editor's Install
-    # firmware picker); the update entity installs the latest release.
+    # firmware picker); call those instead, they track the install.
     - action: install_firmware_url
       variables:
         url: string
@@ -93,12 +94,7 @@ api:
         - script.execute:
             id: set_hub_connected
             connected: 0
-            force: 0
-
-    # HA requests device info
-    - action: req_device_info
-      then:
-        - script.execute: publish_device_info
+            force: 1
 
     # HA requests device state
     - action: req_device_state
@@ -130,7 +126,8 @@ api:
             id: goto_page
             page: !lambda 'return page;'
 
-    # Action to put the display into hardware sleep (no-hub path only)
+    # Explicit hardware-sleep action. The automatic display state machine keeps
+    # the panel awake and does not use this.
     - action: display_off
       then:
         - script.execute: display_off
@@ -145,14 +142,6 @@ api:
       then:
         - lambda: |-
             id(hub_heartbeat) = millis() / 1000;
-
-    # Reconnect request from HA
-    - action: req_reconnect
-      then:
-        - script.execute:
-            id: set_hub_connected
-            connected: 0
-            force: 0
 
     # Request a number value
     - action: req_val
@@ -192,16 +181,15 @@ api:
       variables:
         offset: int
       then:
-        - lambda: id(update_last_interaction).execute(-1, offset);
-    # Action to support device discovery - returns device identity metadata
-    - action: haui_discover
-      then:
-        - script.execute: publish_haui_discover
+        - lambda: id(reset_interaction_timer).execute(offset);
 
-
-    # Action to send a notification
-    # ``persistent`` and ``text_size`` are optional; omitted values fall back
-    # to false / "" (the client applies the defaults).
+    # Action to send a notification.
+    # ESPHome 2026.10 has no optional action variables, so every parameter is
+    # required: pass empty strings for no icon colour and "none" for a silent
+    # notification, ``false`` / ``"auto"`` for the defaults.  (The HA service
+    # and notify entities expose the same fields as optional.)  Severity does
+    # not exist: ``icon_color`` and ``sound`` replace it, and the hub makes any
+    # persistent notification open immediately and loop its sound.
     - action: send_notification
       variables:
         title: string
@@ -211,8 +199,12 @@ api:
         persistent: bool
         # "auto" or a font size 1-3.
         text_size: string
+        # "#rrggbb" or an RGB565 number; empty = theme text colour.
+        icon_color: string
+        # play_sound name; empty or "none" = silent.
+        sound: string
       then:
         - lambda: |-
             id(send_notification).execute(
-              title, message, icon, persistent, text_size
+              title, message, icon, persistent, text_size, icon_color, sound
             );

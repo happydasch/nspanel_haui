@@ -83,10 +83,12 @@ class EditPanelDialog extends HauiDialog {
     // data would overwrite the user's type selection on re-render.
     // Instead, once _userSelectedType is true, ALWAYS use _editingPanel.
     const ep = (this._userSelectedType && this._editingPanel) ? this._editingPanel : (this._editingPanel || this.panel);
-    const isAdd = ep.index < 0;
+    const sysPanel = this._sysPanel();
+    // A system panel's first edit has no index yet, but it is not a new panel.
+    const isAdd = ep.index < 0 && !sysPanel;
     const panelType = this._editingPanelType || ep.data?.type || "clock";
     const descriptor = this.panelTypes.find((pt) => pt.type_key === panelType);
-    const typeLabel = descriptor ? descriptor.label : panelType;
+    const typeLabel = sysPanel ? sysPanel.label : descriptor ? descriptor.label : panelType;
     const headerTitle = isAdd ? t('Add Panel') : `${t('Edit Panel')} — ${typeLabel}`;
     const saveLabel = this.saving ? t('Saving...') : isAdd ? t('Add') : t('Save');
 
@@ -141,10 +143,12 @@ class EditPanelDialog extends HauiDialog {
             `;
           })}
 
+          ${sysPanel?.hub_driven ? "" : html`
           <details class="config-section">
             <summary>${t('Advanced')}</summary>
             <div class="config-section-body">
 
+              ${sysPanel ? "" : html`
               <div class="form-group">
                 <label for="fld-key">${t('Panel key')}</label>
                 <input
@@ -162,6 +166,7 @@ class EditPanelDialog extends HauiDialog {
                 />
                 <span class="field-hint">${t('Used to reference this panel in actions and gestures')}</span>
               </div>
+              `}
 
               <div class="form-group">
                 <label for="fld-unlock-code">${t('Panel pin')}</label>
@@ -182,6 +187,7 @@ class EditPanelDialog extends HauiDialog {
                 <span class="field-hint">${t('Set a PIN code to lock this panel. Users must enter this code before accessing the panel.')}</span>
               </div>
 
+              ${sysPanel ? "" : html`
               <div class="form-group">
                 <div class="checkbox-row">
                   ${renderToggle("fld-show-in-nav", ep.data.show_in_navigation !== false, (checked) => {
@@ -195,6 +201,23 @@ class EditPanelDialog extends HauiDialog {
                 </div>
                 <span class="field-hint">${t("When unchecked, panel is only reachable via stack (item actions, gestures, or as the home/idle panel)")}</span>
               </div>
+              `}
+
+              ${descriptor?.has_header === false ? html`
+              <div class="form-group">
+                <div class="checkbox-row">
+                  ${renderToggle("fld-long-press-back", ep.data.long_press_back === true, (checked) => {
+                    this._editingPanel = {
+                      ...this._editingPanel,
+                      data: { ...this._editingPanel.data, long_press_back: checked },
+                    };
+                    this.requestUpdate();
+                  })}
+                  <label for="fld-long-press-back">${t('Long press to go back')}</label>
+                </div>
+                <span class="field-hint">${t('This page has no navigation buttons. Hold anywhere for about a second to go back to the panel it was opened from, or to the home panel.')}</span>
+              </div>
+              ` : ""}
 
               <div class="form-group">
                 <label for="fld-close-timeout">${t('Close automatically after (seconds)')}</label>
@@ -210,6 +233,7 @@ class EditPanelDialog extends HauiDialog {
               </div>
             </div>
           </details>
+          `}
 
           ${this.error
             ? html`<ha-alert alert-type="error" style="margin-top:12px">${this.error}</ha-alert>`
@@ -288,8 +312,14 @@ class EditPanelDialog extends HauiDialog {
       delete panel.title;
     }
 
+    const sysPanel = this._sysPanel();
     const showInNavEl = form.querySelector("#fld-show-in-nav");
-    panel.show_in_navigation = showInNavEl ? showInNavEl.checked : true;
+    panel.show_in_navigation = sysPanel ? false : showInNavEl ? showInNavEl.checked : true;
+    // The hub ignores both on the panels it drives (see HUB_DRIVEN_PANELS).
+    if (sysPanel?.hub_driven) {
+      delete panel.unlock_code;
+      delete panel.close_timeout;
+    }
 
     // Defensive fallback: if key is still empty, auto-generate one
     if (!panel.key) {
@@ -310,6 +340,17 @@ class EditPanelDialog extends HauiDialog {
     this._emit("dialog-save", {
       panel, panelType, index: ep.index, itemListData: this._itemListData,
     });
+  }
+
+  /**
+   * The system panel being edited, found by the key the dialog was opened
+   * with — never the live key field, so typing a system key into a user
+   * panel does not turn its form into a system panel's.
+   * @returns {object|undefined}
+   */
+  _sysPanel() {
+    const key = this.panel?.data?.key;
+    return key ? this.systemPanels.find((sp) => sp.key === key) : undefined;
   }
 
   /* ── item inline editor (renderOptionField calls these on dialog host) ─ */

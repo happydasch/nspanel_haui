@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.page.grid import GridPage
-from nspanel_haui.haui.utils.color import parse_color_value
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.grid import GridPage
+from custom_components.nspanel_haui.haui.utils.color import parse_color_value
 
 
 class _Entity:
@@ -31,6 +32,8 @@ class _Controller:
 
 
 class _Device:
+    is_portrait = False
+
     def get(self, key, default=None):
         return {}.get(key, default)
 
@@ -46,6 +49,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities: dict) -> None:
         self.entities = entities
+        self.color_theme = ColorTheme({})
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}
         self.device = _Device()
@@ -117,6 +121,17 @@ def test_state_keyed_background_is_resolved_and_refreshed() -> None:
     page._flush_item_updates()
 
     assert _last_color(app, "g1Btn") == parse_color_value("#ff0000")
+
+
+def test_long_entity_name_is_shortened_to_fit_tile():
+    name = "Kitchen ceiling recessed light"
+    app = _App({"light.lamp": _Entity("off", {"friendly_name": name})})
+    page = GridPage(app, {"page_id": 9})
+    page.set_panel(HAUIPanel(app, {"type": "grid", "items": [{"item": "light.lamp"}]}))
+
+    command = next(cmd for cmd in app.cmds if cmd.startswith("g1Name.txt="))
+    assert command.endswith('.."')
+    assert "Kitchen ceiling recessed light" not in command
 
 
 def _draws(cmd: str, component: str) -> bool:

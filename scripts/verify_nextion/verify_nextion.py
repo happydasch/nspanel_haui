@@ -4,12 +4,12 @@ Checks the Nextion2Text dump of ``nextion/nspanel_haui.HMI``:
 
 * ``clock.tTime`` has **Send Component ID** enabled — tapping the time area
   must advance the card (v0.4 regression this gate exists for).
-* ``system.tftVersion`` matches the integration version in
-  ``custom_components/nspanel_haui/manifest.json`` (or ``--expected-version``).
-* ``--allow-tft-version-mismatch`` turns a ``system.tftVersion`` that does not
-  match the integration version into a warning instead of a failure — for a
-  release that ships the previous TFT unchanged (the display then keeps
-  reporting the old version until a later release bumps it).
+* ``system.tftVersion`` matches the configured display TFT version in
+  ``esphome/nspanel_haui/version.yaml`` (or an exact ``--expected-version``),
+  in **both** the landscape and the portrait HMI — the two TFTs are always
+  updated together, so a stale ``tftVersion`` in either fails the gate.  The
+  integration/firmware version is independent and reported only for reference:
+  a firmware-only release ships the previous TFT unchanged.
 * ``nextion/nspanel_haui_portrait.HMI`` / ``.tft`` exist when
   ``--require-portrait`` is given — the US portrait release asset — and the
   portrait HMI reports touches exactly like the landscape one (``clock.tTime``
@@ -20,8 +20,8 @@ Exit code 0 when every check passes, 1 otherwise.  The release workflow
 cannot be published until the Nextion Editor tasks landed.
 
 Usage:
-    python scripts/verify_nextion/verify_nextion.py [--hmi PATH] [--dump DIR] \\
-        [--expected-version X.Y.Z] [--require-portrait] [--allow-tft-version-mismatch]
+    python -m scripts.verify_nextion.verify_nextion [--hmi PATH] [--dump DIR] \\
+        [--expected-version X.Y.Z] [--require-portrait]
 
 The parser/checks live in importable functions so tests can drive fake dumps.
 """
@@ -39,6 +39,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_HMI = ROOT / "nextion" / "nspanel_haui.HMI"
 DEFAULT_DUMP = ROOT / "ref_src" / "nextion-out-visual"
 MANIFEST = ROOT / "custom_components" / "nspanel_haui" / "manifest.json"
+VERSION_YAML = ROOT / "esphome" / "nspanel_haui" / "version.yaml"
 
 SENDME_RE = re.compile(r"Send Component ID\s*:\s*(.+)")
 DECL_RE = re.compile(r"^Variable \(string\) tftVersion\b")
@@ -97,7 +98,7 @@ def check_t_time_sendme(page: dict | None) -> tuple[bool, str]:
 
 
 def check_tft_version(page: dict | None, expected: str) -> tuple[bool, str]:
-    """system.tftVersion must match the integration version.
+    """system.tftVersion must match the configured display TFT version.
 
     The dump contains event code referencing ``system.tftVersion.txt`` before
     the declaration, so scan for the ``Variable (string) tftVersion`` block
@@ -148,7 +149,7 @@ def check_sendme_parity(
 
     The portrait HMI is a sibling of the landscape project — only geometry may
     differ — so a Send Component ID toggled in one file and not the other
-    leaves one TFT without that touch (``scripts/gen_portrait`` copies the
+    leaves one TFT without that touch (``scripts/hmi_layout`` copies the
     setting; this catches edits made in the editor afterwards).
     """
     mismatches = []
@@ -244,48 +245,87 @@ def check_portrait(hmi: Path, landscape_dump: Path) -> tuple[bool, str]:
     return True, "portrait HMI and TFT present, distinct and rotated"
 
 
-def gate_tft_version(ok: bool, msg: str, allow_mismatch: bool) -> tuple[str, bool]:
-    """Verdict for the ``system.tftVersion`` gate check.
+def gate_tft_version(ok: bool, msg: str) -> tuple[str, bool]:
+    """Verdict for a ``system.tftVersion`` gate check (an exact match).
 
-    ``allow_mismatch`` — a release that ships the previous TFT unchanged —
-    turns a mismatch into a warning: the gate continues, and it is reported
-    as ``[SKIP]`` instead of failing.
+    Allowing the firmware version to stand in for the TFT version is no longer
+    tolerated: the HMIs must report exactly the configured TFT version in both
+    layouts.
 
     Returns:
-        ``(label, fail)``: ``label`` is ``PASS``, ``FAIL`` or ``SKIP`` and
-        ``fail`` is True when the check must fail the gate.
+        ``(label, fail)``: ``label`` is ``PASS`` or ``FAIL``; ``fail`` is True
+        when the check must fail the gate.
     """
     if ok:
         return "PASS", False
-    if allow_mismatch:
-        return "SKIP", False
     return "FAIL", True
+
+
+VERSION_ATTR_RE = re.compile(r"^\s*tft_version:\s*'?([^'\s]+)'?", re.MULTILINE)
+
+
+def read_tft_version(version_yaml: Path) -> str:
+    """Read the configured display TFT version from ``version.yaml``."""
+    if not version_yaml.exists():
+        return ""
+    match = VERSION_ATTR_RE.search(version_yaml.read_text())
+    return match.group(1) if match else ""
+
+
+def read_integration_version(manifest: Path) -> str:
+    """Read the integration/firmware version from ``manifest.json``."""
+    if not manifest.exists():
+        return ""
+    try:
+        value = json.loads(manifest.read_text()).get("version", "")
+    except ValueError:
+        return ""
+    return str(value)
+
+
+def resolve_expected_version(explicit: str | None, version_yaml: Path) -> str:
+    """The exact TFT version the HMIs must report: an explicit pin, else ``version.yaml``.
+
+    The configured TFT version is the source of truth (not ``manifest.json``):
+    the integration/firmware version advances with every release while
+    ``tft_version`` only advances on a ``--tft-update`` release.
+    """
+    if explicit:
+        return explicit.strip()
+    return read_tft_version(version_yaml)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--hmi", type=Path, default=DEFAULT_HMI)
     parser.add_argument("--dump", type=Path, default=DEFAULT_DUMP)
-    parser.add_argument("--expected-version", default=None)
-    parser.add_argument("--require-portrait", action="store_true")
     parser.add_argument(
-        "--allow-tft-version-mismatch",
-        action="store_true",
+        "--expected-version",
+        default=None,
         help=(
-            "Report a system.tftVersion mismatch as a warning instead of "
-            "failing the gate (a release that ships the previous TFT unchanged)"
+            "exact TFT version both HMIs must report (default: the tft_version "
+            "configured in esphome/nspanel_haui/version.yaml)"
         ),
     )
+    parser.add_argument("--require-portrait", action="store_true")
     args = parser.parse_args()
 
-    expected = args.expected_version
-    if expected is None and MANIFEST.exists():
-        expected = json.loads(MANIFEST.read_text()).get("version", "")
+    expected = resolve_expected_version(args.expected_version, VERSION_YAML)
     if not expected:
-        print("error: cannot determine the expected version", file=sys.stderr)
+        print(
+            "error: cannot determine the expected TFT version (pass "
+            "--expected-version or set tft_version in version.yaml)",
+            file=sys.stderr,
+        )
         return 2
 
     print(f"Expected tftVersion: {expected}")
+    integration = read_integration_version(MANIFEST)
+    if integration and integration != expected:
+        print(
+            f"note: integration firmware version is {integration} — a firmware-only "
+            "release ships the previous TFT unchanged"
+        )
     if not args.hmi.exists():
         print(f"error: HMI not found: {args.hmi}", file=sys.stderr)
         return 2
@@ -298,7 +338,8 @@ def main() -> int:
         subprocess.run(
             [
                 sys.executable,
-                str(ROOT / "scripts" / "nextion2text" / "Nextion2Text.py"),
+                "-m",
+                "scripts.nextion2text.Nextion2Text",
                 "-i",
                 str(hmi_path),
                 "-o",
@@ -313,35 +354,46 @@ def main() -> int:
             # so a Nextion2Text crash reports its reason instead of only
             # "returned non-zero exit status 1".
             stdout=subprocess.DEVNULL,
+            cwd=ROOT,
         )
 
     _dump(args.hmi, args.dump)
     pages = parse_dump(args.dump)
-    if args.require_portrait and portrait_hmi.exists():
+
+    # Both TFTs must be updated together, so the portrait dump is always
+    # regenerated too; --require-portrait remains for the portrait asset/touch
+    # checks, not for the TFT version gate.
+    portrait_pages: dict[str, dict] = {}
+    if portrait_hmi.exists():
         _dump(portrait_hmi, portrait_dump)
+        portrait_pages = parse_dump(portrait_dump)
 
     failures = []
     ok, msg = check_t_time_sendme(pages.get("clock"))
     print(f"[{'PASS' if ok else 'FAIL'}] clock.tTime: {msg}")
     if not ok:
         failures.append(msg)
+
+    # The HMIs must report exactly the configured TFT version, in both the
+    # landscape and the portrait HMI (a stale tftVersion in either fails).
     ok, msg = check_tft_version(pages.get("system"), expected)
-    label, fail = gate_tft_version(ok, msg, args.allow_tft_version_mismatch)
-    print(f"[{label}] system.tftVersion: {msg}")
+    label, fail = gate_tft_version(ok, msg)
+    print(f"[{label}] system.tftVersion (landscape): {msg}")
     if fail:
         failures.append(msg)
-    elif label == "SKIP":
-        print(
-            f"WARNING: {msg} — the release ships the previous TFT unchanged "
-            "(--allow-tft-version-mismatch)"
-        )
+    if portrait_hmi.exists():
+        ok, msg = check_tft_version(portrait_pages.get("system"), expected)
+        label, fail = gate_tft_version(ok, msg)
+        print(f"[{label}] system.tftVersion (portrait): {msg}")
+        if fail:
+            failures.append(f"portrait: {msg}")
+
     if args.require_portrait:
         ok, msg = check_portrait(args.hmi, args.dump)
         print(f"[{'PASS' if ok else 'FAIL'}] portrait asset: {msg}")
         if not ok:
             failures.append(msg)
         if portrait_hmi.exists():
-            portrait_pages = parse_dump(portrait_dump)
             ok, msg = check_t_time_sendme(portrait_pages.get("clock"))
             print(f"[{'PASS' if ok else 'FAIL'}] portrait clock.tTime: {msg}")
             if not ok:

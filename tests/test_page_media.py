@@ -6,13 +6,14 @@ on the Nextion commands sent and the media_player services called.
 """
 
 import pytest
-from nspanel_haui.haui.abstract import haui_page as haui_page_module
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.abstract.haui_item import HAUIItem
-from nspanel_haui.haui.features import MediaPlayerFeatures as F
-from nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse
-from nspanel_haui.haui.page import media as media_module
-from nspanel_haui.haui.page.media import MediaPage
+
+from custom_components.nspanel_haui.haui.abstract import haui_page as haui_page_module
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
+from custom_components.nspanel_haui.haui.features import MediaPlayerFeatures as F
+from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse
+from custom_components.nspanel_haui.haui.page import media as media_module
+from custom_components.nspanel_haui.haui.page.media import MediaPage
 
 _COLORS = {"component_active": 1, "text_disabled": 2}
 _PAGE_ID = 14
@@ -20,6 +21,8 @@ _ENTITY_ID = "media_player.kitchen"
 
 
 class _Device:
+    is_portrait = False
+
     def get(self, key, default=None):
         return {}.get(key, default)
 
@@ -61,6 +64,9 @@ class _MediaItem:
         self.calls = []
 
     supports = HAUIItem.supports
+
+    def is_internal(self):
+        return False
 
     def has_item_id(self):
         return True
@@ -130,6 +136,20 @@ def test_new_page_renders_without_panel_state():
     page.render_panel(_Panel({}))
 
     assert 'tTitle.txt=""' in page.cmds
+    assert 'tMTitle.txt=""' in page.cmds
+    assert 'tMInterpret.txt=""' in page.cmds
+    assert "vis bPower,0" in page.cmds
+    assert "vis m1Btn,0" in page.cmds
+    assert "vis m2Btn,0" in page.cmds
+    assert "vis m3Btn,0" in page.cmds
+
+
+def test_unknown_media_entity_shows_a_note_and_hides_power(monkeypatch):
+    item = _MediaItem("unknown", {})
+    page = _show(monkeypatch, item)
+
+    assert 'tMTitle.txt="Unavailable"' in page.cmds
+    assert "vis bPower,0" in page.cmds
 
 
 def test_track_controls_enabled_without_queue_attributes(monkeypatch):
@@ -200,3 +220,16 @@ def test_volume_slider_is_a_drag_control(monkeypatch):
         HAUIEvent(ESPResponse.READ_RESPONSE, '{"name":"hVolume","type":"number","value":"42"}')
     )
     assert item.calls == [("volume_set", {"volume_level": 0.42})]
+
+
+def test_long_media_entity_label_is_shortened_to_fit_button():
+    page = MediaPage.__new__(MediaPage)
+    page.app = _App()
+    page.show_component = lambda _component: None
+    rendered = []
+    page.set_component_text = lambda component, text: rendered.append((component, text))
+
+    page.set_media_button(1, "icon", "Kitchen speaker with a very long name")
+
+    assert rendered[-1][0] == MediaPage.COMPONENTS.m1_name
+    assert rendered[-1][1].endswith("..")

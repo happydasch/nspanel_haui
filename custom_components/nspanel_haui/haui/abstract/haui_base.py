@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import threading
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
@@ -9,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from .component import Component
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..utils.debounce import Debouncer
 from .display_interface import DisplayInterface, ESPHomeTransport
@@ -53,6 +54,13 @@ class HAUIBase(HAUIConfigAccess):
         self._rec_cmd_depth: int = 0
         self._rec_cmd: list[str] = []
         self._rec_cmd_lock = threading.RLock()
+
+    def find_esphome_entity_id(self, domain: str, original_name: str) -> str | None:
+        """Resolve a linked ESPHome entity through the HA adapter registry."""
+        resolver = getattr(self.app, "find_entity_id", None)
+        if not callable(resolver):
+            return None
+        return resolver(domain, original_name)
 
     # lifecycle
 
@@ -278,7 +286,18 @@ class HAUIBase(HAUIConfigAccess):
         """
         if not component:
             return
-        self.send_cmd(f'{component.name}.txt="{text!s}"')
+        # Nextion string literals know three escapes: ``\r`` (line break),
+        # ``\"`` and ``\\``.  Multi-line texts (notification pages joined with
+        # logical newlines, translated popup bodies with ``\r\n``) must be sent
+        # as ``\r``: a raw CR/LF byte would end up inside the quoted serial
+        # command and break the framing.  A quote or a backslash in the text
+        # (user messages, entity names) would end the literal early or escape
+        # its closing quote, so both are escaped.  An already-escaped ``\r``
+        # is left untouched, so configured texts can still force a line break.
+        command_text = str(text).replace("\r\n", "\n").replace("\r", "\n")
+        command_text = re.sub(r"\\(?!r)", r"\\\\", command_text).replace('"', '\\"')
+        command_text = command_text.replace("\n", "\\r")
+        self.send_cmd(f'{component.name}.txt="{command_text}"')
 
     def set_component_value(self, component: Component, value: int) -> None:
         """Sends a command to set the value of a component.

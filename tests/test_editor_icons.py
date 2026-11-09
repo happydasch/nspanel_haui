@@ -45,8 +45,8 @@ def _install_ha_stubs() -> None:
 
 _install_ha_stubs()
 
-from nspanel_haui import api  # noqa: E402
-from nspanel_haui.haui.mapping.icon_names import ICON_NAMES  # noqa: E402
+from custom_components.nspanel_haui import api  # noqa: E402
+from custom_components.nspanel_haui.haui.mapping.icon_names import ICON_NAMES  # noqa: E402
 
 
 class _Request(dict):

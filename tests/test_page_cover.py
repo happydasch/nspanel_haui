@@ -6,10 +6,12 @@ display and Home Assistant.
 """
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.features import CoverFeatures
-from nspanel_haui.haui.page.cover import CoverPage
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.features import CoverFeatures
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.cover import CoverPage
 
 
 class _Entity:
@@ -37,6 +39,8 @@ class _Controller:
 
 
 class _Device:
+    is_portrait = False
+
     def get(self, key, default=None):
         return {}.get(key, default)
 
@@ -52,6 +56,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
+        self.color_theme = ColorTheme({})
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}
         self.device = _Device()
@@ -104,6 +109,21 @@ def _show(entity):
     page = CoverPage(app, {"page_id": 18})
     page.set_panel(panel)
     return app, page
+
+
+def test_no_selected_item_hides_cover_controls_and_service_actions():
+    entity = _cover()
+    app = _App({"cover.garage": entity})
+    panel = HAUIPanel(app, {"type": "cover"})
+    page = CoverPage(app, {"page_id": 18})
+    page.set_panel(panel)
+
+    assert "vis bUp,0" in app.cmds
+    assert "vis hVertPos,0" in app.cmds
+    page.callback_cover_up(None, CoverPage.COMPONENTS.btn_up)
+    page.process_cover_pos(50)
+
+    assert entity.calls == []
 
 
 def test_editor_panel_controls_configured_item():

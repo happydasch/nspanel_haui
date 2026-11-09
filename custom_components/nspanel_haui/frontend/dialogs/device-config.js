@@ -6,7 +6,7 @@
  * Communicates form changes via CustomEvent.
  */
 import { html, css } from '../lit-import.js';
-import { DATE_FORMAT_OPTIONS, DISPLAY_MODEL_OPTIONS, GESTURE_NAMES, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
+import { DATE_FORMAT_OPTIONS, DEFAULT_FIRMWARE_MANIFEST_URL, DISPLAY_MODEL_OPTIONS, FIRMWARE_UPDATE_CHANNELS, GESTURE_NAMES, LOCALE_OPTIONS, LOG_LEVEL_OPTIONS, TIME_FORMAT_OPTIONS } from '../constants.js';
 import { renderEntityPicker } from '../haui-entity.js';
 import { renderNumberInput, renderSelect, renderToggle } from '../form-fields.js';
 import { dialogHeader } from './dialog-header.js';
@@ -47,7 +47,25 @@ function intField(host, id, key, cfg, label, fallback, min, max, hint) {
       <div class="field-hint">${hint}</div>
     </div>
   `;
-}/**
+}
+
+function decimalField(host, id, key, cfg, label, fallback, min, max, hint) {
+  return html`
+    <div class="form-group">
+      <label for=${id}>${label}</label>
+      ${renderNumberInput(id, cfg[key] ?? fallback, (raw) => {
+        const value = Number(raw);
+        host._deviceConfigForm = {
+          ...host._deviceConfigForm,
+          [key]: Number.isFinite(value) ? Math.max(min, Math.min(value, max)) : min,
+        };
+      }, { min, max, step: 0.1 })}
+      <div class="field-hint">${hint}</div>
+    </div>
+  `;
+}
+
+/**
  * Render a preset select with an optional free-text strftime field.
  *
  * The select carries the preset options plus a "__custom__" entry; picking it
@@ -210,7 +228,7 @@ class DeviceConfigDialog extends HauiDialog {
                 t("The locale determines how dates, times, and numbers are formatted on the display, and which language is used for built-in text labels"))}
 
                 ${selectField(this, "dc-display_model", "display_model", cfg, t("Display Model"), DISPLAY_MODEL_OPTIONS, (v) => v,
-                  t("Select the hardware model. EU and US (landscape) use the standard landscape layout; US (portrait) uses the rotated portrait TFT. The update controller downloads the matching TFT for the selected model."))}
+                  t("Select the hardware model. EU and US (landscape) use the standard landscape layout; US (portrait) uses the rotated portrait TFT. Saving a changed model asks before the matching TFT is installed."))}
 
               ${selectField(this, "dc-log_level", "log_level", cfg, t("Log Level"), LOG_LEVEL_OPTIONS, (v) => v,
                   t("Controls the verbosity of this device's app messages in the Home Assistant log: standard logger thresholds. DEBUG adds detailed diagnostics (entity state changes, display commands) on top of the routine INFO lifecycle messages."))}
@@ -226,46 +244,111 @@ class DeviceConfigDialog extends HauiDialog {
                 ${t("Controls the display brightness over time. These settings only dim and turn the screen off - they never switch pages. Turning the display off never requires an idle page.")}
               </p>
                 ${checkbox(this, "dc-use_auto_dimming", "use_auto_dimming", cfg, t("Auto dimming"),
-                  t("When enabled, the display dims automatically after the dimming timeout. Disable to keep the display at full brightness at all times."))}
+                  t("When enabled, the display dims automatically after the dimming timeout. Disable to keep full brightness. Automations may control this switch; HAUI does not reapply it on reconnects or page changes."))}
                 ${intField(this, "dc-timeout_dimming", "timeout_dimming", cfg, t("Dimming timeout (seconds)"), 10, 0, 3600,
                   t("Seconds of inactivity before the display dims (0 = disabled, max 3600)."))}
 
                 ${checkbox(this, "dc-use_auto_display_off", "use_auto_display_off", cfg, t("Auto display off"),
-                  t("When enabled, the display turns off (brightness to zero) after the display-off timeout. A touch or button press wakes it again. Disable to keep the display on."))}
+                  t("When enabled, the display turns off (brightness to zero) after the display-off timeout. Disable to prevent automatic off. Automations may control this switch; HAUI does not reapply it on reconnects or page changes."))}
                 ${intField(this, "dc-timeout_display_off", "timeout_display_off", cfg, t("Display-off timeout (seconds)"), 120, 0, 3600,
                   t("Seconds of inactivity before the display turns off (0 = disabled, max 3600)."))}
 
-                ${checkbox(this, "dc-use_sleep_schedule", "use_sleep_schedule", cfg, t("Sleep schedule"),
-                  t("Only allow the display to turn off inside the time window below. Outside it the screen stays on (and only dims after the dimming timeout) while the idle page is shown. While enabled, the window overrides the Auto display-off toggle."))}
-                ${cfg.use_sleep_schedule ? html`
-                  <div class="form-group">
-                    <label>${t("Sleep schedule window")}</label>
-                    <div class="time-range-row">
-                      <input
-                        id="dc-sleep_schedule_start"
-                        type="time"
-                        class="native-input"
-                        .value=${String(cfg.sleep_schedule_start ?? "")}
-                        @input=${(e) => {
-                          this._deviceConfigForm = { ...this._deviceConfigForm, sleep_schedule_start: e.target.value };
-                          this.requestUpdate();
-                        }}
-                      />
-                      <span class="time-range-sep">&ndash;</span>
-                      <input
-                        id="dc-sleep_schedule_end"
-                        type="time"
-                        class="native-input"
-                        .value=${String(cfg.sleep_schedule_end ?? "")}
-                        @input=${(e) => {
-                          this._deviceConfigForm = { ...this._deviceConfigForm, sleep_schedule_end: e.target.value };
-                          this.requestUpdate();
-                        }}
-                      />
-                    </div>
-                    <div class="field-hint">${t("The display turns off only within this time window. Overnight ranges such as 22:00–07:00 are supported. Leave both fields empty to keep the Auto display-off setting.")}</div>
+            </div>
+          </details>
+
+          <details class="config-section">
+            <summary>${t("Day/Night Profiles")}</summary>
+            <div class="config-section-body">
+              <p class="config-section-intro">
+                ${t("When scheduling is enabled, the hub applies the active profile's brightness, dim-ramp, and timeout values. The Auto dimming and Auto display off switches remain independent: Home Assistant automations may control them, and profile changes never rewrite them.")}
+              </p>
+              ${selectField(this, "dc-day_night_schedule_mode", "day_night_schedule_mode", cfg,
+                t("Schedule"), [
+                  { value: "off", label: t("Disabled") },
+                  { value: "fixed", label: t("Fixed clock") },
+                  { value: "sun", label: t("Sunrise / sunset") },
+                ], (v) => v,
+                t("Choose fixed local times or Home Assistant's sunrise and sunset for this device."))}
+
+              ${cfg.day_night_schedule_mode === "fixed" ? html`
+                <div class="form-group">
+                  <label>${t("Night schedule")}</label>
+                  <div class="time-range-row">
+                    <input
+                      id="dc-day_night_start"
+                      type="time"
+                      class="native-input"
+                      .value=${String(cfg.day_night_start ?? "21:00")}
+                      @input=${(e) => {
+                        this._deviceConfigForm = { ...this._deviceConfigForm, day_night_start: e.target.value };
+                      }}
+                    />
+                    <span class="time-range-sep">&ndash;</span>
+                    <input
+                      id="dc-day_night_end"
+                      type="time"
+                      class="native-input"
+                      .value=${String(cfg.day_night_end ?? "07:00")}
+                      @input=${(e) => {
+                        this._deviceConfigForm = { ...this._deviceConfigForm, day_night_end: e.target.value };
+                      }}
+                    />
                   </div>
-                ` : ""}
+                  <div class="field-hint">${t("Night is active inside this window. Overnight ranges are supported; start and end must differ. Invalid settings use the Day profile.")}</div>
+                </div>
+              ` : ""}
+
+              ${cfg.day_night_schedule_mode === "sun" ? html`
+                ${intField(this, "dc-day_night_sunset_offset", "day_night_sunset_offset", cfg,
+                  t("Sunset offset (minutes)"), 0, -720, 720,
+                  t("Start Night this many minutes before or after sunset; negative values are before the event."))}
+                ${intField(this, "dc-day_night_sunrise_offset", "day_night_sunrise_offset", cfg,
+                  t("Sunrise offset (minutes)"), 0, -720, 720,
+                  t("End Night this many minutes before or after sunrise; negative values are before the event."))}
+              ` : ""}
+
+              ${cfg.day_night_schedule_mode !== "off" ? html`
+                <div class="section-divider"></div>
+                <h4>${t("Day profile")}</h4>
+                ${intField(this, "dc-day_brightness_full", "day_brightness_full", cfg,
+                  t("Full brightness (%)"), 50, 0, 100,
+                  t("Preserved from the device's restored brightness on first activation unless you set a value here."))}
+                ${intField(this, "dc-day_brightness_dimmed", "day_brightness_dimmed", cfg,
+                  t("Dimmed brightness (%)"), 20, 0, 100,
+                  t("Must be less than or equal to full brightness."))}
+                ${decimalField(this, "dc-day_duration_dim", "day_duration_dim", cfg,
+                  t("Dim ramp duration (seconds)"), 2, 0, 5,
+                  t("The dimming transition duration; firmware range is 0–5 seconds."))}
+                <p class="field-hint">
+                  ${t("The Day profile uses the device-level Auto dimming and Auto display off switches; profiles change timeouts and brightness only.")}
+                </p>
+
+                <div class="section-divider"></div>
+                <h4>${t("Night profile")}</h4>
+                ${intField(this, "dc-night_timeout_dimming", "night_timeout_dimming", cfg,
+                  t("Dimming timeout (seconds)"), 10, 0, 3600,
+                  t("Seconds of inactivity before dimming during Night."))}
+                ${decimalField(this, "dc-night_duration_dim", "night_duration_dim", cfg,
+                  t("Dim ramp duration (seconds)"), 2, 0, 5,
+                  t("The Night dimming transition duration; firmware range is 0–5 seconds."))}
+                ${intField(this, "dc-night_brightness_full", "night_brightness_full", cfg,
+                  t("Full brightness (%)"), 50, 0, 100,
+                  t("Night full brightness. Must be greater than or equal to dimmed brightness."))}
+                ${intField(this, "dc-night_brightness_dimmed", "night_brightness_dimmed", cfg,
+                  t("Dimmed brightness (%)"), 20, 0, 100,
+                  t("Night dimmed brightness. Must be less than or equal to full brightness."))}
+                ${checkbox(this, "dc-night_use_auto_page", "night_use_auto_page", cfg,
+                  t("Auto page"), t("Enable automatic page switching during Night."))}
+                ${intField(this, "dc-night_timeout_page", "night_timeout_page", cfg,
+                  t("Page timeout (seconds)"), 30, 0, 3600,
+                  t("Seconds of inactivity before the Night idle page opens."))}
+                ${selectField(this, "dc-night_idle_panel", "night_idle_panel", cfg,
+                  t("Night idle page"), panelOptions, (v) => v,
+                  t("Choose the idle page used during Night. None keeps the current page when the timeout is reached."))}
+                ${intField(this, "dc-night_timeout_display_off", "night_timeout_display_off", cfg,
+                  t("Display-off timeout (seconds)"), 120, 0, 3600,
+                  t("Seconds of inactivity before the display turns off during Night."))}
+              ` : ""}
             </div>
           </details>
 
@@ -349,8 +432,16 @@ class DeviceConfigDialog extends HauiDialog {
             <summary>${t("Updates")}</summary>
             <div class="config-section-body">
               <p class="config-section-intro">
-                ${t("Controls checks for new releases and automatic firmware/TFT installs. Checks run by default so the display stays current.")}
+                ${t("Controls release checks and firmware/display updates for this device.")}
               </p>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-enabled", Boolean(updateValue(cfg, "enabled", true)), (checked) => setUpdateValue(this, "enabled", checked))}
+                  <label for="dc-update-enabled">${t("Enable updates")}</label>
+                </div>
+                <div class="field-hint">${t("When off, checks, update entities, and manual firmware/display installs are disabled. An update already in progress will finish.")}</div>
+              </div>
+              ${Boolean(updateValue(cfg, "enabled", true)) ? html`
               <div class="checkbox-wrap">
                 <div class="checkbox-row">
                   ${renderToggle("dc-update-check_on_connect", Boolean(updateValue(cfg, "check_on_connect", true)), (checked) => setUpdateValue(this, "check_on_connect", checked))}
@@ -358,20 +449,46 @@ class DeviceConfigDialog extends HauiDialog {
                 </div>
                 <div class="field-hint">${t("Run a release check after the device connects to Home Assistant.")}</div>
               </div>
+              <div class="checkbox-wrap">
+                <div class="checkbox-row">
+                  ${renderToggle("dc-update-periodic-checks", Number(updateValue(cfg, "update_interval", 3600)) > 0, (checked) => {
+                    const interval = Number(updateValue(this._deviceConfigForm, "update_interval", 3600));
+                    setUpdateValue(this, "update_interval", checked ? (interval > 0 ? interval : 3600) : 0);
+                  })}
+                  <label for="dc-update-periodic-checks">${t("Enable periodic update checks")}</label>
+                </div>
+              </div>
               <div class="form-group">
                 <label for="dc-update-update_interval">${t("Update check interval (seconds)")}</label>
-                ${renderNumberInput("dc-update-update_interval", Number(updateValue(cfg, "update_interval", 3600)), (raw) => {
+                ${Number(updateValue(cfg, "update_interval", 3600)) > 0 ? renderNumberInput("dc-update-update_interval", Number(updateValue(cfg, "update_interval", 3600)), (raw) => {
                   const v = parseInt(raw, 10);
                   setUpdateValue(this, "update_interval", isNaN(v) || v < 0 ? 0 : v);
-                }, { min: 0, max: 604800 })}
+                }, { min: 0, max: 604800 }) : ""}
                 <div class="field-hint">${t("How often to check GitHub for a newer release. 0 = disabled, 3600 = hourly.")}</div>
               </div>
               <div class="checkbox-wrap">
                 <div class="checkbox-row">
-                  ${renderToggle("dc-update-firmware_auto_update", Boolean(updateValue(cfg, "firmware_auto_update", true)), (checked) => setUpdateValue(this, "firmware_auto_update", checked))}
+                  ${renderToggle("dc-update-firmware_auto_update", Boolean(updateValue(cfg, "firmware_auto_update", false)), (checked) => setUpdateValue(this, "firmware_auto_update", checked))}
                   <label for="dc-update-firmware_auto_update">${t("Auto-install firmware updates")}</label>
                 </div>
                 <div class="field-hint">${t("Install a newer firmware when the release ships one. The matching TFT follows after the device reboots.")}</div>
+              </div>
+              <div class="form-group">
+                <label for="dc-update-firmware_update_channel">${t("Firmware update channel")}</label>
+                ${renderSelect("dc-update-firmware_update_channel", String(updateValue(cfg, "firmware_update_channel", "stable")), FIRMWARE_UPDATE_CHANNELS.map((v) => [v, v === "dev" ? t("Development prereleases") : t("Stable releases")]), (v) => setUpdateValue(this, "firmware_update_channel", v))}
+                <div class="field-hint">${t("Which firmware the HAUI Firmware entity follows when the URL below is empty: stable releases, or the published development firmware.")}</div>
+              </div>
+              <div class="form-group">
+                <label for="dc-update-firmware_manifest_url">${t("Firmware manifest URL")}</label>
+                <input
+                  id="dc-update-firmware_manifest_url"
+                  class="native-input"
+                  type="url"
+                  placeholder=${updateValue(cfg, "firmware_update_channel", "stable") === "dev" ? "" : DEFAULT_FIRMWARE_MANIFEST_URL}
+                  .value=${String(updateValue(cfg, "firmware_manifest_url", ""))}
+                  @input=${(e) => setUpdateValue(this, "firmware_manifest_url", e.target.value.trim() || undefined)}
+                />
+                <div class="field-hint">${t("The manifest names the firmware the HAUI Firmware entity offers. Leave empty to follow the channel above; a URL here overrides it (e.g. point a test panel at the manifest of a local test release to follow test builds).")}</div>
               </div>
               <div class="checkbox-wrap">
                 <div class="checkbox-row">
@@ -380,6 +497,7 @@ class DeviceConfigDialog extends HauiDialog {
                 </div>
                 <div class="field-hint">${t("Replace an outdated display TFT automatically when the firmware needs a newer one. When off, the display asks first.")}</div>
               </div>
+              ` : ""}
             </div>
           </details>
 
@@ -492,8 +610,6 @@ class DeviceConfigDialog extends HauiDialog {
               </div>
               ${intField(this, "dc-auto_navigate_home_timeout", "auto_navigate_home_timeout", cfg, t("Return to the home panel after (seconds)"), 0, 0, 86400,
                 t("Go back to the home panel after this many seconds without interaction on another panel. Set it shorter than the dimming and display-off timeouts. 0 = off."))}
-              ${intField(this, "dc-hub_idle_timeout", "hub_idle_timeout", cfg, t("Idle page fallback (seconds)"), 0, 0, 86400,
-                t("Open the idle page after this many seconds without interaction, also when the device doesn't report its own page timeout (for example with auto page off). 0 = off."))}
             </div>
           </details>
 

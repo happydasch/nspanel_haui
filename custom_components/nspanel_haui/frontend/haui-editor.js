@@ -29,9 +29,10 @@ import './dialogs/logs.js';
 import './dialogs/notifications.js';
 import './dialogs/device-manager.js';
 import './dialogs/colors.js';
+import './dialogs/live-preview.js';
 
 import { positionContextMenu, readStorage } from './dom-helpers.js';
-import { selectDevice } from './device-manager.js';
+import { selectDevice, importDeviceYaml, exportDeviceYaml } from './device-manager.js';
 import { renderPanelTable, renderSystemPanels, renderEmptyCard } from './panel-table.js';
 import { renderPanelGrid } from './panel-grid.js';
 import { renderTitleHeader, renderDeviceInfoStrip, renderPanelToolbar, renderToolbarActions, renderFooter } from './toolbar.js';
@@ -68,17 +69,21 @@ class NSPanelEditor extends LitElement {
       _error: { type: String, state: true },
       _toast: { type: Object, state: true },
       _deleteTarget: { type: Number, state: true },
+      _tftInstallTarget: { type: String, state: true },
       _deviceConfig: { type: Object, state: true },
       _editingDeviceConfig: { type: Boolean, state: true },
       _deviceConfigForm: { type: Object, state: true },
       _deviceStatus: { type: Object, state: true },
+      _deviceStatuses: { type: Object, state: true },
       _deviceStatusError: { type: String, state: true },
       _showDeviceInfo: { type: Boolean, state: true },
       _showLogs: { type: Boolean, state: true },
+      _showLivePreview: { type: Boolean, state: true },
       _showNotifications: { type: Boolean, state: true },
       _notifications: { type: Array, state: true },
       _showDeviceManager: { type: Boolean, state: true },
       _showColorsDialog: { type: Boolean, state: true },
+      _colorsScheme: { type: String, state: true },
       _colorsDialog: { type: Object, state: true },
 
       _actionsMenuIndex: { type: Number, state: true },
@@ -108,6 +113,7 @@ class NSPanelEditor extends LitElement {
     this._error = null;
     this._toast = null;
     this._deleteTarget = null;
+    this._tftInstallTarget = null;
 
     this._deviceConfig = null;
     this._editingDeviceConfig = false;
@@ -118,18 +124,22 @@ class NSPanelEditor extends LitElement {
     this._cardMenuKey = null;
     this._dialogVersion = 0;
     this.__systemPanelsOpen = readStorage('haui_systemPanelsOpen', '') === 'true';
+    this.__popupPanelsOpen = readStorage('haui_popupPanelsOpen', '') !== 'false';
     this.__navPanelsOpen = readStorage('haui_navPanelsOpen', '') !== 'false';
     this.__hiddenPanelsOpen = readStorage('haui_hiddenPanelsOpen', '') !== 'false';
 
     this._deviceStatus = null;
+    this._deviceStatuses = {};
     this._deviceStatusError = null;
     this._showDeviceInfo = false;
     this._showLogs = false;
+    this._showLivePreview = false;
     this._showNotifications = false;
     this._notifications = [];
     this._showDeviceManager = false;
     this._statusTimer = null;
     this._showColorsDialog = false;
+    this._colorsScheme = "dark";
     this._colorsDialog = {};
     this._panelSaveTimer = null;
     this._haElementsForced = false;
@@ -197,7 +207,7 @@ class NSPanelEditor extends LitElement {
     if (changed.has("entryId") && this.entryId) {
       Notifications.loadNotifications(this);
     }
-    if (changed.has("_selectedDevice") && this._selectedDevice) {
+    if (changed.has("_selectedDevice") && this._selectedDevice && !this._loading) {
       startStatusPolling(this);
     }
     if ((changed.has("_actionsMenuIndex") && this._actionsMenuIndex !== null && this._actionsMenuIndex !== undefined) ||
@@ -259,7 +269,12 @@ class NSPanelEditor extends LitElement {
 
   async _loadEntries()     { return Api.loadEntries(this); }
   async _load() {
-    await Api.loadPanels(this);
+    await Api.loadPanels(this, { keepLoading: true });
+    const statuses = await Api.loadDeviceStatuses(this);
+    this._loading = false;
+    if (this._selectedDevice) {
+      startStatusPolling(this, { refresh: !statuses?.[this._selectedDevice] });
+    }
   }
   async _loadPanelTypes()  { return Api.loadPanelTypes(this); }
   _loadDeviceConfig(name)  { DeviceConfig.loadDeviceConfig(this, name); }
@@ -328,6 +343,13 @@ class NSPanelEditor extends LitElement {
     this.requestUpdate();
   }
 
+  _onHeaderLivePreview() {
+    this._actionsMenuIndex = null;
+    if (!this._selectedDevice) return;
+    this._showLivePreview = true;
+    this.requestUpdate();
+  }
+
   _onHeaderSettings() {
     this._actionsMenuIndex = null;
     if (!this._selectedDevice) return;
@@ -338,12 +360,12 @@ class NSPanelEditor extends LitElement {
 
   _onHeaderImportYaml() {
     this._actionsMenuIndex = null;
-    DeviceEvents.onDeviceManagerImportYaml(this);
+    importDeviceYaml(this);
   }
 
   _onHeaderExportYaml() {
     this._actionsMenuIndex = null;
-    DeviceEvents.onDeviceManagerExportYaml(this);
+    exportDeviceYaml(this);
   }
 
 
@@ -492,11 +514,23 @@ class NSPanelEditor extends LitElement {
           @dialog-confirmed=${this._doDelete}
         ></nspanel-dialog-confirm>
 
+        <nspanel-dialog-confirm
+          .hass=${this.hass}
+          .open=${this._tftInstallTarget !== null}
+          .params=${this._tftInstallTarget !== null ? this._tftInstallParams : null}
+          @dialog-closed=${this._cancelTftInstall}
+          @dialog-confirmed=${this._confirmTftInstall}
+        ></nspanel-dialog-confirm>
+
         <nspanel-dialog-device-info
           .hass=${this.hass}
           .open=${this._showDeviceInfo}
           .deviceStatus=${this._deviceStatus}
+          .deviceName=${this._selectedDevice}
+          .entryId=${this.entryId}
           @dialog-closed=${() => { this._showDeviceInfo = false; this.requestUpdate(); }}
+          @update-tft=${(e) => DeviceEvents.onDeviceManagerUpdateTft(this, e)}
+          @update-firmware=${(e) => DeviceEvents.onDeviceManagerUpdateFirmware(this, e)}
         ></nspanel-dialog-device-info>
 
         <nspanel-dialog-notifications
@@ -527,16 +561,24 @@ class NSPanelEditor extends LitElement {
           @move-device=${(e) => DeviceEvents.onDeviceManagerMoveDevice(this, e)}
           @toggle-device=${(e) => DeviceEvents.onDeviceManagerToggleDevice(this, e)}
           @scan-devices=${(e) => DeviceEvents.onDeviceManagerScan(this, e)}
-          @update-display=${(e) => DeviceEvents.onDeviceManagerUpdateDisplay(this, e)}
-          @update-tft=${(e) => DeviceEvents.onDeviceManagerUpdateTft(this, e)}
-          @update-firmware=${(e) => DeviceEvents.onDeviceManagerUpdateFirmware(this, e)}
-          @check-for-update=${(e) => DeviceEvents.onDeviceManagerCheckUpdate(this, e)}
         ></nspanel-dialog-device-manager>
+
+        <nspanel-dialog-live-preview
+          .hass=${this.hass}
+          .open=${this._showLivePreview}
+          .entryId=${this.entryId}
+          .device=${this._selectedDevice}
+          @dialog-closed=${() => { this._showLivePreview = false; this.requestUpdate(); }}
+        ></nspanel-dialog-live-preview>
 
         <nspanel-dialog-colors
           .hass=${this.hass}
           .open=${this._showColorsDialog}
+          .entryId=${this.entryId}
+          .panels=${this._devicePanels()}
+          .schemeId=${this._colorsSchemeId || "dark"}
           .overrides=${this._colorsDialog}
+          .scheme=${this._colorsScheme}
           @dialog-closed=${this._closeColorsDialog}
           @dialog-save=${this._onColorsSave}
         ></nspanel-dialog-colors>
@@ -561,17 +603,48 @@ class NSPanelEditor extends LitElement {
     };
   }
 
+  /* ── TFT install confirmation ───────────────────────────────────────────── */
+
+  get _tftInstallParams() {
+    return {
+      title: t("Install display TFT?"),
+      message: t("The display model changed. Install the matching TFT now? The display cannot be used while the TFT updates."),
+      confirmText: t("Install TFT"),
+      cancelText: t("Not now"),
+      confirmVariant: "brand",
+    };
+  }
+
+  async _confirmTftInstall() {
+    const name = this._tftInstallTarget;
+    this._tftInstallTarget = null;
+    if (!name) return;
+    await DeviceEvents.onDeviceManagerUpdateTft(this, { detail: { name } });
+  }
+
+  _cancelTftInstall() {
+    this._tftInstallTarget = null;
+    this.requestUpdate();
+  }
+
   /* ── device config save handler ──────────────────────────────────────────── */
   /* Receives form state from nspanel-dialog-device-config and saves directly.      */
 
   async _onDeviceConfigSave(e) {
     const cfg = e.detail?.config;
     if (!cfg || !this._selectedDevice) return;
+    const previousModel = this._deviceConfig?.display_model;
 
     // savePanels shows the success or error toast; keep the dialog open on failure.
     if (await this._savePanels(this._devicePanels(), t("Device configuration saved"), clone(cfg))) {
       this._editingDeviceConfig = false;
       this._deviceConfigForm = null;
+      // The display cannot report which layout it runs, so a model change
+      // needs the matching TFT.  The upload restarts the display, so ask
+      // first instead of installing on save.
+      if (cfg.display_model !== previousModel && cfg.update?.enabled !== false) {
+        this._tftInstallTarget = this._selectedDevice;
+      }
     }
     this.requestUpdate();
   }
@@ -590,7 +663,7 @@ class NSPanelEditor extends LitElement {
 
   _onHeaderColors()                      { return ColorsEditor.openColorsDialog(this); }
   _closeColorsDialog()                   { return ColorsEditor.closeColorsDialog(this); }
-  async _onColorsSave(e)                 { return ColorsEditor.saveColors(this, e.detail?.overrides); }
+  async _onColorsSave(e)                 { return ColorsEditor.saveColors(this, e.detail); }
 }
 
 customElements.define("nspanel-haui-editor", NSPanelEditor);

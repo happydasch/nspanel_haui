@@ -1,11 +1,13 @@
 """Timer page: the countdown keeps updating after the panel is reopened."""
 
-from nspanel_haui.haui.page.timer import TimerPage
+from custom_components.nspanel_haui.haui.page.timer import TimerPage
 
 _PAGE_ID = 12
 
 
 class _Device:
+    is_portrait = False
+
     def get(self, key, default=None):
         return {}.get(key, default)
 

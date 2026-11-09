@@ -1,0 +1,258 @@
+name: Development Firmware
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dev-firmware
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install ESPHome
+        run: pip install -r requirements-esphome.txt
+
+      - name: Set the development firmware version
+        # Use the next patch line so every dev build is newer than the current
+        # stable version, while a later stable X.Y.(Z+1) sorts after its .devN.
+        # The ``dev`` branch carries the previous dev version (this workflow
+        # commits it back to the branch), so the derivation accepts either a
+        # stable manifest (a fresh branch or a master merge-back) — deriving the
+        # next patch — or an existing ``X.Y.Z.devN`` — keeping the same X.Y.Z
+        # base, since no stable X.Y.Z has been released yet.
+        # The version must be a valid PEP 440 version with no ``-`` separators:
+        # Home Assistant compares installed/latest with AwesomeVersion, and an
+        # unparseable yaml_version (for example a ``dev-<run>-<sha>`` release
+        # tag) makes it fall back to "update available" on every check.
+        #
+        # The version carries no ``+local`` segment (the commit lives in the
+        # release name and notes): AwesomeVersion sorts ``0.4.5.dev16+g<sha>``
+        # *above* the final ``0.4.5`` and above a later ``0.4.5.dev17``, so
+        # neither Home Assistant nor its Marketplace would ever offer the
+        # release that supersedes such a build. The run number alone keeps
+        # versions unique.
+        #
+        # The same string is the release tag, the integration manifest version
+        # and the firmware yaml_version. The Marketplace reads release tags as
+        # available versions and the installed tag as the installed one; with a
+        # ``dev-<run>-<sha>`` tag the comparison fell back to string inequality,
+        # so an installed dev build kept offering itself as an update. Keeping
+        # them identical (and PEP 440) makes the Marketplace order dev releases
+        # and only offer a build that is actually newer.
+        run: python -m scripts.release.dev_version "$GITHUB_RUN_NUMBER"
+
+      - name: Take the display TFT version from the HMIs
+        # A dev release ships the committed TFTs under the system.tftVersion
+        # both HMIs carry, and the firmware requires exactly that TFT
+        # (tft_version, compiled in as tft_required_version), so a dev panel
+        # installs it once its display reports an older one. The version only
+        # moves when system.tftVersion is bumped and the TFTs are recompiled: a
+        # TFT change committed under the same version never reaches a panel
+        # that already runs that version.
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+          from pathlib import Path
+
+          from scripts.bump_tft_version import shipped_tft_version
+
+          version = shipped_tft_version()
+          version_file = Path("esphome/nspanel_haui/version.yaml")
+          source, count = re.subn(
+              r"(?m)^(  tft_version: )'[^']+'$",
+              rf"\g<1>'{version}'",
+              version_file.read_text(),
+          )
+          if count != 1:
+              raise SystemExit(f"Expected one tft_version in {version_file}, found {count}")
+          version_file.write_text(source)
+          with open(os.environ["GITHUB_ENV"], "a") as env:
+              env.write(f"TFT_VERSION={version}\n")
+          print(f"Shipping display TFT {version}")
+          PY
+
+      - name: Validate and compile the universal firmware
+        run: |
+          esphome config esphome/nspanel_haui_universal.yaml
+          esphome compile esphome/nspanel_haui_universal.yaml
+          BIN=$(find esphome/.esphome -name firmware.factory.bin -path "*nspanel-haui*" | head -1)
+          if [ -z "$BIN" ]; then
+            echo "firmware.factory.bin not found after compile" >&2
+            exit 1
+          fi
+          cp "$BIN" nspanel_haui.bin
+          OTA="$(dirname "$BIN")/firmware.ota.bin"
+          if [ ! -f "$OTA" ]; then
+            echo "firmware.ota.bin not found after compile" >&2
+            exit 1
+          fi
+          cp "$OTA" nspanel_haui_ota.bin
+
+      - name: Generate the firmware manifest and commit notes
+        # Same schema as a stable release (scripts/release), including the
+        # ``tft`` block that names the display TFT and its per-model assets.
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          DEV_VERSION: ${{ env.DEV_VERSION }}
+          TFT_VERSION: ${{ env.TFT_VERSION }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, sys
+          from pathlib import Path
+
+          from scripts.release.generate_firmware_manifest import build_manifest
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          commit = os.environ["GITHUB_SHA"]
+          tag = os.environ["DEV_VERSION"]
+          manifest = build_manifest(
+              repo=repo,
+              tag=tag,
+              ota_image=Path("nspanel_haui_ota.bin"),
+              eu_tft=Path("nextion/nspanel_haui.tft"),
+              us_tft=Path("nextion/nspanel_haui_portrait.tft"),
+              tft_version=os.environ["TFT_VERSION"],
+          )
+          manifest["name"] = "NSPanel HAUI Development"
+          Path("firmware-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          before = os.environ["PUSH_BEFORE"]
+          zero_sha = "0" * len(before)
+          if before and before != zero_sha:
+              commit_range = f"{before}..{commit}"
+              changes = subprocess.check_output(
+                  ["git", "diff", "--stat", "--no-renames", before, commit], text=True
+              ).strip()
+          else:
+              commit_range = commit
+              changes = subprocess.check_output(
+                  ["git", "show", "--format=", "--stat", "--no-renames", commit], text=True
+              ).strip()
+          commits = subprocess.check_output(
+              ["git", "log", "--reverse", "--format=%H%x09%s", commit_range], text=True
+          ).strip().splitlines()
+          notes = [
+              f"Development firmware `{os.environ['DEV_VERSION']}`",
+              "",
+              f"Build commit: [`{commit[:7]}`](https://github.com/{repo}/commit/{commit})",
+              "Firmware variant: `universal` (for universal test panels only).",
+              f"Display TFT: `{os.environ['TFT_VERSION']}`.",
+              "",
+              "## Commits in this push",
+          ]
+          notes.extend(
+              f"- [`{sha[:7]}`](https://github.com/{repo}/commit/{sha}) {subject}"
+              for sha, subject in (line.split(chr(9), 1) for line in commits)
+          )
+          if changes:
+              notes.extend(["", "## Changed files", "```text", changes, "```"])
+          Path("dev-release-notes.md").write_text("\n".join(notes) + "\n")
+          PY
+
+      - name: Tag the versioned source tree and publish it to dev
+        # The Marketplace downloads the *source archive of the tag* (not the
+        # release assets), and Home Assistant and the hub read the version from
+        # its manifest.json. The bumped manifest therefore has to be in a commit
+        # the tag points at; tagging the pushed commit alone would ship the
+        # unmodified stable manifest, so the dev build would call itself stable.
+        #
+        # The same versioned commit is pushed onto the ``dev`` branch, so the
+        # branch's tracked version.yaml carries the dev version instead of
+        # lagging on the last stable release (the old tag-only commit left dev
+        # stale). The next run derives the next dev version from that X.Y.Z.devN
+        # directly.
+        # ``[skip ci]`` keeps this push to dev from re-triggering this workflow;
+        # a re-run keeps its run number (the version) and builds the same
+        # commit, so it replaces an equivalent commit/tag.
+        #
+        # Because dev's tip is always this ``[skip ci]`` commit, a PR from dev
+        # never runs its checks: cut release prep on a ``release/X.Y.Z`` branch
+        # (docs/release.md, "Branches and cadence").
+        env:
+          DEV_VERSION: ${{ env.DEV_VERSION }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add custom_components/nspanel_haui/manifest.json esphome/nspanel_haui/version.yaml
+          git commit -m "chore(release): development firmware ${DEV_VERSION} [skip ci]"
+          # Publish to the dev branch first; a non-force push fails (rather than
+          # clobbering) if a concurrent commit raced in. The version commit's
+          # parent is the just-pushed HEAD, so when it wins dev advances exactly
+          # one release commit. Rejection is not fatal: the tagged release below
+          # still carries the versioned commit.
+          git push origin "HEAD:refs/heads/dev" || echo "dev branch raced; the version commit ships in the tagged release only"
+          git tag "${DEV_VERSION}"
+          # --force keeps a re-run of the same build idempotent: a re-run keeps
+          # the run number and commit, so the tag can only be replaced by an
+          # equivalent one.
+          #
+          # Retried because GitHub Git Operations incidents reject ref updates
+          # intermittently ("remote: fatal error in commit_refs", 0.4.5.dev18):
+          # by now the build is done and dev already carries the version, so a
+          # single rejection would leave dev on a version that has no release.
+          attempt=1
+          until git push --force origin "refs/tags/${DEV_VERSION}"; do
+            if [ "$attempt" -ge 5 ]; then
+              echo "Tag push failed ${attempt} times; giving up" >&2
+              exit 1
+            fi
+            echo "Tag push failed (attempt ${attempt}); retrying in $((attempt * 30))s"
+            sleep $((attempt * 30))
+            attempt=$((attempt + 1))
+          done
+
+      - name: Publish versioned development prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          # The tag *is* the PEP 440 dev version, so the Marketplace (which
+          # reads release tags as versions) can order dev releases and compare
+          # them with the installed dev build.
+          tag_name: ${{ env.DEV_VERSION }}
+          name: NSPanel HAUI ${{ env.DEV_VERSION }} (${{ env.DEV_SHA }})
+          body_path: dev-release-notes.md
+          prerelease: true
+          make_latest: false
+          files: |
+            nspanel_haui.bin
+            nspanel_haui_ota.bin
+            nextion/nspanel_haui.tft
+            nextion/nspanel_haui_portrait.tft
+            firmware-manifest.json
+
+      - name: Prune old development prereleases
+        # The Marketplace reads only the newest 30 releases, the hub's release
+        # check the newest 100 (RELEASES_URL). One prerelease per push would push
+        # the latest stable release out of both: the Marketplace then finds no
+        # stable version and a fresh install falls back to the default branch
+        # (dev). Keep the newest dev builds only; stable releases never match.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: 10
+        run: |
+          set -o pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '.[] | select(.prerelease and (.tag_name | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.dev[0-9]+([+][0-9A-Za-z.]+)?$"))) | [.created_at, .tag_name] | @tsv' \
+            | sort -r \
+            | tail -n +$((KEEP + 1)) \
+            | cut -f2 \
+            | while read -r tag; do
+                echo "Deleting development prerelease ${tag}"
+                gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+              done

@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+if [[ -x .venv/bin/python ]]; then
+  python=.venv/bin/python
+elif command -v python3 >/dev/null 2>&1; then
+  python="$(command -v python3)"
+else
+  echo 'pre-commit: Python 3 is required (activate .venv or install python3).' >&2
+  exit 1
+fi
+"$python" -m scripts.hmi_layout.gen_virtual_layout
+git add -A -- \
+  custom_components/nspanel_haui/frontend/virtual/layout_landscape.json \
+  custom_components/nspanel_haui/frontend/virtual/layout_portrait.json \
+  custom_components/nspanel_haui/frontend/virtual/icon_map.json \
+  custom_components/nspanel_haui/frontend/virtual/pictures
+"$python" -m scripts.hmi_layout.gen_layout --check
+"$python" -m scripts.hmi_layout.gen_layout --spec portrait --check

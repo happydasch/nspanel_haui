@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Final
 
 from ..utils.icon import get_icon
-from .const import NotifType
 
 # Shared / base-page icons
 ICO_NAV_PREV: Final[str] = get_icon("mdi:chevron-left")
@@ -73,14 +72,8 @@ ICO_WIFI: Final[str] = get_icon("mdi:wifi")
 ICO_KEY: Final[str] = get_icon("mdi:key")
 
 # RowPage icons
+ICO_TOGGLE_ON: Final[str] = get_icon("mdi:toggle-switch-outline")
+ICO_TOGGLE_OFF: Final[str] = get_icon("mdi:toggle-switch-off-outline")
 
 # ClockTwoPage icons
 ICO_SPECIAL: Final[str] = get_icon("mdi:circle-medium")
-
-# Notification icons
-DEFAULT_NOTIF_ICONS: Final[dict[str, str]] = {
-    NotifType.INFO: "mdi:information-outline",
-    NotifType.WARNING: "mdi:alert-outline",
-    NotifType.CRITICAL: "mdi:alert-octagon-outline",
-}
-DEFAULT_NOTIF_ICON_FALLBACK: Final[str] = "mdi:bell-outline"

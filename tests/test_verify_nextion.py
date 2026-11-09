@@ -6,15 +6,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "verify_nextion"))
-
-from verify_nextion import (  # noqa: E402
+from scripts.verify_nextion.verify_nextion import (
     check_portrait,
     check_sendme_parity,
     check_t_time_sendme,
     check_tft_version,
     gate_tft_version,
     parse_dump,
+    read_integration_version,
+    read_tft_version,
+    resolve_expected_version,
 )
 
 
@@ -104,11 +105,88 @@ def test_tft_version_mismatch_fails():
     assert "0.3.3" in msg
 
 
-def test_tft_version_mismatch_can_be_allowed():
-    """--allow-tft-version-mismatch turns a mismatch into a warning, not a fail."""
-    assert gate_tft_version(True, "matches", allow_mismatch=True) == ("PASS", False)
-    assert gate_tft_version(False, "mismatch", allow_mismatch=True) == ("SKIP", False)
-    assert gate_tft_version(False, "mismatch", allow_mismatch=False) == ("FAIL", True)
+def test_tft_version_gate_is_exact():
+    """The TFT version gate only passes on an exact match; there is no bypass."""
+    assert gate_tft_version(True, "matches") == ("PASS", False)
+    assert gate_tft_version(False, "mismatch") == ("FAIL", True)
+
+
+def test_wrong_pin_fails_even_though_hmi_version_is_valid():
+    """An explicit --expected-version pin is used verbatim, so a wrong pin fails."""
+    page = {
+        "text": (  # noqa: E501
+            "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.4.0\n"
+        )
+    }
+    ok, msg = check_tft_version(page, "9.9.9")
+    assert not ok
+    assert "0.4.0" in msg
+
+
+firmware_only_yaml = "---\nsubstitutions:\n  yaml_version: '0.5.0'\n  tft_version: '0.4.2'\n"
+
+
+def test_default_expected_version_comes_from_version_yaml(tmp_path):
+    """The default expected TFT version is the configured tft_version, not the manifest."""
+    yaml_file = tmp_path / "version.yaml"
+    yaml_file.write_text(firmware_only_yaml)
+    assert read_tft_version(yaml_file) == "0.4.2"
+    assert resolve_expected_version(None, yaml_file) == "0.4.2"
+
+
+def test_explicit_pin_overrides_configured_version(tmp_path):
+    """A --expected-version pin wins over the configured tft_version."""
+    yaml_file = tmp_path / "version.yaml"
+    yaml_file.write_text(firmware_only_yaml)
+    assert resolve_expected_version("0.4.2", yaml_file) == "0.4.2"
+    assert resolve_expected_version("9.9.9", yaml_file) == "9.9.9"
+
+
+def test_manifest_divergence_is_kept_separate_from_tft_version(tmp_path):
+    """The integration version is reported independently; it is not the TFT gate.
+
+    A firmware-only release advances manifest.json while ``tft_version`` stays
+    put, so the two can differ without failing the verifier.  The gate only
+    compares the HMIs' ``system.tftVersion`` against the source-of-truth TFT
+    version.
+    """
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text('{"version": "0.5.0"}')
+    yaml_file = tmp_path / "version.yaml"
+    yaml_file.write_text(firmware_only_yaml)
+
+    assert read_integration_version(manifest) == "0.5.0"
+    assert read_tft_version(yaml_file) == "0.4.2"
+    assert read_integration_version(manifest) != read_tft_version(yaml_file)
+
+    page = {
+        "text": (
+            "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.4.2\n"
+        )
+    }
+    expected = resolve_expected_version(None, yaml_file)
+    ok, msg = check_tft_version(page, expected)
+    assert ok, msg
+
+
+def test_portrait_tft_version_gate(tmp_path):
+    """A stale tftVersion in the portrait HMI fails exactly like the landscape one."""
+    version = "0.4.2"
+    matching = {
+        "text": (  # noqa: E501
+            "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.4.2\n"
+        )
+    }
+    stale = {
+        "text": (  # noqa: E501
+            "Variable (string) tftVersion\n    Attributes\n        ID: 14\n        Text: 0.4.0\n"
+        )
+    }
+    ok, _ = check_tft_version(matching, version)
+    assert ok
+    ok, msg = check_tft_version(stale, version)
+    assert not ok
+    assert "0.4.0" in msg
 
 
 def test_portrait_required_when_missing(tmp_path):
@@ -222,7 +300,8 @@ def test_nextion2text_creates_missing_output_tree(tmp_path):
     subprocess.run(
         [
             sys.executable,
-            str(root / "scripts" / "nextion2text" / "Nextion2Text.py"),
+            "-m",
+            "scripts.nextion2text.Nextion2Text",
             "-i",
             str(root / "nextion" / "nspanel_haui.HMI"),
             "-o",
@@ -232,6 +311,7 @@ def test_nextion2text_creates_missing_output_tree(tmp_path):
             "-p",
             "visual",
         ],
+        cwd=root,
         check=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

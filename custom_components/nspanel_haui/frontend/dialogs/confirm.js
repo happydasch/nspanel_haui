@@ -23,7 +23,7 @@ class ConfirmDialog extends HauiDialog {
 
   render() {
     if (!this.params) return "";
-    const { title, message, confirmText, cancelText } = this.params;
+    const { title, message, confirmText, cancelText, confirmVariant = "danger" } = this.params;
 
     return html`
       <ha-dialog
@@ -47,7 +47,7 @@ class ConfirmDialog extends HauiDialog {
             </ha-button>
             <ha-button
               slot="primaryAction"
-              variant="danger"
+              variant=${confirmVariant}
               @click=${this._dispatchConfirm}
             >
               ${confirmText || t('Delete')}

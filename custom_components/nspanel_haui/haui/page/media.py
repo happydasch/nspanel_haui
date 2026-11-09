@@ -10,7 +10,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import MediaPlayerFeatures as F
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_NEXT,
@@ -31,7 +31,12 @@ from ..mapping.icons import (
     ICO_VOLUME_UP,
 )
 from ..utils.icon import get_icon
-from ..utils.text import trim_text
+from ..utils.text import TextBox, fit_line
+
+_MEDIA_NAME_BOXES = {
+    "landscape": TextBox(90, 50, 2, 20),
+    "portrait": TextBox(234, 50, 2, 20),
+}
 
 
 class MediaPage(HAUIPage):
@@ -39,7 +44,7 @@ class MediaPage(HAUIPage):
         type_key="media",
         page_name="media",
         page_id=14,
-        label=_("Media Player"),
+        label=_("Media"),
         description=_("Media player controls with track info and volume."),
         options=[
             PageOption(
@@ -196,9 +201,6 @@ class MediaPage(HAUIPage):
         # set title
         self._title = self._panel_title(panel, item, self.translate("Media"))
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_media_item()
 
@@ -271,10 +273,10 @@ class MediaPage(HAUIPage):
         # visibility will be set by timer calls when media is playing
         self.set_function_component(
             self.COMPONENTS.j_progress,
-            self.COMPONENTS.j_progress[1],
+            self.COMPONENTS.j_progress.name,
             "progress",
             color=self.get_color("text_inactive"),
-            back_color=self.get_color("text_disabled"),
+            back_color=self.get_color("component_background"),
             value=0,
         )
         # source button
@@ -318,7 +320,7 @@ class MediaPage(HAUIPage):
         HA reports ``group_members`` as ``None`` for a grouping-capable player
         that isn't part of a group.
         """
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return []
         return self._media_item.get_item_attr("group_members") or []
 
@@ -331,7 +333,8 @@ class MediaPage(HAUIPage):
             if visible:
                 self.show_component(x)
         self.set_component_text(m_ico, icon)
-        self.set_component_text(m_name, name)
+        orientation = "portrait" if self.app.device.is_portrait else "landscape"
+        self.set_component_text(m_name, fit_line([name], 1, _MEDIA_NAME_BOXES[orientation]))
 
     def update_media_title(self) -> None:
         title = self._title
@@ -341,10 +344,45 @@ class MediaPage(HAUIPage):
             media_channel = item.get_item_attr("media_channel")
             if media_channel:
                 title = media_channel
-        self.set_component_text(self.COMPONENTS.title, title)
+        self.set_title(title)
 
     def update_media_item(self) -> None:
         self.update_media_title()
+        if not self.item_is_available(self._media_item):
+            has_entity = self._media_item is not None and self._media_item.has_item_id()
+            message = self.translate("Unavailable") if has_entity else ""
+            self.set_component_text(self.COMPONENTS.t_icon, "")
+            self._media_title = ""
+            self._media_interpret = ""
+            if self._handle_scrolling is not None:
+                self.app.cancel_timer(self._handle_scrolling)
+                self._handle_scrolling = None
+            if self._handle_progress is not None:
+                self.app.cancel_timer(self._handle_progress)
+                self._handle_progress = None
+            self.set_component_text(self.COMPONENTS.t_m_title, message)
+            self.set_component_text(self.COMPONENTS.t_m_interpret, "")
+            if not has_entity:
+                for component in (
+                    self.COMPONENTS.m1_btn,
+                    self.COMPONENTS.m1_icon,
+                    self.COMPONENTS.m1_name,
+                    self.COMPONENTS.m1_overlay,
+                    self.COMPONENTS.m2_btn,
+                    self.COMPONENTS.m2_icon,
+                    self.COMPONENTS.m2_name,
+                    self.COMPONENTS.m2_overlay,
+                    self.COMPONENTS.m3_btn,
+                    self.COMPONENTS.m3_icon,
+                    self.COMPONENTS.m3_name,
+                    self.COMPONENTS.m3_overlay,
+                ):
+                    self.hide_component(component)
+            self.update_media_controls()
+            self.update_volume()
+            self.update_progress()
+            self.update_power_button()
+            return
         # media details
         self.update_media_info()
         self.update_media_controls()
@@ -354,7 +392,7 @@ class MediaPage(HAUIPage):
         self.update_power_button()
 
     def update_media_info(self) -> None:
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         item = self._media_item
         state = item.get_item_state()
@@ -386,18 +424,19 @@ class MediaPage(HAUIPage):
             )
 
     def update_media_controls(self) -> None:
-        if self._media_item is None:
-            for fnc_id in [
-                self.COMPONENTS.btn_shuffle[1],
-                self.COMPONENTS.btn_prev[1],
-                self.COMPONENTS.btn_play[1],
-                self.COMPONENTS.btn_next[1],
-                self.COMPONENTS.btn_repeat[1],
-                self.COMPONENTS.btn_vol_down[1],
-                self.COMPONENTS.btn_vol_up[1],
-            ]:
-                self.update_function_component(fnc_id, visible=False)
-            self.update_function_component(self.COMPONENTS.h_volume[1], visible=False)
+        if not self.item_is_available(self._media_item):
+            for component in (
+                self.COMPONENTS.btn_shuffle,
+                self.COMPONENTS.btn_prev,
+                self.COMPONENTS.btn_play,
+                self.COMPONENTS.btn_next,
+                self.COMPONENTS.btn_repeat,
+                self.COMPONENTS.btn_vol_down,
+                self.COMPONENTS.btn_vol_up,
+                self.COMPONENTS.h_volume,
+                self.COMPONENTS.j_progress,
+            ):
+                self.hide_component(component)
             return
         item = self._media_item
         state = item.get_item_state()
@@ -439,20 +478,20 @@ class MediaPage(HAUIPage):
         )
 
     def update_volume(self) -> None:
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         item = self._media_item
         volume = int(item.get_item_attr("volume_level", 0) * 100)
         volume_visible = item.supports(F.VOLUME_SET)
         self.set_slider_color(self.COMPONENTS.h_volume)
         self.update_function_component(
-            self.COMPONENTS.h_volume[1], value=volume, visible=volume_visible
+            self.COMPONENTS.h_volume.name, value=volume, visible=volume_visible
         )
-        self.update_function_component(self.COMPONENTS.btn_vol_down[1], visible=volume_visible)
-        self.update_function_component(self.COMPONENTS.btn_vol_up[1], visible=volume_visible)
+        self.update_function_component(self.COMPONENTS.btn_vol_down.name, visible=volume_visible)
+        self.update_function_component(self.COMPONENTS.btn_vol_up.name, visible=volume_visible)
 
     def update_progress(self, _data: dict | None = None) -> None:
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         item = self._media_item
         state = item.get_item_state()
@@ -472,10 +511,10 @@ class MediaPage(HAUIPage):
         if media_duration > 0 and media_position > 0 and state == "playing":
             progress = int(media_position / (media_duration / 100))
             self.update_function_component(
-                self.COMPONENTS.j_progress[1], visible=True, value=progress
+                self.COMPONENTS.j_progress.name, visible=True, value=progress
             )
         else:
-            self.update_function_component(self.COMPONENTS.j_progress[1], visible=False)
+            self.update_function_component(self.COMPONENTS.j_progress.name, visible=False)
         # Start the repeating progress timer (replaces threading.Timer) if not
         # already running.  Started lazily here so the timer only ticks when
         # there is an active media panel.
@@ -485,10 +524,12 @@ class MediaPage(HAUIPage):
             )
 
     def update_power_button(self) -> None:
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
+            self.hide_component(self.COMPONENTS.btn_power)
             self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
             return
         item = self._media_item
+        assert item is not None
         state = item.get_item_state()
         # power switch supported
         if item.supports(F.TURN_ON):
@@ -509,7 +550,7 @@ class MediaPage(HAUIPage):
             self.update_media_item()
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         item = self._media_item
         state = item.get_item_state()
@@ -534,7 +575,7 @@ class MediaPage(HAUIPage):
             item.call_item_service(self._SIMPLE_SERVICES[fnc_name])
 
     def callback_select_source(self, event: HAUIEvent, component: Component) -> None:
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         navigation = self.app.controller["navigation"]
         source_list = self._media_item.get_item_attr("source_list", [])
@@ -551,8 +592,8 @@ class MediaPage(HAUIPage):
         # show popup
         if len(selection) > 0:
             navigation.open_panel(
-                SysPanelKey.POPUP_SELECT,
-                title=self.translate("Select source"),
+                PopupPanelKey.POPUP_SELECT,
+                title=self.translate("Source"),
                 selected=source,
                 items=selection,
                 select_mode="default",
@@ -570,7 +611,7 @@ class MediaPage(HAUIPage):
             items = self._sonos_favorites.get_item_attr("items", {})
             for name in items.values():
                 value = f"sonos_favorites:{name}"
-                selection.append({"value": value, "name": trim_text(name, 14)})
+                selection.append({"value": value, "name": name})
         # add media favorites. Entity IDs keep the legacy metadata lookup; other
         # strings are treated as media content IDs with the default music type.
         for favorite in self._media_favorites:
@@ -584,14 +625,14 @@ class MediaPage(HAUIPage):
                 name = entity.get_entity_attr("friendly_name", favorite)
             if content_id:
                 value = f"media_favorites:{content_type}:{content_id}"
-                selection.append({"value": value, "name": trim_text(name, 14)})
+                selection.append({"value": value, "name": name})
             else:
                 self.log(f"Skipping media favorite {favorite}: no media_content_id")
         # show popup
         if len(selection) > 0:
             navigation.open_panel(
-                SysPanelKey.POPUP_SELECT,
-                title=self.translate("Select media"),
+                PopupPanelKey.POPUP_SELECT,
+                title=self.translate("Media"),
                 items=selection,
                 select_mode="default",
                 selection_callback_fnc=self.callback_media,
@@ -606,7 +647,7 @@ class MediaPage(HAUIPage):
 
     def callback_select_group(self, event: HAUIEvent, component: Component) -> None:
         self.log(f"Got group callback: {component}")
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         group_members = self._get_group_members()
         navigation = self.app.controller["navigation"]
@@ -627,8 +668,8 @@ class MediaPage(HAUIPage):
         # show popup
         if len(items) > 0:
             navigation.open_panel(
-                SysPanelKey.POPUP_SELECT,
-                title=self.translate("Select group members"),
+                PopupPanelKey.POPUP_SELECT,
+                title=self.translate("Group"),
                 items=items,
                 selected=group_members,
                 multiple=True,
@@ -645,13 +686,13 @@ class MediaPage(HAUIPage):
 
     def callback_source(self, selection: str) -> None:
         self.log(f"Got source selection: {selection}")
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         self._media_item.call_item_service("select_source", source=selection)
 
     def callback_media(self, selection: str) -> None:
         self.log(f"Got media selection: {selection}")
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         if selection.startswith("sonos_favorites:"):
             source = selection.split(":", maxsplit=1)[-1]
@@ -668,7 +709,7 @@ class MediaPage(HAUIPage):
 
     def callback_group(self, selection: list) -> None:
         self.log(f"Got group selection: {selection}")
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         group_members = self._get_group_members()
         # look for new group members
@@ -698,7 +739,7 @@ class MediaPage(HAUIPage):
 
     def process_volume(self, volume: int) -> None:
         self.log(f"Slider volume value {volume}")
-        if self._media_item is None:
+        if not self.item_is_available(self._media_item):
             return
         # value between 0 and 1 as float
         volume_level = volume / 100

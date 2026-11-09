@@ -21,5 +21,9 @@ export function showToast(host, message, type = "success") {
 export function renderToast(host) {
   if (!host._toast) return "";
   const { message, type } = host._toast;
-  return html`<div class="toast ${type}">${message}</div>`;
+  host.updateComplete.then(() => {
+    const toast = host.renderRoot.querySelector(".toast[popover]");
+    if (toast && !toast.matches(":popover-open")) toast.showPopover();
+  });
+  return html`<div class="toast ${type}" popover="manual">${message}</div>`;
 }

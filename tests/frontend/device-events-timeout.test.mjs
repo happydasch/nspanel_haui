@@ -23,15 +23,3 @@ test('a TFT install whose request times out shows the friendly timeout message',
   ]);
 });
 
-test('a display refresh whose request times out shows the friendly timeout message', async () => {
-  const host = makeHost({ devices: { kitchen } }, () =>
-    Promise.reject(Object.assign(new Error('timed out'), { name: 'TimeoutError' })),
-  );
-
-  await Events.onDeviceManagerUpdateDisplay(host, { detail: { name: 'kitchen' } });
-
-  assert.deepEqual(host.toasts.at(-1), [
-    'error',
-    'Request timed out; the device may be busy. Check the Home Assistant logs',
-  ]);
-});

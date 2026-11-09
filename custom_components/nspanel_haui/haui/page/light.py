@@ -7,7 +7,7 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import ESPEvent, SysPanelKey
+from ..mapping.const import ESPEvent, PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_BRIGHTNESS, ICO_COLOR, ICO_COLOR_TEMP, ICO_EFFECT, ICO_POWER
 from ..utils.color import color_to_rect_pos, rect_pos_to_color
@@ -63,8 +63,9 @@ class LightPage(HAUIPage):
     # hardcoded to not request too often, needed for color to rect pos
     PIC_COLOR_RECT_W = 200
     PIC_COLOR_RECT_H = 200
-    # top-left corner of pColorWheel in the landscape and the portrait TFT layout
-    PIC_COLOR_RECT_POS = {"landscape": (125, 75), "portrait": (90, 80)}
+    # top-left corner of pColorWheel in the landscape and the portrait TFT layout;
+    # tests/test_page_light.py checks it against the exported layouts
+    PIC_COLOR_RECT_POS = {"landscape": (125, 75), "portrait": (60, 124)}
 
     DEFAULT_FUNCTION = "brightness"
 
@@ -118,15 +119,12 @@ class LightPage(HAUIPage):
         # set title
         title = panel.get_title(self.translate("Light"))
         if item is not None:
-            title = item.get_name()
+            title = item.get_name() or title
         self._title = title
-
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         # set basic panel info
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
         # Only a popup opened for this light (item_id) closes when it becomes
         # unavailable; a standalone light panel stays where the user put it.
         if not self.update_functions(self.DEFAULT_FUNCTION) and panel.get("item_id", None):
@@ -333,8 +331,8 @@ class LightPage(HAUIPage):
                 name = no_effect
             effects.append({"value": value, "name": name})
         navigation.open_panel(
-            SysPanelKey.POPUP_SELECT,
-            title=self.translate("Select effect"),
+            PopupPanelKey.POPUP_SELECT,
+            title=self.translate("Effect"),
             items=effects,
             selection_callback_fnc=self.callback_effect,
             close_on_select=True,
@@ -474,20 +472,43 @@ class LightPage(HAUIPage):
         # show on / off button only if there is nothing active
         if self._light_item.get_item_state() == "on":
             rgb_color = self._light_item.get_item_attr("rgb_color")
-            color = self.parse_color(rgb_color)
+            # on/off and brightness-only lights report no rgb_color
+            color = self.parse_color(rgb_color) if rgb_color else self.get_color("entity_on")
         else:
             color = self.get_color("entity_unavailable")
         if self._current_light_function is None:
             self.set_component_text_color(self.COMPONENTS.btn_power, color)
             self.show_component(self.COMPONENTS.btn_power)
+            self.set_component_touch(
+                self.COMPONENTS.btn_power, self.item_is_available(self._light_item)
+            )
         else:
             self.hide_component(self.COMPONENTS.btn_power)
 
     def update_not_available(self) -> None:
         self.log("update_not_available")
-        color = self.get_color("entity_unavailable")
-        self.set_component_text_color(self.COMPONENTS.btn_power, color)
-        self.show_component(self.COMPONENTS.btn_power)
+        has_entity = self._light_item is not None and self._light_item.has_item_id()
+        if has_entity:
+            self.set_component_text(self.COMPONENTS.t_info, self.translate("Unavailable"))
+            self.set_component_text_color(
+                self.COMPONENTS.t_info, self.get_color("entity_unavailable")
+            )
+            self.show_component(self.COMPONENTS.t_info)
+        else:
+            self.set_component_text(self.COMPONENTS.t_info, "")
+            self.hide_component(self.COMPONENTS.t_info)
+        for component in (
+            self.COMPONENTS.btn_light_fnc_1,
+            self.COMPONENTS.btn_light_fnc_2,
+            self.COMPONENTS.btn_light_fnc_3,
+            self.COMPONENTS.btn_light_fnc_4,
+            self.COMPONENTS.h_brightness,
+            self.COMPONENTS.pic_color_rect,
+            self.COMPONENTS.h_color_temp,
+            self.COMPONENTS.btn_power,
+        ):
+            self.hide_component(component)
+        self.update_function_component(self.FNC_BTN_R_SEC, visible=False)
 
     # callback
 
@@ -660,9 +681,8 @@ class LightPage(HAUIPage):
 
     def process_power(self, power: int) -> None:
         self.log(f"Processing power value {power}")
-        if self._light_item is None:
+        if not self.item_is_available(self._light_item):
             return
-        # Toggle based on current HA state.  The `power` parameter is unused
         # (the Nextion button's .val is always 0) — the actual on/off state
         # is read from the entity.  This avoids an unnecessary read request
         # round-trip that created a race with brightness/color_temp reads.

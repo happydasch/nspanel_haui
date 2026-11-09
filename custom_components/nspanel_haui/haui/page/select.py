@@ -7,9 +7,21 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, _
 from ..mapping.icons import ICO_NEXT_PAGE
+from ..utils.text import TextBox, fit_line
+
+_SELECTION_BOXES = {
+    "landscape": {
+        "regular": TextBox(136, 55, 2, 20),
+        "full": TextBox(426, 55, 2, 60),
+    },
+    "portrait": {
+        "regular": TextBox(145, 55, 2, 20),
+        "full": TextBox(296, 55, 2, 60),
+    },
+}
 
 
 class SelectPage(HAUIPage):
@@ -17,15 +29,16 @@ class SelectPage(HAUIPage):
         type_key="select",
         page_name="select",
         page_id=5,
-        label=_("Selection List"),
+        label=_("Select"),
         description=_("Item selection panel with multi-page support."),
         is_system=True,
         sys_panel_default={
-            "key": SysPanelKey.POPUP_SELECT,
+            "key": PopupPanelKey.POPUP_SELECT,
             "show_in_navigation": False,
         },
         can_show_popup=True,
         icon="mdi:format-list-bulleted",
+        preview_kwargs={"items": ["Home", "Away", "Night", "Movie"], "selected": "Home"},
     )
 
     COMPONENTS = ComponentRegistry(
@@ -111,10 +124,8 @@ class SelectPage(HAUIPage):
             btn = getattr(self.COMPONENTS, "btn_sel_" + str(idx))
             self.set_function_component(
                 btn,
-                btn[1],
+                btn.name,
                 color=self.get_color("component_active"),
-                back_color=self.get_color("background"),
-                back_color_pressed=self.get_color("component_pressed"),
                 visible=False,
             )
             sel_buttons[btn] = self.callback_select
@@ -123,10 +134,8 @@ class SelectPage(HAUIPage):
             btn = getattr(self.COMPONENTS, "btn_sel_full_" + str(idx))
             self.set_function_component(
                 btn,
-                btn[1],
+                btn.name,
                 color=self.get_color("component_active"),
-                back_color=self.get_color("background"),
-                back_color_pressed=self.get_color("component_pressed"),
                 visible=False,
             )
             sel_buttons[btn] = self.callback_select
@@ -143,9 +152,6 @@ class SelectPage(HAUIPage):
                 self._selected = self._selected[0]
             else:
                 self._selected = str(self._selected)
-
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._handle_multiple_timer is not None:
@@ -168,7 +174,7 @@ class SelectPage(HAUIPage):
         return True
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, panel.get_title())
+        self.set_title(panel.get_title())
         self.set_items()
 
     # misc
@@ -223,6 +229,10 @@ class SelectPage(HAUIPage):
                 self._active[btn] = selection[sel_i]
                 sel_value = self.get_value(btn)
                 sel_name = self.get_name(btn)
+                if sel_name is not None:
+                    orientation = "portrait" if self.app.device.is_portrait else "landscape"
+                    size = "full" if self._select_mode == "full" else "regular"
+                    sel_name = fit_line([sel_name], 1, _SELECTION_BOXES[orientation][size])
                 color = self.get_color("component_active")
                 # selected can also be a list
                 if self._multiple and sel_value in self._selected:
@@ -230,16 +240,14 @@ class SelectPage(HAUIPage):
                 elif not self._multiple and sel_value == self._selected:
                     color = self.get_color("component_accent")
                 self.update_function_component(
-                    btn[1],
+                    btn.name,
                     text=sel_name,
                     color=color,
-                    back_color=self.get_color("background"),
-                    back_color_pressed=self.get_color("component_pressed"),
                     visible=True,
                 )
             else:
                 self._active[btn] = None
-                self.update_function_component(btn[1], visible=False)
+                self.update_function_component(btn.name, visible=False)
 
     def get_value(self, btn: tuple) -> str | None:
         if btn not in self._active:

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from ...hub.adapter import ItemProxy
 
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
@@ -42,82 +45,91 @@ class SettingsPage(HAUIPage):
         t_brght_dim_pct=Component(14, "tBrghtDimPct"),
     )
 
+    def prepare(self) -> None:
+        self.brightness_full_entity: ItemProxy | None = None
+        self.brightness_dimmed_entity: ItemProxy | None = None
+        self._handle_brightness_full: str | None = None
+        self._handle_brightness_dimmed: str | None = None
+        self._full_brightness: int | None = None
+        self._dimmed_brightness: int | None = None
+
     # panel
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        name = self.app.device.get_slug()
-
-        # auto dimming component
-        self.auto_dimming = self.app.get_item(f"switch.{name}_use_auto_dimming")
-        self._use_auto_dimming = self.auto_dimming.get_state() == "on"
-        self.auto_dimming.turn_off()
-
-        # brightness components
-        self.brightness_full_entity = self.app.get_item(f"number.{name}_brightness_full")
-        self.brightness_dimmed_entity = self.app.get_item(f"number.{name}_brightness_dimmed")
-        self._handle_brightness_full = self.brightness_full_entity.listen_state(
-            self.callback_brightness
+        brightness_full_id = self.find_esphome_entity_id("number", "Brightness Full")
+        self.brightness_full_entity = (
+            self.app.get_item(brightness_full_id) if brightness_full_id else None
         )
-        self._handle_brightness_dimmed = self.brightness_dimmed_entity.listen_state(
-            self.callback_brightness
+        brightness_dimmed_id = self.find_esphome_entity_id("number", "Brightness Dimmed")
+        self.brightness_dimmed_entity = (
+            self.app.get_item(brightness_dimmed_id) if brightness_dimmed_id else None
         )
-        self._full_brightness = self._parse_brightness(self.brightness_full_entity.get_state())
-        self._dimmed_brightness = self._parse_brightness(self.brightness_dimmed_entity.get_state())
+        self._handle_brightness_full = (
+            self.brightness_full_entity.listen_state(self.callback_brightness)
+            if self.brightness_full_entity is not None
+            else None
+        )
+        self._handle_brightness_dimmed = (
+            self.brightness_dimmed_entity.listen_state(self.callback_brightness)
+            if self.brightness_dimmed_entity is not None
+            else None
+        )
+        self._full_brightness = (
+            self._parse_brightness(self.brightness_full_entity.get_state())
+            if self.brightness_full_entity is not None
+            else None
+        )
+        self._dimmed_brightness = (
+            self._parse_brightness(self.brightness_dimmed_entity.get_state())
+            if self.brightness_dimmed_entity is not None
+            else None
+        )
 
         # display components
         self.bind_slider(self.COMPONENTS.h_brght, self.process_brightness_full)
         self.bind_slider(self.COMPONENTS.h_brght_dim, self.process_brightness_dim)
 
-        # set function buttons
-        with self.rec_cmd:
-            self.set_function_component(
-                self.COMPONENTS.fnc_left_pri,
-                self.FNC_BTN_L_PRI,
-                fnc_name=self.FNC_TYPE_NAV_UP,
-            )
-            self.set_function_component(
-                self.COMPONENTS.fnc_right_pri,
-                self.FNC_BTN_R_PRI,
-                fnc_name=self.FNC_TYPE_NAV_CLOSE,
-            )
-            # register secondary buttons (unused — _auto_assign_fncs will hide them)
-            self.set_function_component(
-                self.COMPONENTS.fnc_left_sec,
-                self.FNC_BTN_L_SEC,
-                fnc_name=None,
-            )
-            self.set_function_component(
-                self.COMPONENTS.fnc_right_sec,
-                self.FNC_BTN_R_SEC,
-                fnc_name=None,
-            )
-            # auto-assign defaults to all header button slots
-            self._auto_assign_fncs(panel)
+        # not in navigation: up and close, the secondary slots as the panel sets
+        self.set_function_buttons(
+            self.COMPONENTS.fnc_left_pri,
+            self.COMPONENTS.fnc_left_sec,
+            self.COMPONENTS.fnc_right_pri,
+            self.COMPONENTS.fnc_right_sec,
+        )
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
         # remove existing handles
-        if self._handle_brightness_full:
+        if self._handle_brightness_full is not None:
             self.app.cancel_listen_state(self._handle_brightness_full)
-        if self._handle_brightness_dimmed:
+        if self._handle_brightness_dimmed is not None:
             self.app.cancel_listen_state(self._handle_brightness_dimmed)
-        if self._use_auto_dimming:
-            self.auto_dimming.turn_on()
+
+    def _set_component_colors(self) -> None:
+        """Use theme text colors and active-icon colors on both brightness controls."""
+        for component in (
+            self.COMPONENTS.t_brght_title,
+            self.COMPONENTS.t_brght_pct,
+            self.COMPONENTS.t_brght_dim_pct,
+        ):
+            self.set_component_text_color(component, self.get_color("text"))
+        for component in (self.COMPONENTS.t_brght_ico, self.COMPONENTS.t_brght_dim_ico):
+            self.set_component_text_color(component, self.get_color("component_active"))
 
     def render_panel(self, panel: HAUIPanel) -> None:
         title = panel.get_title(self.translate("Settings"))
-        self.set_component_text(self.COMPONENTS.title, title)
+        self.set_title(title)
+        self._set_component_colors()
         self.set_component_text(
             self.COMPONENTS.t_brght_title, self.translate("Full and Dimmed Brightness:")
         )
-        # update settings
-        brightness_full_state = self.brightness_full_entity.get_state()
-        if brightness_full_state is not None and brightness_full_state != "unavailable":
-            brightness_full = int(float(brightness_full_state))
-            self.set_brightness_full_slider(brightness_full)
-        brightness_dimmed_state = self.brightness_dimmed_entity.get_state()
-        if brightness_dimmed_state is not None and brightness_dimmed_state != "unavailable":
-            brightness_dimmed = int(float(brightness_dimmed_state))
-            self.set_brightness_dim_slider(brightness_dimmed)
+        if self.brightness_full_entity is not None:
+            brightness_full_state = self.brightness_full_entity.get_state()
+            if brightness_full_state is not None and brightness_full_state != "unavailable":
+                self.set_brightness_full_slider(int(float(brightness_full_state)))
+        if self.brightness_dimmed_entity is not None:
+            brightness_dimmed_state = self.brightness_dimmed_entity.get_state()
+            if brightness_dimmed_state is not None and brightness_dimmed_state != "unavailable":
+                self.set_brightness_dim_slider(int(float(brightness_dimmed_state)))
 
     # misc
 
@@ -129,12 +141,12 @@ class SettingsPage(HAUIPage):
     def set_brightness_full_slider(self, value: int) -> None:
         self.set_slider_color(self.COMPONENTS.h_brght)
         self.set_component_value(self.COMPONENTS.h_brght, value)
-        self.send_cmd(f"click {self.COMPONENTS.t_brght_pct[1]},0")
+        self.send_cmd(f"click {self.COMPONENTS.t_brght_pct.name},0")
 
     def set_brightness_dim_slider(self, value: int) -> None:
         self.set_slider_color(self.COMPONENTS.h_brght_dim)
         self.set_component_value(self.COMPONENTS.h_brght_dim, value)
-        self.send_cmd(f"click {self.COMPONENTS.t_brght_dim_pct[1]},0")
+        self.send_cmd(f"click {self.COMPONENTS.t_brght_dim_pct.name},0")
 
     # callback
 
@@ -143,13 +155,19 @@ class SettingsPage(HAUIPage):
     ) -> None:
         self.log(f"Got brightness callback: {item}.{attribute}:{new}")
         # callback from ha
-        if self.brightness_full_entity and item == self.brightness_full_entity.entity_id:
+        if (
+            self.brightness_full_entity is not None
+            and item == self.brightness_full_entity.entity_id
+        ):
             value = self._parse_brightness(new)
             if value is not None:
                 if self._full_brightness != value:
                     self._full_brightness = value
                 self.set_brightness_full_slider(value)
-        elif self.brightness_dimmed_entity and item == self.brightness_dimmed_entity.entity_id:
+        elif (
+            self.brightness_dimmed_entity is not None
+            and item == self.brightness_dimmed_entity.entity_id
+        ):
             value = self._parse_brightness(new)
             if value is not None:
                 if self._dimmed_brightness != value:
@@ -159,12 +177,16 @@ class SettingsPage(HAUIPage):
     # event
 
     def process_brightness_full(self, value: int) -> None:
+        if self.brightness_full_entity is None:
+            return
         self.log(f"Slider full brightness value {value}")
         if self._full_brightness != value:
             self._full_brightness = value
             self.brightness_full_entity.set_state(state=value)
 
     def process_brightness_dim(self, value: int) -> None:
+        if self.brightness_dimmed_entity is None:
+            return
         self.log(f"Slider dimmed brightness value {value}")
         if self._dimmed_brightness != value:
             self._dimmed_brightness = value

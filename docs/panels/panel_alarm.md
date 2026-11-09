@@ -5,7 +5,7 @@ description: Alarm panel — security system keypad with arm/disarm controls
 
 # Panel Alarm
 
-![](../assets/previews/panel-alarm.svg)
+<img src="../assets/screens/landscape/alarm.png" alt="alarm panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/alarm.png" alt="alarm panel, portrait" width="142" height="213">
 
 ## About
 
@@ -28,13 +28,15 @@ Tapping an `alarm_control_panel` item on another panel (e.g. a grid tile) opens 
 - If a code is required but none has been entered, the action is silently ignored (the keypad entry is preserved).
 - The entered code is passed as the `code` parameter to the alarm service call.
 - After a successful action (or on alarm state change), the entered code is cleared.
-
+The keypad, action buttons, and alarm-state indicator use the active color scheme by default. Optional color settings let you override keypad button background/text colors and arm/disarm button text/background colors; leave them empty to follow the scheme.
 ## How to configure
 
 In the **panel editor**, set:
 
 - **Item** (entity picker) — An `alarm_control_panel` entity to control. Required.
-- **Keypad** section — visual styling for the numeric keypad:
-  - **Keypad font size** — Font ID for the keypad digits (0-7, larger = bigger text). Default: `2`.
-  - **Keypad button background** — Background color of each key. Default: the theme's page background (`4226`), so the keys sit flat on the page.
-  - **Keypad text color** — Color of the keypad digits. Default: the theme's component text (`65535`).
+- **Keypad** section — **Keypad font size** (font ID 0–7; default `2`), **Keypad button background**, and **Keypad text color**. Leave a color empty to use the scheme.
+- **Action buttons** section — configure hidden arm modes, whether action icons are shown, and optional arm/disarm button text and background colors. Leave a color empty to use the scheme.
+
+**Hidden arm modes** excludes selected modes even if the entity supports them. **Show action icons** prefixes each action with its destination-state icon when the label fits. Neither option changes the scheme colors.
+
+Alarm-state colors use the scheme's alarm state definitions for the active dark/light contrast variant.

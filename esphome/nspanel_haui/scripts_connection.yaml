@@ -18,6 +18,9 @@ script:
             return;
           }
           auto haui_status_str = hub_connection_state ? "online" : "offline";
+          if (hub_connection_state != id(hub_connection)) {
+            id(hub_state_change_ms) = millis();
+          }
           id(hub_connection) = hub_connection_state;
           // On connect: anchor hub_heartbeat to millis()/1000 so
           // check_hub_connection can detect a silent hub (no heartbeats arriving)
@@ -29,16 +32,15 @@ script:
             id(haui_disp).send_command("system.firstRun.txt=\"0\"");
           } else {
             // On disconnect: wake the screen immediately. Navigation to the
-            // system page (page 0) is owned by check_display, which pins the
+            // system page (page 0) is owned by update_display, which pins the
             // device to page 0 continuously while the hub is disconnected -
             // so we don't duplicate the goto_page here.
-            if (int(id(page).state) != 0) {
+            if (int(id(page).state) != 0 || id(haui_disp).is_sleeping()) {
               id(display_on).execute();
             }
           }
           if (id(client_status).state != haui_status_str) {
             id(client_status).publish_state(haui_status_str);
-            id(update_last_interaction).execute(-1, 0);
           }
 
   # Script to check the hub connection

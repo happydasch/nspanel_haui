@@ -14,7 +14,7 @@ NSPanelHAUI is the backend that allows to manage home automation devices using t
 
 ## Installation
 
-1. Install the NSPanel HAUI custom integration via HACS or by copying to `custom_components/nspanel_haui/`
+1. Install the NSPanel HAUI custom integration from the Home Assistant Marketplace or by copying to `custom_components/nspanel_haui/`
 2. Restart Home Assistant
 3. Add the integration via **Settings → Devices & Services → Add Integration → NSPanel HAUI** (config flow)
 
@@ -76,13 +76,13 @@ The panel represents a configured page. The panel contains the configuration and
 
 The lifetime of a panel is:
 
-- **create_panel**(panel)
-
-page start ..
-
 - **prepare()** (optional) — set instance attribute defaults, called during `__init__()`
+- **page_load_commands**(panel) — what the display reads while it loads the page (the theme colours, a picture background); `prepare_page_load()` sends it right before the page switch
+
+page loaded ..
+
 - **start_panel**(panel)
-- **config_panel**(panel)
+- **config_panel**(panel) — gives the header buttons `start_panel` registered without a function their default one (navigation, home or idle, unlock or notifications)
 - **before_render_panel**(panel)
   -> if True, panel can be rendered
   -> if False, panel will not be rendered
@@ -97,8 +97,8 @@ sequenceDiagram
     Page->>Page: prepare()
     Note over Page: instance attributes set
 
-    Page->>Panel: create_panel(panel)
-    Note over Panel: panel config loaded
+    Page->>Panel: page_load_commands(panel)
+    Note over Page: sent before the page switch
 
     Page->>Panel: start_panel(panel)
     Page->>Panel: config_panel(panel)
@@ -123,6 +123,10 @@ sequenceDiagram
 While a panel is active, it can be refreshed using:
 
 - **refresh_panel()** — re-renders the currently set panel by calling render_panel. This will not be triggered automatically.
+
+The ESPHome controller keeps what the shown page was sent since it loaded (`page_commands()`: the last write to each target, an attribute or a widget's `vis`/`tsw`, in the order of those writes; a page switch starts it over). Replayed on a freshly loaded page after the page's `load_commands` (what `prepare_page_load` sent), it ends on the screen the panel shows: a new Live viewer gets the page this way, whichever hook drew each widget, and the panel draws nothing again.
+
+A saved config shows the current panel again on the loaded page (`start_panel` and `render_panel` run again on the same page instance) as long as `is_loaded_for(panel)` holds, that is, the page would read the same `page_load_commands`; otherwise navigation loads the page again.
 
 ### Item
 
@@ -188,10 +192,25 @@ Any event received while in DISCONNECTED (except `req_connection`, `res_connecti
 ### Connection State Callbacks
 
 On state transitions:
-- **CONNECTED**: Sends `hub_connection_initialized`, `reset_last_interaction`, starts timers, invokes `callback_connection(True)`
+- **CONNECTED**: Sends `hub_connection_initialized`, starts timers, invokes `callback_connection(True)`; the firmware's inactivity timer is unchanged
 - **DISCONNECTED** (from CONNECTED): Sends `hub_connection_closed`, stops timers, invokes `callback_connection(False)`
 
 The callback propagates to `HAUIDevice.on_connection_changed()`, which handles navigation (open sys_system on first connect, restore panel on reconnect).
+
+## Device Status and Details
+
+The editor's Device Info dialog and device list refresh status by polling the authenticated
+`/api/nspanel_haui/status/{entry_id}` endpoint every five seconds while open. This is separate
+from the `HAUIConnectionController`: that controller owns the device handshake and heartbeats,
+not editor data refresh, and the integration does not use Home Assistant's
+`DataUpdateCoordinator` for this status view.
+
+For an enabled device, the API gathers mutable runtime details (connection, current page,
+listeners and timers) on that device app's worker. It reads Wi-Fi readings from the linked
+ESPHome entities on Home Assistant's event loop and combines them into the response. Disabled
+devices have no running app, so the API returns a minimal status using only available HA entity
+readings. In Device Info, **Page Mode** means whether the hub is showing the configured idle
+page or a regular page; it does not describe display brightness (`on`, `dim` or `off`).
 
 ## Navigation
 
@@ -247,6 +266,63 @@ This means:
 
 The linking is handled in `_link_esphome_device()` in `__init__.py` and runs both during initial setup and when a device appears later (race condition handling via the device registry listener).
 
+### Accessing sensor entities
+
+An ESPHome YAML `id:` is a firmware-side component reference, not a Home
+Assistant entity ID. Components marked `internal: true` are available to ESPHome
+automations but are not exposed as HA entities. If both the firmware and HAUI
+need a sensor value, keep its ESPHome `id:` and expose the sensor (do not mark
+it internal). If HAUI needs a value that should not be exposed as an entity,
+send it through the existing ESPHome ↔ hub event/device-state protocol instead.
+
+For sensors explicitly selected in HAUI configuration, use the configured
+entity ID. For a built-in ESPHome entity, resolve it through
+`HAAdapter.find_entity_id()` using its HA domain and ESPHome-authored original
+name, then read it through the adapter:
+
+```python
+entity_id = self.app.find_entity_id("sensor", "Temperature")
+if entity_id is not None:
+    state = self.app.get_item(entity_id).get_state()
+```
+
+The same registry lookup pattern is used for the built-in temperature sensor,
+firmware-backed settings and the editor's IP/SSID/RSSI diagnostics. Resolve
+against the linked HA device and skip an operation when no unique enabled
+entity matches; do not substitute an ID guessed from another device. The
+adapter marshals its entity-registry read onto Home Assistant's event loop.
+
+Do not derive an HA entity ID from the ESPHome `id:` or the HAUI device slug:
+HA may assign area-prefixed IDs, and entity IDs can differ after device renames.
+If the registry has no unique enabled match on the linked device, treat the
+entity as unavailable: do not read or write a guessed ID. HAUI's built-in
+inside-temperature display shows its unavailable value in that case.
+
 ## Available Panels
 
 Panels are configured representations of a page. A page can have multiple panels, like the alarm page, which is used for alarm activation and the unlock popup. There can be multiple panels using the same page. All panels can have a custom key defined, which is used for navigation. See [Panels Overview](panels/README.md) for more details about the different panels.
+
+## Virtual Panel (Live Preview)
+
+The editor's [live preview](configuration/README.md#the-live-preview) in Simulated mode and its panel cards run on one second `NSPanelHAUI` app per device, built from the device's stored config the same way setup builds it. Only the transport and the entity layer differ, so every page, controller and lifecycle hook is the real one. The app starts on first use, follows every save (`api.config.push_panels`) and stops after ten minutes without a viewer or a card render, or when the hub entry unloads.
+
+| Part | File | Role |
+|------|------|------|
+| `VirtualNSPanelHAUI` | `web/preview/virtual_panel.py` | Reads states through the sandbox, routes service calls, suppresses HA bus events, uses an inert update controller |
+| `VirtualESPHomeProxy` | `web/preview/virtual_panel.py` | Stands in for `ESPHomeProxy` and the firmware: answers the connection handshake, sends heartbeats, forwards display commands, page changes, brightness and sounds to the browser; refuses TFT and firmware uploads |
+| `Sandbox` | `web/preview/sandbox.py` | Simulated entity states over the real ones; simulates the common services (on/off, light, cover, climate, media, lock, alarm, vacuum, number/select/text, button, timer) |
+| `VirtualPanelHost` | `web/preview/virtual_panel.py` | Owns a device's virtual app: fans its display output out to every Simulated viewer (a late viewer gets the current panel redrawn) and renders panel cards |
+| WebSocket commands | `web/websocket.py` | `nspanel_haui/virtual_panel/subscribe`, `/event`, `/home`, `/idle`, `/reset_sandbox` and `/render` (admin only) |
+| `LivePanel` | `web/preview/live_panel.py` | One Live viewer of the device's own app; its WebSocket commands are `nspanel_haui/live_panel/subscribe`, `/event`, `/slider` and `/action` (admin only) |
+
+**Panel cards** (`/render`, `VirtualPanelHost.async_render`) run one panel's page through its real lifecycle (`prepare_page_load`, `start_panel`, `render_panel`, stop) on the shared app, isolated from the live display: the page sees a view of the app whose ESPHome controller records the display output, whose navigation ignores every action and which makes only service calls that return data (such as `weather.get_forecasts`). The result is `{"page", "before", "commands"}` — `before` is what the hub sends before switching to the page (the theme colours and its picture background) — and the editor replays it in the Nextion simulator. A user card renders the editor's config (unsaved edits included), a system card the device's configured panel by `key`. Popups open with `PageDescriptor.preview_kwargs` (an example notification, sample choices, a panel to unlock) or, for entity popups (recognised by their system key, so an edited one too), an entity of their `item` option's domain: the first one that is on, else the first one that is off.
+
+The browser end lives in `frontend/virtual/`: `nextion-script.js` runs the HMI's event code and the hub's display commands, `nextion-display.js` holds the display state, `nextion-view.js` renders it, `touch-input.js` turns pointer input into the firmware's `esphome.component`, `touch_start`/`touch_end` and `gesture` events, `qr-encode.js` draws QR widgets, `assets.js` loads the layouts, icon map and pictures, and `panel-session.js` connects it all to the WebSocket; `virtual-panel-session.js` (Simulated) and `live-panel-session.js` (Live) add their mode's commands and messages. Slider values come back the way the firmware returns them: the hub's `req_val`/`req_txt` go to the browser, which answers with `esphome.read_response`.
+
+Once a Simulated preview has opened, the virtual app mirrors the device's notification queue: the device's app reports every change of its queue (`publish_preview_state`), and `VirtualPanelHost` copies it into the virtual queue, read-only.
+
+In Simulated mode every non-query service call of the virtual app is simulated; queries with `return_response` (such as `weather.get_forecasts`) always reach Home Assistant. The virtual app also performs the relay switch action that ESPHome performs when a hardware button is pressed in relay mode. The browser can inject only the events a person causes on a panel: component touches, raw touches, gestures and hardware buttons.
+
+Live mode does not use the virtual app. Each Live viewer (`web.preview.live_panel.LivePanel`) subscribes to the device's own running app: the commands that app sends through `HAUIESPHomeController.send_cmd` are streamed to the browser's Nextion simulator, so page changes and stateful controls show the app's own render output. Browser input is checked (an event a person can cause, a component of the current page, coordinates on the display, the device connected) and passed to that app's event handler, so its normal service calls act on real Home Assistant entities; in relay mode a hardware button also switches the real relay, as the firmware does for the real button. **Idle** and **Reset interaction timer** are explicit live actions. A new viewer gets the current page as the panel shows it: the page's `load_commands`, then the ESPHome controller's `page_commands()`, replayed in the browser; the panel itself draws nothing again. After a save, the viewers follow the reloaded app's button settings for the button lights. The page, display-state and connection snapshots are used only for the live controls and status. Live viewers are independent of each other and of the Simulated previews: a preview switching to Live first sends `/reset_sandbox` when the sandbox has simulated states, and one switching back to Simulated takes nothing from the device and sends `/home`, so the virtual app starts over: it drops the simulated states, leaves its idle page, restarts its inactivity clock (it got no touches while Live was shown) and opens its home panel.
+
+The page layouts are exported from both HMI files by `scripts/hmi_layout/gen_virtual_layout.py` (see [Scripts for display](nextion.md#scripts-for-display)).

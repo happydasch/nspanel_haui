@@ -7,7 +7,6 @@
 import { t } from './localize.js';
 import * as Api from './api.js';
 import { savePanels } from './crud.js';
-import { importDeviceYaml, exportDeviceYaml } from './device-manager.js';
 
 /**
  * Get the user-friendly display name for a device, falling back to the device key.
@@ -37,12 +36,15 @@ export async function onDeviceManagerMoveDevice(host, e) {
   for (const key of newKeys) {
     newDevices[key] = devices[key];
   }
+  // savePanels posts the store built from _panels, so the new order goes in
+  // first and is taken back when the server rejects the save.
+  const previous = host._panels;
   host._panels = { ...host._panels, devices: newDevices };
   const friendly = _friendlyName(host, name);
   const message = direction < 0
     ? t('Device "{name}" moved up').replace('{name}', friendly)
     : t('Device "{name}" moved down').replace('{name}', friendly);
-  await host._savePanels(host._devicePanels(), message);
+  if (!(await host._savePanels(host._devicePanels(), message))) host._panels = previous;
 }
 
 export async function onDeviceManagerToggleDevice(host, e) {
@@ -109,10 +111,7 @@ export async function onDeviceManagerAdd(host, e) {
 
 export async function onDeviceManagerScan(host, e) {
   const devices = e.detail?.devices;
-  if (!devices || !devices.length) {
-    host._showToast(t("No new HAUI devices found"), "info");
-    return;
-  }
+  if (!devices || !devices.length) return;
   try {
     // Batch-add all discovered devices in a single API call.
     const batch = devices.map((d) => ({
@@ -120,10 +119,7 @@ export async function onDeviceManagerScan(host, e) {
       esphome_device_id: d.esphome_device_id || "",
       enabled: true,
     })).filter((d) => d.name && !(host._panels?.devices?.[d.name]));
-    if (!batch.length) {
-      host._showToast(t("No new HAUI devices found"), "info");
-      return;
-    }
+    if (!batch.length) return;
     await Api.addDevice(host, { devices: batch });
     // Reload so later saves include the new devices instead of dropping them.
     await Api.loadPanels(host);
@@ -134,52 +130,30 @@ export async function onDeviceManagerScan(host, e) {
   host.requestUpdate();
 }
 
-export function onDeviceManagerImportYaml(host) {
-  host._showDeviceManager = false;
-  importDeviceYaml(host);
-  host.requestUpdate();
-}
-
-export function onDeviceManagerExportYaml(host) {
-  host._showDeviceManager = false;
-  exportDeviceYaml(host);
-  host.requestUpdate();
-}
-
-export async function onDeviceManagerUpdateDisplay(host, e) {
-  const name = e.detail?.name;
-  if (!name) return;
-  try {
-    const result = await Api.updateDeviceDisplay(host, name);
-    const count = result.devices_updated?.length || 0;
-    if (name === "*") {
-      host._showToast(t('Updated display for {count} device(s)').replace('{count}', count), "success");
-    } else {
-      host._showToast(t('Display updated for "{name}"').replace('{name}', _friendlyName(host, name)), "success");
-    }
-  } catch (err) {
-    host._showToast(err.message || t("Failed to update display"), "error");
-  }
-}
-
 export async function onDeviceManagerUpdateTft(host, e) {
   const name = e.detail?.name;
   if (!name) return;
   try {
-    const result = await Api.updateDeviceTft(host, name, e.detail.version, e.detail.url);
+    if (e.detail.file) host._showToast(t("Uploading local TFT file…"), "success");
+    const result = e.detail.file
+      ? await Api.uploadDeviceUpdate(host, name, "tft", e.detail.file)
+      : await Api.updateDeviceTft(host, name, e.detail.version, e.detail.url);
     // Single-device failures are returned as HTTP errors and land in the
     // catch below; the `*` path aggregates failures server-side.  A body with
     // a 200 but an error update state is only possible by contract change on
     // the backend — still surface it instead of a false success toast.
     const update = result.update;
     if (update?.state === "error") {
-      host._showToast(update.last_error || t("TFT update failed"), "error");
+      const message = update.last_error || t("TFT update failed");
+      if (e.detail.file) e.target?._finishLocalUpload?.(message);
+      host._showToast(message, "error");
       return;
     }
     const failed = result.failed || [];
     const count = result.devices_updated?.length || 0;
     if (failed.length) {
       const firstError = failed[0]?.error || t("TFT update failed");
+      if (e.detail.file) e.target?._finishLocalUpload?.(firstError);
       host._showToast(
         t('TFT update failed for {count} device(s): {error}')
           .replace('{count}', failed.length)
@@ -188,12 +162,16 @@ export async function onDeviceManagerUpdateTft(host, e) {
       );
       return;
     }
+    if (e.detail.file) e.target?._finishLocalUpload?.();
     if (name === "*") {
       host._showToast(t('TFT update started for {count} device(s)').replace('{count}', count), "success");
     } else {
       host._showToast(t('TFT update started for "{name}"').replace('{name}', _friendlyName(host, name)), "success");
     }
   } catch (err) {
+    if (e.detail.file) {
+      e.target?._finishLocalUpload?.(err.message || t("Failed to install the TFT"));
+    }
     host._showToast(err.message || t("Failed to install the TFT"), "error");
   }
 }
@@ -202,65 +180,25 @@ export async function onDeviceManagerUpdateFirmware(host, e) {
   const name = e.detail?.name;
   if (!name) return;
   try {
-    const result = await Api.updateDeviceFirmware(host, name, e.detail.version, e.detail.url);
+    if (e.detail.file) host._showToast(t("Uploading local firmware file…"), "success");
+    const result = e.detail.file
+      ? await Api.uploadDeviceUpdate(host, name, "firmware", e.detail.file)
+      : await Api.updateDeviceFirmware(host, name, e.detail.version, e.detail.url);
     const update = result.update;
     if (update?.firmware_install_error) {
+      if (e.detail.file) e.target?._finishLocalUpload?.(update.firmware_install_error);
       host._showToast(update.firmware_install_error, "error");
       return;
     }
+    if (e.detail.file) e.target?._finishLocalUpload?.();
     host._showToast(
       t('Firmware update started for "{name}"').replace('{name}', _friendlyName(host, name)),
       "success",
     );
   } catch (err) {
+    if (e.detail.file) {
+      e.target?._finishLocalUpload?.(err.message || t("Failed to install firmware"));
+    }
     host._showToast(err.message || t("Failed to install firmware"), "error");
-  }
-}
-
-export async function onDeviceManagerCheckUpdate(host, e) {
-  const name = e.detail?.name;
-  if (!name) return;
-  const label = _friendlyName(host, name);
-  let check;
-  try {
-    check = (await Api.checkDeviceUpdate(host, name)).results[name];
-  } catch (err) {
-    host._showToast(err.message || t("Failed to check for updates"), "error");
-    return;
-  }
-  // The hub reports a newer release only on the display; this toast is the
-  // editor's answer to the check.
-  if (check.check_error) {
-    host._showToast(
-      t('Update check failed for "{name}": {error}')
-        .replace('{name}', label).replace('{error}', check.check_error),
-      "error",
-    );
-  } else if (check.firmware_installing) {
-    host._showToast(
-      t('Firmware update {version} started on "{name}"')
-        .replace('{version}', check.firmware_update_version || '').replace('{name}', label),
-      "success",
-    );
-  } else if (check.firmware_update_available) {
-    host._showToast(
-      t('Firmware {version} is available for "{name}"')
-        .replace('{version}', check.firmware_update_version || '').replace('{name}', label),
-      "info",
-    );
-  } else if (check.state === "error") {
-    host._showToast(check.last_error || t("TFT update failed"), "error");
-  } else if (check.state === "checking" || check.state === "installing") {
-    host._showToast(
-      t('Installing TFT {version} on "{name}"')
-        .replace('{version}', check.version || '').replace('{name}', label),
-      "success",
-    );
-  } else {
-    host._showToast(
-      t('"{name}" is up to date (latest release {version})')
-        .replace('{name}', label).replace('{version}', check.latest_release || '-'),
-      "success",
-    );
   }
 }

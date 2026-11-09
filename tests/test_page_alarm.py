@@ -6,9 +6,11 @@ display and Home Assistant.
 """
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.page.alarm import AlarmPage
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.mapping.color import ALARM_COLORS_LIGHT, ColorTheme
+from custom_components.nspanel_haui.haui.page.alarm import AlarmPage
 
 
 class _Entity:
@@ -36,6 +38,8 @@ class _Controller:
 
 
 class _Device:
+    is_portrait = False
+
     def get(self, key, default=None):
         return {}.get(key, default)
 
@@ -51,6 +55,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
+        self.color_theme = ColorTheme({})
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}
         self.device = _Device()
@@ -92,6 +97,14 @@ ENTITY_ID = "alarm_control_panel.home"
 ARM_HOME_AND_AWAY = 1 | 2
 
 
+def test_alarm_state_icon_uses_light_fixed_palette():
+    app = _App({})
+    app.color_theme = ColorTheme({}, "light")
+    page = AlarmPage(app, {"page_id": 17})
+
+    assert page._alarm_color("armed_home") == ALARM_COLORS_LIGHT["armed"]
+
+
 def _alarm():
     return _Entity("disarmed", {"friendly_name": "Home", "supported_features": ARM_HOME_AND_AWAY})
 
@@ -105,6 +118,17 @@ def _show(panel_cfg, kwargs=None):
     page = AlarmPage(app, {"page_id": 17})
     page.set_panel(panel)
     return app, page, entity
+
+
+def test_no_selected_item_hides_keypad_and_disables_actions():
+    app, page, entity = _show({})
+
+    assert "vis bKey1,0" in app.cmds
+    assert "vis b1Fnc,0" in app.cmds
+    page.callback_keypad(None, AlarmPage.COMPONENTS.btn_key_1)
+    page.callback_action(None, AlarmPage.COMPONENTS.b1_fnc)
+
+    assert entity.calls == []
 
 
 def test_editor_panel_controls_configured_item():
@@ -123,3 +147,74 @@ def test_popup_controls_item_passed_by_id():
     page.callback_action(None, AlarmPage.COMPONENTS.b2_fnc)
 
     assert entity.calls == [("alarm_arm_away", {})]
+
+
+def test_dark_display_keeps_the_alarm_state_current():
+    """The dark display is awake; see test_page_clock."""
+    app, page, entity = _show({"item": {"item": ENTITY_ID}})
+    app.device.device_info = {"display_state": "off"}
+    app.cmds.clear()
+    entity.state = "armed_away"
+
+    page.callback_alarm_state(ENTITY_ID, "state", "disarmed", "armed_away", {})
+
+    assert 'tTitle.txt="Armed away"' in app.cmds
+
+
+ARM_HOME_AWAY_NIGHT = 1 | 2 | 4
+
+
+def _show_with(panel_cfg, state="disarmed", features=ARM_HOME_AWAY_NIGHT):
+    entity = _Entity(state, {"friendly_name": "Home", "supported_features": features})
+    app = _App({ENTITY_ID: entity})
+    panel = HAUIPanel(app, {"type": "alarm", "item": {"item": ENTITY_ID}, **panel_cfg})
+    page = AlarmPage(app, {"page_id": 17})
+    page.set_panel(panel)
+    return app, page, entity
+
+
+def test_hidden_arm_modes_are_not_offered():
+    app, page, entity = _show_with({"hidden_arm_modes": ["home"]})
+
+    assert 'b1Fnc.txt="Away"' in app.cmds
+    assert 'b2Fnc.txt="Night"' in app.cmds
+    assert "vis b3Fnc,0" in app.cmds
+
+    page.callback_action(None, AlarmPage.COMPONENTS.b1_fnc)
+    assert entity.calls == [("alarm_arm_away", {})]
+
+
+def test_action_icons_prefix_labels_that_fit():
+    app, page, _entity = _show_with({"action_icons": True})
+
+    night_icon = AlarmPage._ALARM_ICONS["armed_night"]
+    assert f'b3Fnc.txt="{night_icon} Night"' in app.cmds
+
+
+def test_action_icon_is_left_out_when_the_label_does_not_fit():
+    app, page, _entity = _show_with({"action_icons": True}, state="armed_away")
+
+    # "Disarm" + icon (3 bytes) + space = 10 bytes: fits
+    disarm_icon = AlarmPage._ALARM_ICONS["disarmed"]
+    assert f'b1Fnc.txt="{disarm_icon} Disarm"' in app.cmds
+
+    page._show_action_button(AlarmPage.COMPONENTS.b2_fnc, "alarm_disarm", "Désarmer")
+    assert 'b2Fnc.txt="Désarmer"' in app.cmds
+
+
+def test_disarm_button_colors_apply_only_to_disarm():
+    app, page, _entity = _show_with(
+        {"disarm_button_color": 65535, "disarm_button_back_color": 3334}, state="armed_away"
+    )
+
+    assert "b1Fnc.pco=65535" in app.cmds
+    assert "b1Fnc.bco=3334" in app.cmds
+
+
+def test_arm_button_colors_keep_theme_when_unset():
+    app, page, _entity = _show_with({"arm_button_color": "", "arm_button_back_color": None})
+    themed_app, _page, _e = _show_with({})
+
+    assert [c for c in app.cmds if c.startswith("b1Fnc.")] == [
+        c for c in themed_app.cmds if c.startswith("b1Fnc.")
+    ]

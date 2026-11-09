@@ -4,24 +4,29 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import NotifType, SysPanelKey
-from ..mapping.descriptor import PageDescriptor, _
-from ..mapping.icons import (
-    DEFAULT_NOTIF_ICON_FALLBACK,
-    DEFAULT_NOTIF_ICONS,
-    ICO_NEXT_PAGE,
-)
+from ..mapping.const import PopupPanelKey
+from ..mapping.descriptor import PageDescriptor, PageOption, _
+from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.icon import parse_icon
-from ..utils.text import chunk_text, parse_notification_text
-
-_NOTIF_TYPE_COLORS: dict[str, str] = {
-    NotifType.INFO: "component_text",
-    NotifType.WARNING: "header_accent",
-    NotifType.CRITICAL: "component_active",
-}
+from ..utils.text import TextBox, fit_text, parse_notification_text
 
 # Custom function name for the manual next-page header button.
 _FNC_NEXT_PAGE = "notif_next_page"
+
+# The page's text widgets as the HMIs define them (w, h, borderw, txt_maxl);
+# tests/test_page_notify.py checks them against the exported layouts.
+_TEXT_BOXES: dict[str, dict[str, TextBox]] = {
+    "landscape": {
+        "tText": TextBox(284, 170, 2, 150),
+        "tTextFull": TextBox(426, 170, 2, 200),
+    },
+    "portrait": {
+        "tText": TextBox(296, 240, 2, 150),
+        "tTextFull": TextBox(296, 335, 2, 200),
+    },
+}
+# Fonts the automatic text size picks from, largest first: 48, 32 and 24 px.
+_AUTO_FONTS = (3, 2, 1)
 
 
 class CommonNotifyPage(HAUIPage):
@@ -32,8 +37,8 @@ class CommonNotifyPage(HAUIPage):
         fnc_left_sec=Component(5, "bFncLSec"),
         fnc_right_pri=Component(6, "bFncRPri"),
         fnc_right_sec=Component(7, "bFncRSec"),
-        # tTextFull is retained for layout compatibility; notifications now
-        # always render beside the icon in tText, paging long text instead.
+        # Message text: tText beside the icon, tTextFull across the icon's
+        # area when there is no icon.
         t_text_full=Component(8, "tTextFull"),
         t_text=Component(9, "tText"),
         t_icon=Component(10, "tIcon"),
@@ -51,11 +56,20 @@ class NotifyPage(CommonNotifyPage):
         description=_("Pop-up notification panel with icon and optional buttons."),
         is_system=True,
         sys_panel_default={
-            "key": SysPanelKey.POPUP_NOTIFY,
+            "key": PopupPanelKey.POPUP_NOTIFY,
             "show_in_navigation": False,
         },
         can_show_popup=True,
         icon="mdi:email-outline",
+        options=[
+            PageOption(
+                key="icon_color",
+                kind="color",
+                label=_("Icon color"),
+                description=_("Leave empty to use the theme color."),
+            ),
+        ],
+        preview_kwargs={"notification": _("Example notification: your message text appears here.")},
     )
 
     # panel
@@ -63,6 +77,7 @@ class NotifyPage(CommonNotifyPage):
     def prepare(self) -> None:
 
         self._icon = ""
+        self._text_box = self.COMPONENTS.t_text
         self._notification = ""
         self._title = ""
         self._chunks: list[str] = []
@@ -70,18 +85,16 @@ class NotifyPage(CommonNotifyPage):
         self._total_pages = 0
         self._btn_left = ""
         self._btn_right = ""
-        self._notif_type = NotifType.INFO
         self._button_callback_fnc = None
         self._close_callback_fnc = None
 
-    def start_panel(self, panel: HAUIPanel) -> None:
-        self._saved_auto = self._save_auto_state()
+    def suspends_auto_page(self) -> bool:
+        """Keep a notification visible instead of switching to the idle page."""
+        return True
 
-        self._notif_type = panel.get("notif_type", NotifType.INFO)
+    def start_panel(self, panel: HAUIPanel) -> None:
+        self._current_page = 0
         self._icon = parse_icon(panel.get("icon", ""))
-        if not self._icon:
-            fallback_icon = DEFAULT_NOTIF_ICONS.get(self._notif_type, DEFAULT_NOTIF_ICON_FALLBACK)
-            self._icon = parse_icon(fallback_icon)
         self._notification = parse_notification_text(panel.get("notification", ""))
         self._btn_left = parse_icon(panel.get("btn_left", ""))
         self._btn_right = parse_icon(panel.get("btn_right", ""))
@@ -105,24 +118,20 @@ class NotifyPage(CommonNotifyPage):
             self.COMPONENTS.fnc_right_sec,
         )
 
-        # The left-secondary header slot stays free on the notify popup
-        # (auto-assignment leaves it empty for popups), so use it for the
-        # manual next-page button.  It is hidden until _start_paging finds
-        # more than one page of text.
+        # The manual next-page button uses the inner-right header slot.  The
+        # outer-right slot keeps NAV_CLOSE, which is the only dismissal for
+        # buttonless notify popups (update notices, entity-unavailable, timer).
+        # It is hidden until _start_paging finds more than one page of text.
         self.set_function_component(
-            self.COMPONENTS.fnc_left_sec,
-            self.FNC_BTN_L_SEC,
+            self.COMPONENTS.fnc_right_sec,
+            self.FNC_BTN_R_SEC,
             _FNC_NEXT_PAGE,
             icon=ICO_NEXT_PAGE,
             color=self.get_color("header_accent"),
             visible=False,
         )
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
     def _stop_panel(self, panel: HAUIPanel) -> None:
-        self._restore_auto_state(self._saved_auto)
         # notify about close
         if self._close_callback_fnc:
             self._close_callback_fnc()
@@ -130,17 +139,25 @@ class NotifyPage(CommonNotifyPage):
     def render_panel(self, panel: HAUIPanel) -> None:
         # Keep the configured title as the base; _start_paging appends the page counter.
         self._title = self.get("title", panel.get_title())
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
 
-        # Always show an icon; start_panel falls back to the severity default.
-        icon_color_key = _NOTIF_TYPE_COLORS.get(self._notif_type, "component_text")
-        icon_color = panel.get("icon_color", self.get_color(icon_color_key))
-        self.set_component_text_color(self.COMPONENTS.t_icon, icon_color)
-        self.set_component_text(self.COMPONENTS.t_icon, self._icon)
-        self.show_component(self.COMPONENTS.t_icon)
+        if self._icon:
+            icon_color = panel.get("icon_color", None)
+            if icon_color is None or icon_color == "":
+                icon_color = self.get_color("component_text")
+            self.set_component_text_color(self.COMPONENTS.t_icon, icon_color)
+            self.set_component_text(self.COMPONENTS.t_icon, self._icon)
+            self.show_component(self.COMPONENTS.t_icon)
+            self._text_box = self.COMPONENTS.t_text
+            self.hide_component(self.COMPONENTS.t_text_full)
+        else:
+            # No icon: hide its slot and give the text the full width.
+            self.hide_component(self.COMPONENTS.t_icon)
+            self._text_box = self.COMPONENTS.t_text_full
+            self.hide_component(self.COMPONENTS.t_text)
 
-        font_size = self._calculate_text_display(self._notification)
-        self.send_cmd(f"{self.COMPONENTS.t_text.name}.font={font_size}")
+        font_size, self._chunks = self._fit_text()
+        self.send_cmd(f"{self._text_box.name}.font={font_size}")
 
         if self._btn_left:
             btn_left_color = panel.get("btn_left_color", self.get_color("component_text"))
@@ -158,74 +175,66 @@ class NotifyPage(CommonNotifyPage):
             self.set_component_text(self.COMPONENTS.btn_right, self._btn_right)
             self.show_component(self.COMPONENTS.btn_right)
 
-        # Show the first page immediately; _start_paging splits the text into
-        # pages, appends the page counter to the title when it does not fit,
-        # and shows the manual next-page button while more pages remain.
-        self._start_paging(font_size)
+        # Show the first page immediately; _start_paging appends the page
+        # counter to the title when the text does not fit on one page, and
+        # shows the manual next-page button while more pages remain.
+        self._start_paging()
 
-    def _calculate_text_display(self, message: str) -> int:
-        """Return the font size used for the notification text."""
-        text_size = self._text_size
-        if text_size == "auto":
-            if len(message) < 50:
-                return 3  # large
-            if len(message) < 150:
-                return 2  # medium
-            return 1  # small
-        return int(text_size)
+    def _fit_text(self) -> tuple[int, list[str]]:
+        """Font size and pages of the notification text in the shown text widget.
+
+        ``auto`` picks the largest font that shows the whole message on one
+        page, else the smallest font, paged.  A fixed ``text_size`` is paged
+        at that size.
+        """
+        portrait = hasattr(self.app, "device") and getattr(self.app.device, "is_portrait", False)
+        box = _TEXT_BOXES["portrait" if portrait else "landscape"][self._text_box.name]
+        if self._text_size != "auto":
+            font = int(self._text_size)
+            return font, fit_text(self._notification, font, box)
+        for font in _AUTO_FONTS:
+            pages = fit_text(self._notification, font, box)
+            if len(pages) <= 1:
+                break
+        return font, pages
 
     # paging
 
-    def _start_paging(self, font_size: int) -> None:
-        """Split the notification text into pages and show the first page.
+    def _start_paging(self) -> None:
+        """Show the first page of the fitted text (``_fit_text``).
 
-        Paging is manual: the left-secondary header button advances to the
+        Paging is manual: the inner-right header button advances to the
         next page.  Long text never advances on its own and is never
         truncated — the final page stays visible until the popup closes.
         """
-        if font_size == 3:
-            chars_per_line = 22
-            lines = 2
-        elif font_size == 2:
-            chars_per_line = 16
-            lines = 3
-        else:
-            chars_per_line = 11
-            lines = 4
-
-        if hasattr(self.app, "device") and getattr(self.app.device, "is_portrait", False):
-            lines = int(lines * 1.5)
-
-        self._chunks = chunk_text(self._notification, chars_per_line, lines)
         self._total_pages = len(self._chunks)
-        self._current_page = 0
+        # A redraw can refresh the current page without restarting the panel;
+        # keep that page unless the updated text no longer has it.
+        self._current_page = min(self._current_page, max(self._total_pages - 1, 0))
 
         if self._total_pages > 1:
             self._set_page_text()
         else:
             self.set_component_text(
-                self.COMPONENTS.t_text,
+                self._text_box,
                 self._chunks[0] if self._chunks else self._notification,
             )
-        self.show_component(self.COMPONENTS.t_text)
+        self.show_component(self._text_box)
         self._update_next_page_button()
 
     def _set_page_text(self) -> None:
         """Render the current page and its ``(page/total)`` title counter."""
-        self.set_component_text(self.COMPONENTS.t_text, self._chunks[self._current_page])
+        self.set_component_text(self._text_box, self._chunks[self._current_page])
         counter = f"({self._current_page + 1}/{self._total_pages})"
-        self.set_component_text(
-            self.COMPONENTS.title,
-            f"{self._title} {counter}" if self._title else counter,
-        )
+        self.set_title(self._title, reserve=counter)
         self._update_next_page_button()
 
     def _update_next_page_button(self) -> None:
         """Show the manual next-page button only while another page remains."""
-        if self.FNC_BTN_L_SEC not in self._fnc_items:
+        if self.FNC_BTN_R_SEC not in self._fnc_items:
             return
         self.update_function_component(
-            self.FNC_BTN_L_SEC,
+            self.FNC_BTN_R_SEC,
             visible=self._total_pages > 1 and self._current_page < self._total_pages - 1,
         )
 

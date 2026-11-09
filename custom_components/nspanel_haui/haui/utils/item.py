@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from ..mapping.color import ALARM_COLORS, CLIMATE_COLORS, COLORS, WEATHER_COLORS
+from ..mapping.color import COLORS
 from ..mapping.icon_mapping import (
     INTERNAL_TYPE_MAPPING,
     MEDIA_CONTENT_TYPE_MAPPING,
@@ -11,6 +11,7 @@ from ..mapping.icon_mapping import (
 )
 from .color import rgb565_to_rgb, rgb_brightness, rgb_to_rgb565
 from .icon import get_icon, get_icon_name_by_state
+from .value import format_number
 
 _ColorGetter = Callable[[str], int]
 
@@ -83,9 +84,15 @@ def _color_weather(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
+    icon_scheme: str | None = None,
 ) -> int:
     key = (item_state or "").replace("-", "_")
-    return WEATHER_COLORS.get(key, WEATHER_COLORS["default"])
+    color = haui_item.get_icon_color("weather", key, icon_scheme)
+    if color is None:
+        color = haui_item.get_icon_color("weather", "default", icon_scheme)
+    if color is None:
+        raise KeyError("weather icon palette has no default color")
+    return color
 
 
 def _color_climate(
@@ -93,8 +100,13 @@ def _color_climate(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
+    icon_scheme: str | None = None,
 ) -> int | None:
-    return CLIMATE_COLORS.get(item_state) if item_state is not None else None
+    return (
+        haui_item.get_icon_color("climate", item_state, icon_scheme)
+        if item_state is not None
+        else None
+    )
 
 
 def _color_alarm(
@@ -102,14 +114,17 @@ def _color_alarm(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
+    icon_scheme: str | None = None,
 ) -> int | None:
     if item_state == "disarmed":
-        return ALARM_COLORS["disarmed"]
-    if item_state == "arming":
-        return ALARM_COLORS["arming"]
-    if item_state in _ALARM_ARMED_STATES:
-        return ALARM_COLORS["armed"]
-    return None
+        key = "disarmed"
+    elif item_state == "arming":
+        key = "arming"
+    elif item_state in _ALARM_ARMED_STATES:
+        key = "armed"
+    else:
+        return None
+    return haui_item.get_icon_color("alarm", key, icon_scheme)
 
 
 def _color_media_player(
@@ -117,6 +132,7 @@ def _color_media_player(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
+    icon_scheme: str | None = None,
 ) -> int:
     if item_state == "playing":
         return color_getter("entity_on")
@@ -130,6 +146,7 @@ def _color_group(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
+    icon_scheme: str | None = None,
 ) -> int:
     return color_getter("entity_on") if item_state == "on" else color_getter("entity_off")
 
@@ -139,6 +156,7 @@ def _color_light(
     item_state: str | None,
     haui_item: HAUIItem,
     color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
+    icon_scheme: str | None = None,
 ) -> int | None:
     if item_state != "on":
         return None
@@ -170,7 +188,10 @@ _ON_STATES = frozenset(["on", "unlocked", "above_horizon", "home", "active"])
 
 
 def get_item_color(
-    haui_item: HAUIItem, default_color: int, color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER
+    haui_item: HAUIItem,
+    default_color: int,
+    color_getter: _ColorGetter = _DEFAULT_COLOR_GETTER,
+    icon_scheme: str | None = None,
 ) -> int:
     """Returns a RGB565 color for the given entity.
 
@@ -201,7 +222,9 @@ def get_item_color(
     # per-type override
     handler = _COLOR_DISPATCH.get(item_type)
     if handler:
-        color = handler(entity, item_state, haui_item, color_getter=color_getter)
+        color = handler(
+            entity, item_state, haui_item, color_getter=color_getter, icon_scheme=icon_scheme
+        )
         if color is not None:
             result_color = color
 
@@ -271,7 +294,8 @@ def get_item_icon(haui_item: HAUIItem, default_icon: str) -> str:
 def _value_weather(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:
     temp_unit = haui_item.get_item_attr("temperature_unit", "°C")
     temp = haui_item.get_item_attr("temperature", "")
-    return f"{temp}{temp_unit}" if temp else ""
+    # compare against empty values: 0 °C is falsy but a real temperature
+    return "" if temp in (None, "") else f"{format_number(temp)}{temp_unit}"
 
 
 def _value_button(entity: Any, item_state: str | None, haui_item: HAUIItem) -> str:

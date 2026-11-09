@@ -154,6 +154,17 @@ export async function saveFromData(host, panel, index) {
     return;
   }
 
+  // Only the popups can be replaced; the hub refuses a panel under the key
+  // of System, Blank, Settings or About.
+  const fixedSysPanel = (host._panels?.system_panels || []).find(
+    (sp) => !sp.editable && sp.key.toLowerCase() === (panel.key || "").toLowerCase()
+  );
+  if (fixedSysPanel) {
+    host._error = t('Key "{key}" belongs to a system panel').replace('{key}', panel.key);
+    host.requestUpdate();
+    return;
+  }
+
   // Read type-specific fields from descriptor
   // Use panel.type (resolved user type) for descriptor lookup
   const panelType = panel.type || "clock";

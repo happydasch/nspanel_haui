@@ -6,12 +6,11 @@ import re
 import sys
 import types
 from datetime import UTC, datetime
-from pathlib import Path
 from unittest.mock import MagicMock
 
 # ---------------------------------------------------------------------------
 # Stub out ONLY what __init__.py needs (from homeassistant.helpers import
-# config_validation as cv) so that other tests can import nspanel_haui
+# config_validation as cv) so that other tests can import custom_components.nspanel_haui
 # without HA installed.  Keep it minimal — individual test files that need
 # more detailed stubs (e.g. test_config_flow.py) install their own on top
 # via setdefault.
@@ -48,6 +47,10 @@ def _install_ha_stubs() -> None:
         "IssueSeverity", (), {"ERROR": "error", "WARNING": "warning", "CRITICAL": "critical"}
     )
     helpers.issue_registry = issue_registry
+    # Setup removes the hub's former current-page sensors from the registry.
+    entity_registry = MagicMock()
+    entity_registry.async_entries_for_config_entry = MagicMock(return_value=[])
+    helpers.entity_registry = entity_registry
 
     ha = types.ModuleType("homeassistant")
     ha.helpers = helpers
@@ -64,6 +67,7 @@ def _install_ha_stubs() -> None:
         "homeassistant.util": util,
         "homeassistant.helpers.config_validation": config_validation,
         "homeassistant.helpers.issue_registry": issue_registry,
+        "homeassistant.helpers.entity_registry": entity_registry,
         "homeassistant.data_entry_flow": data_entry_flow,
         "homeassistant.const": MagicMock(),
         "homeassistant.core": MagicMock(),
@@ -102,8 +106,3 @@ def _install_dateutil_stubs() -> None:
 
 _install_ha_stubs()
 _install_dateutil_stubs()
-
-ROOT = Path(__file__).parent.parent
-CC = ROOT / "custom_components"
-if str(CC) not in sys.path:
-    sys.path.insert(0, str(CC))

@@ -8,9 +8,10 @@ row page reads.
 import types
 
 import pytest
-from nspanel_haui.haui.abstract.haui_item import HAUIItem
-from nspanel_haui.haui.features import CoverFeatures
-from nspanel_haui.haui.page.row import RowPage
+
+from custom_components.nspanel_haui.haui.abstract.haui_item import HAUIItem
+from custom_components.nspanel_haui.haui.features import CoverFeatures
+from custom_components.nspanel_haui.haui.page.row import RowPage
 
 _COLORS = {"component_active": 1, "text_disabled": 2}
 
@@ -38,6 +39,9 @@ class _Item:
     def is_stale(self, max_age):
         return False
 
+    def get_value(self):
+        return self.state
+
 
 def _row_page():
     page = RowPage.__new__(RowPage)
@@ -47,7 +51,7 @@ def _row_page():
     page.log = lambda *a, **kw: None
     # Sparse app for stale-data reads (threshold off → never stale).
     page.app = types.SimpleNamespace(
-        device=types.SimpleNamespace(get=lambda key, default=0: default)
+        device=types.SimpleNamespace(is_portrait=False, get=lambda key, default=0: default)
     )
     page._fnc_items = {}
     for name in [
@@ -94,7 +98,36 @@ def test_slider_without_numeric_state_shows_state_text(state):
     page.update_item_slider(item, 1)
 
     assert "r1Slider.val=0" in page.cmds
-    assert f'r1SliderTxt.txt="translated:{state}"' in page.cmds
+    text_command = next(cmd for cmd in page.cmds if cmd.startswith("r1SliderTxt.txt="))
+    assert text_command.endswith('.."')
+
+
+def test_long_row_entity_name_is_shortened_to_fit_name_widget():
+    page = _row_page()
+    item = types.SimpleNamespace(
+        get_name=lambda: "Kitchen ceiling recessed light",
+        get_icon=lambda: "",
+        get_color=lambda: 0,
+    )
+    calls = []
+    page._active_items = {RowPage.COMPONENTS.r1_ovl: item}
+    page.update_function_component = lambda name, **kwargs: calls.append((name, kwargs))
+    page.get_item_display_type = lambda _item: "text"
+    page.update_item_text = lambda _item, _idx: None
+
+    page.update_row_entry(1)
+
+    name = next(kwargs["text"] for component, kwargs in calls if component == "r1Name")
+    assert name.endswith("..")
+    assert len(name.encode()) <= 20
+
+
+def test_long_row_value_is_shortened_to_fit_value_widget():
+    page = _row_page()
+    item = _Item("sensor", "A very long sensor value")
+
+    assert page._value_cell_text(item).endswith("..")
+    assert len(page._value_cell_text(item).encode()) <= 15
 
 
 # --- cover rows -------------------------------------------------------------

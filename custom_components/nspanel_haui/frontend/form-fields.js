@@ -807,8 +807,9 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
       return renderBoolOption(host, opt, id, val);
 
     case "int":
+      // an empty field unsets the option, so the panel uses its default again
       return optionGroup(id, opt,
-        renderNumberInput(id, val, (raw) => set(parseInt(raw, 10) || 0), { step: "1" }));
+        renderNumberInput(id, val, (raw) => set(raw === "" ? undefined : parseInt(raw, 10)), { step: "1" }));
 
     case "float":
       return optionGroup(id, opt,

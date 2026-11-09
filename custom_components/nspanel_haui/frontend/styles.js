@@ -15,7 +15,6 @@ import { css } from './lit-import.js';
 import { panelGridStyles } from './styles/panel-grid-styles.js';
 import { panelTableStyles } from './styles/panel-table-styles.js';
 import { panelCommonStyles } from './styles/panel-common-styles.js';
-import { panelPreviewStyles } from './styles/panel-preview-styles.js';
 import { colorPickerStyles } from './styles/color-picker-styles.js';
 import { dropdownStyles } from './styles/dropdown-styles.js';
 import { itemListStyles } from './styles/item-list-styles.js';
@@ -105,7 +104,7 @@ export const haStyleDialog = css`
  * and ha-button provide those.
  */
 export const editorStyles = css`
-  ${panelGridStyles}${panelTableStyles}${panelCommonStyles}${panelPreviewStyles}
+  ${panelGridStyles}${panelTableStyles}${panelCommonStyles}
   ${colorDialogStyles}${colorPickerStyles}${dropdownStyles}${itemListStyles}${formCommonStyles}
   .container {
     display: flex;
@@ -213,8 +212,9 @@ export const editorStyles = css`
 /* ── toast / loading ─────────────── */
   .toast {
     position: fixed;
-    bottom: 24px;
-    left: 50%;
+    inset: auto auto 24px 50%;
+    margin: 0;
+    border: 0;
     transform: translateX(-50%);
     padding: 12px 24px;
     border-radius: 8px;
@@ -370,6 +370,21 @@ export const editorStyles = css`
     color: var(--secondary-text-color, #888);
     white-space: nowrap;
   }
+  .di-device-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--divider-color, #e0e0e0);
+  }
+  .di-health-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+  }
   .di-meta-icon {
     --mdc-icon-size: 14px;
     color: var(--secondary-text-color, #aaa);
@@ -476,36 +491,36 @@ export const editorStyles = css`
 
   /* ── device manager dialog ──────── */
 
-  .device-mgr-add-form {
+  .device-update-picker {
     background: var(--secondary-background-color, #f5f5f5);
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 16px;
   }
 
-  .device-mgr-add-form .native-input {
+  .device-update-picker .native-input {
     display: block;
     width: 100%;
   }
 
-  .device-mgr-tft-form {
+  .device-update-picker {
     margin: 8px 0 0;
     cursor: default;
   }
 
-  .device-mgr-tft-form .native-select {
+  .device-update-picker .native-select {
     display: block;
     width: 100%;
   }
 
-  .device-mgr-add-actions {
+  .device-update-actions {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
     margin-top: 8px;
   }
 
-  .device-mgr-error {
+  .device-update-error {
     color: var(--error-color, #e53935);
     font-size: 0.85em;
     margin: 4px 0 0;
@@ -806,15 +821,35 @@ export const editorStyles = css`
     .pl-card-type-icon { max-width: 30px; }
   }
 
-  /* ── editor footer (GitHub + Docs links) ── */
+  /* ── editor footer (version + GitHub + Docs links) ── */
   .editor-footer {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 24px;
     padding: 16px;
     border-top: 1px solid var(--divider-color, #e0e0e0);
     margin-top: var(--ha-space-6);
+  }
+  .footer-version-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .footer-version {
+    color: var(--secondary-text-color, #666);
+    font-size: 0.88em;
+  }
+  .footer-dev-badge {
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--warning-color, #ffc107);
+    color: var(--primary-text-color, #212121);
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
   .footer-link {
     display: inline-flex;

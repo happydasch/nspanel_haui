@@ -4,11 +4,29 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import * as Api from '../../custom_components/nspanel_haui/frontend/api.js';
+import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/haui-editor.js';
 import { startStatusPolling, stopStatusPolling } from '../../custom_components/nspanel_haui/frontend/device-info.js';
 import '../../custom_components/nspanel_haui/frontend/dialogs/device-manager.js';
 import { jsonResponse, makeHost } from './fake-host.mjs';
+import { previewRenderKey } from '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
 
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); };
+
+function editor() {
+  const host = Object.create(NSPanelEditor.prototype);
+  Object.assign(host, {
+    entryId: 'entry1',
+    _loading: true,
+    _panels: { devices: {} },
+    _selectedDevice: null,
+    _deviceStatuses: {},
+    _deviceStatus: null,
+    _deviceStatusError: null,
+    _deviceConfig: null,
+    _showToast() {},
+  });
+  return host;
+}
 
 /** Host whose /status responses stay pending until released via `host.pending`. */
 function statusHost() {
@@ -23,6 +41,95 @@ function statusHost() {
   host.pending = pending;
   return host;
 }
+
+test('preview render keys change when cached device versions arrive', () => {
+  const host = {
+    entryId: 'entry1',
+    _selectedDevice: 'kitchen',
+    _deviceConfig: {},
+    _deviceStatuses: {},
+    _devicePanels: () => [],
+  };
+  const before = previewRenderKey(host);
+  host._deviceStatuses.kitchen = {
+    device_info: { yaml_version: '0.4.5', tft_version: '0.4.2' },
+  };
+  assert.notEqual(previewRenderKey(host), before);
+});
+
+test('a status poll that only moves live readings keeps every card render', () => {
+  // The editor polls the status every 5 s; a new render key re-renders every card.
+  const info = (uptime, rssi) => ({
+    name: 'kitchen', yaml_version: '0.4.5', tft_version: '0.4.2', ip: '10.0.0.5', ssid: 'home',
+    rssi, connection_uptime: uptime, last_panel_update: `2026-11-07T10:00:0${uptime % 10}Z`,
+    last_connection: '2026-11-07T09:00:00Z', idle_page_active: false,
+  });
+  const host = {
+    entryId: 'entry1',
+    _selectedDevice: 'kitchen',
+    _deviceConfig: {},
+    _deviceStatuses: { kitchen: { device_info: info(100, -60) } },
+    _devicePanels: () => [],
+  };
+  const before = previewRenderKey(host);
+  host._deviceStatuses = { kitchen: { device_info: info(105, -61) } };
+  assert.equal(previewRenderKey(host), before);
+  // what the About page shows still re-renders it
+  host._deviceStatuses = { kitchen: { device_info: { ...info(105, -61), ip: '10.0.0.6' } } };
+  assert.notEqual(previewRenderKey(host), before);
+});
+
+test('initial editor load caches every device status before previews can render', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const ed = editor();
+  ed.entryId = 'entry1';
+  ed._selectedDevice = null;
+  ed._deviceStatuses = {};
+  ed._deviceStatus = null;
+  ed._deviceStatusError = null;
+  const statuses = {
+    kitchen: { connected: true, device_info: { yaml_version: '0.4.5', tft_version: '0.4.2' } },
+    office: { connected: true, device_info: { yaml_version: '0.4.4', tft_version: '0.4.1' } },
+  };
+  let releaseStatuses;
+  const statusUrls = [];
+  ed.hass = {
+    language: 'en',
+    async fetchWithAuth(url) {
+      if (url.startsWith('/api/nspanel_haui/panels/')) {
+        return jsonResponse({
+          devices: {
+            kitchen: { config: {}, panels: [] },
+            office: { config: {}, panels: [] },
+          },
+        });
+      }
+      if (url.startsWith('/api/nspanel_haui/status/')) {
+        statusUrls.push(url);
+        if (url.includes('?device=')) return jsonResponse(statuses.kitchen);
+        return new Promise((resolve) => { releaseStatuses = resolve; });
+      }
+      throw new Error(`unexpected ${url}`);
+    },
+  };
+
+  const loading = ed._load();
+  await settle();
+
+  assert.equal(ed._loading, true);
+  assert.equal(ed._selectedDevice, 'kitchen');
+  assert.deepEqual(statusUrls, ['/api/nspanel_haui/status/entry1']);
+  assert.deepEqual(ed._deviceStatuses, {});
+
+  releaseStatuses(jsonResponse({ devices: statuses }));
+  await loading;
+  await settle();
+  stopStatusPolling(ed);
+
+  assert.equal(ed._loading, false);
+  assert.deepEqual(Object.keys(ed._deviceStatuses), ['kitchen', 'office']);
+  assert.equal(ed._deviceStatus.device_info.yaml_version, '0.4.5');
+});
 
 test('switching devices clears the old status and fetches the new one at once', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
@@ -67,18 +174,29 @@ test('the Device Manager stops polling when the editor is removed', async (t) =>
   dlg.updated(new Map([['open', false]]));
 
   dlg.disconnectedCallback();
+  const initialFetches = fetches;
   t.mock.timers.tick(15000);
 
-  assert.equal(fetches, 1);
+  assert.equal(initialFetches, 2); // one status fetch and the automatic device scan
+  assert.equal(fetches, initialFetches);
 });
 
 import { isOlderVersion } from '../../custom_components/nspanel_haui/frontend/device-info.js';
 
-test('a display TFT older than the firmware version counts as an update pending', () => {
-  assert.equal(isOlderVersion('0.3.3', '0.4.0'), true);
-  assert.equal(isOlderVersion('0.4.0', '0.4.0'), false);
+test('a display TFT is compared with its required version, not firmware version', () => {
+  assert.equal(isOlderVersion('0.4.2', '0.4.3'), true);
+  assert.equal(isOlderVersion('0.4.3', '0.4.3'), false);
+  // Firmware-only releases may advance yaml_version while reusing the same TFT.
+  assert.equal(isOlderVersion('0.4.3', '0.4.4'), true);
   assert.equal(isOlderVersion('0.4.1', '0.4'), false);
   assert.equal(isOlderVersion('0.3.10', '0.3.9'), false);
+  assert.equal(isOlderVersion('0.4.5.dev29', '0.4.5.dev30'), true);
+  assert.equal(isOlderVersion('0.4.5.dev30', '0.4.5.dev29'), false);
+  assert.equal(isOlderVersion('0.4.5.dev30', '0.4.5'), true);
+  assert.equal(isOlderVersion('0.4.5.rc1', '0.4.5'), true);
+  assert.equal(isOlderVersion('0.4.5', '0.4.5.dev30'), false);
+  assert.equal(isOlderVersion('', '0.4.5'), false);
+  assert.equal(isOlderVersion('not-a-version', '0.4.5'), false);
 });
 
 import { renderHealthSection } from '../../custom_components/nspanel_haui/frontend/dialogs/device-info.js';
@@ -95,13 +213,13 @@ function markup(value) {
 
 test('the health section surfaces versions, uptime, state and disconnect info', () => {
   const out = markup(renderHealthSection(
-    { connected: true, integration_version: '0.4.0' },
+    { connected: true, haui_version: '0.4.0', haui_version_mismatch: false },
     { connection_uptime: 125, idle_page_active: false, last_disconnect_reason: null, disconnected_since: null },
   ));
   assert.ok(out.includes('Health'));
   assert.ok(out.includes('0.4.0'));
   assert.ok(out.includes('2m'), out); // 125 s formatted as 2m
-  assert.ok(out.includes('Active'));
+  assert.ok(out.includes('Regular page'));
 
   const off = markup(renderHealthSection(
     { connected: false },
@@ -109,7 +227,15 @@ test('the health section surfaces versions, uptime, state and disconnect info', 
   ));
   assert.ok(off.includes('heartbeat timeout'));
   assert.ok(off.includes('Idle page'));
-});test("the health section surfaces the TFT update state", () => {
+
+  const mismatch = markup(renderHealthSection(
+    { connected: true, haui_version: '0.4.5', haui_version_mismatch: true },
+    { yaml_version: '0.4.4' },
+  ));
+  assert.ok(mismatch.includes('Firmware and HAUI versions do not match'));
+});
+
+test("the health section surfaces the TFT update state", () => {
   const out = markup(renderHealthSection(
     { connected: true, update: { state: "installing", version: "0.4.0", started_at: "2026-10-23T12:00:00+00:00", last_error: null } },
     {},

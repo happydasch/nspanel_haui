@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-from nspanel_haui import system_health as sh
+from custom_components.nspanel_haui import system_health as sh
 
 
 def _app_stub(connected: bool) -> MagicMock:
@@ -31,8 +31,8 @@ def test_system_health_counts_devices_and_connections() -> None:
     integration = MagicMock()
     integration.version = "0.4.0"
     with patch(
-        "nspanel_haui.system_health.async_get_loaded_integration",
-        new=AsyncMock(return_value=integration),
+        "custom_components.nspanel_haui.system_health.async_get_loaded_integration",
+        return_value=integration,
     ):
         result = asyncio.run(sh.async_system_health_info(hass))
 
@@ -48,8 +48,8 @@ def test_system_health_without_hub() -> None:
     integration = MagicMock()
     integration.version = "0.4.0"
     with patch(
-        "nspanel_haui.system_health.async_get_loaded_integration",
-        new=AsyncMock(return_value=integration),
+        "custom_components.nspanel_haui.system_health.async_get_loaded_integration",
+        return_value=integration,
     ):
         result: dict[str, Any] = asyncio.run(sh.async_system_health_info(hass))
 

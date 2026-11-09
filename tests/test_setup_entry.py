@@ -12,10 +12,11 @@ _storage_stub = types.ModuleType("homeassistant.helpers.storage")
 _storage_stub.Store = object
 sys.modules.setdefault("homeassistant.helpers.storage", _storage_stub)
 
-import nspanel_haui  # noqa: E402
-from nspanel_haui import esphome_helpers, storage  # noqa: E402
-from nspanel_haui.ha_adapter import ESPHomeProxy  # noqa: E402
-from nspanel_haui.nspanel_haui import NSPanelHAUI  # noqa: E402
+import custom_components.nspanel_haui as nspanel_haui  # noqa: E402
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme  # noqa: E402
+from custom_components.nspanel_haui.hub import esphome_helpers, storage  # noqa: E402
+from custom_components.nspanel_haui.hub.adapter import ESPHomeProxy  # noqa: E402
+from custom_components.nspanel_haui.hub.app import NSPanelHAUI  # noqa: E402
 
 # --- setup ----------------------------------------------------------------
 
@@ -103,6 +104,7 @@ def _setup(monkeypatch, devices: list[dict], stored: dict | None = None):
     )
     monkeypatch.setattr(storage, "PanelStorage", _PanelStorage)
     monkeypatch.setattr(nspanel_haui, "_create_app", create_app)
+    monkeypatch.setattr(nspanel_haui, "_delete_device_start_failed_issue", lambda *args: None)
 
     hass = _Hass()
     entry = _Entry(devices)
@@ -124,13 +126,15 @@ def test_idle_hub_still_sets_up_platforms(monkeypatch):
     assert hass.config_entries.forwarded == [nspanel_haui.PLATFORMS]
 
 
+def test_hub_provides_no_sensor_platform():
+    assert "sensor" not in nspanel_haui.PLATFORMS
+
+
 def _registry_update(monkeypatch, app):
     """Run the session-wide registry listener for a HAUI ESPHome device update."""
     # The stubbed core module may be a restricted/wrapping mock that does not
     # expose ``callback``; raising=False lets the patch create it either way.
-    monkeypatch.setattr(
-        sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False
-    )
+    monkeypatch.setattr(sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False)
     monkeypatch.setattr(nspanel_haui, "_DISCOVERY_INITIALIZED", False)
     monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: "dev1")
     monkeypatch.setattr(esphome_helpers, "is_haui_device", lambda hass, entry: True)
@@ -187,8 +191,8 @@ def test_notify_entities_skip_devices_not_linked_to_esphome(monkeypatch):
     registry.DeviceInfo = dict
     monkeypatch.setitem(sys.modules, "homeassistant.components.notify", notify_stub)
     monkeypatch.setitem(sys.modules, "homeassistant.helpers.device_registry", registry)
-    monkeypatch.delitem(sys.modules, "nspanel_haui.notify", raising=False)
-    notify = importlib.import_module("nspanel_haui.notify")
+    monkeypatch.delitem(sys.modules, "custom_components.nspanel_haui.notify", raising=False)
+    notify = importlib.import_module("custom_components.nspanel_haui.notify")
     linked = _App()
     linked._ha_device_id = "esphome-device"
     hass = _Hass()
@@ -209,7 +213,7 @@ def test_setup_starts_only_enabled_devices_listed_in_the_entry(monkeypatch):
         "devices": {
             "kitchen": {"config": {}, "panels": []},
             "office": {"config": {"enabled": False}, "panels": []},
-            # Removed with "keep config": settings stay, the device stays removed.
+            # Store-only (no config-entry record): settings stay, the device does not run.
             "garage": {"config": {}, "panels": []},
         },
     }
@@ -231,6 +235,42 @@ def test_store_device_name_matches_case_insensitively():
     )
 
     assert cfg["panels"] == [clock]
+
+
+def test_legacy_light_palette_migrates_to_light_icon_scheme():
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"color_overrides": {"background": 65535}},
+                    "panels": [],
+                }
+            }
+        },
+        device_name="kitchen",
+    )
+
+    assert cfg["devices"][0]["color_scheme"] == "light"
+    assert cfg["devices"][0]["color_scheme_id"] == "light"
+
+
+def test_explicit_color_scheme_survives_config_build():
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"color_scheme": "dark", "color_overrides": {"background": 65535}},
+                    "panels": [],
+                }
+            }
+        },
+        device_name="kitchen",
+    )
+
+    assert cfg["devices"][0]["color_scheme"] == "dark"
+    assert cfg["devices"][0]["color_scheme_id"] == "dark"
 
 
 # --- panel storage ---------------------------------------------------------
@@ -280,9 +320,7 @@ class _Event:
 
 
 def test_unresolved_device_ignores_events_from_other_devices(monkeypatch):
-    monkeypatch.setattr(
-        sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False
-    )
+    monkeypatch.setattr(sys.modules["homeassistant.core"], "callback", lambda f: f, raising=False)
     listeners: list = []
     jobs: list = []
     hass = types.SimpleNamespace(
@@ -310,8 +348,11 @@ def test_unresolved_device_ignores_events_from_other_devices(monkeypatch):
 
 class _Device:
     def __init__(self) -> None:
-        self.config: dict = {}
-        self.synced = 0
+        self.config: dict = {"use_auto_dimming": True, "use_auto_display_off": True}
+        self.synced: list[set[str]] = []
+
+    def get(self, key: str, default=None):
+        return self.config.get(key, default)
 
     def _cancel_callbacks(self):
         pass
@@ -319,8 +360,8 @@ class _Device:
     def _register_callbacks(self):
         pass
 
-    def sync_config_to_device(self):
-        self.synced += 1
+    def sync_config_to_device(self, changed_auto_settings=None):
+        self.synced.append(changed_auto_settings or set())
 
 
 class _DeviceConfig:
@@ -329,11 +370,23 @@ class _DeviceConfig:
     _panels: list = []
 
 
-def _reload(saved_config: dict):
+class _Navigation:
+    """Records the background colour of the theme each reload sees."""
+
+    def __init__(self, app) -> None:
+        self.app = app
+        self.reloads: list[int] = []
+
+    def reload_panels(self) -> None:
+        self.reloads.append(self.app.color_theme.get("background"))
+
+
+def _reload(saved_config: dict, overrides: dict | None = None):
     app = NSPanelHAUI.__new__(NSPanelHAUI)
     app.device_config = _DeviceConfig()
     app.device = _Device()
-    app.controller = {}
+    app.controller = {"navigation": _Navigation(app)}
+    app.color_theme = ColorTheme(overrides or {})
     app._runtime_device_name = "kitchen"
     app.log = lambda *a, **kw: None
     cfg = nspanel_haui._build_config_dict(
@@ -351,7 +404,21 @@ def test_reload_config_clamps_saved_color_overrides_like_startup():
     app = _reload(saved)
 
     assert app.device.config["color_overrides"] == {"background": 65535, "text": 123}
-    assert app._color_theme.get("background") == 65535
+    assert app.color_theme.get("background") == 65535
+
+
+def test_reload_config_applies_icon_color_scheme():
+    app = _reload({"color_scheme": "light"})
+
+    assert app.color_theme.scheme == "light"
+    assert app.device.config["color_scheme"] == "light"
+
+
+def test_reload_config_applies_the_new_theme_before_navigation_reloads():
+    """Navigation loads the page again when the theme it paints while loading changed."""
+    app = _reload({"color_overrides": {"background": 0}}, overrides={"background": 1})
+
+    assert app.controller["navigation"].reloads == [0]
 
 
 def test_reload_config_resets_a_setting_removed_from_the_store_to_its_default():
@@ -361,11 +428,17 @@ def test_reload_config_resets_a_setting_removed_from_the_store_to_its_default():
     assert app.device.config["locale"] == "en_US"
 
 
-def test_reload_config_pushes_all_device_settings_to_the_firmware():
-    # Relay mode and button interaction too, not only the auto-* behaviour.
+def test_reload_config_does_not_reapply_auto_switches_on_unrelated_changes():
     app = _reload({"use_relay_left": False})
 
-    assert app.device.synced == 1
+    assert app.device.synced == [set()]
+
+
+def test_reload_config_applies_only_auto_switch_settings_that_changed():
+    app = _reload({"use_auto_display_off": False})
+
+    assert app.device.synced == [{"use_auto_display_off"}]
+    assert app.device.config["use_auto_display_off"] is False
 
 
 # --- app lifecycle on the app's worker --------------------------------------
@@ -390,9 +463,13 @@ class _LifecycleApp:
 
 
 def test_new_app_initializes_on_its_worker(monkeypatch):
-    from nspanel_haui import esphome_helpers
+    from custom_components.nspanel_haui.hub import esphome_helpers
 
-    monkeypatch.setattr(sys.modules["nspanel_haui.nspanel_haui"], "NSPanelHAUI", _LifecycleApp)
+    monkeypatch.setattr(
+        sys.modules["custom_components.nspanel_haui.hub.app"],
+        "NSPanelHAUI",
+        _LifecycleApp,
+    )
     monkeypatch.setattr(nspanel_haui, "_build_config_dict", lambda *a, **kw: {})
     monkeypatch.setattr(esphome_helpers, "resolve_ha_device_id", lambda hass, name: None)
 

@@ -23,8 +23,8 @@ not possible.
 ## What this directory contains
 
 The `nextion/` subdirectory is exactly the stock component at the
-`2026.10.0` tag **plus** two upstream fixes cherry-picked on top — nothing
-else:
+`2026.10.0` tag **plus** two upstream fixes cherry-picked on top and one fix
+that is not upstream yet — nothing else:
 
 - [esphome/esphome#17744] — numeric-response delivery.  `nextion.cpp`/`nextion.h`
   carry the fix (`deliver_queue_response_`, `is_raw_get_command`,
@@ -36,6 +36,13 @@ else:
   hub TFT install failed before the first byte.  `display.yaml` sets it to
   2048.  Touches `base_component.py`, `display.py`, `nextion.h` and
   `nextion_upload_esp32.cpp`.
+- TFT upload retry (not upstream yet; ESPHome `dev` still has the bug) —
+  `upload_tft()` clears `upload_first_chunk_sent_` when an upload starts.  A
+  failed upload left it set (a successful one reboots), so a retry in the same
+  boot requested the whole file as its first range.  When the display answered
+  the first 4 KB with `0x08` and offset 0 (no skip), it jumped past the end and
+  stopped after 4 KB with `Invalid range end`.
+  Touches `nextion_upload_esp32.cpp` and `nextion_upload_arduino.cpp`.
 
 Every other file is byte-identical to the released tag, so the component stays
 API-compatible with the ESPHome version pinned in `requirements-esphome.txt`.
@@ -47,9 +54,9 @@ modifying these files.
 ## Removal condition
 
 Delete this directory **and** the `external_components` blocks that reference
-it the moment a released ESPHome contains both #17744 and #21435 (expected in
+it the moment a released ESPHome contains #17744, #21435 (both expected in
 2026.11.0; `display.yaml` keeps `tft_upload_http_buffer_size_tx`, which is then
-a stock option).  Then bump
+a stock option) and the TFT upload retry fix.  Then bump
 `min_version` in `esphome/nspanel_haui/base.yaml` and the pin in
 `requirements-esphome.txt` to that release in the same change.
 

@@ -11,7 +11,12 @@ from ..abstract.mixins.paged_items_mixin import PagedItemsMixin
 from ..mapping.const import InternalItemType
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
-from ..utils.text import trim_text
+from ..utils.text import TextBox, fit_line
+
+_NAME_BOXES = {
+    "landscape": TextBox(128, 30, 2, 20),
+    "portrait": TextBox(135, 32, 2, 20),
+}
 
 
 class GridPage(PagedItemsMixin, HAUIPage):
@@ -44,7 +49,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
                 key="back_color_pressed",
                 kind="color",
                 label=_("Pressed background color"),
-                description=_("Background of the tile while it is pressed."),
+                description=_("Background of the tile while the tile is pressed."),
             ),
             PageOption(
                 key="power_color",
@@ -111,7 +116,6 @@ class GridPage(PagedItemsMixin, HAUIPage):
 
     # definitions
     NUM_GRIDS = 6
-    LEN_NAME = 15
 
     # panel
 
@@ -129,44 +133,29 @@ class GridPage(PagedItemsMixin, HAUIPage):
         # configured initial page every time the panel opens.
         self._current_page = panel.get_state("current_page", 0)
         # set function buttons
-        # Pagination sits on fnc_right_sec when the panel is in navigation,
-        # leaving fnc_right_pri for auto-assignment (NEXT on nav).  When the
-        # panel is not in navigation (e.g. the home panel), pagination moves to
-        # fnc_right_pri so fnc_right_sec stays free for the notification
-        # indicator — matching the row page behaviour.
-        show_in_nav = panel.show_in_navigation()
-        # Only claim a right slot for pagination when there actually is more
-        # than one page.  Otherwise the slot stays free so _auto_assign_fncs()
-        # can put the notification indicator there — an invisible next_page
-        # button used to occupy the slot and hide unread notifications.  When
-        # pagination does claim right_sec (in navigation), auto-assign moves
-        # the notification indicator onto the idle button's left-secondary
-        # slot on the home panel.
-        has_pagination = len(self._items) > self.NUM_GRIDS
-        nav_btn: dict = {
-            "fnc_component": (
-                self.COMPONENTS.fnc_right_sec if show_in_nav else self.COMPONENTS.fnc_right_pri
-            ),
-            "fnc_name": "next_page",
-            "fnc_args": {
-                "icon": ICO_NEXT_PAGE,
-                "color": self.get_color("header_accent"),
-                "visible": has_pagination,
-            },
-        }
-        btn_right_1: tuple | dict
-        btn_right_2: tuple | dict
-        if show_in_nav:
-            btn_right_1 = self.COMPONENTS.fnc_right_pri
-            btn_right_2 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_sec
-        else:
-            btn_right_1 = nav_btn if has_pagination else self.COMPONENTS.fnc_right_pri
-            btn_right_2 = self.COMPONENTS.fnc_right_sec
+        # Pagination sits on fnc_right_sec (inner, beside the title) so
+        # fnc_right_pri stays free for auto-assignment: NEXT in navigation,
+        # CLOSE on a stacked panel.  Only claim the slot when there actually
+        # is more than one page; otherwise _auto_assign_fncs() can put the
+        # notification indicator there.  When pagination does claim it,
+        # auto-assign moves the notification indicator onto the idle button's
+        # left-secondary slot on the home panel.
+        btn_right_sec: tuple | dict = self.COMPONENTS.fnc_right_sec
+        if len(self._items) > self.NUM_GRIDS:
+            btn_right_sec = {
+                "fnc_component": self.COMPONENTS.fnc_right_sec,
+                "fnc_name": "next_page",
+                "fnc_args": {
+                    "icon": ICO_NEXT_PAGE,
+                    "color": self.get_color("header_accent"),
+                    "visible": True,
+                },
+            }
         self.set_function_buttons(
             self.COMPONENTS.fnc_left_pri,
             self.COMPONENTS.fnc_left_sec,
-            btn_right_1,
-            btn_right_2,
+            self.COMPONENTS.fnc_right_pri,
+            btn_right_sec,
         )
         # set power and grid button callbacks
         power_btn_callbacks: dict = {}
@@ -179,19 +168,16 @@ class GridPage(PagedItemsMixin, HAUIPage):
             name = getattr(self.COMPONENTS, f"g{i + 1}_name")
             power_btn_callbacks[power] = self.callback_power_buttons
             grid_ovl_callbacks[ovl] = self.callback_grid_entries
-            self.set_function_component(power, power[1], row_index=i, visible=False)
-            self.set_function_component(ovl, ovl[1], row_index=i, visible=False, no_color=True)
-            self.set_function_component(btn, btn[1], row_index=i, visible=False)
-            self.set_function_component(ico, ico[1], row_index=i, visible=False)
-            self.set_function_component(name, name[1], row_index=i, visible=False)
+            self.set_function_component(power, power.name, row_index=i, visible=False)
+            self.set_function_component(ovl, ovl.name, row_index=i, visible=False, no_color=True)
+            self.set_function_component(btn, btn.name, row_index=i, visible=False)
+            self.set_function_component(ico, ico.name, row_index=i, visible=False)
+            self.set_function_component(name, name.name, row_index=i, visible=False)
         self.on_release(power_btn_callbacks)
         self.on_release(grid_ovl_callbacks)
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, panel.get_title())
+        self.set_title(panel.get_title())
         self.set_grid_entries()
 
     # misc
@@ -264,9 +250,7 @@ class GridPage(PagedItemsMixin, HAUIPage):
             text_color = item.get_color_field("text_color", text_color)
             back_color = item.get_color_field("back_color", back_color)
             color_pressed = item.get_color_field("color_pressed", color_pressed)
-            back_color_pressed = item.get_color_field(
-                "back_color_pressed", back_color_pressed
-            )
+            back_color_pressed = item.get_color_field("back_color_pressed", back_color_pressed)
             power_color = item.get_color_field("power_color", power_color)
             if not self.is_item_active(item):
                 power_color = back_color_pressed
@@ -314,15 +298,15 @@ class GridPage(PagedItemsMixin, HAUIPage):
                 btn_args["back_color_pressed"] = back_color_pressed
                 if power_visible:
                     power_args["back_color_pressed"] = back_color_pressed
-            self.update_function_component(ico[1], None, **ico_args)
-            self.update_function_component(name[1], None, **name_args)
-            self.update_function_component(btn[1], None, **btn_args)
-            self.update_function_component(ovl[1], None, **ovl_args)
+            self.update_function_component(ico.name, None, **ico_args)
+            self.update_function_component(name.name, None, **name_args)
+            self.update_function_component(btn.name, None, **btn_args)
+            self.update_function_component(ovl.name, None, **ovl_args)
             self.update_grid_entry(idx)
-            self.update_function_component(power[1], None, **power_args)
+            self.update_function_component(power.name, None, **power_args)
         else:
             for x in [btn, ico, name, ovl, power]:
-                self.update_function_component(x[1], visible=False)
+                self.update_function_component(x.name, visible=False)
 
     def update_grid_entry(self, idx: int) -> None:
         # update a single button
@@ -331,16 +315,22 @@ class GridPage(PagedItemsMixin, HAUIPage):
         name = getattr(self.COMPONENTS, f"g{idx}_name")
         item = self._active_items[ovl]
         if item:
-            self.set_component_text(name, trim_text(item.get_name(), self.LEN_NAME))
+            self.set_component_text(
+                name,
+                fit_line(
+                    [item.get_name()],
+                    0,
+                    _NAME_BOXES["portrait" if self.app.device.is_portrait else "landscape"],
+                ),
+            )
             self.set_component_text_color(ico, item.get_color())
             self.set_component_text(ico, item.get_icon())
             if self.is_power_visible(item):
                 power = getattr(self.COMPONENTS, f"g{idx}_power")
                 _, _, _, _, power_color = self.get_grid_colors(item)
                 self.update_function_component(power.name, visible=True, color=power_color)
-                # The icon box overlaps the bottom of the power button, so the
-                # icon redraw above clips it; the update above sends nothing
-                # when the power button's own attributes are unchanged.
+                # The centered power button intentionally occupies the icon area;
+                # redraw it after the entity icon to keep the large control visible.
                 self.send_cmd(f"ref {power.name}")
             else:
                 self.update_function_component(
@@ -371,12 +361,14 @@ class GridPage(PagedItemsMixin, HAUIPage):
             state = haui_item.get_item_state()
             if mapping["power"] != component:
                 continue
-            if state not in ["off", "unavailable"]:
-                self.turn_off_item(haui_item)
-            elif state == "off":
+            if not self.item_is_available(haui_item):
+                self.log(f"item {haui_item.get_item_id()} is not available")
+            elif (
+                haui_item.get_item_type() == "media_player" and not self.is_item_active(haui_item)
+            ) or state == "off":
                 self.turn_on_item(haui_item)
             else:
-                self.log(f"item {haui_item.get_item_id()} is not available")
+                self.turn_off_item(haui_item)
 
     def callback_grid_entries(self, event: HAUIEvent, component: Component) -> None:
         if component not in self._active_items:

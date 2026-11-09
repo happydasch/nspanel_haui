@@ -10,25 +10,26 @@ dashboard for Home Assistant — all configured through a visual editor in the H
 
 Whether you just got your panel or want to fine-tune it, this guide will get you there.
 
+
 > **New to NSPanel HAUI?** → Start with the [Quick Start Guide](get-started.md).
 
 ---
 
 ## Getting Started
 
-If you're setting up a new NSPanel, follow these steps in order:
+For a new panel, follow this order:
 
-1. **Flash your device** — Load ESPHome firmware onto the NSPanel.
-   → [Installation guide](install.md#2-step-install-esphome)
+1. **Flash and connect it** — Load the prebuilt firmware, then enter your Wi-Fi details.
+   → [Installation guide](install.md#flash-the-panel)
 
-2. **Install the integration** — Add NSPanel HAUI to Home Assistant via HACS.
-   → [Installation guide](install.md)
+2. **Add the ESPHome device** — Add the panel in Home Assistant's ESPHome integration.
+   → [Firmware and device setup](install.md#flash-the-panel)
 
-3. **Connect it** — Add the device in Home Assistant (Settings → Devices & Services).
-   → [Integration setup](custom_integration.md)
+3. **Install NSPanel HAUI** — Add its repository in the Marketplace, install, then restart.
+   → [Installation guide](install.md#install-the-integration)
 
-4. **Configure your panels** — Open **NSPanel HAUI** in the Home Assistant sidebar and start building your dashboard.
-   → [Configuration overview](configuration/README.md)
+4. **Configure panels** — Add NSPanel HAUI from **Settings → Devices & Services → Add Integration**, then open the editor.
+   → [Integration setup](custom_integration.md) · [Configuration overview](configuration/README.md)
    - [Device settings](configuration/device.md) — brightness, sounds, screensaver, buttons
    - [Panel layout](configuration/panels.md) — add, remove, reorder panels
    - [Items & entities](configuration/items.md) — pick entities, set icons, colors
@@ -45,7 +46,7 @@ Hands-on help for common tasks.
 ### Setting up
 
 - **[Quick Start](get-started.md)** — Get up and running in 5 minutes
-- **[Installation](install.md)** — Step-by-step: HACS, flashing, first setup
+- **[Installation](install.md)** — Step-by-step: Marketplace, flashing, first setup
 - **[Configuration](configuration/README.md)** — Device settings, panel layout, item editing
 - **[Examples](examples.md)** — Real-world configs to copy and adapt
 

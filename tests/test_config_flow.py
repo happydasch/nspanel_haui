@@ -126,9 +126,9 @@ def _make_ha_stubs() -> None:
 _make_ha_stubs()
 
 # Now safe to import
-from nspanel_haui import _build_config_dict  # noqa: E402, I001
-from nspanel_haui.config_flow import NSPanelHAUIConfigFlow  # noqa: E402
-from nspanel_haui.esphome_helpers import (  # noqa: E402
+from custom_components.nspanel_haui import _build_config_dict  # noqa: E402, I001
+from custom_components.nspanel_haui.config_flow import NSPanelHAUIConfigFlow  # noqa: E402
+from custom_components.nspanel_haui.hub.esphome_helpers import (  # noqa: E402
     normalize_device_name as _normalize_device_name,
 )
 
@@ -205,7 +205,7 @@ class TestOptionsToConfigDict:
 
     def test_does_not_mutate_default_config(self):
         """_build_config_dict uses copy.deepcopy, never mutates DEFAULT_CONFIG."""
-        from nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+        from custom_components.nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
 
         original = copy.deepcopy(DEFAULT_CONFIG)
         _build_config_dict({"name": "test", "devices": [{"name": "test"}]})
@@ -277,7 +277,7 @@ class TestOptionsToConfigDict:
 
     def test_update_block_merged_from_store(self):
         """Per-device update settings deep-merge over the shipped defaults."""
-        from nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
+        from custom_components.nspanel_haui.haui.mapping.const import DEFAULT_CONFIG
 
         panels = {
             "version": 1,
@@ -302,11 +302,12 @@ class TestOptionsToConfigDict:
         assert result["update"]["update_interval"] == 60
         assert result["update"]["check_on_connect"] is False
         # Keys the store does not override keep the shipped defaults.
+        assert result["update"]["firmware_auto_update"] is False
+        assert result["update"]["enabled"] is True
         assert (
             result["update"]["firmware_auto_update"]
             == DEFAULT_CONFIG["update"]["firmware_auto_update"]
         )
-        assert result["update"]["tft_filename"] == DEFAULT_CONFIG["update"]["tft_filename"]
 
     def test_device_config_home_sleep_keys(self):
         """Device config carries home/sleep panel key references."""
@@ -444,7 +445,7 @@ class TestResolveHaDeviceId:
 
     def test_returns_device_id_when_found(self):
         """Returns the HA device registry id when a matching ESPHome entry exists."""
-        from nspanel_haui.esphome_helpers import resolve_ha_device_id
+        from custom_components.nspanel_haui.hub.esphome_helpers import resolve_ha_device_id
 
         # Ensure homeassistant.helpers.device_registry exists so the
         # import inside resolve_ha_device_id does not trigger the
@@ -485,7 +486,7 @@ class TestResolveHaDeviceId:
 
     def test_returns_none_when_no_match(self):
         """Returns None when no ESPHome entry matches."""
-        from nspanel_haui.esphome_helpers import resolve_ha_device_id
+        from custom_components.nspanel_haui.hub.esphome_helpers import resolve_ha_device_id
 
         hass = MagicMock()
         entry = MagicMock()
@@ -498,7 +499,7 @@ class TestResolveHaDeviceId:
 
     def test_returns_none_when_empty_name(self):
         """Returns None when given an empty node_name."""
-        from nspanel_haui.esphome_helpers import resolve_ha_device_id
+        from custom_components.nspanel_haui.hub.esphome_helpers import resolve_ha_device_id
 
         hass = MagicMock()
         result = resolve_ha_device_id(hass, "")
@@ -534,7 +535,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_returns_list_of_dicts(self):
         """Each result has 'name', 'friendly_name', and 'esphome_device_id' keys."""
-        from nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         entry1 = MagicMock()
         entry1.entry_id = "entry1"
@@ -555,7 +556,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_returns_empty_list_when_no_esphome_entries(self):
         """Returns [] when there are no ESPHome config entries."""
-        from nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         hass = MagicMock()
         hass.config_entries.async_entries = MagicMock(return_value=[])
@@ -565,7 +566,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_name_falls_back_to_title(self):
         """Uses entry.title when device_name is not in data."""
-        from nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         entry1 = MagicMock()
         entry1.entry_id = "entry1"
@@ -584,7 +585,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_esphome_device_id_populated(self):
         """ESPHome discovery result includes entry_id as esphome_device_id."""
-        from nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         entry1 = MagicMock()
         entry1.entry_id = "abc123"
@@ -608,7 +609,7 @@ class TestDiscoverEspHomeDevices:
         entry. These persist across restarts and let us detect HAUI
         devices that are not currently online.
         """
-        from nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         dev_entry = MagicMock()
         dev_entry.manufacturer = "happydasch"
@@ -634,7 +635,7 @@ class TestDiscoverEspHomeDevices:
 
     def test_skips_non_haui_via_device_registry(self):
         """Non-HAUI ESPHome entry (different manufacturer/model) is skipped."""
-        from nspanel_haui.esphome_helpers import discover_esphome_devices
+        from custom_components.nspanel_haui.hub.esphome_helpers import discover_esphome_devices
 
         dev_entry = MagicMock()
         dev_entry.manufacturer = "espressif"
@@ -681,7 +682,7 @@ class TestConfigFlowUserStep:
         flow = self._make_flow()
 
         with patch(
-            "nspanel_haui.config_flow._discover_esphome_devices",
+            "custom_components.nspanel_haui.config_flow._discover_esphome_devices",
             new=AsyncMock(return_value=[]),
         ):
             result = self._run(flow.async_step_user())
@@ -701,7 +702,7 @@ class TestConfigFlowUserStep:
         ]
 
         with patch(
-            "nspanel_haui.config_flow._discover_esphome_devices",
+            "custom_components.nspanel_haui.config_flow._discover_esphome_devices",
             new=AsyncMock(return_value=discovered),
         ):
             result = self._run(flow.async_step_user())
@@ -721,7 +722,7 @@ class TestConfigFlowUserStep:
         flow = self._make_flow()
 
         with patch(
-            "nspanel_haui.config_flow._discover_esphome_devices",
+            "custom_components.nspanel_haui.config_flow._discover_esphome_devices",
             new=AsyncMock(return_value=[]),
         ):
             result = self._run(flow.async_step_user())
@@ -736,7 +737,7 @@ class TestConfigFlowUserStep:
         flow = self._make_flow()
 
         with patch(
-            "nspanel_haui.config_flow._discover_esphome_devices",
+            "custom_components.nspanel_haui.config_flow._discover_esphome_devices",
             new=AsyncMock(return_value=[]),
         ):
             result = self._run(flow.async_step_user())
@@ -765,7 +766,7 @@ class TestDiscoveryCard:
             {"name": "panel-kitchen", "esphome_device_id": "e2"},
         ]
         with patch(
-            "nspanel_haui.config_flow._discover_esphome_devices",
+            "custom_components.nspanel_haui.config_flow._discover_esphome_devices",
             new=AsyncMock(return_value=discovered),
         ):
             result = self._run(flow.async_step_integration_discovery({}))
@@ -778,7 +779,7 @@ class TestDiscoveryCard:
         """integration_discovery aborts with no_devices_found if scan empty."""
         flow = self._make_flow()
         with patch(
-            "nspanel_haui.config_flow._discover_esphome_devices",
+            "custom_components.nspanel_haui.config_flow._discover_esphome_devices",
             new=AsyncMock(return_value=[]),
         ):
             result = self._run(flow.async_step_integration_discovery({}))
@@ -799,7 +800,7 @@ class TestDiscoveryCard:
         flow._discovered_devices = [
             {"name": "panel-living", "esphome_device_id": "e1"},
         ]
-        import nspanel_haui as pkg
+        import custom_components.nspanel_haui as pkg
 
         # _register_discovery is imported inside the method via
         # ``from . import _register_discovery``; patch the package attr (and

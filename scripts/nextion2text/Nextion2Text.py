@@ -1787,6 +1787,17 @@ def getCodeLines(rawLines, removeIndent=False, removeComments=True):
     return eventLines
 
 
+def _load_custom_dictionary(path: Path):
+    """Import a trusted dictionary module and its adjacent helpers."""
+    saved_sys_path = sys.path.copy()
+    try:
+        # Custom dictionaries historically resolve bare imports beside their file.
+        sys.path.insert(0, str(path.parent))
+        return __import__(str(path.stem), fromlist=["attributes", "codeEvents"])
+    finally:
+        sys.path[:] = saved_sys_path
+
+
 if __name__ == "__main__":
     desc = """Get a readable text version of a Nextion HMI file.
               Developped by Max Zuidberg, licensed under MPL-2.0"""
@@ -1921,9 +1932,8 @@ if __name__ == "__main__":
             parser.error("Could not find file with custom dictionaries.")
         if not args.custom_dict.suffix.lower() == ".py":
             parser.error("File with custon dictionaries is not a python file.")
-        sys.path.insert(0, str(args.custom_dict.parent))
         try:
-            custom = __import__(str(args.custom_dict.stem), fromlist=["attributes", "codeEvents"])
+            custom = _load_custom_dictionary(args.custom_dict)
             try:
                 if args.custom_exclusive:
                     Component.attributes = custom.attributes

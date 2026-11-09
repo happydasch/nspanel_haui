@@ -15,7 +15,7 @@ from .haui_config_access import HAUIConfigAccess
 from .haui_entity import HAUIEntity
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 
 class HAUIItem(HAUIConfigAccess):
@@ -378,7 +378,7 @@ class HAUIItem(HAUIConfigAccess):
             return default
         return value
 
-    def get_color(self) -> int:  # type: ignore[override]
+    def get_color(self, *, scheme: str | None = None) -> int:  # type: ignore[override]
         """Returns the color of the entity.
 
         Returns:
@@ -393,7 +393,10 @@ class HAUIItem(HAUIConfigAccess):
         # get_item_color() for automatic condition-based color resolution.
         if color is None:
             return get_item_color(
-                self, super().get_color("entity_unavailable"), color_getter=super().get_color
+                self,
+                super().get_color("entity_unavailable"),
+                color_getter=super().get_color,
+                icon_scheme=scheme,
             )
         # Parse any remaining string/list format to RGB565 int via the
         # canonical parse_color_value utility (handles "[r,g,b]", "#rrggbb",

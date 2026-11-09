@@ -7,15 +7,19 @@ UUIDs, like ``reload_panels`` does in production.
 import uuid
 
 import pytest
-from nspanel_haui.haui.controller.navigation import HAUINavigationController
-from nspanel_haui.haui.mapping.panel import PANEL_MAPPING
-from nspanel_haui.haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
+
+from custom_components.nspanel_haui.haui.controller.navigation import HAUINavigationController
+from custom_components.nspanel_haui.haui.mapping.panel import PANEL_MAPPING
+from custom_components.nspanel_haui.haui.utils.page import (
+    get_page_class_for_panel,
+    get_page_id_for_panel,
+)
 
 
 class FPanel:
-    def __init__(self, key, nav=True, panel_type="grid", close_timeout=0):
+    def __init__(self, key, nav=True, panel_type="grid", close_timeout=0, unlock_code=""):
         self.id = uuid.uuid4()
-        self._cfg = {"key": key, "unlock_code": "", "close_timeout": close_timeout}
+        self._cfg = {"key": key, "unlock_code": unlock_code, "close_timeout": close_timeout}
         self._nav = nav
         self._type = panel_type
         self._state = {}
@@ -99,6 +103,9 @@ class FApp:
         self.timers[handle] = (cb, delay)
         return handle
 
+    def run_every(self, cb, start, interval):
+        return self.run_in(cb, (start, interval))
+
     def cancel_timer(self, handle):
         self.cancelled.append(handle)
         self.timers.pop(handle, None)
@@ -113,14 +120,19 @@ class FApp:
 
 class FPage:
     hook = None
+    # whether the loaded page fits the panel it is asked to show (is_loaded_for)
+    loaded_for = True
 
     def __init__(self, app, config):
         self.page_id = config["page_id"]
         self._started = False
 
-    def create_panel(self, panel):
+    def prepare_page_load(self, panel):
         if FPage.hook:
             FPage.hook()
+
+    def is_loaded_for(self, panel):
+        return FPage.loaded_for
 
     def is_started(self):
         return self._started
@@ -138,17 +150,35 @@ SPECS = {
 }
 
 
-@pytest.fixture
-def nav(monkeypatch):
+def _nav(monkeypatch, specs):
     monkeypatch.setitem(PANEL_MAPPING, "grid", (PANEL_MAPPING["grid"][0], FPage))
     FPage.hook = None
-    app = FApp(SPECS)
+    FPage.loaded_for = True
+    app = FApp(specs)
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
     nav.goto_page = lambda pid, force=False: None
     nav.display_panel = lambda panel: None
     nav.start_part()
     return nav
+
+
+@pytest.fixture
+def nav(monkeypatch):
+    return _nav(monkeypatch, SPECS)
+
+
+@pytest.fixture
+def locked_nav(monkeypatch):
+    return _nav(
+        monkeypatch,
+        {
+            **SPECS,
+            "locked": {"unlock_code": "12"},
+            "locked_sub": {"nav": False, "unlock_code": "12"},
+            "popup_unlock": {"nav": False},
+        },
+    )
 
 
 def keys(nav):
@@ -185,6 +215,50 @@ def test_opening_nav_panel_clears_stack(nav):
     nav.open_panel("b")
     nav.close_panel()
     assert keys(nav) == "b"
+
+
+# -- unlock popup -------------------------------------------------------------
+
+
+def test_prev_and_next_on_the_unlock_popup_move_past_the_locked_panel(locked_nav):
+    """Guarding a navigation panel, the popup has that panel's prev/next; they
+    work on every opening (the popup never becomes the current nav panel)."""
+    for _ in range(2):
+        locked_nav.open_panel("b")
+        locked_nav.open_panel("locked")
+        assert keys(locked_nav) == "popup_unlock"
+        locked_nav.open_prev_panel()
+        assert keys(locked_nav) == "b"
+        locked_nav.open_panel("locked")
+        locked_nav.open_next_panel()
+        assert keys(locked_nav) == "a"
+
+
+def test_closing_unlock_popup_of_locked_nav_panel_goes_home(locked_nav):
+    """Closing the popup (close_panel service) must not reopen the locked
+    navigation panel, which would only open the popup again."""
+    locked_nav.open_panel("b")
+    locked_nav.open_panel("locked")
+    assert keys(locked_nav) == "popup_unlock"
+    locked_nav.close_panel()
+    assert keys(locked_nav) == "a"
+
+
+def test_closing_unlock_popup_of_locked_stacked_panel_goes_back(locked_nav):
+    locked_nav.open_panel("b")
+    locked_nav.open_panel("locked_sub")
+    assert keys(locked_nav) == "popup_unlock"
+    locked_nav.close_panel()
+    assert keys(locked_nav) == "b"
+
+
+def test_unlocking_opens_the_guarded_panel(locked_nav):
+    for key in ("locked", "locked_sub"):
+        locked_nav.open_panel("b")
+        locked_nav.open_panel(key)
+        locked_nav.app.device_config.get_panel(key).set_state("locked", False)
+        locked_nav.close_panel()
+        assert keys(locked_nav) == key
 
 
 # -- close timeout ------------------------------------------------------------
@@ -238,6 +312,37 @@ def test_reload_requested_during_open_runs_after_open(nav):
     assert nav.panel is nav.app.device_config.get_panel("b")
     assert nav.get_current_nav_panel() is nav.app.device_config.get_panel("b")
     assert nav._home_panel is nav.app.device_config.get_panel("a")
+
+
+def _record_page_loads(nav):
+    """Record goto_page (a page load) and display_panel (a render in place)."""
+    calls = []
+    nav.goto_page = lambda pid, force=False: calls.append("goto_page")
+    nav.display_panel = lambda panel: calls.append("display_panel")
+    return calls
+
+
+def test_reload_renders_an_unchanged_page_in_place(nav):
+    nav.open_panel("a")
+    nav.page._started = True
+    calls = _record_page_loads(nav)
+
+    nav.reload_panels()
+
+    assert calls == ["display_panel"]
+
+
+def test_reload_loads_the_page_again_when_it_reads_something_new(nav):
+    """A new theme or background is painted only while the page loads."""
+    nav.open_panel("a")
+    nav.page._started = True
+    calls = _record_page_loads(nav)
+    FPage.loaded_for = False
+
+    nav.reload_panels()
+
+    assert calls == ["goto_page"]
+    assert keys(nav) == "a"
 
 
 def test_reload_requested_during_close_runs_after_close(nav):

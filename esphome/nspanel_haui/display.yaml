@@ -4,6 +4,8 @@ display:
   - platform: nextion
     uart_id: haui_uart
     id: haui_disp
+    # The automatic display state machine never enters hardware sleep; this is
+    # only used if a custom action explicitly sleeps the panel.
     wake_up_page: 0
     # Cap queue entries to prevent heap fragmentation from accumulated
     # commands when Nextion serial buffer overflows orphan pending entries.
@@ -18,7 +20,11 @@ display:
     # prevents bursts from overrunning the display's 1 KB RX buffer; the ESPHome
     # loop timestamp means the effective minimum is one command per loop.
     command_spacing: 2ms
-    # default url
+    # default url — override the `tft_update_url` substitution in your device
+    # YAML to install a local TFT build.  HAUI itself always passes the URL of
+    # the TFT it installs (the ``upload_tft_url`` action drives
+    # ``prepare_tft_upload``, which calls set_tft_url() before upload_tft()),
+    # so this default is only the compile-time fallback.
     tft_url: $tft_update_url
     # GitHub redirects release-asset downloads to a signed URL of ~870
     # characters.  The redirected request line overflows the 512-byte ESP-IDF
@@ -37,7 +43,7 @@ display:
             id: brightness_dim
             value: !lambda return int(id(brightness_dim).state);
         # Initialize display backlight and brightness sensor to break
-        # the NAN-guard deadlock in check_display
+        # the NAN-guard deadlock in update_display
         - script.execute:
             id: set_brightness
             intensity: !lambda return int(id(brightness_full).state);
@@ -55,17 +61,19 @@ display:
     on_touch:
       then:
         - lambda: |-
+            // A tap shorter than the 200 ms coordinate poll (check_interaction)
+            // can fall between two polls, so the display's own report of a
+            // touched widget counts as interaction as well.
+            id(reset_interaction_timer).execute(0);
             std::string event = std::to_string(page_id) + "," + std::to_string(component_id);
             event += "," + std::to_string(touch_event);
             id(publish_event_native).execute("esphome.component", event);
             if (touch_event == 1) {
               id(publish_event_native).execute("esphome.touch_start", "1");
             }
-            id(update_last_interaction).execute(-1, 0);
 
     on_buffer_overflow:
       then:
         - lambda: |-
             ESP_LOGW("haui", "Nextion buffer overflow detected");
             id(publish_event_native).execute("esphome.buffer_overflow", "1");
-            id(update_last_interaction).execute(-1, 0);

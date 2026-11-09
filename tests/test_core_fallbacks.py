@@ -6,8 +6,9 @@ import logging
 from typing import Any
 
 import pytest
-from nspanel_haui.haui.device import HAUIDevice
-from nspanel_haui.haui.utils.color import parse_color_value
+
+from custom_components.nspanel_haui.haui.device import HAUIDevice
+from custom_components.nspanel_haui.haui.utils.color import parse_color_value
 
 # --- quiet hours --------------------------------------------------------------
 
@@ -105,7 +106,7 @@ def test_template_prefix_is_no_longer_stripped() -> None:
     The legacy ``template:`` prefix was previously stripped from any string; a
     plain value starting with it must now pass through unchanged.
     """
-    from nspanel_haui.haui.abstract.haui_config_access import HAUIConfigAccess
+    from custom_components.nspanel_haui.haui.abstract.haui_config_access import HAUIConfigAccess
 
     access = HAUIConfigAccess(_TemplateApp())
 
@@ -116,7 +117,7 @@ def test_template_prefix_is_no_longer_stripped() -> None:
 
 def test_bare_template_still_renders() -> None:
     """Bare ``{{ ... }}``/``{% ... %}`` strings are still rendered."""
-    from nspanel_haui.haui.abstract.haui_config_access import HAUIConfigAccess
+    from custom_components.nspanel_haui.haui.abstract.haui_config_access import HAUIConfigAccess
 
     app = _TemplateApp()
     access = HAUIConfigAccess(app)

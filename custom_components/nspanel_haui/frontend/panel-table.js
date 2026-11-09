@@ -7,7 +7,6 @@
 import { html } from './lit-import.js';
 import { renderBadges, computeFilteredPanels, getPanelMoveState, getSystemPanelKeys } from './panel-utils.js';
 import { renderSystemPanelCard } from './panel-sys-grid.js';
-import { POPUP_TO_USER_TYPE } from './constants.js';
 import { t } from './localize.js';
 import { writeStorage } from './dom-helpers.js';
 
@@ -95,15 +94,6 @@ export function renderPanelDropdown(host, pIdx, items, onClose) {
     </div>`;
 }
 
-/**
- * Check if a system panel is editable (i.e. has a corresponding user-facing type).
- * @param {object} sysPanel - system panel entry
- * @returns {boolean}
- */
-export function isSysPanelEditable(sysPanel) {
-  return !!POPUP_TO_USER_TYPE[sysPanel.type];
-}
-
 function renderPanelRow(host, p, panels, isNavPanel) {
   const { pIdx, canMoveUp, canMoveDown } = getPanelMoveState(p, panels, isNavPanel, getSystemPanelKeys(host));
   const dc = host._deviceConfig || {};
@@ -157,8 +147,7 @@ function renderPanelRow(host, p, panels, isNavPanel) {
 
 function renderSystemPanelRow(host, sp) {
   const dc = host._deviceConfig || {};
-  const editable = isSysPanelEditable(sp);
-  const hasOverride = editable && host._devicePanels().some(p => p.key === sp.key);
+  const hasOverride = sp.editable && host._devicePanels().some(p => p.key === sp.key);
   const badges = renderBadges(sp, dc, hasOverride);
 
   return html`
@@ -170,12 +159,12 @@ function renderSystemPanelRow(host, sp) {
         ${badges.length ? html`<span class="pl-badges">${badges}</span>` : ''}
       </div>
       <span class="pl-actions">
-        ${editable ? html`
-          ${hasOverride ? html`
-            <ha-icon-button title=${t('Reset to default')} @click=${() => host._resetSysPanelOverride(sp.key)}>
-              <ha-icon icon="mdi:restore"></ha-icon>
-            </ha-icon-button>
-          ` : ''}
+        ${hasOverride ? html`
+          <ha-icon-button title=${t('Reset to default')} @click=${() => host._resetSysPanelOverride(sp.key)}>
+            <ha-icon icon="mdi:restore"></ha-icon>
+          </ha-icon-button>
+        ` : ''}
+        ${sp.editable ? html`
           <ha-icon-button title=${t('Edit System Panel')} @click=${() => host._openSysPanelEdit(sp)}>
             <ha-icon icon="mdi:pencil-outline"></ha-icon>
           </ha-icon-button>
@@ -237,21 +226,41 @@ export function renderPanelTable(host) {
 }
 
 /**
- * Render system panels section (outside the card, no borders).
+ * Render the built-in panel sections (outside the card, no borders).
+ *
+ * The fixed system panels and the editable popups are separate mappings in the
+ * hub (`SYS_PANEL_MAPPING` / `POPUP_PANEL_MAPPING`); the API marks the popups
+ * with `editable`, so the editor lists them in their own group.
+ *
  * @param {string} [viewMode] - 'grid' or 'list' (defaults to 'list')
  */
 export function renderSystemPanels(host, viewMode) {
-  if (!host._panels?.system_panels?.length) return "";
+  const all = host._panels?.system_panels || [];
+  if (!all.length) return "";
   const isGrid = viewMode === 'grid';
-  return html`
-    <details class="panel-group" ?open=${host.__systemPanelsOpen}
-      @toggle=${(e) => { host.__systemPanelsOpen = e.target.open; writeStorage('haui_systemPanelsOpen', e.target.open); }}>
-      <summary class="group-title">
-        ${t('System Panels ({count} panels)').replace('{count}', host._panels.system_panels.length)}
-      </summary>
+  const systemPanels = all.filter(sp => !sp.editable);
+  const popupPanels = all.filter(sp => sp.editable);
+
+  const renderGroup = (items, open, storageKey, setOpen, label) => html`
+    <details class="panel-group" ?open=${open}
+      @toggle=${(e) => { setOpen(e.target.open); writeStorage(storageKey, e.target.open); }}>
+      <summary class="group-title">${label.replace('{count}', items.length)}</summary>
       ${isGrid
-        ? html`<div class="pg-grid">${host._panels.system_panels.map(sp => renderSystemPanelCard(host, sp))}</div>`
-        : host._panels.system_panels.map(sp => renderSystemPanelRow(host, sp))}
+        ? html`<div class="pg-grid">${items.map(sp => renderSystemPanelCard(host, sp))}</div>`
+        : items.map(sp => renderSystemPanelRow(host, sp))}
     </details>
+  `;
+
+  return html`
+    ${popupPanels.length ? renderGroup(
+      popupPanels, host.__popupPanelsOpen, 'haui_popupPanelsOpen',
+      (open) => { host.__popupPanelsOpen = open; },
+      t('Popups ({count} panels)')
+    ) : ''}
+    ${systemPanels.length ? renderGroup(
+      systemPanels, host.__systemPanelsOpen, 'haui_systemPanelsOpen',
+      (open) => { host.__systemPanelsOpen = open; },
+      t('System Panels ({count} panels)')
+    ) : ''}
   `;
 }

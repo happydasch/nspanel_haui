@@ -7,13 +7,12 @@ state, and password mode.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from ..component import Component
 
 if TYPE_CHECKING:
-    from ....nspanel_haui import NSPanelHAUI
+    from ....hub.app import NSPanelHAUI
 
 from ...utils.color import parse_color_value
 
@@ -22,16 +21,12 @@ class ComponentMixin:
     """Mixin that adds component color/text/visibility helpers.
 
     Depends on the host class providing ``send_cmd(str)`` (from
-    :class:`~haui.abstract.base.HAUIBase`) and ``self._callbacks``
-    (set in :class:`~haui.page.HAUIPage.__init__`).
+    :class:`~haui.abstract.base.HAUIBase`).
     """
 
     if TYPE_CHECKING:
         # Provided by HAUIBase / HAUIPage at runtime via MRO.
         app: NSPanelHAUI
-        _callbacks: list[tuple[Component, Callable]]
-        _callback_map: dict[int, tuple[Component, Callable, bool]]
-        _drag_components: set[int]
 
         def send_cmd(self, cmd: str) -> None: ...
         def log(self, msg: str, **kwargs: Any) -> None: ...
@@ -104,36 +99,6 @@ class ComponentMixin:
             state (bool): Should the component recieve touch events
         """
         self.send_cmd(f"tsw {component.name},{int(state)}")
-
-    def add_component_callback(self, component: Component, callback: Callable) -> None:
-        """Adds a callback for the given component (press events).
-
-        **Prefer** ``on_release()`` on :class:`~haui.page.HAUIPage` for
-        release-only callbacks.  This method is intended for rare press-event
-        handling where the ``button_state != 0`` is needed.
-
-        ``on_release()`` callbacks receive ``(event, component)`` without
-        ``button_state`` (always 0).  This method preserves the old
-        ``callback(event, component, button_state)`` signature.
-
-        Args:
-            component (tuple): Component
-            callback (function): Callback
-        """
-        self._callbacks.append((component, callback))
-
-    def mark_drag_component(self, component: Component) -> None:
-        """Marks a component as a drag control (slider).
-
-        Marked components suppress the swipe gesture the drag produces and
-        defer the release callback to TOUCH_END.  Use this directly when the
-        callback is registered elsewhere (e.g. a slider exposed as a function
-        component); ``bind_slider`` does it for plain sliders.
-
-        Args:
-            component (tuple): Component
-        """
-        self._drag_components.add(component.id)
 
     def show_component(self, component: Component) -> None:
         """Shows the component.

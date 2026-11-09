@@ -6,7 +6,7 @@ from typing import Any
 from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_PAUSE,
@@ -109,8 +109,8 @@ class TimerPage(HAUIPage):
             visible = not self.is_timer_active()
             self.set_function_component(
                 x,
-                x[1],
-                fnc_name=x[1],
+                x.name,
+                fnc_name=x.name,
                 color=self.get_color("component_active"),
                 visible=visible,
             )
@@ -120,7 +120,7 @@ class TimerPage(HAUIPage):
             (self.COMPONENTS.btn_start, "start_timer"),
             (self.COMPONENTS.btn_stop, "stop_timer"),
         ]:
-            self.set_function_component(ctrl, ctrl[1], fnc_name=ctrl_name, visible=False)
+            self.set_function_component(ctrl, ctrl.name, fnc_name=ctrl_name, visible=False)
 
         # display
         self.set_function_component(
@@ -145,16 +145,13 @@ class TimerPage(HAUIPage):
             color=self.get_color("component_text"),
         )
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
     def _stop_panel(self, panel: HAUIPanel) -> None:
         if self._handle_update_display is not None:
             self.app.cancel_timer(self._handle_update_display)
             self._handle_update_display = None
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, panel.get_title(self.translate("Timer")))
+        self.set_title(panel.get_title(self.translate("Timer")))
         # initial call sets up timers
         self.update_timer()
         # the timer keeps running while the panel is closed, but closing it
@@ -337,7 +334,7 @@ class TimerPage(HAUIPage):
                     else:
                         enabled = False
             self.update_function_component(
-                x[1],
+                x.name,
                 update_fnc_name=fnc_name,
                 visible=True,
                 icon=icon,
@@ -356,7 +353,7 @@ class TimerPage(HAUIPage):
             self.COMPONENTS.btn_down_3,
             self.COMPONENTS.btn_down_4,
         ]:
-            self.update_function_component(x[1], visible=visible)
+            self.update_function_component(x.name, visible=visible)
 
     # callback
 
@@ -413,8 +410,8 @@ class TimerPage(HAUIPage):
             msg = self.translate("Timer has finished.")
             # open notification
             navigation.open_panel(
-                SysPanelKey.POPUP_NOTIFY,
-                title=self.translate("Timer finished"),
+                PopupPanelKey.POPUP_NOTIFY,
+                title=self.translate("Finished"),
                 btn_right=self.translate("Close"),
                 icon=ICO_TIMER_FINISHED,
                 notification=msg,

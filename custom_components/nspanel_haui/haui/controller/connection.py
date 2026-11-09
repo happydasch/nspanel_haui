@@ -8,11 +8,11 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
-from ..mapping.const import ESPAction, ESPRequest, ESPResponse, ServerRequest, ServerResponse
+from ..mapping.const import ESPRequest, ESPResponse, ServerRequest, ServerResponse
 from ..version import get_version
 
 
@@ -145,10 +145,8 @@ class HAUIConnectionController(HAUIBase):
 
         self._stop_handshake_timer()
         self.send_esphome(ServerResponse.HUB_CONNECTION_INITIALIZED, "", True)
-        # Explicitly reset the device's inactivity timer so that display
-        # timeouts (dim/display-off/page) start fresh after every connection
-        # (including reconnections during a fast hub restart).
-        self.send_esphome(ESPAction.RESET_LAST_INTERACTION, "0", True)
+        # Reconnection restores transport, not user activity; keep the
+        # firmware's existing inactivity age.
         self._start_heartbeat_timer()
         self._start_timer()
         self._disconnected_since = None
@@ -197,12 +195,20 @@ class HAUIConnectionController(HAUIBase):
         """Start sending periodic ``hub_heartbeat`` messages to the device.
 
         First heartbeat fires immediately (``now+0``), then every interval.
+
+        The timer runs on the event loop (``on_loop``) and its publish is
+        fire-and-forget: every other path to the device is queued on the
+        app's single worker thread, which render bursts, update checks or a
+        blocked publish can stall for seconds.  The device force-disconnects
+        the hub after two missed heartbeats — and wakes the display when it
+        does — so the heartbeat must not depend on the worker at all.
         """
         self._stop_heartbeat_timer()
         self._hub_heartbeat_timer = self.app.run_every(
             self._send_hub_heartbeat,
             "now+0",
             self._heartbeat_interval,
+            on_loop=True,
         )
 
     def _stop_heartbeat_timer(self) -> None:
@@ -210,8 +216,16 @@ class HAUIConnectionController(HAUIBase):
         self._cancel_timer("_hub_heartbeat_timer")
 
     def _send_hub_heartbeat(self, kwargs: dict[str, Any]) -> None:
-        """Callback: send a single ``hub_heartbeat`` to the device."""
-        self.send_esphome(ServerResponse.HUB_HEARTBEAT, "", True)
+        """Send a single ``hub_heartbeat``, fire-and-forget.
+
+        Uses the ESPHome controller's detached publish (which strips the
+        ``esphome.`` prefix like ``send_cmd``), bypassing the worker-side
+        dedup and batching: the heartbeat is sent straight from the event
+        loop and never queues behind other work.
+        """
+        esp_ctrl = self.app.controller.get("esphome")
+        if esp_ctrl is not None:
+            esp_ctrl.publish_detached(ServerResponse.HUB_HEARTBEAT)
 
     # ------------------------------------------------------------------
     # Handshake timeout timer
@@ -391,9 +405,9 @@ class HAUIConnectionController(HAUIBase):
         """
         self._update_last_time()
         # Bidirectional heartbeat: respond so the device's hub_heartbeat
-        # timestamp stays fresh.  The periodic timer (run_every) is a
-        # fallback; this event-driven response ensures the device never
-        # times out even if the timer callback fails silently.
+        # timestamp stays fresh.  The periodic loop-side timer is the
+        # primary sender; this event-driven reply is a fallback for a lost
+        # timer (and re-anchors the device right after a jittery interval).
         self._send_hub_heartbeat({})
 
     def _handle_req_connection(self, event: HAUIEvent) -> None:

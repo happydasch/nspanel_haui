@@ -12,13 +12,24 @@ Developer Tools panel in the HA UI.
 ESPHome also exposes lower-level TFT upload actions for a configured TFT URL or
 an arbitrary URL.
 
+```mermaid
+flowchart TD
+    caller["Automation or script"] --> service["NSPanel HAUI service"]
+    service -->|no device| shared["Navigation and notifications"]
+    service -->|device required| selected["TFT or firmware update"]
+    esphome["ESPHome action"] --> selected
+```
+
+Omit `device` to send navigation and notification calls to all panels. TFT and
+firmware updates require one selected panel.
+
 ## Display Updates
 
 ### `nspanel_haui.update_tft`
 
-Install the TFT release matching the selected panel's firmware (`yaml_version`),
-another GitHub release (`version`, older ones included), or the TFT file at
-`url`. The device is required, so this action cannot
+Install the TFT the selected panel's firmware manifest ships (its `tft` block,
+matched to the device's display model; this is the TFT the firmware needs), or
+the TFT file at `url`. The device is required, so this action cannot
 accidentally start a TFT upload on every panel in the hub. The service uses
 HAUI's update controller and reports failures in the update state shown in
 Device Info, Device Manager and the panel's **HAUI Display** update entity.
@@ -26,8 +37,8 @@ Device Info, Device Manager and the panel's **HAUI Display** update entity.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `device` | yes | NSPanel device whose display is updated |
-| `version` | no | GitHub release to install instead of the one the firmware needs, e.g. `0.4.1`; not combined with `url` |
-| `url` | no | http(s) URL of a `.tft` file to install instead of the GitHub release the firmware needs; not combined with `version` |
+| `version` | no | The manifest's TFT version, i.e. the one the firmware needs; must match the manifest's `tft.version`, not combined with `url` |
+| `url` | no | http(s) URL of a `.tft` file to install instead of the manifest's (custom, development or older TFT builds); not combined with `version` |
 
 **Example automation action:**
 
@@ -35,15 +46,6 @@ Device Info, Device Manager and the panel's **HAUI Display** update entity.
 action: nspanel_haui.update_tft
 data:
   device: "abc123..."
-```
-
-**Install an older release:**
-
-```yaml
-action: nspanel_haui.update_tft
-data:
-  device: "abc123..."
-  version: "0.4.1"
 ```
 
 **Install a custom or development build:**
@@ -58,43 +60,69 @@ data:
 Choose the device in the service's **Device** selector (or pass its device
 registry ID as `device` in YAML). A URL install carries no version the hub can
 check: it counts as done once the device reboots after the upload and the
-display reports its version.
+display reports its version. An upload that ends without a reboot (the device
+reconnects with an uptime longer than the upload took) is reported as failed;
+see [Troubleshooting](troubleshooting.md#tft-install-fails-with-the-panel-did-not-reboot-after-the-upload).
 
-A TFT installed with `version` or `url` stays on the display: the automatic
-check does not replace it with the TFT the firmware needs, and the display does
+A TFT installed with `url` stays on the display: the automatic
+check does not replace it with the TFT the firmware's manifest ships, and the display does
 not ask, until the firmware's version changes. The hold lives in memory, so a
-Home Assistant restart lifts it and the automatic check then installs the TFT
-the firmware needs again (or the display asks first when `auto_install` is
+Home Assistant restart lifts it and the automatic check then installs the
+manifest's TFT again (or the display asks first when `auto_install` is
 off). Installing without `version` and `url` lifts it too. A TFT that does not
 match the firmware may lack pages or components the firmware uses.
+
+### HAUI Firmware update entity
+
+Every linked panel has an `update.<device>_haui_firmware` entity. Its installed
+version is the firmware's `yaml_version`, its latest version the one the
+firmware manifest names: by default the `firmware-manifest.json` of the latest
+GitHub release, or the device's
+[`firmware_manifest_url`](configuration/device.md#updates). The hub reads the
+manifest on startup, when the URL changes and on every release check.
+**Install** runs the same install as `nspanel_haui.update_firmware` without
+`version` and `url`: the panel downloads the image, flashes it and reboots,
+and the entity shows *installing* until it reconnects. It stays available
+while the install keeps the device offline. An install that does not end in a
+reboot within ten minutes, a reconnect without a reboot, or a reboot into the
+old version is reported as an error in the Device Manager and the HAUI Firmware
+entity's release summary. The HAUI Display entity also shows a release summary
+when its manifest cannot provide the TFT version the firmware requires. The
+entity supports a specific version, the same as `nspanel_haui.update_firmware` with `version`.
+
+When the ESPHome dashboard is set up, the ESPHome integration adds its own
+**Firmware** update entity to the device (disabled by default). It recompiles
+your device YAML in the dashboard and is independent of the hub's firmware
+updates.
 
 ### HAUI Display update entity
 
 Every linked panel has an `update.<device>_haui_display` entity next to the
-firmware's **HAUI Firmware** entity on the same device page. Its installed
-version is the TFT the display reports, its latest version the TFT the firmware
-needs. **Install** runs the same TFT update as `nspanel_haui.update_tft`
+**HAUI Firmware** entity on the same device page. Its installed
+version is the TFT the display reports, its latest version the TFT the
+firmware's manifest names (its `tft` block, for the device's display model).
+A manifest without a `tft` block — a local test release names none — reports
+the installed TFT as the latest, so the entity offers no update. **Install**
+runs the same TFT update as `nspanel_haui.update_tft`
 without a URL, and the entity shows *installing* until the display reports the
 new version. It stays available while an install keeps the device offline (the
 upload blocks the ESP32 and ends in a reboot). When the display has not
 reported its version yet, the entity state is unknown; use
 `nspanel_haui.update_tft` to force an install. The entity supports a specific
-version, so `update.install` installs another release, the same as
-`nspanel_haui.update_tft` with `version`:
+version, the same as `nspanel_haui.update_tft` with `version` (the manifest's
+TFT version):
 
 ```yaml
 action: update.install
 target:
   entity_id: update.nspanel_kitchen_haui_display
-data:
-  version: "0.4.1"
 ```
 
 ### `nspanel_haui.update_firmware`
 
-Install the firmware update Home Assistant offers on the panel's **HAUI
-Firmware** entity, another GitHub release (`version`, older ones included), or
-the firmware OTA image at `url`. The device is required.
+Install the firmware update the panel's **HAUI Firmware** entity offers,
+another GitHub release (`version`, older ones included), or the firmware OTA
+image at `url`. The device is required.
 
 | Field | Required | Description |
 |-------|----------|-------------|
@@ -109,26 +137,33 @@ data:
   version: "0.4.2"
 ```
 
-Without `version` and `url` the action installs the offered update through the
-HAUI Firmware entity, like the entity's own **Install**. With `version` or
-`url` the firmware's `install_firmware_url` action downloads and flashes the
-image itself:
+Without `version` and `url` the action re-reads the firmware manifest and
+installs the offered update, like the entity's own **Install**. Every install
+runs the firmware's `install_firmware_url` action, which downloads and flashes
+the image itself:
 
 - **Releases:** only releases that ship `nspanel_haui_ota.bin` and
   `firmware-manifest.json` (v0.4.2 and later) install over the air; the hub
-  reads the image's md5 from the manifest. Older releases ship only the
+  reads the image's md5 from the manifest. A `version` equal to the one the
+  manifest offers installs from the manifest, so a test release works too. Older releases ship only the
   factory image (`nspanel_haui.bin`), which an over-the-air update must not
   write — flash those with the ESPHome dashboard or a cable.
 - **URLs:** the Home Assistant host downloads the file first to compute the md5
   the flash needs, and refuses a factory image or a file larger than the app
   partition. The panel must reach the URL too.
-- **The panel's current firmware needs the `install_firmware_url` action.**
-  Firmware without it (0.4.2 and older) can only install the offered update;
-  install the latest firmware first.
+- **The panel's current firmware needs the `install_firmware_url` action**
+  (0.4.3 and later). Flash newer firmware once through ESPHome on a panel that
+  runs 0.4.2 or older (see [Upgrading](update.md)).
 - **Automatic firmware updates pause** after a release or URL install, so
   `firmware_auto_update` does not reinstall the latest release on the next
   check. The pause lives in memory: a Home Assistant restart or installing the
   offered update ends it.
+- **Build variants are never crossed.** Only releases whose manifest
+  `variant` matches the panel's reported one are offered, listed in the
+  editor's firmware picker, or installed by `version`. A panel built from
+  `esphome/install.yaml` (variant `custom`) is therefore refused the public
+  universal release image; flash custom builds with `url` (see
+  [Firmware build variants in the device Updates section](configuration/device.md#updates)).
 
 Installing older firmware leaves the TFT alone: the automatic TFT check treats
 a newer TFT as up to date. Install the matching TFT with
@@ -143,7 +178,10 @@ These six services are registered under the `nspanel_haui` domain. The
 it is omitted, they apply to all HAUI-connected devices. `update_tft` and
 `update_firmware` are separate and require selecting one device, so an install
 cannot accidentally start on every panel. The selector is filtered to NSPanel HAUI
-devices.
+devices. In YAML, `device` takes the device-registry ID of either of a panel's two
+devices: its NSPanel HAUI device (the one the selector offers, with the HAUI
+Firmware, HAUI Display and notify entities) or its ESPHome device. A call whose
+`device` matches no running panel fails with an error instead of doing nothing.
 
 ### `nspanel_haui.open_panel`
 
@@ -226,41 +264,44 @@ data:
 
 ### `nspanel_haui.send_notification`
 
-Show a notification on the panel with a title, message, severity level, and
-icon.  Notifications stay in the queue until they are dismissed on the panel,
+Show a notification on the panel with a title, message, icon, icon colour and
+sound. Notifications stay in the queue until they are dismissed on the panel,
 replaced, or cleared — unless a `timeout` is given, which auto-dismisses the
-notification after that many seconds.  `persistent` loops
-the alert sound and re-opens the popup about every 60 seconds until dismissed;
-it opens immediately and `timeout` still applies to it.  `force_show` also opens
-the popup immediately, but never
-takes the place of a notification popup or list that is already on screen: the
-new notification waits in the queue and opens when the current one is
-dismissed.  The queue holds up to 50 notifications; when it is full, the oldest
-one is dropped.  While the idle page is shown, only a `critical` persistent
-notification forces its popup over it; other severities stay queued and appear
-as soon as the user returns to a real panel.
-Notification sounds play only when the device's `sound_on_notification`
-setting is on; it is off by default
+notification that many seconds after it is queued (including while it waits in
+the queue). Omitting `timeout` or setting it to `0` disables auto-dismissal.
+`persistent` opens the notification immediately, loops its `sound` and re-opens
+the popup about every 60 seconds until dismissed or timed out; `timeout` still
+applies to it. Any persistent notification may re-open its popup over the idle
+page; quiet hours still keep the display dark. `force_show` also opens the popup
+immediately, but never takes the place of a notification popup or list that is
+already on screen: the new notification waits in the queue and opens when the
+current one is dismissed. The queue holds up to 50 notifications; when it is
+full, the oldest one is dropped. Notification sounds play only when the
+device's `sound_on_notification` setting is on; it is off by default
 ([Device settings → Notifications](configuration/device.md#notifications)).
-When no icon is supplied, the severity selects a default one (`info` →
-`mdi:information-outline`, `warning` → `mdi:alert-outline`, `critical` →
-`mdi:alert-octagon-outline`).
-See [Notifications](device.md#notifications) for how notifications are
-viewed and dismissed on the panel.  The ESPHome firmware also exposes
-`send_notification` action (title/message/icon + optional persistent/text_size, no severity/force-show/timeout), but this service is
-the recommended path because it also carries severity and force-show.
+When no icon is supplied, the popup shows no icon and the message uses the full
+text width, so more of it fits on each page. `icon_color` colours the icon when
+one is set; an empty value keeps the theme's text colour. See
+[Notifications](device.md#notifications) for
+how notifications are viewed and dismissed on the panel. The ESPHome firmware
+also exposes a `send_notification` action (`title`, `message`, `icon`,
+`persistent`, `text_size`, `icon_color`, `sound` — all required, because
+ESPHome 2026.10 has no optional action variables — and without
+force-show/timeout); standard `notify` entities also have no timeout field. Use
+this service when those options are needed.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
 | `device` | no | all devices | Target NSPanel device |
 | `title` | yes | — | Notification headline |
 | `message` | no | `""` | Body text (can be empty for a title-only alert). Line breaks (`\n`) render as line breaks on the display |
-| `icon` | no | severity default | Material Design Icon (e.g. `"mdi:bell"`). When omitted, the `type` selects the default icon |
-| `type` | no | `"info"` | Severity level — `"info"`, `"warning"`, or `"critical"`. Sets the icon colour in the popup; `critical` also plays the `alert` sound instead of `notification` |
-| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel. While the idle page is shown, only a `critical` persistent notification interrupts it. A `timeout` still ends it |
+| `icon` | no | `""` | Material Design Icon (e.g. `"mdi:bell"`). When omitted, no icon is shown on the popup |
+| `icon_color` | no | `""` | Icon colour as `#rrggbb`, an RGB565 number, `[r, g, b]` or an integer string. Empty uses the theme's `component_text` colour. Only the icon changes; header and background keep their theme colours |
+| `sound` | no | `"notification"` | Sound played for the notification: `startup`, `tone`, `tone_up`, `tone_down`, `seq_up`, `seq_down`, `notification`, `alert`, `alert_fast`, `elise`, or `none` for silence. Plays only when `sound_on_notification` is on |
+| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel or its timeout expires. It may re-open over the idle page; quiet hours still keep the display dark |
 | `force_show` | no | `false` | When `true`, opens the notification panel immediately, unless a notification popup or list is already open — then it waits in the queue |
-| `text_size` | no | `"auto"` | Popup body text size — `"auto"` (chosen from the message length) or a font size `1`-`3` |
-| `timeout` | no | — (none) | Seconds until the notification auto-dismisses. Left out (or `0`) it stays queued until dismissed on the panel |
+| `text_size` | no | `"auto"` | Popup body text size — `"auto"` (the largest font that fits the whole message on one page) or a font size `1`-`3`; text that does not fit is paged |
+| `timeout` | no | — (none) | Seconds from queueing until the notification auto-dismisses, even if it has not yet been shown (1–3600). Left out or set to `0`, it stays queued until dismissed on the panel |
 
 Sending a notification with the same title and message as one that is still
 queued replaces it: the queued copy is removed (firing a `removed` event), the
@@ -276,8 +317,138 @@ data:
   title: Doorbell
   message: Someone is at the front door
   icon: mdi:bell
-  type: warning
+  icon_color: "#f69d31"
+  sound: alert
 ```
+
+#### Preset notification script
+
+The old severity field (`type`) is gone; icon colour and sound are generic
+fields now. This script applies the previous presets in Home Assistant, so
+automations can keep calling by type. Create it as a script (for example with
+the alias **NSPanel Notify**) and call `script.nspanel_notify`:
+
+| `type` | `icon_color` | `sound` | `persistent` | `force_show` |
+|--------|--------------|---------|--------------|--------------|
+| `info` | `""` (theme text) | `notification` | `false` | `false` |
+| `warning` | `#f69d31` | `notification` | `false` | `false` |
+| `alert` | `#4aa5ee` | `alert` | `false` | `true` |
+| `critical` | `#4aa5ee` | `alert` | `true` | `true` |
+| `silent` | `""` (theme text) | `none` | `false` | `false` |
+
+```yaml
+alias: NSPanel Notify
+description: >-
+  Show a notification on an NSPanel display. `type` picks the icon colour, the
+  sound, and whether the notification is persistent.
+icon: mdi:tablet
+fields:
+  device:
+    name: Target display
+    description: Which NSPanel shows the message.
+    required: true
+    selector:
+      device:
+        integration: nspanel_haui
+  title:
+    name: Title
+    description: Short notification title shown on the panel. Keep it to one word where possible; a title wider than the header widget is cut to fit and ends in `..`.
+    required: true
+    selector:
+      text:
+        type: text
+  message:
+    name: Message
+    description: Optional body below the title. Empty = title only.
+    default: ""
+    selector:
+      text:
+        type: text
+        multiline: true
+  icon:
+    name: Icon
+    description: Material Design icon (e.g. mdi:bell). Empty = no icon shown.
+    default: ""
+    selector:
+      icon:
+  type:
+    name: Type
+    description: >-
+      info, warning, alert, critical or silent. Sets the icon colour and the
+      sound; critical also loops the sound until dismissed.
+    default: info
+    selector:
+      select:
+        options: [info, warning, alert, critical, silent]
+  timeout:
+    name: Auto-dismiss after
+    description: >-
+      Optional timeout in seconds, counted from when the notification is queued.
+      A notification can expire while waiting to be shown. Use 0 to keep it
+      until dismissed on the panel.
+    default: 0
+    selector:
+      number:
+        min: 0
+        max: 3600
+        unit_of_measurement: s
+        mode: box
+  text_size:
+    name: Text size
+    description: '"auto" or a font size 1-3.'
+    default: auto
+    selector:
+      select:
+        options: ["auto", "1", "2", "3"]
+variables:
+  presets:
+    info:
+      icon_color: ""
+      sound: notification
+      persistent: false
+      force_show: false
+    warning:
+      icon_color: "#f69d31"
+      sound: notification
+      persistent: false
+      force_show: false
+    alert:
+      icon_color: "#4aa5ee"
+      sound: alert
+      persistent: false
+      force_show: true
+    critical:
+      icon_color: "#4aa5ee"
+      sound: alert
+      persistent: true
+      force_show: true
+    silent:
+      icon_color: ""
+      sound: none
+      persistent: false
+      force_show: false
+sequence:
+  - variables:
+      preset: "{{ presets.get(type | default('info', true) | lower, presets.info) }}"
+  - action: nspanel_haui.send_notification
+    data:
+      device: "{{ device }}"
+      title: "{{ title }}"
+      message: "{{ message | default('') }}"
+      icon: "{{ icon | default('') }}"
+      icon_color: "{{ preset.icon_color }}"
+      sound: "{{ preset.sound }}"
+      persistent: "{{ preset.persistent }}"
+      force_show: "{{ preset.force_show }}"
+      timeout: "{{ timeout | default(0) | int(0) }}"
+      text_size: "{{ text_size | default('auto') }}"
+mode: single
+```
+
+The colours are the default palette's values (`header_accent` and
+`component_active`). A custom theme should call `nspanel_haui.send_notification`
+directly with the theme's own `icon_color`; the script's presets do not read the
+device theme.
 
 ### `nspanel_haui.reset_last_interaction`
 
@@ -315,10 +486,10 @@ Two entities are created per device:
 | `notify.<device_name>_persistent_notification` | Persistent notification (sound loops until dismissed on the panel; opens immediately) |
 
 `notify.send_message` only takes a title and a message, so these entities
-cannot set a severity, or force-show — use
-`nspanel_haui.send_notification` for those. When no title is given, "Home Assistant"
-is used. The entities are only created once the device is linked to its ESPHome
-device.
+cannot set an icon colour, sound, force-show, or timeout — use
+`nspanel_haui.send_notification` for those. When no title is given, "Home
+Assistant" is used. The entities are only created once the device is linked to
+its ESPHome device.
 
 **Example:**
 
@@ -335,14 +506,15 @@ target:
 
 ## Sending notifications from Assist / voice assistants (LLM)
 
-Voice assistants and LLM integrations call a **script** that wraps
-`nspanel_haui.send_notification`. Expose the script to the conversation agent
-so the assistant can show messages on a chosen panel. The script maps friendly
-panel keys to the ESPHome device-registry IDs the service expects and exposes
-the notification options as script fields:
+Voice assistants and LLM integrations call a **script** that wraps the
+[preset notification script](#preset-notification-script). Expose the script to
+the conversation agent so the assistant can show messages on a chosen panel.
+The script below maps friendly panel keys to the panels' device-registry IDs
+(NSPanel HAUI or ESPHome device) and exposes the notification options as script
+fields:
 
 ```yaml
-alias: NSPanel Notify
+alias: NSPanel Notify Voice
 description: >-
   Show a short title and optional message on the NSPanel display as a popup
   notification. Use when the user asks to show a message, text or notification
@@ -351,8 +523,8 @@ icon: mdi:tablet
 fields:
   title:
     name: Title
-    description: Short notification title shown on the panel.
-    example: Dishwasher finished
+    description: Short notification title shown on the panel. Keep it to one word where possible; a title wider than the header widget is cut to fit and ends in `..`.
+    example: Dishwasher
     required: true
     selector:
       text:
@@ -376,40 +548,46 @@ fields:
           - value: bedroom
             label: Bedroom
   type:
-    name: Severity
+    name: Type
     description: >-
-      info (default), warning or critical. Sets the icon and colour;
-      critical plays the alert sound.
+      info (default), warning, alert, critical or silent. Sets the icon colour
+      and sound; critical loops the sound until dismissed.
     default: info
     selector:
       select:
-        options: [info, warning, critical]
+        options: [info, warning, alert, critical, silent]
   icon:
     name: Icon
-    description: Material Design icon (e.g. mdi:bell). Empty = severity default icon.
+    description: Material Design icon (e.g. mdi:bell). Empty = no icon shown.
     default: ""
     selector:
       icon:
-  persistent:
-    name: Loop sound
-    description: Loop the alert sound until dismissed.
-    default: false
-    selector:
-      boolean:
-  force_show:
-    name: Force show
+  timeout:
+    name: Auto-dismiss after
     description: >-
-      Open the popup immediately instead of waiting for the notification
-      indicator.
-    default: true
+      Optional timeout in seconds, counted from when the notification is queued.
+      A notification can expire while waiting to be shown. Use 0 to keep it
+      until dismissed on the panel.
+    default: 0
     selector:
-      boolean:
+      number:
+        min: 0
+        max: 3600
+        unit_of_measurement: s
+        mode: box
+  text_size:
+    name: Text size
+    description: "\"auto\" or a font size 1-3."
+    default: auto
+    selector:
+      select:
+        options: ["auto", "1", "2", "3"]
 variables:
   nspanel_devices:
-    salon: "0123abcd..."   # ESPHome device-registry ID of the panel
+    salon: "0123abcd..."   # device-registry ID of the panel (HAUI or ESPHome device)
     bedroom: "4567efgh..."
 sequence:
-  - action: nspanel_haui.send_notification
+  - action: script.nspanel_notify
     data:
       title: "{{ title }}"
       message: "{{ message | default('') }}"
@@ -418,46 +596,28 @@ sequence:
         nspanel_devices.salon) }}
       type: "{{ type | default('info') }}"
       icon: "{{ icon | default('') }}"
-      persistent: "{{ persistent | default(false) | bool }}"
-      force_show: "{{ force_show | default(true) | bool }}"
+      timeout: "{{ timeout | default(0) | int(0) }}"
+      text_size: "{{ text_size | default('auto') }}"
 mode: single
 ```
 
-The service accepts `type`, `icon`, `persistent` and `force_show`, so one
-script covers the full range of behaviour: an info popup (the defaults), a
-warning with a custom icon, or a critical alert that loops the sound and
-re-opens the popup periodically until dismissed. Expose the script to the
-conversation agent; the LLM reads its description and field descriptions when
-deciding how to call it.
+The preset script expands `type` into `icon_color`, `sound`, `persistent` and
+`force_show`, so one script covers the full range of behaviour: an info popup
+(the defaults), a warning with a custom icon, an alert that opens immediately,
+or a critical alert that loops the sound and re-opens the popup periodically
+until dismissed or timed out. Expose the script to the conversation agent; the
+LLM reads its description and field descriptions when deciding how to call it.
 
 ---
 
 ## Current Page Sensor
 
-Each device exposes a **`sensor.<device_name>_current_page`** diagnostic
-sensor whose value is the Nextion page name currently shown on the display
-(e.g. `grid`, `weather`, `popup_light`, `clock`).  It is updated by the hub's
-`nspanel_haui.page_changed` events, so no polling is needed; when the panel
-device goes offline the sensor becomes unavailable and returns when the
-connection is restored.
-
-Attributes carry the panel context for automation templates:
-
-| Attribute | Meaning |
-|-----------|---------|
-| `panel` | Panel key of the shown panel (empty for system popups) |
-| `type` | Panel type (e.g. `grid`) |
-| `title` | Panel display title |
-
-**Example automation trigger (page changed):**
-
-```yaml
-trigger:
-  - platform: state
-    entity_id: sensor.nspanel_kitchen_current_page
-```
-
-The entity is only created once the device is linked to its ESPHome device.
+The firmware provides the **Current Page** and **Current Page Number** sensors
+(`sensor.<device_name>_current_page`, `sensor.<device_name>_current_page_number`;
+both disabled by default), see
+[ESPHome Component → Page](esphome.md#page). For the panel key, type and
+title of the shown panel, trigger on the
+[`nspanel_haui.page_changed`](#ha-events-automation-triggers) event instead.
 
 ---
 
@@ -468,17 +628,30 @@ connected panel, polled every few seconds from the device status API:
 
 | Field | Meaning |
 |-------|---------|
-| `integration_version` | Version of the running NSPanel HAUI integration |
+| `haui_version` | Version of the running NSPanel HAUI hub integration |
+| `haui_version_mismatch` | `true` when the known HAUI version differs from the device's `yaml_version`; `null` until both are reported |
 | `connection_uptime` | Seconds since the ESPHome connection was last (re)established |
 | `idle_page_active` | `true` when the idle page is shown — the editor shows **Idle page** / **Active** |
 | `last_disconnect_reason` | Why the connection dropped last (e.g. `heartbeat timeout`), if known |
 | `disconnected_since` | When the device went offline that last time |
-| `tft_version` / `yaml_version` | Display TFT version installed vs the version the firmware needs |
+| `yaml_version` | ESPHome firmware version reported by the panel |
+| `tft_version` / `tft_required_version` | Display TFT version installed vs the version required by firmware |
 | `update` | TFT update state while an install runs: `checking`, `installing`, `done`, or `error` (with `version`, `started_at`, `last_error`) |
+The Health section also includes **Reset interaction timer**, which resets the
+firmware's dim/off inactivity timer for the selected panel without changing the
+current page or resetting the hub's separate idle-page timer.
+
 
 The Device Manager shows the same versions inline per device, using **Unknown**
-when firmware or display version has not been reported. A display whose TFT is
-older than the firmware version is flagged **update pending**.
+when firmware or display version has not been reported. HAUI and firmware versions
+are expected to match; a known mismatch is flagged **Firmware mismatch**. Missing
+version data is not treated as a mismatch. A display whose TFT is older than
+`tft_required_version` is separately flagged **update pending**.
+
+If firmware has not reported `tft_required_version`, the manager does not infer one
+from `yaml_version` and does not flag the display as pending. Firmware update
+availability compares a release with `yaml_version`; the display check compares
+`tft_version` with `tft_required_version`.
 
 The status payload is only as fresh as the last poll.  When a panel has been
 disconnected too long for the poll to succeed, the dialog keeps showing the
@@ -494,12 +667,11 @@ a `…` suffix instead of showing an old value as current.
 
 TFT installs are automatic on connect (or after confirmation on the display,
 depending on `auto_install`) and normally need no action.  When you want to
-re-install the TFT immediately, use the **Device Manager → Install TFT** action
-or the `nspanel_haui.update_tft` service and select the panel (or press
+re-install the TFT immediately, use the **Device actions → Info → Install
+update → Display (TFT)** action or the `nspanel_haui.update_tft` service and select the panel (or press
 **Install** on its **HAUI Display** update entity). The HA service is also
 convenient from automations and Developer Tools, and uses HAUI's
-firmware-matched TFT release unless a `url` is given. The Device Manager also supports *Refresh all
-displays* from its dialog footer. While an install runs, the health section and
+firmware-matched TFT release unless a `url` is given. While an install runs, the health section and
 the Device Manager row show the matching state and version; failures surface
 the reason via the update state's `last_error`.
 
@@ -512,15 +684,19 @@ The display gives no byte-level progress, so the state only moves through
 
 Install the Nextion display file (the `.tft`) through the integration: the
 panel's **HAUI Display** update entity, the `nspanel_haui.update_tft` action
-(with an optional `url`), or **Device Manager → Install TFT**. All three track
+(with an optional `url`), or **Device actions → Info → Install update → Display (TFT)**. All three track
 the install and report failures.
 
 The firmware still exposes one ESPHome action, `esphome.<device>_upload_tft_url`
 (`url`): it is the transport the hub uses to hand the TFT URL to the device,
 because the ESP32 has to download the file and stream it to the display. Calling
 it directly bypasses the hub's install tracking — use `nspanel_haui.update_tft`
-with `url` instead. The former `esphome.<device>_upload_tft` action and the
-**Update Display** button are gone (see [Upgrading](upgrading.md#10-tft-install-actions-moved-to-the-integration)).
+with `url` instead. The former `esphome.<device>_upload_tft` action is gone (see
+[Upgrading](update-process.md#10-tft-install-actions-moved-to-the-integration)).
+
+The former standalone **Update Display** button is gone: TFT management belongs
+to the hub. The firmware keeps only the `upload_tft_url` ESPHome action above as
+the transport for the HAUI flows.
 
 GitHub serves release TFTs through a redirect to a signed URL of about 870
 characters. The firmware's display component reserves a 2048-byte HTTP TX
@@ -535,9 +711,10 @@ Assistant event bus** so automations can react to what happens on the panel.
 | Event | Payload | When |
 |-------|---------|------|
 | `nspanel_haui.page_changed` | `device`, `action` (`opened`/`closed`), `panel` (key), `type`, `title`, `page` (Nextion page name) | Whenever a panel is opened through the render pipeline or closed |
-| `nspanel_haui.notification` | `device`, `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent` | Whenever a notification is queued or dismissed |
+| `nspanel_haui.notification` | `device`, `id` (unique per notification; a repeat that replaces a queued copy gets a new one), `state` (`added`/`removed`), `title`, `message`, `icon`, `icon_color` (the configured colour, or `null` for the theme's text colour), `sound` (`""` when silent), `persistent`, `force_show` (`true` for every persistent notification), `timeout` (seconds or `null`) | Whenever a notification is queued or removed (dismissed, expired, replaced, cleared, or dropped from a full queue) |
 | `nspanel_haui.connection_changed` | `device`, `connected` (bool) | Whenever the hub's connection to the panel device changes |
-| `nspanel_haui.display_update_changed` | `device`, `connected`, `installed_version` (TFT), `latest_version` (TFT the firmware needs), `state` (`idle`/`checking`/`installing`/`done`/`error`), `last_error` | Whenever the display's TFT version or the TFT update state changes (drives the **HAUI Display** update entity) |
+| `nspanel_haui.display_update_changed` | `device`, `connected`, `enabled` (updates enabled for the device), `installed_version` (TFT), `latest_version` (TFT the firmware needs), `state` (`idle`/`checking`/`installing`/`done`/`error`), `update_reason` (why no TFT is offered), `last_error` | Whenever the display's TFT version or the TFT update state changes (drives the **HAUI Display** update entity) |
+| `nspanel_haui.firmware_update_changed` | `device`, `connected`, `enabled`, `installed_version`, `latest_version` (`null` when no firmware can be offered), `installing`, `reason` (why no firmware is offered), `last_error` | Whenever the firmware versions or the firmware install state change (drives the **HAUI Firmware** update entity) |
 
 All events carry the device name in `event.data.device`, so a single
 automation can react to every panel of the hub.
@@ -555,6 +732,6 @@ trigger:
       notif_device: "{{ trigger.event.data.device }}"
 ```
 
-Useful patterns: forward `critical` notifications to your phone or a
-messaging service, log doorbell rings, or reset a "someone is home" flag
-from a panel button.
+Useful patterns: forward persistent notifications (`persistent: true`) or
+alerts with `sound: alert` to your phone or a messaging service, log doorbell
+rings, or reset a "someone is home" flag from a panel button.

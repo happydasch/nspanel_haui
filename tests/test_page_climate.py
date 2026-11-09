@@ -6,10 +6,12 @@ display and Home Assistant.
 """
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.features import ClimateFeatures
-from nspanel_haui.haui.page.climate import ClimatePage
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.features import ClimateFeatures
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.climate import ClimatePage
 
 
 class _Entity:
@@ -37,6 +39,8 @@ class _Controller:
 
 
 class _Device:
+    is_portrait = False
+
     def get(self, key, default=None):
         return {}.get(key, default)
 
@@ -52,6 +56,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities, temperature_unit="°C"):
         self.entities = entities
+        self.color_theme = ColorTheme({})
         self.temperature_unit = temperature_unit
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}
@@ -107,8 +112,9 @@ def _climate(state="heat", **attrs):
     return _Entity(state, attributes)
 
 
-def _show(entity, *, unit="°C", **panel_cfg):
+def _show(entity, *, unit="°C", scheme="dark", **panel_cfg):
     app = _App({"climate.living": entity}, temperature_unit=unit)
+    app.color_theme = ColorTheme({}, scheme)
     cfg = {"type": "climate", "item": {"item": "climate.living"}}
     cfg.update(panel_cfg)
     panel = HAUIPanel(app, cfg)
@@ -118,6 +124,17 @@ def _show(entity, *, unit="°C", **panel_cfg):
 
 
 # item resolution
+
+
+def test_no_selected_item_hides_temperature_and_power():
+    entity = _climate()
+    app, page = _show(entity, item=None)
+
+    assert 'tTemp.txt=""' in app.cmds
+    assert "vis bFncRSec,0" in app.cmds
+    page.callback_function_component("bFncRSec", "power_off")
+
+    assert entity.calls == []
 
 
 def test_editor_panel_controls_configured_item():
@@ -141,6 +158,12 @@ def test_popup_controls_item_passed_by_id():
     page.callback_function_component("bDown", "temp_down")
 
     assert entity.calls == [("set_temperature", {"temperature": 20.5})]
+
+
+def test_climate_mode_icon_uses_selected_fixed_palette():
+    _app, page = _show(_climate(), scheme="light")
+
+    assert page.get_icon_color("climate", "heat") == 47521
 
 
 # setpoint step
@@ -173,6 +196,14 @@ def test_temperatures_show_the_home_assistant_unit():
 
     assert 'tUnit.txt="°F"' in app.cmds
     assert 'tTemp.txt="68.5°F"' in app.cmds
+
+
+def test_whole_current_temperature_prints_without_a_trailing_zero():
+    """21.0 and 21 print alike: the editor preview cannot tell them apart."""
+    entity = _climate(current_temperature=21.0)
+    app, _page = _show(entity)
+
+    assert 'tTemp.txt="21°C"' in app.cmds
 
 
 def test_step_is_clamped_to_entity_range():

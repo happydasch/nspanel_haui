@@ -6,7 +6,8 @@ editor.
 """
 
 import pytest
-from nspanel_haui.haui.mapping.panel import get_user_panel_type_descriptors
+
+from custom_components.nspanel_haui.haui.mapping.panel import get_user_panel_type_descriptors
 
 
 @pytest.mark.parametrize("type_key", ["clock", "weather", "clocktwo"])
@@ -20,18 +21,48 @@ def test_headerless_page_components_have_no_header_buttons(type_key):
     assert len(ids) == len(set(ids))
 
 
+def test_page_specific_color_options_are_exposed():
+    """Pages that still support custom colors keep those controls in the editor."""
+    descriptors = {
+        descriptor["type_key"]: descriptor for descriptor in get_user_panel_type_descriptors("pl")
+    }
+    color_options = {
+        "alarm": {
+            "keypad_bg_color",
+            "keypad_text_color",
+            "arm_button_color",
+            "arm_button_back_color",
+            "disarm_button_color",
+            "disarm_button_back_color",
+        },
+        "clocktwo": {"off_color", "letter_color", "special_color"},
+    }
+
+    for type_key, keys in color_options.items():
+        options = {option["key"]: option for option in descriptors[type_key]["options"]}
+        assert keys <= options.keys()
+        assert all(options[key]["kind"] == "color" for key in keys)
+
+
 def test_blank_page_declares_only_its_own_widget():
-    from nspanel_haui.haui.page.blank import BlankPage
+    from custom_components.nspanel_haui.haui.page.blank import BlankPage
 
     assert [c.name for c in BlankPage.COMPONENTS.values()] == ["hBlank"]
 
 
-def test_grid_item_options_reach_the_editor_with_translated_labels():
-    """The editor shows the grid's per-item options with labels in the user's language."""
+def test_grid_item_options_include_tile_color_overrides():
+    """Grid items can override tile colors while unspecified colors use the device scheme."""
     (grid,) = [d for d in get_user_panel_type_descriptors("pl") if d["type_key"] == "grid"]
 
     options = {o["key"]: o for o in grid["item_options"]}
 
-    assert options["text_color"]["kind"] == "color"
-    assert options["text_color"]["label"] == "Kolor tekstu"
     assert options["show_power_button"]["kind"] == "bool"
+    color_keys = {
+        "text_color",
+        "back_color",
+        "color_pressed",
+        "back_color_pressed",
+        "power_color",
+    }
+    assert color_keys <= options.keys()
+    assert all(options[key]["kind"] == "color" for key in color_keys)

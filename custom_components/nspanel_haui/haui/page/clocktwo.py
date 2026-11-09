@@ -10,7 +10,13 @@ from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_MESSAGE, ICO_SPECIAL
-from .clock_common import apply_background, release_ticks, subscribe_ticks
+from .clock_common import (
+    background_commands,
+    background_option,
+    release_ticks,
+    set_background_mode,
+    subscribe_ticks,
+)
 
 MATRIX = {
     "en": (
@@ -229,7 +235,6 @@ INDEX_SPECIAL_LENGTH = 4
 
 
 class ClockTwoPage(HAUIPage):
-    PICTURE_BACKGROUND = True
     USE_SYSTEM_COLORS = False
     DESCRIPTOR = PageDescriptor(
         type_key="clocktwo",
@@ -238,26 +243,7 @@ class ClockTwoPage(HAUIPage):
         label=_("Clock Two"),
         description=_("Word-clock display in multiple languages."),
         options=[
-            PageOption(
-                key="background",
-                kind="select",
-                default="dark",
-                allow_template=True,
-                label=_("Background"),
-                description=_("Background image theme for the word clock display."),
-                section=_("Appearance"),
-                choices=[
-                    ("dark", _("Dark")),
-                    ("modern", _("Modern")),
-                    ("spring", _("Spring")),
-                    ("summer", _("Summer")),
-                    ("autumn", _("Autumn")),
-                    ("winter", _("Winter")),
-                    ("dog_1", _("Dog 1")),
-                    ("dog_2", _("Dog 2")),
-                    ("cat", _("Cat")),
-                ],
-            ),
+            background_option(),
             PageOption(
                 key="clock_language",
                 kind="select",
@@ -294,25 +280,22 @@ class ClockTwoPage(HAUIPage):
             PageOption(
                 key="off_color",
                 kind="color",
-                default=8452,
                 label=_("Off-letter color"),
-                description=_("Default: 8452 (dark gray). Accepts RGB565, [r,g,b], or #rrggbb."),
+                description=_("Leave empty to use the color scheme."),
                 section=_("Colors"),
             ),
             PageOption(
                 key="letter_color",
                 kind="color",
-                default=65535,
                 label=_("Active letter color"),
-                description=_("Default: 65535 (white). Accepts RGB565, [r,g,b], or #rrggbb."),
+                description=_("Leave empty to use the color scheme."),
                 section=_("Colors"),
             ),
             PageOption(
                 key="special_color",
                 kind="color",
-                default=62694,
                 label=_("Special letter color"),
-                description=_("Default: 62694 (amber). Accepts RGB565, [r,g,b], or #rrggbb."),
+                description=_("Leave empty to use the color scheme."),
                 section=_("Colors"),
             ),
             PageOption(
@@ -337,67 +320,50 @@ class ClockTwoPage(HAUIPage):
     # panel
 
     def prepare(self) -> None:
-        # Initialize defaults used by create_panel() before start_page() runs.
-        # Navigation calls create_panel() immediately after constructing the
-        # page instance, which is before start_page() is invoked.
-        self._off_color = self.get_color("component_background")
-        self._letter_color = self.get_color("component_text")
-        self._special_color = self.get_color("component_accent")
-        self._clock_language = "en"
-        self._show_ampm = False
-        self._show_intro_text = True
-        self._show_intro_text_full_hour = False
-
         self._show_notifications = True
-
-        self._background = "dark"
         self._letter_current_state: list[bool] = []
         self._special_current_state: list[bool] = []
         self._clock_letters: list[str] = []
+        self._light_background = False
 
-    def create_panel(self, panel: HAUIPanel) -> None:
-        # setting: background (rendered in start_panel after page is confirmed)
-        self._background = self.render_template(panel.get("background", "dark"), False)
-        # Send the background command immediately so the global Nextion variable
-        # is set *before* the page's Preinitialize event runs.  create_panel()
-        # runs before goto_page(); the Preinitialize event only reads
-        # background.val on page load, so a command sent afterwards (in
-        # start_panel) updates the variable but not the already-drawn pictures.
-        apply_background(self, "clocktwo")
-        self._off_color = panel.get("off_color", self._off_color)
-        self._letter_color = panel.get("letter_color", self._letter_color)
-        self._special_color = panel.get("special_color", self._special_color)
-        self._clock_language = panel.get("clock_language", self._clock_language)
-        self._show_ampm = panel.get("show_ampm", self._show_ampm)
-        self._show_intro_text = panel.get("show_intro_text", self._show_intro_text)
-        self._show_intro_text_full_hour = panel.get(
-            "show_intro_text_full_hour", self._show_intro_text_full_hour
-        )
+    def page_load_commands(self, panel: HAUIPanel) -> list[str]:
+        return [*background_commands(self, panel), *super().page_load_commands(panel)]
+
+    def read_options(self, panel: HAUIPanel) -> None:
+        """Read the word clock's options; each panel shown on the page reads them anew."""
+        set_background_mode(self, panel)
+        self._off_color = panel.get("off_color", None)
+        if self._off_color in (None, ""):
+            self._off_color = self.get_color("component_background")
+        self._letter_color = panel.get("letter_color", None)
+        if self._letter_color in (None, ""):
+            self._letter_color = self.get_color("component_text")
+        if self._light_background and self._letter_color == 65535:
+            self._letter_color = self.get_color("component_text")
+        self._special_color = panel.get("special_color", None)
+        if self._special_color in (None, ""):
+            self._special_color = self.get_color("component_accent")
+        self._clock_language = panel.get("clock_language", "en")
+        self._show_ampm = panel.get("show_ampm", False)
+        self._show_intro_text = panel.get("show_intro_text", True)
+        self._show_intro_text_full_hour = panel.get("show_intro_text_full_hour", False)
 
     def start_panel(self, panel: HAUIPanel) -> None:
-        # setting: background — set before rendering content
-        # Also refresh _background here: create_panel() is not called when the
-        # page type is unchanged (same-page panel switch), so the value would
-        # otherwise be stale.
-        self._background = self.render_template(panel.get("background", "dark"), False)
-        with self.rec_cmd:
-            apply_background(self, "clocktwo")
+        self.read_options(panel)
         subscribe_ticks(self, with_date=False)
         # Register notification indicator with the shared blinker
         self.app.controller["notification"].set_blinker_callback(self._refresh_notif)
         # notification
         self._show_notifications = panel.get("show_notifications", True)
-        with self.rec_cmd:
-            self.set_function_component(
-                self.COMPONENTS.t_notif,
-                self.COMPONENTS.t_notif.name,
-                visible=self._show_notifications,
-            )
+        self.set_function_component(
+            self.COMPONENTS.t_notif,
+            self.COMPONENTS.t_notif.name,
+            visible=self._show_notifications,
+        )
         self.init_interface(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        with self.rec_cmd:
-            self.update_interface()
+        self.update_interface()
         self.app.controller["notification"].blinker.refresh()
 
     def _stop_panel(self, panel: HAUIPanel) -> None:
@@ -569,8 +535,6 @@ class ClockTwoPage(HAUIPage):
     # callback
 
     def callback_update_time(self, cb_args: dict[str, Any]) -> None:
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         # Batch matrix update commands so they don't interleave with a panel
         # render in progress on another executor thread.
         with self.rec_cmd:

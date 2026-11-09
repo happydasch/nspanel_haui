@@ -7,15 +7,40 @@ Assistant uses area/device-prefixed entity ids or the device was renamed, so
 
 from __future__ import annotations
 
-from nspanel_haui.ha_adapter import HAAdapter
+import asyncio
+import sys
+import threading
+import types
+
+import pytest
+
+from custom_components.nspanel_haui.hub.adapter import HAAdapter
+
+_test_loop = None
+
+
+@pytest.fixture(autouse=True)
+def loop_in_thread():
+    global _test_loop
+    _test_loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=_test_loop.run_forever, daemon=True)
+    thread.start()
+    try:
+        yield _test_loop
+    finally:
+        _test_loop.call_soon_threadsafe(_test_loop.stop)
+        thread.join()
+        _test_loop.close()
+        _test_loop = None
 
 
 class _Entry:
-    def __init__(self, domain, platform, original_name, device_id):
+    def __init__(self, domain, platform, original_name, device_id, disabled_by=None):
         self.domain = domain
         self.platform = platform
         self.original_name = original_name
         self.device_id = device_id
+        self.disabled_by = disabled_by
 
 
 class _Registry:
@@ -25,22 +50,23 @@ class _Registry:
 
 class _Hass:
     def __init__(self, entities):
-        self.helpers = type(
-            "H",
-            (),
-            {
-                "entity_registry": type(
-                    "ER",
-                    (),
-                    {"async_get": staticmethod(lambda hass: _Registry(entities))},
-                )()
-            },
-        )()
+        self.registry = _Registry(entities)
+
+
+@pytest.fixture(autouse=True)
+def _patch_entity_registry(monkeypatch):
+    import homeassistant.helpers
+
+    er = types.ModuleType("homeassistant.helpers.entity_registry")
+    er.async_get = lambda hass: hass.registry
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", er)
+    monkeypatch.setattr(homeassistant.helpers, "entity_registry", er, raising=False)
 
 
 def _adapter(entities, device_id="dev-1"):
     adapter = HAAdapter.__new__(HAAdapter)
     adapter.hass = _Hass(entities)
+    adapter._loop = _test_loop
     adapter._ha_device_id = device_id
     return adapter
 
@@ -114,3 +140,67 @@ def test_returns_none_with_multiple_candidates_and_no_device_link():
     }
     adapter = _adapter(entities, device_id=None)
     assert adapter.find_entity_id("number", "Display Model") is None
+
+
+def test_prefers_enabled_candidate_over_disabled_copy():
+    """A renamed entity leaves a disabled copy; the live candidate wins."""
+    entities = {
+        "sensor.salon_nspanel_temperature": _Entry(
+            "sensor", "esphome", "Temperature", "dev-1", disabled_by="integration"
+        ),
+        "sensor.nspanel_bedroom_temperature": _Entry("sensor", "esphome", "Temperature", "dev-1"),
+    }
+    assert _adapter(entities).find_entity_id("sensor", "Temperature") == (
+        "sensor.nspanel_bedroom_temperature"
+    )
+
+
+def test_ignores_a_sole_disabled_candidate():
+    entities = {
+        "sensor.nspanel_bedroom_temperature": _Entry(
+            "sensor", "esphome", "Temperature", "dev-1", disabled_by="integration"
+        )
+    }
+    assert _adapter(entities).find_entity_id("sensor", "Temperature") is None
+
+
+def test_does_not_resolve_to_another_device_when_linked_entity_is_missing():
+    entities = {
+        "sensor.other_panel_temperature": _Entry("sensor", "esphome", "Temperature", "dev-2")
+    }
+    assert _adapter(entities, device_id="dev-1").find_entity_id("sensor", "Temperature") is None
+
+
+def test_resolves_a_sole_candidate_when_no_device_is_linked():
+    entities = {
+        "sensor.other_panel_temperature": _Entry("sensor", "esphome", "Temperature", "dev-2")
+    }
+    assert _adapter(entities, device_id=None).find_entity_id("sensor", "Temperature") == (
+        "sensor.other_panel_temperature"
+    )
+
+
+def test_production_registry_path_without_hass_helpers(monkeypatch):
+    """The HomeAssistant object has no ``.helpers`` attribute.
+
+    Production looks up the registry through ``homeassistant.helpers.entity_registry``.
+    """
+    import homeassistant.helpers
+
+    entities = {
+        "sensor.area_nspanel_temperature": _Entry("sensor", "esphome", "Temperature", "dev-1")
+    }
+    er_module = types.ModuleType("homeassistant.helpers.entity_registry")
+    er_module.async_get = lambda hass: _Registry(entities)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.entity_registry", er_module)
+    monkeypatch.setattr(homeassistant.helpers, "entity_registry", er_module, raising=False)
+
+    class _HassWithoutHelpers:
+        pass
+
+    adapter = HAAdapter.__new__(HAAdapter)
+    adapter.hass = _HassWithoutHelpers()
+    adapter._loop = _test_loop
+    adapter._ha_device_id = "dev-1"
+
+    assert adapter.find_entity_id("sensor", "Temperature") == "sensor.area_nspanel_temperature"

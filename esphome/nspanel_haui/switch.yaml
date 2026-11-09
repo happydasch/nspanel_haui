@@ -8,6 +8,7 @@ switch:
     name: Screen Power
     id: screen_power
     entity_category: config
+    disabled_by_default: true
     restore_mode: ALWAYS_ON
     internal: false  # used only for the screen to stay on
     pin:
@@ -30,14 +31,6 @@ switch:
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
 
-  # Should auto-page be used
-  - platform: template
-    name: Use Auto-Page
-    id: use_auto_page
-    entity_category: config
-    restore_mode: RESTORE_DEFAULT_ON
-    optimistic: true
-
   # Should the display turn off automatically after the display-off timeout
   - platform: template
     name: Use Auto Display-Off
@@ -47,10 +40,13 @@ switch:
     optimistic: true
 
   # Physical switch left
+  # RESTORE_DEFAULT_OFF keeps the relay's last state across reboots and firmware
+  # updates (stored in NVS, so it is also restored after a power loss).
+  # ALWAYS_OFF switched every connected load off on each update.
   - platform: gpio
     name: Relay Left
     id: relay_left
-    restore_mode: ALWAYS_OFF
+    restore_mode: RESTORE_DEFAULT_OFF
     pin:
       number: 22
     on_turn_on:
@@ -66,7 +62,7 @@ switch:
   - platform: gpio
     name: Relay Right
     id: relay_right
-    restore_mode: ALWAYS_OFF
+    restore_mode: RESTORE_DEFAULT_OFF
     pin:
       number: 19
     on_turn_on:
@@ -85,14 +81,6 @@ switch:
     entity_category: config
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
-    on_turn_on:
-      then:
-        - lambda: |-
-            id(publish_event_native).execute("esphome.use_relay_left", "1");
-    on_turn_off:
-      then:
-        - lambda: |-
-            id(publish_event_native).execute("esphome.use_relay_left", "0");
 
   # Use physical relay right
   - platform: template
@@ -101,11 +89,3 @@ switch:
     entity_category: config
     restore_mode: RESTORE_DEFAULT_ON
     optimistic: true
-    on_turn_on:
-      then:
-        - lambda: |-
-            id(publish_event_native).execute("esphome.use_relay_right", "1");
-    on_turn_off:
-      then:
-        - lambda: |-
-            id(publish_event_native).execute("esphome.use_relay_right", "0");

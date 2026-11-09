@@ -1,0 +1,12 @@
+import json
+
+with open("scripts/font_tools/icons_mapping.json") as f:
+    icon_mapping = json.load(f)
+
+offset = 0xE2001
+icons = []
+for icon_name in icon_mapping:
+    if icon_name.startswith("weather"):
+        icons.append(hex(ord(icon_mapping[icon_name]) + offset))
+
+print(", ".join(sorted(icons)))

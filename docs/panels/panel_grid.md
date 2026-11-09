@@ -5,11 +5,11 @@ description: Grid panel — multi-entity tiles with color overrides and paginati
 
 # Panel Grid
 
-![](../assets/previews/panel-grid.svg)
+<img src="../assets/screens/landscape/grid.png" alt="grid panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/grid.png" alt="grid panel, portrait" width="142" height="213">
 
 ## About
 
-The grid panel shows up to 6 entities as large tiles in a scrollable layout. Each tile displays the entity name and an icon whose color reflects the state. If more than 6 entities are configured, a next-page button appears for scrolling.
+The grid panel shows up to 6 entities as large tiles in a scrollable layout. Each tile displays the entity name and an icon whose color reflects the state. If more than 6 entities are configured, a next-page button appears for scrolling. Tile names that exceed their widget width are shortened with `..`.
 
 This panel is a great starting point for grouping lights, switches, sensors, and scenes on a single screen.
 
@@ -17,23 +17,9 @@ This panel is a great starting point for grouping lights, switches, sensors, and
 
 In the **panel editor**, add the entities you want to display as items. Each item uses the standard entity picker — select an entity, then optionally customize its appearance.
 
-### Per-Item Color Overrides
+### Colors
 
-Each entity in the grid can have optional color and appearance overrides. In the **Advanced** section of the item editor, you can set:
-
-| Option | Description |
-|--------|-------------|
-| **Text Color** | Text and icon color for the tile |
-| **Background Color** | Background color of the tile |
-| **Pressed Text Color** | Text/icon color when the tile is pressed |
-| **Pressed Background** | Background color when the tile is pressed |
-| **Power Button Color** | Color for the power toggle button |
-| **Show Power Button** | Toggle to show a power on/off button on the tile |
-
-The colour fields accept the same forms as the entity `color` option: a hex
-value, an RGB triplet, an RGB565 integer, a state-keyed JSON object
-(`{"on": "#00ff00", "off": "#ff0000"}`), or a template. State-keyed colours are
-resolved against the entity state and refreshed when the state changes.
+Grid items use the selected device color scheme by default, with optional per-item overrides for tile text/icon color, tile background, pressed text/background, and the power button. Set only the roles you want to customize; the remaining colors continue to follow the device scheme. The standard item **Color** setting independently overrides the entity icon color. To remove saved device and panel color overrides, use **Editor → Colors → Reset existing device and panel color overrides**.
 
 ## Display Behavior
 

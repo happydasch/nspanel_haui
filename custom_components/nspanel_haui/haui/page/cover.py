@@ -75,11 +75,9 @@ class CoverPage(HAUIPage):
 
         # set title
         self._title = self._panel_title(panel, item, self.translate("Cover"))
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
         self.update_cover_entity()
 
     # misc
@@ -115,14 +113,15 @@ class CoverPage(HAUIPage):
         )
 
     def update_cover_entity(self) -> None:
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
         self.update_cover_controls()
         self.update_cover_info()
 
     def update_cover_info(self) -> None:
-        if self._cover_entity is None:
+        if not self.item_is_available(self._cover_entity):
             return
         item = self._cover_entity
+        assert item is not None
         current_position = item.get_item_attr("current_position")
         if current_position is None:
             # covers without position support only report open/closed
@@ -132,9 +131,18 @@ class CoverPage(HAUIPage):
         self.set_component_text(self.COMPONENTS.t_info, info)
 
     def update_cover_controls(self) -> None:
-        if self._cover_entity is None:
+        if not self.item_is_available(self._cover_entity):
+            for component in (
+                self.COMPONENTS.btn_up,
+                self.COMPONENTS.btn_stop,
+                self.COMPONENTS.btn_down,
+                self.COMPONENTS.h_vert_pos,
+            ):
+                self.hide_component(component)
+            self.set_component_text(self.COMPONENTS.t_info, "")
             return
         item = self._cover_entity
+        assert item is not None
         state = item.get_item_state()
         current_position = item.get_item_attr("current_position")
         # covers without position support only report open/closed
@@ -178,20 +186,20 @@ class CoverPage(HAUIPage):
             self.log(f"Unknown cover item attribute: {attribute}")
 
     def callback_cover_up(self, event: HAUIEvent, component: Component) -> None:
-        if self._cover_entity is not None:
+        if self.item_is_available(self._cover_entity):
             self._cover_entity.call_item_service("open_cover")
 
     def callback_cover_stop(self, event: HAUIEvent, component: Component) -> None:
-        if self._cover_entity is not None:
+        if self.item_is_available(self._cover_entity):
             self._cover_entity.call_item_service("stop_cover")
 
     def callback_cover_down(self, event: HAUIEvent, component: Component) -> None:
-        if self._cover_entity is not None:
+        if self.item_is_available(self._cover_entity):
             self._cover_entity.call_item_service("close_cover")
 
     # event
 
     def process_cover_pos(self, pos: int) -> None:
         self.log(f"Slider cover position value {pos}")
-        if self._cover_entity is not None:
+        if self.item_is_available(self._cover_entity):
             self._cover_entity.call_item_service("set_cover_position", position=pos)

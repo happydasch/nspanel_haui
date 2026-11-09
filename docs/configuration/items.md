@@ -135,7 +135,12 @@ scripts.
 `popup_key` — a string containing the panel key of a popup configuration. When the item is
 tapped, the specified popup panel opens instead of the default popup for the item's entity type.
 This works for any item, including entity types that have no default popup — for example
-`popup_timer`, which has no entity type of its own.
+`popup_timer`, which has no entity type of its own. The key may also name a panel you added
+yourself (e.g. a cover panel with `show_in_navigation` off); it receives the item's entity and
+opens as a stacked panel rather than a popup (see
+[Stacked Panels and Popups](panels.md#stacked-panels-and-popups)). To change the default popup
+for every item of a type, edit the popup itself instead
+([System Panel Overrides](panels.md#system-panel-overrides)).
 
 Default popups by entity type:
 

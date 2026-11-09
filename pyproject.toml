@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nspanel-haui"
 # Version kept in sync with custom_components/nspanel_haui/manifest.json (source of truth)
-version = "0.4.4"
+version = "0.4.5"
 description = "NSPanel HAUI custom integration for Home Assistant"
 requires-python = ">=3.14"
 
@@ -20,6 +20,7 @@ include = ["custom_components*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

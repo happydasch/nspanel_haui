@@ -258,6 +258,10 @@ bool Nextion::upload_tft(uint32_t baud_rate, bool exit_reparse) {
   watchdog::WatchdogManager wdm(this->tft_upload_watchdog_timeout_);
 
   this->connection_state_.is_updating_ = true;
+  // Every upload starts with the 4096-byte chunk the display answers with its resume offset.
+  // A failed upload leaves the flag set; a retry in the same boot would then request the
+  // whole file as its first chunk and stop after 4 KB.
+  this->upload_first_chunk_sent_ = false;
 
   if (exit_reparse) {
     ESP_LOGD(TAG, "Exit reparse mode");

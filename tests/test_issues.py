@@ -89,16 +89,16 @@ def _make_stubs() -> None:
 
 _make_stubs()
 
-import nspanel_haui.storage as storage_mod  # noqa: E402
-from nspanel_haui import (  # noqa: E402
+import custom_components.nspanel_haui.hub.storage as storage_mod  # noqa: E402
+from custom_components.nspanel_haui import (  # noqa: E402
     _create_device_start_failed_issue,
     _create_hub_idle_issue,
     _delete_device_start_failed_issue,
     _device_issue_id,
     async_setup_entry,
 )
-from nspanel_haui.const import DOMAIN  # noqa: E402
-from nspanel_haui.repairs import (  # noqa: E402
+from custom_components.nspanel_haui.const import DOMAIN  # noqa: E402
+from custom_components.nspanel_haui.repairs import (  # noqa: E402
     DEVICE_START_FAILED,
     DeviceStartFailedFixFlow,
     async_create_fix_flow,
@@ -217,7 +217,7 @@ def test_setup_failure_creates_issue() -> None:
     async def _boom(*_args: Any, **_kwargs: Any) -> Any:
         raise RuntimeError("startup exploded")
 
-    with patch("nspanel_haui._create_app", new=_boom):
+    with patch("custom_components.nspanel_haui._create_app", new=_boom):
         _run_setup_with_storage(hass, entry, ["Kitchen"])
 
     created = [
@@ -241,7 +241,7 @@ def test_setup_success_deletes_issue() -> None:
         app._runtime_device_name = "Kitchen"
         return app
 
-    with patch("nspanel_haui._create_app", new=_ok):
+    with patch("custom_components.nspanel_haui._create_app", new=_ok):
         _run_setup_with_storage(hass, entry, ["Kitchen"])
 
     deleted = [
@@ -259,7 +259,7 @@ def test_setup_without_devices_creates_hub_idle_issue() -> None:
     ir.async_create_issue.reset_mock()
     ir.async_delete_issue.reset_mock()
 
-    with patch("nspanel_haui._create_app", new=AsyncMock()):
+    with patch("custom_components.nspanel_haui._create_app", new=AsyncMock()):
         _run_setup_with_storage(hass, entry, [])
 
     created = [c for c in ir.async_create_issue.call_args_list if c.args[2] == "hub_idle"]

@@ -4,11 +4,14 @@ notifications, HA event emission, and the sleep panel carousel."""
 import types
 from unittest.mock import MagicMock
 
-from nspanel_haui.haui.controller.navigation import HAUINavigationController
-from nspanel_haui.haui.controller.notification import HAUINotificationController, Notification
-from nspanel_haui.haui.controller.update import HAUIUpdateController
-from nspanel_haui.haui.device import HAUIDevice
-from nspanel_haui.haui.device_config import tft_filename_for_model
+from custom_components.nspanel_haui.haui.controller.navigation import HAUINavigationController
+from custom_components.nspanel_haui.haui.controller.notification import (
+    HAUINotificationController,
+    Notification,
+)
+from custom_components.nspanel_haui.haui.controller.update import HAUIUpdateController
+from custom_components.nspanel_haui.haui.device import HAUIDevice
+from custom_components.nspanel_haui.haui.device_config import tft_filename_for_model
 
 
 class _App:
@@ -66,24 +69,6 @@ def test_tft_filename_for_model_mapping():
     assert tft_filename_for_model("bogus") == "nspanel_haui.tft"
 
 
-def test_update_controller_tft_filename_uses_display_model():
-    app = _App(device_cfg={"display_model": "us"})
-    ctrl = _update_ctrl(app)
-    assert ctrl._get_tft_filename() == "nspanel_haui_portrait.tft"
-
-
-def test_update_controller_tft_filename_explicit_override_wins():
-    app = _App(device_cfg={"display_model": "us"})
-    ctrl = _update_ctrl(app, config={"tft_filename": "custom.tft"})
-    assert ctrl._get_tft_filename() == "custom.tft"
-
-
-def test_update_controller_tft_filename_default_model():
-    app = _App(device_cfg={})
-    ctrl = _update_ctrl(app)
-    assert ctrl._get_tft_filename() == "nspanel_haui.tft"
-
-
 def _update_ctrl(app, config=None):
     ctrl = HAUIUpdateController.__new__(HAUIUpdateController)
     ctrl.config = app.device_config
@@ -127,7 +112,7 @@ def test_open_notification_button_label_is_dismiss():
     )
     nav = MagicMock()
     app.controller["navigation"] = nav
-    n = Notification("T", "M", "", True, "critical", False)
+    n = Notification(title="T", message="M", icon="", persistent=True, sound="alert")
     ctrl.translate = lambda s: s
     ctrl.open_notification(n)
     kwargs = nav.open_panel.call_args[1]
@@ -165,13 +150,16 @@ def test_notification_clear_publishes_removal_events():
             "nspanel_haui.notification",
             {
                 "device": "kitchen",
-                "id": str(id(notification)),
+                "id": notification.notif_id,
                 "state": "removed",
                 "title": "Doorbell",
                 "message": "Someone is here",
                 "icon": "mdi:bell",
-                "notif_type": "info",
+                "icon_color": None,
+                "sound": "notification",
                 "persistent": False,
+                "force_show": False,
+                "timeout": None,
             },
         )
     ]
@@ -237,7 +225,6 @@ def _nav_with_carousel(panels, **device_cfg):
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
     nav.create_snapshot = lambda: None
-    nav._cancel_idle_timer = lambda: None
     nav.open_panel = lambda pid, **kw: nav.opened.append((pid, kw.get("autostart", False)))
     nav.opened = []
     nav._resolve_special_panels(log=False)
@@ -273,7 +260,6 @@ def test_idle_panel_carousel_resets_when_config_changes():
     nav = HAUINavigationController(app, {})
     app.controller["navigation"] = nav
     nav.create_snapshot = lambda: None
-    nav._cancel_idle_timer = lambda: None
     nav.open_panel = lambda pid, **kw: None
     nav._resolve_special_panels(log=False)
 

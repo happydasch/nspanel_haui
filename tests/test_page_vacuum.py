@@ -6,11 +6,13 @@ reaches the display and Home Assistant.
 """
 
 import pytest
-from nspanel_haui.haui.abstract import haui_entity
-from nspanel_haui.haui.abstract.haui_panel import HAUIPanel
-from nspanel_haui.haui.features import VacuumFeatures
-from nspanel_haui.haui.page.vacuum import VacuumPage
-from nspanel_haui.haui.utils.icon import get_icon
+
+from custom_components.nspanel_haui.haui.abstract import haui_entity
+from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+from custom_components.nspanel_haui.haui.features import VacuumFeatures
+from custom_components.nspanel_haui.haui.mapping.color import ColorTheme
+from custom_components.nspanel_haui.haui.page.vacuum import VacuumPage
+from custom_components.nspanel_haui.haui.utils.icon import get_icon
 
 
 class _Entity:
@@ -38,6 +40,8 @@ class _Controller:
 
 
 class _Device:
+    is_portrait = False
+
     def get(self, key, default=None):
         return {}.get(key, default)
 
@@ -53,6 +57,7 @@ class _DeviceConfig:
 class _App:
     def __init__(self, entities):
         self.entities = entities
+        self.color_theme = ColorTheme({})
         self.listeners = []
         controller = _Controller()
         self.controller = {"esphome": controller, "notification": controller}
@@ -117,6 +122,23 @@ def _press_action(page):
 
 
 # item resolution
+
+
+def test_no_selected_vacuum_hides_controls_and_keeps_secondary_items():
+    app, page = _show(None, item=None, items=[{"item": "switch.mop"}])
+
+    assert 'tStatus.txt=""' in app.cmds
+    assert "vis bAction,0" in app.cmds
+    assert "vis bHome,0" in app.cmds
+    assert "vis bEntity1,1" in app.cmds
+    page.callback_function_component(VacuumPage.COMPONENTS.btn_action.name, "action")
+
+
+def test_unavailable_vacuum_displays_note_instead_of_controls():
+    app, _page = _show(_vacuum(state="unavailable"))
+
+    assert 'tStatus.txt="Unavailable"' in app.cmds
+    assert "vis bAction,0" in app.cmds
 
 
 def test_editor_panel_controls_configured_item_and_keeps_all_secondary_items():

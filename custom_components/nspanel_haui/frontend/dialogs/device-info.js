@@ -9,6 +9,9 @@ import { dialogHeader } from './dialog-header.js';
 import { HauiDialog } from './haui-dialog.js';
 import { t } from '../localize.js';
 import { rssiStrengthClass, rssiBarCount, fmtRssi } from '../device-info.js';
+import * as Api from '../api.js';
+import { renderSelect } from '../form-fields.js';
+import * as Toast from '../toast.js';
 
 /* ── timestamp formatting ─────────────────────────────────────────── */
 
@@ -97,7 +100,15 @@ function renderStatusCard(ds, di, nw) {
 
 /* ── device info section ────────────────────────────────────────── */
 
-function renderDeviceInfoSection(ds, di) {
+function renderDeviceInfoSection(
+  ds,
+  di,
+  actions,
+  firmwareDownloadVersion,
+  firmwareDownloadLoading,
+  firmwareDownloadError,
+) {
+  const esph = ds.esphome;
   return html`
     <details class="config-section">
       <summary>
@@ -122,7 +133,36 @@ function renderDeviceInfoSection(ds, di) {
             <span class="di-info-label">${t('TFT Version')}</span>
             <span class="di-info-value di-mono">${di.tft_version || "-"}</span>
           </div>
+          <div class="di-info-cell">
+            <span class="di-info-label">${t('Firmware Update Version')}</span>
+            <span class="di-info-value di-mono">${(ds.update || {}).firmware_update_version || "-"}</span>
+          </div>
+          ${ds.update?.enabled !== false ? html`
+            <div class="di-info-cell">
+              <span class="di-info-label">${t('Firmware download version')}</span>
+              <span class="di-info-value di-mono" title=${firmwareDownloadError || firmwareDownloadVersion || ""}>
+                ${firmwareDownloadLoading
+                  ? t('Loading releases…')
+                  : firmwareDownloadError || firmwareDownloadVersion || t('Unavailable')}
+              </span>
+            </div>
+          ` : ""}
+          ${esph ? html`
+            <div class="di-info-cell">
+              <span class="di-info-label">${t('Transport')}</span>
+              <span class="di-info-value di-mono">${esph.transport || "-"}</span>
+            </div>
+            <div class="di-info-cell">
+              <span class="di-info-label">${t('Device Names')}</span>
+              <span class="di-info-value">
+                ${(esph.device_names || []).join(", ") || "-"}
+              </span>
+            </div>
+          ` : ""}
         </div>
+        ${actions ? html`
+          <div class="di-device-actions">${actions}</div>
+        ` : ""}
       </div>
     </details>
   `;
@@ -130,7 +170,7 @@ function renderDeviceInfoSection(ds, di) {
 
 /* ── health section (Panel Doctor) ─────────────────────────────── */
 
-function renderHealthSection(ds, di) {
+function renderHealthSection(ds, di, healthActions) {
   const connected = ds.connected === true;
   const uptime = connected && di.connection_uptime != null ? di.connection_uptime : null;
   const reason = di.last_disconnect_reason;
@@ -154,16 +194,22 @@ function renderHealthSection(ds, di) {
       <div class="config-section-body">
         <div class="di-info-grid">
           <div class="di-info-cell">
-            <span class="di-info-label">${t("Integration Version")}</span>
-            <span class="di-info-value di-mono">${ds.integration_version || "-"}</span>
+            <span class="di-info-label">${t("HAUI Version")}</span>
+            <span class="di-info-value di-mono">${ds.haui_version || "-"}</span>
           </div>
+          ${ds.haui_version_mismatch === true ? html`
+          <div class="di-info-cell di-info-error">
+            <span class="di-info-label">${t("Firmware version")}</span>
+            <span class="di-info-value">${t("Firmware and HAUI versions do not match")}</span>
+          </div>
+          ` : ""}
           <div class="di-info-cell">
             <span class="di-info-label">${t("Connection Uptime")}</span>
             <span class="di-info-value">${uptime != null ? fmtInterval(uptime) : "—"}</span>
           </div>
           <div class="di-info-cell">
-            <span class="di-info-label">${t("State")}</span>
-            <span class="di-info-value">${idlePage ? t("Idle page") : t("Active")}</span>
+            <span class="di-info-label">${t("Page Mode")}</span>
+            <span class="di-info-value">${idlePage ? t("Idle page") : t("Regular page")}</span>
           </div>
           <div class="di-info-cell">
             <span class="di-info-label">${t("Last Disconnect")}</span>
@@ -180,6 +226,7 @@ function renderHealthSection(ds, di) {
           </div>
           ` : ""}
         </div>
+        ${healthActions ? html`<div class="di-health-actions">${healthActions}</div>` : ""}
       </div>
     </details>
   `;
@@ -220,36 +267,6 @@ function renderWifiSection(di, nw) {
                 <span class="rssi-bar ${bars >= 4 ? cls : ''}"></span>
               </span>
               <span class="di-rssi-text">${fmtRssi(rssi)}</span>
-            </span>
-          </div>
-        </div>
-      </div>
-    </details>
-  `;
-}
-
-/* ── ESPHome transport section ──────────────────────────────────── */
-
-function renderEsphomeSection(ds) {
-  const esph = ds.esphome;
-  if (!esph) return "";
-
-  return html`
-    <details class="config-section">
-      <summary>
-        <ha-icon icon="mdi:devices" class="di-section-icon"></ha-icon>
-        ${t('ESPHome')}
-      </summary>
-      <div class="config-section-body">
-        <div class="di-info-grid">
-          <div class="di-info-cell">
-            <span class="di-info-label">${t('Transport')}</span>
-            <span class="di-info-value di-mono">${esph.transport || "-"}</span>
-          </div>
-          <div class="di-info-cell">
-            <span class="di-info-label">${t('Device Names')}</span>
-            <span class="di-info-value">
-              ${(esph.device_names || []).join(", ") || "-"}
             </span>
           </div>
         </div>
@@ -336,12 +353,30 @@ class DeviceInfoDialog extends HauiDialog {
   static get properties() {
     return {
       deviceStatus: { type: Object },
+      deviceName: { type: String },
+      entryId: { type: String },
+      _picker: { type: Object, state: true },
+      _firmwareDownloadUrl: { type: String, state: true },
+      _firmwareDownloadVersion: { type: String, state: true },
+      _firmwareDownloadLoading: { type: Boolean, state: true },
+      _firmwareDownloadError: { type: String, state: true },
+      _actionBusy: { type: Boolean, state: true },
+      _toast: { type: Object, state: true },
     };
   }
 
   constructor() {
     super();
     this.deviceStatus = null;
+    this.deviceName = null;
+    this.entryId = null;
+    this._picker = null;
+    this._firmwareDownloadUrl = null;
+    this._firmwareDownloadVersion = null;
+    this._firmwareDownloadLoading = false;
+    this._firmwareDownloadError = null;
+    this._actionBusy = false;
+    this._toast = null;
   }
 
   updated(changed) {
@@ -349,7 +384,292 @@ class DeviceInfoDialog extends HauiDialog {
       this.renderRoot.querySelectorAll("details.config-section").forEach((d) => {
         d.removeAttribute("open");
       });
+      this._loadFirmwareDownloadInfo();
+    } else if (changed.has("open") && !this.open) {
+      this._picker = null;
     }
+  }
+
+  async _loadFirmwareDownloadInfo() {
+    if (this.deviceStatus?.update?.enabled === false || !this.entryId || !this.hass) return;
+    this._firmwareDownloadUrl = null;
+    this._firmwareDownloadVersion = null;
+    this._firmwareDownloadError = null;
+    this._firmwareDownloadLoading = true;
+    try {
+      const { url, version } = await Api.getFirmwareDownload(this);
+      this._firmwareDownloadUrl = url;
+      this._firmwareDownloadVersion = url ? version : null;
+      if (!url) {
+        this._firmwareDownloadError = t("No prebuilt firmware binary published for this release. Build from YAML or use the ESPHome dashboard.");
+      }
+    } catch (err) {
+      this._firmwareDownloadError = err.message || t("Failed to load the firmware link");
+    } finally {
+      this._firmwareDownloadLoading = false;
+    }
+  }
+
+  async _refreshDisplay() {
+    if (!this.deviceName || this._actionBusy) return;
+    this._actionBusy = true;
+    try {
+      await Api.refreshDeviceDisplay(this, this.deviceName);
+      Toast.showToast(
+        this,
+        t('Display refreshed for "{name}"').replace('{name}', this.deviceName),
+        "success",
+      );
+    } catch (err) {
+      Toast.showToast(this, err.message || t("Failed to refresh display"), "error");
+    } finally {
+      this._actionBusy = false;
+    }
+  }
+
+  async _resetInteractionTimer() {
+    if (!this.deviceName || this._actionBusy) return;
+    this._actionBusy = true;
+    try {
+      await Api.resetDeviceInteractionTimer(this, this.deviceName);
+      Toast.showToast(this, t("Interaction timer reset"), "success");
+    } catch (err) {
+      Toast.showToast(this, err.message || t("Failed to reset interaction timer"), "error");
+    } finally {
+      this._actionBusy = false;
+    }
+  }
+
+  async _downloadFirmware() {
+    if (this._actionBusy || this.deviceStatus?.update?.enabled === false) return;
+    this._actionBusy = true;
+    try {
+      const download = this._firmwareDownloadUrl
+        ? { url: this._firmwareDownloadUrl, version: this._firmwareDownloadVersion }
+        : await Api.getFirmwareDownload(this);
+      const { url, version } = download;
+      if (!url) {
+        Toast.showToast(
+          this,
+          t("No prebuilt firmware binary published for this release. Build from YAML or use the ESPHome dashboard."),
+          "error",
+        );
+        return;
+      }
+      this._firmwareDownloadUrl = url;
+      this._firmwareDownloadVersion = version || null;
+      this._firmwareDownloadError = null;
+      window.open(url, "_blank");
+      Toast.showToast(
+        this,
+        version
+          ? t('Downloading firmware {version}').replace('{version}', version)
+          : t('Downloading firmware'),
+        "success",
+      );
+    } catch (err) {
+      Toast.showToast(this, err.message || t("Failed to load the firmware link"), "error");
+    } finally {
+      this._actionBusy = false;
+    }
+  }
+
+  /* ── TFT / firmware install picker ────────────────────────────────── */
+
+  async _openPicker(kind, name, choice = "") {
+    if (this.deviceStatus?.update?.enabled === false) return;
+    if (kind === "select") {
+      this._picker = { kind, device: name };
+      return;
+    }
+    this._picker = { kind, device: name, releases: null, releasesError: "", choice, url: "", file: null, error: "" };
+    const load = kind === "tft" ? Api.getTftReleases : Api.getFirmwareReleases;
+    let result;
+    try {
+      result = await load({ entryId: this.entryId, hass: this.hass }, name);
+    } catch (e) {
+      result = {
+        releases: [],
+        error: e.message || (kind === "tft" ? t('Failed to load the TFT releases') : t('Failed to load the firmware releases')),
+      };
+    }
+    // The picker may have been closed or opened for another install meanwhile.
+    if (this._picker?.kind !== kind || this._picker.device !== name) return;
+    const releases = result.releases;
+    const pending = this._picker.choice === null;
+    const required = result.required;
+    const tftNeedsExplicitChoice = kind === "tft"
+      && this._picker.choice === ""
+      && (!required || releases.length === 0);
+    const defaultChoice = pending || tftNeedsExplicitChoice
+      ? (releases[0] ?? "url")
+      : this._picker.choice;
+    this._picker = {
+      ...this._picker,
+      releases,
+      releasesError: result.error || "",
+      choice: defaultChoice,
+    };
+  }
+
+  _updatePicker(changes) { this._picker = { ...this._picker, ...changes }; }
+
+  _finishLocalUpload(error = "") {
+    if (!this._picker?.uploading) return;
+    this._picker = error ? { ...this._picker, uploading: false, error } : null;
+  }
+
+  _installFromPicker() {
+    const { kind, device: name, choice } = this._picker;
+    if (this.deviceStatus?.update?.enabled === false) return;
+    if (choice === null) return;
+    const event = kind === "tft" ? "update-tft" : "update-firmware";
+    if (choice === "url") {
+      const url = this._picker.url.trim();
+      if (!/^https?:\/\/\S+$/i.test(url)) {
+        this._updatePicker({
+          error: kind === "tft"
+            ? t('Enter the http(s) URL of a .tft file')
+            : t('Enter the http(s) URL of a firmware OTA image (.bin)'),
+        });
+        return;
+      }
+      this._emit(event, { name, url });
+    } else if (choice === "file") {
+      const file = this._picker.file;
+      if (!file) {
+        this._updatePicker({ error: t("Choose a local update file") });
+        return;
+      }
+      const extension = kind === "tft" ? ".tft" : ".bin";
+      if (!file.name.toLowerCase().endsWith(extension)) {
+        this._updatePicker({
+          error: kind === "tft"
+            ? t("Choose a Nextion TFT file (.tft)")
+            : t("Choose an ESPHome OTA image (.bin)"),
+        });
+        return;
+      }
+      this._updatePicker({ uploading: true, error: "" });
+      this._emit(event, { name, file });
+      return;
+    } else if (choice) {
+      this._emit(event, { name, version: choice });
+    } else {
+      this._emit(event, { name });
+    }
+    this._picker = null;
+  }
+
+  _renderPicker(name, required, updateStatus) {
+    if (updateStatus?.enabled === false) {
+      return html`<div class="device-update-picker">${t('Updates are disabled for this device.')}</div>`;
+    }
+    const { kind, releases, releasesError, choice, url, file, error, uploading } = this._picker;
+    if (kind === "select") {
+      return html`
+        <div class="device-update-picker device-update-picker" @click=${(e) => e.stopPropagation()}>
+          <div class="form-group">
+            <label>${t('Choose update type')}</label>
+            <div class="device-update-actions">
+              <ha-button variant="neutral" appearance="plain" @click=${() => { this._picker = null; }}>
+                ${t('Cancel')}
+              </ha-button>
+              <ha-button @click=${() => this._openPicker("tft", name)}>${t('Display (TFT)')}</ha-button>
+              <ha-button
+                ?disabled=${updateStatus?.firmware_installing}
+                @click=${() => this._openPicker("firmware", name, updateStatus?.firmware_update_available ? "" : null)}
+              >${t('Firmware')}</ha-button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    const tft = kind === "tft";
+    let defaults = [];
+    if (tft) {
+      defaults = [["", required
+        ? t('Version the firmware needs ({version})').replace('{version}', required)
+        : t('Version the firmware needs')]];
+    } else if (updateStatus?.firmware_update_available) {
+      defaults = [["", t('Offered update ({version})').replace('{version}', updateStatus.firmware_update_version || '')]];
+    }
+    // The manifest's TFT is normally the required one, which the default
+    // already installs; list it only when it differs.
+    const listed = (releases || []).filter((tag) => !(tft && required && tag === required));
+    const options = [
+      ...defaults,
+      ...listed.map((tag) => [tag, tag]),
+      ["url", t('From URL')],
+      ["file", t('From local file')],
+    ];
+    return html`
+      <div class="device-update-picker device-update-picker" @click=${(e) => e.stopPropagation()}>
+        <div class="form-group">
+          <label for="di-install-source">${tft ? t('TFT to install') : t('Firmware to install')}</label>
+          ${renderSelect(
+            "di-install-source",
+            choice,
+            options,
+            (value) => this._updatePicker({ choice: value, file: null, error: "" }),
+            { disabled: uploading },
+          )}
+          ${releases === null ? html`<div class="field-hint">${t('Loading releases\u2026')}</div>` : ''}
+          ${releasesError
+            ? html`<div class="field-hint">${t('Releases unavailable: {error}').replace('{error}', releasesError)}</div>`
+            : ''}
+        </div>
+        ${choice === "url" ? html`
+          <div class="form-group">
+            <label for="di-install-url">${tft ? t('TFT file URL') : t('Firmware OTA image URL')}</label>
+            <input
+              id="di-install-url"
+              class="native-input"
+              type="url"
+              .value=${url}
+              @input=${(e) => this._updatePicker({ url: e.target.value, error: "" })}
+            />
+          </div>
+        ` : ''}
+        ${choice === "file" ? html`
+          <div class="form-group">
+            <label for="di-install-file">${tft ? t('Local TFT file') : t('Local firmware OTA image')}</label>
+            <input
+              id="di-install-file"
+              class="native-input"
+              type="file"
+              accept=${tft ? ".tft" : ".bin"}
+              ?disabled=${uploading}
+              @change=${(e) => this._updatePicker({ file: e.target.files?.[0] || null, error: "" })}
+            />
+            <div class="field-hint">
+              ${t('The file is uploaded to Home Assistant and must be reachable by the device.')}
+            </div>
+          </div>
+        ` : ''}
+        ${uploading ? html`<div class="field-hint">${t('Uploading local update file…')}</div>` : ''}
+        <div class="field-hint">${tft
+          ? t('Another release, URL or local file stays on the display until the firmware version changes or Home Assistant restarts.')
+          : t('Another release, URL or local file pauses automatic firmware updates until Home Assistant restarts. Use the OTA image (nspanel_haui_ota.bin), not the factory image.')}</div>
+        ${error ? html`<p class="device-update-error">${error}</p>` : ''}
+        <div class="device-update-actions">
+          <ha-button
+            variant="neutral"
+            appearance="plain"
+            ?disabled=${uploading}
+            @click=${() => { this._picker = null; }}
+          >
+            ${t('Cancel')}
+          </ha-button>
+          <ha-button
+            ?disabled=${uploading || choice === null || (choice === "file" && !file)}
+            @click=${() => this._installFromPicker()}
+          >
+            ${uploading ? t('Uploading…') : t('Install')}
+          </ha-button>
+        </div>
+      </div>
+    `;
   }
 
   render() {
@@ -358,6 +678,38 @@ class DeviceInfoDialog extends HauiDialog {
 
     const di = ds.device_info || {};
     const nw = di;
+    const update = ds.update || {};
+    const updatesEnabled = update.enabled !== false;
+    const installing = update.firmware_installing || update.state === "checking" || update.state === "installing";
+    const requiredTft = di.tft_required_version;
+    const healthActions = html`
+      <ha-button
+        variant="neutral"
+        appearance="plain"
+        ?disabled=${this._actionBusy || !this.deviceName}
+        @click=${this._resetInteractionTimer}
+      >${t('Reset interaction timer')}</ha-button>
+      <ha-button
+        variant="neutral"
+        appearance="plain"
+        ?disabled=${this._actionBusy || !this.deviceName}
+        @click=${this._refreshDisplay}
+      >${t('Redraw display')}</ha-button>
+    `;
+    const deviceActions = updatesEnabled ? html`
+      <ha-button
+        variant="neutral"
+        appearance="plain"
+        ?disabled=${this._actionBusy || !this.deviceName || installing}
+        @click=${() => this._openPicker("select", this.deviceName)}
+      >${t('Install update')}</ha-button>
+      <ha-button
+        variant="neutral"
+        appearance="plain"
+        ?disabled=${this._actionBusy || this._firmwareDownloadLoading}
+        @click=${this._downloadFirmware}
+      >${t('Download firmware')}</ha-button>
+    ` : "";
 
     return html`
       <ha-dialog
@@ -367,11 +719,19 @@ class DeviceInfoDialog extends HauiDialog {
         ${dialogHeader(t('Device Info'), this._dispatchClose)}
 
         <div class="dialog-body">
+          ${Toast.renderToast(this)}
           ${renderStatusCard(ds, di, nw)}
-          ${renderDeviceInfoSection(ds, di)}
-          ${renderHealthSection(ds, di)}
+          ${renderDeviceInfoSection(
+            ds,
+            di,
+            deviceActions,
+            this._firmwareDownloadVersion,
+            this._firmwareDownloadLoading,
+            this._firmwareDownloadError,
+          )}
+          ${this._picker ? this._renderPicker(this.deviceName, requiredTft, update) : ''}
+          ${renderHealthSection(ds, di, healthActions)}
           ${renderWifiSection(di, nw)}
-          ${renderEsphomeSection(ds)}
           ${renderActiveListeners(ds)}
           ${renderActiveTimers(ds)}
         </div>

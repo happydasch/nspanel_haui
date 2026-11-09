@@ -24,9 +24,8 @@ notification indicator (checking page config like
 
 from __future__ import annotations
 
-import threading
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Protocol
 
 from ..mapping.const import NotifEvent
 
@@ -35,29 +34,54 @@ def _noop() -> None:
     """No-op sentinel for when no page has registered a callback."""
 
 
+def _always() -> bool:
+    return True
+
+
+class BlinkScheduler(Protocol):
+    """The app timers the blinker runs on (``HAAdapter.run_every``/``cancel_timer``).
+
+    Their callbacks run on the app's worker thread, like all other page code.
+    """
+
+    def run_every(self, cb: Callable[[Any], None], start: Any, interval: float) -> str: ...
+
+    def cancel_timer(self, handle: str) -> None: ...
+
+
 class NotificationBlinker:
     """Manages a notification indicator's blinking state and timer.
 
     Parameters
     ----------
+    scheduler
+        App timers that run the blink ticks on the app's worker thread.
     refresh_fn
         A no-argument callable that re-renders the notification
         indicator.  Called on each blink tick and on ``refresh()``.
         The page should check :attr:`new_notifications` inside this
         callback to decide whether to show blinking or static state.
         Defaults to a no-op.
+    visible_fn
+        Whether the display is visible.  Blink ticks are skipped while it is
+        dark, so an unread notification does not send a display command every
+        second all night.  Defaults to always visible.
     interval
         Blink interval in seconds (default 1.0).
     """
 
     def __init__(
         self,
+        scheduler: BlinkScheduler,
         refresh_fn: Callable[[], None] = _noop,
+        visible_fn: Callable[[], bool] = _always,
         interval: float = 1.0,
     ) -> None:
+        self._scheduler = scheduler
         self._refresh_fn = refresh_fn
+        self._visible_fn = visible_fn
         self._interval = interval
-        self._timer: threading.Timer | None = None
+        self._handle: str | None = None
         self._new_notifications = False
 
     # ------------------------------------------------------------------
@@ -77,7 +101,7 @@ class NotificationBlinker:
         """
         self._refresh_fn = refresh_fn
         if self._new_notifications:
-            self._tick()
+            self._update()
 
     def clear_callback(self) -> None:
         """Clear the refresh callback and stop the blink timer.
@@ -89,9 +113,9 @@ class NotificationBlinker:
 
     def stop(self) -> None:
         """Cancel the blinking timer, if active."""
-        if self._timer is not None:
-            self._timer.cancel()
-            self._timer = None
+        if self._handle is not None:
+            self._scheduler.cancel_timer(self._handle)
+            self._handle = None
 
     def mark_read(self) -> None:
         """Clear the new-notifications flag and stop blinking.
@@ -128,25 +152,25 @@ class NotificationBlinker:
             self._new_notifications = True
         elif name == NotifEvent.NOTIF_CLEAR:
             self._new_notifications = False
-            self.stop()
 
-        self._tick()
+        self._update()
 
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
 
-    def _tick(self) -> None:
-        """Call the refresh function and schedule the next blink."""
-        # Events can arrive while a blink is scheduled; cancel it so only
-        # one timer chain exists and stop() can end it.
-        self.stop()
+    def _update(self) -> None:
+        """Render the indicator now and run the blink timer while unread."""
         self._refresh_fn()
+        if not self._new_notifications:
+            self.stop()
+        elif self._handle is None:
+            self._handle = self._scheduler.run_every(self._blink, None, self._interval)
 
-        if self._new_notifications:
-            self._timer = threading.Timer(self._interval, self._tick)
-            self._timer.daemon = True
-            self._timer.start()
+    def _blink(self, _kwargs: Any = None) -> None:
+        """One blink tick; the page alternates the indicator by the clock."""
+        if self._visible_fn():
+            self._refresh_fn()
 
 
 _NOTIFICATION_EVENTS: frozenset[str] = frozenset(

@@ -7,7 +7,7 @@ description: Nextion display configuration, HMI editing, and display rendering
 
 ## Installation
 
-To install the TFT file on the display, the device needs to be already flashed with ESPHome
+To install the TFT file on the display, the device needs to be already flashed with the NSPanel HAUI firmware
 and added to the integration. The hub installs the TFT the firmware needs when the device
 connects; to install it by hand:
 
@@ -40,8 +40,12 @@ This is relevant for edge-based gesture detection — swipe-from-right gestures 
 This project uses the stock ESPHome `nextion` display component (with a temporary vendored patch for the numeric-response fix until a released ESPHome contains it, ESPHome 2026.11.0 — see `esphome/nextion_patch/`; ESPHome 2026.10 or later) with a hardware UART and the following key options:
 
 - `uart_id`: references the UART bus used for the Nextion display.
-- `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. Hardware sleep only happens without a hub connection; with a hub the display stays awake (at brightness 0) and the hub restores the panel itself.
-- `tft_url`: default TFT URL; setting it enables TFT upload support (the hub always passes the URL of the TFT it installs).
+- `wake_up_page`: the Nextion page shown on wake-up from *hardware* sleep. The automatic display state machine does not hardware-sleep; while disconnected the firmware keeps System page 0 visible and only dims the backlight. This setting matters only if hardware sleep is explicitly requested.
+- `tft_url`: default TFT URL. It reads the `tft_update_url` substitution; override
+  it in your device YAML to install a local TFT build. The hub always passes the
+  URL of the TFT it installs, so this value is only a compile-time default. (A
+  `tft_url` is also what the component's validation requires next to
+  `tft_upload_http_buffer_size_tx`.)
 - `tft_upload_http_buffer_size_tx` (`2048`): HTTP TX buffer for the TFT download. GitHub redirects release TFTs to a signed URL of about 870 characters; the ESP-IDF default of 512 bytes cannot hold that request line and the upload fails with `HTTP_CLIENT: Out of buffer`. Comes from the vendored patch until a released ESPHome contains it.
 - `on_setup`: triggered after ESPHome connects to the Nextion.
 - `on_page`: triggered when the display changes pages.
@@ -111,7 +115,7 @@ flowchart TD
 
 After a page-change command the Nextion sends a 0x66 ack once the new page is active. The hub waits for this ack before sending render commands — commands arriving before the ack are rejected with "Invalid variable name" (0x1A) because page components are not yet initialised.
 
-After the ack the hub waits an additional settle delay (default `0.1s`, configurable via `page_settle_delay`) before calling `display_panel`. If the ack never arrives within `page_timeout` (default 10s), the hub force-resends the page command and renders anyway as a fallback.
+After the ack the hub waits an additional settle delay (default `0.1s`, configurable via `page_settle_delay`) before calling `display_panel`. If the ack never arrives within 10 s, the hub force-resends the page command and renders anyway as a fallback.
 
 #### Buffer overflow recovery
 
@@ -123,7 +127,7 @@ To edit the HMI file, no special care is needed. Following are some helpful info
 
 All pages need to send a `sendme` in `Preinitialize`. This is needed to know of a page change event.
 
-Prepare the page in the `Preinitialize` event because the Hub App cannot control the display at this stage. Only after a page is shown, it is possible to change anything or interact with it.
+Prepare the page in the `Preinitialize` event because the Hub App cannot control the display at this stage. Only after a page is shown, it is possible to change anything or interact with it. What the page needs from the hub to load correctly goes into global variables the hub sets before the page switch: the theme colours (`Program.s` globals the solid-colour pages paint themselves from, see [Nextion Editor](nextion-editor.md#hard-rules)) and the picture background of the clock and weather pages.
 
 If you want to process any click events, you need to enable `Send Component ID` on the event to be used.
 
@@ -138,7 +142,26 @@ When changing order of components on a page, be aware, that the id of the compon
 
 ## Scripts for display
 
-see `scripts` in the root directory for different scripts.
+see `scripts` in the root directory for different scripts. Which of them to
+run after an HMI change, and in what order, is in
+[Nextion Editor §8](nextion-editor.md#8-after-any-hmi-change-scripts-to-run).
 
 - Font generation
 - Image generation
+- Virtual panel assets: after every HMI change run
+  `python -m scripts.hmi_layout.gen_virtual_layout`. It exports both
+  HMI files' pages, widgets and event code to
+  `custom_components/nspanel_haui/frontend/virtual/layout_<orientation>.json`,
+  the icon-character→MDI map to `icon_map.json` and the pictures (as WebP, from
+  `nextion/images`). These feed the editor's
+  [live preview](configuration/README.md#the-live-preview) and the panel-card
+  previews alike — both render the real HMI pages through the shared Nextion
+  simulator. `--check`, run by the test suite, fails while the layouts or the
+  icon map are out of date.
+  `gen_virtual_layout.py` depends on the shared Home Assistant import stubs in
+  `scripts/_ha_stubs.py`. The panel cards themselves are the hub's own render;
+  `tests/test_card_renders.py` replays a render of every panel type in these
+  layouts.
+- Preview coverage: `python -m scripts.check_preview_coverage` (also run by the
+  test suite) confirms every exposed panel — user types, system panels and
+  popup aliases — still resolves to a physical page in both preview layouts.

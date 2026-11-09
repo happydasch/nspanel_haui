@@ -46,18 +46,21 @@ The editor's panel previews follow this setting: with a portrait device
 selected, every panel card shows the 320 × 480 layout with the function
 buttons at the bottom of the screen, as on the rotated TFT.
 
-Saving a changed model installs the matching TFT right away (the display
-cannot report which layout it runs, so the version check alone would keep the
-old layout). The **HAUI Display** update entity and `nspanel_haui.update_tft`
-pick the landscape or the portrait file by the same setting, which the hub
-mirrors into the device's *Display Model* number on every connect.
+Saving a changed model asks whether to install the matching TFT now (the
+display cannot report which layout it runs, so the version check alone would
+keep the old layout). The editor installs it only when you confirm; if you
+decline, the display keeps its current layout until you install the TFT from
+**Device actions → Info → Install update**. The **HAUI Display** update entity
+and `nspanel_haui.update_tft` pick the landscape or the portrait file by the
+same setting, which the hub mirrors into the device's *Display Model* number on
+every connect.
 
 ## How updates pick the right TFT
 
 The auto-update controller downloads the display firmware (the `.tft` file)
-matching the **integration version the firmware needs** from the GitHub
-release.  When a device's `display_model` is set, the controller asks the
-release for the matching asset:
+matching the firmware's **`tft_required_version`** from its release manifest.
+When a device's `display_model` is set, the controller asks the release for the
+matching asset:
 
 | `display_model` | Asset requested |
 |-----------------|-----------------|

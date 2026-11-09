@@ -7,11 +7,11 @@ Dispatcher contracts:
   ``callback(event, component)``.
 """
 
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.page.clock import ClockPage
-from nspanel_haui.haui.page.select import SelectPage
-from nspanel_haui.haui.page.settings import SettingsPage
-from nspanel_haui.haui.page.timer import TimerPage
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.page.clock import ClockPage
+from custom_components.nspanel_haui.haui.page.select import SelectPage
+from custom_components.nspanel_haui.haui.page.settings import SettingsPage
+from custom_components.nspanel_haui.haui.page.timer import TimerPage
 
 
 class _TimerApp:
@@ -83,7 +83,7 @@ def test_clock_tap_on_time_advances_card():
     page.on_release({ClockPage.COMPONENTS.t_time: page._advance_card})
 
     event = HAUIEvent("button", "")
-    page._queued_callback = (ClockPage.COMPONENTS.t_time.id, 0, event)
+    page._queued_callback = (ClockPage.COMPONENTS.t_time.id, event)
     page._buffer_timer = None
     page._flush_buffer_callback()
 

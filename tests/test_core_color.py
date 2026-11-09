@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import random
 
-from nspanel_haui.haui.utils.color import generate_color_palette
+from custom_components.nspanel_haui.haui.utils.color import generate_color_palette
 
 
 def test_palette_generation_leaves_global_rng_alone() -> None:

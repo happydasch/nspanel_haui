@@ -63,7 +63,7 @@ sequenceDiagram
    - Hub parses device state JSON
    - Sets state → CONNECTED
    - Sends `hub_connection_initialized` to device
-   - Sends `reset_last_interaction` to reset display timeout
+   - Leaves the device's inactivity timer unchanged; only touch, button presses, or explicit wake actions reset it
    - Starts heartbeat timer (hub→device)
    - Starts timeout monitoring (device→hub)
    - Invokes connection callback
@@ -91,7 +91,12 @@ Once connected, **both sides independently** send and monitor heartbeats:
 
 - Started when state reaches CONNECTED
 - Timer fires every `heartbeat_interval` seconds (first at "now+0")
+- The timer runs on the event loop (`on_loop`), never on the app's worker
+  thread: the device force-disconnects the hub after two missed heartbeats —
+  and wakes the display when it does — so a busy worker (render burst, update
+  check) must not delay it
 - Calls the `hub_heartbeat` ESPHome action which resets `hub_heartbeat` on the device
+- Published fire-and-forget (`publish_detached`), so sending never blocks or queues
 - Also sent immediately in reply to every `esphome.heartbeat` event; the timer is a fallback
 - Stopped when state leaves CONNECTED
 
@@ -150,10 +155,12 @@ When hub detects CONNECTED → DISCONNECTED:
 
 When hub detects connection established (HANDSHAKING → CONNECTED):
 1. Sends `hub_connection_initialized` action
-2. Sends `reset_last_interaction` to reset display timeout
+2. Leaves the inactivity timer unchanged
 3. Starts heartbeat timer
 4. Starts timeout timer
 5. Clears `_disconnected_since`
+
+The hub's `hub_connection_closed` action is authoritative even when another ESPHome Native API client is still connected; only the API client's last-disconnect callback is suppressed while other clients remain. This matters when multiple Home Assistant instances connect to one panel: the instance running HAUI can still tell the firmware its app is disconnected. The firmware wakes the display and pins it to System page 0, holds full brightness for `timeout_dim` plus the ramp, then dims if auto-dimming is enabled. It remains awake and never automatically turns the display off while disconnected. Reconnect restores the user's current panel at full brightness for the same grace; the inactivity timer itself is not reset.
 
 ## Error Scenarios
 
@@ -256,18 +263,18 @@ The text path is identical but uses `REQ_TXT` → `request_text` script →
 
 #### Requesting reads
 
-**`request_component_value(component: Component)`** — Request a numeric value.
-Used by slider pages.  Sends `REQ_VAL` to the device.
+**`request_component_value(component: Component | str)`** — Request a numeric
+value.  Used by slider pages.  Sends `REQ_VAL` to the device.
 
-**`request_component_text(component: Component)`** — Request a text value.
+**`request_component_text(component: Component | str)`** — Request a text value.
 Sends `REQ_TXT` to the device.
 
-Both accept the component by name via convenience wrappers:
+Both also take a plain name, for a Nextion component or variable without a
+`COMPONENTS` entry:
 
 ```python
-# Without a Component object
-self.request_component_value_by_name("hBrightness")
-self.request_component_text_by_name("tTitle")
+self.request_component_value("hBrightness")
+self.request_component_text("tTitle")
 ```
 
 #### Registering callbacks
@@ -289,11 +296,11 @@ def _on_value_read(self, value: int) -> None:
     self.log(f"Got brightness: {value}")
 ```
 
-**Without a Component:**
+**By name:**
 
 ```python
-self.add_read_callback_by_name("tTitle", self._on_title_read)
-self.request_component_text_by_name("tTitle")
+self.add_read_callback("tTitle", self._on_title_read)
+self.request_component_text("tTitle")
 ```
 
 #### Slider convenience — `bind_slider()`
@@ -330,6 +337,12 @@ timeout are dropped as stale.
 When a new touch (`TOUCH_START`) arrives, `_pending_read_request` is cleared
 (None) only if it has already expired.  A request still in flight is kept, so a
 `read_response` arriving just after the touch is still delivered.
+
+### Panel change
+
+Stopping a panel drops its read callbacks and its pending read.  A response
+that arrives after the page switched to another panel is dropped, even when
+the new panel binds the same slider, and the new panel can read right away.
 
 ### Pages using the read API
 

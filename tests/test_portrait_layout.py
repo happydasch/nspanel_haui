@@ -1,21 +1,19 @@
 """Tests for the portrait layout spec and its HMI attribute verification.
 
-The portrait HMI is generated from ``scripts/gen_portrait/portrait_layout.py``.
-``gen_portrait.py --check`` now runs the attribute verifier as well as the
-widget-coverage check, so a spec change (alignment, font, …) cannot pass while
+The portrait HMI is generated from ``scripts/hmi_layout/portrait_layout.py``.
+``gen_layout.py --spec portrait --check`` now runs the attribute verifier as
+well as the widget-coverage check, so a spec change (alignment, font, …) cannot pass while
 the committed HMI still carries the old value (#64 alignment, #60 font).
 """
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "scripts" / "gen_portrait"))
+from scripts.hmi_layout import gen_layout as gp
+from scripts.hmi_layout import portrait_layout as spec
 
-import gen_portrait as gp  # noqa: E402
-import portrait_layout as spec  # noqa: E402
+ROOT = Path(__file__).resolve().parent.parent
 
 HMI_PATH = ROOT / "nextion" / "nspanel_haui_portrait.HMI"
 SIBLING_PATH = ROOT / "nextion" / "nspanel_haui.HMI"
@@ -38,7 +36,7 @@ def test_clock_time_uses_large_font():
 
 
 def test_committed_portrait_hmi_has_no_attribute_drift():
-    """``gen_portrait.py --check`` verifies attributes, not only coverage."""
+    """The explicit portrait check verifies attributes, not only coverage."""
     raw = bytearray(HMI_PATH.read_bytes())
     problems = gp.verify(raw, spec, _pages(SIBLING_PATH))
     assert problems == [], "\n".join(problems)

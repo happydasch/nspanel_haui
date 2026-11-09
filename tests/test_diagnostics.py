@@ -30,8 +30,8 @@ def _make_ha_stubs() -> None:
 
 _make_ha_stubs()
 
-from nspanel_haui import diagnostics as diag  # noqa: E402
-from nspanel_haui.const import DOMAIN  # noqa: E402
+from custom_components.nspanel_haui import diagnostics as diag  # noqa: E402
+from custom_components.nspanel_haui.const import DOMAIN  # noqa: E402
 
 
 def _connection_stub() -> MagicMock:

@@ -42,7 +42,9 @@ _install_ha_stubs()
 
 import pytest  # noqa: E402
 import voluptuous as vol  # noqa: E402
-from nspanel_haui.services import (  # noqa: E402
+
+from custom_components.nspanel_haui.haui.mapping.const import SOUND_NAMES  # noqa: E402
+from custom_components.nspanel_haui.services import (  # noqa: E402
     DOMAIN,
     SERVICE_CLOSE_PANEL,
     SERVICE_IDLE,
@@ -96,6 +98,38 @@ def mock_esphome_ctrl():
     return ctrl
 
 
+@pytest.fixture(autouse=True)
+def device_registry(monkeypatch):
+    """Stub HA's device registry; tests add ``device id → identifiers`` to the returned dict."""
+    devices: dict[str, set[tuple[str, str]]] = {}
+
+    def _get_device(device_id: str) -> Any:
+        if device_id not in devices:
+            return None
+        return types.SimpleNamespace(id=device_id, identifiers=devices[device_id])
+
+    registry = types.ModuleType("homeassistant.helpers.device_registry")
+    registry.async_get = lambda hass: types.SimpleNamespace(async_get=_get_device)
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.device_registry", registry)
+    monkeypatch.setattr(
+        sys.modules["homeassistant.helpers"], "device_registry", registry, raising=False
+    )
+    return devices
+
+
+class _ServiceValidationError(Exception):
+    pass
+
+
+@pytest.fixture(autouse=True)
+def ha_exceptions(monkeypatch):
+    """Stub ``homeassistant.exceptions`` with the error a service raises for bad input."""
+    exceptions = types.ModuleType("homeassistant.exceptions")
+    exceptions.ServiceValidationError = _ServiceValidationError
+    monkeypatch.setitem(sys.modules, "homeassistant.exceptions", exceptions)
+    return exceptions
+
+
 def _make_app(
     mock_nav, mock_esphome_ctrl, *, ha_device_id: str = "dev_1", name: str = "test_device"
 ):
@@ -143,6 +177,36 @@ class TestResolveTargetApps:
         mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
         targets = _resolve_target_apps(mock_hass, device_id="nonexistent")
         assert len(targets) == 0
+
+    @pytest.mark.parametrize(
+        "device_id",
+        [
+            pytest.param("esphome_kitchen", id="esphome-device"),
+            pytest.param("haui_kitchen", id="haui-device"),
+        ],
+    )
+    def test_both_devices_of_a_panel_select_it(
+        self, mock_hass, mock_nav, mock_esphome_ctrl, device_registry, device_id
+    ):
+        """The ESPHome device and the HAUI device (the one the selector offers) both match."""
+        kitchen = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
+        office = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_office")
+        mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": kitchen, "office": office}}
+        device_registry["esphome_kitchen"] = {("esphome", "aa:bb:cc:dd:ee:ff")}
+        device_registry["haui_kitchen"] = {(DOMAIN, "kitchen")}
+        device_registry["haui_office"] = {(DOMAIN, "office")}
+
+        assert _resolve_target_apps(mock_hass, device_id=device_id) == [("kitchen", kitchen)]
+
+    def test_device_of_another_integration_does_not_match(
+        self, mock_hass, mock_nav, mock_esphome_ctrl, device_registry
+    ):
+        """A registered device only matches through an nspanel_haui identifier."""
+        app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
+        mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
+        device_registry["hue_kitchen"] = {("hue", "kitchen")}
+
+        assert _resolve_target_apps(mock_hass, device_id="hue_kitchen") == []
 
     def test_skips_non_dict_entries(self, mock_hass, mock_nav, mock_esphome_ctrl):
         """Skips non-dict entries like _device_id_listeners."""
@@ -209,7 +273,7 @@ async def test_open_panel(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_open_panel
+    from custom_components.nspanel_haui.services import _handle_open_panel
 
     call = MagicMock()
     call.data = {"panel": "alarm", "wakeup": False, "device_id": "dev_1"}
@@ -217,6 +281,7 @@ async def test_open_panel(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_open_panel(mock_hass, call)
 
     mock_nav.open_panel.assert_called_once_with("alarm")
+    mock_nav.reset_activity.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -225,7 +290,7 @@ async def test_open_panel_with_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_open_panel
+    from custom_components.nspanel_haui.services import _handle_open_panel
 
     call = MagicMock()
     call.data = {"panel": "alarm", "wakeup": True, "device_id": "dev_1"}
@@ -233,20 +298,22 @@ async def test_open_panel_with_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_open_panel(mock_hass, call)
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with("reset_last_interaction", "0")
+    mock_nav.reset_activity.assert_called_once_with()
     mock_nav.open_panel.assert_called_once_with("alarm")
 
 
 @pytest.mark.asyncio
 async def test_open_panel_no_matching_device(mock_hass, mock_nav, mock_esphome_ctrl):
-    """open_panel with unknown device_id logs warning, no crash."""
+    """open_panel with an unknown device fails the call."""
     mock_hass.data[DOMAIN] = {}
-    from nspanel_haui.services import _handle_open_panel
+    from custom_components.nspanel_haui.services import _handle_open_panel
 
     call = MagicMock()
-    call.data = {"panel": "alarm", "wakeup": False, "device_id": "unknown"}
+    call.data = {"panel": "alarm", "wakeup": False, "device": "unknown"}
+    call.service = SERVICE_OPEN_PANEL
 
-    # Should not raise
-    await _handle_open_panel(mock_hass, call)
+    with pytest.raises(_ServiceValidationError, match="device unknown"):
+        await _handle_open_panel(mock_hass, call)
 
 
 @pytest.mark.asyncio
@@ -255,7 +322,7 @@ async def test_close_panel(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_close_panel
+    from custom_components.nspanel_haui.services import _handle_close_panel
 
     call = MagicMock()
     call.data = {"device_id": "dev_1"}
@@ -270,11 +337,9 @@ async def test_update_tft_targets_selected_device(mock_hass, mock_nav, mock_esph
     """update_tft installs the firmware-matched TFT only on the selected device."""
     target = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
     other = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_other", name="other")
-    target.install_tft = MagicMock(return_value={"state": "installing"})
-    other.install_tft = MagicMock(return_value={"state": "installing"})
     mock_hass.data[DOMAIN] = {"entry_1": {"target": target, "other": other}}
 
-    from nspanel_haui.services import _handle_update_tft
+    from custom_components.nspanel_haui.services import _handle_update_tft
 
     call = MagicMock()
     call.data = {"device": "dev_target"}
@@ -282,19 +347,58 @@ async def test_update_tft_targets_selected_device(mock_hass, mock_nav, mock_esph
 
     await _handle_update_tft(mock_hass, call)
 
-    target.install_tft.assert_called_once_with(None)
-    other.install_tft.assert_not_called()
+    target.start_async_tft_install.assert_called_once()
+    assert target.start_async_tft_install.call_args.args[:2] == (None, None)
+    assert callable(target.start_async_tft_install.call_args.args[2])
+    other.start_async_tft_install.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_tft_accepts_the_haui_device(
+    mock_hass, mock_nav, mock_esphome_ctrl, device_registry
+):
+    """The device the service's selector offers (the HAUI device) starts the install."""
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
+    mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
+    device_registry["haui_kitchen"] = {(DOMAIN, "kitchen")}
+
+    from custom_components.nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "haui_kitchen"}
+    call.service = SERVICE_UPDATE_TFT
+
+    await _handle_update_tft(mock_hass, call)
+
+    app.start_async_tft_install.assert_called_once()
+    assert app.start_async_tft_install.call_args.args[:2] == (None, None)
+
+
+@pytest.mark.asyncio
+async def test_update_tft_rejects_an_unknown_device(mock_hass, mock_nav, mock_esphome_ctrl):
+    """An id that is neither device of a panel fails the call and installs nothing."""
+    app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="esphome_kitchen")
+    mock_hass.data[DOMAIN] = {"entry_1": {"kitchen": app}}
+
+    from custom_components.nspanel_haui.services import _handle_update_tft
+
+    call = MagicMock()
+    call.data = {"device": "unknown", "url": "http://homeassistant.local:8123/local/x.tft"}
+    call.service = SERVICE_UPDATE_TFT
+
+    with pytest.raises(_ServiceValidationError, match=r"update_tft: .*device unknown"):
+        await _handle_update_tft(mock_hass, call)
+
+    app.dispatch.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_update_tft_with_url_installs_that_file(mock_hass, mock_nav, mock_esphome_ctrl):
     """The url field replaces the public ESPHome upload_tft_url action."""
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
-    app.install_tft = MagicMock(return_value={"state": "installing"})
-    app.install_tft_url = MagicMock(return_value={"state": "installing"})
     mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
 
-    from nspanel_haui.services import _handle_update_tft
+    from custom_components.nspanel_haui.services import _handle_update_tft
 
     call = MagicMock()
     call.data = {"device": "dev_target", "url": "http://ha.local/nspanel_haui.tft"}
@@ -302,8 +406,11 @@ async def test_update_tft_with_url_installs_that_file(mock_hass, mock_nav, mock_
 
     await _handle_update_tft(mock_hass, call)
 
-    app.install_tft_url.assert_called_once_with("http://ha.local/nspanel_haui.tft")
-    app.install_tft.assert_not_called()
+    app.start_async_tft_install.assert_called_once()
+    assert app.start_async_tft_install.call_args.args[:2] == (
+        None,
+        "http://ha.local/nspanel_haui.tft",
+    )
 
 
 @pytest.mark.asyncio
@@ -311,10 +418,9 @@ async def test_update_tft_with_version_installs_that_release(
     mock_hass, mock_nav, mock_esphome_ctrl
 ):
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
-    app.install_tft = MagicMock(return_value={"state": "installing"})
     mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
 
-    from nspanel_haui.services import _handle_update_tft
+    from custom_components.nspanel_haui.services import _handle_update_tft
 
     call = MagicMock()
     call.data = {"device": "dev_target", "version": "0.4.1"}
@@ -322,7 +428,8 @@ async def test_update_tft_with_version_installs_that_release(
 
     await _handle_update_tft(mock_hass, call)
 
-    app.install_tft.assert_called_once_with("0.4.1")
+    app.start_async_tft_install.assert_called_once()
+    assert app.start_async_tft_install.call_args.args[:2] == ("0.4.1", None)
 
 
 @pytest.mark.asyncio
@@ -338,10 +445,9 @@ async def test_update_firmware_installs_the_chosen_firmware(
     mock_hass, mock_nav, mock_esphome_ctrl, data, args
 ):
     app = _make_app(mock_nav, mock_esphome_ctrl, ha_device_id="dev_target")
-    app.install_firmware = MagicMock(return_value={"firmware_install_error": None})
     mock_hass.data[DOMAIN] = {"entry_1": {"target": app}}
 
-    from nspanel_haui.services import _handle_update_firmware
+    from custom_components.nspanel_haui.services import _handle_update_firmware
 
     call = MagicMock()
     call.data = {"device": "dev_target", **data}
@@ -349,7 +455,8 @@ async def test_update_firmware_installs_the_chosen_firmware(
 
     await _handle_update_firmware(mock_hass, call)
 
-    app.install_firmware.assert_called_once_with(*args)
+    app.start_async_firmware_install.assert_called_once()
+    assert app.start_async_firmware_install.call_args.args[:2] == args
 
 
 def test_update_firmware_takes_a_version_or_a_url_not_both():
@@ -372,7 +479,7 @@ async def test_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_wakeup
+    from custom_components.nspanel_haui.services import _handle_wakeup
 
     call = MagicMock()
     call.data = {"device_id": "dev_1"}
@@ -380,6 +487,7 @@ async def test_wakeup(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_wakeup(mock_hass, call)
 
     mock_esphome_ctrl.esphome.publish.assert_called_once_with("reset_last_interaction", "0")
+    mock_nav.reset_activity.assert_called_once_with()
     mock_nav.exit_idle_to_prev_or_home.assert_called_once()
 
 
@@ -389,7 +497,7 @@ async def test_idle(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_idle
+    from custom_components.nspanel_haui.services import _handle_idle
 
     call = MagicMock()
     call.data = {"device_id": "dev_1"}
@@ -397,19 +505,20 @@ async def test_idle(mock_hass, mock_nav, mock_esphome_ctrl):
     await _handle_idle(mock_hass, call)
 
     mock_nav.open_idle_panel.assert_called_once_with(True)
+    mock_nav.reset_activity.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_send_notification_passes_all_fields_to_controller(
     mock_hass, mock_nav, mock_esphome_ctrl
 ):
-    """The service hands type and force_show to the controller."""
+    """The service hands every generic field to the controller."""
     app = _make_app(mock_nav, mock_esphome_ctrl)
     notif_ctrl = MagicMock()
     app.controller["notification"] = notif_ctrl
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_send_notification
+    from custom_components.nspanel_haui.services import _handle_send_notification
 
     call = MagicMock()
     call.data = {
@@ -417,19 +526,21 @@ async def test_send_notification_passes_all_fields_to_controller(
         "message": "Smoke detected",
         "icon": "mdi:fire",
         "persistent": True,
-        "type": "critical",
+        "icon_color": "#4aa5ee",
+        "sound": "alert",
         "force_show": True,
     }
 
     await _handle_send_notification(mock_hass, call)
 
-    notif_ctrl.send_notification.assert_called_once_with(
+    notif_ctrl.add_notification.assert_called_once_with(
         title="Alarm",
         message="Smoke detected",
         icon="mdi:fire",
         persistent=True,
-        notif_type="critical",
         force_show=True,
+        icon_color="#4aa5ee",
+        sound="alert",
         text_size="auto",
         timeout=None,
     )
@@ -444,20 +555,21 @@ async def test_send_notification_text_size_passthrough(mock_hass, mock_nav, mock
     app.controller["notification"] = notif_ctrl
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_send_notification
+    from custom_components.nspanel_haui.services import _handle_send_notification
 
     call = MagicMock()
     call.data = {"title": "Door", "message": "open", "text_size": 2}
 
     await _handle_send_notification(mock_hass, call)
 
-    notif_ctrl.send_notification.assert_called_once_with(
+    notif_ctrl.add_notification.assert_called_once_with(
         title="Door",
         message="open",
         icon="",
         persistent=False,
-        notif_type="info",
         force_show=False,
+        icon_color=None,
+        sound="notification",
         text_size=2,
         timeout=None,
     )
@@ -471,20 +583,21 @@ async def test_send_notification_timeout_passthrough(mock_hass, mock_nav, mock_e
     app.controller["notification"] = notif_ctrl
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_send_notification
+    from custom_components.nspanel_haui.services import _handle_send_notification
 
     call = MagicMock()
     call.data = {"title": "Door", "message": "open", "timeout": 10}
 
     await _handle_send_notification(mock_hass, call)
 
-    notif_ctrl.send_notification.assert_called_once_with(
+    notif_ctrl.add_notification.assert_called_once_with(
         title="Door",
         message="open",
         icon="",
         persistent=False,
-        notif_type="info",
         force_show=False,
+        icon_color=None,
+        sound="notification",
         text_size="auto",
         timeout=10,
     )
@@ -496,10 +609,52 @@ def test_send_notification_schema_accepts_a_timeout():
     assert data["timeout"] == 10
 
 
-@pytest.mark.parametrize("bad", [-1, "soon"])
+@pytest.mark.parametrize("bad", [-1, 3601, "soon"])
 def test_send_notification_schema_rejects_invalid_timeouts(bad):
     with pytest.raises(vol.Invalid):
         SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "timeout": bad})
+
+
+def test_send_notification_schema_accepts_the_maximum_timeout():
+    data = SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "timeout": 3600})
+    assert data["timeout"] == 3600
+
+
+@pytest.mark.parametrize(
+    ("icon_color", "expected"),
+    [
+        ("", ""),
+        ("#4aa5ee", "#4aa5ee"),
+        ("65535", 65535),
+        (65535, 65535),
+        ([74, 165, 238], [74, 165, 238]),
+    ],
+)
+def test_send_notification_schema_accepts_icon_colors(icon_color, expected):
+    data = SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "icon_color": icon_color})
+    assert data["icon_color"] == expected
+
+
+@pytest.mark.parametrize("bad", [-1, 65536, "#12345", [1, 2], "red-ish"])
+def test_send_notification_schema_rejects_invalid_icon_colors(bad):
+    with pytest.raises(vol.Invalid):
+        SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "icon_color": bad})
+
+
+@pytest.mark.parametrize("sound", [*SOUND_NAMES, "none"])
+def test_send_notification_schema_accepts_every_sound(sound):
+    data = SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "sound": sound})
+    assert data["sound"] == sound
+
+
+def test_send_notification_schema_rejects_an_unknown_sound():
+    with pytest.raises(vol.Invalid):
+        SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "sound": "airhorn"})
+
+
+def test_send_notification_schema_no_longer_takes_a_type():
+    with pytest.raises(vol.Invalid):
+        SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "type": "critical"})
 
 
 def test_send_notification_service_metadata_and_schema_agree():
@@ -508,15 +663,24 @@ def test_send_notification_service_metadata_and_schema_agree():
     Every field the service documents must be accepted by the schema and vice
     versa, so the UI the user sees always maps to a valid service call.
     """
-    import yaml
     from pathlib import Path
 
-    services = Path(__file__).resolve().parent.parent / "custom_components" / \
-        "nspanel_haui" / "services.yaml"
+    import yaml
+
+    services = (
+        Path(__file__).resolve().parent.parent
+        / "custom_components"
+        / "nspanel_haui"
+        / "services.yaml"
+    )
     metadata = yaml.safe_load(services.read_text())["send_notification"]
     yaml_fields = set(metadata["fields"])
     schema_fields = {marker.schema for marker in SERVICE_SEND_NOTIFICATION_SCHEMA.schema}
     assert yaml_fields == schema_fields
+    assert set(metadata["fields"]["sound"]["selector"]["select"]["options"]) == {
+        *SOUND_NAMES,
+        "none",
+    }
 
 
 @pytest.mark.asyncio
@@ -525,7 +689,7 @@ async def test_reset_last_interaction(mock_hass, mock_nav, mock_esphome_ctrl):
     app = _make_app(mock_nav, mock_esphome_ctrl)
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_reset_last_interaction
+    from custom_components.nspanel_haui.services import _handle_reset_last_interaction
 
     call = MagicMock()
     call.data = {"offset": 5, "device_id": "dev_1"}
@@ -543,7 +707,7 @@ async def test_service_action_is_queued_on_the_app_worker(mock_hass, mock_nav, m
     app.dispatch = MagicMock(side_effect=lambda fn, *args: queued.append(fn))
     mock_hass.data[DOMAIN] = {"entry_1": {"dev": app}}
 
-    from nspanel_haui.services import _handle_close_panel
+    from custom_components.nspanel_haui.services import _handle_close_panel
 
     call = MagicMock()
     call.data = {"device_id": "dev_1"}

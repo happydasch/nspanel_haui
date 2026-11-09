@@ -7,15 +7,15 @@ from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.color import ALARM_COLORS, COLORS
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_PASSWORD
 from ..utils.icon import get_icon
 
-# keypad styling defaults, shared by the descriptor options and the runtime helper
+# keypad font default, shared by the descriptor option and the runtime helper
 _KEYPAD_FONT_DEFAULT = 2
-_KEYPAD_BG_DEFAULT = COLORS["background"]
-_KEYPAD_TEXT_DEFAULT = COLORS["component_text"]
+
+# The action buttons (b1Fnc-b4Fnc) hold at most 10 bytes of text in both HMIs.
+_ACTION_TEXT_MAX_BYTES = 10
 
 
 class AlarmPage(HAUIPage):
@@ -44,17 +44,67 @@ class AlarmPage(HAUIPage):
             PageOption(
                 key="keypad_bg_color",
                 kind="color",
-                default=_KEYPAD_BG_DEFAULT,
                 label=_("Keypad button background"),
-                description=_("Background color of each keypad digit (button-like appearance)."),
+                description=_("Leave empty to use the theme color."),
                 section=_("Keypad"),
             ),
             PageOption(
                 key="keypad_text_color",
                 kind="color",
-                default=_KEYPAD_TEXT_DEFAULT,
                 label=_("Keypad text color"),
+                description=_("Leave empty to use the theme color."),
                 section=_("Keypad"),
+            ),
+            PageOption(
+                key="hidden_arm_modes",
+                kind="list_items",
+                default=[],
+                choices=[
+                    ("home", _("Home")),
+                    ("away", _("Away")),
+                    ("night", _("Night")),
+                    ("vacation", _("Vacation")),
+                    ("custom_bypass", _("Bypass")),
+                ],
+                label=_("Hidden arm modes"),
+                description=_("Arm modes not offered as action buttons, even if supported."),
+                section=_("Action buttons"),
+            ),
+            PageOption(
+                key="action_icons",
+                kind="bool",
+                default=False,
+                label=_("Show action icons"),
+                description=_("Show the target state icon before each label if both fit."),
+                section=_("Action buttons"),
+            ),
+            PageOption(
+                key="arm_button_color",
+                kind="color",
+                label=_("Arm button text color"),
+                description=_("Leave empty to use the theme color."),
+                section=_("Action buttons"),
+            ),
+            PageOption(
+                key="arm_button_back_color",
+                kind="color",
+                label=_("Arm button background"),
+                description=_("Leave empty to use the theme color."),
+                section=_("Action buttons"),
+            ),
+            PageOption(
+                key="disarm_button_color",
+                kind="color",
+                label=_("Disarm button text color"),
+                description=_("Leave empty to use the theme color."),
+                section=_("Action buttons"),
+            ),
+            PageOption(
+                key="disarm_button_back_color",
+                kind="color",
+                label=_("Disarm button background"),
+                description=_("Leave empty to use the theme color."),
+                section=_("Action buttons"),
             ),
         ],
         can_show_popup=True,
@@ -118,7 +168,8 @@ class AlarmPage(HAUIPage):
 
     # AlarmControlPanelEntityFeature bit -> (arm service, button label).
     # Ordered by display priority; only the first four supported modes fit
-    # the four action-button slots.
+    # the four action-button slots.  The service suffix after "alarm_arm_" is
+    # the mode key used by the ``hidden_arm_modes`` option.
     _ARM_MODES: list[tuple[int, str, str]] = [
         (1, "alarm_arm_home", _("Home")),
         (2, "alarm_arm_away", _("Away")),
@@ -126,6 +177,16 @@ class AlarmPage(HAUIPage):
         (32, "alarm_arm_vacation", _("Vacation")),
         (16, "alarm_arm_custom_bypass", _("Bypass")),
     ]
+
+    # action service -> state it leads to (icon shown with ``action_icons``)
+    _ACTION_STATES = {
+        "alarm_arm_home": "armed_home",
+        "alarm_arm_away": "armed_away",
+        "alarm_arm_night": "armed_night",
+        "alarm_arm_vacation": "armed_vacation",
+        "alarm_arm_custom_bypass": "armed_custom_bypass",
+        "alarm_disarm": "disarmed",
+    }
 
     # States that are not "disarmed": while in any of them the panel offers a
     # single disarm action instead of the arm-mode buttons.
@@ -145,7 +206,8 @@ class AlarmPage(HAUIPage):
         Falls back to the global ``text`` color for unmapped states.
         """
         key = self._ALARM_COLOR_KEYS.get(state)
-        return ALARM_COLORS[key] if key is not None else self.get_color("text")
+        color = self.get_icon_color("alarm", key) if key is not None else None
+        return color if color is not None else self.get_color("text")
 
     @property
     def _action_buttons(self) -> tuple[Component, ...]:
@@ -191,18 +253,21 @@ class AlarmPage(HAUIPage):
         self._item = self._resolve_panel_item(panel)
         if self._item is not None:
             self.add_item_listener(self._item.get_item_id(), self.callback_alarm_state, "state")
+        self._keypad_visible = self.item_is_available(self._item)
         # wire the numeric keypad
         for comp in self._keypad_buttons:
             self.on_release(comp, self.callback_keypad)
-            self.show_component(comp)
+            if self._keypad_visible:
+                self.show_component(comp)
+            else:
+                self.hide_component(comp)
+                self.set_component_touch(comp, False)
         self._style_keypad(panel)
         # register the four action buttons (rendered/labelled in update_components)
         self._btn_actions = {}
         for comp in self._action_buttons:
             self.on_release(comp, self.callback_action)
             self.set_function_component(comp, comp.name, comp.name, visible=False)
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
 
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_components()
@@ -210,18 +275,23 @@ class AlarmPage(HAUIPage):
     def _style_keypad(self, panel: HAUIPanel) -> None:
         """Apply the configured font and colors to every keypad button once.
 
-        Values fall back to the descriptor defaults for panels saved before the
-        keypad options existed (including the unlock popup, which is a system
-        panel and has no options of its own).
+        Unset colors use the theme's ``background`` and ``component_text``, so
+        the keys follow the device's color overrides; the font falls back to
+        the descriptor default for panels saved before the keypad options
+        existed (including the unlock popup, which is a system panel and has no
+        options of its own).
         """
         font = panel.get("keypad_font", _KEYPAD_FONT_DEFAULT)
-        bg_color = panel.get("keypad_bg_color", _KEYPAD_BG_DEFAULT)
-        text_color = panel.get("keypad_text_color", _KEYPAD_TEXT_DEFAULT)
-        with self.rec_cmd:
-            for comp in self._keypad_buttons:
-                self.send_cmd(f"{comp.name}.font={font}")
-                self.set_component_back_color(comp, bg_color)
-                self.set_component_text_color(comp, text_color)
+        bg_color = panel.get("keypad_bg_color", None)
+        if bg_color in (None, ""):
+            bg_color = self.get_color("background")
+        text_color = panel.get("keypad_text_color", None)
+        if text_color in (None, ""):
+            text_color = self.get_color("component_text")
+        for comp in self._keypad_buttons:
+            self.send_cmd(f"{comp.name}.font={font}")
+            self.set_component_back_color(comp, bg_color)
+            self.set_component_text_color(comp, text_color)
 
     # rendering
 
@@ -230,6 +300,17 @@ class AlarmPage(HAUIPage):
         state = self._item.get_item_state() if self._item is not None else None
         state = state or ""
 
+        available = self.item_is_available(self._item)
+        if available != self._keypad_visible:
+            for comp in self._keypad_buttons:
+                if available:
+                    self.show_component(comp)
+                    self.set_component_touch(comp, True)
+                else:
+                    self.hide_component(comp)
+                    self.set_component_touch(comp, False)
+            self._keypad_visible = available
+
         # title: show entered code as password dots, otherwise the state label
         if self._input:
             title = ICO_PASSWORD * len(self._input)
@@ -237,14 +318,14 @@ class AlarmPage(HAUIPage):
             title = self._item.translate_item_state()
         else:
             title = self.translate("Alarm")
-        self.set_component_text(self.COMPONENTS.title, title)
+        self.set_title(title)
 
         # armed indicator in the header
         self.update_function_component(
             self.FNC_BTN_R_SEC,
             icon=self._ALARM_ICONS.get(state, ""),
             color=self._alarm_color(state),
-            visible=True,
+            visible=available,
         )
 
         # action buttons: disarm while armed, otherwise the supported arm modes
@@ -253,13 +334,13 @@ class AlarmPage(HAUIPage):
         for comp, action in zip(self._action_buttons, actions, strict=False):
             service, label = action
             self._btn_actions[comp.name] = service
-            self._show_action_button(comp, label)
+            self._show_action_button(comp, service, label)
         for comp in self._action_buttons[len(actions) :]:
             self.update_function_component(fnc_id=comp.name, visible=False)
 
     def _resolve_actions(self, state: str) -> list[tuple[str, str]]:
         """Return (service, label) pairs for the action buttons in this state."""
-        if self._item is None:
+        if not self.item_is_available(self._item):
             return []
         # armed / arming / pending / triggered -> a single disarm action
         if state not in self._DISARMED_STATES:
@@ -269,22 +350,46 @@ class AlarmPage(HAUIPage):
         # some integrations don't advertise features; fall back to the common set
         if not features:
             features = 1 | 2 | 4
+        hidden = self.panel.get("hidden_arm_modes", []) if self.panel else []
         actions: list[tuple[str, str]] = []
         for bit, service, label in self._ARM_MODES:
+            if service.removeprefix("alarm_arm_") in (hidden or []):
+                continue
             if features & bit:
                 actions.append((service, self.translate(label)))
             if len(actions) >= len(self._action_buttons):
                 break
         return actions
 
-    def _show_action_button(self, component: Component, label: str) -> None:
-        """Render a single action button as an enabled, labelled control."""
+    def _show_action_button(self, component: Component, service: str, label: str) -> None:
+        """Render a single action button as an enabled, labelled control.
+
+        Applies the optional action icon and the arm/disarm button colors of
+        the panel; unset colors keep the theme's button colors.
+        """
+        panel = self.panel
+        text = label
+        if panel is not None and panel.get("action_icons", False):
+            icon = self._ALARM_ICONS.get(self._ACTION_STATES.get(service, ""), "")
+            with_icon = f"{icon} {label}" if icon else label
+            if len(with_icon.encode()) <= _ACTION_TEXT_MAX_BYTES:
+                text = with_icon
+        # One button shows disarm or an arm mode, each with its own back color.
+        color_args = {**self.button_color_args(True), "back_color": self.get_color("background")}
+        prefix = "disarm" if service == "alarm_disarm" else "arm"
+        if panel is not None:
+            color = panel.get(f"{prefix}_button_color", None)
+            back_color = panel.get(f"{prefix}_button_back_color", None)
+            if color not in (None, ""):
+                color_args["color"] = color
+            if back_color not in (None, ""):
+                color_args["back_color"] = back_color
         self.update_function_component(
             fnc_id=component.name,
-            text=label,
+            text=text,
             touch=True,
             visible=True,
-            **self.button_color_args(True, back_color=True),
+            **color_args,
         )
 
     def _action_needs_code(self, service: str) -> bool:
@@ -302,8 +407,6 @@ class AlarmPage(HAUIPage):
     def callback_alarm_state(
         self, item: str, attribute: str, old: Any, new: Any, kwargs: Any
     ) -> None:
-        if self.app.device.device_info.get("display_state") == "off":
-            return
         with self.rec_cmd:
             # a state transition means any in-progress code entry is done
             if old != new:
@@ -311,6 +414,8 @@ class AlarmPage(HAUIPage):
             self.update_components()
 
     def callback_keypad(self, event: HAUIEvent, component: Component) -> None:
+        if not self.item_is_available(self._item):
+            return
         with self.rec_cmd:
             name = component.name
             if name.startswith("bKey"):
@@ -324,7 +429,7 @@ class AlarmPage(HAUIPage):
             self.update_components()
 
     def callback_action(self, event: HAUIEvent, component: Component) -> None:
-        if self._item is None:
+        if not self.item_is_available(self._item):
             return
         service = self._btn_actions.get(component.name)
         if service is None:

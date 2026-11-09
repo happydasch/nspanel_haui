@@ -4,8 +4,8 @@
  * Device list, selection, YAML import/export, and device manager button.
  * Every function takes the Lit element instance (`host`) as its first parameter.
  *
- * Device keys (ESPHome node names) are used as both the display name and
- * stable identifier — there is no separate friendly name.
+ * Device keys (ESPHome node names) are the stable identifiers; the editor shows
+ * the device registry name (`friendly_name`, added by the panels endpoint).
  */
 import { html } from './lit-import.js';
 import { t } from './localize.js';
@@ -15,8 +15,7 @@ import * as DeviceConfig from './device-config.js';
 /* ── device keys ──────────────────────────────────────────────────────────── */
 
 /**
- * Return the list of device keys (sorted, stable).
- * Each key is the ESPHome node name and serves as both ID and display name.
+ * Return the device keys in store order (the order set in the Device Manager).
  */
 export function getDeviceKeys(host) {
   return Object.keys(host._panels.devices || {});

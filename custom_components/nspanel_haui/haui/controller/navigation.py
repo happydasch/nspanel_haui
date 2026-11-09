@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 import contextlib
+import math
 import time
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from ..device_config import resolve_snapshot_max_age as _resolve_snapshot
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..abstract.haui_base import HAUIBase
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import ESPCommand, ESPEvent, SysPanelKey
+from ..mapping.const import ESPCommand, ESPEvent, PopupPanelKey
 from ..mapping.panel import PAGE_MAPPING
 from ..utils.page import get_page_class_for_panel, get_page_id_for_panel
 
@@ -25,6 +27,30 @@ from ..utils.page import get_page_class_for_panel, get_page_id_for_panel
 OVERFLOW_RECOVERY_DELAY = 0.5  # seconds, debounce before first recovery
 OVERFLOW_RECOVERY_MAX_ATTEMPTS = 5  # consecutive recoveries before pausing
 OVERFLOW_RECOVERY_RESET = 30.0  # seconds without overflows to reset backoff
+
+# Seconds to wait for the display's page ack before resending the page
+# command and rendering anyway.
+PAGE_ACK_TIMEOUT = 10.0
+
+# A panel outside navigation with the kwargs it was opened with.
+StackEntry = tuple[HAUIPanel, dict[str, Any]]
+
+
+@dataclass(frozen=True, slots=True)
+class NavigationSnapshot:
+    """The navigation state an idle page covered, restored when it is left."""
+
+    panel: HAUIPanel | None
+    panel_kwargs: dict[str, Any]
+    current_nav: HAUIPanel | None
+    current_nav_kwargs: dict[str, Any]
+    stack: list[StackEntry]
+    created_at: float = field(default_factory=time.monotonic)
+
+    @property
+    def age(self) -> float:
+        """Seconds since the snapshot was taken."""
+        return time.monotonic() - self.created_at
 
 
 class HAUINavigationController(HAUIBase):
@@ -58,12 +84,15 @@ class HAUINavigationController(HAUIBase):
         self._idle_panel: HAUIPanel | None = None  # current idle page
         self._idle_panels: list[HAUIPanel] = []  # carousel, cycles on each entry
         self._idle_panel_idx = 0  # next carousel index
-        # True while the idle page is the displayed panel.  This is the
-        # only hub session state around display idle: opening the page enters
-        # it, any user input / navigation away from the page leaves it.  The
-        # display off state itself lives in the firmware (brightness/state
+        self._idle_profile_night: bool | None = None
+        # True while the idle page is the displayed panel. A stacked overlay
+        # can suspend this session and resume it when the stack returns to idle.
+        # The display off state itself lives in the firmware (brightness/state
         # machine) and never requires a page switch.
         self._idle_panel_active = False
+        # An overlay opened from the idle page suspends its session until the
+        # overlay stack returns to that page.
+        self._idle_panel_suspended = False
         self._page_timeout: str | None = None  # Timer for switching pages
         # Monotonic time the pending page change was requested.  A touch while
         # this is stale means the goto_page command was lost, so we re-send it.
@@ -73,20 +102,16 @@ class HAUINavigationController(HAUIBase):
         self._last_overflow_ts: float = 0.0  # monotonic time of last overflow event
         self._page_settle_timer: str | None = None  # Delayed re-render after page event settle
         self._close_timeout: str | None = None  # Timer for panel auto close
-        self._idle_timer: str | None = None  # Timer for hub-side idle timeout
-        self._nav_home_timer: str | None = None  # Timer for auto-navigate-home
-        self._stack: list[tuple[HAUIPanel, dict[str, Any]]] = []  # stack for non-nav panels
-        self._snapshot: (
-            tuple[
-                HAUIPanel | None,
-                dict[str, Any],
-                HAUIPanel | None,
-                dict[str, Any],
-                list[tuple[HAUIPanel, dict[str, Any]]],
-            ]
-            | None
-        ) = None  # snapshot for navigation
-        self._snapshot_time: float | None = None  # monotonic time when snapshot was created
+        # Activity clock shared by auto-navigate-home and the idle page. The
+        # level-triggered check below re-evaluates both every second, so a
+        # missed event or a blocked tick recovers on the next one.
+        self._activity_ts: float = time.monotonic()
+        # True from a connect until the restored page has been displayed: the
+        # inactivity check must not run while that navigation is in flight.
+        self._resume_pending = True
+        self._idle_check_timer: str | None = None  # 1 s level-triggered inactivity check
+        self._stack: list[StackEntry] = []  # stack for non-nav panels
+        self._snapshot: NavigationSnapshot | None = None  # state the idle page covered
         self._navigating = False  # re-entrance guard for navigation operations
         self._pending_reload = False  # reload was queued while navigating
 
@@ -128,8 +153,22 @@ class HAUINavigationController(HAUIBase):
         Resetting the carousel cursor when the configured list changes makes
         repeated reloads resume at the first entry instead of mid-list.
         """
-        idle_keys = self.app.device.get("idle_panel", "") or ""
-        extra = self.app.device.get("idle_panel_extra", "") or ""
+        is_night = self._idle_profile_night is True
+        profile = "Night" if is_night else "Day"
+        idle_key = "night_idle_panel" if is_night else "idle_panel"
+        use_auto_page_key = "night_use_auto_page" if is_night else "use_auto_page"
+        idle_keys = self.app.device.get(idle_key)
+        use_auto_page = self.app.device.get(use_auto_page_key)
+        if is_night:
+            extra = ""
+            other_idle_keys = self.app.device.get("idle_panel")
+            other_extra = self.app.device.get("idle_panel_extra")
+            other_profile = "Day"
+        else:
+            extra = self.app.device.get("idle_panel_extra")
+            other_idle_keys = self.app.device.get("night_idle_panel")
+            other_extra = ""
+            other_profile = "Night"
         candidates: list[str] = []
         if isinstance(idle_keys, list):
             candidates = [k for k in idle_keys if k]
@@ -144,26 +183,43 @@ class HAUINavigationController(HAUIBase):
                 continue
             seen.add(key)
             panel = self.app.device_config.get_panel(key)
-            if panel is not None:
-                new_panels.append(panel)
+            if panel is None:
+                if use_auto_page is True:
+                    self.log(f"Idle panel key '{key}' not found", level="WARNING")
+                continue
+            new_panels.append(panel)
         if [p.get("key") for p in new_panels] != [p.get("key") for p in self._idle_panels]:
             self._idle_panel_idx = 0
         self._idle_panels = new_panels
         self._idle_panel = self._idle_panels[0] if self._idle_panels else None
-        if log:
-            if not self._idle_panels:
-                if self.app.device.get("idle_panel"):
-                    self.log(f"Idle panel key '{self.app.device.get('idle_panel')}' not found")
-            else:
-                self.log(
-                    "Idle panel carousel: "
-                    + ", ".join(panel.get("key", str(panel.id)) for panel in self._idle_panels)
-                )
+        if not candidates and use_auto_page is True and (other_idle_keys or other_extra):
+            self.log(
+                f"{profile} idle page disabled: {idle_key} is empty; "
+                f"the {other_profile} idle page is not inherited",
+                level="WARNING",
+            )
+        if log and self._idle_panels:
+            self.log(
+                "Idle panel carousel: "
+                + ", ".join(panel.get("key", str(panel.id)) for panel in self._idle_panels)
+            )
 
     def start_part(self) -> None:
         """Starts the part."""
+        self._activity_ts = time.monotonic()
         self._resolve_special_panels(log=True)
         self.log(f"Panels used for navigation: {', '.join([str(x) for x in self._ids])}")
+        # One cheap level-triggered check for the idle page and auto-navigate-
+        # home. It is started once here (not on connect) so a reconnect cannot
+        # cancel it; cancel_timeouts() must leave it alone.
+        self._idle_check_timer = self.app.run_every(self._check_inactivity, "now+1", 1)
+
+    def set_idle_profile(self, is_night: bool | None) -> None:
+        """Select the Day or Night idle destination without disturbing the current page."""
+        if self._idle_profile_night == is_night:
+            return
+        self._idle_profile_night = is_night
+        self._resolve_idle_panels(log=is_night is True)
 
     def stop_part(self) -> None:
         """Stops the part.
@@ -171,6 +227,7 @@ class HAUINavigationController(HAUIBase):
         Cleans up the active page so entity state listeners are properly
         unregistered before the app is destroyed (e.g., on config entry reload).
         """
+        self._cancel_timer("_idle_check_timer")
         self.cancel_timeouts()
         self.unset_page()
         self._stack.clear()
@@ -260,14 +317,17 @@ class HAUINavigationController(HAUIBase):
         self.log("Navigation panel references reloaded")
 
         # Re-render currently displayed panel so config changes take effect.
-        # If page type unchanged, set_panel reapplies new config in place.
-        # If type changed (or page missing), do a full open_panel.
+        # set_panel reapplies the new config in place on the loaded page; a
+        # full open_panel loads the page again when its type changed (or the
+        # page is missing) or when the page reads something else while it
+        # loads (theme colours, background picture).
         if self.panel is not None:
             new_page_id = get_page_id_for_panel(self.panel.get_type())
             if (
                 self.page is not None
                 and new_page_id is not None
                 and self.page.page_id == new_page_id
+                and self.page.is_loaded_for(self.panel)
             ):
                 self.display_panel(self.panel)
             else:
@@ -354,10 +414,10 @@ class HAUINavigationController(HAUIBase):
             if not self.page.is_started():
                 self.page.start()
             self.page.set_panel(panel)
-            # Start hub-side idle timer when a panel is displayed
-            self._start_idle_timer()
-            # Start auto-navigate-home timer when a panel is displayed
-            self._start_nav_home_timer()
+            # The page that left may have held auto switches off, this one may hold some.
+            # The page of a freshly connected hub is now displayed; the
+            # inactivity check may run again.
+            self._resume_pending = False
 
     def open_panel(self, panel_id: UUID | str, **kwargs: Any) -> None:
         """Opens the panel with the given id.
@@ -395,13 +455,7 @@ class HAUINavigationController(HAUIBase):
             self._open_home_fallback()
             return
 
-        # Opening any panel other than the idle page is a wake input:
-        # leave the idle session so the next page-timeout doesn't yank the
-        # user back to the idle page and touch handling doesn't treat the new
-        # panel as an idle screen.  Covers gestures, function buttons, the
-        # open_panel service and connect/reconnect restore alike.
-        if self._idle_panel_active and self._idle_panel and panel.id != self._idle_panel.id:
-            self._idle_panel_active = False
+        self._track_idle_session(panel)
         page_id = get_page_id_for_panel(panel.get_type())
         page_class = get_page_class_for_panel(panel.get_type())
         if page_id is None or page_class is None:
@@ -417,30 +471,7 @@ class HAUINavigationController(HAUIBase):
 
         # reset panel config to defaults and overlay navigation kwargs
         panel.apply_kwargs(kwargs)
-
-        # debug: trace post-apply_kwargs config for popup/override debugging
-        self.log(
-            f"After apply_kwargs: item_id={panel.get('item_id', None)!r} "
-            f"sonos_favorites={panel.get('sonos_favorites', None)!r} "
-            f"media_favorites={panel.get('media_favorites', None)!r} "
-            f"sonos_favorites_in_source={panel.get('sonos_favorites_in_source', None)!r}",
-            level="DEBUG",
-        )
-
-        # new panel is a navigatable panel
-        if panel.show_in_navigation():
-            self._current_nav = panel
-            self._current_nav_kwargs = kwargs
-            # new panel is a nav panel, clear stack
-            if len(self._stack) > 0:
-                self._stack = []
-        # new panel is not a navigatable panel
-        else:
-            # add to the navigation stack
-            # Guard against duplicates: don't push if this panel is already at
-            # the top of the stack (e.g. reconnect retry, page-timeout retry).
-            if not self._stack or self._stack[-1][0].id != panel.id:
-                self._stack.append((panel, kwargs))
+        self._track_history(panel, kwargs)
 
         # set new panel as current panel
         self.panel = panel
@@ -454,7 +485,7 @@ class HAUINavigationController(HAUIBase):
             # lock new panel
             panel.set_state("locked", True)
             # open the unlock panel with the panel to unlock as a param
-            self._open_panel_impl(SysPanelKey.POPUP_UNLOCK, unlock_panel=panel, autostart=True)
+            self._open_panel_impl(PopupPanelKey.POPUP_UNLOCK, unlock_panel=panel, autostart=True)
             return
 
         # extract optional force flag before passing to goto_page
@@ -474,8 +505,8 @@ class HAUINavigationController(HAUIBase):
         )
         self.page = page_class(self.app, {"page_id": page_id})
 
-        # notify about panel creation early in process
-        self.page.create_panel(panel)
+        # the theme colours and whatever else the page reads while it loads
+        self.page.prepare_page_load(panel)
 
         # set new page for panel
         self.goto_page(page_id, force=force)
@@ -490,9 +521,8 @@ class HAUINavigationController(HAUIBase):
         # If the ack never comes, the page_timeout fires as a last-resort
         # fallback.
         self.log("Waiting for page event before rendering")
-        timeout = self.get("page_timeout", 10.0)
         self._cancel_timer("_page_timeout")
-        self._page_timeout = self.app.run_in(self._page_timeout_callback, timeout)
+        self._page_timeout = self.app.run_in(self._page_timeout_callback, PAGE_ACK_TIMEOUT)
         self._page_change_ts = time.monotonic()
 
         # The previous panel's close timer must never fire for this panel,
@@ -502,6 +532,38 @@ class HAUINavigationController(HAUIBase):
         timeout = panel.get("close_timeout", 0)
         if timeout > 0:
             self._close_timeout = self.app.run_in(self._close_timeout_callback, timeout)
+
+    def _track_idle_session(self, panel: HAUIPanel) -> None:
+        """Follow the idle session as ``panel`` opens.
+
+        An overlay opened from idle suspends the session so touches on the
+        overlay do not wake through it; closing back to idle resumes it, and
+        a navigation panel ends it.
+        """
+        is_idle_panel = self._idle_panel is not None and panel.id == self._idle_panel.id
+        if self._idle_panel_suspended and is_idle_panel:
+            self._idle_panel_suspended = False
+            self._idle_panel_active = True
+            self.app.device.on_idle_page_opened()
+        elif self._idle_panel_active and self._idle_panel and not is_idle_panel:
+            self._idle_panel_suspended = not panel.show_in_navigation()
+            self._idle_panel_active = False
+        elif self._idle_panel_suspended and panel.show_in_navigation():
+            self._idle_panel_suspended = False
+
+    def _track_history(self, panel: HAUIPanel, kwargs: dict[str, Any]) -> None:
+        """Record where ``panel`` was opened from.
+
+        A navigation panel becomes the current nav panel and drops the stack;
+        any other panel is pushed onto the stack, unless it is already on top
+        (a reconnect or page-timeout retry opens it again).
+        """
+        if panel.show_in_navigation():
+            self._current_nav = panel
+            self._current_nav_kwargs = kwargs
+            self._stack = []
+        elif not self._stack or self._stack[-1][0].id != panel.id:
+            self._stack.append((panel, kwargs))
 
     def _open_home_fallback(self) -> None:
         """Open the home panel from inside an already guarded navigation.
@@ -544,91 +606,100 @@ class HAUINavigationController(HAUIBase):
         self._cancel_timer("_page_settle_timer")
         self._cancel_timer("_buffer_overflow_timer")
         self._cancel_timer("_close_timeout")
-        self._cancel_idle_timer()
-        self._cancel_nav_home_timer()
 
-    # idle timer (hub-side fallback for device inactivity timeout)
+    # inactivity: one level-triggered check for auto-navigate-home and the idle page
 
-    def _start_idle_timer(self) -> None:
-        """Start or restart the hub-side idle timer.
+    def prepare_resume(self) -> None:
+        """Start the inactivity clock again after a (re)connect.
 
-        Cancels any existing idle timer and starts a new one-shot timer
-        that will open the idle page after ``hub_idle_timeout`` seconds
-        of inactivity.  Does nothing when ``hub_idle_timeout`` is 0 (disabled)
-        or the idle page is already active.
+        A reconnect is no interaction: the restored page is displayed first
+        (the check stays off until ``display_panel`` runs), then the page
+        timeout starts again from the reconnect.
         """
-        timeout = self.app.device.get("hub_idle_timeout", 0)
-        if timeout <= 0:
-            return
-        if self._idle_panel_active:
-            return
-        self._cancel_idle_timer()
-        self._idle_timer = self.app.run_in(self._idle_timer_callback, timeout)
+        self._activity_ts = time.monotonic()
+        self._resume_pending = True
+        self.log("Inactivity clock restarted on connect", level="DEBUG")
 
-    def _cancel_idle_timer(self) -> None:
-        """Cancel the hub-side idle timer if active."""
-        self._cancel_timer("_idle_timer")
+    def reset_activity(self) -> None:
+        """Record a user interaction for the inactivity checks."""
+        self._activity_ts = time.monotonic()
+        self.log("Interaction recorded, inactivity clock reset", level="DEBUG")
 
-    def _idle_timer_callback(self, kwargs: dict[str, Any]) -> None:
-        """Called when the hub-side idle timer fires.
+    def _check_inactivity(self, _kwargs: dict[str, Any]) -> None:
+        """Level-triggered idle-page and auto-navigate-home check (every second).
 
-        Opens the idle page if the user has been idle longer than
-        ``hub_idle_timeout`` and the device-side timeout hasn't already
-        switched pages.
+        A pure predicate: every tick re-evaluates the configured deadlines
+        against the activity clock, so a missed event, a page hold, a config
+        reload or a late worker recovers on the next tick.
         """
-        self._idle_timer = None
-        if self._idle_panel_active:
-            return  # device-side timeout already switched pages
         if not self.app.device.connected:
             return
-        if self._idle_panel and self.panel and self._idle_panel.id != self.panel.id:
-            self.log("Hub idle timeout reached, opening idle panel (no esphome.timeout received)")
-            self.open_idle_panel(autostart=True)
+        if self._resume_pending:
+            return
+        if self.panel is None or self.page is None:
+            return
+        age = time.monotonic() - self._activity_ts
+        self._check_nav_home(age)
+        self._maybe_open_idle(age)
 
-    # auto-navigate-home timer
+    def _maybe_open_idle(self, age: float) -> None:
+        """Open the idle page when every condition holds, else do nothing."""
+        if self._navigating:
+            return
+        if self._page_timeout is not None:
+            return
+        if self._idle_panel_active or self._idle_panel_suspended:
+            return
+        if not self._idle_panels:
+            return
+        prefix = "night_" if self._idle_profile_night else ""
+        use_auto_page = self.app.device.get(f"{prefix}use_auto_page")
+        timeout_page = self.app.device.get(f"{prefix}timeout_page")
+        if (
+            not isinstance(use_auto_page, bool)
+            or type(timeout_page) not in (int, float)
+            or not math.isfinite(timeout_page)
+            or timeout_page < 0
+        ):
+            self.log(
+                f"Idle page check skipped: invalid {prefix}use_auto_page or "
+                f"{prefix}timeout_page value",
+                level="WARNING",
+            )
+            return
+        if not use_auto_page or timeout_page <= 0:
+            return
+        if age < timeout_page:
+            return
+        if self.page is not None and self.page.suspends_auto_page():
+            return
+        self.log("Idle page due, opening the idle panel", level="INFO")
+        self.open_idle_panel(autostart=True)
 
-    def _start_nav_home_timer(self) -> None:
-        """Start or restart the auto-navigate-home timer.
-
-        Cancels any existing nav-home timer and starts a new one-shot timer
-        that will navigate back to the home panel after
-        ``auto_navigate_home_timeout`` seconds of inactivity.  Does nothing
-        when ``auto_navigate_home_timeout`` is 0 (disabled) or the idle
-        page is already active.
-        """
-        timeout = self.app.device.get("auto_navigate_home_timeout", 0)
-        if timeout <= 0:
+    def _check_nav_home(self, age: float) -> None:
+        """Auto-navigate-home, from the same activity clock as the idle page."""
+        if self._navigating or self._page_timeout is not None:
+            return
+        timeout = self.app.device.get("auto_navigate_home_timeout")
+        if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout < 0:
+            self.log(
+                "Auto-navigate-home check skipped: invalid auto_navigate_home_timeout value",
+                level="WARNING",
+            )
+            return
+        if timeout == 0 or age < timeout:
             return
         if self._idle_panel_active:
-            return
-        self._cancel_nav_home_timer()
-        self._nav_home_timer = self.app.run_in(self._nav_home_timer_callback, timeout)
-
-    def _cancel_nav_home_timer(self) -> None:
-        """Cancel the auto-navigate-home timer if active."""
-        self._cancel_timer("_nav_home_timer")
-
-    def _nav_home_timer_callback(self, kwargs: dict[str, Any]) -> None:
-        """Called when the auto-navigate-home timer fires.
-
-        Navigates to the home panel if the current panel differs from the
-        home panel and the device is still connected.  While the idle page is
-        active it stays on screen, but leaving it goes home: the snapshot of
-        the panel it covered is dropped.
-        """
-        self._nav_home_timer = None
-        if self._idle_panel_active:
-            # The idle page opened first (timeout_page is shorter); restoring
-            # the covered panel on wake would skip the return home entirely.
+            # The idle page is on screen: leaving it goes home instead of
+            # restoring the panel it covered.
             self.unset_snapshot()
-            return
-        if not self.app.device.connected:
             return
         if self._home_panel is None:
             return
-        if self.panel and self._home_panel.id != self.panel.id:
-            self.log("Auto-navigate-home timeout reached, navigating to home panel")
-            self.open_home_panel()
+        if self.panel is None or self.panel.id == self._home_panel.id:
+            return
+        self.log("Auto-navigate-home timeout reached, navigating to home panel")
+        self.open_home_panel()
 
     def close_panel(self) -> None:
         """Closes the current panel."""
@@ -652,6 +723,7 @@ class HAUINavigationController(HAUIBase):
         self._cancel_timer("_close_timeout")
         prev_panel: HAUIPanel | None = None
         prev_kwargs: dict[str, Any] = {}
+        unlock_panel: HAUIPanel | None = None
         # check stack
         if len(self._stack) > 0:
             # remove last stacked panel
@@ -676,15 +748,15 @@ class HAUINavigationController(HAUIBase):
         # fallback panel home panel
         if prev_panel is None:
             prev_panel, prev_kwargs = self._home_panel, {}
-        # check for locked panel before opening
-        if prev_panel is not None:
-            unlock_panel = prev_panel.get("unlock_panel", None)
-            if (
-                unlock_panel is not None
-                and prev_panel.id == unlock_panel.id
-                and prev_panel.get_state("locked", False)
-            ):
-                prev_panel, prev_kwargs = None, {}
+        # Closing the unlock popup of a locked navigation panel must not return
+        # to that panel: it would only open the popup again. Leave it for home.
+        if (
+            unlock_panel is not None
+            and prev_panel is not None
+            and prev_panel.id == unlock_panel.id
+            and unlock_panel.get_state("locked", False)
+        ):
+            prev_panel, prev_kwargs = self._home_panel, {}
 
         # open new panel
         if prev_panel is not None:
@@ -715,6 +787,22 @@ class HAUINavigationController(HAUIBase):
             return
         panel_id = self._ids[idx - 1] if idx > 0 else self._ids[-1]
         self.open_panel(panel_id)
+
+    def go_back(self) -> None:
+        """Return to the panel the current one was opened from, else to the home panel.
+
+        A panel outside navigation sits on the stack, so closing it returns to
+        where it was opened from. A navigation panel has no history (it was
+        reached by swiping or as home), so it goes to the home panel.
+        """
+        if self._stack and self.panel is not None and self._stack[-1][0].id == self.panel.id:
+            self.close_panel()
+        elif self._home_panel is not None and (
+            self.panel is None or self.panel.id != self._home_panel.id
+        ):
+            self.open_home_panel()
+        else:
+            self.log("Go back: already on the home panel")
 
     def open_home_panel(self, autostart: bool = False) -> None:
         """Opens the home panel.
@@ -747,7 +835,6 @@ class HAUINavigationController(HAUIBase):
             return
         if not self._idle_panel_active:
             self.create_snapshot()
-        self._cancel_idle_timer()
         # Carousel: each entry advances to the next panel in the list.
         panel = self._idle_panels[self._idle_panel_idx % len(self._idle_panels)]
         self._idle_panel_idx += 1
@@ -770,6 +857,7 @@ class HAUINavigationController(HAUIBase):
         reset.
         """
         self._idle_panel_active = False
+        self._idle_panel_suspended = False
 
     def exit_idle_to_prev_or_home(self, config: dict | None) -> None:
         """Exit the idle page: restore the prior panel or open home.
@@ -802,20 +890,18 @@ class HAUINavigationController(HAUIBase):
 
     def create_snapshot(self) -> None:
         """Creates a snapshot of the current navigation state."""
-        panel = self.panel
-        panel_kwargs = self.panel_kwargs.copy()
-        current_nav = self._current_nav
-        current_nav_kwargs = self._current_nav_kwargs.copy()
-        stack = self._stack.copy()
-        snapshot = (panel, panel_kwargs, current_nav, current_nav_kwargs, stack)
-        self._snapshot = snapshot
-        self._snapshot_time = time.monotonic()
+        self._snapshot = NavigationSnapshot(
+            panel=self.panel,
+            panel_kwargs=self.panel_kwargs.copy(),
+            current_nav=self._current_nav,
+            current_nav_kwargs=self._current_nav_kwargs.copy(),
+            stack=self._stack.copy(),
+        )
         self.log("Navigation snapshot created")
 
     def unset_snapshot(self) -> None:
         """Unsets the current navigation snapshot."""
         self._snapshot = None
-        self._snapshot_time = None
 
     def restore_snapshot(self, max_seconds_ago: int = 0) -> bool:
         """Restores a previously created navigation snapshot.
@@ -827,19 +913,19 @@ class HAUINavigationController(HAUIBase):
         Returns:
             bool: True if successfully restored, False if not
         """
-        if self._snapshot is None:
+        snapshot = self._snapshot
+        if snapshot is None:
             return False
-        if max_seconds_ago > 0 and self._snapshot_time is not None:
-            age = time.monotonic() - self._snapshot_time
-            if age > max_seconds_ago:
-                self.log(
-                    f"Navigation snapshot too old ({age:.1f}s > {max_seconds_ago}s), not restoring"
-                )
-                return False
+        if max_seconds_ago > 0 and snapshot.age > max_seconds_ago:
+            self.log(
+                f"Navigation snapshot too old ({snapshot.age:.1f}s > {max_seconds_ago}s), "
+                "not restoring"
+            )
+            return False
         with self._guard("restore_snapshot") as acquired:
             if not acquired:
                 return False
-            return self._restore_snapshot_impl()
+            return self._restore_snapshot_impl(snapshot)
 
     def _resolve_live_panel(self, panel: HAUIPanel) -> HAUIPanel | None:
         """Find the live panel object matching a possibly stale one.
@@ -850,31 +936,16 @@ class HAUINavigationController(HAUIBase):
         key = panel.get("key", "")
         return self.app.device_config.get_panel(key if key else panel.id)
 
-    def _restore_snapshot_impl(self) -> bool:
-        prev_panel: HAUIPanel | None
-        panel_kwargs: dict[str, Any]
-        prev_current_nav: HAUIPanel | None
-        current_nav_kwargs: dict[str, Any]
-        stack: list[tuple[HAUIPanel, dict[str, Any]]]
-        assert self._snapshot is not None  # checked above
-        (
-            prev_panel,
-            panel_kwargs,
-            prev_current_nav,
-            current_nav_kwargs,
-            stack,
-        ) = self._snapshot
-
+    def _restore_snapshot_impl(self, snapshot: NavigationSnapshot) -> bool:
         # Re-resolve snapshot references against live config.
         # reload_panels() creates new HAUIPanel objects with new UUIDs, so
         # the snapshot may hold stale references.  Failing to re-resolve causes
         # the restored panel to be dead, which triggers a fallback to home on
         # the next interaction - producing the ping-pong navigation bug.
+        prev_panel = snapshot.panel
         if prev_panel is not None:
             resolved = self._resolve_live_panel(prev_panel)
-            if resolved is not None:
-                prev_panel = resolved
-            else:
+            if resolved is None:
                 self.log(
                     f"Snapshot panel {prev_panel.id} no longer in config, falling back to home"
                 )
@@ -882,22 +953,23 @@ class HAUINavigationController(HAUIBase):
                 self.mark_awake()
                 self._open_home_fallback()
                 return False
-        if prev_current_nav is not None and prev_current_nav is not prev_panel:
-            prev_current_nav = self._resolve_live_panel(prev_current_nav)
-        elif prev_current_nav is not None:
+            prev_panel = resolved
+        prev_current_nav = snapshot.current_nav
+        if prev_current_nav is snapshot.panel:
             prev_current_nav = prev_panel
-        live_stack = []
-        for stacked, stacked_kwargs in stack:
+        elif prev_current_nav is not None:
+            prev_current_nav = self._resolve_live_panel(prev_current_nav)
+        live_stack: list[StackEntry] = []
+        for stacked, stacked_kwargs in snapshot.stack:
             live = self._resolve_live_panel(stacked)
             if live is not None:
                 live_stack.append((live, stacked_kwargs))
-        stack = live_stack
 
         self.panel = prev_panel
-        self.panel_kwargs = panel_kwargs
+        self.panel_kwargs = snapshot.panel_kwargs
         self._current_nav = prev_current_nav
-        self._current_nav_kwargs = current_nav_kwargs
-        self._stack = stack
+        self._current_nav_kwargs = snapshot.current_nav_kwargs
+        self._stack = live_stack
 
         # Consume the snapshot and clear idle-session state so check_wakeup() and
         # process_event() don't re-trigger the same restore on the next event.
@@ -915,7 +987,7 @@ class HAUINavigationController(HAUIBase):
         if "esphome" in self.app.controller:
             self.app.controller["esphome"].reset_prev_cmd()
         # Force goto_page so it always reaches the display after snapshot restore.
-        panel_kwargs["force"] = True
+        self.panel_kwargs["force"] = True
 
         self.reload_panel()
 
@@ -948,7 +1020,7 @@ class HAUINavigationController(HAUIBase):
             f"Navigation process_event: {event.name} value={str(event.value)[:100]}",
             level="DEBUG",
         )
-        self._reset_hub_timers_on_interaction(event)
+        self._record_activity(event)
 
         # Recovery: a touch while a page change is pending means the goto_page
         # command was lost.  Re-send it immediately instead of waiting for the
@@ -965,7 +1037,6 @@ class HAUINavigationController(HAUIBase):
 
         handlers: dict[str, Any] = {
             ESPEvent.PAGE: self._handle_page_event,
-            ESPEvent.TIMEOUT: self._handle_timeout_event,
             ESPEvent.DISPLAY_ON: self._handle_display_on_event,
             ESPEvent.DISPLAY_OFF: self._handle_display_off_event,
             ESPEvent.BUFFER_OVERFLOW: self._handle_buffer_overflow_event,
@@ -978,25 +1049,26 @@ class HAUINavigationController(HAUIBase):
         if self.page is not None:
             self.page.process_event(event)
 
-    def _reset_hub_timers_on_interaction(self, event: HAUIEvent) -> None:
-        """Reset the hub-side idle / nav-home timers on user interaction.
+    def _record_activity(self, event: HAUIEvent) -> None:
+        """Reset the hub's activity clock on a user interaction.
 
-        Fallback for when the device doesn't publish esphome.timeout events
-        (e.g. use_auto_display_off OFF). Button presses only count when
-        ``reset_interaction_on_button`` is enabled.
+        Touch events, component taps and gestures always count; hardware
+        buttons only when ``reset_interaction_on_button`` is enabled. Redraws,
+        settings saves and popups opening are not interactions.
         """
         if event.name not in (
             ESPEvent.TOUCH_START,
+            ESPEvent.TOUCH_END,
+            ESPEvent.COMPONENT,
+            ESPEvent.GESTURE,
             ESPEvent.BUTTON_LEFT,
             ESPEvent.BUTTON_RIGHT,
-            ESPEvent.GESTURE,
         ):
             return
         is_button = event.name in (ESPEvent.BUTTON_LEFT, ESPEvent.BUTTON_RIGHT)
         if is_button and not self.app.device.get("reset_interaction_on_button", True):
             return
-        self._start_idle_timer()
-        self._start_nav_home_timer()
+        self.reset_activity()
 
     def _handle_page_event(self, event: HAUIEvent) -> None:
         """A page-change ack arrived from the device."""
@@ -1018,7 +1090,7 @@ class HAUINavigationController(HAUIBase):
         # to let the Nextion finish initialising all page components before
         # render commands arrive.
         if not self.page.is_started() and self.panel is not None:
-            delay = self.app.device.get("page_settle_delay", 0.05)
+            delay = self.app.device.get("page_settle_delay")
             self._cancel_timer("_page_settle_timer")
             self._page_settle_timer = self.app.run_in(self._page_settle_callback, delay)
 
@@ -1027,21 +1099,6 @@ class HAUINavigationController(HAUIBase):
         self._page_settle_timer = None
         if self.panel is not None:
             self.display_panel(self.panel)
-
-    def _handle_timeout_event(self, event: HAUIEvent) -> None:
-        """esphome.timeout idle milestones from the firmware.
-
-        The firmware publishes ``"dim"`` / ``"off"`` / ``"page"`` when an
-        inactivity threshold is crossed.  Only ``page`` (automatic page
-        switching) concerns the hub: it opens the configured idle page.
-        ``dim`` and ``off`` are display-brightness milestones that the
-        firmware handles on its own - the hub never needs a page switch to
-        dim or turn the display off.
-        """
-        if event.value != "page":
-            return
-        if self._idle_panel and self.panel and self._idle_panel.id != self.panel.id:
-            self.open_idle_panel(autostart=True)
 
     def _handle_display_on_event(self, _event: HAUIEvent) -> None:
         """esphome.display_on (post-hardware-sleep wake, no-hub path).
@@ -1108,9 +1165,9 @@ class HAUINavigationController(HAUIBase):
     def _buffer_overflow_recover(self, _kwargs: dict[str, Any]) -> None:
         """Re-render the current panel after a buffer overflow.
 
-        Uses refresh_panel (render only — no cls / full-page ref) instead of
-        a full set_panel so the recovery batch is smaller than the batch that
-        overflowed and cannot re-trigger the overflow by itself.
+        Uses refresh_panel (render only) instead of a full set_panel so the
+        recovery batch is smaller than the batch that overflowed and cannot
+        re-trigger the overflow by itself.
         """
         self._buffer_overflow_timer = None
         if self.panel is None or self.page is None:

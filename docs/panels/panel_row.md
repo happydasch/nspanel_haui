@@ -5,11 +5,11 @@ description: Row panel — stacked entity rows with per-type controls
 
 # Panel Row
 
-![](../assets/previews/panel-row.svg)
+<img src="../assets/screens/landscape/row.png" alt="row panel, landscape" width="300" height="213"> <img src="../assets/screens/portrait/row.png" alt="row panel, portrait" width="142" height="213">
 
 ## About
 
-The row panel shows up to 5 entities as stacked rows, each with an icon and name plus a control suited to the entity type. If more than 5 entities are configured, a next-page button appears for scrolling. This panel is ideal for placing simple toggles, sensors, and quick actions in a single view.
+The row panel shows up to 5 entities as stacked rows, each with an icon and name plus a control suited to the entity type. If more than 5 entities are configured, a next-page button appears for scrolling. This panel is ideal for placing simple toggles, sensors, and quick actions in a single view. Long names and single-line values are shortened with `..` to fit their widgets.
 
 ## How to configure
 

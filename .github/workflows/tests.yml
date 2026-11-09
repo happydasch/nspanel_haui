@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [master, dev]
 
+# New commits supersede CI for the same branch or pull request.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -23,6 +28,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # tests/test_card_renders.py replays the hub's card renders in the
+      # browser's Nextion simulator with Node.
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
       - name: Install dependencies
         run: |
           pip install --upgrade pip
@@ -31,11 +43,11 @@ jobs:
         run: pip install -r requirements-docs.txt
 
       - name: Build docs
-        run: mkdocs build --strict
+        run: zensical build --strict
 
       - name: Check icon cheatsheet is up to date
         run: |
-          python3 scripts/gen_fonts/gen_cheatsheet.py
+          python -m scripts.font_tools.gen_cheatsheet
           git diff --exit-code -- docs/cheatsheet.html
 
       - name: Check translations are up to date
@@ -43,38 +55,34 @@ jobs:
         # from the Python/frontend strings.  A stale locale file means a new
         # string shipped without a translation slot; regenerate and commit.
         run: |
-          python3 scripts/translations/extract_translations.py
+          python -m scripts.translations.extract_translations
           git diff --exit-code -- custom_components/nspanel_haui/haui/locale scripts/translations/translate.json
 
       - name: Check version sources agree
-        # manifest.json is the source of truth.  bump_version.py --check fails
-        # when pyproject.toml, version.yaml or either HMI's system.tftVersion
-        # disagrees — the drift previously only surfaced in the release gate.
-        # A release that ships the previous TFT unchanged sets the
-        # TFT_VERSION_PIN repository variable (to the pinned TFT version) and
-        # the HMI/tftVersion expectation is skipped here — delete the variable
-        # again when a release bumps the TFTs.
+        # manifest.json is the source of truth for firmware versions. Check its
+        # mirrors without --tft-update: the TFT version is independent and is
+        # checked separately against both HMIs below.
         run: |
           VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
-          TFT_FLAG=""
-          if [ -n "${{ vars.TFT_VERSION_PIN }}" ]; then
-            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; skipping the HMI/tftVersion check"
-            TFT_FLAG="--text-only"
-          fi
-          python3 scripts/bump_version.py "$VERSION" $TFT_FLAG --check
+          python -m scripts.bump_version "$VERSION" --check
+
+      - name: Enforce a display TFT version bump when the Nextion HMI changed
+        # A screen change committed under an unchanged system.tftVersion never
+        # reaches a panel that already reports that version. Compare against the
+        # PR merge base (base.sha) or the commit a push came from (before).
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: python -m scripts.verify_nextion.check_hmi_bump --base "$BASE_SHA"
 
       - name: Validate Nextion assets
-        # Runs the release gate on every push/PR so a stale HMI (tftVersion,
-        # Send Component ID, portrait assets) fails early instead of at the tag.
-        # With TFT_VERSION_PIN set (release ships the previous TFT unchanged)
-        # a tftVersion mismatch is tolerated as a warning.
+        # Runs the release gate on every push/PR so stale HMI versions, touch
+        # settings or portrait assets fail early. version.yaml is the source of
+        # truth for the TFT version; it may differ from the firmware version.
+        # Check both specs: landscape is the default, portrait is explicit.
         run: |
-          TFT_FLAG=""
-          if [ -n "${{ vars.TFT_VERSION_PIN }}" ]; then
-            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; tolerating a tftVersion mismatch"
-            TFT_FLAG="--allow-tft-version-mismatch"
-          fi
-          python3 scripts/verify_nextion/verify_nextion.py --require-portrait $TFT_FLAG
+          python -m scripts.verify_nextion.verify_nextion --require-portrait
+          python -m scripts.hmi_layout.gen_layout --check
+          python -m scripts.hmi_layout.gen_layout --spec portrait --check
 
       - name: Run tests
         run: pytest tests/

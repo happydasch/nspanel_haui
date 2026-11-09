@@ -1,10 +1,10 @@
 import { getLanguage, t } from './localize.js';
 /**
- * NSPanel HAUI - data loading helpers.
- * Loads config entries, panels and panel types.
+ * NSPanel HAUI - REST API client for the editor.
  *
- * Simplified to single-hub: loadEntries picks the first nspanel_haui entry
- * and auto-loads panels. No multi-entry discovery or device scanning.
+ * Single hub: loadEntries picks the first nspanel_haui entry and loads its
+ * panels. The rest wraps the hub's REST views (status, YAML, devices, display
+ * refresh, TFT/firmware installs, update checks).
  */
 
 export async function loadEntries(host) {
@@ -28,7 +28,7 @@ export async function loadEntries(host) {
   }
 }
 
-export async function loadPanels(host) {
+export async function loadPanels(host, { keepLoading = false } = {}) {
   if (!host.entryId || !host.hass) {
     host._loading = false;
     return;
@@ -48,12 +48,46 @@ export async function loadPanels(host) {
     } else {
       host._selectedDevice = devices.length ? devices[0] : null;
     }
+    host._deviceStatuses = Object.fromEntries(
+      Object.entries(host._deviceStatuses || {}).filter(([name]) => devices.includes(name))
+    );
     if (host._selectedDevice) host._loadDeviceConfig(host._selectedDevice);
+    if (
+      !keepLoading &&
+      devices.some((name) => !Object.hasOwn(host._deviceStatuses, name))
+    ) {
+      await loadDeviceStatuses(host);
+    }
   } catch (e) {
     console.error("Failed to load panels:", e);
     host._showToast(t("Failed to load panels"), "error");
   }
-  host._loading = false;
+  if (!keepLoading) host._loading = false;
+}
+
+/** Load and cache the status snapshot for every configured device. */
+export async function loadDeviceStatuses(host) {
+  if (!host.entryId || !host.hass) return null;
+  try {
+    const resp = await host.hass.fetchWithAuth(`/api/nspanel_haui/status/${host.entryId}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const result = await resp.json();
+    const statuses = result?.devices;
+    if (!statuses || typeof statuses !== "object" || Array.isArray(statuses)) {
+      throw new Error("Invalid device status response");
+    }
+    host._deviceStatuses = { ...(host._deviceStatuses || {}), ...statuses };
+    const selected = host._deviceStatuses[host._selectedDevice];
+    if (selected) {
+      host._deviceStatus = selected;
+      host._deviceStatusError = null;
+    }
+    return host._deviceStatuses;
+  } catch (e) {
+    console.error("Failed to load device statuses:", e);
+    host._deviceStatusError = e.message || t("Fetch failed");
+    return null;
+  }
 }
 
 export async function loadPanelTypes(host) {
@@ -88,11 +122,15 @@ export async function loadStatus(host) {
     );
     if (resp.ok) {
       status = await resp.json();
-      // When no device is selected the backend returns
-      // {devices: {name: status, ...}}. Unwrap the first device.
+      // The unfiltered response contains every device; cache it and use the
+      // selected device's entry when one was requested.
       if (status.devices && typeof status.devices === "object") {
-        const names = Object.keys(status.devices);
-        status = names.length ? status.devices[names[0]] : {};
+        const statuses = status.devices;
+        host._deviceStatuses = { ...(host._deviceStatuses || {}), ...statuses };
+        const names = Object.keys(statuses);
+        status = deviceKey
+          ? statuses[deviceKey] || null
+          : names.length ? statuses[names[0]] : {};
       }
     } else {
       error = `HTTP ${resp.status}`;
@@ -102,6 +140,9 @@ export async function loadStatus(host) {
   }
   // The user may have switched devices while this request was in flight.
   if ((host._selectedDevice || "") !== deviceKey) return;
+  if (deviceKey && status) {
+    host._deviceStatuses = { ...(host._deviceStatuses || {}), [deviceKey]: status };
+  }
   host._deviceStatus = status;
   host._deviceStatusError = error;
 }
@@ -200,9 +241,9 @@ function pickYamlFile() {
  */
 const DEFAULT_REQUEST_TIMEOUT_MS = 20000;
 
-async function requestRaw(host, url, options, failMessage) {
+async function requestRaw(host, url, options, failMessage, requestTimeoutMs) {
   const controller = new AbortController();
-  const timeoutMs = host._apiTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  const timeoutMs = requestTimeoutMs ?? host._apiTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   // Ref'd setTimeout (not AbortSignal.timeout, whose timer is unref'd in some
   // JS engines and never fires in an otherwise idle event loop): a request that
   // never settles must abort and surface instead of hanging silently.  The
@@ -278,48 +319,66 @@ export async function addDevice(host, device) {
 }
 
 /**
- * Remove a device from the config entry.
+ * Remove a device from the hub, together with its settings and panels.
  *
  * DELETE /api/nspanel_haui/devices/{entryId}?name={name}
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
  * @param {string} name - device name to remove
- * @param {boolean} [keepConfig=false] - keep panel config in store
- * @returns {Promise<{ status: string, kept_config: boolean }>}
+ * @returns {Promise<{ status: string }>}
  */
-export async function removeDevice(host, name, keepConfig = false) {
+export async function removeDevice(host, name) {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));
   }
   return request(host, `/api/nspanel_haui/devices/${host.entryId}?name=${encodeURIComponent(name)}`,
-    {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keep_config: keepConfig }),
-    }, t("Failed to remove device"));
+    { method: "DELETE" }, t("Failed to remove device"));
 }
 
+
 /**
- * Trigger display refresh on one or all devices.
+ * Trigger a display refresh for one device.
  *
- * POST /api/nspanel_haui/update_display/{entryId}
+ * POST /api/nspanel_haui/refresh_display/{entryId}
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
- * @param {string} deviceName - device name, or "*" for all devices
+ * @param {string} deviceName - device name
  * @returns {Promise<{ status: string, devices_updated: string[] }>}
  */
-export async function updateDeviceDisplay(host, deviceName) {
+export async function refreshDeviceDisplay(host, deviceName) {
   if (!host.entryId || !host.hass) {
     throw new Error(t("No config entry selected"));
   }
-  return request(host, `/api/nspanel_haui/update_display/${host.entryId}`,
+  return request(host, `/api/nspanel_haui/refresh_display/${host.entryId}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ device: deviceName }),
-    }, t("Failed to update display"));
-}/**
- * Resolve the prebuilt firmware (.bin) download link of the latest release.
+    }, t("Failed to refresh display"));
+}
+
+/**
+ * Reset the firmware's interaction timer for one device.
+ *
+ * POST /api/nspanel_haui/reset_interaction/{entryId}
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} deviceName - device name
+ */
+export async function resetDeviceInteractionTimer(host, deviceName) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  return request(host, `/api/nspanel_haui/reset_interaction/${host.entryId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ device: deviceName }),
+    }, t("Failed to reset interaction timer"));
+}
+
+/**
+ * Resolve the prebuilt firmware (.bin) download link of the latest stable release.
  *
  * GET /api/nspanel_haui/firmware
  *
@@ -336,14 +395,13 @@ export async function getFirmwareDownload(host) {
 }
 
 /**
- * Trigger a TFT install on one or all devices./**
  * Trigger a TFT install on one or all devices.
  *
  * POST /api/nspanel_haui/update_tft/{entryId}
  *
  * @param {import('./haui-editor.js').NSPanelEditor} host
  * @param {string} deviceName - device name, or "*" for all devices
- * @param {string} [version] - release version (default: the firmware's yaml_version)
+ * @param {string} [version] - release version (default: the firmware's required TFT version)
  * @param {string} [url] - URL of a .tft file instead of a release (single device only)
  * @returns {Promise<{ status: string, devices_updated: string[] }>}
  */
@@ -409,6 +467,36 @@ export async function updateDeviceFirmware(host, deviceName, version, url) {
 }
 
 /**
+ * Upload a local TFT or OTA image and start its install on one device.
+ *
+ * POST /api/nspanel_haui/update_upload/{entryId}/{kind}?device=...&filename=...
+ *
+ * @param {import('./haui-editor.js').NSPanelEditor} host
+ * @param {string} deviceName
+ * @param {"tft"|"firmware"} kind
+ * @param {File} file
+ * @returns {Promise<{ status: string, devices_updated: string[], update?: Object }>}
+ */
+export async function uploadDeviceUpdate(host, deviceName, kind, file) {
+  if (!host.entryId || !host.hass) {
+    throw new Error(t("No config entry selected"));
+  }
+  const query = new URLSearchParams({ device: deviceName, filename: file.name });
+  const response = await requestRaw(
+    host,
+    `/api/nspanel_haui/update_upload/${host.entryId}/${kind}?${query}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: file,
+    },
+    t("Failed to upload the update file"),
+    300000,
+  );
+  return response.json();
+}
+
+/**
  * List the GitHub releases whose firmware a device can install over the air.
  *
  * GET /api/nspanel_haui/firmware_releases/{entryId}?device={deviceName}
@@ -428,29 +516,3 @@ export async function getFirmwareReleases(host, deviceName) {
     t("Failed to load the firmware releases"),
   );
 }
-
-/**
- * Trigger a manual update check on one or all devices.
- *
- * POST /api/nspanel_haui/check_update/{entryId}
- *
- * Runs on the device worker thread and bypasses the hub-level release cache,
- * so a user-initiated check always sees the latest GitHub release.
- *
- * @param {import('./haui-editor.js').NSPanelEditor} host
- * @param {string} deviceName - device name, or "*" for all devices
- * @returns {Promise<{ status: string, devices_checked: string[], results: Object<string, Object> }>}
- *   `results` maps each device to its update state plus `latest_release` and `check_error`.
- */
-export async function checkDeviceUpdate(host, deviceName = "*") {
-  if (!host.entryId || !host.hass) {
-    throw new Error(t("No config entry selected"));
-  }
-  return request(host, `/api/nspanel_haui/check_update/${host.entryId}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ device: deviceName }),
-    }, t("Failed to check for updates"));
-}
-

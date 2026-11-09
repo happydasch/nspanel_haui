@@ -26,6 +26,10 @@ LOCALE_OPTIONS: list[tuple[str, str]] = [
 # routine INFO lifecycle messages.
 LOG_LEVEL_OPTIONS: list[str] = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
+OPTIONAL_DEVICE_CONFIG_FIELDS = frozenset(
+    {"day_brightness_full", "day_brightness_dimmed", "day_duration_dim"}
+)
+
 DEVICE_CONFIG: dict[str, Any] = {
     "name": "",
     "panels": [{"type": "clock"}],
@@ -72,10 +76,6 @@ DEVICE_CONFIG: dict[str, Any] = {
     "reset_interaction_on_button": True,
     # snapshot restore limit: -1 = no limit, 0 = never restore, >0 = max age in seconds
     "snapshot_max_age_seconds": -1,
-    # hub-side idle timeout (seconds, 0 = disabled).
-    # Fallback when the device doesn't publish esphome.timeout events
-    # (e.g., use_auto_page is OFF on the device).
-    "hub_idle_timeout": 0,
     # auto-navigate-home timeout (seconds, 0 = disabled).
     # When >0, after this many seconds of inactivity on any non-home panel,
     # the hub navigates back to the home panel automatically. Should be set
@@ -90,17 +90,30 @@ DEVICE_CONFIG: dict[str, Any] = {
     "timeout_dimming": 10,
     "timeout_page": 30,
     "timeout_display_off": 120,
-    # Display-off schedule: when enabled, use_auto_display_off follows the clock.
-    # Inside the window below auto-off stays allowed (display turns off after
-    # timeout_display_off); outside it the display never turns off automatically.
-    # The schedule overrides the use_auto_display_off toggle while active.  Uses
-    # the same wall-clock semantics as the quiet-hours window (overnight ranges
-    # supported).  This is the native replacement for automations that toggle
-    # switch.<device>_use_auto_display_off - the hub drives that switch by clock.
-    "use_sleep_schedule": False,
-    "sleep_schedule_start": "",
-    "sleep_schedule_end": "",
+    # Day/Night profiles own these values only while a schedule is enabled.
+    "day_night_schedule_mode": "off",  # off, fixed, or sun
+    "day_night_start": "21:00",
+    "day_night_end": "07:00",
+    "day_night_sunset_offset": 0,  # minutes, -720..720
+    "day_night_sunrise_offset": 0,
+    # Adopt restored ESPHome settings once on first activation, then persist them.
+    "day_night_profiles_initialized": False,
+    "day_brightness_full": None,
+    "day_brightness_dimmed": None,
+    "day_duration_dim": None,
+    "night_timeout_dimming": 10,
+    "night_duration_dim": 2.0,
+    "night_use_auto_page": True,
+    "night_timeout_page": 30,
+    "night_idle_panel": "",
+    "night_timeout_display_off": 120,
+    "night_brightness_full": 50,
+    "night_brightness_dimmed": 20,
     "sound_on_startup": False,
+    # Fixed weather/alarm/climate icon colors are paired for light and dark backgrounds.
+    "color_scheme": "dark",
+    # Active semantic color definitions, selected from built-ins or saved schemes.
+    "color_scheme_id": "dark",
     # color overrides (dict[str, int] — RGB565 values overriding COLORS defaults)
     "color_overrides": {},
     "sound_on_notification": False,
@@ -178,7 +191,8 @@ def validate_config(cfg: dict[str, Any]) -> None:
                 continue
             tgt_val = target[key]
             if tgt_val is None:
-                missing.append(f"{full_key} (is None)")
+                if not (prefix == "device" and key in OPTIONAL_DEVICE_CONFIG_FIELDS):
+                    missing.append(f"{full_key} (is None)")
                 continue
             if isinstance(ref_val, dict):
                 if not isinstance(tgt_val, dict):
@@ -194,7 +208,7 @@ def validate_config(cfg: dict[str, Any]) -> None:
             full_key = f"devices[{i}].{key}"
             if key not in dev:
                 missing.append(full_key)
-            elif dev[key] is None:
+            elif dev[key] is None and key not in OPTIONAL_DEVICE_CONFIG_FIELDS:
                 missing.append(f"{full_key} (is None)")
 
     if missing:

@@ -2,9 +2,10 @@
 update_tft:
   name: Update TFT
   description: >-
-    Install the TFT release required by this panel's firmware, another release
-    (older ones included), or the TFT file at a URL. Select a single NSPanel
-    device; this service cannot be called for all devices at once.
+    Install the TFT the selected panel's firmware manifest names (the one the
+    firmware needs, matched to the device's display model), or the TFT file at
+    a URL. Select a single NSPanel device; this service cannot be called for
+    all devices at once.
   fields:
     device:
       name: "Device"
@@ -16,18 +17,19 @@ update_tft:
     version:
       name: "Version"
       description: >-
-        Optional GitHub release to install instead of the one the firmware
-        needs, e.g. an older release. Cannot be combined with URL.
+        The manifest's TFT version to install instead of the default, i.e. the
+        one the firmware needs; it must match the manifest's tft.version.
+        Cannot be combined with URL.
       required: false
-      example: "0.4.1"
+      example: "0.4.4"
       selector:
         text:
     url:
       name: "URL"
       description: >-
-        Optional http(s) URL of a .tft file to install instead of the GitHub
-        release the firmware needs (custom or development builds). Cannot be
-        combined with Version.
+        Optional http(s) URL of a .tft file to install instead of the manifest
+        TFT (custom, development or older TFT builds). Cannot be combined with
+        Version.
       required: false
       example: "http://homeassistant.local:8123/local/nspanel/nspanel_haui.tft"
       selector:
@@ -161,11 +163,11 @@ idle:
 send_notification:
   name: Send notification
   description: >-
-    Show a notification on the panel with a title, message and icon.
-    By default it stays queued until dismissed on the panel.  Set a
-    timeout to auto-dismiss it after that many seconds, or persistent
-    to loop the alert sound until it is dismissed (or its timeout
-    expires).
+    Show a notification on the panel with a title, message, icon, icon colour
+    and sound. By default it stays queued until dismissed on the panel. Set a
+    timeout to auto-dismiss it after that many seconds; persistent also opens
+    it immediately, loops its sound and re-opens its popup until it is
+    dismissed (or its timeout expires).
   fields:
     device:
       name: "Device"
@@ -198,22 +200,42 @@ send_notification:
       example: "mdi:bell"
       selector:
         icon:
-    type:
-      name: "Severity"
-      description: "Severity level that affects the alert colour and sound."
+    icon_color:
+      name: "Icon color"
+      description: >-
+        Colour of the icon: "#rrggbb", an RGB565 number, "[r, g, b]" or an
+        integer string. Leave empty to use the theme's text colour.
       required: false
-      default: "info"
+      example: "#f69d31"
+      selector:
+        text:
+    sound:
+      name: "Sound"
+      description: >-
+        Sound played for the notification. "none" keeps it silent. Sounds play
+        only when the device's sound-on-notification setting is on.
+      required: false
+      default: "notification"
       selector:
         select:
           options:
-            - "info"
-            - "warning"
-            - "critical"
+            - "startup"
+            - "tone"
+            - "tone_up"
+            - "tone_down"
+            - "seq_up"
+            - "seq_down"
+            - "notification"
+            - "alert"
+            - "alert_fast"
+            - "elise"
+            - "none"
     timeout:
       name: "Timeout"
       description: >-
         Seconds until the notification auto-dismisses.  Leave empty
-        (default) to keep it queued until dismissed on the panel.
+        (default), or enter 0, to keep it queued until dismissed on the panel.
+        Valid timeout values are 1–3600 seconds.
       required: false
       example: 10
       selector:
@@ -225,9 +247,8 @@ send_notification:
     persistent:
       name: "Persistent"
       description: >-
-        When on, the notification opens immediately and the alert sound
-        loops until the notification is dismissed on the panel (or its
-        timeout expires).
+        When on, the notification opens immediately and its sound loops until
+        the notification is dismissed on the panel (or its timeout expires).
       required: false
       default: false
       selector:
@@ -246,8 +267,8 @@ send_notification:
     text_size:
       name: "Text size"
       description: >-
-        Popup body text size — "auto" (chosen from the message length)
-        or a font size 1-3.
+        Popup body text size — "auto" (the largest font that fits the
+        whole message on one page) or a font size 1-3.
       required: false
       default: "auto"
       selector:

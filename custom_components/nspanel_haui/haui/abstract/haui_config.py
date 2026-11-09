@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 if TYPE_CHECKING:
-    from ...nspanel_haui import NSPanelHAUI
+    from ...hub.app import NSPanelHAUI
 
 from ..config_models import validate_config_model, validate_device_config
-from ..mapping.const import DEFAULT_CONFIG
+from ..mapping.const import DEFAULT_CONFIG, HUB_DRIVEN_PANELS
 from ..utils.value import merge_dicts
 from .haui_config_access import HAUIConfigAccess
 from .haui_panel import HAUIPanel
@@ -46,10 +46,52 @@ class HAUIConfig(HAUIConfigAccess):
         if device is not None:
             cfg["device"] = device.model_dump(exclude_unset=True)
         # load all panels
-        panels_to_load = list(self.get("panels")) + list(self.get("sys_panels"))
+        panels_to_load = self._merge_sys_overrides(
+            list(self.get("panels")), list(self.get("sys_panels"))
+        )
         self._panels, self._panels_by_id, self._panels_by_key = self._build_panel_lists(
             self.app, panels_to_load
         )
+
+    def _merge_sys_overrides(
+        self, panel_configs: list[dict[str, Any]], sys_panel_configs: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Lay each edited popup over the system popup it replaces.
+
+        The editor saves an edited popup as a user panel with the popup's key
+        and only the fields of its form, so the system defaults it leaves out
+        are kept. An edited popup never joins navigation, and the hub-driven
+        ones drop a PIN and an auto-close. Only popups can be edited.
+
+        Args:
+            panel_configs: User panel configs.
+            sys_panel_configs: System panel configs.
+
+        Returns:
+            list: User panel configs (overrides merged) followed by the system ones.
+
+        Raises:
+            ValueError: A user panel uses the key of a system panel that is not a popup.
+        """
+        from ..mapping.panel import POPUP_PANEL_MAPPING
+
+        sys_by_key = {p["key"]: p for p in sys_panel_configs}
+        merged = []
+        for panel in panel_configs:
+            sys_panel = sys_by_key.get(panel.get("key"))
+            if sys_panel is not None:
+                if panel["key"] not in POPUP_PANEL_MAPPING:
+                    raise ValueError(f"System panel {panel['key']} cannot be edited")
+                panel = {**sys_panel, **panel, "show_in_navigation": False}
+                if panel["key"] in HUB_DRIVEN_PANELS:
+                    for field in ("unlock_code", "close_timeout"):
+                        if panel.pop(field, None):
+                            self.log(
+                                f"Ignoring {field} of system panel {panel['key']}",
+                                level="WARNING",
+                            )
+            merged.append(panel)
+        return merged + sys_panel_configs
 
     @staticmethod
     def _build_panel_lists(

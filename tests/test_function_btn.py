@@ -7,8 +7,8 @@ whenever ``show_idle_button`` is set and the notifications button is not
 actively occupying the left-secondary slot.
 """
 
-from nspanel_haui.haui.abstract.component import Component
-from nspanel_haui.haui.abstract.mixins.function_btn_mixin import (
+from custom_components.nspanel_haui.haui.abstract.component import Component
+from custom_components.nspanel_haui.haui.abstract.mixins.function_btn_mixin import (
     FncType,
     FunctionButtonMixin,
 )
@@ -60,11 +60,10 @@ class FakeApp:
 
 
 class FakePanel:
-    def __init__(self, device, key="home", cfg=None, popup=False, in_nav=True):
+    def __init__(self, device, key="home", cfg=None, in_nav=True):
         self.device = device
         self._key = key
         self._cfg = cfg or {}
-        self._popup = popup
         self._in_nav = in_nav
 
     def get(self, key, default=None):
@@ -74,9 +73,6 @@ class FakePanel:
 
     def get_state(self, key, default=None):
         return default
-
-    def can_show_popup(self):
-        return self._popup
 
     def show_in_navigation(self):
         return self._in_nav
@@ -277,3 +273,55 @@ def test_single_nav_swap_moves_sleep_to_primary():
     assert visible is True
     # the displaced prev button is now hidden in the secondary slot
     assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_PREV, False)
+
+
+def _real_panel_page(panel_cfg, device_cfg):
+    from custom_components.nspanel_haui.haui.abstract.haui_panel import HAUIPanel
+
+    device = FakeDevice(**device_cfg)
+    app = FakeApp(device, FakeNotif())
+    page = FakePage(app)
+    page.set_function_buttons(
+        Component(3, "bFncLPri"),
+        Component(4, "bFncLSec"),
+        Component(5, "bFncRPri"),
+        Component(6, "bFncRSec"),
+    )
+    panel = HAUIPanel(app, panel_cfg)
+    page._auto_assign_fncs(panel)
+    return page
+
+
+STACKED = {"home_panel": "home", "show_home_button": True}
+
+
+def test_stacked_single_entity_panel_gets_up_button():
+    """A user cover panel outside navigation is a stacked subpanel like a grid:
+    up arrow first, home second. Only its page *can* pop up; it is not a popup."""
+    for panel_type in ("cover", "grid", "light", "climate"):
+        page = _real_panel_page(
+            {"type": panel_type, "key": f"sub_{panel_type}", "show_in_navigation": False},
+            STACKED,
+        )
+        assert _slot(page, page.FNC_BTN_L_PRI) == (FncType.NAV_UP, True), panel_type
+        assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_HOME, True), panel_type
+        assert _slot(page, page.FNC_BTN_R_PRI) == (FncType.NAV_CLOSE, True), panel_type
+
+
+def test_popup_gets_up_then_home():
+    """A popup is opened on top of a panel like a stacked panel: up arrow
+    first, home second, close on the right."""
+    from custom_components.nspanel_haui.haui.mapping.panel import POPUP_PANEL_MAPPING
+
+    panels = [{"type": t, "key": k} for k, t in POPUP_PANEL_MAPPING.items()]
+    panels += [
+        {"type": "system_about", "key": "sys_about"},
+        {"type": "system_settings", "key": "sys_settings"},
+        # the editor saves an edited entity popup with the user type
+        {"type": "cover", "key": "popup_cover"},
+    ]
+    for cfg in panels:
+        page = _real_panel_page({**cfg, "show_in_navigation": False}, STACKED)
+        assert _slot(page, page.FNC_BTN_L_PRI) == (FncType.NAV_UP, True), cfg
+        assert _slot(page, page.FNC_BTN_L_SEC) == (FncType.NAV_HOME, True), cfg
+        assert _slot(page, page.FNC_BTN_R_PRI) == (FncType.NAV_CLOSE, True), cfg

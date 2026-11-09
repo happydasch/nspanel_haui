@@ -7,7 +7,7 @@ service to send notifications to the panel display.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from homeassistant.components.notify import NotifyEntity, NotifyEntityFeature
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-    from .nspanel_haui import NSPanelHAUI
+    from .hub.app import NSPanelHAUI
 
 
 async def async_setup_entry(
@@ -97,14 +97,10 @@ class NSPanelNotifyEntity(NotifyEntity):
         if notif_ctrl is None:
             return
 
-        kwargs: dict[str, Any] = {
-            "title": title or "Home Assistant",
-            "message": message,
-            "persistent": self._persistent,
-        }
-        # Persistent notifications must pop up so users notice them; otherwise
-        # they only sit in the queue.  Non-persistent ones keep the minimal
-        # payload so nothing about their behaviour changes.
-        if self._persistent:
-            kwargs["force_show"] = True
-        notif_ctrl.send_notification(**kwargs)
+        # The controller forces a persistent notification to show and loop its
+        # sound, so this path only has to pass the flag.
+        notif_ctrl.add_notification(
+            title=title or "Home Assistant",
+            message=message,
+            persistent=self._persistent,
+        )

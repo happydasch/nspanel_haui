@@ -143,6 +143,14 @@ export function renderDeviceInfoStrip(host) {
       <span class="pl-spacer"></span>
       ${!host.narrow ? html`
       <ha-icon-button
+        title=${t('Live preview')}
+        label=${t('Live preview')}
+        ?disabled=${!host._selectedDevice}
+        @click=${() => host._onHeaderLivePreview()}
+      >
+        <ha-icon icon="mdi:television-play"></ha-icon>
+      </ha-icon-button>
+      <ha-icon-button
         title=${t('Colors')}
         label=${t('Colors')}
         @click=${() => host._onHeaderColors()}
@@ -168,6 +176,7 @@ export function renderDeviceInfoStrip(host) {
         ${host._actionsMenuIndex === '__header__'
           ? renderPanelDropdown(host, null, [
               { icon: 'mdi:information-outline', label: t('Info'), disabled: !host._selectedDevice, action: () => { host._showDeviceInfo = true; host.requestUpdate(); } },
+              { icon: 'mdi:television-play', label: t('Live preview'), disabled: !host._selectedDevice, action: () => host._onHeaderLivePreview() },
               'divider',
               { icon: 'mdi:palette-outline', label: t('Colors'), disabled: !host._selectedDevice, action: () => host._onHeaderColors() },
               { icon: 'mdi:cog-outline', label: t('Settings'), disabled: !host._selectedDevice, action: () => host._onHeaderSettings() },
@@ -255,13 +264,42 @@ export function renderToolbarActions(host) {
   `;
 }
 
-/**
- * Render a persistent footer with GitHub and Documentation links.
- * Always visible at the bottom of the editor.
- */
+/** Read the integration version embedded in the registered frontend asset URL. */
+export function getEditorVersion(moduleUrl) {
+  const pathname = new URL(moduleUrl).pathname;
+  const assetVersion = pathname.match(/\/nspanel_haui_frontend\/([^/]+)\/toolbar\.js$/)?.[1];
+  return assetVersion?.replace(/-[\da-f]{12}$/, '') || null;
+}
+
+/** Return whether a PEP 440 version identifies a prerelease. */
+export function isPrereleaseVersion(version) {
+  const publicVersion = version.split('+', 1)[0];
+  return /(?:\.dev\d*|(?:a|alpha|b|beta|c|pre|preview|rc)\d*)(?=$|[.+-])/i.test(
+    publicVersion,
+  );
+}
+
+const DOCS_URL = 'https://happydasch.github.io/nspanel_haui/';
+
+/** Return the docs for a version: prereleases are built from `dev`, published under `dev/`. */
+export function docsUrl(version) {
+  return version && isPrereleaseVersion(version) ? `${DOCS_URL}dev/` : DOCS_URL;
+}
+
+const EDITOR_VERSION = getEditorVersion(import.meta.url);
+
+/** Render version information alongside the persistent editor links. */
 export function renderFooter(host) {
   return html`
     <div class="editor-footer">
+      ${EDITOR_VERSION ? html`
+        <span class="footer-version-group">
+          <span class="footer-version" title="${t('Version')}">v${EDITOR_VERSION}</span>
+          ${isPrereleaseVersion(EDITOR_VERSION) ? html`
+            <span class="footer-dev-badge" title="${t('Development prerelease')}">${t('Dev')}</span>
+          ` : ''}
+        </span>
+      ` : ''}
       <a
         class="footer-link"
         href="https://github.com/happydasch/nspanel_haui"
@@ -274,7 +312,7 @@ export function renderFooter(host) {
       </a>
       <a
         class="footer-link"
-        href="https://happydasch.github.io/nspanel_haui/"
+        href="${docsUrl(EDITOR_VERSION)}"
         target="_blank"
         rel="noopener noreferrer"
         title="${t('Documentation')}"

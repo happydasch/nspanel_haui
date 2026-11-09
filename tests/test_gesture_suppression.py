@@ -12,25 +12,27 @@ and the spurious swipe gesture is suppressed (no panel navigation).
 
 import time
 
-from nspanel_haui.haui.abstract.component import Component
-from nspanel_haui.haui.abstract.haui_event import HAUIEvent
-from nspanel_haui.haui.abstract.haui_page import HAUIPage, _PendingReadRequest
-from nspanel_haui.haui.abstract.mixins.component_mixin import ComponentMixin
-from nspanel_haui.haui.device import HAUIDevice
-from nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse, SysPanelKey
+from custom_components.nspanel_haui.haui.abstract.component import Component
+from custom_components.nspanel_haui.haui.abstract.haui_event import HAUIEvent
+from custom_components.nspanel_haui.haui.abstract.haui_page import HAUIPage
+from custom_components.nspanel_haui.haui.abstract.mixins.touch_input_mixin import (
+    TouchInputMixin,
+    _PendingReadRequest,
+)
+from custom_components.nspanel_haui.haui.device import HAUIDevice
+from custom_components.nspanel_haui.haui.mapping.const import ESPEvent, ESPResponse, SysPanelKey
 
 # --- marking sliders as drag components -----------------------------------
 
 
-class FakeComponentHost(ComponentMixin):
+class FakeTouchHost(TouchInputMixin):
     def __init__(self):
-        self._callbacks = []
-        self._drag_components = set()
+        self._init_touch_input()
 
 
 def test_mark_drag_component_direct():
     """Sliders exposed as function components are marked directly."""
-    host = FakeComponentHost()
+    host = FakeTouchHost()
     volume = Component(18, "hVolume")
 
     host.mark_drag_component(volume)
@@ -162,6 +164,8 @@ def _bare_page(page_id=1):
     page._fnc_items = {}
     page._read_callbacks = {}
     page._pending_read_request = None
+    page._touch_started_at = None
+    page.panel = None
     page.send_esphome = lambda *a, **kw: page.app.sent_esphome.append((a, kw))
     return page
 

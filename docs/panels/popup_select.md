@@ -15,7 +15,7 @@ Tapping an entry selects it. In single-selection mode, tapping the already selec
 
 ## How to configure
 
-This popup is opened by the integration and cannot be configured in the panel editor. Parameters when opening it programmatically:
+This popup is opened by the integration. In the editor's **Popups** section only its title can be changed (see [System Panel Overrides](../configuration/panels.md#system-panel-overrides)). Parameters when opening it programmatically:
 
 - `items` — The entries (`{value, name}` dicts or plain strings). At least one is required.
 - `selected` — The currently selected value (a list with `multiple`).

@@ -1,0 +1,26 @@
+/* 1000 x 236 canvas, exported at 2x: four numbered steps in a row. */
+body { width: 1000px; height: 236px; }
+.frame {
+  width: 1000px; height: 236px; padding: 26px 28px;
+  display: grid; grid-template-columns: 1fr 28px 1fr 28px 1fr 28px 1fr; align-items: stretch;
+  background:
+    radial-gradient(500px 180px at 50% 0%, rgba(72, 163, 234, 0.10), transparent 70%),
+    var(--ground);
+}
+.step {
+  position: relative; padding: 20px 18px 18px;
+  border-radius: 14px; background: var(--ground-2); border: 1px solid var(--line);
+}
+.num {
+  position: absolute; top: 16px; right: 16px;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 700; color: var(--blue);
+  border: 1.5px solid rgba(72, 163, 234, 0.55);
+}
+.step .mdi { display: block; font-size: 38px; color: var(--blue); }
+.step h2 { margin-top: 14px; font-size: 21px; font-weight: 700; letter-spacing: -0.01em; }
+.step p { text-wrap: balance; margin-top: 6px; font-size: 15.5px; line-height: 1.35; color: var(--muted); }
+.step.last .mdi { color: var(--orange); }
+.step.last .num { color: var(--orange); border-color: rgba(242, 128, 29, 0.55); }
+.arrow { display: grid; place-items: center; font-family: MDI; font-size: 26px; color: #3b4552; }

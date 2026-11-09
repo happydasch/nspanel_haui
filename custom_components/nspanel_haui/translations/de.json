@@ -86,7 +86,7 @@
     },
     "send_notification": {
       "name": "Benachrichtigung senden",
-      "description": "Zeigt eine Benachrichtigung mit Titel, Nachricht und Symbol auf dem Panel an.",
+      "description": "Zeigt eine Benachrichtigung mit Titel, Nachricht, Symbol, Symbolfarbe und Ton auf dem Panel an.",
       "fields": {
         "device": {
           "name": "Gerät",
@@ -104,21 +104,29 @@
           "name": "Symbol",
           "description": "Material Design Icon, das mit der Benachrichtigung angezeigt wird (z.B. 'mdi:bell')."
         },
+        "icon_color": {
+          "name": "Symbolfarbe",
+          "description": "Farbe des Symbols als #rrggbb, RGB565-Zahl, [r, g, b] oder Ganzzahl-Text. Leer lassen, um die Textfarbe des Themes zu verwenden."
+        },
+        "sound": {
+          "name": "Ton",
+          "description": "Ton, der für die Benachrichtigung abgespielt wird. 'none' lässt sie stumm."
+        },
         "timeout": {
           "name": "Zeitüberschreitung",
           "description": "Sekunden bis zum automatischen Schließen. 0 bleibt bis zum manuellen Schließen."
         },
         "persistent": {
           "name": "Dauerhaft",
-          "description": "Erfordert Bestätigung auf dem Panel, um den Alarmton zu stoppen."
-        },
-        "type": {
-          "name": "Schweregrad",
-          "description": "Schweregrad, der die Alarmfarbe und den Ton beeinflusst."
+          "description": "Öffnet die Benachrichtigung sofort und wiederholt ihren Ton, bis sie auf dem Panel bestätigt wird."
         },
         "force_show": {
           "name": "Erzwingen",
           "description": "Benachrichtigung sofort anzeigen, auch wenn ein anderes Panel geöffnet ist."
+        },
+        "text_size": {
+          "name": "Textgröße",
+          "description": "Textgröße im Popup: \"auto\" (die größte Schrift, mit der die ganze Nachricht auf eine Seite passt) oder eine Schriftgröße von 1-3."
         }
       }
     },

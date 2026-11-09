@@ -17,7 +17,33 @@ If you're running Home Assistant in Docker with **bridge networking** (the defau
 2. Click **Add entry** and add each of your NSPanel devices by IP or hostname.
 3. After adding them, the HAUI hub will automatically pick up the devices within a few seconds.
 
-**Alternative:** Use `--network=host` for your Home Assistant Docker container — this enables mDNS and ESPHome's native discovery.
+**Alternative (Linux Docker Engine only):** Use `--network=host` for your Home Assistant Docker container — this enables mDNS and ESPHome's native discovery. Docker Desktop on macOS does not put a container on the host's LAN with host networking; keep bridge networking and add each ESPHome device by IP instead.
+
+### Panels reachable from one machine but not another
+
+One host reaches the panels (for example the production Home Assistant or the
+ESPHome dashboard), but another machine on the same subnet cannot ping them,
+does not discover them and cannot add them by IP, while other devices on that
+network answer it. The Wi-Fi then drops broadcast and multicast traffic to the
+panels: the machine's ARP request ("who has 192.168.0.106?") never reaches the
+panel, so it never learns the panel's MAC address, and mDNS discovery is
+multicast as well. On UniFi, **Multicast and Broadcast Control** on the panels'
+Wi-Fi network has this effect; hosts on its exception list keep working.
+
+To confirm it on macOS, enter the panel's MAC address (shown in your router's
+client list) by hand, connect to the ESPHome API port and remove the entry
+again:
+
+```bash
+sudo arp -s 192.168.0.106 <panel-mac> ifscope en0
+nc -vz 192.168.0.106 6053
+sudo arp -d 192.168.0.106
+```
+
+If `nc` connects only with the manual entry, turn the filter off or add the
+machine to its exceptions. macOS uses a private Wi-Fi address by default: set
+**Private Wi-Fi address** to **Off** or **Fixed** for that network first, or the
+exception stops matching when the address changes.
 
 ## TFT Upload Failures
 
@@ -28,8 +54,17 @@ The ESPHome log shows `HTTP_CLIENT: Out of buffer` and `HTTP failed` right after
 870 characters, which does not fit the display component's default 512-byte
 HTTP TX buffer, so the upload fails before the first byte and the device never
 reboots. Update the ESPHome firmware (the **HAUI Firmware** entity, or
-**Device Manager → Install firmware**): it sets `tft_upload_http_buffer_size_tx:
+**Device actions → Info → Install update → Firmware**): it sets `tft_upload_http_buffer_size_tx:
 2048`. The TFT install follows after the reboot.
+
+### TFT install fails with "the panel did not reboot after the upload"
+
+The upload stopped partway: the device ran on instead of rebooting into the new
+TFT, and the display may be blank or half-written until a full upload succeeds.
+A weak Wi-Fi link is the usual cause, more so when several panels upload at
+once. Install the TFT again, one panel at a time; the ESPHome log shows the
+download or flash error as `[E][nextion.upload]` lines ending in
+`Upload failed`.
 
 ### "Reading from UART timed out at byte 0!" or "Upgrade response is 0"
 
@@ -52,9 +87,9 @@ You may see log entries like:
 
 Line numbers in the log may differ between versions.
 
-**Cause:** This is a timing issue where the Nextion display sends a response during the transition into *hardware* sleep (which only happens without a hub connection) that the ESPHome nextion component's queue is not expecting. It is a cosmetic issue in the ESPHome nextion component.
+**Cause:** This is a timing issue where the Nextion display sends a response during a transition into *hardware* sleep requested explicitly (the automatic display state machine no longer enters hardware sleep) that the ESPHome nextion component's queue is not expecting. It is a cosmetic issue in the ESPHome nextion component.
 
-**Impact:** None. This error does not affect functionality and can be safely ignored. With a hub connected the display is never hardware-slept, so this message does not appear in normal hub operation.
+**Impact:** None. This error does not affect functionality and can be safely ignored. The automatic display state machine keeps the display awake even while the hub is disconnected, so this message does not appear during normal dimming or connection loss.
 
 ## Editor Loading Problems
 

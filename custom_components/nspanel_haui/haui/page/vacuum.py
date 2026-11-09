@@ -7,7 +7,7 @@ from ..abstract.haui_item import HAUIItem
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
 from ..features import VacuumFeatures
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import (
     ICO_BATTERY,
@@ -139,9 +139,6 @@ class VacuumPage(HAUIPage):
         # set title
         self._title = self._panel_title(panel, item, self.translate("Vacuum"))
 
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
-
     def render_panel(self, panel: HAUIPanel) -> None:
         self.update_vacuum_item()
 
@@ -152,10 +149,14 @@ class VacuumPage(HAUIPage):
         # the battery sensor is independent of the vacuum entity
         if self._battery_item is not None and self._battery_item.has_item_id():
             self.add_item_listener(self._battery_item.get_item_id(), self.callback_battery_entity)
-        if not item or not item.has_item_id():
+        if item is None or not item.has_item_id():
+            self._render_empty_vacuum()
             return
         # add listener (vacuum entities report their activity as the state)
         self.add_item_listener(item.get_item_id(), self.callback_vacuum_entity)
+        if not self.item_is_available(item):
+            self._render_empty_vacuum()
+            return
         # fan button
         self.set_function_component(
             self.COMPONENTS.btn_fan,
@@ -175,6 +176,33 @@ class VacuumPage(HAUIPage):
             )
         self.update_item_buttons()
 
+    def _render_empty_vacuum(self) -> None:
+        """Hide vacuum controls and clear its status when no vacuum is configured."""
+        has_entity = self._vacuum_item is not None and self._vacuum_item.has_item_id()
+        status = self.translate("Unavailable") if has_entity else ""
+        for component, fnc_name, icon in (
+            (self.COMPONENTS.btn_fan, "fan", ICO_FAN),
+            (self.COMPONENTS.btn_action, "action", ICO_PLAY),
+            (self.COMPONENTS.btn_home, "return_home", ICO_HOME),
+            (self.COMPONENTS.btn_locate, "locate", ICO_LOCATE),
+        ):
+            self.set_function_component(
+                component,
+                component.name,
+                fnc_name,
+                icon=icon,
+                visible=False,
+                touch=False,
+            )
+            self.update_function_component(component.name, visible=False, touch=False)
+        self.set_component_text(self.COMPONENTS.t_status, status)
+        self.update_item_buttons()
+
+    def entity_map_components(self) -> list[tuple[Component, HAUIItem]]:
+        if self._battery_item is None:
+            return []
+        return [(self.COMPONENTS.fnc_right_sec, self._battery_item)]
+
     def update_item_buttons(self) -> None:
         """Draw the secondary item buttons (icon and state colour)."""
         total_items = len(self._items)
@@ -191,21 +219,33 @@ class VacuumPage(HAUIPage):
             component = getattr(self.COMPONENTS, f"btn_entity_{i + 1}")
             self.set_function_component(
                 component,
-                component[1],
+                component.name,
                 "item",
                 item=item,
                 icon=icon,
                 color=color,
+                back_color_pressed=self.get_color("component_pressed"),
                 visible=visible,
             )
 
     def update_vacuum_item(self) -> None:
-        self.set_component_text(self.COMPONENTS.title, self._title)
+        self.set_title(self._title)
         self.update_battery()
-        if self._vacuum_item is None:
+        if not self.item_is_available(self._vacuum_item):
+            self._render_empty_vacuum()
             return
         item = self._vacuum_item
+        assert item is not None
         state = item.get_item_state()
+        for component, flag in (
+            (self.COMPONENTS.btn_fan, VacuumFeatures.FAN_SPEED),
+            (self.COMPONENTS.btn_home, VacuumFeatures.RETURN_HOME),
+            (self.COMPONENTS.btn_locate, VacuumFeatures.LOCATE),
+        ):
+            function = self.get_function_components().get(component.name)
+            if function is not None and function.get("current_visible") is False:
+                supported = item.supports(flag)
+                self.update_function_component(component.name, visible=supported, touch=supported)
         # status text
         status_text = item.translate_item_state()
         self.set_component_text(self.COMPONENTS.t_status, status_text)
@@ -266,7 +306,7 @@ class VacuumPage(HAUIPage):
     # callback
 
     def callback_function_component(self, fnc_id: str, fnc_name: str) -> None:
-        if self._vacuum_item is None:
+        if not self.item_is_available(self._vacuum_item):
             return
         # header
         item = self._vacuum_item
@@ -278,8 +318,8 @@ class VacuumPage(HAUIPage):
             ]
             if len(speeds) > 0:
                 self.app.controller["navigation"].open_panel(
-                    SysPanelKey.POPUP_SELECT,
-                    title=self.translate("Select Fan Speed"),
+                    PopupPanelKey.POPUP_SELECT,
+                    title=self.translate("Fan"),
                     items=speeds,
                     selected=item.get_item_attr("fan_speed", ""),
                     selection_callback_fnc=self.callback_fan_speed,
@@ -319,7 +359,7 @@ class VacuumPage(HAUIPage):
             self.log(f"Unknown battery sensor attribute: {attribute}")
 
     def callback_fan_speed(self, selection: Any) -> None:
-        if self._vacuum_item is None:
+        if not self.item_is_available(self._vacuum_item):
             return
         self.log(f"Got fan speed selection: {selection}")
         self._vacuum_item.call_item_service("set_fan_speed", fan_speed=selection)

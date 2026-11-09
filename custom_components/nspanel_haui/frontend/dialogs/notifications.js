@@ -20,7 +20,7 @@ class NotificationsDialog extends HauiDialog {
       .notification-content { flex: 1; min-width: 0; }
       .notification-heading { display: flex; justify-content: space-between; gap: 12px; }
       .notification-heading strong { overflow-wrap: anywhere; }
-      .notification-severity, .notification-meta { color: var(--secondary-text-color); }
+      .notification-meta { color: var(--secondary-text-color); }
       .notification-item p { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
       .notification-meta { display: flex; gap: 12px; font-size: 0.9em; }
     `,
@@ -46,11 +46,6 @@ class NotificationsDialog extends HauiDialog {
   }
 
   render() {
-    const severity = {
-      info: t('Info'),
-      warning: t('Warning'),
-      critical: t('Critical'),
-    };
     return html`
       <ha-dialog .open=${this.open} @closed=${this._dispatchClose}>
         ${dialogHeader(t('Notifications'), this._dispatchClose)}
@@ -65,9 +60,6 @@ class NotificationsDialog extends HauiDialog {
                   <div class="notification-content">
                     <div class="notification-heading">
                       <strong>${notification.title}</strong>
-                      <span class="notification-severity">
-                        ${severity[notification.notif_type] || notification.notif_type}
-                      </span>
                     </div>
                     ${notification.message ? html`<p>${notification.message}</p>` : ''}
                     <div class="notification-meta">

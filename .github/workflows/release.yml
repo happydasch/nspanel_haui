@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write
 
+# Never cancel an in-progress tagged release: cancellation during publication can leave a partial release.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -16,6 +21,12 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Require a version tag for manual releases
+        if: github.event_name == 'workflow_dispatch' && !startsWith(github.ref, 'refs/tags/v')
+        run: |
+          echo "Run the release workflow on a v* tag; branch builds do not have a release manifest." >&2
+          exit 1
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -30,8 +41,9 @@ jobs:
         run: pip install -r requirements-esphome.txt
 
       - name: Check the tag matches the integration version
-        # HACS resolves the installed version from manifest.json; a tag that
-        # disagrees with it ships a release users cannot update to cleanly.
+        # The Marketplace offers the tag as the version while Home Assistant and
+        # the hub read manifest.json; a tag that disagrees with it ships a
+        # release users cannot update to cleanly.
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           VERSION=$(python3 -c "import json; print(json.load(open('custom_components/nspanel_haui/manifest.json'))['version'])")
@@ -45,22 +57,17 @@ jobs:
       - name: Validate the Nextion assets (release gate)
         # Fails the release until the human Nextion Editor work landed:
         #   - clock.tTime "Send Component ID" enabled (tap advances the card)
-        #   - system.tftVersion matches the integration version
+        #   - system.tftVersion (in both HMIs) matches the configured TFT
+        #     version in version.yaml; the TFT and firmware versions are
+        #     independent, and firmware-only releases carry the existing TFT
         #   - the portrait HMI/TFT exist
-        #   - the portrait spec still matches the committed HMI (alignment/font
-        #     attributes, #64/#60) — the TFTs must be recompiled after any
-        #     PORTRAIT_ATTRS change, so this catches a stale committed HMI.
-        # With the TFT_VERSION_PIN repository variable set (a release that
-        # ships the previous TFT unchanged) a tftVersion mismatch is tolerated
-        # as a warning instead of failing the gate.
+        #   - both layout specs match their committed HMIs: landscape
+        #     refinements and portrait geometry/attributes (#64/#60). The TFTs
+        #     must be recompiled after any PORTRAIT_ATTRS change.
         run: |
-          TFT_FLAG=""
-          if [ -n "${{ vars.TFT_VERSION_PIN }}" ]; then
-            echo "TFT version pinned at ${{ vars.TFT_VERSION_PIN }}; tolerating a tftVersion mismatch"
-            TFT_FLAG="--allow-tft-version-mismatch"
-          fi
-          python scripts/verify_nextion/verify_nextion.py --require-portrait $TFT_FLAG
-          python scripts/gen_portrait/gen_portrait.py --check
+          python -m scripts.verify_nextion.verify_nextion --require-portrait
+          python -m scripts.hmi_layout.gen_layout --check
+          python -m scripts.hmi_layout.gen_layout --spec portrait --check
 
       - name: Validate the universal firmware config
         run: esphome config esphome/nspanel_haui_universal.yaml
@@ -89,40 +96,40 @@ jobs:
           ls -lh nspanel_haui.bin nspanel_haui_ota.bin
 
       - name: Generate the firmware update manifest
-        # The device's `update: platform: http_request` entity polls this
-        # manifest; it must use the ESPHome web-tools schema
-        # (name/version/builds[].ota) with an absolute download URL and the
-        # image's md5.  Only tag pushes get a manifest: a workflow_dispatch
+        # The hub's HAUI Firmware update entity reads this manifest
+        # (releases/latest/download/firmware-manifest.json) and the editor's
+        # firmware picker reads it per release; it uses the ESPHome web-tools
+        # schema (name/version/builds[].ota) with an absolute download URL and
+        # the image's md5.  ``variant: universal`` names the build (the image
+        # compiles from nspanel_haui_universal.yaml with public credentials):
+        # the hub only offers it to panels whose device state reports the same
+        # variant, so a custom install.yaml build is never flashed with it.
+        # The ``tft`` block names the display TFT and its per-model assets.
+        # Its version comes from esphome/nspanel_haui/version.yaml, which only
+        # advances when this release includes a TFT update.
+        # Only tag pushes get a manifest: a workflow_dispatch
         # run would otherwise advertise a branch name as the "version" and
         # every panel would try to update to it.
         if: startsWith(github.ref, 'refs/tags/v')
+        run: python -m scripts.release.generate_firmware_manifest
+
+      - name: Validate the generated firmware manifest
         run: |
           python3 - <<'PY'
-          import hashlib, json, os
-          tag = os.environ["GITHUB_REF_NAME"]
-          repo = os.environ["GITHUB_REPOSITORY"]
-          with open("nspanel_haui_ota.bin", "rb") as fh:
-              md5 = hashlib.md5(fh.read()).hexdigest()
-          manifest = {
-              "name": "NSPanel HAUI",
-              "version": tag.lstrip("v"),
-              "builds": [
-                  {
-                      "chipFamily": "ESP32",
-                      "ota": {
-                          "path": (
-                              f"https://github.com/{repo}/releases/download/"
-                              f"{tag}/nspanel_haui_ota.bin"
-                          ),
-                          "md5": md5,
-                      },
-                  }
-              ],
-          }
-          with open("firmware-manifest.json", "w") as fh:
-              json.dump(manifest, fh, indent=2)
-              fh.write("\n")
-          print(json.dumps(manifest, indent=2))
+          import json
+          from pathlib import Path
+
+          path = Path("firmware-manifest.json")
+          if not path.is_file():
+              raise SystemExit("firmware-manifest.json was not generated")
+          manifest = json.loads(path.read_text(encoding="utf-8"))
+          ota = manifest.get("builds", [{}])[0].get("ota", {})
+          if not manifest.get("version") or manifest.get("variant") != "universal":
+              raise SystemExit("firmware manifest is missing its version or universal variant")
+          if not ota.get("path") or not ota.get("md5"):
+              raise SystemExit("firmware manifest is missing the OTA path or checksum")
+          if not manifest.get("tft", {}).get("assets"):
+              raise SystemExit("firmware manifest is missing TFT assets")
           PY
 
       - name: Assemble the release notes
@@ -135,7 +142,7 @@ jobs:
             cp "$NOTES" release-notes.md
             echo "Using prepared release notes from $NOTES"
           else
-            printf 'See [CHANGELOG.md](CHANGELOG.md) for release notes and\n[docs/upgrading.md](docs/upgrading.md) for breaking changes and update steps.\n' > release-notes.md
+            printf 'See [CHANGELOG.md](CHANGELOG.md) for release notes and\n[docs/update.md](docs/update.md) for breaking changes and update steps.\n' > release-notes.md
             echo "No prepared notes at $NOTES; using the changelog pointer."
           fi
 

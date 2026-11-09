@@ -3,9 +3,9 @@ from __future__ import annotations
 from ..abstract.component import Component
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import SysPanelKey
+from ..mapping.const import PopupPanelKey
 from ..mapping.descriptor import PageDescriptor, _
-from ..mapping.icons import ICO_LOCKED, ICO_PASSWORD
+from ..mapping.icons import ICO_PASSWORD
 from .alarm import AlarmPage
 
 
@@ -18,12 +18,14 @@ class UnlockPage(AlarmPage):
         description=_("PIN unlock overlay for locked panels."),
         is_system=True,
         sys_panel_default={
-            "key": SysPanelKey.POPUP_UNLOCK,
+            "key": PopupPanelKey.POPUP_UNLOCK,
             "show_in_navigation": False,
         },
         popup_alias_for="alarm",
         can_show_popup=True,
         icon="mdi:lock-outline",
+        # The panel to unlock; a card render turns the config into a panel.
+        preview_kwargs={"unlock_panel": {"key": "locked_panel", "unlock_code": "1234"}},
     )
 
     _title = ""
@@ -34,52 +36,38 @@ class UnlockPage(AlarmPage):
     def start_panel(self, panel: HAUIPanel) -> None:
         # store panel infos
         self._unlock_panel = unlock_panel = panel.get("unlock_panel", None)
-        self._title = panel.get("title", self.translate("Unlock Panel"))
-        # lock right secondary function button
-        lock_btn = {
-            "fnc_component": AlarmPage.COMPONENTS.fnc_right_sec,
-            "fnc_name": "unlock_indicator",
-            "fnc_args": {
-                "locked": True,
-                "icon": ICO_LOCKED,
-                "color": self.get_color("component_text"),
-                "back_color_pressed": self.get_color("background"),
-            },
-        }
+        # The system panel's default title is "", not missing.
+        self._title = panel.get("title") or self.translate("Unlock")
+        self.set_function_buttons(
+            AlarmPage.COMPONENTS.fnc_left_pri,
+            AlarmPage.COMPONENTS.fnc_left_sec,
+            AlarmPage.COMPONENTS.fnc_right_pri,
+            AlarmPage.COMPONENTS.fnc_right_sec,
+        )
+        # the alarm page's load event hides the keypad
+        for c in self._keypad_buttons:
+            self.on_release(c, self.callback_keypad)
+            self.show_component(c)
+        # match the alarm keypad's button styling
+        self._style_keypad(panel)
+        self.on_release(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
+        self.set_function_component(
+            component=AlarmPage.COMPONENTS.b1_fnc,
+            fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
+            fnc_name=AlarmPage.COMPONENTS.b1_fnc.name,
+            color=self.get_color("text_disabled"),
+            text=self.translate("Unlock"),
+        )
+        # prepare unlock panel using config from locked panel
+        if unlock_panel:
+            self._title = unlock_panel.get_title(self._title)
+            self._unlock_code = unlock_panel.get("unlock_code")
 
-        with self.rec_cmd:
-            # set function buttons
-            self.set_function_buttons(
-                AlarmPage.COMPONENTS.fnc_left_pri,
-                AlarmPage.COMPONENTS.fnc_left_sec,
-                AlarmPage.COMPONENTS.fnc_right_pri,
-                lock_btn,
-            )
-
-            # set components
-            for c in self._keypad_buttons:
-                self.on_release(c, self.callback_keypad)
-            # match the alarm keypad's button styling
-            self._style_keypad(panel)
-            self.on_release(AlarmPage.COMPONENTS.b1_fnc, self.callback_unlock)
-            self.set_function_component(
-                component=AlarmPage.COMPONENTS.b1_fnc,
-                fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
-                fnc_name=AlarmPage.COMPONENTS.b1_fnc.name,
-                color=self.get_color("text_disabled"),
-                text=self.translate("Unlock"),
-                locked=getattr(panel, "locked", False),
-            )
-
-            # prepare unlock panel using config from locked panel
-            if unlock_panel:
-                # override the unlock popup's navigation state to match the panel it is protecting
-                panel.set_state("show_in_navigation", unlock_panel.show_in_navigation())
-                self._title = unlock_panel.get_title(self._title)
-                self._unlock_code = unlock_panel.get("unlock_code")
-
-        # auto-assign function types to header buttons
-        self._auto_assign_fncs(panel)
+    def header_panel(self, panel: HAUIPanel) -> HAUIPanel:
+        # The header is the guarded panel's own (prev/next in navigation, the
+        # lock on the right), read from that panel: the popup's own navigation
+        # state stays untouched, so navigation keeps it on the stack.
+        return self._unlock_panel or panel
 
     def before_render_panel(self, panel: HAUIPanel) -> bool:
         # check if unlock panel is available
@@ -100,22 +88,16 @@ class UnlockPage(AlarmPage):
         # show either password stars or title
         if len(self._input):
             passwd = f"{ICO_PASSWORD}" * len(self._input)
-            self.set_component_text(AlarmPage.COMPONENTS.title, passwd)
+            self.set_title(passwd, AlarmPage.COMPONENTS.title)
         else:
-            self.set_component_text(AlarmPage.COMPONENTS.title, self._title)
-
-        # update unlock indicator in header
-        color = self.get_color("component_text")
-        if len(self._input) > 0:
-            color = self.get_color("component_accent")
-        self.update_function_component(AlarmPage.FNC_BTN_R_SEC, color=color)
+            self.set_title(self._title, AlarmPage.COMPONENTS.title)
 
         # update unlock button
         unlock_btn_enabled = str(self._input) == str(self._unlock_code)
         self.update_function_component(
             fnc_id=AlarmPage.COMPONENTS.b1_fnc.name,
             touch=unlock_btn_enabled,
-            **self.button_color_args(unlock_btn_enabled, back_color=True),
+            **self.button_color_args(unlock_btn_enabled),
         )
 
     # callback

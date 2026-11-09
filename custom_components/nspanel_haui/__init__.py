@@ -15,13 +15,13 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.device_registry import DeviceEntry
 
-    from .nspanel_haui import NSPanelHAUI
+    from .hub.app import NSPanelHAUI
 
 _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
-PLATFORMS: list[str] = ["notify", "sensor", "update"]
+PLATFORMS: list[str] = ["notify", "update"]
 
 # Config helpers - moved to haui/device_config.py for single source of truth
 from .haui.device_config import (  # noqa: E402
@@ -52,9 +52,11 @@ def _build_config_dict(
         deep_merge,
         find_store_device,
     )
+    from .haui.mapping.color import BUILTIN_COLOR_SCHEMES
     from .haui.mapping.const import DEFAULT_CONFIG
 
     cfg = copy.deepcopy(DEFAULT_CONFIG)
+
     cfg["device"]["name"] = device_name or data.get("name", "")
 
     devices = data.get("devices", [])
@@ -102,11 +104,47 @@ def _build_config_dict(
         if all_panels:
             cfg["panels"] = all_panels
 
+    # Older light-palette presets saved a white background override but no
+    # explicit icon scheme. Migrate those to light; all other backgrounds use dark.
+    for dev in cfg.get("devices", []):
+        if "color_scheme" not in dev:
+            color_overrides = dev.get("color_overrides", {})
+            dev["color_scheme"] = (
+                "light"
+                if isinstance(color_overrides, dict) and color_overrides.get("background") == 65535
+                else "dark"
+            )
+        if "color_scheme_id" not in dev:
+            legacy_scheme = dev.get("color_scheme")
+            dev["color_scheme_id"] = (
+                legacy_scheme
+                if legacy_scheme in ("dark", "light")
+                else "light"
+                if isinstance(dev.get("color_overrides"), dict)
+                and dev["color_overrides"].get("background") == 65535
+                else "dark"
+            )
+
     # Ensure every device entry has all DEVICE_CONFIG keys
     for dev in cfg.get("devices", []):
         for key, val in DEVICE_CONFIG.items():
             if key not in dev:
                 dev[key] = copy.deepcopy(val)
+    saved_schemes = panels.get("color_schemes", {}) if panels else {}
+    all_schemes = {**saved_schemes, **BUILTIN_COLOR_SCHEMES}
+    for dev in cfg.get("devices", []):
+        scheme_id = dev["color_scheme_id"]
+        scheme = all_schemes.get(scheme_id)
+        if not isinstance(scheme, dict):
+            _LOGGER.warning(
+                "Unknown color scheme %r for device %s; using built-in dark scheme",
+                scheme_id,
+                dev.get("name", ""),
+            )
+            scheme_id = "dark"
+            dev["color_scheme_id"] = scheme_id
+            scheme = BUILTIN_COLOR_SCHEMES[scheme_id]
+        dev["resolved_color_scheme"] = copy.deepcopy(scheme)
 
     # Filter out disabled devices - runs after store merge and defaults fill
     # so store overrides of "enabled" are respected.
@@ -127,11 +165,15 @@ async def _link_esphome_device(
 ) -> None:
     """Link the ESPHome device to the nspanel_haui integration.
 
-    Adds an ``nspanel_haui`` identifier to the existing ESPHome device entry and
-    attaches our config entry so the device shows up in the nspanel_haui hub
-    page. The device selector (integration: nspanel_haui) in services.yaml
-    matches the extra identifier, and clicking the device in the hub page goes to
-    the ESPHome device (its primary config entry).
+    Adds an ``nspanel_haui`` identifier to the existing ESPHome device entry.
+    The services' device selector (integration: nspanel_haui) ignores it: it
+    filters by config entry and entity platform, so it offers the integration's
+    own device, which ``services._resolve_target_apps`` accepts as well.
+
+    A device now belongs to a single config entry (the ESPHome one), so our
+    config entry is no longer attached: ``add_config_entry_id`` is deprecated
+    (breaks in HA 2027.8) and only records a pending move, and
+    ``new_config_entry_id`` would take the device away from ESPHome.
 
     Safe to call when the device is already linked (idempotent).
     """
@@ -143,18 +185,10 @@ async def _link_esphome_device(
         return
 
     nspanel_identifier = ("nspanel_haui", dev_name)
-    has_identifier = nspanel_identifier in esphome_dev.identifiers
-    has_config_entry = esphome_dev.config_entry_id == entry.entry_id
-
-    if has_identifier and has_config_entry:
+    if nspanel_identifier in esphome_dev.identifiers:
         return  # already linked
 
-    kwargs: dict[str, Any] = {}
-    if not has_identifier:
-        kwargs["merge_identifiers"] = {nspanel_identifier}
-    if not has_config_entry:
-        kwargs["add_config_entry_id"] = entry.entry_id
-    dev_reg.async_update_device(ha_device_id, **kwargs)
+    dev_reg.async_update_device(ha_device_id, merge_identifiers={nspanel_identifier})
 
 
 async def _create_app(
@@ -169,15 +203,14 @@ async def _create_app(
 
     Builds the device config from the config layers (data,
     panels), resolves the ESPHome HA device_id, adds an ``nspanel_haui``
-    identifier to the ESPHome device entry so the device selector
-    (integration: nspanel_haui) can find it, initializes the app on the
+    identifier to the ESPHome device entry, initializes the app on the
     executor thread, and returns the ready-to-use instance.
 
     The caller is responsible for storing the returned app in the running
     apps dict (hass.data[DOMAIN][entry.entry_id][dev_name]).
     """
-    from .esphome_helpers import resolve_ha_device_id
-    from .nspanel_haui import NSPanelHAUI
+    from .hub.app import NSPanelHAUI
+    from .hub.esphome_helpers import resolve_ha_device_id
 
     cfg = _build_config_dict(data, panels, device_name=dev_name)
     ha_device_id = resolve_ha_device_id(hass, dev_name)
@@ -191,6 +224,40 @@ async def _create_app(
     app._last_panel_update = (
         panels.get("devices", {}).get(dev_name, {}).get("last_panel_update") if panels else None
     )
+    from .hub.storage import empty_store, panel_store
+
+    async def _persist_day_profile(values: dict[str, Any]) -> None:
+        from .haui.device_config import find_store_device
+
+        store = panel_store(hass, entry.entry_id)
+        store_data = await store.async_load() or empty_store()
+        store_device = find_store_device(store_data.get("devices", {}), dev_name)
+        if store_device is None:
+            return
+        store_config = store_device.setdefault("config", {})
+        if any(store_config.get(key) != value for key, value in values.items()):
+            store_config.update(values)
+            await store.async_save(store_data)
+
+    def _schedule_day_profile_persist(values: dict[str, Any]) -> None:
+        import asyncio
+
+        future = asyncio.run_coroutine_threadsafe(_persist_day_profile(values), hass.loop)
+
+        def _log_failure(done: Any) -> None:
+            if done.cancelled():
+                return
+            error = done.exception()
+            if error is not None:
+                _LOGGER.error(
+                    "Failed to persist adopted Day profile for '%s'",
+                    dev_name,
+                    exc_info=error,
+                )
+
+        future.add_done_callback(_log_failure)
+
+    app.persist_day_profile = _schedule_day_profile_persist
     await app.async_run_on_worker(app.initialize)
 
     # Link the ESPHome device to our integration so it shows in the hub page
@@ -293,7 +360,7 @@ async def _trigger_haui_discovery(hass: HomeAssistant) -> bool:
     if hass.config_entries.async_entries(DOMAIN):
         return False
 
-    from .esphome_helpers import discover_esphome_devices
+    from .hub.esphome_helpers import discover_esphome_devices
 
     discovered = await discover_esphome_devices(hass)
     if not discovered:
@@ -335,7 +402,7 @@ async def _register_discovery(hass: HomeAssistant) -> None:
     from homeassistant.core import callback as ha_callback
     from homeassistant.helpers import device_registry as dr
 
-    from .esphome_helpers import is_haui_device, resolve_ha_device_id
+    from .hub.esphome_helpers import is_haui_device, resolve_ha_device_id
 
     def _reload_if_device_resolved(hub_entry: ConfigEntry) -> None:
         # An app started before its ESPHome device was registered has no device
@@ -391,7 +458,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Devices whose ESPHome entry registers later are picked up by the
     # session-wide registry listener (_register_discovery).
-    from .storage import PanelStorage
+    from .hub.storage import PanelStorage
 
     hass.data.setdefault(DOMAIN, {})
     name: str = entry.data["name"]
@@ -412,7 +479,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # ── create apps ────────────────────────────────────────────────────
     # One app per enabled device; ``enabled`` lives in the device's store config.
-    from .storage import enabled_device_names
+    from .hub.storage import enabled_device_names
 
     apps: dict = {}
 
@@ -463,7 +530,7 @@ async def _auto_add_unconfigured_devices(hass: HomeAssistant, entry: ConfigEntry
 
     Safe to call multiple times (checks ``configured_names``).
     """
-    from .esphome_helpers import discover_esphome_devices, hub_device_entry
+    from .hub.esphome_helpers import discover_esphome_devices, hub_device_entry
 
     try:
         discovered = await discover_esphome_devices(hass)
@@ -511,6 +578,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
 
+    from .web.preview.live_panel import async_stop_viewers
+    from .web.websocket import async_stop_hosts
+
+    await async_stop_viewers(hass, entry.entry_id)
+    await async_stop_hosts(hass, entry.entry_id)
     apps: dict | None = hass.data[DOMAIN].pop(entry.entry_id, None)
 
     if apps is None:
@@ -520,29 +592,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for _device_name, app in apps.items():
         if not await _stop_app(app):
             errors = True
-        # Remove our config_entry_id from the ESPHome device so it no
-        # longer shows in the nspanel_haui hub page.
-        if app._ha_device_id:
-            try:
-                from homeassistant.helpers import device_registry as dr
-
-                dev_reg = dr.async_get(hass)
-                dev_reg.async_update_device(
-                    app._ha_device_id,
-                    remove_config_entry_id=entry.entry_id,
-                )
-            except Exception:
-                _LOGGER.debug(
-                    "Could not remove config entry from device '%s'",
-                    _device_name,
-                    exc_info=True,
-                )
     return not errors
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Delete the hub's panel store when the hub is removed."""
-    from .storage import panel_store
+    from .hub.storage import panel_store
 
     await panel_store(hass, entry.entry_id).async_remove()
 
@@ -555,12 +610,12 @@ async def async_remove_config_entry_device(
     A device the hub still has is removed from it the way the editor's Remove
     does; a stale one is left to the device registry.
     """
-    from .storage import async_remove_device
+    from .hub.storage import async_remove_device
 
     configured = {d["name"] for d in config_entry.data.get("devices", []) if "name" in d}
     for domain, name in device_entry.identifiers:
         if domain == DOMAIN and name in configured:
-            await async_remove_device(hass, config_entry, name, keep_config=False)
+            await async_remove_device(hass, config_entry, name)
     return True
 
 
@@ -579,45 +634,17 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     Registers the panel config REST API view and frontend static path.
     """
-    from .api import (
-        ColorDefaultsView,
-        DeviceConfigView,
-        DeviceFirmwareReleasesView,
-        DeviceStatusView,
-        DeviceTftReleasesView,
-        DeviceUpdateCheckView,
-        DeviceUpdateDisplayView,
-        DeviceUpdateFirmwareView,
-        DeviceUpdateTftView,
-        DeviceYamlView,
-        FirmwareDownloadView,
-        IconSearchView,
-        NotificationsView,
-        PanelConfigView,
-        PanelTypesView,
-        TranslationsView,
-    )
-    from .editor_panel import async_register_frontend
+    from .api import register_views
     from .services import async_register_services
+    from .web.editor import async_register_frontend
+    from .web.preview.live_panel import async_register_commands as async_register_live_commands
+    from .web.websocket import async_register_websocket_commands
 
-    hass.http.register_view(TranslationsView())
-    hass.http.register_view(PanelConfigView())
-    hass.http.register_view(PanelTypesView())
-    hass.http.register_view(ColorDefaultsView())
-    hass.http.register_view(DeviceConfigView())
-    hass.http.register_view(DeviceStatusView())
-    hass.http.register_view(NotificationsView())
-    hass.http.register_view(DeviceUpdateDisplayView())
-    hass.http.register_view(DeviceUpdateTftView())
-    hass.http.register_view(DeviceTftReleasesView())
-    hass.http.register_view(DeviceUpdateFirmwareView())
-    hass.http.register_view(DeviceFirmwareReleasesView())
-    hass.http.register_view(DeviceUpdateCheckView())
-    hass.http.register_view(FirmwareDownloadView())
-    hass.http.register_view(DeviceYamlView())
-    hass.http.register_view(IconSearchView())
+    register_views(hass)
     await async_register_frontend(hass)
     async_register_services(hass)
+    async_register_websocket_commands(hass)
+    async_register_live_commands(hass)
 
     _LOGGER.info(
         "NSPanel HAUI integration loaded (hubs=%d)",

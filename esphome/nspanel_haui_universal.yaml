@@ -18,8 +18,8 @@
 #   Repeat 1-5 for every panel.  No per-device YAML edit and no local ESPHome
 #   build is needed.
 #
-# Security: the API key and OTA password are public (documented).  Anyone with
-# LAN access can reflash the panel.  Use `esphome/install.yaml` with secrets
+# Security: the API key, which also encrypts native OTA, is public (documented).
+# Anyone with LAN access can reflash the panel.  Use `esphome/install.yaml` with secrets
 # when this trade-off is not acceptable.
 substitutions:
   heartbeat_interval: '5'
@@ -32,7 +32,6 @@ substitutions:
   # Fixed, documented credentials (see docs/install.md "Universal image").
   # The web server stays disabled in this image (see base.yaml), so no web
   # credentials are baked in.
-  ota_password: 'nspanel-haui'
   api_encryption_key: 'TlNwYW5lbC1IQVVJLXVuaXZlcnNhbC1rZXktMDAwMDE='
   # Read by base.yaml's station network, which the wifi block below removes;
   # defined only so the package resolves without warnings.
@@ -40,6 +39,11 @@ substitutions:
   wifi_password: ''
   # Open fallback AP so the user can always join and provision.
   ap_password: ''
+
+  # Build identity reported in the device state.  This image is the prebuilt
+  # release firmware with the documented public credentials; the hub only
+  # offers/installs it on panels whose reported variant matches (`universal`).
+  firmware_variant: 'universal'
 
   # Default TFT URL of the display component; the hub's TFT update installs
   # the release asset that matches the display_model on its own.

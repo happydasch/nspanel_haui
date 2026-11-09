@@ -1,8 +1,9 @@
-from esphome import automation
 import esphome.codegen as cg
-from esphome.components import sensor
 import esphome.config_validation as cv
+from esphome.components import sensor
 from esphome.const import CONF_COMPONENT_ID, CONF_ID, CONF_STATE
+
+from esphome import automation
 
 from .. import CONF_NEXTION_ID, CONF_PUBLISH_STATE, CONF_SEND_TO_NEXTION, nextion_ns
 from ..base_component import (
@@ -31,9 +32,7 @@ def CheckWaveID(value):
 
 def _validate(config):
     if CONF_WAVE_CHANNEL_ID in config and CONF_COMPONENT_ID not in config:
-        raise cv.Invalid(
-            f"{CONF_COMPONENT_ID} is required when {CONF_WAVE_CHANNEL_ID} is set"
-        )
+        raise cv.Invalid(f"{CONF_COMPONENT_ID} is required when {CONF_WAVE_CHANNEL_ID} is set")
 
     return config
 
@@ -48,12 +47,8 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_PRECISION, default=0): cv.int_range(min=0, max=8),
             cv.Optional(CONF_WAVE_CHANNEL_ID): CheckWaveID,
             cv.Optional(CONF_COMPONENT_ID): cv.uint8_t,
-            cv.Optional(CONF_WAVE_MAX_LENGTH, default=255): cv.int_range(
-                min=1, max=1024
-            ),
-            cv.Optional(CONF_WAVE_MAX_VALUE, default=100): cv.int_range(
-                min=1, max=1024
-            ),
+            cv.Optional(CONF_WAVE_MAX_LENGTH, default=255): cv.int_range(min=1, max=1024),
+            cv.Optional(CONF_WAVE_MAX_VALUE, default=100): cv.int_range(min=1, max=1024),
             cv.Optional(CONF_WAVEFORM_SEND_LAST_VALUE, default=True): cv.boolean,
         }
     )
@@ -84,9 +79,7 @@ async def to_code(config):
         cg.add_define("USE_NEXTION_WAVEFORM")
         cg.add(var.set_wave_channel_id(config[CONF_WAVE_CHANNEL_ID]))
         if CONF_WAVEFORM_SEND_LAST_VALUE in config:
-            cg.add(
-                var.set_waveform_send_last_value(config[CONF_WAVEFORM_SEND_LAST_VALUE])
-            )
+            cg.add(var.set_waveform_send_last_value(config[CONF_WAVEFORM_SEND_LAST_VALUE]))
         if CONF_WAVE_MAX_VALUE in config:
             cg.add(var.set_wave_max_value(config[CONF_WAVE_MAX_VALUE]))
         if CONF_WAVE_MAX_LENGTH in config:
@@ -100,9 +93,7 @@ automation.register_apply_action(
             cv.Required(CONF_ID): cv.use_id(NextionSensor),
             cv.Required(CONF_STATE): cv.templatable(cv.float_),
             cv.Optional(CONF_PUBLISH_STATE, default="true"): cv.templatable(cv.boolean),
-            cv.Optional(CONF_SEND_TO_NEXTION, default="true"): cv.templatable(
-                cv.boolean
-            ),
+            cv.Optional(CONF_SEND_TO_NEXTION, default="true"): cv.templatable(cv.boolean),
         }
     ),
     automation.ApplyCall(

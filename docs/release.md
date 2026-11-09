@@ -377,8 +377,8 @@ cut from a commit whose CI was green on its source branch.
   versioned universal dev firmware prerelease with commit-linked notes (see
   [Published development firmware](#published-development-firmware)).
 - Feature branches — branch off `dev`, open the PR against `dev`.
-- Release branches — `release/X.Y.Z`, cut from `dev` for release prep and merged
-  into `master` through a PR.
+- Release branches — `release/X.Y.Z`, cut from `dev` for release prep and
+  squash-merged into `master` through a PR, so one commit lands per release.
 - Hotfix branches — branch off `master` only when a released version needs a
   patch that cannot wait for the next `dev` cycle; PR into `master`, tag, then
   merge `master` back into `dev`.
@@ -588,6 +588,12 @@ Prepare the GitHub release body in `.github/release-notes/<tag>.md` (for example
 before the merge to `master`. Because `master` takes no direct commits, the merge carries the file
 to the tagged commit. `release.yml` publishes it as the release body and falls
 back to the changelog pointer when no file exists.
+
+Open the release PR from `release/X.Y.Z` into `master` and **squash-merge** it
+(`gh pr merge <n> --squash`): `master` gains one commit per release, named
+after the PR title, so its history stays release-only. The tag then points at
+that single commit; the release branch keeps the individual release-prep
+commits.
 
 The changelog and the release notes split the work:
 

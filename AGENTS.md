@@ -746,7 +746,9 @@ Example: `fix(esphome): include device name in discovery fallback`
 `master` is release-only — never commit to it directly. It takes `release/X.Y.Z`
 branches cut from `dev` (and hotfixes) only; Pages deploys from it and Marketplace users
 install from its releases. A ruleset blocks direct pushes, force-pushes and
-deletion there, so a release has to go through a PR with green CI. Never open
+deletion there, so a release has to go through a PR with green CI. Squash-merge
+release PRs (`gh pr merge <n> --squash`): `master` gains one commit per release,
+named after the PR title, and the tag points at that commit. Never open
 that PR from `dev` itself: its tip can be the dev-firmware bot's `[skip ci]`
 commit after a dispatched build, so the PR's checks never run (see "Dev releases
 are tagged with their version" above). `dev` is the integration branch, the target for all day-to-day

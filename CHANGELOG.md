@@ -9,6 +9,8 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [0.4.6] — unreleased
+
 ## [0.4.5] — 2026-11-09
 
 ### Breaking changes
@@ -417,6 +419,7 @@ See [Updating](docs/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
+[0.4.6]: https://github.com/happydasch/nspanel_haui/compare/v0.4.5...dev
 [0.4.5]: https://github.com/happydasch/nspanel_haui/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.4
 [0.4.3]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.3

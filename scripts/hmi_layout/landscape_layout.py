@@ -208,8 +208,8 @@ LAYOUT: dict[str, dict[str, Rect]] = {
         "tTftVersVal": (297, 222, RIGHT - 297, 24),
         "tYamlVers": (147, 246, 145, 24),
         "tYamlVersVal": (297, 246, RIGHT - 297, 24),
-        "tADVers": (147, 271, 145, 24),
-        "tADVersVal": (297, 271, RIGHT - 297, 24),
+        "tHAUIVers": (147, 271, 145, 24),
+        "tHAUIVersVal": (297, 271, RIGHT - 297, 24),
     },
     "system": {
         "tTitle": (0, 12, VISIBLE_W, 32),

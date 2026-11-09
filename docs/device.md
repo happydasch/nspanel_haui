@@ -111,13 +111,35 @@ a notification popup is dismissed or its notification is removed while more
 notifications are queued, the next one opens in its place, so none is shown only
 once and skipped.
 
-New notifications make the notification indicator blink (the bell on the Clock, Clock Two and Weather panels, or the notifications header button otherwise). The notifications header button prefers a right-side slot (secondary, or primary in a single-nav layout); when a panel claims both right slots — e.g. a grid/row with pagination — the button moves to the idle button's slot on the home panel instead, so unread notifications stay reachable even though the idle/sleep button is displaced. Tapping it opens the notification popup, or a list when several are queued; opening them stops the blinking. Each notification popup has a **Dismiss** button that removes the notification from the queue. Closing the popup without dismissing keeps it queued. If notifications are opened over the idle page, closing the popup/list returns to the idle page; a touch then exits idle as usual.
+New notifications make the notification indicator blink (the bell on the Clock, Clock Two and Weather panels, or the notifications header button otherwise). The notifications header button is drawn in the header accent color while notifications are pending. It prefers a right-side slot (secondary, or primary in a single-nav layout); when a panel claims both right slots — e.g. a grid/row with pagination — the button moves to the idle button's slot on the home panel instead, so unread notifications stay reachable even though the idle/sleep button is displaced. Tapping it opens the notification popup, or a list when several are queued; opening them stops the blinking. Each notification popup has a **Dismiss** button that removes the notification from the queue. Closing the popup without dismissing keeps it queued. If notifications are opened over the idle page, closing the popup/list returns to the idle page; a touch then exits idle as usual.
 
 A notification popup that opens on its own — a force-shown notification, or a persistent notification re-opening its popup — wakes the display, except during [quiet hours](#quiet-hours). While a notification popup is open the automatic page switch waits, so the popup stays on screen until it is dismissed or closed, but the display still dims and turns off on its normal timers; the next touch wakes it with the popup still showing.
 
-Notifications support an optional icon; when none is supplied, the popup shows none and the message uses the full text area. The severity (`info`, `warning` or `critical`) colours the icon when one is set. When `persistent` is set to true the notification sound loops every `persistent_sound_interval` seconds (default 5) and its popup re-opens about every 60 seconds until the notification is dismissed or its timeout expires — useful for alerts that require user attention. Notifications of type `critical` play the `alert` sound instead of the `notification` sound. While the idle page is shown, only a `critical` persistent notification re-opens its popup over it; other severities wait until the user returns to a real panel. The queue holds up to 50 notifications; when it is full, the oldest one is dropped. Sending a repeat of a queued notification replaces the queued copy: its sound plays again and the new copy goes to the end of the queue.
+Notifications support an optional icon and an optional icon colour; when no
+icon is supplied, the popup shows none and the message uses the full text
+area. `icon_color` accepts `#rrggbb`, an RGB565 number, `[r, g, b]` or an
+integer string; without it the icon uses the theme's text colour. The sound is
+a generic notification field (`sound`): `notification` by default, any of the
+sounds the firmware's `play_sound` script knows (`startup`, `tone`, `tone_up`,
+`tone_down`, `seq_up`, `seq_down`, `alert`, `alert_fast`, `elise`), or `none`
+for silence. Sounds play only when `sound_on_notification` is on. When
+`persistent` is set to true the notification opens immediately, its sound
+loops every `persistent_sound_interval` seconds (default 5) and its popup
+re-opens about every 60 seconds until the notification is dismissed or its
+timeout expires — useful for alerts that require user attention. A persistent
+notification re-opens its popup over the idle page too; quiet hours still keep
+the display dark. The queue holds up to 50 notifications; when it is full, the
+oldest one is dropped. Sending a repeat of a queued notification replaces the
+queued copy: its sound plays again and the new copy goes to the end of the
+queue. See [Services → Preset notification script](services.md#preset-notification-script)
+for ready-made `info`/`warning`/`alert`/`critical`/`silent` combinations.
 
-The HA service can set the optional timeout. The standard `notify` entities and ESPHome `send_notification` action do not expose it. The HA service and notify entities force-show persistent notifications immediately; the ESPHome action does not force-show them, but its popup opens about a second after the action (unless a notification popup or list is already open) and re-opens every 60 seconds until dismissed. See [Services](services.md#nspanel_hauisend_notification) for fields and defaults.
+The HA service can set the optional timeout. The standard `notify` entities and
+ESPHome `send_notification` action do not expose it. Any persistent
+notification opens immediately, whichever path queued it. The ESPHome action
+carries no force-show field, so a non-persistent notification it queues only
+shows when the user opens the notification indicator. See
+[Services](services.md#nspanel_hauisend_notification) for fields and defaults.
 
 See [Popup Notify](panels/popup_notify.md) for full details and usage examples.
 

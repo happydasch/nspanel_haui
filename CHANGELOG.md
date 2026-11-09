@@ -39,6 +39,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The firmware drops the **Use Auto-Page** switch, **Timeout Page** number and `esphome.timeout` event; automatic page switching and each page's hold move to the hub. Empty Night idle keys no longer inherit Day; `use_auto_page`/`timeout_page` remain device settings.
 - The `hub_idle_timeout` device setting is gone; the hub's own idle-page check replaces it ([Device Configuration](docs/configuration/device.md#automatic-page-switching)).
 - Update the integration first, then install matching firmware and TFT; mixed hub and firmware versions are unsupported ([Upgrade guide](docs/update.md#automatic-page-switching-moved-to-the-hub)).
+- Notification `type` (`info`/`warning`/`critical`) is replaced by `icon_color` and `sound` on `nspanel_haui.send_notification`; the `nspanel_haui.notification` event carries both instead of `notif_type`, and the ESPHome `send_notification` action requires the two new variables ([Upgrading](docs/update-process.md#20-notification-types-replaced-by-icon-colour-and-sound)).
+- Persistent notifications now open immediately on every path and may re-open over the idle page; the `critical`-only idle guard is gone ([Notifications](docs/device.md#notifications)).
 
 ### Added
 
@@ -68,6 +70,9 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - **Install update** in the **Device Info** dialog installs the display TFT or
   the firmware, also from a URL or a local file
   ([Updating](docs/update.md#installing-a-local-tft-or-firmware-image)).
+- **Firmware mismatch** in the Device Manager and Device Info when the HAUI
+  version differs from the panel firmware's `yaml_version`; missing versions
+  are not a mismatch ([Update Process](docs/update-process.md#in-the-editor)).
 - **Enable updates** master switch and **Enable periodic update checks** toggle
   per panel.
 - **Color scheme library** in **Device Colors**: built-in **Dark Color**,
@@ -100,7 +105,8 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The **Touch** and **Brightness** sensors are disabled by default; enable them
   on the device page before using them in automations.
 - Firmware versions compare like Home Assistant's: a final release is offered
-  over its dev builds, and an unparseable version counts as unknown.
+  over its dev builds, an unparseable version counts as unknown, and the
+  editor's version chips use the same ordering.
 - Dev prereleases ship both display TFTs, and dev panels install the TFT their
   firmware needs ([Release](docs/release.md#published-development-firmware)).
 - CI fails a PR or push that changes a Nextion HMI without advancing the display
@@ -113,11 +119,14 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The Device Manager finds new panels when it opens; its install picker moved
   to the **Info** dialog (**Install update**, **Redraw display**, **Download
   firmware**), preparing the 0.5 frontend redesign.
+- The About page labels the integration version **HAUI Version** (it was
+  **AD-Version**).
 - The release notice opens once per release instead of after every update check;
   it can appear again after a restart or a channel change
   ([Update Process](docs/update-process.md#on-the-display)).
-- A notification sent without an icon shows none (no severity default icon)
-  and uses the full text width.
+- A notification sent without an icon shows none and uses the full text width;
+  its icon colour and sound are general notification fields
+  ([Services](docs/services.md#nspanel_hauisend_notification)).
 - Grid tile, alarm keypad/action-button and Clock Two word colors default to the
   active color scheme; their optional color settings override it per panel or
   item. Values saved from older versions keep overriding until **Reset existing
@@ -195,6 +204,9 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The panel's update notice compares the firmware version, not the TFT version.
 - TFT checks no longer guess the required version when the firmware does not
   report it.
+- An unchanged display TFT is no longer reinstalled under a newer firmware
+  release: the manifest names the TFT's own version and only a newer one
+  installs ([#83](https://github.com/happydasch/nspanel_haui/issues/83)).
 - Notification paging keeps the **Dismiss** button.
 - Notification popups no longer keep the display lit.
 - The persistent alert sound starts after quiet hours and is silent inside them.

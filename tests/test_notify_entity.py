@@ -11,7 +11,7 @@ class _App:
     def __init__(self):
         self.queued: list = []
         self.sent: list = []
-        notification = types.SimpleNamespace(send_notification=lambda **kw: self.sent.append(kw))
+        notification = types.SimpleNamespace(add_notification=lambda **kw: self.sent.append(kw))
         self.controller = {"notification": notification}
 
     def dispatch(self, fn, *args):
@@ -44,3 +44,16 @@ def test_message_is_queued_on_the_app_worker(monkeypatch):
     ((fn, args),) = app.queued
     fn(*args)
     assert app.sent == [{"title": "Front", "message": "Door open", "persistent": False}]
+
+
+def test_persistent_entity_leaves_force_show_to_the_controller(monkeypatch):
+    notify = _import_notify(monkeypatch)
+    app = _App()
+    entry = types.SimpleNamespace(entry_id="entry1")
+    entity = notify.NSPanelNotifyEntity(app, "kitchen", entry, persistent=True)
+
+    asyncio.run(entity.async_send_message("Door open", title="Front"))
+
+    ((fn, args),) = app.queued
+    fn(*args)
+    assert app.sent == [{"title": "Front", "message": "Door open", "persistent": True}]

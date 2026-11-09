@@ -360,6 +360,10 @@ class FunctionButtonMixin(_FunctionButtonMixinBase):
                 and not fnc_args.get("locked", False)
             ):
                 color = self.get_color("header_accent")
+            if color is None and fnc_name == self.FNC_TYPE_NAV_NOTIF:
+                # The notification indicator stays accent-coloured while
+                # notifications are pending, on every page render.
+                color = self.get_color("header_accent")
             if color is None:
                 color = self.get_color("header_text")
             color_pressed = fnc_args.get("color_pressed")

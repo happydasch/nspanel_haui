@@ -1,5 +1,6 @@
 from custom_components.nspanel_haui.haui.controller.notification import HAUINotificationController
 from custom_components.nspanel_haui.haui.device import HAUIDevice
+from custom_components.nspanel_haui.haui.device_config import DEVICE_CONFIG
 
 
 class DummyNavigation:
@@ -72,157 +73,65 @@ class DummyApp:
         self._timer_handles[handle] = True
         return handle
 
+    def run_every(self, cb, start, interval, **kwargs):
+        handle = f"timer_{len(self._timer_handles)}"
+        self._timer_handles[handle] = True
+        return handle
+
     def cancel_timer(self, handle):
         self._timer_handles.pop(handle, None)
 
 
-def test_device_notify_method():
-    """Test that the notify method correctly forwards to the notification controller."""
+def test_add_notification_queues_and_fires_the_event():
+    """add_notification queues the notification and fires the notif_add event."""
     app = DummyApp()
+    controller = HAUINotificationController(app, {})
+    app.controller["notification"] = controller
 
-    # Create a mock notification controller
-    mock_notification_controller = HAUINotificationController(app, {})
+    notification = controller.add_notification(
+        "Test Notification", "This is a test message", "test_icon"
+    )
 
-    # Set up the notification controller in the app
-    app.controller["notification"] = mock_notification_controller
-
-    device = HAUIDevice(app, {})
-
-    # Test the notify method
-    title = "Test Notification"
-    message = "This is a test message"
-    icon = "test_icon"
-    persistent = False
-
-    # Mock the send_notification method to capture the call
-    original_send_notification = mock_notification_controller.send_notification
-    captured_call = []
-
-    def mock_send_notification(
-        title,
-        message,
-        icon,
-        persistent=False,
-        notif_type="info",
-        force_show=False,
-    ):
-        captured_call.append(
-            {
-                "title": title,
-                "message": message,
-                "icon": icon,
-                "persistent": persistent,
-                "notif_type": notif_type,
-                "force_show": force_show,
-            }
-        )
-        # Call the original method to maintain functionality
-        return original_send_notification(
-            title,
-            message,
-            icon,
-            persistent,
-            notif_type,
-            force_show,
-        )
-
-    mock_notification_controller.send_notification = mock_send_notification
-
-    # Call the notify method
-    device.notify(title, message, icon, persistent)
-
-    # Verify the call was forwarded correctly
-    assert len(captured_call) == 1
-    call = captured_call[0]
-    assert call["title"] == title
-    assert call["message"] == message
-    assert call["icon"] == icon
-    assert call["persistent"] == persistent
-
-
-def test_device_notify_method_defaults():
-    """Test that the notify method works with default parameters."""
-    app = DummyApp()
-
-    # Create a mock notification controller
-    mock_notification_controller = HAUINotificationController(app, {})
-
-    # Set up the notification controller in the app
-    app.controller["notification"] = mock_notification_controller
-
-    device = HAUIDevice(app, {})
-
-    # Test the notify method with default parameters
-    title = "Default Notification"
-
-    # Mock the send_notification method to capture the call
-    original_send_notification = mock_notification_controller.send_notification
-    captured_call = []
-
-    def mock_send_notification(
-        title,
-        message="",
-        icon="",
-        persistent=False,
-        notif_type="info",
-        force_show=False,
-    ):
-        captured_call.append(
-            {
-                "title": title,
-                "message": message,
-                "icon": icon,
-                "persistent": persistent,
-                "notif_type": notif_type,
-                "force_show": force_show,
-            }
-        )
-        # Call the original method to maintain functionality
-        return original_send_notification(
-            title,
-            message,
-            icon,
-            persistent,
-            notif_type,
-            force_show,
-        )
-
-    mock_notification_controller.send_notification = mock_send_notification
-
-    # Call the notify method
-    device.notify(title)
-
-    # Verify the call was forwarded correctly
-    assert len(captured_call) == 1
-    call = captured_call[0]
-    assert call["title"] == title
-    assert call["message"] == ""
-    assert call["icon"] == ""
-    assert call["persistent"] is False
-
-
-def test_device_notify_method_integration():
-    """Test full integration of notify method: fires notif_add callback_event."""
-    app = DummyApp()
-
-    # Create a notification controller
-    notification_controller = HAUINotificationController(app, {})
-    app.controller["notification"] = notification_controller
-
-    device = HAUIDevice(app, {})
-
-    # Test the notify method
-    title = "Integration Test"
-    message = "Integration test message"
-    icon = "integration_icon"
-
-    # Call the notify method
-    device.notify(title, message, icon)
-
-    # Verify callback_event was called with the correct notif_add event
+    assert controller.get_notifications() == [notification]
     assert len(app.callback_event_calls) == 1
     event = app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, False, "info", False, "auto", None)
-    assert event.value[:-1] == expected_value
+    assert event.value.title == "Test Notification"
+    assert event.value.message == "This is a test message"
+    assert event.value.icon == "test_icon"
+    assert event.value.persistent is False
     assert event.value.notif_id
+
+
+def test_add_notification_defaults():
+    """A notification without optional fields gets the generic defaults."""
+    app = DummyApp()
+    controller = HAUINotificationController(app, {})
+    app.controller["notification"] = controller
+
+    notification = controller.add_notification("Default Notification")
+
+    assert notification.message == ""
+    assert notification.icon == ""
+    assert notification.persistent is False
+    assert notification.force_show is False
+    assert notification.icon_color is None
+    assert notification.sound == "notification"
+    assert notification.text_size == "auto"
+
+
+def test_device_plays_the_notifications_sound():
+    """The device plays the sound carried by the queued notification."""
+    app = DummyApp()
+    controller = HAUINotificationController(app, {})
+    app.controller["notification"] = controller
+    device = HAUIDevice(app, {**DEVICE_CONFIG, "sound_on_notification": True})
+    played = []
+    device.play_sound = played.append
+
+    controller.add_notification("Door", "open", sound="tone")
+
+    (event,) = app.callback_event_calls
+    device.process_event(event)
+
+    assert played == ["tone"]

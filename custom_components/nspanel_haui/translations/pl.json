@@ -86,7 +86,7 @@
     },
     "send_notification": {
       "name": "Wyślij powiadomienie",
-      "description": "Pokaż powiadomienie na panelu z tytułem, wiadomością i ikoną.",
+      "description": "Pokaż powiadomienie na panelu z tytułem, wiadomością, ikoną, kolorem ikony i dźwiękiem.",
       "fields": {
         "device": {
           "name": "Urządzenie",
@@ -104,17 +104,21 @@
           "name": "Ikona",
           "description": "Ikona Material Design wyświetlana z powiadomieniem (np. 'mdi:bell')."
         },
+        "icon_color": {
+          "name": "Kolor ikony",
+          "description": "Kolor ikony jako #rrggbb, liczba RGB565, [r, g, b] lub tekst liczbowy. Pozostaw puste, aby użyć koloru tekstu motywu."
+        },
+        "sound": {
+          "name": "Dźwięk",
+          "description": "Dźwięk odtwarzany dla powiadomienia. 'none' pozostawia je bez dźwięku."
+        },
         "timeout": {
           "name": "Limit czasu",
           "description": "Sekundy do automatycznego zamknięcia. 0 pozostawia do ręcznego zamknięcia."
         },
         "persistent": {
           "name": "Trwałe",
-          "description": "Wymaga odrzucenia na panelu, aby zatrzymać dźwięk alertu."
-        },
-        "type": {
-          "name": "Dotkliwość",
-          "description": "Poziom dotkliwości wpływający na kolor alertu i dźwięk."
+          "description": "Otwiera powiadomienie natychmiast i powtarza jego dźwięk, aż zostanie odrzucone na panelu."
         },
         "force_show": {
           "name": "Wymuś pokazanie",

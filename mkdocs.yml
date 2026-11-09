@@ -111,6 +111,7 @@ nav:
     - Update Process: update-process.md
     - Design Guidelines: design.md
     - Communication Overview: communication.md
+    - Notification Process: notifications.md
     - ESPHome Component: esphome.md
     - Hub Component: hub.md
     - Nextion Component: nextion.md

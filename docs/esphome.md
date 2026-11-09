@@ -123,7 +123,7 @@ Device → hub events, published under the `esphome.` prefix (`esphome.heartbeat
 | `gesture` | `swipe_left`, `swipe_right`, `swipe_up` or `swipe_down`. |
 | `button_left` / `button_right` | `1` on press, `0` on release. |
 | `relay_left` / `relay_right` | State `1` or `0`. |
-| `send_notification` | JSON: `title`, `message`, `icon` (only if set), `persistent`, `text_size` (only if set). Published by the `send_notification` script. |
+| `send_notification` | JSON: `title`, `message`, `icon` (only if set), `persistent`, `text_size` (only if set), `icon_color` (only if set), `sound` (always). Published by the `send_notification` script. |
 | `buffer_overflow` | `1`. The display reported a buffer overflow. |
 | `display_state` | `on`, `dim` or `off`. |
 
@@ -153,7 +153,7 @@ Hub → device actions (ESPHome Native API service calls):
 | `upload_tft_url` (`url`) | Update the TFT from a URL. The hub sends it; use `nspanel_haui.update_tft` (optionally with `url`) or the **HAUI Display** entity instead. |
 | `play_rtttl` (`song_str`) | Play any standard RTTTL string (`name:d=...,o=...,b=...:notes`). |
 | `play_sound` (`name`) | Play a built-in sound (list below). |
-| `send_notification` (`title`, `message`, `icon`, `persistent`, `text_size`) | All parameters are required (ESPHome has no optional action variables): pass `""` for no icon, `false` and `"auto"` for the defaults. No severity or force-show fields, so alerts are `info` and never re-open over the idle page. `persistent` loops the sound and re-opens the popup about every 60 s until dismissed; the first re-open comes about a second after the action and waits while a notification popup or list is open. |
+| `send_notification` (`title`, `message`, `icon`, `persistent`, `text_size`, `icon_color`, `sound`) | All parameters are required (ESPHome has no optional action variables): pass `""` for no icon/icon colour and `"none"` for a silent notification, `false` and `"auto"` for the defaults. `icon_color` accepts `#rrggbb` or an RGB565 number; `sound` is any `play_sound` name. No force-show or timeout fields, but a persistent notification always opens immediately and loops its sound, re-opening the popup about every 60 s (including over the idle page) until dismissed. |
 
 A playing tune is stopped before a TFT upload, an OTA firmware update or a reboot — those block the buzzer's main loop, so the current note would otherwise keep sounding.
 

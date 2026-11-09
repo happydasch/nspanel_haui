@@ -86,7 +86,7 @@
     },
     "send_notification": {
       "name": "Send notification",
-      "description": "Show a notification on the panel with a title, message and icon.",
+      "description": "Show a notification on the panel with a title, message, icon, icon colour and sound.",
       "fields": {
         "device": {
           "name": "Device",
@@ -104,17 +104,21 @@
           "name": "Icon",
           "description": "Material Design Icon shown with the notification (e.g. 'mdi:bell')."
         },
+        "icon_color": {
+          "name": "Icon color",
+          "description": "Icon colour as #rrggbb, an RGB565 number, [r, g, b] or an integer string. Leave empty to use the theme's text colour."
+        },
+        "sound": {
+          "name": "Sound",
+          "description": "Sound played for the notification. 'none' keeps it silent."
+        },
         "timeout": {
           "name": "Timeout",
           "description": "Seconds until auto-dismiss. 0 keeps it until dismissed."
         },
         "persistent": {
           "name": "Persistent",
-          "description": "Require dismissal on the panel to stop the alert sound."
-        },
-        "type": {
-          "name": "Severity",
-          "description": "Severity level that affects the alert colour and sound."
+          "description": "Open immediately and loop the notification's sound until it is dismissed on the panel."
         },
         "force_show": {
           "name": "Force show",

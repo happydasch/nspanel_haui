@@ -112,7 +112,7 @@ def test_open_notification_button_label_is_dismiss():
     )
     nav = MagicMock()
     app.controller["navigation"] = nav
-    n = Notification("T", "M", "", True, "critical", False)
+    n = Notification(title="T", message="M", icon="", persistent=True, sound="alert")
     ctrl.translate = lambda s: s
     ctrl.open_notification(n)
     kwargs = nav.open_panel.call_args[1]
@@ -155,8 +155,10 @@ def test_notification_clear_publishes_removal_events():
                 "title": "Doorbell",
                 "message": "Someone is here",
                 "icon": "mdi:bell",
-                "notif_type": "info",
+                "icon_color": None,
+                "sound": "notification",
                 "persistent": False,
+                "force_show": False,
                 "timeout": None,
             },
         )

@@ -56,6 +56,9 @@ class _DevStub:
     def get_name(self):
         return "testdevice"
 
+    def get_locale(self):
+        return "en_US"
+
 
 class DummyApp:
     def __init__(self):
@@ -152,10 +155,16 @@ def test_notification_controller_add_remove_clear_get(dummy_app):
 
 
 def test_queued_notification_exposes_named_fields(dummy_app):
+    dummy_app.controller["navigation"] = MagicMock()
     controller = HAUINotificationController(dummy_app, {})
 
     notif = controller.add_notification(
-        "Door", "Front door open", "mdi:door", persistent=True, notif_type="critical"
+        "Door",
+        "Front door open",
+        "mdi:door",
+        persistent=True,
+        icon_color="#4aa5ee",
+        sound="alert_fast",
     )
 
     assert (notif.title, notif.message, notif.icon) == (
@@ -164,24 +173,30 @@ def test_queued_notification_exposes_named_fields(dummy_app):
         "mdi:door",
     )
     assert notif.persistent is True
-    assert notif.notif_type == "critical"
-    assert notif.force_show is False
+    assert notif.force_show is True
+    assert notif.icon_color == "#4aa5ee"
+    assert notif.sound == "alert_fast"
+    assert dummy_app.fire_event_calls[-1][1]["force_show"] is True
 
 
 def test_notification_controller_send_esphome(dummy_app, dummy_esphome):
-    """Ensure send_notification fires notif_add callback_event with correct data."""
+    """Ensure add_notification fires notif_add callback_event with correct data."""
     controller = HAUINotificationController(dummy_app, {})
 
     title = "Alert"
     message = "This is a test"
     icon = "bell"
-    controller.send_notification(title, message, icon)
+    controller.add_notification(title, message, icon)
 
     assert len(dummy_app.callback_event_calls) == 1
     event = dummy_app.callback_event_calls[0]
     assert event.name == "notif_add"
-    expected_value = (title, message, icon, False, "info", False, "auto", None)
-    assert event.value[:-1] == expected_value
+    assert event.value.title == title
+    assert event.value.message == message
+    assert event.value.icon == icon
+    assert event.value.persistent is False
+    assert event.value.icon_color is None
+    assert event.value.sound == "notification"
     assert event.value.notif_id
 
 
@@ -189,31 +204,61 @@ def test_notification_event_includes_timeout(dummy_app):
     """Automations can distinguish a timed notification from one that stays queued."""
     controller = HAUINotificationController(dummy_app, {})
 
-    controller.send_notification("Door", "open", timeout=15)
+    controller.add_notification("Door", "open", timeout=15)
 
     event_type, payload = dummy_app.fire_event_calls[-1]
     assert event_type == "nspanel_haui.notification"
     assert payload["timeout"] == 15
+    assert payload["icon_color"] is None
+    assert payload["sound"] == "notification"
+    assert payload["force_show"] is False
+
+
+def test_empty_icon_color_and_none_sound_are_normalized(dummy_app):
+    controller = HAUINotificationController(dummy_app, {})
+
+    notification = controller.add_notification("Door", "open", icon_color="", sound="none")
+
+    assert notification.icon_color is None
+    assert notification.sound == ""
+
+
+def test_unknown_notification_sound_is_rejected(dummy_app):
+    controller = HAUINotificationController(dummy_app, {})
+
+    with pytest.raises(ValueError, match="Unknown notification sound"):
+        controller.add_notification("Door", "open", sound="airhorn")
+
+
+def test_old_esphome_payload_defaults_missing_fields(dummy_app):
+    """Firmware without the new variables keeps working for one release."""
+    controller = HAUINotificationController(dummy_app, {})
+    payload = (
+        '{"title": "Door", "message": "open", "icon": "", '
+        '"persistent": false, "text_size": "auto"}'
+    )
+
+    controller.process_event(HAUIEvent(ESPResponse.SEND_NOTIFICATION, payload))
+
+    (notification,) = controller.get_notifications()
+    assert notification.icon_color is None
+    assert notification.sound == "notification"
 
 
 def test_device_play_sound_on_notification_event(dummy_app):
-    """Test that a notification event triggers a sound when enabled in config."""
+    """Test that a notification event triggers its configured sound."""
     device = _device(dummy_app, sound_on_notification=True)
 
-    # Monkey‑patch play_sound to record calls
-    device._played = None
-
-    def mock_play(name):
-        device._played = name
-
-    device.play_sound = mock_play
+    played = []
+    device.play_sound = played.append
 
     event = HAUIEvent(
-        NotifEvent.NOTIF_ADD, Notification("Title", "Msg", "Icon", False, "info", False)
+        NotifEvent.NOTIF_ADD,
+        Notification(title="Title", message="Msg", icon="Icon", sound="notification"),
     )
     device.process_event(event)
 
-    assert device._played == "notification"
+    assert played == ["notification"]
 
 
 # --- device sounds and quiet hours ---------------------------------------------
@@ -243,6 +288,16 @@ def test_quiet_hours_apply_when_do_not_disturb_is_on(dummy_app):
     assert device._is_quiet_hours() is True
 
 
+def test_play_sound_is_silent_during_quiet_hours(dummy_app):
+    esphome = MagicMock()
+    dummy_app.controller["esphome"] = MagicMock(esphome=esphome)
+    device = _device(dummy_app, use_do_not_disturb=True, **_quiet_window_around_now())
+
+    device.play_sound("startup")
+
+    esphome.publish.assert_not_called()
+
+
 def test_notification_is_silent_by_default(dummy_app):
     device = _device(dummy_app)
     played = []
@@ -250,29 +305,68 @@ def test_notification_is_silent_by_default(dummy_app):
 
     device.process_event(
         HAUIEvent(
-            NotifEvent.NOTIF_ADD, Notification("Smoke", "Kitchen", "", True, "critical", False)
+            NotifEvent.NOTIF_ADD,
+            Notification(title="Smoke", message="Kitchen", icon="", persistent=True, sound="alert"),
         )
     )
 
     assert played == []
 
 
-def test_critical_notification_plays_alert_sound(dummy_app):
+def test_notification_plays_its_own_sound(dummy_app):
     device = _device(dummy_app, sound_on_notification=True)
     played = []
     device.play_sound = played.append
 
     device.process_event(
         HAUIEvent(
-            NotifEvent.NOTIF_ADD, Notification("Smoke", "Kitchen", "", False, "critical", False)
+            NotifEvent.NOTIF_ADD,
+            Notification(title="Smoke", message="Kitchen", icon="", sound="alert"),
         )
     )
 
     assert played == ["alert"]
 
 
-def test_persistent_critical_notification_repeats_alert_sound(dummy_app):
-    notification = Notification("Smoke", "Kitchen", "", True, "critical", False)
+def test_notification_sound_is_suppressed_during_quiet_hours(dummy_app):
+    device = _device(
+        dummy_app,
+        sound_on_notification=True,
+        use_do_not_disturb=True,
+        **_quiet_window_around_now(),
+    )
+    played = []
+    device.play_sound = played.append
+
+    device.process_event(
+        HAUIEvent(
+            NotifEvent.NOTIF_ADD,
+            Notification(title="Door", message="open", icon="", sound="alert"),
+        )
+    )
+
+    assert played == []
+
+
+def test_silent_notification_plays_nothing(dummy_app):
+    device = _device(dummy_app, sound_on_notification=True)
+    played = []
+    device.play_sound = played.append
+
+    device.process_event(
+        HAUIEvent(
+            NotifEvent.NOTIF_ADD,
+            Notification(title="Smoke", message="Kitchen", icon="", sound=""),
+        )
+    )
+
+    assert played == []
+
+
+def test_persistent_notification_repeats_its_sound(dummy_app):
+    notification = Notification(
+        title="Smoke", message="Kitchen", icon="", persistent=True, sound="alert"
+    )
     notif_ctrl = MagicMock()
     notif_ctrl.get_notifications.return_value = [notification]
     notif_ctrl.has_persistent_notifications.return_value = True
@@ -292,8 +386,10 @@ def test_persistent_critical_notification_repeats_alert_sound(dummy_app):
 
 
 def _persistent_alert_device(app, **cfg):
-    """Device with one queued persistent critical alert; returns its sound loop."""
-    notification = Notification("Smoke", "Kitchen", "", True, "critical", False)
+    """Device with one queued audible persistent alert; returns its sound loop."""
+    notification = Notification(
+        title="Smoke", message="Kitchen", icon="", persistent=True, sound="alert"
+    )
     notif_ctrl = MagicMock()
     notif_ctrl.get_notifications.return_value = [notification]
     notif_ctrl.has_persistent_notifications.return_value = True
@@ -304,6 +400,62 @@ def _persistent_alert_device(app, **cfg):
     played = []
     device.play_sound = played.append
     return device, notification, loops, played
+
+
+def _device_with_persistent_queue(app, *notifications):
+    notif_ctrl = MagicMock()
+    notif_ctrl.get_notifications.return_value = list(notifications)
+    notif_ctrl.has_persistent_notifications.return_value = True
+    app.controller["notification"] = notif_ctrl
+    return _device(app, sound_on_notification=True)
+
+
+def test_removing_persistent_notifications_with_no_audible_sound_stops_the_loop(dummy_app):
+    silent = Notification(title="Quiet", message="", icon="", persistent=True, sound="")
+    device = _device_with_persistent_queue(dummy_app, silent)
+    device._stop_persistent_sound = MagicMock()
+
+    device.process_event(HAUIEvent(NotifEvent.NOTIF_REMOVE, silent))
+
+    device._stop_persistent_sound.assert_called_once()
+
+
+def test_removing_one_persistent_notification_keeps_the_loop_for_another(dummy_app):
+    first = Notification(title="First", message="", icon="", persistent=True, sound="tone")
+    second = Notification(title="Second", message="", icon="", persistent=True, sound="alert")
+    device = _device_with_persistent_queue(dummy_app, first, second)
+    device._stop_persistent_sound = MagicMock()
+
+    device.process_event(HAUIEvent(NotifEvent.NOTIF_REMOVE, first))
+
+    device._stop_persistent_sound.assert_not_called()
+
+
+def test_persistent_loop_skips_silent_notifications(dummy_app):
+    silent = Notification(title="Quiet", message="", icon="", persistent=True, sound="")
+    audible = Notification(title="Loud", message="", icon="", persistent=True, sound="tone")
+    device = _device_with_persistent_queue(dummy_app, silent, audible)
+
+    assert device._persistent_sound() == "tone"
+
+
+def test_persistent_loop_follows_the_queue_order(dummy_app):
+    first = Notification(title="First", message="", icon="", persistent=True, sound="tone")
+    second = Notification(title="Second", message="", icon="", persistent=True, sound="alert")
+    device = _device_with_persistent_queue(dummy_app, first, second)
+
+    assert device._persistent_sound() == "tone"
+
+
+def test_silent_persistent_notification_does_not_start_the_loop(dummy_app):
+    silent = Notification(title="Quiet", message="", icon="", persistent=True, sound="")
+    device = _device_with_persistent_queue(dummy_app, silent)
+    loops = []
+    dummy_app.run_every = lambda cb, start, interval: loops.append(cb) or "loop"
+
+    device.process_event(HAUIEvent(NotifEvent.NOTIF_ADD, silent))
+
+    assert loops == []
 
 
 def test_persistent_alert_from_quiet_hours_sounds_once_they_end(dummy_app):
@@ -434,15 +586,15 @@ def test_open_notifications_does_nothing_when_queue_is_empty(loop_ctrl):
     app.navigation.open_panel.assert_not_called()
 
 
-def test_single_notification_popup_shows_its_type(loop_ctrl):
+def test_single_notification_popup_shows_its_icon_color(loop_ctrl):
     app, ctrl = loop_ctrl
-    ctrl.add_notification("Smoke", "Kitchen", notif_type="critical")
+    ctrl.add_notification("Smoke", "Kitchen", icon="mdi:fire", icon_color="#4aa5ee")
 
     ctrl.open_notifications()
 
     key, kwargs = _opened(app)
     assert key == PopupPanelKey.POPUP_NOTIFY
-    assert kwargs["notif_type"] == "critical"
+    assert kwargs["icon_color"] == "#4aa5ee"
 
 
 def test_single_notification_popup_passes_text_size(loop_ctrl):
@@ -739,11 +891,15 @@ def test_persistent_notification_re_opens_popup_periodically(loop_ctrl):
 
     ctrl.add_notification("Smoke", "Kitchen", persistent=True)
 
-    # A persistent notification arms a repeating "show it again" timer.
+    # A persistent notification arms a repeating "show it again" timer and
+    # opens its popup at once.
     ticks = [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
     assert ticks, "a persistent notification must arm a periodic re-alert timer"
+    assert nav.opens[-1][0] == PopupPanelKey.POPUP_NOTIFY
 
-    # The timer fires while no notification view is open: the popup opens.
+    # The user navigated away: the next tick brings the popup back.
+    nav.current = None
+    nav.opens.clear()
     ticks[0]({})
     assert nav.opens[-1][0] == PopupPanelKey.POPUP_NOTIFY
     assert nav.opens[-1][1]["title"] == "Smoke"
@@ -758,50 +914,31 @@ def test_persistent_notification_re_opens_popup_periodically(loop_ctrl):
     assert not [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
 
 
-def test_non_critical_persistent_alert_does_not_hijack_idle_page(loop_ctrl):
-    """A non-critical persistent alert waits for the user to leave the idle page."""
+def test_persistent_alert_re_opens_over_the_idle_page(loop_ctrl):
+    """Any persistent alert may interrupt the idle/screensaver page."""
     app, ctrl = loop_ctrl
     _, _, nav = _queue_player(app)
     nav.idle_panel_active = True
 
     ctrl.add_notification("Laundry", "done", persistent=True)
+    nav.current = None
+    nav.opens.clear()
 
     ticks = [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
     assert ticks
-    ticks[0]({})
-    # Still queued, but not forced over the screensaver.
-    assert nav.opens == []
-    assert [n.title for n in ctrl.get_notifications()] == ["Laundry"]
-
-    # Once the user is back on a real panel, the next tick shows it.
-    nav.idle_panel_active = False
     ticks[0]({})
     assert nav.opens[-1][0] == PopupPanelKey.POPUP_NOTIFY
     assert nav.opens[-1][1]["title"] == "Laundry"
 
 
-def test_critical_persistent_alert_forces_over_idle_page(loop_ctrl):
-    """A critical persistent alert may interrupt the idle page."""
-    app, ctrl = loop_ctrl
-    _, _, nav = _queue_player(app)
-    nav.idle_panel_active = True
-
-    ctrl.add_notification("Smoke", "Kitchen", persistent=True, notif_type="critical")
-
-    ticks = [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
-    assert ticks
-    ticks[0]({})
-    assert nav.opens[-1][0] == PopupPanelKey.POPUP_NOTIFY
-    assert nav.opens[-1][1]["title"] == "Smoke"
-
-
-def test_non_critical_persistent_alert_shows_when_not_idle(loop_ctrl):
-    """The idle-page guard only applies while the idle page is shown."""
+def test_persistent_alert_shows_when_not_idle(loop_ctrl):
     app, ctrl = loop_ctrl
     _, _, nav = _queue_player(app)
     nav.idle_panel_active = False
 
     ctrl.add_notification("Laundry", "done", persistent=True)
+    nav.current = None
+    nav.opens.clear()
 
     ticks = [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
     assert ticks
@@ -944,7 +1081,7 @@ def test_force_show_waiting_behind_an_open_popup_does_not_wake(loop_ctrl):
 def test_persistent_re_alert_wakes_the_display(loop_ctrl):
     app, ctrl = loop_ctrl
     _, _, nav = _queue_player(app)
-    ctrl.add_notification("Smoke", "Kitchen", persistent=True, notif_type="critical")
+    ctrl.add_notification("Smoke", "Kitchen", persistent=True)
     ticks = [cb for cb in app.timers.values() if getattr(cb, "__name__", "") == "_re_alert_tick"]
 
     ticks[0]({})

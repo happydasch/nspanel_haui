@@ -66,8 +66,8 @@ def _about() -> dict[str, Rect]:
             "tTftVersVal": (158, 271, 150, 24),
             "tYamlVers": (12, 309, 132, 24),
             "tYamlVersVal": (158, 309, 150, 24),
-            "tADVers": (12, 347, 132, 24),
-            "tADVersVal": (158, 347, 150, 24),
+            "tHAUIVers": (12, 347, 132, 24),
+            "tHAUIVersVal": (158, 347, 150, 24),
             "p0": (12, 415, 50, 50),
             "p1": (72, 415, 50, 50),
         }

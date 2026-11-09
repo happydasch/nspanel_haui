@@ -972,8 +972,9 @@ class VirtualPanelHost:
                 message=notification.message,
                 icon=notification.icon,
                 persistent=notification.persistent,
-                notif_type=notification.notif_type,
                 force_show=notification.force_show,
+                icon_color=notification.icon_color,
+                sound=notification.sound,
                 text_size=notification.text_size,
                 timeout=notification.timeout,
             )

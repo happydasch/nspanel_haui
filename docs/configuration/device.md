@@ -202,11 +202,11 @@ shortcuts on top of that.
 
 - `sound_on_notification` bool
 
-  Play an alert tone whenever a new notification is received. Notifications of type `critical` use the `alert` sound, and a `persistent` notification repeats its tone until dismissed. The timer panel's finish alert follows this setting too. Default `False`.
+  Play each notification's own `sound` when it is received; `none`/empty stays silent. A `persistent` notification repeats its tone every `persistent_sound_interval` seconds until dismissed — the loop uses the first queued persistent notification with a non-empty sound, so a silent persistent notification does not mute a later audible one. The timer panel's finish alert follows this setting too. Default `False`.
 
 - `persistent_sound_interval` int
 
-  Seconds between repeats of the alert tone while a persistent notification waits to be dismissed. This controls the sound only — the notification popup itself re-opens about every 60 seconds. Default `5`.
+  Seconds between repeats of the alert tone while a persistent notification with a sound waits to be dismissed. This controls the sound only — the notification popup itself re-opens about every 60 seconds. Default `5`.
 
 - `use_do_not_disturb` bool
 

@@ -43,6 +43,7 @@ _install_ha_stubs()
 import pytest  # noqa: E402
 import voluptuous as vol  # noqa: E402
 
+from custom_components.nspanel_haui.haui.mapping.const import SOUND_NAMES  # noqa: E402
 from custom_components.nspanel_haui.services import (  # noqa: E402
     DOMAIN,
     SERVICE_CLOSE_PANEL,
@@ -511,7 +512,7 @@ async def test_idle(mock_hass, mock_nav, mock_esphome_ctrl):
 async def test_send_notification_passes_all_fields_to_controller(
     mock_hass, mock_nav, mock_esphome_ctrl
 ):
-    """The service hands type and force_show to the controller."""
+    """The service hands every generic field to the controller."""
     app = _make_app(mock_nav, mock_esphome_ctrl)
     notif_ctrl = MagicMock()
     app.controller["notification"] = notif_ctrl
@@ -525,19 +526,21 @@ async def test_send_notification_passes_all_fields_to_controller(
         "message": "Smoke detected",
         "icon": "mdi:fire",
         "persistent": True,
-        "type": "critical",
+        "icon_color": "#4aa5ee",
+        "sound": "alert",
         "force_show": True,
     }
 
     await _handle_send_notification(mock_hass, call)
 
-    notif_ctrl.send_notification.assert_called_once_with(
+    notif_ctrl.add_notification.assert_called_once_with(
         title="Alarm",
         message="Smoke detected",
         icon="mdi:fire",
         persistent=True,
-        notif_type="critical",
         force_show=True,
+        icon_color="#4aa5ee",
+        sound="alert",
         text_size="auto",
         timeout=None,
     )
@@ -559,13 +562,14 @@ async def test_send_notification_text_size_passthrough(mock_hass, mock_nav, mock
 
     await _handle_send_notification(mock_hass, call)
 
-    notif_ctrl.send_notification.assert_called_once_with(
+    notif_ctrl.add_notification.assert_called_once_with(
         title="Door",
         message="open",
         icon="",
         persistent=False,
-        notif_type="info",
         force_show=False,
+        icon_color=None,
+        sound="notification",
         text_size=2,
         timeout=None,
     )
@@ -586,13 +590,14 @@ async def test_send_notification_timeout_passthrough(mock_hass, mock_nav, mock_e
 
     await _handle_send_notification(mock_hass, call)
 
-    notif_ctrl.send_notification.assert_called_once_with(
+    notif_ctrl.add_notification.assert_called_once_with(
         title="Door",
         message="open",
         icon="",
         persistent=False,
-        notif_type="info",
         force_show=False,
+        icon_color=None,
+        sound="notification",
         text_size="auto",
         timeout=10,
     )
@@ -615,6 +620,43 @@ def test_send_notification_schema_accepts_the_maximum_timeout():
     assert data["timeout"] == 3600
 
 
+@pytest.mark.parametrize(
+    ("icon_color", "expected"),
+    [
+        ("", ""),
+        ("#4aa5ee", "#4aa5ee"),
+        ("65535", 65535),
+        (65535, 65535),
+        ([74, 165, 238], [74, 165, 238]),
+    ],
+)
+def test_send_notification_schema_accepts_icon_colors(icon_color, expected):
+    data = SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "icon_color": icon_color})
+    assert data["icon_color"] == expected
+
+
+@pytest.mark.parametrize("bad", [-1, 65536, "#12345", [1, 2], "red-ish"])
+def test_send_notification_schema_rejects_invalid_icon_colors(bad):
+    with pytest.raises(vol.Invalid):
+        SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "icon_color": bad})
+
+
+@pytest.mark.parametrize("sound", [*SOUND_NAMES, "none"])
+def test_send_notification_schema_accepts_every_sound(sound):
+    data = SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "sound": sound})
+    assert data["sound"] == sound
+
+
+def test_send_notification_schema_rejects_an_unknown_sound():
+    with pytest.raises(vol.Invalid):
+        SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "sound": "airhorn"})
+
+
+def test_send_notification_schema_no_longer_takes_a_type():
+    with pytest.raises(vol.Invalid):
+        SERVICE_SEND_NOTIFICATION_SCHEMA({"title": "t", "type": "critical"})
+
+
 def test_send_notification_service_metadata_and_schema_agree():
     """services.yaml and SERVICE_SEND_NOTIFICATION_SCHEMA must not drift.
 
@@ -635,6 +677,10 @@ def test_send_notification_service_metadata_and_schema_agree():
     yaml_fields = set(metadata["fields"])
     schema_fields = {marker.schema for marker in SERVICE_SEND_NOTIFICATION_SCHEMA.schema}
     assert yaml_fields == schema_fields
+    assert set(metadata["fields"]["sound"]["selector"]["select"]["options"]) == {
+        *SOUND_NAMES,
+        "none",
+    }
 
 
 @pytest.mark.asyncio

@@ -4,17 +4,11 @@ from ..abstract.component import Component, ComponentRegistry
 from ..abstract.haui_event import HAUIEvent
 from ..abstract.haui_page import HAUIPage
 from ..abstract.haui_panel import HAUIPanel
-from ..mapping.const import NotifType, PopupPanelKey
-from ..mapping.descriptor import PageDescriptor, _
+from ..mapping.const import PopupPanelKey
+from ..mapping.descriptor import PageDescriptor, PageOption, _
 from ..mapping.icons import ICO_NEXT_PAGE
 from ..utils.icon import parse_icon
 from ..utils.text import TextBox, fit_text, parse_notification_text
-
-_NOTIF_TYPE_COLORS: dict[str, str] = {
-    NotifType.INFO: "component_text",
-    NotifType.WARNING: "header_accent",
-    NotifType.CRITICAL: "component_active",
-}
 
 # Custom function name for the manual next-page header button.
 _FNC_NEXT_PAGE = "notif_next_page"
@@ -67,6 +61,14 @@ class NotifyPage(CommonNotifyPage):
         },
         can_show_popup=True,
         icon="mdi:email-outline",
+        options=[
+            PageOption(
+                key="icon_color",
+                kind="color",
+                label=_("Icon color"),
+                description=_("Leave empty to use the theme color."),
+            ),
+        ],
         preview_kwargs={"notification": _("Example notification: your message text appears here.")},
     )
 
@@ -83,7 +85,6 @@ class NotifyPage(CommonNotifyPage):
         self._total_pages = 0
         self._btn_left = ""
         self._btn_right = ""
-        self._notif_type = NotifType.INFO
         self._button_callback_fnc = None
         self._close_callback_fnc = None
 
@@ -93,7 +94,6 @@ class NotifyPage(CommonNotifyPage):
 
     def start_panel(self, panel: HAUIPanel) -> None:
         self._current_page = 0
-        self._notif_type = panel.get("notif_type", NotifType.INFO)
         self._icon = parse_icon(panel.get("icon", ""))
         self._notification = parse_notification_text(panel.get("notification", ""))
         self._btn_left = parse_icon(panel.get("btn_left", ""))
@@ -142,8 +142,9 @@ class NotifyPage(CommonNotifyPage):
         self.set_title(self._title)
 
         if self._icon:
-            icon_color_key = _NOTIF_TYPE_COLORS.get(self._notif_type, "component_text")
-            icon_color = panel.get("icon_color", self.get_color(icon_color_key))
+            icon_color = panel.get("icon_color", None)
+            if icon_color is None or icon_color == "":
+                icon_color = self.get_color("component_text")
             self.set_component_text_color(self.COMPONENTS.t_icon, icon_color)
             self.set_component_text(self.COMPONENTS.t_icon, self._icon)
             self.show_component(self.COMPONENTS.t_icon)

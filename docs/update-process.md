@@ -882,6 +882,39 @@ the timeout again after the restored page is displayed.
 - The firmware's consolidated `update_display` script also turns the display
   off at its configured timeout when automatic dimming is disabled.
 
+#### 20. Notification types replaced by icon colour and sound
+
+The notification `type` (`info`, `warning`, `critical`) is gone. A notification
+now carries a generic `icon_color` and `sound`:
+
+| Old | Use instead |
+|-----|-------------|
+| `type: info` | `icon_color: ""` (the theme's text colour) and `sound: notification` |
+| `type: warning` | `icon_color: "#f69d31"` and `sound: notification` |
+| `type: critical` | `icon_color: "#4aa5ee"` and `sound: alert` |
+
+- `nspanel_haui.send_notification` replaces `type` with `icon_color` and
+  `sound`. `icon_color` accepts `#rrggbb`, an RGB565 number, `[r, g, b]` or an
+  integer string; empty uses the theme's `component_text` colour.
+- `sound` is any `play_sound` name (`startup`, `tone`, `tone_up`, `tone_down`,
+  `seq_up`, `seq_down`, `notification`, `alert`, `alert_fast`, `elise`) or
+  `none` for silence. The default is `notification`.
+- A persistent notification now forces its popup open on **every** path,
+  including the ESPHome action, and re-opens over the idle page. Quiet hours
+  still keep the display dark. The `critical`-only idle guard was removed.
+- The HA `nspanel_haui.notification` event replaces `notif_type` with
+  `icon_color` and `sound`.
+- The ESPHome `send_notification` action gained the required `icon_color` and
+  `sound` variables. Update custom YAML that calls the action: pass
+  `icon_color: ""` and `sound: "notification"` to keep the old `info`
+  behaviour, or `sound: "alert"` for the old `critical` sound. A panel still
+  running a firmware build without the variables sends the old payload, which
+  this hub release still accepts: the icon uses the theme's text colour and the
+  sound defaults to `notification`.
+- The [preset notification script](services.md#preset-notification-script)
+  recreates the old `info`/`warning`/`alert`/`critical`/`silent` combinations
+  and can be called from existing automations.
+
 ### Older firmware
 
 Panels below 0.4.4 need one manual flash before the hub can update them:

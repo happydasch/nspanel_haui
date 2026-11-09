@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from custom_components.nspanel_haui.haui.page.notify import _FNC_NEXT_PAGE, _TEXT_BOXES, NotifyPage
+from custom_components.nspanel_haui.haui.utils.color import parse_color_value
 from custom_components.nspanel_haui.haui.utils.text import fit_text
 
 LAYOUTS = Path(__file__).resolve().parent.parent / "custom_components/nspanel_haui/frontend/virtual"
@@ -63,7 +64,7 @@ class _Panel:
         return False
 
 
-def _build_page(notification: str, notif_type: str = "info") -> NotifyPage:
+def _build_page(notification: str) -> NotifyPage:
     page = NotifyPage(_App(), {"page_id": 4})
     page.cmds = []
     page.send_cmd = page.cmds.append
@@ -73,7 +74,6 @@ def _build_page(notification: str, notif_type: str = "info") -> NotifyPage:
     page._btn_left = ""
     page._btn_right = ""
     page._text_size = "auto"
-    page._notif_type = notif_type
     page.set_function_component(
         page.COMPONENTS.fnc_right_sec,
         page.FNC_BTN_R_SEC,
@@ -181,8 +181,28 @@ def test_stop_panel_runs_the_close_callback_and_keeps_notification_page_hold():
     assert page.suspends_auto_page() is True
 
 
-def test_critical_type_colours_icon_differently():
-    page = _build_page("Short message", notif_type="critical")
+def test_explicit_icon_color_colours_the_icon():
+    page = _build_page("Short message")
+    page.get_color = lambda key: {
+        "component_text": 1,
+        "header_accent": 2,
+        "component_active": 3,
+        "header_background": 4,
+        "background": 5,
+    }.get(key, 0)
+
+    class _ColoredPanel(_Panel):
+        def get(self, key, default=None):
+            return "#4aa5ee" if key == "icon_color" else default
+
+    page.render_panel(_ColoredPanel())
+
+    expected = parse_color_value("#4aa5ee")
+    assert f"tIcon.pco={expected}" in " ".join(page.cmds)
+
+
+def test_icon_uses_the_theme_text_color_without_an_icon_color():
+    page = _build_page("Short message")
     page.get_color = lambda key: {
         "component_text": 1,
         "header_accent": 2,
@@ -193,7 +213,7 @@ def test_critical_type_colours_icon_differently():
 
     page.render_panel(_Panel())
 
-    assert "tIcon.pco=3" in " ".join(page.cmds)
+    assert "tIcon.pco=1" in " ".join(page.cmds)
 
 
 def test_no_icon_hides_icon_component():

@@ -131,14 +131,6 @@ class ESPCommand(StrEnum):
     GOTO_PAGE = "esphome.goto_page"
 
 
-class NotifType(StrEnum):
-    """Notification severity types used for color and sound behavior."""
-
-    INFO = "info"
-    WARNING = "warning"
-    CRITICAL = "critical"
-
-
 class FirmwareUpdateChannel(StrEnum):
     """Release channel used by the update controller.
 
@@ -167,6 +159,25 @@ class NotifEvent(StrEnum):
     NOTIF_ADD = "notif_add"
     NOTIF_REMOVE = "notif_remove"
     NOTIF_CLEAR = "notif_clear"
+
+
+# Sound names the firmware's ``play_sound`` script understands (see
+# ``esphome/nspanel_haui/scripts_common.yaml``).  Keep both lists in sync.
+SOUND_NAMES: frozenset[str] = frozenset(
+    {
+        "startup",
+        "tone",
+        "tone_up",
+        "tone_down",
+        "seq_up",
+        "seq_down",
+        "notification",
+        "alert",
+        "alert_fast",
+        "elise",
+    }
+)
+DEFAULT_NOTIFICATION_SOUND = "notification"
 
 
 class ServerRequest(StrEnum):

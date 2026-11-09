@@ -264,31 +264,31 @@ data:
 
 ### `nspanel_haui.send_notification`
 
-Show a notification on the panel with a title, message, severity level, and
-icon. Notifications stay in the queue until they are dismissed on the panel,
+Show a notification on the panel with a title, message, icon, icon colour and
+sound. Notifications stay in the queue until they are dismissed on the panel,
 replaced, or cleared — unless a `timeout` is given, which auto-dismisses the
 notification that many seconds after it is queued (including while it waits in
 the queue). Omitting `timeout` or setting it to `0` disables auto-dismissal.
-`persistent` loops the alert sound and re-opens the popup about every 60 seconds
-until dismissed or timed out; it opens immediately and `timeout` still applies
-to it. `force_show` also opens the popup immediately, but never takes the place
-of a notification popup or list that is already on screen: the new notification
-waits in the queue and opens when the current one is dismissed. The queue holds
-up to 50 notifications; when it is full, the oldest one is dropped. While the
-idle page is shown, only a `critical` persistent notification forces its popup
-over it; other severities stay queued and appear as soon as the user returns to
-a real panel. Notification sounds play only when the device's
-`sound_on_notification` setting is on; it is off by default
+`persistent` opens the notification immediately, loops its `sound` and re-opens
+the popup about every 60 seconds until dismissed or timed out; `timeout` still
+applies to it. Any persistent notification may re-open its popup over the idle
+page; quiet hours still keep the display dark. `force_show` also opens the popup
+immediately, but never takes the place of a notification popup or list that is
+already on screen: the new notification waits in the queue and opens when the
+current one is dismissed. The queue holds up to 50 notifications; when it is
+full, the oldest one is dropped. Notification sounds play only when the
+device's `sound_on_notification` setting is on; it is off by default
 ([Device settings → Notifications](configuration/device.md#notifications)).
 When no icon is supplied, the popup shows no icon and the message uses the full
-text width, so more of it fits on each page. The severity colours the icon when
-one is set, so without an icon it is not visible on the popup. See
+text width, so more of it fits on each page. `icon_color` colours the icon when
+one is set; an empty value keeps the theme's text colour. See
 [Notifications](device.md#notifications) for
 how notifications are viewed and dismissed on the panel. The ESPHome firmware
-also exposes a `send_notification` action (title/message/icon/persistent/text_size,
-all required — ESPHome 2026.10 has no optional action variables — and without
-severity/force-show/timeout); standard `notify` entities also have no timeout
-field. Use this service when those options are needed.
+also exposes a `send_notification` action (`title`, `message`, `icon`,
+`persistent`, `text_size`, `icon_color`, `sound` — all required, because
+ESPHome 2026.10 has no optional action variables — and without
+force-show/timeout); standard `notify` entities also have no timeout field. Use
+this service when those options are needed.
 
 | Field | Required | Default | Description |
 |-------|----------|---------|-------------|
@@ -296,8 +296,9 @@ field. Use this service when those options are needed.
 | `title` | yes | — | Notification headline |
 | `message` | no | `""` | Body text (can be empty for a title-only alert). Line breaks (`\n`) render as line breaks on the display |
 | `icon` | no | `""` | Material Design Icon (e.g. `"mdi:bell"`). When omitted, no icon is shown on the popup |
-| `type` | no | `"info"` | Severity level — `"info"`, `"warning"`, or `"critical"`. Sets the icon colour in the popup; `critical` also plays the `alert` sound instead of `notification` |
-| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel or its timeout expires. While the idle page is shown, only a `critical` persistent notification interrupts it |
+| `icon_color` | no | `""` | Icon colour as `#rrggbb`, an RGB565 number, `[r, g, b]` or an integer string. Empty uses the theme's `component_text` colour. Only the icon changes; header and background keep their theme colours |
+| `sound` | no | `"notification"` | Sound played for the notification: `startup`, `tone`, `tone_up`, `tone_down`, `seq_up`, `seq_down`, `notification`, `alert`, `alert_fast`, `elise`, or `none` for silence. Plays only when `sound_on_notification` is on |
+| `persistent` | no | `false` | When `true`, the notification opens immediately, its sound loops every `persistent_sound_interval` seconds and its popup re-opens about every 60 seconds until dismissed on the panel or its timeout expires. It may re-open over the idle page; quiet hours still keep the display dark |
 | `force_show` | no | `false` | When `true`, opens the notification panel immediately, unless a notification popup or list is already open — then it waits in the queue |
 | `text_size` | no | `"auto"` | Popup body text size — `"auto"` (the largest font that fits the whole message on one page) or a font size `1`-`3`; text that does not fit is paged |
 | `timeout` | no | — (none) | Seconds from queueing until the notification auto-dismisses, even if it has not yet been shown (1–3600). Left out or set to `0`, it stays queued until dismissed on the panel |
@@ -316,8 +317,138 @@ data:
   title: Doorbell
   message: Someone is at the front door
   icon: mdi:bell
-  type: warning
+  icon_color: "#f69d31"
+  sound: alert
 ```
+
+#### Preset notification script
+
+The old severity field (`type`) is gone; icon colour and sound are generic
+fields now. This script applies the previous presets in Home Assistant, so
+automations can keep calling by type. Create it as a script (for example with
+the alias **NSPanel Notify**) and call `script.nspanel_notify`:
+
+| `type` | `icon_color` | `sound` | `persistent` | `force_show` |
+|--------|--------------|---------|--------------|--------------|
+| `info` | `""` (theme text) | `notification` | `false` | `false` |
+| `warning` | `#f69d31` | `notification` | `false` | `false` |
+| `alert` | `#4aa5ee` | `alert` | `false` | `true` |
+| `critical` | `#4aa5ee` | `alert` | `true` | `true` |
+| `silent` | `""` (theme text) | `none` | `false` | `false` |
+
+```yaml
+alias: NSPanel Notify
+description: >-
+  Show a notification on an NSPanel display. `type` picks the icon colour, the
+  sound, and whether the notification is persistent.
+icon: mdi:tablet
+fields:
+  device:
+    name: Target display
+    description: Which NSPanel shows the message.
+    required: true
+    selector:
+      device:
+        integration: nspanel_haui
+  title:
+    name: Title
+    description: Short notification title shown on the panel. Keep it to one word where possible; a title wider than the header widget is cut to fit and ends in `..`.
+    required: true
+    selector:
+      text:
+        type: text
+  message:
+    name: Message
+    description: Optional body below the title. Empty = title only.
+    default: ""
+    selector:
+      text:
+        type: text
+        multiline: true
+  icon:
+    name: Icon
+    description: Material Design icon (e.g. mdi:bell). Empty = no icon shown.
+    default: ""
+    selector:
+      icon:
+  type:
+    name: Type
+    description: >-
+      info, warning, alert, critical or silent. Sets the icon colour and the
+      sound; critical also loops the sound until dismissed.
+    default: info
+    selector:
+      select:
+        options: [info, warning, alert, critical, silent]
+  timeout:
+    name: Auto-dismiss after
+    description: >-
+      Optional timeout in seconds, counted from when the notification is queued.
+      A notification can expire while waiting to be shown. Use 0 to keep it
+      until dismissed on the panel.
+    default: 0
+    selector:
+      number:
+        min: 0
+        max: 3600
+        unit_of_measurement: s
+        mode: box
+  text_size:
+    name: Text size
+    description: '"auto" or a font size 1-3.'
+    default: auto
+    selector:
+      select:
+        options: ["auto", "1", "2", "3"]
+variables:
+  presets:
+    info:
+      icon_color: ""
+      sound: notification
+      persistent: false
+      force_show: false
+    warning:
+      icon_color: "#f69d31"
+      sound: notification
+      persistent: false
+      force_show: false
+    alert:
+      icon_color: "#4aa5ee"
+      sound: alert
+      persistent: false
+      force_show: true
+    critical:
+      icon_color: "#4aa5ee"
+      sound: alert
+      persistent: true
+      force_show: true
+    silent:
+      icon_color: ""
+      sound: none
+      persistent: false
+      force_show: false
+sequence:
+  - variables:
+      preset: "{{ presets.get(type | default('info', true) | lower, presets.info) }}"
+  - action: nspanel_haui.send_notification
+    data:
+      device: "{{ device }}"
+      title: "{{ title }}"
+      message: "{{ message | default('') }}"
+      icon: "{{ icon | default('') }}"
+      icon_color: "{{ preset.icon_color }}"
+      sound: "{{ preset.sound }}"
+      persistent: "{{ preset.persistent }}"
+      force_show: "{{ preset.force_show }}"
+      timeout: "{{ timeout | default(0) | int(0) }}"
+      text_size: "{{ text_size | default('auto') }}"
+mode: single
+```
+
+The colours are the default palette's values (`header_accent` and
+`component_active`). A custom theme should call `nspanel_haui.send_notification`
+directly with the theme's own `icon_color`; the script's presets do not read the
+device theme.
 
 ### `nspanel_haui.reset_last_interaction`
 
@@ -355,10 +486,10 @@ Two entities are created per device:
 | `notify.<device_name>_persistent_notification` | Persistent notification (sound loops until dismissed on the panel; opens immediately) |
 
 `notify.send_message` only takes a title and a message, so these entities
-cannot set a severity, force-show, or timeout — use
-`nspanel_haui.send_notification` for those. When no title is given, "Home Assistant"
-is used. The entities are only created once the device is linked to its ESPHome
-device.
+cannot set an icon colour, sound, force-show, or timeout — use
+`nspanel_haui.send_notification` for those. When no title is given, "Home
+Assistant" is used. The entities are only created once the device is linked to
+its ESPHome device.
 
 **Example:**
 
@@ -375,14 +506,15 @@ target:
 
 ## Sending notifications from Assist / voice assistants (LLM)
 
-Voice assistants and LLM integrations call a **script** that wraps
-`nspanel_haui.send_notification`. Expose the script to the conversation agent
-so the assistant can show messages on a chosen panel. The script maps friendly
-panel keys to the panels' device-registry IDs (NSPanel HAUI or ESPHome device) and exposes
-the notification options as script fields:
+Voice assistants and LLM integrations call a **script** that wraps the
+[preset notification script](#preset-notification-script). Expose the script to
+the conversation agent so the assistant can show messages on a chosen panel.
+The script below maps friendly panel keys to the panels' device-registry IDs
+(NSPanel HAUI or ESPHome device) and exposes the notification options as script
+fields:
 
 ```yaml
-alias: NSPanel Notify
+alias: NSPanel Notify Voice
 description: >-
   Show a short title and optional message on the NSPanel display as a popup
   notification. Use when the user asks to show a message, text or notification
@@ -416,34 +548,20 @@ fields:
           - value: bedroom
             label: Bedroom
   type:
-    name: Severity
+    name: Type
     description: >-
-      info (default), warning or critical. Colours the icon when shown;
-      critical plays the alert sound.
+      info (default), warning, alert, critical or silent. Sets the icon colour
+      and sound; critical loops the sound until dismissed.
     default: info
     selector:
       select:
-        options: [info, warning, critical]
+        options: [info, warning, alert, critical, silent]
   icon:
     name: Icon
     description: Material Design icon (e.g. mdi:bell). Empty = no icon shown.
     default: ""
     selector:
       icon:
-  persistent:
-    name: Loop sound
-    description: Loop the alert sound until dismissed.
-    default: false
-    selector:
-      boolean:
-  force_show:
-    name: Force show
-    description: >-
-      Open the popup immediately instead of waiting for the notification
-      indicator.
-    default: true
-    selector:
-      boolean:
   timeout:
     name: Auto-dismiss after
     description: >-
@@ -457,12 +575,19 @@ fields:
         max: 3600
         unit_of_measurement: s
         mode: box
+  text_size:
+    name: Text size
+    description: "\"auto\" or a font size 1-3."
+    default: auto
+    selector:
+      select:
+        options: ["auto", "1", "2", "3"]
 variables:
   nspanel_devices:
     salon: "0123abcd..."   # device-registry ID of the panel (HAUI or ESPHome device)
     bedroom: "4567efgh..."
 sequence:
-  - action: nspanel_haui.send_notification
+  - action: script.nspanel_notify
     data:
       title: "{{ title }}"
       message: "{{ message | default('') }}"
@@ -471,18 +596,17 @@ sequence:
         nspanel_devices.salon) }}
       type: "{{ type | default('info') }}"
       icon: "{{ icon | default('') }}"
-      persistent: "{{ persistent | default(false) | bool }}"
-      force_show: "{{ force_show | default(true) | bool }}"
       timeout: "{{ timeout | default(0) | int(0) }}"
+      text_size: "{{ text_size | default('auto') }}"
 mode: single
 ```
 
-The service accepts `type`, `icon`, `persistent`, `force_show` and `timeout`,
-so one script covers the full range of behaviour: an info popup (the defaults),
-a warning with a custom icon, or a critical alert that loops the sound and
-re-opens the popup periodically until dismissed or timed out. Expose the script
-to the conversation agent; the LLM reads its description and field descriptions
-when deciding how to call it.
+The preset script expands `type` into `icon_color`, `sound`, `persistent` and
+`force_show`, so one script covers the full range of behaviour: an info popup
+(the defaults), a warning with a custom icon, an alert that opens immediately,
+or a critical alert that loops the sound and re-opens the popup periodically
+until dismissed or timed out. Expose the script to the conversation agent; the
+LLM reads its description and field descriptions when deciding how to call it.
 
 ---
 
@@ -587,7 +711,7 @@ Assistant event bus** so automations can react to what happens on the panel.
 | Event | Payload | When |
 |-------|---------|------|
 | `nspanel_haui.page_changed` | `device`, `action` (`opened`/`closed`), `panel` (key), `type`, `title`, `page` (Nextion page name) | Whenever a panel is opened through the render pipeline or closed |
-| `nspanel_haui.notification` | `device`, `id` (unique per notification; a repeat that replaces a queued copy gets a new one), `state` (`added`/`removed`), `title`, `message`, `icon`, `notif_type`, `persistent`, `timeout` (seconds or `null`) | Whenever a notification is queued or removed (dismissed, expired, replaced, cleared, or dropped from a full queue) |
+| `nspanel_haui.notification` | `device`, `id` (unique per notification; a repeat that replaces a queued copy gets a new one), `state` (`added`/`removed`), `title`, `message`, `icon`, `icon_color` (the configured colour, or `null` for the theme's text colour), `sound` (`""` when silent), `persistent`, `force_show` (`true` for every persistent notification), `timeout` (seconds or `null`) | Whenever a notification is queued or removed (dismissed, expired, replaced, cleared, or dropped from a full queue) |
 | `nspanel_haui.connection_changed` | `device`, `connected` (bool) | Whenever the hub's connection to the panel device changes |
 | `nspanel_haui.display_update_changed` | `device`, `connected`, `enabled` (updates enabled for the device), `installed_version` (TFT), `latest_version` (TFT the firmware needs), `state` (`idle`/`checking`/`installing`/`done`/`error`), `update_reason` (why no TFT is offered), `last_error` | Whenever the display's TFT version or the TFT update state changes (drives the **HAUI Display** update entity) |
 | `nspanel_haui.firmware_update_changed` | `device`, `connected`, `enabled`, `installed_version`, `latest_version` (`null` when no firmware can be offered), `installing`, `reason` (why no firmware is offered), `last_error` | Whenever the firmware versions or the firmware install state change (drives the **HAUI Firmware** update entity) |
@@ -608,6 +732,6 @@ trigger:
       notif_device: "{{ trigger.event.data.device }}"
 ```
 
-Useful patterns: forward `critical` notifications to your phone or a
-messaging service, log doorbell rings, or reset a "someone is home" flag
-from a panel button.
+Useful patterns: forward persistent notifications (`persistent: true`) or
+alerts with `sound: alert` to your phone or a messaging service, log doorbell
+rings, or reset a "someone is home" flag from a panel button.

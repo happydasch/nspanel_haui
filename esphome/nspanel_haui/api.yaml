@@ -185,9 +185,11 @@ api:
 
     # Action to send a notification.
     # ESPHome 2026.10 has no optional action variables, so every parameter is
-    # required: pass an empty ``icon`` when no icon is wanted and ``false`` /
-    # ``"auto"`` for the defaults.  (The HA service and notify entities expose
-    # the same fields as optional.)
+    # required: pass empty strings for no icon colour and "none" for a silent
+    # notification, ``false`` / ``"auto"`` for the defaults.  (The HA service
+    # and notify entities expose the same fields as optional.)  Severity does
+    # not exist: ``icon_color`` and ``sound`` replace it, and the hub makes any
+    # persistent notification open immediately and loop its sound.
     - action: send_notification
       variables:
         title: string
@@ -197,8 +199,12 @@ api:
         persistent: bool
         # "auto" or a font size 1-3.
         text_size: string
+        # "#rrggbb" or an RGB565 number; empty = theme text colour.
+        icon_color: string
+        # play_sound name; empty or "none" = silent.
+        sound: string
       then:
         - lambda: |-
             id(send_notification).execute(
-              title, message, icon, persistent, text_size
+              title, message, icon, persistent, text_size, icon_color, sound
             );

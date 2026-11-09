@@ -15,7 +15,7 @@ import voluptuous as vol
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
-from .haui.mapping.const import NotifType
+from .haui.mapping.const import DEFAULT_NOTIFICATION_SOUND, SOUND_NAMES
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant, ServiceCall
@@ -61,6 +61,17 @@ SERVICE_UPDATE_FIRMWARE_SCHEMA = vol.Schema(
         vol.Exclusive("url", "firmware_source"): cv.url,
     }
 )
+# A colour in one of ``parse_color_value``'s formats: "#rrggbb", an RGB565
+# int, [r, g, b], or "" for the popup's theme text colour.
+_ICON_COLOR_SCHEMA = vol.Any(
+    "",
+    vol.All(vol.Coerce(int), vol.Range(min=0, max=65535)),
+    vol.Match(r"^#([0-9a-fA-F]{6})$"),
+    vol.All(
+        [vol.All(vol.Coerce(int), vol.Range(min=0, max=255))],
+        vol.Length(min=3, max=3),
+    ),
+)
 SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
     {
         vol.Optional("device", default=None): vol.Any(str, None),
@@ -68,9 +79,8 @@ SERVICE_SEND_NOTIFICATION_SCHEMA = vol.Schema(
         vol.Optional("message", default=""): cv.string,
         vol.Optional("icon", default=""): cv.string,
         vol.Optional("persistent", default=False): cv.boolean,
-        vol.Optional("type", default=NotifType.INFO): vol.In(
-            [member.value for member in NotifType]
-        ),
+        vol.Optional("icon_color", default=""): _ICON_COLOR_SCHEMA,
+        vol.Optional("sound", default=DEFAULT_NOTIFICATION_SOUND): vol.In([*SOUND_NAMES, "none"]),
         vol.Optional("force_show", default=False): cv.boolean,
         vol.Optional("text_size", default="auto"): vol.Any(
             "auto", vol.All(vol.Coerce(int), vol.Range(min=1, max=3))
@@ -247,23 +257,17 @@ async def _handle_idle(hass: HomeAssistant, call: ServiceCall) -> None:
 
 
 async def _handle_send_notification(hass: HomeAssistant, call: ServiceCall) -> None:
-    # Goes straight to the controller: the ESPHome send_notification actions
-    # only carry title/message/icon/persistent/text_size, so type and
-    # force_show would be lost.
+    # Goes straight to the controller: the ESPHome send_notification action
+    # cannot carry force_show or timeout.
     def _notify_action(app: Any, dev_name: str) -> None:
-        persistent = call.data.get("persistent", False)
-        force_show = call.data.get("force_show", False)
-        # A persistent notification must be visible immediately, otherwise it
-        # only sits in the queue and users never see it appear on the panel.
-        if persistent and not force_show:
-            force_show = True
-        app.controller["notification"].send_notification(
+        app.controller["notification"].add_notification(
             title=call.data["title"],
             message=call.data.get("message", ""),
             icon=call.data.get("icon", ""),
-            persistent=persistent,
-            notif_type=call.data.get("type", NotifType.INFO),
-            force_show=force_show,
+            persistent=call.data.get("persistent", False),
+            force_show=call.data.get("force_show", False),
+            icon_color=call.data.get("icon_color"),
+            sound=call.data.get("sound", DEFAULT_NOTIFICATION_SOUND),
             text_size=call.data.get("text_size", "auto"),
             timeout=call.data.get("timeout"),
         )

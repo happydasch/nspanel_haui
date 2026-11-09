@@ -231,7 +231,8 @@ def test_notifications_view_returns_queued_notifications():
         message="Someone is here",
         icon="mdi:bell",
         persistent=True,
-        notif_type="critical",
+        icon_color="#4aa5ee",
+        sound="alert",
         force_show=True,
         text_size=2,
         timeout=30,
@@ -250,7 +251,8 @@ def test_notifications_view_returns_queued_notifications():
             "title": "Doorbell",
             "message": "Someone is here",
             "icon": "mdi:bell",
-            "notif_type": "critical",
+            "icon_color": "#4aa5ee",
+            "sound": "alert",
             "persistent": True,
             "force_show": True,
             "text_size": 2,
@@ -265,7 +267,6 @@ def test_notifications_view_dismisses_notification_on_worker():
         message="Someone is here",
         icon="mdi:bell",
         persistent=False,
-        notif_type="info",
         notif_id="b2",
     )
     app = _NotificationApp("kitchen", [notification])

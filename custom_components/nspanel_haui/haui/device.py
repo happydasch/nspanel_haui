@@ -9,18 +9,12 @@ from .abstract.haui_base import HAUIBase
 from .abstract.haui_event import HAUIEvent
 from .controller.notification import Notification
 from .device_config import is_portrait_model
-from .mapping.const import AUTO_SWITCHES, ESPAction, ESPEvent, NotifEvent, NotifType
+from .mapping.const import AUTO_SWITCHES, ESPAction, ESPEvent, NotifEvent
 from .mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING, SYS_PANEL_MAPPING
 
 if TYPE_CHECKING:
     from ..hub.app import NSPanelHAUI
 from .mapping.const import SysPanelKey
-
-
-def _notification_sound(notif_type: str) -> str:
-    """Name of the ESPHome sound played for a notification of this type."""
-    return "alert" if notif_type == NotifType.CRITICAL else "notification"
-
 
 # How long after a touch-initiated idle-page open the residual touch events
 # of the triggering interaction are ignored.  The ESP32 publishes touch_start
@@ -742,20 +736,6 @@ class HAUIDevice(HAUIBase):
 
     # public
 
-    def notify(
-        self,
-        title: str,
-        message: str = "",
-        icon: str = "",
-        persistent: bool = False,
-        notif_type: str = NotifType.INFO,
-        force_show: bool = False,
-    ) -> None:
-        """Send a notification via the notification controller."""
-        self.app.controller["notification"].send_notification(
-            title, message, icon, persistent, notif_type, force_show
-        )
-
     def wake_for_notification(self) -> None:
         """Wake the display for a notification popup that opened on its own.
 
@@ -945,21 +925,23 @@ class HAUIDevice(HAUIBase):
         elif event.name == NotifEvent.NOTIF_ADD:
             if not isinstance(event.value, Notification):
                 raise TypeError(f"Notification event value must be a Notification: {event.value!r}")
-            persistent, notif_type = event.value.persistent, event.value.notif_type
             if self.get("sound_on_notification"):
-                if persistent:
+                if event.value.persistent:
                     # Started even inside quiet hours: the loop stays silent
                     # there and sounds once they end, until dismissed.
                     self._start_persistent_sound()
-                elif self._is_quiet_hours():
-                    self.log("Quiet hours active — suppressing notification sound", level="DEBUG")
-                else:
-                    self.play_sound(_notification_sound(notif_type))
-        elif (
-            event.name in (NotifEvent.NOTIF_REMOVE, NotifEvent.NOTIF_CLEAR)
-            and not self.app.controller["notification"].has_persistent_notifications()
-        ):
-            self._stop_persistent_sound()
+                elif event.value.sound:
+                    if self._is_quiet_hours():
+                        self.log(
+                            "Quiet hours active — suppressing notification sound", level="DEBUG"
+                        )
+                    else:
+                        self.play_sound(event.value.sound)
+        elif event.name in (NotifEvent.NOTIF_REMOVE, NotifEvent.NOTIF_CLEAR):
+            # Stop as soon as no audible persistent notification remains; a
+            # silent persistent entry must not keep the loop alive.
+            if not self._persistent_sound():
+                self._stop_persistent_sound()
 
     def arm_idle_touch_grace(self) -> None:
         """Ignore the residual touch events of the touch that opened the idle page.
@@ -1060,25 +1042,33 @@ class HAUIDevice(HAUIBase):
             self.app.get_item(entity_id).call_service("toggle")
 
     def _persistent_sound(self) -> str:
-        """The loop sound: the alert while any persistent notification is critical."""
+        """The loop sound: the first queued audible persistent notification's sound.
+
+        Silent persistent notifications neither mute the loop nor block a
+        later audible one; when the current one leaves the queue, the next
+        audible sound takes over.
+        """
         notifications = self.app.controller["notification"].get_notifications()
-        if any(n.persistent and n.notif_type == NotifType.CRITICAL for n in notifications):
-            return _notification_sound(NotifType.CRITICAL)
-        return _notification_sound(NotifType.INFO)
+        return next((n.sound for n in notifications if n.persistent and n.sound), "")
 
     def _play_persistent_sound(self) -> None:
         """Play one round of the persistent alert, unless quiet hours are active."""
-        if not self._is_quiet_hours():
-            self.play_sound(self._persistent_sound())
+        if self._is_quiet_hours():
+            return
+        sound = self._persistent_sound()
+        if sound:
+            self.play_sound(sound)
 
     def _persistent_sound_callback(self, kwargs: Any) -> None:
-        if self.app.controller["notification"].has_persistent_notifications():
+        if self._persistent_sound():
             self._play_persistent_sound()
         else:
             self._stop_persistent_sound()
 
     def _start_persistent_sound(self) -> None:
         if self._persistent_sound_handle is not None:
+            return
+        if not self._persistent_sound():
             return
         interval = self.get("persistent_sound_interval")
         self._play_persistent_sound()

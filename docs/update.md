@@ -89,6 +89,31 @@ The breaking changes of each release, the 0.3.x migration and the steps for
 older firmware are collected at the end of
 [Update Process](update-process.md#upgrading).
 
+### Notification types replaced by icon colour and sound
+
+The `type` (`info`/`warning`/`critical`) field is gone from
+`nspanel_haui.send_notification`. Use the generic fields instead:
+
+- `icon_color` — `#rrggbb`, an RGB565 number, `[r, g, b]` or an integer
+  string; empty keeps the theme's text colour.
+- `sound` — `startup`, `tone`, `tone_up`, `tone_down`, `seq_up`, `seq_down`,
+  `notification`, `alert`, `alert_fast`, `elise`, or `none` for silence.
+
+Persistent notifications now open immediately on every path (service, notify
+entities, ESPHome action) and may re-open their popup over the idle page;
+quiet hours still keep the display dark. The
+[preset notification script](services.md#preset-notification-script) recreates
+the old presets. The `nspanel_haui.notification` event replaces `notif_type`
+with `icon_color` and `sound`.
+
+The ESPHome `send_notification` action gained two required variables:
+`icon_color` and `sound`. Custom YAML calling the action must pass them;
+`icon_color: ""` and `sound: "notification"` keep the old `info` behaviour, and
+`sound: "alert"` matches the old `critical` sound. Panels still running a
+firmware build without the new variables keep sending the old payload, and the
+hub accepts it for this release: a missing icon colour uses the theme's text
+colour and a missing sound plays `notification`.
+
 ### Automatic page switching moved to the hub
 
 NSPanel HAUI 0.4.5 removes the firmware's **Use Auto-Page** switch, **Timeout

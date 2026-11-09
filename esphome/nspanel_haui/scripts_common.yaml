@@ -15,11 +15,13 @@ script:
       icon: string        # pass empty string "" to omit icon
       persistent: bool    # true = notification must be dismissed to stop sound
       text_size: string   # "auto" (default) or a font size 1-3
+      icon_color: string  # "#rrggbb" or an RGB565 number; empty = theme text color
+      sound: string       # play_sound name; empty or "none" = silent
     then:
       - lambda: |-
-          ESP_LOGV("haui", "Script: send_notification: %s - %s - %s - persistent:%i - text_size:%s", title.c_str(), message.c_str(), icon.c_str(), persistent, text_size.c_str());
+          ESP_LOGV("haui", "Script: send_notification: %s - %s - %s - persistent:%i - text_size:%s - icon_color:%s - sound:%s", title.c_str(), message.c_str(), icon.c_str(), persistent, text_size.c_str(), icon_color.c_str(), sound.c_str());
           const json::json_build_t payload = [
-              title, message, icon, persistent, text_size
+              title, message, icon, persistent, text_size, icon_color, sound
           ](JsonObject root) {
             root["title"] = title;
             root["message"] = message;
@@ -30,6 +32,10 @@ script:
             if (!text_size.empty()) {
               root["text_size"] = text_size;
             }
+            if (!icon_color.empty()) {
+              root["icon_color"] = icon_color;
+            }
+            root["sound"] = sound;
           };
           std::string payload_str = json::build_json(payload);
           id(publish_event_native).execute("esphome.send_notification", payload_str);

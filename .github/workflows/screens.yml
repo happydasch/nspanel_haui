@@ -20,8 +20,8 @@ concurrency:
 
 jobs:
   screens:
-    # A cancelled firmware run was superseded by a newer push, whose own run
-    # triggers this workflow again.
+    # A cancelled firmware run was superseded by a newer dispatch, whose own
+    # run triggers this workflow again.
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion != 'cancelled'
     runs-on: ubuntu-latest
     steps:

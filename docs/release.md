@@ -145,10 +145,10 @@ the firmware's `esphome/nspanel_haui/version.yaml`), commits those two files as
 Marketplace downloads the *source archive of the tag*, and Home Assistant and the
 hub (`get_version()`) read the version from its manifest, so tagging the plain
 branch commit would ship a dev build that calls itself the stable version. That
-same versioned commit is pushed
-back onto the `dev` branch (its `[skip ci]` trailer keeps the bot push from
-starting CI), so the branch's tracked `version.yaml`
-carries the released dev version instead of lagging on the last stable release.
+same versioned commit is pushed back onto the `dev` branch (its `[skip ci]`
+trailer keeps the bot push from starting CI), so the branch's tracked
+`version.yaml` carries the released dev version instead of lagging on the last
+stable release.
 A dispatched build therefore leaves the tip of `dev` as a bot `[skip ci]`
 commit, so release prep stays on a `release/X.Y.Z` branch (see
 [Branches and cadence](#branches-and-cadence)).

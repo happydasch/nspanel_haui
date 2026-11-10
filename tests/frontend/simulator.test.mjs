@@ -9,6 +9,7 @@ import {
   loadPanelRender,
   previewRenderKey,
 } from '../../custom_components/nspanel_haui/frontend/previews/previewer.js';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 import {
   loadIconMap,
   loadLayout,
@@ -48,7 +49,8 @@ test('renderSimulatorScreen preserves the device aspect ratio and applies scale'
   const out = flat(renderSimulatorScreen(d, { scale: 0.5, iconName: () => null, pictureUrl: (id) => `p/${id}.webp` }));
   assert.match(out, /vp-screen" style="width:450px;height:320px/);
   assert.match(out, /pg-sim-scaler" style="width:450px;height:320px;transform:scale\(0.5\)/);
-  assert.match(out, /aspect-ratio:450\/320/);
+  assert.match(out, /pg-sim" style="width:225px;aspect-ratio:450\/320/);
+  assert.match(out, /pg-sim-scaler" style="width:450px;height:320px;transform:scale\(0.5\)/);
 });
 
 test('loadLayout and loadIconMap use an injected loader', () => {
@@ -96,20 +98,22 @@ test('the hub reveals the controls the bare HMI page hides', () => {
 
 function editorHost(reply) {
   const sent = [];
+  const hass = {
+    connection: {
+      sendMessagePromise: async (msg) => {
+        sent.push(msg);
+        return reply(msg);
+      },
+    },
+  };
   return {
     sent,
     entryId: 'entry1',
-    _selectedDevice: 'kitchen',
-    _deviceConfig: { home_panel: 'rooms' },
-    _devicePanels: () => [{ key: 'rooms', type: 'grid' }],
-    hass: {
-      connection: {
-        sendMessagePromise: async (msg) => {
-          sent.push(msg);
-          return reply(msg);
-        },
-      },
-    },
+    device: 'kitchen',
+    deviceConfig: { home_panel: 'rooms' },
+    panels: [{ key: 'rooms', type: 'grid' }],
+    deviceInfo: null,
+    api: createApiClient(() => hass),
   };
 }
 
@@ -139,7 +143,7 @@ test('a re-mounted card reuses its render until the device settings change', asy
   assert.equal(host.sent.length, 1);
 
   const before = previewRenderKey(host);
-  host._deviceConfig = { home_panel: 'rooms', locale: 'de_DE' };
+  host.deviceConfig = { home_panel: 'rooms', locale: 'de_DE' };
   assert.notEqual(previewRenderKey(host), before);
   await loadPanelRender(host, { ...panel, title: 'Memo' }, false);
   assert.equal(host.sent.length, 2);
@@ -160,7 +164,7 @@ test('an expired render is dropped and asked for again', async (t) => {
 });
 
 test('without a Home Assistant connection a card has no render', async () => {
-  assert.equal(await loadPanelRender({ entryId: 'entry1', _selectedDevice: 'kitchen' }, { type: 'grid' }, false), null);
+  assert.equal(await loadPanelRender({ entryId: 'entry1', device: 'kitchen' }, { type: 'grid' }, false), null);
 });
 
 test('a failed render rejects with the hub error and is not kept', async () => {

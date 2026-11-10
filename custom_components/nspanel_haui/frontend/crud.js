@@ -139,7 +139,7 @@ export async function doDelete(host) {
  * @param {number} index - panel index (-1 for add)
  */
 export async function saveFromData(host, panel, index) {
-  if (host._saving) return;
+  if (host.store.getState().hub.saving) return;
   host._error = null;
 
   const panels = host._devicePanels();
@@ -156,7 +156,7 @@ export async function saveFromData(host, panel, index) {
 
   // Only the popups can be replaced; the hub refuses a panel under the key
   // of System, Blank, Settings or About.
-  const fixedSysPanel = (host._panels?.system_panels || []).find(
+  const fixedSysPanel = host.store.getState().hub.systemPanels.find(
     (sp) => !sp.editable && sp.key.toLowerCase() === (panel.key || "").toLowerCase()
   );
   if (fixedSysPanel) {
@@ -299,8 +299,8 @@ export function toggleNavVisibility(host, panelKey) {
 
 /**
  * POST the store with `newPanels` (and `deviceConfig`) for the selected device.
- * Editor state (`_panels`, `_deviceConfig`) only changes once the server
- * accepts the save.
+ * The store only changes once the server accepts the save; the dialog closes
+ * here because that is UI state.
  *
  * `deviceName` defaults to the selected device.
  *
@@ -310,52 +310,18 @@ export async function savePanels(
   host, newPanels, toastMessage, deviceConfig = host._deviceConfig, deviceName = host._selectedDevice
 ) {
   if (!deviceName || !host.entryId) return false;
-  // Each save sends the whole store built from _panels, so a save started
-  // before the previous one returns would be built from stale data.
-  if (host._saving) {
-    host._showToast(t("Another save is still in progress"), "error");
-    return false;
+  const saved = await host.store.actions.savePanels({
+    panels: newPanels,
+    toastMessage,
+    deviceConfig,
+    deviceName,
+  });
+  if (saved) {
+    host._editingPanel = null;
+    host._editingPanelType = null;
+    host._error = null;
+  } else {
+    host._error = host.store.getState().hub.error;
   }
-
-  host._saving = true;
-  let saved = false;
-  try {
-    const payload = clone(host._panels);
-    if (!payload.devices) payload.devices = {};
-    if (!payload.devices[deviceName]) {
-      payload.devices[deviceName] = {};
-    }
-    payload.devices[deviceName].panels = newPanels;
-    if (deviceConfig) {
-      payload.devices[deviceName].config = clone(deviceConfig);
-    }
-
-    const resp = await host.hass.fetchWithAuth(
-      `/api/nspanel_haui/panels/${host.entryId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    if (resp.ok) {
-      host._panels = payload;
-      if (deviceConfig && deviceName === host._selectedDevice) host._deviceConfig = clone(deviceConfig);
-      host._editingPanel = null;
-      host._editingPanelType = null;
-      host._showToast(toastMessage, "success");
-      saved = true;
-    } else {
-      const err = await resp.json().catch(() => ({}));
-      host._error = err.message || `${t('Save failed')} (HTTP ${resp.status})`;
-      host._showToast(host._error, "error");
-    }
-  } catch (e) {
-    console.error("Save failed:", e);
-    host._error = e.message || t("Network error");
-    host._showToast(host._error, "error");
-  }
-  host._saving = false;
   return saved;
 }

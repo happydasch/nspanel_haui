@@ -5,8 +5,6 @@
  * (`host`) as its first parameter.
  */
 import { t } from './localize.js';
-import * as Api from './api.js';
-import { savePanels } from './crud.js';
 
 /**
  * Get the user-friendly display name for a device, falling back to the device key.
@@ -22,46 +20,13 @@ function _friendlyName(host, name) {
 export async function onDeviceManagerMoveDevice(host, e) {
   const { name, direction } = e.detail || {};
   if (!name || !direction) return;
-  const devices = host._panels.devices || {};
-  const deviceKeys = Object.keys(devices);
-  const idx = deviceKeys.indexOf(name);
-  if (idx < 0) return;
-  const swapIdx = idx + direction;
-  if (swapIdx < 0 || swapIdx >= deviceKeys.length) return;
-
-  const newKeys = [...deviceKeys];
-  [newKeys[idx], newKeys[swapIdx]] = [newKeys[swapIdx], newKeys[idx]];
-
-  const newDevices = {};
-  for (const key of newKeys) {
-    newDevices[key] = devices[key];
-  }
-  // savePanels posts the store built from _panels, so the new order goes in
-  // first and is taken back when the server rejects the save.
-  const previous = host._panels;
-  host._panels = { ...host._panels, devices: newDevices };
-  const friendly = _friendlyName(host, name);
-  const message = direction < 0
-    ? t('Device "{name}" moved up').replace('{name}', friendly)
-    : t('Device "{name}" moved down').replace('{name}', friendly);
-  if (!(await host._savePanels(host._devicePanels(), message))) host._panels = previous;
+  await host.store.actions.moveDevice(name, direction);
 }
 
 export async function onDeviceManagerToggleDevice(host, e) {
   const name = e.detail?.name;
   if (!name) return;
-  const dev = (host._panels.devices || {})[name];
-  if (!dev) return;
-  const config = dev.config || {};
-  const newEnabled = !(config.enabled !== false);
-  // savePanels commits editor state only once the server accepts the save.
-  await savePanels(
-    host,
-    dev.panels || [],
-    `"${_friendlyName(host, name)}" ${newEnabled ? t("enabled") : t("disabled")}`,
-    { ...config, enabled: newEnabled },
-    name
-  );
+  await host.store.actions.toggleDevice(name);
   host.requestUpdate();
 }
 
@@ -75,7 +40,7 @@ export function onDeviceManagerSettings(host, e) {
   const name = e.detail?.name;
   if (!name) return;
   host._showDeviceManager = false;
-  host._selectedDevice = name;
+  host.store.actions.selectDevice(name);
   host._loadDeviceConfig(name);
   host._openDeviceConfig();
   host.requestUpdate();
@@ -84,11 +49,12 @@ export function onDeviceManagerSettings(host, e) {
 export async function onDeviceManagerRemove(host, e) {
   const name = e.detail?.name;
   if (!name) return;
+  const friendly = _friendlyName(host, name);
   try {
-    await Api.removeDevice(host, name);
+    await host.api.devices.remove(host.entryId, name);
     // Reload so later saves don't write the removed device back to the store.
-    await Api.loadPanels(host);
-    host._showToast(t('Removed "{name}"').replace('{name}', _friendlyName(host, name)), "success");
+    await host.store.actions.loadPanels();
+    host._showToast(t('Removed "{name}"').replace('{name}', friendly), "success");
   } catch (err) {
     host._showToast(err.message || t("Failed to remove device"), "error");
   }
@@ -99,9 +65,9 @@ export async function onDeviceManagerAdd(host, e) {
   const device = e.detail?.device;
   if (!device) return;
   try {
-    await Api.addDevice(host, { devices: [device] });
+    await host.api.devices.add(host.entryId, [device]);
     // Reload so later saves include the new device instead of dropping it.
-    await Api.loadPanels(host);
+    await host.store.actions.loadPanels();
     host._showToast(t('Added "{name}"').replace('{name}', device.name), "success");
   } catch (err) {
     host._showToast(err.message || t("Failed to add device"), "error");
@@ -114,15 +80,16 @@ export async function onDeviceManagerScan(host, e) {
   if (!devices || !devices.length) return;
   try {
     // Batch-add all discovered devices in a single API call.
+    const known = host.store.getState().devices.byName;
     const batch = devices.map((d) => ({
       name: d.name || d.friendly_name,
       esphome_device_id: d.esphome_device_id || "",
       enabled: true,
-    })).filter((d) => d.name && !(host._panels?.devices?.[d.name]));
+    })).filter((d) => d.name && !known[d.name]);
     if (!batch.length) return;
-    await Api.addDevice(host, { devices: batch });
+    await host.api.devices.add(host.entryId, batch);
     // Reload so later saves include the new devices instead of dropping them.
-    await Api.loadPanels(host);
+    await host.store.actions.loadPanels();
     host._showToast(t("Added {count} device(s)").replace("{count}", batch.length), "success");
   } catch (err) {
     host._showToast(err.message || t("Failed to add devices"), "error");
@@ -136,8 +103,8 @@ export async function onDeviceManagerUpdateTft(host, e) {
   try {
     if (e.detail.file) host._showToast(t("Uploading local TFT file…"), "success");
     const result = e.detail.file
-      ? await Api.uploadDeviceUpdate(host, name, "tft", e.detail.file)
-      : await Api.updateDeviceTft(host, name, e.detail.version, e.detail.url);
+      ? await host.api.updates.upload(host.entryId, name, "tft", e.detail.file)
+      : await host.api.updates.installTft(host.entryId, name, e.detail.version, e.detail.url);
     // Single-device failures are returned as HTTP errors and land in the
     // catch below; the `*` path aggregates failures server-side.  A body with
     // a 200 but an error update state is only possible by contract change on
@@ -182,8 +149,8 @@ export async function onDeviceManagerUpdateFirmware(host, e) {
   try {
     if (e.detail.file) host._showToast(t("Uploading local firmware file…"), "success");
     const result = e.detail.file
-      ? await Api.uploadDeviceUpdate(host, name, "firmware", e.detail.file)
-      : await Api.updateDeviceFirmware(host, name, e.detail.version, e.detail.url);
+      ? await host.api.updates.upload(host.entryId, name, "firmware", e.detail.file)
+      : await host.api.updates.installFirmware(host.entryId, name, e.detail.version, e.detail.url);
     const update = result.update;
     if (update?.firmware_install_error) {
       if (e.detail.file) e.target?._finishLocalUpload?.(update.firmware_install_error);

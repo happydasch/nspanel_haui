@@ -322,11 +322,11 @@ weather forecasts are therefore the hub's, by construction.
 - **What is rendered.** A user card sends the editor's panel config (unsaved
   edits included); a system card sends its `key`, and the hub renders the
   device's configured panel (system defaults or saved override,
-  `async_configured_panel`). A popup opens with its descriptor's
-  `preview_kwargs` (an example notification, sample choices, a panel to unlock;
-  string values are translated) or, as an entity popup (`popup_<page>`, by key), for an
-  entity of its `item` option's domain, preferring one that is on
-  (`preview_kwargs()`).
+  `async_configured_panel`). A popup opens with the sample context the preview
+  code defines (`web/preview/virtual_panel.py`: an example notification, sample
+  choices, a panel to unlock; string values are translated) or, as an entity
+  popup (`popup_<page>`, by key), for an entity of its `item` option's domain,
+  preferring one that is on (`preview_kwargs()`).
 - **When it re-renders.** `previewRenderKey(host)` (hub, device, saved device
   settings and panels, and only the device info a page shows: IP and versions)
   changes the frame's `renderKey`; renders are memoised for 30 s per panel and
@@ -379,7 +379,8 @@ python -m scripts.preview_gallery.gen_preview_gallery --docs    # docs/assets/sc
 ```
 
 **To add a preview for a new panel type**, give `PageDescriptor.page_id` the
-correct Nextion page id; a popup that needs context sets `preview_kwargs`. Add a
+correct Nextion page id; a popup that needs context gets its sample in the preview
+code (`web/preview/virtual_panel.py`). Add a
 sample panel (and the entities it shows) to `scripts/preview_gallery/sample_world.py`.
 
 **Verify coverage** — confirms every exposed panel (user, system, popup alias)

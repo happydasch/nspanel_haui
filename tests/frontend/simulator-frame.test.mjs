@@ -40,6 +40,27 @@ test('simulator frame recalculates scale when its container width changes', () =
   assert.equal(updates, 2);
 });
 
+test('portrait previews stop growing once they reach the height cap', () => {
+  let width = 640;
+  const frame = Object.create(SimulatorFrameElement.prototype);
+  Object.assign(frame, {
+    portrait: true,
+    _containerWidth: null,
+    _display: { layout: { visible_width: 320, height: 480 } },
+    _scale: null,
+    getBoundingClientRect: () => ({ width }),
+    requestUpdate() {},
+  });
+
+  frame._measure();
+  assert.equal(frame._containerWidth, 640);
+  assert.equal(frame._scale, 1);
+
+  width = 160;
+  frame._measure();
+  assert.equal(frame._scale, 0.5);
+});
+
 test('simulator frame keeps the last usable size while its container is hidden', () => {
   let width = 450;
   const frame = Object.create(SimulatorFrameElement.prototype);

@@ -13,6 +13,24 @@
 import { renderSimulatorPreview } from './previews/simulator-frame.js';
 
 /**
+ * The explicit data a card render needs, built once per card from the shell's
+ * mirrored state.
+ *
+ * @param {object} host - the editor element
+ * @returns {import('./previews/types.js').PreviewContext}
+ */
+export function previewContextFor(host) {
+  return {
+    entryId: host?.entryId || null,
+    device: host?._selectedDevice || null,
+    deviceConfig: host?._deviceConfig || null,
+    panels: typeof host?._devicePanels === 'function' ? host._devicePanels() : [],
+    deviceInfo: host?._deviceStatuses?.[host?._selectedDevice]?.device_info || null,
+    api: host?.api,
+  };
+}
+
+/**
  * Build the preview the card chrome shows. The frame sizes itself from the
  * layout it draws, so the card needs no orientation of its own.
  *
@@ -22,5 +40,5 @@ import { renderSimulatorPreview } from './previews/simulator-frame.js';
  * @returns {import("lit").TemplateResult}
  */
 export function renderPanelPreview(host, panel, panelIndex) {
-  return renderSimulatorPreview(host, panel, panelIndex);
+  return renderSimulatorPreview(previewContextFor(host), panel, panelIndex);
 }

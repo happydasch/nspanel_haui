@@ -3,7 +3,6 @@ import './dom-shim.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import * as Api from '../../custom_components/nspanel_haui/frontend/api.js';
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/haui-editor.js';
 import { startStatusPolling, stopStatusPolling } from '../../custom_components/nspanel_haui/frontend/device-info.js';
 import '../../custom_components/nspanel_haui/frontend/dialogs/device-manager.js';
@@ -12,20 +11,16 @@ import { previewRenderKey } from '../../custom_components/nspanel_haui/frontend/
 
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); };
 
-function editor() {
-  const host = Object.create(NSPanelEditor.prototype);
-  Object.assign(host, {
+function previewContext(overrides = {}) {
+  return {
     entryId: 'entry1',
-    _loading: true,
-    _panels: { devices: {} },
-    _selectedDevice: null,
-    _deviceStatuses: {},
-    _deviceStatus: null,
-    _deviceStatusError: null,
-    _deviceConfig: null,
-    _showToast() {},
-  });
-  return host;
+    device: 'kitchen',
+    deviceConfig: {},
+    panels: [],
+    deviceInfo: null,
+    api: { preview: { render: async () => null } },
+    ...overrides,
+  };
 }
 
 /** Host whose /status responses stay pending until released via `host.pending`. */
@@ -43,18 +38,10 @@ function statusHost() {
 }
 
 test('preview render keys change when cached device versions arrive', () => {
-  const host = {
-    entryId: 'entry1',
-    _selectedDevice: 'kitchen',
-    _deviceConfig: {},
-    _deviceStatuses: {},
-    _devicePanels: () => [],
-  };
-  const before = previewRenderKey(host);
-  host._deviceStatuses.kitchen = {
-    device_info: { yaml_version: '0.4.5', tft_version: '0.4.2' },
-  };
-  assert.notEqual(previewRenderKey(host), before);
+  const context = previewContext();
+  const before = previewRenderKey(context);
+  context.deviceInfo = { yaml_version: '0.4.5', tft_version: '0.4.2' };
+  assert.notEqual(previewRenderKey(context), before);
 });
 
 test('a status poll that only moves live readings keeps every card render', () => {
@@ -64,39 +51,27 @@ test('a status poll that only moves live readings keeps every card render', () =
     rssi, connection_uptime: uptime, last_panel_update: `2026-11-07T10:00:0${uptime % 10}Z`,
     last_connection: '2026-11-07T09:00:00Z', idle_page_active: false,
   });
-  const host = {
-    entryId: 'entry1',
-    _selectedDevice: 'kitchen',
-    _deviceConfig: {},
-    _deviceStatuses: { kitchen: { device_info: info(100, -60) } },
-    _devicePanels: () => [],
-  };
-  const before = previewRenderKey(host);
-  host._deviceStatuses = { kitchen: { device_info: info(105, -61) } };
-  assert.equal(previewRenderKey(host), before);
+  const context = previewContext({ deviceInfo: info(100, -60) });
+  const before = previewRenderKey(context);
+  context.deviceInfo = info(105, -61);
+  assert.equal(previewRenderKey(context), before);
   // what the About page shows still re-renders it
-  host._deviceStatuses = { kitchen: { device_info: { ...info(105, -61), ip: '10.0.0.6' } } };
-  assert.notEqual(previewRenderKey(host), before);
+  context.deviceInfo = { ...info(105, -61), ip: '10.0.0.6' };
+  assert.notEqual(previewRenderKey(context), before);
 });
 
 test('initial editor load caches every device status before previews can render', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
-  const ed = editor();
-  ed.entryId = 'entry1';
-  ed._selectedDevice = null;
-  ed._deviceStatuses = {};
-  ed._deviceStatus = null;
-  ed._deviceStatusError = null;
   const statuses = {
     kitchen: { connected: true, device_info: { yaml_version: '0.4.5', tft_version: '0.4.2' } },
     office: { connected: true, device_info: { yaml_version: '0.4.4', tft_version: '0.4.1' } },
   };
   let releaseStatuses;
   const statusUrls = [];
-  ed.hass = {
-    language: 'en',
-    async fetchWithAuth(url) {
-      if (url.startsWith('/api/nspanel_haui/panels/')) {
+  const host = makeHost(
+    { devices: { kitchen: { config: {}, panels: [] }, office: { config: {}, panels: [] } } },
+    (method, path) => {
+      if (path === '/api/nspanel_haui/panels/entry1') {
         return jsonResponse({
           devices: {
             kitchen: { config: {}, panels: [] },
@@ -104,31 +79,32 @@ test('initial editor load caches every device status before previews can render'
           },
         });
       }
-      if (url.startsWith('/api/nspanel_haui/status/')) {
-        statusUrls.push(url);
-        if (url.includes('?device=')) return jsonResponse(statuses.kitchen);
+      if (path === '/api/nspanel_haui/status/entry1') {
+        statusUrls.push(host.urls.at(-1));
         return new Promise((resolve) => { releaseStatuses = resolve; });
       }
-      throw new Error(`unexpected ${url}`);
+      if (path === '/api/nspanel_haui/panel_types') return jsonResponse([]);
+      if (path === '/api/nspanel_haui/notifications/entry1') return jsonResponse([]);
+      throw new Error(`unexpected ${method} ${path}`);
     },
-  };
+  );
 
-  const loading = ed._load();
+  const loading = host.store.actions.loadHub('entry1');
   await settle();
 
-  assert.equal(ed._loading, true);
-  assert.equal(ed._selectedDevice, 'kitchen');
+  assert.equal(host._loading, true);
+  assert.equal(host._selectedDevice, 'kitchen');
   assert.deepEqual(statusUrls, ['/api/nspanel_haui/status/entry1']);
-  assert.deepEqual(ed._deviceStatuses, {});
+  assert.deepEqual(host._deviceStatuses, {});
 
   releaseStatuses(jsonResponse({ devices: statuses }));
   await loading;
   await settle();
-  stopStatusPolling(ed);
+  stopStatusPolling(host);
 
-  assert.equal(ed._loading, false);
-  assert.deepEqual(Object.keys(ed._deviceStatuses), ['kitchen', 'office']);
-  assert.equal(ed._deviceStatus.device_info.yaml_version, '0.4.5');
+  assert.equal(host._loading, false);
+  assert.deepEqual(Object.keys(host._deviceStatuses), ['kitchen', 'office']);
+  assert.equal(host._deviceStatus.device_info.yaml_version, '0.4.5');
 });
 
 test('switching devices clears the old status and fetches the new one at once', async (t) => {
@@ -139,39 +115,57 @@ test('switching devices clears the old status and fetches the new one at once', 
   await settle();
   assert.equal(host._deviceStatus.ip, '10.0.0.1');
 
-  host._selectedDevice = 'office';
-  startStatusPolling(host);
+  host.store.actions.selectDevice('office');
 
   assert.equal(host._deviceStatus, null);
   assert.equal(host.urls.at(-1), '/api/nspanel_haui/status/entry1?device=office');
+  host.pending.shift()(jsonResponse({ connected: true }));
+  await settle();
   stopStatusPolling(host);
 });
 
-test("a status response for the previously selected device is dropped", async () => {
+test('a status response for the previously selected device is dropped', async () => {
   const host = statusHost();
-  const request = Api.loadStatus(host);
+  const request = host.store.actions.pollSelectedStatus();
 
-  host._selectedDevice = 'office';
+  host.store.actions.selectDevice('office');
   host.pending.shift()(jsonResponse({ connected: true, ip: '10.0.0.1' }));
   await request;
 
-  assert.equal(host._deviceStatus, undefined);
+  assert.equal(host._deviceStatus, null);
+  host.pending.shift()(jsonResponse({ connected: true }));
+  await settle();
+  stopStatusPolling(host);
 });
 
 /** The Device Manager element without Lit's constructor, which needs a real DOM. */
-function deviceManager(hass) {
+function deviceManager(host) {
   const Dialog = customElements.get('nspanel-dialog-device-manager');
   const dlg = Object.create(Dialog.prototype);
-  Object.assign(dlg, { open: false, entryId: 'entry1', hass, __statusTimer: null });
+  Object.assign(dlg, {
+    open: false,
+    entryId: 'entry1',
+    hass: host.hass,
+    api: host.api,
+    onStatusPollingStart: () => host.store.actions.startAllStatusPolling(),
+    onStatusPollingStop: () => host.store.actions.stopAllStatusPolling(),
+  });
   return dlg;
 }
 
 test('the Device Manager stops polling when the editor is removed', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
   let fetches = 0;
-  const dlg = deviceManager({ async fetchWithAuth() { fetches++; return jsonResponse({ devices: {} }); } });
+  const host = makeHost({ devices: { kitchen: { config: {}, panels: [] } } }, (method, path) => {
+    fetches++;
+    if (path === '/api/nspanel_haui/devices/entry1') return jsonResponse({ devices: [] });
+    if (path === '/api/nspanel_haui/status/entry1') return jsonResponse({ devices: {} });
+    throw new Error(`unexpected ${method} ${path}`);
+  });
+  const dlg = deviceManager(host);
   dlg.open = true;
   dlg.updated(new Map([['open', false]]));
+  await settle();
 
   dlg.disconnectedCallback();
   const initialFetches = fetches;

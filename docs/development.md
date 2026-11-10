@@ -15,11 +15,18 @@ integration, or contribute to the project.
 A root `Makefile` provides shortcuts for common checks and the two throwaway
 Home Assistant development instances. Run `make` or `make help` to list them.
 
-- `make check` runs backend and frontend tests, Ruff, mypy, the strict docs
-  build, and read-only HMI/layout and preview-coverage checks. It does not run
-  ESPHome validation or mutate generated assets.
+- `make check` runs backend and frontend tests, Ruff, mypy, the frontend
+  type check, the strict docs build, and read-only HMI/layout and
+  preview-coverage checks. It does not run ESPHome validation or mutate
+  generated assets.
 - Individual checks are available as `make test`, `make test-frontend`,
-  `make lint`, `make typecheck`, `make docs`, and `make hmi-check`.
+  `make lint`, `make typecheck`, `make typecheck-frontend`, `make docs`, and
+  `make hmi-check`. `make format` reformats Python code with Ruff; `make lint`
+  only reports lint errors.
+- The frontend type check runs `tsc` over the modules marked `// @ts-check`.
+  Install its tooling once with `npm ci`; the check itself is
+  `make typecheck-frontend` (or `npm run typecheck:frontend`). See
+  [Frontend Architecture](frontend.md).
 - `make esphome-config` validates the universal ESPHome config, but requires
   the separate ESPHome environment (`requirements-esphome.txt`); its pinned
   dependencies conflict with the Home Assistant development environment.

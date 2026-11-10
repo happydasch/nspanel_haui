@@ -110,6 +110,7 @@ nav:
     - Release Process & Strategy: release.md
     - Update Process: update-process.md
     - Design Guidelines: design.md
+    - Frontend Architecture: frontend.md
     - Communication Overview: communication.md
     - Notification Process: notifications.md
     - ESPHome Component: esphome.md

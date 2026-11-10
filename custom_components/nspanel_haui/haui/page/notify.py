@@ -69,7 +69,6 @@ class NotifyPage(CommonNotifyPage):
                 description=_("Leave empty to use the theme color."),
             ),
         ],
-        preview_kwargs={"notification": _("Example notification: your message text appears here.")},
     )
 
     # panel

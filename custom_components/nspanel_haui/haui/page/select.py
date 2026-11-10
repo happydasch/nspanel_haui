@@ -38,7 +38,6 @@ class SelectPage(HAUIPage):
         },
         can_show_popup=True,
         icon="mdi:format-list-bulleted",
-        preview_kwargs={"items": ["Home", "Away", "Night", "Movie"], "selected": "Home"},
     )
 
     COMPONENTS = ComponentRegistry(

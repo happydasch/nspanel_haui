@@ -218,14 +218,12 @@ let _iconFetchPromise = null;
 const ICON_MATCH_LIMIT = 100;
 
 /** Fetch the full icon list from the backend (once). */
-function _ensureIcons(hass) {
+function _ensureIcons(api) {
   if (_iconCache) return Promise.resolve(_iconCache);
   if (_iconFetchPromise) return _iconFetchPromise;
   _iconFetchPromise = (async () => {
     try {
-      const resp = await hass.fetchWithAuth("/api/nspanel_haui/icons");
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const icons = await resp.json();
+      const icons = await api.editor.icons();
       if (!Array.isArray(icons)) throw new Error("icon list is not an array");
       _iconCache = icons;
     } catch (e) {
@@ -267,7 +265,7 @@ export function matchIcons(icons, query, limit = ICON_MATCH_LIMIT) {
  * large to render and filter, and the dropdown has no Lit parts inside, so
  * replacing its children does not interfere with Lit's re-render.
  */
-export function fillIconDropdown(wrap, value, hass, onInput) {
+export function fillIconDropdown(wrap, value, api, onInput) {
   const dropdown = wrap?.querySelector(".icon-dropdown");
   if (!dropdown) return;
   const query = iconNameOnly(value).toLowerCase();
@@ -281,7 +279,7 @@ export function fillIconDropdown(wrap, value, hass, onInput) {
     const label = document.createElement("span");
     label.textContent = icon;
     item.append(preview, label);
-    item.addEventListener("mousedown", (ev) => _selectIcon(ev, wrap, hass, onInput));
+    item.addEventListener("mousedown", (ev) => _selectIcon(ev, wrap, api, onInput));
     return item;
   }));
   wrap._activeIndex = -1;
@@ -290,8 +288,8 @@ export function fillIconDropdown(wrap, value, hass, onInput) {
 
 /** Show the icons matching `value`, attach a click-outside listener, and
  *  reposition to avoid clipping by dialog scroll containers. */
-function _openIconDropdown(wrap, value, hass, onInput) {
-  fillIconDropdown(wrap, value, hass, onInput);
+function _openIconDropdown(wrap, value, api, onInput) {
+  fillIconDropdown(wrap, value, api, onInput);
   const dropdown = wrap?.querySelector(".icon-dropdown");
   if (!dropdown || dropdown.hidden) return;
 
@@ -366,11 +364,11 @@ function _findPreviewEl(previewId, contextEl) {
  * text arrives as an event, so it cannot be read through `callWS`. The
  * subscription is closed after the first result or error.
  *
- * @param {object} hass
+ * @param {object} api
  * @param {string} template
  * @returns {Promise<string>} rendered text; rejects on a template error
  */
-function renderTemplateOnce(hass, template) {
+function renderTemplateOnce(api, template) {
   return new Promise((resolve, reject) => {
     let done = false;
     let unsubscribe = null;
@@ -380,14 +378,13 @@ function renderTemplateOnce(hass, template) {
       if (unsubscribe) unsubscribe();
       settle(value);
     };
-    hass.connection.subscribeMessage(
+    api.ha.renderTemplate(
+      template,
       (msg) => {
         if ("result" in msg) finish(resolve, msg.result);
         // Warnings (e.g. deprecations) precede the real result; only errors end it.
         else if (msg.level === "ERROR") finish(reject, new Error(msg.error));
       },
-      { type: "render_template", template, report_errors: true },
-      { resubscribe: false },
     ).then((unsub) => {
       unsubscribe = unsub;
       if (done) unsub();
@@ -399,14 +396,14 @@ function renderTemplateOnce(hass, template) {
  * Schedule a template render via the HA template API.
  * Debounces rapid input by 500ms and caches results.
  *
- * @param {object}   hass        - HA hass object (for its websocket connection)
+ * @param {object}   api        - HA api object (for its websocket connection)
  * @param {string}   value       - Raw field value (may contain {{ ... }} templates)
  * @param {string}   previewId   - DOM id of the <span> to update
  * @param {Element}  [contextEl] - Any element inside the host's render root —
  *                                 used to locate the span across shadow DOM.
  */
-export function scheduleTemplateRender(hass, value, previewId, contextEl) {
-  if (!hass) return;
+export function scheduleTemplateRender(api, value, previewId, contextEl) {
+  if (!api) return;
 
   const el = _findPreviewEl(previewId, contextEl);
   const wrapper = el?.closest(".template-preview");
@@ -429,7 +426,7 @@ export function scheduleTemplateRender(hass, value, previewId, contextEl) {
 
   _templateTimers[previewId] = setTimeout(async () => {
     try {
-      const result = await renderTemplateOnce(hass, str);
+      const result = await renderTemplateOnce(api, str);
       _templateCache[str] = result;
       const el2 = _findPreviewEl(previewId, contextEl);
       if (el2) {
@@ -455,14 +452,14 @@ export function scheduleTemplateRender(hass, value, previewId, contextEl) {
  *
  * @param {string}  id      - DOM id of the <ha-input> for the icon value
  * @param {string}  value   - Current value (e.g. "mdi:home")
- * @param {object}  [hass=null]   - HA hass object (needed for API call + template rendering)
+ * @param {object}  [api=null]   - HA api object (needed for API call + template rendering)
  * @param {function} [onInput=null] - Called with the new value on every input/dropdown selection
  */
-export function renderIconPicker(id, value, hass = null, onInput = null) {
+export function renderIconPicker(id, value, api = null, onInput = null) {
   const currentVal = value || "";
 
   // Kick off background fetch (result used when focused)
-  if (hass) _ensureIcons(hass);
+  if (api) _ensureIcons(api);
 
   const hasTpl = String(currentVal).includes("{{");
 
@@ -485,15 +482,15 @@ export function renderIconPicker(id, value, hass = null, onInput = null) {
           const wrap = tf.closest(".icon-picker-wrap");
           const preview = wrap?.querySelector(".icon-preview");
           if (preview) preview.icon = val || "mdi:puzzle";
-          _openIconDropdown(wrap, val, hass, onInput);
-          if (hass) scheduleTemplateRender(hass, val, `tp-${id}`, tf);
+          _openIconDropdown(wrap, val, api, onInput);
+          if (api) scheduleTemplateRender(api, val, `tp-${id}`, tf);
           if (onInput) onInput(val);
         }}
         @focus=${async (e) => {
           const wrap = e.target.closest(".icon-picker-wrap");
-          if (hass) await _ensureIcons(hass);
-          _openIconDropdown(wrap, e.target.value, hass, onInput);
-          if (hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(hass, e.target.value, `tp-${id}`, e.target);
+          if (api) await _ensureIcons(api);
+          _openIconDropdown(wrap, e.target.value, api, onInput);
+          if (api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(api, e.target.value, `tp-${id}`, e.target);
         }}
         @blur=${(e) => {
           const wrap = e.target?.closest(".icon-picker-wrap");
@@ -505,7 +502,7 @@ export function renderIconPicker(id, value, hass = null, onInput = null) {
           itemSelector: '.icon-dropdown-item',
           indexField: '_activeIndex',
           onSelect: (visibleItems, idx) => {
-            _selectIconItem(visibleItems[idx].closest('.icon-picker-wrap'), visibleItems[idx], hass, onInput);
+            _selectIconItem(visibleItems[idx].closest('.icon-picker-wrap'), visibleItems[idx], api, onInput);
           },
           onDismiss: (e) => _hideIconDropdown(e.target.closest('.icon-picker-wrap')),
         })}
@@ -521,21 +518,21 @@ export function renderIconPicker(id, value, hass = null, onInput = null) {
 }
 
 /** Handle icon mousedown selection (event delegation). */
-function _selectIcon(e, wrap, hass, onInput) {
+function _selectIcon(e, wrap, api, onInput) {
   e.preventDefault();
   const item = e.currentTarget;
-  _selectIconItem(wrap, item, hass, onInput);
+  _selectIconItem(wrap, item, api, onInput);
 }
 
 /** Apply icon selection: set value, update preview, hide dropdown. */
-function _selectIconItem(wrap, item, hass, onInput) {
+function _selectIconItem(wrap, item, api, onInput) {
   const tf = wrap?.querySelector(".icon-picker-input");
   const preview = wrap?.querySelector(".icon-preview");
   const icon = item.getAttribute("data-icon") || "";
   const val = `mdi:${icon}`;
   if (tf) tf.value = val;
   if (preview) preview.icon = val;
-  if (hass) scheduleTemplateRender(hass, val, `tp-${tf?.id || ""}`, tf);
+  if (api) scheduleTemplateRender(api, val, `tp-${tf?.id || ""}`, tf);
   if (onInput) onInput(val);
   _hideIconDropdown(wrap);
 }
@@ -592,7 +589,7 @@ function optionGroup(id, opt, control, extra = "") {
 function templateFocusHandler(host, id) {
   return (e) => {
     if (host.hass && String(e.target.value || "").includes("{{")) {
-      scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target);
+      scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target);
     }
   };
 }
@@ -616,7 +613,7 @@ function renderTextOption(host, opt, id, val, displayStr, parse) {
       .value=${displayStr}
       @input=${(e) => {
         const raw = e.target.value;
-        if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
+        if (host.api) scheduleTemplateRender(host.api, raw, `tp-${id}`, e.target);
         setPanelOption(host, opt.key, parse(raw));
       }}
       @focus=${templateFocusHandler(host, id)}
@@ -664,7 +661,7 @@ function renderColorOption(host, opt, id, val) {
         <input id=${id} class="native-input" .value=${colorFieldText(val)}
           @input=${(e) => {
             const raw = e.target.value;
-            if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
+            if (host.api) scheduleTemplateRender(host.api, raw, `tp-${id}`, e.target);
             setPanelOption(host, opt.key, parseFieldValue(raw));
           }}
           @focus=${templateFocusHandler(host, id)}
@@ -783,7 +780,7 @@ function renderSelectWithTemplate(host, opt, id, val, set) {
             .value=${String(val ?? "")}
             placeholder="{{ 'dark' if is_state('sun.sun', 'below_horizon') else 'modern' }}"
             @input=${(e) => {
-              if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-${tplId}`, e.target);
+              if (host.api) scheduleTemplateRender(host.api, e.target.value, `tp-${tplId}`, e.target);
               set(e.target.value);
             }}
             @focus=${templateFocusHandler(host, tplId)}
@@ -849,7 +846,7 @@ export function renderOptionField(host, opt, currentValue, descriptor) {
       return renderItemListField(host, opt, currentValue);
 
     case "icon":
-      return optionGroup(id, opt, renderIconPicker(id, val, host.hass, set));
+      return optionGroup(id, opt, renderIconPicker(id, val, host.api, set));
 
     case "generic":
       return renderTextOption(host, opt, id, val, formatFieldValue(val), parseFieldValue);

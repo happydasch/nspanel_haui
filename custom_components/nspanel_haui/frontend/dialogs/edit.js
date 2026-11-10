@@ -21,6 +21,7 @@ import { saveItemEdit, cancelItemEdit } from '../item-editor.js';
 class EditPanelDialog extends HauiDialog {
   static get properties() {
     return {
+      api: { type: Object },
       panel: { type: Object },
       panelTypes: { type: Array },
       saving: { type: Boolean },
@@ -34,6 +35,7 @@ class EditPanelDialog extends HauiDialog {
 
   constructor() {
     super();
+    this.api = null;
     this.panel = null;
     this.panelTypes = [];
     this.saving = false;

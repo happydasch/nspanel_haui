@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
 import { renderDeviceInfoStrip } from '../../custom_components/nspanel_haui/frontend/toolbar.js';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 import {
   fmtRssi,
   rssiBarCount,
@@ -180,6 +181,7 @@ test('Device Info exposes refresh, update type selection, and firmware download 
       },
     },
   });
+  dialog.api = createApiClient(() => dialog.hass);
 
   await dialog._loadFirmwareDownloadInfo();
   const markup = collect(dialog.render()).join(' ');

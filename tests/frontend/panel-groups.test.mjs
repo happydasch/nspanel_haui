@@ -15,8 +15,8 @@ function flat(v) {
   return v == null ? '' : String(v);
 }
 
-function hostFor(panels, extra = {}) {
-  const host = makeHost({ devices: { kitchen: { config: {}, panels } } }, () => { throw new Error('no fetch'); });
+function hostFor(panels, extra = {}, options = {}) {
+  const host = makeHost({ devices: { kitchen: { config: {}, panels } } }, () => { throw new Error('no fetch'); }, options);
   host._panelTypes = [{ type_key: 'clock', label: 'Clock' }];
   host.__navPanelsOpen = true;
   host.__hiddenPanelsOpen = false;
@@ -66,17 +66,17 @@ for (const [name, render] of [['table', renderPanelTable], ['grid', renderPanelG
   });
 
   test(`${name} view persists the collapse state of a group`, () => {
-    const host = hostFor([{ type: 'clock', key: 'a' }]);
     const stored = [];
-    globalThis.localStorage = { setItem: (k, v) => stored.push([k, v]) };
-    try {
-      const tpl = render(host);
-      const groups = tpl.values.find((v) => v && v.values && v.values.some((x) => typeof x === 'function'));
-      const toggle = groups.values.find((x) => typeof x === 'function');
-      toggle({ target: { open: true } });
-    } finally {
-      delete globalThis.localStorage;
-    }
+    const host = hostFor([{ type: 'clock', key: 'a' }], {}, {
+      storage: {
+        read: (key, fallback) => fallback,
+        write: (key, value) => stored.push([key, value]),
+      },
+    });
+    const tpl = render(host);
+    const groups = tpl.values.find((v) => v && v.values && v.values.some((x) => typeof x === 'function'));
+    const toggle = groups.values.find((x) => typeof x === 'function');
+    toggle({ target: { open: true } });
     assert.equal(host.__navPanelsOpen, true);
     assert.deepEqual(stored, [['haui_navPanelsOpen', true]]);
   });

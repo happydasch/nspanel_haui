@@ -24,7 +24,7 @@ export function renderSimulatorScreen(display, opts = {}) {
   const height = layout.height;
   const scale = opts.scale != null && opts.scale > 0 ? opts.scale : 1;
   return html`
-    <div class="pg-sim" style="aspect-ratio:${width}/${height};">
+    <div class="pg-sim" style="width:${width * scale}px;aspect-ratio:${width}/${height};">
       <div class="pg-sim-scaler" style="width:${width}px;height:${height}px;transform:scale(${scale});transform-origin:0 0;">
         ${renderDisplay(display, opts)}
       </div>

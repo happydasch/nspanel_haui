@@ -316,15 +316,17 @@ class LivePreviewDialog extends HauiDialog {
     this._stopSession();
   }
 
-  _startSession(live = false, openHome = false) {
+  _startSession(live = false) {
     this._stopSession();
     this._error = '';
     const Session = live ? LivePanelSession : VirtualPanelSession;
     const session = new Session(this.hass, {
       entryId: this.entryId,
       device: this.device,
-      openHome,
-      resetSandboxOnStart: !live && !openHome,
+      // Opening a Simulated preview starts the virtual app over, as switching
+      // back from Live does: a reused app may sit on its idle page, a popup or
+      // a panel a previous preview left it on.
+      openHome: !live,
       onUpdate: () => this.requestUpdate(),
       onAction: action => this._onAction(action),
       onError: msg => { this._error = msg; },
@@ -459,7 +461,7 @@ class LivePreviewDialog extends HauiDialog {
       // messages in order, so it still knows the session.
       this._session.resetSandbox().catch(err => { this._error = err?.message || String(err); });
     }
-    this._startSession(live, !live);
+    this._startSession(live);
   }
 
   async _resetSandbox() {

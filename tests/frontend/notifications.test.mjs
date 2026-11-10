@@ -42,7 +42,7 @@ test('a dismissed notification is removed through the backend API', async () => 
     assert.equal(options.method, 'DELETE');
     return jsonResponse({ status: 'ok' });
   });
-  host._notifications = [notification];
+  host.store.setState((state) => ({ ...state, notifications: [notification] }));
 
   await dismissNotification(host, notification);
 
@@ -53,17 +53,13 @@ test('a dismissed notification is removed through the backend API', async () => 
 test('live notification events add and remove inbox entries', async () => {
   let callback;
   let unsubscribed = false;
-  const host = {
-    hass: {
-      connection: {
-        subscribeEvents(handler, eventType) {
-          assert.equal(eventType, 'nspanel_haui.notification');
-          callback = handler;
-          return Promise.resolve(() => { unsubscribed = true; });
-        },
-      },
+  const host = makeHost(panels, () => { throw new Error('no fetch'); });
+  host.hass.connection = {
+    subscribeEvents(handler, eventType) {
+      assert.equal(eventType, 'nspanel_haui.notification');
+      callback = handler;
+      return Promise.resolve(() => { unsubscribed = true; });
     },
-    _notifications: [],
   };
 
   subscribeNotifications(host);

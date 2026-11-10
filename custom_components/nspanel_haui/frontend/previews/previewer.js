@@ -29,17 +29,16 @@ const RENDERED_DEVICE_INFO = ['ip', 'tft_version', 'yaml_version'];
  * (header buttons follow the navigation order). A frame renders again when
  * this changes.
  *
- * @param {object} host - the editor element
+ * @param {import('./types.js').PreviewContext} context
  * @returns {string}
  */
-export function previewRenderKey(host) {
-  const panels = typeof host?._devicePanels === 'function' ? host._devicePanels() : null;
-  const deviceInfo = host?._deviceStatuses?.[host?._selectedDevice]?.device_info;
+export function previewRenderKey(context) {
+  const deviceInfo = context?.deviceInfo;
   return JSON.stringify([
-    host?.entryId,
-    host?._selectedDevice,
-    host?._deviceConfig,
-    panels,
+    context?.entryId,
+    context?.device,
+    context?.deviceConfig,
+    context?.panels,
     deviceInfo ? RENDERED_DEVICE_INFO.map((name) => deviceInfo[name]) : null,
   ]);
 }
@@ -48,19 +47,21 @@ export function previewRenderKey(host) {
  * The hub's render of a card's panel, `{page, before, commands}`, or null
  * without a Home Assistant connection.
  *
- * @param {object} host - the editor element (`hass`, `entryId`, `_selectedDevice`)
+ * @param {import('./types.js').PreviewContext} context
  * @param {object} panel - a user panel's config (unsaved edits included) or a
  *   system panel entry
  * @param {boolean} byKey - render the device's configured panel with
  *   `panel.key` (system panels, with their defaults or saved override)
  * @returns {Promise<object|null>}
  */
-export function loadPanelRender(host, panel, byKey) {
-  const connection = host?.hass?.connection;
-  const device = host?._selectedDevice;
-  if (!connection || !host.entryId || !device || !panel) return Promise.resolve(null);
+export function loadPanelRender(context, panel, byKey) {
+  const api = context?.api;
+  const device = context?.device;
+  if (!api || !api.connection() || !context.entryId || !device || !panel) {
+    return Promise.resolve(null);
+  }
   const target = byKey ? { key: panel.key } : { panel };
-  const key = JSON.stringify([previewRenderKey(host), target]);
+  const key = JSON.stringify([previewRenderKey(context), target]);
   const now = Date.now();
   // Every edit or settings change keys new renders: drop the expired ones.
   for (const [k, entry] of RENDERS) {
@@ -68,12 +69,7 @@ export function loadPanelRender(host, panel, byKey) {
   }
   const cached = RENDERS.get(key);
   if (cached) return cached.promise;
-  const promise = connection.sendMessagePromise({
-    type: 'nspanel_haui/virtual_panel/render',
-    entry_id: host.entryId,
-    device,
-    ...target,
-  }).catch((err) => {
+  const promise = api.preview.render(context.entryId, device, target).catch((err) => {
     RENDERS.delete(key);
     throw new Error(err?.message || String(err));
   });

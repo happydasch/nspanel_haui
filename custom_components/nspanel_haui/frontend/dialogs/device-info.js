@@ -9,7 +9,6 @@ import { dialogHeader } from './dialog-header.js';
 import { HauiDialog } from './haui-dialog.js';
 import { t } from '../localize.js';
 import { rssiStrengthClass, rssiBarCount, fmtRssi } from '../device-info.js';
-import * as Api from '../api.js';
 import { renderSelect } from '../form-fields.js';
 import * as Toast from '../toast.js';
 
@@ -355,6 +354,7 @@ class DeviceInfoDialog extends HauiDialog {
       deviceStatus: { type: Object },
       deviceName: { type: String },
       entryId: { type: String },
+      api: { type: Object },
       _picker: { type: Object, state: true },
       _firmwareDownloadUrl: { type: String, state: true },
       _firmwareDownloadVersion: { type: String, state: true },
@@ -391,13 +391,13 @@ class DeviceInfoDialog extends HauiDialog {
   }
 
   async _loadFirmwareDownloadInfo() {
-    if (this.deviceStatus?.update?.enabled === false || !this.entryId || !this.hass) return;
+    if (this.deviceStatus?.update?.enabled === false || !this.entryId || !this.api) return;
     this._firmwareDownloadUrl = null;
     this._firmwareDownloadVersion = null;
     this._firmwareDownloadError = null;
     this._firmwareDownloadLoading = true;
     try {
-      const { url, version } = await Api.getFirmwareDownload(this);
+      const { url, version } = await this.api.updates.firmwareDownload();
       this._firmwareDownloadUrl = url;
       this._firmwareDownloadVersion = url ? version : null;
       if (!url) {
@@ -414,7 +414,7 @@ class DeviceInfoDialog extends HauiDialog {
     if (!this.deviceName || this._actionBusy) return;
     this._actionBusy = true;
     try {
-      await Api.refreshDeviceDisplay(this, this.deviceName);
+      await this.api.devices.refreshDisplay(this.entryId, this.deviceName);
       Toast.showToast(
         this,
         t('Display refreshed for "{name}"').replace('{name}', this.deviceName),
@@ -431,7 +431,7 @@ class DeviceInfoDialog extends HauiDialog {
     if (!this.deviceName || this._actionBusy) return;
     this._actionBusy = true;
     try {
-      await Api.resetDeviceInteractionTimer(this, this.deviceName);
+      await this.api.devices.resetInteraction(this.entryId, this.deviceName);
       Toast.showToast(this, t("Interaction timer reset"), "success");
     } catch (err) {
       Toast.showToast(this, err.message || t("Failed to reset interaction timer"), "error");
@@ -446,7 +446,7 @@ class DeviceInfoDialog extends HauiDialog {
     try {
       const download = this._firmwareDownloadUrl
         ? { url: this._firmwareDownloadUrl, version: this._firmwareDownloadVersion }
-        : await Api.getFirmwareDownload(this);
+        : await this.api.updates.firmwareDownload();
       const { url, version } = download;
       if (!url) {
         Toast.showToast(
@@ -483,10 +483,12 @@ class DeviceInfoDialog extends HauiDialog {
       return;
     }
     this._picker = { kind, device: name, releases: null, releasesError: "", choice, url: "", file: null, error: "" };
-    const load = kind === "tft" ? Api.getTftReleases : Api.getFirmwareReleases;
+    const load = kind === "tft"
+      ? () => this.api.updates.tftReleases(this.entryId, name)
+      : () => this.api.updates.firmwareReleases(this.entryId, name);
     let result;
     try {
-      result = await load({ entryId: this.entryId, hass: this.hass }, name);
+      result = await load();
     } catch (e) {
       result = {
         releases: [],

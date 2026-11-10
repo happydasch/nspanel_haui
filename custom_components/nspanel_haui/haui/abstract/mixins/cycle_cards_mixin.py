@@ -129,11 +129,12 @@ class CycleCardsMixin:
     if TYPE_CHECKING:
         app: NSPanelHAUI
         panel: HAUIPanel | None
-        rec_cmd: AbstractContextManager[None]
         COMPONENTS: ClassVar[ComponentRegistry]
         _weather_item: HAUIItem | None
         _temp_unit: str
 
+        @property
+        def rec_cmd(self) -> AbstractContextManager[None]: ...
         def translate(self, text: str) -> str: ...
         def get_locale(self) -> str: ...
         def get_color(self, key: str) -> int: ...

@@ -28,3 +28,6 @@ scripts/preview_gallery/out/
 # Development Home Assistant instance (docs/development.md)
 .dev/
 .venv_ha/
+
+# Frontend type-check tooling (make typecheck-frontend)
+node_modules/

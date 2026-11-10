@@ -21,18 +21,19 @@ import {
 
 /** Fallback card width (px) used until the container is measured. */
 const DEFAULT_WIDTH = 240;
+const MAX_PORTRAIT_HEIGHT = 480;
 
 /**
  * The preview of every panel card (`panel-previews.js`): mounts a
  * `<nspanel-simulator-frame>` that does the async work.
  */
-export function renderSimulatorPreview(host, panel, pIdx) {
+export function renderSimulatorPreview(context, panel, pIdx) {
   return html`
     <nspanel-simulator-frame
-      .host=${host} .panel=${panel}
-      .portrait=${isPortraitModel(host?._deviceConfig?.display_model)}
+      .context=${context} .panel=${panel}
+      .portrait=${isPortraitModel(context?.deviceConfig?.display_model)}
       .byKey=${pIdx < 0}
-      .renderKey=${previewRenderKey(host)}
+      .renderKey=${previewRenderKey(context)}
     ></nspanel-simulator-frame>`;
 }
 
@@ -50,13 +51,13 @@ export function setPanelRenderSource(source) {
 export class SimulatorFrameElement extends LitElement {
   static get properties() {
     return {
-      host: { type: Object },
+      context: { type: Object },
       panel: { type: Object },
       portrait: { type: Boolean },
       // System panel cards render the device's configured panel by its key.
       byKey: { type: Boolean },
-      // The saved device settings and panels live on the same host object:
-      // this key changes when what the hub renders with does.
+      // The hub/device/settings/panels a render depends on; a frame rebuilds
+      // when what the hub renders with changes.
       renderKey: { type: String },
     };
   }
@@ -66,10 +67,11 @@ export class SimulatorFrameElement extends LitElement {
       :host {
         display: block;
         width: 100%;
+        min-width: 0;
       }
       .pg-sim {
         position: relative;
-        width: 100%;
+        max-width: 100%;
         margin: 0 auto;
         overflow: hidden;
         background: #000;
@@ -91,13 +93,16 @@ export class SimulatorFrameElement extends LitElement {
       }
       .pg-sim-loading.portrait {
         aspect-ratio: 320 / 480;
+        max-width: 320px;
+        max-height: 480px;
+        margin-inline: auto;
       }
     `];
   }
 
   constructor() {
     super();
-    this.host = null;
+    this.context = null;
     this.panel = null;
     this.portrait = false;
     this.byKey = false;
@@ -120,18 +125,20 @@ export class SimulatorFrameElement extends LitElement {
     }
   }
 
-  // Start after the first render: Lit applies the `.panel`/`.host` bindings
-  // around connection, and the preview must be built from the
-  // configured panel, not from an empty default.
+  // Start after the first render: Lit applies the `.panel`/`.context` bindings
+  // around connection, and the preview must be built from the configured
+  // panel, not from an empty default.
   firstUpdated() {
     this._start();
   }
 
   updated(changed) {
     // The editor reuses a frame when a card re-renders; rebuild when the panel,
-    // host, orientation or what the hub renders with changed.
+    // orientation or what the hub renders with (renderKey) changed. The context
+    // object itself is rebuilt on every card render, so its identity alone must
+    // not restart the replay.
     if (!this._started) return;
-    for (const key of ['panel', 'host', 'portrait', 'byKey', 'renderKey']) {
+    for (const key of ['panel', 'portrait', 'byKey', 'renderKey']) {
       if (changed.has(key)) {
         this._start(true);
         return;
@@ -160,7 +167,7 @@ export class SimulatorFrameElement extends LitElement {
         loadIconMap(),
         renderSource
           ? renderSource(this.panel, this.byKey)
-          : loadPanelRender(this.host, this.panel, this.byKey),
+          : loadPanelRender(this.context, this.panel, this.byKey),
       ]);
       if (seq !== this._seq) return;
       this._iconMap = iconMap;
@@ -185,7 +192,10 @@ export class SimulatorFrameElement extends LitElement {
       } catch (_e) { /* not mounted */ }
     }
     if (this._display && this._containerWidth) {
-      const scale = this._containerWidth / this._display.layout.visible_width;
+      const layout = this._display.layout;
+      const widthScale = this._containerWidth / layout.visible_width;
+      const heightScale = this.portrait ? MAX_PORTRAIT_HEIGHT / layout.height : Infinity;
+      const scale = Math.min(widthScale, heightScale);
       if (scale !== this._scale) {
         this._scale = scale;
         this.requestUpdate();

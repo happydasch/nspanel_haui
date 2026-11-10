@@ -4,6 +4,7 @@ import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { scheduleTemplateRender } from '../../custom_components/nspanel_haui/frontend/form-fields.js';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 
 /**
  * Fake HA connection: `render_template` behaves like HA's websocket command, which
@@ -35,10 +36,11 @@ function previewFixture() {
 }
 
 async function renderPreview(hass, template) {
+  const api = createApiClient(() => hass);
   const { span, contextEl } = previewFixture();
   mock.timers.enable({ apis: ['setTimeout'] });
   try {
-    scheduleTemplateRender(hass, template, 'tp-x', contextEl);
+    scheduleTemplateRender(api, template, 'tp-x', contextEl);
     mock.timers.tick(500);
   } finally {
     mock.timers.reset();

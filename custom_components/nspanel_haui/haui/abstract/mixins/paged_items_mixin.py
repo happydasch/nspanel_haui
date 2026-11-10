@@ -36,8 +36,9 @@ class PagedItemsMixin:
         _pending_item_updates: set[str]
         debouncer: Debouncer
         panel: HAUIPanel | None
-        rec_cmd: AbstractContextManager[None]
 
+        @property
+        def rec_cmd(self) -> AbstractContextManager[None]: ...
         def remove_item_listener(self, handle: str) -> None: ...
         def _update_entry(self, idx: int) -> None: ...
 

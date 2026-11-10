@@ -22,10 +22,9 @@ import { t } from '../localize.js';
 
 let _colorDefaults = null;
 
-async function ensureColorDefaults(hass) {
+async function ensureColorDefaults(api) {
   if (_colorDefaults) return;
-  const resp = await hass.fetchWithAuth("/api/nspanel_haui/color_defaults");
-  _colorDefaults = await resp.json();
+  _colorDefaults = await api.editor.colorDefaults();
 }
 
 export function getColorScheme(schemeId, schemes) {
@@ -123,7 +122,8 @@ class ColorsDialog extends HauiDialog {
       schemeId: { type: String },
       iconVariant: { type: String },
       entryId: { type: String },
-  panels: { type: Array },
+      panels: { type: Array },
+      api: { type: Object },
     };
   }
 
@@ -170,12 +170,8 @@ class ColorsDialog extends HauiDialog {
     this._schemeNotice = "";
     this._keepSchemeColors = false;
     try {
-      await ensureColorDefaults(this.hass);
-      const response = await this.hass.fetchWithAuth(
-        `/api/nspanel_haui/color_schemes/${this.entryId}`,
-      );
-      if (!response.ok) throw new Error("scheme API request failed");
-      const data = await response.json();
+      await ensureColorDefaults(this.api);
+      const data = await this.api.editor.colorSchemes(this.entryId);
       this._builtins = data.builtins || {};
       this._customSchemes = data.schemes || {};
       this._schemes = { ...this._builtins, ...this._customSchemes };
@@ -369,16 +365,7 @@ class ColorsDialog extends HauiDialog {
 
   async _persistSchemes(schemes) {
     try {
-      const response = await this.hass.fetchWithAuth(
-        `/api/nspanel_haui/color_schemes/${this.entryId}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ version: 1, schemes }),
-        },
-      );
-      if (!response.ok) throw new Error("scheme API request failed");
-      const data = await response.json();
+      const data = await this.api.editor.saveColorSchemes(this.entryId, { version: 1, schemes });
       this._customSchemes = data.schemes || {};
       this._schemes = { ...this._builtins, ...this._customSchemes };
       this._schemeError = "";

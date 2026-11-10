@@ -24,8 +24,6 @@ class UnlockPage(AlarmPage):
         popup_alias_for="alarm",
         can_show_popup=True,
         icon="mdi:lock-outline",
-        # The panel to unlock; a card render turns the config into a panel.
-        preview_kwargs={"unlock_panel": {"key": "locked_panel", "unlock_code": "1234"}},
     )
 
     _title = ""

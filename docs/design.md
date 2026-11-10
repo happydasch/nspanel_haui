@@ -288,15 +288,18 @@ If the panel has a popup variant, set `popup_alias_for="<parent_type_key>"` (dif
 The editor's panel cards are the hub's own render of the panel, replayed in the
 Nextion simulator, so there is nothing to write for a new type: give
 `DESCRIPTOR.page_id` the physical Nextion page id. A popup that only opens with
-context (a notification, choices, a panel to unlock) sets
-`DESCRIPTOR.preview_kwargs` to a sample its card opens with; an entity popup
-needs none, its card opens for an entity of its `item` option's domain
+context (a notification, choices, a panel to unlock) gets its sample in the
+preview code (`web/preview/virtual_panel.py`), never on the page; an entity
+popup needs none, its card opens for an entity of its `item` option's domain
 (one that is on, if there is one).
 
 Add a sample panel of the new type (and the entities it shows) to
 `scripts/preview_gallery/sample_world.py`: `tests/test_card_renders.py` renders
 every panel type on the hub and replays the result in the simulator with Node, so
-a page the simulator cannot draw from the hub's output fails the test suite. The
+a page the simulator cannot draw from the hub's output fails the test suite. A
+sample entity must advertise the features its page gates controls on (for example
+`supported_features` on media players and vacuums): the button is drawn only when
+the entity reports support, so the sample decides which controls the card shows. The
 card gallery shows the same sample cards in a browser and can save them as PNGs:
 
 ```bash

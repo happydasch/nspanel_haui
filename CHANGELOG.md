@@ -9,7 +9,7 @@ change.
 Releases are tagged `vX.Y.Z` and follow [Semantic Versioning](https://semver.org/);
 commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
-## [0.4.7] — unreleased
+## [0.4.7] — 2026-11-11
 
 ### Changed
 
@@ -24,6 +24,10 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 - The editor now runs on one observable store and one typed API client behind
   the existing views, with the v0.5 frontend architecture documented in
   `docs/frontend.md`.
+- The preview's idle control toggles the idle page: pressing it again wakes
+  back to the panel it covered (or home) and restarts the interaction timer, in
+  both Simulated and Live mode
+  ([Configuration](docs/configuration/README.md#the-live-preview)).
 
 ### Fixed
 
@@ -447,7 +451,7 @@ See [Updating](docs/update.md) for the steps.
 - The notification indicator takes the idle button's slot when no right header
   slot is free.
 
-[0.4.7]: https://github.com/happydasch/nspanel_haui/compare/v0.4.6...dev
+[0.4.7]: https://github.com/happydasch/nspanel_haui/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/happydasch/nspanel_haui/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/happydasch/nspanel_haui/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/happydasch/nspanel_haui/releases/tag/v0.4.4

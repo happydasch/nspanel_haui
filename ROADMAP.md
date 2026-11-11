@@ -2,104 +2,67 @@
 
 Development trajectory from **v0.3.2** toward **v1.0**. **v0.4.0 and v0.4.1
 shipped on 2026-10-26, v0.4.2 on 2026-10-27, v0.4.3 on 2026-10-28, v0.4.4 on
-2026-11-02, v0.4.5 on 2026-11-09 and v0.4.6 on 2026-11-09**, each tagged from a
-green `master` commit and published by the release workflow.
+2026-11-02, v0.4.5 and v0.4.6 on 2026-11-09, and v0.4.7 on 2026-11-11**, each
+tagged from a green `master` commit and published by the release workflow.
 
-The 0.4.x hardware acceptance and OTA risk checks are closed. The 0.4.5 feature
-set — including the live panel preview
-contributed in [#85](https://github.com/happydasch/nspanel_haui/pull/85) and
-[#86](https://github.com/happydasch/nspanel_haui/pull/86) — shipped in that
-release. v0.4.6 was a one-line patch: the Marketplace could not compare a
-two-part `homeassistant` minimum (`2026.11`) with the installed `2026.11.0` and
-reported it as unmet
-([#90](https://github.com/happydasch/nspanel_haui/issues/90)), so `hacs.json`
-declares `2026.11.0`. The consolidation work planned for the 0.4.6 number moved
-to **v0.4.7**, which pays down docs, CI and the dev release cadence before the
-v0.5 frontend cycle.
+The 0.4.x hardware acceptance and OTA risk checks are closed, and **v0.4.7
+closed the consolidation cycle**: one CI pipeline, development builds dispatched
+by hand, and the editor's data foundation — one observable store, one typed API
+client, the v0.5 architecture in [the frontend docs](docs/frontend.md) and the
+visual target `design/dashboard-prototype.html`. The 0.4.5 live panel preview
+(contributed in [#85](https://github.com/happydasch/nspanel_haui/pull/85) and
+[#86](https://github.com/happydasch/nspanel_haui/pull/86)) remains the
+production preview; v0.4.6 was the Marketplace minimum-version hotfix.
 
 This file tracks **open work only** — goals and gates, not task lists. Shipped
 changes are summarised in [CHANGELOG.md](CHANGELOG.md); the release runbook and
 its known risks live in [docs/release.md](docs/release.md); day-to-day tasks
 belong in the issue tracker.
 
-**The 0.4.x install gate is closed.** The binary and TFT install, firmware OTA
-and the base and core functions are confirmed on real EU and US/portrait
-hardware. The v0.4.7 cycle is a deliberate consolidation release — docs, one
-simplified CI pipeline, fewer development releases and the frontend groundwork
-for the next cycle. **v0.5** is then the frontend cycle: the Device Manager and
-Device Info merge, unified profiles, default gestures in the editor, language and
-regional formats in one place, the general editor rework, a notifications center,
-device settings and update control, alongside multiple TFTs for normal- and
-high-speed updates. **v0.6** adds Display Repair Mode, an inspection and cleanup
-of the Nextion scripts and Home Assistant hub settings; multi-hub support remains
-subject to a needs decision.
+**v0.5 is the current cycle**, starting with the frontend phases in
+[the frontend architecture](docs/frontend.md) and carrying the three pillars —
+the Device Manager and Device Info merge, multiple TFTs for normal- and
+high-speed updates, and stable, controllable updates — together with unified
+profiles, default gestures in the editor, language and regional formats in one
+place, the general editor rework, a notifications center and device settings.
+**v0.6** adds Display Repair Mode, an inspection and cleanup of the Nextion
+scripts and Home Assistant hub settings; multi-hub support remains subject to a
+needs decision.
 
 ---
 
-## v0.4.x — docs, CI & frontend groundwork (in progress) (current focus)
+## v0.5 — Frontend cycle, multiple TFTs & update control (current focus)
 
-The install gate is closed. The hardware passlist and the update flow are
-confirmed on one EU and one US/portrait panel — universal image onboarding, TFT
-auto-update end to end, firmware OTA, encrypted native OTA, sleep/wake,
-touch/navigation, core stability and the editor add/remove/YAML flows. This cycle
-pays down docs, CI and the development release cadence before the v0.5 frontend
-cycle.
+The frontend work follows the phases in
+[the frontend architecture](docs/frontend.md): the shell (device carousel, fleet
+summary, device inventory, recent activity), then the panel workspace and panel
+editor split view, device settings, the notification center, and finally
+responsive and accessibility polish. The pillar work below ships alongside those
+phases, one view per change, on the same static, no-build serving contract.
 
----
+### Carried over from v0.4.7
 
-**Docs.** Make `docs/` match the shipped editor and update flow again: one
-navigation without duplicated device/update/service explanations, no stale 0.4.x
-instructions, every documented action and option present in the current editor,
-the [screens overview](docs/screens.html) linked from the panel docs, and the new
-dev release cadence and simplified pipeline written into
-[release process](docs/release.md) and [development](docs/development.md).
-
-**Fewer development releases.** Development builds are dispatched manually
-(2026-11-09) instead of running on every push to `dev`: a push no longer
-publishes a prerelease, pushes a bot version commit or regenerates the screens.
-Dispatch a build only when it changes what a device installs (firmware or
-display inputs); hub-only, docs and frontend pushes ride along in the next one.
-Keep the PEP 440 tag rules — the tag identical to the manifest version, no
-non-version tags — so Marketplace ordering stays correct, and keep the bot
-version commit off `dev` except when a build is dispatched.
-
-**Release-check resilience.** The 2026-11-09 GitHub Actions outage failed runs
-before their jobs started (no job ever ran and no retry was possible) and kept
-the 0.4.6 release PR blocked until `tests (3.14)`, `frontend`, `hassfest` and
-`hacs` all reported. The recovery path is now in the
-[release runbook](docs/release.md#guardrails-and-known-gaps): check
-githubstatus.com, close and reopen the PR (or push a new head commit), then
-re-run the failed workflow so the missing jobs start. Verify the path once on a
-dev-cycle PR before relying on it for a release.
-
-**Frontend groundwork for v0.5.** Land the base the rework builds on without a
-visible change: one observable store and typed API client behind the existing
-views, agreed view-module boundaries, and a written v0.5 information
-architecture and phasing (shell, panel editors, notification center, device
-settings). The static, unauthenticated, no-build serving contract stays. The
-visual target is `design/dashboard-prototype.html`; the agreed structure and
-module ownership are in [the frontend architecture](docs/frontend.md).
-
-**Panel preview generation** The assets should be created after new version was
-released or manually. Preview and docs should also be updated.
-
-**Other cleanup.** Remove the vendored `esphome/nextion_patch/` and its
-`external_components` blocks and bump `min_version`/`requirements-esphome.txt`
-once a released ESPHome 2026.11 contains the fixes; keep `CHANGELOG.md` and the
-release notes in sync.
-
-**Acceptance:** docs strict build green with no stale instructions; three CI
-workflows with every gate still enforced; development builds dispatched only
-when the device inputs change, with Marketplace ordering intact; the frontend
-foundation merged with no visible change; the vendored Nextion patch removed
-once ESPHome ships the fixes.
-
----
-
-## v0.5 — Frontend cycle, multiple TFTs & update control
-
-Three pillars plus the planned frontend, notification and device-settings work,
-after the 0.4.x consolidation cycle.
+- **Remove the vendored Nextion patch.** `esphome/nextion_patch/` stays pinned to
+  ESPHome 2026.10.0 because no released version contains the numeric-response
+  fix ([esphome#17744](https://github.com/esphome/esphome/pull/17744)) or the TFT
+  upload buffer option
+  ([esphome#21435](https://github.com/esphome/esphome/pull/21435)), and the TFT
+  upload retry fix is not upstream yet. Once a released ESPHome 2026.11 (or
+  later) contains every fix listed in `esphome/nextion_patch/README.md`, bump
+  `min_version` and `requirements-esphome.txt` together, delete the directory
+  and its `external_components` blocks, and re-validate the firmware config and
+  a compile.
+- **Verify the release-check recovery path.** The 2026-11-09 GitHub Actions
+  outage failed runs before their jobs started; the documented recovery (check
+  githubstatus.com, close and reopen the PR or push a new head commit, then
+  re-run the failed workflow) has not been exercised end to end. Prove it once
+  on a dev-cycle PR before relying on it for a release
+  ([release process](docs/release.md#guardrails-and-known-gaps)).
+- **Screen overview cadence.** The development build regenerates
+  `docs/screens.html` and `docs/assets/screens/` and commits them with its
+  version. A release that ships without a preceding dev build must run
+  `python -m scripts.preview_gallery.gen_preview_gallery --docs` during release
+  prep so the published screen overview matches the shipped panels.
 
 **Device Manager and Device Info merge.** Collapse the two device surfaces into
 one: the Device Manager owns the device list, selection, connection and version
@@ -201,10 +164,10 @@ fix remains:
 - Replace the simulator frame's hardcoded `#000` card background
   (`.pg-sim` in `frontend/previews/simulator-frame.js`) with the device theme.
 
-### Frontend rework, notifications & device settings (planned)
+### Frontend rework, notifications & device settings (current cycle)
 
-Planned beyond the three pillars above; the data/API foundation lands in v0.4.7
-and the Device Manager merge is part of this cycle. Each phase ships on its own.
+The data/API foundation landed in v0.4.7 and the Device Manager merge is part of
+this cycle. Each phase ships on its own.
 
 - **General frontend rework** — the panel and device requirements are known now,
   so rebuild the editor as one coherent app instead of layering patches on the
@@ -234,11 +197,13 @@ and the Device Manager merge is part of this cycle. Each phase ships on its own.
   "create from template", inline rename/duplicate/reorder and field-level
   validation, replacing the generic toast with per-field feedback.
 
-**Phasing:** the API and data foundation with no UI change (v0.4.7), then the
-Device Manager and Device Info merge, unified profiles, default gestures and the
-language/regional merge, then the general frontend rework at behaviour parity
-(editor-polish items included), then device settings, then panel editors, then
-the notification UX, then polish and hardening.
+**Phasing:** the data/API foundation shipped in v0.4.7 with no UI change. The
+visible work starts with the shell — device carousel, fleet summary, device
+inventory and recent activity, absorbing the Device Manager and Device Info
+merge — then the panel workspace and panel editor split view, then device
+settings (profiles, gestures and the language/regional merge land there), then
+the notification center, then responsive and accessibility polish. Each phase
+ships on its own at behaviour parity with the current editor.
 
 ---
 
@@ -368,6 +333,11 @@ behaving unchanged on hardware after the cleanup.
 - **0.4.5** — live preview and hub-rendered panel cards, editable popups, the
   **HAUI Firmware** entity, encrypted native OTA and the Home Assistant 2026.11
   Marketplace migration.
+- **0.4.6** — Marketplace minimum-version hotfix: `hacs.json` declares
+  `2026.11.0`.
+- **0.4.7** — consolidation release: one CI pipeline, manually dispatched
+  development builds, the editor's store and typed API client foundation, the
+  v0.5 architecture and design prototype; no firmware or display changes.
 
 ---
 

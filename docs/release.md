@@ -433,12 +433,13 @@ hatch, add a bypass actor to the ruleset rather than weakening the rules.
 ruleset there if the branch starts collecting unreviewed changes.
 
 No fixed calendar. Ship when user-visible changes accumulate or a fix cannot
-wait. The **0.4.x line is a hard gate**: it finishes the binary and TFT install
-and proves the base and core functions before any v0.5 work starts. Patch
-releases in that line close regressions and gate failures; minor releases
-(`0.5.0`) ship features and breaking changes. **Any breaking change must ship
-with a `docs/update.md` entry and a CHANGELOG "Breaking changes" section** —
-no alias is kept as a fallback, so the upgrade guide is the only migration path.
+wait. The **0.4.x install gate is closed** (v0.4.7, 2026-11-11): the binary and
+TFT install and the base and core functions are proven on real EU and
+US/portrait hardware. Patch releases close regressions and gate failures; minor
+releases (`0.5.0`) ship features and breaking changes. **Any breaking change
+must ship with a `docs/update.md` entry and a CHANGELOG "Breaking changes"
+section** — no alias is kept as a fallback, so the upgrade guide is the only
+migration path.
 
 ## CI gates and local checks
 
@@ -503,10 +504,9 @@ pinned toolchain from `requirements-esphome.txt`.
 ### 1. Pre-flight (a few days before)
 
 - Confirm `dev` and `master` are green (tests, frontend, docs, hassfest/HACS).
-- Confirm the device passlist in the
-  [Roadmap's v0.4.x section](https://github.com/happydasch/nspanel_haui/blob/master/ROADMAP.md#v04x--finishing-the-binary-and-tft-install-current-focus)
-  passed on real EU and US hardware. The 0.4.x line is a hard gate: v0.5 work
-  does not start until every row is green.
+- Confirm the hardware passlist is still green on real EU and US/portrait
+  hardware for any release that changes firmware or display behaviour; the
+  0.4.x install gate itself is closed (v0.4.7, 2026-11-11).
 - Freeze features; only fixes land from here.
 - Decide the version number and check for pending breaking changes.
 

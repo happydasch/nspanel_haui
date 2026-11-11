@@ -170,13 +170,14 @@ jobs:
           echo "changed=${changed}" >> "$GITHUB_OUTPUT"
 
       # The editor footer links prerelease versions to /dev/, so the dev site
-      # carries its own site_url and edit links. Applied before the build, so
+      # carries its own site_url, repo link and edit links. Applied before the build, so
       # the uploaded artifact is deployable as it is.
       - name: Apply the dev site URLs
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/dev'
         run: |
           sed -i \
             -e 's#^site_url: .*#site_url: https://happydasch.github.io/nspanel_haui/dev/#' \
+            -e 's#^repo_url: .*#repo_url: https://github.com/happydasch/nspanel_haui/tree/dev#' \
             -e 's#^edit_uri: edit/master/#edit_uri: edit/dev/#' \
             mkdocs.yml
 
@@ -273,6 +274,7 @@ jobs:
         run: |
           sed -i \
             -e 's#^site_url: .*#site_url: https://happydasch.github.io/nspanel_haui/dev/#' \
+            -e 's#^repo_url: .*#repo_url: https://github.com/happydasch/nspanel_haui/tree/dev#' \
             -e 's#^edit_uri: edit/master/#edit_uri: edit/dev/#' \
             mkdocs.yml
           python -m venv ../venv-dev

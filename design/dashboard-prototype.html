@@ -1,0 +1,3134 @@
+<!doctype html>
+<!--
+  Single-page dashboard prototype for an NSPanel device fleet.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <link rel="icon" type="image/png" href="../custom_components/nspanel_haui/brand/logo.png">
+    <title>NSPanel HAUI | Dashboard prototype</title>
+    <style>
+      :root {
+        color-scheme: light;
+
+        /* Home Assistant design tokens — light theme */
+        --ha-font-family-body: Roboto, "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --ha-font-family-code: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+        --ha-font-size-xs: 10px;
+        --ha-font-size-s: 12px;
+        --ha-font-size-m: 14px;
+        --ha-font-size-l: 16px;
+        --ha-font-size-xl: 20px;
+        --ha-font-size-2xl: 24px;
+        --ha-font-size-3xl: 28px;
+        --ha-font-weight-normal: 400;
+        --ha-font-weight-medium: 500;
+        --ha-font-weight-bold: 700;
+        --ha-line-height-condensed: 1.2;
+        --ha-line-height-normal: 1.6;
+
+        --ha-space-1: 4px;
+        --ha-space-2: 8px;
+        --ha-space-3: 12px;
+        --ha-space-4: 16px;
+        --ha-space-5: 20px;
+        --ha-space-6: 24px;
+        --ha-space-7: 28px;
+        --ha-space-8: 32px;
+        --ha-space-10: 40px;
+        --ha-space-12: 48px;
+        --ha-space-14: 56px;
+
+        --ha-border-radius-sm: 4px;
+        --ha-border-radius-md: 8px;
+        --ha-border-radius-lg: 12px;
+        --ha-border-radius-xl: 16px;
+        --ha-border-radius-pill: 9999px;
+
+        --ha-box-shadow-s: 0 1px 2px 0 rgba(0, 0, 0, .08), 0 1px 3px 0 rgba(0, 0, 0, .12);
+        --ha-box-shadow-m: 0 3px 6px -1px rgba(0, 0, 0, .1), 0 8px 16px -2px rgba(0, 0, 0, .15);
+        --ha-box-shadow-l: 0 6px 12px -3px rgba(0, 0, 0, .12), 0 16px 32px -6px rgba(0, 0, 0, .2);
+
+        --ha-color-primary-05: #001721;
+        --ha-color-primary-10: #002e3e;
+        --ha-color-primary-20: #004156;
+        --ha-color-primary-30: #006787;
+        --ha-color-primary-40: #009ac7;
+        --ha-color-primary-50: #18bcf2;
+        --ha-color-primary-60: #37c8fd;
+        --ha-color-primary-70: #7bd4fb;
+        --ha-color-primary-80: #b9e6fc;
+        --ha-color-primary-90: #dff3fc;
+        --ha-color-primary-95: #eff9fe;
+
+        --ha-color-neutral-05: #141414;
+        --ha-color-neutral-10: #202020;
+        --ha-color-neutral-20: #363636;
+        --ha-color-neutral-30: #4a4a4a;
+        --ha-color-neutral-40: #5e5e5e;
+        --ha-color-neutral-50: #7a7a7a;
+        --ha-color-neutral-60: #989898;
+        --ha-color-neutral-70: #b1b1b1;
+        --ha-color-neutral-80: #cccccc;
+        --ha-color-neutral-90: #e6e6e6;
+        --ha-color-neutral-95: #f3f3f3;
+
+        --ha-color-orange-05: #280700;
+        --ha-color-orange-10: #3b0f00;
+        --ha-color-orange-20: #5e1c00;
+        --ha-color-orange-30: #7e2900;
+        --ha-color-orange-40: #9d3800;
+        --ha-color-orange-50: #c94e00;
+        --ha-color-orange-60: #f36d00;
+        --ha-color-orange-70: #ff9342;
+        --ha-color-orange-80: #ffbb89;
+        --ha-color-orange-90: #ffe0c8;
+        --ha-color-orange-95: #fff0e4;
+
+        --ha-color-red-05: #2a040b;
+        --ha-color-red-10: #3e0913;
+        --ha-color-red-20: #631323;
+        --ha-color-red-30: #8a132c;
+        --ha-color-red-40: #b30532;
+        --ha-color-red-50: #dc3146;
+        --ha-color-red-60: #f3676c;
+        --ha-color-red-70: #fd8f90;
+        --ha-color-red-80: #ffb8b6;
+        --ha-color-red-90: #ffdedc;
+        --ha-color-red-95: #fff0ef;
+
+        --ha-color-green-05: #031608;
+        --ha-color-green-10: #052310;
+        --ha-color-green-20: #0a3a1d;
+        --ha-color-green-30: #0a5027;
+        --ha-color-green-40: #036730;
+        --ha-color-green-50: #00883c;
+        --ha-color-green-60: #00ac49;
+        --ha-color-green-70: #5dc36f;
+        --ha-color-green-80: #93da98;
+        --ha-color-green-90: #c2f2c1;
+        --ha-color-green-95: #e3f9e3;
+
+        /* Home Assistant semantic tokens — light theme */
+        --ha-color-text-primary: var(--ha-color-neutral-05);
+        --ha-color-text-secondary: var(--ha-color-neutral-40);
+        --ha-color-text-disabled: var(--ha-color-neutral-60);
+        --ha-color-surface-default: #ffffff;
+        --ha-color-surface-low: var(--ha-color-neutral-95);
+        --ha-color-surface-lower: var(--ha-color-neutral-90);
+        --ha-color-border-neutral-quiet: var(--ha-color-neutral-90);
+        --ha-color-border-neutral-normal: var(--ha-color-neutral-60);
+        --ha-color-fill-primary-quiet-resting: var(--ha-color-primary-95);
+        --ha-color-fill-primary-quiet-hover: var(--ha-color-primary-90);
+        --ha-color-fill-primary-loud-resting: var(--ha-color-primary-40);
+        --ha-color-fill-primary-loud-hover: var(--ha-color-primary-30);
+        --ha-color-fill-neutral-quiet-resting: var(--ha-color-neutral-95);
+        --ha-color-fill-neutral-quiet-hover: var(--ha-color-neutral-90);
+        --ha-color-fill-neutral-normal-resting: var(--ha-color-neutral-90);
+        --ha-color-fill-neutral-normal-hover: var(--ha-color-neutral-80);
+        --ha-color-on-primary-quiet: var(--ha-color-primary-50);
+        --ha-color-on-primary-normal: var(--ha-color-primary-40);
+        --ha-color-on-neutral-quiet: var(--ha-color-neutral-50);
+        --ha-color-on-neutral-normal: var(--ha-color-neutral-40);
+        --ha-color-fill-success-quiet-resting: var(--ha-color-green-95);
+        --ha-color-fill-warning-quiet-resting: var(--ha-color-orange-95);
+        --ha-color-fill-danger-quiet-resting: var(--ha-color-red-95);
+        --ha-color-on-success-normal: var(--ha-color-green-40);
+        --ha-color-on-warning-normal: var(--ha-color-orange-40);
+        --ha-color-on-danger-normal: var(--ha-color-red-40);
+
+        /* Home Assistant legacy aliases */
+        --primary-color: var(--ha-color-primary-40);
+        --primary-text-color: var(--ha-color-text-primary);
+        --secondary-text-color: var(--ha-color-text-secondary);
+        --disabled-text-color: var(--ha-color-text-disabled);
+        --card-background-color: var(--ha-color-surface-default);
+        --primary-background-color: #fafafa;
+        --secondary-background-color: var(--ha-color-neutral-90);
+        --divider-color: var(--ha-color-neutral-90);
+        --error-color: var(--ha-color-red-40);
+        --warning-color: var(--ha-color-orange-40);
+        --success-color: var(--ha-color-green-40);
+        --info-color: var(--ha-color-primary-40);
+        --header-height: 56px;
+        --app-header-background-color: var(--ha-color-surface-default);
+        --app-header-text-color: var(--ha-color-text-primary);
+        --ha-card-border-radius: var(--ha-border-radius-lg);
+        --ha-card-border-color: var(--divider-color);
+        --ha-card-background: var(--card-background-color);
+        --ha-card-box-shadow: none;
+        --ha-button-height: 40px;
+        --ha-button-border-radius: var(--ha-border-radius-pill);
+
+        /* Prototype aliases */
+        --font: var(--ha-font-family-body);
+        --mono: var(--ha-font-family-code);
+        --primary: var(--primary-color);
+        --primary-dark: var(--ha-color-primary-30);
+        --primary-ink: var(--ha-color-primary-30);
+        --primary-soft: var(--ha-color-fill-primary-quiet-resting);
+        --primary-border: var(--ha-color-primary-80);
+        --page: var(--primary-background-color);
+        --surface: var(--card-background-color);
+        --surface-soft: #f7f7f7;
+        --surface-muted: var(--ha-color-fill-neutral-quiet-resting);
+        --surface-strong: var(--ha-color-fill-neutral-normal-resting);
+        --text: var(--primary-text-color);
+        --text-secondary: var(--secondary-text-color);
+        --text-disabled: var(--disabled-text-color);
+        --border: var(--divider-color);
+        --border-strong: var(--ha-color-border-neutral-normal);
+        --divider: var(--divider-color);
+        --good: var(--success-color);
+        --good-soft: var(--ha-color-fill-success-quiet-resting);
+        --warn: var(--warning-color);
+        --warn-soft: var(--ha-color-fill-warning-quiet-resting);
+        --bad: var(--error-color);
+        --bad-soft: var(--ha-color-fill-danger-quiet-resting);
+        --radius: var(--ha-card-border-radius);
+        --radius-sm: var(--ha-border-radius-md);
+        --radius-pill: var(--ha-border-radius-pill);
+        --shadow-1: var(--ha-box-shadow-s);
+        --shadow-2: var(--ha-box-shadow-l);
+        --screen: radial-gradient(ellipse at 50% 8%, #2a343d 0, #171d23 58%, #0e1216 100%);
+        --preview-live-surface: #e8f4f2;
+        --preview-live-border: #9ac8be;
+        --preview-live-heading-border: #c8dfda;
+        --screen-bezel: #262c32;
+        --screen-edge: #32383d;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; margin: 0; }
+      body {
+        background: var(--page);
+        color: var(--text);
+        font: 14px/1.45 var(--font);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      button, input, select { font: inherit; }
+      button { color: inherit; }
+      .icon-library { position: absolute; width: 0; height: 0; overflow: hidden; }
+      .icon {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      /* Shell and app bar */
+      .shell { display: flex; min-height: 100dvh; flex-direction: column; }
+      .titlebar {
+        position: sticky;
+        z-index: 20;
+        top: 0;
+        display: flex;
+        height: var(--header-height);
+        flex: 0 0 var(--header-height);
+        align-items: center;
+        gap: 12px;
+        padding: 0 clamp(14px, 2vw, 24px);
+        border-bottom: 1px solid var(--divider-color);
+        background: var(--app-header-background-color);
+        color: var(--app-header-text-color);
+      }
+      .brand-mark {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+        place-items: center;
+      }
+      .brand-mark img { display: block; width: 100%; height: 100%; }
+      .brand { display: flex; min-width: 0; align-items: center; gap: 10px; }
+      .brand-name { font-size: 16px; font-weight: 500; white-space: nowrap; }
+      .brand-divider { height: 20px; border-left: 1px solid var(--border); }
+      .brand-section { color: var(--text-secondary); font-size: 14px; white-space: nowrap; }
+      .prototype-tag {
+        padding: 3px 8px;
+        border-radius: var(--radius-pill);
+        background: var(--primary-soft);
+        color: var(--primary-ink);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+      }
+      .titlebar-spacer { flex: 1; }
+      .icon-button {
+        position: relative;
+        display: inline-grid;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        place-items: center;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease;
+      }
+      .icon-button:hover { background: var(--surface-muted); color: var(--text); }
+      .notification-count {
+        position: absolute;
+        top: 3px;
+        right: 2px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        border: 2px solid var(--surface);
+        border-radius: var(--radius-pill);
+        background: var(--bad);
+        color: #fff;
+        font-size: 9px;
+        font-weight: 700;
+        line-height: 12px;
+        text-align: center;
+      }
+
+      /* Page frame */
+      .workspace { display: flex; min-height: 0; flex: 1; }
+      .content {
+        width: 100%;
+        max-width: 1440px;
+        min-width: 0;
+        flex: 1 1 auto;
+        margin-inline: auto;
+        padding: 28px clamp(16px, 2.6vw, 36px) 56px;
+        overflow: auto;
+        container: dashboard / inline-size;
+      }
+      .devices-section { margin: 0 auto 24px; }
+      .section-heading {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+      .section-heading h1 { margin: 0; font-size: 24px; font-weight: 500; letter-spacing: -.01em; }
+      .section-heading p { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
+      .section-actions { display: flex; align-items: center; gap: 8px; }
+
+      /* Buttons and focus */
+      .button {
+        display: inline-flex;
+        min-height: var(--ha-button-height);
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 var(--ha-space-4);
+        border: 1px solid transparent;
+        border-radius: var(--ha-button-border-radius);
+        background: transparent;
+        color: var(--text);
+        font-size: var(--ha-font-size-m);
+        font-weight: var(--ha-font-weight-medium);
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background .15s ease, border-color .15s ease, color .15s ease, transform .12s ease;
+      }
+      .button:active { transform: translateY(1px); }
+      .button .icon { width: 18px; height: 18px; }
+      .button.primary { background: var(--ha-color-fill-primary-loud-resting); color: #fff; }
+      .button.primary:hover { background: var(--ha-color-fill-primary-loud-hover); }
+      .button.outline { border-color: var(--border-strong); background: var(--surface); }
+      .button.outline:hover { border-color: var(--text-disabled); background: var(--surface-soft); }
+      .button.quiet { color: var(--text-secondary); }
+      .button.quiet:hover { background: var(--surface-muted); color: var(--text); }
+      .button.active { border-color: transparent; background: var(--primary-soft); color: var(--primary-ink); }
+      .button.active:hover { background: var(--primary-border); }
+      .icon-button:focus-visible,
+      .button:focus-visible,
+      .device-card:focus-visible,
+      .back-button:focus-visible,
+      .panel-list-action:focus-visible,
+      .panel-catalog-option:focus-visible,
+      .device-more-trigger:focus-visible,
+      .device-menu-item:focus-visible,
+      .firmware-popover-close:focus-visible,
+      .scroll-arrow:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+      }
+
+      /* Device switcher */
+      .device-scroll-wrap { position: relative; }
+      .device-scroll {
+        display: flex;
+        gap: 14px;
+        padding: 4px 4px 10px;
+        overflow-x: auto;
+        overscroll-behavior-inline: contain;
+        scroll-snap-type: x mandatory;
+        scrollbar-color: var(--border-strong) transparent;
+        scrollbar-width: thin;
+      }
+      .device-scroll::-webkit-scrollbar { height: 6px; }
+      .device-scroll::-webkit-scrollbar-thumb { border-radius: var(--radius-pill); background: var(--border-strong); }
+      .scroll-arrow {
+        position: absolute;
+        z-index: 2;
+        top: calc(50% - 18px);
+        display: grid;
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        background: var(--surface);
+        box-shadow: var(--shadow-1);
+        color: var(--text);
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity .15s ease, background .15s ease;
+      }
+      .device-scroll-wrap:hover .scroll-arrow,
+      .scroll-arrow:focus-visible { opacity: 1; }
+      .scroll-arrow:hover { background: var(--surface-muted); }
+      .scroll-arrow.left { left: -14px; }
+      .scroll-arrow.right { right: -14px; }
+      .scroll-arrow .icon { width: 17px; height: 17px; }
+      .device-card {
+        flex: 0 0 264px;
+        min-width: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        scroll-snap-align: start;
+        transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+      }
+      .device-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-1); transform: translateY(-1px); }
+      .device-card.selected { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+      .device-cover {
+        position: relative;
+        display: flex;
+        height: 196px;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        overflow: hidden;
+        background: var(--screen);
+      }
+      .device-cover::after {
+        position: absolute;
+        inset: 0;
+        border: 1px solid rgba(255, 255, 255, .07);
+        border-radius: inherit;
+        content: "";
+        pointer-events: none;
+      }
+      .device-cover img {
+        display: block;
+        width: auto;
+        height: 100%;
+        max-width: 100%;
+        object-fit: contain;
+        border-radius: 7px;
+        background: #101010;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, .4);
+      }
+      .device-cover.portrait img { height: 100%; }
+      .sort-cue {
+        position: absolute;
+        z-index: 1;
+        top: 9px;
+        left: 9px;
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, .14);
+        border-radius: 7px;
+        background: rgba(0, 0, 0, .38);
+        color: rgba(255, 255, 255, .72);
+        cursor: grab;
+        opacity: .7;
+        transition: opacity .15s ease;
+      }
+      .device-card:hover .sort-cue { opacity: 1; }
+      .sort-cue .icon { width: 14px; height: 14px; }
+      .cover-update {
+        position: absolute;
+        right: 10px;
+        bottom: 9px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: var(--radius-pill);
+        background: var(--warn-soft);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, .18);
+        color: var(--warn);
+        font-size: 11px;
+        font-weight: 500;
+      }
+      .cover-update .icon { width: 14px; height: 14px; }
+      .selected-mark {
+        position: absolute;
+        top: 9px;
+        right: 9px;
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        transform: scale(.8);
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
+        opacity: 0;
+        transition: opacity .15s ease, transform .15s ease;
+      }
+      .selected-mark .icon { width: 14px; height: 14px; stroke-width: 2.4; }
+      .device-card.selected .selected-mark { transform: scale(1); opacity: 1; }
+      .device-card-body { display: flex; flex-direction: column; gap: 5px; padding: 12px 14px 14px; }
+      .device-card-title { display: flex; min-width: 0; align-items: center; gap: 7px; }
+      .device-card-title strong { flex: 0 1 auto; overflow: hidden; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+      .device-card-title .tiny-chip { margin-left: auto; }
+      .tiny-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 8px;
+        border-radius: var(--radius-pill);
+        background: var(--surface-muted);
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .tiny-chip.attention { background: var(--warn-soft); color: var(--warn); }
+      .status-dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--text-disabled); }
+      .status-dot.online { background: var(--good); }
+      .status-dot.offline { background: var(--bad); }
+      .status-dot.warning { background: var(--warn); }
+
+      /* Compact switcher while a device is open */
+      .shell.device-selected .devices-section { display: none; }
+      .shell.device-selected .device-cover { height: 150px; padding: 18px; }
+      .shell.device-selected .device-cover img { height: 100%; }
+      .shell.device-selected .device-card { flex-basis: 224px; }
+      .shell.device-selected .device-card-body { gap: 2px; padding: 10px 12px 12px; }
+
+      /* Surfaces */
+      .overview { display: flex; max-width: 100%; flex-direction: column; gap: 18px; margin: 0 auto; }
+      .surface {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid var(--ha-card-border-color);
+        border-radius: var(--ha-card-border-radius);
+        background: var(--ha-card-background);
+        box-shadow: var(--ha-card-box-shadow);
+      }
+      .surface-heading {
+        display: flex;
+        min-height: 64px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--divider);
+      }
+      .surface-heading h3 { margin: 0; font-size: 16px; font-weight: 500; }
+      .surface-heading p { margin: 3px 0 0; color: var(--text-secondary); font-size: 13px; }
+      .variant-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: var(--radius-pill);
+        background: var(--surface-muted);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .variant-badge .icon { width: 15px; height: 15px; }
+
+      /* Fleet summary */
+      .fleet-summary {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        overflow: hidden;
+        border-color: transparent;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        box-shadow: var(--shadow-1);
+        color: #fff;
+      }
+      .fleet-stats {
+        display: flex;
+        align-items: stretch;
+      }
+      .fleet-stat {
+        display: flex;
+        flex: 1 1 0;
+        min-width: 0;
+        align-items: center;
+        gap: 10px;
+        padding: 18px 22px;
+      }
+      .fleet-stat + .fleet-stat { border-left: 1px solid rgba(255, 255, 255, .22); }
+      .fleet-stat-icon {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, .16);
+        color: #fff;
+      }
+      .fleet-stat-icon .icon { width: 24px; height: 24px; stroke-width: 2; }
+      .fleet-stat-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+      .fleet-stat-label { color: rgba(255, 255, 255, .78); font-size: 12px; white-space: nowrap; }
+      .fleet-stat-value { display: flex; align-items: baseline; gap: 6px; }
+      .fleet-stat strong { font-size: 22px; font-weight: 500; line-height: 1; letter-spacing: -.02em; }
+      .fleet-stat small { color: rgba(255, 255, 255, .78); font-size: 12px; white-space: nowrap; }
+      .fleet-health {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 22px;
+        border-top: 1px solid rgba(255, 255, 255, .22);
+      }
+      .fleet-health-copy { display: flex; min-width: 0; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+      .fleet-health strong { font-size: 13px; font-weight: 600; }
+      .fleet-health small { color: rgba(255, 255, 255, .78); font-size: 12px; }
+      .fleet-dot {
+        position: relative;
+        width: 8px;
+        height: 8px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--good);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--good) 15%, transparent);
+      }
+      .fleet-dot::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border-radius: 50%;
+        border: 1px solid var(--good);
+        animation: fleet-pulse 2.4s ease-out infinite;
+      }
+      @keyframes fleet-pulse {
+        0% { transform: scale(.55); opacity: .7; }
+        70%, 100% { transform: scale(1.7); opacity: 0; }
+      }
+      .presence-spark { display: flex; height: 26px; align-items: flex-end; gap: 3px; margin-left: 6px; }
+      .presence-spark i { width: 4px; border-radius: 4px 4px 1px 1px; background: var(--primary-border); }
+
+      /* All-devices layout */
+      .d-overview-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, .85fr); align-items: start; gap: 18px; }
+      .d-device-table { display: flex; flex-direction: column; }
+      .d-device-table-head,
+      .d-device-entry {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 56px;
+        align-items: center;
+        gap: 0;
+      }
+      .d-device-table-head {
+        padding: 10px 18px;
+        border-bottom: 1px solid var(--divider);
+        background: var(--surface-muted);
+      }
+      .d-device-columns,
+      .d-device-row {
+        display: grid;
+        grid-template-columns: minmax(180px, 1.7fr) 112px 92px 88px;
+        align-items: center;
+        gap: 12px;
+      }
+      .d-device-table-head span {
+        color: var(--text-secondary);
+        font-size: var(--ha-font-size-s);
+        font-weight: var(--ha-font-weight-medium);
+        white-space: nowrap;
+      }
+      .d-update-column { text-align: right; }
+      .d-device-entry {
+        padding: 0 18px;
+        border-bottom: 1px solid var(--divider);
+        transition: background .13s ease;
+      }
+      .d-device-entry:last-child { border-bottom: 0; }
+      .d-device-entry:hover { background: var(--surface-soft); }
+      .d-device-row {
+        width: 100%;
+        min-height: 56px;
+        padding: 10px 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .d-device-primary { display: flex; min-width: 0; align-items: center; gap: 10px; }
+      .d-device-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+      .d-device-name { display: flex; min-width: 0; align-items: center; gap: 7px; }
+      .d-device-name strong { overflow: hidden; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+      .d-device-copy small { overflow: hidden; color: var(--text-secondary); font: 12px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+      .d-device-mobile-meta { display: none; color: var(--text-secondary); font-size: 12px; }
+      .row-mono { color: var(--text-secondary); font: 13px var(--mono); white-space: nowrap; }
+      .row-small { color: var(--text-secondary); font-size: 13px; white-space: nowrap; }
+      .d-device-actions { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+      .device-more-trigger {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        place-items: center;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease;
+      }
+      .device-more-trigger:hover,
+      .device-more-trigger[aria-expanded="true"] { background: var(--surface-muted); color: var(--text); }
+      .device-more-trigger.update { color: var(--warn); }
+      .device-more-trigger .icon { width: 15px; height: 15px; }
+
+      /* Device actions menu */
+      .device-menu-popover {
+        position: fixed;
+        z-index: 85;
+        min-width: 180px;
+        padding: 6px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow-2);
+      }
+      .device-menu-popover[hidden] { display: none; }
+      .device-menu-popover:focus { outline: none; }
+
+      /* Hover preview of a panel */
+      .panel-preview-popover {
+        position: fixed;
+        z-index: 80;
+        width: min(340px, calc(100vw - 24px));
+        padding: 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow-2);
+        pointer-events: none;
+      }
+      .panel-preview-popover[hidden] { display: none; }
+      .panel-preview-screen { display: block; width: 100%; aspect-ratio: 450 / 320; overflow: hidden; border-radius: var(--radius-sm); background: var(--screen); }
+      .panel-preview-screen.portrait { aspect-ratio: 320 / 480; }
+      .panel-preview-screen img { display: block; width: 100%; height: 100%; object-fit: contain; }
+      .panel-preview-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; margin-top: 8px; }
+      .panel-preview-copy strong { font-size: 13px; font-weight: 500; }
+      .panel-preview-copy span { color: var(--text-secondary); font-size: 12px; line-height: 1.45; }
+      .device-menu-item {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--text);
+        font-size: 13px;
+        text-align: left;
+        cursor: pointer;
+      }
+      .device-menu-item:hover { background: var(--surface-muted); }
+      .device-menu-item.danger { color: var(--bad); }
+      .device-menu-item .icon { width: 16px; height: 16px; }
+      .device-menu-divider { height: 1px; margin: 5px 4px; background: var(--divider); }
+
+      /* Activity */
+      .activity-list { display: flex; flex-direction: column; }
+      .activity-entry { display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--divider); }
+      .activity-entry:last-child { border-bottom: 0; }
+      .activity-icon {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--primary-soft);
+        color: var(--primary-ink);
+      }
+      .activity-icon.good { background: var(--good-soft); color: var(--good); }
+      .activity-icon.warn { background: var(--warn-soft); color: var(--warn); }
+      .activity-icon.bad { background: var(--bad-soft); color: var(--bad); }
+      .activity-icon .icon { width: 15px; height: 15px; }
+      .activity-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+      .activity-copy strong { font-size: 14px; font-weight: 400; }
+      .activity-copy strong span { font-weight: 500; }
+      .activity-copy small { color: var(--text-secondary); font-size: 12px; }
+
+      /* Selected device */
+      .b-selected-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+      .b-selected-identity { display: flex; min-width: 0; align-items: center; gap: 14px; }
+      .back-button {
+        display: grid;
+        width: 40px;
+        height: 40px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: border-color .15s ease, color .15s ease, background .15s ease;
+      }
+      .back-button:hover { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-ink); }
+      .b-selected-copy { min-width: 0; }
+      .b-selected-copy h2 { overflow: hidden; margin: 0; font-size: 24px; font-weight: 500; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
+      .b-selected-copy p { margin: 4px 0 0; color: var(--text-secondary); font-size: 14px; }
+      .b-selected-header-actions { display: flex; align-items: center; gap: 8px; }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 12px;
+        border-radius: var(--radius-pill);
+        background: var(--surface-muted);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .status-pill.online { background: var(--good-soft); color: var(--good); }
+      .status-pill.offline { background: var(--bad-soft); color: var(--bad); }
+      .status-pill .status-dot { width: 7px; height: 7px; }
+      .b-focus-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .9fr); align-items: start; gap: 18px; }
+      .b-side-stack { display: flex; min-width: 0; flex-direction: column; gap: 18px; }
+
+      /* Panel workspace */
+      .panel-workspace-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 3px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-pill);
+        background: var(--surface-muted);
+      }
+      .panel-workspace-toggle-option {
+        display: inline-flex;
+        height: 30px;
+        align-items: center;
+        gap: 6px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: var(--radius-pill);
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease;
+      }
+      .panel-workspace-toggle-option:hover { color: var(--text); }
+      .panel-workspace-toggle-option.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
+      .panel-workspace-toggle-option:disabled { color: var(--text-disabled); cursor: not-allowed; opacity: .6; }
+      .panel-workspace-toggle-option .icon { width: 15px; height: 15px; }
+      .panel-workspace-count {
+        display: inline-flex;
+        min-width: 20px;
+        height: 20px;
+        align-items: center;
+        justify-content: center;
+        padding: 0 6px;
+        border-radius: var(--radius-pill);
+        background: var(--surface-soft);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+      }
+      .panel-workspace-content { min-width: 0; }
+      .panel-workspace { scroll-margin-top: 76px; }
+      .panel-workspace > .surface-heading { min-height: 64px; justify-content: flex-end; padding: 14px 18px; }
+      .panel-empty { padding: 48px 20px; color: var(--text-secondary); font-size: 14px; text-align: center; }
+      .panel-workspace-actions { display: flex; width: 100%; flex: 0 0 auto; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+      .preview-controls-row { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; }
+      .preview-control-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+      .preview-tool-button {
+        display: inline-flex;
+        min-height: 34px;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 0 10px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-pill);
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .preview-tool-button:hover { background: var(--surface-muted); color: var(--text); }
+      .preview-tool-button.active { background: var(--primary-soft); color: var(--primary-ink); }
+      .preview-tool-button:focus-visible,
+      .preview-tools input:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+      .preview-tool-button .icon { width: 16px; height: 16px; }
+      .preview-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 18px;
+        width: 100%;
+        padding: 9px 2px 2px;
+        border-top: 1px solid var(--divider);
+      }
+      .preview-entity-toggle { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
+      .preview-entity-toggle input { accent-color: var(--primary); }
+      .sim-stage {
+        position: relative;
+        display: grid;
+        min-height: 360px;
+        place-items: center;
+        padding: 40px;
+        background: var(--screen);
+        transition: background .2s ease;
+      }
+      .sim-stage.live { background: radial-gradient(ellipse at 50% 8%, #294b48 0, #1c3534 58%, #142624 100%); }
+      .preview-live { border-color: var(--preview-live-border); background: var(--preview-live-surface); transition: background .2s ease, border-color .2s ease; }
+      .preview-live > .surface-heading { border-color: var(--preview-live-heading-border); background: var(--preview-live-surface); }
+      .preview-live .panel-workspace-content { background: var(--preview-live-surface); }
+      .sim-frame {
+        display: inline-flex;
+        max-width: 100%;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 12px;
+        background: #17191e;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
+      }
+      .sim-screen { max-width: 100%; overflow: hidden; border-radius: 4px; }
+      .sim-screen img { display: block; max-width: 100%; max-height: 380px; }
+      .sim-frame.portrait .sim-screen img { max-height: 460px; }
+      .sim-hw-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .sim-hw {
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        height: 56px;
+        padding: 12px 0 0;
+        border: 1px solid #34383f;
+        border-radius: 9px;
+        background: #22252b;
+        cursor: pointer;
+      }
+      .sim-hw:active { background: #292d34; }
+      .sim-relay-light { width: 40px; height: 6px; border-radius: 999px; background: #20242a; box-shadow: inset 0 1px 2px #000a; }
+      .action-row { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--divider); }
+      .panel-preview-actions { padding: 14px 18px; }
+
+      /* Panel list */
+      .panel-view-groups { display: flex; flex-direction: column; }
+      .panel-view-group { padding: 0; }
+      /* The group row is a table header band: it carries its own rule and a
+         background distinct from the row content below it. */
+      .panel-view-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px 10px; border-bottom: 1px solid var(--divider); background: var(--surface-muted); }
+      .panel-view-group-heading strong { font-size: 14px; font-weight: 600; }
+      .panel-view-group-heading span { color: var(--text-secondary); font-size: 12px; }
+      .panel-list-view { display: flex; min-height: 48px; flex-direction: column; }
+      .panel-list-row {
+        display: grid;
+        grid-template-columns: 16px minmax(0, 1fr) auto auto auto;
+        align-items: center;
+        gap: 14px;
+        min-height: 56px;
+        padding: 10px 18px;
+        border-top: 1px solid var(--divider);
+        cursor: pointer;
+        transition: background .12s ease, opacity .15s ease;
+      }
+      .panel-list-row:first-child { border-top: 0; }
+      .panel-list-row:last-child { border-bottom: 1px solid var(--divider); }
+      .panel-list-row:hover { background: var(--surface-soft); }
+      .panel-list-row > .sort-handle { width: 16px; height: 32px; }
+      .panel-list-row > .sort-handle .icon { width: 16px; height: 16px; }
+      .panel-list-main { display: flex; min-width: 0; align-items: center; }
+      .panel-list-name { display: flex; min-width: 0; align-items: center; gap: 6px; }
+      .panel-list-name strong { overflow: hidden; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+      .panel-list-thumb {
+        position: relative;
+        display: block;
+        width: 72px;
+        height: 51px;
+        flex: 0 0 auto;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--screen);
+        cursor: zoom-in;
+        transition: border-color .15s ease, box-shadow .15s ease;
+      }
+      .panel-list-thumb.portrait { width: 40px; height: 60px; }
+      .panel-list-thumb:hover { border-color: var(--primary); box-shadow: var(--shadow-1); }
+      .panel-list-thumb:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+      .panel-list-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+      /* Home/idle markers overlay the preview thumbnail's bottom-right corner:
+         two fit side by side on the landscape thumb, and stack on the narrow
+         portrait one, so the row keeps its text height and nothing overhangs. */
+      .panel-thumb-roles {
+        position: absolute;
+        right: 2px;
+        bottom: 2px;
+        display: flex;
+        gap: 2px;
+        pointer-events: none;
+      }
+      .panel-list-thumb.portrait .panel-thumb-roles { flex-direction: column; }
+      /* The portrait screen is only 40px wide: shrink the markers to match. */
+      .panel-list-thumb.portrait .panel-thumb-role { width: 14px; height: 14px; }
+      .panel-list-thumb.portrait .panel-thumb-role .icon { width: 9px; height: 9px; }
+      .panel-thumb-role {
+        display: grid;
+        width: 16px;
+        height: 16px;
+        place-items: center;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, .55);
+      }
+      .panel-thumb-role.home { background: var(--primary); color: #ffffff; }
+      .panel-thumb-role.idle { background: var(--warn); color: #14181c; }
+      .panel-thumb-role .icon { width: 10px; height: 10px; stroke-width: 2.3; }
+      .panel-list-meta { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 5px; }
+      .panel-list-key { color: var(--text-secondary); font: 12px var(--mono); white-space: nowrap; }
+      .panel-list-count { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+      .panel-list-actions { display: flex; align-items: center; gap: 2px; }
+      .panel-list-action {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        place-items: center;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease;
+      }
+      .panel-list-action:hover:not(:disabled) { background: var(--surface-muted); color: var(--text); }
+      .panel-list-action:disabled { color: var(--text-disabled); cursor: default; opacity: .5; }
+      .panel-list-action .icon { width: 15px; height: 15px; }
+      .panel-dropzone { margin: 0 18px 12px; padding: 16px 12px; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 12px; text-align: center; }
+      .sort-handle { display: inline-flex; align-items: center; justify-content: center; color: var(--text-disabled); cursor: grab; }
+      .sort-handle .icon { width: 14px; height: 14px; }
+      .sort-dragging { opacity: .4; }
+      .sort-over { outline: 2px dashed var(--primary); outline-offset: -3px; }
+
+      /* Panel manager */
+      .panel-management-card { display: flex; flex-direction: column; }
+      .panel-manager-content { display: flex; flex-direction: column; gap: 10px; padding: 16px; }
+      .panel-manager-heading { min-height: 64px; padding: 14px 18px; }
+      .panel-manager-heading-copy { min-width: 0; }
+      .panel-manager-heading-copy p {
+        overflow: hidden;
+        font-family: var(--mono);
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .panel-manager-add { width: 100%; justify-content: center; }
+      .panel-manager-summary { display: flex; align-items: baseline; gap: 6px; color: var(--text-secondary); font-size: 13px; }
+      .panel-manager-summary strong { color: var(--text); font-size: 15px; font-weight: 600; }
+      .panel-manager-sep { color: var(--text-disabled); }
+      .panel-manager-note { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+      .panel-role-card { display: flex; flex-direction: column; }
+      .panel-role-list { display: flex; flex-direction: column; }
+      .panel-role-row {
+        display: grid;
+        grid-template-columns: 36px minmax(80px, .7fr) minmax(150px, 1.3fr);
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        border-top: 1px solid var(--divider);
+      }
+      .panel-role-icon { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary-ink); }
+      .panel-role-icon .icon { width: 17px; height: 17px; }
+      .panel-role-copy { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+      .panel-role-copy small { color: var(--text-secondary); font-size: 12px; }
+      .panel-role-select { min-width: 0; height: 40px; padding: 0 10px; font-size: 13px; }
+
+      /* Panel catalog */
+      .panel-catalog-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+      .panel-catalog-option {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color .15s ease, background .15s ease;
+      }
+      .panel-catalog-option:hover { border-color: var(--primary); background: var(--primary-soft); }
+      .panel-catalog-screen { display: block; width: 100%; aspect-ratio: 450 / 320; overflow: hidden; border-radius: var(--radius-sm); background: var(--screen); }
+      .panel-catalog-screen.portrait { aspect-ratio: 320 / 480; }
+      .panel-catalog-screen img { display: block; width: 100%; height: 100%; object-fit: contain; }
+      .panel-catalog-heading { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 0 2px; }
+      .panel-catalog-heading strong { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+      .panel-catalog-icon { display: grid; width: 26px; height: 26px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary-ink); }
+      .panel-catalog-icon .icon { width: 15px; height: 15px; }
+      .panel-catalog-option:hover .panel-catalog-icon { background: var(--surface); }
+      .panel-catalog-description { padding: 0 2px; color: var(--text-secondary); font-size: 12px; line-height: 1.45; white-space: normal; }
+
+      /* Panel editor */
+      .panel-editor-preview { display: grid; place-items: center; }
+      .panel-editor-preview img { display: block; max-width: 100%; max-height: 220px; object-fit: contain; }
+      .panel-editor-item-summary { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 14px; border-radius: var(--radius-sm); background: var(--surface-muted); }
+      .panel-editor-item-summary strong { font-size: 22px; font-weight: 500; }
+      .panel-editor-item-summary span { color: var(--text-secondary); font-size: 13px; }
+      .panel-editor-item-summary p { grid-column: 1 / -1; margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+
+      /* Device details */
+      .device-status-heading { min-height: 64px; padding: 14px 18px; }
+      .device-status-heading-copy { min-width: 0; }
+      .device-status-heading-copy p {
+        overflow: hidden;
+        font-family: var(--mono);
+        font-size: 12px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .device-status-heading-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+      .device-configure-button {
+        display: inline-flex;
+        min-height: 32px;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 0 10px;
+        border: 1px solid transparent;
+        border-radius: var(--radius-pill);
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background .15s ease, color .15s ease;
+      }
+      .device-configure-button:hover { background: var(--surface-muted); color: var(--text); }
+      .device-configure-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+      .device-configure-button .icon { width: 15px; height: 15px; }
+      .device-status-card { container-type: inline-size; }
+
+      /* Connection hero: state, recency and the availability reading */
+      .connection-hero {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 14px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-muted);
+      }
+      .connection-hero.online {
+        border-color: color-mix(in srgb, var(--good) 32%, transparent);
+        background: var(--good-soft);
+      }
+      .connection-hero.offline {
+        border-color: color-mix(in srgb, var(--bad) 32%, transparent);
+        background: var(--bad-soft);
+      }
+      .connection-hero-icon {
+        display: grid;
+        width: 36px;
+        height: 36px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--surface);
+        color: var(--text-secondary);
+      }
+      .connection-hero.online .connection-hero-icon { color: var(--good); }
+      .connection-hero.offline .connection-hero-icon { color: var(--bad); }
+      .connection-hero-icon .icon { width: 19px; height: 19px; }
+      .connection-hero-copy { display: flex; min-width: 0; flex-direction: column; }
+      .connection-hero-copy strong { font-size: 15px; font-weight: 500; }
+      .connection-hero-copy span {
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+      .connection-hero-gauge {
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 1px;
+        margin-left: auto;
+      }
+      .connection-hero-gauge strong { font-size: 15px; font-weight: 500; }
+      .connection-hero-gauge small {
+        color: var(--text-secondary);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+      }
+
+      /* Fact rows */
+      .device-facts { display: flex; flex-direction: column; margin: 0; padding: 0 6px 6px; }
+      .fact {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 12px;
+        border-top: 1px solid var(--divider);
+      }
+      .fact:first-child { border-top: 0; }
+      .fact dt {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 9px;
+        color: var(--text-secondary);
+        font-size: 13px;
+      }
+      .fact-icon {
+        display: grid;
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+        place-items: center;
+        color: var(--ha-color-on-neutral-quiet);
+      }
+      .fact-icon .icon { width: 16px; height: 16px; }
+      .fact dd {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        gap: 6px;
+        margin-left: auto;
+        overflow: hidden;
+        font-size: 13px;
+        font-weight: 500;
+        text-align: right;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .fact dd.mono { font-family: var(--mono); font-size: 12px; }
+      .fact.stale dt,
+      .fact.stale dd { color: var(--text-disabled); }
+      .version-current { color: var(--text-secondary); font-family: var(--mono); font-size: 12px; }
+      .version-arrow { color: var(--text-disabled); }
+      .version-target { color: var(--warn); font-family: var(--mono); font-size: 12px; }
+
+      /* Update call to action */
+      .device-status-update {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 16px;
+        border: 0;
+        border-top: 1px solid var(--divider);
+        background: var(--warn-soft);
+        color: var(--warn);
+        text-align: left;
+        cursor: pointer;
+        transition: filter .15s ease;
+      }
+      .device-status-update:hover { filter: brightness(.97); }
+      .device-status-update-icon {
+        display: grid;
+        width: 26px;
+        height: 26px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--surface);
+      }
+      .device-status-update-icon .icon { width: 14px; height: 14px; }
+      .device-status-update-copy { display: flex; min-width: 0; flex-direction: column; }
+      .device-status-update-copy strong { font-size: 13px; font-weight: 500; }
+      .device-status-update-copy small {
+        overflow: hidden;
+        opacity: .75;
+        font-size: 11px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .device-status-update-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 1px;
+        margin-left: auto;
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .device-status-update-action .icon { width: 14px; height: 14px; }
+
+      /* Device configuration file */
+      .yaml-card-body { display: flex; flex-direction: column; gap: 12px; padding: 14px 18px 16px; }
+      .yaml-card-note { margin: 0; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
+      .yaml-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      .yaml-card-actions .button { flex: 1 1 120px; }
+      .yaml-card-actions .icon { width: 16px; height: 16px; }
+
+      /* Sidebar */
+      .config-panel {
+        position: fixed;
+        z-index: 35;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        width: 380px;
+        max-width: 100vw;
+        flex-direction: column;
+        overflow: hidden;
+        transform: translateX(102%);
+        border-left: 1px solid var(--border);
+        background: var(--surface);
+        box-shadow: -10px 0 40px rgba(0, 0, 0, .16);
+        transition: transform .24s cubic-bezier(.2, 0, 0, 1);
+      }
+      .shell.sidebar-open .config-panel { transform: translateX(0); }
+      .config-panel:focus { outline: none; }
+      .sidebar-inner { display: flex; width: 100%; height: 100%; min-height: 0; flex-direction: column; }
+      .sidebar-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 20px 16px; border-bottom: 1px solid var(--divider); }
+      .sidebar-heading h2 { margin: 0; font-size: 20px; font-weight: 500; }
+      .sidebar-heading p { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
+      .sidebar-body { display: flex; flex: 1; flex-direction: column; gap: 24px; padding: 20px; overflow: auto; }
+      .form-section { display: flex; flex-direction: column; gap: 12px; }
+      .form-section h3 { margin: 0; font-size: 14px; font-weight: 600; }
+      .field { display: flex; flex-direction: column; gap: 6px; }
+      .field-label { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 500; }
+      .field-hint { color: var(--text-secondary); font-size: 12px; font-weight: 400; }
+      .input {
+        width: 100%;
+        height: 40px;
+        padding: 0 12px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-sm);
+        outline: none;
+        background: var(--surface);
+        color: var(--text);
+        font-size: 14px;
+        transition: border-color .15s ease, box-shadow .15s ease;
+      }
+      .input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(0, 154, 199, .2); }
+      .input:disabled { color: var(--text-secondary); background: var(--surface-soft); }
+      .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+      .switch-copy { display: flex; flex-direction: column; gap: 2px; }
+      .switch {
+        position: relative;
+        width: 48px;
+        height: 24px;
+        flex: 0 0 auto;
+        appearance: none;
+        border: 0;
+        border-radius: var(--radius-pill);
+        background: var(--surface-strong);
+        cursor: pointer;
+        transition: background .15s ease;
+      }
+      .switch::after {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: var(--ha-box-shadow-s);
+        content: "";
+        transition: transform .15s ease;
+      }
+      .switch:checked { background: var(--primary); }
+      .switch:checked::after { transform: translateX(24px); }
+      .range { width: 100%; accent-color: var(--primary); }
+      .sidebar-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--divider); background: var(--surface); }
+      .sidebar-footer[hidden] { display: none; }
+      .scrim {
+        position: fixed;
+        z-index: 30;
+        inset: 0;
+        display: block;
+        padding: 0;
+        border: 0;
+        background: rgba(0, 0, 0, .4);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .2s ease;
+      }
+      .shell.sidebar-open .scrim { opacity: 1; pointer-events: auto; }
+
+      /* Firmware popover */
+      .firmware-popover {
+        position: fixed;
+        z-index: 85;
+        width: min(320px, calc(100vw - 24px));
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        box-shadow: var(--shadow-2);
+      }
+      .firmware-popover[hidden] { display: none; }
+      .firmware-popover:focus { outline: none; }
+      .firmware-popover-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+      .firmware-popover-heading h3 { margin: 0; font-size: 16px; font-weight: 500; }
+      .firmware-popover-heading p { margin: 4px 0 0; color: var(--text-secondary); font-size: 12px; }
+      .firmware-popover-close {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+      }
+      .firmware-popover-close:hover { background: var(--surface-muted); color: var(--text); }
+      .firmware-popover-close .icon { width: 16px; height: 16px; }
+      .firmware-release-list { display: flex; flex-direction: column; margin: 14px 0 12px; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; }
+      .firmware-release-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--divider); }
+      .firmware-release-row:last-child { border-bottom: 0; }
+      .firmware-release-row > span:first-child { color: var(--text-secondary); font-size: 13px; }
+      .firmware-release-version { display: flex; align-items: center; gap: 5px; font: 12px var(--mono); }
+      .firmware-release-version small { color: var(--primary-ink); font: 11px var(--mono); }
+      .firmware-popover-state { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; }
+      .firmware-popover-state.available { color: var(--warn); }
+      .firmware-popover-state .status-dot { width: 7px; height: 7px; }
+      .firmware-popover-note { margin: 6px 0 16px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+      .firmware-popover .button { width: 100%; }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        z-index: 100;
+        bottom: 24px;
+        left: 50%;
+        max-width: calc(100vw - 32px);
+        padding: 12px 18px;
+        transform: translate(-50%, 9px);
+        border-radius: var(--radius-sm);
+        background: #202020;
+        box-shadow: var(--shadow-2);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 500;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .18s ease, transform .18s ease;
+      }
+      .toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+      /* Responsive */
+      @container dashboard (max-width: 1120px) {
+        .d-device-columns,
+        .d-device-row { grid-template-columns: minmax(160px, 1.7fr) 92px 88px; }
+        .d-device-table-head .d-col-ip,
+        .d-device-row .d-col-ip { display: none; }
+        .d-device-table-head,
+        .d-device-entry { grid-template-columns: minmax(0, 1fr) 56px; }
+      }
+      @container dashboard (max-width: 1100px) {
+        .fleet-stat { padding: 15px 16px; }
+        .fleet-health { padding: 12px 16px; }
+        .fleet-stat-icon { width: 38px; height: 38px; }
+        .fleet-stat-icon .icon { width: 20px; height: 20px; }
+        .presence-spark { display: none; }
+      }
+      @container dashboard (max-width: 980px) {
+        .d-overview-grid { grid-template-columns: 1fr; }
+        .b-focus-grid { grid-template-columns: 1fr; }
+        .b-side-stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+      }
+      @container dashboard (max-width: 720px) {
+        .content { padding: 20px 16px 40px; }
+        .section-heading { align-items: flex-start; }
+        .section-actions { flex-wrap: wrap; justify-content: flex-end; }
+        .device-card { flex-basis: 232px; }
+        .device-cover { height: 176px; }
+        .shell.device-selected .device-card { flex-basis: 206px; }
+        .shell.device-selected .device-cover { height: 136px; }
+        .fleet-stat { padding: 10px 12px; }
+        .b-selected-head { align-items: flex-start; flex-direction: column; }
+        .b-selected-header-actions { width: 100%; }
+        .b-side-stack { display: flex; align-items: stretch; }
+        .panel-workspace > .surface-heading { align-items: center; flex-wrap: nowrap; }
+        .panel-view-group-heading span { display: none; }
+        .sim-stage { min-height: 240px; padding: 24px; }
+        .sim-screen img { max-height: 300px; }
+        .sim-frame.portrait .sim-screen img { max-height: 380px; }
+        .d-device-table-head { display: none; }
+        .d-device-entry { grid-template-columns: minmax(0, 1fr) auto; padding: 0 12px; }
+        .d-device-row { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 10px 0; }
+        .d-device-row .d-col-ip,
+        .d-device-row .d-col-firmware,
+        .d-device-row .d-col-display { display: none; }
+        .d-device-copy small { display: none; }
+        .d-device-mobile-meta { display: block; overflow-wrap: anywhere; }
+        .d-device-actions { gap: 2px; }
+        .panel-list-row { grid-template-columns: 14px minmax(0, 1fr) auto auto; gap: 8px; padding: 8px 12px; }
+        .panel-list-row > .sort-handle { grid-column: 1; }
+        .panel-list-main { grid-column: 2; }
+        .panel-list-key { grid-column: 3; font-size: 11px; }
+        .panel-list-meta { display: none; }
+        .panel-list-actions { grid-column: 4; }
+        .panel-list-action { width: 28px; height: 28px; }
+        .panel-list-action .icon { width: 14px; height: 14px; }
+        .panel-role-row { grid-template-columns: 36px minmax(0, 1fr); }
+        .panel-role-select { grid-column: 1 / -1; }
+        .fact { padding: 8px 10px; }
+        .sidebar-footer { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+      }
+      @container dashboard (max-width: 600px) {
+        .fleet-stats { flex-wrap: wrap; }
+        .fleet-stat,
+        .fleet-stat + .fleet-stat { flex: 1 1 100%; border-left: 0; border-top: 1px solid var(--divider); }
+        .fleet-stat:first-child { border-top: 0; }
+      }
+      @media (max-width: 600px) {
+        .titlebar { gap: 8px; padding: 0 12px; }
+        .brand-name { font-size: 15px; }
+        .brand-divider, .brand-section, .prototype-tag { display: none; }
+        .section-heading { flex-direction: column; }
+        .section-actions { width: 100%; justify-content: flex-end; }
+        .section-actions .button { min-height: 36px; padding: 0 14px; }
+        .device-card { flex-basis: 220px; }
+        .device-cover { height: 168px; }
+        .shell.device-selected .device-card { flex-basis: 196px; }
+        .shell.device-selected .device-cover { height: 128px; }
+        .device-more-trigger { width: 28px; height: 28px; }
+        .device-more-trigger .icon { width: 14px; height: 14px; }
+        .panel-catalog-grid { grid-template-columns: 1fr; }
+        .firmware-popover {
+          left: 12px !important;
+          right: 12px;
+          top: auto !important;
+          bottom: max(12px, env(safe-area-inset-bottom));
+          width: auto;
+          max-height: calc(100dvh - 24px);
+          overflow: auto;
+        }
+        .toast { bottom: max(12px, env(safe-area-inset-bottom)); white-space: nowrap; }
+      }
+      @media (max-width: 900px) {
+        .config-panel { width: min(400px, 100vw); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+      }
+
+      /* Dark theme, following Home Assistant's dark palette */
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+
+          --ha-box-shadow-s: 0 1px 2px 0 rgba(0, 0, 0, .4), 0 1px 3px 0 rgba(0, 0, 0, .5);
+          --ha-box-shadow-m: 0 3px 6px -1px rgba(0, 0, 0, .35), 0 8px 16px -2px rgba(0, 0, 0, .45);
+          --ha-box-shadow-l: 0 6px 12px -3px rgba(0, 0, 0, .4), 0 16px 32px -6px rgba(0, 0, 0, .55);
+
+          --ha-color-text-primary: #f5f5f5;
+          --ha-color-text-secondary: var(--ha-color-neutral-80);
+          --ha-color-text-disabled: var(--ha-color-neutral-50);
+          --ha-color-surface-default: var(--ha-color-neutral-10);
+          --ha-color-surface-low: var(--ha-color-neutral-05);
+          --ha-color-surface-lower: #000000;
+          --ha-color-border-neutral-quiet: var(--ha-color-neutral-40);
+          --ha-color-border-neutral-normal: var(--ha-color-neutral-50);
+          --ha-color-fill-primary-quiet-resting: var(--ha-color-primary-05);
+          --ha-color-fill-primary-quiet-hover: var(--ha-color-primary-10);
+          --ha-color-fill-primary-loud-resting: var(--ha-color-primary-40);
+          --ha-color-fill-primary-loud-hover: var(--ha-color-primary-30);
+          --ha-color-fill-neutral-quiet-resting: var(--ha-color-neutral-05);
+          --ha-color-fill-neutral-quiet-hover: var(--ha-color-neutral-10);
+          --ha-color-fill-neutral-normal-resting: var(--ha-color-neutral-10);
+          --ha-color-fill-neutral-normal-hover: var(--ha-color-neutral-20);
+          --ha-color-on-primary-quiet: var(--ha-color-primary-70);
+          --ha-color-on-primary-normal: var(--ha-color-primary-60);
+          --ha-color-on-neutral-quiet: var(--ha-color-neutral-70);
+          --ha-color-on-neutral-normal: var(--ha-color-neutral-60);
+          --ha-color-fill-success-quiet-resting: var(--ha-color-green-05);
+          --ha-color-fill-warning-quiet-resting: var(--ha-color-orange-05);
+          --ha-color-fill-danger-quiet-resting: var(--ha-color-red-05);
+          --ha-color-on-success-normal: var(--ha-color-green-70);
+          --ha-color-on-warning-normal: var(--ha-color-orange-70);
+          --ha-color-on-danger-normal: var(--ha-color-red-70);
+
+          --primary-background-color: #111111;
+          --secondary-background-color: var(--ha-color-neutral-20);
+          --divider-color: var(--ha-color-neutral-20);
+          --error-color: var(--ha-color-red-70);
+          --warning-color: var(--ha-color-orange-70);
+          --success-color: var(--ha-color-green-70);
+          --info-color: var(--ha-color-primary-60);
+          --app-header-background-color: var(--ha-color-surface-default);
+          --app-header-text-color: var(--ha-color-text-primary);
+
+          --surface-soft: #222222;
+          --primary-border: var(--ha-color-primary-20);
+          --primary-soft: var(--ha-color-primary-10);
+          --primary-ink: var(--ha-color-primary-70);
+          --preview-live-surface: #10231f;
+          --preview-live-border: #2d4f48;
+          --preview-live-heading-border: #1e3a34;
+        }
+        .button.outline { background: transparent; }
+        .button.outline:hover { background: var(--surface-muted); }
+        .toast { background: #f5f5f5; color: #141414; }
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="icon-library" aria-hidden="true" focusable="false">
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M10 21h4"/></symbol>
+      <symbol id="i-tune" viewBox="0 0 24 24"><path d="M4 7h8m4 0h4M4 17h3m4 0h9"/><circle cx="14" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+      <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.6v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H6.3v-2.6h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5v-.2H15v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2V14h-.2a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
+      <symbol id="i-devices" viewBox="0 0 24 24"><rect x="2" y="4" width="14" height="16" rx="2"/><path d="M5 7h8M5 16h8M19 8h3v12h-5V8h2ZM19 5h3"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5m7 7-7-7 7-7"/></symbol>
+      <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5m-7 7 7-7 7 7"/></symbol>
+      <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14m7-7-7 7-7-7"/></symbol>
+      <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="8" cy="5" r="1"/><circle cx="16" cy="5" r="1"/><circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/><circle cx="8" cy="19" r="1"/><circle cx="16" cy="19" r="1"/></symbol>
+      <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="m14 5 5 5M4 20l4.5-1 11-11a2.1 2.1 0 0 0-3-3l-11 11L4 20Z"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="m18 6-12 12M6 6l12 12"/></symbol>
+      <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M3 9a14 14 0 0 1 18 0M6.5 12.5a9 9 0 0 1 11 0M10 16a4 4 0 0 1 4 0"/><circle cx="12" cy="20" r="1"/></symbol>
+      <symbol id="i-signal" viewBox="0 0 24 24"><path d="M4 20v-4M9 20v-7M14 20V9M19 20V4"/></symbol>
+      <symbol id="i-panels" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></symbol>
+      <symbol id="i-screen" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8m-4-3v3"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.5-3"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M5 21h14"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="i-sleep" viewBox="0 0 24 24"><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/><path d="M16 3v4m-2-2h4"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/></symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></symbol>
+      <symbol id="i-light" viewBox="0 0 24 24"><path d="M9 18h6m-5 3h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/></symbol>
+      <symbol id="i-thermo" viewBox="0 0 24 24"><path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0Z"/><path d="M12 12v5"/></symbol>
+      <symbol id="i-cover" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M4 8h16M4 12h16M4 16h16"/></symbol>
+      <symbol id="i-media" viewBox="0 0 24 24"><path d="m8 5 12 7-12 7V5Z"/></symbol>
+      <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .4-8A6 6 0 0 0 6 9.5 4.5 4.5 0 0 0 7 18Z"/></symbol>
+      <symbol id="i-network" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></symbol>
+      <symbol id="i-log" viewBox="0 0 24 24"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/></symbol>
+      <symbol id="i-lightning" viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-7l1-7Z"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m-5 5 5-5 5 5M5 21h14"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6V3Z"/><path d="M14 3v4h4M9 13h6M9 17h6"/></symbol>
+    </svg>
+
+    <div class="shell" id="app">
+      <header class="titlebar">
+        <div class="brand-mark" aria-hidden="true"><img src="../custom_components/nspanel_haui/brand/logo.png" alt=""></div>
+        <div class="brand">
+          <span class="brand-name">NSPanel HAUI</span>
+          <span class="brand-divider"></span>
+          <span class="brand-section">Dashboard</span>
+        </div>
+        <span class="prototype-tag">MOCKUP</span>
+        <span class="titlebar-spacer"></span>
+        <button class="icon-button" id="notificationsButton" aria-label="Notifications" title="Notifications">
+          <svg class="icon"><use href="#i-bell"></use></svg><span class="notification-count">2</span>
+        </button>
+      </header>
+
+      <div class="workspace">
+        <main class="content" id="content">
+          <section class="devices-section" aria-label="Configured devices">
+            <div class="device-scroll-wrap">
+              <button class="scroll-arrow left" id="scrollDevicesLeft" aria-label="Scroll devices left">
+                <svg class="icon"><use href="#i-chevron-left"></use></svg>
+              </button>
+              <div class="device-scroll" id="deviceCards" aria-label="Configured devices"></div>
+              <button class="scroll-arrow right" id="scrollDevicesRight" aria-label="Scroll devices right">
+                <svg class="icon"><use href="#i-chevron-right"></use></svg>
+              </button>
+            </div>
+          </section>
+          <section class="overview" id="overview" aria-live="polite"></section>
+        </main>
+
+        <aside class="config-panel" id="configPanel" tabindex="-1" aria-hidden="true" aria-labelledby="configTitle" inert>
+          <div class="sidebar-inner">
+            <div class="sidebar-heading">
+              <div><h2 id="configTitle">Device configuration</h2><p id="configSubtitle"></p></div>
+              <button class="icon-button" id="closeConfig" aria-label="Close sidebar">
+                <svg class="icon"><use href="#i-close"></use></svg>
+              </button>
+            </div>
+            <div class="sidebar-body" id="configBody"></div>
+            <div class="sidebar-footer" id="sidebarFooter">
+              <button class="button outline" id="cancelConfig">Cancel</button>
+              <button class="button primary" id="saveConfig">Save changes</button>
+            </div>
+          </div>
+        </aside>
+        <button class="scrim" id="scrim" aria-label="Close sidebar" tabindex="-1"></button>
+      </div>
+    </div>
+
+    <section class="firmware-popover" id="firmwarePopover" tabindex="-1" aria-live="polite" hidden></section>
+    <section class="device-menu-popover" id="deviceMenuPopover" tabindex="-1" aria-live="polite" hidden></section>
+    <section class="device-menu-popover" id="panelMenuPopover" tabindex="-1" aria-live="polite" hidden></section>
+    <section class="device-menu-popover" id="deviceActionsPopover" tabindex="-1" aria-live="polite" hidden></section>
+    <section class="panel-preview-popover" id="panelPreviewPopover" aria-hidden="true" hidden></section>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <input id="yamlImportInput" type="file" accept=".yaml,.yml,text/yaml,application/yaml" hidden>
+
+    <script>
+      const SCREEN_ASSETS = '../docs/assets/screens';
+      const DEVICES = [
+        {
+          id: 'living', name: 'Living room', room: 'Ground floor', node: 'nspanel-living-room',
+          status: 'online', ip: '192.168.1.42', orientation: 'landscape', firmware: '0.4.7', display: '0.4.7',
+          panels: 8, page: 'Rooms', homePanel: 'rooms', idlePanel: 'clock', hiddenPanels: ['clock'],
+          uptime: '3d 14h', seen: '12 sec ago', availability: 100,
+          activity: [
+            { icon: 'check', tone: 'good', text: 'Display TFT updated to 0.4.7', when: 'Today · 09:42' },
+            { icon: 'refresh', tone: '', text: 'Firmware check completed', when: 'Today · 08:15' },
+            { icon: 'wifi', tone: 'good', text: 'Connected to Home Wi-Fi', when: 'Yesterday · 22:10' },
+          ],
+          panelList: [
+            ['Rooms', 'rooms', 'grid', 'grid'], ['Lights', 'lights', 'light', 'light'],
+            ['Climate', 'climate', 'thermo', 'climate'], ['Covers', 'covers', 'cover', 'cover'],
+            ['Media', 'media', 'media', 'media'], ['Weather', 'weather', 'cloud', 'weather'],
+            ['Scenes', 'scenes', 'lightning', 'grid'], ['Clock', 'clock', 'clock', 'clock'],
+          ],
+        },
+        {
+          id: 'bedroom', name: 'Bedroom', room: 'Upper floor', node: 'nspanel-bedroom',
+          status: 'online', ip: '192.168.1.57', orientation: 'portrait', firmware: '0.4.7', display: '0.4.7',
+          panels: 5, page: 'Clock', homePanel: 'clock', idlePanel: 'clock', hiddenPanels: ['alarm'],
+          uptime: '1d 6h', seen: '18 sec ago', availability: 99,
+          activity: [
+            { icon: 'wifi', tone: 'good', text: 'Reconnected after 8 seconds', when: 'Today · 06:31' },
+            { icon: 'check', tone: 'good', text: 'Display TFT is up to date', when: 'Yesterday · 11:20' },
+            { icon: 'activity', tone: '', text: 'Idle page changed to Clock', when: 'Nov 08 · 19:04' },
+          ],
+          panelList: [
+            ['Clock', 'clock', 'clock', 'clock'], ['Lights', 'lights', 'light', 'light'],
+            ['Climate', 'climate', 'thermo', 'climate'], ['Covers', 'covers', 'cover', 'cover'],
+            ['Alarm', 'alarm', 'activity', 'alarm'],
+          ],
+        },
+        {
+          id: 'office', name: 'Office', room: 'Upper floor', node: 'nspanel-office',
+          status: 'offline', ip: '192.168.1.61', orientation: 'landscape', firmware: '0.4.6', display: '0.4.6',
+          panels: 6, page: 'Unknown', homePanel: 'office', idlePanel: 'focus', hiddenPanels: ['focus'],
+          uptime: '—', seen: '2 hours ago', availability: 92,
+          update: '0.4.7',
+          activity: [
+            { icon: 'alert', tone: 'bad', text: 'Connection lost', when: 'Today · 10:16' },
+            { icon: 'download', tone: 'warn', text: 'Firmware update 0.4.7 available', when: 'Today · 08:15' },
+            { icon: 'info', tone: '', text: 'Last known page: Office', when: 'Today · 10:14' },
+          ],
+          panelList: [
+            ['Office', 'office', 'grid', 'grid'], ['Lights', 'lights', 'light', 'light'],
+            ['Climate', 'climate', 'thermo', 'climate'], ['Covers', 'covers', 'cover', 'cover'],
+            ['Media', 'media', 'media', 'media'], ['Focus', 'focus', 'lightning', 'grid'],
+          ],
+        },
+        {
+          id: 'kitchen', name: 'Kitchen', room: 'Ground floor', node: 'nspanel-kitchen',
+          status: 'online', ip: '192.168.1.44', orientation: 'landscape', firmware: '0.4.7', display: '0.4.7',
+          panels: 4, page: 'Rooms', homePanel: 'rooms', idlePanel: 'weather', hiddenPanels: ['timer', 'weather'],
+          uptime: '6d 2h', seen: '4 sec ago', availability: 100,
+          activity: [
+            { icon: 'check', tone: 'good', text: 'Notification dismissed', when: 'Today · 09:55' },
+            { icon: 'refresh', tone: '', text: 'Device state refreshed', when: 'Today · 09:50' },
+            { icon: 'wifi', tone: 'good', text: 'Connection stable', when: 'Yesterday · 20:12' },
+          ],
+          panelList: [
+            ['Rooms', 'rooms', 'grid', 'grid'], ['Lights', 'lights', 'light', 'light'],
+            ['Timer', 'timer', 'clock', 'timer'], ['Weather', 'weather', 'cloud', 'weather'],
+          ],
+        },
+      ];
+      const PANEL_DETAILS = {
+        rooms: { type: 'grid', description: 'A grid of up to six items with pagination.', items: 6 },
+        lights: { type: 'grid_light', description: 'Quick access to lighting controls.', items: 2 },
+        climate: { type: 'climate', description: 'Temperature and climate controls.', items: 1 },
+        covers: { type: 'grid_cover', description: 'Cover position and stop controls.', items: 2 },
+        media: { type: 'grid_media', description: 'Media playback and source controls.', items: 1 },
+        weather: { type: 'weather', description: 'Current conditions and forecast.', items: 1 },
+        scenes: { type: 'grid_scene', description: 'Shortcuts to common scenes.', items: 4 },
+        clock: { type: 'clock', description: 'Clock display for the idle screen.', items: 0 },
+        alarm: { type: 'alarm', description: 'Alarm status and controls.', items: 1 },
+        office: { type: 'grid', description: 'Office controls and room shortcuts.', items: 6 },
+        focus: { type: 'grid', description: 'Focus mode controls.', items: 2 },
+        timer: { type: 'timer', description: 'Countdown timer controls.', items: 1 },
+      };
+      const PANEL_CATALOG = [
+        { key: 'grid', name: 'Grid', glyph: 'grid', preview: 'grid', details: PANEL_DETAILS.rooms },
+        { key: 'lights', name: 'Light controls', glyph: 'light', preview: 'light', details: PANEL_DETAILS.lights },
+        { key: 'climate', name: 'Climate', glyph: 'thermo', preview: 'climate', details: PANEL_DETAILS.climate },
+        { key: 'covers', name: 'Cover controls', glyph: 'cover', preview: 'cover', details: PANEL_DETAILS.covers },
+        { key: 'media', name: 'Media', glyph: 'media', preview: 'media', details: PANEL_DETAILS.media },
+        { key: 'weather', name: 'Weather', glyph: 'cloud', preview: 'weather', details: PANEL_DETAILS.weather },
+        { key: 'scenes', name: 'Scenes', glyph: 'lightning', preview: 'grid', details: PANEL_DETAILS.scenes },
+        { key: 'clock', name: 'Clock', glyph: 'clock', preview: 'clock', details: PANEL_DETAILS.clock },
+        { key: 'alarm', name: 'Alarm', glyph: 'activity', preview: 'alarm', details: PANEL_DETAILS.alarm },
+        { key: 'timer', name: 'Timer', glyph: 'clock', preview: 'timer', details: PANEL_DETAILS.timer },
+      ];
+      const FLEET_ACTIVITY = [
+        { device: 'Living room', icon: 'check', tone: 'good', text: 'Display TFT updated to 0.4.7', when: 'Today · 09:42' },
+        { device: 'Office', icon: 'alert', tone: 'bad', text: 'Device disconnected', when: 'Today · 10:16' },
+        { device: 'Bedroom', icon: 'wifi', tone: 'good', text: 'Reconnected after 8 seconds', when: 'Today · 06:31' },
+        { device: 'Kitchen', icon: 'activity', tone: '', text: 'Notification dismissed', when: 'Today · 05:55' },
+      ];
+      const ICONS = {
+        icon: (name, cls = '') => `<svg class="icon ${cls}" aria-hidden="true"><use href="#i-${name}"></use></svg>`,
+      };
+      const $ = (selector, root = document) => root.querySelector(selector);
+      const app = $('#app');
+      const cardScroller = $('#deviceCards');
+      const overview = $('#overview');
+      const configPanel = $('#configPanel');
+      const configBody = $('#configBody');
+      const firmwarePopover = $('#firmwarePopover');
+      const deviceMenuPopover = $('#deviceMenuPopover');
+      const panelMenuPopover = $('#panelMenuPopover');
+      const deviceActionsPopover = $('#deviceActionsPopover');
+      const panelPreviewPopover = $('#panelPreviewPopover');
+      const yamlImportInput = $('#yamlImportInput');
+      const toast = $('#toast');
+      const state = {
+        selected: null,
+        sidebarOpen: false,
+        sidebarMode: 'device',
+        panelEditKey: null,
+        firmwareDevice: null,
+        firmwareTrigger: null,
+        deviceMenuDevice: null,
+        deviceMenuTrigger: null,
+        panelMenuDevice: null,
+        panelMenuKey: null,
+        panelMenuTrigger: null,
+        deviceActionsDevice: null,
+        deviceActionsTrigger: null,
+        devicePanelView: 'overview',
+        previewPanelKey: null,
+        previewMode: 'simulated',
+        previewIdle: false,
+        showPreviewTools: false,
+        showPreviewEntities: false,
+        previewHoverRow: null,
+        dragItem: null,
+        returnFocus: null,
+        yamlImportDevice: null,
+      };
+
+      const icon = ICONS.icon;
+      const byId = (id) => DEVICES.find((device) => device.id === id);
+      const screenUrl = (device, page = 'grid') => `${SCREEN_ASSETS}/${device.orientation}/${page}.png`;
+      const deviceHomePreview = (device) => device.panelList.find((panel) => panel[1] === device.homePanel)?.[3] ?? 'grid';
+      const statusText = (device) => device.status === 'online' ? 'Connected' : 'Disconnected';
+      const statusClass = (device) => device.status === 'online' ? 'online' : 'offline';
+
+      function renderDeviceCard(device) {
+        const selected = state.selected === device.id;
+        return `
+          <button class="device-card ${selected ? 'selected' : ''}" data-device="${device.id}" data-sort-kind="device" data-sort-id="${device.id}" draggable="true" aria-pressed="${selected}">
+            <div class="device-cover ${device.orientation}">
+              <img src="${screenUrl(device, deviceHomePreview(device))}" alt="" loading="lazy">
+              <span class="sort-cue" title="Drag to reorder devices">${icon('grip')}</span>
+              ${device.update ? `<span class="cover-update">${icon('download')}Update available</span>` : ''}
+              <span class="selected-mark">${icon('check')}</span>
+            </div>
+            <span class="device-card-body">
+              <span class="device-card-title"><i class="status-dot ${statusClass(device)}"></i><strong>${device.name}</strong><span class="tiny-chip">${device.panels} panels</span></span>
+            </span>
+          </button>`;
+      }
+
+      function renderActivity(entries, fleet = false) {
+        return `<div class="activity-list">${entries.map((entry) => `
+          <div class="activity-entry">
+            <span class="activity-icon ${entry.tone || ''}">${icon(entry.icon)}</span>
+            <span class="activity-copy"><strong>${fleet ? `<span>${entry.device}</span> · ` : ''}${entry.text}</strong><small>${entry.when}</small></span>
+          </div>`).join('')}</div>`;
+      }
+
+      function renderDDeviceRow(device) {
+        return `
+          <div class="d-device-entry" data-sort-kind="device" data-sort-id="${device.id}" draggable="true">
+            <button class="d-device-row" data-device="${device.id}">
+              <span class="d-device-primary"><span class="sort-handle" title="Drag to reorder devices">${icon('grip')}</span>
+                <span class="d-device-copy"><span class="d-device-name"><i class="status-dot ${statusClass(device)}"></i><strong>${device.name}</strong></span><span class="d-device-mobile-meta">${device.room} · FW ${device.firmware} · TFT ${device.display}</span></span>
+              </span>
+              <span class="row-mono d-col-ip">${device.ip}</span>
+              <span class="row-mono d-col-firmware">${device.firmware}</span>
+              <span class="row-mono d-col-display">${device.display}</span>
+            </button>
+            <span class="d-device-actions">
+              <button class="device-more-trigger ${device.update ? 'update' : ''}" data-device-menu="${device.id}" aria-expanded="false" aria-controls="deviceMenuPopover" aria-label="Actions for ${device.name}">
+                ${icon('dots')}
+              </button>
+            </span>
+          </div>`;
+      }
+
+      function renderFleetSummary() {
+        const online = DEVICES.filter((device) => device.status === 'online').length;
+        const updates = DEVICES.filter((device) => device.update).length;
+        return `
+          <section class="surface fleet-summary">
+            <div class="fleet-stats">
+              <div class="fleet-stat">
+                <span class="fleet-stat-icon">${icon('devices')}</span>
+                <span class="fleet-stat-copy">
+                  <span class="fleet-stat-label">Devices online</span>
+                  <span class="fleet-stat-value"><strong>${online}</strong><small>of ${DEVICES.length}</small></span>
+                </span>
+              </div>
+              <div class="fleet-stat">
+                <span class="fleet-stat-icon">${icon('download')}</span>
+                <span class="fleet-stat-copy">
+                  <span class="fleet-stat-label">Updates available</span>
+                  <span class="fleet-stat-value"><strong>${updates}</strong><small>firmware or display</small></span>
+                </span>
+              </div>
+              <div class="fleet-stat">
+                <span class="fleet-stat-icon">${icon('activity')}</span>
+                <span class="fleet-stat-copy">
+                  <span class="fleet-stat-label">Fleet availability</span>
+                  <span class="fleet-stat-value"><strong>98%</strong><small>last 24 hours</small></span>
+                </span>
+                <div class="presence-spark" aria-hidden="true"><i style="height:40%"></i><i style="height:58%"></i><i style="height:47%"></i><i style="height:75%"></i><i style="height:60%"></i><i style="height:90%"></i><i style="height:72%"></i><i style="height:100%"></i><i style="height:80%"></i><i style="height:93%"></i></div>
+              </div>
+            </div>
+            <div class="fleet-health">
+              <span class="fleet-dot"></span>
+              <span class="fleet-health-copy"><strong>Home network is mostly healthy</strong><small>Last heartbeat received 4 seconds ago</small></span>
+            </div>
+          </section>`;
+      }
+
+      function renderAllD() {
+        return `
+          ${renderFleetSummary()}
+          <div class="d-overview-grid">
+            <section class="surface">
+              <div class="surface-heading"><div><h3>Device inventory</h3><p>Select a row to open its dashboard.</p></div></div>
+              <div class="d-device-table">
+                <div class="d-device-table-head"><div class="d-device-columns"><span>Device</span><span class="d-col-ip">IP address</span><span>Firmware</span><span>Display</span></div><span class="d-update-column">Actions</span></div>
+                ${DEVICES.map(renderDDeviceRow).join('')}
+              </div>
+            </section>
+            <section class="surface">
+              <div class="surface-heading"><div><h3>Recent activity</h3><p>Across your devices</p></div><span class="variant-badge">24h</span></div>
+              ${renderActivity(FLEET_ACTIVITY, true)}
+            </section>
+          </div>`;
+      }
+
+      function panelIsNavigation(device, key) {
+        return !device.hiddenPanels?.includes(key);
+      }
+
+      function yamlValue(value) {
+        if (value === null || value === undefined) return 'null';
+        if (typeof value === 'boolean' || typeof value === 'number') return String(value);
+        const text = String(value);
+        const plain = /^[A-Za-z0-9_./-][A-Za-z0-9 _./@-]*$/.test(text)
+          && !['true', 'false', 'null', '~'].includes(text);
+        return plain ? text : JSON.stringify(text);
+      }
+
+      function yamlScalar(raw) {
+        const text = raw.trim();
+        if (!text) return '';
+        if (text.startsWith('"')) {
+          try { return JSON.parse(text); } catch { return text.slice(1, -1); }
+        }
+        if (text.startsWith("'") && text.endsWith("'")) return text.slice(1, -1).replace(/''/g, "'");
+        if (text === 'true') return true;
+        if (text === 'false') return false;
+        if (text === 'null' || text === '~') return null;
+        return text;
+      }
+
+      function deviceToYaml(device) {
+        const lines = [
+          '# NSPanel HAUI device configuration',
+          `name: ${yamlValue(device.name)}`,
+          `node: ${yamlValue(device.node)}`,
+          `orientation: ${yamlValue(device.orientation)}`,
+          `home_panel: ${yamlValue(device.homePanel)}`,
+          `idle_panel: ${yamlValue(device.idlePanel)}`,
+          'panels:',
+        ];
+        device.panelList.forEach(([name, key, , preview]) => {
+          lines.push(`  - name: ${yamlValue(name)}`);
+          lines.push(`    key: ${yamlValue(key)}`);
+          lines.push(`    type: ${yamlValue(PANEL_DETAILS[key]?.type ?? 'grid')}`);
+          lines.push(`    preview: ${yamlValue(preview)}`);
+          lines.push(`    navigation: ${panelIsNavigation(device, key) ? 'true' : 'false'}`);
+        });
+        return `${lines.join('\n')}\n`;
+      }
+
+      function parseDeviceYaml(text) {
+        const config = { panels: [] };
+        let panel = null;
+        text.split(/\r?\n/).forEach((raw, index) => {
+          const trimmed = raw.trim();
+          if (!trimmed || trimmed.startsWith('#') || trimmed === '---' || trimmed === '...') return;
+          const item = trimmed.match(/^-\s+([\w-]+):\s*(.*)$/);
+          if (item) {
+            panel = {};
+            config.panels.push(panel);
+            panel[item[1]] = yamlScalar(item[2]);
+            return;
+          }
+          const entry = trimmed.match(/^([\w-]+):\s*(.*)$/);
+          if (!entry) throw new Error(`line ${index + 1} is not valid device YAML`);
+          const [, key, value] = entry;
+          if (panel && /^\s/.test(raw)) {
+            panel[key] = yamlScalar(value);
+            return;
+          }
+          panel = null;
+          if (key === 'panels' && !value.trim()) return;
+          config[key] = yamlScalar(value);
+        });
+        return config;
+      }
+
+      function applyDeviceYaml(device, config) {
+        const name = typeof config.name === 'string' ? config.name.trim() : '';
+        if (!name) throw new Error('the device name is missing');
+        const panels = Array.isArray(config.panels) ? config.panels : [];
+        const seen = new Set();
+        const panelList = [];
+        const hiddenPanels = [];
+        panels.forEach((entry) => {
+          const key = typeof entry.key === 'string' ? entry.key.trim() : '';
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          const catalog = PANEL_CATALOG.find((panel) => panel.key === key)
+            ?? PANEL_CATALOG.find((panel) => panel.details.type === entry.type);
+          const label = typeof entry.name === 'string' && entry.name.trim() ? entry.name.trim() : catalog?.name ?? key;
+          const preview = PANEL_CATALOG.some((panel) => panel.preview === entry.preview) ? entry.preview : catalog?.preview ?? 'grid';
+          if (!PANEL_DETAILS[key]) {
+            PANEL_DETAILS[key] = catalog?.details ?? { type: entry.type || 'grid', description: 'Imported panel.', items: 0 };
+          }
+          panelList.push([label, key, catalog?.glyph ?? 'grid', preview]);
+          if (entry.navigation === false) hiddenPanels.push(key);
+        });
+        if (!panelList.length) throw new Error('no panels are defined');
+        device.name = name;
+        if (typeof config.node === 'string' && config.node.trim()) device.node = config.node.trim();
+        if (config.orientation === 'portrait' || config.orientation === 'landscape') device.orientation = config.orientation;
+        device.panelList = panelList;
+        device.hiddenPanels = hiddenPanels;
+        device.panels = panelList.length;
+        device.homePanel = panelList.some((panel) => panel[1] === config.home_panel) ? config.home_panel : null;
+        device.idlePanel = panelList.some((panel) => panel[1] === config.idle_panel) ? config.idle_panel : null;
+        state.previewPanelKey = device.homePanel ?? panelList[0][1];
+        render();
+        showToast(`${device.name} imported from YAML.`);
+      }
+
+      function exportDeviceYaml(device) {
+        if (!device) return;
+        const blob = new Blob([deviceToYaml(device)], { type: 'text/yaml' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${device.node}.yaml`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+        showToast(`Exported ${device.name} as YAML.`);
+      }
+
+      function startDeviceImport(device) {
+        if (!device) return;
+        state.yamlImportDevice = device.id;
+        yamlImportInput.value = '';
+        yamlImportInput.click();
+      }
+
+      function renderPanelThumbRoles(device, key) {
+        const roles = [];
+        if (device.homePanel === key) roles.push(`<span class="panel-thumb-role home" title="Home panel" role="img" aria-label="Home panel">${icon('home')}</span>`);
+        if (device.idlePanel === key) roles.push(`<span class="panel-thumb-role idle" title="Idle panel" role="img" aria-label="Idle panel">${icon('clock')}</span>`);
+        return roles.length ? `<span class="panel-thumb-roles">${roles.join('')}</span>` : '';
+      }
+
+      function renderPanelListRow(device, panel, group) {
+        const [name, key, , preview] = panel;
+        const details = PANEL_DETAILS[key];
+        return `
+          <div class="panel-list-row" draggable="true" data-sort-kind="panel" data-sort-id="${key}" data-sort-group="${device.id}:${group}" data-panel-row="${key}">
+            <span class="sort-handle" title="Drag to reorder">${icon('grip')}</span>
+            <span class="panel-list-main">
+              <span class="panel-list-name"><button class="panel-list-thumb ${device.orientation}" type="button" data-panel-preview="${key}" aria-label="Preview ${name} panel"><img src="${screenUrl(device, preview)}" alt="" loading="lazy">${renderPanelThumbRoles(device, key)}</button><strong>${name}</strong></span>
+            </span>
+            <span class="panel-list-key">${key}</span>
+            <span class="panel-list-meta"><span class="panel-list-count">${details.items ? `${details.items} items` : 'No items'}</span></span>
+            <span class="panel-list-actions">
+              <button class="panel-list-action" type="button" data-panel-menu="${key}" aria-expanded="false" aria-controls="panelMenuPopover" aria-label="More actions for ${name}">${icon('dots')}</button>
+            </span>
+          </div>`;
+      }
+
+      function renderPanelGroup(device, panels, group) {
+        const title = group === 'navigation' ? 'Navigation' : 'Non-Navigation';
+        const countLabel = panels.length === 1 ? 'panel' : 'panels';
+        return `
+          <section class="panel-view-group" data-panel-group="${group}">
+            <div class="panel-view-group-heading"><strong>${title} (${panels.length} ${countLabel})</strong><span>Drag to reorder or move between sections</span></div>
+            <div class="panel-list-view" data-sort-kind="panel-group" data-sort-group="${device.id}:${group}" aria-label="${title} panels">
+              ${panels.map((panel) => renderPanelListRow(device, panel, group)).join('')}
+              ${panels.length ? '' : `<div class="panel-dropzone">Drop a panel here to move it to ${title}</div>`}
+            </div>
+          </section>`;
+      }
+
+      function renderPanelOverview(device) {
+        if (!device.panelList.length) return '<div class="panel-empty">No panels configured for this device yet.</div>';
+        const navigation = device.panelList.filter((panel) => panelIsNavigation(device, panel[1]));
+        const hidden = device.panelList.filter((panel) => !panelIsNavigation(device, panel[1]));
+        return `<div class="panel-view-groups">${renderPanelGroup(device, navigation, 'navigation')}${renderPanelGroup(device, hidden, 'hidden')}</div>`;
+      }
+
+      function renderPanelPreview(device) {
+        const panel = device.panelList.find((entry) => entry[1] === state.previewPanelKey)
+          || device.panelList.find((entry) => entry[1] === device.homePanel)
+          || device.panelList[0];
+        if (!panel) return '<div class="panel-empty">No panels configured for this device yet.</div>';
+        const [name, , , preview] = panel;
+        const isLive = state.previewMode === 'live';
+        return `
+          <div class="panel-preview-mode">
+            <div class="sim-stage ${isLive ? 'live' : ''}">
+              <div class="sim-frame ${device.orientation}">
+                <div class="sim-screen"><img src="${screenUrl(device, preview)}" alt="${name} panel preview"></div>
+                <div class="sim-hw-buttons">
+                  <button class="sim-hw" type="button" data-sim-button="left" aria-label="Left button"><span class="sim-relay-light"></span></button>
+                  <button class="sim-hw" type="button" data-sim-button="right" aria-label="Right button"><span class="sim-relay-light"></span></button>
+                </div>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function renderPanelCatalog(device) {
+        const options = PANEL_CATALOG.map((panel) => `
+          <button class="panel-catalog-option" type="button" data-add-panel="${panel.key}" aria-label="Add ${panel.name} panel">
+            <span class="panel-catalog-screen ${device.orientation}"><img src="${screenUrl(device, panel.preview)}" alt="" loading="lazy"></span>
+            <span class="panel-catalog-heading">
+              <span class="panel-catalog-icon">${icon(panel.glyph)}</span>
+              <strong>${panel.name}</strong>
+            </span>
+            <span class="panel-catalog-description">${panel.details.description}</span>
+          </button>`).join('');
+        return `<div class="panel-catalog-grid">${options}</div>`;
+      }
+
+      function renderPanelManager(device) {
+        const navigationCount = device.panelList.filter((panel) => panelIsNavigation(device, panel[1])).length;
+        const roleRow = (label, role, glyph) => `
+          <div class="panel-role-row">
+            <span class="panel-role-icon">${icon(glyph)}</span>
+            <span class="panel-role-copy"><small>${label}</small></span>
+            <select class="input panel-role-select" data-panel-role="${role}" aria-label="${label}">
+              <option value="">Not assigned</option>
+              ${device.panelList.map((panel) => `<option value="${panel[1]}" ${device[`${role}Panel`] === panel[1] ? 'selected' : ''}>${panel[0]}</option>`).join('')}
+            </select>
+          </div>`;
+        return `
+          <div class="b-side-stack panel-management">
+            <section class="surface panel-management-card">
+              <div class="surface-heading panel-manager-heading">
+                <div class="panel-manager-heading-copy">
+                  <h3>Panels</h3>
+                  <p>${device.node}</p>
+                </div>
+              </div>
+              <div class="panel-manager-content">
+                <button class="button primary panel-manager-add" type="button" data-action="add-panel">${icon('plus')}Add panel</button>
+                <div class="panel-manager-summary">
+                  <span><strong>${device.panelList.length}</strong> panels</span>
+                  <span class="panel-manager-sep">·</span>
+                  <span><strong>${navigationCount}</strong> in navigation</span>
+                </div>
+                <p class="panel-manager-note">Edit a panel from the list to configure its name, menu visibility and home or idle role.</p>
+              </div>
+            </section>
+            <section class="surface panel-role-card">
+              <div class="surface-heading">
+                <div>
+                  <h3>Home & idle panels</h3>
+                  <p>Pages opened by device shortcuts.</p>
+                </div>
+              </div>
+              <div class="panel-role-list">
+                ${roleRow('Home panel', 'home', 'home')}
+                ${roleRow('Idle panel', 'idle', 'clock')}
+              </div>
+            </section>
+          </div>`;
+      }
+
+      function renderPanelWorkspace(device) {
+        const isOverview = state.devicePanelView === 'overview';
+        const isLive = state.previewMode === 'live';
+        const hasPanels = device.panelList.length > 0;
+        return `
+          <section class="surface panel-workspace ${isOverview && state.previewMode === 'live' ? 'preview-live' : ''}">
+            <div class="surface-heading">
+              <div class="panel-workspace-actions">
+                <div class="panel-workspace-toggle" role="group" aria-label="Panel view">
+                  <button class="panel-workspace-toggle-option ${isOverview ? 'active' : ''}" type="button" data-device-panel-view="overview" aria-pressed="${isOverview}" ${hasPanels ? '' : 'disabled'}>${icon('screen')}Overview</button>
+                  <button class="panel-workspace-toggle-option ${!isOverview ? 'active' : ''}" type="button" data-device-panel-view="edit" aria-pressed="${!isOverview}">${icon('list')}Panels<span class="panel-workspace-count">${device.panels}</span></button>
+                </div>
+                ${isOverview ? `<div class="preview-controls-row">
+                  <div class="preview-control-actions">
+                    <button class="preview-tool-button ${isLive ? 'active' : ''}" type="button" data-preview-live-toggle aria-pressed="${isLive}" aria-label="Live preview" title="Toggle live preview">${icon('activity')}<span>Live</span></button>
+                    <button class="preview-tool-button ${state.previewIdle ? 'active' : ''}" type="button" data-preview-idle aria-pressed="${state.previewIdle}" title="Snooze to the idle page">${icon('sleep')}<span>Snooze</span></button>
+                    <button class="preview-tool-button ${state.showPreviewTools ? 'active' : ''}" type="button" data-preview-tools aria-label="Advanced preview tools" title="Advanced preview tools" aria-expanded="${state.showPreviewTools}" aria-controls="previewTools">${icon('tune')}</button>
+                  </div>
+                </div>` : ''}
+                ${isOverview && state.showPreviewTools ? `<div class="preview-tools" id="previewTools">
+                  <label class="preview-entity-toggle"><input type="checkbox" data-preview-entities ${state.showPreviewEntities ? 'checked' : ''}>Show entities</label>
+                  <button class="preview-tool-button" type="button" data-preview-reset>${icon('refresh')}<span>${state.previewMode === 'live' ? 'Reset interaction timer' : 'Reset sandbox'}</span></button>
+                </div>` : ''}
+              </div>
+            </div>
+            <div class="panel-workspace-content">${isOverview ? renderPanelPreview(device) : renderPanelOverview(device)}</div>
+          </section>`;
+      }
+
+      function renderDeviceDetails(device) {
+        const online = device.status === 'online';
+        const target = typeof device.update === 'string' ? device.update : null;
+        const availability = Number.isFinite(device.availability) ? `${device.availability}%` : '—';
+        const recency = online
+          ? `Online for ${device.uptime} · replied ${device.seen}`
+          : `Last seen ${device.seen}`;
+        const versionValue = (current) => target
+          ? `<span class="version-current">${current}</span><span class="version-arrow" aria-hidden="true">→</span><span class="version-target">${target}</span>`
+          : current;
+        // Only readings that come from the device over the connection go stale.
+        const facts = [
+          { label: 'Current page', value: online ? device.page : '—', glyph: 'panels', stale: !online },
+          { label: 'IP address', value: device.ip, tone: 'mono', glyph: 'network' },
+          { label: 'Firmware', value: versionValue(device.firmware), tone: target ? '' : 'mono', glyph: 'lightning' },
+          { label: 'Display TFT', value: versionValue(device.display), tone: target ? '' : 'mono', glyph: 'screen' },
+        ];
+        return `
+          <div class="b-side-stack">
+            <section class="surface device-status-card">
+              <div class="surface-heading device-status-heading">
+                <div class="device-status-heading-copy">
+                  <h3>Connection &amp; device</h3>
+                  <p>${device.node}</p>
+                </div>
+                <div class="device-status-heading-actions">
+                  <button class="device-configure-button" type="button" data-action="configure">${icon('settings')}<span>Configure</span></button>
+                  <button class="device-more-trigger" type="button" data-device-actions-menu aria-expanded="false" aria-controls="deviceActionsPopover" aria-label="Device actions">${icon('dots')}</button>
+                </div>
+              </div>
+              <div class="connection-hero ${statusClass(device)}">
+                <span class="connection-hero-icon" aria-hidden="true">${icon(online ? 'wifi' : 'alert')}</span>
+                <div class="connection-hero-copy">
+                  <strong>${statusText(device)}</strong>
+                  <span>${recency}</span>
+                </div>
+                <div class="connection-hero-gauge">
+                  <strong>${availability}</strong>
+                  <small>Availability</small>
+                </div>
+              </div>
+              <dl class="device-facts">
+                ${facts.map(({ label, value, tone, glyph, stale }) => `
+                  <div class="fact${stale ? ' stale' : ''}">
+                    <dt><span class="fact-icon" aria-hidden="true">${icon(glyph)}</span>${label}</dt>
+                    <dd${tone ? ` class="${tone}"` : ''}>${value}</dd>
+                  </div>`).join('')}
+              </dl>
+              ${device.update ? `
+                <button class="device-status-update" type="button" data-firmware-device="${device.id}" aria-expanded="false" aria-controls="firmwarePopover">
+                  <span class="device-status-update-icon" aria-hidden="true">${icon('download')}</span>
+                  <span class="device-status-update-copy">
+                    <strong>Update available</strong>
+                    <small>${online ? `Firmware and display · ${target ?? 'newer release'}` : 'Queued until the device reconnects'}</small>
+                  </span>
+                  <span class="device-status-update-action">Review ${icon('chevron-right')}</span>
+                </button>` : ''}
+            </section>
+            <section class="surface yaml-card">
+              <div class="surface-heading">
+                <div>
+                  <h3>Configuration file</h3>
+                  <p>${device.node}.yaml</p>
+                </div>
+                <span class="variant-badge">${icon('file')}YAML</span>
+              </div>
+              <div class="yaml-card-body">
+                <p class="yaml-card-note">Back up this device or restore it on another hub. An import replaces the name, orientation, roles and panel list.</p>
+                <div class="yaml-card-actions">
+                  <button class="button outline" type="button" data-yaml-import>${icon('upload')}Import YAML</button>
+                  <button class="button outline" type="button" data-yaml-export>${icon('download')}Export YAML</button>
+                </div>
+              </div>
+            </section>
+          </div>`;
+      }
+
+      function renderSelectedDevice(device) {
+        const sidePanel = state.devicePanelView === 'edit'
+          ? renderPanelManager(device)
+          : renderDeviceDetails(device);
+        return `
+          <div class="b-selected-head">
+            <div class="b-selected-identity">
+              <button class="back-button" type="button" data-action="all" aria-label="Show all devices">${icon('arrow-left')}</button>
+              <div class="b-selected-copy"><h2>${device.name}</h2></div>
+            </div>
+          </div>
+          <div class="b-focus-grid">${renderPanelWorkspace(device)}${sidePanel}</div>`;
+      }
+
+      function renderDeviceSettings(device) {
+        return `
+          <section class="form-section"><h3>Device</h3><label class="field"><span class="field-label">Display name</span><input class="input" name="device-name" value="${device.name}"></label><label class="field"><span class="field-label">ESPHome node</span><input class="input" value="${device.node}" disabled></label><label class="switch-row"><span class="switch-copy"><span class="field-label">Enabled</span><span class="field-hint">Include this device in the dashboard.</span></span><input class="switch" type="checkbox" checked></label></section>
+          <section class="form-section"><h3>Display</h3><label class="field"><span class="field-label">Model and orientation</span><select class="input"><option ${device.orientation === 'landscape' ? 'selected' : ''}>NSPanel · Landscape</option><option ${device.orientation === 'portrait' ? 'selected' : ''}>NSPanel · Portrait</option></select></label><label class="field"><span class="field-label">Brightness <span class="field-hint" id="brightnessValue">78%</span></span><input class="range" type="range" min="10" max="100" value="78"></label><label class="field"><span class="field-label">Idle page</span><select class="input"><option>Clock</option><option>Weather</option><option>Blank</option></select></label></section>
+          <section class="form-section"><h3>Updates</h3><label class="switch-row"><span class="switch-copy"><span class="field-label">Automatic updates</span><span class="field-hint">Install firmware and TFT updates automatically.</span></span><input class="switch" type="checkbox" checked></label><label class="field"><span class="field-label">Release channel</span><select class="input"><option>Stable</option><option>Development</option></select></label><button class="button outline" data-action="update">${icon('download')}Check for updates</button></section>`;
+      }
+
+      function renderPanelSettings(device, panel) {
+        const [name, key, , preview] = panel;
+        const details = PANEL_DETAILS[key];
+        const itemLabel = details.items === 1 ? 'item configured' : 'items configured';
+        return `
+          <div class="panel-editor-preview"><img src="${screenUrl(device, preview)}" alt="${name} panel preview" loading="lazy"></div>
+          <section class="form-section">
+            <h3>Panel</h3>
+            <label class="field"><span class="field-label">Panel name</span><input class="input" name="panel-name" value="${name}"></label>
+            <label class="field"><span class="field-label">Panel type</span><input class="input" value="${details.type}" disabled></label>
+            <label class="field"><span class="field-label">Panel key</span><input class="input" value="${key}" disabled></label>
+          </section>
+          <section class="form-section">
+            <h3>Panel behavior</h3>
+            <label class="switch-row"><span class="switch-copy"><span class="field-label">Show in navigation</span><span class="field-hint">Make this panel available in the device menu.</span></span><input class="switch" name="panel-navigation" type="checkbox" ${panelIsNavigation(device, key) ? 'checked' : ''}></label>
+            <label class="switch-row"><span class="switch-copy"><span class="field-label">Home panel</span><span class="field-hint">Open this panel when Home is pressed.</span></span><input class="switch" name="panel-home" type="checkbox" ${device.homePanel === key ? 'checked' : ''}></label>
+            <label class="switch-row"><span class="switch-copy"><span class="field-label">Idle panel</span><span class="field-hint">Show this panel after the idle timeout.</span></span><input class="switch" name="panel-idle" type="checkbox" ${device.idlePanel === key ? 'checked' : ''}></label>
+          </section>
+          <section class="form-section"><h3>Panel content</h3><div class="panel-editor-item-summary"><strong>${details.items}</strong><span>${itemLabel}</span><p>${details.description}</p></div></section>`;
+      }
+
+      function renderSidebar() {
+        const device = byId(state.selected);
+        const footer = $('#sidebarFooter');
+        if (state.sidebarMode === 'catalog' && device) {
+          $('#configTitle').textContent = 'Add a panel';
+          $('#configSubtitle').textContent = `${device.name} · Choose a screen layout`;
+          configBody.innerHTML = renderPanelCatalog(device);
+          footer.hidden = true;
+          return;
+        }
+        footer.hidden = false;
+        if (state.sidebarMode === 'panel' && device) {
+          const panel = device.panelList.find((entry) => entry[1] === state.panelEditKey);
+          if (panel) {
+            $('#configTitle').textContent = 'Edit panel';
+            $('#configSubtitle').textContent = `${device.name} · ${panel[0]}`;
+            configBody.innerHTML = renderPanelSettings(device, panel);
+            $('#saveConfig').textContent = 'Save panel';
+            return;
+          }
+        }
+        $('#configTitle').textContent = 'Device configuration';
+        $('#configSubtitle').textContent = device ? `${device.name} · ${device.node}` : '';
+        configBody.innerHTML = device ? renderDeviceSettings(device) : '';
+        $('#saveConfig').textContent = 'Save changes';
+      }
+
+      function updateSidebarState() {
+        app.classList.toggle('sidebar-open', state.sidebarOpen);
+        configPanel.setAttribute('aria-hidden', String(!state.sidebarOpen));
+        configPanel.inert = !state.sidebarOpen;
+        configPanel.setAttribute('role', 'dialog');
+        if (state.sidebarOpen) configPanel.setAttribute('aria-modal', 'true');
+        else configPanel.removeAttribute('aria-modal');
+        document.body.style.overflow = state.sidebarOpen ? 'hidden' : '';
+      }
+
+      function render() {
+        closePanelPreviewPopover();
+        closeFirmwarePopover();
+        if (!state.selected) {
+          state.sidebarOpen = false;
+          state.sidebarMode = 'device';
+          state.panelEditKey = null;
+        }
+        const scrollLeft = cardScroller.scrollLeft;
+        cardScroller.innerHTML = DEVICES.map(renderDeviceCard).join('');
+        cardScroller.scrollLeft = scrollLeft;
+        app.classList.toggle('device-selected', Boolean(state.selected));
+        const device = byId(state.selected);
+        overview.innerHTML = device ? renderSelectedDevice(device) : renderAllD();
+        renderSidebar();
+        updateSidebarState();
+      }
+
+      function moveItemTo(items, sourceID, targetID, getID) {
+        const sourceIndex = items.findIndex((item) => getID(item) === sourceID);
+        const targetIndex = items.findIndex((item) => getID(item) === targetID);
+        if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return false;
+        const [item] = items.splice(sourceIndex, 1);
+        items.splice(targetIndex, 0, item);
+        return true;
+      }
+
+      function reorderDevice(sourceID, targetID) {
+        return moveItemTo(DEVICES, sourceID, targetID, (device) => device.id);
+      }
+
+      function reorderPanel(device, sourceKey, targetKey) {
+        if (!device) return false;
+        const sourceIndex = device.panelList.findIndex((panel) => panel[1] === sourceKey);
+        const targetExists = device.panelList.some((panel) => panel[1] === targetKey);
+        if (sourceIndex < 0 || !targetExists || sourceKey === targetKey) return false;
+        const targetNavigation = panelIsNavigation(device, targetKey);
+        const [source] = device.panelList.splice(sourceIndex, 1);
+        const hiddenPanels = new Set(device.hiddenPanels || []);
+        if (targetNavigation) hiddenPanels.delete(sourceKey);
+        else hiddenPanels.add(sourceKey);
+        device.hiddenPanels = [...hiddenPanels];
+        const destination = device.panelList.filter((panel) => panelIsNavigation(device, panel[1]) === targetNavigation);
+        const targetIndex = destination.findIndex((panel) => panel[1] === targetKey);
+        destination.splice(targetIndex, 0, source);
+        const otherGroup = device.panelList.filter((panel) => panelIsNavigation(device, panel[1]) !== targetNavigation);
+        const navigation = targetNavigation ? destination : otherGroup;
+        const hidden = targetNavigation ? otherGroup : destination;
+        device.panelList.splice(0, device.panelList.length, ...navigation, ...hidden);
+        return true;
+      }
+
+      function movePanelToGroup(device, key, targetGroup) {
+        const sourceIndex = device?.panelList.findIndex((panel) => panel[1] === key) ?? -1;
+        if (sourceIndex < 0) return false;
+        const targetNavigation = targetGroup.endsWith(':navigation');
+        const currentNavigation = panelIsNavigation(device, key);
+        const currentGroup = device.panelList.filter((panel) => panelIsNavigation(device, panel[1]) === currentNavigation);
+        if (currentNavigation === targetNavigation && currentGroup.at(-1)?.[1] === key) return false;
+        const [panel] = device.panelList.splice(sourceIndex, 1);
+        const hiddenPanels = new Set(device.hiddenPanels || []);
+        if (targetNavigation) hiddenPanels.delete(key);
+        else hiddenPanels.add(key);
+        device.hiddenPanels = [...hiddenPanels];
+        const navigation = device.panelList.filter((entry) => panelIsNavigation(device, entry[1]));
+        const hidden = device.panelList.filter((entry) => !panelIsNavigation(device, entry[1]));
+        (targetNavigation ? navigation : hidden).push(panel);
+        device.panelList.splice(0, device.panelList.length, ...navigation, ...hidden);
+        return true;
+      }
+
+      function addPanel(device, templateKey) {
+        const template = PANEL_CATALOG.find((panel) => panel.key === templateKey);
+        if (!device || !template) return;
+        const existingKeys = new Set(device.panelList.map((panel) => panel[1]));
+        let suffix = 1;
+        let key = template.key;
+        while (existingKeys.has(key)) {
+          suffix += 1;
+          key = `${template.key}_${suffix}`;
+        }
+        const name = suffix === 1 ? template.name : `${template.name} ${suffix}`;
+        PANEL_DETAILS[key] = template.details;
+        device.panelList.push([name, key, template.glyph, template.preview]);
+        device.panels = device.panelList.length;
+        state.previewPanelKey = key;
+        state.sidebarOpen = false;
+        state.sidebarMode = 'device';
+        render();
+        overview.querySelector(`[data-panel-menu="${key}"]`)?.focus();
+        showToast(`${name} panel added.`);
+      }
+
+      function scrollToTop() {
+        $('#content').scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function selectDevice(id) {
+        if (state.selected === id) {
+          state.selected = null;
+          render();
+          scrollToTop();
+          return;
+        }
+        state.selected = id;
+        const device = byId(state.selected);
+        state.devicePanelView = device?.panelList.length ? 'overview' : 'edit';
+        state.sidebarOpen = false;
+        state.sidebarMode = 'device';
+        state.panelEditKey = null;
+        state.previewPanelKey = null;
+        render();
+      }
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add('show');
+        clearTimeout(showToast.timer);
+        showToast.timer = setTimeout(() => toast.classList.remove('show'), 2200);
+      }
+
+      function closeDeviceMenu(restoreFocus = false) {
+        const trigger = state.deviceMenuTrigger;
+        deviceMenuPopover.hidden = true;
+        deviceMenuPopover.replaceChildren();
+        state.deviceMenuDevice = null;
+        state.deviceMenuTrigger = null;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        if (restoreFocus && trigger?.isConnected) trigger.focus();
+      }
+
+      function openDeviceMenu(trigger) {
+        const device = byId(trigger.dataset.deviceMenu);
+        if (!device) return;
+        deviceMenuPopover.innerHTML = `
+          <button class="device-menu-item" type="button" data-device-menu-action="activate">${icon('check')}<span>Activate</span></button>
+          <button class="device-menu-item" type="button" data-device-menu-action="firmware">${icon('download')}<span>Firmware</span></button>
+          <div class="device-menu-divider"></div>
+          <button class="device-menu-item danger" type="button" data-device-menu-action="delete">${icon('close')}<span>Delete</span></button>`;
+        deviceMenuPopover.hidden = false;
+        state.deviceMenuDevice = device.id;
+        state.deviceMenuTrigger = trigger;
+        trigger.setAttribute('aria-expanded', 'true');
+
+        const triggerBounds = trigger.getBoundingClientRect();
+        const popoverBounds = deviceMenuPopover.getBoundingClientRect();
+        const margin = 12;
+        const left = Math.min(Math.max(margin, triggerBounds.right - popoverBounds.width), innerWidth - popoverBounds.width - margin);
+        const below = triggerBounds.bottom + 8;
+        const safeBottom = innerHeight - margin;
+        const top = below + popoverBounds.height <= safeBottom
+          ? below
+          : Math.max(margin, triggerBounds.top - popoverBounds.height - 8);
+        deviceMenuPopover.style.left = `${left}px`;
+        deviceMenuPopover.style.top = `${top}px`;
+        deviceMenuPopover.focus();
+      }
+
+      function closePanelMenu(restoreFocus = false) {
+        const trigger = state.panelMenuTrigger;
+        panelMenuPopover.hidden = true;
+        panelMenuPopover.replaceChildren();
+        state.panelMenuDevice = null;
+        state.panelMenuKey = null;
+        state.panelMenuTrigger = null;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        if (restoreFocus && trigger?.isConnected) trigger.focus();
+      }
+
+      function openPanelMenu(trigger) {
+        closePanelPreviewPopover();
+        const device = byId(state.selected);
+        const key = trigger.dataset.panelMenu;
+        const panel = device?.panelList.find((entry) => entry[1] === key);
+        if (!device || !panel) return;
+        panelMenuPopover.innerHTML = `
+          <button class="device-menu-item" type="button" data-panel-menu-action="edit">${icon('edit')}<span>Edit</span></button>
+          <div class="device-menu-divider"></div>
+          <button class="device-menu-item danger" type="button" data-panel-menu-action="remove">${icon('close')}<span>Remove</span></button>`;
+        panelMenuPopover.hidden = false;
+        state.panelMenuDevice = device.id;
+        state.panelMenuKey = key;
+        state.panelMenuTrigger = trigger;
+        trigger.setAttribute('aria-expanded', 'true');
+
+        const triggerBounds = trigger.getBoundingClientRect();
+        const popoverBounds = panelMenuPopover.getBoundingClientRect();
+        const margin = 12;
+        const left = Math.min(Math.max(margin, triggerBounds.right - popoverBounds.width), innerWidth - popoverBounds.width - margin);
+        const below = triggerBounds.bottom + 8;
+        const safeBottom = innerHeight - margin;
+        const top = below + popoverBounds.height <= safeBottom
+          ? below
+          : Math.max(margin, triggerBounds.top - popoverBounds.height - 8);
+        panelMenuPopover.style.left = `${left}px`;
+        panelMenuPopover.style.top = `${top}px`;
+        panelMenuPopover.focus();
+      }
+
+      function closeDeviceActions(restoreFocus = false) {
+        const trigger = state.deviceActionsTrigger;
+        deviceActionsPopover.hidden = true;
+        deviceActionsPopover.replaceChildren();
+        state.deviceActionsDevice = null;
+        state.deviceActionsTrigger = null;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        if (restoreFocus && trigger?.isConnected) trigger.focus();
+      }
+
+      let previewPopoverSize = null;
+
+      function closePanelPreviewPopover() {
+        if (panelPreviewPopover.hidden) return;
+        panelPreviewPopover.hidden = true;
+        panelPreviewPopover.replaceChildren();
+        previewPopoverSize = null;
+        state.previewHoverRow = null;
+      }
+
+      function positionPanelPreviewPopover(x, y) {
+        if (!previewPopoverSize) return;
+        const { width, height } = previewPopoverSize;
+        const margin = 12;
+        const offset = 16;
+        let left = x + offset;
+        if (left + width > innerWidth - margin) left = x - width - offset;
+        left = Math.min(Math.max(margin, left), innerWidth - width - margin);
+        let top = y + offset;
+        if (top + height > innerHeight - margin) top = y - height - offset;
+        top = Math.min(Math.max(margin, top), innerHeight - height - margin);
+        panelPreviewPopover.style.left = `${left}px`;
+        panelPreviewPopover.style.top = `${top}px`;
+      }
+
+      function openPanelPreviewPopover(trigger) {
+        const device = byId(state.selected);
+        const panel = device?.panelList.find((entry) => entry[1] === trigger.dataset.panelPreview);
+        if (!device || !panel) return;
+        const [name, key, , preview] = panel;
+        const details = PANEL_DETAILS[key];
+        panelPreviewPopover.innerHTML = `
+          <span class="panel-preview-screen ${device.orientation}"><img src="${screenUrl(device, preview)}" alt="${name} panel preview"></span>
+          <span class="panel-preview-copy"><strong>${name}</strong><span>${details?.description || ''}</span></span>`;
+        panelPreviewPopover.hidden = false;
+        state.previewHoverRow = trigger;
+        previewPopoverSize = {
+          width: panelPreviewPopover.offsetWidth,
+          height: panelPreviewPopover.offsetHeight,
+        };
+        const bounds = trigger.getBoundingClientRect();
+        positionPanelPreviewPopover(bounds.right, bounds.top + bounds.height / 2);
+      }
+
+      function openDeviceActions(trigger) {
+        const device = byId(state.selected);
+        if (!device) return;
+        deviceActionsPopover.innerHTML = `
+          <button class="device-menu-item" type="button" data-device-actions-action="restart">${icon('refresh')}<span>Restart</span></button>
+          <button class="device-menu-item" type="button" data-device-actions-action="update">${icon('download')}<span>Check updates</span></button>
+          <button class="device-menu-item" type="button" data-device-actions-action="logs">${icon('log')}<span>View logs</span></button>`;
+        deviceActionsPopover.hidden = false;
+        state.deviceActionsDevice = device.id;
+        state.deviceActionsTrigger = trigger;
+        trigger.setAttribute('aria-expanded', 'true');
+
+        const triggerBounds = trigger.getBoundingClientRect();
+        const popoverBounds = deviceActionsPopover.getBoundingClientRect();
+        const margin = 12;
+        const left = Math.min(Math.max(margin, triggerBounds.right - popoverBounds.width), innerWidth - popoverBounds.width - margin);
+        const below = triggerBounds.bottom + 8;
+        const safeBottom = innerHeight - margin;
+        const top = below + popoverBounds.height <= safeBottom
+          ? below
+          : Math.max(margin, triggerBounds.top - popoverBounds.height - 8);
+        deviceActionsPopover.style.left = `${left}px`;
+        deviceActionsPopover.style.top = `${top}px`;
+        deviceActionsPopover.focus();
+      }
+
+      function closeFirmwarePopover(restoreFocus = false) {
+        const trigger = state.firmwareTrigger;
+        firmwarePopover.hidden = true;
+        firmwarePopover.replaceChildren();
+        state.firmwareDevice = null;
+        state.firmwareTrigger = null;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        if (restoreFocus && trigger?.isConnected) trigger.focus();
+      }
+
+      function openFirmwarePopover(trigger, deviceId = trigger.dataset.firmwareDevice) {
+        const device = byId(deviceId);
+        const available = Boolean(device.update);
+        const updateState = available ? 'Update available' : 'Up to date';
+        const note = available
+          ? device.status === 'offline'
+            ? 'This device is offline. The update will be queued until it reconnects.'
+            : 'Firmware and display updates are ready to install.'
+          : 'Firmware and display are on the latest release.';
+        const actionLabel = available
+          ? device.status === 'offline' ? 'Queue update' : 'Install update'
+          : 'Check for updates';
+        const version = (current) => `${current}${available ? `<small>→ ${device.update}</small>` : '<small>Current</small>'}`;
+
+        firmwarePopover.innerHTML = `
+          <header class="firmware-popover-heading">
+            <div><h3>Firmware & display</h3><p>${device.name} · ${device.node}</p></div>
+            <button class="firmware-popover-close" type="button" data-firmware-close aria-label="Close firmware details">${icon('close')}</button>
+          </header>
+          <div class="firmware-release-list">
+            <div class="firmware-release-row"><span>Firmware</span><strong class="firmware-release-version">${version(device.firmware)}</strong></div>
+            <div class="firmware-release-row"><span>Display TFT</span><strong class="firmware-release-version">${version(device.display)}</strong></div>
+          </div>
+          <div class="firmware-popover-state ${available ? 'available' : ''}"><i class="status-dot ${available ? device.status === 'offline' ? 'offline' : 'warning' : 'online'}"></i>${updateState}</div>
+          <p class="firmware-popover-note">${note}</p>
+          <button class="button ${available ? 'primary' : 'outline'}" type="button" data-firmware-action>${actionLabel}</button>`;
+        firmwarePopover.hidden = false;
+        state.firmwareDevice = device.id;
+        state.firmwareTrigger = trigger;
+        trigger.setAttribute('aria-expanded', 'true');
+
+        const triggerBounds = trigger.getBoundingClientRect();
+        const popoverBounds = firmwarePopover.getBoundingClientRect();
+        const margin = 12;
+        const left = Math.min(Math.max(margin, triggerBounds.right - popoverBounds.width), innerWidth - popoverBounds.width - margin);
+        const below = triggerBounds.bottom + 8;
+        const safeBottom = innerHeight - margin;
+        const top = below + popoverBounds.height <= safeBottom
+          ? below
+          : Math.max(margin, triggerBounds.top - popoverBounds.height - 8);
+        firmwarePopover.style.left = `${left}px`;
+        firmwarePopover.style.top = `${top}px`;
+        firmwarePopover.focus();
+      }
+
+      function openConfig() {
+        if (!state.selected) return;
+        state.returnFocus = document.activeElement;
+        state.sidebarMode = 'device';
+        state.panelEditKey = null;
+        state.sidebarOpen = true;
+        renderSidebar();
+        updateSidebarState();
+        requestAnimationFrame(() => configPanel.focus());
+      }
+
+      function openPanelEditor(key) {
+        const device = byId(state.selected);
+        if (!device?.panelList.some((panel) => panel[1] === key)) return;
+        state.returnFocus = document.activeElement;
+        state.sidebarMode = 'panel';
+        state.panelEditKey = key;
+        state.sidebarOpen = true;
+        renderSidebar();
+        updateSidebarState();
+        requestAnimationFrame(() => configPanel.focus());
+      }
+
+      function openPanelCatalog() {
+        if (!state.selected) return;
+        state.returnFocus = document.activeElement;
+        state.sidebarMode = 'catalog';
+        state.panelEditKey = null;
+        state.sidebarOpen = true;
+        renderSidebar();
+        updateSidebarState();
+        requestAnimationFrame(() => configPanel.focus());
+      }
+
+      function closeConfig() {
+        if (!state.sidebarOpen) return;
+        state.sidebarOpen = false;
+        state.sidebarMode = 'device';
+        state.panelEditKey = null;
+        updateSidebarState();
+        if (state.returnFocus && typeof state.returnFocus.focus === 'function') state.returnFocus.focus();
+      }
+
+      cardScroller.addEventListener('click', (event) => {
+        const card = event.target.closest('[data-device]');
+        if (card) selectDevice(card.dataset.device);
+      });
+      overview.addEventListener('click', (event) => {
+        const idleButton = event.target.closest('[data-preview-idle]');
+        if (idleButton) {
+          state.previewIdle = !state.previewIdle;
+          render();
+          showToast(state.previewIdle ? 'Idle page shown.' : 'Idle page dismissed.');
+          return;
+        }
+        const toolsButton = event.target.closest('[data-preview-tools]');
+        if (toolsButton) {
+          state.showPreviewTools = !state.showPreviewTools;
+          render();
+          return;
+        }
+        const resetPreviewButton = event.target.closest('[data-preview-reset]');
+        if (resetPreviewButton) {
+          showToast(state.previewMode === 'live' ? 'Interaction timer reset.' : 'Sandbox reset.');
+          return;
+        }
+        const entityToggle = event.target.closest('[data-preview-entities]');
+        if (entityToggle) {
+          state.showPreviewEntities = entityToggle.checked;
+          render();
+          return;
+        }
+        const liveToggle = event.target.closest('[data-preview-live-toggle]');
+        if (liveToggle) {
+          state.previewMode = state.previewMode === 'live' ? 'simulated' : 'live';
+          render();
+          return;
+        }
+        const simButton = event.target.closest('[data-sim-button]');
+        if (simButton) {
+          showToast(`${simButton.dataset.simButton === 'left' ? 'Left' : 'Right'} button pressed.`);
+          return;
+        }
+        const panelViewButton = event.target.closest('[data-device-panel-view]');
+        if (panelViewButton) {
+          if (panelViewButton.dataset.devicePanelView === 'overview' && !byId(state.selected).panelList.length) return;
+          state.devicePanelView = panelViewButton.dataset.devicePanelView;
+          render();
+          return;
+        }
+        const deviceMenuTrigger = event.target.closest('[data-device-menu]');
+        if (deviceMenuTrigger) {
+          if (state.deviceMenuTrigger === deviceMenuTrigger && !deviceMenuPopover.hidden) closeDeviceMenu(true);
+          else {
+            closeDeviceMenu();
+            closeFirmwarePopover();
+            openDeviceMenu(deviceMenuTrigger);
+          }
+          return;
+        }
+        const firmwareTrigger = event.target.closest('[data-firmware-device]');
+        if (firmwareTrigger) {
+          if (state.firmwareTrigger === firmwareTrigger && !firmwarePopover.hidden) closeFirmwarePopover(true);
+          else {
+            closeDeviceActions();
+            closeDeviceMenu();
+            closePanelMenu();
+            openFirmwarePopover(firmwareTrigger);
+          }
+          return;
+        }
+        const deviceActionsTrigger = event.target.closest('[data-device-actions-menu]');
+        if (deviceActionsTrigger) {
+          if (state.deviceActionsTrigger === deviceActionsTrigger && !deviceActionsPopover.hidden) closeDeviceActions(true);
+          else {
+            closeDeviceActions();
+            closeDeviceMenu();
+            closePanelMenu();
+            closeFirmwarePopover();
+            openDeviceActions(deviceActionsTrigger);
+          }
+          return;
+        }
+        const panelMenuTrigger = event.target.closest('[data-panel-menu]');
+        if (panelMenuTrigger) {
+          if (state.panelMenuTrigger === panelMenuTrigger && !panelMenuPopover.hidden) closePanelMenu(true);
+          else {
+            closePanelMenu();
+            closeDeviceMenu();
+            closeFirmwarePopover();
+            openPanelMenu(panelMenuTrigger);
+          }
+          return;
+        }
+        const panelThumb = event.target.closest('[data-panel-preview]');
+        if (panelThumb) {
+          openPanelPreviewPopover(panelThumb);
+          return;
+        }
+        const panelRow = event.target.closest('[data-panel-row]');
+        if (panelRow) { openPanelEditor(panelRow.dataset.panelRow); return; }
+        const yamlExportButton = event.target.closest('[data-yaml-export]');
+        if (yamlExportButton) { exportDeviceYaml(byId(state.selected)); return; }
+        const yamlImportButton = event.target.closest('[data-yaml-import]');
+        if (yamlImportButton) { startDeviceImport(byId(state.selected)); return; }
+        const addPanelButton = event.target.closest('[data-add-panel]');
+        if (addPanelButton) {
+          addPanel(byId(state.selected), addPanelButton.dataset.addPanel);
+          return;
+        }
+        const deviceButton = event.target.closest('[data-device]');
+        if (deviceButton) { selectDevice(deviceButton.dataset.device); return; }
+        const actionButton = event.target.closest('[data-action]');
+        if (!actionButton) return;
+        const action = actionButton.dataset.action;
+        if (action === 'all') { state.selected = null; render(); scrollToTop(); }
+        else if (action === 'configure') openConfig();
+        else if (action === 'add-panel') openPanelCatalog();
+        else if (action === 'panel' || action === 'panels') showToast('Panel editing would open in this workspace.');
+        else if (action === 'logs') showToast('Device logs would open here.');
+        else if (action === 'restart') showToast('Restart command sent to the device.');
+        else if (action === 'update') showToast('Checking for device updates…');
+      });
+      overview.addEventListener('pointerover', (event) => {
+        if (!(event.target instanceof Element)) return;
+        const thumb = event.target.closest('[data-panel-preview]');
+        if (!thumb || thumb === state.previewHoverRow) return;
+        if (!(event.relatedTarget instanceof Node) || !thumb.contains(event.relatedTarget)) {
+          openPanelPreviewPopover(thumb);
+        }
+      });
+      overview.addEventListener('pointermove', (event) => {
+        if (!state.previewHoverRow || !(event.target instanceof Element)) return;
+        if (event.target.closest('[data-panel-preview]') !== state.previewHoverRow) return;
+        positionPanelPreviewPopover(event.clientX, event.clientY);
+      });
+      overview.addEventListener('pointerout', (event) => {
+        if (!(event.target instanceof Element)) return;
+        const thumb = event.target.closest('[data-panel-preview]');
+        if (!thumb || state.previewHoverRow !== thumb) return;
+        if (event.relatedTarget instanceof Node && thumb.contains(event.relatedTarget)) return;
+        closePanelPreviewPopover();
+      });
+      $('#content').addEventListener('scroll', closePanelPreviewPopover, { passive: true });
+      window.addEventListener('scroll', closePanelPreviewPopover, { passive: true });
+      overview.addEventListener('change', (event) => {
+        const selector = event.target.closest('[data-panel-role]');
+        if (!selector) return;
+        const device = byId(state.selected);
+        if (!device) return;
+        const role = selector.dataset.panelRole;
+        device[`${role}Panel`] = selector.value || null;
+        if (role === 'home') state.previewPanelKey = selector.value || device.panelList[0]?.[1] || null;
+        render();
+        showToast(`${role === 'home' ? 'Home' : 'Idle'} panel updated.`);
+      });
+      document.addEventListener('dragstart', (event) => {
+        if (!(event.target instanceof Element)) return;
+        closePanelPreviewPopover();
+        const item = event.target.closest('[data-sort-kind][data-sort-id]');
+        if (!item) return;
+        state.dragItem = { kind: item.dataset.sortKind, id: item.dataset.sortId };
+        item.classList.add('sort-dragging');
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', `${state.dragItem.kind}:${state.dragItem.id}`);
+        }
+      });
+      document.addEventListener('dragover', (event) => {
+        if (!state.dragItem || !(event.target instanceof Element)) return;
+        const target = event.target.closest('[data-sort-kind="device"][data-sort-id], [data-sort-kind="panel"][data-sort-id], [data-sort-kind="panel-group"][data-sort-group]');
+        if (!target) return;
+        if (state.dragItem.kind === 'device' && target.dataset.sortKind !== 'device') return;
+        if (state.dragItem.kind === 'panel' && !['panel', 'panel-group'].includes(target.dataset.sortKind)) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+        target.classList.add('sort-over');
+      });
+      document.addEventListener('drop', (event) => {
+        if (!state.dragItem || !(event.target instanceof Element)) return;
+        const target = event.target.closest('[data-sort-kind="device"][data-sort-id], [data-sort-kind="panel"][data-sort-id], [data-sort-kind="panel-group"][data-sort-group]');
+        if (!target) return;
+        if (state.dragItem.kind === 'device' && target.dataset.sortKind !== 'device') return;
+        if (state.dragItem.kind === 'panel' && !['panel', 'panel-group'].includes(target.dataset.sortKind)) return;
+        event.preventDefault();
+        const changed = state.dragItem.kind === 'device'
+          ? reorderDevice(state.dragItem.id, target.dataset.sortId)
+          : target.dataset.sortKind === 'panel'
+            ? reorderPanel(byId(state.selected), state.dragItem.id, target.dataset.sortId)
+            : movePanelToGroup(byId(state.selected), state.dragItem.id, target.dataset.sortGroup);
+        state.dragItem = null;
+        if (changed) render();
+      });
+      document.addEventListener('dragend', () => {
+        state.dragItem = null;
+        document.querySelectorAll('.sort-dragging, .sort-over').forEach((item) => item.classList.remove('sort-dragging', 'sort-over'));
+      });
+      deviceMenuPopover.addEventListener('click', (event) => {
+        const actionButton = event.target.closest('[data-device-menu-action]');
+        if (!actionButton) return;
+        event.stopPropagation();
+        const device = byId(state.deviceMenuDevice);
+        const trigger = state.deviceMenuTrigger;
+        const action = actionButton.dataset.deviceMenuAction;
+        if (!device) { closeDeviceMenu(); return; }
+        if (action === 'activate') {
+          closeDeviceMenu();
+          if (state.selected === device.id) scrollToDevicePreview();
+          else selectDevice(device.id);
+        } else if (action === 'firmware') {
+          closeDeviceMenu();
+          openFirmwarePopover(trigger, device.id);
+        } else if (action === 'delete') {
+          closeDeviceMenu();
+          const index = DEVICES.findIndex((entry) => entry.id === device.id);
+          if (index >= 0) DEVICES.splice(index, 1);
+          if (state.selected === device.id) state.selected = null;
+          render();
+          showToast(`${device.name} removed from the hub.`);
+        }
+      });
+      panelMenuPopover.addEventListener('click', (event) => {
+        const actionButton = event.target.closest('[data-panel-menu-action]');
+        if (!actionButton) return;
+        event.stopPropagation();
+        const device = byId(state.panelMenuDevice);
+        const key = state.panelMenuKey;
+        const action = actionButton.dataset.panelMenuAction;
+        if (!device || !key) { closePanelMenu(); return; }
+        if (action === 'edit') {
+          closePanelMenu();
+          openPanelEditor(key);
+        } else if (action === 'remove') {
+          closePanelMenu();
+          const panel = device.panelList.find((entry) => entry[1] === key);
+          device.panelList = device.panelList.filter((entry) => entry[1] !== key);
+          device.panels = device.panelList.length;
+          if (device.homePanel === key) device.homePanel = null;
+          if (device.idlePanel === key) device.idlePanel = null;
+          render();
+          showToast(`${panel?.[0] ?? key} removed.`);
+        }
+      });
+      deviceActionsPopover.addEventListener('click', (event) => {
+        const actionButton = event.target.closest('[data-device-actions-action]');
+        if (!actionButton) return;
+        event.stopPropagation();
+        const action = actionButton.dataset.deviceActionsAction;
+        closeDeviceActions();
+        if (action === 'restart') showToast('Restart command sent to the device.');
+        else if (action === 'update') showToast('Checking for device updates…');
+        else if (action === 'logs') showToast('Device logs would open here.');
+      });
+      firmwarePopover.addEventListener('click', (event) => {
+        if (event.target.closest('[data-firmware-close]')) {
+          closeFirmwarePopover(true);
+          return;
+        }
+        if (event.target.closest('[data-firmware-action]')) {
+          const device = byId(state.firmwareDevice);
+          showToast(device.update
+            ? device.status === 'offline'
+              ? `Update queued for ${device.name} when it reconnects.`
+              : `Update started for ${device.name}.`
+            : `No updates available for ${device.name}.`);
+          closeFirmwarePopover(true);
+        }
+      });
+      document.addEventListener('click', (event) => {
+        if (!(event.target instanceof Element)) return;
+        if (!deviceMenuPopover.hidden && !event.target.closest('#deviceMenuPopover, [data-device-menu]')) closeDeviceMenu();
+        if (!panelMenuPopover.hidden && !event.target.closest('#panelMenuPopover, [data-panel-menu]')) closePanelMenu();
+        if (!deviceActionsPopover.hidden && !event.target.closest('#deviceActionsPopover, [data-device-actions-menu]')) closeDeviceActions();
+        if (firmwarePopover.hidden) return;
+        if (event.target.closest('#firmwarePopover, #deviceMenuPopover, #panelMenuPopover, #deviceActionsPopover, [data-firmware-device], [data-device-menu], [data-panel-menu], [data-device-actions-menu]')) return;
+        closeFirmwarePopover();
+      });
+      $('#content').addEventListener('scroll', () => { closeDeviceMenu(); closePanelMenu(); closeDeviceActions(); closeFirmwarePopover(); });
+      window.addEventListener('resize', () => { closeDeviceMenu(); closePanelMenu(); closeDeviceActions(); closeFirmwarePopover(); });
+      configBody.addEventListener('input', (event) => {
+        if (event.target.matches('.range')) $('#brightnessValue').textContent = `${event.target.value}%`;
+      });
+      configBody.addEventListener('click', (event) => {
+        const addPanelButton = event.target.closest('[data-add-panel]');
+        if (addPanelButton) {
+          addPanel(byId(state.selected), addPanelButton.dataset.addPanel);
+          return;
+        }
+        const actionButton = event.target.closest('[data-action]');
+        if (actionButton?.dataset.action === 'update') showToast('Checking for device updates…');
+      });
+      $('#closeConfig').addEventListener('click', closeConfig);
+      $('#cancelConfig').addEventListener('click', closeConfig);
+      $('#scrim').addEventListener('click', closeConfig);
+      $('#saveConfig').addEventListener('click', () => {
+        const device = byId(state.selected);
+        if (state.sidebarMode === 'panel') {
+          const panelKey = state.panelEditKey;
+          const panel = device?.panelList.find((entry) => entry[1] === panelKey);
+          if (device && panel) {
+            const key = panel[1];
+            const nameInput = configBody.querySelector('[name="panel-name"]');
+            if (nameInput?.value.trim()) panel[0] = nameInput.value.trim();
+            const navigation = configBody.querySelector('[name="panel-navigation"]').checked;
+            const hiddenPanels = device.hiddenPanels || [];
+            device.hiddenPanels = navigation
+              ? hiddenPanels.filter((hiddenKey) => hiddenKey !== key)
+              : [...new Set([...hiddenPanels, key])];
+            const home = configBody.querySelector('[name="panel-home"]').checked;
+            if (home) {
+              device.homePanel = key;
+              state.previewPanelKey = key;
+            } else if (device.homePanel === key) {
+              device.homePanel = null;
+              state.previewPanelKey = device.panelList.find((entry) => entry[1] !== key)?.[1] ?? null;
+            }
+            const idle = configBody.querySelector('[name="panel-idle"]').checked;
+            if (idle) device.idlePanel = key;
+            else if (device.idlePanel === key) device.idlePanel = null;
+          }
+          state.sidebarOpen = false;
+          state.sidebarMode = 'device';
+          state.panelEditKey = null;
+          render();
+          overview.querySelector(`[data-panel-menu="${panelKey}"]`)?.focus();
+          showToast('Panel settings saved.');
+          return;
+        }
+        const nameInput = configBody.querySelector('[name="device-name"]');
+        if (device && nameInput?.value.trim()) device.name = nameInput.value.trim();
+        state.sidebarOpen = false;
+        state.sidebarMode = 'device';
+        state.panelEditKey = null;
+        render();
+        showToast('Settings saved in this prototype.');
+      });
+      $('#notificationsButton').addEventListener('click', () => showToast('Two sample notifications are waiting.'));
+      $('#scrollDevicesLeft').addEventListener('click', () => cardScroller.scrollBy({ left: -260, behavior: 'smooth' }));
+      $('#scrollDevicesRight').addEventListener('click', () => cardScroller.scrollBy({ left: 260, behavior: 'smooth' }));
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !deviceActionsPopover.hidden) { closeDeviceActions(true); return; }
+        if (event.key === 'Escape' && !panelMenuPopover.hidden) { closePanelMenu(true); return; }
+        if (event.key === 'Escape' && !deviceMenuPopover.hidden) { closeDeviceMenu(true); return; }
+        if (event.key === 'Escape' && !firmwarePopover.hidden) { closeFirmwarePopover(true); return; }
+        if (event.key === 'Escape' && state.sidebarOpen) { closeConfig(); return; }
+      });
+      yamlImportInput.addEventListener('change', async () => {
+        const file = yamlImportInput.files?.[0];
+        const device = byId(state.yamlImportDevice);
+        yamlImportInput.value = '';
+        state.yamlImportDevice = null;
+        if (!file || !device) return;
+        try {
+          applyDeviceYaml(device, parseDeviceYaml(await file.text()));
+        } catch (error) {
+          showToast(`Import failed: ${error instanceof Error ? error.message : 'invalid file'}.`);
+        }
+      });
+      render();
+    </script>
+  </body>
+</html>

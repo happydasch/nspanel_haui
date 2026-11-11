@@ -11,6 +11,13 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ## [0.5.0] — unreleased
 
+### Changed
+
+- Development builds of this cycle publish as `0.5.0.devN` instead of continuing
+  the `0.4.8` patch line; the cycle base is committed with
+  `scripts/bump_version.py` and the Development Firmware workflow keeps it when
+  it writes its run number.
+
 ## [0.4.7] — 2026-11-11
 
 ### Changed

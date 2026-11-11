@@ -114,13 +114,17 @@ workflow (Actions → Development Firmware → **Run workflow** on `dev`) when t
 build changes what a device installs (firmware or display inputs); hub-only,
 docs and frontend pushes ride along in the next build. It compiles the CI-safe
 universal image and publishes a GitHub prerelease whose tag is the release
-version. Its version is based on the next patch release plus the workflow run
-number (for example, `0.4.7.dev123`), so every build has a distinct update
-version. The run number is GitHub's repository-wide workflow counter, not a
-per-cycle dev counter, so a new cycle continues the global numbering (for
-example `0.4.7.dev51`) instead of starting at `.dev1`. That keeps every build
-unique and monotonic even when a run is canceled or its tag push is retried; the
-next patch base still sorts it above the previous cycle. The release name adds
+version. Its base comes from the committed version in
+`custom_components/nspanel_haui/manifest.json`: a stable version derives the
+next patch release, while an existing `X.Y.Z.devN` keeps its `X.Y.Z` base — so a
+minor cycle publishes `0.5.0.devN` builds instead of continuing the `0.4.x`
+line. The workflow writes its run number (for example `0.4.7.dev123` or
+`0.5.0.dev123`), so every build has a distinct update version. The run number is
+GitHub's repository-wide workflow counter, not a per-cycle dev counter, so a new
+cycle continues the global numbering (for example `0.5.0.dev55`) instead of
+starting at `.dev1`. That keeps every build unique and monotonic even when a run
+is canceled or its tag push is retried; the base still sorts it above the
+previous cycle. The release name adds
 the short commit (`NSPanel HAUI 0.4.7.dev123 (abcdef1)`) and its notes link to
 the build commit, enumerate the commits since the previous release tag, and list
 changed files.
@@ -661,17 +665,33 @@ before it is green.
   Because `dev` carries the latest dev version (e.g. `0.5.0.dev12`) while
   `master` carries the released stable `X.Y.Z`, the merge-back conflicts in
   `custom_components/nspanel_haui/manifest.json` and
-  `esphome/nspanel_haui/version.yaml`; resolve both to the stable version so the
-  next dev build derives `X.Y.(Z+1)` again. Add the next section to
-  `CHANGELOG.md` (`## [X.Y.(Z+1)] — unreleased`) and its link reference
-  (`[X.Y.(Z+1)]: .../compare/vX.Y.Z...dev`) before pushing; the next dispatched
-  development build picks the cycle up.
-- **Do not bump the dev version by hand.** The Development Firmware workflow
-  writes it when a build is dispatched. The first build of a new cycle does
+  `esphome/nspanel_haui/version.yaml`; resolve both to the stable version. Add
+  the next section to `CHANGELOG.md` (`## [X.Y.(Z+1)] — unreleased`) and its
+  link reference (`[X.Y.(Z+1)]: .../compare/vX.Y.Z...dev`) before pushing.
+- **Start the next cycle with the bump script.** The Development Firmware
+  workflow takes the base from the committed version: a stable manifest derives
+  the next patch, an existing `X.Y.Z.devN` keeps its `X.Y.Z` base. A patch cycle
+  therefore needs no extra step — the first build derives `X.Y.(Z+1)`.
+  For a minor cycle, commit the new base on `dev` with
+  `scripts/bump_version.py` before the first build:
+
+  ```bash
+  python -m scripts.bump_version X.Y.0.dev0   # e.g. 0.5.0.dev0
+  git commit -am "chore(release): start the X.Y.0 development cycle"
+  git push origin dev
+  ```
+
+  The dev bump updates `manifest.json` and the firmware `yaml_version` only;
+  `pyproject.toml`, `tft_version` and the HMI binaries stay as released. The
+  `.dev0` suffix is a placeholder until the first build writes its own run
+  number and keeps the base; committing the next run number instead could make
+  that build's version commit empty.
+- **Never edit version files by hand.** Use `scripts/bump_version.py`; the
+  workflow owns only the `.dev<run>` suffix. The first build of a cycle does
   not start at `.dev1`: the suffix is the repository-wide GitHub Actions run
   number, which keeps increasing across cycles so every build stays unique and
-  monotonic even when a run is canceled or its tag push is retried. The next
-  patch base keeps the order correct (`0.4.6.dev51` > `0.4.5.dev49`).
+  monotonic even when a run is canceled or its tag push is retried. The
+  published base keeps the order correct (`0.5.0.dev55` > `0.4.7.dev54`).
 
 ### 7. Rollback
 

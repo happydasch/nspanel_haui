@@ -279,7 +279,9 @@ A stable version updates `manifest.json`, `pyproject.toml`, the firmware
 `system.tftVersion` values. A dev version is firmware-only. `CHANGELOG.md` is
 not edited. `--text-only` is a legacy alias for a firmware-only release. A TFT
 version change must keep the same string length; use the Nextion Editor for a
-length-changing bump.
+length-changing bump. A dev bump is also how a minor development cycle starts:
+commit `X.Y.0.dev0` (a placeholder suffix) on `dev` after a release; the first
+build writes its own run number and keeps the base.
 
 `bump_tft_version.py` edits only `system.tftVersion` in the HMI binaries and
 re-stamps the affected pages (useful after editing the HMI in the Nextion

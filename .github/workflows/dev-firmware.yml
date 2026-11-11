@@ -55,13 +55,16 @@ jobs:
           requirements: esphome
 
       - name: Set the development firmware version
-        # Use the next patch line so every dev build is newer than the current
-        # stable version, while a later stable X.Y.(Z+1) sorts after its .devN.
-        # The ``dev`` branch carries the previous dev version (this workflow
-        # commits it back to the branch), so the derivation accepts either a
-        # stable manifest (a fresh branch or a master merge-back) — deriving the
-        # next patch — or an existing ``X.Y.Z.devN`` — keeping the same X.Y.Z
-        # base, since no stable X.Y.Z has been released yet.
+        # Keep every dev build newer than the current stable version while a
+        # later stable sorts after its .devN. The ``dev`` branch carries the
+        # previous dev version (this workflow commits it back), so the
+        # derivation accepts either a stable manifest (a fresh branch or a
+        # master merge-back) — deriving the next patch — or an existing
+        # ``X.Y.Z.devN`` — keeping the same X.Y.Z base. A minor cycle commits
+        # its base with ``scripts/bump_version.py`` (e.g. ``0.5.0.dev0``, a
+        # placeholder suffix the build replaces with its run number) after the
+        # merge-back, so the first build does not continue the previous patch
+        # line.
         # The version must be a valid PEP 440 version with no ``-`` separators:
         # Home Assistant compares installed/latest with AwesomeVersion, and an
         # unparseable yaml_version (for example a ``dev-<run>-<sha>`` release

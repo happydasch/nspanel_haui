@@ -757,7 +757,8 @@ release, named after the PR title, and the tag points at that commit. The
 default squash body lists the PR's commits, including dev-firmware bot
 `[skip ci]` commits; GitHub scans the tagged commit's whole message, so a
 `[skip ci]` there makes it skip the `v*` tag push and `release.yml` never
-starts (`gh workflow run release.yml --ref vX.Y.Z` recovers). Never open
+starts (`gh workflow run release.yml --ref vX.Y.Z` recovers). The scan covers
+prose too: never quote the literal marker in a commit message. Never open
 that PR from `dev` itself: its tip can be the dev-firmware bot's `[skip ci]`
 commit after a dispatched build, so the PR's checks never run (see "Dev releases
 are tagged with their version" above). `dev` is the integration branch, the target for all day-to-day

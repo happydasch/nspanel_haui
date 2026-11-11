@@ -604,7 +604,9 @@ GitHub assembles the default body from the PR's commits, and a release branch
 cut from `dev` includes the dev-firmware bot's `[skip ci]` commits. GitHub
 scans the tagged commit's whole message for skip markers, so a `[skip ci]`
 anywhere in the squash body makes it skip the `v*` tag push and `release.yml`
-never starts. If the tag was already pushed that way, dispatch the workflow on
+never starts. The scan covers prose too: never quote the literal marker in a
+commit message — a commit that documents the rule triggers the same skip. If
+the tag was already pushed that way, dispatch the workflow on
 it (`gh workflow run release.yml --ref vX.Y.Z`); manual dispatch is supported
 on a `v*` ref.
 

@@ -55,7 +55,7 @@ export class LivePanelSession extends PanelSession {
     return this._send('slider', { page_id: pageId, component_id: componentId, value });
   }
 
-  /** Open the panel's idle page. */
+  /** Toggle the panel's idle page: open it, or wake back to the panel. */
   idleTimeout() {
     return this._action('idle');
   }

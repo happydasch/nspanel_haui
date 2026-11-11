@@ -234,8 +234,7 @@ def test_old_esphome_payload_defaults_missing_fields(dummy_app):
     """Firmware without the new variables keeps working for one release."""
     controller = HAUINotificationController(dummy_app, {})
     payload = (
-        '{"title": "Door", "message": "open", "icon": "", '
-        '"persistent": false, "text_size": "auto"}'
+        '{"title": "Door", "message": "open", "icon": "", "persistent": false, "text_size": "auto"}'
     )
 
     controller.process_event(HAUIEvent(ESPResponse.SEND_NOTIFICATION, payload))

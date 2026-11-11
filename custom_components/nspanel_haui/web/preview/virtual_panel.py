@@ -40,6 +40,7 @@ from ...haui.mapping.const import (
     ESPResponse,
     ServerRequest,
 )
+from ...haui.mapping.descriptor import _
 from ...haui.mapping.panel import PANEL_MAPPING, POPUP_PANEL_MAPPING
 from ...haui.utils.page import get_page_class_for_panel, get_page_id_for_panel
 from ...haui.utils.text import get_translation
@@ -537,12 +538,27 @@ def _sample_rank(state: Any) -> int:
     return 1 if state.state == "off" else 0
 
 
+# Sample context a popup that only opens with context shows on its card.
+# Preview content, not panel configuration: keys the panel config sets win.
+_PREVIEW_KWARGS: dict[str, dict[str, Any]] = {
+    "notify": {
+        "notification": _("Example notification: your message text appears here."),
+        "icon": "mdi:bell",
+        "icon_color": "#f69d31",
+        "btn_right": _("Confirm"),
+    },
+    "select": {"items": ["Home", "Away", "Night", "Movie"], "selected": "Home"},
+    "popup_unlock": {"unlock_panel": {"key": "locked_panel", "unlock_code": "1234"}},
+}
+
+
 def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
     """The sample context a popup's card opens it with; call from the event loop.
 
-    See ``PageDescriptor.preview_kwargs``. An entity popup (``popup_<page>``)
-    opens for an entity of its ``item`` option's domain, as a tap on such an
-    entity would: the first one that is on, else the first one that is off.
+    Samples live in ``_PREVIEW_KWARGS`` by panel type. An entity popup
+    (``popup_<page>``) opens for an entity of its ``item`` option's domain, as
+    a tap on such an entity would: the first one that is on, else the first
+    one that is off.
     """
     panel_type = str(panel_config.get("type", ""))
     mapping = PANEL_MAPPING.get(panel_type)
@@ -551,7 +567,7 @@ def preview_kwargs(hass: Any, panel_config: dict[str, Any]) -> dict[str, Any]:
     descriptor = mapping[1].DESCRIPTOR
     kwargs = {
         key: value
-        for key, value in (descriptor.preview_kwargs or {}).items()
+        for key, value in _PREVIEW_KWARGS.get(panel_type, {}).items()
         if key not in panel_config
     }
     # Known by its system key: an edited entity popup is saved with the user
@@ -991,14 +1007,31 @@ class VirtualPanelHost:
         self.app.virtual_esphome.emit(name, value)
 
     def show_idle(self) -> None:
-        """Act as if the inactivity timeout opened the virtual idle page."""
-        navigation = self.app.controller.get("navigation")
-        if navigation is not None:
-            self.app.dispatch(navigation.open_idle_panel, True)
+        """Toggle the virtual idle page.
+
+        The editor's idle control acts like the panel's own interaction: it
+        opens the idle page when it is not shown, or wakes back to the panel
+        it covered (or home) when it is.
+        """
+
+        def _toggle() -> None:
+            navigation = self.app.controller.get("navigation")
+            if navigation is None:
+                return
+            if navigation.idle_panel_active:
+                # A wake is an interaction: the idle page must not be due again
+                # on the next inactivity tick.
+                navigation.reset_activity()
+                navigation.exit_idle_to_prev_or_home(self.app.device.config)
+            else:
+                navigation.open_idle_panel(True)
+
+        self.app.dispatch(_toggle)
 
     def show_home(self) -> None:
-        """Start the sandbox over on its home panel, as a preview back from Live.
+        """Start the sandbox over on its home panel, as an opening preview does.
 
+        A preview opens into whatever the shared virtual app was left on, and
         Live drives the device's own app, so the virtual app got no touches
         meanwhile: its simulated states are dropped, its idle page is left and
         its inactivity clock starts again, or the idle page would be due at once.

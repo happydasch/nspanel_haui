@@ -5,12 +5,13 @@ import assert from 'node:assert/strict';
 
 import { itemLabels, itemTypeShort } from '../../custom_components/nspanel_haui/frontend/haui-item.js';
 import { fetchTranslations } from '../../custom_components/nspanel_haui/frontend/localize.js';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 
 test('item type labels use the language loaded after the module was imported', async () => {
   const translations = { Navigate: 'Nawiguj', 'Target Panel': 'Panel docelowy' };
-  const hass = { fetchWithAuth: async () => ({ json: async () => translations }) };
+  const hass = { fetchWithAuth: async () => ({ ok: true, json: async () => translations }) };
 
-  await fetchTranslations(hass, 'pl');
+  await fetchTranslations(createApiClient(() => hass), 'pl');
 
   assert.equal(itemTypeShort().navigate, 'Nawiguj');
   assert.equal(itemLabels().navigate.label, 'Panel docelowy');

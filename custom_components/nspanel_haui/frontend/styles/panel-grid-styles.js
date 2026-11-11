@@ -108,10 +108,11 @@ export const panelGridStyles = css`
     position: static;
   }
 
-  /* No size of its own: the simulator frame takes the aspect ratio of the
-     layout it draws, so the display always fills the box edge to edge. */
+  /* Extend through the card's horizontal padding so the display uses the full
+     width available in a narrow sidebar/card column. */
   .pg-card-preview {
-    width: 100%;
+    width: calc(100% + 24px);
+    margin-inline: -12px;
     border-radius: 8px;
     background: #000;
     cursor: pointer;

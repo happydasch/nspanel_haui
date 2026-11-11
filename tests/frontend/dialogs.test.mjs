@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
 import { HauiDialog } from '../../custom_components/nspanel_haui/frontend/dialogs/haui-dialog.js';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 
 import { getColorScheme } from '../../custom_components/nspanel_haui/frontend/dialogs/colors.js';
 import { hexToRgb565 } from '../../custom_components/nspanel_haui/frontend/color-utils.js';
@@ -25,7 +26,8 @@ const DIALOGS = [
 function dialog(tag, props = {}) {
   const dlg = Object.create(customElements.get(tag).prototype);
   const events = [];
-  Object.assign(dlg, { requestUpdate() {}, dispatchEvent(e) { events.push(e); return true; } }, props);
+  Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass), requestUpdate() {}, dispatchEvent(e) { events.push(e); return true; } }, props);
   return { dlg, events };
 }
 
@@ -54,13 +56,14 @@ test('color dialog loads schemes, switches palette, and edits custom definitions
     black: { name: 'Black', colors: { background: 10 }, icons: { weather: { default: 11 }, alarm: { armed: 12 }, climate: { off: 13 } } },
   };
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     open: true,
     entryId: 'entry',
     schemeId: 'dark',
     overrides: {},
     scheme: 'dark',
     hass: { fetchWithAuth: async (url) => url.endsWith('color_defaults')
-      ? { json: async () => ({ background: 2 }) }
+      ? { ok: true, json: async () => ({ background: 2 }) }
       : { ok: true, json: async () => ({ builtins, schemes: {} }) } },
     _colors: {},
     _loading: false,
@@ -79,6 +82,7 @@ test('color dialog keeps its open ha-dialog mounted while schemes load', async (
   const dlg = Object.create(ColorsDialog.prototype);
   const dark = { name: 'Dark', colors: {}, icons: { dark: {}, light: {} } };
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     hass: {
       fetchWithAuth: async (url) => url.endsWith('color_defaults')
         ? { json: async () => ({}) }
@@ -157,6 +161,7 @@ test('the color dialog marks the saved scheme as selected in its options', async
     light: { name: 'Light', colors: { background: 6 }, icons },
   };
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     open: true,
     entryId: 'entry',
     schemeId: 'evening',
@@ -165,7 +170,7 @@ test('the color dialog marks the saved scheme as selected in its options', async
     scheme: 'dark',
     hass: {
       fetchWithAuth: async (url) => url.endsWith('color_defaults')
-        ? { json: async () => ({ background: 2 }) }
+        ? { ok: true, json: async () => ({ background: 2 }) }
         : { ok: true, json: async () => ({ builtins, schemes: { evening: { name: 'Evening', colors: { background: 10 }, icons } } }) },
     },
     _colors: {},
@@ -207,6 +212,7 @@ test('changing a color of a built-in scheme switches to a custom copy and saves 
   };
   const dark = { name: 'Dark', colors: { background: 10, text: 20 }, icons };
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     scheme: 'dark',
     schemeId: 'dark',
     _schemes: { dark },
@@ -279,6 +285,7 @@ test('color scheme JSON import rejects collisions and persists valid collections
   const custom = { evening: eveningScheme };
   let posted;
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     entryId: 'entry',
     schemeId: 'dark',
     _schemes: { dark: darkScheme },
@@ -318,6 +325,7 @@ test('custom color schemes can be saved, renamed, exported, and deleted', async 
     icons: { dark: { weather: { sunny: 20 } }, light: { weather: { sunny: 30 } } },
   };
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     entryId: 'entry',
     schemeId: 'dark',
     _schemes: { dark: darkScheme },
@@ -408,6 +416,7 @@ test('Device Info groups the versions in one grid and update actions below them'
   const DeviceInfo = customElements.get('nspanel-dialog-device-info');
   const dlg = Object.create(DeviceInfo.prototype);
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     open: true,
     deviceName: 'kitchen',
     deviceStatus: {
@@ -499,6 +508,7 @@ test('Device Info opens the install picker below the device action buttons', () 
   const DeviceInfo = customElements.get('nspanel-dialog-device-info');
   const dlg = Object.create(DeviceInfo.prototype);
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     deviceStatus: { device_info: {}, update: { enabled: true } },
     deviceName: 'kitchen',
     entryId: 'entry1',
@@ -527,6 +537,7 @@ test('the Device Manager footer no longer offers a bulk display refresh', () => 
   const DeviceManager = customElements.get('nspanel-dialog-device-manager');
   const dlg = Object.create(DeviceManager.prototype);
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     devices: {},
     selectedDevice: null,
     entryId: null,
@@ -548,6 +559,7 @@ test('opening Device Manager automatically scans for HAUI devices', () => {
   const dlg = Object.create(DeviceManager.prototype);
   let scans = 0;
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     open: true,
     _startStatusPolling() {},
     _stopStatusPolling() {},
@@ -566,6 +578,7 @@ test('the Device Manager shows update status but has no manual install action', 
   const DeviceManager = customElements.get('nspanel-dialog-device-manager');
   const dlg = Object.create(DeviceManager.prototype);
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     devices: { kitchen: { config: {}, panels: [] } },
     selectedDevice: 'kitchen',
     _deviceMenuIndex: 0,
@@ -616,6 +629,7 @@ test('the Device Manager keeps update installation out of the More menu when ver
   const DeviceManager = customElements.get('nspanel-dialog-device-manager');
   const dlg = Object.create(DeviceManager.prototype);
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     devices: { haui: { config: {}, panels: [] } },
     selectedDevice: 'haui',
     _deviceMenuIndex: 0,
@@ -634,6 +648,7 @@ test('the Device Manager compares TFT status with the required TFT version', () 
   const DeviceManager = customElements.get('nspanel-dialog-device-manager');
   const dlg = Object.create(DeviceManager.prototype);
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     devices: { kitchen: { config: {}, panels: [] } },
     selectedDevice: 'kitchen',
     _deviceMenuIndex: -1,
@@ -669,6 +684,7 @@ test('the Device Manager does not infer a required TFT version from firmware ver
   const DeviceManager = customElements.get('nspanel-dialog-device-manager');
   const dlg = Object.create(DeviceManager.prototype);
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     devices: { kitchen: { config: {}, panels: [] } },
     selectedDevice: 'kitchen',
     _deviceMenuIndex: -1,
@@ -831,7 +847,8 @@ test('the TFT picker offers the required version, the releases and a URL', () =>
 test('the TFT picker loads the releases of the device', async () => {
   const urls = [];
   const { dlg } = picker('tft', {});
-  Object.assign(dlg, { entryId: 'entry1', hass: releasesHass(urls, ['v0.4.2', 'v0.4.1']) });
+  Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass), entryId: 'entry1', hass: releasesHass(urls, ['v0.4.2', 'v0.4.1']) });
 
   await dlg._openPicker('tft', 'haui');
 
@@ -843,6 +860,7 @@ test('the TFT picker loads the releases of the device', async () => {
 test('the TFT picker selects the available TFT when firmware has no required version', async () => {
   const { dlg, events } = picker('tft');
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     entryId: 'entry1',
     hass: {
       async fetchWithAuth() {
@@ -868,6 +886,7 @@ test('the TFT picker selects the available TFT when firmware has no required ver
 test('the TFT picker falls back to a URL when firmware has no requirement or manifest TFT', async () => {
   const { dlg } = picker('tft');
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     entryId: 'entry1',
     hass: {
       async fetchWithAuth() {
@@ -889,6 +908,7 @@ test('the TFT picker falls back to a URL when firmware has no requirement or man
 test('the TFT picker offers URL installation when the required TFT is not in the manifest', async () => {
   const { dlg } = picker('tft');
   Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass),
     entryId: 'entry1',
     hass: {
       async fetchWithAuth() {
@@ -970,7 +990,8 @@ test('the firmware picker offers the offered update, the releases and a URL', ()
 test('without an offered update the firmware picker preselects the newest release', async () => {
   const urls = [];
   const { dlg } = picker('firmware');
-  Object.assign(dlg, { entryId: 'entry1', hass: releasesHass(urls, ['v0.4.3', 'v0.4.2']) });
+  Object.assign(dlg, {
+    api: createApiClient(() => dlg.hass), entryId: 'entry1', hass: releasesHass(urls, ['v0.4.3', 'v0.4.2']) });
 
   const opening = dlg._openPicker('firmware', 'haui', null);
   assert.equal(dlg._picker.choice, null);

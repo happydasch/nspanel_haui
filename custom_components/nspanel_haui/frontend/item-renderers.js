@@ -428,10 +428,10 @@ function renderItemOptionField(host, opt, currentValue) {
                 .value=${colorFieldText(val)}
               @input=${(e) => {
                 const raw = e.target.value;
-                if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-${id}`, e.target);
+                if (host.api) scheduleTemplateRender(host.api, raw, `tp-${id}`, e.target);
                 setVal(parseFieldValue(raw));
               }}
-              @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
+              @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target); }}
             />
             </div>
             <ha-icon-button class="color-picker-btn"
@@ -477,10 +477,10 @@ function renderItemOptionField(host, opt, currentValue) {
             class="native-input"
             .value=${String(val != null ? val : "")}
             @input=${(e) => {
-              if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target);
+              if (host.api) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target);
               setVal(e.target.value);
             }}
-            @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-${id}`, e.target); }}
+            @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-${id}`, e.target); }}
           />
           ${opt.description ? html`<div class="field-hint">${opt.description}</div>` : ""}
           ${host.hass
@@ -535,11 +535,11 @@ function renderPromotedField(host, ee, f, label, hint) {
               .value=${colorFieldText(cv)}
             @input=${(e) => {
               const raw = e.target.value;
-              if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
+              if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
               host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
               setTimeout(() => host.requestUpdate(), 0);
             }}
-            @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
+            @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
           />
           </div>
           <ha-icon-button class="color-picker-btn"
@@ -573,7 +573,7 @@ function renderPromotedField(host, ee, f, label, hint) {
     return html`
       <div class="form-group">
         <label for="item-${f}" title=${hint}>${label}</label>
-        ${renderIconPicker(`item-${f}`, displayStr, host.hass, (newVal) => {
+        ${renderIconPicker(`item-${f}`, displayStr, host.api, (newVal) => {
           host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(newVal) } };
           setTimeout(() => host.requestUpdate(), 0);
         })}
@@ -593,11 +593,11 @@ function renderPromotedField(host, ee, f, label, hint) {
       <input id="item-${f}" .value=${displayStr} class="native-input"
         @input=${(e) => {
           const raw = e.target.value;
-          if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
+          if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
           host._editingItem = { ...host._editingItem, config: { ...host._editingItem.config, [f]: parseFieldValue(raw) } };
           setTimeout(() => host.requestUpdate(), 0);
         }}
-        @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
+        @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
       />
       ${host.hass
         ? html`<div class="template-preview" ?hidden=${!hasTpl}>
@@ -690,14 +690,14 @@ export function renderItemEditFields(host, descriptor) {
               .value=${itemValue}
               placeholder=${info.placeholder}
               @input=${(e) => {
-                if (host.hass) scheduleTemplateRender(host.hass, e.target.value, `tp-item-entity`, e.target);
+                if (host.api) scheduleTemplateRender(host.api, e.target.value, `tp-item-entity`, e.target);
                 host._editingItem = {
                   ...host._editingItem,
                   config: { ...host._editingItem.config, item: e.target.value },
                 };
                 setTimeout(() => host.requestUpdate(), 0);
               }}
-              @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-entity`, e.target); }}
+              @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-entity`, e.target); }}
             />
             ${host.hass
               ? html`<div class="template-preview" ?hidden=${!(String(itemValue).includes("{{"))}>
@@ -756,14 +756,14 @@ export function renderItemEditFields(host, descriptor) {
                   .value=${displayStr}
                   @input=${(e) => {
                     const raw = e.target.value;
-                    if (host.hass) scheduleTemplateRender(host.hass, raw, `tp-item-${f}`, e.target);
+                    if (host.api) scheduleTemplateRender(host.api, raw, `tp-item-${f}`, e.target);
                     host._editingItem = {
                       ...host._editingItem,
                       config: { ...host._editingItem.config, [f]: isTyped ? parseFieldValue(raw) : raw },
                     };
                     setTimeout(() => host.requestUpdate(), 0);
                   }}
-                  @focus=${(e) => { if (host.hass && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.hass, e.target.value, `tp-item-${f}`, e.target); }}
+                  @focus=${(e) => { if (host.api && String(e.target.value || "").includes("{{")) scheduleTemplateRender(host.api, e.target.value, `tp-item-${f}`, e.target); }}
                 />
                 ${host.hass
                   ? html`<div class="template-preview" ?hidden=${!displayStr.includes("{{")}>

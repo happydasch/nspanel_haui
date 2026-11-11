@@ -1,27 +1,60 @@
 // Fake editor host and backend for testing the editor's state handling.
+//
+// The host is a real store-backed facade: the same store the shell uses owns
+// the state, and the `_` fields below mirror it so existing assertions on the
+// editor's properties keep their meaning.
+
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
+import { createStore, devicesFromStore } from '../../custom_components/nspanel_haui/frontend/store/store.js';
+import * as Crud from '../../custom_components/nspanel_haui/frontend/crud.js';
 
 export function jsonResponse(body, status = 200) {
   return { ok: status < 400, status, json: async () => body };
+}
+
+/** In-memory storage for tests that do not inject their own. */
+function testStorage() {
+  const memory = new Map();
+  return {
+    read: (key, fallback) => memory.get(key) ?? fallback,
+    write: (key, value) => memory.set(key, String(value)),
+  };
 }
 
 /**
  * Build a host whose `hass.fetchWithAuth` answers from `respond(method, path, opts)`.
  * Every request is recorded in `host.calls` as "METHOD /path" and its full URL in `host.urls`.
  */
-export function makeHost(panels, respond, { loadDeviceConfig } = {}) {
+export function makeHost(panels, respond, { loadDeviceConfig, storage } = {}) {
   const calls = [];
   const urls = [];
-  return {
+  const toasts = [];
+  const api = createApiClient(() => host.hass);
+  const store = createStore({
+    client: api,
+    storage: storage || testStorage(),
+    onToast: (message, type) => toasts.push([type, message]),
+  });
+
+  const host = {
     entryId: 'entry1',
     _panels: panels,
     _selectedDevice: Object.keys(panels.devices)[0],
     _deviceConfig: null,
+    _deviceStatuses: {},
+    _deviceStatus: null,
+    _deviceStatusError: null,
     _panelTypes: [],
     _itemListData: {},
     _saving: false,
-    toasts: [],
+    _notifications: [],
+    _toast: null,
+    _viewMode: 'grid',
+    toasts,
     calls,
     urls,
+    api,
+    store,
     hass: {
       language: 'en',
       locale: { language: 'en' },
@@ -33,9 +66,59 @@ export function makeHost(panels, respond, { loadDeviceConfig } = {}) {
         return respond(method, path, opts);
       },
     },
-    _showToast(msg, kind) { this.toasts.push([kind, msg]); },
-    _loadDeviceConfig(name) { loadDeviceConfig?.(this, name); },
-    _devicePanels() { return this._panels.devices[this._selectedDevice]?.panels || []; },
+    _showToast(msg, kind) { store.actions.showToast(msg, kind); },
+    _loadDeviceConfig(name) {
+      if (loadDeviceConfig) loadDeviceConfig(this, name);
+      else this._deviceConfig = store.selectors.configFor(name);
+    },
+    _devicePanels() { return store.selectors.devicePanels(); },
+    _savePanels(nextPanels, message, config, deviceName) {
+      return Crud.savePanels(this, nextPanels, message, config, deviceName);
+    },
+    _selectDevice(name) { store.actions.selectDevice(name); },
     requestUpdate() {},
   };
+
+  store.setState((current) => ({
+    ...current,
+    hub: {
+      ...current.hub,
+      entryId: 'entry1',
+      loading: false,
+      systemPanels: panels.system_panels || [],
+      colorSchemes: panels.color_schemes || {},
+    },
+    devices: devicesFromStore(panels, current.devices),
+  }));
+
+  let lastConfig = null;
+  const sync = () => {
+    const state = store.getState();
+    host._panels = store.selectors.panelStore();
+    host._selectedDevice = state.devices.selected;
+    const config = state.devices.selected
+      ? store.selectors.configFor(state.devices.selected)
+      : null;
+    if (config !== lastConfig) {
+      host._deviceConfig = config;
+      lastConfig = config;
+    }
+    host._deviceStatuses = store.selectors.statuses();
+    host._deviceStatus = store.selectors.selectedStatus();
+    host._deviceStatusError = state.hub.statusError;
+    host._panelTypes = state.hub.panelTypes;
+    host._notifications = state.notifications;
+    host._saving = state.hub.saving;
+    host._toast = state.ui.toast;
+    host._loading = state.hub.loading;
+    host._viewMode = state.ui.viewMode;
+    host.__navPanelsOpen = state.ui.groupOpen.nav;
+    host.__hiddenPanelsOpen = state.ui.groupOpen.hidden;
+    host.__popupPanelsOpen = state.ui.groupOpen.popup;
+    host.__systemPanelsOpen = state.ui.groupOpen.system;
+  };
+  store.subscribe(sync);
+  sync();
+
+  return host;
 }

@@ -16,7 +16,6 @@ import {
   selectDevice,
   renderDeviceManagerButton,
 } from './device-manager.js';
-import { writeStorage } from './dom-helpers.js';
 import { renderPanelDropdown } from './panel-table.js';
 import { getConnectionStateClass, getConnectionStateLabel } from './device-info.js';
 
@@ -236,8 +235,7 @@ export function renderToolbarActions(host) {
           title=${t('Grid view')}
           @click=${() => {
             if (!isGrid) {
-              host._viewMode = 'grid';
-              writeStorage('haui_viewMode', 'grid');
+              host.store.actions.setViewMode('grid');
               host.requestUpdate();
             }
           }}
@@ -250,8 +248,7 @@ export function renderToolbarActions(host) {
           title=${t('List view')}
           @click=${() => {
             if (isGrid) {
-              host._viewMode = 'list';
-              writeStorage('haui_viewMode', 'list');
+              host.store.actions.setViewMode('list');
               host.requestUpdate();
             }
           }}

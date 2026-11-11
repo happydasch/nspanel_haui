@@ -15,11 +15,18 @@ integration, or contribute to the project.
 A root `Makefile` provides shortcuts for common checks and the two throwaway
 Home Assistant development instances. Run `make` or `make help` to list them.
 
-- `make check` runs backend and frontend tests, Ruff, mypy, the strict docs
-  build, and read-only HMI/layout and preview-coverage checks. It does not run
-  ESPHome validation or mutate generated assets.
+- `make check` runs backend and frontend tests, Ruff, mypy, the frontend
+  type check, the strict docs build, and read-only HMI/layout and
+  preview-coverage checks. It does not run ESPHome validation or mutate
+  generated assets.
 - Individual checks are available as `make test`, `make test-frontend`,
-  `make lint`, `make typecheck`, `make docs`, and `make hmi-check`.
+  `make lint`, `make typecheck`, `make typecheck-frontend`, `make docs`, and
+  `make hmi-check`. `make format` reformats Python code with Ruff; `make lint`
+  only reports lint errors.
+- The frontend type check runs `tsc` over the modules marked `// @ts-check`.
+  Install its tooling once with `npm ci`; the check itself is
+  `make typecheck-frontend` (or `npm run typecheck:frontend`). See
+  [Frontend Architecture](frontend.md).
 - `make esphome-config` validates the universal ESPHome config, but requires
   the separate ESPHome environment (`requirements-esphome.txt`); its pinned
   dependencies conflict with the Home Assistant development environment.
@@ -354,6 +361,26 @@ empty; the hub follows the newest
 The hub logs manifest reads, install starts and outcomes; the Device Manager
 shows install errors. [Update Process](update-process.md) describes the whole cycle:
 when checks run, the update settings and both firmware variants.
+
+### Development builds are dispatched manually (0.4.7)
+
+Development firmware no longer builds on every push to `dev`. The
+**Development Firmware** workflow is dispatched by hand (Actions → Development
+Firmware → **Run workflow** on `dev`) when the build changes what a device
+installs — firmware or display inputs — and hub-only, docs and frontend pushes
+ride along in the next build. Each run publishes a versioned universal
+prerelease and commits its version and the regenerated screen overview back to
+`dev` as one `[skip ci]` commit. Set the `screens_only` input to regenerate the
+screens with a docs-only commit, without building, tagging or publishing
+firmware.
+
+The per-push trigger made every commit publish a prerelease, push a bot version
+commit and regenerate the screens, and a fix push published `0.4.6.dev53`
+minutes before the stable `0.4.6`. The 2026-11-09 GitHub Actions outage then
+failed those chained runs before their jobs started. The build keeps its PEP 440
+tag (identical to the manifest version, no `+g<sha>` segment) so the Marketplace
+ordering is unchanged; the mechanics are in
+[Release process & strategy](release.md#published-development-firmware).
 
 ### Release assets and gates
 

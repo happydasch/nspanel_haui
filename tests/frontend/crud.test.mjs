@@ -57,10 +57,16 @@ test('a rejected panel save keeps the dialog item list for the next attempt', as
 test('a user panel cannot take the key of a fixed system panel, only of a popup', async () => {
   const host = makeHost({ devices: { kitchen: { config: {}, panels: [clock] } } }, () =>
     jsonResponse({ status: 'ok' }));
-  host._panels.system_panels = [
-    { key: 'sys_settings', editable: false },
-    { key: 'popup_cover', editable: true },
-  ];
+  host.store.setState((state) => ({
+    ...state,
+    hub: {
+      ...state.hub,
+      systemPanels: [
+        { key: 'sys_settings', editable: false },
+        { key: 'popup_cover', editable: true },
+      ],
+    },
+  }));
   host._panelTypes = [{ type_key: 'grid', options: [] }, { type_key: 'cover', options: [] }];
   host._savePanels = (p, m, c) => Crud.savePanels(host, p, m, c);
 

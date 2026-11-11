@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 
 import '../../custom_components/nspanel_haui/frontend/haui-editor.js';
 import { jsonResponse } from './fake-host.mjs';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 
 const Editor = customElements.get('nspanel-haui-editor');
 
@@ -35,6 +36,7 @@ function editor(previousModel, { saveOk = true } = {}) {
     _showToast(msg, kind) { this.toasts.push([kind, msg]); },
     requestUpdate() {},
   });
+  host.api = createApiClient(() => host.hass);
   return host;
 }
 

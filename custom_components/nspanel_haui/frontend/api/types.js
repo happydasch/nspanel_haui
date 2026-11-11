@@ -1,0 +1,222 @@
+/**
+ * Payload shapes of the editor's REST and WebSocket API.
+ *
+ * These are JSDoc typedefs only; nothing is emitted at runtime. They describe
+ * the payloads the integration's `api/` views and `web/websocket.py` already
+ * return, so a client method and its caller agree without a build step.
+ */
+
+/**
+ * @typedef {Object} HassConnection
+ * @property {(message: Object) => Promise<any>} sendMessagePromise
+ * @property {(callback: (event: Object) => void, eventType: string) => Promise<() => void>} subscribeEvents
+ * @property {(callback: (message: Object) => void, message: Object, options?: Object) => Promise<() => void>} subscribeMessage
+ */
+
+/**
+ * The part of Home Assistant's `hass` object the editor uses.
+ *
+ * @typedef {Object} Hass
+ * @property {string} [language]
+ * @property {(url: string, options?: Object) => Promise<Response>} fetchWithAuth
+ * @property {(message: Object) => Promise<any>} callWS
+ * @property {HassConnection} [connection]
+ */
+
+/**
+ * @typedef {Object} PanelOption
+ * @property {string} key
+ * @property {string} label
+ * @property {string} kind
+ * @property {any} [default]
+ * @property {any[]} [choices]
+ * @property {number} [min]
+ * @property {number} [max]
+ */
+
+/**
+ * A panel type descriptor returned by `/api/nspanel_haui/panel_types`.
+ *
+ * @typedef {Object} PanelTypeDescriptor
+ * @property {string} type_key
+ * @property {string} label
+ * @property {string} [description]
+ * @property {string} [icon]
+ * @property {number} [page_id]
+ * @property {boolean} [has_header]
+ * @property {PanelOption[]} [options]
+ * @property {PanelOption[]} [item_options]
+ */
+
+/**
+ * @typedef {Object} UpdateConfig
+ * @property {boolean} [enabled]
+ * @property {boolean} [check_on_connect]
+ * @property {boolean} [firmware_auto_update]
+ * @property {number} [update_interval]
+ * @property {string} [firmware_manifest_url]
+ * @property {string} [firmware_update_channel]
+ */
+
+/**
+ * A device setting block. Unknown keys are kept: the hub validates and merges
+ * them, and the editor round-trips the whole object.
+ *
+ * @typedef {Object} DeviceConfig
+ * @property {boolean} [enabled]
+ * @property {string} [display_model]
+ * @property {string} [color_scheme]
+ * @property {string} [color_scheme_id]
+ * @property {Object<string, number>} [color_overrides]
+ * @property {string} [home_panel]
+ * @property {string} [idle_panel]
+ * @property {string} [idle_panel_extra]
+ * @property {UpdateConfig} [update]
+ */
+
+/**
+ * @typedef {Object} PanelConfig
+ * @property {string} key
+ * @property {string} type
+ * @property {string} [title]
+ * @property {boolean} [show_in_navigation]
+ */
+
+/**
+ * A device in a panel store payload.
+ *
+ * @typedef {Object} DeviceEntry
+ * @property {string} [friendly_name]
+ * @property {DeviceConfig} [config]
+ * @property {PanelConfig[]} [panels]
+ */
+
+/**
+ * A fixed or editable system panel entry.
+ *
+ * @typedef {Object} SystemPanel
+ * @property {string} key
+ * @property {string} type
+ * @property {string} label
+ * @property {boolean} editable
+ * @property {boolean} hub_driven
+ * @property {number} [page_id]
+ * @property {boolean} [has_header]
+ */
+
+/**
+ * @typedef {Object} ColorScheme
+ * @property {string} name
+ * @property {Object<string, number>} colors
+ * @property {Object<string, Object<string, Object<string, number>>>} [icons]
+ */
+
+/**
+ * The body of `GET /api/nspanel_haui/panels/{entry_id}`.
+ *
+ * @typedef {Object} PanelStore
+ * @property {number} [version]
+ * @property {Object<string, DeviceEntry>} devices
+ * @property {Object<string, ColorScheme>} [color_schemes]
+ * @property {SystemPanel[]} [system_panels]
+ */
+
+/**
+ * @typedef {Object} DeviceInfo
+ * @property {string} [name]
+ * @property {string} [ip]
+ * @property {string} [ssid]
+ * @property {number|string} [rssi]
+ * @property {string} [tft_version]
+ * @property {string} [tft_required_version]
+ * @property {string} [yaml_version]
+ * @property {string|null} [last_panel_update]
+ * @property {string|null} [last_connection]
+ * @property {number} [connection_uptime]
+ * @property {boolean} [idle_page_active]
+ * @property {string} [temperature_entity_id]
+ */
+
+/**
+ * The TFT/firmware update state of a device.
+ *
+ * @typedef {Object} UpdateState
+ * @property {boolean} [enabled]
+ * @property {string} [state]
+ * @property {string|null} [version]
+ * @property {string|null} [started_at]
+ * @property {string|null} [last_error]
+ * @property {boolean} [firmware_installing]
+ * @property {string|null} [firmware_install_error]
+ * @property {boolean} [firmware_update_available]
+ */
+
+/**
+ * @typedef {Object} DeviceStatus
+ * @property {boolean} [connected]
+ * @property {string} [connection_state]
+ * @property {string} [current_page]
+ * @property {string} [haui_version]
+ * @property {boolean} [haui_version_mismatch]
+ * @property {DeviceInfo} [device_info]
+ * @property {UpdateState} [update]
+ * @property {string[]} [logs]
+ * @property {string|null} [last_disconnect_reason]
+ * @property {string|null} [disconnected_since]
+ */
+
+/**
+ * @typedef {Object} Notification
+ * @property {string} id
+ * @property {string} device
+ * @property {string} [title]
+ * @property {string} [message]
+ * @property {string} [icon]
+ * @property {string} [type]
+ * @property {"added"|"removed"} [state]
+ */
+
+/**
+ * @typedef {Object} TftReleases
+ * @property {string[]} releases
+ * @property {string|null} required
+ * @property {string|null} error
+ */
+
+/**
+ * @typedef {Object} FirmwareReleases
+ * @property {string[]} releases
+ * @property {string|null} error
+ */
+
+/**
+ * @typedef {Object} ColorSchemesResponse
+ * @property {number} version
+ * @property {Object<string, ColorScheme>} builtins
+ * @property {Object<string, ColorScheme>} schemes
+ */
+
+/**
+ * A render of one panel on the hub: `before` is sent before the page switch.
+ *
+ * @typedef {Object} PanelRender
+ * @property {number} page
+ * @property {string[]} before
+ * @property {string[]} commands
+ */
+
+/**
+ * @typedef {Object} UpdateResult
+ * @property {string} status
+ * @property {string[]} [devices_updated]
+ * @property {Array<{ name: string, error: string }>} [failed]
+ * @property {UpdateState} [update]
+ */
+
+/**
+ * @typedef {Object} ApiError
+ * @property {string} message
+ * @property {number} [status]
+ */
+
+export {};

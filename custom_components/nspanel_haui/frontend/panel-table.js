@@ -8,7 +8,6 @@ import { html } from './lit-import.js';
 import { renderBadges, computeFilteredPanels, getPanelMoveState, getSystemPanelKeys } from './panel-utils.js';
 import { renderSystemPanelCard } from './panel-sys-grid.js';
 import { t } from './localize.js';
-import { writeStorage } from './dom-helpers.js';
 
 /**
  * Render a consistent empty-state card for use across the editor.
@@ -205,12 +204,12 @@ export function renderPanelGroups(host, renderItem, wrap = (items) => items) {
       ? renderEmptyCard(t('No panels configured yet.'))
       : html`
         <details class="panel-group" ?open=${host.__navPanelsOpen}
-          @toggle=${(e) => { host.__navPanelsOpen = e.target.open; writeStorage('haui_navPanelsOpen', e.target.open); }}>
+          @toggle=${(e) => host.store.actions.setGroupOpen('nav', e.target.open)}>
           <summary class="group-title">${t('Navigation ({count} panels)').replace('{count}', navPanels.length)}</summary>
           ${wrap(navPanels.map(p => renderItem(host, p, panels, true)))}
         </details>
         <details class="panel-group" ?open=${host.__hiddenPanelsOpen}
-          @toggle=${(e) => { host.__hiddenPanelsOpen = e.target.open; writeStorage('haui_hiddenPanelsOpen', e.target.open); }}>
+          @toggle=${(e) => host.store.actions.setGroupOpen('hidden', e.target.open)}>
           <summary class="group-title">${t('Non-Navigation ({count} panels)').replace('{count}', hiddenPanels.length)}</summary>
           ${wrap(hiddenPanels.map(p => renderItem(host, p, panels, false)))}
         </details>
@@ -241,9 +240,9 @@ export function renderSystemPanels(host, viewMode) {
   const systemPanels = all.filter(sp => !sp.editable);
   const popupPanels = all.filter(sp => sp.editable);
 
-  const renderGroup = (items, open, storageKey, setOpen, label) => html`
+  const renderGroup = (items, open, group, label) => html`
     <details class="panel-group" ?open=${open}
-      @toggle=${(e) => { setOpen(e.target.open); writeStorage(storageKey, e.target.open); }}>
+      @toggle=${(e) => host.store.actions.setGroupOpen(group, e.target.open)}>
       <summary class="group-title">${label.replace('{count}', items.length)}</summary>
       ${isGrid
         ? html`<div class="pg-grid">${items.map(sp => renderSystemPanelCard(host, sp))}</div>`
@@ -253,13 +252,11 @@ export function renderSystemPanels(host, viewMode) {
 
   return html`
     ${popupPanels.length ? renderGroup(
-      popupPanels, host.__popupPanelsOpen, 'haui_popupPanelsOpen',
-      (open) => { host.__popupPanelsOpen = open; },
+      popupPanels, host.__popupPanelsOpen, 'popup',
       t('Popups ({count} panels)')
     ) : ''}
     ${systemPanels.length ? renderGroup(
-      systemPanels, host.__systemPanelsOpen, 'haui_systemPanelsOpen',
-      (open) => { host.__systemPanelsOpen = open; },
+      systemPanels, host.__systemPanelsOpen, 'system',
       t('System Panels ({count} panels)')
     ) : ''}
   `;

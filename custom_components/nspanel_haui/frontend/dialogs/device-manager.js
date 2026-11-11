@@ -11,7 +11,6 @@ import './confirm.js';
 import { t } from '../localize.js';
 import { positionContextMenu, onOutsideClick, offOutsideClick } from '../dom-helpers.js';
 import * as Toast from '../toast.js';
-import { scanDevices } from '../api.js';
 import { rssiIcon, rssiStrengthClass, fmtRssi, isOlderVersion } from '../device-info.js';
 
 /* ── helpers ────────────────────────────────────────────────── */
@@ -55,6 +54,10 @@ class DeviceManagerDialog extends HauiDialog {
       devices: { type: Object },
       selectedDevice: { type: String },
       entryId: { type: String },
+      api: { type: Object },
+      deviceStatuses: { type: Object },
+      onStatusPollingStart: { type: Function },
+      onStatusPollingStop: { type: Function },
       _scannedDevices: { type: Array, state: true },
       _scanning: { type: Boolean, state: true },
       _scanError: { type: String, state: true },
@@ -70,6 +73,9 @@ class DeviceManagerDialog extends HauiDialog {
     this.devices = {};
     this.selectedDevice = null;
     this.entryId = null;
+    this.deviceStatuses = {};
+    this.onStatusPollingStart = null;
+    this.onStatusPollingStop = null;
     this._deviceStatuses = {};
     this._scannedDevices = [];
     this._scanning = false;
@@ -77,7 +83,6 @@ class DeviceManagerDialog extends HauiDialog {
     this._deviceMenuIndex = null;
     // Device whose removal waits for confirmation.
     this._removeTarget = null;
-    this.__statusTimer = null;
   }
 
   connectedCallback() {
@@ -113,6 +118,9 @@ class DeviceManagerDialog extends HauiDialog {
         if (dropdown && more) positionContextMenu(dropdown, more);
       });
     }
+    if (changed.has("deviceStatuses")) {
+      this._deviceStatuses = this.deviceStatuses || {};
+    }
     if (changed.has("open")) {
       if (this.open) {
         this._startStatusPolling();
@@ -125,33 +133,11 @@ class DeviceManagerDialog extends HauiDialog {
   }
 
   _startStatusPolling() {
-    this._stopStatusPolling();
-    this._fetchAllStatuses();
-    this.__statusTimer = setInterval(() => this._fetchAllStatuses(), 5000);
+    this.onStatusPollingStart?.();
   }
 
   _stopStatusPolling() {
-    if (this.__statusTimer) {
-      clearInterval(this.__statusTimer);
-      this.__statusTimer = null;
-    }
-  }
-
-  async _fetchAllStatuses() {
-    if (!this.entryId || !this.hass) return;
-    try {
-      const resp = await this.hass.fetchWithAuth(
-        `/api/nspanel_haui/status/${this.entryId}`
-      );
-      if (resp.ok) {
-        const data = await resp.json();
-        this._deviceStatuses = (data.devices && typeof data.devices === "object")
-          ? data.devices
-          : {};
-      }
-    } catch (e) {
-      // Silently ignore — stale status is harmless
-    }
+    this.onStatusPollingStop?.();
   }
 
   _closeDeviceMenu() { this._deviceMenuIndex = null; }
@@ -354,7 +340,7 @@ class DeviceManagerDialog extends HauiDialog {
     this._scannedDevices = [];
     this.requestUpdate();
     try {
-      const result = await scanDevices({ entryId: this.entryId, hass: this.hass });
+      const result = await this.api.devices.scan(this.entryId);
       const discovered = (result.devices || []).filter(
         (d) => !(this.devices || {})[d.name || d.friendly_name]
       );

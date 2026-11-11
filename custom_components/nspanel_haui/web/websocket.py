@@ -13,11 +13,11 @@ has commands of its own (``preview/live_panel.py``).
   notification queue.
 - ``nspanel_haui/virtual_panel/event`` injects a touch, swipe or hardware
   button.
-- ``nspanel_haui/virtual_panel/home`` starts the sandbox over for a preview
-  switching back from Live: it drops the simulated states, leaves the idle
-  page, restarts the inactivity clock and opens the home panel.
-- ``nspanel_haui/virtual_panel/idle`` acts as if the inactivity timeout opened
-  the idle page.
+- ``nspanel_haui/virtual_panel/home`` starts the sandbox over for an opening
+  preview or one switching back from Live: it drops the simulated states,
+  leaves the idle page, restarts the inactivity clock and opens the home panel.
+- ``nspanel_haui/virtual_panel/idle`` toggles the idle page: it opens it, or
+  wakes back to the panel it covered (or home) when it already shows.
 - ``nspanel_haui/virtual_panel/reset_sandbox`` drops simulated entity states.
 - ``nspanel_haui/virtual_panel/render`` renders one panel as its editor card
   shows it, without touching what a live preview shows.

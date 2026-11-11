@@ -1,0 +1,11 @@
+{
+  "name": "nspanel-haui-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck:frontend": "tsc -p jsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}

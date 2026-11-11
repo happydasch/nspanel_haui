@@ -79,6 +79,8 @@ test('opening starts a session for the selected device; closing stops it', async
     entry_id: 'entry1',
     device: 'kitchen',
   });
+  // A reused virtual app starts over on its home panel once it is attached.
+  assert.equal(dlg._session._openHome, true);
 
   dlg.open = false;
   dlg.updated(new Map([['open', true]]));
@@ -358,8 +360,9 @@ test('a started session renders the screen and maps pointer input to touches', a
   });
   dlg.hass.subscriptions[0].callback({ type: 'started', session_id: 's1', portrait: false });
   await flush();
+  // The app may be the one a previous preview left behind: start it over.
   assert.deepEqual(dlg.hass.calls, [{
-    type: 'nspanel_haui/virtual_panel/reset_sandbox',
+    type: 'nspanel_haui/virtual_panel/home',
     session_id: 's1',
   }]);
   dlg.hass.calls.length = 0;

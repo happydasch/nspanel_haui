@@ -1,24 +1,25 @@
 /**
  * NSPanel HAUI - device polling and connection state helpers.
  *
- * Contains only:
- *   - startStatusPolling / stopStatusPolling
- *   - getConnectionStateClass / getConnectionStateLabel (shared helpers)
+ * The status pollers live in the store; these wrappers keep the shared helpers
+ * and the existing call sites working.
  *
- * Device Info dialog and Logs dialog are now separate custom elements:
+ * Device Info dialog and Logs dialog are separate custom elements:
  *   - nspanel-dialog-device-info  (in dialogs/device-info.js)
  *   - nspanel-dialog-logs         (in dialogs/logs.js)
  */
-import * as Api from './api.js';
 import { t } from './localize.js';
 
 /* ── status polling ──────────────────────────────────────────────────────── */
 
-/**
- * Poll the selected device's status. Restarts when the selected device has
- * changed, immediately showing only that device's cached status while fetching
- * a fresh snapshot.
- */
+export function startStatusPolling(host, options = {}) {
+  host.store.actions.startSelectedStatusPolling(options);
+}
+
+export function stopStatusPolling(host) {
+  host.store.actions.stopSelectedStatusPolling();
+}
+
 /**
  * Whether PEP 440 version ``a`` is older than ``b``.
  *
@@ -118,26 +119,6 @@ export function rssiBarCount(rssi) {
 export function fmtRssi(rssi) {
   const value = rssiValue(rssi);
   return value == null ? t('Unknown') : `${value} dBm`;
-}
-
-
-export function startStatusPolling(host, { refresh = true } = {}) {
-  if (host._statusTimer && host._statusDevice === host._selectedDevice) return;
-  stopStatusPolling(host);
-  if (host._statusDevice !== host._selectedDevice) {
-    host._deviceStatus = host._deviceStatuses?.[host._selectedDevice] || null;
-    host._deviceStatusError = null;
-    host._statusDevice = host._selectedDevice;
-  }
-  if (refresh) Api.loadStatus(host);
-  host._statusTimer = setInterval(() => Api.loadStatus(host), 5000);
-}
-
-export function stopStatusPolling(host) {
-  if (host._statusTimer) {
-    clearInterval(host._statusTimer);
-    host._statusTimer = null;
-  }
 }
 
 /* ── connection state helpers ──────────────────────────────────────────── */

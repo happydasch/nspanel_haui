@@ -71,21 +71,45 @@ ENTITIES: dict[str, tuple[str, dict[str, Any]]] = {
             "friendly_name": "Living Room TV",
             "media_title": "Morning Coffee",
             "media_artist": "Lo-Fi Beats",
+            "media_duration": 210,
+            "media_position": 42,
             "volume_level": 0.4,
             "is_volume_muted": False,
             "source": "HDMI 1",
             "source_list": ["HDMI 1", "HDMI 2", "Spotify"],
-            "supported_features": 21509,
+            "shuffle": False,
+            "repeat": "all",
+            "group_members": ["media_player.kitchen_speaker"],
+            # Every control the media page can show: play/pause, volume,
+            # previous/next, power, source, shuffle, repeat and grouping.
+            "supported_features": 837813,
+        },
+    ),
+    "media_player.kitchen_speaker": (
+        "off",
+        {
+            "friendly_name": "Kitchen Speaker",
+            "volume_level": 0.2,
+            "is_volume_muted": False,
+            "supported_features": 4,
         },
     ),
     "vacuum.robot": (
         "cleaning",
         {
             "friendly_name": "Robot Vacuum",
-            "battery_level": 82,
             "fan_speed": "medium",
             "fan_speed_list": ["low", "medium", "high"],
-            "supported_features": 12308,
+            # Start/stop/pause, return home, fan speed and locate.
+            "supported_features": 12860,
+        },
+    ),
+    "sensor.robot_battery": (
+        "82",
+        {
+            "friendly_name": "Robot Battery",
+            "unit_of_measurement": "%",
+            "device_class": "battery",
         },
     ),
     "timer.laundry": (
@@ -210,15 +234,37 @@ PANELS: list[dict[str, Any]] = [
     {"type": "row", "key": "row_0", "title": "Devices", "items": ITEM_GRID[:5]},
     {"type": "light", "key": "light_0", "title": "Lamp", "item": {"item": "light.lamp"}},
     {"type": "climate", "key": "climate_0", "title": "Climate", "item": {"item": "climate.living"}},
-    {"type": "media", "key": "media_0", "title": "Media", "item": {"item": "media_player.tv"}},
+    {
+        "type": "media",
+        "key": "media_0",
+        "title": "Media",
+        "item": {"item": "media_player.tv"},
+        "media_favorites": [
+            "media-source://media_source/local/morning-coffee.mp3",
+            "media-source://media_source/local/evening-jazz.mp3",
+        ],
+    },
     {"type": "cover", "key": "cover_0", "title": "Blind", "item": {"item": "cover.blind"}},
-    {"type": "vacuum", "key": "vacuum_0", "title": "Vacuum", "item": {"item": "vacuum.robot"}},
+    {
+        "type": "vacuum",
+        "key": "vacuum_0",
+        "title": "Vacuum",
+        "item": {"item": "vacuum.robot"},
+        "battery_sensor": {"item": "sensor.robot_battery"},
+    },
     {"type": "timer", "key": "timer_0", "title": "Timer", "item": {"item": "timer.laundry"}},
-    {"type": "weather", "key": "weather_0", "title": "Weather", "item": {"item": "weather.home"}},
+    {
+        "type": "weather",
+        "key": "weather_0",
+        "title": "Weather",
+        "item": {"item": "weather.home"},
+        "forecast_type": "daily",
+    },
     {
         "type": "clock",
         "key": "clock_0",
         "title": "Clock",
+        "item": {"item": "weather.home"},
         "items": [
             {"item": "sensor.outside", "name": "Outside", "icon": "mdi:thermometer"},
             {
@@ -229,7 +275,13 @@ PANELS: list[dict[str, Any]] = [
         ],
     },
     {"type": "clocktwo", "key": "clocktwo_0", "title": "Word Clock"},
-    {"type": "qr", "key": "qr_0", "title": "QR", "qr_text": "https://example.com"},
+    {
+        "type": "qr",
+        "key": "qr_0",
+        "title": "QR",
+        "essid": "Home Network",
+        "password": "demo-password",
+    },
     {
         "type": "alarm",
         "key": "alarm_0",
@@ -247,8 +299,34 @@ class _State:
 
 
 class _Services:
-    async def async_call(self, *args: Any, **kwargs: Any) -> None:
-        return None
+    """The HA service surface the sample pages call: a daily weather forecast."""
+
+    async def async_call(self, domain: str, service: str, **kwargs: Any) -> Any:
+        if domain != "weather" or service != "get_forecasts":
+            return None
+        entity_id = (kwargs.get("target") or {}).get("entity_id", "weather.home")
+        return {entity_id: {"forecast": _sample_forecast()}}
+
+
+def _sample_forecast() -> list[dict[str, Any]]:
+    """A five-day forecast starting tomorrow, dated from the sample world's clock."""
+    start = datetime.datetime.now(datetime.UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    days = [
+        ("sunny", 24, 13),
+        ("partlycloudy", 22, 12),
+        ("rainy", 19, 11),
+        ("cloudy", 21, 12),
+        ("lightning", 23, 14),
+    ]
+    return [
+        {
+            "datetime": (start + datetime.timedelta(days=offset)).isoformat(),
+            "condition": condition,
+            "temperature": high,
+            "templow": low,
+        }
+        for offset, (condition, high, low) in enumerate(days, start=1)
+    ]
 
 
 class SampleHass:

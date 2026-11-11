@@ -7,7 +7,9 @@
  *
  * Usage:
  *   import { fetchTranslations, t, getLanguage } from './localize.js';
- *   await fetchTranslations(hass, 'de');
+ *   import { createApiClient } from './api/client.js';
+ *   const api = createApiClient(() => hass);
+ *   await fetchTranslations(api, 'de');
  *   t('Cancel');  // → "Abbrechen" or "Cancel" if not found
  */
 
@@ -21,17 +23,14 @@ let _currentLang = null;
  * Caches aggressively so a given language is fetched only once per session.
  * On failure (network error, missing endpoint) falls back to empty map.
  *
- * @param {import("lit").LitElement} hass - the hass object from the Lit element
+ * @param {import("./api/client.js").ApiClient} api - the editor's API client
  * @param {string} lang - language code ('en', 'de', 'nl', 'pl', 'fr')
  * @returns {Promise<Object<string, string>>} flat { key: translation } map
  */
-export async function fetchTranslations(hass, lang) {
+export async function fetchTranslations(api, lang) {
   if (_currentLang === lang && _translations) return _translations;
   try {
-    const resp = await hass.fetchWithAuth(
-      `/api/nspanel_haui/translations/${encodeURIComponent(lang)}?flat=1`
-    );
-    _translations = await resp.json();
+    _translations = await api.editor.translations(lang);
     _currentLang = lang;
   } catch {
     // Fallback: return empty so keys display as-is (English)

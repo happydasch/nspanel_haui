@@ -1,14 +1,14 @@
 # Common local checks and throwaway development instances.
 .DEFAULT_GOAL := help
 
-.PHONY: help check test test-frontend lint typecheck docs hmi-check esphome-config \
+.PHONY: help check test test-frontend format lint typecheck typecheck-frontend docs hmi-check esphome-config \
 	ha-venv-setup ha-venv-start ha-venv-logs \
 	ha-docker-up ha-docker-stop ha-docker-restart ha-docker-logs ha-docker-down
 
 help: ## Show available targets
 	@awk 'BEGIN { FS = ":.*##"; print "Targets:" } /^[a-zA-Z0-9_-]+:.*##/ { printf "  %-20s %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-check: test test-frontend lint typecheck docs hmi-check ## Run routine local validation (excludes ESPHome config)
+check: test test-frontend lint typecheck typecheck-frontend docs hmi-check ## Run routine local validation (excludes ESPHome config)
 
 test: ## Run backend tests (Python dev environment + Node 22+)
 	pytest tests/
@@ -16,11 +16,17 @@ test: ## Run backend tests (Python dev environment + Node 22+)
 test-frontend: ## Run frontend tests (Node 22+)
 	node --test 'tests/frontend/*.test.mjs'
 
-lint: ## Lint Python code
+format: ## Format Python code with ruff
+	ruff format custom_components/ scripts/
+
+lint: ## Lint Python code with ruff
 	ruff check custom_components/ scripts/
 
 typecheck: ## Type-check the haui core
 	mypy
+
+typecheck-frontend: ## Type-check editor modules marked with @ts-check (npm ci first)
+	npm run typecheck:frontend
 
 docs: ## Build documentation strictly (requirements-docs.txt)
 	zensical build --strict

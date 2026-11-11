@@ -9,6 +9,7 @@ import {
   renderIconPicker,
 } from '../../custom_components/nspanel_haui/frontend/form-fields.js';
 import { jsonResponse } from './fake-host.mjs';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
 
 /** Just enough of an element for the icon picker's dropdown code. */
 class FakeElement {
@@ -55,16 +56,17 @@ const ICONS = [...Array.from({ length: 500 }, (_, i) => `aaa-${i}`), 'sunny-aler
 
 async function loadedIcons() {
   const hass = { async fetchWithAuth() { return jsonResponse(ICONS); } };
-  renderIconPicker('fld-icon', '', hass, null);
+  const api = createApiClient(() => hass);
+  renderIconPicker('fld-icon', '', api, null);
   for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r));
-  return hass;
+  return api;
 }
 
 test('the icon dropdown finds icons from the whole icon list', async () => {
-  const hass = await loadedIcons();
+  const api = await loadedIcons();
   const { wrap, dropdown } = pickerWrap();
 
-  fillIconDropdown(wrap, 'mdi:weather-sun', hass, null);
+  fillIconDropdown(wrap, 'mdi:weather-sun', api, null);
 
   const shown = dropdown.children.map((item) => item.getAttribute('data-icon'));
   assert.deepEqual(shown, ['weather-sunny']);
@@ -72,11 +74,11 @@ test('the icon dropdown finds icons from the whole icon list', async () => {
 });
 
 test('picking an icon with the mouse reports and shows the choice', async () => {
-  const hass = await loadedIcons();
+  const api = await loadedIcons();
   const { wrap, input, dropdown } = pickerWrap();
   const picked = [];
 
-  fillIconDropdown(wrap, 'weather', hass, (v) => picked.push(v));
+  fillIconDropdown(wrap, 'weather', api, (v) => picked.push(v));
   const item = dropdown.children[0];
   item.listeners.mousedown.forEach((fn) => fn({ preventDefault() {}, currentTarget: item }));
 

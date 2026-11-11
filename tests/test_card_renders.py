@@ -24,6 +24,7 @@ from custom_components.nspanel_haui.haui.mapping.panel import (
     get_system_panel_entries,
     get_user_panel_type_descriptors,
 )
+from custom_components.nspanel_haui.haui.utils.icon import get_icon
 from scripts.preview_gallery import sample_world
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -112,3 +113,55 @@ def test_unlock_card_shows_its_keypad_and_title(hub_loop):
     assert [key for key in keys if f"vis {key},1" not in commands] == []
     # the system panel's title is "": the unlock popup falls back to its own
     assert 'tTitle.txt="Unlock"' in commands
+
+
+def test_demo_qr_and_notify_cards_carry_sample_content(hub_loop):
+    """The sample QR panel encodes its network and the notification shows its icon."""
+    renders = sample_world.render_every_card(hub_loop, "eu")
+
+    assert 'qrCode.txt="WIFI:S:Home Network;T:WPA;P:demo-password;;"' in renders["qr"]["commands"]
+    notify = renders["popup_notify"]["commands"]
+    assert f'tIcon.txt="{get_icon("mdi:bell")}"' in notify
+    assert "tIcon.pco=62694" in notify
+    assert "vis tIcon,1" in notify
+    assert 'bBtnRight.txt="Confirm"' in notify
+    assert "vis bBtnRight,1" in notify
+
+
+def test_demo_clock_and_weather_cards_show_the_sample_forecast(hub_loop):
+    """The clock shows the sample weather and the weather page its daily forecast."""
+    renders = sample_world.render_every_card(hub_loop, "eu")
+
+    clock = renders["clock"]["commands"]
+    assert "vis tMainIcon,1" in clock
+    assert any(cmd.startswith("tMainText.txt=") and cmd.endswith('18°C"') for cmd in clock)
+    assert 'tSubText.txt="1013hPa"' in clock
+    weather = renders["weather"]["commands"]
+    assert "vis f1Icon,1" in weather
+    assert 'f1Val.txt="24°C"' in weather
+    assert 'f1SubVal.txt="13°C"' in weather
+
+
+def test_demo_entity_panels_show_the_controls_their_sample_entity_supports(hub_loop):
+    """The sample players advertise every feature, so their cards show every control."""
+    renders = sample_world.render_every_card(hub_loop, "eu")
+
+    media = renders["media"]["commands"]
+    for widget in (
+        "bPrev",
+        "bNext",
+        "bPlay",
+        "bShuffle",
+        "bRepeat",
+        "bVolDown",
+        "bVolUp",
+        "hVolume",
+        "jProgress",
+        "m1Name",
+        "m2Name",
+        "m3Name",
+    ):
+        assert f"vis {widget},1" in media
+    vacuum = renders["vacuum"]["commands"]
+    for widget in ("bFan", "bAction", "bHome", "bLocate"):
+        assert f"vis {widget},1" in vacuum

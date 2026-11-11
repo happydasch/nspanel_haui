@@ -42,9 +42,9 @@ test('landscape devices mount the simulator frame without portrait', () => {
   assert.match(out, /nspanel-simulator-frame[\s\S]*\.portrait=false/);
 });
 
-test('the card preview box has no size or padding of its own', () => {
-  // The frame takes its layout's aspect ratio, so the box can never be a
-  // different shape than the display it holds.
+test('the card preview directly contains the simulator frame', () => {
+  // Keep the frame directly in the available-width wrapper so its measured size
+  // and the screen's aspect ratio determine the final preview dimensions.
   const out = flat(renderPanelGrid(hostFor('eu')));
   assert.match(out, /<div class="pg-card-preview" @click=\[fn\]>\s*<nspanel-simulator-frame/);
 });

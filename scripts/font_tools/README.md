@@ -52,7 +52,7 @@ python -m scripts.font_tools.gen_cheatsheet
 ```
 
 Commit the regenerated `docs/cheatsheet.html` together with any change to
-`scripts/font_tools/icons_data.json`; the `tests.yml` workflow fails when the
+`scripts/font_tools/icons_data.json`; the `ci.yml` workflow fails when the
 committed cheatsheet is stale.
 
 See [Pictogrammers](https://pictogrammers.com/library/mdi/) if you need the char of the source font.

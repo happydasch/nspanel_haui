@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { NSPanelEditor } from '../../custom_components/nspanel_haui/frontend/haui-editor.js';
-import { loadEntries } from '../../custom_components/nspanel_haui/frontend/api.js';
+import { createApiClient } from '../../custom_components/nspanel_haui/frontend/api/client.js';
+import { createStore } from '../../custom_components/nspanel_haui/frontend/store/store.js';
 import { t } from '../../custom_components/nspanel_haui/frontend/localize.js';
 import { jsonResponse } from './fake-host.mjs';
 
@@ -52,6 +53,14 @@ function editor() {
     requestUpdate() { this.renders++; },
     _showToast(msg, kind) { this.toasts.push([kind, msg]); },
   });
+  ed.api = createApiClient(() => ed.hass);
+  ed._store = createStore({
+    client: ed.api,
+    storage: { read: (key, fallback) => fallback, write() {} },
+    onToast: (message, kind) => ed.toasts.push([kind, message]),
+  });
+  ed._store.subscribe(() => ed._syncFromStore());
+  ed._syncFromStore();
   return ed;
 }
 
@@ -60,7 +69,10 @@ function pushHass(ed, hass) {
   ed.updated(new Map([['hass', undefined]]));
 }
 
-test('loads still pending are not requested again on each hass update', async () => {
+test('loads still pending are not requested again on each hass update', async (t) => {
+  // The backend never answers; the client's request timeout would keep the
+  // process alive for its full duration, so run this test on mock timers.
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const be = backend();
   const ed = editor();
 
@@ -92,7 +104,7 @@ test('an unreadable integration list is reported as an error, not as "none confi
     async callWS() { throw new Error('Connection lost'); },
   };
 
-  await loadEntries(ed);
+  await ed._loadEntries();
 
   assert.equal(ed._entriesError, 'Connection lost');
   assert.equal(ed._loading, false);

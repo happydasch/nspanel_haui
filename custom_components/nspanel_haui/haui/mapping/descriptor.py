@@ -101,12 +101,3 @@ class PageDescriptor:
     Clock, weather, blank, and system pages may omit the header bar
     and show content full-screen instead.
     """
-    preview_kwargs: dict[str, Any] | None = None
-    """Navigation kwargs the editor's card preview opens this popup with.
-
-    A popup only ever opens with context (a notification, the choices to
-    select, the panel to unlock); its card shows it with this sample. Keys the
-    panel config sets win; string values are display text and are translated
-    into the device's language. Entity popups need none: their card opens for
-    an entity of their ``item`` option's domain.
-    """

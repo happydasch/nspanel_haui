@@ -25,10 +25,10 @@ python -m scripts.preview_gallery.gen_preview_gallery --docs    # render and wri
   Node 22+ and Chrome or Chromium; pass `--chrome PATH` if the browser is not
   found automatically.
 - `--docs` writes the same PNGs to `docs/assets/screens/<orientation>/<card>.png`
-  and the overview page `docs/screens.html`. The `Screens` workflow
-  (`.github/workflows/screens.yml`) runs it after each dev firmware build and
-  commits the result to `dev` when a screen changed; don't edit those files by
-  hand.
+  and the overview page `docs/screens.html`. The **Development Firmware**
+  workflow (`.github/workflows/dev-firmware.yml`) runs it in each dev firmware
+  build and commits the result to `dev` when a screen changed; a `screens_only`
+  dispatch regenerates the screens alone. Don't edit those files by hand.
 - `--port N` changes the gallery port.
 
 Every render runs at a fixed time (`time-machine`, in `requirements-dev.txt`),

@@ -309,9 +309,10 @@ python -m scripts.preview_gallery.gen_preview_gallery --serve   # or --png
 
 The same sample cards make up the [Screens overview](screens.html):
 `gen_preview_gallery.py --docs` writes one PNG per card and orientation to
-`docs/assets/screens/` and the page `docs/screens.html`. The **Screens** workflow
-(`.github/workflows/screens.yml`) runs it after every dev firmware build and
-commits the result to `dev` when a screen changed, so a new panel type shows up
+`docs/assets/screens/` and the page `docs/screens.html`. The **Development
+Firmware** workflow (`.github/workflows/dev-firmware.yml`) runs it in every
+development build and commits the result to `dev` with the version when a screen
+changed, or on a `screens_only` dispatch, so a new panel type shows up
 there without further work. Every render runs at a fixed time, so the clock
 screens stay the same from one run to the next.
 

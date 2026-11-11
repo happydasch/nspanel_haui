@@ -368,8 +368,11 @@ Development firmware no longer builds on every push to `dev`. The
 **Development Firmware** workflow is dispatched by hand (Actions → Development
 Firmware → **Run workflow** on `dev`) when the build changes what a device
 installs — firmware or display inputs — and hub-only, docs and frontend pushes
-ride along in the next build. Each run still publishes a versioned universal
-prerelease, commits its version back to `dev` and regenerates the screens.
+ride along in the next build. Each run publishes a versioned universal
+prerelease and commits its version and the regenerated screen overview back to
+`dev` as one `[skip ci]` commit. Set the `screens_only` input to regenerate the
+screens with a docs-only commit, without building, tagging or publishing
+firmware.
 
 The per-push trigger made every commit publish a prerelease, push a bot version
 commit and regenerate the screens, and a fix push published `0.4.6.dev53`

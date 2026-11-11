@@ -54,13 +54,6 @@ the [screens overview](docs/screens.html) linked from the panel docs, and the ne
 dev release cadence and simplified pipeline written into
 [release process](docs/release.md) and [development](docs/development.md).
 
-**Simplified CI pipeline.** One pipeline with clear jobs instead of the current
-six workflows that rebuild the same things: share setup between jobs, build the
-docs once per run and reuse the result, fold the screen regeneration into the
-development build instead of a second chained bot push, and keep every existing
-gate — tests, strict docs, lint, mypy, frontend tests, Nextion/version/TFT checks
-and the hassfest/HACS validation. Fewer workflow runs per push, same coverage.
-
 **Fewer development releases.** Development builds are dispatched manually
 (2026-11-09) instead of running on every push to `dev`: a push no longer
 publishes a prerelease, pushes a bot version commit or regenerates the screens.
@@ -95,11 +88,11 @@ released or manually. Preview and docs should also be updated.
 once a released ESPHome 2026.11 contains the fixes; keep `CHANGELOG.md` and the
 release notes in sync.
 
-**Acceptance:** docs strict build green with no stale instructions; fewer
-workflow files and runs per push with every gate still enforced; development
-builds dispatched only when the device inputs change, with Marketplace ordering
-intact; the frontend foundation merged with no visible change; the vendored
-Nextion patch removed once ESPHome ships the fixes.
+**Acceptance:** docs strict build green with no stale instructions; three CI
+workflows with every gate still enforced; development builds dispatched only
+when the device inputs change, with Marketplace ordering intact; the frontend
+foundation merged with no visible change; the vendored Nextion patch removed
+once ESPHome ships the fixes.
 
 ---
 

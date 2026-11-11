@@ -140,15 +140,21 @@ version), after which updates are offered normally.
 
 The tag points at a small release commit that carries the version: the workflow
 writes the dev version into `custom_components/nspanel_haui/manifest.json` (and
-the firmware's `esphome/nspanel_haui/version.yaml`), commits those two files as
-`chore(release): development firmware <version>` and tags that commit. The
-Marketplace downloads the *source archive of the tag*, and Home Assistant and the
-hub (`get_version()`) read the version from its manifest, so tagging the plain
-branch commit would ship a dev build that calls itself the stable version. That
-same versioned commit is pushed back onto the `dev` branch (its `[skip ci]`
-trailer keeps the bot push from starting CI), so the branch's tracked
-`version.yaml` carries the released dev version instead of lagging on the last
-stable release.
+the firmware's `esphome/nspanel_haui/version.yaml`), commits those two files
+together with the regenerated screen overview (`docs/screens.html` and
+`docs/assets/screens/`) as `chore(release): development firmware <version>`, and
+tags that commit. The Marketplace downloads the *source archive of the tag*, and
+Home Assistant and the hub (`get_version()`) read the version from its
+manifest, so tagging the plain branch commit would ship a dev build that calls
+itself the stable version. That same versioned commit is pushed back onto the
+`dev` branch (its `[skip ci]` trailer keeps the bot push from starting CI), so
+the branch's tracked `version.yaml` carries the released dev version instead of
+lagging on the last stable release, and `dev` never sees a version commit
+without its screens.
+A `screens_only` dispatch skips the build, the version bump, the tag and the
+prerelease and commits only the changed screens (`docs(screens): regenerate
+screen overview [skip ci]`). The screens are committed, not deployed: Pages
+publishes them on the next docs-touching push to `dev`.
 A dispatched build therefore leaves the tip of `dev` as a bot `[skip ci]`
 commit, so release prep stays on a `release/X.Y.Z` branch (see
 [Branches and cadence](#branches-and-cadence)).
@@ -196,7 +202,7 @@ change lands on `dev`, bump `system.tftVersion` in both HMIs
 otherwise the Nextion Editor), set `tft_version` in
 `esphome/nspanel_haui/version.yaml` to the same value, and recompile both TFTs.
 A TFT change committed under an unchanged version never reaches a panel that
-already reports that version. CI enforces the bump: `tests.yml` runs
+already reports that version. CI enforces the bump: `ci.yml` runs
 `scripts/verify_nextion/check_hmi_bump.py` against the PR merge base (or the
 pushed-from commit) and fails when an HMI changed while `tft_version` did not
 advance.
@@ -438,11 +444,9 @@ no alias is kept as a fallback, so the upgrade guide is the only migration path.
 
 | Workflow | Triggers | What it enforces |
 |----------|----------|------------------|
-| `tests.yml` | pushes/PRs to `master`, `dev` | `zensical build --strict`; icon cheatsheet, translation and version-source freshness; Nextion asset gate (`verify_nextion.py --require-portrait`, landscape `gen_layout.py --check`, portrait `gen_layout.py --spec portrait --check`); `pytest tests/`; `ruff check custom_components/ scripts/`; `mypy`; `node --test 'tests/frontend/*.test.mjs'`; `esphome config esphome/nspanel_haui_universal.yaml` |
-| `docs.yml` | docs, docs-tooling or config changes on pushes/PRs to `master`, `dev`; manual dispatch | `zensical build --strict`; a push to `master` or `dev` deploys Pages with both branches: `master` at the root, `dev` under `dev/` (the editor footer links prerelease versions there) |
-| `validate.yml` | pushes/PRs to `master`, `dev`; nightly; manual dispatch | hassfest and HACS validation |
-| `screens.yml` | each completed `Development Firmware` run; manual dispatch | regenerates the screen overview (`gen_preview_gallery.py --docs`: `docs/screens.html`, `docs/assets/screens/`) and commits it to `dev` with `[skip ci]` when it changed |
-| `dev-firmware.yml` | manual dispatch on `dev` | builds and publishes the versioned universal development firmware prerelease (see [Published development firmware](#published-development-firmware)); never triggered by pushes |
+| `ci.yml` | pushes/PRs to `master`, `dev`; nightly; manual dispatch | `tests (3.14)`: icon cheatsheet, translation and version-source freshness; HMI bump; Nextion asset gate (`verify_nextion.py --require-portrait`, landscape `gen_layout.py --check`, portrait `gen_layout.py --spec portrait --check`); `pytest tests/`; `ruff check custom_components/ scripts/`; `mypy`. `frontend`: `npm run typecheck:frontend` and `node --test 'tests/frontend/*.test.mjs'`. `esphome`: `esphome config esphome/nspanel_haui_universal.yaml`. `docs`: `zensical build --strict`, built once per run. `hassfest` and `hacs`: validation, also nightly |
+| `ci.yml` → `deploy-docs` | a push to `master` or `dev` that changes `docs/**`, `mkdocs.yml` or `requirements-docs.txt`; manual dispatch | reuses the `docs` artifact for the pushed branch and builds only the sibling, then deploys Pages with both branches: `master` at the root, `dev` under `dev/` (the editor footer links prerelease versions there) |
+| `dev-firmware.yml` | manual dispatch on `dev` | builds and publishes the versioned universal development firmware prerelease (see [Published development firmware](#published-development-firmware)); the same run regenerates the screen overview and commits it with the version as one `[skip ci]` bot commit. `screens_only` regenerates the screens without a build; never triggered by pushes |
 | `release.yml` | `v*` tags; manual dispatch on `v*` refs (branch dispatch fails before build) | tag vs `manifest.json` version; Nextion release gate (`verify_nextion.py --require-portrait`, `gen_layout.py --check` for landscape and `--spec portrait --check`); ESPHome config + compile; firmware manifest; prepared release notes; asset upload |
 
 **Release-only checks:** the tag-vs-`manifest.json` version check, the ESPHome
@@ -453,7 +457,7 @@ spec checks run in push/PR CI and the release workflow. Push/PR CI validates
 the Nextion assets, version consistency and the firmware config, but never
 compiles or publishes.
 
-**Gap to keep in mind:** a tag push does **not** re-run `tests.yml` — only
+**Gap to keep in mind:** a tag push does **not** re-run `ci.yml` — only
 `release.yml` runs, and it adds the release-only checks above on the tag
 itself. The tag build trusts that the tagged commit was already green
 on a branch. Cut tags only from a passing `master` commit, and re-check
@@ -678,12 +682,13 @@ prep.
   On a release PR, close and reopen it (or push a new head commit) once GitHub
   is healthy to start fresh runs, then re-run the failed workflow so the missing
   jobs start. The `master` ruleset requires `tests (3.14)`, `frontend`,
-  `hassfest` and `hacs`; the Documentation `build` is not required. Check
+  `hassfest`, `hacs` and `docs`. Check
   [githubstatus.com](https://www.githubstatus.com) before a release.
-- **Development builds are manual** — a build publishes a prerelease, pushes a
-  bot version commit and triggers the screens workflow, so it does not run on
-  every push. Dispatch it when the firmware or display inputs changed; do not
-  dispatch during release prep (see [Branches and cadence](#branches-and-cadence)).
+- **Development builds are manual** — a build publishes a prerelease and pushes
+  one bot commit carrying the dev version and the regenerated screen overview,
+  so it does not run on every push. Dispatch it when the firmware or display
+  inputs changed; do not dispatch during release prep (see
+  [Branches and cadence](#branches-and-cadence)).
 
 **Version and release notes**
 
@@ -691,7 +696,7 @@ prep.
   ESPHome `yaml_version`, `tft_version` and both HMI files. Firmware-only
   releases leave the TFT version fields unchanged; `--tft-update` updates them
   together, and CI catches drift in the selected mode.
-- **Tag pushes skip `tests.yml`** — only `release.yml` runs on a tag. Tag only a
+- **Tag pushes skip `ci.yml`** — only `release.yml` runs on a tag. Tag only a
   commit that was green on its source branch.
 - **Release notes are a separate file from the changelog** —
   `.github/release-notes/<tag>.md` becomes the release body when present;

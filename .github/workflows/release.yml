@@ -28,17 +28,15 @@ jobs:
           echo "Run the release workflow on a v* tag; branch builds do not have a release manifest." >&2
           exit 1
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: ./.github/actions/setup
         with:
-          python-version: "3.14"
-
-      - name: Install ESPHome
-        # Pinned via requirements-esphome.txt to match min_version in
-        # esphome/nspanel_haui/base.yaml so the released .bin is reproducible.
-        # ESPHome lives in its own file because its cryptography pin conflicts
-        # with the one Home Assistant requires in requirements-dev.txt.
-        run: pip install -r requirements-esphome.txt
+          # ESPHome is pinned via requirements-esphome.txt to match min_version
+          # in esphome/nspanel_haui/base.yaml so the released .bin is
+          # reproducible. Its cryptography pin conflicts with the one Home
+          # Assistant requires in requirements-dev.txt, so it never shares an
+          # environment with the test toolchain.
+          python: "3.14"
+          requirements: esphome
 
       - name: Check the tag matches the integration version
         # The Marketplace offers the tag as the version while Home Assistant and

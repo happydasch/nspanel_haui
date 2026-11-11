@@ -13,6 +13,11 @@ commit messages follow [Conventional Commits](https://www.conventionalcommits.or
 
 ### Changed
 
+- CI is consolidated into three workflows: `ci.yml` runs every push/PR gate
+  (plus the nightly validators) and deploys Pages from a docs build made once
+  per run, and the development build commits the version and the regenerated
+  screen overview as one `[skip ci]` bot commit (`screens_only` regenerates the
+  screens alone).
 - Development firmware builds are dispatched manually instead of running on
   every `dev` push, so commits no longer publish a prerelease, push a bot
   version commit or regenerate the screens.

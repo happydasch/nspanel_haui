@@ -217,6 +217,11 @@ Open items from the release-process review (runbook and known risks in
   edits still need the Editor or an extended patch spec (0.5+).
 - Portrait layout as a build-time rotation instead of a second committed HMI
   (0.5+).
+- **Dev version base on a minor cycle** — after a stable release the
+  Development Firmware workflow derives the next patch base from
+  `manifest.json`, so the first builds of the 0.5 cycle are `0.4.8.devN` while
+  the cycle ships `0.5.0`. Decide whether the base should become the planned
+  minor version before the first dev build is dispatched.
 
 ---
 

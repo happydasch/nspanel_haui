@@ -597,6 +597,43 @@ def test_the_browser_is_told_when_the_idle_page_starts_and_ends(env):
     _run(env, sess.async_stop())
 
 
+def test_the_idle_control_toggles_the_idle_page(env):
+    grid = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
+    clock = {"type": "clock", "key": "clock_0", "show_in_navigation": False}
+    cfg = nspanel_haui._build_config_dict(
+        {"name": "Hub", "devices": [{"name": "kitchen"}]},
+        {
+            "devices": {
+                "kitchen": {
+                    "config": {"home_panel": "grid_0", "idle_panel": "clock_0"},
+                    "panels": [grid, clock],
+                }
+            }
+        },
+        device_name="kitchen",
+    )
+    messages: list[dict] = []
+    sess = _open(env, cfg, messages.append)
+    navigation = sess.app.controller["navigation"]
+
+    try:
+        _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+        sess.show_idle()
+        _wait(lambda: {"type": "idle", "active": True} in messages)
+        _wait(lambda: navigation.panel.get("key") == "clock_0")
+        messages.clear()
+
+        sess.show_idle()
+
+        _wait(lambda: {"type": "idle", "active": False} in messages)
+        _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+        assert navigation.panel.get("key") == "grid_0"
+        # A wake is an interaction: the idle page is not due again at once.
+        assert time.monotonic() - navigation._activity_ts < 60
+    finally:
+        _run(env, sess.async_stop())
+
+
 def _relay_session(env, use_relay=True):
     grid = {"type": "grid", "key": "grid_0", "items": [{"item": "light.lamp"}]}
     cfg = nspanel_haui._build_config_dict(

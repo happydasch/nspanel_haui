@@ -87,7 +87,7 @@ export class VirtualPanelSession extends PanelSession {
     this.sendEvent('esphome.read_response', payload);
   }
 
-  /** Act as if inactivity opened the virtual app's idle page. */
+  /** Toggle the virtual app's idle page: open it, or wake back to the panel. */
   idleTimeout() {
     return this._send('idle');
   }

@@ -12,6 +12,7 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 import types
 from pathlib import Path
 
@@ -514,6 +515,36 @@ def test_the_live_idle_action_switches_the_app_to_its_idle_page(env):
         )
         with pytest.raises(ValueError, match="not allowed"):
             _run(env, viewer.async_action("reboot"))
+    finally:
+        _stop(env, viewer)
+        _run(env, source.async_stop())
+
+
+def test_the_live_idle_action_toggles_back_out_of_the_idle_page(env):
+    idle_panel = {"type": "grid", "key": "grid_1", "items": [{"item": "light.lamp"}]}
+    source = _source(env, _config([idle_panel], idle_panel="grid_1"))
+    viewer, messages = _live(env, source)
+    navigation = source.app.controller["navigation"]
+
+    try:
+        _wait(lambda: {"type": "page", "page": GRID_PAGE_ID} in messages)
+        _run(env, viewer.async_action("idle"))
+        _wait(lambda: navigation.idle_panel_active)
+        _wait(lambda: navigation.panel.get("key") == "grid_1")
+        messages.clear()
+
+        _run(env, viewer.async_action("idle"))
+
+        _wait(lambda: not navigation.idle_panel_active)
+        _wait(
+            lambda: any(
+                message.get("type") == "physical" and message.get("idle") is False
+                for message in messages
+            )
+        )
+        _wait(lambda: navigation.panel.get("key") == "grid_0")
+        # A wake is an interaction: the idle page is not due again at once.
+        assert time.monotonic() - navigation._activity_ts < 60
     finally:
         _stop(env, viewer)
         _run(env, source.async_stop())

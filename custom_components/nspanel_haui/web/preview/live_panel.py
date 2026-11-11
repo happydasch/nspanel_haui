@@ -14,7 +14,8 @@ The sandbox preview (``virtual_panel.py``) shares nothing with it.
   ``load_commands``, then the ESPHome controller's ``page_commands``), so the
   viewer gets every widget without the panel drawing anything again.
 - ``nspanel_haui/live_panel/event`` passes a touch, swipe or hardware button.
-- ``nspanel_haui/live_panel/action`` opens the idle page or resets the
+- ``nspanel_haui/live_panel/action`` toggles the idle page (opening it, or
+  waking the panel back to the panel it covered or home) or resets the
   inactivity timer.
 
 A save (``api.config.push_panels``) reaches the viewers through
@@ -124,7 +125,7 @@ class LivePanel:
         )
 
     async def async_action(self, action: str) -> None:
-        """Open the idle page or reset the inactivity timer on the panel.
+        """Toggle the idle page or reset the inactivity timer on the panel.
 
         Raises:
             ValueError: If the panel is disconnected or the action is unknown.
@@ -286,7 +287,16 @@ def _dispatch_action(source: Any, action: str) -> None:
     if action == "reset_interaction_timer":
         source.device.reset_interaction_timer()
     elif action == "idle":
-        source.controller["navigation"].open_idle_panel(True)
+        navigation = source.controller["navigation"]
+        if navigation.idle_panel_active:
+            # Waking is an interaction, as the wakeup service does it: restore
+            # the firmware's interaction timer (the display may be dark) and
+            # the hub's inactivity clock before leaving the idle page.
+            source.device.reset_interaction_timer()
+            navigation.reset_activity()
+            navigation.exit_idle_to_prev_or_home(source.device.config)
+        else:
+            navigation.open_idle_panel(True)
     else:
         raise ValueError(f"Live action not allowed: {action}")
 

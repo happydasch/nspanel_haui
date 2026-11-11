@@ -1007,10 +1007,26 @@ class VirtualPanelHost:
         self.app.virtual_esphome.emit(name, value)
 
     def show_idle(self) -> None:
-        """Act as if the inactivity timeout opened the virtual idle page."""
-        navigation = self.app.controller.get("navigation")
-        if navigation is not None:
-            self.app.dispatch(navigation.open_idle_panel, True)
+        """Toggle the virtual idle page.
+
+        The editor's idle control acts like the panel's own interaction: it
+        opens the idle page when it is not shown, or wakes back to the panel
+        it covered (or home) when it is.
+        """
+
+        def _toggle() -> None:
+            navigation = self.app.controller.get("navigation")
+            if navigation is None:
+                return
+            if navigation.idle_panel_active:
+                # A wake is an interaction: the idle page must not be due again
+                # on the next inactivity tick.
+                navigation.reset_activity()
+                navigation.exit_idle_to_prev_or_home(self.app.device.config)
+            else:
+                navigation.open_idle_panel(True)
+
+        self.app.dispatch(_toggle)
 
     def show_home(self) -> None:
         """Start the sandbox over on its home panel, as an opening preview does.

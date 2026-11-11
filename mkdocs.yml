@@ -60,6 +60,9 @@ markdown_extensions:
   - toc:
       permalink: true
 
+extra_javascript:
+  - assets/dev-repo-version.js
+
 extra:
   social:
     - icon: fontawesome/brands/github

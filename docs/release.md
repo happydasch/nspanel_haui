@@ -599,6 +599,15 @@ after the PR title, so its history stays release-only. The tag then points at
 that single commit; the release branch keeps the individual release-prep
 commits.
 
+Pass a clean squash body (`--body "Release prep for X.Y.Z"` or `--body ""`).
+GitHub assembles the default body from the PR's commits, and a release branch
+cut from `dev` includes the dev-firmware bot's `[skip ci]` commits. GitHub
+scans the tagged commit's whole message for skip markers, so a `[skip ci]`
+anywhere in the squash body makes it skip the `v*` tag push and `release.yml`
+never starts. If the tag was already pushed that way, dispatch the workflow on
+it (`gh workflow run release.yml --ref vX.Y.Z`); manual dispatch is supported
+on a `v*` ref.
+
 The changelog and the release notes split the work:
 
 - **`CHANGELOG.md` is the compact index** — one line per change (two at most),
@@ -697,7 +706,10 @@ prep.
   releases leave the TFT version fields unchanged; `--tft-update` updates them
   together, and CI catches drift in the selected mode.
 - **Tag pushes skip `ci.yml`** — only `release.yml` runs on a tag. Tag only a
-  commit that was green on its source branch.
+  commit that was green on its source branch, and keep `[skip ci]` out of the
+  tagged commit's message (a squash-merged release PR is the common trap; see
+  [step 5](#5-release-notes-and-tagging)). A skipped tag push is recovered by
+  dispatching `release.yml` on the tag.
 - **Release notes are a separate file from the changelog** —
   `.github/release-notes/<tag>.md` becomes the release body when present;
   otherwise `release.yml` publishes only a pointer to the changelog, whose

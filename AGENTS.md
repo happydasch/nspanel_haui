@@ -751,8 +751,13 @@ Example: `fix(esphome): include device name in discovery fallback`
 branches cut from `dev` (and hotfixes) only; Pages deploys from it and Marketplace users
 install from its releases. A ruleset blocks direct pushes, force-pushes and
 deletion there, so a release has to go through a PR with green CI. Squash-merge
-release PRs (`gh pr merge <n> --squash`): `master` gains one commit per release,
-named after the PR title, and the tag points at that commit. Never open
+release PRs (`gh pr merge <n> --squash`) with a clean body (`--body
+"Release prep for X.Y.Z"` or `--body ""`): `master` gains one commit per
+release, named after the PR title, and the tag points at that commit. The
+default squash body lists the PR's commits, including dev-firmware bot
+`[skip ci]` commits; GitHub scans the tagged commit's whole message, so a
+`[skip ci]` there makes it skip the `v*` tag push and `release.yml` never
+starts (`gh workflow run release.yml --ref vX.Y.Z` recovers). Never open
 that PR from `dev` itself: its tip can be the dev-firmware bot's `[skip ci]`
 commit after a dispatched build, so the PR's checks never run (see "Dev releases
 are tagged with their version" above). `dev` is the integration branch, the target for all day-to-day

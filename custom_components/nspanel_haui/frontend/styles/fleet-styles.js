@@ -51,7 +51,7 @@ export const fleetStyles = css`
     box-shadow: var(--haui-card-shadow);
   }
   .haui-fleet-carousel {
-    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 264px);
+    display: grid; grid-auto-flow: column; grid-auto-columns: minmax(280px, 320px);
     gap: 16px; overflow-x: auto; padding: 4px 4px 16px;
     scroll-snap-type: x mandatory; scrollbar-width: thin;
   }
@@ -65,7 +65,7 @@ export const fleetStyles = css`
   .haui-device-card.is-drop-target, .haui-device-row.is-drop-target { outline: 2px dashed var(--primary-color); outline-offset: -2px; }
   .haui-device-card-cover { position: relative; background: var(--haui-screen); padding: 12px 18px 0; }
   .haui-device-card-select { display: block; width: 100%; min-height: 176px; border: 0; padding: 0; background: transparent; cursor: pointer; }
-  .haui-device-card-select nspanel-simulator-frame { display: block; max-height: 196px; overflow: hidden; border: 8px solid var(--haui-bezel); border-radius: 10px; box-sizing: border-box; }
+  .haui-device-card-select nspanel-simulator-frame { display: block; overflow: hidden; border: 8px solid var(--haui-bezel); border-radius: 10px; box-sizing: border-box; }
   .haui-device-card-bezel { display: block; aspect-ratio: 450 / 320; border: 8px solid var(--haui-bezel); border-radius: 10px; background: #111; box-shadow: 0 4px 14px #0003; }
   .haui-device-card.portrait .haui-device-card-select { min-height: 176px; }
   .haui-device-card.portrait .haui-device-card-select nspanel-simulator-frame,
@@ -189,9 +189,6 @@ export const fleetStyles = css`
   @container haui-editor (max-width: 560px) { .haui-fleet-facts { gap: 14px; } .haui-fleet-lead span { display: none; } }
   @container haui-editor (max-width: 1120px) { .haui-device-table { grid-template-columns: minmax(200px, 1fr) repeat(2, max-content) auto; } .haui-device-row-head > :nth-child(4), .haui-device-row > :nth-child(4) { display: none; } }
   @container haui-editor (max-width: 980px) { .haui-fleet-grid { grid-template-columns: minmax(0, 1fr); } }
-  @container haui-editor (max-width: 600px) {
-    .haui-fleet-carousel { grid-auto-columns: minmax(0, calc(100% - 40px)); }
-  }
   @container haui-editor (max-width: 720px) {
     .haui-inventory-overview { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 14px 12px; }
     .haui-inventory-bar { padding: 0 14px 14px; }

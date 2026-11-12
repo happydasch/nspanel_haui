@@ -189,6 +189,9 @@ export const fleetStyles = css`
   @container haui-editor (max-width: 560px) { .haui-fleet-facts { gap: 14px; } .haui-fleet-lead span { display: none; } }
   @container haui-editor (max-width: 1120px) { .haui-device-table { grid-template-columns: minmax(200px, 1fr) repeat(2, max-content) auto; } .haui-device-row-head > :nth-child(4), .haui-device-row > :nth-child(4) { display: none; } }
   @container haui-editor (max-width: 980px) { .haui-fleet-grid { grid-template-columns: minmax(0, 1fr); } }
+  @container haui-editor (max-width: 600px) {
+    .haui-fleet-carousel { grid-auto-columns: minmax(0, calc(100% - 40px)); }
+  }
   @container haui-editor (max-width: 720px) {
     .haui-inventory-overview { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 16px 14px 12px; }
     .haui-inventory-bar { padding: 0 14px 14px; }

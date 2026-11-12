@@ -9,6 +9,8 @@
 A flexible touchscreen UI for the Sonoff NSPanel, built on ESPHome. Everything is configured in a
 visual editor inside Home Assistant, with no YAML to write.
 
+Requires Home Assistant 2026.11 or later.
+
 **[Documentation](https://happydasch.github.io/nspanel_haui/)** ·
 [Installation](https://happydasch.github.io/nspanel_haui/user/install.html) ·
 [Panels](https://happydasch.github.io/nspanel_haui/user/panels/index.html) ·
@@ -20,63 +22,55 @@ visual editor inside Home Assistant, with no YAML to write.
 
 ## Features
 
-- **Landscape and portrait**: the EU panel and the upright US panel each get their own display layout
-- **Touch and gestures**: tap, slide, swipe through panels, named gesture sequences, long press to go back
-- **Idle page and dimming**: clock, weather or word clock as idle page (also as a carousel), auto-dimming, and a schedule for brightness, sound and display-off
-- **Notifications**: a queue with severities, persistent alerts that keep sounding until dismissed, silent times by schedule
-- **Panel PINs**: lock sensitive panels behind a code
-- **Hardware buttons**: switch the built-in relays or any entity
-- **Colours and icons**: theme colours, per-item colour and icon overrides, background pictures
+**On the panel**
+
+- **Landscape and portrait**: one layout for the EU panel, one for the upright US panel
+- **Multiple panel types**: clocks, weather, grid, row, light, media, climate, cover, vacuum,
+  timer, alarm and QR code, plus built-in popups
+- **Touch and gestures**: tap, slide and swipe, configurable gesture sequences, long press to go back
+- **Idle page and dimming**: clock, weather or word clock as idle page, auto-dimming and a schedule
+  for brightness, sound and display-off
+- **Notifications and PINs**: a queue with severities, persistent alerts, silent times and protected
+  panels
+- **Hardware buttons**: switch the built-in relays or toggle any entity
+- **Themes and pictures**: theme colours, per-item colour and icon overrides, background pictures
 - **Updates**: firmware and display updates as Home Assistant update entities, stable or dev channel
-- **Local push**: ESPHome native API, no cloud; English, German, Dutch, Polish and French
+- **Local and multilingual**: ESPHome native API, no cloud; English, German, Dutch, Polish, French
+  and Slovak
+
+**In the editor**
+
+- **Compose panels visually**: choose from the panel catalog, add Home Assistant entities, text items
+  or actions, then customise titles, icons and colours
+- **Arrange the display**: drag panels between navigation, hidden and popup groups, and reorder them
+  for each device
+- **Preview as you work**: inspect panel thumbnails and the interactive virtual display, or switch to
+  the live view of a connected panel
+- **Tune each device**: set themes, language and regional formats, gestures, schedules, idle
+  behaviour, dimming, hardware buttons and notifications
+- **Manage a fleet**: see device connection and firmware details, recent events and available updates;
+  back up or restore a device from its workspace
 
 ## Quick start
 
-Requires Home Assistant 2026.11 or later.
-
 <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/quick-start.png" alt="Flash the firmware, connect it to ESPHome, install NSPanel HAUI, configure panels" width="100%">
 
-1. **Flash**: load the prebuilt `nspanel_haui.bin` from the
-   [latest release](https://github.com/happydasch/nspanel_haui/releases) and enter your Wi-Fi at
-   first boot. ([Install guide](https://happydasch.github.io/nspanel_haui/user/install.html#flash-the-panel))
-2. **Connect**: add the panel to Home Assistant's ESPHome integration. Use the key in the
-   [install guide](https://happydasch.github.io/nspanel_haui/user/install.html#flash-the-panel) if prompted.
-3. **Install**: add `happydasch/nspanel_haui` from **Settings → Marketplace → Add from link**,
-   install NSPanel HAUI, then restart Home Assistant. HACS installs migrate automatically.
-   ([Install guide](https://happydasch.github.io/nspanel_haui/user/install.html))
-4. **Configure**: add **NSPanel HAUI** from **Settings → Devices & Services → Add Integration**, then
-   open the editor and add panels.
-   ([Install guide](https://happydasch.github.io/nspanel_haui/user/install.html#configure-panels) ·
-   [Configuration](https://happydasch.github.io/nspanel_haui/user/configuration/index.html))
-
-For custom firmware builds, see the
-[ESPHome development instructions](https://happydasch.github.io/nspanel_haui/develop/esphome.html#installation).
-
-> **Upgrading from 0.3.x or earlier?** Read the [upgrade guide](https://happydasch.github.io/nspanel_haui/user/update.html)
-> first: services, ESPHome actions/events and two config entities were renamed. The panel store
-> migrates legacy sleep/display-off setting names and theme settings, but settings stored in config
-> entries by 0.3.2 or earlier are not carried over. Saved panels do not migrate, so check each panel
-> after upgrading; see [device configuration](https://happydasch.github.io/nspanel_haui/user/configuration/device.html#how-settings-are-saved).
-
-## Editor
-
-Open **NSPanel HAUI** in the Home Assistant sidebar (administrators only) to build and manage your
-interface—no YAML required.
+1. **Flash the panel**: download `nspanel_haui.bin` from the
+   [latest release](https://github.com/happydasch/nspanel_haui/releases), flash it and connect to Wi-Fi.
+   ([Install guide](https://happydasch.github.io/nspanel_haui/user/install.html#flash-the-panel))
+2. **Add it to ESPHome**: use Home Assistant's ESPHome integration. Enter the API key if asked.
+3. **Install NSPanel HAUI**: in **Settings → Marketplace**, choose **Add from link** and enter
+   `happydasch/nspanel_haui`, then restart Home Assistant. Existing HACS installs migrate automatically.
+4. **Set it up**: add **NSPanel HAUI** from **Settings → Devices & Services → Add Integration**, then
+   open the sidebar editor to add panels.
+   ([Configuration guide](https://happydasch.github.io/nspanel_haui/user/configuration/index.html))
 
 <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor.png" alt="Editor workflow: open the Home Assistant editor, select a device, edit panels and use the live preview" width="100%">
 
-Panel design, preview and device management are all in one editor:
+Open **NSPanel HAUI** in the Home Assistant sidebar (administrators only) to build and manage your
+interface—no YAML required. Panel design, preview and device management are all in one editor.
 
-- **Compose panels visually**: choose from the panel catalog, add Home Assistant entities, text items or
-  actions, then customize titles, icons and colours.
-- **Arrange the display**: drag panels between navigation, hidden and popup groups, and reorder them
-  for each device.
-- **Preview as you work**: inspect panel thumbnails and the interactive virtual display, or switch
-  to the live view of a connected panel.
-- **Tune each device**: set themes, language and regional formats, gestures, schedules, idle behavior,
-  dimming, hardware buttons and notifications.
-- **Manage a fleet**: see device connection and firmware details, recent events and available updates;
-  back up or restore a device from its workspace.
+## Editor
 
 <table>
   <tr>
@@ -94,7 +88,7 @@ Panel design, preview and device management are all in one editor:
   <tr>
     <td align="center" valign="top" width="50%">
       <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-panels.png" alt="Editor workspace showing navigation, hidden and popup panel groups, plus device settings" width="100%"><br>
-      <b>Organize panels per device</b><br>
+      <b>Organise panels per device</b><br>
       <sub>Reorder panels and manage navigation, hidden panels and popups alongside device settings.</sub>
     </td>
     <td align="center" valign="top" width="50%">
@@ -106,8 +100,8 @@ Panel design, preview and device management are all in one editor:
   <tr>
     <td align="center" valign="top" width="50%">
       <img src="https://raw.githubusercontent.com/happydasch/nspanel_haui/dev/docs/assets/readme/editor-settings.png" alt="Device settings editor with language, theme, display, navigation, buttons and notification sections" width="100%"><br>
-      <b>Configure device behavior</b><br>
-      <sub>Adjust language, theme, display, navigation, buttons, notifications and idle behavior in one place.</sub>
+      <b>Configure device behaviour</b><br>
+      <sub>Adjust language, theme, display, navigation, buttons, notifications and idle behaviour in one place.</sub>
     </td>
     <td align="center" valign="top" width="50%">
       <a href="https://happydasch.github.io/nspanel_haui/user/configuration/index.html"><b>Explore the editor guide →</b></a><br>
@@ -221,7 +215,6 @@ Browse [all panel types](https://happydasch.github.io/nspanel_haui/user/panels/i
 [every screen in both layouts](https://happydasch.github.io/nspanel_haui/screens.html), or copy an
 [example layout](https://happydasch.github.io/nspanel_haui/user/examples.html) for a room.
 
-
 ## How it works
 
 The hub runs inside Home Assistant: it reads entity states, renders the display commands and sends
@@ -238,11 +231,18 @@ The full documentation is at **[happydasch.github.io/nspanel_haui](https://happy
 - **Use**: [Gestures and display states](https://happydasch.github.io/nspanel_haui/user/device.html) · [Services](https://happydasch.github.io/nspanel_haui/user/services.html) · [Icons](https://happydasch.github.io/nspanel_haui/cheatsheet.html) · [Screens](https://happydasch.github.io/nspanel_haui/screens.html)
 - **Develop**: [Development](https://happydasch.github.io/nspanel_haui/develop/development.html) · [Design](https://happydasch.github.io/nspanel_haui/develop/design.html) · [Communication](https://happydasch.github.io/nspanel_haui/develop/communication.html) · [ESPHome](https://happydasch.github.io/nspanel_haui/develop/esphome.html) · [Hub](https://happydasch.github.io/nspanel_haui/develop/hub.html) · [Nextion](https://happydasch.github.io/nspanel_haui/develop/nextion.html)
 
+For custom firmware builds, see the
+[ESPHome development instructions](https://happydasch.github.io/nspanel_haui/develop/esphome.html#installation).
+
+> **Upgrading from 0.3.x or earlier?** Read the [upgrade guide](https://happydasch.github.io/nspanel_haui/user/update.html)
+> first. Saved panels do not migrate, and settings stored in config entries by 0.3.2 or earlier are not
+> carried over. See [device configuration](https://happydasch.github.io/nspanel_haui/user/configuration/device.html#how-settings-are-saved).
+
 ## Credits
 
 Inspired by [NSPanel Lovelace UI](https://github.com/joBr99/nspanel-lovelace-ui) by joBr99 and
 [NSPanel HA Blueprint](https://github.com/Blackymas/NSPanel_HA_Blueprint) by Blackymas.
 
 See the [GitHub contributors](https://github.com/happydasch/nspanel_haui/graphs/contributors)
-for everyone who contributed.
-Special thanks to @jameshiscott who contributed the [the live preview and the Nextion simulator](docs/user/configuration/README.md#the-live-preview).
+for everyone who contributed. Special thanks to @jameshiscott, who contributed the
+[live preview and the Nextion simulator](docs/user/configuration/README.md#the-live-preview).
